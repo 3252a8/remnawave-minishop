@@ -191,6 +191,7 @@ async def my_subscription_command_handler(
         return get_text("traffic_used_with_period", traffic_used=used_display, traffic_period=period_label)
 
     period_label = _format_traffic_period(active.get("traffic_limit_strategy"))
+    period_label = period_label or get_text("traffic_period_unknown")
 
     if traffic_mode:
         limit_display = _fmt_gb(active.get("traffic_limit_bytes"))
@@ -210,6 +211,7 @@ async def my_subscription_command_handler(
             traffic_limit=limit_display,
             traffic_used=used_display,
             traffic_left=remaining_display,
+            traffic_period=period_label,
             config_link=config_link_value,
         )
     else:
@@ -226,6 +228,7 @@ async def my_subscription_command_handler(
                     period_label,
                 )
             ),
+            traffic_period=period_label,
         )
 
     base_markup = get_back_to_main_menu_markup(current_lang, i18n)
