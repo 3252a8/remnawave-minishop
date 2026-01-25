@@ -55,6 +55,19 @@ class SubscriptionService:
         except Exception:
             return False
 
+    def _extract_panel_traffic_details(
+        self, panel_user_data: Dict[str, Any]
+    ) -> Tuple[Optional[int], Optional[int], Optional[str]]:
+        traffic_stats = panel_user_data.get("userTraffic") or {}
+        used = traffic_stats.get("usedTrafficBytes")
+        if used is None:
+            used = panel_user_data.get("usedTrafficBytes")
+        limit = panel_user_data.get("trafficLimitBytes")
+        strategy = panel_user_data.get("trafficLimitStrategy")
+        if strategy is None:
+            strategy = traffic_stats.get("trafficLimitStrategy")
+        return used, limit, strategy
+
     async def _notify_admin_panel_user_creation_failed(self, user_id: int):
         if not self.bot or not self.i18n or not self.settings.ADMIN_IDS:
             return
@@ -444,9 +457,7 @@ class SubscriptionService:
             return None
 
         panel_user_data = await self.panel_service.get_user_by_uuid(panel_user_uuid) or {}
-        traffic_info = panel_user_data.get("userTraffic") or {}
-        current_limit = panel_user_data.get("trafficLimitBytes")
-        current_used = traffic_info.get("usedTrafficBytes")
+        current_used, current_limit, _ = self._extract_panel_traffic_details(panel_user_data)
 
         active_sub = await subscription_dal.get_active_subscription_by_user_id(
             session, user_id, panel_user_uuid
@@ -846,9 +857,7 @@ class SubscriptionService:
             update_payload_local = {}
             panel_status = panel_user_data.get("status", "UNKNOWN").upper()
             panel_expire_at_str = panel_user_data.get("expireAt")
-            traffic_stats = panel_user_data.get("userTraffic") or {}
-            panel_traffic_used = traffic_stats.get("usedTrafficBytes")
-            panel_traffic_limit = panel_user_data.get("trafficLimitBytes")
+            panel_traffic_used, panel_traffic_limit, _ = self._extract_panel_traffic_details(panel_user_data)
             panel_sub_uuid_from_panel = panel_user_data.get(
                 "subscriptionUuid"
             ) or panel_user_data.get("shortUuid")
@@ -901,6 +910,7 @@ class SubscriptionService:
             if panel_user_data.get("expireAt")
             else None
         )
+        panel_traffic_used, panel_traffic_limit, panel_traffic_strategy = self._extract_panel_traffic_details(panel_user_data)
         config_link_raw = panel_user_data.get("subscriptionUrl")
         display_link, connect_button_url = await prepare_config_links(self.settings, config_link_raw)
         hwid_limit = panel_user_data.get("hwidDeviceLimit")
@@ -913,8 +923,9 @@ class SubscriptionService:
             "status_from_panel": panel_user_data.get("status", "UNKNOWN").upper(),
             "config_link": display_link,
             "connect_button_url": connect_button_url,
-            "traffic_limit_bytes": panel_user_data.get("trafficLimitBytes"),
-            "traffic_used_bytes": (panel_user_data.get("userTraffic") or {}).get("usedTrafficBytes"),
+            "traffic_limit_bytes": panel_traffic_limit,
+            "traffic_used_bytes": panel_traffic_used,
+            "traffic_limit_strategy": panel_traffic_strategy,
             "user_bot_username": db_user.username,
             "is_panel_data": True,
             "max_devices": hwid_limit,

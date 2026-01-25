@@ -172,10 +172,29 @@ async def my_subscription_command_handler(
         except Exception:
             pass
         return str(val)
+    def _format_traffic_period(strategy: Optional[str]) -> Optional[str]:
+        if not strategy:
+            return None
+        strategy_upper = str(strategy).upper()
+        key_map = {
+            "MONTH": "traffic_period_month",
+            "WEEK": "traffic_period_week",
+            "DAY": "traffic_period_day",
+            "NO_RESET": "traffic_period_no_reset",
+        }
+        label_key = key_map.get(strategy_upper)
+        return get_text(label_key) if label_key else strategy_upper
+
+    def _format_used_with_period(used_display: str, period_label: Optional[str]) -> str:
+        if not period_label:
+            return used_display
+        return get_text("traffic_used_with_period", traffic_used=used_display, traffic_period=period_label)
+
+    period_label = _format_traffic_period(active.get("traffic_limit_strategy"))
 
     if traffic_mode:
         limit_display = _fmt_gb(active.get("traffic_limit_bytes"))
-        used_display = _fmt_gb(active.get("traffic_used_bytes"))
+        used_display = _format_used_with_period(_fmt_gb(active.get("traffic_used_bytes")), period_label)
         remaining_display = get_text("traffic_na")
         try:
             limit_val = active.get("traffic_limit_bytes") or 0
@@ -202,7 +221,10 @@ async def my_subscription_command_handler(
             config_link=config_link_value,
             traffic_limit=(f"{active['traffic_limit_bytes'] / 2**30:.2f} GB" if active.get("traffic_limit_bytes") else get_text("traffic_unlimited")),
             traffic_used=(
-                f"{active['traffic_used_bytes'] / 2**30:.2f} GB" if active.get("traffic_used_bytes") is not None else get_text("traffic_na")
+                _format_used_with_period(
+                    f"{active['traffic_used_bytes'] / 2**30:.2f} GB" if active.get("traffic_used_bytes") is not None else get_text("traffic_na"),
+                    period_label,
+                )
             ),
         )
 

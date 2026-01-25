@@ -33,6 +33,26 @@ router = Router(name="admin_user_management_router")
 USERNAME_REGEX = re.compile(r"^[a-zA-Z0-9_]{5,32}$")
 
 
+def _format_traffic_period(strategy: Optional[str], get_text: Callable[..., str]) -> Optional[str]:
+    if not strategy:
+        return None
+    strategy_upper = str(strategy).upper()
+    key_map = {
+        "MONTH": "traffic_period_month",
+        "WEEK": "traffic_period_week",
+        "DAY": "traffic_period_day",
+        "NO_RESET": "traffic_period_no_reset",
+    }
+    label_key = key_map.get(strategy_upper)
+    return get_text(label_key) if label_key else strategy_upper
+
+
+def _format_used_with_period(get_text: Callable[..., str], used_display: str, period_label: Optional[str]) -> str:
+    if not period_label:
+        return used_display
+    return get_text("traffic_used_with_period", traffic_used=used_display, traffic_period=period_label)
+
+
 async def users_list_handler(callback: types.CallbackQuery,
                               i18n_data: dict, settings: Settings,
                               session: AsyncSession, page: int = 0):
@@ -263,10 +283,22 @@ async def format_user_card(user: User, session: AsyncSession,
             
             traffic_limit = subscription_details.get('traffic_limit_bytes')
             traffic_used = subscription_details.get('traffic_used_bytes')
-            if traffic_limit and traffic_used is not None:
-                traffic_limit_gb = traffic_limit / (1024**3)
-                traffic_used_gb = traffic_used / (1024**3)
-                card_parts.append(f"{_('admin_user_traffic_label')} {hcode(f'{traffic_used_gb:.2f}GB / {traffic_limit_gb:.2f}GB')}")
+            traffic_strategy = subscription_details.get('traffic_limit_strategy')
+            period_label = _format_traffic_period(traffic_strategy, _)
+            if traffic_used is not None or traffic_limit is not None:
+                used_display = _("traffic_na")
+                if traffic_used is not None:
+                    traffic_used_gb = traffic_used / (1024**3)
+                    used_display = f"{traffic_used_gb:.2f}GB"
+                used_display = _format_used_with_period(_, used_display, period_label)
+
+                if traffic_limit:
+                    traffic_limit_gb = traffic_limit / (1024**3)
+                    limit_display = f"{traffic_limit_gb:.2f}GB"
+                else:
+                    limit_display = _("traffic_unlimited")
+
+                card_parts.append(f"{_('admin_user_traffic_label')} {hcode(f'{used_display} / {limit_display}')}")
         else:
             card_parts.append(f"{_('admin_user_subscription_label')} {hcode(_('admin_user_subscription_none'))}")
     except Exception as e:
