@@ -13,17 +13,27 @@ from bot.services.panel_api_service import PanelApiService
 
 from bot.keyboards.inline.admin_keyboards import (
     get_back_to_admin_panel_keyboard,
-    get_user_ratings_keyboard,
+    get_back_to_user_management_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
 
 router = Router(name="admin_statistics_router")
 
 
-def _format_rating_user_label(user_row: Dict[str, object]) -> str:
+def _format_rating_user_label(user_row: Dict[str, object],
+                              bot_username: Optional[str] = None) -> str:
     user_id = int(user_row.get("user_id", 0) or 0)
     username = user_row.get("username")
     first_name = user_row.get("first_name")
+    user_id_text = str(user_id)
+    user_id_html = html.escape(user_id_text)
+
+    if bot_username:
+        safe_bot_username = html.escape(bot_username)
+        user_id_html = (
+            f'<a href="https://t.me/{safe_bot_username}?start=admin_user_{user_id_text}">'
+            f"{user_id_html}</a>"
+        )
 
     parts: List[str] = []
     if username:
@@ -32,23 +42,11 @@ def _format_rating_user_label(user_row: Dict[str, object]) -> str:
         parts.append(html.escape(str(first_name)))
 
     if not parts:
-        parts.append(f"ID {user_id}")
+        parts.append(f"ID {user_id_html}")
     else:
-        parts.append(f"(ID {user_id})")
+        parts.append(f"(ID {user_id_html})")
 
     return " ".join(parts)
-
-
-def _format_rating_user_short_label(user_row: Dict[str, object]) -> str:
-    username = user_row.get("username")
-    first_name = user_row.get("first_name")
-    user_id = int(user_row.get("user_id", 0) or 0)
-
-    if username:
-        return f"@{html.escape(str(username))}"
-    if first_name:
-        return html.escape(str(first_name))
-    return f"ID {user_id}"
 
 
 async def show_statistics_handler(callback: types.CallbackQuery,
@@ -308,6 +306,14 @@ async def show_user_ratings_handler(
     await callback.answer()
 
     top_limit = 10
+    bot_username: Optional[str] = None
+    try:
+        me = await callback.bot.get_me()
+        bot_username = me.username
+    except Exception as e_get_me:
+        logging.warning("Failed to resolve bot username for ratings links: %s",
+                        e_get_me)
+
     traffic_top = await user_dal.get_top_users_by_traffic_used(session, limit=top_limit)
     invited_top = await user_dal.get_top_users_by_referrals_count(session, limit=top_limit)
     revenue_top = await user_dal.get_top_users_by_referral_revenue(session, limit=top_limit)
@@ -325,7 +331,7 @@ async def show_user_ratings_handler(
                 _(
                     "admin_user_ratings_traffic_item",
                     rank=idx,
-                    user=_format_rating_user_label(row),
+                    user=_format_rating_user_label(row, bot_username),
                     traffic_gb=f"{traffic_gb:.2f}",
                 )
             )
@@ -339,7 +345,7 @@ async def show_user_ratings_handler(
                 _(
                     "admin_user_ratings_invited_item",
                     rank=idx,
-                    user=_format_rating_user_label(row),
+                    user=_format_rating_user_label(row, bot_username),
                     invited_count=int(row.get("invited_count") or 0),
                 )
             )
@@ -353,29 +359,15 @@ async def show_user_ratings_handler(
                 _(
                     "admin_user_ratings_revenue_item",
                     rank=idx,
-                    user=_format_rating_user_label(row),
+                    user=_format_rating_user_label(row, bot_username),
                     revenue=f"{float(row.get('referral_revenue') or 0):.2f}",
                 )
             )
     else:
         text_parts.append(_("admin_user_ratings_empty"))
 
-    unique_users: Dict[int, Dict[str, object]] = {}
-    for row in traffic_top + invited_top + revenue_top:
-        user_id = int(row.get("user_id", 0) or 0)
-        if user_id <= 0 or user_id in unique_users:
-            continue
-        unique_users[user_id] = {
-            "user_id": user_id,
-            "label": _format_rating_user_short_label(row),
-        }
-
     await callback.message.edit_text(
         "\n".join(text_parts),
-        reply_markup=get_user_ratings_keyboard(
-            list(unique_users.values()),
-            current_lang,
-            i18n,
-        ),
+        reply_markup=get_back_to_user_management_keyboard(current_lang, i18n),
         parse_mode="HTML",
     )

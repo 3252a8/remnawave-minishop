@@ -305,7 +305,8 @@ async def ensure_required_channel_subscription(
 @router.message(CommandStart())
 @router.message(CommandStart(magic=F.args.regexp(r"^ref_((?:[uU][A-Za-z0-9]{9})|(?:[A-Za-z0-9]{9})|\d+)$").as_("ref_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^promo_(\w+)$").as_("promo_match")))
-@router.message(CommandStart(magic=F.args.regexp(r"^(?!ref_|promo_)([A-Za-z0-9_\-]{2,64})$").as_("ad_param_match")))
+@router.message(CommandStart(magic=F.args.regexp(r"^admin_user_(\d+)$").as_("admin_user_match")))
+@router.message(CommandStart(magic=F.args.regexp(r"^(?!ref_|promo_|admin_user_)([A-Za-z0-9_\-]{2,64})$").as_("ad_param_match")))
 async def start_command_handler(message: types.Message,
                                 state: FSMContext,
                                 settings: Settings,
@@ -314,7 +315,8 @@ async def start_command_handler(message: types.Message,
                                 session: AsyncSession,
                                 ref_match: Optional[re.Match] = None,
                                 promo_match: Optional[re.Match] = None,
-                                ad_param_match: Optional[re.Match] = None):
+                                ad_param_match: Optional[re.Match] = None,
+                                admin_user_match: Optional[re.Match] = None):
     await state.clear()
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -323,6 +325,58 @@ async def start_command_handler(message: types.Message,
 
     user = message.from_user
     user_id = user.id
+
+    if admin_user_match and user_id in settings.ADMIN_IDS:
+        target_user_id = int(admin_user_match.group(1))
+        target_user = await user_dal.get_user_by_id(session, target_user_id)
+        if not target_user:
+            await message.answer(
+                _("admin_user_not_found", input=hd.quote(str(target_user_id)))
+            )
+            return
+
+        try:
+            from bot.handlers.admin.user_management import (
+                format_user_card,
+                get_user_card_keyboard,
+                _send_with_profile_link_fallback,
+            )
+
+            referral_service = ReferralService(
+                settings, subscription_service, message.bot, i18n
+            )
+            user_card_text = await format_user_card(
+                target_user,
+                session,
+                subscription_service,
+                i18n,
+                current_lang,
+                referral_service,
+            )
+            keyboard = get_user_card_keyboard(
+                target_user.user_id,
+                i18n,
+                current_lang,
+                target_user.referred_by_id,
+            )
+
+            await _send_with_profile_link_fallback(
+                message.answer,
+                text=user_card_text,
+                markup=keyboard.as_markup(),
+                user_id=target_user.user_id,
+                parse_mode="HTML",
+            )
+            return
+        except Exception as e_admin_card:
+            logging.error(
+                "Failed to open admin user card via deep-link for %s: %s",
+                target_user_id,
+                e_admin_card,
+                exc_info=True,
+            )
+            await message.answer(_("admin_user_card_error"))
+            return
 
     referred_by_user_id: Optional[int] = None
     promo_code_to_apply: Optional[str] = None
