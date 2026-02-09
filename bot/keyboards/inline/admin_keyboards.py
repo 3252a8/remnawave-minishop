@@ -480,3 +480,34 @@ def get_back_to_user_management_keyboard(lang: str,
     builder.button(text=_(key="back_to_user_management_button"),
                    callback_data="admin_section:user_management")
     return builder.as_markup()
+
+
+def get_user_ratings_keyboard(rating_users: List[dict],
+                              lang: str,
+                              i18n_instance) -> InlineKeyboardMarkup:
+    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
+    builder = InlineKeyboardBuilder()
+
+    for entry in rating_users:
+        user_id = int(entry.get("user_id", 0) or 0)
+        if user_id <= 0:
+            continue
+
+        label = str(entry.get("label", "")).strip()
+        if label:
+            button_text = _("admin_user_ratings_open_user_button",
+                            user_id=user_id,
+                            user_label=label)
+        else:
+            button_text = _("admin_user_ratings_open_user_button_simple",
+                            user_id=user_id)
+
+        builder.button(
+            text=button_text,
+            callback_data=f"admin_user_card_from_list:{user_id}:0",
+        )
+
+    builder.button(text=_(key="back_to_user_management_button"),
+                   callback_data="admin_section:user_management")
+    builder.adjust(1)
+    return builder.as_markup()

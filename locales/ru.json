@@ -142,6 +142,8 @@
   "admin_user_ratings_invited_item": "{rank}. {user} — <b>{invited_count}</b>",
   "admin_user_ratings_revenue_item": "{rank}. {user} — <b>{revenue} RUB</b>",
   "admin_user_ratings_empty": "Пока нет данных.",
+  "admin_user_ratings_open_user_button": "👤 ID {user_id} ({user_label})",
+  "admin_user_ratings_open_user_button_simple": "👤 ID {user_id}",
   "admin_payments_header": "💰 <b>Все платежи</b>",
   "admin_no_payments_found": "Платежи не найдены.",
   "admin_export_payments_csv": "📊 Экспорт CSV",

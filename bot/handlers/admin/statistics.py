@@ -13,7 +13,7 @@ from bot.services.panel_api_service import PanelApiService
 
 from bot.keyboards.inline.admin_keyboards import (
     get_back_to_admin_panel_keyboard,
-    get_back_to_user_management_keyboard,
+    get_user_ratings_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
 
@@ -37,6 +37,18 @@ def _format_rating_user_label(user_row: Dict[str, object]) -> str:
         parts.append(f"(ID {user_id})")
 
     return " ".join(parts)
+
+
+def _format_rating_user_short_label(user_row: Dict[str, object]) -> str:
+    username = user_row.get("username")
+    first_name = user_row.get("first_name")
+    user_id = int(user_row.get("user_id", 0) or 0)
+
+    if username:
+        return f"@{html.escape(str(username))}"
+    if first_name:
+        return html.escape(str(first_name))
+    return f"ID {user_id}"
 
 
 async def show_statistics_handler(callback: types.CallbackQuery,
@@ -348,8 +360,22 @@ async def show_user_ratings_handler(
     else:
         text_parts.append(_("admin_user_ratings_empty"))
 
+    unique_users: Dict[int, Dict[str, object]] = {}
+    for row in traffic_top + invited_top + revenue_top:
+        user_id = int(row.get("user_id", 0) or 0)
+        if user_id <= 0 or user_id in unique_users:
+            continue
+        unique_users[user_id] = {
+            "user_id": user_id,
+            "label": _format_rating_user_short_label(row),
+        }
+
     await callback.message.edit_text(
         "\n".join(text_parts),
-        reply_markup=get_back_to_user_management_keyboard(current_lang, i18n),
+        reply_markup=get_user_ratings_keyboard(
+            list(unique_users.values()),
+            current_lang,
+            i18n,
+        ),
         parse_mode="HTML",
     )
