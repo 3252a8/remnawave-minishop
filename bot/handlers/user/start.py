@@ -306,15 +306,18 @@ async def ensure_required_channel_subscription(
 @router.message(CommandStart(magic=F.args.regexp(r"^ref_((?:[uU][A-Za-z0-9]{9})|(?:[A-Za-z0-9]{9})|\d+)$").as_("ref_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^promo_(\w+)$").as_("promo_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^admin_user_(\d+)$").as_("admin_user_match")))
-@router.message(CommandStart(magic=F.args.regexp(r"^(?!ref_|promo_|admin_user_)([A-Za-z0-9_\-]{2,64})$").as_("ad_param_match")))
+@router.message(CommandStart(magic=F.args.regexp(r"^page_ref$").as_("page_ref_match")))
+@router.message(CommandStart(magic=F.args.regexp(r"^(?!ref_|promo_|admin_user_|page_ref$)([A-Za-z0-9_\-]{2,64})$").as_("ad_param_match")))
 async def start_command_handler(message: types.Message,
                                 state: FSMContext,
                                 settings: Settings,
                                 i18n_data: dict,
                                 subscription_service: SubscriptionService,
+                                referral_service: ReferralService,
                                 session: AsyncSession,
                                 ref_match: Optional[re.Match] = None,
                                 promo_match: Optional[re.Match] = None,
+                                page_ref_match: Optional[re.Match] = None,
                                 ad_param_match: Optional[re.Match] = None,
                                 admin_user_match: Optional[re.Match] = None):
     await state.clear()
@@ -380,6 +383,7 @@ async def start_command_handler(message: types.Message,
 
     referred_by_user_id: Optional[int] = None
     promo_code_to_apply: Optional[str] = None
+    should_open_referral_from_start = False
     ad_start_param: Optional[str] = None
 
     if ref_match:
@@ -403,6 +407,9 @@ async def start_command_handler(message: types.Message,
     elif promo_match:
         promo_code_to_apply = promo_match.group(1)
         logging.info(f"User {user_id} started with promo code: {promo_code_to_apply}")
+    elif page_ref_match:
+        should_open_referral_from_start = True
+        logging.info(f"User {user_id} started with page_ref deep-link.")
     elif ad_param_match:
         ad_start_param = ad_param_match.group(1)
         logging.info(f"User {user_id} started with ad start param: {ad_start_param}")
@@ -412,6 +419,7 @@ async def start_command_handler(message: types.Message,
     sanitized_last_name = sanitize_display_name(user.last_name)
 
     db_user = await user_dal.get_user_by_id(session, user_id)
+    is_existing_user = db_user is not None
     if not db_user:
         user_data_to_create = {
             "user_id": user_id,
@@ -513,8 +521,12 @@ async def start_command_handler(message: types.Message,
                                                       db_user):
         return
 
+    open_referral_page_for_existing_user = (
+        should_open_referral_from_start and is_existing_user
+    )
+
     # Send welcome message if not disabled
-    if not settings.DISABLE_WELCOME_MESSAGE:
+    if not settings.DISABLE_WELCOME_MESSAGE and not open_referral_page_for_existing_user:
         await message.answer(_(key="welcome", user_name=hd.quote(user.full_name)))
 
     # Auto-apply promo code if provided via start parameter
@@ -568,6 +580,13 @@ async def start_command_handler(message: types.Message,
         except Exception as e:
             logging.error(f"Error auto-applying promo code '{promo_code_to_apply}' for user {user_id}: {e}")
             await session.rollback()
+
+    if open_referral_page_for_existing_user:
+        from . import referral as user_referral_handlers
+        await user_referral_handlers.referral_command_handler(
+            message, settings, i18n_data, referral_service, message.bot, session
+        )
+        return
 
     await send_main_menu(message,
                          settings,
