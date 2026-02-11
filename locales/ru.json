@@ -92,6 +92,7 @@
   "trial_confirm_activate_button": "✅ Активировать!",
   "trial_activated_alert": "Пробный период активирован!",
   "trial_activated_details_message": "✅ Пробный доступ активирован!\nВаш триал на {days} дн. действует до {end_date}.\n\nКлюч подключения:\n<code>{config_link}</code>\n\nЧтобы подключиться, перейдите по ссылке и следуйте инструкции 👇",
+  "referral_welcome_bonus_applied": "🎁 Вам начислено {days} бонусных дн. за регистрацию по реферальной ссылке!\nПодписка активна до {end_date}.",
   "yes_button": "Да",
   "no_button": "Нет",
   "referral_program_info_new": "🎁 <b>Реферальная программа</b>\n\n📊 <b>Твоя статистика:</b>\n👥 Приглашено друзей: <b>{invited_count}</b>\n💳 Купили подписку: <b>{purchased_count}</b>\n\n🔗 Твоя ссылка:\n<code>{referral_link}</code>\n\n💰 <b>Бонусы за приглашения:</b>\n{bonus_details}\n\n📢 Поделись ссылкой с друзьями и получай бонусы!",

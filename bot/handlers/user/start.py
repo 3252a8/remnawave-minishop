@@ -449,6 +449,50 @@ async def start_command_handler(message: types.Message,
                     f"New user {user_id} added to session. Referred by: {referred_by_user_id or 'N/A'}."
                 )
 
+                # Auto-grant referral welcome bonus to newly registered referred users.
+                referral_welcome_days = max(
+                    0, int(getattr(settings, "REFERRAL_WELCOME_BONUS_DAYS", 0) or 0)
+                )
+                if referred_by_user_id and referral_welcome_days > 0:
+                    try:
+                        referral_bonus_end_date = await subscription_service.extend_active_subscription_days(
+                            session,
+                            user_id,
+                            referral_welcome_days,
+                            reason="referral_welcome_bonus",
+                        )
+                        if referral_bonus_end_date:
+                            await session.commit()
+                            logging.info(
+                                "Referral welcome bonus applied: user %s got %s days, new end date %s.",
+                                user_id,
+                                referral_welcome_days,
+                                referral_bonus_end_date.isoformat(),
+                            )
+                            await message.answer(
+                                _(
+                                    "referral_welcome_bonus_applied",
+                                    days=referral_welcome_days,
+                                    end_date=referral_bonus_end_date.strftime("%d.%m.%Y %H:%M:%S"),
+                                ),
+                                parse_mode="HTML",
+                            )
+                        else:
+                            await session.rollback()
+                            logging.warning(
+                                "Referral welcome bonus was not applied for user %s (referred by %s).",
+                                user_id,
+                                referred_by_user_id,
+                            )
+                    except Exception as referral_bonus_error:
+                        await session.rollback()
+                        logging.error(
+                            "Failed to apply referral welcome bonus for user %s: %s",
+                            user_id,
+                            referral_bonus_error,
+                            exc_info=True,
+                        )
+
                 # Send notification about new user registration
                 try:
                     from bot.services.notification_service import NotificationService

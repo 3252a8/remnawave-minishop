@@ -170,6 +170,10 @@ class Settings(BaseSettings):
         default=True,
         description="When true, referral bonuses (for inviter and referee) are applied only once per invited user - on their first successful payment."
     )
+    REFERRAL_WELCOME_BONUS_DAYS: int = Field(
+        default=3,
+        description="Welcome bonus days granted to a newly registered user who joined via referral link.",
+    )
     LEGACY_REFS: bool = Field(
         default=True,
         description="Allow legacy referral links like ref_<telegram_id> to continue working. Defaults to True when unset."

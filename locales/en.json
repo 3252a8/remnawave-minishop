@@ -92,6 +92,7 @@
   "trial_confirm_activate_button": "✅ Activate!",
   "trial_activated_alert": "Trial activated!",
   "trial_activated_details_message": "✅ Trial activated!\nYour {days}-day trial is active until {end_date}.\n\nConnection key:\n<code>{config_link}</code>\n\nTo connect, open the link and follow the instructions 👇",
+  "referral_welcome_bonus_applied": "🎁 You have received {days} bonus day(s) for registering via a referral link!\nYour subscription is active until {end_date}.",
   "yes_button": "Yes",
   "no_button": "No",
   "referral_program_info_new": "🎁 <b>Referral Program</b>\n\n📊 <b>Your stats:</b>\n👥 Friends invited: <b>{invited_count}</b>\n💳 Purchased subscription: <b>{purchased_count}</b>\n\n🔗 Your link:\n<code>{referral_link}</code>\n\n💰 <b>Invitation bonuses:</b>\n{bonus_details}\n\n📢 Share the link with friends and get bonuses!",
