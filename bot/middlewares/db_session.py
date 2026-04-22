@@ -2,11 +2,8 @@ import logging
 from typing import Callable, Dict, Any, Awaitable
 
 from aiogram import BaseMiddleware
-from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Update
 from sqlalchemy.orm import sessionmaker
-
-from bot.utils.callback_answer import is_expired_callback_answer_error
 
 
 class DBSessionMiddleware(BaseMiddleware):
@@ -34,18 +31,6 @@ class DBSessionMiddleware(BaseMiddleware):
 
                 await session.commit()
                 return result
-            except TelegramBadRequest as error:
-                await session.rollback()
-                if is_expired_callback_answer_error(error):
-                    logging.info(
-                        "DBSessionMiddleware: expired callback answer ignored; "
-                        "session rolled back for the interrupted update."
-                    )
-                    return None
-                logging.error(
-                    "DBSessionMiddleware: Exception caused rollback.", exc_info=True
-                )
-                raise
             except Exception:
                 await session.rollback()
                 logging.error(
