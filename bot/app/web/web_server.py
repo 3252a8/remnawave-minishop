@@ -8,18 +8,17 @@ from sqlalchemy.orm import sessionmaker
 from config.settings import Settings
 
 
-async def build_and_start_web_app(
+def _inject_shared_instances(
+    app: web.Application,
     dp: Dispatcher,
     bot: Bot,
     settings: Settings,
     async_session_factory: sessionmaker,
-):
-    app = web.Application()
+) -> None:
     app["bot"] = bot
     app["dp"] = dp
     app["settings"] = settings
     app["async_session_factory"] = async_session_factory
-    # Inject shared instances used by webhook handlers
     app["i18n"] = dp.get("i18n_instance")
     for key in (
         "yookassa_service",
@@ -34,9 +33,18 @@ async def build_and_start_web_app(
         "platega_service",
         "severpay_service",
     ):
-        # Access dispatcher workflow_data directly to avoid sequence protocol issues
         if hasattr(dp, "workflow_data") and key in dp.workflow_data:  # type: ignore
             app[key] = dp.workflow_data[key]  # type: ignore
+
+
+async def build_and_start_web_app(
+    dp: Dispatcher,
+    bot: Bot,
+    settings: Settings,
+    async_session_factory: sessionmaker,
+):
+    app = web.Application()
+    _inject_shared_instances(app, dp, bot, settings, async_session_factory)
 
     setup_application(app, dp, bot=bot)
 
@@ -87,10 +95,13 @@ async def build_and_start_web_app(
         app.router.add_post(panel_path, panel_webhook_route)
         logging.info(f"Panel webhook route configured at: [POST] {panel_path}")
 
-    web_app_runner = web.AppRunner(app)
-    await web_app_runner.setup()
+    runners = []
+
+    webhooks_runner = web.AppRunner(app)
+    await webhooks_runner.setup()
+    runners.append(webhooks_runner)
     site = web.TCPSite(
-        web_app_runner,
+        webhooks_runner,
         host=settings.WEB_SERVER_HOST,
         port=settings.WEB_SERVER_PORT,
     )
@@ -100,5 +111,35 @@ async def build_and_start_web_app(
         f"AIOHTTP server started on http://{settings.WEB_SERVER_HOST}:{settings.WEB_SERVER_PORT}"
     )
 
-    # Run until cancelled
-    await asyncio.Event().wait()
+    if settings.WEBAPP_ENABLED:
+        from bot.app.web.subscription_webapp import create_subscription_webapp_application
+
+        subscription_app = create_subscription_webapp_application(
+            dp,
+            bot,
+            settings,
+            async_session_factory,
+        )
+        subscription_runner = web.AppRunner(subscription_app)
+        await subscription_runner.setup()
+        runners.append(subscription_runner)
+        subscription_site = web.TCPSite(
+            subscription_runner,
+            host=settings.WEBAPP_SERVER_HOST,
+            port=settings.WEBAPP_SERVER_PORT,
+        )
+        await subscription_site.start()
+        logging.info(
+            "Subscription WebApp server started on http://%s:%s",
+            settings.WEBAPP_SERVER_HOST,
+            settings.WEBAPP_SERVER_PORT,
+        )
+
+    try:
+        await asyncio.Event().wait()
+    finally:
+        for runner in reversed(runners):
+            try:
+                await runner.cleanup()
+            except Exception as cleanup_error:
+                logging.warning("Failed to cleanup aiohttp runner: %s", cleanup_error)

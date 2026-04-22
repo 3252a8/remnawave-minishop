@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#111827">
+  <title>Моя подписка</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --accent: #10b981;
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --panel-soft: #eef2f7;
+      --text: #111827;
+      --muted: #667085;
+      --line: #d8dee8;
+      --danger: #dc2626;
+      --success: #059669;
+      --shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    }
+
+    .theme-dark {
+      --bg: #101318;
+      --panel: #171b22;
+      --panel-soft: #202631;
+      --text: #f4f7fb;
+      --muted: #9aa4b2;
+      --line: #2e3542;
+      --shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      letter-spacing: 0;
+    }
+
+    body {
+      padding: max(env(safe-area-inset-top), 10px) 14px max(env(safe-area-inset-bottom), 18px);
+    }
+
+    button,
+    a {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .app {
+      width: min(100%, 520px);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 44px;
+      gap: 10px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      gap: 10px;
+    }
+
+    .brand-mark,
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      flex: 0 0 auto;
+    }
+
+    .brand-mark {
+      background: var(--panel-soft);
+      color: var(--accent);
+      font-weight: 800;
+      overflow: hidden;
+    }
+
+    .brand-mark img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .brand-title {
+      min-width: 0;
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 8px;
+      flex: 0 0 auto;
+    }
+
+    .icon-btn {
+      background: var(--panel);
+      color: var(--muted);
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .status-panel {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .eyebrow {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .status-title {
+      margin-top: 3px;
+      font-size: 28px;
+      font-weight: 850;
+      line-height: 1.05;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 9px;
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--accent) 14%, transparent);
+      color: var(--success);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .badge.off {
+      background: color-mix(in srgb, var(--danger) 14%, transparent);
+      color: var(--danger);
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .metric {
+      background: var(--panel-soft);
+      border-radius: 8px;
+      padding: 10px;
+      min-width: 0;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .metric-value {
+      font-size: 14px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .btn {
+      min-height: 44px;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--panel-soft);
+      color: var(--text);
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      color: #06110d;
+    }
+
+    .btn.danger {
+      color: var(--danger);
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: progress;
+    }
+
+    .section-title {
+      margin: 8px 2px 0;
+      font-size: 14px;
+      color: var(--muted);
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .plans,
+    .methods {
+      display: grid;
+      gap: 8px;
+    }
+
+    .plan,
+    .method {
+      width: 100%;
+      min-height: 58px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      text-align: left;
+    }
+
+    .plan.active,
+    .method:active {
+      border-color: var(--accent);
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
+
+    .plan-name,
+    .method-name {
+      font-weight: 850;
+      font-size: 15px;
+    }
+
+    .plan-meta,
+    .method-meta {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 3px;
+    }
+
+    .empty,
+    .notice {
+      padding: 14px;
+      border-radius: 8px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .payment-panel {
+      display: none;
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .payment-panel.show {
+      display: grid;
+    }
+
+    .loader {
+      min-height: 70vh;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .login {
+      min-height: 76vh;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login.show {
+      display: flex;
+    }
+
+    .login-card {
+      width: min(100%, 360px);
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+      text-align: center;
+    }
+
+    .login-title {
+      font-size: 22px;
+      font-weight: 850;
+      line-height: 1.15;
+    }
+
+    .login-text {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 360px) {
+      body {
+        padding-left: 10px;
+        padding-right: 10px;
+      }
+
+      .status-title {
+        font-size: 24px;
+      }
+
+      .actions,
+      .metric-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="loader" class="loader">Загрузка...</div>
+
+  <main id="app" class="app hidden">
+    <header class="topbar">
+      <div class="brand">
+        <div id="brand-mark" class="brand-mark">R</div>
+        <div id="brand-title" class="brand-title">Моя подписка</div>
+      </div>
+      <div class="top-actions">
+        <button class="icon-btn" type="button" title="Обновить" onclick="reloadData()">↻</button>
+        <button class="icon-btn" type="button" title="Выйти" onclick="logout()">⎋</button>
+      </div>
+    </header>
+
+    <section class="panel status-panel">
+      <div class="status-row">
+        <div>
+          <div class="eyebrow">Осталось</div>
+          <div id="remaining" class="status-title">...</div>
+        </div>
+        <div id="status-badge" class="badge">...</div>
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="metric-label">Окончание</div>
+          <div id="end-date" class="metric-value">...</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Трафик</div>
+          <div id="traffic" class="metric-value">...</div>
+        </div>
+      </div>
+
+      <div id="connect-actions" class="actions">
+        <button id="connect-btn" class="btn primary" type="button" onclick="openConnectLink()">Подключиться</button>
+        <button id="copy-btn" class="btn" type="button" onclick="copyConfigLink()">Скопировать ссылку</button>
+      </div>
+    </section>
+
+    <div class="section-title">Оплата подписки</div>
+    <section id="plans" class="plans"></section>
+
+    <section id="methods-wrap" class="hidden">
+      <div class="section-title">Способ оплаты</div>
+      <div id="methods" class="methods"></div>
+    </section>
+
+    <section id="payment-panel" class="panel payment-panel">
+      <div id="payment-message" class="notice"></div>
+      <button id="payment-open-btn" class="btn primary" type="button" onclick="openPaymentUrl()">Открыть оплату</button>
+      <button id="payment-check-btn" class="btn" type="button" onclick="checkPayment()">Проверить оплату</button>
+    </section>
+
+    <a id="support-link" class="btn hidden" href="#" target="_blank" rel="noopener">Поддержка</a>
+  </main>
+
+  <section id="login" class="login">
+    <div class="panel login-card">
+      <div class="login-title">Вход через Telegram</div>
+      <div class="login-text">Откройте бота и подтвердите вход. После подтверждения эта страница обновится автоматически.</div>
+      <a id="auth-link" class="btn primary" href="#" target="_blank" rel="noopener">Открыть Telegram</a>
+      <button class="btn" type="button" onclick="startExternalAuth()">Обновить ссылку</button>
+    </div>
+  </section>
+
+  <script>
+    const CFG = __WEBAPP_CONFIG__;
+    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    const state = {
+      token: localStorage.getItem('rw_webapp_token') || '',
+      data: null,
+      selectedPlan: null,
+      payment: null,
+      authPoll: null
+    };
+
+    document.documentElement.classList.toggle('theme-dark', !tg || tg.colorScheme !== 'light');
+    document.documentElement.style.setProperty('--accent', CFG.primaryColor || '#10b981');
+    document.title = CFG.title || 'Моя подписка';
+    document.getElementById('brand-title').textContent = CFG.title || 'Моя подписка';
+    if (CFG.logoUrl) {
+      document.getElementById('brand-mark').innerHTML = '<img src="' + escapeAttr(CFG.logoUrl) + '" alt="">';
+    }
+    if (CFG.supportUrl) {
+      const support = document.getElementById('support-link');
+      support.href = CFG.supportUrl;
+      support.classList.remove('hidden');
+    }
+
+    if (tg) {
+      try {
+        tg.ready();
+        tg.expand();
+        tg.setHeaderColor(CFG.primaryColor || '#10b981');
+      } catch (e) { }
+    }
+
+    boot();
+
+    async function boot() {
+      showLoader();
+      if (tg && tg.initData) {
+        try {
+          const auth = await fetch(CFG.apiBase + '/auth/token', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({init_data: tg.initData})
+          });
+          const data = await auth.json();
+          if (data.ok && data.token) {
+            setToken(data.token);
+            await loadData();
+            return;
+          }
+        } catch (e) { }
+      }
+
+      if (state.token) {
+        try {
+          await loadData();
+          return;
+        } catch (e) {
+          clearToken();
+        }
+      }
+
+      await startExternalAuth();
+    }
+
+    async function startExternalAuth() {
+      showLogin();
+      try {
+        const response = await fetch(CFG.apiBase + '/auth/request-token');
+        const data = await response.json();
+        if (!data.ok) return;
+        document.getElementById('auth-link').href = data.auth_url;
+        if (state.authPoll) clearInterval(state.authPoll);
+        state.authPoll = setInterval(() => checkExternalAuth(data.token), 1800);
+      } catch (e) { }
+    }
+
+    async function checkExternalAuth(token) {
+      try {
+        const response = await fetch(CFG.apiBase + '/auth/check-token/' + encodeURIComponent(token));
+        const data = await response.json();
+        if (data.authorized && data.token) {
+          clearInterval(state.authPoll);
+          setToken(data.token);
+          await loadData();
+        }
+      } catch (e) { }
+    }
+
+    async function loadData() {
+      const data = await api('/me');
+      if (!data.ok) throw new Error(data.error || 'load failed');
+      state.data = data;
+      state.selectedPlan = data.plans && data.plans.length ? data.plans[0] : null;
+      render();
+      showApp();
+    }
+
+    async function reloadData() {
+      showToast('Обновляю данные');
+      await loadData();
+    }
+
+    function render() {
+      renderSubscription(state.data.subscription);
+      renderPlans(state.data.plans || []);
+      renderMethods();
+    }
+
+    function renderSubscription(sub) {
+      const badge = document.getElementById('status-badge');
+      badge.textContent = sub.active ? 'Активна' : 'Не активна';
+      badge.classList.toggle('off', !sub.active);
+      document.getElementById('remaining').textContent = sub.remaining_text || 'Нет активной подписки';
+      document.getElementById('end-date').textContent = sub.end_date_text || 'N/A';
+      document.getElementById('traffic').textContent = (sub.traffic_used || 'N/A') + ' / ' + (sub.traffic_limit || 'N/A');
+      document.getElementById('connect-actions').classList.toggle('hidden', !sub.connect_url && !sub.config_link);
+    }
+
+    function renderPlans(plans) {
+      const wrap = document.getElementById('plans');
+      if (!plans.length) {
+        wrap.innerHTML = '<div class="empty">Тарифы не настроены.</div>';
+        document.getElementById('methods-wrap').classList.add('hidden');
+        return;
+      }
+
+      wrap.innerHTML = plans.map(plan => {
+        const isActive = state.selectedPlan && state.selectedPlan.months === plan.months;
+        const stars = plan.stars_price ? ' · ' + plan.stars_price + ' ⭐' : '';
+        return `
+          <button class="plan ${isActive ? 'active' : ''}" type="button" onclick="selectPlan(${plan.months})">
+            <span>
+              <span class="plan-name">${escapeHtml(plan.title)}</span>
+              <span class="plan-meta">Доступ на ${escapeHtml(plan.title)}</span>
+            </span>
+            <span class="plan-name">${formatMoney(plan.price, plan.currency)}${stars}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderMethods() {
+      const wrap = document.getElementById('methods-wrap');
+      const methods = document.getElementById('methods');
+      if (!state.selectedPlan) {
+        wrap.classList.add('hidden');
+        return;
+      }
+      const available = (state.data.payment_methods || []).filter(method => {
+        if (method.id === 'stars') return Number.isFinite(Number(state.selectedPlan.stars_price));
+        return true;
+      });
+      wrap.classList.remove('hidden');
+      if (!available.length) {
+        methods.innerHTML = '<div class="empty">Нет доступных способов оплаты.</div>';
+        return;
+      }
+      methods.innerHTML = available.map(method => {
+        const amount = method.id === 'stars'
+          ? state.selectedPlan.stars_price + ' ⭐'
+          : formatMoney(state.selectedPlan.price, state.selectedPlan.currency);
+        return `
+          <button class="method" type="button" onclick="createPayment('${escapeAttr(method.id)}')">
+            <span>
+              <span class="method-name">${escapeHtml(method.name)}</span>
+              <span class="method-meta">${escapeHtml(state.selectedPlan.title)}</span>
+            </span>
+            <span class="method-name">${amount}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function selectPlan(months) {
+      state.selectedPlan = (state.data.plans || []).find(plan => plan.months === months);
+      renderPlans(state.data.plans || []);
+      renderMethods();
+      document.getElementById('payment-panel').classList.remove('show');
+    }
+
+    async function createPayment(method) {
+      if (!state.selectedPlan) return;
+      setMethodsDisabled(true);
+      try {
+        const data = await api('/payments', {
+          method: 'POST',
+          body: JSON.stringify({months: state.selectedPlan.months, method})
+        });
+        if (!data.ok) throw new Error(data.message || 'Не удалось создать платеж');
+        state.payment = data;
+        showPaymentPanel(data);
+        openPaymentUrl();
+      } catch (e) {
+        showToast(e.message || 'Ошибка оплаты');
+      } finally {
+        setMethodsDisabled(false);
+      }
+    }
+
+    function showPaymentPanel(payment) {
+      const panel = document.getElementById('payment-panel');
+      const msg = document.getElementById('payment-message');
+      const openBtn = document.getElementById('payment-open-btn');
+      const checkBtn = document.getElementById('payment-check-btn');
+      panel.classList.add('show');
+      if (payment.action === 'invoice_sent') {
+        msg.textContent = 'Счет отправлен в чат с ботом.';
+        openBtn.classList.add('hidden');
+      } else {
+        msg.textContent = 'Платеж создан. После оплаты нажмите проверку или обновите страницу.';
+        openBtn.classList.remove('hidden');
+      }
+      checkBtn.classList.toggle('hidden', !payment.payment_id);
+    }
+
+    function openPaymentUrl() {
+      const payment = state.payment;
+      if (!payment || !payment.payment_url) return;
+      if (payment.action === 'open_invoice' && tg && tg.openInvoice) {
+        tg.openInvoice(payment.payment_url, function(status) {
+          if (status === 'paid') loadData();
+        });
+        return;
+      }
+      if (tg && tg.openLink) {
+        tg.openLink(payment.payment_url);
+      } else {
+        window.open(payment.payment_url, '_blank', 'noopener');
+      }
+    }
+
+    async function checkPayment() {
+      if (!state.payment || !state.payment.payment_id) return;
+      const data = await api('/payments/' + state.payment.payment_id);
+      if (data.paid) {
+        showToast('Оплата подтверждена');
+        await loadData();
+      } else {
+        showToast('Платеж пока не подтвержден');
+      }
+    }
+
+    function openConnectLink() {
+      const sub = state.data && state.data.subscription;
+      const url = sub && (sub.connect_url || sub.config_link);
+      if (!url) return;
+      if (tg && tg.openLink) tg.openLink(url);
+      else window.open(url, '_blank', 'noopener');
+    }
+
+    async function copyConfigLink() {
+      const sub = state.data && state.data.subscription;
+      const link = sub && sub.config_link;
+      if (!link) return;
+      try {
+        await navigator.clipboard.writeText(link);
+        showToast('Ссылка скопирована');
+      } catch (e) {
+        const area = document.createElement('textarea');
+        area.value = link;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand('copy');
+        area.remove();
+        showToast('Ссылка скопирована');
+      }
+    }
+
+    async function api(path, options = {}) {
+      const headers = Object.assign({'Authorization': 'Bearer ' + state.token}, options.headers || {});
+      if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+      const response = await fetch(CFG.apiBase + path, Object.assign({}, options, {headers}));
+      if (response.status === 401) {
+        clearToken();
+        await startExternalAuth();
+        throw new Error('Unauthorized');
+      }
+      return response.json();
+    }
+
+    function setToken(token) {
+      state.token = token;
+      localStorage.setItem('rw_webapp_token', token);
+    }
+
+    function clearToken() {
+      state.token = '';
+      localStorage.removeItem('rw_webapp_token');
+    }
+
+    function logout() {
+      clearToken();
+      startExternalAuth();
+    }
+
+    function showLoader() {
+      document.getElementById('loader').classList.remove('hidden');
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('login').classList.remove('show');
+    }
+
+    function showApp() {
+      document.getElementById('loader').classList.add('hidden');
+      document.getElementById('login').classList.remove('show');
+      document.getElementById('app').classList.remove('hidden');
+    }
+
+    function showLogin() {
+      document.getElementById('loader').classList.add('hidden');
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('login').classList.add('show');
+    }
+
+    function setMethodsDisabled(disabled) {
+      document.querySelectorAll('.method').forEach(btn => btn.disabled = disabled);
+    }
+
+    function showToast(message) {
+      if (tg && tg.showAlert) {
+        tg.showAlert(message);
+      } else {
+        alert(message);
+      }
+    }
+
+    function formatMoney(value, currency) {
+      const numeric = Number(value || 0);
+      const formatted = Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2);
+      return formatted + ' ' + (currency || 'RUB');
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replaceAll('`', '&#096;');
+    }
+  </script>
+</body>
+
+</html>

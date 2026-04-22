@@ -201,6 +201,20 @@ class Settings(BaseSettings):
 
     WEB_SERVER_HOST: str = Field(default="0.0.0.0")
     WEB_SERVER_PORT: int = Field(default=8080)
+
+    WEBAPP_ENABLED: bool = Field(
+        default=True,
+        description="Run the subscription Mini App in the same container on a separate port.",
+    )
+    WEBAPP_SERVER_HOST: str = Field(default="0.0.0.0")
+    WEBAPP_SERVER_PORT: int = Field(default=8081)
+    WEBAPP_TITLE: str = Field(default="Моя подписка")
+    WEBAPP_PRIMARY_COLOR: str = Field(default="#10b981")
+    WEBAPP_LOGO_URL: Optional[str] = Field(default=None)
+    WEBAPP_SESSION_TTL_SECONDS: int = Field(default=30 * 24 * 60 * 60)
+    WEBAPP_AUTH_MAX_AGE_SECONDS: int = Field(default=24 * 60 * 60)
+    WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int = Field(default=10 * 60)
+
     LOGS_PAGE_SIZE: int = Field(default=10)
 
     SUBSCRIPTION_MINI_APP_URL: Optional[str] = Field(default=None)
@@ -552,6 +566,8 @@ class Settings(BaseSettings):
         'CRYPT4_REDIRECT_URL',
         'PRIVACY_POLICY_URL',
         'USER_AGREEMENT_URL',
+        'SUBSCRIPTION_MINI_APP_URL',
+        'WEBAPP_LOGO_URL',
         mode='before',
     )
     @classmethod

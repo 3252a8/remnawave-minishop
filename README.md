@@ -7,6 +7,7 @@
 ### Для пользователей:
 -   **Регистрация и выбор языка:** Поддержка русского и английского языков.
 -   **Просмотр подписки:** Пользователи могут видеть статус своей подписки, дату окончания и ссылку на конфигурацию.
+-   **Web App (Mini App):** отдельный веб-интерфейс для просмотра ссылки подключения, остатка времени и оплаты подписки.
 -   **Мои устройства:** Опциональный раздел для просмотра и отключения подключенных устройств (активируется через переменную `MY_DEVICES_SECTION_ENABLED`).
 -   **Пробная подписка:** Система пробных подписок для новых пользователей (активируется вручную по кнопке).
 -   **Промокоды:** Возможность применять промокоды для получения скидок или бонусных дней.
@@ -65,9 +66,14 @@
     | `BOT_TOKEN` | **Обязательно.** Токен вашего Telegram-бота. | `1234567890:ABC-DEF1234ghIkl-zyx57W2v1u123ew11` |
     | `ADMIN_IDS` | **Обязательно.** ID администраторов в Telegram через запятую. | `12345678,98765432` |
     | `DEFAULT_LANGUAGE` | Язык по умолчанию для новых пользователей. | `ru` |
-    | `SUPPORT_LINK` | (Опционально) Ссылка на поддержку. | `https://t.me/your_support` |
-    | `SUBSCRIPTION_MINI_APP_URL` | (Опционально) URL Mini App для показа подписки. | `https://t.me/your_bot/app` |
-    | `MY_DEVICES_SECTION_ENABLED` | Включить раздел «Мои устройства» в меню подписки (`true`/`false`). | `false` |
+| `SUPPORT_LINK` | (Опционально) Ссылка на поддержку. | `https://t.me/your_support` |
+| `SUBSCRIPTION_MINI_APP_URL` | (Опционально) Публичный URL Mini App для показа подписки. Если задан, кнопка «Моя подписка» откроет Web App. | `https://app.domain.com/` |
+| `WEBAPP_ENABLED` | Включить Web App в том же контейнере, но на отдельном порту. | `true` |
+| `WEBAPP_SERVER_PORT` | Внутренний порт Web App. | `8081` |
+| `WEBAPP_TITLE` | Заголовок Web App. | `Моя подписка` |
+| `WEBAPP_PRIMARY_COLOR` | Основной цвет Web App. | `#10b981` |
+| `WEBAPP_LOGO_URL` | (Опционально) URL логотипа Web App. | `https://domain.com/logo.png` |
+| `MY_DEVICES_SECTION_ENABLED` | Включить раздел «Мои устройства» в меню подписки (`true`/`false`). | `false` |
     | `REQUIRED_CHANNEL_ID` | (Опционально) ID канала, на который пользователь должен подписаться перед использованием. Оставьте пустым, если проверка не нужна. | `-1001234567890` |
     | `REQUIRED_CHANNEL_LINK` | (Опционально) Публичная ссылка или invite на канал для кнопки «Проверить подписку». | `https://t.me/your_channel` |
     </details>
@@ -77,10 +83,12 @@
 
     | Переменная | Описание |
     | --- | --- |
-    | `WEBHOOK_BASE_URL`| **Обязательно.** Базовый URL для вебхуков, например `https://your.domain.com`. |
-    | `WEB_SERVER_HOST` | Хост для веб-сервера. | `0.0.0.0` |
-    | `WEB_SERVER_PORT` | Порт для веб-сервера. | `8080` |
-    | `PAYMENT_METHODS_ORDER` | (Опционально) Порядок отображения кнопок оплаты через запятую. Поддерживаемые ключи: `severpay`, `freekassa`, `platega`, `yookassa`, `stars`, `cryptopay`. Первый будет сверху. |
+| `WEBHOOK_BASE_URL`| **Обязательно.** Базовый URL для вебхуков, например `https://your.domain.com`. |
+| `WEB_SERVER_HOST` | Хост для веб-сервера. | `0.0.0.0` |
+| `WEB_SERVER_PORT` | Порт для веб-сервера. | `8080` |
+| `WEBAPP_SERVER_HOST` | Хост отдельного веб-сервера Mini App. | `0.0.0.0` |
+| `WEBAPP_SERVER_PORT` | Порт отдельного веб-сервера Mini App. | `8081` |
+| `PAYMENT_METHODS_ORDER` | (Опционально) Порядок отображения кнопок оплаты через запятую. Поддерживаемые ключи: `severpay`, `freekassa`, `platega`, `yookassa`, `stars`, `cryptopay`. Первый будет сверху. |
     | `YOOKASSA_ENABLED` | Включить/выключить YooKassa (`true`/`false`). |
     | `YOOKASSA_SHOP_ID` | ID вашего магазина в YooKassa. |
     | `YOOKASSA_SECRET_KEY`| Секретный ключ магазина YooKassa. |
@@ -170,12 +178,77 @@
 
     Где `remnawave-tg-shop` — это имя сервиса из `docker-compose.yml`, а `<WEB_SERVER_PORT>` — порт, указанный в `.env`.
 
+    **Отдельный порт Web App:**
+    -   `https://<домен_web_app>/` → `http://remnawave-tg-shop:<WEBAPP_SERVER_PORT>/`
+
+    Web App не должен проксироваться на `WEB_SERVER_PORT`: этот порт оставьте для Telegram, платежных и Remnawave webhooks.
+
 5.  **Просмотр логов:**
     ```bash
     docker compose logs -f remnawave-tg-shop
     ```
 
     > 💡 Если включена проверка подписки на канал (`REQUIRED_CHANNEL_ID`), добавьте бота администратором в этот канал. Пользователь увидит кнопку «Проверить подписку», и, после первого успешного подтверждения, дальнейшие действия блокироваться не будут.
+
+### Настройка Web App / Mini App
+
+Web App запускается в том же контейнере, что и бот, но слушает отдельный порт `WEBAPP_SERVER_PORT` (по умолчанию `8081`). Внутри Web App пользователь авторизуется через Telegram Mini Apps `initData`; если страницу открыть вне Telegram, используется fallback через deep-link в бота.
+
+1.  Укажите в `.env` публичный URL Web App и порт:
+
+    ```env
+    WEBAPP_ENABLED=True
+    WEBAPP_SERVER_HOST=0.0.0.0
+    WEBAPP_SERVER_PORT=8081
+    SUBSCRIPTION_MINI_APP_URL=https://app.domain.com/
+    WEBAPP_TITLE="Моя подписка"
+    WEBAPP_PRIMARY_COLOR="#10b981"
+    WEBAPP_LOGO_URL=
+    ```
+
+2.  Убедитесь, что `docker-compose.yml` публикует порт Web App:
+
+    ```yaml
+    ports:
+      - 127.0.0.1:8080:8080
+      - 127.0.0.1:${WEBAPP_SERVER_PORT:-8081}:${WEBAPP_SERVER_PORT:-8081}
+    ```
+
+3.  Проксируйте отдельный домен или location на порт Web App:
+
+    ```nginx
+    upstream remnawave-tg-shop-webapp {
+        server remnawave-tg-shop:8081;
+    }
+
+    server {
+        server_name app.domain.com;
+        listen 443 ssl;
+        http2 on;
+
+        ssl_certificate "/etc/nginx/ssl/app_fullchain.pem";
+        ssl_certificate_key "/etc/nginx/ssl/app_privkey.key";
+
+        location / {
+            proxy_pass http://remnawave-tg-shop-webapp;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+    ```
+
+4.  В BotFather настройте домен Mini App для бота (`/setdomain`) и укажите домен из `SUBSCRIPTION_MINI_APP_URL`.
+
+5.  Перезапустите контейнер:
+
+    ```bash
+    docker compose up -d --build
+    ```
+
+После этого кнопка «Моя подписка» в меню бота откроет Web App. В MVP Web App показывает текущую ссылку подключения, остаток времени, трафик, тарифы и создает платежные ссылки через уже настроенные платежные системы. Успешные оплаты обрабатываются существующими webhook-обработчиками.
 
 ## Подробная инструкция для развертывания на сервере с панелью Remnawave
 

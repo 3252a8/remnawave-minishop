@@ -21,12 +21,20 @@ def get_main_menu_inline_keyboard(
     builder.row(
         InlineKeyboardButton(text=_(key="menu_subscribe_inline"),
                              callback_data="main_action:subscribe"))
-    builder.row(
-        InlineKeyboardButton(
-            text=_(key="menu_my_subscription_inline"),
-            callback_data="main_action:my_subscription",
+    if settings.SUBSCRIPTION_MINI_APP_URL:
+        builder.row(
+            InlineKeyboardButton(
+                text=_(key="menu_my_subscription_inline"),
+                web_app=WebAppInfo(url=settings.SUBSCRIPTION_MINI_APP_URL),
+            )
         )
-    )
+    else:
+        builder.row(
+            InlineKeyboardButton(
+                text=_(key="menu_my_subscription_inline"),
+                callback_data="main_action:my_subscription",
+            )
+        )
 
     referral_button = InlineKeyboardButton(
         text=_(key="menu_referral_inline"),

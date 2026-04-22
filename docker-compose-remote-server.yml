@@ -7,6 +7,7 @@ services:
       - .env
     ports:
       - '127.0.0.1:8080:8080'
+      - '127.0.0.1:${WEBAPP_SERVER_PORT:-8081}:${WEBAPP_SERVER_PORT:-8081}'
     networks:
       - remnawave-network
     environment:
