@@ -17,6 +17,7 @@ docker-compose.yml
 Dockerfile
 .docker
 .dockerignore
+tmp/
 
 # Byte-compiled / optimized / DLL files
 **/__pycache__/

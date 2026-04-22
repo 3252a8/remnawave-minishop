@@ -209,7 +209,7 @@ class Settings(BaseSettings):
     WEBAPP_SERVER_HOST: str = Field(default="0.0.0.0")
     WEBAPP_SERVER_PORT: int = Field(default=8081)
     WEBAPP_TITLE: str = Field(default="Моя подписка")
-    WEBAPP_PRIMARY_COLOR: str = Field(default="#10b981")
+    WEBAPP_PRIMARY_COLOR: str = Field(default="#00fe7a")
     WEBAPP_LOGO_URL: Optional[str] = Field(default=None)
     WEBAPP_SESSION_TTL_SECONDS: int = Field(default=30 * 24 * 60 * 60)
     WEBAPP_AUTH_MAX_AGE_SECONDS: int = Field(default=24 * 60 * 60)

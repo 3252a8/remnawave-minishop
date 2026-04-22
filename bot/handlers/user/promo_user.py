@@ -16,6 +16,7 @@ from bot.keyboards.inline.user_keyboards import (
 )
 from datetime import datetime
 from bot.middlewares.i18n import JsonI18n
+from bot.utils.callback_answer import safe_answer_callback
 
 from .start import send_main_menu
 
@@ -35,15 +36,18 @@ async def prompt_promo_code_input(callback: types.CallbackQuery,
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:
-        await callback.answer("Language service error.", show_alert=True)
+        await safe_answer_callback(callback, "Language service error.", show_alert=True)
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     if not callback.message:
         logging.error(
             "CallbackQuery has no message in prompt_promo_code_input")
-        await callback.answer(_("error_occurred_processing_request"),
-                              show_alert=True)
+        await safe_answer_callback(
+            callback,
+            _("error_occurred_processing_request"),
+            show_alert=True,
+        )
         return
 
     try:
@@ -58,7 +62,7 @@ async def prompt_promo_code_input(callback: types.CallbackQuery,
             text=_(key="promo_code_prompt"),
             reply_markup=get_back_to_main_menu_markup(current_lang, i18n))
 
-    await callback.answer()
+    await safe_answer_callback(callback)
     await state.set_state(UserPromoStates.waiting_for_promo_code)
     logging.info(
         f"User {callback.from_user.id} entered state UserPromoStates.waiting_for_promo_code. "
@@ -181,7 +185,7 @@ async def cancel_promo_input_via_button(
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:
         logging.error("i18n missing in cancel_promo_input_via_button")
-        await callback.answer("Language error", show_alert=True)
+        await safe_answer_callback(callback, "Language error", show_alert=True)
         return
 
     logging.info(
@@ -200,5 +204,8 @@ async def cancel_promo_input_via_button(
     else:
 
         _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
-        await callback.answer(_("promo_input_cancelled_short"),
-                              show_alert=False)
+        await safe_answer_callback(
+            callback,
+            _("promo_input_cancelled_short"),
+            show_alert=False,
+        )

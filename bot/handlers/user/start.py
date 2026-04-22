@@ -25,6 +25,7 @@ from bot.services.promo_code_service import PromoCodeService
 from config.settings import Settings
 from bot.middlewares.i18n import JsonI18n
 from bot.utils.text_sanitizer import sanitize_username, sanitize_display_name
+from bot.utils.callback_answer import safe_answer_callback
 from bot.app.web.webapp_auth import authorize_pending_webapp_auth_token
 
 router = Router(name="user_start_router")
@@ -91,8 +92,11 @@ async def send_main_menu(target_event: Union[types.Message,
             f"send_main_menu: target_message_obj is None for event from user {user_id}."
         )
         if isinstance(target_event, types.CallbackQuery):
-            await target_event.answer(_("error_displaying_menu"),
-                                      show_alert=True)
+            await safe_answer_callback(
+                target_event,
+                _("error_displaying_menu"),
+                show_alert=True,
+            )
         return
 
     try:
@@ -102,10 +106,7 @@ async def send_main_menu(target_event: Union[types.Message,
             await target_message_obj.answer(text, reply_markup=reply_markup)
 
         if isinstance(target_event, types.CallbackQuery):
-            try:
-                await target_event.answer()
-            except Exception:
-                pass
+            await safe_answer_callback(target_event)
     except Exception as e_send_edit:
         logging.warning(
             f"Failed to send/edit main menu (user: {user_id}, is_edit: {is_edit}): {type(e_send_edit).__name__} - {e_send_edit}."
@@ -118,11 +119,10 @@ async def send_main_menu(target_event: Union[types.Message,
                     f"Also failed to send new main menu message for user {user_id}: {e_send_new}"
                 )
         if isinstance(target_event, types.CallbackQuery):
-            try:
-                await target_event.answer(
-                    _("error_occurred_try_again") if is_edit else None)
-            except Exception:
-                pass
+            await safe_answer_callback(
+                target_event,
+                _("error_occurred_try_again") if is_edit else None,
+            )
 
 
 async def ensure_required_channel_subscription(
@@ -693,8 +693,11 @@ async def verify_channel_subscription_callback(
                                                 welcome_text)
 
     try:
-        await callback.answer(_(key="channel_subscription_verified_success"),
-                              show_alert=True)
+        await safe_answer_callback(
+            callback,
+            _(key="channel_subscription_verified_success"),
+            show_alert=True,
+        )
     except Exception:
         pass
 
@@ -725,7 +728,11 @@ async def language_command_handler(
         event, types.CallbackQuery) else event
     if not target_message_obj:
         if isinstance(event, types.CallbackQuery):
-            await event.answer(_("error_occurred_try_again"), show_alert=True)
+            await safe_answer_callback(
+                event,
+                _("error_occurred_try_again"),
+                show_alert=True,
+            )
         return
 
     if isinstance(event, types.CallbackQuery):
@@ -736,7 +743,7 @@ async def language_command_handler(
             except Exception:
                 await target_message_obj.answer(text_to_send,
                                                 reply_markup=reply_markup)
-        await event.answer()
+        await safe_answer_callback(event)
     else:
         await target_message_obj.answer(text_to_send,
                                         reply_markup=reply_markup)
@@ -748,15 +755,21 @@ async def select_language_callback_handler(
         subscription_service: SubscriptionService, session: AsyncSession):
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
-        await callback.answer("Service error or message context lost.",
-                              show_alert=True)
+        await safe_answer_callback(
+            callback,
+            "Service error or message context lost.",
+            show_alert=True,
+        )
         return
 
     try:
         lang_code = callback.data.split("_")[2]
     except IndexError:
-        await callback.answer("Error processing language selection.",
-                              show_alert=True)
+        await safe_answer_callback(
+            callback,
+            "Error processing language selection.",
+            show_alert=True,
+        )
         return
 
     user_id = callback.from_user.id
@@ -767,18 +780,22 @@ async def select_language_callback_handler(
 
             i18n_data["current_language"] = lang_code
             _ = lambda key, **kwargs: i18n.gettext(lang_code, key, **kwargs)
-            await callback.answer(_(key="language_set_alert"))
+            await safe_answer_callback(callback, _(key="language_set_alert"))
             logging.info(
                 f"User {user_id} language updated to {lang_code} in session.")
         else:
-            await callback.answer("Could not set language.", show_alert=True)
+            await safe_answer_callback(
+                callback,
+                "Could not set language.",
+                show_alert=True,
+            )
             return
     except Exception as e_lang_update:
 
         logging.error(
             f"Error updating lang for user {user_id}: {e_lang_update}",
             exc_info=True)
-        await callback.answer("Error setting language.", show_alert=True)
+        await safe_answer_callback(callback, "Error setting language.", show_alert=True)
         return
     await send_main_menu(callback,
                          settings,
@@ -803,7 +820,11 @@ async def main_action_callback_handler(
     from . import trial_handler as user_trial_handlers
 
     if not callback.message:
-        await callback.answer("Error: message context lost.", show_alert=True)
+        await safe_answer_callback(
+            callback,
+            "Error: message context lost.",
+            show_alert=True,
+        )
         return
 
     if action == "subscribe":
@@ -834,8 +855,11 @@ async def main_action_callback_handler(
         current_lang = i18n_data.get("current_language",
                                      settings.DEFAULT_LANGUAGE)
         if not i18n:
-            await callback.answer("Language service error.",
-                                  show_alert=True)
+            await safe_answer_callback(
+                callback,
+                "Language service error.",
+                show_alert=True,
+            )
             return
         _ = lambda key, **kwargs: i18n.gettext(
             current_lang, key, **kwargs) if i18n else key
@@ -844,8 +868,11 @@ async def main_action_callback_handler(
         user_agreement_url = settings.USER_AGREEMENT_URL or settings.TERMS_OF_SERVICE_URL
 
         if not privacy_url and not user_agreement_url:
-            await callback.answer(_("error_occurred_try_again"),
-                                  show_alert=True)
+            await safe_answer_callback(
+                callback,
+                _("error_occurred_try_again"),
+                show_alert=True,
+            )
             return
 
         reply_markup = get_information_links_keyboard(
@@ -860,7 +887,7 @@ async def main_action_callback_handler(
         except Exception:
             await callback.message.answer(_(key="info_links_message"),
                                           reply_markup=reply_markup)
-        await callback.answer()
+        await safe_answer_callback(callback)
     elif action == "back_to_main":
         await send_main_menu(callback,
                              settings,
@@ -878,5 +905,9 @@ async def main_action_callback_handler(
     else:
         i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
         _ = lambda key, **kwargs: i18n.gettext(
-            i18n_data.get("current_language"), key, **kw) if i18n else key
-        await callback.answer(_("main_menu_unknown_action"), show_alert=True)
+            i18n_data.get("current_language"), key, **kwargs) if i18n else key
+        await safe_answer_callback(
+            callback,
+            _("main_menu_unknown_action"),
+            show_alert=True,
+        )

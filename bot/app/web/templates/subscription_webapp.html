@@ -5,51 +5,62 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="robots" content="noindex, nofollow">
-  <meta name="theme-color" content="#111827">
+  <meta name="theme-color" content="#05070a">
   <title>Моя подписка</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root {
-      color-scheme: light dark;
-      --accent: #10b981;
-      --bg: #f5f7fb;
-      --panel: #ffffff;
-      --panel-soft: #eef2f7;
-      --text: #111827;
-      --muted: #667085;
-      --line: #d8dee8;
-      --danger: #dc2626;
-      --success: #059669;
-      --shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+      color-scheme: dark;
+      --bg-primary: #05070a;
+      --bg-secondary: #0a0e17;
+      --bg-card: #0f1521;
+      --bg-card-hover: #161e2e;
+      --surface: #1e2940;
+      --border: #1e2940;
+      --border-strong: #2a3752;
+      --text-primary: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent: #00fe7a;
+      --accent-hover: #5aff9f;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-mono: "JetBrains Mono", "Fira Code", monospace;
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 8px;
+      --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    .theme-dark {
-      --bg: #101318;
-      --panel: #171b22;
-      --panel-soft: #202631;
-      --text: #f4f7fb;
-      --muted: #9aa4b2;
-      --line: #2e3542;
-      --shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
-    }
-
-    * {
+    *,
+    *::before,
+    *::after {
       box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
     }
 
     html,
     body {
       min-height: 100%;
       margin: 0;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: var(--bg);
-      color: var(--text);
       letter-spacing: 0;
     }
 
     body {
-      padding: max(env(safe-area-inset-top), 10px) 14px max(env(safe-area-inset-bottom), 18px);
+      background: var(--bg-primary);
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 320px),
+        var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
     }
 
     button,
@@ -62,20 +73,26 @@
       cursor: pointer;
     }
 
+    button:disabled {
+      cursor: progress;
+      opacity: 0.58;
+    }
+
     .app {
-      width: min(100%, 520px);
+      width: min(100%, 560px);
       margin: 0 auto;
+      padding: max(env(safe-area-inset-top), 14px) 14px max(env(safe-area-inset-bottom), 18px);
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 14px;
     }
 
     .topbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      min-height: 44px;
-      gap: 10px;
+      gap: 12px;
+      min-height: 48px;
     }
 
     .brand {
@@ -87,36 +104,50 @@
 
     .brand-mark,
     .icon-btn {
-      width: 36px;
-      height: 36px;
+      width: 38px;
+      height: 38px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      border-radius: 8px;
       flex: 0 0 auto;
+      border-radius: var(--radius-md);
     }
 
     .brand-mark {
-      background: var(--panel-soft);
+      border: 1px solid color-mix(in srgb, var(--accent) 52%, var(--border));
+      background: color-mix(in srgb, var(--accent) 11%, var(--bg-card));
       color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 18px;
       font-weight: 800;
       overflow: hidden;
+      box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 16%, transparent);
     }
 
     .brand-mark img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      padding: 4px;
+      object-fit: contain;
+    }
+
+    .brand-kicker {
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.1;
     }
 
     .brand-title {
-      min-width: 0;
-      font-size: 18px;
+      max-width: 260px;
+      color: var(--text-primary);
+      font-size: 17px;
       font-weight: 800;
-      line-height: 1.1;
-      white-space: nowrap;
+      line-height: 1.15;
       overflow: hidden;
       text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .top-actions {
@@ -126,129 +157,306 @@
     }
 
     .icon-btn {
-      background: var(--panel);
-      color: var(--muted);
-      box-shadow: inset 0 0 0 1px var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      transition: var(--transition);
+    }
+
+    .icon-btn:active {
+      border-color: var(--accent);
+      color: var(--accent);
+      transform: translateY(1px);
     }
 
     .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      box-shadow: var(--shadow);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)), var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 22px 48px rgba(0, 0, 0, 0.38);
     }
 
-    .status-panel {
+    .subscription-panel {
       padding: 16px;
       display: grid;
-      gap: 14px;
+      gap: 16px;
     }
 
-    .status-row {
+    .badge-row {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
     }
 
-    .eyebrow {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-
-    .status-title {
-      margin-top: 3px;
-      font-size: 28px;
-      font-weight: 850;
-      line-height: 1.05;
-    }
-
+    .mono-pill,
     .badge {
       display: inline-flex;
       align-items: center;
       min-height: 28px;
-      padding: 0 9px;
-      border-radius: 8px;
-      background: color-mix(in srgb, var(--accent) 14%, transparent);
-      color: var(--success);
-      font-size: 12px;
-      font-weight: 800;
+      padding: 0 10px;
+      border-radius: var(--radius-md);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
       white-space: nowrap;
     }
 
+    .mono-pill {
+      border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+      background: color-mix(in srgb, var(--accent) 9%, transparent);
+      color: var(--accent);
+    }
+
+    .badge {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--success);
+    }
+
     .badge.off {
-      background: color-mix(in srgb, var(--danger) 14%, transparent);
+      background: rgba(239, 68, 68, 0.1);
       color: var(--danger);
     }
 
-    .metric-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-    }
-
-    .metric {
-      background: var(--panel-soft);
-      border-radius: 8px;
-      padding: 10px;
-      min-width: 0;
-    }
-
-    .metric-label {
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 700;
-      margin-bottom: 5px;
-    }
-
-    .metric-value {
-      font-size: 14px;
-      font-weight: 800;
+    .status-title {
+      margin: 0;
+      font-size: 32px;
+      font-weight: 850;
+      line-height: 1.08;
       overflow-wrap: anywhere;
     }
 
-    .actions {
+    .gradient-text {
+      color: var(--text-primary);
+      background: linear-gradient(135deg, var(--text-primary), color-mix(in srgb, var(--accent) 68%, #ffffff));
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+
+    @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+      .gradient-text {
+        color: transparent;
+      }
+    }
+
+    @supports (-webkit-text-fill-color: transparent) {
+      .gradient-text {
+        -webkit-text-fill-color: transparent;
+      }
+    }
+
+    @supports not (color: color-mix(in srgb, #000 50%, #fff)) {
+      body {
+        background: var(--bg-primary);
+      }
+
+      .brand-mark,
+      .mono-pill,
+      .btn.primary,
+      .step.active,
+      .plan.active,
+      .method.active {
+        border-color: var(--accent);
+      }
+
+      .brand-mark,
+      .mono-pill,
+      .step.active,
+      .plan.active,
+      .method.active {
+        background: rgba(0, 254, 122, 0.08);
+      }
+
+      .btn.primary {
+        background: var(--accent);
+      }
+
+      .gradient-text {
+        background: none;
+        color: var(--text-primary);
+        -webkit-text-fill-color: currentColor;
+      }
+    }
+
+    @supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+      .gradient-text {
+        color: var(--text-primary);
+        -webkit-text-fill-color: currentColor;
+      }
+    }
+
+    .status-subtitle {
+      margin: 4px 0 0;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .metrics {
+      display: grid;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .metric {
+      display: grid;
+      grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+      gap: 10px;
+      min-height: 48px;
+      align-items: center;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .metric + .metric {
+      border-top: 1px solid var(--border);
+    }
+
+    .metric-label {
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .metric-value {
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 750;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+
+    .actions,
+    .step-actions {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
     }
 
     .btn {
-      min-height: 44px;
-      border-radius: 8px;
-      padding: 10px 12px;
+      min-height: 46px;
+      border-radius: var(--radius-md);
+      padding: 11px 13px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      background: var(--panel-soft);
-      color: var(--text);
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-primary);
       font-weight: 800;
+      text-align: center;
       text-decoration: none;
+      transition: var(--transition);
+    }
+
+    .btn:active {
+      transform: translateY(1px);
     }
 
     .btn.primary {
-      background: var(--accent);
-      color: #06110d;
+      border-color: color-mix(in srgb, var(--accent) 80%, var(--border));
+      background:
+        linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 76%, #00c95f));
+      color: #04110a;
+      box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 20%, transparent);
     }
 
-    .btn.danger {
-      color: var(--danger);
+    .btn.ghost {
+      color: var(--text-secondary);
     }
 
-    .btn:disabled {
-      opacity: 0.55;
-      cursor: progress;
+    .btn.full {
+      width: 100%;
     }
 
-    .section-title {
-      margin: 8px 2px 0;
-      font-size: 14px;
-      color: var(--muted);
+    .support-link {
+      margin-top: 2px;
+    }
+
+    .payment-flow {
+      padding: 14px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .flow-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .flow-title {
+      font-size: 18px;
+      font-weight: 850;
+      line-height: 1.2;
+    }
+
+    .flow-caption {
+      margin-top: 3px;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .stepper {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .step {
+      min-height: 58px;
+      padding: 9px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-muted);
+    }
+
+    .step-num {
+      display: block;
+      color: inherit;
+      font-family: var(--font-mono);
+      font-size: 11px;
       font-weight: 800;
-      text-transform: uppercase;
+      line-height: 1.1;
+    }
+
+    .step-name {
+      display: block;
+      margin-top: 5px;
+      color: inherit;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.15;
+    }
+
+    .step.active {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 9%, transparent);
+      color: var(--accent);
+    }
+
+    .step.done {
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+      color: var(--text-secondary);
+    }
+
+    .step-pane {
+      display: grid;
+      gap: 10px;
+    }
+
+    .section-label {
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 800;
     }
 
     .plans,
@@ -260,70 +468,83 @@
     .plan,
     .method {
       width: 100%;
-      min-height: 58px;
-      padding: 12px;
-      border-radius: 8px;
-      border: 1px solid var(--line);
-      background: var(--panel);
-      color: var(--text);
+      min-height: 64px;
+      padding: 13px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-primary);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
       text-align: left;
+      transition: var(--transition);
     }
 
     .plan.active,
-    .method:active {
+    .method.active {
       border-color: var(--accent);
-      box-shadow: inset 0 0 0 1px var(--accent);
+      background: color-mix(in srgb, var(--accent) 8%, transparent);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 58%, transparent);
     }
 
     .plan-name,
-    .method-name {
-      font-weight: 850;
+    .method-name,
+    .plan-price {
+      display: block;
       font-size: 15px;
+      font-weight: 850;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
     }
 
     .plan-meta,
     .method-meta {
-      color: var(--muted);
-      font-size: 12px;
+      display: block;
+      margin-top: 4px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
       font-weight: 700;
-      margin-top: 3px;
+      line-height: 1.3;
     }
 
-    .empty,
-    .notice {
-      padding: 14px;
-      border-radius: 8px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      color: var(--muted);
+    .plan-price {
+      flex: 0 0 auto;
+      color: var(--accent);
+      font-family: var(--font-mono);
+      text-align: right;
+    }
+
+    .notice,
+    .empty {
+      padding: 13px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-secondary);
       font-size: 14px;
-      line-height: 1.4;
+      line-height: 1.45;
     }
 
-    .payment-panel {
-      display: none;
-      gap: 10px;
-      padding: 12px;
-    }
-
-    .payment-panel.show {
+    .result-box {
       display: grid;
+      gap: 10px;
     }
 
     .loader {
-      min-height: 70vh;
+      min-height: 78vh;
       display: grid;
       place-items: center;
-      color: var(--muted);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
       font-weight: 800;
     }
 
     .login {
-      min-height: 76vh;
+      min-height: 100vh;
+      padding: max(env(safe-area-inset-top), 14px) 14px max(env(safe-area-inset-bottom), 18px);
       display: none;
       align-items: center;
       justify-content: center;
@@ -334,10 +555,10 @@
     }
 
     .login-card {
-      width: min(100%, 360px);
+      width: min(100%, 380px);
       padding: 18px;
       display: grid;
-      gap: 12px;
+      gap: 13px;
       text-align: center;
     }
 
@@ -348,7 +569,7 @@
     }
 
     .login-text {
-      color: var(--muted);
+      color: var(--text-secondary);
       font-size: 14px;
       line-height: 1.45;
     }
@@ -357,19 +578,37 @@
       display: none !important;
     }
 
-    @media (max-width: 360px) {
-      body {
+    @media (max-width: 380px) {
+      .app {
         padding-left: 10px;
         padding-right: 10px;
       }
 
+      .brand-title {
+        max-width: 190px;
+      }
+
       .status-title {
-        font-size: 24px;
+        font-size: 28px;
       }
 
       .actions,
-      .metric-grid {
+      .step-actions,
+      .metric {
         grid-template-columns: 1fr;
+      }
+
+      .metric-value {
+        text-align: left;
+      }
+
+      .stepper {
+        gap: 6px;
+      }
+
+      .step {
+        min-height: 54px;
+        padding: 8px 7px;
       }
     }
   </style>
@@ -381,31 +620,36 @@
   <main id="app" class="app hidden">
     <header class="topbar">
       <div class="brand">
-        <div id="brand-mark" class="brand-mark">R</div>
-        <div id="brand-title" class="brand-title">Моя подписка</div>
+        <div id="brand-mark" class="brand-mark">/</div>
+        <div>
+          <div class="brand-kicker">/tnnl</div>
+          <div id="brand-title" class="brand-title">Моя подписка</div>
+        </div>
       </div>
       <div class="top-actions">
         <button class="icon-btn" type="button" title="Обновить" onclick="reloadData()">↻</button>
-        <button class="icon-btn" type="button" title="Выйти" onclick="logout()">⎋</button>
+        <button class="icon-btn" type="button" title="Выйти" onclick="logout()">×</button>
       </div>
     </header>
 
-    <section class="panel status-panel">
-      <div class="status-row">
-        <div>
-          <div class="eyebrow">Осталось</div>
-          <div id="remaining" class="status-title">...</div>
-        </div>
+    <section class="panel subscription-panel">
+      <div class="badge-row">
+        <div class="mono-pill">subscription</div>
         <div id="status-badge" class="badge">...</div>
       </div>
 
-      <div class="metric-grid">
+      <div>
+        <h1 id="remaining" class="status-title gradient-text">...</h1>
+        <p class="status-subtitle">Ваша ссылка подключения и срок доступа</p>
+      </div>
+
+      <div class="metrics">
         <div class="metric">
-          <div class="metric-label">Окончание</div>
+          <div class="metric-label">ends_at</div>
           <div id="end-date" class="metric-value">...</div>
         </div>
         <div class="metric">
-          <div class="metric-label">Трафик</div>
+          <div class="metric-label">traffic</div>
           <div id="traffic" class="metric-value">...</div>
         </div>
       </div>
@@ -414,29 +658,68 @@
         <button id="connect-btn" class="btn primary" type="button" onclick="openConnectLink()">Подключиться</button>
         <button id="copy-btn" class="btn" type="button" onclick="copyConfigLink()">Скопировать ссылку</button>
       </div>
+
+      <button id="extend-btn" class="btn primary full" type="button" onclick="togglePaymentFlow()">Продлить подписку/Добавить дни</button>
     </section>
 
-    <div class="section-title">Оплата подписки</div>
-    <section id="plans" class="plans"></section>
+    <section id="payment-flow" class="panel payment-flow hidden">
+      <div class="flow-head">
+        <div>
+          <div class="flow-title">Оплата подписки</div>
+          <div class="flow-caption">Выберите срок, способ оплаты и создайте платеж.</div>
+        </div>
+        <button class="icon-btn" type="button" title="Закрыть оплату" onclick="closePaymentFlow()">×</button>
+      </div>
 
-    <section id="methods-wrap" class="hidden">
-      <div class="section-title">Способ оплаты</div>
-      <div id="methods" class="methods"></div>
+      <div class="stepper" aria-label="Шаги оплаты">
+        <div id="step-plan" class="step">
+          <span class="step-num">01</span>
+          <span class="step-name">Срок</span>
+        </div>
+        <div id="step-method" class="step">
+          <span class="step-num">02</span>
+          <span class="step-name">Метод</span>
+        </div>
+        <div id="step-result" class="step">
+          <span class="step-num">03</span>
+          <span class="step-name">Платеж</span>
+        </div>
+      </div>
+
+      <div id="plan-step" class="step-pane">
+        <div class="section-label">select_period</div>
+        <div id="plans" class="plans"></div>
+        <button id="to-methods-btn" class="btn primary full" type="button" onclick="goToPaymentStep('method')">Выбрать способ оплаты</button>
+      </div>
+
+      <div id="method-step" class="step-pane hidden">
+        <div class="section-label">select_method</div>
+        <div id="methods" class="methods"></div>
+        <div class="step-actions">
+          <button class="btn ghost" type="button" onclick="goToPaymentStep('plan')">Назад</button>
+          <button id="create-payment-btn" class="btn primary" type="button" onclick="createPaymentFromSelection()">Создать платеж</button>
+        </div>
+      </div>
+
+      <div id="result-step" class="step-pane hidden">
+        <div class="section-label">payment_status</div>
+        <div class="result-box">
+          <div id="payment-message" class="notice"></div>
+          <button id="payment-open-btn" class="btn primary full" type="button" onclick="openPaymentUrl()">Открыть оплату</button>
+          <button id="payment-check-btn" class="btn full" type="button" onclick="checkPayment()">Проверить оплату</button>
+          <button class="btn ghost full" type="button" onclick="goToPaymentStep('method')">Выбрать другой способ</button>
+        </div>
+      </div>
     </section>
 
-    <section id="payment-panel" class="panel payment-panel">
-      <div id="payment-message" class="notice"></div>
-      <button id="payment-open-btn" class="btn primary" type="button" onclick="openPaymentUrl()">Открыть оплату</button>
-      <button id="payment-check-btn" class="btn" type="button" onclick="checkPayment()">Проверить оплату</button>
-    </section>
-
-    <a id="support-link" class="btn hidden" href="#" target="_blank" rel="noopener">Поддержка</a>
+    <a id="support-link" class="btn support-link hidden" href="#" target="_blank" rel="noopener">Поддержка</a>
   </main>
 
   <section id="login" class="login">
     <div class="panel login-card">
+      <div class="mono-pill">telegram_auth</div>
       <div class="login-title">Вход через Telegram</div>
-      <div class="login-text">Откройте бота и подтвердите вход. После подтверждения эта страница обновится автоматически.</div>
+      <div class="login-text">Откройте бота и подтвердите вход. После подтверждения страница обновится автоматически.</div>
       <a id="auth-link" class="btn primary" href="#" target="_blank" rel="noopener">Открыть Telegram</a>
       <button class="btn" type="button" onclick="startExternalAuth()">Обновить ссылку</button>
     </div>
@@ -449,12 +732,16 @@
       token: localStorage.getItem('rw_webapp_token') || '',
       data: null,
       selectedPlan: null,
+      selectedMethod: null,
       payment: null,
+      paymentFlowOpen: false,
+      paymentStep: 'plan',
+      creatingPayment: false,
       authPoll: null
     };
 
-    document.documentElement.classList.toggle('theme-dark', !tg || tg.colorScheme !== 'light');
-    document.documentElement.style.setProperty('--accent', CFG.primaryColor || '#10b981');
+    const accent = CFG.primaryColor || '#00fe7a';
+    document.documentElement.style.setProperty('--accent', accent);
     document.title = CFG.title || 'Моя подписка';
     document.getElementById('brand-title').textContent = CFG.title || 'Моя подписка';
     if (CFG.logoUrl) {
@@ -470,7 +757,8 @@
       try {
         tg.ready();
         tg.expand();
-        tg.setHeaderColor(CFG.primaryColor || '#10b981');
+        tg.setHeaderColor('#05070a');
+        tg.setBackgroundColor('#05070a');
       } catch (e) { }
     }
 
@@ -531,10 +819,15 @@
     }
 
     async function loadData() {
+      const previousMonths = state.selectedPlan && state.selectedPlan.months;
       const data = await api('/me');
       if (!data.ok) throw new Error(data.error || 'load failed');
       state.data = data;
-      state.selectedPlan = data.plans && data.plans.length ? data.plans[0] : null;
+      const plans = data.plans || [];
+      state.selectedPlan = plans.find(plan => plan.months === previousMonths) || plans[0] || null;
+      state.selectedMethod = null;
+      state.payment = null;
+      state.paymentStep = 'plan';
       render();
       showApp();
     }
@@ -546,13 +839,12 @@
 
     function render() {
       renderSubscription(state.data.subscription);
-      renderPlans(state.data.plans || []);
-      renderMethods();
+      renderPaymentFlow();
     }
 
     function renderSubscription(sub) {
       const badge = document.getElementById('status-badge');
-      badge.textContent = sub.active ? 'Активна' : 'Не активна';
+      badge.textContent = sub.active ? 'ACTIVE' : 'INACTIVE';
       badge.classList.toggle('off', !sub.active);
       document.getElementById('remaining').textContent = sub.remaining_text || 'Нет активной подписки';
       document.getElementById('end-date').textContent = sub.end_date_text || 'N/A';
@@ -560,101 +852,199 @@
       document.getElementById('connect-actions').classList.toggle('hidden', !sub.connect_url && !sub.config_link);
     }
 
+    function togglePaymentFlow() {
+      if (state.paymentFlowOpen) {
+        closePaymentFlow();
+        return;
+      }
+      state.paymentFlowOpen = true;
+      state.paymentStep = 'plan';
+      state.payment = null;
+      state.selectedMethod = null;
+      renderPaymentFlow();
+      document.getElementById('payment-flow').scrollIntoView({behavior: 'smooth', block: 'start'});
+    }
+
+    function closePaymentFlow() {
+      state.paymentFlowOpen = false;
+      state.paymentStep = 'plan';
+      state.payment = null;
+      state.selectedMethod = null;
+      renderPaymentFlow();
+    }
+
+    function renderPaymentFlow() {
+      const flow = document.getElementById('payment-flow');
+      flow.classList.toggle('hidden', !state.paymentFlowOpen);
+      if (!state.paymentFlowOpen) return;
+
+      renderStepState();
+      renderPlans(state.data.plans || []);
+      renderMethods();
+      renderPaymentResult();
+    }
+
+    function renderStepState() {
+      const order = ['plan', 'method', 'result'];
+      order.forEach((step, index) => {
+        const node = document.getElementById('step-' + step);
+        const currentIndex = order.indexOf(state.paymentStep);
+        node.classList.toggle('active', state.paymentStep === step);
+        node.classList.toggle('done', currentIndex > index);
+      });
+
+      document.getElementById('plan-step').classList.toggle('hidden', state.paymentStep !== 'plan');
+      document.getElementById('method-step').classList.toggle('hidden', state.paymentStep !== 'method');
+      document.getElementById('result-step').classList.toggle('hidden', state.paymentStep !== 'result');
+    }
+
     function renderPlans(plans) {
       const wrap = document.getElementById('plans');
+      const nextBtn = document.getElementById('to-methods-btn');
       if (!plans.length) {
         wrap.innerHTML = '<div class="empty">Тарифы не настроены.</div>';
-        document.getElementById('methods-wrap').classList.add('hidden');
+        nextBtn.disabled = true;
         return;
       }
 
+      nextBtn.disabled = !state.selectedPlan;
       wrap.innerHTML = plans.map(plan => {
         const isActive = state.selectedPlan && state.selectedPlan.months === plan.months;
-        const stars = plan.stars_price ? ' · ' + plan.stars_price + ' ⭐' : '';
+        const stars = plan.stars_price ? ' / ' + plan.stars_price + ' Stars' : '';
         return `
           <button class="plan ${isActive ? 'active' : ''}" type="button" onclick="selectPlan(${plan.months})">
             <span>
               <span class="plan-name">${escapeHtml(plan.title)}</span>
-              <span class="plan-meta">Доступ на ${escapeHtml(plan.title)}</span>
+              <span class="plan-meta">access_period</span>
             </span>
-            <span class="plan-name">${formatMoney(plan.price, plan.currency)}${stars}</span>
+            <span class="plan-price">${escapeHtml(formatMoney(plan.price, plan.currency) + stars)}</span>
           </button>
         `;
       }).join('');
     }
 
     function renderMethods() {
-      const wrap = document.getElementById('methods-wrap');
       const methods = document.getElementById('methods');
+      const createBtn = document.getElementById('create-payment-btn');
       if (!state.selectedPlan) {
-        wrap.classList.add('hidden');
+        methods.innerHTML = '<div class="empty">Сначала выберите срок подписки.</div>';
+        createBtn.disabled = true;
         return;
       }
-      const available = (state.data.payment_methods || []).filter(method => {
-        if (method.id === 'stars') return Number.isFinite(Number(state.selectedPlan.stars_price));
-        return true;
-      });
-      wrap.classList.remove('hidden');
+
+      const available = getAvailableMethods();
+      if (state.selectedMethod && !available.some(method => method.id === state.selectedMethod)) {
+        state.selectedMethod = null;
+      }
+
+      createBtn.disabled = !state.selectedMethod || state.creatingPayment;
       if (!available.length) {
         methods.innerHTML = '<div class="empty">Нет доступных способов оплаты.</div>';
+        createBtn.disabled = true;
         return;
       }
+
       methods.innerHTML = available.map(method => {
+        const isActive = state.selectedMethod === method.id;
         const amount = method.id === 'stars'
-          ? state.selectedPlan.stars_price + ' ⭐'
+          ? state.selectedPlan.stars_price + ' Stars'
           : formatMoney(state.selectedPlan.price, state.selectedPlan.currency);
         return `
-          <button class="method" type="button" onclick="createPayment('${escapeAttr(method.id)}')">
+          <button class="method ${isActive ? 'active' : ''}" type="button" onclick="selectMethod('${escapeAttr(method.id)}')">
             <span>
               <span class="method-name">${escapeHtml(method.name)}</span>
               <span class="method-meta">${escapeHtml(state.selectedPlan.title)}</span>
             </span>
-            <span class="method-name">${amount}</span>
+            <span class="plan-price">${escapeHtml(amount)}</span>
           </button>
         `;
       }).join('');
     }
 
-    function selectPlan(months) {
-      state.selectedPlan = (state.data.plans || []).find(plan => plan.months === months);
-      renderPlans(state.data.plans || []);
-      renderMethods();
-      document.getElementById('payment-panel').classList.remove('show');
-    }
-
-    async function createPayment(method) {
-      if (!state.selectedPlan) return;
-      setMethodsDisabled(true);
-      try {
-        const data = await api('/payments', {
-          method: 'POST',
-          body: JSON.stringify({months: state.selectedPlan.months, method})
-        });
-        if (!data.ok) throw new Error(data.message || 'Не удалось создать платеж');
-        state.payment = data;
-        showPaymentPanel(data);
-        openPaymentUrl();
-      } catch (e) {
-        showToast(e.message || 'Ошибка оплаты');
-      } finally {
-        setMethodsDisabled(false);
-      }
-    }
-
-    function showPaymentPanel(payment) {
-      const panel = document.getElementById('payment-panel');
+    function renderPaymentResult() {
+      const payment = state.payment;
       const msg = document.getElementById('payment-message');
       const openBtn = document.getElementById('payment-open-btn');
       const checkBtn = document.getElementById('payment-check-btn');
-      panel.classList.add('show');
+      if (!payment) {
+        msg.textContent = 'Платеж еще не создан.';
+        openBtn.classList.add('hidden');
+        checkBtn.classList.add('hidden');
+        return;
+      }
+
       if (payment.action === 'invoice_sent') {
-        msg.textContent = 'Счет отправлен в чат с ботом.';
+        msg.textContent = 'Счет отправлен в чат с ботом. После оплаты вернитесь сюда и проверьте статус.';
         openBtn.classList.add('hidden');
       } else {
-        msg.textContent = 'Платеж создан. После оплаты нажмите проверку или обновите страницу.';
-        openBtn.classList.remove('hidden');
+        msg.textContent = 'Платеж создан. Откройте оплату, завершите ее у провайдера и затем проверьте статус.';
+        openBtn.classList.toggle('hidden', !payment.payment_url);
       }
       checkBtn.classList.toggle('hidden', !payment.payment_id);
+    }
+
+    function selectPlan(months) {
+      state.selectedPlan = (state.data.plans || []).find(plan => plan.months === months) || null;
+      state.selectedMethod = null;
+      state.payment = null;
+      renderPaymentFlow();
+    }
+
+    function selectMethod(method) {
+      state.selectedMethod = method;
+      state.payment = null;
+      renderMethods();
+      renderPaymentResult();
+    }
+
+    function goToPaymentStep(step) {
+      if (step === 'method' && !state.selectedPlan) {
+        showToast('Выберите срок подписки');
+        return;
+      }
+      if (step === 'result' && !state.payment) {
+        showToast('Создайте платеж');
+        return;
+      }
+      state.paymentStep = step;
+      renderPaymentFlow();
+    }
+
+    async function createPaymentFromSelection() {
+      if (!state.selectedPlan) {
+        showToast('Выберите срок подписки');
+        return;
+      }
+      if (!state.selectedMethod) {
+        showToast('Выберите способ оплаты');
+        return;
+      }
+
+      state.creatingPayment = true;
+      renderMethods();
+      try {
+        const data = await api('/payments', {
+          method: 'POST',
+          body: JSON.stringify({months: state.selectedPlan.months, method: state.selectedMethod})
+        });
+        if (!data.ok) throw new Error(data.message || 'Не удалось создать платеж');
+        state.payment = data;
+        state.paymentStep = 'result';
+        renderPaymentFlow();
+      } catch (e) {
+        showToast(e.message || 'Ошибка оплаты');
+      } finally {
+        state.creatingPayment = false;
+        renderPaymentFlow();
+      }
+    }
+
+    function getAvailableMethods() {
+      if (!state.data || !state.selectedPlan) return [];
+      return (state.data.payment_methods || []).filter(method => {
+        if (method.id === 'stars') return Number(state.selectedPlan.stars_price || 0) > 0;
+        return true;
+      });
     }
 
     function openPaymentUrl() {
@@ -678,6 +1068,7 @@
       const data = await api('/payments/' + state.payment.payment_id);
       if (data.paid) {
         showToast('Оплата подтверждена');
+        state.paymentFlowOpen = false;
         await loadData();
       } else {
         showToast('Платеж пока не подтвержден');
@@ -753,10 +1144,6 @@
       document.getElementById('loader').classList.add('hidden');
       document.getElementById('app').classList.add('hidden');
       document.getElementById('login').classList.add('show');
-    }
-
-    function setMethodsDisabled(disabled) {
-      document.querySelectorAll('.method').forEach(btn => btn.disabled = disabled);
     }
 
     function showToast(message) {
