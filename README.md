@@ -325,13 +325,15 @@ cd /opt/remnawave/nginx && docker compose down && docker compose up -d && docker
 
 ## 🐳 Docker
 
-Файлы `Dockerfile` и `docker-compose.yml` уже настроены для локальной сборки и запуска проекта. Если нужен готовый образ из GHCR, используйте `docker-compose-remote-server.yml` или переключите `docker-compose.yml` на строку `image:` вместо `build: .`.
+Файлы `Dockerfile` и `docker-compose.yml` уже настроены для локальной сборки и запуска проекта.
 
-Образ публикуется в GitHub Container Registry по пути `ghcr.io/3252a8/remnawave-tg-shop`. GitHub Actions выкладывают теги `latest` и `0.1.0`: `latest` обновляется из `main`, а `0.1.0` появляется при сборке тега `v0.1.0`.
+Если нужен запуск из готового образа, используйте `docker-compose-remote-server.yml` как шаблон и укажите свой `image:` вместо локальной сборки.
 
-Чтобы закрепить версию на сервере, можно запустить:
+Этот репозиторий больше не публикует образы автоматически через GitHub Actions. В GHCR сохранён только тег `3.0.0`; `latest` и `0.1.0` больше не используются.
+
+Чтобы использовать сохранённый образ, можно запустить:
 ```bash
-IMAGE_TAG=0.1.0 docker compose -f docker-compose-remote-server.yml up -d
+IMAGE_TAG=3.0.0 docker compose -f docker-compose-remote-server.yml up -d
 ```
 
 ## 📁 Структура проекта

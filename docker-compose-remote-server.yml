@@ -1,6 +1,6 @@
 services:
   remnawave-tg-shop:
-    image: ghcr.io/3252a8/remnawave-tg-shop:${IMAGE_TAG:-latest}
+    image: ghcr.io/3252a8/remnawave-tg-shop:${IMAGE_TAG:-3.0.0}
     container_name: remnawave-tg-shop
     hostname: remnawave-tg-shop
     env_file:
