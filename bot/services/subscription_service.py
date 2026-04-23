@@ -96,6 +96,42 @@ class SubscriptionService:
                     f"Failed to notify admin {admin_id} about panel user creation failure: {e}"
                 )
 
+    def _telegram_id_for_panel(self, db_user: User) -> Optional[int]:
+        if db_user.telegram_id:
+            return int(db_user.telegram_id)
+        if db_user.user_id and int(db_user.user_id) > 0:
+            return int(db_user.user_id)
+        return None
+
+    async def _panel_username_for_user(
+        self, session: AsyncSession, db_user: User
+    ) -> str:
+        telegram_id = self._telegram_id_for_panel(db_user)
+        if telegram_id and int(db_user.user_id) == telegram_id:
+            return f"tg_{telegram_id}"
+        referral_code = await user_dal.ensure_referral_code(session, db_user)
+        return f"em_{referral_code}"
+
+    def _panel_description_for_user(self, db_user: User) -> str:
+        lines = [
+            db_user.email or "",
+            db_user.username or "",
+            db_user.first_name or "",
+            db_user.last_name or "",
+        ]
+        return "\n".join(line for line in lines if line).strip()
+
+    def _panel_identity_payload_for_user(self, db_user: User) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
+            "description": self._panel_description_for_user(db_user),
+        }
+        telegram_id = self._telegram_id_for_panel(db_user)
+        if telegram_id:
+            payload["telegramId"] = telegram_id
+        if db_user.email:
+            payload["email"] = db_user.email
+        return payload
+
     async def _get_or_create_panel_user_link_details(
         self, session: AsyncSession, user_id: int, db_user: Optional[User] = None
     ) -> Tuple[Optional[str], Optional[str], Optional[str], bool]:
@@ -109,24 +145,44 @@ class SubscriptionService:
             return None, None, None, False
 
         current_local_panel_uuid = db_user.panel_user_uuid
-        panel_username_on_panel_standard = f"tg_{user_id}"
+        panel_username_on_panel_standard = await self._panel_username_for_user(
+            session, db_user
+        )
+        telegram_id_for_panel = self._telegram_id_for_panel(db_user)
 
         panel_user_obj_from_api = None
         panel_user_created_or_linked_now = False
 
-        panel_users_by_tg_id_list = await self.panel_service.get_users_by_filter(
-            telegram_id=user_id
-        )
+        panel_users_by_tg_id_list = None
+        if telegram_id_for_panel:
+            panel_users_by_tg_id_list = await self.panel_service.get_users_by_filter(
+                telegram_id=telegram_id_for_panel
+            )
         if panel_users_by_tg_id_list and len(panel_users_by_tg_id_list) == 1:
             panel_user_obj_from_api = panel_users_by_tg_id_list[0]
             logging.info(
-                f"Found panel user by telegramId {user_id}: UUID {panel_user_obj_from_api.get('uuid')}, Username: {panel_user_obj_from_api.get('username')}"
+                f"Found panel user by telegramId {telegram_id_for_panel}: UUID {panel_user_obj_from_api.get('uuid')}, Username: {panel_user_obj_from_api.get('username')}"
             )
         elif panel_users_by_tg_id_list and len(panel_users_by_tg_id_list) > 1:
             logging.error(
-                f"CRITICAL: Multiple panel users found for telegramId {user_id}. Manual intervention needed."
+                f"CRITICAL: Multiple panel users found for telegramId {telegram_id_for_panel}. Manual intervention needed."
             )
             return None, None, None, False
+
+        if not panel_user_obj_from_api and db_user.email:
+            panel_users_by_email_list = await self.panel_service.get_users_by_filter(
+                email=db_user.email
+            )
+            if panel_users_by_email_list and len(panel_users_by_email_list) == 1:
+                panel_user_obj_from_api = panel_users_by_email_list[0]
+                logging.info(
+                    f"Found panel user by email {db_user.email}: UUID {panel_user_obj_from_api.get('uuid')}, Username: {panel_user_obj_from_api.get('username')}"
+                )
+            elif panel_users_by_email_list and len(panel_users_by_email_list) > 1:
+                logging.error(
+                    f"CRITICAL: Multiple panel users found for email {db_user.email}. Manual intervention needed."
+                )
+                return None, None, None, False
 
         if not panel_user_obj_from_api:
             if current_local_panel_uuid:
@@ -146,12 +202,9 @@ class SubscriptionService:
                     )
                     creation_response = await self.panel_service.create_panel_user(
                         username_on_panel=panel_username_on_panel_standard,
-                        telegram_id=user_id,
-                        description="\n".join([
-                            (db_user.username or "") if db_user else "",
-                            (db_user.first_name or "") if db_user else "",
-                            (db_user.last_name or "") if db_user else "",
-                        ]),
+                        telegram_id=telegram_id_for_panel,
+                        email=db_user.email,
+                        description=self._panel_description_for_user(db_user),
                         specific_squad_uuids=self.settings.parsed_user_squad_uuids,
                         external_squad_uuid=self.settings.parsed_user_external_squad_uuid,
                         default_traffic_limit_bytes=self.settings.user_traffic_limit_bytes,
@@ -175,12 +228,9 @@ class SubscriptionService:
                 )
                 creation_response = await self.panel_service.create_panel_user(
                     username_on_panel=panel_username_on_panel_standard,
-                    telegram_id=user_id,
-                    description="\n".join([
-                        (db_user.username or "") if db_user else "",
-                        (db_user.first_name or "") if db_user else "",
-                        (db_user.last_name or "") if db_user else "",
-                    ]),
+                    telegram_id=telegram_id_for_panel,
+                    email=db_user.email,
+                    description=self._panel_description_for_user(db_user),
                     specific_squad_uuids=self.settings.parsed_user_squad_uuids,
                     external_squad_uuid=self.settings.parsed_user_external_squad_uuid,
                     default_traffic_limit_bytes=self.settings.user_traffic_limit_bytes,
@@ -226,7 +276,6 @@ class SubscriptionService:
             )
 
         actual_panel_uuid_from_api = panel_user_obj_from_api.get("uuid")
-        actual_panel_username_from_api = panel_user_obj_from_api.get("username")
         panel_telegram_id_from_api = panel_user_obj_from_api.get("telegramId")
 
         if not actual_panel_uuid_from_api:
@@ -293,24 +342,15 @@ class SubscriptionService:
         if (
             panel_user_obj_from_api
             and current_local_panel_uuid
-            and panel_telegram_id_int != user_id
+            and telegram_id_for_panel
+            and panel_telegram_id_int != telegram_id_for_panel
         ):
             logging.info(
-                f"Panel user {current_local_panel_uuid} has telegramId '{panel_telegram_id_from_api}'. Updating on panel to '{user_id}'."
+                f"Panel user {current_local_panel_uuid} has telegramId '{panel_telegram_id_from_api}'. Updating on panel to '{telegram_id_for_panel}'."
             )
-            # Also set readable description with Telegram fields
             await self.panel_service.update_user_details_on_panel(
                 current_local_panel_uuid,
-                {
-                    "telegramId": user_id,
-                    "description": "\n".join(
-                        [
-                            (db_user.username or "") if db_user else "",
-                            (db_user.first_name or "") if db_user else "",
-                            (db_user.last_name or "") if db_user else "",
-                        ]
-                    ),
-                },
+                self._panel_identity_payload_for_user(db_user),
             )
 
         panel_sub_link_id = panel_user_obj_from_api.get(
@@ -408,14 +448,7 @@ class SubscriptionService:
             traffic_limit_bytes=self.settings.trial_traffic_limit_bytes,
         )
 
-        # Add user description based on Telegram profile
-        panel_update_payload["description"] = "\n".join(
-            [
-                (db_user.username or "") if db_user else "",
-                (db_user.first_name or "") if db_user else "",
-                (db_user.last_name or "") if db_user else "",
-            ]
-        )
+        panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
 
         updated_panel_user = await self.panel_service.update_user_details_on_panel(
             panel_user_uuid, panel_update_payload
@@ -525,13 +558,7 @@ class SubscriptionService:
             traffic_limit_strategy="NO_RESET",
         )
 
-        panel_update_payload["description"] = "\n".join(
-            [
-                (db_user.username or "") if db_user else "",
-                (db_user.first_name or "") if db_user else "",
-                (db_user.last_name or "") if db_user else "",
-            ]
-        )
+        panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
 
         updated_panel_user = await self.panel_service.update_user_details_on_panel(
             panel_user_uuid, panel_update_payload
@@ -695,14 +722,7 @@ class SubscriptionService:
             traffic_limit_bytes=self.settings.user_traffic_limit_bytes,
         )
 
-        # Add user description based on Telegram profile
-        panel_update_payload["description"] = "\n".join(
-            [
-                (db_user.username or "") if db_user else "",
-                (db_user.first_name or "") if db_user else "",
-                (db_user.last_name or "") if db_user else "",
-            ]
-        )
+        panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
 
         updated_panel_user = await self.panel_service.update_user_details_on_panel(
             panel_user_uuid, panel_update_payload

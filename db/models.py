@@ -14,6 +14,9 @@ class User(Base):
 
     user_id = Column(BigInteger, primary_key=True, index=True)
     username = Column(String, nullable=True, index=True)
+    email = Column(String, nullable=True, unique=True, index=True)
+    email_verified_at = Column(DateTime(timezone=True), nullable=True)
+    telegram_id = Column(BigInteger, nullable=True, unique=True, index=True)
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     language_code = Column(String, default="ru")
@@ -84,6 +87,27 @@ class Subscription(Base):
 
     def __repr__(self):
         return f"<Subscription(id={self.subscription_id}, user_id={self.user_id}, panel_uuid='{self.panel_user_uuid}', ends='{self.end_date}')>"
+
+
+class EmailVerificationCode(Base):
+    __tablename__ = "email_verification_codes"
+
+    code_id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String, nullable=False, index=True)
+    code_hash = Column(String, nullable=False)
+    purpose = Column(String, nullable=False, index=True)
+    target_user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id"),
+        nullable=True,
+        index=True,
+    )
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    consumed_at = Column(DateTime(timezone=True), nullable=True)
+    attempts = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    target_user = relationship("User")
 
 
 class Payment(Base):

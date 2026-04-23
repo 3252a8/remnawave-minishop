@@ -9,13 +9,19 @@ window.__WEBAPP_DEV_MOCK__ = {
         privacyPolicyUrl: 'https://example.com/privacy',
         userAgreementUrl: 'https://example.com/agreement',
         currency: 'RUB',
-        language: 'ru'
+        language: 'ru',
+        emailAuthEnabled: true,
+        telegramLoginBotUsername: 'preview_bot'
       },
       data: {
         ok: true,
         user: {
           id: 100200300,
           username: 'preview',
+          email: '',
+          email_verified: false,
+          telegram_id: 100200300,
+          telegram_linked: true,
           first_name: 'Preview',
           language_code: 'ru'
         },
@@ -45,7 +51,8 @@ window.__WEBAPP_DEV_MOCK__ = {
         ],
         settings: {
           support_url: 'https://t.me/support',
-          traffic_mode: false
+          traffic_mode: false,
+          email_auth_enabled: true
         }
       }
     };
@@ -70,6 +77,16 @@ const MOCK = (() => {
       paymentStep: 'plan',
       creatingPayment: false,
       authInProgress: false,
+      authMode: (CFG.emailAuthEnabled === false ? 'telegram' : 'email'),
+      emailLoginPending: false,
+      emailLoginEmail: '',
+      emailLoginCodeModalOpen: false,
+      emailLoginVerifying: false,
+      emailLoginResending: false,
+      emailLinkPending: false,
+      emailLinkEmail: '',
+      telegramLinkRendered: false,
+      telegramLinkInProgress: false,
       toastTimer: null
     };
 
@@ -85,9 +102,10 @@ const MOCK = (() => {
         traffic: 'Трафик',
         connect: 'Подключиться',
         copy_link: 'Скопировать ссылку',
-        extend_subscription: 'Продлить подписку/Добавить дни',
+        extend_subscription: 'Купить подписку / Добавить дни',
         payment_title: 'Оплата подписки',
         payment_caption: 'Выберите срок, способ оплаты и создайте платеж.',
+        close: 'Закрыть',
         close_payment: 'Закрыть оплату',
         payment_steps: 'Шаги оплаты',
         step_plan: 'Срок',
@@ -103,6 +121,35 @@ const MOCK = (() => {
         check_payment: 'Проверить оплату',
         choose_other_method: 'Выбрать другой способ',
         support: 'Поддержка',
+        account_title: 'Аккаунт',
+        account_caption: 'Способы входа',
+        email_label: 'Email',
+        telegram_label: 'Telegram',
+        linked: 'Привязан',
+        not_linked: 'Не привязан',
+        email_login_tab: 'Email',
+        telegram_login_tab: 'Telegram',
+        email_placeholder: 'mail@example.com',
+        code_placeholder: '000000',
+        send_code: 'Отправить код',
+        resend_code: 'Отправить еще раз',
+        confirm: 'Подтвердить',
+        login: 'Войти',
+        email_code_title: 'Подтвердите вход',
+        email_code_caption: 'Введите 6-значный код из письма.',
+        email_code_aria: 'Код подтверждения',
+        email_auth_disabled: 'Вход по email пока не настроен.',
+        email_required: 'Введите email',
+        email_invalid: 'Введите корректный email',
+        email_code_sending: 'Отправляю код...',
+        email_code_sent: 'Код отправлен на почту',
+        email_code_send_failed: 'Не удалось отправить код',
+        email_code_invalid: 'Неверный код',
+        email_code_expired: 'Код устарел',
+        email_rate_limited: 'Повторная отправка доступна через {seconds} сек.',
+        email_linked: 'Email привязан',
+        telegram_linked: 'Telegram привязан',
+        account_merge_conflict: 'Этот аккаунт уже связан с другими данными.',
         telegram_auth: 'Telegram auth',
         telegram_auth_verifying: 'Проверяю вход...',
         telegram_auth_failed: 'Не удалось подтвердить Telegram-вход. Попробуйте еще раз.',
@@ -145,6 +192,7 @@ const MOCK = (() => {
         extend_subscription: 'Renew subscription/Add days',
         payment_title: 'Subscription payment',
         payment_caption: 'Choose a period, payment method, and create a payment.',
+        close: 'Close',
         close_payment: 'Close payment',
         payment_steps: 'Payment steps',
         step_plan: 'Period',
@@ -160,6 +208,35 @@ const MOCK = (() => {
         check_payment: 'Check payment',
         choose_other_method: 'Choose another method',
         support: 'Support',
+        account_title: 'Account',
+        account_caption: 'Sign-in methods',
+        email_label: 'Email',
+        telegram_label: 'Telegram',
+        linked: 'Linked',
+        not_linked: 'Not linked',
+        email_login_tab: 'Email',
+        telegram_login_tab: 'Telegram',
+        email_placeholder: 'mail@example.com',
+        code_placeholder: '000000',
+        send_code: 'Send code',
+        resend_code: 'Send again',
+        confirm: 'Confirm',
+        login: 'Log in',
+        email_code_title: 'Confirm login',
+        email_code_caption: 'Enter the 6-digit code from the email.',
+        email_code_aria: 'Verification code',
+        email_auth_disabled: 'Email sign-in is not configured yet.',
+        email_required: 'Enter your email',
+        email_invalid: 'Enter a valid email address',
+        email_code_sending: 'Sending code...',
+        email_code_sent: 'Code sent to email',
+        email_code_send_failed: 'Could not send code',
+        email_code_invalid: 'Invalid code',
+        email_code_expired: 'Code expired',
+        email_rate_limited: 'Try again in {seconds} sec.',
+        email_linked: 'Email linked',
+        telegram_linked: 'Telegram linked',
+        account_merge_conflict: 'This account is already linked to different data.',
         telegram_auth: 'Telegram auth',
         telegram_auth_verifying: 'Verifying login...',
         telegram_auth_failed: 'Could not verify Telegram login. Try again.',
@@ -213,8 +290,14 @@ const MOCK = (() => {
       } catch (e) { }
     }
 
+    bindEmailLoginInput();
+    bindEmailCodeInput();
+
     document.addEventListener('keydown', event => {
-      if (event.key === 'Escape' && state.paymentFlowOpen) {
+      if (event.key !== 'Escape') return;
+      if (state.emailLoginCodeModalOpen) {
+        closeEmailLoginCodeModal();
+      } else if (state.paymentFlowOpen) {
         closePaymentFlow();
       }
     });
@@ -339,6 +422,34 @@ const MOCK = (() => {
       await finalizeTelegramAuth(user, 'auth_data');
     }
 
+    function setAuthMode(mode) {
+      state.authMode = mode === 'telegram' ? 'telegram' : 'email';
+      renderAuthMode();
+    }
+
+    function renderAuthMode() {
+      const emailTab = document.getElementById('email-auth-tab');
+      const telegramTab = document.getElementById('telegram-auth-tab');
+      const emailPane = document.getElementById('email-login-pane');
+      const telegramPane = document.getElementById('telegram-login-pane');
+      const emailEnabled = CFG.emailAuthEnabled !== false;
+      if (!emailEnabled && state.authMode === 'email') {
+        state.authMode = 'telegram';
+      }
+
+      emailTab.classList.toggle('active', state.authMode === 'email');
+      telegramTab.classList.toggle('active', state.authMode === 'telegram');
+      emailPane.classList.toggle('hidden', state.authMode !== 'email');
+      telegramPane.classList.toggle('hidden', state.authMode !== 'telegram');
+
+      emailTab.disabled = !emailEnabled;
+      if (state.authMode === 'telegram') {
+        renderTelegramLoginWidget();
+      } else if (!emailEnabled) {
+        setAuthStatus(t('email_auth_disabled'), true);
+      }
+    }
+
     function renderTelegramLoginWidget() {
       const container = document.getElementById('telegram-login-widget');
       if (!container) return;
@@ -368,13 +479,250 @@ const MOCK = (() => {
       container.appendChild(script);
     }
 
+    function bindEmailLoginInput() {
+      const input = document.getElementById('email-login-input');
+      if (!input) return;
+
+      input.addEventListener('keydown', event => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        requestEmailLoginCode();
+      });
+      input.addEventListener('input', () => {
+        if (input.getAttribute('aria-invalid') !== 'true') return;
+        input.removeAttribute('aria-invalid');
+        setAuthStatus('');
+      });
+    }
+
+    function bindEmailCodeInput() {
+      const input = document.getElementById('email-login-code-input');
+      if (!input) return;
+
+      input.addEventListener('input', () => {
+        input.value = sanitizeCode(input.value);
+        updateEmailLoginCodeSlots();
+      });
+      input.addEventListener('focus', updateEmailLoginCodeSlots);
+      input.addEventListener('blur', updateEmailLoginCodeSlots);
+      input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          if (sanitizeCode(input.value).length === 6 && !state.emailLoginVerifying) {
+            verifyEmailLoginCode();
+          }
+        }
+      });
+
+      const field = input.closest('.otp-field');
+      if (field) {
+        field.addEventListener('click', () => input.focus());
+      }
+    }
+
+    function sanitizeCode(value) {
+      return String(value || '').replace(/\D/g, '').slice(0, 6);
+    }
+
+    function isValidEmail(value) {
+      const email = normalizeEmail(value);
+      return Boolean(email && email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+    }
+
+    function readValidEmailLoginInput() {
+      const input = document.getElementById('email-login-input');
+      const email = normalizeEmail(input && input.value);
+      if (!email || !isValidEmail(email)) {
+        if (input) {
+          input.setAttribute('aria-invalid', 'true');
+          input.focus();
+        }
+        setAuthStatus(t(email ? 'email_invalid' : 'email_required'), true);
+        return '';
+      }
+
+      if (input) {
+        input.value = email;
+        input.removeAttribute('aria-invalid');
+      }
+      return email;
+    }
+
+    function openEmailLoginCodeModal(email, message, isError = false) {
+      state.emailLoginEmail = email;
+      state.emailLoginCodeModalOpen = true;
+      const input = document.getElementById('email-login-code-input');
+      if (input) input.value = '';
+      renderEmailLoginCodeModal();
+      setEmailCodeStatus(message || t('email_code_sent'), isError);
+      window.setTimeout(() => {
+        const codeInput = document.getElementById('email-login-code-input');
+        if (state.emailLoginCodeModalOpen && codeInput) codeInput.focus();
+      }, 80);
+    }
+
+    function closeEmailLoginCodeModal() {
+      state.emailLoginCodeModalOpen = false;
+      const input = document.getElementById('email-login-code-input');
+      if (input) input.value = '';
+      setEmailCodeStatus('');
+      renderEmailLoginCodeModal();
+    }
+
+    function renderEmailLoginCodeModal() {
+      const modal = document.getElementById('email-code-modal');
+      if (!modal) return;
+
+      if (!state.emailLoginCodeModalOpen) {
+        modal.classList.remove('show');
+        syncModalLock();
+        window.setTimeout(() => {
+          if (!state.emailLoginCodeModalOpen) modal.classList.add('hidden');
+        }, 180);
+        return;
+      }
+
+      const address = document.getElementById('email-code-address');
+      if (address) address.textContent = state.emailLoginEmail || '...';
+      modal.classList.remove('hidden');
+      syncModalLock();
+      applyI18n(modal);
+      updateEmailLoginCodeSlots();
+      window.requestAnimationFrame(() => modal.classList.add('show'));
+    }
+
+    function updateEmailLoginCodeSlots() {
+      const input = document.getElementById('email-login-code-input');
+      const value = sanitizeCode(input && input.value);
+      if (input && input.value !== value) input.value = value;
+
+      for (let index = 0; index < 6; index += 1) {
+        const slot = document.getElementById('email-code-slot-' + index);
+        if (!slot) continue;
+        const character = value[index] || '';
+        slot.textContent = character;
+        slot.classList.toggle('filled', Boolean(character));
+        slot.classList.toggle(
+          'active',
+          state.emailLoginCodeModalOpen
+            && document.activeElement === input
+            && index === Math.min(value.length, 5)
+        );
+      }
+
+      const verifyButton = document.getElementById('email-login-verify-btn');
+      if (verifyButton) {
+        verifyButton.disabled = value.length !== 6 || state.emailLoginVerifying || state.emailLoginPending;
+      }
+
+      const resendButton = document.getElementById('email-login-resend-btn');
+      if (resendButton) {
+        resendButton.disabled = state.emailLoginPending || state.emailLoginResending;
+      }
+    }
+
+    async function requestEmailLoginCode() {
+      if (state.emailLoginPending) return;
+      if (CFG.emailAuthEnabled === false) {
+        setAuthStatus(t('email_auth_disabled'), true);
+        return;
+      }
+      const email = readValidEmailLoginInput();
+      if (!email) {
+        return;
+      }
+      state.emailLoginPending = true;
+      setButtonBusy('email-login-send-btn', true);
+      openEmailLoginCodeModal(email, t('email_code_sending'));
+      setAuthStatus('');
+      try {
+        const data = await publicApi('/auth/email/request', {
+          email,
+          language: getLanguage()
+        });
+        if (!data.ok) throw data;
+        setEmailCodeStatus(t('email_code_sent'));
+      } catch (e) {
+        const message = emailErrorMessage(e, 'email_code_send_failed');
+        if (e && e.error === 'invalid_email') {
+          closeEmailLoginCodeModal();
+          const input = document.getElementById('email-login-input');
+          if (input) input.setAttribute('aria-invalid', 'true');
+          setAuthStatus(message, true);
+        } else {
+          setEmailCodeStatus(message, true);
+        }
+      } finally {
+        state.emailLoginPending = false;
+        setButtonBusy('email-login-send-btn', false);
+        updateEmailLoginCodeSlots();
+      }
+    }
+
+    async function resendEmailLoginCode() {
+      if (state.emailLoginPending || state.emailLoginResending) return;
+      const email = state.emailLoginEmail || normalizeEmail(document.getElementById('email-login-input').value);
+      if (!email || !isValidEmail(email)) {
+        setEmailCodeStatus(t(email ? 'email_invalid' : 'email_required'), true);
+        return;
+      }
+
+      state.emailLoginResending = true;
+      updateEmailLoginCodeSlots();
+      setEmailCodeStatus(t('email_code_sending'));
+      try {
+        const data = await publicApi('/auth/email/request', {
+          email,
+          language: getLanguage()
+        });
+        if (!data.ok) throw data;
+        state.emailLoginEmail = email;
+        const input = document.getElementById('email-login-code-input');
+        if (input) input.value = '';
+        setEmailCodeStatus(t('email_code_sent'));
+      } catch (e) {
+        setEmailCodeStatus(emailErrorMessage(e, 'email_code_send_failed'), true);
+      } finally {
+        state.emailLoginResending = false;
+        updateEmailLoginCodeSlots();
+      }
+    }
+
+    async function verifyEmailLoginCode() {
+      const email = state.emailLoginEmail || normalizeEmail(document.getElementById('email-login-input').value);
+      const input = document.getElementById('email-login-code-input');
+      const code = sanitizeCode(input && input.value);
+      if (!email || code.length !== 6) {
+        setEmailCodeStatus(t('email_code_invalid'), true);
+        updateEmailLoginCodeSlots();
+        return;
+      }
+
+      state.emailLoginVerifying = true;
+      updateEmailLoginCodeSlots();
+      setEmailCodeStatus(t('telegram_auth_verifying'));
+      try {
+        const data = await publicApi('/auth/email/verify', {email, code});
+        if (!data.ok || !data.token) throw data;
+        setToken(data.token);
+        closeEmailLoginCodeModal();
+        await loadData();
+      } catch (e) {
+        clearToken();
+        setEmailCodeStatus(emailErrorMessage(e, 'email_code_invalid'), true);
+      } finally {
+        state.emailLoginVerifying = false;
+        updateEmailLoginCodeSlots();
+      }
+    }
+
     function startExternalAuth(options = {}) {
       const resetStatus = options.resetStatus !== false;
       showLogin();
       if (resetStatus) {
         setAuthStatus('');
       }
-      renderTelegramLoginWidget();
+      renderAuthMode();
     }
 
     async function loadData() {
@@ -390,6 +738,7 @@ const MOCK = (() => {
       state.selectedMethod = null;
       state.payment = null;
       state.paymentStep = 'plan';
+      state.telegramLinkRendered = false;
       render();
       showApp();
     }
@@ -401,6 +750,7 @@ const MOCK = (() => {
 
     function render() {
       renderSubscription(state.data.subscription);
+      renderAccount(state.data.user || {});
       renderPaymentFlow();
     }
 
@@ -412,6 +762,168 @@ const MOCK = (() => {
       document.getElementById('end-date').textContent = sub.end_date_text || t('not_available');
       document.getElementById('traffic').textContent = (sub.traffic_used || t('not_available')) + ' / ' + (sub.traffic_limit || t('not_available'));
       document.getElementById('connect-actions').classList.toggle('hidden', !sub.connect_url && !sub.config_link);
+    }
+
+    function renderAccount(user) {
+      const emailLinked = Boolean(user.email && user.email_verified);
+      const telegramLinked = Boolean(user.telegram_linked);
+      document.getElementById('account-email').textContent = emailLinked ? user.email : t('not_linked');
+      document.getElementById('account-telegram').textContent = telegramLinked
+        ? (user.telegram_id ? String(user.telegram_id) : t('linked'))
+        : t('not_linked');
+
+      const emailBox = document.getElementById('email-link-box');
+      const telegramBox = document.getElementById('telegram-link-box');
+      emailBox.classList.toggle('hidden', emailLinked || !state.data.settings.email_auth_enabled);
+      telegramBox.classList.toggle('hidden', telegramLinked);
+
+      if (!telegramLinked) {
+        renderTelegramLinkWidget();
+      } else {
+        state.telegramLinkRendered = false;
+      }
+    }
+
+    async function requestEmailLinkCode() {
+      const input = document.getElementById('email-link-input');
+      const email = normalizeEmail(input.value);
+      if (!email) {
+        showToast(t('email_code_send_failed'));
+        return;
+      }
+      state.emailLinkPending = true;
+      setButtonBusy('email-link-send-btn', true);
+      try {
+        const data = await api('/account/email/request', {
+          method: 'POST',
+          body: JSON.stringify({email})
+        });
+        if (!data.ok) throw data;
+        if (data.already_linked) {
+          showToast(t('email_linked'));
+          await loadData();
+          return;
+        }
+        state.emailLinkEmail = email;
+        document.getElementById('email-link-code-row').classList.remove('hidden');
+        showToast(t('email_code_sent'));
+      } catch (e) {
+        showToast(emailErrorMessage(e, 'email_code_send_failed'));
+      } finally {
+        state.emailLinkPending = false;
+        setButtonBusy('email-link-send-btn', false);
+      }
+    }
+
+    async function verifyEmailLinkCode() {
+      const email = state.emailLinkEmail || normalizeEmail(document.getElementById('email-link-input').value);
+      const code = document.getElementById('email-link-code-input').value;
+      setButtonBusy('email-link-verify-btn', true);
+      try {
+        const data = await api('/account/email/verify', {
+          method: 'POST',
+          body: JSON.stringify({email, code})
+        });
+        if (!data.ok) throw data;
+        if (data.token) setToken(data.token);
+        showToast(t('email_linked'));
+        state.emailLinkEmail = '';
+        await loadData();
+      } catch (e) {
+        showToast(emailErrorMessage(e, 'email_code_invalid'));
+      } finally {
+        setButtonBusy('email-link-verify-btn', false);
+      }
+    }
+
+    function renderTelegramLinkWidget() {
+      const container = document.getElementById('telegram-link-widget');
+      if (!container || state.telegramLinkRendered) return;
+      container.innerHTML = '';
+      const botUsername = String(CFG.telegramLoginBotUsername || '').trim();
+      if (!botUsername) {
+        setTelegramLinkStatus(t('telegram_auth_unavailable'), true);
+        return;
+      }
+
+      window.onTelegramLinkAuth = async function(user) {
+        await linkTelegramAccount(user);
+      };
+
+      const script = document.createElement('script');
+      script.async = true;
+      script.src = TELEGRAM_LOGIN_WIDGET_URL;
+      script.setAttribute('data-telegram-login', botUsername);
+      script.setAttribute('data-size', 'large');
+      script.setAttribute('data-userpic', 'false');
+      script.setAttribute('data-request-access', 'write');
+      script.setAttribute('data-onauth', 'onTelegramLinkAuth(user)');
+      script.onerror = () => setTelegramLinkStatus(t('telegram_auth_unavailable'), true);
+      container.appendChild(script);
+      state.telegramLinkRendered = true;
+    }
+
+    async function linkTelegramAccount(user) {
+      if (!user || state.telegramLinkInProgress) return;
+      state.telegramLinkInProgress = true;
+      setTelegramLinkStatus(t('telegram_auth_verifying'));
+      try {
+        const data = await api('/account/telegram/link', {
+          method: 'POST',
+          body: JSON.stringify({auth_data: user})
+        });
+        if (!data.ok) throw data;
+        await finishTelegramLink(data, user.id);
+      } catch (e) {
+        if (await refreshLinkedTelegramAfterError()) {
+          setTelegramLinkStatus('');
+          try {
+            showToast(t('telegram_linked'));
+          } catch (toastError) {
+            console.warn('Telegram link success toast failed', toastError);
+          }
+          return;
+        }
+        setTelegramLinkStatus(emailErrorMessage(e, 'telegram_auth_failed'), true);
+      } finally {
+        state.telegramLinkInProgress = false;
+      }
+    }
+
+    async function finishTelegramLink(data, fallbackTelegramId) {
+      if (data.token) setToken(data.token);
+      markTelegramLinked(data.telegram_id || fallbackTelegramId);
+      setTelegramLinkStatus('');
+      state.telegramLinkRendered = false;
+      try {
+        showToast(t('telegram_linked'));
+      } catch (toastError) {
+        console.warn('Telegram link success toast failed', toastError);
+      }
+      try {
+        await loadData();
+      } catch (refreshError) {
+        console.warn('Telegram account linked, but data refresh failed', refreshError);
+      }
+    }
+
+    function markTelegramLinked(telegramId) {
+      if (!state.data || !state.data.user) return;
+      state.data.user.telegram_linked = true;
+      if (telegramId) {
+        state.data.user.telegram_id = Number(telegramId);
+      }
+      renderAccount(state.data.user);
+    }
+
+    async function refreshLinkedTelegramAfterError() {
+      try {
+        await loadData();
+        return Boolean(state.data && state.data.user && state.data.user.telegram_linked);
+      } catch (refreshError) {
+        console.warn('Telegram link status refresh failed', refreshError);
+        return false;
+      }
     }
 
     function togglePaymentFlow() {
@@ -438,7 +950,7 @@ const MOCK = (() => {
       const modal = document.getElementById('payment-modal');
       if (!state.paymentFlowOpen) {
         modal.classList.remove('show');
-        document.body.classList.remove('modal-open');
+        syncModalLock();
         window.setTimeout(() => {
           if (!state.paymentFlowOpen) modal.classList.add('hidden');
         }, 180);
@@ -446,13 +958,20 @@ const MOCK = (() => {
       }
 
       modal.classList.remove('hidden');
-      document.body.classList.add('modal-open');
+      syncModalLock();
       window.requestAnimationFrame(() => modal.classList.add('show'));
       applyI18n(modal);
       renderStepState();
       renderPlans(state.data.plans || []);
       renderMethods();
       renderPaymentResult();
+    }
+
+    function syncModalLock() {
+      document.body.classList.toggle(
+        'modal-open',
+        Boolean(state.paymentFlowOpen || state.emailLoginCodeModalOpen)
+      );
     }
 
     function renderStepState() {
@@ -694,10 +1213,41 @@ const MOCK = (() => {
       return response.json();
     }
 
+    async function publicApi(path, payload = {}) {
+      if (MOCK) {
+        return mockApi(path, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+      }
+      const response = await fetch(CFG.apiBase + path, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      return response.json();
+    }
+
     async function mockApi(path, options = {}) {
       await new Promise(resolve => window.setTimeout(resolve, 120));
       if (path === '/me') {
         return JSON.parse(JSON.stringify(MOCK.data));
+      }
+      if (path === '/auth/email/request' || path === '/account/email/request') {
+        return {ok: true};
+      }
+      if (path === '/auth/email/verify') {
+        return {ok: true, token: 'local-preview'};
+      }
+      if (path === '/account/email/verify') {
+        MOCK.data.user.email = 'preview@example.com';
+        MOCK.data.user.email_verified = true;
+        return {ok: true, token: 'local-preview'};
+      }
+      if (path === '/account/telegram/link') {
+        MOCK.data.user.telegram_linked = true;
+        MOCK.data.user.telegram_id = 100200300;
+        return {ok: true, token: 'local-preview'};
       }
       if (path === '/payments' && String(options.method || '').toUpperCase() === 'POST') {
         return {
@@ -728,9 +1278,33 @@ const MOCK = (() => {
       localStorage.removeItem('rw_webapp_token');
     }
 
+    function normalizeEmail(value) {
+      return String(value || '').trim().toLowerCase();
+    }
+
+    function emailErrorMessage(error, fallbackKey) {
+      const code = error && error.error;
+      if (code === 'rate_limited') {
+        return t('email_rate_limited', {seconds: error.retry_after || 60});
+      }
+      if (code === 'invalid_email') return t('email_invalid');
+      if (code === 'expired_code') return t('email_code_expired');
+      if (code === 'invalid_code' || code === 'too_many_attempts') return t('email_code_invalid');
+      if (code === 'email_auth_not_configured') return t('email_auth_disabled');
+      if (code === 'account_merge_conflict') return t('account_merge_conflict');
+      if (code === 'invalid_auth') return t('telegram_auth_failed');
+      return t(fallbackKey);
+    }
+
+    function setButtonBusy(id, busy) {
+      const button = document.getElementById(id);
+      if (button) button.disabled = Boolean(busy);
+    }
+
     function logout() {
       clearToken();
       closePaymentFlow();
+      closeEmailLoginCodeModal();
       startExternalAuth();
     }
 
@@ -762,6 +1336,35 @@ const MOCK = (() => {
         return;
       }
 
+      status.textContent = message;
+      status.classList.remove('hidden');
+      status.classList.toggle('error', Boolean(isError));
+    }
+
+    function setEmailCodeStatus(message, isError = false) {
+      const status = document.getElementById('email-code-status');
+      if (!status) return;
+      if (!message) {
+        status.textContent = '';
+        status.classList.add('hidden');
+        status.classList.remove('error');
+        return;
+      }
+
+      status.textContent = message;
+      status.classList.remove('hidden');
+      status.classList.toggle('error', Boolean(isError));
+    }
+
+    function setTelegramLinkStatus(message, isError = false) {
+      const status = document.getElementById('telegram-link-status');
+      if (!status) return;
+      if (!message) {
+        status.textContent = '';
+        status.classList.add('hidden');
+        status.classList.remove('error');
+        return;
+      }
       status.textContent = message;
       status.classList.remove('hidden');
       status.classList.toggle('error', Boolean(isError));
@@ -825,6 +1428,9 @@ const MOCK = (() => {
       });
       root.querySelectorAll('[data-aria-i18n]').forEach(node => {
         node.setAttribute('aria-label', t(node.dataset.ariaI18n));
+      });
+      root.querySelectorAll('[data-placeholder-i18n]').forEach(node => {
+        node.setAttribute('placeholder', t(node.dataset.placeholderI18n));
       });
     }
 

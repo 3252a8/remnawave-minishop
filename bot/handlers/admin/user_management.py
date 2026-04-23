@@ -31,6 +31,7 @@ from bot.utils.telegram_markup import (
 
 router = Router(name="admin_user_management_router")
 USERNAME_REGEX = re.compile(r"^[a-zA-Z0-9_]{5,32}$")
+EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def _format_traffic_period(strategy: Optional[str], get_text: Callable[..., str]) -> Optional[str]:
@@ -51,6 +52,24 @@ def _format_used_with_period(get_text: Callable[..., str], used_display: str, pe
     if not period_label:
         return used_display
     return get_text("traffic_used_with_period", traffic_used=used_display, traffic_period=period_label)
+
+
+async def _find_user_by_admin_input(
+    session: AsyncSession,
+    input_text: str,
+) -> Optional[User]:
+    if input_text.isdigit() or (input_text.startswith("-") and input_text[1:].isdigit()):
+        try:
+            return await user_dal.get_user_by_id(session, int(input_text))
+        except ValueError:
+            return None
+    if EMAIL_REGEX.match(input_text):
+        return await user_dal.get_user_by_email(session, input_text)
+    if input_text.startswith("@") and USERNAME_REGEX.match(input_text[1:]):
+        return await user_dal.get_user_by_username(session, input_text[1:])
+    if USERNAME_REGEX.match(input_text):
+        return await user_dal.get_user_by_username(session, input_text)
+    return None
 
 
 async def users_list_handler(callback: types.CallbackQuery,
@@ -250,6 +269,10 @@ async def format_user_card(user: User, session: AsyncSession,
     card_parts.append(f"{_('admin_user_id_label')} {hcode(str(user.user_id))}")
     card_parts.append(f"{_('admin_user_name_label')} {hcode(user_name)}")
     card_parts.append(f"{_('admin_user_username_label')} {hcode(username_display)}")
+    if user.email:
+        card_parts.append(f"{_('admin_user_email_label')} {hcode(user.email)}")
+    if user.telegram_id and int(user.telegram_id) != int(user.user_id):
+        card_parts.append(f"{_('admin_user_telegram_id_label')} {hcode(str(user.telegram_id))}")
     card_parts.append(f"{_('admin_user_language_label')} {hcode(user.language_code or na_value)}")
     card_parts.append(f"{_('admin_user_registration_label')} {hcode(registration_date)}")
     
@@ -361,18 +384,7 @@ async def process_user_search_handler(message: types.Message, state: FSMContext,
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     input_text = message.text.strip() if message.text else ""
-    user_model: Optional[User] = None
-
-    # Try to find user by ID or username
-    if input_text.isdigit():
-        try:
-            user_model = await user_dal.get_user_by_id(session, int(input_text))
-        except ValueError:
-            pass
-    elif input_text.startswith("@") and USERNAME_REGEX.match(input_text[1:]):
-        user_model = await user_dal.get_user_by_username(session, input_text[1:])
-    elif USERNAME_REGEX.match(input_text):
-        user_model = await user_dal.get_user_by_username(session, input_text)
+    user_model = await _find_user_by_admin_input(session, input_text)
 
     if not user_model:
         await message.answer(_(
@@ -1177,18 +1189,7 @@ async def process_ban_user_handler(message: types.Message, state: FSMContext,
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     input_text = message.text.strip() if message.text else ""
-    user_model: Optional[User] = None
-
-    # Try to find user by ID or username
-    if input_text.isdigit():
-        try:
-            user_model = await user_dal.get_user_by_id(session, int(input_text))
-        except ValueError:
-            pass
-    elif input_text.startswith("@") and USERNAME_REGEX.match(input_text[1:]):
-        user_model = await user_dal.get_user_by_username(session, input_text[1:])
-    elif USERNAME_REGEX.match(input_text):
-        user_model = await user_dal.get_user_by_username(session, input_text)
+    user_model = await _find_user_by_admin_input(session, input_text)
 
     if not user_model:
         await message.answer(_(
@@ -1244,18 +1245,7 @@ async def process_unban_user_handler(message: types.Message, state: FSMContext,
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     input_text = message.text.strip() if message.text else ""
-    user_model: Optional[User] = None
-
-    # Try to find user by ID or username
-    if input_text.isdigit():
-        try:
-            user_model = await user_dal.get_user_by_id(session, int(input_text))
-        except ValueError:
-            pass
-    elif input_text.startswith("@") and USERNAME_REGEX.match(input_text[1:]):
-        user_model = await user_dal.get_user_by_username(session, input_text[1:])
-    elif USERNAME_REGEX.match(input_text):
-        user_model = await user_dal.get_user_by_username(session, input_text)
+    user_model = await _find_user_by_admin_input(session, input_text)
 
     if not user_model:
         await message.answer(_(

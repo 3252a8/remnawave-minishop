@@ -176,6 +176,96 @@
       gap: 16px;
     }
 
+    .account-panel {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 850;
+      line-height: 1.2;
+    }
+
+    .account-grid {
+      display: grid;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .account-row {
+      min-height: 46px;
+      padding: 10px 12px;
+      display: grid;
+      grid-template-columns: minmax(0, 0.68fr) minmax(0, 1.32fr);
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .account-row + .account-row {
+      border-top: 1px solid var(--border);
+    }
+
+    .link-box,
+    .field-stack {
+      display: grid;
+      gap: 8px;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(120px, auto);
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .input {
+      width: 100%;
+      min-height: 46px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.035);
+      color: var(--text-primary);
+      padding: 11px 12px;
+      font: inherit;
+      font-weight: 700;
+      outline: none;
+      transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+    }
+
+    .input:focus {
+      border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+    }
+
+    .input[aria-invalid="true"] {
+      border-color: color-mix(in srgb, var(--danger) 72%, var(--border));
+    }
+
+    .input[aria-invalid="true"]:focus {
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 14%, transparent);
+    }
+
+    .input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .code-input {
+      font-family: var(--font-mono);
+      text-align: center;
+      letter-spacing: 0;
+    }
+
     .badge-row {
       display: flex;
       align-items: center;
@@ -474,6 +564,22 @@
       gap: 14px;
     }
 
+    .code-modal-stack {
+      position: relative;
+      z-index: 1;
+      width: min(100%, 420px);
+      display: grid;
+      gap: 10px;
+      justify-items: stretch;
+    }
+
+    .code-modal-card {
+      width: 100%;
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
     .flow-head {
       display: flex;
       align-items: flex-start;
@@ -491,6 +597,91 @@
       margin-top: 3px;
       color: var(--text-secondary);
       font-size: 13px;
+    }
+
+    .code-summary {
+      min-height: 46px;
+      padding: 10px 12px;
+      display: grid;
+      grid-template-columns: minmax(0, 0.6fr) minmax(0, 1.4fr);
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .otp-field {
+      position: relative;
+      display: block;
+      min-height: 56px;
+    }
+
+    .otp-input {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: transparent;
+      color: transparent;
+      caret-color: transparent;
+      opacity: 0.01;
+      outline: none;
+    }
+
+    .otp-slots {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .otp-slots span {
+      min-width: 0;
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.035);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 20px;
+      font-weight: 850;
+      line-height: 1;
+      transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+    }
+
+    .otp-slots span.filled {
+      border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+      background: color-mix(in srgb, var(--accent) 7%, rgba(255, 255, 255, 0.035));
+    }
+
+    .otp-slots span.active {
+      border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+    }
+
+    .code-modal-actions {
+      display: grid;
+      gap: 8px;
+    }
+
+    .code-modal-resend {
+      justify-self: center;
+      min-height: 28px;
+      padding: 0 4px;
+      border: 0;
+      background: transparent;
+      color: var(--text-secondary);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 750;
+      text-decoration: underline;
+      text-decoration-color: color-mix(in srgb, var(--accent) 42%, currentColor);
+      text-underline-offset: 3px;
+      transition: color var(--transition), opacity var(--transition);
     }
 
     .stepper {
@@ -654,6 +845,36 @@
       text-align: center;
     }
 
+    .auth-tabs {
+      min-height: 46px;
+      padding: 4px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .auth-tab {
+      min-height: 36px;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--text-secondary);
+      font-weight: 850;
+      transition: color var(--transition), background var(--transition);
+    }
+
+    .auth-tab.active {
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      color: var(--accent);
+    }
+
+    .auth-pane {
+      display: grid;
+      gap: 10px;
+    }
+
     .login-brand {
       display: flex;
       align-items: center;
@@ -747,6 +968,10 @@
         background: color-mix(in srgb, var(--accent) 10%, transparent);
         box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 10%, transparent);
       }
+
+      .code-modal-resend:hover:not(:disabled) {
+        color: var(--accent);
+      }
     }
 
     @media (max-width: 380px) {
@@ -767,12 +992,29 @@
         grid-template-columns: 1fr;
       }
 
+      .account-row,
+      .field-row {
+        grid-template-columns: 1fr;
+      }
+
       .metric-value {
         text-align: left;
       }
 
       .step-actions {
         grid-template-columns: 1fr;
+      }
+
+      .code-summary {
+        grid-template-columns: 1fr;
+      }
+
+      .otp-slots {
+        gap: 6px;
+      }
+
+      .otp-slots span {
+        font-size: 18px;
       }
 
       .stepper {
@@ -828,6 +1070,30 @@
       .payment-flow {
         min-height: 100%;
         border-radius: 0;
+      }
+
+      .auth-code-modal {
+        align-items: center;
+        justify-items: center;
+        top: 0;
+        bottom: 0;
+        padding: calc(max(var(--app-safe-top), 14px) + var(--app-safe-top-extra)) 14px max(var(--app-safe-bottom), 14px);
+      }
+
+      .auth-code-modal .code-modal-stack {
+        width: min(100%, 420px);
+      }
+
+      .auth-code-modal .modal-card {
+        width: 100%;
+        height: auto;
+        max-height: min(90vh, 620px);
+        border-radius: var(--radius-lg);
+        transform: translateY(12px) scale(0.98);
+      }
+
+      .auth-code-modal.show .modal-card {
+        transform: translateY(0) scale(1);
       }
 
       .legal-link {

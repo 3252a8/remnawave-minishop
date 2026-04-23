@@ -54,7 +54,10 @@ class PanelWebhookService:
             return
 
         async with self.async_session_factory() as session:
-            db_user = await user_dal.get_user_by_id(session, user_id)
+            db_user = await user_dal.get_user_by_telegram_id(session, user_id)
+            if not db_user:
+                db_user = await user_dal.get_user_by_id(session, user_id)
+            internal_user_id = db_user.user_id if db_user else user_id
             lang = db_user.language_code if db_user and db_user.language_code else self.settings.DEFAULT_LANGUAGE
             first_name = db_user.first_name or f"User {user_id}" if db_user else f"User {user_id}"
 
@@ -69,7 +72,7 @@ class PanelWebhookService:
                     if subscription_service:
                         async with self.async_session_factory() as session:
                             from db.dal import subscription_dal
-                            sub = await subscription_dal.get_active_subscription_by_user_id(session, user_id)
+                            sub = await subscription_dal.get_active_subscription_by_user_id(session, internal_user_id)
                             if sub and sub.auto_renew_enabled and sub.provider == 'yookassa':
                                 try:
                                     ok = await subscription_service.charge_subscription_renewal(session, sub)
@@ -89,7 +92,7 @@ class PanelWebhookService:
                 if days_left == 2:
                     async with self.async_session_factory() as session:
                         from db.dal import subscription_dal
-                        sub = await subscription_dal.get_active_subscription_by_user_id(session, user_id)
+                        sub = await subscription_dal.get_active_subscription_by_user_id(session, internal_user_id)
                         logging.info(
                             "48h webhook check: user_id=%s sub_found=%s auto_renew=%s provider=%s",
                             user_id,

@@ -17,6 +17,7 @@ from bot.app.web.webapp_auth import (
     verify_webapp_session_token,
 )
 from bot.services.crypto_pay_service import CryptoPayService
+from bot.services.email_auth_service import EmailAuthService, normalize_email
 from bot.services.freekassa_service import FreeKassaService
 from bot.services.platega_service import PlategaService
 from bot.services.severpay_service import SeverPayService
@@ -25,6 +26,7 @@ from bot.services.yookassa_service import YooKassaService
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
 from db.dal import payment_dal, subscription_dal, user_dal
+from db.dal.user_dal import UserMergeConflictError
 from db.models import Payment, User
 
 logger = logging.getLogger(__name__)
@@ -54,6 +56,7 @@ def create_subscription_webapp_application(
     app["settings"] = settings
     app["async_session_factory"] = async_session_factory
     app["i18n"] = dp.get("i18n_instance")
+    app["email_auth_service"] = EmailAuthService(settings)
 
     for key in (
         "subscription_service",
@@ -81,7 +84,12 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/subscription_webapp.css", css_asset_route)
     app.router.add_get("/subscription_webapp.js", js_asset_route)
     app.router.add_post("/api/auth/token", auth_token_route)
+    app.router.add_post("/api/auth/email/request", email_auth_request_route)
+    app.router.add_post("/api/auth/email/verify", email_auth_verify_route)
     app.router.add_get("/api/me", me_route)
+    app.router.add_post("/api/account/email/request", account_email_request_route)
+    app.router.add_post("/api/account/email/verify", account_email_verify_route)
+    app.router.add_post("/api/account/telegram/link", account_telegram_link_route)
     app.router.add_post("/api/payments", create_payment_route)
     app.router.add_get("/api/payments/{payment_id}", payment_status_route)
 
@@ -272,6 +280,7 @@ async def index_route(request: web.Request) -> web.Response:
         "userAgreementUrl": settings.USER_AGREEMENT_URL or "",
         "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
         "language": _normalize_language(settings.DEFAULT_LANGUAGE),
+        "emailAuthEnabled": settings.email_auth_configured,
     }
     html = _strip_marked_block(html, DEV_MOCK_START_MARKER, DEV_MOCK_END_MARKER)
     html = html.replace(
@@ -340,20 +349,218 @@ async def auth_token_route(request: web.Request) -> web.Response:
         return _json_error(401, "invalid_auth", "Invalid Telegram auth data")
 
     async_session_factory: sessionmaker = request.app["async_session_factory"]
+    authenticated_user_id: Optional[int] = None
     async with async_session_factory() as session:
         try:
             db_user = await _ensure_user_from_telegram(session, telegram_user, settings)
             if db_user.is_banned:
                 await session.rollback()
                 return _json_error(403, "banned", "Access denied")
+            authenticated_user_id = int(db_user.user_id)
             await session.commit()
         except Exception as exc:
             await session.rollback()
             logger.error("WebApp auth failed: %s", exc, exc_info=True)
             return _json_error(500, "auth_failed", "Auth failed")
 
-    token = create_webapp_session_token(settings, int(telegram_user["id"]))
+    token = create_webapp_session_token(settings, int(authenticated_user_id))
     return web.json_response({"ok": True, "token": token})
+
+
+async def email_auth_request_route(request: web.Request) -> web.Response:
+    settings: Settings = request.app["settings"]
+    payload = await _read_json(request)
+    email = normalize_email(str(payload.get("email") or ""))
+    lang = _normalize_language(str(payload.get("language") or settings.DEFAULT_LANGUAGE))
+    return await _request_email_code(
+        request,
+        email=email,
+        purpose="login",
+        language_code=lang,
+        target_user_id=None,
+    )
+
+
+async def email_auth_verify_route(request: web.Request) -> web.Response:
+    settings: Settings = request.app["settings"]
+    payload = await _read_json(request)
+    email = normalize_email(str(payload.get("email") or ""))
+    code = str(payload.get("code") or "")
+    email_service: EmailAuthService = request.app["email_auth_service"]
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+
+    async with async_session_factory() as session:
+        try:
+            verify_result = await email_service.verify_code(
+                session,
+                email=email,
+                purpose="login",
+                code=code,
+                target_user_id=None,
+            )
+            if not verify_result.ok:
+                await session.rollback()
+                return _json_error(400, verify_result.error or "invalid_code", "Invalid code")
+
+            db_user = await user_dal.get_user_by_email(session, email)
+            if not db_user:
+                db_user, _ = await user_dal.create_email_user(
+                    session,
+                    email=email,
+                    language_code=_normalize_language(settings.DEFAULT_LANGUAGE),
+                    email_verified_at=datetime.now(timezone.utc),
+                )
+            elif not db_user.email_verified_at:
+                db_user.email_verified_at = datetime.now(timezone.utc)
+
+            if db_user.is_banned:
+                await session.rollback()
+                return _json_error(403, "banned", "Access denied")
+
+            await session.commit()
+        except Exception as exc:
+            await session.rollback()
+            logger.error("Email WebApp auth failed: %s", exc, exc_info=True)
+            return _json_error(500, "auth_failed", "Auth failed")
+
+    token = create_webapp_session_token(settings, int(db_user.user_id))
+    return web.json_response(
+        {
+            "ok": True,
+            "token": token,
+            "user_id": int(db_user.user_id),
+            "telegram_id": _telegram_id_for_user(db_user),
+        }
+    )
+
+
+async def account_email_request_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    settings: Settings = request.app["settings"]
+    payload = await _read_json(request)
+    email = normalize_email(str(payload.get("email") or ""))
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+
+    async with async_session_factory() as session:
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user or db_user.is_banned:
+            return _json_error(403, "access_denied", "Access denied")
+        if db_user.email == email and db_user.email_verified_at:
+            return web.json_response({"ok": True, "already_linked": True})
+        lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
+
+    return await _request_email_code(
+        request,
+        email=email,
+        purpose="link_email",
+        language_code=lang,
+        target_user_id=user_id,
+    )
+
+
+async def account_email_verify_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    payload = await _read_json(request)
+    email = normalize_email(str(payload.get("email") or ""))
+    code = str(payload.get("code") or "")
+    email_service: EmailAuthService = request.app["email_auth_service"]
+    settings: Settings = request.app["settings"]
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+
+    async with async_session_factory() as session:
+        try:
+            verify_result = await email_service.verify_code(
+                session,
+                email=email,
+                purpose="link_email",
+                code=code,
+                target_user_id=user_id,
+            )
+            if not verify_result.ok:
+                await session.rollback()
+                return _json_error(400, verify_result.error or "invalid_code", "Invalid code")
+
+            current_user = await user_dal.get_user_by_id(session, user_id)
+            if not current_user or current_user.is_banned:
+                await session.rollback()
+                return _json_error(403, "access_denied", "Access denied")
+
+            existing_email_user = await user_dal.get_user_by_email(session, email)
+            if existing_email_user and existing_email_user.user_id != current_user.user_id:
+                current_user = await user_dal.merge_users(
+                    session,
+                    source_user_id=existing_email_user.user_id,
+                    target_user_id=current_user.user_id,
+                )
+            current_user.email = email
+            current_user.email_verified_at = datetime.now(timezone.utc)
+            await _sync_panel_identity_for_user(request, current_user)
+            await session.commit()
+        except UserMergeConflictError as exc:
+            await session.rollback()
+            return _json_error(409, "account_merge_conflict", str(exc))
+        except Exception as exc:
+            await session.rollback()
+            logger.error("Email account link failed: %s", exc, exc_info=True)
+            return _json_error(500, "link_failed", "Link failed")
+
+    token = create_webapp_session_token(settings, int(current_user.user_id))
+    return web.json_response({"ok": True, "token": token})
+
+
+async def account_telegram_link_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    settings: Settings = request.app["settings"]
+    payload = await _read_json(request)
+    init_data = str(payload.get("init_data") or "")
+    auth_data = payload.get("auth_data")
+    telegram_user = None
+    if init_data:
+        telegram_user = validate_telegram_webapp_init_data(
+            init_data,
+            settings.BOT_TOKEN,
+            max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
+        )
+    elif auth_data is not None:
+        telegram_user = validate_telegram_login_widget_data(
+            auth_data,
+            settings.BOT_TOKEN,
+            max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
+        )
+    if not telegram_user:
+        return _json_error(401, "invalid_auth", "Invalid Telegram auth data")
+
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async with async_session_factory() as session:
+        try:
+            db_user = await _link_telegram_to_user(
+                request,
+                session,
+                current_user_id=user_id,
+                telegram_user=telegram_user,
+                settings=settings,
+            )
+            if db_user.is_banned:
+                await session.rollback()
+                return _json_error(403, "banned", "Access denied")
+            await session.commit()
+        except UserMergeConflictError as exc:
+            await session.rollback()
+            return _json_error(409, "account_merge_conflict", str(exc))
+        except Exception as exc:
+            await session.rollback()
+            logger.error("Telegram account link failed: %s", exc, exc_info=True)
+            return _json_error(500, "link_failed", "Link failed")
+
+    token = create_webapp_session_token(settings, int(db_user.user_id))
+    return web.json_response(
+        {
+            "ok": True,
+            "token": token,
+            "user_id": int(db_user.user_id),
+            "telegram_id": _telegram_id_for_user(db_user),
+        }
+    )
 
 
 async def me_route(request: web.Request) -> web.Response:
@@ -448,6 +655,183 @@ def _require_user_id(request: web.Request) -> int:
     return user_id
 
 
+async def _request_email_code(
+    request: web.Request,
+    *,
+    email: str,
+    purpose: str,
+    language_code: str,
+    target_user_id: Optional[int],
+) -> web.Response:
+    email_service: EmailAuthService = request.app["email_auth_service"]
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async with async_session_factory() as session:
+        try:
+            result = await email_service.request_code(
+                session,
+                email=email,
+                purpose=purpose,
+                language_code=language_code,
+                target_user_id=target_user_id,
+            )
+            if not result.ok:
+                await session.rollback()
+                status = 429 if result.error == "rate_limited" else 400
+                if result.error == "email_auth_not_configured":
+                    status = 503
+                return web.json_response(
+                    {
+                        "ok": False,
+                        "error": result.error,
+                        "retry_after": result.retry_after,
+                    },
+                    status=status,
+                )
+            await session.commit()
+            return web.json_response({"ok": True})
+        except Exception as exc:
+            await session.rollback()
+            logger.error("Failed to send email verification code: %s", exc, exc_info=True)
+            return _json_error(502, "email_send_failed", "Failed to send email")
+
+
+def _telegram_id_for_user(user: User) -> Optional[int]:
+    if user.telegram_id:
+        return int(user.telegram_id)
+    if user.user_id and int(user.user_id) > 0:
+        return int(user.user_id)
+    return None
+
+
+def _panel_description_for_user(user: User) -> str:
+    lines = [
+        user.email or "",
+        user.username or "",
+        user.first_name or "",
+        user.last_name or "",
+    ]
+    return "\n".join(line for line in lines if line).strip()
+
+
+async def _sync_panel_identity_for_user(request: web.Request, user: User) -> None:
+    if not user.panel_user_uuid:
+        return
+    subscription_service: SubscriptionService = request.app.get("subscription_service")
+    if not subscription_service or not subscription_service.panel_service:
+        return
+
+    payload: Dict[str, Any] = {
+        "description": _panel_description_for_user(user),
+    }
+    telegram_id = _telegram_id_for_user(user)
+    if telegram_id:
+        payload["telegramId"] = telegram_id
+    if user.email:
+        payload["email"] = user.email
+
+    try:
+        await subscription_service.panel_service.update_user_details_on_panel(
+            user.panel_user_uuid,
+            payload,
+            log_response=False,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Failed to sync linked identities to panel for user %s: %s",
+            user.user_id,
+            exc,
+        )
+
+
+def _apply_telegram_profile_to_user(
+    user: User,
+    telegram_user: Dict[str, Any],
+    settings: Settings,
+) -> None:
+    language_code = telegram_user.get("language_code") or user.language_code or settings.DEFAULT_LANGUAGE
+    if language_code not in {"ru", "en"}:
+        language_code = user.language_code or settings.DEFAULT_LANGUAGE
+
+    user.telegram_id = int(telegram_user["id"])
+    user.username = sanitize_username(telegram_user.get("username"))
+    user.first_name = sanitize_display_name(telegram_user.get("first_name"))
+    user.last_name = sanitize_display_name(telegram_user.get("last_name"))
+    user.language_code = language_code
+
+
+async def _link_telegram_to_user(
+    request: web.Request,
+    session: AsyncSession,
+    *,
+    current_user_id: int,
+    telegram_user: Dict[str, Any],
+    settings: Settings,
+) -> User:
+    telegram_id = int(telegram_user["id"])
+    current_user = await user_dal.get_user_by_id(session, current_user_id)
+    if not current_user:
+        raise ValueError("Current user not found.")
+
+    existing_telegram_user = await user_dal.get_user_by_telegram_id(session, telegram_id)
+    if not existing_telegram_user:
+        existing_telegram_user = await user_dal.get_user_by_id(session, telegram_id)
+
+    if existing_telegram_user and existing_telegram_user.user_id != current_user.user_id:
+        if (
+            current_user.email
+            and existing_telegram_user.email
+            and current_user.email != existing_telegram_user.email
+        ):
+            raise UserMergeConflictError(
+                "Telegram account is already linked to a different email."
+            )
+        merged_user = await user_dal.merge_users(
+            session,
+            source_user_id=current_user.user_id,
+            target_user_id=existing_telegram_user.user_id,
+        )
+        _apply_telegram_profile_to_user(merged_user, telegram_user, settings)
+        await session.flush()
+        await _sync_panel_identity_for_user(request, merged_user)
+        return merged_user
+
+    if not existing_telegram_user and int(current_user.user_id) < 0:
+        language_code = telegram_user.get("language_code") or current_user.language_code or settings.DEFAULT_LANGUAGE
+        if language_code not in {"ru", "en"}:
+            language_code = current_user.language_code or settings.DEFAULT_LANGUAGE
+        target_user, _ = await user_dal.create_user(
+            session,
+            {
+                "user_id": telegram_id,
+                "telegram_id": telegram_id,
+                "username": sanitize_username(telegram_user.get("username")),
+                "first_name": sanitize_display_name(telegram_user.get("first_name")),
+                "last_name": sanitize_display_name(telegram_user.get("last_name")),
+                "language_code": language_code,
+                "registration_date": current_user.registration_date or datetime.now(timezone.utc),
+            },
+        )
+        target_user.referral_code = None
+        await session.flush()
+        merged_user = await user_dal.merge_users(
+            session,
+            source_user_id=current_user.user_id,
+            target_user_id=target_user.user_id,
+        )
+        _apply_telegram_profile_to_user(merged_user, telegram_user, settings)
+        await session.flush()
+        await _sync_panel_identity_for_user(request, merged_user)
+        return merged_user
+
+    if current_user.telegram_id and int(current_user.telegram_id) != telegram_id:
+        raise UserMergeConflictError("Current account is already linked to Telegram.")
+
+    _apply_telegram_profile_to_user(current_user, telegram_user, settings)
+    await session.flush()
+    await _sync_panel_identity_for_user(request, current_user)
+    return current_user
+
+
 async def _ensure_user_from_telegram(
     session: AsyncSession,
     telegram_user: Dict[str, Any],
@@ -459,13 +843,16 @@ async def _ensure_user_from_telegram(
         language_code = settings.DEFAULT_LANGUAGE
 
     update_data = {
+        "telegram_id": user_id,
         "username": sanitize_username(telegram_user.get("username")),
         "first_name": sanitize_display_name(telegram_user.get("first_name")),
         "last_name": sanitize_display_name(telegram_user.get("last_name")),
         "language_code": language_code,
     }
 
-    db_user = await user_dal.get_user_by_id(session, user_id)
+    db_user = await user_dal.get_user_by_telegram_id(session, user_id)
+    if not db_user:
+        db_user = await user_dal.get_user_by_id(session, user_id)
     if not db_user:
         db_user, _ = await user_dal.create_user(
             session,
@@ -483,7 +870,7 @@ async def _ensure_user_from_telegram(
         if getattr(db_user, key) != value
     }
     if changed:
-        db_user = await user_dal.update_user(session, user_id, changed) or db_user
+        db_user = await user_dal.update_user(session, db_user.user_id, changed) or db_user
     return db_user
 
 
@@ -518,6 +905,10 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
         "user": {
             "id": user_id,
             "username": db_user.username,
+            "email": db_user.email,
+            "email_verified": bool(db_user.email_verified_at),
+            "telegram_id": db_user.telegram_id,
+            "telegram_linked": bool(_telegram_id_for_user(db_user)),
             "first_name": db_user.first_name,
             "language_code": lang,
         },
@@ -527,6 +918,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
         "settings": {
             "support_url": settings.SUPPORT_LINK,
             "traffic_mode": bool(settings.traffic_sale_mode),
+            "email_auth_enabled": settings.email_auth_configured,
         },
     }
 

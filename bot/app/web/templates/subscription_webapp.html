@@ -74,6 +74,42 @@
       </div>
     </section>
 
+    <section class="panel account-panel">
+      <div class="panel-head">
+        <div>
+          <div class="section-title" data-i18n="account_title">Аккаунт</div>
+          <div class="flow-caption" data-i18n="account_caption">Способы входа</div>
+        </div>
+      </div>
+
+      <div class="account-grid">
+        <div class="account-row">
+          <div class="metric-label" data-i18n="email_label">Email</div>
+          <div id="account-email" class="metric-value">...</div>
+        </div>
+        <div class="account-row">
+          <div class="metric-label" data-i18n="telegram_label">Telegram</div>
+          <div id="account-telegram" class="metric-value">...</div>
+        </div>
+      </div>
+
+      <div id="email-link-box" class="link-box hidden">
+        <div class="field-row">
+          <input id="email-link-input" class="input" type="email" autocomplete="email" inputmode="email" placeholder="mail@example.com" data-placeholder-i18n="email_placeholder">
+          <button id="email-link-send-btn" class="btn" type="button" onclick="requestEmailLinkCode()" data-i18n="send_code">Отправить код</button>
+        </div>
+        <div id="email-link-code-row" class="field-row hidden">
+          <input id="email-link-code-input" class="input code-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" data-placeholder-i18n="code_placeholder">
+          <button id="email-link-verify-btn" class="btn primary" type="button" onclick="verifyEmailLinkCode()" data-i18n="confirm">Подтвердить</button>
+        </div>
+      </div>
+
+      <div id="telegram-link-box" class="link-box hidden">
+        <div id="telegram-link-widget" class="telegram-login-widget" aria-live="polite"></div>
+        <div id="telegram-link-status" class="login-text login-status hidden" aria-live="polite"></div>
+      </div>
+    </section>
+
     <a id="support-link" class="btn support-link hidden" href="#" target="_blank" rel="noopener" data-i18n="support">Поддержка</a>
     <div id="legal-links-app" class="legal-links hidden">
       <a class="legal-link" data-legal-key="privacyPolicyUrl" href="#" target="_blank" rel="noopener" data-i18n="privacy_policy">Политика конфиденциальности</a>
@@ -134,13 +170,64 @@
     </section>
   </div>
 
+  <div id="email-code-modal" class="modal auth-code-modal hidden" role="dialog" aria-modal="true" aria-labelledby="email-code-title" aria-describedby="email-code-caption">
+    <button class="modal-backdrop" type="button" data-title-i18n="close" aria-label="Закрыть" onclick="closeEmailLoginCodeModal()"></button>
+    <div class="code-modal-stack">
+      <section class="panel modal-card code-modal-card">
+        <div class="flow-head">
+          <div>
+            <div id="email-code-title" class="flow-title" data-i18n="email_code_title">Подтвердите вход</div>
+            <div id="email-code-caption" class="flow-caption" data-i18n="email_code_caption">Введите 6-значный код из письма.</div>
+          </div>
+          <button class="icon-btn" type="button" data-title-i18n="close" aria-label="Закрыть" onclick="closeEmailLoginCodeModal()">×</button>
+        </div>
+
+        <div class="code-summary">
+          <div class="metric-label" data-i18n="email_label">Email</div>
+          <div id="email-code-address" class="metric-value">...</div>
+        </div>
+
+        <label class="otp-field" for="email-login-code-input">
+          <input id="email-login-code-input" class="otp-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*" data-aria-i18n="email_code_aria" aria-label="Код подтверждения">
+          <span class="otp-slots" aria-hidden="true">
+            <span id="email-code-slot-0"></span>
+            <span id="email-code-slot-1"></span>
+            <span id="email-code-slot-2"></span>
+            <span id="email-code-slot-3"></span>
+            <span id="email-code-slot-4"></span>
+            <span id="email-code-slot-5"></span>
+          </span>
+        </label>
+
+        <div id="email-code-status" class="login-text login-status hidden" aria-live="polite"></div>
+
+        <div class="code-modal-actions">
+          <button id="email-login-verify-btn" class="btn primary full" type="button" onclick="verifyEmailLoginCode()" data-i18n="login">Войти</button>
+        </div>
+      </section>
+      <button id="email-login-resend-btn" class="code-modal-resend" type="button" onclick="resendEmailLoginCode()" data-i18n="resend_code">Отправить еще раз</button>
+    </div>
+  </div>
+
   <section id="login" class="login">
     <div class="panel login-card">
       <div class="login-brand">
         <img id="login-brand-logo" class="brand-logo brand-logo--lg hidden" data-brand-logo alt="" aria-hidden="true">
         <div id="login-brand-title" class="login-brand-title" data-brand-title>Моя подписка</div>
       </div>
-      <div id="telegram-login-widget" class="telegram-login-widget" aria-live="polite"></div>
+      <div class="auth-tabs" role="tablist">
+        <button id="email-auth-tab" class="auth-tab active" type="button" onclick="setAuthMode('email')" data-i18n="email_login_tab">Email</button>
+        <button id="telegram-auth-tab" class="auth-tab" type="button" onclick="setAuthMode('telegram')" data-i18n="telegram_login_tab">Telegram</button>
+      </div>
+      <div id="email-login-pane" class="auth-pane">
+        <div class="field-stack">
+          <input id="email-login-input" class="input" type="email" autocomplete="email" inputmode="email" placeholder="mail@example.com" data-placeholder-i18n="email_placeholder">
+          <button id="email-login-send-btn" class="btn primary full" type="button" onclick="requestEmailLoginCode()" data-i18n="send_code">Отправить код</button>
+        </div>
+      </div>
+      <div id="telegram-login-pane" class="auth-pane hidden">
+        <div id="telegram-login-widget" class="telegram-login-widget" aria-live="polite"></div>
+      </div>
       <div id="auth-status" class="login-text login-status hidden" aria-live="polite"></div>
     </div>
     <div id="legal-links-login" class="legal-links hidden">

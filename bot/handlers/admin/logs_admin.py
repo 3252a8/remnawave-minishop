@@ -23,6 +23,7 @@ from bot.middlewares.i18n import JsonI18n
 
 router = Router(name="admin_logs_router")
 USERNAME_REGEX = re.compile(r"^[a-zA-Z0-9_]{5,32}$")
+EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 async def display_logs_menu(callback: types.CallbackQuery, i18n_data: dict,
@@ -225,12 +226,14 @@ async def process_user_id_for_logs_handler(message: types.Message,
     input_text = message.text.strip() if message.text else ""
     user_model_for_logs: Optional[User] = None
 
-    if input_text.isdigit():
+    if input_text.isdigit() or (input_text.startswith("-") and input_text[1:].isdigit()):
         try:
             user_model_for_logs = await user_dal.get_user_by_id(
                 session, int(input_text))
         except ValueError:
             pass
+    elif EMAIL_REGEX.match(input_text):
+        user_model_for_logs = await user_dal.get_user_by_email(session, input_text)
     elif input_text.startswith("@") and USERNAME_REGEX.match(input_text[1:]):
         user_model_for_logs = await user_dal.get_user_by_username(
             session, input_text[1:])
@@ -245,7 +248,7 @@ async def process_user_id_for_logs_handler(message: types.Message,
     target_user_id = user_model_for_logs.user_id
     user_display_name = user_model_for_logs.first_name or (
         f"@{user_model_for_logs.username}"
-        if user_model_for_logs.username else f"ID {target_user_id}")
+        if user_model_for_logs.username else (user_model_for_logs.email or f"ID {target_user_id}"))
 
     logs_models = await message_log_dal.get_user_message_logs(
         session, target_user_id, settings.LOGS_PAGE_SIZE, 0)
@@ -292,7 +295,7 @@ async def view_user_logs_paginated_handler(callback: types.CallbackQuery,
 
     user_display_name = user_model_for_logs.first_name or (
         f"@{user_model_for_logs.username}"
-        if user_model_for_logs.username else f"ID {target_user_id}")
+        if user_model_for_logs.username else (user_model_for_logs.email or f"ID {target_user_id}"))
 
     logs_models = await message_log_dal.get_user_message_logs(
         session, target_user_id, settings.LOGS_PAGE_SIZE,

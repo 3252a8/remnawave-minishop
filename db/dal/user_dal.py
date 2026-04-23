@@ -24,6 +24,11 @@ from ..models import (
 REFERRAL_CODE_ALPHABET = string.ascii_uppercase + string.digits
 REFERRAL_CODE_LENGTH = 9
 MAX_REFERRAL_CODE_ATTEMPTS = 25
+MAX_EMAIL_USER_ID_ATTEMPTS = 25
+
+
+class UserMergeConflictError(ValueError):
+    pass
 
 
 def _generate_referral_code_candidate() -> str:
@@ -48,6 +53,14 @@ async def generate_unique_referral_code(session: AsyncSession) -> str:
         if not await _referral_code_exists(session, candidate):
             return candidate
     raise RuntimeError("Failed to generate a unique referral code after several attempts.")
+
+
+async def generate_unique_email_user_id(session: AsyncSession) -> int:
+    for _ in range(MAX_EMAIL_USER_ID_ATTEMPTS):
+        candidate = -(secrets.randbelow(9_000_000_000_000_000) + 1)
+        if not await get_user_by_id(session, candidate):
+            return candidate
+    raise RuntimeError("Failed to generate a unique email user id after several attempts.")
 
 
 async def ensure_referral_code(session: AsyncSession, user: User) -> str:
@@ -78,6 +91,23 @@ async def get_user_by_id(session: AsyncSession, user_id: int) -> Optional[User]:
 async def get_user_by_username(session: AsyncSession, username: str) -> Optional[User]:
     clean_username = username.lstrip("@").lower()
     stmt = select(User).where(func.lower(User.username) == clean_username)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def get_user_by_email(session: AsyncSession, email: str) -> Optional[User]:
+    clean_email = (email or "").strip().lower()
+    if not clean_email:
+        return None
+    stmt = select(User).where(func.lower(User.email) == clean_email)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def get_user_by_telegram_id(
+    session: AsyncSession, telegram_id: int
+) -> Optional[User]:
+    stmt = select(User).where(User.telegram_id == telegram_id)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -133,6 +163,217 @@ async def create_user(session: AsyncSession, user_data: Dict[str, Any]) -> Tuple
         )
 
     return user, created
+
+
+async def create_email_user(
+    session: AsyncSession,
+    *,
+    email: str,
+    language_code: str,
+    email_verified_at: Optional[datetime] = None,
+    referred_by_id: Optional[int] = None,
+) -> Tuple[User, bool]:
+    normalized_email = (email or "").strip().lower()
+    user_id = await generate_unique_email_user_id(session)
+    return await create_user(
+        session,
+        {
+            "user_id": user_id,
+            "email": normalized_email,
+            "email_verified_at": email_verified_at or datetime.now(timezone.utc),
+            "language_code": language_code,
+            "referred_by_id": referred_by_id,
+            "registration_date": datetime.now(timezone.utc),
+        },
+    )
+
+
+async def _has_active_panel_subscription(
+    session: AsyncSession, user_id: int, panel_user_uuid: str
+) -> bool:
+    stmt = (
+        select(Subscription.subscription_id)
+        .where(
+            Subscription.user_id == user_id,
+            Subscription.panel_user_uuid == panel_user_uuid,
+            Subscription.is_active == True,
+            Subscription.end_date > datetime.now(timezone.utc),
+        )
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none() is not None
+
+
+async def merge_users(
+    session: AsyncSession,
+    *,
+    source_user_id: int,
+    target_user_id: int,
+) -> User:
+    """Merge source user data into target user and remove the source row."""
+
+    if source_user_id == target_user_id:
+        target = await get_user_by_id(session, target_user_id)
+        if not target:
+            raise ValueError("Target user not found.")
+        return target
+
+    source = await get_user_by_id(session, source_user_id)
+    target = await get_user_by_id(session, target_user_id)
+    if not source or not target:
+        raise ValueError("Both source and target users are required for merge.")
+
+    if source.email and target.email and source.email != target.email:
+        raise UserMergeConflictError("Both accounts already have different emails.")
+    if (
+        source.telegram_id
+        and target.telegram_id
+        and int(source.telegram_id) != int(target.telegram_id)
+    ):
+        raise UserMergeConflictError("Both accounts already have different Telegram IDs.")
+
+    source_panel_uuid = source.panel_user_uuid
+    target_panel_uuid = target.panel_user_uuid
+    panel_uuid_to_move = None
+    if source_panel_uuid and not target_panel_uuid:
+        panel_uuid_to_move = source_panel_uuid
+    elif source_panel_uuid and target_panel_uuid and source_panel_uuid != target_panel_uuid:
+        source_has_active = await _has_active_panel_subscription(
+            session, source_user_id, source_panel_uuid
+        )
+        target_has_active = await _has_active_panel_subscription(
+            session, target_user_id, target_panel_uuid
+        )
+        if source_has_active and target_has_active:
+            raise UserMergeConflictError(
+                "Both accounts have active subscriptions on different panel users."
+            )
+        if source_has_active and not target_has_active:
+            panel_uuid_to_move = source_panel_uuid
+
+    email_to_move = source.email if source.email and not target.email else None
+    email_verified_at_to_move = (
+        source.email_verified_at
+        if source.email and (not target.email_verified_at or email_to_move)
+        else None
+    )
+    telegram_id_to_move = (
+        source.telegram_id if source.telegram_id and not target.telegram_id else None
+    )
+    referral_code_to_move = (
+        source.referral_code if source.referral_code and not target.referral_code else None
+    )
+
+    if email_to_move:
+        source.email = None
+    if panel_uuid_to_move:
+        source.panel_user_uuid = None
+    if telegram_id_to_move:
+        source.telegram_id = None
+    if referral_code_to_move:
+        source.referral_code = None
+    if email_to_move or panel_uuid_to_move or telegram_id_to_move or referral_code_to_move:
+        await session.flush()
+
+    if email_to_move:
+        target.email = email_to_move
+    if email_verified_at_to_move and not target.email_verified_at:
+        target.email_verified_at = email_verified_at_to_move
+    if telegram_id_to_move:
+        target.telegram_id = telegram_id_to_move
+    if panel_uuid_to_move:
+        target.panel_user_uuid = panel_uuid_to_move
+    if referral_code_to_move:
+        target.referral_code = referral_code_to_move
+
+    for attr in ("username", "first_name", "last_name", "language_code"):
+        if not getattr(target, attr) and getattr(source, attr):
+            setattr(target, attr, getattr(source, attr))
+    if not target.referred_by_id and source.referred_by_id != target_user_id:
+        target.referred_by_id = source.referred_by_id
+    if target.referred_by_id == source_user_id:
+        target.referred_by_id = source.referred_by_id
+        if target.referred_by_id == target_user_id:
+            target.referred_by_id = None
+
+    target_method_ids = select(UserPaymentMethod.provider_payment_method_id).where(
+        UserPaymentMethod.user_id == target_user_id
+    )
+    await session.execute(
+        delete(UserPaymentMethod).where(
+            UserPaymentMethod.user_id == source_user_id,
+            UserPaymentMethod.provider_payment_method_id.in_(target_method_ids),
+        )
+    )
+
+    target_promo_ids = select(PromoCodeActivation.promo_code_id).where(
+        PromoCodeActivation.user_id == target_user_id
+    )
+    await session.execute(
+        delete(PromoCodeActivation).where(
+            PromoCodeActivation.user_id == source_user_id,
+            PromoCodeActivation.promo_code_id.in_(target_promo_ids),
+        )
+    )
+
+    target_has_billing = (
+        await session.execute(
+            select(UserBilling.user_id).where(UserBilling.user_id == target_user_id)
+        )
+    ).scalar_one_or_none()
+    if target_has_billing:
+        await session.execute(delete(UserBilling).where(UserBilling.user_id == source_user_id))
+    else:
+        await session.execute(
+            update(UserBilling)
+            .where(UserBilling.user_id == source_user_id)
+            .values(user_id=target_user_id)
+        )
+
+    target_has_attribution = (
+        await session.execute(
+            select(AdAttribution.user_id).where(AdAttribution.user_id == target_user_id)
+        )
+    ).scalar_one_or_none()
+    if target_has_attribution:
+        await session.execute(
+            delete(AdAttribution).where(AdAttribution.user_id == source_user_id)
+        )
+    else:
+        await session.execute(
+            update(AdAttribution)
+            .where(AdAttribution.user_id == source_user_id)
+            .values(user_id=target_user_id)
+        )
+
+    for model in (Subscription, Payment, PromoCodeActivation, UserPaymentMethod):
+        await session.execute(
+            update(model)
+            .where(model.user_id == source_user_id)
+            .values(user_id=target_user_id)
+        )
+
+    await session.execute(
+        update(MessageLog)
+        .where(MessageLog.user_id == source_user_id)
+        .values(user_id=target_user_id)
+    )
+    await session.execute(
+        update(MessageLog)
+        .where(MessageLog.target_user_id == source_user_id)
+        .values(target_user_id=target_user_id)
+    )
+    await session.execute(
+        update(User)
+        .where(User.referred_by_id == source_user_id)
+        .values(referred_by_id=target_user_id)
+    )
+
+    await session.delete(source)
+    await session.flush()
+    await session.refresh(target)
+    return target
 
 
 async def get_user_by_referral_code(session: AsyncSession, referral_code: str) -> Optional[User]:

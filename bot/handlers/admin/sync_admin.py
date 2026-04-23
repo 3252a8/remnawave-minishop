@@ -94,6 +94,7 @@ async def perform_sync(
                     "shortUuid"
                 )
                 telegram_id_from_panel = panel_user_dict.get("telegramId")
+                email_from_panel = (panel_user_dict.get("email") or "").strip().lower() or None
 
                 if not panel_uuid:
                     sync_errors.append(f"Panel user missing UUID: {panel_user_dict}")
@@ -111,13 +112,24 @@ async def perform_sync(
 
                 # First, try to find by telegram ID if available
                 if telegram_id_from_panel:
-                    existing_user = await user_dal.get_user_by_id(
+                    existing_user = await user_dal.get_user_by_telegram_id(
                         session, telegram_id_from_panel
                     )
+                    if not existing_user:
+                        existing_user = await user_dal.get_user_by_id(
+                            session, telegram_id_from_panel
+                        )
                     if existing_user:
                         logging.debug(
                             f"Found user by telegramId {telegram_id_from_panel}"
                         )
+
+                if not existing_user and email_from_panel:
+                    existing_user = await user_dal.get_user_by_email(
+                        session, email_from_panel
+                    )
+                    if existing_user:
+                        logging.debug(f"Found user by email {email_from_panel}")
 
                 # If not found by telegram ID, try to find by panel UUID
                 if not existing_user:
@@ -144,6 +156,8 @@ async def perform_sync(
                         try:
                             user_data = {
                                 "user_id": telegram_id_from_panel,
+                                "telegram_id": telegram_id_from_panel,
+                                "email": email_from_panel,
                                 "username": None,  # Username will be updated when user interacts with bot
                                 "first_name": None,  # Panel doesn't provide this info
                                 "last_name": None,  # Panel doesn't provide this info
@@ -172,6 +186,28 @@ async def perform_sync(
                                 f"Error creating user {telegram_id_from_panel}: {e_create}"
                             )
                             continue
+                    elif email_from_panel:
+                        try:
+                            new_user, was_created = await user_dal.create_email_user(
+                                session,
+                                email=email_from_panel,
+                                language_code="ru",
+                            )
+                            new_user.panel_user_uuid = panel_uuid
+                            if was_created:
+                                users_created += 1
+                                logging.info(
+                                    f"Created new email user {new_user.user_id} from panel sync with UUID {panel_uuid}"
+                                )
+                            existing_user = new_user
+                        except Exception as e_create_email:
+                            sync_errors.append(
+                                f"Error creating email user {email_from_panel}: {str(e_create_email)}"
+                            )
+                            logging.error(
+                                f"Error creating email user {email_from_panel}: {e_create_email}"
+                            )
+                            continue
                     else:
                         logging.debug(
                             f"Panel user with UUID {panel_uuid} (no telegramId) not found in local DB - skipping"
@@ -193,6 +229,17 @@ async def perform_sync(
                     logging.info(
                         f"Updated panel UUID for user {actual_user_id}: {panel_uuid}"
                     )
+                if email_from_panel and existing_user.email != email_from_panel:
+                    existing_user.email = email_from_panel
+                    if not existing_user.email_verified_at:
+                        existing_user.email_verified_at = datetime.now(timezone.utc)
+                    user_was_updated = True
+                if (
+                    telegram_id_from_panel
+                    and existing_user.telegram_id != telegram_id_from_panel
+                ):
+                    existing_user.telegram_id = telegram_id_from_panel
+                    user_was_updated = True
 
                 lifetime_used = _extract_lifetime_used_traffic_bytes(panel_user_dict)
                 if (
@@ -206,11 +253,12 @@ async def perform_sync(
                 try:
                     if panel_uuid and existing_user:
                         description_text = "\n".join(
-                            [
+                            line for line in [
+                                existing_user.email or "",
                                 existing_user.username or "",
                                 existing_user.first_name or "",
                                 existing_user.last_name or "",
-                            ]
+                            ] if line
                         )
                         # Update description only when it differs from the current one on panel
                         current_panel_description = (
@@ -222,7 +270,11 @@ async def perform_sync(
                             and desired_description != current_panel_description
                         ):
                             await panel_service.update_user_details_on_panel(
-                                panel_uuid, {"description": description_text}
+                                panel_uuid, {
+                                    "description": description_text,
+                                    **({"email": existing_user.email} if existing_user.email else {}),
+                                    **({"telegramId": existing_user.telegram_id} if existing_user.telegram_id else {}),
+                                }
                             )
                 except Exception as e_desc:
                     logging.warning(

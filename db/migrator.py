@@ -125,6 +125,83 @@ def _migration_0004_add_lifetime_used_traffic(connection: Connection) -> None:
         )
     )
 
+
+def _migration_0005_add_email_auth_fields(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+
+    if "email" not in columns:
+        connection.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR"))
+    if "email_verified_at" not in columns:
+        connection.execute(
+            text("ALTER TABLE users ADD COLUMN email_verified_at TIMESTAMPTZ")
+        )
+    if "telegram_id" not in columns:
+        connection.execute(text("ALTER TABLE users ADD COLUMN telegram_id BIGINT"))
+
+    connection.execute(
+        text(
+            """
+            UPDATE users
+            SET telegram_id = user_id
+            WHERE telegram_id IS NULL
+              AND user_id > 0
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email
+            ON users (email)
+            WHERE email IS NOT NULL
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_users_telegram_id
+            ON users (telegram_id)
+            WHERE telegram_id IS NOT NULL
+            """
+        )
+    )
+
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS email_verification_codes (
+                code_id SERIAL PRIMARY KEY,
+                email VARCHAR NOT NULL,
+                code_hash VARCHAR NOT NULL,
+                purpose VARCHAR NOT NULL,
+                target_user_id BIGINT NULL REFERENCES users(user_id),
+                expires_at TIMESTAMPTZ NOT NULL,
+                consumed_at TIMESTAMPTZ NULL,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_email_verification_codes_lookup
+            ON email_verification_codes (email, purpose, target_user_id, created_at DESC)
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_email_verification_codes_expires_at
+            ON email_verification_codes (expires_at)
+            """
+        )
+    )
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -145,6 +222,11 @@ MIGRATIONS: List[Migration] = [
         id="0004_add_lifetime_used_traffic",
         description="Store lifetime traffic usage for users",
         upgrade=_migration_0004_add_lifetime_used_traffic,
+    ),
+    Migration(
+        id="0005_add_email_auth_fields",
+        description="Add email login identities and verification codes",
+        upgrade=_migration_0005_add_email_auth_fields,
     ),
 ]
 

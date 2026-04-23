@@ -268,6 +268,8 @@ def get_banned_users_keyboard(banned_users: List[User], current_page: int,
             user_display_parts.append(user_row.first_name)
         if user_row.username:
             user_display_parts.append(f"(@{user_row.username})")
+        elif user_row.email:
+            user_display_parts.append(f"({user_row.email})")
         if not user_display_parts:
             user_display_parts.append(f"ID: {user_row.user_id}")
 
@@ -321,6 +323,8 @@ def get_users_list_keyboard(users: List[User], current_page: int,
         user_display_parts = []
         if user.username:
             user_display_parts.append(f"@{user.username}")
+        elif user.email:
+            user_display_parts.append(user.email)
         user_display_parts.append(f"ID: {user.user_id}")
         if user.first_name:
             user_display_parts.append(f"- {user.first_name}")

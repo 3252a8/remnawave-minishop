@@ -215,6 +215,20 @@ class Settings(BaseSettings):
     WEBAPP_AUTH_MAX_AGE_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int = Field(default=10 * 60)
 
+    SMTP_HOST: str = Field(default="smtp-relay.brevo.com")
+    SMTP_PORT: int = Field(default=587)
+    SMTP_FALLBACK_PORTS: Optional[str] = Field(default="2525,465")
+    SMTP_TIMEOUT_SECONDS: int = Field(default=30)
+    SMTP_USERNAME: Optional[str] = Field(default=None)
+    SMTP_PASSWORD: Optional[str] = Field(default=None)
+    SMTP_FROM_EMAIL: Optional[str] = Field(default=None)
+    SMTP_FROM_NAME: Optional[str] = Field(default=None)
+    SMTP_STARTTLS: bool = Field(default=True)
+    SMTP_USE_SSL: bool = Field(default=False)
+    EMAIL_CODE_TTL_SECONDS: int = Field(default=10 * 60)
+    EMAIL_CODE_RESEND_SECONDS: int = Field(default=60)
+    EMAIL_CODE_MAX_ATTEMPTS: int = Field(default=5)
+
     LOGS_PAGE_SIZE: int = Field(default=10)
 
     SUBSCRIPTION_MINI_APP_URL: Optional[str] = Field(default=None)
@@ -532,6 +546,35 @@ class Settings(BaseSettings):
             if slug:
                 methods.append(slug)
         return methods or default_order
+
+    @computed_field
+    @property
+    def email_auth_configured(self) -> bool:
+        return bool(
+            self.SMTP_HOST
+            and self.SMTP_PORT
+            and self.SMTP_USERNAME
+            and self.SMTP_PASSWORD
+            and self.SMTP_FROM_EMAIL
+        )
+
+    @computed_field
+    @property
+    def smtp_ports_to_try(self) -> List[int]:
+        ports: List[int] = []
+
+        def add_port(value: Any) -> None:
+            try:
+                port = int(str(value).strip())
+            except (TypeError, ValueError):
+                return
+            if 0 < port <= 65535 and port not in ports:
+                ports.append(port)
+
+        add_port(self.SMTP_PORT)
+        for item in (self.SMTP_FALLBACK_PORTS or "").split(","):
+            add_port(item)
+        return ports
     
     # Logging Configuration
     LOG_LEVEL: str = Field(
@@ -568,6 +611,11 @@ class Settings(BaseSettings):
         'USER_AGREEMENT_URL',
         'SUBSCRIPTION_MINI_APP_URL',
         'WEBAPP_LOGO_URL',
+        'SMTP_USERNAME',
+        'SMTP_PASSWORD',
+        'SMTP_FROM_EMAIL',
+        'SMTP_FROM_NAME',
+        'SMTP_FALLBACK_PORTS',
         mode='before',
     )
     @classmethod

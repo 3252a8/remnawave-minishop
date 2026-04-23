@@ -22,13 +22,17 @@ class ProfileSyncMiddleware(BaseMiddleware):
 
         if session and tg_user:
             try:
-                db_user = await user_dal.get_user_by_id(session, tg_user.id)
+                db_user = await user_dal.get_user_by_telegram_id(session, tg_user.id)
+                if not db_user:
+                    db_user = await user_dal.get_user_by_id(session, tg_user.id)
                 if db_user:
                     update_payload: Dict[str, Any] = {}
                     sanitized_username = sanitize_username(tg_user.username)
                     sanitized_first_name = sanitize_display_name(tg_user.first_name)
                     sanitized_last_name = sanitize_display_name(tg_user.last_name)
 
+                    if db_user.telegram_id != tg_user.id:
+                        update_payload["telegram_id"] = tg_user.id
                     if db_user.username != sanitized_username:
                         update_payload["username"] = sanitized_username
                     if db_user.first_name != sanitized_first_name:
@@ -37,7 +41,7 @@ class ProfileSyncMiddleware(BaseMiddleware):
                         update_payload["last_name"] = sanitized_last_name
 
                     if update_payload:
-                        await user_dal.update_user(session, tg_user.id, update_payload)
+                        await user_dal.update_user(session, db_user.user_id, update_payload)
                         logging.info(
                             f"ProfileSyncMiddleware: Updated user {tg_user.id} profile fields: {list(update_payload.keys())}"
                         )
@@ -47,13 +51,20 @@ class ProfileSyncMiddleware(BaseMiddleware):
                             panel_service = data.get("panel_service")
                             if panel_service and db_user.panel_user_uuid:
                                 description_text = "\n".join([
+                                    db_user.email or "",
                                     username_for_display(tg_user.username, with_at=False) if sanitized_username is not None else "",
                                     sanitized_first_name or "",
                                     sanitized_last_name or "",
                                 ]).strip()
+                                panel_payload = {
+                                    "description": description_text,
+                                    "telegramId": tg_user.id,
+                                }
+                                if db_user.email:
+                                    panel_payload["email"] = db_user.email
                                 await panel_service.update_user_details_on_panel(
                                     db_user.panel_user_uuid,
-                                    {"description": description_text},
+                                    panel_payload,
                                 )
                         except Exception as e_upd_desc:
                             logging.warning(
