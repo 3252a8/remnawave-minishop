@@ -4,16 +4,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from aiohttp import web
+from aiohttp import ClientSession, ClientTimeout, web
 from aiogram import Bot, Dispatcher
 from aiogram.types import LabeledPrice
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.webapp_auth import (
-    consume_authorized_webapp_auth_token,
-    create_pending_webapp_auth_token,
     create_webapp_session_token,
+    validate_telegram_login_widget_data,
     validate_telegram_webapp_init_data,
     verify_webapp_session_token,
 )
@@ -31,6 +30,16 @@ from db.models import Payment, User
 logger = logging.getLogger(__name__)
 
 TEMPLATE_PATH = Path(__file__).resolve().parent / "templates" / "subscription_webapp.html"
+ASSET_DIR = TEMPLATE_PATH.parent
+TELEGRAM_WEB_APP_SDK_URL = "https://telegram.org/js/telegram-web-app.js"
+TELEGRAM_WEB_APP_SDK_PATH = ASSET_DIR / "telegram-web-app.js"
+TELEGRAM_WIDGET_SDK_URL = "https://telegram.org/js/telegram-widget.js?23"
+TELEGRAM_WIDGET_SDK_PATH = ASSET_DIR / "telegram-widget.js"
+_UNPATCHED_WIDGET_ORIGIN_SNIPPET = """    if (origin == 'https://telegram.org') {\n      origin = default_origin;\n    } else if (origin == 'https://telegram-js.azureedge.net' || origin == 'https://tg.dev') {\n      origin = dev_origin;\n    }\n"""
+_PATCHED_WIDGET_ORIGIN_SNIPPET = """    if (origin == 'https://telegram.org') {\n      origin = default_origin;\n    } else if (origin == 'https://telegram-js.azureedge.net' || origin == 'https://tg.dev') {\n      origin = dev_origin;\n    } else {\n      origin = default_origin;\n    }\n"""
+WEBAPP_CONFIG_PLACEHOLDER = "<!-- WEBAPP_CONFIG_SCRIPT -->"
+DEV_MOCK_START_MARKER = "<!-- WEBAPP_DEV_MOCK_START -->"
+DEV_MOCK_END_MARKER = "<!-- WEBAPP_DEV_MOCK_END -->"
 
 
 def create_subscription_webapp_application(
@@ -57,6 +66,9 @@ def create_subscription_webapp_application(
         if hasattr(dp, "workflow_data") and key in dp.workflow_data:  # type: ignore[attr-defined]
             app[key] = dp.workflow_data[key]  # type: ignore[index]
 
+    if hasattr(dp, "workflow_data") and "bot_username" in dp.workflow_data:  # type: ignore[attr-defined]
+        app["bot_username"] = dp.workflow_data["bot_username"]  # type: ignore[index]
+
     setup_subscription_webapp_routes(app)
     return app
 
@@ -64,9 +76,11 @@ def create_subscription_webapp_application(
 def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/", index_route)
     app.router.add_get("/health", health_route)
+    app.router.add_get("/telegram-web-app.js", telegram_web_app_asset_route)
+    app.router.add_get("/telegram-widget.js", telegram_widget_asset_route)
+    app.router.add_get("/subscription_webapp.css", css_asset_route)
+    app.router.add_get("/subscription_webapp.js", js_asset_route)
     app.router.add_post("/api/auth/token", auth_token_route)
-    app.router.add_get("/api/auth/request-token", auth_request_token_route)
-    app.router.add_get("/api/auth/check-token/{token}", auth_check_token_route)
     app.router.add_get("/api/me", me_route)
     app.router.add_post("/api/payments", create_payment_route)
     app.router.add_get("/api/payments/{payment_id}", payment_status_route)
@@ -74,6 +88,171 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
 
 async def health_route(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
+
+
+async def css_asset_route(request: web.Request) -> web.Response:
+    return await _serve_template_asset(request, "subscription_webapp.css", "text/css")
+
+
+async def telegram_web_app_asset_route(request: web.Request) -> web.Response:
+    if not TELEGRAM_WEB_APP_SDK_PATH.exists():
+        await refresh_telegram_web_app_sdk()
+
+    try:
+        response = await _serve_template_asset(
+            request,
+            "telegram-web-app.js",
+            "application/javascript",
+        )
+    except FileNotFoundError:
+        logger.exception(
+            "Telegram Web App SDK is unavailable at %s",
+            TELEGRAM_WEB_APP_SDK_PATH,
+        )
+        raise web.HTTPServiceUnavailable(text="telegram_web_app_sdk_unavailable")
+
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+async def telegram_widget_asset_route(request: web.Request) -> web.Response:
+    if not TELEGRAM_WIDGET_SDK_PATH.exists():
+        await refresh_telegram_login_widget_sdk()
+
+    try:
+        data = TELEGRAM_WIDGET_SDK_PATH.read_bytes()
+    except FileNotFoundError:
+        logger.exception(
+            "Telegram Login Widget SDK is unavailable at %s",
+            TELEGRAM_WIDGET_SDK_PATH,
+        )
+        raise web.HTTPServiceUnavailable(text="telegram_widget_sdk_unavailable")
+
+    data = _normalize_telegram_login_widget_sdk(data)
+    response = web.Response(body=data, content_type="application/javascript")
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+async def refresh_telegram_web_app_sdk() -> bool:
+    """Best-effort refresh of the vendored Telegram Web App SDK."""
+    try:
+        timeout = ClientTimeout(total=30)
+        async with ClientSession(
+            timeout=timeout,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "application/javascript,text/javascript,*/*;q=0.8",
+            },
+        ) as session:
+            async with session.get(TELEGRAM_WEB_APP_SDK_URL) as response:
+                if response.status != 200:
+                    logger.warning(
+                        "Telegram Web App SDK refresh returned HTTP %s; keeping the bundled copy.",
+                        response.status,
+                    )
+                    return False
+                data = await response.read()
+    except Exception as exc:
+        logger.warning("Failed to refresh Telegram Web App SDK: %s", exc)
+        return False
+
+    try:
+        TELEGRAM_WEB_APP_SDK_PATH.parent.mkdir(parents=True, exist_ok=True)
+        existing_data = (
+            TELEGRAM_WEB_APP_SDK_PATH.read_bytes()
+            if TELEGRAM_WEB_APP_SDK_PATH.exists()
+            else None
+        )
+        if existing_data == data:
+            logger.info("Telegram Web App SDK is already up to date.")
+            return True
+
+        temp_path = TELEGRAM_WEB_APP_SDK_PATH.with_name(
+            f"{TELEGRAM_WEB_APP_SDK_PATH.name}.tmp"
+        )
+        temp_path.write_bytes(data)
+        temp_path.replace(TELEGRAM_WEB_APP_SDK_PATH)
+        logger.info(
+            "Telegram Web App SDK updated at %s (%d bytes).",
+            TELEGRAM_WEB_APP_SDK_PATH,
+            len(data),
+        )
+        return True
+    except Exception as exc:
+        logger.warning("Failed to store Telegram Web App SDK locally: %s", exc)
+        return False
+
+
+async def refresh_telegram_login_widget_sdk() -> bool:
+    """Best-effort refresh of the vendored Telegram Login Widget SDK."""
+    try:
+        timeout = ClientTimeout(total=30)
+        async with ClientSession(
+            timeout=timeout,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "application/javascript,text/javascript,*/*;q=0.8",
+            },
+        ) as session:
+            async with session.get(TELEGRAM_WIDGET_SDK_URL) as response:
+                if response.status != 200:
+                    logger.warning(
+                        "Telegram Login Widget SDK refresh returned HTTP %s; keeping the bundled copy.",
+                        response.status,
+                    )
+                    return False
+        data = await response.read()
+    except Exception as exc:
+        logger.warning("Failed to refresh Telegram Login Widget SDK: %s", exc)
+        return False
+
+    try:
+        data = _normalize_telegram_login_widget_sdk(data)
+        TELEGRAM_WIDGET_SDK_PATH.parent.mkdir(parents=True, exist_ok=True)
+        existing_data = (
+            TELEGRAM_WIDGET_SDK_PATH.read_bytes()
+            if TELEGRAM_WIDGET_SDK_PATH.exists()
+            else None
+        )
+        if existing_data == data:
+            logger.info("Telegram Login Widget SDK is already up to date.")
+            return True
+
+        temp_path = TELEGRAM_WIDGET_SDK_PATH.with_name(
+            f"{TELEGRAM_WIDGET_SDK_PATH.name}.tmp"
+        )
+        temp_path.write_bytes(data)
+        temp_path.replace(TELEGRAM_WIDGET_SDK_PATH)
+        logger.info(
+            "Telegram Login Widget SDK updated at %s (%d bytes).",
+            TELEGRAM_WIDGET_SDK_PATH,
+            len(data),
+        )
+        return True
+    except Exception as exc:
+        logger.warning("Failed to store Telegram Login Widget SDK locally: %s", exc)
+        return False
+
+
+def _normalize_telegram_login_widget_sdk(data: bytes) -> bytes:
+    # Keep the vendored widget pointing to Telegram's OAuth host instead of the local origin.
+    text = data.decode("utf-8")
+    normalized = text.replace(
+        _UNPATCHED_WIDGET_ORIGIN_SNIPPET,
+        _PATCHED_WIDGET_ORIGIN_SNIPPET,
+        1,
+    )
+    return normalized.encode("utf-8")
+
+
+async def js_asset_route(request: web.Request) -> web.Response:
+    return await _serve_template_asset(
+        request,
+        "subscription_webapp.js",
+        "application/javascript",
+        strip_dev_mock=True,
+    )
 
 
 async def index_route(request: web.Request) -> web.Response:
@@ -87,25 +266,76 @@ async def index_route(request: web.Request) -> web.Response:
         "primaryColor": settings.WEBAPP_PRIMARY_COLOR,
         "logoUrl": settings.WEBAPP_LOGO_URL or "",
         "apiBase": "/api",
+        "telegramLoginBotUsername": request.app.get("bot_username") or "",
         "supportUrl": settings.SUPPORT_LINK or "",
+        "privacyPolicyUrl": settings.PRIVACY_POLICY_URL or "",
+        "userAgreementUrl": settings.USER_AGREEMENT_URL or "",
         "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+        "language": _normalize_language(settings.DEFAULT_LANGUAGE),
     }
+    html = _strip_marked_block(html, DEV_MOCK_START_MARKER, DEV_MOCK_END_MARKER)
     html = html.replace(
-        "__WEBAPP_CONFIG__",
-        json.dumps(config, ensure_ascii=False, separators=(",", ":")),
+        WEBAPP_CONFIG_PLACEHOLDER,
+        (
+            "<script>window.__WEBAPP_CONFIG__="
+            + json.dumps(config, ensure_ascii=False, separators=(",", ":"))
+            + ";</script>"
+        ),
     )
     return web.Response(text=html, content_type="text/html", charset="utf-8")
+
+
+async def _serve_template_asset(
+    request: web.Request,
+    filename: str,
+    content_type: str,
+    *,
+    strip_dev_mock: bool = False,
+) -> web.Response:
+    settings: Settings = request.app["settings"]
+    if not settings.WEBAPP_ENABLED:
+        raise web.HTTPNotFound(text="webapp_disabled")
+
+    path = ASSET_DIR / filename
+    text = path.read_text(encoding="utf-8")
+    if strip_dev_mock:
+        text = _strip_marked_block(
+            text,
+            "/* WEBAPP_DEV_MOCK_START */",
+            "/* WEBAPP_DEV_MOCK_END */",
+        )
+    return web.Response(text=text, content_type=content_type, charset="utf-8")
+
+
+def _strip_marked_block(html: str, start_marker: str, end_marker: str) -> str:
+    start = html.find(start_marker)
+    if start == -1:
+        return html
+    end = html.find(end_marker, start)
+    if end == -1:
+        return html[:start]
+    return html[:start] + html[end + len(end_marker):]
 
 
 async def auth_token_route(request: web.Request) -> web.Response:
     settings: Settings = request.app["settings"]
     payload = await _read_json(request)
     init_data = str(payload.get("init_data") or "")
-    telegram_user = validate_telegram_webapp_init_data(
-        init_data,
-        settings.BOT_TOKEN,
-        max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
-    )
+    auth_data = payload.get("auth_data")
+    telegram_user = None
+    if init_data:
+        telegram_user = validate_telegram_webapp_init_data(
+            init_data,
+            settings.BOT_TOKEN,
+            max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
+        )
+    elif auth_data is not None:
+        telegram_user = validate_telegram_login_widget_data(
+            auth_data,
+            settings.BOT_TOKEN,
+            max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
+        )
+
     if not telegram_user:
         return _json_error(401, "invalid_auth", "Invalid Telegram auth data")
 
@@ -124,40 +354,6 @@ async def auth_token_route(request: web.Request) -> web.Response:
 
     token = create_webapp_session_token(settings, int(telegram_user["id"]))
     return web.json_response({"ok": True, "token": token})
-
-
-async def auth_request_token_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
-    token = create_pending_webapp_auth_token(settings)
-    bot: Bot = request.app["bot"]
-    bot_info = await bot.get_me()
-    auth_url = f"https://t.me/{bot_info.username}?start=webapp_auth_{token}"
-    return web.json_response({"ok": True, "token": token, "auth_url": auth_url})
-
-
-async def auth_check_token_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
-    token = request.match_info.get("token", "")
-    user_id = consume_authorized_webapp_auth_token(settings, token)
-    if not user_id:
-        return web.json_response({"ok": True, "authorized": False})
-
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    async with async_session_factory() as session:
-        db_user = await user_dal.get_user_by_id(session, user_id)
-        if not db_user or db_user.is_banned:
-            return web.json_response(
-                {"ok": True, "authorized": False, "error": "Access denied"}
-            )
-
-    session_token = create_webapp_session_token(settings, user_id)
-    return web.json_response(
-        {
-            "ok": True,
-            "authorized": True,
-            "token": session_token,
-        }
-    )
 
 
 async def me_route(request: web.Request) -> web.Response:
@@ -317,15 +513,16 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
         except Exception:
             await session.rollback()
 
+    lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
     return {
         "user": {
             "id": user_id,
             "username": db_user.username,
             "first_name": db_user.first_name,
-            "language_code": db_user.language_code or settings.DEFAULT_LANGUAGE,
+            "language_code": lang,
         },
-        "subscription": _serialize_subscription(active, local_sub),
-        "plans": _serialize_plans(settings),
+        "subscription": _serialize_subscription(active, local_sub, lang),
+        "plans": _serialize_plans(settings, lang),
         "payment_methods": _serialize_payment_methods(settings, request.app),
         "settings": {
             "support_url": settings.SUPPORT_LINK,
@@ -337,12 +534,13 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
 def _serialize_subscription(
     active: Optional[Dict[str, Any]],
     local_sub: Optional[Any],
+    lang: str,
 ) -> Dict[str, Any]:
     if not active:
         return {
             "active": False,
             "status": "INACTIVE",
-            "remaining_text": "Нет активной подписки",
+            "remaining_text": _format_remaining(0, lang),
             "days_left": 0,
             "config_link": None,
             "connect_url": None,
@@ -365,7 +563,7 @@ def _serialize_subscription(
         "end_date": end_date.isoformat() if end_date else None,
         "end_date_text": end_date.strftime("%d.%m.%Y %H:%M") if end_date else "N/A",
         "days_left": seconds_left // 86400,
-        "remaining_text": _format_remaining(seconds_left),
+        "remaining_text": _format_remaining(seconds_left, lang),
         "config_link": active.get("config_link"),
         "connect_url": active.get("connect_button_url") or active.get("config_link"),
         "traffic_limit": _format_bytes(active.get("traffic_limit_bytes")),
@@ -375,14 +573,14 @@ def _serialize_subscription(
     }
 
 
-def _serialize_plans(settings: Settings) -> List[Dict[str, Any]]:
+def _serialize_plans(settings: Settings, lang: str) -> List[Dict[str, Any]]:
     plans: List[Dict[str, Any]] = []
     for months, price in sorted(settings.subscription_options.items()):
         plan = {
             "months": int(months),
             "price": float(price),
             "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
-            "title": _format_months_title(int(months)),
+            "title": _format_months_title(int(months), lang),
         }
         stars_price = settings.stars_subscription_options.get(months)
         if stars_price is not None and int(stars_price) > 0:
@@ -843,12 +1041,25 @@ async def _create_stars_payment(
         return _json_error(502, "payment_failed", "Failed to create invoice")
 
 
-def _format_remaining(seconds: int) -> str:
+def _normalize_language(lang: Optional[str]) -> str:
+    value = (lang or "ru").split("-")[0].lower()
+    return value if value in {"ru", "en"} else "ru"
+
+
+def _format_remaining(seconds: int, lang: str) -> str:
     if seconds <= 0:
+        if lang == "en":
+            return "Subscription inactive"
         return "Подписка не активна"
     days, rem = divmod(seconds, 86400)
     hours, rem = divmod(rem, 3600)
     minutes = rem // 60
+    if lang == "en":
+        if days > 0:
+            return f"{days} d. {hours} h."
+        if hours > 0:
+            return f"{hours} h. {minutes} min."
+        return f"{max(1, minutes)} min."
     if days > 0:
         return f"{days} д. {hours} ч."
     if hours > 0:
@@ -873,7 +1084,11 @@ def _format_bytes(value: Optional[Any]) -> str:
     return f"{size:.2f} {units[index]}"
 
 
-def _format_months_title(months: int) -> str:
+def _format_months_title(months: int, lang: str) -> str:
+    if lang == "en":
+        if months == 1:
+            return "1 month"
+        return f"{months} months"
     if months == 1:
         return "1 месяц"
     if 2 <= months <= 4:
@@ -883,5 +1098,5 @@ def _format_months_title(months: int) -> str:
 
 def _payment_description(months: int, lang: str) -> str:
     if lang == "en":
-        return f"Subscription for {months} month(s)"
-    return f"Подписка на {_format_months_title(months)}"
+        return f"Subscription for {_format_months_title(months, lang)}"
+    return f"Подписка на {_format_months_title(months, lang)}"

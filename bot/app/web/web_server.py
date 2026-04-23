@@ -1,11 +1,15 @@
 import asyncio
 import logging
+from contextlib import suppress
+
 from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from sqlalchemy.orm import sessionmaker
 
 from config.settings import Settings
+
+TELEGRAM_WEB_APP_SDK_REFRESH_INTERVAL_SECONDS = 24 * 60 * 60
 
 
 def _inject_shared_instances(
@@ -111,8 +115,13 @@ async def build_and_start_web_app(
         f"AIOHTTP server started on http://{settings.WEB_SERVER_HOST}:{settings.WEB_SERVER_PORT}"
     )
 
+    telegram_web_app_sdk_refresh_task = None
     if settings.WEBAPP_ENABLED:
-        from bot.app.web.subscription_webapp import create_subscription_webapp_application
+        from bot.app.web.subscription_webapp import (
+            create_subscription_webapp_application,
+            refresh_telegram_login_widget_sdk,
+            refresh_telegram_web_app_sdk,
+        )
 
         subscription_app = create_subscription_webapp_application(
             dp,
@@ -135,9 +144,25 @@ async def build_and_start_web_app(
             settings.WEBAPP_SERVER_PORT,
         )
 
+        async def _refresh_telegram_web_assets_forever() -> None:
+            while True:
+                await refresh_telegram_web_app_sdk()
+                await refresh_telegram_login_widget_sdk()
+                await asyncio.sleep(TELEGRAM_WEB_APP_SDK_REFRESH_INTERVAL_SECONDS)
+
+        telegram_web_app_sdk_refresh_task = asyncio.create_task(
+            _refresh_telegram_web_assets_forever(),
+            name="TelegramWebAssetsRefreshTask",
+        )
+
     try:
         await asyncio.Event().wait()
     finally:
+        if telegram_web_app_sdk_refresh_task is not None:
+            telegram_web_app_sdk_refresh_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await telegram_web_app_sdk_refresh_task
+
         for runner in reversed(runners):
             try:
                 await runner.cleanup()

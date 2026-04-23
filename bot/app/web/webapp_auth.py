@@ -3,24 +3,13 @@ import hashlib
 import hmac
 import json
 import logging
-import secrets
 import time
-from dataclasses import dataclass
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qsl
 
 from config.settings import Settings
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class PendingWebAppAuth:
-    created_at: int
-    user_id: Optional[int] = None
-
-
-_PENDING_AUTH_TOKENS: Dict[str, PendingWebAppAuth] = {}
 
 
 def _urlsafe_b64encode(raw: bytes) -> str:
@@ -134,40 +123,61 @@ def validate_telegram_webapp_init_data(
         return None
 
 
-def _cleanup_pending_auth(settings: Settings) -> None:
-    now = int(time.time())
-    ttl = max(60, int(settings.WEBAPP_LOGIN_TOKEN_TTL_SECONDS))
-    expired = [
-        token
-        for token, value in _PENDING_AUTH_TOKENS.items()
-        if now - value.created_at > ttl
-    ]
-    for token in expired:
-        _PENDING_AUTH_TOKENS.pop(token, None)
+def validate_telegram_login_widget_data(
+    auth_data: Any,
+    bot_token: str,
+    *,
+    max_age_seconds: int,
+) -> Optional[Dict[str, Any]]:
+    """Validate Telegram Login Widget data and return the trusted user payload."""
 
+    try:
+        if isinstance(auth_data, str):
+            parsed_data = dict(parse_qsl(auth_data or "", keep_blank_values=True))
+        elif isinstance(auth_data, dict):
+            parsed_data = {
+                str(key): str(value)
+                for key, value in auth_data.items()
+                if value is not None
+            }
+        else:
+            return None
 
-def create_pending_webapp_auth_token(settings: Settings) -> str:
-    _cleanup_pending_auth(settings)
-    token = secrets.token_urlsafe(24)
-    _PENDING_AUTH_TOKENS[token] = PendingWebAppAuth(created_at=int(time.time()))
-    return token
+        received_hash = str(parsed_data.pop("hash", "") or "")
+        if not received_hash:
+            return None
 
+        data_check_string = "\n".join(
+            f"{key}={value}" for key, value in sorted(parsed_data.items())
+        )
+        secret_key = hashlib.sha256(bot_token.encode("utf-8")).digest()
+        calculated_hash = hmac.new(
+            secret_key,
+            data_check_string.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        if not hmac.compare_digest(calculated_hash, received_hash):
+            logger.warning("Telegram Login Widget hash mismatch.")
+            return None
 
-def authorize_pending_webapp_auth_token(token: str, user_id: int) -> bool:
-    pending = _PENDING_AUTH_TOKENS.get(token)
-    if not pending:
-        return False
-    pending.user_id = int(user_id)
-    return True
+        auth_date_raw = parsed_data.get("auth_date")
+        if auth_date_raw:
+            auth_date = int(auth_date_raw)
+            now = int(time.time())
+            max_age = max(60, int(max_age_seconds))
+            if auth_date > now + 300 or now - auth_date > max_age:
+                logger.warning("Telegram Login Widget auth_date is stale.")
+                return None
 
+        user_id_raw = parsed_data.get("id")
+        if not user_id_raw:
+            return None
+        int(user_id_raw)
 
-def consume_authorized_webapp_auth_token(
-    settings: Settings,
-    token: str,
-) -> Optional[int]:
-    _cleanup_pending_auth(settings)
-    pending = _PENDING_AUTH_TOKENS.get(token)
-    if not pending or pending.user_id is None:
+        if not parsed_data.get("first_name"):
+            return None
+
+        return parsed_data
+    except Exception as exc:
+        logger.warning("Failed to validate Telegram Login Widget data: %s", exc)
         return None
-    _PENDING_AUTH_TOKENS.pop(token, None)
-    return int(pending.user_id)

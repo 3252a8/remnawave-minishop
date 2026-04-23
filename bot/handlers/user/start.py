@@ -26,8 +26,6 @@ from config.settings import Settings
 from bot.middlewares.i18n import JsonI18n
 from bot.utils.text_sanitizer import sanitize_username, sanitize_display_name
 from bot.utils.callback_answer import safe_answer_callback
-from bot.app.web.webapp_auth import authorize_pending_webapp_auth_token
-
 router = Router(name="user_start_router")
 
 
@@ -308,7 +306,6 @@ async def ensure_required_channel_subscription(
 @router.message(CommandStart(magic=F.args.regexp(r"^promo_(\w+)$").as_("promo_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^admin_user_(\d+)$").as_("admin_user_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^page_ref$").as_("page_ref_match")))
-@router.message(CommandStart(magic=F.args.regexp(r"^webapp_auth_([A-Za-z0-9_\-]{16,128})$").as_("webapp_auth_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^(?!ref_|promo_|admin_user_|page_ref$|webapp_auth_)([A-Za-z0-9_\-]{2,64})$").as_("ad_param_match")))
 async def start_command_handler(message: types.Message,
                                 state: FSMContext,
@@ -321,8 +318,7 @@ async def start_command_handler(message: types.Message,
                                 promo_match: Optional[re.Match] = None,
                                 page_ref_match: Optional[re.Match] = None,
                                 ad_param_match: Optional[re.Match] = None,
-                                admin_user_match: Optional[re.Match] = None,
-                                webapp_auth_match: Optional[re.Match] = None):
+                                admin_user_match: Optional[re.Match] = None):
     await state.clear()
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -388,7 +384,6 @@ async def start_command_handler(message: types.Message,
     promo_code_to_apply: Optional[str] = None
     should_open_referral_from_start = False
     ad_start_param: Optional[str] = None
-    webapp_auth_token: Optional[str] = None
 
     if ref_match:
         raw_ref_value = ref_match.group(1)
@@ -414,9 +409,6 @@ async def start_command_handler(message: types.Message,
     elif page_ref_match:
         should_open_referral_from_start = True
         logging.info(f"User {user_id} started with page_ref deep-link.")
-    elif webapp_auth_match:
-        webapp_auth_token = webapp_auth_match.group(1)
-        logging.info("User %s started WebApp auth flow.", user_id)
     elif ad_param_match:
         ad_start_param = ad_param_match.group(1)
         logging.info(f"User {user_id} started with ad start param: {ad_start_param}")
@@ -570,13 +562,6 @@ async def start_command_handler(message: types.Message,
     if not await ensure_required_channel_subscription(message, settings, i18n,
                                                       current_lang, session,
                                                       db_user):
-        return
-
-    if webapp_auth_token:
-        if authorize_pending_webapp_auth_token(webapp_auth_token, user_id):
-            await message.answer(_("webapp_auth_success"))
-        else:
-            await message.answer(_("webapp_auth_expired"))
         return
 
     open_referral_page_for_existing_user = (

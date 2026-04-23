@@ -243,8 +243,14 @@ async def run_bot(settings_param: Settings):
     actual_bot_username = "your_bot_username"
     try:
         bot_info = await bot.get_me()
-        actual_bot_username = bot_info.username
-        logging.info(f"Bot username resolved: @{actual_bot_username}")
+        if bot_info.username:
+            actual_bot_username = bot_info.username
+            dp["bot_username"] = actual_bot_username
+            logging.info(f"Bot username resolved: @{actual_bot_username}")
+        else:
+            logging.warning(
+                "Bot username is empty; Telegram Login Widget will be unavailable."
+            )
     except Exception as e:
         logging.error(
             f"Failed to get bot info (e.g., for YooKassa default URL): {e}. Using fallback: {actual_bot_username}"

@@ -3,1176 +3,155 @@
 
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#05070a">
   <title>Моя подписка</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <style>
-    :root {
-      color-scheme: dark;
-      --bg-primary: #05070a;
-      --bg-secondary: #0a0e17;
-      --bg-card: #0f1521;
-      --bg-card-hover: #161e2e;
-      --surface: #1e2940;
-      --border: #1e2940;
-      --border-strong: #2a3752;
-      --text-primary: #e2e8f0;
-      --text-secondary: #94a3b8;
-      --text-muted: #64748b;
-      --accent: #00fe7a;
-      --accent-hover: #5aff9f;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      --font-mono: "JetBrains Mono", "Fira Code", monospace;
-      --radius-sm: 6px;
-      --radius-md: 8px;
-      --radius-lg: 8px;
-      --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    *,
-    *::before,
-    *::after {
-      box-sizing: border-box;
-    }
-
-    html,
-    body {
-      min-height: 100%;
-      margin: 0;
-      letter-spacing: 0;
-    }
-
-    body {
-      background: var(--bg-primary);
-      background:
-        linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 320px),
-        var(--bg-primary);
-      color: var(--text-primary);
-      font-family: var(--font-sans);
-      line-height: 1.5;
-      overflow-x: hidden;
-      -webkit-font-smoothing: antialiased;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    button,
-    a {
-      font: inherit;
-    }
-
-    button {
-      border: 0;
-      cursor: pointer;
-    }
-
-    button:disabled {
-      cursor: progress;
-      opacity: 0.58;
-    }
-
-    .app {
-      width: min(100%, 560px);
-      margin: 0 auto;
-      padding: max(env(safe-area-inset-top), 14px) 14px max(env(safe-area-inset-bottom), 18px);
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .topbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      min-height: 48px;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      min-width: 0;
-      gap: 10px;
-    }
-
-    .brand-mark,
-    .icon-btn {
-      width: 38px;
-      height: 38px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      flex: 0 0 auto;
-      border-radius: var(--radius-md);
-    }
-
-    .brand-mark {
-      border: 1px solid color-mix(in srgb, var(--accent) 52%, var(--border));
-      background: color-mix(in srgb, var(--accent) 11%, var(--bg-card));
-      color: var(--accent);
-      font-family: var(--font-mono);
-      font-size: 18px;
-      font-weight: 800;
-      overflow: hidden;
-      box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 16%, transparent);
-    }
-
-    .brand-mark img {
-      width: 100%;
-      height: 100%;
-      padding: 4px;
-      object-fit: contain;
-    }
-
-    .brand-kicker {
-      color: var(--accent);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 700;
-      line-height: 1.1;
-    }
-
-    .brand-title {
-      max-width: 260px;
-      color: var(--text-primary);
-      font-size: 17px;
-      font-weight: 800;
-      line-height: 1.15;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .top-actions {
-      display: flex;
-      gap: 8px;
-      flex: 0 0 auto;
-    }
-
-    .icon-btn {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      font-family: var(--font-mono);
-      font-weight: 700;
-      transition: var(--transition);
-    }
-
-    .icon-btn:active {
-      border-color: var(--accent);
-      color: var(--accent);
-      transform: translateY(1px);
-    }
-
-    .panel {
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)), var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      box-shadow: 0 22px 48px rgba(0, 0, 0, 0.38);
-    }
-
-    .subscription-panel {
-      padding: 16px;
-      display: grid;
-      gap: 16px;
-    }
-
-    .badge-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-
-    .mono-pill,
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      min-height: 28px;
-      padding: 0 10px;
-      border-radius: var(--radius-md);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .mono-pill {
-      border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
-      background: color-mix(in srgb, var(--accent) 9%, transparent);
-      color: var(--accent);
-    }
-
-    .badge {
-      background: rgba(16, 185, 129, 0.1);
-      color: var(--success);
-    }
-
-    .badge.off {
-      background: rgba(239, 68, 68, 0.1);
-      color: var(--danger);
-    }
-
-    .status-title {
-      margin: 0;
-      font-size: 32px;
-      font-weight: 850;
-      line-height: 1.08;
-      overflow-wrap: anywhere;
-    }
-
-    .gradient-text {
-      color: var(--text-primary);
-      background: linear-gradient(135deg, var(--text-primary), color-mix(in srgb, var(--accent) 68%, #ffffff));
-      -webkit-background-clip: text;
-      background-clip: text;
-    }
-
-    @supports ((-webkit-background-clip: text) or (background-clip: text)) {
-      .gradient-text {
-        color: transparent;
-      }
-    }
-
-    @supports (-webkit-text-fill-color: transparent) {
-      .gradient-text {
-        -webkit-text-fill-color: transparent;
-      }
-    }
-
-    @supports not (color: color-mix(in srgb, #000 50%, #fff)) {
-      body {
-        background: var(--bg-primary);
-      }
-
-      .brand-mark,
-      .mono-pill,
-      .btn.primary,
-      .step.active,
-      .plan.active,
-      .method.active {
-        border-color: var(--accent);
-      }
-
-      .brand-mark,
-      .mono-pill,
-      .step.active,
-      .plan.active,
-      .method.active {
-        background: rgba(0, 254, 122, 0.08);
-      }
-
-      .btn.primary {
-        background: var(--accent);
-      }
-
-      .gradient-text {
-        background: none;
-        color: var(--text-primary);
-        -webkit-text-fill-color: currentColor;
-      }
-    }
-
-    @supports not ((-webkit-background-clip: text) or (background-clip: text)) {
-      .gradient-text {
-        color: var(--text-primary);
-        -webkit-text-fill-color: currentColor;
-      }
-    }
-
-    .status-subtitle {
-      margin: 4px 0 0;
-      color: var(--text-secondary);
-      font-size: 14px;
-    }
-
-    .metrics {
-      display: grid;
-      gap: 0;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      overflow: hidden;
-    }
-
-    .metric {
-      display: grid;
-      grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
-      gap: 10px;
-      min-height: 48px;
-      align-items: center;
-      padding: 10px 12px;
-      background: rgba(255, 255, 255, 0.02);
-    }
-
-    .metric + .metric {
-      border-top: 1px solid var(--border);
-    }
-
-    .metric-label {
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 700;
-    }
-
-    .metric-value {
-      color: var(--text-primary);
-      font-size: 14px;
-      font-weight: 750;
-      text-align: right;
-      overflow-wrap: anywhere;
-    }
-
-    .actions,
-    .step-actions {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-    }
-
-    .btn {
-      min-height: 46px;
-      border-radius: var(--radius-md);
-      padding: 11px 13px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.03);
-      color: var(--text-primary);
-      font-weight: 800;
-      text-align: center;
-      text-decoration: none;
-      transition: var(--transition);
-    }
-
-    .btn:active {
-      transform: translateY(1px);
-    }
-
-    .btn.primary {
-      border-color: color-mix(in srgb, var(--accent) 80%, var(--border));
-      background:
-        linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 76%, #00c95f));
-      color: #04110a;
-      box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 20%, transparent);
-    }
-
-    .btn.ghost {
-      color: var(--text-secondary);
-    }
-
-    .btn.full {
-      width: 100%;
-    }
-
-    .support-link {
-      margin-top: 2px;
-    }
-
-    .payment-flow {
-      padding: 14px;
-      display: grid;
-      gap: 14px;
-    }
-
-    .flow-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .flow-title {
-      font-size: 18px;
-      font-weight: 850;
-      line-height: 1.2;
-    }
-
-    .flow-caption {
-      margin-top: 3px;
-      color: var(--text-secondary);
-      font-size: 13px;
-    }
-
-    .stepper {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-    }
-
-    .step {
-      min-height: 58px;
-      padding: 9px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      background: rgba(255, 255, 255, 0.02);
-      color: var(--text-muted);
-    }
-
-    .step-num {
-      display: block;
-      color: inherit;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 800;
-      line-height: 1.1;
-    }
-
-    .step-name {
-      display: block;
-      margin-top: 5px;
-      color: inherit;
-      font-size: 12px;
-      font-weight: 800;
-      line-height: 1.15;
-    }
-
-    .step.active {
-      border-color: var(--accent);
-      background: color-mix(in srgb, var(--accent) 9%, transparent);
-      color: var(--accent);
-    }
-
-    .step.done {
-      border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-      color: var(--text-secondary);
-    }
-
-    .step-pane {
-      display: grid;
-      gap: 10px;
-    }
-
-    .section-label {
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 800;
-    }
-
-    .plans,
-    .methods {
-      display: grid;
-      gap: 8px;
-    }
-
-    .plan,
-    .method {
-      width: 100%;
-      min-height: 64px;
-      padding: 13px;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.02);
-      color: var(--text-primary);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      text-align: left;
-      transition: var(--transition);
-    }
-
-    .plan.active,
-    .method.active {
-      border-color: var(--accent);
-      background: color-mix(in srgb, var(--accent) 8%, transparent);
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 58%, transparent);
-    }
-
-    .plan-name,
-    .method-name,
-    .plan-price {
-      display: block;
-      font-size: 15px;
-      font-weight: 850;
-      line-height: 1.2;
-      overflow-wrap: anywhere;
-    }
-
-    .plan-meta,
-    .method-meta {
-      display: block;
-      margin-top: 4px;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 700;
-      line-height: 1.3;
-    }
-
-    .plan-price {
-      flex: 0 0 auto;
-      color: var(--accent);
-      font-family: var(--font-mono);
-      text-align: right;
-    }
-
-    .notice,
-    .empty {
-      padding: 13px;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.02);
-      color: var(--text-secondary);
-      font-size: 14px;
-      line-height: 1.45;
-    }
-
-    .result-box {
-      display: grid;
-      gap: 10px;
-    }
-
-    .loader {
-      min-height: 78vh;
-      display: grid;
-      place-items: center;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-      font-weight: 800;
-    }
-
-    .login {
-      min-height: 100vh;
-      padding: max(env(safe-area-inset-top), 14px) 14px max(env(safe-area-inset-bottom), 18px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .login.show {
-      display: flex;
-    }
-
-    .login-card {
-      width: min(100%, 380px);
-      padding: 18px;
-      display: grid;
-      gap: 13px;
-      text-align: center;
-    }
-
-    .login-title {
-      font-size: 22px;
-      font-weight: 850;
-      line-height: 1.15;
-    }
-
-    .login-text {
-      color: var(--text-secondary);
-      font-size: 14px;
-      line-height: 1.45;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    @media (max-width: 380px) {
-      .app {
-        padding-left: 10px;
-        padding-right: 10px;
-      }
-
-      .brand-title {
-        max-width: 190px;
-      }
-
-      .status-title {
-        font-size: 28px;
-      }
-
-      .actions,
-      .step-actions,
-      .metric {
-        grid-template-columns: 1fr;
-      }
-
-      .metric-value {
-        text-align: left;
-      }
-
-      .stepper {
-        gap: 6px;
-      }
-
-      .step {
-        min-height: 54px;
-        padding: 8px 7px;
-      }
-    }
-  </style>
+  <script src="./telegram-web-app.js"></script>
+  <link rel="stylesheet" href="./subscription_webapp.css">
 </head>
 
 <body>
-  <div id="loader" class="loader">Загрузка...</div>
+  <div id="loader" class="loader" data-i18n="loading">Загрузка...</div>
 
   <main id="app" class="app hidden">
     <header class="topbar">
       <div class="brand">
-        <div id="brand-mark" class="brand-mark">/</div>
-        <div>
-          <div class="brand-kicker">/tnnl</div>
-          <div id="brand-title" class="brand-title">Моя подписка</div>
-        </div>
+        <img id="brand-logo" class="brand-logo hidden" data-brand-logo alt="" aria-hidden="true">
+        <div id="brand-title" class="brand-title" data-brand-title>Моя подписка</div>
       </div>
       <div class="top-actions">
-        <button class="icon-btn" type="button" title="Обновить" onclick="reloadData()">↻</button>
-        <button class="icon-btn" type="button" title="Выйти" onclick="logout()">×</button>
+        <button class="icon-btn" type="button" data-title-i18n="refresh" aria-label="Обновить" onclick="reloadData()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" aria-hidden="true">
+            <path d="M544.1 256L552 256C565.3 256 576 245.3 576 232L576 88C576 78.3 570.2 69.5 561.2 65.8C552.2 62.1 541.9 64.2 535 71L483.3 122.8C439 86.1 382 64 320 64C191 64 84.3 159.4 66.6 283.5C64.1 301 76.2 317.2 93.7 319.7C111.2 322.2 127.4 310 129.9 292.6C143.2 199.5 223.3 128 320 128C364.4 128 405.2 143 437.7 168.3L391 215C384.1 221.9 382.1 232.2 385.8 241.2C389.5 250.2 398.3 256 408 256L544.1 256zM573.5 356.5C576 339 563.8 322.8 546.4 320.3C529 317.8 512.7 330 510.2 347.4C496.9 440.4 416.8 511.9 320.1 511.9C275.7 511.9 234.9 496.9 202.4 471.6L249 425C255.9 418.1 257.9 407.8 254.2 398.8C250.5 389.8 241.7 384 232 384L88 384C74.7 384 64 394.7 64 408L64 552C64 561.7 69.8 570.5 78.8 574.2C87.8 577.9 98.1 575.8 105 569L156.8 517.2C201 553.9 258 576 320 576C449 576 555.7 480.6 573.4 356.5z"/>
+          </svg>
+        </button>
+        <button class="btn logout-btn" type="button" onclick="logout()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" aria-hidden="true">
+            <path d="M224 160C241.7 160 256 145.7 256 128C256 110.3 241.7 96 224 96L160 96C107 96 64 139 64 192L64 448C64 501 107 544 160 544L224 544C241.7 544 256 529.7 256 512C256 494.3 241.7 480 224 480L160 480C142.3 480 128 465.7 128 448L128 192C128 174.3 142.3 160 160 160L224 160zM566.6 342.6C579.1 330.1 579.1 309.8 566.6 297.3L438.6 169.3C426.1 156.8 405.8 156.8 393.3 169.3C380.8 181.8 380.8 202.1 393.3 214.6L466.7 288L256 288C238.3 288 224 302.3 224 320C224 337.7 238.3 352 256 352L466.7 352L393.3 425.4C380.8 437.9 380.8 458.2 393.3 470.7C405.8 483.2 426.1 483.2 438.6 470.7L566.6 342.7z"/>
+          </svg>
+          <span data-i18n="logout">Выйти</span>
+        </button>
       </div>
     </header>
 
     <section class="panel subscription-panel">
       <div class="badge-row">
-        <div class="mono-pill">subscription</div>
+        <div class="mono-pill" data-i18n="subscription">Подписка</div>
         <div id="status-badge" class="badge">...</div>
       </div>
 
       <div>
         <h1 id="remaining" class="status-title gradient-text">...</h1>
-        <p class="status-subtitle">Ваша ссылка подключения и срок доступа</p>
+        <p class="status-subtitle" data-i18n="subscription_subtitle">Ваша ссылка подключения и срок доступа</p>
       </div>
 
       <div class="metrics">
         <div class="metric">
-          <div class="metric-label">ends_at</div>
+          <div class="metric-label" data-i18n="ends_at">Окончание</div>
           <div id="end-date" class="metric-value">...</div>
         </div>
         <div class="metric">
-          <div class="metric-label">traffic</div>
+          <div class="metric-label" data-i18n="traffic">Трафик</div>
           <div id="traffic" class="metric-value">...</div>
         </div>
       </div>
 
       <div id="connect-actions" class="actions">
-        <button id="connect-btn" class="btn primary" type="button" onclick="openConnectLink()">Подключиться</button>
-        <button id="copy-btn" class="btn" type="button" onclick="copyConfigLink()">Скопировать ссылку</button>
+        <button id="connect-btn" class="btn primary" type="button" onclick="openConnectLink()" data-i18n="connect">Подключиться</button>
+        <button id="copy-btn" class="btn icon-only copy-icon-btn" type="button" onclick="copyConfigLink()" data-title-i18n="copy_link" aria-label="Скопировать ссылку">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" aria-hidden="true">
+            <path d="M451.5 160C434.9 160 418.8 164.5 404.7 172.7C388.9 156.7 370.5 143.3 350.2 133.2C378.4 109.2 414.3 96 451.5 96C537.9 96 608 166 608 252.5C608 294 591.5 333.8 562.2 363.1L491.1 434.2C461.8 463.5 422 480 380.5 480C294.1 480 224 410 224 323.5C224 322 224 320.5 224.1 319C224.6 301.3 239.3 287.4 257 287.9C274.7 288.4 288.6 303.1 288.1 320.8C288.1 321.7 288.1 322.6 288.1 323.4C288.1 374.5 329.5 415.9 380.6 415.9C405.1 415.9 428.6 406.2 446 388.8L517.1 317.7C534.4 300.4 544.2 276.8 544.2 252.3C544.2 201.2 502.8 159.8 451.7 159.8zM307.2 237.3C305.3 236.5 303.4 235.4 301.7 234.2C289.1 227.7 274.7 224 259.6 224C235.1 224 211.6 233.7 194.2 251.1L123.1 322.2C105.8 339.5 96 363.1 96 387.6C96 438.7 137.4 480.1 188.5 480.1C205 480.1 221.1 475.7 235.2 467.5C251 483.5 269.4 496.9 289.8 507C261.6 530.9 225.8 544.2 188.5 544.2C102.1 544.2 32 474.2 32 387.7C32 346.2 48.5 306.4 77.8 277.1L148.9 206C178.2 176.7 218 160.2 259.5 160.2C346.1 160.2 416 230.8 416 317.1C416 318.4 416 319.7 416 321C415.6 338.7 400.9 352.6 383.2 352.2C365.5 351.8 351.6 337.1 352 319.4C352 318.6 352 317.9 352 317.1C352 283.4 334 253.8 307.2 237.5z"/>
+          </svg>
+        </button>
       </div>
 
-      <button id="extend-btn" class="btn primary full" type="button" onclick="togglePaymentFlow()">Продлить подписку/Добавить дни</button>
+      <div class="extend-row">
+        <button id="extend-btn" class="btn extend-btn full" type="button" onclick="togglePaymentFlow()" data-i18n="extend_subscription">Продлить подписку/Добавить дни</button>
+      </div>
     </section>
 
-    <section id="payment-flow" class="panel payment-flow hidden">
+    <a id="support-link" class="btn support-link hidden" href="#" target="_blank" rel="noopener" data-i18n="support">Поддержка</a>
+    <div id="legal-links-app" class="legal-links hidden">
+      <a class="legal-link" data-legal-key="privacyPolicyUrl" href="#" target="_blank" rel="noopener" data-i18n="privacy_policy">Политика конфиденциальности</a>
+      <a class="legal-link" data-legal-key="userAgreementUrl" href="#" target="_blank" rel="noopener" data-i18n="user_agreement">Пользовательское соглашение</a>
+    </div>
+  </main>
+
+  <div id="payment-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="payment-title">
+    <button class="modal-backdrop" type="button" data-title-i18n="close_payment" aria-label="Закрыть оплату" onclick="closePaymentFlow()"></button>
+    <section id="payment-flow" class="panel payment-flow modal-card">
       <div class="flow-head">
         <div>
-          <div class="flow-title">Оплата подписки</div>
-          <div class="flow-caption">Выберите срок, способ оплаты и создайте платеж.</div>
+          <div id="payment-title" class="flow-title" data-i18n="payment_title">Оплата подписки</div>
+          <div class="flow-caption" data-i18n="payment_caption">Выберите срок, способ оплаты и создайте платеж.</div>
         </div>
-        <button class="icon-btn" type="button" title="Закрыть оплату" onclick="closePaymentFlow()">×</button>
+        <button class="icon-btn" type="button" data-title-i18n="close_payment" aria-label="Закрыть оплату" onclick="closePaymentFlow()">×</button>
       </div>
 
-      <div class="stepper" aria-label="Шаги оплаты">
+      <div class="stepper" data-aria-i18n="payment_steps" aria-label="Шаги оплаты">
         <div id="step-plan" class="step">
           <span class="step-num">01</span>
-          <span class="step-name">Срок</span>
+          <span class="step-name" data-i18n="step_plan">Срок</span>
         </div>
         <div id="step-method" class="step">
           <span class="step-num">02</span>
-          <span class="step-name">Метод</span>
+          <span class="step-name" data-i18n="step_method">Метод</span>
         </div>
         <div id="step-result" class="step">
           <span class="step-num">03</span>
-          <span class="step-name">Платеж</span>
+          <span class="step-name" data-i18n="step_result">Платеж</span>
         </div>
       </div>
 
       <div id="plan-step" class="step-pane">
-        <div class="section-label">select_period</div>
+        <div class="section-label" data-i18n="select_period">Выберите срок</div>
         <div id="plans" class="plans"></div>
-        <button id="to-methods-btn" class="btn primary full" type="button" onclick="goToPaymentStep('method')">Выбрать способ оплаты</button>
+        <button id="to-methods-btn" class="btn primary full" type="button" onclick="goToPaymentStep('method')" data-i18n="choose_payment_method">Выбрать способ оплаты</button>
       </div>
 
       <div id="method-step" class="step-pane hidden">
-        <div class="section-label">select_method</div>
+        <div class="section-label" data-i18n="select_method">Выберите способ оплаты</div>
         <div id="methods" class="methods"></div>
         <div class="step-actions">
-          <button class="btn ghost" type="button" onclick="goToPaymentStep('plan')">Назад</button>
-          <button id="create-payment-btn" class="btn primary" type="button" onclick="createPaymentFromSelection()">Создать платеж</button>
+          <button class="btn ghost" type="button" onclick="goToPaymentStep('plan')" data-i18n="back">Назад</button>
+          <button id="create-payment-btn" class="btn primary" type="button" onclick="createPaymentFromSelection()" data-i18n="create_payment">Создать платеж</button>
         </div>
       </div>
 
       <div id="result-step" class="step-pane hidden">
-        <div class="section-label">payment_status</div>
+        <div class="section-label" data-i18n="payment_status">Статус платежа</div>
         <div class="result-box">
           <div id="payment-message" class="notice"></div>
-          <button id="payment-open-btn" class="btn primary full" type="button" onclick="openPaymentUrl()">Открыть оплату</button>
-          <button id="payment-check-btn" class="btn full" type="button" onclick="checkPayment()">Проверить оплату</button>
-          <button class="btn ghost full" type="button" onclick="goToPaymentStep('method')">Выбрать другой способ</button>
+          <button id="payment-open-btn" class="btn primary full" type="button" onclick="openPaymentUrl()" data-i18n="open_payment">Открыть оплату</button>
+          <button id="payment-check-btn" class="btn full" type="button" onclick="checkPayment()" data-i18n="check_payment">Проверить оплату</button>
+          <button class="btn ghost full" type="button" onclick="goToPaymentStep('method')" data-i18n="choose_other_method">Выбрать другой способ</button>
         </div>
       </div>
     </section>
-
-    <a id="support-link" class="btn support-link hidden" href="#" target="_blank" rel="noopener">Поддержка</a>
-  </main>
+  </div>
 
   <section id="login" class="login">
     <div class="panel login-card">
-      <div class="mono-pill">telegram_auth</div>
-      <div class="login-title">Вход через Telegram</div>
-      <div class="login-text">Откройте бота и подтвердите вход. После подтверждения страница обновится автоматически.</div>
-      <a id="auth-link" class="btn primary" href="#" target="_blank" rel="noopener">Открыть Telegram</a>
-      <button class="btn" type="button" onclick="startExternalAuth()">Обновить ссылку</button>
+      <div class="login-brand">
+        <img id="login-brand-logo" class="brand-logo brand-logo--lg hidden" data-brand-logo alt="" aria-hidden="true">
+        <div id="login-brand-title" class="login-brand-title" data-brand-title>Моя подписка</div>
+      </div>
+      <div id="telegram-login-widget" class="telegram-login-widget" aria-live="polite"></div>
+      <div id="auth-status" class="login-text login-status hidden" aria-live="polite"></div>
+    </div>
+    <div id="legal-links-login" class="legal-links hidden">
+      <a class="legal-link" data-legal-key="privacyPolicyUrl" href="#" target="_blank" rel="noopener" data-i18n="privacy_policy">Политика конфиденциальности</a>
+      <a class="legal-link" data-legal-key="userAgreementUrl" href="#" target="_blank" rel="noopener" data-i18n="user_agreement">Пользовательское соглашение</a>
     </div>
   </section>
 
-  <script>
-    const CFG = __WEBAPP_CONFIG__;
-    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-    const state = {
-      token: localStorage.getItem('rw_webapp_token') || '',
-      data: null,
-      selectedPlan: null,
-      selectedMethod: null,
-      payment: null,
-      paymentFlowOpen: false,
-      paymentStep: 'plan',
-      creatingPayment: false,
-      authPoll: null
-    };
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-    const accent = CFG.primaryColor || '#00fe7a';
-    document.documentElement.style.setProperty('--accent', accent);
-    document.title = CFG.title || 'Моя подписка';
-    document.getElementById('brand-title').textContent = CFG.title || 'Моя подписка';
-    if (CFG.logoUrl) {
-      document.getElementById('brand-mark').innerHTML = '<img src="' + escapeAttr(CFG.logoUrl) + '" alt="">';
-    }
-    if (CFG.supportUrl) {
-      const support = document.getElementById('support-link');
-      support.href = CFG.supportUrl;
-      support.classList.remove('hidden');
-    }
-
-    if (tg) {
-      try {
-        tg.ready();
-        tg.expand();
-        tg.setHeaderColor('#05070a');
-        tg.setBackgroundColor('#05070a');
-      } catch (e) { }
-    }
-
-    boot();
-
-    async function boot() {
-      showLoader();
-      if (tg && tg.initData) {
-        try {
-          const auth = await fetch(CFG.apiBase + '/auth/token', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({init_data: tg.initData})
-          });
-          const data = await auth.json();
-          if (data.ok && data.token) {
-            setToken(data.token);
-            await loadData();
-            return;
-          }
-        } catch (e) { }
-      }
-
-      if (state.token) {
-        try {
-          await loadData();
-          return;
-        } catch (e) {
-          clearToken();
-        }
-      }
-
-      await startExternalAuth();
-    }
-
-    async function startExternalAuth() {
-      showLogin();
-      try {
-        const response = await fetch(CFG.apiBase + '/auth/request-token');
-        const data = await response.json();
-        if (!data.ok) return;
-        document.getElementById('auth-link').href = data.auth_url;
-        if (state.authPoll) clearInterval(state.authPoll);
-        state.authPoll = setInterval(() => checkExternalAuth(data.token), 1800);
-      } catch (e) { }
-    }
-
-    async function checkExternalAuth(token) {
-      try {
-        const response = await fetch(CFG.apiBase + '/auth/check-token/' + encodeURIComponent(token));
-        const data = await response.json();
-        if (data.authorized && data.token) {
-          clearInterval(state.authPoll);
-          setToken(data.token);
-          await loadData();
-        }
-      } catch (e) { }
-    }
-
-    async function loadData() {
-      const previousMonths = state.selectedPlan && state.selectedPlan.months;
-      const data = await api('/me');
-      if (!data.ok) throw new Error(data.error || 'load failed');
-      state.data = data;
-      const plans = data.plans || [];
-      state.selectedPlan = plans.find(plan => plan.months === previousMonths) || plans[0] || null;
-      state.selectedMethod = null;
-      state.payment = null;
-      state.paymentStep = 'plan';
-      render();
-      showApp();
-    }
-
-    async function reloadData() {
-      showToast('Обновляю данные');
-      await loadData();
-    }
-
-    function render() {
-      renderSubscription(state.data.subscription);
-      renderPaymentFlow();
-    }
-
-    function renderSubscription(sub) {
-      const badge = document.getElementById('status-badge');
-      badge.textContent = sub.active ? 'ACTIVE' : 'INACTIVE';
-      badge.classList.toggle('off', !sub.active);
-      document.getElementById('remaining').textContent = sub.remaining_text || 'Нет активной подписки';
-      document.getElementById('end-date').textContent = sub.end_date_text || 'N/A';
-      document.getElementById('traffic').textContent = (sub.traffic_used || 'N/A') + ' / ' + (sub.traffic_limit || 'N/A');
-      document.getElementById('connect-actions').classList.toggle('hidden', !sub.connect_url && !sub.config_link);
-    }
-
-    function togglePaymentFlow() {
-      if (state.paymentFlowOpen) {
-        closePaymentFlow();
-        return;
-      }
-      state.paymentFlowOpen = true;
-      state.paymentStep = 'plan';
-      state.payment = null;
-      state.selectedMethod = null;
-      renderPaymentFlow();
-      document.getElementById('payment-flow').scrollIntoView({behavior: 'smooth', block: 'start'});
-    }
-
-    function closePaymentFlow() {
-      state.paymentFlowOpen = false;
-      state.paymentStep = 'plan';
-      state.payment = null;
-      state.selectedMethod = null;
-      renderPaymentFlow();
-    }
-
-    function renderPaymentFlow() {
-      const flow = document.getElementById('payment-flow');
-      flow.classList.toggle('hidden', !state.paymentFlowOpen);
-      if (!state.paymentFlowOpen) return;
-
-      renderStepState();
-      renderPlans(state.data.plans || []);
-      renderMethods();
-      renderPaymentResult();
-    }
-
-    function renderStepState() {
-      const order = ['plan', 'method', 'result'];
-      order.forEach((step, index) => {
-        const node = document.getElementById('step-' + step);
-        const currentIndex = order.indexOf(state.paymentStep);
-        node.classList.toggle('active', state.paymentStep === step);
-        node.classList.toggle('done', currentIndex > index);
-      });
-
-      document.getElementById('plan-step').classList.toggle('hidden', state.paymentStep !== 'plan');
-      document.getElementById('method-step').classList.toggle('hidden', state.paymentStep !== 'method');
-      document.getElementById('result-step').classList.toggle('hidden', state.paymentStep !== 'result');
-    }
-
-    function renderPlans(plans) {
-      const wrap = document.getElementById('plans');
-      const nextBtn = document.getElementById('to-methods-btn');
-      if (!plans.length) {
-        wrap.innerHTML = '<div class="empty">Тарифы не настроены.</div>';
-        nextBtn.disabled = true;
-        return;
-      }
-
-      nextBtn.disabled = !state.selectedPlan;
-      wrap.innerHTML = plans.map(plan => {
-        const isActive = state.selectedPlan && state.selectedPlan.months === plan.months;
-        const stars = plan.stars_price ? ' / ' + plan.stars_price + ' Stars' : '';
-        return `
-          <button class="plan ${isActive ? 'active' : ''}" type="button" onclick="selectPlan(${plan.months})">
-            <span>
-              <span class="plan-name">${escapeHtml(plan.title)}</span>
-              <span class="plan-meta">access_period</span>
-            </span>
-            <span class="plan-price">${escapeHtml(formatMoney(plan.price, plan.currency) + stars)}</span>
-          </button>
-        `;
-      }).join('');
-    }
-
-    function renderMethods() {
-      const methods = document.getElementById('methods');
-      const createBtn = document.getElementById('create-payment-btn');
-      if (!state.selectedPlan) {
-        methods.innerHTML = '<div class="empty">Сначала выберите срок подписки.</div>';
-        createBtn.disabled = true;
-        return;
-      }
-
-      const available = getAvailableMethods();
-      if (state.selectedMethod && !available.some(method => method.id === state.selectedMethod)) {
-        state.selectedMethod = null;
-      }
-
-      createBtn.disabled = !state.selectedMethod || state.creatingPayment;
-      if (!available.length) {
-        methods.innerHTML = '<div class="empty">Нет доступных способов оплаты.</div>';
-        createBtn.disabled = true;
-        return;
-      }
-
-      methods.innerHTML = available.map(method => {
-        const isActive = state.selectedMethod === method.id;
-        const amount = method.id === 'stars'
-          ? state.selectedPlan.stars_price + ' Stars'
-          : formatMoney(state.selectedPlan.price, state.selectedPlan.currency);
-        return `
-          <button class="method ${isActive ? 'active' : ''}" type="button" onclick="selectMethod('${escapeAttr(method.id)}')">
-            <span>
-              <span class="method-name">${escapeHtml(method.name)}</span>
-              <span class="method-meta">${escapeHtml(state.selectedPlan.title)}</span>
-            </span>
-            <span class="plan-price">${escapeHtml(amount)}</span>
-          </button>
-        `;
-      }).join('');
-    }
-
-    function renderPaymentResult() {
-      const payment = state.payment;
-      const msg = document.getElementById('payment-message');
-      const openBtn = document.getElementById('payment-open-btn');
-      const checkBtn = document.getElementById('payment-check-btn');
-      if (!payment) {
-        msg.textContent = 'Платеж еще не создан.';
-        openBtn.classList.add('hidden');
-        checkBtn.classList.add('hidden');
-        return;
-      }
-
-      if (payment.action === 'invoice_sent') {
-        msg.textContent = 'Счет отправлен в чат с ботом. После оплаты вернитесь сюда и проверьте статус.';
-        openBtn.classList.add('hidden');
-      } else {
-        msg.textContent = 'Платеж создан. Откройте оплату, завершите ее у провайдера и затем проверьте статус.';
-        openBtn.classList.toggle('hidden', !payment.payment_url);
-      }
-      checkBtn.classList.toggle('hidden', !payment.payment_id);
-    }
-
-    function selectPlan(months) {
-      state.selectedPlan = (state.data.plans || []).find(plan => plan.months === months) || null;
-      state.selectedMethod = null;
-      state.payment = null;
-      renderPaymentFlow();
-    }
-
-    function selectMethod(method) {
-      state.selectedMethod = method;
-      state.payment = null;
-      renderMethods();
-      renderPaymentResult();
-    }
-
-    function goToPaymentStep(step) {
-      if (step === 'method' && !state.selectedPlan) {
-        showToast('Выберите срок подписки');
-        return;
-      }
-      if (step === 'result' && !state.payment) {
-        showToast('Создайте платеж');
-        return;
-      }
-      state.paymentStep = step;
-      renderPaymentFlow();
-    }
-
-    async function createPaymentFromSelection() {
-      if (!state.selectedPlan) {
-        showToast('Выберите срок подписки');
-        return;
-      }
-      if (!state.selectedMethod) {
-        showToast('Выберите способ оплаты');
-        return;
-      }
-
-      state.creatingPayment = true;
-      renderMethods();
-      try {
-        const data = await api('/payments', {
-          method: 'POST',
-          body: JSON.stringify({months: state.selectedPlan.months, method: state.selectedMethod})
-        });
-        if (!data.ok) throw new Error(data.message || 'Не удалось создать платеж');
-        state.payment = data;
-        state.paymentStep = 'result';
-        renderPaymentFlow();
-      } catch (e) {
-        showToast(e.message || 'Ошибка оплаты');
-      } finally {
-        state.creatingPayment = false;
-        renderPaymentFlow();
-      }
-    }
-
-    function getAvailableMethods() {
-      if (!state.data || !state.selectedPlan) return [];
-      return (state.data.payment_methods || []).filter(method => {
-        if (method.id === 'stars') return Number(state.selectedPlan.stars_price || 0) > 0;
-        return true;
-      });
-    }
-
-    function openPaymentUrl() {
-      const payment = state.payment;
-      if (!payment || !payment.payment_url) return;
-      if (payment.action === 'open_invoice' && tg && tg.openInvoice) {
-        tg.openInvoice(payment.payment_url, function(status) {
-          if (status === 'paid') loadData();
-        });
-        return;
-      }
-      if (tg && tg.openLink) {
-        tg.openLink(payment.payment_url);
-      } else {
-        window.open(payment.payment_url, '_blank', 'noopener');
-      }
-    }
-
-    async function checkPayment() {
-      if (!state.payment || !state.payment.payment_id) return;
-      const data = await api('/payments/' + state.payment.payment_id);
-      if (data.paid) {
-        showToast('Оплата подтверждена');
-        state.paymentFlowOpen = false;
-        await loadData();
-      } else {
-        showToast('Платеж пока не подтвержден');
-      }
-    }
-
-    function openConnectLink() {
-      const sub = state.data && state.data.subscription;
-      const url = sub && (sub.connect_url || sub.config_link);
-      if (!url) return;
-      if (tg && tg.openLink) tg.openLink(url);
-      else window.open(url, '_blank', 'noopener');
-    }
-
-    async function copyConfigLink() {
-      const sub = state.data && state.data.subscription;
-      const link = sub && sub.config_link;
-      if (!link) return;
-      try {
-        await navigator.clipboard.writeText(link);
-        showToast('Ссылка скопирована');
-      } catch (e) {
-        const area = document.createElement('textarea');
-        area.value = link;
-        document.body.appendChild(area);
-        area.select();
-        document.execCommand('copy');
-        area.remove();
-        showToast('Ссылка скопирована');
-      }
-    }
-
-    async function api(path, options = {}) {
-      const headers = Object.assign({'Authorization': 'Bearer ' + state.token}, options.headers || {});
-      if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
-      const response = await fetch(CFG.apiBase + path, Object.assign({}, options, {headers}));
-      if (response.status === 401) {
-        clearToken();
-        await startExternalAuth();
-        throw new Error('Unauthorized');
-      }
-      return response.json();
-    }
-
-    function setToken(token) {
-      state.token = token;
-      localStorage.setItem('rw_webapp_token', token);
-    }
-
-    function clearToken() {
-      state.token = '';
-      localStorage.removeItem('rw_webapp_token');
-    }
-
-    function logout() {
-      clearToken();
-      startExternalAuth();
-    }
-
-    function showLoader() {
-      document.getElementById('loader').classList.remove('hidden');
-      document.getElementById('app').classList.add('hidden');
-      document.getElementById('login').classList.remove('show');
-    }
-
-    function showApp() {
-      document.getElementById('loader').classList.add('hidden');
-      document.getElementById('login').classList.remove('show');
-      document.getElementById('app').classList.remove('hidden');
-    }
-
-    function showLogin() {
-      document.getElementById('loader').classList.add('hidden');
-      document.getElementById('app').classList.add('hidden');
-      document.getElementById('login').classList.add('show');
-    }
-
-    function showToast(message) {
-      if (tg && tg.showAlert) {
-        tg.showAlert(message);
-      } else {
-        alert(message);
-      }
-    }
-
-    function formatMoney(value, currency) {
-      const numeric = Number(value || 0);
-      const formatted = Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2);
-      return formatted + ' ' + (currency || 'RUB');
-    }
-
-    function escapeHtml(value) {
-      return String(value == null ? '' : value)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
-    }
-
-    function escapeAttr(value) {
-      return escapeHtml(value).replaceAll('`', '&#096;');
-    }
-  </script>
+  <!-- WEBAPP_CONFIG_SCRIPT -->
+  <script src="./subscription_webapp.js" defer></script>
 </body>
-
 </html>
