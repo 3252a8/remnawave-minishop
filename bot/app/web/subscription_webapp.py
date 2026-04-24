@@ -613,6 +613,11 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
     email_service: EmailAuthService = request.app["email_auth_service"]
     settings: Settings = request.app["settings"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
+    merge_notice: Optional[Dict[str, Any]] = None
+    source_panel_uuid: Optional[str] = None
+    final_user_id = user_id
+    final_email = email
+    final_panel_uuid: Optional[str] = None
 
     async with async_session_factory() as session:
         try:
@@ -643,15 +648,72 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
 
             existing_email_user = await user_dal.get_user_by_email(session, email)
             if existing_email_user and existing_email_user.user_id != current_user.user_id:
+                source_panel_uuid = existing_email_user.panel_user_uuid
                 current_user = await user_dal.merge_users(
                     session,
                     source_user_id=existing_email_user.user_id,
                     target_user_id=current_user.user_id,
                 )
+                merge_notice = await _build_account_merge_notice(
+                    session,
+                    merged_user=current_user,
+                    source_user_id=existing_email_user.user_id,
+                    source_panel_uuid=source_panel_uuid,
+                    settings=settings,
+                )
             current_user.email = email
             current_user.email_verified_at = datetime.now(timezone.utc)
             await _sync_panel_identity_for_user(request, current_user)
             await session.commit()
+            final_user_id = int(current_user.user_id)
+            final_panel_uuid = current_user.panel_user_uuid
+
+            if merge_notice:
+                merge_end_date_raw = merge_notice.get("final_end_date")
+                merge_end_date = (
+                    datetime.fromisoformat(merge_end_date_raw)
+                    if merge_end_date_raw
+                    else None
+                )
+                await _sync_panel_identity_for_user(
+                    request,
+                    current_user,
+                    expire_at=merge_end_date,
+                )
+                # Best-effort cleanup of the removed panel account after the DB merge.
+                if source_panel_uuid and final_panel_uuid and source_panel_uuid != final_panel_uuid:
+                    subscription_service: SubscriptionService = request.app.get("subscription_service")
+                    if subscription_service and subscription_service.panel_service:
+                        try:
+                            await subscription_service.panel_service.delete_user_from_panel(
+                                source_panel_uuid,
+                                log_response=False,
+                            )
+                        except Exception as exc:
+                            logger.warning(
+                                "Failed to delete merged source panel user %s: %s",
+                                source_panel_uuid,
+                                exc,
+                            )
+
+                email_service: EmailAuthService = request.app.get("email_auth_service")
+                if email_service and final_email:
+                    email_payload = _build_account_merge_email(
+                        merge_notice.get("language") or settings.DEFAULT_LANGUAGE,
+                        merge_notice,
+                    )
+                    try:
+                        await email_service.send_custom_email(
+                            email=final_email,
+                            subject=email_payload["subject"],
+                            body=email_payload["body"],
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "Failed to send account merge email to %s: %s",
+                            final_email,
+                            exc,
+                        )
         except UserMergeConflictError as exc:
             await session.rollback()
             return _json_error(409, "account_merge_conflict", str(exc))
@@ -660,8 +722,12 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
             logger.error("Email account link failed: %s", exc, exc_info=True)
             return _json_error(500, "link_failed", "Link failed")
 
-    token = create_webapp_session_token(settings, int(current_user.user_id))
-    return web.json_response({"ok": True, "token": token})
+    token = create_webapp_session_token(settings, int(final_user_id))
+    response_payload: Dict[str, Any] = {"ok": True, "token": token}
+    if merge_notice:
+        response_payload["account_merge"] = merge_notice
+        response_payload["user_id"] = final_user_id
+    return web.json_response(response_payload)
 
 
 async def account_telegram_link_route(request: web.Request) -> web.Response:
@@ -687,8 +753,20 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
         return _json_error(401, "invalid_auth", "Invalid Telegram auth data")
 
     async_session_factory: sessionmaker = request.app["async_session_factory"]
+    merge_notice: Optional[Dict[str, Any]] = None
+    source_panel_uuid: Optional[str] = None
+    final_user_id = user_id
+    final_telegram_id: Optional[int] = None
+    final_email: Optional[str] = None
+    final_panel_uuid: Optional[str] = None
     async with async_session_factory() as session:
         try:
+            current_user_before_link = await user_dal.get_user_by_id(session, user_id)
+            if not current_user_before_link or current_user_before_link.is_banned:
+                await session.rollback()
+                return _json_error(403, "access_denied", "Access denied")
+            source_panel_uuid = current_user_before_link.panel_user_uuid
+
             db_user = await _link_telegram_to_user(
                 request,
                 session,
@@ -699,7 +777,67 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
             if db_user.is_banned:
                 await session.rollback()
                 return _json_error(403, "banned", "Access denied")
+
+            final_user_id = int(db_user.user_id)
+            final_telegram_id = _telegram_id_for_user(db_user)
+            final_email = db_user.email
+            final_panel_uuid = db_user.panel_user_uuid
+            if final_user_id != user_id:
+                merge_notice = await _build_account_merge_notice(
+                    session,
+                    merged_user=db_user,
+                    source_user_id=user_id,
+                    source_panel_uuid=source_panel_uuid,
+                    settings=settings,
+                )
             await session.commit()
+
+            if merge_notice:
+                merge_end_date_raw = merge_notice.get("final_end_date")
+                merge_end_date = (
+                    datetime.fromisoformat(merge_end_date_raw)
+                    if merge_end_date_raw
+                    else None
+                )
+                await _sync_panel_identity_for_user(
+                    request,
+                    db_user,
+                    expire_at=merge_end_date,
+                )
+                # Best-effort cleanup of the removed panel account after the DB merge.
+                if source_panel_uuid and final_panel_uuid and source_panel_uuid != final_panel_uuid:
+                    subscription_service: SubscriptionService = request.app.get("subscription_service")
+                    if subscription_service and subscription_service.panel_service:
+                        try:
+                            await subscription_service.panel_service.delete_user_from_panel(
+                                source_panel_uuid,
+                                log_response=False,
+                            )
+                        except Exception as exc:
+                            logger.warning(
+                                "Failed to delete merged source panel user %s: %s",
+                                source_panel_uuid,
+                                exc,
+                            )
+
+                email_service: EmailAuthService = request.app.get("email_auth_service")
+                if email_service and final_email:
+                    email_payload = _build_account_merge_email(
+                        merge_notice.get("language") or settings.DEFAULT_LANGUAGE,
+                        merge_notice,
+                    )
+                    try:
+                        await email_service.send_custom_email(
+                            email=final_email,
+                            subject=email_payload["subject"],
+                            body=email_payload["body"],
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "Failed to send account merge email to %s: %s",
+                            final_email,
+                            exc,
+                        )
         except UserMergeConflictError as exc:
             await session.rollback()
             return _json_error(409, "account_merge_conflict", str(exc))
@@ -708,14 +846,17 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
             logger.error("Telegram account link failed: %s", exc, exc_info=True)
             return _json_error(500, "link_failed", "Link failed")
 
-    token = create_webapp_session_token(settings, int(db_user.user_id))
+    token = create_webapp_session_token(settings, int(final_user_id))
+    response_payload: Dict[str, Any] = {
+        "ok": True,
+        "token": token,
+        "user_id": int(final_user_id),
+        "telegram_id": final_telegram_id,
+    }
+    if merge_notice:
+        response_payload["account_merge"] = merge_notice
     return web.json_response(
-        {
-            "ok": True,
-            "token": token,
-            "user_id": int(db_user.user_id),
-            "telegram_id": _telegram_id_for_user(db_user),
-        }
+        response_payload
     )
 
 
@@ -913,12 +1054,17 @@ def _panel_description_for_user(user: User) -> str:
     return "\n".join(line for line in lines if line).strip()
 
 
-async def _sync_panel_identity_for_user(request: web.Request, user: User) -> None:
+async def _sync_panel_identity_for_user(
+    request: web.Request,
+    user: User,
+    *,
+    expire_at: Optional[datetime] = None,
+) -> bool:
     if not user.panel_user_uuid:
-        return
+        return False
     subscription_service: SubscriptionService = request.app.get("subscription_service")
     if not subscription_service or not subscription_service.panel_service:
-        return
+        return False
 
     payload: Dict[str, Any] = {
         "description": _panel_description_for_user(user),
@@ -928,6 +1074,8 @@ async def _sync_panel_identity_for_user(request: web.Request, user: User) -> Non
         payload["telegramId"] = telegram_id
     if user.email:
         payload["email"] = user.email
+    if expire_at is not None:
+        payload["expireAt"] = expire_at.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
     try:
         await subscription_service.panel_service.update_user_details_on_panel(
@@ -935,12 +1083,91 @@ async def _sync_panel_identity_for_user(request: web.Request, user: User) -> Non
             payload,
             log_response=False,
         )
+        return True
     except Exception as exc:
         logger.warning(
             "Failed to sync linked identities to panel for user %s: %s",
             user.user_id,
             exc,
         )
+        return False
+
+
+def _format_webapp_datetime(value: Optional[datetime]) -> Optional[str]:
+    if not value:
+        return None
+    normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return normalized.strftime("%d.%m.%Y %H:%M")
+
+
+async def _build_account_merge_notice(
+    session: AsyncSession,
+    *,
+    merged_user: User,
+    source_user_id: int,
+    source_panel_uuid: Optional[str],
+    settings: Settings,
+) -> Dict[str, Any]:
+    merged_subscription = None
+    if merged_user.panel_user_uuid:
+        merged_subscription = await subscription_dal.get_active_subscription_by_user_id(
+            session,
+            merged_user.user_id,
+            merged_user.panel_user_uuid,
+        )
+    if not merged_subscription:
+        merged_subscription = await subscription_dal.get_active_subscription_by_user_id(
+            session,
+            merged_user.user_id,
+        )
+
+    final_end_date = merged_subscription.end_date if merged_subscription else None
+    if final_end_date and final_end_date.tzinfo is None:
+        final_end_date = final_end_date.replace(tzinfo=timezone.utc)
+
+    return {
+        "merged": True,
+        "language": _normalize_language(merged_user.language_code or settings.DEFAULT_LANGUAGE),
+        "primary_user_id": int(merged_user.user_id),
+        "removed_user_id": int(source_user_id),
+        "primary_panel_user_uuid": merged_user.panel_user_uuid,
+        "removed_panel_user_uuid": source_panel_uuid,
+        "final_end_date": final_end_date.isoformat() if final_end_date else None,
+        "final_end_date_text": _format_webapp_datetime(final_end_date),
+    }
+
+
+def _build_account_merge_email(language: str, merge_info: Dict[str, Any]) -> Dict[str, str]:
+    lang = _normalize_language(language)
+    primary_user_id = merge_info.get("primary_user_id")
+    removed_user_id = merge_info.get("removed_user_id")
+    final_end_date_text = (
+        merge_info.get("final_end_date_text")
+        or merge_info.get("final_end_date")
+        or "N/A"
+    )
+    if lang == "en":
+        return {
+            "subject": "Accounts merged",
+            "body": (
+                "We merged your accounts into one profile.\n\n"
+                f"Kept account: #{primary_user_id}\n"
+                f"Removed account: #{removed_user_id}\n"
+                f"Paid periods were combined. New subscription end date: {final_end_date_text}.\n"
+                "Your subscription link stayed the same, and the later account was removed from Remnawave automatically."
+            ),
+        }
+
+    return {
+        "subject": "Аккаунты объединены",
+        "body": (
+            "Мы объединили ваши аккаунты в один профиль.\n\n"
+            f"Оставлен аккаунт: #{primary_user_id}\n"
+            f"Удалён аккаунт: #{removed_user_id}\n"
+            f"Оплаченные периоды сложились. Новая дата окончания подписки: {final_end_date_text}.\n"
+            "Ссылка на подписку осталась прежней, а более поздний аккаунт был удалён из Remnawave автоматически."
+        ),
+    }
 
 
 def _telegram_photo_url_value(telegram_user: Dict[str, Any]) -> Optional[str]:

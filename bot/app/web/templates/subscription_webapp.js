@@ -90,6 +90,8 @@ const MOCK = (() => {
       paymentFlowOpen: false,
       promoModalOpen: false,
       referralModalOpen: false,
+      accountMergeModalOpen: false,
+      accountMergeNotice: null,
       creatingPayment: false,
       authInProgress: false,
       authMode: (CFG.emailAuthEnabled === false ? 'telegram' : 'email'),
@@ -200,6 +202,13 @@ const MOCK = (() => {
         email_rate_limited: 'Повторная отправка доступна через {seconds} сек.',
         email_linked: 'Email привязан',
         telegram_linked: 'Telegram привязан',
+        account_merge_toast: 'Аккаунты объединены',
+        account_merge_title: 'Аккаунты объединены',
+        account_merge_caption: 'Оплаченные периоды сложились, и теперь у вас один аккаунт.',
+        account_merge_body: 'Мы объединили ваш Telegram и email в один профиль. Оплаченные периоды сложились, ссылка на подписку осталась прежней, а более поздний аккаунт был удалён автоматически.',
+        account_merge_primary_account_label: 'Оставлен аккаунт',
+        account_merge_removed_account_label: 'Удалён аккаунт',
+        account_merge_end_date_label: 'Новая дата окончания',
         account_merge_conflict: 'Этот аккаунт уже связан с другими данными.',
         telegram_auth: 'Telegram auth',
         telegram_auth_verifying: 'Проверяю вход...',
@@ -330,6 +339,13 @@ const MOCK = (() => {
         email_rate_limited: 'Try again in {seconds} sec.',
         email_linked: 'Email linked',
         telegram_linked: 'Telegram linked',
+        account_merge_toast: 'Accounts merged',
+        account_merge_title: 'Accounts merged',
+        account_merge_caption: 'Your paid periods were combined and you now have one account.',
+        account_merge_body: 'We merged your Telegram and email accounts into one profile. Your paid periods were combined, your subscription link stayed the same, and the later account was removed automatically.',
+        account_merge_primary_account_label: 'Kept account',
+        account_merge_removed_account_label: 'Removed account',
+        account_merge_end_date_label: 'New end date',
         account_merge_conflict: 'This account is already linked to different data.',
         telegram_auth: 'Telegram auth',
         telegram_auth_verifying: 'Verifying login...',
@@ -431,6 +447,8 @@ const MOCK = (() => {
       if (event.key !== 'Escape') return;
       if (state.emailLoginCodeModalOpen) {
         closeEmailLoginCodeModal();
+      } else if (state.accountMergeModalOpen) {
+        closeAccountMergeModal();
       } else if (state.promoModalOpen) {
         closePromoModal();
       } else if (state.referralModalOpen) {
@@ -904,6 +922,7 @@ const MOCK = (() => {
       renderUserMenu(state.data.user || {});
       renderAccount(state.data.user || {});
       renderReferral(state.data.referral || {});
+      renderAccountMergeModal();
       renderPaymentFlow();
     }
 
@@ -1299,12 +1318,81 @@ const MOCK = (() => {
     function closeToolModals() {
       state.promoModalOpen = false;
       state.referralModalOpen = false;
+      state.accountMergeModalOpen = false;
       clearPromoStatus();
       renderPromoModal();
       renderReferral(state.data && state.data.referral || {});
+      renderAccountMergeModal();
     }
 
 
+
+    function openAccountMergeModal(notice = null) {
+      if (notice) {
+        state.accountMergeNotice = notice;
+      }
+      state.accountMergeModalOpen = true;
+      renderAccountMergeModal();
+    }
+
+    function closeAccountMergeModal() {
+      state.accountMergeModalOpen = false;
+      renderAccountMergeModal();
+    }
+
+    function renderAccountMergeModal() {
+      const modal = document.getElementById('account-merge-modal');
+      const panel = document.getElementById('account-merge-panel');
+      if (!modal || !panel) return;
+
+      if (!state.accountMergeModalOpen) {
+        modal.classList.remove('show');
+        syncModalLock();
+        window.setTimeout(() => {
+          if (!state.accountMergeModalOpen) modal.classList.add('hidden');
+        }, 180);
+        return;
+      }
+
+      modal.classList.remove('hidden');
+      syncModalLock();
+
+      const notice = state.accountMergeNotice || {};
+      const primaryUserId = notice.primary_user_id != null ? String(notice.primary_user_id) : t('not_available');
+      const removedUserId = notice.removed_user_id != null ? String(notice.removed_user_id) : t('not_available');
+      const finalEndDateText = notice.final_end_date_text || t('not_available');
+
+      panel.innerHTML = `
+        <div class="${TW.panelHead}">
+          <div>
+            <div id="account-merge-title" class="${TW.sectionTitle} text-[var(--accent)]">${escapeHtml(t('account_merge_title'))}</div>
+            <div id="account-merge-caption" class="${TW.flowCaption}">${escapeHtml(t('account_merge_caption'))}</div>
+          </div>
+          <button class="${TW.iconBtn}" type="button" data-title-i18n="close" onclick="closeAccountMergeModal()">×</button>
+        </div>
+
+        <div class="notice grid gap-2">
+          <div class="text-[13px] leading-[1.5] text-[var(--text-secondary)]">${escapeHtml(t('account_merge_body'))}</div>
+        </div>
+
+        <div class="grid gap-2">
+          <div class="metric rounded-[var(--radius-md)] grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+            <div class="metric-label">${escapeHtml(t('account_merge_primary_account_label'))}</div>
+            <div class="metric-value">#${escapeHtml(primaryUserId)}</div>
+          </div>
+          <div class="metric rounded-[var(--radius-md)] grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+            <div class="metric-label">${escapeHtml(t('account_merge_removed_account_label'))}</div>
+            <div class="metric-value">#${escapeHtml(removedUserId)}</div>
+          </div>
+          <div class="metric rounded-[var(--radius-md)] grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+            <div class="metric-label">${escapeHtml(t('account_merge_end_date_label'))}</div>
+            <div class="metric-value">${escapeHtml(finalEndDateText)}</div>
+          </div>
+        </div>
+      `;
+      applyI18n(modal);
+      window.requestAnimationFrame(() => modal.classList.add('show'));
+    }
 
     function renderReferral(referral) {
       const modal = document.getElementById('referral-modal');
@@ -1481,6 +1569,7 @@ const MOCK = (() => {
       const email = state.emailLinkEmail || normalizeEmail(document.getElementById('email-link-input').value);
       const code = document.getElementById('email-link-code-input').value;
       setButtonBusy('email-link-verify-btn', true);
+      let mergeNotice = null;
       try {
         const data = await api('/account/email/verify', {
           method: 'POST',
@@ -1488,9 +1577,21 @@ const MOCK = (() => {
         });
         if (!data.ok) throw data;
         if (data.token) setToken(data.token);
-        showToast(t('email_linked'));
+        mergeNotice = data.account_merge && data.account_merge.merged ? data.account_merge : null;
+        state.accountMergeNotice = mergeNotice;
+        showToast(mergeNotice ? t('account_merge_toast') : t('email_linked'));
         state.emailLinkEmail = '';
-        await loadData();
+        try {
+          await loadData();
+          if (mergeNotice) {
+            openAccountMergeModal(mergeNotice);
+          }
+        } catch (refreshError) {
+          console.warn('Email account linked, but data refresh failed', refreshError);
+          if (mergeNotice) {
+            openAccountMergeModal(mergeNotice);
+          }
+        }
       } catch (e) {
         showToast(emailErrorMessage(e, 'email_code_invalid'));
       } finally {
@@ -1557,15 +1658,23 @@ const MOCK = (() => {
       markTelegramLinked(data.telegram_id || fallbackTelegramId);
       setTelegramLinkStatus('');
       state.telegramLinkRendered = false;
+      const mergeNotice = data.account_merge && data.account_merge.merged ? data.account_merge : null;
+      state.accountMergeNotice = mergeNotice;
       try {
-        showToast(t('telegram_linked'));
+        showToast(mergeNotice ? t('account_merge_toast') : t('telegram_linked'));
       } catch (toastError) {
         console.warn('Telegram link success toast failed', toastError);
       }
       try {
         await loadData();
+        if (mergeNotice) {
+          openAccountMergeModal(mergeNotice);
+        }
       } catch (refreshError) {
         console.warn('Telegram account linked, but data refresh failed', refreshError);
+        if (mergeNotice) {
+          openAccountMergeModal(mergeNotice);
+        }
       }
     }
 
@@ -1636,6 +1745,7 @@ const MOCK = (() => {
           || state.emailLoginCodeModalOpen
           || state.promoModalOpen
           || state.referralModalOpen
+          || state.accountMergeModalOpen
         )
       );
     }

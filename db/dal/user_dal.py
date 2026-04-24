@@ -7,7 +7,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy import update, delete, func, and_, or_, desc
 from sqlalchemy.orm import aliased
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from ..models import (
@@ -205,6 +205,39 @@ async def _has_active_panel_subscription(
     return result.scalar_one_or_none() is not None
 
 
+async def _get_latest_subscription_for_user(
+    session: AsyncSession,
+    user_id: int,
+    panel_user_uuid: Optional[str] = None,
+    *,
+    active_only: bool = False,
+) -> Optional[Subscription]:
+    stmt = select(Subscription).where(Subscription.user_id == user_id)
+    if panel_user_uuid is not None:
+        stmt = stmt.where(Subscription.panel_user_uuid == panel_user_uuid)
+    if active_only:
+        stmt = stmt.where(
+            Subscription.is_active == True,
+            Subscription.end_date > datetime.now(timezone.utc),
+        )
+    stmt = stmt.order_by(Subscription.end_date.desc(), Subscription.subscription_id.desc()).limit(1)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def _get_active_subscription_for_user(
+    session: AsyncSession,
+    user_id: int,
+    panel_user_uuid: Optional[str] = None,
+) -> Optional[Subscription]:
+    return await _get_latest_subscription_for_user(
+        session,
+        user_id,
+        panel_user_uuid,
+        active_only=True,
+    )
+
+
 async def merge_users(
     session: AsyncSession,
     *,
@@ -235,22 +268,60 @@ async def merge_users(
 
     source_panel_uuid = source.panel_user_uuid
     target_panel_uuid = target.panel_user_uuid
-    panel_uuid_to_move = None
-    if source_panel_uuid and not target_panel_uuid:
-        panel_uuid_to_move = source_panel_uuid
-    elif source_panel_uuid and target_panel_uuid and source_panel_uuid != target_panel_uuid:
-        source_has_active = await _has_active_panel_subscription(
-            session, source_user_id, source_panel_uuid
-        )
-        target_has_active = await _has_active_panel_subscription(
+    panel_uuid_to_keep = target_panel_uuid or source_panel_uuid
+
+    now = datetime.now(timezone.utc)
+    source_active_sub = await _get_active_subscription_for_user(
+        session, source_user_id, source_panel_uuid
+    )
+    target_active_sub = await _get_active_subscription_for_user(
+        session, target_user_id, target_panel_uuid
+    )
+    target_anchor_sub = target_active_sub
+    if not target_anchor_sub and target_panel_uuid:
+        target_anchor_sub = await _get_latest_subscription_for_user(
             session, target_user_id, target_panel_uuid
         )
-        if source_has_active and target_has_active:
-            raise UserMergeConflictError(
-                "Both accounts have active subscriptions on different panel users."
-            )
-        if source_has_active and not target_has_active:
-            panel_uuid_to_move = source_panel_uuid
+    if not target_anchor_sub and not target_panel_uuid:
+        target_anchor_sub = await _get_latest_subscription_for_user(session, target_user_id)
+
+    if (
+        source_active_sub
+        and target_anchor_sub
+        and source_panel_uuid
+        and target_panel_uuid
+        and source_panel_uuid != target_panel_uuid
+    ):
+        source_end = source_active_sub.end_date
+        if source_end.tzinfo is None:
+            source_end = source_end.replace(tzinfo=timezone.utc)
+
+        target_end = target_anchor_sub.end_date
+        if target_end.tzinfo is None:
+            target_end = target_end.replace(tzinfo=timezone.utc)
+
+        source_remaining = max(timedelta(0), source_end - now)
+        if source_remaining > timedelta(0):
+            base_end = target_end if target_end > now else now
+            target_anchor_sub.end_date = base_end + source_remaining
+            target_anchor_sub.last_notification_sent = None
+            target_anchor_sub.is_active = True
+            target_anchor_sub.status_from_panel = "ACTIVE_EXTENDED_BY_MERGE"
+
+        source_active_sub.is_active = False
+        source_active_sub.skip_notifications = True
+        source_active_sub.last_notification_sent = None
+        source_active_sub.status_from_panel = "MERGED_INTO_ACCOUNT"
+    elif (
+        source_active_sub
+        and target_panel_uuid
+        and source_panel_uuid
+        and source_panel_uuid != target_panel_uuid
+        and not target_anchor_sub
+    ):
+        source_active_sub.panel_user_uuid = target_panel_uuid
+        source_active_sub.last_notification_sent = None
+        source_active_sub.status_from_panel = "ACTIVE_EXTENDED_BY_MERGE"
 
     email_to_move = source.email if source.email and not target.email else None
     email_verified_at_to_move = (
@@ -267,13 +338,11 @@ async def merge_users(
 
     if email_to_move:
         source.email = None
-    if panel_uuid_to_move:
-        source.panel_user_uuid = None
     if telegram_id_to_move:
         source.telegram_id = None
     if referral_code_to_move:
         source.referral_code = None
-    if email_to_move or panel_uuid_to_move or telegram_id_to_move or referral_code_to_move:
+    if email_to_move or source_panel_uuid or telegram_id_to_move or referral_code_to_move:
         await session.flush()
 
     if email_to_move:
@@ -282,14 +351,24 @@ async def merge_users(
         target.email_verified_at = email_verified_at_to_move
     if telegram_id_to_move:
         target.telegram_id = telegram_id_to_move
-    if panel_uuid_to_move:
-        target.panel_user_uuid = panel_uuid_to_move
+    if panel_uuid_to_keep and not target.panel_user_uuid:
+        target.panel_user_uuid = panel_uuid_to_keep
     if referral_code_to_move:
         target.referral_code = referral_code_to_move
 
     for attr in ("username", "first_name", "last_name", "language_code", "telegram_photo_url"):
         if not getattr(target, attr) and getattr(source, attr):
             setattr(target, attr, getattr(source, attr))
+    if not target.channel_subscription_verified and source.channel_subscription_verified is not None:
+        target.channel_subscription_verified = source.channel_subscription_verified
+    if not target.channel_subscription_checked_at and source.channel_subscription_checked_at:
+        target.channel_subscription_checked_at = source.channel_subscription_checked_at
+    if not target.channel_subscription_verified_for and source.channel_subscription_verified_for:
+        target.channel_subscription_verified_for = source.channel_subscription_verified_for
+    if source.lifetime_used_traffic_bytes is not None:
+        target.lifetime_used_traffic_bytes = (
+            (target.lifetime_used_traffic_bytes or 0) + source.lifetime_used_traffic_bytes
+        )
     if not target.referred_by_id and source.referred_by_id != target_user_id:
         target.referred_by_id = source.referred_by_id
     if target.referred_by_id == source_user_id:
@@ -347,7 +426,15 @@ async def merge_users(
             .values(user_id=target_user_id)
         )
 
-    for model in (Subscription, Payment, PromoCodeActivation, UserPaymentMethod):
+    subscription_update_values: Dict[str, Any] = {"user_id": target_user_id}
+    if panel_uuid_to_keep:
+        subscription_update_values["panel_user_uuid"] = panel_uuid_to_keep
+    await session.execute(
+        update(Subscription)
+        .where(Subscription.user_id == source_user_id)
+        .values(**subscription_update_values)
+    )
+    for model in (Payment, PromoCodeActivation, UserPaymentMethod):
         await session.execute(
             update(model)
             .where(model.user_id == source_user_id)

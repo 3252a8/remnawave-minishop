@@ -190,6 +190,11 @@
     <section id="referral-panel" class="panel-modal modal-card grid gap-3.5 p-[17px]"></section>
   </div>
 
+  <div id="account-merge-modal" class="modal modal--page hidden" role="dialog" aria-modal="true" aria-labelledby="account-merge-title" aria-describedby="account-merge-caption">
+    <button class="modal-backdrop" type="button" data-title-i18n="close" aria-label="Закрыть" onclick="closeAccountMergeModal()"></button>
+    <section id="account-merge-panel" class="panel-modal modal-card grid gap-3.5 p-[17px]"></section>
+  </div>
+
   <div id="email-code-modal" class="modal auth-code-modal hidden" role="dialog" aria-modal="true" aria-labelledby="email-code-title" aria-describedby="email-code-caption">
     <button class="modal-backdrop" type="button" data-title-i18n="close" aria-label="Закрыть" onclick="closeEmailLoginCodeModal()"></button>
     <div class="relative z-[1] grid w-[min(100%,420px)] justify-items-stretch gap-2.5">

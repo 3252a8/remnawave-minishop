@@ -302,6 +302,20 @@ class EmailAuthService:
             language_code=language_code,
         )
 
+    async def send_custom_email(
+        self,
+        *,
+        email: str,
+        subject: str,
+        body: str,
+    ) -> None:
+        await asyncio.to_thread(
+            self._send_custom_email_sync,
+            email=email,
+            subject=subject,
+            body=body,
+        )
+
     def _send_code_email_sync(
         self,
         *,
@@ -364,6 +378,66 @@ class EmailAuthService:
                 logger.log(
                     log_level,
                     "SMTP send attempt %s/%s failed via %s:%s (ssl=%s, starttls=%s): %s",
+                    attempt_number,
+                    len(attempts),
+                    smtp_host,
+                    attempt.port,
+                    attempt.use_ssl,
+                    attempt.starttls,
+                    exc,
+                )
+
+        if last_error:
+            raise last_error
+
+    def _send_custom_email_sync(
+        self,
+        *,
+        email: str,
+        subject: str,
+        body: str,
+    ) -> None:
+        message = EmailMessage()
+        message["Subject"] = subject
+        message["From"] = formataddr(
+            (
+                self.settings.SMTP_FROM_NAME or self.settings.WEBAPP_TITLE,
+                self.settings.SMTP_FROM_EMAIL or "",
+            )
+        )
+        message["To"] = email
+        message.set_content(body)
+
+        context = ssl.create_default_context()
+        smtp_host = self.settings.SMTP_HOST
+        timeout = max(5, int(self.settings.SMTP_TIMEOUT_SECONDS))
+        attempts = self._smtp_attempts()
+        last_error: Optional[BaseException] = None
+
+        for attempt_number, attempt in enumerate(attempts, start=1):
+            try:
+                self._send_message_via_smtp(
+                    message=message,
+                    smtp_host=smtp_host,
+                    smtp_port=attempt.port,
+                    timeout=timeout,
+                    context=context,
+                    use_ssl=attempt.use_ssl,
+                    starttls=attempt.starttls,
+                )
+                logger.info(
+                    "Custom email sent to %s via %s:%s",
+                    email,
+                    smtp_host,
+                    attempt.port,
+                )
+                return
+            except (OSError, smtplib.SMTPException, TimeoutError) as exc:
+                last_error = exc
+                log_level = logging.WARNING if attempt_number < len(attempts) else logging.ERROR
+                logger.log(
+                    log_level,
+                    "SMTP send attempt %s/%s failed for custom email via %s:%s (ssl=%s, starttls=%s): %s",
                     attempt_number,
                     len(attempts),
                     smtp_host,
