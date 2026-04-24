@@ -2,9 +2,11 @@ import logging
 from aiogram import Router, F, types, Bot
 from aiogram.filters import Command
 from typing import Optional, Union
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.settings import Settings
+from db.dal import user_dal
 from bot.services.referral_service import ReferralService
 
 from bot.keyboards.inline.user_keyboards import get_back_to_main_menu_markup
@@ -103,6 +105,16 @@ async def referral_command_handler(event: Union[types.Message,
              bonus_details=bonus_details_str,
              invited_count=referral_stats["invited_count"],
              purchased_count=referral_stats["purchased_count"])
+    if settings.SUBSCRIPTION_MINI_APP_URL:
+        db_user = await user_dal.get_user_by_id(session, inviter_user_id)
+        referral_code = await user_dal.ensure_referral_code(session, db_user) if db_user else None
+        webapp_referral_link = _build_webapp_referral_link(
+            settings.SUBSCRIPTION_MINI_APP_URL,
+            referral_code,
+        )
+        if webapp_referral_link:
+            webapp_label = "Web App ссылка" if current_lang == "ru" else "Web App link"
+            text += f"\n\n🔗 {webapp_label}:\n<code>{webapp_referral_link}</code>"
 
     from bot.keyboards.inline.user_keyboards import get_referral_link_keyboard
     reply_markup_val = get_referral_link_keyboard(current_lang, i18n)
@@ -167,3 +179,20 @@ async def referral_action_handler(callback: types.CallbackQuery, settings: Setti
             await callback.answer("Произошла ошибка", show_alert=True)
         
     await callback.answer()
+
+
+def _build_webapp_referral_link(base_url: Optional[str], referral_code: Optional[str]) -> Optional[str]:
+    if not base_url or not referral_code:
+        return None
+    parts = urlsplit(base_url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["ref"] = f"u{referral_code}"
+    return urlunsplit(
+        (
+            parts.scheme,
+            parts.netloc,
+            parts.path or "/",
+            urlencode(query),
+            parts.fragment,
+        )
+    )

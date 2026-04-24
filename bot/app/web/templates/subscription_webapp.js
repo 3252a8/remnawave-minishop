@@ -49,6 +49,17 @@ window.__WEBAPP_DEV_MOCK__ = {
           {id: 'platega', name: 'Platega'},
           {id: 'freekassa', name: 'FreeKassa / СБП'}
         ],
+        referral: {
+          code: 'AB12CD34E',
+          bot_link: 'https://t.me/preview_bot?start=ref_uAB12CD34E',
+          webapp_link: 'https://app.example.com/?ref=uAB12CD34E',
+          invited_count: 3,
+          purchased_count: 1,
+          bonus_details: [
+            {months: 1, title: '1 месяц', inviter_days: 3, friend_days: 3},
+            {months: 3, title: '3 месяца', inviter_days: 10, friend_days: 7}
+          ]
+        },
         settings: {
           support_url: 'https://t.me/support',
           traffic_mode: false,
@@ -72,8 +83,12 @@ const MOCK = (() => {
       data: null,
       selectedPlan: null,
       selectedMethod: null,
+      referralParam: readReferralParam(),
+      promoApplying: false,
       payment: null,
       paymentFlowOpen: false,
+      promoModalOpen: false,
+      referralModalOpen: false,
       paymentStep: 'plan',
       creatingPayment: false,
       authInProgress: false,
@@ -85,6 +100,9 @@ const MOCK = (() => {
       emailLoginResending: false,
       emailLinkPending: false,
       emailLinkEmail: '',
+      promoStatusTimer: null,
+      promoStatusType: '',
+      promoStatusText: '',
       telegramLinkRendered: false,
       telegramLinkInProgress: false,
       toastTimer: null
@@ -176,7 +194,30 @@ const MOCK = (() => {
         no_link: 'Ссылка пока недоступна',
         payment_error: 'Ошибка оплаты',
         privacy_policy: 'Политика конфиденциальности',
-        user_agreement: 'Пользовательское соглашение'
+        user_agreement: 'Пользовательское соглашение',
+        promo_title: 'Промокод',
+        promo_caption: 'Введите код, чтобы начислить бонусные дни.',
+        promo_placeholder: 'PROMO2026',
+        apply_promo: 'Применить',
+        promo_applied: 'Промокод применен',
+        promo_applied_ok: 'Промокод применен, всё ок.',
+        promo_empty: 'Введите промокод',
+        promo_invalid: 'Промокод не найден или недействителен.',
+        referral_title: 'Пригласить друга',
+        referral_caption: 'Поделитесь кодом или ссылкой и получайте бонусы.',
+        referral_code: 'Ваш код',
+        invited_friends: 'Приглашено',
+        purchased_friends: 'Оплатили',
+        copy_code: 'Скопировать код',
+        copy_webapp_link: 'Скопировать ссылку Web App',
+        copy_bot_link: 'Скопировать ссылку бота',
+        referral_copied: 'Ссылка скопирована',
+        code_copied: 'Код скопирован',
+        referral_site_label: 'Пригласить через сайт',
+        referral_telegram_label: 'Пригласить через телеграм',
+        referral_bonus_title: 'Бонусы',
+        referral_bonus_pair: 'Вы: {inviter} дн. / друг: {friend} дн.',
+        referral_no_bonuses: 'Бонусы пока не настроены.'
       },
       en: {
         page_title: 'My subscription',
@@ -263,7 +304,30 @@ const MOCK = (() => {
         no_link: 'Link is not available yet',
         payment_error: 'Payment error',
         privacy_policy: 'Privacy policy',
-        user_agreement: 'User agreement'
+        user_agreement: 'User agreement',
+        promo_title: 'Promo code',
+        promo_caption: 'Enter a code to add bonus days.',
+        promo_placeholder: 'PROMO2026',
+        apply_promo: 'Apply',
+        promo_applied: 'Promo code applied',
+        promo_applied_ok: 'Promo code applied, all good.',
+        promo_empty: 'Enter promo code',
+        promo_invalid: 'Promo code was not found or is not valid.',
+        referral_title: 'Invite friend',
+        referral_caption: 'Share your code or link and receive bonuses.',
+        referral_code: 'Your code',
+        invited_friends: 'Invited',
+        purchased_friends: 'Purchased',
+        copy_code: 'Copy code',
+        copy_webapp_link: 'Copy Web App link',
+        copy_bot_link: 'Copy bot link',
+        referral_copied: 'Link copied',
+        code_copied: 'Code copied',
+        referral_site_label: 'Invite via site',
+        referral_telegram_label: 'Invite via Telegram',
+        referral_bonus_title: 'Bonuses',
+        referral_bonus_pair: 'You: {inviter} d. / friend: {friend} d.',
+        referral_no_bonuses: 'Bonuses are not configured yet.'
       }
     };
 
@@ -292,11 +356,16 @@ const MOCK = (() => {
 
     bindEmailLoginInput();
     bindEmailCodeInput();
+    bindPromoInput();
 
     document.addEventListener('keydown', event => {
       if (event.key !== 'Escape') return;
       if (state.emailLoginCodeModalOpen) {
         closeEmailLoginCodeModal();
+      } else if (state.promoModalOpen) {
+        closePromoModal();
+      } else if (state.referralModalOpen) {
+        closeReferralModal();
       } else if (state.paymentFlowOpen) {
         closePaymentFlow();
       }
@@ -362,6 +431,20 @@ const MOCK = (() => {
       return authData;
     }
 
+    function readReferralParam() {
+      const query = new URLSearchParams(window.location.search);
+      const fromQuery = query.get('ref') || query.get('start') || query.get('start_param') || '';
+      const fromTelegram = tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param
+        ? tg.initDataUnsafe.start_param
+        : '';
+      const value = String(fromTelegram || fromQuery || '').trim();
+      if (value) {
+        localStorage.setItem('rw_webapp_referral', value);
+        return value;
+      }
+      return localStorage.getItem('rw_webapp_referral') || '';
+    }
+
     function clearTelegramLoginWidgetQuery() {
       const url = new URL(window.location.href);
       const keys = ['id', 'first_name', 'last_name', 'username', 'photo_url', 'auth_date', 'hash'];
@@ -379,6 +462,7 @@ const MOCK = (() => {
         const payload = source === 'init_data'
           ? {init_data: authData}
           : {auth_data: authData};
+        if (state.referralParam) payload.referral_code = state.referralParam;
         const response = await fetch(CFG.apiBase + '/auth/token', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
@@ -702,7 +786,11 @@ const MOCK = (() => {
       updateEmailLoginCodeSlots();
       setEmailCodeStatus(t('telegram_auth_verifying'));
       try {
-        const data = await publicApi('/auth/email/verify', {email, code});
+        const data = await publicApi('/auth/email/verify', {
+          email,
+          code,
+          referral_code: state.referralParam || ''
+        });
         if (!data.ok || !data.token) throw data;
         setToken(data.token);
         closeEmailLoginCodeModal();
@@ -751,6 +839,7 @@ const MOCK = (() => {
     function render() {
       renderSubscription(state.data.subscription);
       renderAccount(state.data.user || {});
+      renderReferral(state.data.referral || {});
       renderPaymentFlow();
     }
 
@@ -782,6 +871,229 @@ const MOCK = (() => {
       } else {
         state.telegramLinkRendered = false;
       }
+    }
+
+    function openPromoModal() {
+      state.promoModalOpen = true;
+      clearPromoStatus();
+      renderPromoModal();
+      window.setTimeout(() => {
+        const input = document.getElementById('promo-code-input');
+        if (input) input.focus();
+      }, 80);
+    }
+
+    function closePromoModal() {
+      state.promoModalOpen = false;
+      clearPromoStatus();
+      renderPromoModal();
+    }
+
+    function renderPromoModal() {
+      const panel = document.querySelector('.promo-panel');
+      if (!panel) return;
+      panel.classList.toggle('hidden', !state.promoModalOpen);
+      panel.classList.toggle('modal-panel', state.promoModalOpen);
+      renderToolsBackdrop();
+      syncModalLock();
+      renderPromoStatus();
+      if (state.promoModalOpen && !panel.querySelector('[data-modal-close="promo"]')) {
+        const head = panel.querySelector('.panel-head');
+        if (head) {
+          head.insertAdjacentHTML(
+            'beforeend',
+            '<button class="icon-btn" type="button" data-modal-close="promo" data-title-i18n="close" onclick="closePromoModal()">×</button>'
+          );
+          applyI18n(panel);
+        }
+      }
+    }
+
+    function bindPromoInput() {
+      const input = document.getElementById('promo-code-input');
+      if (!input) return;
+
+      input.addEventListener('input', () => {
+        if (input.getAttribute('aria-invalid') === 'true') {
+          input.removeAttribute('aria-invalid');
+        }
+        if (state.promoStatusText) {
+          clearPromoStatus();
+        }
+      });
+
+      input.addEventListener('keydown', event => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        applyPromoCode();
+      });
+    }
+
+    function setPromoStatus(message, type = 'error') {
+      state.promoStatusType = type === 'success' ? 'success' : 'error';
+      state.promoStatusText = normalizeStatusText(message || '');
+      renderPromoStatus();
+    }
+
+    function clearPromoStatus() {
+      state.promoStatusType = '';
+      state.promoStatusText = '';
+      renderPromoStatus();
+    }
+
+    function renderPromoStatus() {
+      const status = document.getElementById('promo-status');
+      if (!status) return;
+
+      if (!state.promoStatusText) {
+        status.textContent = '';
+        status.classList.add('hidden');
+        status.classList.remove('error', 'success');
+        return;
+      }
+
+      status.textContent = state.promoStatusText;
+      status.classList.remove('hidden');
+      status.classList.toggle('error', state.promoStatusType === 'error');
+      status.classList.toggle('success', state.promoStatusType === 'success');
+    }
+
+    function normalizeStatusText(value) {
+      const text = String(value || '');
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = text;
+      return (wrapper.textContent || wrapper.innerText || '').trim();
+    }
+
+    function openReferralModal() {
+      state.referralModalOpen = true;
+      renderReferral(state.data && state.data.referral || {});
+    }
+
+    function closeReferralModal() {
+      state.referralModalOpen = false;
+      renderReferral(state.data && state.data.referral || {});
+    }
+
+    function closeToolModals() {
+      state.promoModalOpen = false;
+      state.referralModalOpen = false;
+      clearPromoStatus();
+      renderPromoModal();
+      renderReferral(state.data && state.data.referral || {});
+    }
+
+    function renderToolsBackdrop() {
+      const backdrop = document.getElementById('tools-modal-backdrop');
+      if (!backdrop) return;
+      backdrop.classList.toggle('hidden', !(state.promoModalOpen || state.referralModalOpen));
+    }
+
+    function renderReferral(referral) {
+      const panel = document.querySelector('.referral-panel');
+      if (!panel) return;
+      panel.classList.toggle('hidden', !state.referralModalOpen);
+      panel.classList.toggle('modal-panel', state.referralModalOpen);
+      renderToolsBackdrop();
+      syncModalLock();
+      if (!state.referralModalOpen) return;
+
+      const bonusRows = (referral.bonus_details || []).map(item => `
+        <div class="bonus-row">
+          <span>${escapeHtml(item.title || '')}</span>
+          <strong>${escapeHtml(t('referral_bonus_pair', {
+            inviter: item.inviter_days || 0,
+            friend: item.friend_days || 0
+          }))}</strong>
+        </div>
+      `).join('');
+
+      panel.innerHTML = `
+        <div class="panel-head">
+          <div>
+            <div class="section-title">${escapeHtml(t('referral_title'))}</div>
+            <div class="flow-caption">${escapeHtml(t('referral_caption'))}</div>
+          </div>
+          <button class="icon-btn" type="button" data-title-i18n="close" onclick="closeReferralModal()">×</button>
+        </div>
+        <div class="referral-link-list">
+          ${renderReferralLinkRow('webapp', t('referral_site_label'), referral.webapp_link)}
+          ${renderReferralLinkRow('bot', t('referral_telegram_label'), referral.bot_link)}
+        </div>
+        <div class="referral-bonus-card">
+          <div class="section-label">${escapeHtml(t('referral_bonus_title'))}</div>
+          <div class="bonus-list">${bonusRows || '<div class="empty">' + escapeHtml(t('referral_no_bonuses')) + '</div>'}</div>
+        </div>
+      `;
+      applyI18n(panel);
+    }
+
+    function renderReferralLinkRow(kind, label, link) {
+      return `
+        <div class="referral-link-row">
+          <div>
+            <div class="metric-label">${escapeHtml(label)}</div>
+            <div class="referral-link-value">${escapeHtml(link || t('not_available'))}</div>
+          </div>
+          <button class="btn icon-only copy-icon-btn" type="button" onclick="copyReferralLink('${escapeAttr(kind)}')" ${link ? '' : 'disabled'} data-title-i18n="copy_link">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" aria-hidden="true"><path d="M451.5 160C434.9 160 418.8 164.5 404.7 172.7C388.9 156.7 370.5 143.3 350.2 133.2C378.4 109.2 414.3 96 451.5 96C537.9 96 608 166 608 252.5C608 294 591.5 333.8 562.2 363.1L491.1 434.2C461.8 463.5 422 480 380.5 480C294.1 480 224 410 224 323.5C224 322 224 320.5 224.1 319C224.6 301.3 239.3 287.4 257 287.9C274.7 288.4 288.6 303.1 288.1 320.8C288.1 321.7 288.1 322.6 288.1 323.4C288.1 374.5 329.5 415.9 380.6 415.9C405.1 415.9 428.6 406.2 446 388.8L517.1 317.7C534.4 300.4 544.2 276.8 544.2 252.3C544.2 201.2 502.8 159.8 451.7 159.8zM307.2 237.3C305.3 236.5 303.4 235.4 301.7 234.2C289.1 227.7 274.7 224 259.6 224C235.1 224 211.6 233.7 194.2 251.1L123.1 322.2C105.8 339.5 96 363.1 96 387.6C96 438.7 137.4 480.1 188.5 480.1C205 480.1 221.1 475.7 235.2 467.5C251 483.5 269.4 496.9 289.8 507C261.6 530.9 225.8 544.2 188.5 544.2C102.1 544.2 32 474.2 32 387.7C32 346.2 48.5 306.4 77.8 277.1L148.9 206C178.2 176.7 218 160.2 259.5 160.2C346.1 160.2 416 230.8 416 317.1C416 318.4 416 319.7 416 321C415.6 338.7 400.9 352.6 383.2 352.2C365.5 351.8 351.6 337.1 352 319.4C352 318.6 352 317.9 352 317.1C352 283.4 334 253.8 307.2 237.5z"/></svg>
+          </button>
+        </div>
+      `;
+    }
+
+    async function applyPromoCode() {
+      if (state.promoApplying) return;
+      const input = document.getElementById('promo-code-input');
+      const code = String(input && input.value || '').trim();
+      if (!code) {
+        setPromoStatus(t('promo_empty'), 'error');
+        if (input) input.setAttribute('aria-invalid', 'true');
+        if (input) input.focus();
+        return;
+      }
+
+      state.promoApplying = true;
+      setButtonBusy('promo-apply-btn', true);
+      clearPromoStatus();
+      if (input) input.removeAttribute('aria-invalid');
+      try {
+        const data = await api('/promo/apply', {
+          method: 'POST',
+          body: JSON.stringify({code})
+        });
+        if (!data.ok) throw data;
+        if (input) input.value = '';
+        setPromoStatus(t('promo_applied_ok'), 'success');
+        await loadData();
+      } catch (e) {
+        const errorCode = e && e.error;
+        const serverMessage = e && (e.message || e.detail);
+        if (input) input.setAttribute('aria-invalid', 'true');
+        if (errorCode === 'empty_code') {
+          setPromoStatus(t('promo_empty'), 'error');
+        } else if (serverMessage) {
+          setPromoStatus(serverMessage, 'error');
+        } else if (errorCode === 'promo_apply_failed') {
+          setPromoStatus(t('promo_invalid'), 'error');
+        } else {
+          setPromoStatus(t('payment_error'), 'error');
+        }
+      } finally {
+        state.promoApplying = false;
+        setButtonBusy('promo-apply-btn', false);
+      }
+    }
+
+    async function copyReferralLink(kind) {
+      const referral = state.data && state.data.referral;
+      const link = referral && (kind === 'bot' ? referral.bot_link : referral.webapp_link);
+      if (!link) {
+        showToast(t('no_link'));
+        return;
+      }
+      await copyText(link);
+      showToast(t('referral_copied'));
     }
 
     async function requestEmailLinkCode() {
@@ -970,7 +1282,12 @@ const MOCK = (() => {
     function syncModalLock() {
       document.body.classList.toggle(
         'modal-open',
-        Boolean(state.paymentFlowOpen || state.emailLoginCodeModalOpen)
+        Boolean(
+          state.paymentFlowOpen
+          || state.emailLoginCodeModalOpen
+          || state.promoModalOpen
+          || state.referralModalOpen
+        )
       );
     }
 
@@ -1183,17 +1500,20 @@ const MOCK = (() => {
         showToast(t('no_link'));
         return;
       }
+      await copyText(link);
+      showToast(t('link_copied'));
+    }
+
+    async function copyText(value) {
       try {
-        await navigator.clipboard.writeText(link);
-        showToast(t('link_copied'));
+        await navigator.clipboard.writeText(value);
       } catch (e) {
         const area = document.createElement('textarea');
-        area.value = link;
+        area.value = value;
         document.body.appendChild(area);
         area.select();
         document.execCommand('copy');
         area.remove();
-        showToast(t('link_copied'));
       }
     }
 
@@ -1248,6 +1568,9 @@ const MOCK = (() => {
         MOCK.data.user.telegram_linked = true;
         MOCK.data.user.telegram_id = 100200300;
         return {ok: true, token: 'local-preview'};
+      }
+      if (path === '/promo/apply') {
+        return {ok: true, end_date_text: '20.05.2026 12:00'};
       }
       if (path === '/payments' && String(options.method || '').toUpperCase() === 'POST') {
         return {

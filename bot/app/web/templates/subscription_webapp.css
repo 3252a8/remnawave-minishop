@@ -184,10 +184,19 @@
       min-width: 0;
     }
 
-    .account-panel {
+    .account-panel,
+    .promo-panel,
+    .referral-panel {
       padding: 17px;
       display: grid;
       gap: 14px;
+      min-width: 0;
+    }
+
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
       min-width: 0;
     }
 
@@ -227,6 +236,93 @@
 
     .account-row + .account-row {
       border-top: 1px solid var(--border);
+    }
+
+    .promo-status {
+      min-height: 22px;
+      margin-top: 2px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .promo-status.error {
+      color: #fca5a5;
+    }
+
+    .promo-status.success {
+      color: #6ee7b7;
+    }
+
+    .modal-panel {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      z-index: 30;
+      width: min(calc(100vw - 28px), 560px);
+      max-height: min(86vh, 760px);
+      overflow: auto;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5);
+    }
+
+    .tools-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 25;
+      padding: 0;
+      border: 0;
+      background: rgba(3, 6, 10, 0.72);
+      backdrop-filter: blur(7px);
+    }
+
+    .referral-link-list,
+    .referral-bonuses,
+    .bonus-list {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .referral-link-row,
+    .bonus-row {
+      min-height: 58px;
+      padding: 11px 12px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 48px;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.02);
+      min-width: 0;
+    }
+
+    .bonus-row {
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    }
+
+    .bonus-row span,
+    .bonus-row strong,
+    .referral-link-value {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .bonus-row strong {
+      color: var(--accent);
+      font-size: 13px;
+      text-align: right;
+    }
+
+    .referral-link-value {
+      margin-top: 4px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 750;
+      line-height: 1.35;
     }
 
     .link-box,
@@ -1008,8 +1104,15 @@
       }
 
       .account-row,
-      .field-row {
+      .field-row,
+      .quick-actions,
+      .referral-link-row,
+      .bonus-row {
         grid-template-columns: 1fr;
+      }
+
+      .bonus-row strong {
+        text-align: left;
       }
 
       .metric-value {

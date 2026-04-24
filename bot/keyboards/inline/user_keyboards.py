@@ -49,6 +49,14 @@ def get_bot_interface_inline_keyboard(
             InlineKeyboardButton(text=_(key="menu_activate_trial_button"),
                                  callback_data="main_action:request_trial"))
 
+    if settings.SUBSCRIPTION_MINI_APP_URL:
+        builder.row(
+            InlineKeyboardButton(
+                text=_(key="menu_personal_account_button"),
+                web_app=WebAppInfo(url=settings.SUBSCRIPTION_MINI_APP_URL),
+            )
+        )
+
     builder.row(
         InlineKeyboardButton(text=_(key="menu_subscribe_inline"),
                              callback_data="main_action:subscribe"))

@@ -117,6 +117,8 @@ def validate_telegram_webapp_init_data(
         user_data = json.loads(user_json)
         if not user_data.get("id"):
             return None
+        if parsed_data.get("start_param"):
+            user_data["start_param"] = parsed_data.get("start_param")
         return user_data
     except Exception as exc:
         logger.warning("Failed to validate Telegram WebApp initData: %s", exc)

@@ -1,8 +1,10 @@
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from aiohttp import ClientSession, ClientTimeout, web
 from aiogram import Bot, Dispatcher
@@ -20,6 +22,8 @@ from bot.services.crypto_pay_service import CryptoPayService
 from bot.services.email_auth_service import EmailAuthService, normalize_email
 from bot.services.freekassa_service import FreeKassaService
 from bot.services.platega_service import PlategaService
+from bot.services.promo_code_service import PromoCodeService
+from bot.services.referral_service import ReferralService
 from bot.services.severpay_service import SeverPayService
 from bot.services.subscription_service import SubscriptionService
 from bot.services.yookassa_service import YooKassaService
@@ -65,6 +69,8 @@ def create_subscription_webapp_application(
         "cryptopay_service",
         "platega_service",
         "severpay_service",
+        "promo_code_service",
+        "referral_service",
     ):
         if hasattr(dp, "workflow_data") and key in dp.workflow_data:  # type: ignore[attr-defined]
             app[key] = dp.workflow_data[key]  # type: ignore[index]
@@ -90,6 +96,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/account/email/request", account_email_request_route)
     app.router.add_post("/api/account/email/verify", account_email_verify_route)
     app.router.add_post("/api/account/telegram/link", account_telegram_link_route)
+    app.router.add_post("/api/promo/apply", apply_promo_route)
     app.router.add_post("/api/payments", create_payment_route)
     app.router.add_get("/api/payments/{payment_id}", payment_status_route)
 
@@ -331,6 +338,7 @@ async def auth_token_route(request: web.Request) -> web.Response:
     payload = await _read_json(request)
     init_data = str(payload.get("init_data") or "")
     auth_data = payload.get("auth_data")
+    referral_param = str(payload.get("referral_code") or payload.get("start_param") or "")
     telegram_user = None
     if init_data:
         telegram_user = validate_telegram_webapp_init_data(
@@ -352,10 +360,28 @@ async def auth_token_route(request: web.Request) -> web.Response:
     authenticated_user_id: Optional[int] = None
     async with async_session_factory() as session:
         try:
-            db_user = await _ensure_user_from_telegram(session, telegram_user, settings)
+            db_user = await _ensure_user_from_telegram(
+                session,
+                telegram_user,
+                settings,
+                referral_param=referral_param,
+            )
             if db_user.is_banned:
                 await session.rollback()
                 return _json_error(403, "banned", "Access denied")
+            referral_applied = await _apply_referral_to_existing_user(
+                request,
+                session,
+                db_user,
+                referral_param or telegram_user.get("start_param"),
+            )
+            if getattr(db_user, "_webapp_created", False) or referral_applied:
+                await _apply_referral_welcome_bonus_if_needed(
+                    request,
+                    session,
+                    db_user,
+                    referral_param or telegram_user.get("start_param"),
+                )
             authenticated_user_id = int(db_user.user_id)
             await session.commit()
         except Exception as exc:
@@ -386,6 +412,7 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
     payload = await _read_json(request)
     email = normalize_email(str(payload.get("email") or ""))
     code = str(payload.get("code") or "")
+    referral_param = str(payload.get("referral_code") or payload.get("start_param") or "")
     email_service: EmailAuthService = request.app["email_auth_service"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
 
@@ -403,15 +430,37 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
                 return _json_error(400, verify_result.error or "invalid_code", "Invalid code")
 
             db_user = await user_dal.get_user_by_email(session, email)
+            created_user = False
             if not db_user:
+                referred_by_id = await _resolve_referrer_id(
+                    session,
+                    referral_param,
+                    current_user_id=None,
+                )
                 db_user, _ = await user_dal.create_email_user(
                     session,
                     email=email,
                     language_code=_normalize_language(settings.DEFAULT_LANGUAGE),
                     email_verified_at=datetime.now(timezone.utc),
+                    referred_by_id=referred_by_id,
                 )
+                created_user = True
             elif not db_user.email_verified_at:
                 db_user.email_verified_at = datetime.now(timezone.utc)
+
+            referral_applied = await _apply_referral_to_existing_user(
+                request,
+                session,
+                db_user,
+                referral_param,
+            )
+            if created_user or referral_applied:
+                await _apply_referral_welcome_bonus_if_needed(
+                    request,
+                    session,
+                    db_user,
+                    referral_param,
+                )
 
             if db_user.is_banned:
                 await session.rollback()
@@ -567,6 +616,50 @@ async def me_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     data = await _build_user_payload(request, user_id)
     return web.json_response({"ok": True, **data})
+
+
+async def apply_promo_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    payload = await _read_json(request)
+    code = str(payload.get("code") or "").strip()
+    if not code:
+        return _json_error(400, "empty_code", "Promo code is empty")
+
+    settings: Settings = request.app["settings"]
+    promo_code_service: PromoCodeService = request.app.get("promo_code_service")
+    if not promo_code_service:
+        return _json_error(503, "service_unavailable", "Promo service unavailable")
+
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async with async_session_factory() as session:
+        try:
+            db_user = await user_dal.get_user_by_id(session, user_id)
+            if not db_user or db_user.is_banned:
+                await session.rollback()
+                return _json_error(403, "access_denied", "Access denied")
+            lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
+            success, result = await promo_code_service.apply_promo_code(
+                session,
+                user_id,
+                code,
+                lang,
+            )
+            if not success:
+                await session.rollback()
+                return _json_error(400, "promo_apply_failed", str(result))
+            await session.commit()
+            end_date = result if isinstance(result, datetime) else None
+            return web.json_response(
+                {
+                    "ok": True,
+                    "end_date": end_date.isoformat() if end_date else None,
+                    "end_date_text": end_date.strftime("%d.%m.%Y %H:%M") if end_date else None,
+                }
+            )
+        except Exception as exc:
+            await session.rollback()
+            logger.error("WebApp promo apply failed: %s", exc, exc_info=True)
+            return _json_error(500, "promo_apply_failed", "Promo apply failed")
 
 
 async def create_payment_route(request: web.Request) -> web.Response:
@@ -832,10 +925,117 @@ async def _link_telegram_to_user(
     return current_user
 
 
+def _normalize_referral_param(raw: Optional[str]) -> Optional[str]:
+    value = (raw or "").strip()
+    if not value:
+        return None
+
+    value_lower = value.lower()
+    if value_lower.startswith("ref_u"):
+        value = value[5:]
+    elif value_lower.startswith("ref_"):
+        value = value[4:]
+    elif value and value[0].lower() == "u" and len(value) == 10:
+        value = value[1:]
+
+    if not re.fullmatch(r"[A-Za-z0-9]{1,32}", value):
+        return None
+    return value.upper()
+
+
+async def _resolve_referrer_id(
+    session: AsyncSession,
+    raw_referral_param: Optional[str],
+    *,
+    current_user_id: Optional[int],
+) -> Optional[int]:
+    normalized = _normalize_referral_param(raw_referral_param)
+    if not normalized:
+        return None
+
+    ref_user = None
+    if normalized.isdigit():
+        ref_user = await user_dal.get_user_by_id(session, int(normalized))
+    if not ref_user:
+        ref_user = await user_dal.get_user_by_referral_code(session, normalized)
+    if not ref_user:
+        return None
+    if current_user_id is not None and int(ref_user.user_id) == int(current_user_id):
+        return None
+    return int(ref_user.user_id)
+
+
+async def _apply_referral_to_existing_user(
+    request: web.Request,
+    session: AsyncSession,
+    user: User,
+    raw_referral_param: Optional[str],
+) -> bool:
+    if not raw_referral_param or user.referred_by_id is not None:
+        return False
+
+    referred_by_id = await _resolve_referrer_id(
+        session,
+        raw_referral_param,
+        current_user_id=int(user.user_id),
+    )
+    if not referred_by_id:
+        return False
+
+    subscription_service: SubscriptionService = request.app["subscription_service"]
+    try:
+        is_active_now = await subscription_service.has_active_subscription(
+            session,
+            int(user.user_id),
+        )
+    except Exception:
+        is_active_now = False
+    if is_active_now:
+        return False
+
+    user.referred_by_id = referred_by_id
+    await session.flush()
+    return True
+
+
+async def _apply_referral_welcome_bonus_if_needed(
+    request: web.Request,
+    session: AsyncSession,
+    user: User,
+    raw_referral_param: Optional[str],
+) -> Optional[datetime]:
+    if not raw_referral_param or not user.referred_by_id:
+        return None
+
+    settings: Settings = request.app["settings"]
+    referral_welcome_days = max(
+        0,
+        int(getattr(settings, "REFERRAL_WELCOME_BONUS_DAYS", 0) or 0),
+    )
+    if referral_welcome_days <= 0:
+        return None
+
+    subscription_service: SubscriptionService = request.app["subscription_service"]
+    try:
+        if await subscription_service.has_active_subscription(session, int(user.user_id)):
+            return None
+    except Exception:
+        pass
+
+    return await subscription_service.extend_active_subscription_days(
+        session,
+        int(user.user_id),
+        referral_welcome_days,
+        reason="referral_welcome_bonus",
+    )
+
+
 async def _ensure_user_from_telegram(
     session: AsyncSession,
     telegram_user: Dict[str, Any],
     settings: Settings,
+    *,
+    referral_param: Optional[str] = None,
 ) -> User:
     user_id = int(telegram_user["id"])
     language_code = telegram_user.get("language_code") or settings.DEFAULT_LANGUAGE
@@ -854,14 +1054,21 @@ async def _ensure_user_from_telegram(
     if not db_user:
         db_user = await user_dal.get_user_by_id(session, user_id)
     if not db_user:
-        db_user, _ = await user_dal.create_user(
+        referred_by_id = await _resolve_referrer_id(
+            session,
+            referral_param or telegram_user.get("start_param"),
+            current_user_id=user_id,
+        )
+        db_user, created = await user_dal.create_user(
             session,
             {
                 "user_id": user_id,
                 **update_data,
+                "referred_by_id": referred_by_id,
                 "registration_date": datetime.now(timezone.utc),
             },
         )
+        setattr(db_user, "_webapp_created", bool(created))
         return db_user
 
     changed = {
@@ -890,6 +1097,25 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
         active = await subscription_service.get_active_subscription_details(
             session, user_id
         )
+        referral_code = await user_dal.ensure_referral_code(session, db_user)
+        referral_service: Optional[ReferralService] = request.app.get("referral_service")
+        bot_username = request.app.get("bot_username") or ""
+        referral_link = None
+        if referral_service and bot_username:
+            referral_link = await referral_service.generate_referral_link(
+                session,
+                bot_username,
+                user_id,
+            )
+        webapp_referral_link = _build_webapp_referral_link(
+            request.app["settings"].SUBSCRIPTION_MINI_APP_URL,
+            referral_code,
+        )
+        referral_stats = (
+            await referral_service.get_referral_stats(session, user_id)
+            if referral_service
+            else {"invited_count": 0, "purchased_count": 0}
+        )
         local_sub = await subscription_dal.get_active_subscription_by_user_id(
             session,
             user_id,
@@ -913,6 +1139,14 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             "language_code": lang,
         },
         "subscription": _serialize_subscription(active, local_sub, lang),
+        "referral": {
+            "code": referral_code,
+            "bot_link": referral_link,
+            "webapp_link": webapp_referral_link,
+            "invited_count": referral_stats.get("invited_count", 0),
+            "purchased_count": referral_stats.get("purchased_count", 0),
+            "bonus_details": _serialize_referral_bonus_details(settings, lang),
+        },
         "plans": _serialize_plans(settings, lang),
         "payment_methods": _serialize_payment_methods(settings, request.app),
         "settings": {
@@ -921,6 +1155,47 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             "email_auth_enabled": settings.email_auth_configured,
         },
     }
+
+
+def _serialize_referral_bonus_details(settings: Settings, lang: str) -> List[Dict[str, Any]]:
+    if getattr(settings, "traffic_sale_mode", False):
+        return []
+
+    details: List[Dict[str, Any]] = []
+    for months, _price in sorted(settings.subscription_options.items()):
+        inviter_days = settings.referral_bonus_inviter.get(months)
+        friend_days = settings.referral_bonus_referee.get(months)
+        if inviter_days is None and friend_days is None:
+            continue
+        details.append(
+            {
+                "months": int(months),
+                "title": _format_months_title(int(months), lang),
+                "inviter_days": int(inviter_days or 0),
+                "friend_days": int(friend_days or 0),
+            }
+        )
+    return details
+
+
+def _build_webapp_referral_link(
+    base_url: Optional[str],
+    referral_code: Optional[str],
+) -> Optional[str]:
+    if not base_url or not referral_code:
+        return None
+    parts = urlsplit(base_url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["ref"] = f"u{referral_code}"
+    return urlunsplit(
+        (
+            parts.scheme,
+            parts.netloc,
+            parts.path or "/",
+            urlencode(query),
+            parts.fragment,
+        )
+    )
 
 
 def _serialize_subscription(

@@ -110,6 +110,28 @@
       </div>
     </section>
 
+    <section class="quick-actions">
+      <button class="btn full" type="button" onclick="openReferralModal()" data-i18n="referral_title">РџСЂРёРіР»Р°СЃРёС‚СЊ РґСЂСѓРіР°</button>
+      <button class="btn full" type="button" onclick="openPromoModal()" data-i18n="promo_title">РџСЂРѕРјРѕРєРѕРґ</button>
+    </section>
+    <button id="tools-modal-backdrop" class="tools-modal-backdrop hidden" type="button" data-title-i18n="close" onclick="closeToolModals()"></button>
+
+    <section class="panel promo-panel hidden">
+      <div class="panel-head">
+        <div>
+          <div class="section-title" data-i18n="promo_title">Промокод</div>
+          <div class="flow-caption" data-i18n="promo_caption">Введите код, чтобы начислить бонусные дни.</div>
+        </div>
+      </div>
+      <div class="field-row">
+        <input id="promo-code-input" class="input code-input" type="text" autocomplete="off" inputmode="text" placeholder="PROMO2026" data-placeholder-i18n="promo_placeholder">
+        <button id="promo-apply-btn" class="btn primary" type="button" onclick="applyPromoCode()" data-i18n="apply_promo">Применить</button>
+      </div>
+      <div id="promo-status" class="login-text login-status hidden" aria-live="polite"></div>
+    </section>
+
+    <section class="panel referral-panel hidden"></section>
+
     <a id="support-link" class="btn support-link hidden" href="#" target="_blank" rel="noopener" data-i18n="support">Поддержка</a>
     <div id="legal-links-app" class="legal-links hidden">
       <a class="legal-link" data-legal-key="privacyPolicyUrl" href="#" target="_blank" rel="noopener" data-i18n="privacy_policy">Политика конфиденциальности</a>
