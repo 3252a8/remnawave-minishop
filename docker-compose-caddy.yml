@@ -1,0 +1,59 @@
+services:
+  remnawave-tg-shop:
+    build: .
+    container_name: remnawave-tg-shop
+    hostname: remnawave-tg-shop
+    env_file:
+      - .env
+    environment:
+      - TZ=UTC
+    volumes:
+      - ./locales:/app/locales
+    restart: unless-stopped
+    depends_on:
+      remnawave-tg-shop-db:
+        condition: service_healthy
+
+  remnawave-tg-shop-db:
+    image: postgres:17
+    container_name: remnawave-tg-shop-db
+    hostname: remnawave-tg-shop-db
+    env_file:
+      - .env
+    environment:
+      - TZ=UTC
+    volumes:
+      - remnawave-tg-shop-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: remnawave-tg-shop-caddy
+    hostname: remnawave-tg-shop-caddy
+    environment:
+      - TZ=UTC
+      - WEB_SERVER_PORT=${WEB_SERVER_PORT:-8080}
+      - WEBAPP_SERVER_PORT=${WEBAPP_SERVER_PORT:-8081}
+    depends_on:
+      - remnawave-tg-shop
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  remnawave-tg-shop-db-data:
+    name: remnawave-tg-shop-db-data
+  caddy_data:
+    name: remnawave-tg-shop-caddy-data
+  caddy_config:
+    name: remnawave-tg-shop-caddy-config

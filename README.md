@@ -447,6 +447,43 @@ cd /opt/remnawave/nginx && docker compose down && docker compose up -d && docker
 IMAGE_TAG=3.0.0 docker compose -f docker-compose-remote-server.yml up -d
 ```
 
+### Вариант с Caddy
+
+Если нужен reverse proxy на Caddy, используйте `docker-compose-caddy.yml` вместе с `Caddyfile`. Это удобный вариант, когда хочется, чтобы Caddy сам выпускал TLS-сертификаты и проксировал и webhook'и, и Mini App без ручной настройки Nginx.
+
+В этой схеме:
+- Caddy публикует наружу `80` и `443`.
+- Бот остается доступным только внутри docker-сети.
+- `WEBHOOK_BASE_URL` должен указывать на домен вебхуков, а `SUBSCRIPTION_MINI_APP_URL` - на домен Mini App.
+
+Пример `Caddyfile`:
+
+```caddyfile
+webhook.domain.com {
+    encode zstd gzip
+    reverse_proxy remnawave-tg-shop:{$WEB_SERVER_PORT:8080}
+}
+
+app.domain.com {
+    encode zstd gzip
+    reverse_proxy remnawave-tg-shop:{$WEBAPP_SERVER_PORT:8081}
+}
+```
+
+Что нужно поменять под себя:
+- заменить `webhook.domain.com` и `app.domain.com` на свои домены;
+- убедиться, что в `.env` заданы `WEBHOOK_BASE_URL=https://webhook.domain.com` и `SUBSCRIPTION_MINI_APP_URL=https://app.domain.com/`;
+- при необходимости скорректировать `WEB_SERVER_PORT` и `WEBAPP_SERVER_PORT`, если они отличаются от стандартных `8080` и `8081`.
+- в BotFather укажите домен Mini App через `/setdomain`, чтобы он совпадал с `SUBSCRIPTION_MINI_APP_URL`.
+
+Запуск:
+
+```bash
+docker compose -f docker-compose-caddy.yml up -d --build
+```
+
+После этого Caddy сам выпустит сертификаты и будет проксировать webhook'и на порт `8080`, а Mini App - на `8081`.
+
 ## 📁 Структура проекта
 
 ```
