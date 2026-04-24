@@ -1,9 +1,10 @@
+import asyncio
 import json
 import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from aiohttp import ClientSession, ClientTimeout, web
@@ -41,6 +42,7 @@ TELEGRAM_WEB_APP_SDK_URL = "https://telegram.org/js/telegram-web-app.js"
 TELEGRAM_WEB_APP_SDK_PATH = ASSET_DIR / "telegram-web-app.js"
 TELEGRAM_WIDGET_SDK_URL = "https://telegram.org/js/telegram-widget.js?23"
 TELEGRAM_WIDGET_SDK_PATH = ASSET_DIR / "telegram-widget.js"
+WEBAPP_LOGO_PROXY_PATH = "/webapp-logo"
 _UNPATCHED_WIDGET_ORIGIN_SNIPPET = """    if (origin == 'https://telegram.org') {\n      origin = default_origin;\n    } else if (origin == 'https://telegram-js.azureedge.net' || origin == 'https://tg.dev') {\n      origin = dev_origin;\n    }\n"""
 _PATCHED_WIDGET_ORIGIN_SNIPPET = """    if (origin == 'https://telegram.org') {\n      origin = default_origin;\n    } else if (origin == 'https://telegram-js.azureedge.net' || origin == 'https://tg.dev') {\n      origin = dev_origin;\n    } else {\n      origin = default_origin;\n    }\n"""
 WEBAPP_CONFIG_PLACEHOLDER = "<!-- WEBAPP_CONFIG_SCRIPT -->"
@@ -61,6 +63,8 @@ def create_subscription_webapp_application(
     app["async_session_factory"] = async_session_factory
     app["i18n"] = dp.get("i18n_instance")
     app["email_auth_service"] = EmailAuthService(settings)
+    app["webapp_logo_cache"] = None
+    app["webapp_logo_cache_lock"] = asyncio.Lock()
 
     for key in (
         "subscription_service",
@@ -87,6 +91,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/health", health_route)
     app.router.add_get("/telegram-web-app.js", telegram_web_app_asset_route)
     app.router.add_get("/telegram-widget.js", telegram_widget_asset_route)
+    app.router.add_get(WEBAPP_LOGO_PROXY_PATH, webapp_logo_route)
     app.router.add_get("/subscription_webapp.css", css_asset_route)
     app.router.add_get("/subscription_webapp.js", js_asset_route)
     app.router.add_post("/api/auth/token", auth_token_route)
@@ -107,6 +112,90 @@ async def health_route(request: web.Request) -> web.Response:
 
 async def css_asset_route(request: web.Request) -> web.Response:
     return await _serve_template_asset(request, "subscription_webapp.css", "text/css")
+
+
+def _resolve_webapp_logo_url(settings: Settings) -> str:
+    raw_logo_url = (settings.WEBAPP_LOGO_URL or "").strip()
+    if not raw_logo_url:
+        return ""
+
+    parsed_logo_url = urlsplit(raw_logo_url)
+    if parsed_logo_url.scheme in {"http", "https"} or raw_logo_url.startswith("//"):
+        return WEBAPP_LOGO_PROXY_PATH
+    return raw_logo_url
+
+
+def _normalize_webapp_logo_source_url(raw_logo_url: str) -> str:
+    if raw_logo_url.startswith("//"):
+        return f"https:{raw_logo_url}"
+    return raw_logo_url
+
+
+async def webapp_logo_route(request: web.Request) -> web.Response:
+    settings: Settings = request.app["settings"]
+    raw_logo_url = (settings.WEBAPP_LOGO_URL or "").strip()
+    if not raw_logo_url:
+        raise web.HTTPNotFound(text="webapp_logo_not_configured")
+
+    parsed_logo_url = urlsplit(raw_logo_url)
+    if parsed_logo_url.scheme not in {"http", "https"} and not raw_logo_url.startswith("//"):
+        raise web.HTTPNotFound(text="webapp_logo_not_proxied")
+
+    source_logo_url = _normalize_webapp_logo_source_url(raw_logo_url)
+    logo_cache: Optional[Tuple[bytes, str]] = request.app.get("webapp_logo_cache")
+    if logo_cache is None:
+        cache_lock: asyncio.Lock = request.app["webapp_logo_cache_lock"]
+        async with cache_lock:
+            logo_cache = request.app.get("webapp_logo_cache")
+            if logo_cache is None:
+                logo_cache = await _fetch_webapp_logo(source_logo_url)
+                request.app["webapp_logo_cache"] = logo_cache
+
+    if not logo_cache:
+        raise web.HTTPNotFound(text="webapp_logo_unavailable")
+
+    body, content_type = logo_cache
+    response = web.Response(body=body, content_type=content_type)
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+async def _fetch_webapp_logo(logo_url: str) -> Optional[Tuple[bytes, str]]:
+    """Fetch and cache the configured logo on the server side."""
+    try:
+        timeout = ClientTimeout(total=15)
+        async with ClientSession(
+            timeout=timeout,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+            },
+        ) as session:
+            async with session.get(logo_url, allow_redirects=True) as response:
+                if response.status != 200:
+                    logger.warning(
+                        "WEBAPP_LOGO_URL returned HTTP %s; keeping the logo hidden.",
+                        response.status,
+                    )
+                    return None
+
+                content_type = (response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+                if content_type and not content_type.startswith("image/"):
+                    logger.warning(
+                        "WEBAPP_LOGO_URL returned non-image content type %s; keeping the logo hidden.",
+                        content_type,
+                    )
+                    return None
+
+                body = await response.read()
+                if not body:
+                    logger.warning("WEBAPP_LOGO_URL returned an empty response body.")
+                    return None
+
+                return body, content_type or "image/png"
+    except Exception as exc:
+        logger.warning("Failed to fetch WEBAPP_LOGO_URL: %s", exc)
+        return None
 
 
 async def telegram_web_app_asset_route(request: web.Request) -> web.Response:
@@ -279,7 +368,7 @@ async def index_route(request: web.Request) -> web.Response:
     config = {
         "title": settings.WEBAPP_TITLE,
         "primaryColor": settings.WEBAPP_PRIMARY_COLOR,
-        "logoUrl": settings.WEBAPP_LOGO_URL or "",
+        "logoUrl": _resolve_webapp_logo_url(settings),
         "apiBase": "/api",
         "telegramLoginBotUsername": request.app.get("bot_username") or "",
         "supportUrl": settings.SUPPORT_LINK or "",

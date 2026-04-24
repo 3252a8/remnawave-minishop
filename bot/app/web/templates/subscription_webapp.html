@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#05070a">
+  <link id="app-favicon" rel="icon" href="data:," sizes="any">
   <title>Моя подписка</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,7 +21,10 @@
   <main id="app" class="app hidden">
     <header class="app-header">
       <div class="app-header-title">
-        <img id="brand-logo" class="brand-logo hidden" data-brand-logo alt="" aria-hidden="true">
+        <div class="brand-logo-shell hidden" data-brand-logo-shell aria-hidden="true">
+          <span class="brand-logo-spinner hidden" data-brand-logo-spinner aria-hidden="true"></span>
+          <img id="brand-logo" class="brand-logo hidden" data-brand-logo alt="" aria-hidden="true">
+        </div>
         <div id="brand-title" class="brand-title" data-brand-title>Моя подписка</div>
       </div>
       <div class="app-header-actions">
@@ -138,53 +142,27 @@
 
   <div id="payment-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="payment-title">
     <button class="modal-backdrop" type="button" data-title-i18n="close_payment" aria-label="Закрыть оплату" onclick="closePaymentFlow()"></button>
-    <section id="payment-flow" class="panel-modal modal-card grid gap-3.5 p-4">
+    <section id="payment-flow" class="panel-modal modal-card grid gap-4 p-4">
       <div class="panel-head">
         <div>
-          <div id="payment-title" class="section-title" data-i18n="payment_title">Оплата подписки</div>
-          <div class="section-caption" data-i18n="payment_caption">Выберите срок, способ оплаты и создайте платеж.</div>
+          <div id="payment-title" class="section-title text-[var(--accent)]" data-i18n="payment_title">Оплата подписки</div>
         </div>
         <button class="icon-btn" type="button" data-title-i18n="close_payment" aria-label="Закрыть оплату" onclick="closePaymentFlow()">×</button>
       </div>
 
-      <div class="grid grid-cols-3 gap-2" data-aria-i18n="payment_steps" aria-label="Шаги оплаты">
-        <div id="step-plan" class="step step-box">
-          <span class="step-num">01</span>
-          <span class="step-name" data-i18n="step_plan">Срок</span>
-        </div>
-        <div id="step-method" class="step step-box">
-          <span class="step-num">02</span>
-          <span class="step-name" data-i18n="step_method">Метод</span>
-        </div>
-        <div id="step-result" class="step step-box">
-          <span class="step-num">03</span>
-          <span class="step-name" data-i18n="step_result">Платеж</span>
-        </div>
+      <div class="grid gap-2.5">
+        <div class="section-label" data-i18n="select_period">Выберите период</div>
+        <div id="plans" class="grid grid-cols-2 gap-2 sm:grid-cols-4"></div>
       </div>
 
-      <div id="plan-step" class="grid gap-2.5">
-        <div class="section-label" data-i18n="select_period">Выберите срок</div>
-        <div id="plans" class="plans"></div>
-        <button id="to-methods-btn" class="btn-primary w-full" type="button" onclick="goToPaymentStep('method')" data-i18n="choose_payment_method">Выбрать способ оплаты</button>
+      <div class="notice grid gap-1.5">
+        <div class="section-label" data-i18n="payment_amount_label">Стоимость выбранного периода</div>
+        <div id="selected-plan-price" class="text-[20px] font-extrabold leading-tight text-[var(--text-primary)]">...</div>
       </div>
 
-      <div id="method-step" class="hidden grid gap-2.5">
-        <div class="section-label" data-i18n="select_method">Выберите способ оплаты</div>
-        <div id="methods" class="methods"></div>
-        <div class="grid grid-cols-2 gap-2">
-          <button class="btn text-[var(--text-secondary)]" type="button" onclick="goToPaymentStep('plan')" data-i18n="back">Назад</button>
-          <button id="create-payment-btn" class="btn-primary" type="button" onclick="createPaymentFromSelection()" data-i18n="create_payment">Создать платеж</button>
-        </div>
-      </div>
-
-      <div id="result-step" class="hidden grid gap-2.5">
-        <div class="section-label" data-i18n="payment_status">Статус платежа</div>
-        <div class="grid gap-2.5">
-          <div id="payment-message" class="notice"></div>
-          <button id="payment-open-btn" class="btn-primary w-full" type="button" onclick="openPaymentUrl()" data-i18n="open_payment">Открыть оплату</button>
-          <button id="payment-check-btn" class="btn w-full" type="button" onclick="checkPayment()" data-i18n="check_payment">Проверить оплату</button>
-          <button class="btn w-full text-[var(--text-secondary)]" type="button" onclick="goToPaymentStep('method')" data-i18n="choose_other_method">Выбрать другой способ</button>
-        </div>
+      <div class="grid gap-2.5">
+        <div class="section-label" data-i18n="choose_payment_method">Способ оплаты</div>
+        <div id="payment-methods" class="grid gap-2"></div>
       </div>
     </section>
   </div>
@@ -194,7 +172,7 @@
     <section id="promo-panel" class="panel-modal modal-card grid gap-3.5 p-[17px]">
       <div class="panel-head">
         <div>
-          <div id="promo-title" class="section-title" data-i18n="promo_title">Промокод</div>
+          <div id="promo-title" class="section-title text-[var(--accent)]" data-i18n="promo_title">Промокод</div>
           <div class="section-caption" data-i18n="promo_caption">Введите код, чтобы начислить бонусные дни.</div>
         </div>
         <button class="icon-btn" type="button" data-title-i18n="close" aria-label="Закрыть" onclick="closePromoModal()">×</button>
@@ -251,26 +229,34 @@
     </div>
   </div>
 
-  <section id="login" class="login login-layout">
-    <div class="panel-modal w-full grid gap-[17px] p-[18px] text-center">
-      <div class="login-head">
-        <img id="login-brand-logo" class="brand-logo brand-logo--lg hidden" data-brand-logo alt="" aria-hidden="true">
-        <div id="login-brand-title" class="login-brand-title" data-brand-title>Моя подписка</div>
+  <section id="login" class="login login-layout gap-5">
+    <div class="grid justify-items-center gap-3 text-center">
+      <div class="brand-logo-shell brand-logo-shell--lg hidden" data-brand-logo-shell aria-hidden="true">
+        <span class="brand-logo-spinner hidden" data-brand-logo-spinner aria-hidden="true"></span>
+        <img id="login-brand-logo" class="brand-logo hidden" data-brand-logo alt="" aria-hidden="true">
       </div>
-      <div class="auth-tabs-wrapper" role="tablist">
-        <button id="email-auth-tab" class="auth-tab active" type="button" onclick="setAuthMode('email')" data-i18n="email_login_tab">Email</button>
-        <button id="telegram-auth-tab" class="auth-tab" type="button" onclick="setAuthMode('telegram')" data-i18n="telegram_login_tab">Telegram</button>
-      </div>
-      <div id="email-login-pane" class="grid gap-2.5">
-        <div class="grid gap-2.5">
-          <input id="email-login-input" class="input w-full" type="email" autocomplete="email" inputmode="email" placeholder="mail@example.com" data-placeholder-i18n="email_placeholder">
-          <button id="email-login-send-btn" class="btn-primary w-full" type="button" onclick="requestEmailLoginCode()" data-i18n="send_code">Отправить код</button>
+      <div id="login-brand-title" class="max-w-[320px] break-words font-[family-name:var(--font-mono)] text-[28px] font-extrabold leading-[1.05] tracking-[0] text-[var(--accent)] max-[460px]:max-w-[240px] max-[460px]:text-[24px]" data-brand-title>Моя подписка</div>
+    </div>
+    <div class="panel-modal w-full grid gap-5 p-6 text-center">
+      <h1 class="section-title text-[22px] leading-[1.1]" data-i18n="login_title">Войдите или зарегистрируйтесь</h1>
+      <div class="grid gap-2.5">
+        <div class="auth-tabs-wrapper" role="tablist">
+          <button id="email-auth-tab" class="auth-tab active" type="button" onclick="setAuthMode('email')" data-i18n="email_login_tab">Email</button>
+          <button id="telegram-auth-tab" class="auth-tab" type="button" onclick="setAuthMode('telegram')" data-i18n="telegram_login_tab">Telegram</button>
+        </div>
+        <div class="login-auth-body">
+          <div id="email-login-pane" class="grid gap-2.5">
+            <div class="grid gap-2.5">
+              <input id="email-login-input" class="input w-full" type="email" autocomplete="email" inputmode="email" placeholder="mail@example.com" data-placeholder-i18n="email_placeholder">
+              <button id="email-login-send-btn" class="btn-primary w-full" type="button" onclick="requestEmailLoginCode()" data-i18n="login_continue">Продолжить</button>
+            </div>
+          </div>
+          <div id="telegram-login-pane" class="hidden grid gap-2.5">
+            <div id="telegram-login-widget" class="telegram-login-widget" aria-live="polite"></div>
+          </div>
+          <div id="auth-status" class="status-text hidden" aria-live="polite"></div>
         </div>
       </div>
-      <div id="telegram-login-pane" class="hidden grid gap-2.5">
-        <div id="telegram-login-widget" class="telegram-login-widget" aria-live="polite"></div>
-      </div>
-      <div id="auth-status" class="status-text hidden" aria-live="polite"></div>
     </div>
     <div id="legal-links-login" data-legal-links class="legal-links hidden">
       <a class="legal-link max-[560px]:flex-[1_1_100%]" data-legal-key="privacyPolicyUrl" href="#" target="_blank" rel="noopener" data-i18n="privacy_policy">Политика конфиденциальности</a>

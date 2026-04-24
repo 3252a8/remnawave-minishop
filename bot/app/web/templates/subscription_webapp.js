@@ -84,14 +84,12 @@ const MOCK = (() => {
       token: MOCK ? 'local-preview' : (localStorage.getItem('rw_webapp_token') || ''),
       data: null,
       selectedPlan: null,
-      selectedMethod: null,
       referralParam: readReferralParam(),
       promoApplying: false,
       payment: null,
       paymentFlowOpen: false,
       promoModalOpen: false,
       referralModalOpen: false,
-      paymentStep: 'plan',
       creatingPayment: false,
       authInProgress: false,
       authMode: (CFG.emailAuthEnabled === false ? 'telegram' : 'email'),
@@ -108,7 +106,8 @@ const MOCK = (() => {
       telegramLinkRendered: false,
       telegramLinkInProgress: false,
       toastTimer: null,
-      userMenuOpen: false
+      userMenuOpen: false,
+      userMenuCloseTimer: null
     };
 
     const TW = {
@@ -129,6 +128,9 @@ const MOCK = (() => {
       planName: 'plan-name',
       planMeta: 'plan-meta',
       planPrice: 'plan-price',
+      paymentMethodCard: 'payment-method-card',
+      paymentMethodCardPlatega: 'payment-method-card--platega',
+      paymentMethodCardCryptopay: 'payment-method-card--cryptopay',
       notice: 'notice',
       stepNum: 'step-num',
       stepName: 'step-name'
@@ -148,22 +150,25 @@ const MOCK = (() => {
         copy_link: 'Скопировать ссылку',
         extend_subscription: 'Купить подписку / Добавить дни',
         payment_title: 'Оплата подписки',
-        payment_caption: 'Выберите срок, способ оплаты и создайте платеж.',
+        payment_caption: 'Выберите период и нажмите способ оплаты. Сервис оплаты откроется сразу.',
         close: 'Закрыть',
         close_payment: 'Закрыть оплату',
         payment_steps: 'Шаги оплаты',
         step_plan: 'Срок',
         step_method: 'Метод',
         step_result: 'Платеж',
-        select_period: 'Выберите срок',
+        select_period: 'Выберите период',
         select_method: 'Выберите способ оплаты',
         payment_status: 'Статус платежа',
-        choose_payment_method: 'Выбрать способ оплаты',
+        payment_amount_label: 'Стоимость выбранного периода',
+        choose_payment_method: 'Способ оплаты',
         back: 'Назад',
         create_payment: 'Создать платеж',
         open_payment: 'Открыть оплату',
         check_payment: 'Проверить оплату',
         choose_other_method: 'Выбрать другой способ',
+        pay_with_platega_button: 'Оплатить картой (СБП)',
+        pay_with_cryptopay_button: 'Оплатить криптой',
         support: 'Поддержка',
         account_title: 'Аккаунт',
         account_caption: 'Способы входа',
@@ -179,6 +184,8 @@ const MOCK = (() => {
         resend_code: 'Отправить еще раз',
         confirm: 'Подтвердить',
         login: 'Войти',
+        login_title: 'Войдите или зарегистрируйтесь',
+        login_continue: 'Продолжить',
         email_code_title: 'Подтвердите вход',
         email_code_caption: 'Введите 6-значный код из письма.',
         email_code_aria: 'Код подтверждения',
@@ -273,7 +280,7 @@ const MOCK = (() => {
         copy_link: 'Copy link',
         extend_subscription: 'Renew subscription/Add days',
         payment_title: 'Subscription payment',
-        payment_caption: 'Choose a period, payment method, and create a payment.',
+        payment_caption: 'Choose a period and tap a payment method. The payment service will open right away.',
         close: 'Close',
         close_payment: 'Close payment',
         payment_steps: 'Payment steps',
@@ -283,12 +290,15 @@ const MOCK = (() => {
         select_period: 'Select period',
         select_method: 'Select payment method',
         payment_status: 'Payment status',
-        choose_payment_method: 'Choose payment method',
+        payment_amount_label: 'Selected period cost',
+        choose_payment_method: 'Payment method',
         back: 'Back',
         create_payment: 'Create payment',
         open_payment: 'Open payment',
         check_payment: 'Check payment',
         choose_other_method: 'Choose another method',
+        pay_with_platega_button: 'Pay by card (SBP)',
+        pay_with_cryptopay_button: 'Pay with crypto',
         support: 'Support',
         account_title: 'Account',
         account_caption: 'Sign-in methods',
@@ -304,6 +314,8 @@ const MOCK = (() => {
         resend_code: 'Send again',
         confirm: 'Confirm',
         login: 'Log in',
+        login_title: 'Log in or sign up',
+        login_continue: 'Continue',
         email_code_title: 'Confirm login',
         email_code_caption: 'Enter the 6-digit code from the email.',
         email_code_aria: 'Verification code',
@@ -575,6 +587,7 @@ const MOCK = (() => {
       const telegramTab = document.getElementById('telegram-auth-tab');
       const emailPane = document.getElementById('email-login-pane');
       const telegramPane = document.getElementById('telegram-login-pane');
+      const authBody = document.querySelector('.login-auth-body');
       const emailEnabled = CFG.emailAuthEnabled !== false;
       if (!emailEnabled && state.authMode === 'email') {
         state.authMode = 'telegram';
@@ -584,6 +597,9 @@ const MOCK = (() => {
       telegramTab.classList.toggle('active', state.authMode === 'telegram');
       emailPane.classList.toggle('hidden', state.authMode !== 'email');
       telegramPane.classList.toggle('hidden', state.authMode !== 'telegram');
+      if (authBody) {
+        authBody.classList.toggle('login-auth-body--telegram', state.authMode === 'telegram');
+      }
 
       emailTab.disabled = !emailEnabled;
       if (state.authMode === 'telegram') {
@@ -868,7 +884,6 @@ const MOCK = (() => {
     }
 
     async function loadData() {
-      const previousMonths = state.selectedPlan && state.selectedPlan.months;
       const data = await api('/me');
       if (!data.ok) throw new Error(data.error || 'load failed');
       state.data = data;
@@ -876,10 +891,9 @@ const MOCK = (() => {
       applyI18n();
       applyLegalLinks();
       const plans = data.plans || [];
-      state.selectedPlan = plans.find(plan => plan.months === previousMonths) || plans[0] || null;
-      state.selectedMethod = null;
+      state.selectedPlan = getDefaultPaymentPlan(plans);
       state.payment = null;
-      state.paymentStep = 'plan';
+      state.creatingPayment = false;
       state.telegramLinkRendered = false;
       render();
       showApp();
@@ -1140,8 +1154,31 @@ const MOCK = (() => {
       const chip = document.getElementById('user-chip');
       const dropdown = document.getElementById('user-dropdown');
       if (!chip || !dropdown) return;
+
+      if (state.userMenuCloseTimer) {
+        window.clearTimeout(state.userMenuCloseTimer);
+        state.userMenuCloseTimer = null;
+      }
+
       chip.setAttribute('aria-expanded', open ? 'true' : 'false');
-      dropdown.classList.toggle('hidden', !open);
+      if (open) {
+        dropdown.classList.remove('hidden');
+        dropdown.classList.remove('show');
+        window.requestAnimationFrame(() => {
+          if (state.userMenuOpen) {
+            dropdown.classList.add('show');
+          }
+        });
+        return;
+      }
+
+      dropdown.classList.remove('show');
+      state.userMenuCloseTimer = window.setTimeout(() => {
+        if (!state.userMenuOpen) {
+          dropdown.classList.add('hidden');
+        }
+        state.userMenuCloseTimer = null;
+      }, 180);
     }
 
     function handleDocumentClickForUserMenu(event) {
@@ -1557,22 +1594,22 @@ const MOCK = (() => {
         return;
       }
       state.paymentFlowOpen = true;
-      state.paymentStep = 'plan';
+      state.creatingPayment = false;
       state.payment = null;
-      state.selectedMethod = null;
+      state.selectedPlan = getDefaultPaymentPlan((state.data && state.data.plans) || []);
       renderPaymentFlow();
     }
 
     function closePaymentFlow() {
       state.paymentFlowOpen = false;
-      state.paymentStep = 'plan';
+      state.creatingPayment = false;
       state.payment = null;
-      state.selectedMethod = null;
       renderPaymentFlow();
     }
 
     function renderPaymentFlow() {
       const modal = document.getElementById('payment-modal');
+      if (!modal) return;
       if (!state.paymentFlowOpen) {
         modal.classList.remove('show');
         syncModalLock();
@@ -1585,11 +1622,10 @@ const MOCK = (() => {
       modal.classList.remove('hidden');
       syncModalLock();
       window.requestAnimationFrame(() => modal.classList.add('show'));
-      applyI18n(modal);
-      renderStepState();
-      renderPlans(state.data.plans || []);
+      renderPlans((state.data && state.data.plans) || []);
+      renderPaymentSummary();
       renderMethods();
-      renderPaymentResult();
+      applyI18n(modal);
     }
 
     function syncModalLock() {
@@ -1604,183 +1640,138 @@ const MOCK = (() => {
       );
     }
 
-    function renderStepState() {
-      const order = ['plan', 'method', 'result'];
-      order.forEach((step, index) => {
-        const node = document.getElementById('step-' + step);
-        const currentIndex = order.indexOf(state.paymentStep);
-        node.classList.toggle('active', state.paymentStep === step);
-        node.classList.toggle('done', currentIndex > index);
-      });
-
-      document.getElementById('plan-step').classList.toggle('hidden', state.paymentStep !== 'plan');
-      document.getElementById('method-step').classList.toggle('hidden', state.paymentStep !== 'method');
-      document.getElementById('result-step').classList.toggle('hidden', state.paymentStep !== 'result');
+    function getDefaultPaymentPlan(plans = []) {
+      if (!plans.length) return null;
+      return plans.find(plan => Number(plan.months) === 3) || plans[0] || null;
     }
 
     function renderPlans(plans) {
       const wrap = document.getElementById('plans');
-      const nextBtn = document.getElementById('to-methods-btn');
+      if (!wrap) return;
       if (!plans.length) {
         wrap.innerHTML = '<div class="' + TW.empty + '">' + escapeHtml(t('no_plans')) + '</div>';
-        nextBtn.disabled = true;
         return;
       }
 
-      nextBtn.disabled = !state.selectedPlan;
+      if (!state.selectedPlan || !plans.some(plan => Number(plan.months) === Number(state.selectedPlan.months))) {
+        state.selectedPlan = getDefaultPaymentPlan(plans);
+      }
+
       wrap.innerHTML = plans.map(plan => {
-        const isActive = state.selectedPlan && state.selectedPlan.months === plan.months;
-        const stars = plan.stars_price ? ' / ' + plan.stars_price + ' Stars' : '';
+        const planMonths = Number(plan.months);
+        const isActive = state.selectedPlan && Number(state.selectedPlan.months) === planMonths;
         return `
-          <button class="${TW.planCard} ${isActive ? TW.planCardActive : ''}" type="button" onclick="selectPlan(${plan.months})">
-            <span class="min-w-0">
-              <span class="${TW.planName}">${escapeHtml(plan.title)}</span>
-              <span class="${TW.planMeta}">${escapeHtml(t('access_period'))}</span>
-            </span>
-            <span class="${TW.planPrice}">${escapeHtml(formatMoney(plan.price, plan.currency) + stars)}</span>
+          <button class="${TW.planCard} ${isActive ? TW.planCardActive : ''}" type="button" onclick="selectPlan(${planMonths})" ${state.creatingPayment ? 'disabled' : ''}>
+            ${escapeHtml(plan.title)}
           </button>
         `;
       }).join('');
     }
 
+    function renderPaymentSummary() {
+      const price = document.getElementById('selected-plan-price');
+      if (!price) return;
+      if (!state.selectedPlan) {
+        price.textContent = t('no_plans');
+        return;
+      }
+      price.textContent = formatMoney(state.selectedPlan.price, state.selectedPlan.currency);
+    }
+
     function renderMethods() {
-      const methods = document.getElementById('methods');
-      const createBtn = document.getElementById('create-payment-btn');
+      const methods = document.getElementById('payment-methods');
+      if (!methods) return;
       if (!state.selectedPlan) {
         methods.innerHTML = '<div class="' + TW.empty + '">' + escapeHtml(t('choose_plan_first')) + '</div>';
-        createBtn.disabled = true;
         return;
       }
 
       const available = getAvailableMethods();
-      if (state.selectedMethod && !available.some(method => method.id === state.selectedMethod)) {
-        state.selectedMethod = null;
-      }
-
-      createBtn.disabled = !state.selectedMethod || state.creatingPayment;
       if (!available.length) {
         methods.innerHTML = '<div class="' + TW.empty + '">' + escapeHtml(t('no_methods')) + '</div>';
-        createBtn.disabled = true;
         return;
       }
 
       methods.innerHTML = available.map(method => {
-        const isActive = state.selectedMethod === method.id;
-        const amount = method.id === 'stars'
-          ? state.selectedPlan.stars_price + ' Stars'
-          : formatMoney(state.selectedPlan.price, state.selectedPlan.currency);
+        const labelKey = method.id === 'platega'
+          ? 'pay_with_platega_button'
+          : 'pay_with_cryptopay_button';
+        const variantClass = method.id === 'platega'
+          ? TW.paymentMethodCardPlatega
+          : TW.paymentMethodCardCryptopay;
         return `
-          <button class="${TW.planCard} ${isActive ? TW.planCardActive : ''}" type="button" onclick="selectMethod('${escapeAttr(method.id)}')">
-            <span class="min-w-0">
-              <span class="${TW.planName}">${escapeHtml(method.name)}</span>
-              <span class="${TW.planMeta}">${escapeHtml(state.selectedPlan.title)}</span>
-            </span>
-            <span class="${TW.planPrice}">${escapeHtml(amount)}</span>
+          <button class="${TW.paymentMethodCard} ${variantClass}" type="button" data-i18n="${labelKey}" onclick="createAndOpenPayment('${escapeAttr(method.id)}')" ${state.creatingPayment ? 'disabled' : ''}>
+            ${escapeHtml(t(labelKey))}
           </button>
         `;
       }).join('');
     }
 
-    function renderPaymentResult() {
-      const payment = state.payment;
-      const msg = document.getElementById('payment-message');
-      const openBtn = document.getElementById('payment-open-btn');
-      const checkBtn = document.getElementById('payment-check-btn');
-      if (!payment) {
-        msg.textContent = t('payment_not_created');
-        openBtn.classList.add('hidden');
-        checkBtn.classList.add('hidden');
-        return;
-      }
-
-      if (payment.action === 'invoice_sent') {
-        msg.textContent = t('invoice_sent');
-        openBtn.classList.add('hidden');
-      } else {
-        msg.textContent = t('payment_created');
-        openBtn.classList.toggle('hidden', !payment.payment_url);
-      }
-      checkBtn.classList.toggle('hidden', !payment.payment_id);
-    }
-
     function selectPlan(months) {
-      state.selectedPlan = (state.data.plans || []).find(plan => plan.months === months) || null;
-      state.selectedMethod = null;
+      if (state.creatingPayment) return;
+      state.selectedPlan = ((state.data && state.data.plans) || []).find(plan => Number(plan.months) === Number(months)) || null;
       state.payment = null;
       renderPaymentFlow();
     }
 
-    function selectMethod(method) {
-      state.selectedMethod = method;
-      state.payment = null;
-      renderMethods();
-      renderPaymentResult();
-    }
-
-    function goToPaymentStep(step) {
-      if (step === 'method' && !state.selectedPlan) {
-        showToast(t('choose_plan_toast'));
-        return;
-      }
-      if (step === 'result' && !state.payment) {
-        showToast(t('create_payment_toast'));
-        return;
-      }
-      state.paymentStep = step;
-      renderPaymentFlow();
-    }
-
-    async function createPaymentFromSelection() {
+    async function createAndOpenPayment(method) {
+      if (state.creatingPayment) return;
       if (!state.selectedPlan) {
         showToast(t('choose_plan_toast'));
         return;
       }
-      if (!state.selectedMethod) {
-        showToast(t('choose_method_toast'));
+      const available = getAvailableMethods();
+      if (!available.some(item => item.id === method)) {
+        showToast(t('no_methods'));
         return;
       }
 
       state.creatingPayment = true;
-      renderMethods();
+      state.payment = null;
+      renderPaymentFlow();
       try {
         const data = await api('/payments', {
           method: 'POST',
-          body: JSON.stringify({months: state.selectedPlan.months, method: state.selectedMethod})
+          body: JSON.stringify({months: state.selectedPlan.months, method})
         });
-        if (!data.ok) throw new Error(data.message || t('payment_error'));
+        if (!data.ok || !data.payment_url) throw new Error(data.message || t('payment_error'));
         state.payment = data;
-        state.paymentStep = 'result';
-        renderPaymentFlow();
+        const opened = openPaymentUrl(data.payment_url);
+        if (opened) {
+          closePaymentFlow();
+        }
       } catch (e) {
         showToast(e.message || t('payment_error'));
       } finally {
         state.creatingPayment = false;
-        renderPaymentFlow();
+        if (state.paymentFlowOpen) {
+          renderPaymentFlow();
+        }
       }
     }
 
     function getAvailableMethods() {
       if (!state.data || !state.selectedPlan) return [];
-      return (state.data.payment_methods || []).filter(method => {
-        if (method.id === 'stars') return Number(state.selectedPlan.stars_price || 0) > 0;
-        return true;
-      });
+      const methodsById = new Map(
+        (state.data.payment_methods || []).map(method => [String(method.id || '').toLowerCase(), method])
+      );
+      return ['platega', 'cryptopay']
+        .map(methodId => methodsById.get(methodId))
+        .filter(Boolean);
     }
 
-    function openPaymentUrl() {
-      const payment = state.payment;
-      if (!payment || !payment.payment_url) return;
-      if (payment.action === 'open_invoice' && tg && tg.openInvoice) {
-        tg.openInvoice(payment.payment_url, function(status) {
-          if (status === 'paid') loadData();
-        });
-        return;
-      }
+    function openPaymentUrl(url) {
+      const paymentUrl = String(url || (state.payment && state.payment.payment_url) || '').trim();
+      if (!paymentUrl) return false;
       if (tg && tg.openLink) {
-        tg.openLink(payment.payment_url);
-      } else {
-        window.open(payment.payment_url, '_blank', 'noopener');
+        tg.openLink(paymentUrl);
+        return true;
       }
+      const opened = window.open(paymentUrl, '_blank', 'noopener');
+      if (!opened) {
+        window.location.assign(paymentUrl);
+      }
+      return true;
     }
 
     async function checkPayment() {
@@ -2041,33 +2032,74 @@ const MOCK = (() => {
       }, 2200);
     }
 
+    function setFavicon(href) {
+      let favicon = document.getElementById('app-favicon');
+      if (!favicon) {
+        favicon = document.createElement('link');
+        favicon.id = 'app-favicon';
+        favicon.rel = 'icon';
+        favicon.setAttribute('sizes', 'any');
+        document.head.appendChild(favicon);
+      }
+      favicon.href = href || 'data:,';
+    }
+
+    function setBrandLogo(shell, logoUrl) {
+      if (!shell) return;
+
+      const logo = shell.querySelector('[data-brand-logo]');
+      const spinner = shell.querySelector('[data-brand-logo-spinner]');
+      if (!logo) return;
+
+      logo.onload = null;
+      logo.onerror = null;
+      logo.removeAttribute('data-brand-logo-url');
+
+      if (!logoUrl) {
+        logo.removeAttribute('src');
+        logo.classList.add('hidden');
+        if (spinner) spinner.classList.add('hidden');
+        shell.classList.add('hidden');
+        return;
+      }
+
+      const expectedUrl = logoUrl;
+      shell.classList.remove('hidden');
+      if (spinner) spinner.classList.remove('hidden');
+      logo.classList.add('hidden');
+      logo.dataset.brandLogoUrl = expectedUrl;
+
+      logo.onload = () => {
+        if (logo.dataset.brandLogoUrl !== expectedUrl) return;
+        logo.classList.remove('hidden');
+        if (spinner) spinner.classList.add('hidden');
+      };
+
+      logo.onerror = () => {
+        if (logo.dataset.brandLogoUrl !== expectedUrl) return;
+        logo.removeAttribute('src');
+        logo.classList.add('hidden');
+        if (spinner) spinner.classList.add('hidden');
+        shell.classList.add('hidden');
+      };
+
+      logo.src = logoUrl;
+      if (logo.complete && logo.naturalWidth > 0) {
+        logo.classList.remove('hidden');
+        if (spinner) spinner.classList.add('hidden');
+      }
+    }
+
     function setBrand() {
       const title = CFG.title || t('page_title');
       const logoUrl = CFG.logoUrl || '';
       document.title = title;
+      setFavicon(logoUrl);
       document.querySelectorAll('[data-brand-title]').forEach(node => {
         node.textContent = title;
       });
-      document.querySelectorAll('[data-brand-logo]').forEach(logo => {
-        if (!logoUrl) {
-          logo.removeAttribute('src');
-          logo.classList.add('hidden');
-          return;
-        }
-
-        logo.onload = () => {
-          logo.classList.remove('hidden');
-        };
-        logo.onerror = () => {
-          logo.removeAttribute('src');
-          logo.classList.add('hidden');
-        };
-        logo.src = logoUrl;
-        if (logo.complete && logo.naturalWidth > 0) {
-          logo.classList.remove('hidden');
-        } else {
-          logo.classList.add('hidden');
-        }
+      document.querySelectorAll('[data-brand-logo-shell]').forEach(shell => {
+        setBrandLogo(shell, logoUrl);
       });
     }
 
