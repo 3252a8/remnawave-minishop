@@ -287,7 +287,7 @@ async def merge_users(
     if referral_code_to_move:
         target.referral_code = referral_code_to_move
 
-    for attr in ("username", "first_name", "last_name", "language_code"):
+    for attr in ("username", "first_name", "last_name", "language_code", "telegram_photo_url"):
         if not getattr(target, attr) and getattr(source, attr):
             setattr(target, attr, getattr(source, attr))
     if not target.referred_by_id and source.referred_by_id != target_user_id:

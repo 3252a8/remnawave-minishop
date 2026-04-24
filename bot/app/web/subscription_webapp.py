@@ -854,6 +854,14 @@ async def _sync_panel_identity_for_user(request: web.Request, user: User) -> Non
         )
 
 
+def _telegram_photo_url_value(telegram_user: Dict[str, Any]) -> Optional[str]:
+    raw_value = telegram_user.get("photo_url")
+    if not raw_value:
+        return None
+    value = str(raw_value).strip()
+    return value or None
+
+
 def _apply_telegram_profile_to_user(
     user: User,
     telegram_user: Dict[str, Any],
@@ -868,6 +876,9 @@ def _apply_telegram_profile_to_user(
     user.first_name = sanitize_display_name(telegram_user.get("first_name"))
     user.last_name = sanitize_display_name(telegram_user.get("last_name"))
     user.language_code = language_code
+    telegram_photo_url = _telegram_photo_url_value(telegram_user)
+    if telegram_photo_url:
+        user.telegram_photo_url = telegram_photo_url
 
 
 async def _link_telegram_to_user(
@@ -1067,6 +1078,9 @@ async def _ensure_user_from_telegram(
         "last_name": sanitize_display_name(telegram_user.get("last_name")),
         "language_code": language_code,
     }
+    telegram_photo_url = _telegram_photo_url_value(telegram_user)
+    if telegram_photo_url:
+        update_data["telegram_photo_url"] = telegram_photo_url
 
     db_user = await user_dal.get_user_by_telegram_id(session, user_id)
     if not db_user:
@@ -1153,6 +1167,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             "email_verified": bool(db_user.email_verified_at),
             "telegram_id": db_user.telegram_id,
             "telegram_linked": bool(_telegram_id_for_user(db_user)),
+            "telegram_photo_url": db_user.telegram_photo_url,
             "first_name": db_user.first_name,
             "language_code": lang,
         },

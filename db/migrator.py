@@ -239,6 +239,18 @@ def _migration_0006_add_security_throttles(connection: Connection) -> None:
         )
     )
 
+
+def _migration_0007_add_telegram_photo_url(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    if "telegram_photo_url" in columns:
+        return
+
+    connection.execute(
+        text("ALTER TABLE users ADD COLUMN telegram_photo_url TEXT")
+    )
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -269,6 +281,11 @@ MIGRATIONS: List[Migration] = [
         id="0006_add_security_throttles",
         description="Add generic lockout tracking for brute-force protection",
         upgrade=_migration_0006_add_security_throttles,
+    ),
+    Migration(
+        id="0007_add_telegram_photo_url",
+        description="Store Telegram profile photo URLs for linked users",
+        upgrade=_migration_0007_add_telegram_photo_url,
     ),
 ]
 

@@ -615,7 +615,7 @@ const MOCK = (() => {
       script.src = TELEGRAM_LOGIN_WIDGET_URL;
       script.setAttribute('data-telegram-login', botUsername);
       script.setAttribute('data-size', 'large');
-      script.setAttribute('data-userpic', 'false');
+      script.setAttribute('data-userpic', 'true');
       script.setAttribute('data-request-access', 'write');
       script.setAttribute('data-onauth', 'onTelegramAuth(user)');
       script.onerror = () => setAuthStatus(t('telegram_auth_unavailable'), true);
@@ -1003,7 +1003,8 @@ const MOCK = (() => {
       const telegramLinked = Boolean(user.telegram_linked);
       const displayName = getUserDisplayName(user);
       const secondary = getUserSecondaryText(user, emailLinked, telegramLinked);
-      const avatar = getUserAvatarSrc(user, emailLinked);
+      const avatarSrc = getUserAvatarSrc(user);
+      const avatarFallback = buildIdenticon(getUserAvatarSeed(user, emailLinked));
 
       const chipName = document.getElementById('user-chip-name');
       const chipAvatar = document.getElementById('user-chip-avatar');
@@ -1014,10 +1015,8 @@ const MOCK = (() => {
       const telegramStatus = document.getElementById('user-dropdown-telegram-status');
 
       chipName.textContent = displayName;
-      chipAvatar.src = avatar;
-      chipAvatar.alt = displayName;
-      dropAvatar.src = avatar;
-      dropAvatar.alt = displayName;
+      setAvatarWithFallback(chipAvatar, avatarSrc, avatarFallback, displayName);
+      setAvatarWithFallback(dropAvatar, avatarSrc, avatarFallback, displayName);
       dropName.textContent = displayName;
       dropSub.textContent = secondary;
       dropSub.classList.toggle('hidden', !secondary);
@@ -1059,6 +1058,19 @@ const MOCK = (() => {
       return tg.initDataUnsafe.user;
     }
 
+    function getUserAvatarSeed(user, emailLinked) {
+      const tgUser = getTelegramInitUser();
+      if (emailLinked && user && user.email) return user.email.trim().toLowerCase();
+      return String((user && user.id) || (user && user.telegram_id) || (tgUser && tgUser.id) || 'guest');
+    }
+
+    function getUserAvatarSrc(user) {
+      const tgUser = getTelegramInitUser();
+      if (tgUser && tgUser.photo_url) return tgUser.photo_url;
+      if (user && user.telegram_photo_url) return user.telegram_photo_url;
+      return '';
+    }
+
     function getUserDisplayName(user) {
       const tgUser = getTelegramInitUser();
       if (tgUser && tgUser.first_name) return tgUser.first_name;
@@ -1075,13 +1087,21 @@ const MOCK = (() => {
       return '';
     }
 
-    function getUserAvatarSrc(user, emailLinked) {
-      const tgUser = getTelegramInitUser();
-      if (tgUser && tgUser.photo_url) return tgUser.photo_url;
-      const seed = (emailLinked && user.email)
-        ? user.email.trim().toLowerCase()
-        : String(user.id || user.telegram_id || tgUser && tgUser.id || 'guest');
-      return buildIdenticon(seed);
+    function setAvatarWithFallback(img, avatarSrc, avatarFallback, altText) {
+      if (!img) return;
+
+      img.alt = altText || '';
+      if (!avatarSrc) {
+        img.onerror = null;
+        img.src = avatarFallback;
+        return;
+      }
+
+      img.onerror = () => {
+        img.onerror = null;
+        img.src = avatarFallback;
+      };
+      img.src = avatarSrc;
     }
 
     function buildIdenticon(seed) {
@@ -1460,7 +1480,7 @@ const MOCK = (() => {
       script.src = TELEGRAM_LOGIN_WIDGET_URL;
       script.setAttribute('data-telegram-login', botUsername);
       script.setAttribute('data-size', 'large');
-      script.setAttribute('data-userpic', 'false');
+      script.setAttribute('data-userpic', 'true');
       script.setAttribute('data-request-access', 'write');
       script.setAttribute('data-onauth', 'onTelegramLinkAuth(user)');
       script.onerror = () => setTelegramLinkStatus(t('telegram_auth_unavailable'), true);
