@@ -12,6 +12,7 @@
       --text-muted: #64748b;
       --accent: #00fe7a;
       --accent-hover: #5aff9f;
+      --accent-glow: #00fe7a30;
       --success: #10b981;
       --warning: #f59e0b;
       --danger: #ef4444;
@@ -34,16 +35,15 @@
 
     html,
     body {
+      width: 100%;
       min-height: 100%;
       margin: 0;
       letter-spacing: 0;
+      overflow-x: hidden;
     }
 
     body {
       background: var(--bg-primary);
-      background:
-        linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 320px),
-        var(--bg-primary);
       color: var(--text-primary);
       font-family: var(--font-sans);
       line-height: 1.5;
@@ -72,12 +72,13 @@
     }
 
     .app {
-      width: min(100%, 560px);
+      width: min(100vw, 560px);
+      max-width: 100vw;
       margin: 0 auto;
-      padding: calc(max(var(--app-safe-top), 14px) + var(--app-safe-top-extra)) 14px max(var(--app-safe-bottom), 18px);
+      padding: calc(max(var(--app-safe-top), 14px) + var(--app-safe-top-extra)) 14px max(var(--app-safe-bottom), 22px);
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 16px;
     }
 
     .topbar {
@@ -86,6 +87,7 @@
       justify-content: space-between;
       gap: 12px;
       min-height: 48px;
+      min-width: 0;
     }
 
     .brand {
@@ -105,6 +107,7 @@
     .brand-logo {
       display: block;
       object-fit: contain;
+      border-radius: var(--radius-md);
     }
 
     .icon-btn {
@@ -126,10 +129,11 @@
       font-size: 17px;
       font-weight: 800;
       line-height: 1.15;
-      letter-spacing: 0.04em;
+      letter-spacing: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      text-shadow: 0 0 20px color-mix(in srgb, var(--accent) 18%, transparent);
     }
 
     .top-actions {
@@ -137,6 +141,7 @@
       align-items: center;
       gap: 8px;
       flex: 0 0 auto;
+      min-width: 0;
     }
 
     .icon-btn {
@@ -164,22 +169,26 @@
     }
 
     .panel {
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)), var(--bg-card);
+      position: relative;
+      background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      box-shadow: 0 22px 48px rgba(0, 0, 0, 0.38);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+      overflow: hidden;
     }
 
     .subscription-panel {
-      padding: 16px;
+      padding: 18px;
       display: grid;
-      gap: 16px;
+      gap: 17px;
+      min-width: 0;
     }
 
     .account-panel {
-      padding: 16px;
+      padding: 17px;
       display: grid;
       gap: 14px;
+      min-width: 0;
     }
 
     .panel-head {
@@ -193,6 +202,7 @@
       font-size: 18px;
       font-weight: 850;
       line-height: 1.2;
+      color: var(--text-primary);
     }
 
     .account-grid {
@@ -200,6 +210,8 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       overflow: hidden;
+      background: rgba(255, 255, 255, 0.018);
+      min-width: 0;
     }
 
     .account-row {
@@ -210,6 +222,7 @@
       align-items: center;
       gap: 10px;
       background: rgba(255, 255, 255, 0.02);
+      min-width: 0;
     }
 
     .account-row + .account-row {
@@ -227,6 +240,7 @@
       grid-template-columns: minmax(0, 1fr) minmax(120px, auto);
       gap: 8px;
       align-items: stretch;
+      min-width: 0;
     }
 
     .input {
@@ -234,7 +248,7 @@
       min-height: 46px;
       border-radius: var(--radius-md);
       border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.035);
+      background: rgba(5, 8, 13, 0.42);
       color: var(--text-primary);
       padding: 11px 12px;
       font: inherit;
@@ -245,7 +259,8 @@
 
     .input:focus {
       border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+      background: rgba(7, 12, 19, 0.68);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent), 0 12px 28px rgba(0, 0, 0, 0.2);
     }
 
     .input[aria-invalid="true"] {
@@ -271,6 +286,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 10px;
+      min-width: 0;
     }
 
     .mono-pill,
@@ -284,6 +300,7 @@
       font-size: 11px;
       font-weight: 700;
       white-space: nowrap;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
     }
 
     .mono-pill {
@@ -293,13 +310,18 @@
     }
 
     .badge {
-      background: rgba(16, 185, 129, 0.1);
-      color: var(--success);
+      border: 1px solid color-mix(in srgb, var(--success) 34%, var(--border));
+      background: rgba(16, 185, 129, 0.12);
+      color: #6ee7b7;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .badge.off {
-      background: rgba(239, 68, 68, 0.1);
-      color: var(--danger);
+      border-color: color-mix(in srgb, var(--danger) 34%, var(--border));
+      background: rgba(239, 68, 68, 0.12);
+      color: #fca5a5;
     }
 
     .status-title {
@@ -310,23 +332,8 @@
       overflow-wrap: anywhere;
     }
 
-    .gradient-text {
+    .accent-text {
       color: var(--text-primary);
-      background: linear-gradient(135deg, var(--text-primary), color-mix(in srgb, var(--accent) 68%, #ffffff));
-      -webkit-background-clip: text;
-      background-clip: text;
-    }
-
-    @supports ((-webkit-background-clip: text) or (background-clip: text)) {
-      .gradient-text {
-        color: transparent;
-      }
-    }
-
-    @supports (-webkit-text-fill-color: transparent) {
-      .gradient-text {
-        -webkit-text-fill-color: transparent;
-      }
     }
 
     @supports not (color: color-mix(in srgb, #000 50%, #fff)) {
@@ -353,22 +360,10 @@
         background: var(--accent);
       }
 
-      .gradient-text {
-        background: none;
-        color: var(--text-primary);
-        -webkit-text-fill-color: currentColor;
-      }
-    }
-
-    @supports not ((-webkit-background-clip: text) or (background-clip: text)) {
-      .gradient-text {
-        color: var(--text-primary);
-        -webkit-text-fill-color: currentColor;
-      }
     }
 
     .status-subtitle {
-      margin: 4px 0 0;
+      margin: 6px 0 0;
       color: var(--text-secondary);
       font-size: 14px;
     }
@@ -379,6 +374,8 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       overflow: hidden;
+      background: rgba(255, 255, 255, 0.018);
+      min-width: 0;
     }
 
     .metric {
@@ -389,6 +386,7 @@
       align-items: center;
       padding: 10px 12px;
       background: rgba(255, 255, 255, 0.02);
+      min-width: 0;
     }
 
     .metric + .metric {
@@ -400,6 +398,8 @@
       font-family: var(--font-mono);
       font-size: 11px;
       font-weight: 700;
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
 
     .metric-value {
@@ -408,12 +408,14 @@
       font-weight: 750;
       text-align: right;
       overflow-wrap: anywhere;
+      min-width: 0;
     }
 
     .actions {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 48px;
       gap: 8px;
+      min-width: 0;
     }
 
     .step-actions {
@@ -436,15 +438,16 @@
       font-weight: 800;
       text-align: center;
       text-decoration: none;
+      min-width: 0;
+      overflow-wrap: anywhere;
       transition: transform var(--transition), border-color var(--transition), background var(--transition), color var(--transition), box-shadow var(--transition);
     }
 
     .btn.primary {
       border-color: color-mix(in srgb, var(--accent) 80%, var(--border));
-      background:
-        linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 76%, #00c95f));
+      background: var(--accent);
       color: #04110a;
-      box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 20%, transparent);
+      box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 18%, transparent);
     }
 
     .btn.ghost {
@@ -495,7 +498,7 @@
     }
 
     #legal-links-login {
-      width: min(100%, 560px);
+      width: min(100vw, 560px);
     }
 
     .legal-link {
@@ -541,7 +544,7 @@
       inset: 0;
       padding: 0;
       border: 0;
-      background: rgba(0, 0, 0, 0.62);
+      background: rgba(3, 6, 10, 0.72);
       backdrop-filter: blur(7px);
     }
 
@@ -559,9 +562,10 @@
     }
 
     .payment-flow {
-      padding: 14px;
+      padding: 16px;
       display: grid;
       gap: 14px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.28);
     }
 
     .code-modal-stack {
@@ -575,7 +579,7 @@
 
     .code-modal-card {
       width: 100%;
-      padding: 16px;
+      padding: 18px;
       display: grid;
       gap: 14px;
     }
@@ -644,7 +648,7 @@
       place-items: center;
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background: rgba(255, 255, 255, 0.035);
+      background: rgba(5, 8, 13, 0.42);
       color: var(--text-primary);
       font-family: var(--font-mono);
       font-size: 20px;
@@ -697,6 +701,7 @@
       border-radius: var(--radius-md);
       background: rgba(255, 255, 255, 0.02);
       color: var(--text-muted);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
     }
 
     .step-num {
@@ -761,13 +766,19 @@
       gap: 12px;
       text-align: left;
       transition: transform var(--transition), border-color var(--transition), background var(--transition), box-shadow var(--transition);
+      min-width: 0;
+    }
+
+    .plan > span,
+    .method > span {
+      min-width: 0;
     }
 
     .plan.active,
     .method.active {
       border-color: var(--accent);
       background: color-mix(in srgb, var(--accent) 8%, transparent);
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 58%, transparent);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 58%, transparent), 0 12px 30px rgba(0, 0, 0, 0.2);
     }
 
     .plan-name,
@@ -796,6 +807,9 @@
       color: var(--accent);
       font-family: var(--font-mono);
       text-align: right;
+      text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 18%, transparent);
+      max-width: 48%;
+      overflow-wrap: anywhere;
     }
 
     .notice,
@@ -838,11 +852,12 @@
     }
 
     .login-card {
-      width: min(100%, 560px);
-      padding: 18px;
+      width: min(100vw, 560px);
+      padding: 20px;
       display: grid;
-      gap: 13px;
+      gap: 15px;
       text-align: center;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.28);
     }
 
     .auth-tabs {
@@ -853,7 +868,7 @@
       gap: 4px;
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background: rgba(255, 255, 255, 0.02);
+      background: rgba(5, 8, 13, 0.38);
     }
 
     .auth-tab {
@@ -868,6 +883,7 @@
     .auth-tab.active {
       background: color-mix(in srgb, var(--accent) 12%, transparent);
       color: var(--accent);
+      box-shadow: none;
     }
 
     .auth-pane {
@@ -890,7 +906,7 @@
       font-size: 24px;
       font-weight: 800;
       line-height: 1.1;
-      letter-spacing: 0.04em;
+      letter-spacing: 0;
       text-align: left;
       overflow-wrap: anywhere;
     }
@@ -955,12 +971,11 @@
       .method:hover:not(:disabled) {
         transform: translateY(-2px);
         border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
-        background: rgba(255, 255, 255, 0.055);
+        background: var(--bg-card-hover);
       }
 
       .btn.primary:hover:not(:disabled) {
-        background:
-          linear-gradient(135deg, var(--accent-hover), color-mix(in srgb, var(--accent) 78%, #00c95f));
+        background: var(--accent-hover);
         box-shadow: 0 14px 34px color-mix(in srgb, var(--accent) 24%, transparent);
       }
 
@@ -974,7 +989,7 @@
       }
     }
 
-    @media (max-width: 380px) {
+    @media (max-width: 460px) {
       .app {
         padding-left: 10px;
         padding-right: 10px;
@@ -998,6 +1013,31 @@
       }
 
       .metric-value {
+        text-align: left;
+      }
+
+      .badge-row {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .badge,
+      .mono-pill {
+        max-width: 100%;
+      }
+
+      .field-row .btn {
+        width: 100%;
+      }
+
+      .plan,
+      .method {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .plan-price {
+        max-width: 100%;
         text-align: left;
       }
 
@@ -1044,6 +1084,12 @@
         font-size: 21px;
       }
 
+    }
+
+    @media (max-width: 380px) {
+      .brand-title {
+        max-width: 150px;
+      }
     }
 
     @media (max-width: 560px) {

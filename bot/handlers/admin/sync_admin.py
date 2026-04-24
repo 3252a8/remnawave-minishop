@@ -18,6 +18,11 @@ from bot.middlewares.i18n import JsonI18n
 router = Router(name="admin_sync_router")
 
 
+def _normalize_panel_email(value: Optional[str]) -> Optional[str]:
+    email = (value or "").strip().lower()
+    return email or None
+
+
 def _extract_lifetime_used_traffic_bytes(panel_user_data: dict) -> Optional[int]:
     user_traffic = panel_user_data.get("userTraffic") or {}
     raw_value = (
@@ -34,6 +39,85 @@ def _extract_lifetime_used_traffic_bytes(panel_user_data: dict) -> Optional[int]
         return int(raw_value)
     except (TypeError, ValueError):
         return None
+
+
+async def _bind_panel_email_to_user(
+    session: AsyncSession,
+    *,
+    existing_user,
+    email_from_panel: Optional[str],
+    panel_uuid: str,
+) -> tuple[object, bool]:
+    """Bind panel email to a local user without violating the unique email index.
+
+    Panel email is treated as verified because it comes from the operator-managed
+    panel. If the same email already belongs to an email-only local account for
+    this panel user, merge that account into the Telegram/local user.
+    """
+    if not email_from_panel:
+        return existing_user, False
+
+    if existing_user.email == email_from_panel:
+        if not existing_user.email_verified_at:
+            existing_user.email_verified_at = datetime.now(timezone.utc)
+            return existing_user, True
+        return existing_user, False
+
+    user_with_email = await user_dal.get_user_by_email(session, email_from_panel)
+    if user_with_email and user_with_email.user_id != existing_user.user_id:
+        can_merge_email_identity = (
+            not user_with_email.telegram_id
+            and user_with_email.panel_user_uuid in (None, panel_uuid)
+            and (not existing_user.email or existing_user.email == email_from_panel)
+        )
+        if can_merge_email_identity:
+            try:
+                merged_user = await user_dal.merge_users(
+                    session,
+                    source_user_id=user_with_email.user_id,
+                    target_user_id=existing_user.user_id,
+                )
+                if not merged_user.email:
+                    merged_user.email = email_from_panel
+                if not merged_user.email_verified_at:
+                    merged_user.email_verified_at = datetime.now(timezone.utc)
+                logging.info(
+                    "Merged email-only user %s into user %s while binding panel email %s for panel UUID %s.",
+                    user_with_email.user_id,
+                    merged_user.user_id,
+                    email_from_panel,
+                    panel_uuid,
+                )
+                return merged_user, True
+            except Exception as merge_error:
+                logging.warning(
+                    "Could not merge email-only user %s into user %s for panel email %s: %s",
+                    user_with_email.user_id,
+                    existing_user.user_id,
+                    email_from_panel,
+                    merge_error,
+                )
+                return existing_user, False
+
+        logging.warning(
+            "Panel email %s for panel UUID %s is already linked to local user %s; "
+            "skipping email binding for user %s.",
+            email_from_panel,
+            panel_uuid,
+            user_with_email.user_id,
+            existing_user.user_id,
+        )
+        return existing_user, False
+
+    existing_user.email = email_from_panel
+    existing_user.email_verified_at = datetime.now(timezone.utc)
+    logging.info(
+        "Bound panel email %s to local user %s for panel UUID %s.",
+        email_from_panel,
+        existing_user.user_id,
+        panel_uuid,
+    )
+    return existing_user, True
 
 
 async def perform_sync(
@@ -94,7 +178,7 @@ async def perform_sync(
                     "shortUuid"
                 )
                 telegram_id_from_panel = panel_user_dict.get("telegramId")
-                email_from_panel = (panel_user_dict.get("email") or "").strip().lower() or None
+                email_from_panel = _normalize_panel_email(panel_user_dict.get("email"))
 
                 if not panel_uuid:
                     sync_errors.append(f"Panel user missing UUID: {panel_user_dict}")
@@ -124,14 +208,8 @@ async def perform_sync(
                             f"Found user by telegramId {telegram_id_from_panel}"
                         )
 
-                if not existing_user and email_from_panel:
-                    existing_user = await user_dal.get_user_by_email(
-                        session, email_from_panel
-                    )
-                    if existing_user:
-                        logging.debug(f"Found user by email {email_from_panel}")
-
-                # If not found by telegram ID, try to find by panel UUID
+                # If not found by telegram ID, try to find by panel UUID.
+                # The panel UUID is the strongest local link for subscription sync.
                 if not existing_user:
                     existing_user = await user_dal.get_user_by_panel_uuid(
                         session, panel_uuid
@@ -149,6 +227,15 @@ async def perform_sync(
                                 f"TelegramId mismatch: panel={telegram_id_from_panel}, local={existing_user.user_id}"
                             )
 
+                # Finally, fall back to email. This mainly catches panel users that
+                # were first imported as email-only identities.
+                if not existing_user and email_from_panel:
+                    existing_user = await user_dal.get_user_by_email(
+                        session, email_from_panel
+                    )
+                    if existing_user:
+                        logging.debug(f"Found user by email {email_from_panel}")
+
                 if not existing_user:
                     users_not_found_in_db += 1
                     if telegram_id_from_panel:
@@ -158,6 +245,11 @@ async def perform_sync(
                                 "user_id": telegram_id_from_panel,
                                 "telegram_id": telegram_id_from_panel,
                                 "email": email_from_panel,
+                                "email_verified_at": (
+                                    datetime.now(timezone.utc)
+                                    if email_from_panel
+                                    else None
+                                ),
                                 "username": None,  # Username will be updated when user interacts with bot
                                 "first_name": None,  # Panel doesn't provide this info
                                 "last_name": None,  # Panel doesn't provide this info
@@ -229,10 +321,13 @@ async def perform_sync(
                     logging.info(
                         f"Updated panel UUID for user {actual_user_id}: {panel_uuid}"
                     )
-                if email_from_panel and existing_user.email != email_from_panel:
-                    existing_user.email = email_from_panel
-                    if not existing_user.email_verified_at:
-                        existing_user.email_verified_at = datetime.now(timezone.utc)
+                existing_user, email_was_bound = await _bind_panel_email_to_user(
+                    session,
+                    existing_user=existing_user,
+                    email_from_panel=email_from_panel,
+                    panel_uuid=panel_uuid,
+                )
+                if email_was_bound:
                     user_was_updated = True
                 if (
                     telegram_id_from_panel
