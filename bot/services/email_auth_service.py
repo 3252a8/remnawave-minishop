@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.settings import Settings
+from db.dal import security_dal
 from db.models import EmailVerificationCode
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ class EmailCodeRequestResult:
 class EmailCodeVerifyResult:
     ok: bool
     error: Optional[str] = None
+    retry_after: Optional[int] = None
 
 
 def normalize_email(value: str) -> str:
@@ -50,6 +52,11 @@ def normalize_email(value: str) -> str:
 def is_valid_email(value: str) -> bool:
     email = normalize_email(value)
     return bool(email and len(email) <= 254 and EMAIL_RE.match(email))
+
+
+def _email_throttle_identifier(email: str, purpose: str, target_user_id: Optional[int]) -> str:
+    target_part = "none" if target_user_id is None else str(target_user_id)
+    return f"{purpose}:{target_part}:{email}"
 
 
 class EmailAuthService:
@@ -106,6 +113,19 @@ class EmailAuthService:
             return EmailCodeRequestResult(ok=False, error="invalid_email")
 
         now = datetime.now(timezone.utc)
+        throttle = await security_dal.check_throttle(
+            session,
+            scope=security_dal.EMAIL_CODE_VERIFY_SCOPE,
+            identifier=_email_throttle_identifier(normalized_email, purpose, target_user_id),
+            now=now,
+        )
+        if throttle.locked:
+            return EmailCodeRequestResult(
+                ok=False,
+                error="rate_limited",
+                retry_after=throttle.retry_after,
+            )
+
         latest_code = await self._get_latest_code(
             session,
             email=normalized_email,
@@ -154,8 +174,27 @@ class EmailAuthService:
     ) -> EmailCodeVerifyResult:
         normalized_email = normalize_email(email)
         normalized_code = re.sub(r"\D", "", code or "")
-        if not is_valid_email(normalized_email) or len(normalized_code) != 6:
+        if not is_valid_email(normalized_email):
             return EmailCodeVerifyResult(ok=False, error="invalid_code")
+
+        now = datetime.now(timezone.utc)
+        throttle_identifier = _email_throttle_identifier(
+            normalized_email,
+            purpose,
+            target_user_id,
+        )
+        throttle = await security_dal.check_throttle(
+            session,
+            scope=security_dal.EMAIL_CODE_VERIFY_SCOPE,
+            identifier=throttle_identifier,
+            now=now,
+        )
+        if throttle.locked:
+            return EmailCodeVerifyResult(
+                ok=False,
+                error="rate_limited",
+                retry_after=throttle.retry_after,
+            )
 
         latest_code = await self._get_latest_code(
             session,
@@ -166,7 +205,6 @@ class EmailAuthService:
         if not latest_code or latest_code.consumed_at is not None:
             return EmailCodeVerifyResult(ok=False, error="invalid_code")
 
-        now = datetime.now(timezone.utc)
         expires_at = latest_code.expires_at
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
@@ -177,13 +215,55 @@ class EmailAuthService:
         if int(latest_code.attempts or 0) >= max_attempts:
             return EmailCodeVerifyResult(ok=False, error="too_many_attempts")
 
+        if len(normalized_code) != 6:
+            latest_code.attempts = int(latest_code.attempts or 0) + 1
+            throttle_result = await security_dal.record_throttle_failure(
+                session,
+                scope=security_dal.EMAIL_CODE_VERIFY_SCOPE,
+                identifier=throttle_identifier,
+                max_failures=self.settings.BRUTE_FORCE_MAX_FAILURES,
+                window_seconds=self.settings.BRUTE_FORCE_WINDOW_SECONDS,
+                lock_seconds=self.settings.BRUTE_FORCE_LOCK_SECONDS,
+                now=now,
+            )
+            await session.flush()
+            if throttle_result.locked:
+                return EmailCodeVerifyResult(
+                    ok=False,
+                    error="rate_limited",
+                    retry_after=throttle_result.retry_after,
+                )
+            if int(latest_code.attempts or 0) >= max_attempts:
+                return EmailCodeVerifyResult(ok=False, error="too_many_attempts")
+            return EmailCodeVerifyResult(ok=False, error="invalid_code")
+
         expected_hash = self._hash_code(normalized_email, purpose, normalized_code)
         if not hmac.compare_digest(expected_hash, latest_code.code_hash):
             latest_code.attempts = int(latest_code.attempts or 0) + 1
+            throttle_result = await security_dal.record_throttle_failure(
+                session,
+                scope=security_dal.EMAIL_CODE_VERIFY_SCOPE,
+                identifier=throttle_identifier,
+                max_failures=self.settings.BRUTE_FORCE_MAX_FAILURES,
+                window_seconds=self.settings.BRUTE_FORCE_WINDOW_SECONDS,
+                lock_seconds=self.settings.BRUTE_FORCE_LOCK_SECONDS,
+                now=now,
+            )
             await session.flush()
+            if throttle_result.locked:
+                return EmailCodeVerifyResult(
+                    ok=False,
+                    error="rate_limited",
+                    retry_after=throttle_result.retry_after,
+                )
             return EmailCodeVerifyResult(ok=False, error="invalid_code")
 
         latest_code.consumed_at = now
+        await security_dal.clear_throttle_state(
+            session,
+            scope=security_dal.EMAIL_CODE_VERIFY_SCOPE,
+            identifier=throttle_identifier,
+        )
         await session.flush()
         return EmailCodeVerifyResult(ok=True)
 

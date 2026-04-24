@@ -426,8 +426,17 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
                 target_user_id=None,
             )
             if not verify_result.ok:
-                await session.rollback()
-                return _json_error(400, verify_result.error or "invalid_code", "Invalid code")
+                await session.commit()
+                status = 429 if verify_result.error == "rate_limited" else 400
+                return web.json_response(
+                    {
+                        "ok": False,
+                        "error": verify_result.error or "invalid_code",
+                        "retry_after": verify_result.retry_after,
+                        "message": "Invalid code",
+                    },
+                    status=status,
+                )
 
             db_user = await user_dal.get_user_by_email(session, email)
             created_user = False
@@ -526,8 +535,17 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
                 target_user_id=user_id,
             )
             if not verify_result.ok:
-                await session.rollback()
-                return _json_error(400, verify_result.error or "invalid_code", "Invalid code")
+                await session.commit()
+                status = 429 if verify_result.error == "rate_limited" else 400
+                return web.json_response(
+                    {
+                        "ok": False,
+                        "error": verify_result.error or "invalid_code",
+                        "retry_after": verify_result.retry_after,
+                        "message": "Invalid code",
+                    },
+                    status=status,
+                )
 
             current_user = await user_dal.get_user_by_id(session, user_id)
             if not current_user or current_user.is_banned:
@@ -645,7 +663,7 @@ async def apply_promo_route(request: web.Request) -> web.Response:
                 lang,
             )
             if not success:
-                await session.rollback()
+                await session.commit()
                 return _json_error(400, "promo_apply_failed", str(result))
             await session.commit()
             end_date = result if isinstance(result, datetime) else None

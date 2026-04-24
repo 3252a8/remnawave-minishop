@@ -87,6 +87,7 @@
   "traffic_used_with_period": "{traffic_used} ({traffic_period})",
   "promo_code_prompt": "Пожалуйста, введите ваш промокод:",
   "promo_code_not_found": "Промокод <code>{code}</code> не найден, истек или уже использован максимальное количество раз.",
+  "promo_code_too_many_attempts": "Слишком много неудачных попыток ввода промокода. Повторите через {seconds} сек.",
   "promo_code_already_used_by_user": "Вы уже активировали промокод <code>{code}</code>.",
   "promo_code_applied_success_full": "✅ Промокод успешно применен!\nПодписка активна до {end_date}.\n\nКлюч подключения:\n<code>{config_link}</code>\n\nЧтобы подключиться, перейдите по ссылке и следуйте инструкции 👇",
   "error_applying_promo_bonus": "Не удалось применить бонус по промокоду. Пожалуйста, попробуйте позже или свяжитесь с поддержкой.",

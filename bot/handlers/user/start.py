@@ -688,7 +688,7 @@ async def start_command_handler(message: types.Message,
                 # Don't show main menu if promo was successfully applied
                 return
             else:
-                await session.rollback()
+                await session.commit()
                 logging.warning(f"Failed to auto-apply promo code '{promo_code_to_apply}' for user {user_id}: {result}")
                 await message.answer(str(result), parse_mode="HTML")
                 # Continue to show main menu if promo failed

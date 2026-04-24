@@ -202,6 +202,43 @@ def _migration_0005_add_email_auth_fields(connection: Connection) -> None:
         )
     )
 
+
+def _migration_0006_add_security_throttles(connection: Connection) -> None:
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS security_throttles (
+                throttle_id SERIAL PRIMARY KEY,
+                scope VARCHAR(64) NOT NULL,
+                identifier VARCHAR(512) NOT NULL,
+                failures INTEGER NOT NULL DEFAULT 0,
+                window_started_at TIMESTAMPTZ NULL,
+                locked_until TIMESTAMPTZ NULL,
+                last_attempt_at TIMESTAMPTZ NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NULL,
+                CONSTRAINT uq_security_throttles_scope_identifier UNIQUE (scope, identifier)
+            )
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_security_throttles_scope
+            ON security_throttles (scope)
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_security_throttles_locked_until
+            ON security_throttles (locked_until)
+            """
+        )
+    )
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -227,6 +264,11 @@ MIGRATIONS: List[Migration] = [
         id="0005_add_email_auth_fields",
         description="Add email login identities and verification codes",
         upgrade=_migration_0005_add_email_auth_fields,
+    ),
+    Migration(
+        id="0006_add_security_throttles",
+        description="Add generic lockout tracking for brute-force protection",
+        upgrade=_migration_0006_add_security_throttles,
     ),
 ]
 

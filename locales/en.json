@@ -87,6 +87,7 @@
   "traffic_used_with_period": "{traffic_used} ({traffic_period})",
   "promo_code_prompt": "Please enter your promo code:",
   "promo_code_not_found": "Promo code <code>{code}</code> not found, expired, or already used the maximum number of times.",
+  "promo_code_too_many_attempts": "Too many failed promo code attempts. Please try again in {seconds} sec.",
   "promo_code_already_used_by_user": "You have already used promo code <code>{code}</code>.",
   "promo_code_applied_success_full": "✅ Promo code applied successfully!\nSubscription active until {end_date}.\n\nConnection key:\n<code>{config_link}</code>\n\nTo connect, open the link and follow the instructions 👇",
   "error_applying_promo_bonus": "Failed to apply promo bonus. Please try again later or contact support.",

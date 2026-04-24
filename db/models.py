@@ -110,6 +110,24 @@ class EmailVerificationCode(Base):
     target_user = relationship("User")
 
 
+class SecurityThrottle(Base):
+    __tablename__ = "security_throttles"
+
+    throttle_id = Column(Integer, primary_key=True, autoincrement=True)
+    scope = Column(String(64), nullable=False, index=True)
+    identifier = Column(String(512), nullable=False, index=True)
+    failures = Column(Integer, nullable=False, default=0)
+    window_started_at = Column(DateTime(timezone=True), nullable=True)
+    locked_until = Column(DateTime(timezone=True), nullable=True, index=True)
+    last_attempt_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("scope", "identifier", name="uq_security_throttles_scope_identifier"),
+    )
+
+
 class Payment(Base):
     __tablename__ = "payments"
 

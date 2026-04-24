@@ -83,6 +83,11 @@
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | Логин и SMTP key/password из Brevo. Если не заданы вместе с `SMTP_FROM_EMAIL`, вход по email скрывается. | `user@smtp-brevo.com` |
 | `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME` | Подтвержденный отправитель и отображаемое имя отправителя для писем с кодом. | `no-reply@example.com` |
 | `EMAIL_CODE_TTL_SECONDS` | Срок действия кода подтверждения email. | `600` |
+| `EMAIL_CODE_RESEND_SECONDS` | Минимальная пауза между отправками кода на один email. | `60` |
+| `EMAIL_CODE_MAX_ATTEMPTS` | Максимум попыток на один конкретный код. | `5` |
+| `BRUTE_FORCE_MAX_FAILURES` | Максимум неудачных попыток в окне защиты от перебора. | `5` |
+| `BRUTE_FORCE_WINDOW_SECONDS` | Длительность окна, в котором считаются неудачные попытки. | `900` |
+| `BRUTE_FORCE_LOCK_SECONDS` | Время временной блокировки после превышения лимита. | `1800` |
 | `MY_DEVICES_SECTION_ENABLED` | Включить раздел «Мои устройства» в меню подписки (`true`/`false`). | `false` |
     | `REQUIRED_CHANNEL_ID` | (Опционально) ID канала, на который пользователь должен подписаться перед использованием. Оставьте пустым, если проверка не нужна. | `-1001234567890` |
     | `REQUIRED_CHANNEL_LINK` | (Опционально) Публичная ссылка или invite на канал для кнопки «Проверить подписку». | `https://t.me/your_channel` |

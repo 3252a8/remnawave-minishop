@@ -228,6 +228,18 @@ class Settings(BaseSettings):
     EMAIL_CODE_TTL_SECONDS: int = Field(default=10 * 60)
     EMAIL_CODE_RESEND_SECONDS: int = Field(default=60)
     EMAIL_CODE_MAX_ATTEMPTS: int = Field(default=5)
+    BRUTE_FORCE_MAX_FAILURES: int = Field(
+        default=5,
+        description="Maximum failed code attempts allowed within the throttle window before a temporary lockout is applied.",
+    )
+    BRUTE_FORCE_WINDOW_SECONDS: int = Field(
+        default=15 * 60,
+        description="Rolling window used to count failed email and promo code attempts.",
+    )
+    BRUTE_FORCE_LOCK_SECONDS: int = Field(
+        default=30 * 60,
+        description="Temporary lockout duration applied after too many failed code attempts.",
+    )
 
     LOGS_PAGE_SIZE: int = Field(default=10)
 
