@@ -6,6 +6,7 @@ bot_database.sqlite3
 
 # Игнорировать кэш Python
 __pycache__/
+node_modules/
 
 # Игнорировать настройки IDE (если используешь, например, PyCharm или VSCode)
 .idea/

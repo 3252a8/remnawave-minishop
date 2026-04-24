@@ -35,6 +35,8 @@ window.__WEBAPP_DEV_MOCK__ = {
           connect_url: 'https://sub.example.com/connect/preview-token',
           traffic_used: '18.42 GB',
           traffic_limit: '500.00 GB',
+          traffic_used_bytes: 19778468741,
+          traffic_limit_bytes: 536870912000,
           auto_renew_enabled: false,
           provider: null
         },
@@ -105,7 +107,31 @@ const MOCK = (() => {
       promoStatusText: '',
       telegramLinkRendered: false,
       telegramLinkInProgress: false,
-      toastTimer: null
+      toastTimer: null,
+      userMenuOpen: false
+    };
+
+    const TW = {
+      iconBtn: 'icon-btn',
+      btnBase: 'btn',
+      btnIconOnly: 'w-12 min-w-12 p-0',
+      panelHead: 'panel-head',
+      flowCaption: 'section-caption',
+      sectionTitle: 'section-title',
+      metricLabel: 'metric-label',
+      metricValue: 'metric-value',
+      referralLinkRow: 'referral-link-row',
+      referralLinkValue: 'referral-link-value',
+      bonusRow: 'bonus-row',
+      empty: 'empty-state',
+      planCard: 'plan-card',
+      planCardActive: 'plan-card-active',
+      planName: 'plan-name',
+      planMeta: 'plan-meta',
+      planPrice: 'plan-price',
+      notice: 'notice',
+      stepNum: 'step-num',
+      stepName: 'step-name'
     };
 
     const I18N = {
@@ -175,6 +201,20 @@ const MOCK = (() => {
         telegram_auth_access_denied: 'Доступ запрещен.',
         active: 'Активна',
         inactive: 'Не активна',
+        subscription_active: 'Подписка активна',
+        subscription_inactive: 'Подписка не активна',
+        sub_remaining_template: 'Действует еще {value}',
+        sub_ends_template: 'Закончится {date}',
+        sub_ended_template: 'Закончилась {date}',
+        sub_no_expiry: 'Бессрочно',
+        traffic_unlimited: '∞ бесконечный трафик',
+        link_panel_title: 'Привяжите способ входа',
+        link_panel_caption: 'Чтобы не потерять доступ к кабинету',
+        link_email_title: 'Привяжите email',
+        link_email_caption: 'Получайте код для входа на почту',
+        link_telegram_title: 'Привяжите Telegram',
+        link_telegram_caption: 'Входите одним нажатием через Telegram',
+        guest_user: 'Гость',
         no_active_subscription: 'Нет активной подписки',
         not_available: 'N/A',
         no_plans: 'Тарифы не настроены.',
@@ -204,7 +244,7 @@ const MOCK = (() => {
         promo_empty: 'Введите промокод',
         promo_invalid: 'Промокод не найден или недействителен.',
         referral_title: 'Пригласить друга',
-        referral_caption: 'Поделитесь кодом или ссылкой и получайте бонусы.',
+        referral_caption: 'Поделитесь ссылкой и получайте бонусы.',
         referral_code: 'Ваш код',
         invited_friends: 'Приглашено',
         purchased_friends: 'Оплатили',
@@ -217,7 +257,8 @@ const MOCK = (() => {
         referral_telegram_label: 'Пригласить через телеграм',
         referral_bonus_title: 'Бонусы',
         referral_bonus_pair: 'Вы: {inviter} дн. / друг: {friend} дн.',
-        referral_no_bonuses: 'Бонусы пока не настроены.'
+        referral_no_bonuses: 'Бонусы пока не настроены.',
+        referral_bonus_explanation: 'Бонусы начисляются один раз за каждого приглашенного пользователя, когда приглашенный пользователь покупает подписку.'
       },
       en: {
         page_title: 'My subscription',
@@ -285,6 +326,20 @@ const MOCK = (() => {
         telegram_auth_access_denied: 'Access denied.',
         active: 'Active',
         inactive: 'Inactive',
+        subscription_active: 'Subscription is active',
+        subscription_inactive: 'Subscription is inactive',
+        sub_remaining_template: 'Valid for {value} more',
+        sub_ends_template: 'Expires {date}',
+        sub_ended_template: 'Expired {date}',
+        sub_no_expiry: 'No expiration',
+        traffic_unlimited: '∞ unlimited traffic',
+        link_panel_title: 'Link a sign-in method',
+        link_panel_caption: 'So you never lose access',
+        link_email_title: 'Link email',
+        link_email_caption: 'Receive sign-in codes by email',
+        link_telegram_title: 'Link Telegram',
+        link_telegram_caption: 'Sign in with one tap via Telegram',
+        guest_user: 'Guest',
         no_active_subscription: 'No active subscription',
         not_available: 'N/A',
         no_plans: 'Plans are not configured.',
@@ -314,7 +369,7 @@ const MOCK = (() => {
         promo_empty: 'Enter promo code',
         promo_invalid: 'Promo code was not found or is not valid.',
         referral_title: 'Invite friend',
-        referral_caption: 'Share your code or link and receive bonuses.',
+        referral_caption: 'Share your link and receive bonuses.',
         referral_code: 'Your code',
         invited_friends: 'Invited',
         purchased_friends: 'Purchased',
@@ -327,7 +382,8 @@ const MOCK = (() => {
         referral_telegram_label: 'Invite via Telegram',
         referral_bonus_title: 'Bonuses',
         referral_bonus_pair: 'You: {inviter} d. / friend: {friend} d.',
-        referral_no_bonuses: 'Bonuses are not configured yet.'
+        referral_no_bonuses: 'Bonuses are not configured yet.',
+        referral_bonus_explanation: 'Bonuses are awarded once for each invited user when they purchase a subscription.'
       }
     };
 
@@ -359,6 +415,7 @@ const MOCK = (() => {
     bindPromoInput();
 
     document.addEventListener('keydown', event => {
+      handleDocumentKeyForUserMenu(event);
       if (event.key !== 'Escape') return;
       if (state.emailLoginCodeModalOpen) {
         closeEmailLoginCodeModal();
@@ -370,6 +427,8 @@ const MOCK = (() => {
         closePaymentFlow();
       }
     });
+
+    document.addEventListener('click', handleDocumentClickForUserMenu);
 
     boot();
 
@@ -597,11 +656,6 @@ const MOCK = (() => {
           }
         }
       });
-
-      const field = input.closest('.otp-field');
-      if (field) {
-        field.addEventListener('click', () => input.focus());
-      }
     }
 
     function sanitizeCode(value) {
@@ -831,45 +885,255 @@ const MOCK = (() => {
       showApp();
     }
 
-    async function reloadData() {
-      showToast(t('updating'));
-      await loadData();
-    }
-
     function render() {
       renderSubscription(state.data.subscription);
+      renderUserMenu(state.data.user || {});
       renderAccount(state.data.user || {});
       renderReferral(state.data.referral || {});
       renderPaymentFlow();
     }
 
     function renderSubscription(sub) {
-      const badge = document.getElementById('status-badge');
-      badge.textContent = sub.active ? t('active') : t('inactive');
-      badge.classList.toggle('off', !sub.active);
-      document.getElementById('remaining').textContent = sub.remaining_text || t('no_active_subscription');
-      document.getElementById('end-date').textContent = sub.end_date_text || t('not_available');
-      document.getElementById('traffic').textContent = (sub.traffic_used || t('not_available')) + ' / ' + (sub.traffic_limit || t('not_available'));
+      const wrap = document.getElementById('sub-status');
+      const text = document.getElementById('sub-status-text');
+      const remaining = document.getElementById('remaining');
+      const endCaption = document.getElementById('end-date-caption');
+
+      wrap.classList.toggle('active', Boolean(sub.active));
+      text.textContent = sub.active ? t('subscription_active') : t('subscription_inactive');
+
+      if (sub.active) {
+        const compact = formatCompactRemaining(sub.days_left, getLanguage()) || sub.remaining_text || '';
+        remaining.textContent = compact;
+      } else {
+        remaining.textContent = t('no_active_subscription');
+      }
+
+      if (sub.end_date_text) {
+        const template = sub.active ? 'sub_ends_template' : 'sub_ended_template';
+        endCaption.textContent = t(template, {date: sub.end_date_text});
+        endCaption.classList.remove('hidden');
+      } else if (sub.active) {
+        endCaption.textContent = t('sub_no_expiry');
+        endCaption.classList.remove('hidden');
+      } else {
+        endCaption.textContent = '';
+        endCaption.classList.add('hidden');
+      }
+
+      renderTraffic(sub);
       document.getElementById('connect-actions').classList.toggle('hidden', !sub.connect_url && !sub.config_link);
+    }
+
+    function renderTraffic(sub) {
+      const bar = document.getElementById('traffic-bar');
+      const fill = document.getElementById('traffic-bar-fill');
+      const value = document.getElementById('traffic');
+      if (!bar || !fill || !value) return;
+
+      const limitBytes = Number(sub.traffic_limit_bytes);
+      const usedBytes = Number(sub.traffic_used_bytes);
+      const hasLimit = Number.isFinite(limitBytes) && limitBytes > 0;
+      const hasUsed = Number.isFinite(usedBytes) && usedBytes >= 0;
+      const usedText = sub.traffic_used || t('not_available');
+      const limitText = sub.traffic_limit || t('not_available');
+
+      bar.classList.remove('over', 'unlimited');
+
+      if (!hasLimit) {
+        bar.classList.add('unlimited');
+        fill.style.width = '100%';
+        value.textContent = t('traffic_unlimited');
+        bar.setAttribute('aria-valuenow', '0');
+        return;
+      }
+
+      const ratio = hasUsed ? usedBytes / limitBytes : 0;
+      const pct = Math.max(0, Math.min(100, Math.round(ratio * 100)));
+      fill.style.width = pct + '%';
+      value.textContent = usedText + ' / ' + limitText;
+      bar.setAttribute('aria-valuenow', String(pct));
+      if (hasUsed && usedBytes >= limitBytes) {
+        bar.classList.add('over');
+      }
+    }
+
+    function formatCompactRemaining(daysRaw, lang) {
+      const days = Math.max(0, Math.floor(Number(daysRaw) || 0));
+      if (days <= 0) return null;
+      if (days >= 365) {
+        const years = Math.round((days / 365) * 2) / 2;
+        return formatDecimal(years, lang) + ' ' + pluralizeUnit(years, 'year', lang);
+      }
+      if (days >= 30) {
+        const months = Math.round((days / 30) * 2) / 2;
+        return formatDecimal(months, lang) + ' ' + pluralizeUnit(months, 'month', lang);
+      }
+      return formatDecimal(days, lang) + ' ' + pluralizeUnit(days, 'day', lang);
+    }
+
+    function formatDecimal(value, lang) {
+      if (Number.isInteger(value)) return String(value);
+      const str = value.toFixed(1);
+      return lang === 'ru' ? str.replace('.', ',') : str;
+    }
+
+    function pluralizeUnit(value, kind, lang) {
+      const enMap = {year: ['year', 'years'], month: ['month', 'months'], day: ['day', 'days']};
+      const ruMap = {
+        year: ['год', 'года', 'лет'],
+        month: ['месяц', 'месяца', 'месяцев'],
+        day: ['день', 'дня', 'дней']
+      };
+      if (lang === 'en') {
+        return value === 1 ? enMap[kind][0] : enMap[kind][1];
+      }
+      const forms = ruMap[kind];
+      if (!Number.isInteger(value)) return forms[1];
+      const n = Math.abs(value);
+      const mod10 = n % 10;
+      const mod100 = n % 100;
+      if (mod10 === 1 && mod100 !== 11) return forms[0];
+      if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
+      return forms[2];
+    }
+
+    function renderUserMenu(user) {
+      const emailLinked = Boolean(user.email && user.email_verified);
+      const telegramLinked = Boolean(user.telegram_linked);
+      const displayName = getUserDisplayName(user);
+      const secondary = getUserSecondaryText(user, emailLinked, telegramLinked);
+      const avatar = getUserAvatarSrc(user, emailLinked);
+
+      const chipName = document.getElementById('user-chip-name');
+      const chipAvatar = document.getElementById('user-chip-avatar');
+      const dropAvatar = document.getElementById('user-dropdown-avatar');
+      const dropName = document.getElementById('user-dropdown-name');
+      const dropSub = document.getElementById('user-dropdown-sub');
+      const emailStatus = document.getElementById('user-dropdown-email-status');
+      const telegramStatus = document.getElementById('user-dropdown-telegram-status');
+
+      chipName.textContent = displayName;
+      chipAvatar.src = avatar;
+      chipAvatar.alt = displayName;
+      dropAvatar.src = avatar;
+      dropAvatar.alt = displayName;
+      dropName.textContent = displayName;
+      dropSub.textContent = secondary;
+      dropSub.classList.toggle('hidden', !secondary);
+
+      emailStatus.textContent = emailLinked ? user.email : t('not_linked');
+      emailStatus.classList.toggle('linked', emailLinked);
+      emailStatus.classList.toggle('unlinked', !emailLinked);
+
+      telegramStatus.textContent = telegramLinked
+        ? (user.telegram_id ? String(user.telegram_id) : t('linked'))
+        : t('not_linked');
+      telegramStatus.classList.toggle('linked', telegramLinked);
+      telegramStatus.classList.toggle('unlinked', !telegramLinked);
     }
 
     function renderAccount(user) {
       const emailLinked = Boolean(user.email && user.email_verified);
       const telegramLinked = Boolean(user.telegram_linked);
-      document.getElementById('account-email').textContent = emailLinked ? user.email : t('not_linked');
-      document.getElementById('account-telegram').textContent = telegramLinked
-        ? (user.telegram_id ? String(user.telegram_id) : t('linked'))
-        : t('not_linked');
+      const emailAuthEnabled = Boolean(state.data.settings && state.data.settings.email_auth_enabled);
+      const emailCtaVisible = !emailLinked && emailAuthEnabled;
+      const telegramCtaVisible = !telegramLinked;
 
       const emailBox = document.getElementById('email-link-box');
       const telegramBox = document.getElementById('telegram-link-box');
-      emailBox.classList.toggle('hidden', emailLinked || !state.data.settings.email_auth_enabled);
-      telegramBox.classList.toggle('hidden', telegramLinked);
+      const linkPanel = document.getElementById('link-panel');
+      emailBox.classList.toggle('hidden', !emailCtaVisible);
+      telegramBox.classList.toggle('hidden', !telegramCtaVisible);
+      linkPanel.classList.toggle('hidden', !emailCtaVisible && !telegramCtaVisible);
 
       if (!telegramLinked) {
         renderTelegramLinkWidget();
       } else {
         state.telegramLinkRendered = false;
+      }
+    }
+
+    function getTelegramInitUser() {
+      if (!tg || !tg.initDataUnsafe || !tg.initDataUnsafe.user) return null;
+      return tg.initDataUnsafe.user;
+    }
+
+    function getUserDisplayName(user) {
+      const tgUser = getTelegramInitUser();
+      if (tgUser && tgUser.first_name) return tgUser.first_name;
+      if (user && user.first_name) return user.first_name;
+      if (user && user.username) return '@' + user.username;
+      if (tgUser && tgUser.username) return '@' + tgUser.username;
+      if (user && user.email) return user.email;
+      return t('guest_user');
+    }
+
+    function getUserSecondaryText(user, emailLinked, telegramLinked) {
+      if (emailLinked && user.email) return user.email;
+      if (telegramLinked && user.telegram_id) return '#' + user.telegram_id;
+      return '';
+    }
+
+    function getUserAvatarSrc(user, emailLinked) {
+      const tgUser = getTelegramInitUser();
+      if (tgUser && tgUser.photo_url) return tgUser.photo_url;
+      const seed = (emailLinked && user.email)
+        ? user.email.trim().toLowerCase()
+        : String(user.id || user.telegram_id || tgUser && tgUser.id || 'guest');
+      return buildIdenticon(seed);
+    }
+
+    function buildIdenticon(seed) {
+      const raw = String(seed || 'guest');
+      let hash = 2166136261 >>> 0;
+      for (let i = 0; i < raw.length; i++) {
+        hash ^= raw.charCodeAt(i);
+        hash = Math.imul(hash, 16777619) >>> 0;
+      }
+      const hue = hash % 360;
+      const bg = 'hsl(' + hue + ', 60%, 18%)';
+      const fg = 'hsl(' + ((hue + 180) % 360) + ', 78%, 62%)';
+      let rects = '';
+      let bits = hash;
+      for (let y = 0; y < 5; y++) {
+        for (let x = 0; x < 3; x++) {
+          const on = bits & 1;
+          bits = (bits >>> 1) ^ ((bits & 1) ? 0xB400 : 0);
+          if (!on) continue;
+          rects += '<rect x="' + x + '" y="' + y + '" width="1" height="1"/>';
+          if (x !== 2) {
+            rects += '<rect x="' + (4 - x) + '" y="' + y + '" width="1" height="1"/>';
+          }
+        }
+      }
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 5 5" shape-rendering="crispEdges">' +
+        '<rect width="5" height="5" fill="' + bg + '"/>' +
+        '<g fill="' + fg + '">' + rects + '</g>' +
+        '</svg>';
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+    }
+
+    function toggleUserMenu(force) {
+      const open = typeof force === 'boolean' ? force : !state.userMenuOpen;
+      state.userMenuOpen = open;
+      const chip = document.getElementById('user-chip');
+      const dropdown = document.getElementById('user-dropdown');
+      if (!chip || !dropdown) return;
+      chip.setAttribute('aria-expanded', open ? 'true' : 'false');
+      dropdown.classList.toggle('hidden', !open);
+    }
+
+    function handleDocumentClickForUserMenu(event) {
+      if (!state.userMenuOpen) return;
+      const menu = document.querySelector('.user-menu');
+      if (menu && menu.contains(event.target)) return;
+      toggleUserMenu(false);
+    }
+
+    function handleDocumentKeyForUserMenu(event) {
+      if (event.key === 'Escape' && state.userMenuOpen) {
+        toggleUserMenu(false);
       }
     }
 
@@ -890,23 +1154,23 @@ const MOCK = (() => {
     }
 
     function renderPromoModal() {
-      const panel = document.querySelector('.promo-panel');
-      if (!panel) return;
-      panel.classList.toggle('hidden', !state.promoModalOpen);
-      panel.classList.toggle('modal-panel', state.promoModalOpen);
-      renderToolsBackdrop();
+      const modal = document.getElementById('promo-modal');
+      if (!modal) return;
+
+      if (!state.promoModalOpen) {
+        modal.classList.remove('show');
+        syncModalLock();
+        window.setTimeout(() => {
+          if (!state.promoModalOpen) modal.classList.add('hidden');
+        }, 180);
+        return;
+      }
+
+      modal.classList.remove('hidden');
       syncModalLock();
       renderPromoStatus();
-      if (state.promoModalOpen && !panel.querySelector('[data-modal-close="promo"]')) {
-        const head = panel.querySelector('.panel-head');
-        if (head) {
-          head.insertAdjacentHTML(
-            'beforeend',
-            '<button class="icon-btn" type="button" data-modal-close="promo" data-title-i18n="close" onclick="closePromoModal()">×</button>'
-          );
-          applyI18n(panel);
-        }
-      }
+      applyI18n(modal);
+      window.requestAnimationFrame(() => modal.classList.add('show'));
     }
 
     function bindPromoInput() {
@@ -983,23 +1247,28 @@ const MOCK = (() => {
       renderReferral(state.data && state.data.referral || {});
     }
 
-    function renderToolsBackdrop() {
-      const backdrop = document.getElementById('tools-modal-backdrop');
-      if (!backdrop) return;
-      backdrop.classList.toggle('hidden', !(state.promoModalOpen || state.referralModalOpen));
-    }
+
 
     function renderReferral(referral) {
-      const panel = document.querySelector('.referral-panel');
-      if (!panel) return;
-      panel.classList.toggle('hidden', !state.referralModalOpen);
-      panel.classList.toggle('modal-panel', state.referralModalOpen);
-      renderToolsBackdrop();
+      const modal = document.getElementById('referral-modal');
+      const panel = document.getElementById('referral-panel');
+      if (!modal || !panel) return;
+
+      if (!state.referralModalOpen) {
+        modal.classList.remove('show');
+        syncModalLock();
+        window.setTimeout(() => {
+          if (!state.referralModalOpen) modal.classList.add('hidden');
+        }, 180);
+        return;
+      }
+
+      modal.classList.remove('hidden');
       syncModalLock();
       if (!state.referralModalOpen) return;
 
       const bonusRows = (referral.bonus_details || []).map(item => `
-        <div class="bonus-row">
+        <div class="${TW.bonusRow}">
           <span>${escapeHtml(item.title || '')}</span>
           <strong>${escapeHtml(t('referral_bonus_pair', {
             inviter: item.inviter_days || 0,
@@ -1009,34 +1278,47 @@ const MOCK = (() => {
       `).join('');
 
       panel.innerHTML = `
-        <div class="panel-head">
+        <div class="${TW.panelHead}">
           <div>
-            <div class="section-title">${escapeHtml(t('referral_title'))}</div>
-            <div class="flow-caption">${escapeHtml(t('referral_caption'))}</div>
+            <div class="${TW.sectionTitle} text-[var(--accent)]">${escapeHtml(t('referral_title'))}</div>
+            <div class="${TW.flowCaption}">${escapeHtml(t('referral_caption'))}</div>
           </div>
-          <button class="icon-btn" type="button" data-title-i18n="close" onclick="closeReferralModal()">×</button>
+          <button class="${TW.iconBtn}" type="button" data-title-i18n="close" onclick="closeReferralModal()">×</button>
         </div>
-        <div class="referral-link-list">
-          ${renderReferralLinkRow('webapp', t('referral_site_label'), referral.webapp_link)}
-          ${renderReferralLinkRow('bot', t('referral_telegram_label'), referral.bot_link)}
-        </div>
-        <div class="referral-bonus-card">
-          <div class="section-label">${escapeHtml(t('referral_bonus_title'))}</div>
-          <div class="bonus-list">${bonusRows || '<div class="empty">' + escapeHtml(t('referral_no_bonuses')) + '</div>'}</div>
+        
+        <div class="grid gap-4 mt-1">
+          <div class="grid gap-2.5">
+            <div class="section-label font-[family-name:var(--font-mono)] text-[12px] font-extrabold text-[var(--accent)] uppercase">ВАШИ ССЫЛКИ</div>
+            <div class="referral-link-list grid gap-2">
+              ${renderReferralLinkRow('webapp', t('referral_site_label'), referral.webapp_link)}
+              ${renderReferralLinkRow('bot', t('referral_telegram_label'), referral.bot_link)}
+            </div>
+          </div>
+
+          <div class="referral-bonus-card grid gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[rgba(255,255,255,0.015)] p-3.5">
+            <div class="grid gap-1">
+              <div class="section-label font-[family-name:var(--font-mono)] text-[12px] font-extrabold text-[var(--accent)] uppercase">${escapeHtml(t('referral_bonus_title'))}</div>
+              <div class="text-[13px] leading-[1.45] text-[var(--text-secondary)]">${escapeHtml(t('referral_bonus_explanation'))}</div>
+            </div>
+            <div class="bonus-list grid gap-2">${bonusRows || '<div class="' + TW.empty + ' border-none bg-[rgba(255,255,255,0.03)]">' + escapeHtml(t('referral_no_bonuses')) + '</div>'}</div>
+          </div>
         </div>
       `;
-      applyI18n(panel);
+      applyI18n(modal);
+      window.requestAnimationFrame(() => modal.classList.add('show'));
     }
 
     function renderReferralLinkRow(kind, label, link) {
       return `
-        <div class="referral-link-row">
+        <div class="${TW.referralLinkRow}">
           <div>
-            <div class="metric-label">${escapeHtml(label)}</div>
-            <div class="referral-link-value">${escapeHtml(link || t('not_available'))}</div>
+            <div class="${TW.metricLabel}">${escapeHtml(label)}</div>
+            <div class="${TW.referralLinkValue}">${escapeHtml(link || t('not_available'))}</div>
           </div>
-          <button class="btn icon-only copy-icon-btn" type="button" onclick="copyReferralLink('${escapeAttr(kind)}')" ${link ? '' : 'disabled'} data-title-i18n="copy_link">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" aria-hidden="true"><path d="M451.5 160C434.9 160 418.8 164.5 404.7 172.7C388.9 156.7 370.5 143.3 350.2 133.2C378.4 109.2 414.3 96 451.5 96C537.9 96 608 166 608 252.5C608 294 591.5 333.8 562.2 363.1L491.1 434.2C461.8 463.5 422 480 380.5 480C294.1 480 224 410 224 323.5C224 322 224 320.5 224.1 319C224.6 301.3 239.3 287.4 257 287.9C274.7 288.4 288.6 303.1 288.1 320.8C288.1 321.7 288.1 322.6 288.1 323.4C288.1 374.5 329.5 415.9 380.6 415.9C405.1 415.9 428.6 406.2 446 388.8L517.1 317.7C534.4 300.4 544.2 276.8 544.2 252.3C544.2 201.2 502.8 159.8 451.7 159.8zM307.2 237.3C305.3 236.5 303.4 235.4 301.7 234.2C289.1 227.7 274.7 224 259.6 224C235.1 224 211.6 233.7 194.2 251.1L123.1 322.2C105.8 339.5 96 363.1 96 387.6C96 438.7 137.4 480.1 188.5 480.1C205 480.1 221.1 475.7 235.2 467.5C251 483.5 269.4 496.9 289.8 507C261.6 530.9 225.8 544.2 188.5 544.2C102.1 544.2 32 474.2 32 387.7C32 346.2 48.5 306.4 77.8 277.1L148.9 206C178.2 176.7 218 160.2 259.5 160.2C346.1 160.2 416 230.8 416 317.1C416 318.4 416 319.7 416 321C415.6 338.7 400.9 352.6 383.2 352.2C365.5 351.8 351.6 337.1 352 319.4C352 318.6 352 317.9 352 317.1C352 283.4 334 253.8 307.2 237.5z"/></svg>
+          <button class="${TW.btnBase} w-12 px-0" type="button" onclick="copyReferralLink('${escapeAttr(kind)}')" ${link ? '' : 'disabled'} data-title-i18n="copy_link">
+            <svg class="h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" aria-hidden="true">
+              <path d="M352 512L128 512L128 288L176 288L176 224L128 224C92.7 224 64 252.7 64 288L64 512C64 547.3 92.7 576 128 576L352 576C387.3 576 416 547.3 416 512L416 464L352 464L352 512zM288 416L512 416C547.3 416 576 387.3 576 352L576 128C576 92.7 547.3 64 512 64L288 64C252.7 64 224 92.7 224 128L224 352C224 387.3 252.7 416 288 416z"/>
+            </svg>
           </button>
         </div>
       `;
@@ -1094,6 +1376,17 @@ const MOCK = (() => {
       }
       await copyText(link);
       showToast(t('referral_copied'));
+    }
+
+    async function copyReferralCode() {
+      const referral = state.data && state.data.referral;
+      const code = referral && referral.code;
+      if (!code) {
+        showToast(t('no_link'));
+        return;
+      }
+      await copyText(code);
+      showToast(t('code_copied'));
     }
 
     async function requestEmailLinkCode() {
@@ -1309,7 +1602,7 @@ const MOCK = (() => {
       const wrap = document.getElementById('plans');
       const nextBtn = document.getElementById('to-methods-btn');
       if (!plans.length) {
-        wrap.innerHTML = '<div class="empty">' + escapeHtml(t('no_plans')) + '</div>';
+        wrap.innerHTML = '<div class="' + TW.empty + '">' + escapeHtml(t('no_plans')) + '</div>';
         nextBtn.disabled = true;
         return;
       }
@@ -1319,12 +1612,12 @@ const MOCK = (() => {
         const isActive = state.selectedPlan && state.selectedPlan.months === plan.months;
         const stars = plan.stars_price ? ' / ' + plan.stars_price + ' Stars' : '';
         return `
-          <button class="plan ${isActive ? 'active' : ''}" type="button" onclick="selectPlan(${plan.months})">
-            <span>
-              <span class="plan-name">${escapeHtml(plan.title)}</span>
-              <span class="plan-meta">${escapeHtml(t('access_period'))}</span>
+          <button class="${TW.planCard} ${isActive ? TW.planCardActive : ''}" type="button" onclick="selectPlan(${plan.months})">
+            <span class="min-w-0">
+              <span class="${TW.planName}">${escapeHtml(plan.title)}</span>
+              <span class="${TW.planMeta}">${escapeHtml(t('access_period'))}</span>
             </span>
-            <span class="plan-price">${escapeHtml(formatMoney(plan.price, plan.currency) + stars)}</span>
+            <span class="${TW.planPrice}">${escapeHtml(formatMoney(plan.price, plan.currency) + stars)}</span>
           </button>
         `;
       }).join('');
@@ -1334,7 +1627,7 @@ const MOCK = (() => {
       const methods = document.getElementById('methods');
       const createBtn = document.getElementById('create-payment-btn');
       if (!state.selectedPlan) {
-        methods.innerHTML = '<div class="empty">' + escapeHtml(t('choose_plan_first')) + '</div>';
+        methods.innerHTML = '<div class="' + TW.empty + '">' + escapeHtml(t('choose_plan_first')) + '</div>';
         createBtn.disabled = true;
         return;
       }
@@ -1346,7 +1639,7 @@ const MOCK = (() => {
 
       createBtn.disabled = !state.selectedMethod || state.creatingPayment;
       if (!available.length) {
-        methods.innerHTML = '<div class="empty">' + escapeHtml(t('no_methods')) + '</div>';
+        methods.innerHTML = '<div class="' + TW.empty + '">' + escapeHtml(t('no_methods')) + '</div>';
         createBtn.disabled = true;
         return;
       }
@@ -1357,12 +1650,12 @@ const MOCK = (() => {
           ? state.selectedPlan.stars_price + ' Stars'
           : formatMoney(state.selectedPlan.price, state.selectedPlan.currency);
         return `
-          <button class="method ${isActive ? 'active' : ''}" type="button" onclick="selectMethod('${escapeAttr(method.id)}')">
-            <span>
-              <span class="method-name">${escapeHtml(method.name)}</span>
-              <span class="method-meta">${escapeHtml(state.selectedPlan.title)}</span>
+          <button class="${TW.planCard} ${isActive ? TW.planCardActive : ''}" type="button" onclick="selectMethod('${escapeAttr(method.id)}')">
+            <span class="min-w-0">
+              <span class="${TW.planName}">${escapeHtml(method.name)}</span>
+              <span class="${TW.planMeta}">${escapeHtml(state.selectedPlan.title)}</span>
             </span>
-            <span class="plan-price">${escapeHtml(amount)}</span>
+            <span class="${TW.planPrice}">${escapeHtml(amount)}</span>
           </button>
         `;
       }).join('');
@@ -1625,6 +1918,7 @@ const MOCK = (() => {
     }
 
     function logout() {
+      toggleUserMenu(false);
       clearToken();
       closePaymentFlow();
       closeEmailLoginCodeModal();
@@ -1640,12 +1934,14 @@ const MOCK = (() => {
     function showApp() {
       document.getElementById('loader').classList.add('hidden');
       document.getElementById('login').classList.remove('show');
+      document.getElementById('login').classList.add('hidden');
       document.getElementById('app').classList.remove('hidden');
     }
 
     function showLogin() {
       document.getElementById('loader').classList.add('hidden');
       document.getElementById('app').classList.add('hidden');
+      document.getElementById('login').classList.remove('hidden');
       document.getElementById('login').classList.add('show');
     }
 
@@ -1694,19 +1990,35 @@ const MOCK = (() => {
     }
 
     function showToast(message) {
-      if (tg && tg.showAlert) {
-        tg.showAlert(message);
-        return;
-      }
       const toast = document.getElementById('toast');
+      if (!toast) return;
+
       toast.textContent = message;
       toast.classList.remove('hidden');
-      window.requestAnimationFrame(() => toast.classList.add('show'));
+      
+      // Force reflow
+      void toast.offsetWidth;
+      
+      toast.classList.add('show');
+
+      // Telegram Haptic Feedback
+      if (tg && tg.HapticFeedback) {
+        try {
+          tg.HapticFeedback.notificationOccurred('success');
+        } catch (e) {
+          console.warn('Haptic feedback failed', e);
+        }
+      }
+
       if (state.toastTimer) window.clearTimeout(state.toastTimer);
       state.toastTimer = window.setTimeout(() => {
         toast.classList.remove('show');
-        window.setTimeout(() => toast.classList.add('hidden'), 180);
-      }, 1800);
+        window.setTimeout(() => {
+          if (!toast.classList.contains('show')) {
+            toast.classList.add('hidden');
+          }
+        }, 250);
+      }, 2200);
     }
 
     function setBrand() {
@@ -1771,7 +2083,7 @@ const MOCK = (() => {
         node.setAttribute('aria-hidden', url ? 'false' : 'true');
       });
 
-      root.querySelectorAll('.legal-links').forEach(container => {
+      root.querySelectorAll('[data-legal-links]').forEach(container => {
         const visible = Array.from(container.querySelectorAll('[data-legal-key]'))
           .some(node => !node.classList.contains('hidden'));
         container.classList.toggle('hidden', !visible);

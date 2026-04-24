@@ -1235,6 +1235,8 @@ def _serialize_subscription(
         "connect_url": active.get("connect_button_url") or active.get("config_link"),
         "traffic_limit": _format_bytes(active.get("traffic_limit_bytes")),
         "traffic_used": _format_bytes(active.get("traffic_used_bytes")),
+        "traffic_limit_bytes": _coerce_int_or_none(active.get("traffic_limit_bytes")),
+        "traffic_used_bytes": _coerce_int_or_none(active.get("traffic_used_bytes")),
         "auto_renew_enabled": bool(getattr(local_sub, "auto_renew_enabled", False)),
         "provider": getattr(local_sub, "provider", None),
     }
@@ -1732,6 +1734,15 @@ def _format_remaining(seconds: int, lang: str) -> str:
     if hours > 0:
         return f"{hours} ч. {minutes} мин."
     return f"{max(1, minutes)} мин."
+
+
+def _coerce_int_or_none(value: Optional[Any]) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _format_bytes(value: Optional[Any]) -> str:
