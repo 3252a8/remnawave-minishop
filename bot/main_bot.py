@@ -115,7 +115,7 @@ async def on_startup_configured(dispatcher: Dispatcher):
         try:
             menu_text = i18n_instance.gettext(
                 settings.DEFAULT_LANGUAGE,
-                "menu_my_subscription_inline",
+                "menu_personal_account_button",
             )
             await bot.set_chat_menu_button(
                 menu_button=MenuButtonWebApp(
@@ -132,14 +132,20 @@ async def on_startup_configured(dispatcher: Dispatcher):
                 f"STARTUP: Failed to register mini app domain: {e}", exc_info=True
             )
 
-    if settings.START_COMMAND_DESCRIPTION:
-        try:
-            await bot.set_my_commands([
-                BotCommand(command="start", description=settings.START_COMMAND_DESCRIPTION)
-            ])
-            logging.info("STARTUP: /start command description set.")
-        except Exception as e:
-            logging.error(f"STARTUP: Failed to set bot commands: {e}", exc_info=True)
+    try:
+        bot_commands = [
+            BotCommand(command="tg", description="Интерфейс в боте"),
+        ]
+        if settings.START_COMMAND_DESCRIPTION:
+            bot_commands.insert(
+                0,
+                BotCommand(command="start",
+                           description=settings.START_COMMAND_DESCRIPTION),
+            )
+        await bot.set_my_commands(bot_commands)
+        logging.info("STARTUP: bot command descriptions set.")
+    except Exception as e:
+        logging.error(f"STARTUP: Failed to set bot commands: {e}", exc_info=True)
 
     # Initialize message queue manager
     try:

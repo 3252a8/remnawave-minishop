@@ -14,6 +14,7 @@ from db.models import User
 
 from bot.keyboards.inline.user_keyboards import (
     get_main_menu_inline_keyboard,
+    get_bot_interface_inline_keyboard,
     get_language_selection_keyboard,
     get_channel_subscription_keyboard,
     get_information_links_keyboard,
@@ -27,6 +28,25 @@ from bot.middlewares.i18n import JsonI18n
 from bot.utils.text_sanitizer import sanitize_username, sanitize_display_name
 from bot.utils.callback_answer import safe_answer_callback
 router = Router(name="user_start_router")
+
+
+async def should_show_trial_button(
+        settings: Settings,
+        subscription_service: SubscriptionService,
+        session: AsyncSession,
+        user_id: int) -> bool:
+    if not settings.TRIAL_ENABLED:
+        return False
+
+    if hasattr(subscription_service, 'has_had_any_subscription') and callable(
+            getattr(subscription_service, 'has_had_any_subscription')):
+        return not await subscription_service.has_had_any_subscription(
+            session, user_id)
+
+    logging.error(
+        "Method has_had_any_subscription is missing in SubscriptionService!"
+    )
+    return False
 
 
 async def send_main_menu(target_event: Union[types.Message,
@@ -61,18 +81,8 @@ async def send_main_menu(target_event: Union[types.Message,
 
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
-    show_trial_button_in_menu = False
-    if settings.TRIAL_ENABLED:
-        if hasattr(
-                subscription_service, 'has_had_any_subscription') and callable(
-                    getattr(subscription_service, 'has_had_any_subscription')):
-            if not await subscription_service.has_had_any_subscription(
-                    session, user_id):
-                show_trial_button_in_menu = True
-        else:
-            logging.error(
-                "Method has_had_any_subscription is missing in SubscriptionService for send_main_menu!"
-            )
+    show_trial_button_in_menu = await should_show_trial_button(
+        settings, subscription_service, session, user_id)
 
     text = _(key="main_menu_greeting", user_name=user_full_name)
     reply_markup = get_main_menu_inline_keyboard(current_lang, i18n, settings,
@@ -121,6 +131,68 @@ async def send_main_menu(target_event: Union[types.Message,
                 target_event,
                 _("error_occurred_try_again") if is_edit else None,
             )
+
+
+async def send_bot_interface_menu(
+        target_event: Union[types.Message, types.CallbackQuery],
+        settings: Settings,
+        i18n_data: dict,
+        subscription_service: SubscriptionService,
+        session: AsyncSession,
+        is_edit: bool = False):
+    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
+    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+
+    if not i18n:
+        logging.error("i18n_instance missing in send_bot_interface_menu.")
+        return
+
+    user_id = target_event.from_user.id
+    show_trial_button_in_menu = await should_show_trial_button(
+        settings, subscription_service, session, user_id)
+
+    text = i18n.gettext(current_lang, "bot_interface_menu_title")
+    reply_markup = get_bot_interface_inline_keyboard(
+        current_lang, i18n, settings, show_trial_button_in_menu)
+
+    target_message_obj: Optional[types.Message] = None
+    if isinstance(target_event, types.Message):
+        target_message_obj = target_event
+    elif isinstance(target_event, types.CallbackQuery) and target_event.message:
+        target_message_obj = target_event.message
+
+    if not target_message_obj:
+        logging.error(
+            "send_bot_interface_menu: target_message_obj is None for user %s.",
+            user_id,
+        )
+        return
+
+    try:
+        if is_edit:
+            await target_message_obj.edit_text(text, reply_markup=reply_markup)
+        else:
+            await target_message_obj.answer(text, reply_markup=reply_markup)
+
+        if isinstance(target_event, types.CallbackQuery):
+            await safe_answer_callback(target_event)
+    except Exception as e_send_edit:
+        logging.warning(
+            "Failed to send/edit bot interface menu (user: %s, is_edit: %s): %s - %s.",
+            user_id,
+            is_edit,
+            type(e_send_edit).__name__,
+            e_send_edit,
+        )
+        if is_edit:
+            try:
+                await target_message_obj.answer(text, reply_markup=reply_markup)
+            except Exception as e_send_new:
+                logging.error(
+                    "Also failed to send new bot interface menu for user %s: %s",
+                    user_id,
+                    e_send_new,
+                )
 
 
 async def ensure_required_channel_subscription(
@@ -638,6 +710,31 @@ async def start_command_handler(message: types.Message,
                          subscription_service,
                          session,
                          is_edit=False)
+
+
+@router.message(Command("tg"))
+async def tg_interface_command_handler(message: types.Message,
+                                       state: FSMContext,
+                                       settings: Settings,
+                                       i18n_data: dict,
+                                       subscription_service: SubscriptionService,
+                                       session: AsyncSession):
+    await state.clear()
+
+    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
+    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    db_user = await user_dal.get_user_by_id(session, message.from_user.id)
+    if not await ensure_required_channel_subscription(message, settings, i18n,
+                                                      current_lang, session,
+                                                      db_user):
+        return
+
+    await send_bot_interface_menu(message,
+                                  settings,
+                                  i18n_data,
+                                  subscription_service,
+                                  session,
+                                  is_edit=False)
 
 
 @router.callback_query(F.data == "channel_subscription:verify")

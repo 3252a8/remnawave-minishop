@@ -13,6 +13,37 @@ def get_main_menu_inline_keyboard(
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
 
+    if settings.SUBSCRIPTION_MINI_APP_URL:
+        builder.row(
+            InlineKeyboardButton(
+                text=_(key="menu_personal_account_button"),
+                web_app=WebAppInfo(url=settings.SUBSCRIPTION_MINI_APP_URL),
+            )
+        )
+    else:
+        builder.row(
+            InlineKeyboardButton(
+                text=_(key="menu_personal_account_button"),
+                callback_data="main_action:my_subscription",
+            )
+        )
+
+    if settings.SUPPORT_LINK:
+        builder.row(
+            InlineKeyboardButton(text=_(key="menu_support_button"),
+                                 url=settings.SUPPORT_LINK))
+
+    return builder.as_markup()
+
+
+def get_bot_interface_inline_keyboard(
+        lang: str,
+        i18n_instance,
+        settings: Settings,
+        show_trial_button: bool = False) -> InlineKeyboardMarkup:
+    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
+    builder = InlineKeyboardBuilder()
+
     if show_trial_button and settings.TRIAL_ENABLED:
         builder.row(
             InlineKeyboardButton(text=_(key="menu_activate_trial_button"),
@@ -21,20 +52,12 @@ def get_main_menu_inline_keyboard(
     builder.row(
         InlineKeyboardButton(text=_(key="menu_subscribe_inline"),
                              callback_data="main_action:subscribe"))
-    if settings.SUBSCRIPTION_MINI_APP_URL:
-        builder.row(
-            InlineKeyboardButton(
-                text=_(key="menu_my_subscription_inline"),
-                web_app=WebAppInfo(url=settings.SUBSCRIPTION_MINI_APP_URL),
-            )
+    builder.row(
+        InlineKeyboardButton(
+            text=_(key="menu_my_subscription_inline"),
+            callback_data="main_action:my_subscription",
         )
-    else:
-        builder.row(
-            InlineKeyboardButton(
-                text=_(key="menu_my_subscription_inline"),
-                callback_data="main_action:my_subscription",
-            )
-        )
+    )
 
     referral_button = InlineKeyboardButton(
         text=_(key="menu_referral_inline"),
