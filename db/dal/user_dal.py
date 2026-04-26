@@ -629,23 +629,22 @@ async def get_user_ids_without_active_subscription(session: AsyncSession) -> Lis
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
 
-    # Subquery for users with active subscription
-    active_subs_subq = (
-        select(Subscription.user_id)
-        .where(
-            and_(
-                Subscription.is_active == True,
-                Subscription.end_date > now,
-            )
-        )
-    ).scalar_subquery()
+    active_subs = aliased(Subscription)
 
     stmt = (
         select(User.user_id)
+        .outerjoin(
+            active_subs,
+            and_(
+                active_subs.user_id == User.user_id,
+                active_subs.is_active == True,
+                active_subs.end_date > now,
+            ),
+        )
         .where(
             and_(
                 User.is_banned == False,
-                ~User.user_id.in_(active_subs_subq),
+                active_subs.user_id.is_(None),
             )
         )
     )

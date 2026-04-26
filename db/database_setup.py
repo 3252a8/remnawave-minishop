@@ -20,6 +20,8 @@ def init_db_connection(settings: Settings) -> sessionmaker:
             settings.DATABASE_URL,
             echo=False,
             pool_pre_ping=True,
+            pool_size=20,
+            max_overflow=10,
         )
 
     local_async_session_factory = async_sessionmaker(

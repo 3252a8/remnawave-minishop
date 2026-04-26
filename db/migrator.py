@@ -251,6 +251,64 @@ def _migration_0007_add_telegram_photo_url(connection: Connection) -> None:
     )
 
 
+def _migration_0008_add_email_verification_code_status(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("email_verification_codes")}
+
+    if "status" not in columns:
+        connection.execute(
+            text(
+                "ALTER TABLE email_verification_codes ADD COLUMN status VARCHAR NOT NULL DEFAULT 'active'"
+            )
+        )
+    else:
+        connection.execute(
+            text(
+                """
+                UPDATE email_verification_codes
+                SET status = 'active'
+                WHERE status IS NULL OR status = ''
+                """
+            )
+        )
+
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_email_verification_codes_status
+            ON email_verification_codes (status)
+            """
+        )
+    )
+
+
+def _migration_0009_add_composite_indexes(connection: Connection) -> None:
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_subscriptions_is_active_end_date
+            ON subscriptions (is_active, end_date)
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_subscriptions_user_id_is_active
+            ON subscriptions (user_id, is_active)
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_payments_user_id_status
+            ON payments (user_id, status)
+            """
+        )
+    )
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -286,6 +344,16 @@ MIGRATIONS: List[Migration] = [
         id="0007_add_telegram_photo_url",
         description="Store Telegram profile photo URLs for linked users",
         upgrade=_migration_0007_add_telegram_photo_url,
+    ),
+    Migration(
+        id="0008_add_email_verification_code_status",
+        description="Track superseded email verification codes explicitly",
+        upgrade=_migration_0008_add_email_verification_code_status,
+    ),
+    Migration(
+        id="0009_add_composite_indexes",
+        description="Add composite indexes for subscription and payment lookups",
+        upgrade=_migration_0009_add_composite_indexes,
     ),
 ]
 

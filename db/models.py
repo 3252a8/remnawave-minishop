@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Float, ForeignKey, UniqueConstraint, Text, BigInteger
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Float, ForeignKey, UniqueConstraint, Text, BigInteger, Index
 from sqlalchemy.orm import relationship, DeclarativeBase
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.sql import func
@@ -61,6 +61,10 @@ class User(Base):
 
 class Subscription(Base):
     __tablename__ = "subscriptions"
+    __table_args__ = (
+        Index("ix_subscriptions_is_active_end_date", "is_active", "end_date"),
+        Index("ix_subscriptions_user_id_is_active", "user_id", "is_active"),
+    )
 
     subscription_id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger,
@@ -105,6 +109,7 @@ class EmailVerificationCode(Base):
     )
     expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
     consumed_at = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String, nullable=False, default="active", index=True)
     attempts = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -131,6 +136,9 @@ class SecurityThrottle(Base):
 
 class Payment(Base):
     __tablename__ = "payments"
+    __table_args__ = (
+        Index("ix_payments_user_id_status", "user_id", "status"),
+    )
 
     payment_id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger,
