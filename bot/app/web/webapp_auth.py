@@ -11,6 +11,9 @@ from config.settings import Settings
 
 logger = logging.getLogger(__name__)
 
+# 5 minutes clock skew tolerance for Telegram clients
+TELEGRAM_CLOCK_SKEW_SECONDS = 300
+
 
 def _urlsafe_b64encode(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
@@ -107,7 +110,7 @@ def validate_telegram_webapp_init_data(
             auth_date = int(auth_date_raw)
             now = int(time.time())
             max_age = max(60, int(max_age_seconds))
-            if auth_date > now + 300 or now - auth_date > max_age:
+            if auth_date > now + TELEGRAM_CLOCK_SKEW_SECONDS or now - auth_date > max_age:
                 logger.warning("Telegram WebApp initData auth_date is stale.")
                 return None
 
@@ -167,7 +170,7 @@ def validate_telegram_login_widget_data(
             auth_date = int(auth_date_raw)
             now = int(time.time())
             max_age = max(60, int(max_age_seconds))
-            if auth_date > now + 300 or now - auth_date > max_age:
+            if auth_date > now + TELEGRAM_CLOCK_SKEW_SECONDS or now - auth_date > max_age:
                 logger.warning("Telegram Login Widget auth_date is stale.")
                 return None
 
