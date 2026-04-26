@@ -180,6 +180,66 @@
     @apply relative inline-flex;
   }
 
+  .lang-menu {
+    @apply relative inline-flex;
+  }
+
+  .lang-chip {
+    @apply inline-flex min-h-[38px] cursor-pointer items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-2 text-left font-extrabold text-[12px] text-[var(--text-primary)] no-underline transition-[transform,border-color,background,color,box-shadow] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-[color-mix(in_srgb,var(--accent)_42%,var(--border))] hover:bg-[var(--bg-card-hover)];
+  }
+
+  .lang-chip[aria-expanded="true"] {
+    @apply border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] bg-[var(--bg-card-hover)];
+  }
+
+  .lang-chip-flag {
+    @apply text-[14px] leading-none;
+    font-family: 'Twemoji Country Flags', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  }
+
+  .lang-chip-label {
+    @apply font-[family-name:var(--font-mono)] text-[11px] tracking-wide;
+  }
+
+  .lang-chip-caret {
+    @apply h-3 w-3 flex-none fill-[var(--text-secondary)] transition-transform;
+  }
+
+  .lang-chip[aria-expanded="true"] .lang-chip-caret {
+    transform: rotate(180deg);
+  }
+
+  .lang-dropdown {
+    @apply absolute right-0 top-[calc(100%+8px)] z-30 grid w-[160px] origin-top-right gap-0 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg-card)] opacity-0 shadow-[0_24px_48px_rgba(0,0,0,0.45)] transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.2,0.8,0.2,1)] pointer-events-none -translate-y-2 scale-[0.96];
+    backdrop-filter: blur(14px);
+    will-change: opacity, transform;
+  }
+
+  .lang-dropdown.show {
+    @apply opacity-100 pointer-events-auto translate-y-0 scale-100;
+  }
+
+  .lang-dropdown-item {
+    @apply flex cursor-pointer items-center gap-2.5 border-0 bg-transparent px-3 py-2.5 text-left text-[13px] font-bold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)];
+  }
+
+  .lang-dropdown-item + .lang-dropdown-item {
+    @apply border-t border-[var(--border)];
+  }
+
+  .lang-dropdown-item.is-active {
+    @apply text-[var(--accent)];
+  }
+
+  .lang-dropdown-flag {
+    @apply text-[16px] leading-none;
+    font-family: 'Twemoji Country Flags', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  }
+
+  .lang-dropdown-label {
+    @apply flex-1 overflow-hidden text-ellipsis whitespace-nowrap;
+  }
+
   .user-chip {
     @apply inline-flex min-h-[38px] min-w-0 max-w-[200px] cursor-pointer items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[rgba(255,255,255,0.03)] py-1 pl-1 pr-2.5 text-left font-extrabold text-[13px] text-[var(--text-primary)] no-underline transition-[transform,border-color,background,color,box-shadow] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-[color-mix(in_srgb,var(--accent)_42%,var(--border))] hover:bg-[var(--bg-card-hover)];
   }

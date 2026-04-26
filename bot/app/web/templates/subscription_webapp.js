@@ -109,8 +109,18 @@ const MOCK = (() => {
       telegramLinkInProgress: false,
       toastTimer: null,
       userMenuOpen: false,
-      userMenuCloseTimer: null
+      userMenuCloseTimer: null,
+      langOverride: (function() {
+        try { return localStorage.getItem('rw_webapp_lang') || ''; } catch (e) { return ''; }
+      })(),
+      langMenuOpen: false,
+      langMenuCloseTimer: null
     };
+
+    const LANG_OPTIONS = [
+      { code: 'ru', label: 'Русский', short: 'RU', flag: '🇷🇺' },
+      { code: 'en', label: 'English', short: 'EN', flag: '🇬🇧' }
+    ];
 
     const TW = {
       iconBtn: 'icon-btn',
@@ -459,6 +469,8 @@ const MOCK = (() => {
     });
 
     document.addEventListener('click', handleDocumentClickForUserMenu);
+    document.addEventListener('click', handleDocumentClickForLangMenu);
+    renderLangMenu();
 
     boot();
 
@@ -1211,6 +1223,64 @@ const MOCK = (() => {
       if (event.key === 'Escape' && state.userMenuOpen) {
         toggleUserMenu(false);
       }
+      if (event.key === 'Escape' && state.langMenuOpen) {
+        toggleLangMenu(false);
+      }
+    }
+
+    function renderLangMenu() {
+      const current = getLanguage();
+      const chipLabel = document.getElementById('lang-chip-label');
+      const chipFlag = document.getElementById('lang-chip-flag');
+      const opt = LANG_OPTIONS.find(o => o.code === current) || LANG_OPTIONS[0];
+      if (chipLabel) chipLabel.textContent = opt.short;
+      if (chipFlag) chipFlag.textContent = opt.flag;
+      const list = document.getElementById('lang-dropdown');
+      if (!list) return;
+      list.innerHTML = LANG_OPTIONS.map(o => (
+        '<button type="button" role="menuitem" class="lang-dropdown-item' +
+        (o.code === current ? ' is-active' : '') +
+        '" data-lang="' + o.code + '">' +
+        '<span class="lang-dropdown-flag" aria-hidden="true">' + o.flag + '</span>' +
+        '<span class="lang-dropdown-label">' + escapeHtml(o.label) + '</span>' +
+        '</button>'
+      )).join('');
+      list.querySelectorAll('[data-lang]').forEach(btn => {
+        btn.addEventListener('click', () => setLanguage(btn.dataset.lang));
+      });
+    }
+
+    function toggleLangMenu(force) {
+      const open = typeof force === 'boolean' ? force : !state.langMenuOpen;
+      state.langMenuOpen = open;
+      const chip = document.getElementById('lang-chip');
+      const dropdown = document.getElementById('lang-dropdown');
+      if (!chip || !dropdown) return;
+      if (state.langMenuCloseTimer) {
+        window.clearTimeout(state.langMenuCloseTimer);
+        state.langMenuCloseTimer = null;
+      }
+      chip.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) {
+        dropdown.classList.remove('hidden');
+        dropdown.classList.remove('show');
+        window.requestAnimationFrame(() => {
+          if (state.langMenuOpen) dropdown.classList.add('show');
+        });
+        return;
+      }
+      dropdown.classList.remove('show');
+      state.langMenuCloseTimer = window.setTimeout(() => {
+        if (!state.langMenuOpen) dropdown.classList.add('hidden');
+        state.langMenuCloseTimer = null;
+      }, 180);
+    }
+
+    function handleDocumentClickForLangMenu(event) {
+      if (!state.langMenuOpen) return;
+      const menu = document.querySelector('.lang-menu');
+      if (menu && menu.contains(event.target)) return;
+      toggleLangMenu(false);
     }
 
     function openPromoModal() {
@@ -2253,13 +2323,39 @@ const MOCK = (() => {
     }
 
     function getLanguage() {
-      const raw = (
-        state.data && state.data.user && state.data.user.language_code
-          ? state.data.user.language_code
-          : (CFG.language || document.documentElement.lang || 'ru')
-      ).toLowerCase();
-      const short = raw.split('-')[0];
-      return I18N[short] ? short : 'ru';
+      const candidates = [];
+      if (state.langOverride) candidates.push(state.langOverride);
+      if (state.data && state.data.user && state.data.user.language_code) {
+        candidates.push(state.data.user.language_code);
+      }
+      const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+      if (tgUser && tgUser.language_code) candidates.push(tgUser.language_code);
+      if (typeof navigator !== 'undefined') {
+        if (Array.isArray(navigator.languages)) {
+          navigator.languages.forEach(l => l && candidates.push(l));
+        }
+        if (navigator.language) candidates.push(navigator.language);
+      }
+      if (CFG.language) candidates.push(CFG.language);
+      if (document.documentElement.lang) candidates.push(document.documentElement.lang);
+      for (const raw of candidates) {
+        const short = String(raw).toLowerCase().split('-')[0];
+        if (I18N[short]) return short;
+      }
+      return 'ru';
+    }
+
+    function setLanguage(lang) {
+      const short = String(lang || '').toLowerCase().split('-')[0];
+      if (!I18N[short]) return;
+      state.langOverride = short;
+      try { localStorage.setItem('rw_webapp_lang', short); } catch (e) { }
+      applyI18n();
+      if (state.data) {
+        try { render(); } catch (e) { }
+      }
+      renderLangMenu();
+      toggleLangMenu(false);
     }
 
     function t(key, params = {}) {

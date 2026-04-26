@@ -11,6 +11,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    @font-face {
+      font-family: 'Twemoji Country Flags';
+      unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074, U+E0077, U+E007F;
+      src: url('https://cdn.jsdelivr.net/npm/country-flag-emoji-polyfill@0.1/dist/TwemojiCountryFlags.woff2') format('woff2');
+      font-display: swap;
+    }
+  </style>
   <script src="./telegram-web-app.js"></script>
   <link rel="stylesheet" href="./subscription_webapp.css">
 </head>
@@ -28,6 +36,16 @@
         <div id="brand-title" class="brand-title" data-brand-title>Моя подписка</div>
       </div>
       <div class="app-header-actions">
+        <div class="lang-menu">
+          <button id="lang-chip" class="lang-chip" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="lang-dropdown" aria-label="Language" onclick="toggleLangMenu()">
+            <span id="lang-chip-flag" class="lang-chip-flag" aria-hidden="true">🇷🇺</span>
+            <span id="lang-chip-label" class="lang-chip-label">RU</span>
+            <svg class="lang-chip-caret" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" aria-hidden="true">
+              <path d="M297.4 470.6C309.9 483.1 330.2 483.1 342.7 470.6L534.7 278.6C547.2 266.1 547.2 245.8 534.7 233.3C522.2 220.8 501.9 220.8 489.4 233.3L320 402.7L150.6 233.4C138.1 220.9 117.8 220.9 105.3 233.4C92.8 245.9 92.8 266.2 105.3 278.7L297.3 470.7z"/>
+            </svg>
+          </button>
+          <div id="lang-dropdown" class="lang-dropdown hidden" role="menu"></div>
+        </div>
         <div class="user-menu">
           <button id="user-chip" class="user-chip" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="user-dropdown" onclick="toggleUserMenu()">
             <img id="user-chip-avatar" class="user-chip-avatar" alt="" aria-hidden="true">
