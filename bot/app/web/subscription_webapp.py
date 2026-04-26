@@ -1,7 +1,11 @@
 import asyncio
+import ipaddress
 import json
 import logging
 import re
+import socket
+import time
+from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -29,6 +33,7 @@ from bot.services.severpay_service import SeverPayService
 from bot.services.subscription_service import SubscriptionService
 from bot.services.yookassa_service import YooKassaService
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
+from bot.utils.request_security import request_client_ip
 from config.settings import Settings
 from db.dal import payment_dal, subscription_dal, user_dal
 from db.dal.user_dal import UserMergeConflictError
@@ -46,8 +51,15 @@ WEBAPP_LOGO_PROXY_PATH = "/webapp-logo"
 _UNPATCHED_WIDGET_ORIGIN_SNIPPET = """    if (origin == 'https://telegram.org') {\n      origin = default_origin;\n    } else if (origin == 'https://telegram-js.azureedge.net' || origin == 'https://tg.dev') {\n      origin = dev_origin;\n    }\n"""
 _PATCHED_WIDGET_ORIGIN_SNIPPET = """    if (origin == 'https://telegram.org') {\n      origin = default_origin;\n    } else if (origin == 'https://telegram-js.azureedge.net' || origin == 'https://tg.dev') {\n      origin = dev_origin;\n    } else {\n      origin = default_origin;\n    }\n"""
 WEBAPP_CONFIG_PLACEHOLDER = "<!-- WEBAPP_CONFIG_SCRIPT -->"
+WEBAPP_I18N_PLACEHOLDER = "<!-- WEBAPP_I18N_SCRIPT -->"
 DEV_MOCK_START_MARKER = "<!-- WEBAPP_DEV_MOCK_START -->"
 DEV_MOCK_END_MARKER = "<!-- WEBAPP_DEV_MOCK_END -->"
+WEBAPP_RATE_LIMIT_WINDOW_SECONDS = 60
+WEBAPP_RATE_LIMIT_MAX_REQUESTS = 30
+WEBAPP_LOGO_MAX_BYTES = 2 * 1024 * 1024
+
+_SHARED_HTTP_SESSION: Optional[ClientSession] = None
+_SHARED_HTTP_SESSION_LOCK = asyncio.Lock()
 
 
 def create_subscription_webapp_application(
@@ -56,7 +68,7 @@ def create_subscription_webapp_application(
     settings: Settings,
     async_session_factory: sessionmaker,
 ) -> web.Application:
-    app = web.Application()
+    app = web.Application(middlewares=[_security_headers_middleware])
     app["bot"] = bot
     app["dp"] = dp
     app["settings"] = settings
@@ -65,6 +77,18 @@ def create_subscription_webapp_application(
     app["email_auth_service"] = EmailAuthService(settings)
     app["webapp_logo_cache"] = None
     app["webapp_logo_cache_lock"] = asyncio.Lock()
+    app["webapp_settings_cache"] = {"ts": 0.0, "data": {}}
+    app["webapp_rate_limit_buckets"] = {}
+    app["webapp_rate_limit_lock"] = asyncio.Lock()
+
+    async def _startup(app_obj: web.Application) -> None:
+        await _ensure_shared_http_session()
+
+    async def _shutdown(app_obj: web.Application) -> None:
+        await _close_shared_http_session()
+
+    app.on_startup.append(_startup)
+    app.on_shutdown.append(_shutdown)
 
     for key in (
         "subscription_service",
@@ -120,15 +144,9 @@ def _resolve_webapp_logo_url(settings: Settings) -> str:
         return ""
 
     parsed_logo_url = urlsplit(raw_logo_url)
-    if parsed_logo_url.scheme in {"http", "https"} or raw_logo_url.startswith("//"):
+    if parsed_logo_url.scheme == "https" and parsed_logo_url.hostname:
         return WEBAPP_LOGO_PROXY_PATH
-    return raw_logo_url
-
-
-def _normalize_webapp_logo_source_url(raw_logo_url: str) -> str:
-    if raw_logo_url.startswith("//"):
-        return f"https:{raw_logo_url}"
-    return raw_logo_url
+    return ""
 
 
 async def webapp_logo_route(request: web.Request) -> web.Response:
@@ -138,10 +156,13 @@ async def webapp_logo_route(request: web.Request) -> web.Response:
         raise web.HTTPNotFound(text="webapp_logo_not_configured")
 
     parsed_logo_url = urlsplit(raw_logo_url)
-    if parsed_logo_url.scheme not in {"http", "https"} and not raw_logo_url.startswith("//"):
+    if parsed_logo_url.scheme != "https" or not parsed_logo_url.hostname:
         raise web.HTTPNotFound(text="webapp_logo_not_proxied")
 
-    source_logo_url = _normalize_webapp_logo_source_url(raw_logo_url)
+    if not await _hostname_resolves_to_public_address(parsed_logo_url.hostname):
+        raise web.HTTPNotFound(text="webapp_logo_not_proxied")
+
+    source_logo_url = raw_logo_url
     logo_cache: Optional[Tuple[bytes, str]] = request.app.get("webapp_logo_cache")
     if logo_cache is None:
         cache_lock: asyncio.Lock = request.app["webapp_logo_cache_lock"]
@@ -163,39 +184,204 @@ async def webapp_logo_route(request: web.Request) -> web.Response:
 async def _fetch_webapp_logo(logo_url: str) -> Optional[Tuple[bytes, str]]:
     """Fetch and cache the configured logo on the server side."""
     try:
-        timeout = ClientTimeout(total=15)
-        async with ClientSession(
-            timeout=timeout,
-            headers={
-                "User-Agent": "Mozilla/5.0",
-                "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
-            },
-        ) as session:
-            async with session.get(logo_url, allow_redirects=True) as response:
-                if response.status != 200:
-                    logger.warning(
-                        "WEBAPP_LOGO_URL returned HTTP %s; keeping the logo hidden.",
-                        response.status,
-                    )
+        session = await _get_shared_http_session()
+        timeout = ClientTimeout(total=5)
+        async with session.get(logo_url, allow_redirects=False, timeout=timeout) as response:
+            if response.status != 200:
+                logger.warning(
+                    "WEBAPP_LOGO_URL returned HTTP %s; keeping the logo hidden.",
+                    response.status,
+                )
+                return None
+
+            content_type = (response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+            if content_type and not content_type.startswith("image/"):
+                logger.warning(
+                    "WEBAPP_LOGO_URL returned non-image content type %s; keeping the logo hidden.",
+                    content_type,
+                )
+                return None
+
+            body = bytearray()
+            async for chunk in response.content.iter_chunked(64 * 1024):
+                body.extend(chunk)
+                if len(body) > WEBAPP_LOGO_MAX_BYTES:
+                    logger.warning("WEBAPP_LOGO_URL exceeded the 2 MiB limit.")
                     return None
 
-                content_type = (response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
-                if content_type and not content_type.startswith("image/"):
-                    logger.warning(
-                        "WEBAPP_LOGO_URL returned non-image content type %s; keeping the logo hidden.",
-                        content_type,
-                    )
-                    return None
+            if not body:
+                logger.warning("WEBAPP_LOGO_URL returned an empty response body.")
+                return None
 
-                body = await response.read()
-                if not body:
-                    logger.warning("WEBAPP_LOGO_URL returned an empty response body.")
-                    return None
-
-                return body, content_type or "image/png"
+            return bytes(body), content_type or "image/png"
     except Exception as exc:
         logger.warning("Failed to fetch WEBAPP_LOGO_URL: %s", exc)
         return None
+
+
+async def _get_shared_http_session() -> ClientSession:
+    global _SHARED_HTTP_SESSION
+    async with _SHARED_HTTP_SESSION_LOCK:
+        if _SHARED_HTTP_SESSION is None or _SHARED_HTTP_SESSION.closed:
+            _SHARED_HTTP_SESSION = ClientSession(
+                timeout=ClientTimeout(total=30),
+                headers={
+                    "User-Agent": "Mozilla/5.0",
+                    "Accept": "application/javascript,text/javascript,*/*;q=0.8",
+                },
+            )
+        return _SHARED_HTTP_SESSION
+
+
+async def _ensure_shared_http_session() -> None:
+    await _get_shared_http_session()
+
+
+async def _close_shared_http_session() -> None:
+    global _SHARED_HTTP_SESSION
+    async with _SHARED_HTTP_SESSION_LOCK:
+        if _SHARED_HTTP_SESSION and not _SHARED_HTTP_SESSION.closed:
+            await _SHARED_HTTP_SESSION.close()
+        _SHARED_HTTP_SESSION = None
+
+
+async def _hostname_resolves_to_public_address(hostname: str) -> bool:
+    if not hostname:
+        return False
+
+    try:
+        ip_obj = ipaddress.ip_address(hostname)
+        return not (
+            ip_obj.is_private
+            or ip_obj.is_loopback
+            or ip_obj.is_link_local
+            or ip_obj.is_unspecified
+            or ip_obj.is_reserved
+        )
+    except ValueError:
+        pass
+
+    loop = asyncio.get_running_loop()
+    try:
+        resolved = await loop.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
+    except Exception:
+        return False
+
+    found_public_ip = False
+    for entry in resolved:
+        sockaddr = entry[4]
+        if not sockaddr:
+            continue
+        candidate = sockaddr[0]
+        try:
+            ip_obj = ipaddress.ip_address(candidate)
+        except ValueError:
+            continue
+        if (
+            ip_obj.is_private
+            or ip_obj.is_loopback
+            or ip_obj.is_link_local
+            or ip_obj.is_unspecified
+            or ip_obj.is_reserved
+        ):
+            return False
+        found_public_ip = True
+
+    return found_public_ip
+
+
+@web.middleware
+async def _security_headers_middleware(request: web.Request, handler):
+    try:
+        response = await handler(request)
+    except web.HTTPException as exc:
+        response = exc
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        (
+            "default-src 'self'; "
+            "script-src 'self' https://telegram.org; "
+            "frame-ancestors https://web.telegram.org https://t.me; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; "
+            "img-src 'self' data: https:; "
+            "connect-src 'self'; "
+            "object-src 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
+        ),
+    )
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault(
+        "Permissions-Policy",
+        (
+            "accelerometer=(), autoplay=(), camera=(), display-capture=(), "
+            "encrypted-media=(), geolocation=(), gyroscope=(), magnetometer=(), "
+            "microphone=(), midi=(), payment=(), usb=()"
+        ),
+    )
+    return response
+
+
+def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
+    settings: Settings = request.app["settings"]
+    cache = request.app["webapp_settings_cache"]
+    now = time.monotonic()
+    if now - float(cache.get("ts", 0.0)) >= 60 or not cache.get("data"):
+        cache["data"] = {
+            "logo_url": _resolve_webapp_logo_url(settings),
+            "subscription_options": settings.subscription_options,
+            "stars_subscription_options": settings.stars_subscription_options,
+            "support_url": settings.SUPPORT_LINK or "",
+            "terms_url": settings.TERMS_OF_SERVICE_URL or "",
+            "privacy_policy_url": settings.PRIVACY_POLICY_URL or "",
+            "user_agreement_url": settings.USER_AGREEMENT_URL or "",
+            "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+            "email_auth_enabled": settings.email_auth_configured,
+            "language": _normalize_language(settings.DEFAULT_LANGUAGE),
+        }
+        cache["ts"] = now
+    return cache["data"]
+
+
+async def _enforce_webapp_rate_limit(
+    request: web.Request,
+    *,
+    user_id: int,
+    action: str,
+) -> Optional[web.Response]:
+    settings: Settings = request.app["settings"]
+    ip_address = request_client_ip(request, trusted_proxies=settings.trusted_proxies) or request.remote or "unknown"
+    key = f"{action}:{ip_address}:{int(user_id)}"
+    buckets: Dict[str, deque[float]] = request.app["webapp_rate_limit_buckets"]
+    lock: asyncio.Lock = request.app["webapp_rate_limit_lock"]
+    now = time.monotonic()
+
+    async with lock:
+        bucket = buckets.setdefault(key, deque())
+        while bucket and now - bucket[0] >= WEBAPP_RATE_LIMIT_WINDOW_SECONDS:
+            bucket.popleft()
+        if not bucket:
+            buckets.pop(key, None)
+            bucket = buckets.setdefault(key, deque())
+        if len(bucket) >= WEBAPP_RATE_LIMIT_MAX_REQUESTS:
+            retry_after = max(
+                1,
+                int(WEBAPP_RATE_LIMIT_WINDOW_SECONDS - (now - bucket[0])),
+            ) if bucket else WEBAPP_RATE_LIMIT_WINDOW_SECONDS
+            return web.json_response(
+                {
+                    "ok": False,
+                    "error": "rate_limited",
+                    "retry_after": retry_after,
+                },
+                status=429,
+                headers={"Retry-After": str(retry_after)},
+            )
+        bucket.append(now)
+
+    return None
 
 
 async def telegram_web_app_asset_route(request: web.Request) -> web.Response:
@@ -241,22 +427,15 @@ async def telegram_widget_asset_route(request: web.Request) -> web.Response:
 async def refresh_telegram_web_app_sdk() -> bool:
     """Best-effort refresh of the vendored Telegram Web App SDK."""
     try:
-        timeout = ClientTimeout(total=30)
-        async with ClientSession(
-            timeout=timeout,
-            headers={
-                "User-Agent": "Mozilla/5.0",
-                "Accept": "application/javascript,text/javascript,*/*;q=0.8",
-            },
-        ) as session:
-            async with session.get(TELEGRAM_WEB_APP_SDK_URL) as response:
-                if response.status != 200:
-                    logger.warning(
-                        "Telegram Web App SDK refresh returned HTTP %s; keeping the bundled copy.",
-                        response.status,
-                    )
-                    return False
-                data = await response.read()
+        session = await _get_shared_http_session()
+        async with session.get(TELEGRAM_WEB_APP_SDK_URL) as response:
+            if response.status != 200:
+                logger.warning(
+                    "Telegram Web App SDK refresh returned HTTP %s; keeping the bundled copy.",
+                    response.status,
+                )
+                return False
+            data = await response.read()
     except Exception as exc:
         logger.warning("Failed to refresh Telegram Web App SDK: %s", exc)
         return False
@@ -291,22 +470,15 @@ async def refresh_telegram_web_app_sdk() -> bool:
 async def refresh_telegram_login_widget_sdk() -> bool:
     """Best-effort refresh of the vendored Telegram Login Widget SDK."""
     try:
-        timeout = ClientTimeout(total=30)
-        async with ClientSession(
-            timeout=timeout,
-            headers={
-                "User-Agent": "Mozilla/5.0",
-                "Accept": "application/javascript,text/javascript,*/*;q=0.8",
-            },
-        ) as session:
-            async with session.get(TELEGRAM_WIDGET_SDK_URL) as response:
-                if response.status != 200:
-                    logger.warning(
-                        "Telegram Login Widget SDK refresh returned HTTP %s; keeping the bundled copy.",
-                        response.status,
-                    )
-                    return False
-        data = await response.read()
+        session = await _get_shared_http_session()
+        async with session.get(TELEGRAM_WIDGET_SDK_URL) as response:
+            if response.status != 200:
+                logger.warning(
+                    "Telegram Login Widget SDK refresh returned HTTP %s; keeping the bundled copy.",
+                    response.status,
+                )
+                return False
+            data = await response.read()
     except Exception as exc:
         logger.warning("Failed to refresh Telegram Login Widget SDK: %s", exc)
         return False
@@ -365,26 +537,38 @@ async def index_route(request: web.Request) -> web.Response:
         raise web.HTTPNotFound(text="webapp_disabled")
 
     html = TEMPLATE_PATH.read_text(encoding="utf-8")
+    cached = _get_cached_webapp_settings(request)
     config = {
         "title": settings.WEBAPP_TITLE,
         "primaryColor": settings.WEBAPP_PRIMARY_COLOR,
-        "logoUrl": _resolve_webapp_logo_url(settings),
+        "logoUrl": cached["logo_url"],
         "apiBase": "/api",
         "telegramLoginBotUsername": request.app.get("bot_username") or "",
-        "supportUrl": settings.SUPPORT_LINK or "",
-        "privacyPolicyUrl": settings.PRIVACY_POLICY_URL or "",
-        "userAgreementUrl": settings.USER_AGREEMENT_URL or "",
-        "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
-        "language": _normalize_language(settings.DEFAULT_LANGUAGE),
-        "emailAuthEnabled": settings.email_auth_configured,
+        "supportUrl": cached["support_url"],
+        "termsUrl": cached["terms_url"],
+        "privacyPolicyUrl": cached["privacy_policy_url"],
+        "userAgreementUrl": cached["user_agreement_url"],
+        "currency": cached["currency"],
+        "language": cached["language"],
+        "emailAuthEnabled": cached["email_auth_enabled"],
     }
     html = _strip_marked_block(html, DEV_MOCK_START_MARKER, DEV_MOCK_END_MARKER)
+    i18n_instance: Optional[object] = request.app.get("i18n")
+    i18n_payload = getattr(i18n_instance, "locales_data", {}) if i18n_instance else {}
     html = html.replace(
         WEBAPP_CONFIG_PLACEHOLDER,
         (
-            "<script>window.__WEBAPP_CONFIG__="
+            "<script id=\"webapp-config\" type=\"application/json\">"
             + json.dumps(config, ensure_ascii=False, separators=(",", ":"))
-            + ";</script>"
+            + "</script>"
+        ),
+    )
+    html = html.replace(
+        WEBAPP_I18N_PLACEHOLDER,
+        (
+            "<script id=\"i18n\" type=\"application/json\">"
+            + json.dumps(i18n_payload, ensure_ascii=False, separators=(",", ":"))
+            + "</script>"
         ),
     )
     return web.Response(text=html, content_type="text/html", charset="utf-8")
@@ -444,6 +628,14 @@ async def auth_token_route(request: web.Request) -> web.Response:
 
     if not telegram_user:
         return _json_error(401, "invalid_auth", "Invalid Telegram auth data")
+
+    rate_limit_response = await _enforce_webapp_rate_limit(
+        request,
+        user_id=int(telegram_user.get("id") or 0),
+        action="auth_token",
+    )
+    if rate_limit_response:
+        return rate_limit_response
 
     async_session_factory: sessionmaker = request.app["async_session_factory"]
     authenticated_user_id: Optional[int] = None
@@ -607,6 +799,14 @@ async def account_email_request_route(request: web.Request) -> web.Response:
 
 async def account_email_verify_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
+    rate_limit_response = await _enforce_webapp_rate_limit(
+        request,
+        user_id=user_id,
+        action="account_email_verify",
+    )
+    if rate_limit_response:
+        return rate_limit_response
+
     payload = await _read_json(request)
     email = normalize_email(str(payload.get("email") or ""))
     code = str(payload.get("code") or "")
@@ -912,6 +1112,14 @@ async def apply_promo_route(request: web.Request) -> web.Response:
 
 async def create_payment_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
+    rate_limit_response = await _enforce_webapp_rate_limit(
+        request,
+        user_id=user_id,
+        action="payments_create",
+    )
+    if rate_limit_response:
+        return rate_limit_response
+
     payload = await _read_json(request)
     method = str(payload.get("method") or "").strip().lower()
     try:
@@ -920,8 +1128,9 @@ async def create_payment_route(request: web.Request) -> web.Response:
         return _json_error(400, "invalid_plan", "Invalid subscription period")
 
     settings: Settings = request.app["settings"]
-    price = settings.subscription_options.get(months)
-    stars_price = settings.stars_subscription_options.get(months)
+    cached = _get_cached_webapp_settings(request)
+    price = cached["subscription_options"].get(months)
+    stars_price = cached["stars_subscription_options"].get(months)
     if price is None and method != "stars":
         return _json_error(400, "invalid_plan", "Subscription period is not available")
     if method == "stars" and (stars_price is None or int(stars_price) <= 0):
@@ -1433,6 +1642,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
     settings: Settings = request.app["settings"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
     subscription_service: SubscriptionService = request.app["subscription_service"]
+    cached = _get_cached_webapp_settings(request)
 
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
@@ -1496,7 +1706,12 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             "purchased_count": referral_stats.get("purchased_count", 0),
             "bonus_details": _serialize_referral_bonus_details(settings, lang),
         },
-        "plans": _serialize_plans(settings, lang),
+        "plans": _serialize_plans(
+            settings,
+            lang,
+            subscription_options=cached["subscription_options"],
+            stars_subscription_options=cached["stars_subscription_options"],
+        ),
         "payment_methods": _serialize_payment_methods(settings, request.app),
         "settings": {
             "support_url": settings.SUPPORT_LINK,
@@ -1591,16 +1806,24 @@ def _serialize_subscription(
     }
 
 
-def _serialize_plans(settings: Settings, lang: str) -> List[Dict[str, Any]]:
+def _serialize_plans(
+    settings: Settings,
+    lang: str,
+    *,
+    subscription_options: Optional[Dict[int, float]] = None,
+    stars_subscription_options: Optional[Dict[int, int]] = None,
+) -> List[Dict[str, Any]]:
+    active_subscription_options = subscription_options or settings.subscription_options
+    active_stars_subscription_options = stars_subscription_options or settings.stars_subscription_options
     plans: List[Dict[str, Any]] = []
-    for months, price in sorted(settings.subscription_options.items()):
+    for months, price in sorted(active_subscription_options.items()):
         plan = {
             "months": int(months),
             "price": float(price),
             "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
             "title": _format_months_title(int(months), lang),
         }
-        stars_price = settings.stars_subscription_options.get(months)
+        stars_price = active_stars_subscription_options.get(months)
         if stars_price is not None and int(stars_price) > 0:
             plan["stars_price"] = int(stars_price)
         plans.append(plan)

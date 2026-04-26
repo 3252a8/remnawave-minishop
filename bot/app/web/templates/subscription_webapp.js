@@ -77,7 +77,18 @@ const MOCK = (() => {
       const isLocal = window.location.protocol === 'file:' || host === 'localhost' || host === '127.0.0.1' || host === '';
       return mock && isLocal ? mock : null;
     })();
-    const CFG = window.__WEBAPP_CONFIG__ || (MOCK && MOCK.config) || {};
+    function readJsonScript(id) {
+      const node = document.getElementById(id);
+      if (!node || !node.textContent) return null;
+      try {
+        return JSON.parse(node.textContent);
+      } catch (error) {
+        console.warn('Failed to parse JSON config from #' + id, error);
+        return null;
+      }
+    }
+
+    const CFG = readJsonScript('webapp-config') || (MOCK && MOCK.config) || {};
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
     const TELEGRAM_LOGIN_WIDGET_URL = './telegram-widget.js';
     const state = {
@@ -148,7 +159,7 @@ const MOCK = (() => {
       stepName: 'step-name'
     };
 
-    const I18N = {
+    const FALLBACK_I18N = {
       ru: {
         page_title: 'Моя подписка',
         loading: 'Загрузка...',
@@ -424,6 +435,7 @@ const MOCK = (() => {
         referral_bonus_explanation: 'Bonuses are awarded once for each invited user when they purchase a subscription.'
       }
     };
+    const I18N = readJsonScript('i18n') || (MOCK && MOCK.i18n) || FALLBACK_I18N;
 
     const accent = CFG.primaryColor || '#00fe7a';
     document.documentElement.style.setProperty('--accent', accent);
@@ -468,6 +480,7 @@ const MOCK = (() => {
       }
     });
 
+    document.addEventListener('click', handleDocumentActionClick);
     document.addEventListener('click', handleDocumentClickForUserMenu);
     document.addEventListener('click', handleDocumentClickForLangMenu);
     renderLangMenu();
@@ -1283,6 +1296,93 @@ const MOCK = (() => {
       toggleLangMenu(false);
     }
 
+    function handleDocumentActionClick(event) {
+      const target = event.target instanceof Element ? event.target.closest('[data-action]') : null;
+      if (!target || !document.contains(target) || target.disabled) return;
+
+      const action = String(target.dataset.action || '');
+      if (!action) return;
+
+      switch (action) {
+        case 'toggle-user-menu':
+          toggleUserMenu();
+          break;
+        case 'toggle-lang-menu':
+          toggleLangMenu();
+          break;
+        case 'logout':
+          logout();
+          break;
+        case 'open-connect-link':
+          openConnectLink();
+          break;
+        case 'toggle-payment-flow':
+          togglePaymentFlow();
+          break;
+        case 'open-referral-modal':
+          openReferralModal();
+          break;
+        case 'open-promo-modal':
+          openPromoModal();
+          break;
+        case 'close-payment-flow':
+          closePaymentFlow();
+          break;
+        case 'close-promo-modal':
+          closePromoModal();
+          break;
+        case 'close-referral-modal':
+          closeReferralModal();
+          break;
+        case 'close-account-merge-modal':
+          closeAccountMergeModal();
+          break;
+        case 'close-email-login-code-modal':
+          closeEmailLoginCodeModal();
+          break;
+        case 'request-email-link-code':
+          requestEmailLinkCode();
+          break;
+        case 'verify-email-link-code':
+          verifyEmailLinkCode();
+          break;
+        case 'request-email-login-code':
+          requestEmailLoginCode();
+          break;
+        case 'verify-email-login-code':
+          verifyEmailLoginCode();
+          break;
+        case 'resend-email-login-code':
+          resendEmailLoginCode();
+          break;
+        case 'set-auth-mode':
+          setAuthMode(target.dataset.mode || 'email');
+          break;
+        case 'apply-promo-code':
+          applyPromoCode();
+          break;
+        case 'select-plan':
+          selectPlan(target.dataset.months || '');
+          break;
+        case 'create-payment':
+          createAndOpenPayment(target.dataset.method || '');
+          break;
+        case 'copy-referral-link':
+          copyReferralLink(target.dataset.kind || 'webapp');
+          break;
+        case 'copy-config-link':
+          copyConfigLink();
+          break;
+        case 'check-payment':
+          checkPayment();
+          break;
+        default:
+          return;
+      }
+
+      event.preventDefault();
+    }
+
     function openPromoModal() {
       state.promoModalOpen = true;
       clearPromoStatus();
@@ -1438,7 +1538,7 @@ const MOCK = (() => {
             <div id="account-merge-title" class="${TW.sectionTitle} text-[var(--accent)]">${escapeHtml(t('account_merge_title'))}</div>
             <div id="account-merge-caption" class="${TW.flowCaption}">${escapeHtml(t('account_merge_caption'))}</div>
           </div>
-          <button class="${TW.iconBtn}" type="button" data-title-i18n="close" onclick="closeAccountMergeModal()">×</button>
+          <button class="${TW.iconBtn}" type="button" data-title-i18n="close" data-action="close-account-merge-modal">×</button>
         </div>
 
         <div class="notice grid gap-2">
@@ -1498,7 +1598,7 @@ const MOCK = (() => {
             <div class="${TW.sectionTitle} text-[var(--accent)]">${escapeHtml(t('referral_title'))}</div>
             <div class="${TW.flowCaption}">${escapeHtml(t('referral_caption'))}</div>
           </div>
-          <button class="${TW.iconBtn}" type="button" data-title-i18n="close" onclick="closeReferralModal()">×</button>
+          <button class="${TW.iconBtn}" type="button" data-title-i18n="close" data-action="close-referral-modal">×</button>
         </div>
         
         <div class="grid gap-4 mt-1">
@@ -1530,7 +1630,7 @@ const MOCK = (() => {
             <div class="${TW.metricLabel}">${escapeHtml(label)}</div>
             <div class="${TW.referralLinkValue}">${escapeHtml(link || t('not_available'))}</div>
           </div>
-          <button class="${TW.btnBase} w-12 px-0" type="button" onclick="copyReferralLink('${escapeAttr(kind)}')" ${link ? '' : 'disabled'} data-title-i18n="copy_link">
+          <button class="${TW.btnBase} w-12 px-0" type="button" data-action="copy-referral-link" data-kind="${escapeAttr(kind)}" ${link ? '' : 'disabled'} data-title-i18n="copy_link">
             <svg class="h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" aria-hidden="true">
               <path d="M352 512L128 512L128 288L176 288L176 224L128 224C92.7 224 64 252.7 64 288L64 512C64 547.3 92.7 576 128 576L352 576C387.3 576 416 547.3 416 512L416 464L352 464L352 512zM288 416L512 416C547.3 416 576 387.3 576 352L576 128C576 92.7 547.3 64 512 64L288 64C252.7 64 224 92.7 224 128L224 352C224 387.3 252.7 416 288 416z"/>
             </svg>
@@ -1841,7 +1941,7 @@ const MOCK = (() => {
         const planMonths = Number(plan.months);
         const isActive = state.selectedPlan && Number(state.selectedPlan.months) === planMonths;
         return `
-          <button class="${TW.planCard} ${isActive ? TW.planCardActive : ''}" type="button" onclick="selectPlan(${planMonths})" ${state.creatingPayment ? 'disabled' : ''}>
+          <button class="${TW.planCard} ${isActive ? TW.planCardActive : ''}" type="button" data-action="select-plan" data-months="${planMonths}" ${state.creatingPayment ? 'disabled' : ''}>
             ${escapeHtml(plan.title)}
           </button>
         `;
@@ -1880,7 +1980,7 @@ const MOCK = (() => {
           ? TW.paymentMethodCardPlatega
           : TW.paymentMethodCardCryptopay;
         return `
-          <button class="${TW.paymentMethodCard} ${variantClass}" type="button" data-i18n="${labelKey}" onclick="createAndOpenPayment('${escapeAttr(method.id)}')" ${state.creatingPayment ? 'disabled' : ''}>
+          <button class="${TW.paymentMethodCard} ${variantClass}" type="button" data-action="create-payment" data-method="${escapeAttr(method.id)}" data-i18n="${labelKey}" ${state.creatingPayment ? 'disabled' : ''}>
             ${escapeHtml(t(labelKey))}
           </button>
         `;
@@ -2271,7 +2371,7 @@ const MOCK = (() => {
     }
 
     function setBrand() {
-      const title = CFG.title || t('page_title');
+      const title = CFG.title || document.title || t('page_title');
       const logoUrl = CFG.logoUrl || '';
       document.title = title;
       setFavicon(logoUrl);

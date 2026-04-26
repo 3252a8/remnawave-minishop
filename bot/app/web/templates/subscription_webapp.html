@@ -37,7 +37,7 @@
       </div>
       <div class="app-header-actions">
         <div class="lang-menu">
-          <button id="lang-chip" class="lang-chip" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="lang-dropdown" aria-label="Language" onclick="toggleLangMenu()">
+          <button id="lang-chip" class="lang-chip" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="lang-dropdown" aria-label="Language" data-action="toggle-lang-menu">
             <span id="lang-chip-flag" class="lang-chip-flag" aria-hidden="true">🇷🇺</span>
             <span id="lang-chip-label" class="lang-chip-label">RU</span>
             <svg class="lang-chip-caret" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" aria-hidden="true">
@@ -47,7 +47,7 @@
           <div id="lang-dropdown" class="lang-dropdown hidden" role="menu"></div>
         </div>
         <div class="user-menu">
-          <button id="user-chip" class="user-chip" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="user-dropdown" onclick="toggleUserMenu()">
+          <button id="user-chip" class="user-chip" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="user-dropdown" data-action="toggle-user-menu">
             <img id="user-chip-avatar" class="user-chip-avatar" alt="" aria-hidden="true">
             <span id="user-chip-name" class="user-chip-name">...</span>
             <svg class="user-chip-caret" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" aria-hidden="true">
@@ -72,7 +72,7 @@
                 <span id="user-dropdown-telegram-status" class="user-dropdown-row-status">...</span>
               </div>
             </div>
-            <button class="user-dropdown-logout" type="button" role="menuitem" onclick="logout()">
+            <button class="user-dropdown-logout" type="button" role="menuitem" data-action="logout">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" aria-hidden="true">
                 <path d="M224 160C241.7 160 256 145.7 256 128C256 110.3 241.7 96 224 96L160 96C107 96 64 139 64 192L64 448C64 501 107 544 160 544L224 544C241.7 544 256 529.7 256 512C256 494.3 241.7 480 224 480L160 480C142.3 480 128 465.7 128 448L128 192C128 174.3 142.3 160 160 160L224 160zM566.6 342.6C579.1 330.1 579.1 309.8 566.6 297.3L438.6 169.3C426.1 156.8 405.8 156.8 393.3 169.3C380.8 181.8 380.8 202.1 393.3 214.6L466.7 288L256 288C238.3 288 224 302.3 224 320C224 337.7 238.3 352 256 352L466.7 352L393.3 425.4C380.8 437.9 380.8 458.2 393.3 470.7C405.8 483.2 426.1 483.2 438.6 470.7L566.6 342.7z"/>
               </svg>
@@ -102,11 +102,11 @@
       </div>
 
       <div id="connect-actions">
-        <button id="connect-btn" class="btn-primary w-full" type="button" onclick="openConnectLink()" data-i18n="connect">Подключиться</button>
+        <button id="connect-btn" class="btn-primary w-full" type="button" data-action="open-connect-link" data-i18n="connect">Подключиться</button>
       </div>
 
       <div class="mt-0.5 border-t border-[var(--border)] pt-3.5">
-        <button id="extend-btn" class="btn-ghost w-full" type="button" onclick="togglePaymentFlow()" data-i18n="extend_subscription">Продлить подписку/Добавить дни</button>
+        <button id="extend-btn" class="btn-ghost w-full" type="button" data-action="toggle-payment-flow" data-i18n="extend_subscription">Продлить подписку/Добавить дни</button>
       </div>
     </section>
 
@@ -125,11 +125,11 @@
         </div>
         <div class="grid grid-cols-[minmax(0,1fr)_minmax(120px,auto)] gap-2">
           <input id="email-link-input" class="input w-full" type="email" autocomplete="email" inputmode="email" placeholder="mail@example.com" data-placeholder-i18n="email_placeholder">
-          <button id="email-link-send-btn" class="btn" type="button" onclick="requestEmailLinkCode()" data-i18n="send_code">Отправить код</button>
+          <button id="email-link-send-btn" class="btn" type="button" data-action="request-email-link-code" data-i18n="send_code">Отправить код</button>
         </div>
         <div id="email-link-code-row" class="hidden grid grid-cols-[minmax(0,1fr)_minmax(120px,auto)] gap-2">
           <input id="email-link-code-input" class="input input-code w-full" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" data-placeholder-i18n="code_placeholder">
-          <button id="email-link-verify-btn" class="btn-primary" type="button" onclick="verifyEmailLinkCode()" data-i18n="confirm">Подтвердить</button>
+          <button id="email-link-verify-btn" class="btn-primary" type="button" data-action="verify-email-link-code" data-i18n="confirm">Подтвердить</button>
         </div>
       </div>
 
@@ -144,8 +144,8 @@
     </section>
 
     <section class="grid min-w-0 grid-cols-2 gap-2">
-      <button class="btn w-full" type="button" onclick="openReferralModal()" data-i18n="referral_title">Пригласить друга</button>
-      <button class="btn w-full" type="button" onclick="openPromoModal()" data-i18n="promo_title">Промокод</button>
+      <button class="btn w-full" type="button" data-action="open-referral-modal" data-i18n="referral_title">Пригласить друга</button>
+      <button class="btn w-full" type="button" data-action="open-promo-modal" data-i18n="promo_title">Промокод</button>
     </section>
 
 
@@ -159,13 +159,13 @@
   </main>
 
   <div id="payment-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="payment-title">
-    <button class="modal-backdrop" type="button" data-title-i18n="close_payment" aria-label="Закрыть оплату" onclick="closePaymentFlow()"></button>
+    <button class="modal-backdrop" type="button" data-title-i18n="close_payment" aria-label="Закрыть оплату" data-action="close-payment-flow"></button>
     <section id="payment-flow" class="panel-modal modal-card grid gap-4 p-4">
       <div class="panel-head">
         <div>
           <div id="payment-title" class="section-title text-[var(--accent)]" data-i18n="payment_title">Оплата подписки</div>
         </div>
-        <button class="icon-btn" type="button" data-title-i18n="close_payment" aria-label="Закрыть оплату" onclick="closePaymentFlow()">×</button>
+        <button class="icon-btn" type="button" data-title-i18n="close_payment" aria-label="Закрыть оплату" data-action="close-payment-flow">×</button>
       </div>
 
       <div class="grid gap-2.5">
@@ -186,35 +186,35 @@
   </div>
 
   <div id="promo-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="promo-title">
-    <button class="modal-backdrop" type="button" data-title-i18n="close" aria-label="Закрыть" onclick="closePromoModal()"></button>
+    <button class="modal-backdrop" type="button" data-title-i18n="close" aria-label="Закрыть" data-action="close-promo-modal"></button>
     <section id="promo-panel" class="panel-modal modal-card grid gap-3.5 p-[17px]">
       <div class="panel-head">
         <div>
           <div id="promo-title" class="section-title text-[var(--accent)]" data-i18n="promo_title">Промокод</div>
           <div class="section-caption" data-i18n="promo_caption">Введите код, чтобы начислить бонусные дни.</div>
         </div>
-        <button class="icon-btn" type="button" data-title-i18n="close" aria-label="Закрыть" onclick="closePromoModal()">×</button>
+        <button class="icon-btn" type="button" data-title-i18n="close" aria-label="Закрыть" data-action="close-promo-modal">×</button>
       </div>
       <div class="grid grid-cols-[minmax(0,1fr)_minmax(120px,auto)] gap-2">
         <input id="promo-code-input" class="input input-code w-full" type="text" autocomplete="off" inputmode="text" placeholder="PROMO2026" data-placeholder-i18n="promo_placeholder">
-        <button id="promo-apply-btn" class="btn-primary" type="button" onclick="applyPromoCode()" data-i18n="apply_promo">Применить</button>
+        <button id="promo-apply-btn" class="btn-primary" type="button" data-action="apply-promo-code" data-i18n="apply_promo">Применить</button>
       </div>
       <div id="promo-status" class="status-text hidden" aria-live="polite"></div>
     </section>
   </div>
 
   <div id="referral-modal" class="modal modal--page hidden" role="dialog" aria-modal="true" aria-labelledby="referral-title">
-    <button class="modal-backdrop" type="button" data-title-i18n="close" aria-label="Закрыть" onclick="closeReferralModal()"></button>
+    <button class="modal-backdrop" type="button" data-title-i18n="close" aria-label="Закрыть" data-action="close-referral-modal"></button>
     <section id="referral-panel" class="panel-modal modal-card grid gap-3.5 p-[17px]"></section>
   </div>
 
   <div id="account-merge-modal" class="modal modal--page hidden" role="dialog" aria-modal="true" aria-labelledby="account-merge-title" aria-describedby="account-merge-caption">
-    <button class="modal-backdrop" type="button" data-title-i18n="close" aria-label="Закрыть" onclick="closeAccountMergeModal()"></button>
+    <button class="modal-backdrop" type="button" data-title-i18n="close" aria-label="Закрыть" data-action="close-account-merge-modal"></button>
     <section id="account-merge-panel" class="panel-modal modal-card grid gap-3.5 p-[17px]"></section>
   </div>
 
   <div id="email-code-modal" class="modal auth-code-modal hidden" role="dialog" aria-modal="true" aria-labelledby="email-code-title" aria-describedby="email-code-caption">
-    <button class="modal-backdrop" type="button" data-title-i18n="close" aria-label="Закрыть" onclick="closeEmailLoginCodeModal()"></button>
+    <button class="modal-backdrop" type="button" data-title-i18n="close" aria-label="Закрыть" data-action="close-email-login-code-modal"></button>
     <div class="relative z-[1] grid w-[min(100%,420px)] justify-items-stretch gap-2.5">
       <section class="panel-modal modal-card grid gap-3.5 p-[18px]">
         <div class="panel-head">
@@ -222,7 +222,7 @@
             <div id="email-code-title" class="section-title" data-i18n="email_code_title">Подтвердите вход</div>
             <div id="email-code-caption" class="section-caption" data-i18n="email_code_caption">Введите 6-значный код из письма.</div>
           </div>
-          <button class="icon-btn" type="button" data-title-i18n="close" aria-label="Закрыть" onclick="closeEmailLoginCodeModal()">×</button>
+          <button class="icon-btn" type="button" data-title-i18n="close" aria-label="Закрыть" data-action="close-email-login-code-modal">×</button>
         </div>
 
         <div class="metric rounded-[var(--radius-md)] grid-cols-[minmax(0,0.6fr)_minmax(0,1.4fr)]">
@@ -245,10 +245,10 @@
         <div id="email-code-status" class="status-text hidden" aria-live="polite"></div>
 
         <div class="grid gap-2">
-          <button id="email-login-verify-btn" class="btn-primary w-full" type="button" onclick="verifyEmailLoginCode()" data-i18n="login">Войти</button>
+          <button id="email-login-verify-btn" class="btn-primary w-full" type="button" data-action="verify-email-login-code" data-i18n="login">Войти</button>
         </div>
       </section>
-      <button id="email-login-resend-btn" class="code-modal-resend" type="button" onclick="resendEmailLoginCode()" data-i18n="resend_code">Отправить еще раз</button>
+      <button id="email-login-resend-btn" class="code-modal-resend" type="button" data-action="resend-email-login-code" data-i18n="resend_code">Отправить еще раз</button>
     </div>
   </div>
 
@@ -264,14 +264,14 @@
       <h1 class="section-title text-[22px] leading-[1.1]" data-i18n="login_title">Войдите или зарегистрируйтесь</h1>
       <div class="grid gap-2.5">
         <div class="auth-tabs-wrapper" role="tablist">
-          <button id="email-auth-tab" class="auth-tab active" type="button" onclick="setAuthMode('email')" data-i18n="email_login_tab">Email</button>
-          <button id="telegram-auth-tab" class="auth-tab" type="button" onclick="setAuthMode('telegram')" data-i18n="telegram_login_tab">Telegram</button>
+          <button id="email-auth-tab" class="auth-tab active" type="button" data-action="set-auth-mode" data-mode="email" data-i18n="email_login_tab">Email</button>
+          <button id="telegram-auth-tab" class="auth-tab" type="button" data-action="set-auth-mode" data-mode="telegram" data-i18n="telegram_login_tab">Telegram</button>
         </div>
         <div class="login-auth-body">
           <div id="email-login-pane" class="grid gap-2.5">
             <div class="grid gap-2.5">
               <input id="email-login-input" class="input w-full" type="email" autocomplete="email" inputmode="email" placeholder="mail@example.com" data-placeholder-i18n="email_placeholder">
-              <button id="email-login-send-btn" class="btn-primary w-full" type="button" onclick="requestEmailLoginCode()" data-i18n="login_continue">Продолжить</button>
+              <button id="email-login-send-btn" class="btn-primary w-full" type="button" data-action="request-email-login-code" data-i18n="login_continue">Продолжить</button>
             </div>
           </div>
           <div id="telegram-login-pane" class="hidden grid gap-2.5">
@@ -289,6 +289,7 @@
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
+  <!-- WEBAPP_I18N_SCRIPT -->
   <!-- WEBAPP_CONFIG_SCRIPT -->
   <script src="./subscription_webapp.js" defer></script>
 </body>
