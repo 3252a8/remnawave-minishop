@@ -1,5 +1,7 @@
+import hashlib
 import logging
 import json
+import hmac
 from typing import Optional
 
 from aiogram import Bot
@@ -18,6 +20,8 @@ from bot.services.notification_service import NotificationService
 from db.dal import payment_dal, user_dal
 from bot.utils.text_sanitizer import sanitize_display_name, username_for_display
 from bot.utils.config_link import prepare_config_links
+
+logger = logging.getLogger(__name__)
 
 
 class CryptoPayService:
@@ -38,6 +42,7 @@ class CryptoPayService:
         self.async_session_factory = async_session_factory
         self.subscription_service = subscription_service
         self.referral_service = referral_service
+        self.token = token
         if token:
             net = Networks.TEST_NET if str(network).lower() == "testnet" else Networks.MAIN_NET
             self.client = AioCryptoPay(token=token, network=net)
@@ -261,9 +266,27 @@ class CryptoPayService:
             except Exception as e:
                 logging.error(f"Failed to send crypto_pay payment notification: {e}")
 
+    def _validate_webhook_signature(self, raw_body: bytes, signature: str) -> bool:
+        if not self.token:
+            return False
+
+        expected_signature = hmac.new(
+            hashlib.sha256(self.token.encode("utf-8")).digest(),
+            raw_body,
+            hashlib.sha256,
+        ).hexdigest()
+        if not hmac.compare_digest(expected_signature, signature or ""):
+            logger.error("CryptoPay signature mismatch")
+            return False
+        return True
+
     async def webhook_route(self, request: web.Request) -> web.Response:
         if not self.configured or not self.client:
             return web.Response(status=503, text="cryptopay_disabled")
+        raw_body = await request.read()
+        signature = request.headers.get("crypto-pay-api-signature", "")
+        if not self._validate_webhook_signature(raw_body, signature):
+            return web.Response(status=401)
         return await self.client.get_updates(request)
 
 
