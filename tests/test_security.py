@@ -4,6 +4,11 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+from aiohttp import web
+
+from bot.app.web import subscription_webapp
+from bot.app.web.webapp_auth import create_webapp_session_token
+from bot.services.crypto_pay_service import CryptoPayService
 from bot.handlers.user.payment import yookassa_webhook_route
 from bot.services.freekassa_service import FreeKassaService
 from bot.utils.request_security import request_client_ip
@@ -95,6 +100,132 @@ class FreeKassaServiceTests(unittest.TestCase):
 
         self.assertEqual(response.status, 403)
         request.read.assert_not_awaited()
+
+
+class CryptoPayServiceTests(unittest.TestCase):
+    def _make_service(self) -> CryptoPayService:
+        service = CryptoPayService.__new__(CryptoPayService)
+        service.token = "cryptopay-token"
+        return service
+
+    def test_validate_webhook_signature_accepts_valid_signature(self):
+        service = self._make_service()
+        raw_body = b'{"payload":"42"}'
+        expected_signature = hmac.new(
+            hashlib.sha256(service.token.encode("utf-8")).digest(),
+            raw_body,
+            hashlib.sha256,
+        ).hexdigest()
+
+        self.assertTrue(service._validate_webhook_signature(raw_body, expected_signature))
+
+    def test_validate_webhook_signature_rejects_invalid_signature(self):
+        service = self._make_service()
+
+        self.assertFalse(service._validate_webhook_signature(b"payload", "not-a-signature"))
+
+
+class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
+    def test_require_user_id_falls_back_to_cookie_session(self):
+        settings = SimpleNamespace(
+            WEBAPP_SESSION_SECRET="session-secret",
+            WEBAPP_SESSION_TTL_SECONDS=3600,
+        )
+        token = create_webapp_session_token(settings, 321)
+        request = SimpleNamespace(
+            app={"settings": settings},
+            headers={},
+            cookies={"rw_webapp_session": token},
+        )
+
+        self.assertEqual(subscription_webapp._require_user_id(request), 321)
+
+    async def test_csrf_middleware_rejects_mismatched_token_when_cookie_session_exists(self):
+        settings = SimpleNamespace(
+            WEBAPP_SESSION_SECRET="session-secret",
+            WEBAPP_SESSION_TTL_SECONDS=3600,
+        )
+        request = SimpleNamespace(
+            method="POST",
+            path="/api/payments",
+            headers={"X-CSRF-Token": "bad-token"},
+            cookies={"rw_webapp_session": "session-cookie", "rw_webapp_csrf": "good-token"},
+            app={"settings": settings},
+        )
+        handler = AsyncMock(return_value=web.Response(text="ok"))
+
+        response = await subscription_webapp._csrf_protection_middleware(request, handler)
+
+        self.assertEqual(response.status, 403)
+        handler.assert_not_awaited()
+
+    async def test_csrf_middleware_allows_matching_token_when_cookie_session_exists(self):
+        settings = SimpleNamespace(
+            WEBAPP_SESSION_SECRET="session-secret",
+            WEBAPP_SESSION_TTL_SECONDS=3600,
+        )
+        request = SimpleNamespace(
+            method="POST",
+            path="/api/payments",
+            headers={"X-CSRF-Token": "good-token"},
+            cookies={"rw_webapp_session": "session-cookie", "rw_webapp_csrf": "good-token"},
+            app={"settings": settings},
+        )
+        handler = AsyncMock(return_value=web.Response(text="ok"))
+
+        response = await subscription_webapp._csrf_protection_middleware(request, handler)
+
+        self.assertEqual(response.text, "ok")
+        handler.assert_awaited_once()
+
+    async def test_csrf_middleware_allows_valid_bearer_authorization_for_compatibility(self):
+        settings = SimpleNamespace(
+            WEBAPP_SESSION_SECRET="session-secret",
+            WEBAPP_SESSION_TTL_SECONDS=3600,
+        )
+        token = create_webapp_session_token(settings, 321)
+        request = SimpleNamespace(
+            method="POST",
+            path="/api/payments",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "X-CSRF-Token": "bad-token",
+            },
+            cookies={"rw_webapp_session": "session-cookie", "rw_webapp_csrf": "good-token"},
+            app={"settings": settings},
+        )
+        handler = AsyncMock(return_value=web.Response(text="ok"))
+
+        response = await subscription_webapp._csrf_protection_middleware(request, handler)
+
+        self.assertEqual(response.text, "ok")
+        handler.assert_awaited_once()
+
+    def test_email_payload_rejects_overlong_email(self):
+        long_email = ("a" * 245) + "@example.com"
+
+        model, response = subscription_webapp._validate_model_payload(
+            subscription_webapp.WebAppEmailPayload,
+            {"email": long_email},
+        )
+
+        self.assertIsNone(model)
+        self.assertEqual(response.status, 400)
+        self.assertIn("email_too_long", response.text)
+
+    def test_payment_payload_rejects_overlong_description(self):
+        model, response = subscription_webapp._validate_model_payload(
+            subscription_webapp.WebAppPaymentCreatePayload,
+            {
+                "method": "platega",
+                "months": 3,
+                "description": "x" * 4097,
+            },
+        )
+
+        self.assertIsNone(model)
+        self.assertEqual(response.status, 400)
+        self.assertIn("description_too_long", response.text)
 
 
 def asyncio_run(coro):

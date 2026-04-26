@@ -1,8 +1,11 @@
 import asyncio
+import hashlib
+import hmac
 import ipaddress
 import json
 import logging
 import re
+import secrets
 import socket
 import time
 from collections import deque
@@ -14,6 +17,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from aiohttp import ClientSession, ClientTimeout, web
 from aiogram import Bot, Dispatcher
 from aiogram.types import LabeledPrice
+from pydantic import BaseModel, ConfigDict, EmailStr, ValidationError, constr, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
@@ -58,6 +62,44 @@ DEV_MOCK_END_MARKER = "<!-- WEBAPP_DEV_MOCK_END -->"
 WEBAPP_RATE_LIMIT_WINDOW_SECONDS = 60
 WEBAPP_RATE_LIMIT_MAX_REQUESTS = 30
 WEBAPP_LOGO_MAX_BYTES = 2 * 1024 * 1024
+WEBAPP_SESSION_COOKIE_NAME = "rw_webapp_session"
+WEBAPP_CSRF_COOKIE_NAME = "rw_webapp_csrf"
+WEBAPP_CSRF_HEADER_NAME = "X-CSRF-Token"
+WEBAPP_STATE_CHANGING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+WEBAPP_CSRF_EXEMPT_PATHS = {
+    "/api/auth/token",
+    "/api/auth/email/request",
+    "/api/auth/email/verify",
+    "/api/auth/logout",
+}
+
+
+class WebAppEmailPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    email: EmailStr
+
+    @field_validator("email")
+    @classmethod
+    def _normalize_and_limit_email(cls, value: EmailStr) -> str:
+        normalized = normalize_email(str(value))
+        if len(normalized) > 254:
+            raise ValueError("email_too_long")
+        return normalized
+
+
+class WebAppEmailCodePayload(WebAppEmailPayload):
+    code: str = ""
+
+
+class WebAppPaymentCreatePayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    method: str = ""
+    months: Any = None
+    description: Optional[constr(max_length=4096)] = None
+    comment: Optional[constr(max_length=4096)] = None
+    note: Optional[constr(max_length=4096)] = None
 
 _SHARED_HTTP_SESSION: Optional[ClientSession] = None
 _SHARED_HTTP_SESSION_LOCK = asyncio.Lock()
@@ -69,7 +111,7 @@ def create_subscription_webapp_application(
     settings: Settings,
     async_session_factory: sessionmaker,
 ) -> web.Application:
-    app = web.Application(middlewares=[_security_headers_middleware])
+    app = web.Application(middlewares=[_security_headers_middleware, _csrf_protection_middleware])
     app["bot"] = bot
     app["dp"] = dp
     app["settings"] = settings
@@ -123,6 +165,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/auth/token", auth_token_route)
     app.router.add_post("/api/auth/email/request", email_auth_request_route)
     app.router.add_post("/api/auth/email/verify", email_auth_verify_route)
+    app.router.add_post("/api/auth/logout", logout_route)
     app.router.add_get("/api/me", me_route)
     app.router.add_post("/api/account/email/request", account_email_request_route)
     app.router.add_post("/api/account/email/verify", account_email_verify_route)
@@ -324,6 +367,32 @@ async def _security_headers_middleware(request: web.Request, handler):
         ),
     )
     return response
+
+
+@web.middleware
+async def _csrf_protection_middleware(request: web.Request, handler):
+    settings: Settings = request.app["settings"]
+    header = request.headers.get("Authorization", "")
+    prefix = "Bearer "
+    if header.startswith(prefix):
+        if verify_webapp_session_token(settings, header[len(prefix):].strip()):
+            return await handler(request)
+
+    if (
+        request.method in WEBAPP_STATE_CHANGING_METHODS
+        and request.path not in WEBAPP_CSRF_EXEMPT_PATHS
+        and request.cookies.get(WEBAPP_SESSION_COOKIE_NAME)
+    ):
+        csrf_cookie = request.cookies.get(WEBAPP_CSRF_COOKIE_NAME, "")
+        csrf_header = request.headers.get(WEBAPP_CSRF_HEADER_NAME, "")
+        if (
+            not csrf_cookie
+            or not csrf_header
+            or not hmac.compare_digest(csrf_header, csrf_cookie)
+        ):
+            return _json_error(403, "csrf_failed", "Invalid CSRF token")
+
+    return await handler(request)
 
 
 def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
@@ -700,13 +769,22 @@ async def auth_token_route(request: web.Request) -> web.Response:
             return _json_error(500, "auth_failed", "Auth failed")
 
     token = create_webapp_session_token(settings, int(authenticated_user_id))
-    return web.json_response({"ok": True, "token": token})
+    return _build_webapp_auth_response(settings, {"ok": True}, token=token)
+
+
+async def logout_route(request: web.Request) -> web.Response:
+    response = web.json_response({"ok": True})
+    _clear_webapp_auth_cookies(response)
+    return response
 
 
 async def email_auth_request_route(request: web.Request) -> web.Response:
     settings: Settings = request.app["settings"]
     payload = await _read_json(request)
-    email = normalize_email(str(payload.get("email") or ""))
+    email_payload, validation_error = _validate_model_payload(WebAppEmailPayload, payload)
+    if validation_error:
+        return validation_error
+    email = email_payload.email
     lang = _normalize_language(str(payload.get("language") or settings.DEFAULT_LANGUAGE))
     return await _request_email_code(
         request,
@@ -720,8 +798,11 @@ async def email_auth_request_route(request: web.Request) -> web.Response:
 async def email_auth_verify_route(request: web.Request) -> web.Response:
     settings: Settings = request.app["settings"]
     payload = await _read_json(request)
-    email = normalize_email(str(payload.get("email") or ""))
-    code = str(payload.get("code") or "")
+    email_payload, validation_error = _validate_model_payload(WebAppEmailCodePayload, payload)
+    if validation_error:
+        return validation_error
+    email = email_payload.email
+    code = str(email_payload.code or "")
     referral_param = str(payload.get("referral_code") or payload.get("start_param") or "")
     email_service: EmailAuthService = request.app["email_auth_service"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
@@ -792,13 +873,14 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
             return _json_error(500, "auth_failed", "Auth failed")
 
     token = create_webapp_session_token(settings, int(db_user.user_id))
-    return web.json_response(
+    return _build_webapp_auth_response(
+        settings,
         {
             "ok": True,
-            "token": token,
             "user_id": int(db_user.user_id),
             "telegram_id": _telegram_id_for_user(db_user),
-        }
+        },
+        token=token,
     )
 
 
@@ -806,7 +888,10 @@ async def account_email_request_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     settings: Settings = request.app["settings"]
     payload = await _read_json(request)
-    email = normalize_email(str(payload.get("email") or ""))
+    email_payload, validation_error = _validate_model_payload(WebAppEmailPayload, payload)
+    if validation_error:
+        return validation_error
+    email = email_payload.email
     async_session_factory: sessionmaker = request.app["async_session_factory"]
 
     async with async_session_factory() as session:
@@ -837,8 +922,11 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
         return rate_limit_response
 
     payload = await _read_json(request)
-    email = normalize_email(str(payload.get("email") or ""))
-    code = str(payload.get("code") or "")
+    email_payload, validation_error = _validate_model_payload(WebAppEmailCodePayload, payload)
+    if validation_error:
+        return validation_error
+    email = email_payload.email
+    code = str(email_payload.code or "")
     email_service: EmailAuthService = request.app["email_auth_service"]
     settings: Settings = request.app["settings"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
@@ -952,11 +1040,11 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
             return _json_error(500, "link_failed", "Link failed")
 
     token = create_webapp_session_token(settings, int(final_user_id))
-    response_payload: Dict[str, Any] = {"ok": True, "token": token}
+    response_payload: Dict[str, Any] = {"ok": True}
     if merge_notice:
         response_payload["account_merge"] = merge_notice
         response_payload["user_id"] = final_user_id
-    return web.json_response(response_payload)
+    return _build_webapp_auth_response(settings, response_payload, token=token)
 
 
 async def account_telegram_link_route(request: web.Request) -> web.Response:
@@ -1078,15 +1166,12 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
     token = create_webapp_session_token(settings, int(final_user_id))
     response_payload: Dict[str, Any] = {
         "ok": True,
-        "token": token,
         "user_id": int(final_user_id),
         "telegram_id": final_telegram_id,
     }
     if merge_notice:
         response_payload["account_merge"] = merge_notice
-    return web.json_response(
-        response_payload
-    )
+    return _build_webapp_auth_response(settings, response_payload, token=token)
 
 
 async def me_route(request: web.Request) -> web.Response:
@@ -1150,9 +1235,12 @@ async def create_payment_route(request: web.Request) -> web.Response:
         return rate_limit_response
 
     payload = await _read_json(request)
-    method = str(payload.get("method") or "").strip().lower()
+    payment_payload, validation_error = _validate_model_payload(WebAppPaymentCreatePayload, payload)
+    if validation_error:
+        return validation_error
+    method = str(payment_payload.method or "").strip().lower()
     try:
-        months = int(float(payload.get("months")))
+        months = int(float(payment_payload.months))
     except (TypeError, ValueError):
         return _json_error(400, "invalid_plan", "Invalid subscription period")
 
@@ -1220,12 +1308,120 @@ def _json_error(status: int, code: str, message: str) -> web.Response:
     )
 
 
-def _require_user_id(request: web.Request) -> int:
+def _validation_error_response(exc: ValidationError) -> web.Response:
+    for error in exc.errors():
+        loc = error.get("loc") or ()
+        field = str(loc[0]) if loc else ""
+        error_type = str(error.get("type") or "")
+        message = str(error.get("msg") or "")
+        message_lower = message.lower()
+
+        if field == "email":
+            if ("too_long" in message_lower or "too long" in message_lower or error_type == "string_too_long"):
+                return _json_error(400, "email_too_long", "Email is too long")
+            return _json_error(400, "invalid_email", "Invalid email")
+
+        if field in {"description", "comment", "note"} and error_type == "string_too_long":
+            return _json_error(400, f"{field}_too_long", f"{field.capitalize()} is too long")
+
+        if error_type == "string_too_long":
+            return _json_error(400, "text_too_long", "Text is too long")
+
+    return _json_error(400, "invalid_request", "Invalid request")
+
+
+def _validate_model_payload(
+    model_cls: type[BaseModel],
+    payload: Dict[str, Any],
+) -> tuple[Optional[BaseModel], Optional[web.Response]]:
+    try:
+        return model_cls.model_validate(payload), None
+    except ValidationError as exc:
+        return None, _validation_error_response(exc)
+
+
+def _set_webapp_auth_cookies(
+    response: web.StreamResponse,
+    settings: Settings,
+    session_token: str,
+    csrf_token: str,
+) -> None:
+    max_age = max(60, int(settings.WEBAPP_SESSION_TTL_SECONDS))
+    response.set_cookie(
+        WEBAPP_SESSION_COOKIE_NAME,
+        session_token,
+        httponly=True,
+        secure=True,
+        samesite="None",
+        path="/",
+        max_age=max_age,
+    )
+    response.set_cookie(
+        WEBAPP_CSRF_COOKIE_NAME,
+        csrf_token,
+        httponly=False,
+        secure=True,
+        samesite="None",
+        path="/",
+        max_age=max_age,
+    )
+
+
+def _clear_webapp_auth_cookies(response: web.StreamResponse) -> None:
+    response.set_cookie(
+        WEBAPP_SESSION_COOKIE_NAME,
+        "",
+        httponly=True,
+        secure=True,
+        samesite="None",
+        path="/",
+        max_age=0,
+    )
+    response.set_cookie(
+        WEBAPP_CSRF_COOKIE_NAME,
+        "",
+        httponly=False,
+        secure=True,
+        samesite="None",
+        path="/",
+        max_age=0,
+    )
+
+
+def _build_webapp_auth_response(
+    settings: Settings,
+    payload: Dict[str, Any],
+    *,
+    token: str,
+    csrf_token: Optional[str] = None,
+) -> web.Response:
+    response_payload = dict(payload)
+    response_payload["ok"] = True
+    response_payload["token"] = token
+    csrf_value = csrf_token or secrets.token_hex(32)
+    response_payload["csrf_token"] = csrf_value
+    response = web.json_response(response_payload)
+    _set_webapp_auth_cookies(response, settings, token, csrf_value)
+    return response
+
+
+def _extract_authenticated_user_id(request: web.Request) -> Optional[int]:
     settings: Settings = request.app["settings"]
     header = request.headers.get("Authorization", "")
     prefix = "Bearer "
-    token = header[len(prefix):].strip() if header.startswith(prefix) else ""
-    user_id = verify_webapp_session_token(settings, token)
+    if header.startswith(prefix):
+        user_id = verify_webapp_session_token(settings, header[len(prefix):].strip())
+        if user_id:
+            return user_id
+
+    cookie_token = request.cookies.get(WEBAPP_SESSION_COOKIE_NAME, "")
+    if cookie_token:
+        return verify_webapp_session_token(settings, cookie_token)
+    return None
+
+
+def _require_user_id(request: web.Request) -> int:
+    user_id = _extract_authenticated_user_id(request)
     if not user_id:
         raise web.HTTPUnauthorized(
             text=json.dumps({"ok": False, "error": "unauthorized"}),

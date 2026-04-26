@@ -93,6 +93,7 @@ const MOCK = (() => {
     const TELEGRAM_LOGIN_WIDGET_URL = './telegram-widget.js';
     const state = {
       token: MOCK ? 'local-preview' : (localStorage.getItem('rw_webapp_token') || ''),
+      csrfToken: MOCK ? '' : (readCookie('rw_webapp_csrf') || ''),
       data: null,
       selectedPlan: null,
       referralParam: readReferralParam(),
@@ -514,7 +515,7 @@ const MOCK = (() => {
         } catch (e) { }
       }
 
-      if (state.token) {
+      if (state.token || readCookie('rw_webapp_csrf')) {
         try {
           await loadData();
           return;
@@ -584,7 +585,7 @@ const MOCK = (() => {
         });
         const data = await response.json();
         if (response.ok && data.ok && data.token) {
-          setToken(data.token);
+          setToken(data.token, data.csrf_token);
           clearTelegramLoginWidgetQuery();
           try {
             setAuthStatus('');
@@ -905,7 +906,7 @@ const MOCK = (() => {
           referral_code: state.referralParam || ''
         });
         if (!data.ok || !data.token) throw data;
-        setToken(data.token);
+        setToken(data.token, data.csrf_token);
         closeEmailLoginCodeModal();
         await loadData();
       } catch (e) {
@@ -1746,7 +1747,7 @@ const MOCK = (() => {
           body: JSON.stringify({email, code})
         });
         if (!data.ok) throw data;
-        if (data.token) setToken(data.token);
+        if (data.token) setToken(data.token, data.csrf_token);
         mergeNotice = data.account_merge && data.account_merge.merged ? data.account_merge : null;
         state.accountMergeNotice = mergeNotice;
         showToast(mergeNotice ? t('account_merge_toast') : t('email_linked'));
@@ -1824,7 +1825,7 @@ const MOCK = (() => {
     }
 
     async function finishTelegramLink(data, fallbackTelegramId) {
-      if (data.token) setToken(data.token);
+      if (data.token) setToken(data.token, data.csrf_token);
       markTelegramLinked(data.telegram_id || fallbackTelegramId);
       setTelegramLinkStatus('');
       state.telegramLinkRendered = false;
@@ -2106,7 +2107,15 @@ const MOCK = (() => {
         return mockApi(path, options);
       }
 
-      const headers = Object.assign({'Authorization': 'Bearer ' + state.token}, options.headers || {});
+      const method = String(options.method || 'GET').toUpperCase();
+      const headers = Object.assign({}, options.headers || {});
+      if (state.token) {
+        headers.Authorization = 'Bearer ' + state.token;
+      }
+      const csrfToken = state.csrfToken || readCookie('rw_webapp_csrf') || '';
+      if (csrfToken && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+        headers['X-CSRF-Token'] = csrfToken;
+      }
       if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
       const response = await fetch(CFG.apiBase + path, Object.assign({}, options, {headers}));
       if (response.status === 401) {
@@ -2141,17 +2150,20 @@ const MOCK = (() => {
         return {ok: true};
       }
       if (path === '/auth/email/verify') {
-        return {ok: true, token: 'local-preview'};
+        return {ok: true, token: 'local-preview', csrf_token: 'local-preview-csrf'};
       }
       if (path === '/account/email/verify') {
         MOCK.data.user.email = 'preview@example.com';
         MOCK.data.user.email_verified = true;
-        return {ok: true, token: 'local-preview'};
+        return {ok: true, token: 'local-preview', csrf_token: 'local-preview-csrf'};
       }
       if (path === '/account/telegram/link') {
         MOCK.data.user.telegram_linked = true;
         MOCK.data.user.telegram_id = 100200300;
-        return {ok: true, token: 'local-preview'};
+        return {ok: true, token: 'local-preview', csrf_token: 'local-preview-csrf'};
+      }
+      if (path === '/auth/logout') {
+        return {ok: true};
       }
       if (path === '/promo/apply') {
         return {ok: true, end_date_text: '20.05.2026 12:00'};
@@ -2175,14 +2187,21 @@ const MOCK = (() => {
       return {ok: false, error: 'not_found'};
     }
 
-    function setToken(token) {
+    function setToken(token, csrfToken = '') {
       state.token = token;
-      localStorage.setItem('rw_webapp_token', token);
+      state.csrfToken = csrfToken || readCookie('rw_webapp_csrf') || state.csrfToken || '';
     }
 
     function clearToken() {
       state.token = '';
+      state.csrfToken = '';
       localStorage.removeItem('rw_webapp_token');
+    }
+
+    function readCookie(name) {
+      const prefix = name + '=';
+      const cookie = document.cookie.split('; ').find(part => part.startsWith(prefix));
+      return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : '';
     }
 
     function normalizeEmail(value) {
@@ -2210,6 +2229,7 @@ const MOCK = (() => {
 
     function logout() {
       toggleUserMenu(false);
+      void publicApi('/auth/logout', {}).catch(() => {});
       clearToken();
       closePaymentFlow();
       closeEmailLoginCodeModal();
