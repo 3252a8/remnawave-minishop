@@ -9,6 +9,7 @@ README.md
 .env.*
 !.env.example
 scratch_*.py
+*.local.*
 node_modules/
 .git/
 

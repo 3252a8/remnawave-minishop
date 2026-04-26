@@ -6,6 +6,7 @@ bot_database.sqlite3
 .env.*
 !.env.example
 scratch_*.py
+*.local.*
 node_modules/
 .git/
 
