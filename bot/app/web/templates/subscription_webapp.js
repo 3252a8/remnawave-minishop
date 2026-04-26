@@ -435,7 +435,7 @@ const MOCK = (() => {
         referral_bonus_explanation: 'Bonuses are awarded once for each invited user when they purchase a subscription.'
       }
     };
-    const I18N = readJsonScript('i18n') || (MOCK && MOCK.i18n) || FALLBACK_I18N;
+    const I18N = readJsonScript('i18n') || (MOCK && MOCK.i18n) || {};
 
     const accent = CFG.primaryColor || '#00fe7a';
     document.documentElement.style.setProperty('--accent', accent);
@@ -2440,14 +2440,14 @@ const MOCK = (() => {
       if (document.documentElement.lang) candidates.push(document.documentElement.lang);
       for (const raw of candidates) {
         const short = String(raw).toLowerCase().split('-')[0];
-        if (I18N[short]) return short;
+        if (I18N && I18N[short]) return short;
       }
       return 'ru';
     }
 
     function setLanguage(lang) {
       const short = String(lang || '').toLowerCase().split('-')[0];
-      if (!I18N[short]) return;
+      if (I18N && Object.keys(I18N).length && !I18N[short]) return;
       state.langOverride = short;
       try { localStorage.setItem('rw_webapp_lang', short); } catch (e) { }
       applyI18n();
@@ -2459,8 +2459,8 @@ const MOCK = (() => {
     }
 
     function t(key, params = {}) {
-      const table = I18N[getLanguage()] || I18N.ru;
-      const fallback = I18N.ru[key] || key;
+      const table = (I18N && I18N[getLanguage()]) || (I18N && I18N.ru) || {};
+      const fallback = (I18N && I18N.ru && I18N.ru[key]) || key;
       const template = table[key] || fallback;
       return template.replace(/\{(\w+)\}/g, (_, name) => (
         Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : ''

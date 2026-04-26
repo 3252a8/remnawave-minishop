@@ -1,10 +1,13 @@
 {
   "private": true,
   "scripts": {
-    "build:webapp:css": "tailwindcss -i ./bot/app/web/templates/subscription_webapp.tailwind.css -o ./bot/app/web/templates/subscription_webapp.css --minify"
+    "build:webapp:css": "tailwindcss -i ./bot/app/web/templates/subscription_webapp.tailwind.css -o ./bot/app/web/templates/subscription_webapp.css --minify",
+    "build:webapp:js": "node ./scripts/build_subscription_webapp_js.mjs",
+    "build:webapp": "npm run build:webapp:css && npm run build:webapp:js"
   },
   "devDependencies": {
     "@tailwindcss/cli": "4.2.4",
+    "esbuild": "^0.28.0",
     "tailwindcss": "4.2.4"
   }
 }

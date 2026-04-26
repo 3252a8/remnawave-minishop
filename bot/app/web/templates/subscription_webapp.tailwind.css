@@ -228,7 +228,7 @@
   }
 
   .lang-dropdown-item.is-active {
-    @apply text-[var(--accent)];
+    @apply bg-[var(--bg-card-hover)] text-[var(--text-primary)];
   }
 
   .lang-dropdown-flag {

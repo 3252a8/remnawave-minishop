@@ -52,6 +52,7 @@ _UNPATCHED_WIDGET_ORIGIN_SNIPPET = """    if (origin == 'https://telegram.org') 
 _PATCHED_WIDGET_ORIGIN_SNIPPET = """    if (origin == 'https://telegram.org') {\n      origin = default_origin;\n    } else if (origin == 'https://telegram-js.azureedge.net' || origin == 'https://tg.dev') {\n      origin = dev_origin;\n    } else {\n      origin = default_origin;\n    }\n"""
 WEBAPP_CONFIG_PLACEHOLDER = "<!-- WEBAPP_CONFIG_SCRIPT -->"
 WEBAPP_I18N_PLACEHOLDER = "<!-- WEBAPP_I18N_SCRIPT -->"
+WEBAPP_JS_PLACEHOLDER = "<!-- WEBAPP_JS_SCRIPT -->"
 DEV_MOCK_START_MARKER = "<!-- WEBAPP_DEV_MOCK_START -->"
 DEV_MOCK_END_MARKER = "<!-- WEBAPP_DEV_MOCK_END -->"
 WEBAPP_RATE_LIMIT_WINDOW_SECONDS = 60
@@ -117,6 +118,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/telegram-widget.js", telegram_widget_asset_route)
     app.router.add_get(WEBAPP_LOGO_PROXY_PATH, webapp_logo_route)
     app.router.add_get("/subscription_webapp.css", css_asset_route)
+    app.router.add_get("/subscription_webapp.min.{asset_hash}.js", js_asset_route)
     app.router.add_get("/subscription_webapp.js", js_asset_route)
     app.router.add_post("/api/auth/token", auth_token_route)
     app.router.add_post("/api/auth/email/request", email_auth_request_route)
@@ -523,12 +525,22 @@ def _normalize_telegram_login_widget_sdk(data: bytes) -> bytes:
 
 
 async def js_asset_route(request: web.Request) -> web.Response:
-    return await _serve_template_asset(
-        request,
-        "subscription_webapp.js",
-        "application/javascript",
-        strip_dev_mock=True,
+    asset_hash = request.match_info.get("asset_hash")
+    filename = (
+        f"subscription_webapp.min.{asset_hash}.js"
+        if asset_hash
+        else "subscription_webapp.js"
     )
+    response = await _serve_template_asset(
+        request,
+        filename,
+        "application/javascript",
+        strip_dev_mock=not asset_hash,
+    )
+    response.headers["Cache-Control"] = (
+        "public, max-age=31536000, immutable" if asset_hash else "no-cache"
+    )
+    return response
 
 
 async def index_route(request: web.Request) -> web.Response:
@@ -571,6 +583,10 @@ async def index_route(request: web.Request) -> web.Response:
             + "</script>"
         ),
     )
+    html = html.replace(
+        WEBAPP_JS_PLACEHOLDER,
+        f'<script src="./{_resolve_webapp_js_asset_name()}" defer></script>',
+    )
     return web.Response(text=html, content_type="text/html", charset="utf-8")
 
 
@@ -594,6 +610,19 @@ async def _serve_template_asset(
             "/* WEBAPP_DEV_MOCK_END */",
         )
     return web.Response(text=text, content_type=content_type, charset="utf-8")
+
+
+def _resolve_webapp_js_asset_name() -> str:
+    minified_assets = []
+    for path in ASSET_DIR.glob("subscription_webapp.min.*.js"):
+        try:
+            minified_assets.append((path.stat().st_mtime, path.name))
+        except OSError:
+            continue
+    if minified_assets:
+        minified_assets.sort(reverse=True)
+        return minified_assets[0][1]
+    return "subscription_webapp.js"
 
 
 def _strip_marked_block(html: str, start_marker: str, end_marker: str) -> str:
@@ -667,7 +696,7 @@ async def auth_token_route(request: web.Request) -> web.Response:
             await session.commit()
         except Exception as exc:
             await session.rollback()
-            logger.error("WebApp auth failed: %s", exc, exc_info=True)
+            logger.exception("WebApp auth failed")
             return _json_error(500, "auth_failed", "Auth failed")
 
     token = create_webapp_session_token(settings, int(authenticated_user_id))
@@ -759,7 +788,7 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
             await session.commit()
         except Exception as exc:
             await session.rollback()
-            logger.error("Email WebApp auth failed: %s", exc, exc_info=True)
+            logger.exception("Email WebApp auth failed")
             return _json_error(500, "auth_failed", "Auth failed")
 
     token = create_webapp_session_token(settings, int(db_user.user_id))
@@ -919,7 +948,7 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
             return _json_error(409, "account_merge_conflict", str(exc))
         except Exception as exc:
             await session.rollback()
-            logger.error("Email account link failed: %s", exc, exc_info=True)
+            logger.exception("Email account link failed")
             return _json_error(500, "link_failed", "Link failed")
 
     token = create_webapp_session_token(settings, int(final_user_id))
@@ -1043,7 +1072,7 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
             return _json_error(409, "account_merge_conflict", str(exc))
         except Exception as exc:
             await session.rollback()
-            logger.error("Telegram account link failed: %s", exc, exc_info=True)
+            logger.exception("Telegram account link failed")
             return _json_error(500, "link_failed", "Link failed")
 
     token = create_webapp_session_token(settings, int(final_user_id))
@@ -1106,7 +1135,7 @@ async def apply_promo_route(request: web.Request) -> web.Response:
             )
         except Exception as exc:
             await session.rollback()
-            logger.error("WebApp promo apply failed: %s", exc, exc_info=True)
+            logger.exception("WebApp promo apply failed")
             return _json_error(500, "promo_apply_failed", "Promo apply failed")
 
 
@@ -1241,7 +1270,7 @@ async def _request_email_code(
             return web.json_response({"ok": True})
         except Exception as exc:
             await session.rollback()
-            logger.error("Failed to send email verification code: %s", exc, exc_info=True)
+            logger.exception("Failed to send email verification code")
             return _json_error(502, "email_send_failed", "Failed to send email")
 
 
@@ -2015,7 +2044,7 @@ async def _create_yookassa_payment(
         )
     except Exception as exc:
         await session.rollback()
-        logger.error("YooKassa WebApp payment failed: %s", exc, exc_info=True)
+        logger.exception("YooKassa WebApp payment failed")
         return _json_error(502, "payment_failed", "Failed to create payment")
 
 
@@ -2076,7 +2105,7 @@ async def _create_freekassa_payment(
         )
     except Exception as exc:
         await session.rollback()
-        logger.error("FreeKassa WebApp payment failed: %s", exc, exc_info=True)
+        logger.exception("FreeKassa WebApp payment failed")
         return _json_error(502, "payment_failed", "Failed to create payment")
 
 
@@ -2152,7 +2181,7 @@ async def _create_platega_payment(
         )
     except Exception as exc:
         await session.rollback()
-        logger.error("Platega WebApp payment failed: %s", exc, exc_info=True)
+        logger.exception("Platega WebApp payment failed")
         return _json_error(502, "payment_failed", "Failed to create payment")
 
 
@@ -2215,7 +2244,7 @@ async def _create_severpay_payment(
         )
     except Exception as exc:
         await session.rollback()
-        logger.error("SeverPay WebApp payment failed: %s", exc, exc_info=True)
+        logger.exception("SeverPay WebApp payment failed")
         return _json_error(502, "payment_failed", "Failed to create payment")
 
 
@@ -2278,7 +2307,7 @@ async def _create_stars_payment(
         )
     except Exception as exc:
         await session.rollback()
-        logger.error("Stars WebApp payment failed: %s", exc, exc_info=True)
+        logger.exception("Stars WebApp payment failed")
         return _json_error(502, "payment_failed", "Failed to create invoice")
 
 
