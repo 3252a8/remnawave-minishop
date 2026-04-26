@@ -161,10 +161,11 @@ class YooKassaService:
                 f"Amount: {amount} {currency}. Metadata: {metadata}. Receipt: {receipt_data_dict}"
             )
 
-            loop = asyncio.get_running_loop()
-            response = await loop.run_in_executor(
-                None, lambda: YooKassaPayment.create(payment_request,
-                                                     idempotence_key))
+            response = await asyncio.to_thread(
+                YooKassaPayment.create,
+                payment_request,
+                idempotence_key,
+            )
 
             logging.info(
                 f"YooKassa Payment.create response: ID={response.id}, Status={response.status}, Paid={response.paid}"
@@ -216,9 +217,10 @@ class YooKassaService:
                 f"Fetching payment info from YooKassa for ID: {payment_id_in_yookassa}"
             )
 
-            loop = asyncio.get_running_loop()
-            payment_info_yk = await loop.run_in_executor(
-                None, lambda: YooKassaPayment.find_one(payment_id_in_yookassa))
+            payment_info_yk = await asyncio.to_thread(
+                YooKassaPayment.find_one,
+                payment_id_in_yookassa,
+            )
 
             if payment_info_yk:
                 logging.info(
@@ -275,8 +277,7 @@ class YooKassaService:
             logging.error("YooKassa is not configured. Cannot cancel payment.")
             return False
         try:
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, lambda: YooKassaPayment.cancel(payment_id_in_yookassa))
+            await asyncio.to_thread(YooKassaPayment.cancel, payment_id_in_yookassa)
             logging.info(f"Cancelled YooKassa payment {payment_id_in_yookassa}")
             return True
         except Exception as e:

@@ -25,12 +25,22 @@ from bot.services.notification_service import NotificationService
 from bot.keyboards.inline.user_keyboards import get_connect_and_main_keyboard
 from bot.utils.text_sanitizer import sanitize_display_name, username_for_display
 from bot.utils.config_link import prepare_config_links
+from bot.utils.request_security import ip_in_allowlist, request_client_ip
 
 payment_processing_lock = asyncio.Lock()
 
 YOOKASSA_EVENT_PAYMENT_SUCCEEDED = 'payment.succeeded'
 YOOKASSA_EVENT_PAYMENT_CANCELED = 'payment.canceled'
 YOOKASSA_EVENT_PAYMENT_WAITING_FOR_CAPTURE = 'payment.waiting_for_capture'
+YOOKASSA_WEBHOOK_ALLOWED_IPS = [
+    "185.71.76.0/27",
+    "185.71.77.0/27",
+    "77.75.153.0/25",
+    "77.75.156.11",
+    "77.75.156.35",
+    "77.75.154.128/25",
+    "2a02:5180::/32",
+]
 
 
 async def process_successful_payment(session: AsyncSession, bot: Bot,
@@ -483,6 +493,11 @@ async def yookassa_webhook_route(request: web.Request):
         return web.Response(
             status=500,
             text="Internal Server Error: Missing app context component")
+
+    client_ip = request_client_ip(request, trusted_proxies=settings.trusted_proxies)
+    if not ip_in_allowlist(client_ip, YOOKASSA_WEBHOOK_ALLOWED_IPS):
+        logging.warning("YooKassa webhook denied from unauthorized IP source.")
+        return web.Response(status=403)
 
     try:
         event_json = await request.json()

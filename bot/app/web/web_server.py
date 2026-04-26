@@ -1,3 +1,4 @@
+import hmac
 import asyncio
 import logging
 from contextlib import suppress
@@ -8,6 +9,13 @@ from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_applicati
 from sqlalchemy.orm import sessionmaker
 
 from config.settings import Settings
+
+
+class SecureSimpleRequestHandler(SimpleRequestHandler):
+    def verify_secret(self, telegram_secret_token: str, bot: Bot) -> bool:
+        if not self.secret_token:
+            return False
+        return hmac.compare_digest(telegram_secret_token, self.secret_token)
 
 TELEGRAM_WEB_APP_SDK_REFRESH_INTERVAL_SECONDS = 24 * 60 * 60
 
@@ -55,8 +63,12 @@ async def build_and_start_web_app(
     telegram_uses_webhook_mode = bool(settings.WEBHOOK_BASE_URL)
 
     if telegram_uses_webhook_mode:
-        telegram_webhook_path = f"/{settings.BOT_TOKEN}"
-        app.router.add_post(telegram_webhook_path, SimpleRequestHandler(dispatcher=dp, bot=bot))
+        telegram_webhook_path = settings.telegram_webhook_path
+        SecureSimpleRequestHandler(
+            dispatcher=dp,
+            bot=bot,
+            secret_token=settings.WEBHOOK_SECRET_TOKEN,
+        ).register(app, path=telegram_webhook_path)
         logging.info(
             f"Telegram webhook route configured at: [POST] {telegram_webhook_path} (relative to base URL)"
         )

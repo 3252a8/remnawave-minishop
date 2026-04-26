@@ -12,7 +12,7 @@ from email.message import EmailMessage
 from email.utils import formataddr
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.settings import Settings
@@ -145,6 +145,18 @@ class EmailAuthService:
                     retry_after=resend_after - elapsed,
                 )
 
+        await session.execute(
+            update(EmailVerificationCode)
+            .where(
+                EmailVerificationCode.email == normalized_email,
+                EmailVerificationCode.purpose == purpose,
+                EmailVerificationCode.target_user_id == target_user_id,
+                EmailVerificationCode.status == "active",
+                EmailVerificationCode.consumed_at.is_(None),
+            )
+            .values(status="superseded")
+        )
+
         code = f"{secrets.randbelow(1_000_000):06d}"
         code_model = EmailVerificationCode(
             email=normalized_email,
@@ -152,6 +164,7 @@ class EmailAuthService:
             purpose=purpose,
             target_user_id=target_user_id,
             expires_at=now + timedelta(seconds=max(60, int(self.settings.EMAIL_CODE_TTL_SECONDS))),
+            status="active",
         )
         session.add(code_model)
         await session.flush()
@@ -281,6 +294,8 @@ class EmailAuthService:
                 EmailVerificationCode.email == email,
                 EmailVerificationCode.purpose == purpose,
                 EmailVerificationCode.target_user_id == target_user_id,
+                EmailVerificationCode.status == "active",
+                EmailVerificationCode.consumed_at.is_(None),
             )
             .order_by(EmailVerificationCode.created_at.desc())
             .limit(1)

@@ -1,7 +1,96 @@
 import logging
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, ValidationError, computed_field, field_validator
+import os
+import secrets
 from typing import Optional, List, Dict, Any
+
+from pydantic import BaseModel, Field, ValidationError, computed_field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _split_csv(value: Optional[str]) -> List[str]:
+    if not value:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+class DBSettings(BaseModel):
+    user: str
+    password: str
+    host: str
+    port: int
+    database: str
+
+
+class PaymentSettings(BaseModel):
+    yookassa_enabled: bool
+    yookassa_shop_id: Optional[str]
+    yookassa_secret_key: Optional[str]
+    yookassa_return_url: Optional[str]
+    yookassa_default_receipt_email: Optional[str]
+    yookassa_vat_code: int
+    yookassa_payment_mode: str
+    yookassa_payment_subject: str
+    yookassa_autopayments_enabled: bool
+    yookassa_autopayments_require_card_binding: bool
+    freekassa_enabled: bool
+    freekassa_merchant_id: Optional[str]
+    freekassa_second_secret: Optional[str]
+    freekassa_api_key: Optional[str]
+    freekassa_payment_ip: Optional[str]
+    freekassa_payment_method_id: Optional[int]
+    freekassa_trusted_ips: List[str]
+    platega_enabled: bool
+    platega_base_url: str
+    platega_merchant_id: Optional[str]
+    platega_secret: Optional[str]
+    platega_payment_method: int
+    platega_return_url: Optional[str]
+    platega_failed_url: Optional[str]
+    severpay_enabled: bool
+    severpay_mid: Optional[int]
+    severpay_token: Optional[str]
+    severpay_return_url: Optional[str]
+    severpay_base_url: str
+    severpay_lifetime_minutes: Optional[int]
+    cryptopay_enabled: bool
+    cryptopay_token: Optional[str]
+    cryptopay_network: str
+    cryptopay_currency_type: str
+    cryptopay_asset: str
+
+
+class EmailSettings(BaseModel):
+    smtp_host: str
+    smtp_port: int
+    smtp_fallback_ports: Optional[str]
+    smtp_timeout_seconds: int
+    smtp_username: Optional[str]
+    smtp_password: Optional[str]
+    smtp_from_email: Optional[str]
+    smtp_from_name: Optional[str]
+    smtp_starttls: bool
+    smtp_use_ssl: bool
+    email_code_ttl_seconds: int
+    email_code_resend_seconds: int
+    email_code_max_attempts: int
+    brute_force_max_failures: int
+    brute_force_window_seconds: int
+    brute_force_lock_seconds: int
+
+
+class WebAppSettings(BaseModel):
+    title: str
+    primary_color: str
+    logo_url: Optional[str]
+    session_ttl_seconds: int
+    session_secret: str
+    webhook_secret_token: str
+    auth_max_age_seconds: int
+    login_token_ttl_seconds: int
+    server_host: str
+    server_port: int
+    enabled: bool
+    trusted_proxies: List[str]
 
 
 class Settings(BaseSettings):
@@ -11,8 +100,8 @@ class Settings(BaseSettings):
         alias="ADMIN_IDS",
         description="Comma-separated list of admin Telegram User IDs")
 
-    POSTGRES_USER: str = Field(default="user")
-    POSTGRES_PASSWORD: str = Field(default="password")
+    POSTGRES_USER: str = Field(...)
+    POSTGRES_PASSWORD: str = Field(...)
     POSTGRES_HOST: str = Field(default="localhost")
     POSTGRES_PORT: int = Field(default=5432)
     POSTGRES_DB: str = Field(default="vpn_shop_db")
@@ -75,6 +164,10 @@ class Settings(BaseSettings):
     )
 
     WEBHOOK_BASE_URL: Optional[str] = None
+    TRUSTED_PROXIES: Optional[str] = Field(
+        default="127.0.0.1,::1",
+        description="Comma-separated list of reverse proxy IPs or CIDRs trusted to forward X-Forwarded-For.",
+    )
 
     CRYPTOPAY_TOKEN: Optional[str] = None
     CRYPTOPAY_NETWORK: str = Field(default="mainnet")
@@ -99,6 +192,10 @@ class Settings(BaseSettings):
     FREEKASSA_API_KEY: Optional[str] = None
     FREEKASSA_PAYMENT_IP: Optional[str] = None
     FREEKASSA_PAYMENT_METHOD_ID: Optional[int] = None
+    FREEKASSA_TRUSTED_IPS: str = Field(
+        default="168.119.157.136,168.119.60.227,178.154.197.79,51.250.54.238",
+        description="Comma-separated FreeKassa webhook IP allowlist.",
+    )
 
     SEVERPAY_ENABLED: bool = Field(default=False)
     SEVERPAY_MID: Optional[int] = None
@@ -211,7 +308,9 @@ class Settings(BaseSettings):
     WEBAPP_TITLE: str = Field(default="Моя подписка")
     WEBAPP_PRIMARY_COLOR: str = Field(default="#00fe7a")
     WEBAPP_LOGO_URL: Optional[str] = Field(default=None)
-    WEBAPP_SESSION_TTL_SECONDS: int = Field(default=30 * 24 * 60 * 60)
+    WEBAPP_SESSION_SECRET: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
+    WEBHOOK_SECRET_TOKEN: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
+    WEBAPP_SESSION_TTL_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_AUTH_MAX_AGE_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int = Field(default=10 * 60)
 
@@ -270,6 +369,98 @@ class Settings(BaseSettings):
 
     @computed_field
     @property
+    def db_settings(self) -> DBSettings:
+        return DBSettings(
+            user=self.POSTGRES_USER,
+            password=self.POSTGRES_PASSWORD,
+            host=self.POSTGRES_HOST,
+            port=self.POSTGRES_PORT,
+            database=self.POSTGRES_DB,
+        )
+
+    @computed_field
+    @property
+    def payment_settings(self) -> PaymentSettings:
+        return PaymentSettings(
+            yookassa_enabled=self.YOOKASSA_ENABLED,
+            yookassa_shop_id=self.YOOKASSA_SHOP_ID,
+            yookassa_secret_key=self.YOOKASSA_SECRET_KEY,
+            yookassa_return_url=self.YOOKASSA_RETURN_URL,
+            yookassa_default_receipt_email=self.YOOKASSA_DEFAULT_RECEIPT_EMAIL,
+            yookassa_vat_code=self.YOOKASSA_VAT_CODE,
+            yookassa_payment_mode=self.YOOKASSA_PAYMENT_MODE,
+            yookassa_payment_subject=self.YOOKASSA_PAYMENT_SUBJECT,
+            yookassa_autopayments_enabled=self.YOOKASSA_AUTOPAYMENTS_ENABLED,
+            yookassa_autopayments_require_card_binding=self.YOOKASSA_AUTOPAYMENTS_REQUIRE_CARD_BINDING,
+            freekassa_enabled=self.FREEKASSA_ENABLED,
+            freekassa_merchant_id=self.FREEKASSA_MERCHANT_ID,
+            freekassa_second_secret=self.FREEKASSA_SECOND_SECRET,
+            freekassa_api_key=self.FREEKASSA_API_KEY,
+            freekassa_payment_ip=self.FREEKASSA_PAYMENT_IP,
+            freekassa_payment_method_id=self.FREEKASSA_PAYMENT_METHOD_ID,
+            freekassa_trusted_ips=self.freekassa_trusted_ips,
+            platega_enabled=self.PLATEGA_ENABLED,
+            platega_base_url=self.PLATEGA_BASE_URL,
+            platega_merchant_id=self.PLATEGA_MERCHANT_ID,
+            platega_secret=self.PLATEGA_SECRET,
+            platega_payment_method=self.PLATEGA_PAYMENT_METHOD,
+            platega_return_url=self.PLATEGA_RETURN_URL,
+            platega_failed_url=self.PLATEGA_FAILED_URL,
+            severpay_enabled=self.SEVERPAY_ENABLED,
+            severpay_mid=self.SEVERPAY_MID,
+            severpay_token=self.SEVERPAY_TOKEN,
+            severpay_return_url=self.SEVERPAY_RETURN_URL,
+            severpay_base_url=self.SEVERPAY_BASE_URL,
+            severpay_lifetime_minutes=self.SEVERPAY_LIFETIME_MINUTES,
+            cryptopay_enabled=self.CRYPTOPAY_ENABLED,
+            cryptopay_token=self.CRYPTOPAY_TOKEN,
+            cryptopay_network=self.CRYPTOPAY_NETWORK,
+            cryptopay_currency_type=self.CRYPTOPAY_CURRENCY_TYPE,
+            cryptopay_asset=self.CRYPTOPAY_ASSET,
+        )
+
+    @computed_field
+    @property
+    def email_settings(self) -> EmailSettings:
+        return EmailSettings(
+            smtp_host=self.SMTP_HOST,
+            smtp_port=self.SMTP_PORT,
+            smtp_fallback_ports=self.SMTP_FALLBACK_PORTS,
+            smtp_timeout_seconds=self.SMTP_TIMEOUT_SECONDS,
+            smtp_username=self.SMTP_USERNAME,
+            smtp_password=self.SMTP_PASSWORD,
+            smtp_from_email=self.SMTP_FROM_EMAIL,
+            smtp_from_name=self.SMTP_FROM_NAME,
+            smtp_starttls=self.SMTP_STARTTLS,
+            smtp_use_ssl=self.SMTP_USE_SSL,
+            email_code_ttl_seconds=self.EMAIL_CODE_TTL_SECONDS,
+            email_code_resend_seconds=self.EMAIL_CODE_RESEND_SECONDS,
+            email_code_max_attempts=self.EMAIL_CODE_MAX_ATTEMPTS,
+            brute_force_max_failures=self.BRUTE_FORCE_MAX_FAILURES,
+            brute_force_window_seconds=self.BRUTE_FORCE_WINDOW_SECONDS,
+            brute_force_lock_seconds=self.BRUTE_FORCE_LOCK_SECONDS,
+        )
+
+    @computed_field
+    @property
+    def webapp_settings(self) -> WebAppSettings:
+        return WebAppSettings(
+            title=self.WEBAPP_TITLE,
+            primary_color=self.WEBAPP_PRIMARY_COLOR,
+            logo_url=self.WEBAPP_LOGO_URL,
+            session_ttl_seconds=self.WEBAPP_SESSION_TTL_SECONDS,
+            session_secret=self.WEBAPP_SESSION_SECRET,
+            webhook_secret_token=self.WEBHOOK_SECRET_TOKEN,
+            auth_max_age_seconds=self.WEBAPP_AUTH_MAX_AGE_SECONDS,
+            login_token_ttl_seconds=self.WEBAPP_LOGIN_TOKEN_TTL_SECONDS,
+            server_host=self.WEBAPP_SERVER_HOST,
+            server_port=self.WEBAPP_SERVER_PORT,
+            enabled=self.WEBAPP_ENABLED,
+            trusted_proxies=self.trusted_proxies,
+        )
+
+    @computed_field
+    @property
     def ADMIN_IDS(self) -> List[int]:
         if self.ADMIN_IDS_STR:
             try:
@@ -324,6 +515,21 @@ class Settings(BaseSettings):
             if cleaned:
                 return cleaned
         return None
+
+    @computed_field
+    @property
+    def trusted_proxies(self) -> List[str]:
+        return _split_csv(self.TRUSTED_PROXIES)
+
+    @computed_field
+    @property
+    def freekassa_trusted_ips(self) -> List[str]:
+        return _split_csv(self.FREEKASSA_TRUSTED_IPS)
+
+    @computed_field
+    @property
+    def telegram_webhook_path(self) -> str:
+        return "/tg/webhook"
 
     @computed_field
     @property
@@ -605,6 +811,26 @@ class Settings(BaseSettings):
             return "INFO"
         return v
 
+    @field_validator('POSTGRES_USER', 'POSTGRES_PASSWORD', mode='before')
+    @classmethod
+    def validate_required_db_credentials(cls, v):
+        if isinstance(v, str):
+            v = v.strip()
+        if not v:
+            raise ValueError("must not be empty")
+        return v
+
+    @field_validator('WEBAPP_SESSION_SECRET', 'WEBHOOK_SECRET_TOKEN', mode='before')
+    @classmethod
+    def normalize_webapp_secrets(cls, v):
+        if isinstance(v, str):
+            v = v.strip()
+            if v:
+                return v
+        if v:
+            return v
+        return secrets.token_urlsafe(32)
+
     @field_validator('LOG_CHAT_ID', 'LOG_THREAD_ID', mode='before')
     @classmethod
     def validate_optional_int_fields(cls, v):
@@ -674,6 +900,14 @@ def get_settings() -> Settings:
             if not _settings_instance.PANEL_API_URL:
                 logging.warning(
                     "CRITICAL: PANEL_API_URL is not set. Panel integration will not work."
+                )
+            if not os.getenv("WEBAPP_SESSION_SECRET"):
+                logging.warning(
+                    "WEBAPP_SESSION_SECRET is not set. A generated secret will be used for this process only."
+                )
+            if not os.getenv("WEBHOOK_SECRET_TOKEN"):
+                logging.warning(
+                    "WEBHOOK_SECRET_TOKEN is not set. A generated secret will be used for this process only."
                 )
             if not _settings_instance.YOOKASSA_SHOP_ID or not _settings_instance.YOOKASSA_SECRET_KEY:
                 logging.warning(

@@ -11,22 +11,10 @@ from db.database_setup import init_db, init_db_connection
 
 
 def _resolve_log_level(value: str) -> int:
-    if not value:
-        return logging.INFO
-    if isinstance(value, str):
-        normalized = value.strip()
-        if not normalized:
-            return logging.INFO
-        if normalized.isdigit():
-            return int(normalized)
-        level = getattr(logging, normalized.upper(), None)
-        if isinstance(level, int):
-            return level
-    return logging.INFO
+    return getattr(logging, value.upper(), logging.INFO)
 
 
 async def main():
-    load_dotenv()
     settings = get_settings()
 
     session_factory = init_db_connection(settings)

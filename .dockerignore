@@ -5,6 +5,12 @@
 .gitattributes
 LICENSE
 README.md
+.env
+.env.*
+!.env.example
+scratch_*.py
+node_modules/
+.git/
 
 
 # CI

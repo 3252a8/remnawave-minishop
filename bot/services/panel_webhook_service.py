@@ -26,6 +26,10 @@ class PanelWebhookService:
         self.i18n = i18n
         self.async_session_factory = async_session_factory
         self.panel_service = panel_service
+        if not self.settings.PANEL_WEBHOOK_SECRET:
+            logging.error(
+                "PANEL_WEBHOOK_SECRET is not configured. Panel webhooks will be rejected."
+            )
 
     async def _send_message(
         self,
@@ -40,8 +44,8 @@ class PanelWebhookService:
             await self.bot.send_message(
                 user_id, _(message_key, **kwargs), reply_markup=reply_markup
             )
-        except Exception as e:
-            logging.error(f"Failed to send notification to {user_id}: {e}")
+        except Exception:
+            logging.exception("Failed to send notification to %s", user_id)
 
     async def handle_event(self, event_name: str, user_payload: dict):
         telegram_id = user_payload.get("telegramId")
@@ -139,16 +143,19 @@ class PanelWebhookService:
             )
 
     async def handle_webhook(self, raw_body: bytes, signature_header: Optional[str]) -> web.Response:
-        if self.settings.PANEL_WEBHOOK_SECRET:
-            if not signature_header:
-                return web.Response(status=403, text="no_signature")
-            expected_sig = hmac.new(
-                self.settings.PANEL_WEBHOOK_SECRET.encode(),
-                raw_body,
-                hashlib.sha256,
-            ).hexdigest()
-            if not hmac.compare_digest(expected_sig, signature_header):
-                return web.Response(status=403, text="invalid_signature")
+        if not self.settings.PANEL_WEBHOOK_SECRET:
+            return web.Response(status=401, text="unauthorized")
+
+        if not signature_header:
+            return web.Response(status=401, text="unauthorized")
+
+        expected_sig = hmac.new(
+            self.settings.PANEL_WEBHOOK_SECRET.encode(),
+            raw_body,
+            hashlib.sha256,
+        ).hexdigest()
+        if not hmac.compare_digest(expected_sig, signature_header):
+            return web.Response(status=401, text="unauthorized")
 
         try:
             payload = json.loads(raw_body.decode())

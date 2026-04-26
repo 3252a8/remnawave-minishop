@@ -7,6 +7,7 @@ import logging
 import time
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional, Dict, Any, Tuple
+from urllib.parse import parse_qsl
 
 from aiohttp import ClientSession, ClientTimeout, web
 from aiogram import Bot
@@ -21,6 +22,7 @@ from bot.services.notification_service import NotificationService
 from db.dal import payment_dal, user_dal
 from bot.utils.text_sanitizer import sanitize_display_name, username_for_display
 from bot.utils.config_link import prepare_config_links
+from bot.utils.request_security import ip_in_allowlist, request_client_ip
 
 
 class FreeKassaService:
@@ -169,69 +171,59 @@ class FreeKassaService:
 
     def _validate_signature(
         self,
-        merchant_order_id: str,
-        amount: str,
+        raw_body: bytes,
         provided_signature: str,
-        payload: Optional[Dict[str, Any]] = None,
     ) -> bool:
         if not provided_signature:
             return False
+        if not self.second_secret:
+            return False
 
-        if self.shop_id and self.second_secret:
-            signature_source = f"{self.shop_id}:{amount}:{self.second_secret}:{merchant_order_id}"
-            expected_signature = hashlib.md5(signature_source.encode("utf-8")).hexdigest()
-            if expected_signature.lower() == provided_signature.lower():
-                return True
-
-        if self.api_key and payload:
-            items = [
-                (key, value)
-                for key, value in payload.items()
-                if key not in {"signature", "SIGN"} and value is not None
-            ]
-            items.sort(key=lambda pair: pair[0])
-            message = "|".join(str(value) for _, value in items)
-            alt_signature = hmac.new(self.api_key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).hexdigest()
-            if alt_signature.lower() == provided_signature.lower():
-                return True
-
-        return False
+        expected_signature = hmac.new(
+            self.second_secret.encode("utf-8"),
+            raw_body,
+            hashlib.sha256,
+        ).hexdigest()
+        return hmac.compare_digest(expected_signature, provided_signature)
 
     async def webhook_route(self, request: web.Request) -> web.Response:
         if not self.configured:
             return web.Response(status=503, text="freekassa_disabled")
 
         try:
-            data = await request.post()
+            client_ip = request_client_ip(request, trusted_proxies=self.settings.trusted_proxies)
+            if not ip_in_allowlist(client_ip, self.settings.freekassa_trusted_ips):
+                return web.Response(status=403)
+
+            raw_body = await request.read()
         except Exception as e:
-            logging.error(f"FreeKassa webhook: failed to read POST data: {e}")
+            logging.error("FreeKassa webhook: failed to read request body: %s", e)
             return web.Response(status=400, text="bad_request")
 
-        payload_dict: Dict[str, Any]
-        if data:
-            payload_dict = {str(k): v for k, v in data.items()}
-        else:
+        payload_dict: Dict[str, Any] = {}
+        if raw_body:
             try:
-                json_payload = await request.json()
-                payload_dict = {str(k): v for k, v in json_payload.items()} if isinstance(json_payload, dict) else {}
-                data = json_payload
+                if request.content_type.startswith("application/json"):
+                    decoded_json = json.loads(raw_body.decode("utf-8"))
+                    if isinstance(decoded_json, dict):
+                        payload_dict = {str(k): v for k, v in decoded_json.items()}
+                else:
+                    payload_dict = {
+                        str(key): value
+                        for key, value in parse_qsl(raw_body.decode("utf-8"), keep_blank_values=True)
+                    }
             except Exception:
                 payload_dict = {}
-                data = {}
 
         def _get(key: str, default: Optional[str] = None) -> Optional[str]:
-            if isinstance(data, dict):
-                return data.get(key) or data.get(key.lower()) or default
             return payload_dict.get(key) or payload_dict.get(key.lower()) or default
 
         merchant_id = _get("MERCHANT_ID")
         if merchant_id != self.shop_id:
-            logging.error(f"FreeKassa webhook: merchant mismatch (got {merchant_id})")
-            return web.Response(status=403, text="merchant_mismatch")
+            return web.Response(status=403)
 
         signature = _get("SIGN") or _get("signature")
         if not signature:
-            logging.error("FreeKassa webhook: missing signature")
             return web.Response(status=400, text="missing_signature")
 
         order_id_str = _get("MERCHANT_ORDER_ID") or _get("ORDER_ID") or _get("o")
@@ -239,11 +231,9 @@ class FreeKassaService:
         provider_payment_id = _get("intid") or _get("payment_id") or _get("transaction_id")
 
         if not order_id_str or not amount_str:
-            logging.error("FreeKassa webhook: missing order_id or amount")
             return web.Response(status=400, text="missing_data")
 
-        if not self._validate_signature(order_id_str, amount_str, signature, payload_dict):
-            logging.error("FreeKassa webhook: invalid signature")
+        if not self._validate_signature(raw_body, signature):
             return web.Response(status=403, text="invalid_signature")
 
         try:

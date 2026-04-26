@@ -3,10 +3,14 @@ bot_database.sqlite3
 
 # Игнорировать файлы окружения
 .env
+.env.*
+!.env.example
+scratch_*.py
+node_modules/
+.git/
 
 # Игнорировать кэш Python
 __pycache__/
-node_modules/
 
 # Игнорировать настройки IDE (если используешь, например, PyCharm или VSCode)
 .idea/

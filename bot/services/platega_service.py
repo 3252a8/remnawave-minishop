@@ -1,3 +1,4 @@
+import hmac
 import json
 import logging
 from decimal import Decimal, ROUND_HALF_UP
@@ -141,7 +142,10 @@ class PlategaService:
 
         header_merchant = request.headers.get("X-MerchantId")
         header_secret = request.headers.get("X-Secret")
-        if header_merchant != self.merchant_id or header_secret != self.secret:
+        if not (
+            hmac.compare_digest(str(header_merchant or ""), str(self.merchant_id or ""))
+            and hmac.compare_digest(str(header_secret or ""), str(self.secret or ""))
+        ):
             logging.error("Platega webhook: invalid auth headers")
             return web.Response(status=403, text="forbidden")
 

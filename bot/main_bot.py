@@ -40,6 +40,12 @@ from bot.handlers.admin.sync_admin import perform_sync
 from bot.utils.message_queue import init_queue_manager
 
 
+def redact_token(value: str, token: Optional[str]) -> str:
+    if not value or not token:
+        return value
+    return value.replace(token, "***")
+
+
 async def register_all_routers(dp: Dispatcher, settings: Settings):
     dp.include_router(build_root_router(settings))
     logging.info("All application routers registered.")
@@ -59,52 +65,48 @@ async def on_startup_configured(dispatcher: Dispatcher):
     telegram_webhook_url_to_set = settings.WEBHOOK_BASE_URL
     if telegram_webhook_url_to_set:
         full_telegram_webhook_url = (
-            f"{str(telegram_webhook_url_to_set).rstrip('/')}/{settings.BOT_TOKEN}"
+            f"{str(telegram_webhook_url_to_set).rstrip('/')}{settings.telegram_webhook_path}"
         )
 
         logging.info(
-            f"STARTUP: Attempting to set Telegram webhook to: {full_telegram_webhook_url if full_telegram_webhook_url != 'ERROR_URL_TOKEN_DETECTED' else 'HIDDEN DUE TO TOKEN'}"
+            "STARTUP: Attempting to set Telegram webhook to: %s",
+            redact_token(full_telegram_webhook_url, settings.BOT_TOKEN),
         )
 
-        if full_telegram_webhook_url != "ERROR_URL_TOKEN_DETECTED":
-            try:
-                current_webhook_info = await bot.get_webhook_info()
-                logging.info(
-                    f"STARTUP: Current Telegram webhook info BEFORE setting: {current_webhook_info.model_dump_json(exclude_none=True, indent=2)}"
-                )
-
-                set_success = await bot.set_webhook(
-                    url=full_telegram_webhook_url,
-                    drop_pending_updates=True,
-                    allowed_updates=dispatcher.resolve_used_update_types(),
-                )
-                if set_success:
-                    logging.info(
-                        f"STARTUP: bot.set_webhook to {full_telegram_webhook_url} returned SUCCESS (True)."
-                    )
-                else:
-                    logging.error(
-                        f"STARTUP: bot.set_webhook to {full_telegram_webhook_url} returned FAILURE (False)."
-                    )
-
-                new_webhook_info = await bot.get_webhook_info()
-                logging.info(
-                    f"STARTUP: Telegram Webhook info AFTER setting: {new_webhook_info.model_dump_json(exclude_none=True, indent=2)}"
-                )
-                if not new_webhook_info.url:
-                    logging.error(
-                        "STARTUP: CRITICAL - Telegram Webhook URL is EMPTY after set attempt. Check bot token and URL validity."
-                    )
-
-            except Exception as e_setwebhook:
-                logging.error(
-                    f"STARTUP: EXCEPTION during set/get Telegram webhook: {e_setwebhook}",
-                    exc_info=True,
-                )
-        else:
-            logging.error(
-                "STARTUP: Skipped setting Telegram webhook due to security or configuration error."
+        try:
+            current_webhook_info = await bot.get_webhook_info()
+            logging.info(
+                f"STARTUP: Current Telegram webhook info BEFORE setting: {current_webhook_info.model_dump_json(exclude_none=True, indent=2)}"
             )
+
+            set_success = await bot.set_webhook(
+                url=full_telegram_webhook_url,
+                secret_token=settings.WEBHOOK_SECRET_TOKEN,
+                drop_pending_updates=True,
+                allowed_updates=dispatcher.resolve_used_update_types(),
+            )
+            if set_success:
+                logging.info(
+                    "STARTUP: bot.set_webhook to %s returned SUCCESS (True).",
+                    redact_token(full_telegram_webhook_url, settings.BOT_TOKEN),
+                )
+            else:
+                logging.error(
+                    "STARTUP: bot.set_webhook to %s returned FAILURE (False).",
+                    redact_token(full_telegram_webhook_url, settings.BOT_TOKEN),
+                )
+
+            new_webhook_info = await bot.get_webhook_info()
+            logging.info(
+                f"STARTUP: Telegram Webhook info AFTER setting: {new_webhook_info.model_dump_json(exclude_none=True, indent=2)}"
+            )
+            if not new_webhook_info.url:
+                logging.error(
+                    "STARTUP: CRITICAL - Telegram Webhook URL is EMPTY after set attempt. Check bot token and URL validity."
+                )
+
+        except Exception:
+            logging.exception("STARTUP: EXCEPTION during set/get Telegram webhook.")
     else:
         logging.error(
             "STARTUP: WEBHOOK_BASE_URL not set in environment. Webhook mode is required. Exiting."
@@ -127,10 +129,8 @@ async def on_startup_configured(dispatcher: Dispatcher):
             logging.info(
                 "STARTUP: Mini app domain registered and default menu button restored."
             )
-        except Exception as e:
-            logging.error(
-                f"STARTUP: Failed to register mini app domain: {e}", exc_info=True
-            )
+        except Exception:
+            logging.exception("STARTUP: Failed to register mini app domain.")
 
     try:
         bot_commands = [
@@ -144,16 +144,16 @@ async def on_startup_configured(dispatcher: Dispatcher):
             )
         await bot.set_my_commands(bot_commands)
         logging.info("STARTUP: bot command descriptions set.")
-    except Exception as e:
-        logging.error(f"STARTUP: Failed to set bot commands: {e}", exc_info=True)
+    except Exception:
+        logging.exception("STARTUP: Failed to set bot commands.")
 
     # Initialize message queue manager
     try:
         queue_manager = init_queue_manager(bot)
         dispatcher["queue_manager"] = queue_manager
         logging.info("STARTUP: Message queue manager initialized")
-    except Exception as e:
-        logging.error(f"STARTUP: Failed to initialize message queue manager: {e}", exc_info=True)
+    except Exception:
+        logging.exception("STARTUP: Failed to initialize message queue manager.")
 
     # Automatic sync on startup
     try:
@@ -172,8 +172,8 @@ async def on_startup_configured(dispatcher: Dispatcher):
         else:
             logging.warning(f"STARTUP: Automatic sync completed with issues. Status: {sync_result.get('status', 'unknown')}")
             
-    except Exception as e:
-        logging.error(f"STARTUP: Failed to run automatic sync: {e}", exc_info=True)
+    except Exception:
+        logging.exception("STARTUP: Failed to run automatic sync.")
 
     logging.info("STARTUP: Bot on_startup_configured completed.")
 

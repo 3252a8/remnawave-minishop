@@ -23,7 +23,7 @@ def _urlsafe_b64decode(raw: str) -> bytes:
 
 def _session_secret(settings: Settings) -> bytes:
     return hmac.new(
-        settings.BOT_TOKEN.encode("utf-8"),
+        settings.WEBAPP_SESSION_SECRET.encode("utf-8"),
         b"remnawave-tg-shop-webapp-session",
         hashlib.sha256,
     ).digest()
