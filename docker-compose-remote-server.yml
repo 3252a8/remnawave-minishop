@@ -1,6 +1,6 @@
 services:
   remnawave-minishop:
-    image: ghcr.io/3252a8/remnawave-tg-shop:${IMAGE_TAG:-3.0.0}
+    image: ghcr.io/3252a8/remnawave-minishop:${IMAGE_TAG:-latest}
     container_name: remnawave-minishop
     hostname: remnawave-minishop
     env_file:

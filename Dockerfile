@@ -26,6 +26,8 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+LABEL org.opencontainers.image.source="https://github.com/3252a8/remnawave-minishop"
+
 RUN useradd -u 10001 -m appuser
 
 COPY --from=python-builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages

@@ -95,7 +95,10 @@ copy_volume() {
     return 1
   fi
 
-  docker volume create "$target" >/dev/null
+  if ! volume_exists "$target"; then
+    die "Целевой том \`$target\` не создан Compose. Сначала нужно подготовить новый стек в режиме \`--no-start\`."
+  fi
+
   docker run --rm -v "$source:/from:ro" -v "$target:/to" alpine sh -c 'cd /from && cp -a . /to/'
 }
 
@@ -197,6 +200,7 @@ main() {
   if is_old_postgres_host; then
     summary+=( "обновить \`POSTGRES_HOST\` в \`.env\`" )
   fi
+  summary+=( "подготовить новый стек через Compose в режиме \`--no-start\`" )
   summary+=( "запустить compose-файл \`$(basename "$compose_file")\`" )
 
   if [[ "$assume_yes" != "1" ]]; then
@@ -260,7 +264,17 @@ main() {
     log "  - локальная ветка уже совпадает с удалённой, \`git pull\` не нужен"
   fi
 
-  log "4. Переношу тома"
+  log "4. Обновляю \`.env\`"
+  update_postgres_host
+
+  log "5. Подготавливаю новый стек через Compose"
+  if ((compose_has_build)); then
+    run "${compose_cmd[@]}" -f "$compose_file" up --no-start --build
+  else
+    run "${compose_cmd[@]}" -f "$compose_file" up --no-start
+  fi
+
+  log "6. Переношу тома"
   if copy_volume "$OLD_DB_VOLUME" "$NEW_DB_VOLUME"; then
     log "  - БД перенесена в \`$NEW_DB_VOLUME\`"
   fi
@@ -274,10 +288,7 @@ main() {
     done
   fi
 
-  log "5. Обновляю \`.env\`"
-  update_postgres_host
-
-  log "6. Запускаю новый стек"
+  log "7. Запускаю новый стек"
   if ((compose_has_build)); then
     up_args=(up -d --build --remove-orphans)
   else

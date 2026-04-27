@@ -59,8 +59,10 @@ ASSUME_YES=1 \
 1. **Останавливает текущий стек**: проверяет известные контейнеры старой и новой схемы и останавливает их, если они запущены.
 2. **Переключает `origin`**, если задана переменная `NEW_ORIGIN_URL`, иначе оставляет как есть.
 3. **Подтягивает целевую ветку** (`git fetch` + `git switch` + `git pull --ff-only`). Прерывается, если в рабочем дереве есть незакоммиченные изменения.
-4. **Переносит тома** `remnawave-tg-shop-*` → `remnawave-minishop-*` через одноразовый `alpine`-контейнер. Если новый том уже непустой, копирование пропускается. Заодно правится `POSTGRES_HOST` в `.env` (с бэкапом в `.env.bak`).
-5. **Стартует новый стек** (`docker compose -f $COMPOSE_FILE up -d --remove-orphans`, а для локальной сборки ещё и `--build`) и печатает `docker compose ps`.
+4. **Обновляет `.env`** и правит `POSTGRES_HOST`, если он ещё указывает на старый контейнер.
+5. **Подготавливает новый стек в режиме `--no-start`**, чтобы Compose сам создал тома и не ругался на уже существующий volume.
+6. **Переносит тома** `remnawave-tg-shop-*` → `remnawave-minishop-*` через одноразовый `alpine`-контейнер. Если новый том уже непустой, копирование пропускается.
+7. **Стартует новый стек** (`docker compose -f $COMPOSE_FILE up -d --remove-orphans`, а для локальной сборки ещё и `--build`) и печатает `docker compose ps`.
 
 Скрипт идемпотентен: повторный запуск ничего не сломает, просто пропустит уже выполненные шаги.
 
@@ -84,27 +86,38 @@ docker volume rm remnawave-tg-shop-caddy-data remnawave-tg-shop-caddy-config 2>/
     git pull --ff-only origin main
     ```
 
-2.  **Перенесите том БД в новое имя:**
+2.  **Обновите `.env`:**
 
     ```bash
-    docker volume create remnawave-minishop-db-data
+    sed -i.bak 's/^POSTGRES_HOST=remnawave-tg-shop-db$/POSTGRES_HOST=remnawave-minishop-db/' .env
+    ```
+
+3.  **Подготовьте новый стек без запуска:**
+
+    ```bash
+    # Локальная сборка
+    docker compose up --no-start --build
+
+    # Или Caddy-вариант
+    docker compose -f docker-compose-caddy.yml up --no-start --build
+
+    # Или готовый образ
+    docker compose -f docker-compose-remote-server.yml up --no-start
+    ```
+
+4.  **Перенесите том БД в новое имя:**
+
+    ```bash
     docker run --rm \
       -v remnawave-tg-shop-db-data:/from:ro \
       -v remnawave-minishop-db-data:/to \
       alpine sh -c "cd /from && cp -a . /to"
     ```
 
-3.  **Обновите `.env`:**
-
-    ```bash
-    sed -i.bak 's/^POSTGRES_HOST=remnawave-tg-shop-db$/POSTGRES_HOST=remnawave-minishop-db/' .env
-    ```
-
-4.  **(Только для Caddy)** перенесите тома Caddy с TLS-сертификатами и состоянием ACME:
+5.  **(Только для Caddy)** перенесите тома Caddy с TLS-сертификатами и состоянием ACME:
 
     ```bash
     for v in caddy-data caddy-config; do
-      docker volume create "remnawave-minishop-$v"
       docker run --rm \
         -v "remnawave-tg-shop-$v":/from:ro \
         -v "remnawave-minishop-$v":/to \
@@ -112,7 +125,7 @@ docker volume rm remnawave-tg-shop-caddy-data remnawave-tg-shop-caddy-config 2>/
     done
     ```
 
-5.  **Запустите новый стек:**
+6.  **Запустите новый стек:**
 
     ```bash
     docker compose up -d
@@ -122,14 +135,14 @@ docker volume rm remnawave-tg-shop-caddy-data remnawave-tg-shop-caddy-config 2>/
     docker compose -f docker-compose-remote-server.yml up -d
     ```
 
-6.  **Проверьте:**
+7.  **Проверьте:**
 
     ```bash
     docker compose ps
     docker compose logs -f remnawave-minishop
     ```
 
-7.  **(Опционально) удалите старые тома**, когда убедитесь, что новый стек стабилен:
+8.  **(Опционально) удалите старые тома**, когда убедитесь, что новый стек стабилен:
 
     ```bash
     docker volume rm remnawave-tg-shop-db-data

@@ -468,13 +468,13 @@ cd /opt/remnawave/nginx && docker compose down && docker compose up -d && docker
 
 Файлы `Dockerfile` и `docker-compose.yml` уже настроены для локальной сборки и запуска проекта.
 
-Если нужен запуск из готового образа, используйте `docker-compose-remote-server.yml` как шаблон и укажите свой `image:` вместо локальной сборки.
+Если нужен запуск из готового образа, используйте `docker-compose-remote-server.yml` как шаблон и укажите свой `image:` вместо локальной сборки. По умолчанию он тянет `ghcr.io/3252a8/remnawave-minishop:latest`, а для закрепления версии можно задать `IMAGE_TAG=3.1.0`.
 
-Этот репозиторий больше не публикует образы автоматически через GitHub Actions. В GHCR сохранён только тег `3.0.0`; `latest` и `0.1.0` больше не используются.
+В GHCR доступны теги `3.1.0` и `latest`.
 
 Чтобы использовать сохранённый образ, можно запустить:
 ```bash
-IMAGE_TAG=3.0.0 docker compose -f docker-compose-remote-server.yml up -d
+IMAGE_TAG=3.1.0 docker compose -f docker-compose-remote-server.yml up -d
 ```
 
 ### Вариант с Caddy
