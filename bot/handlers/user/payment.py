@@ -486,10 +486,9 @@ async def yookassa_webhook_route(request: web.Request):
         lknpd_service: Optional[LknpdService] = request.app.get('lknpd_service')
         async_session_factory: sessionmaker = request.app[
             'async_session_factory']
-    except KeyError as e_app_ctx:
-        logging.error(
-            f"KeyError accessing app context in yookassa_webhook_route: {e_app_ctx}.",
-            exc_info=True)
+    except KeyError:
+        logging.exception(
+            "KeyError accessing app context in yookassa_webhook_route.")
         return web.Response(
             status=500,
             text="Internal Server Error: Missing app context component")
@@ -673,23 +672,20 @@ async def yookassa_webhook_route(request: web.Request):
                                             logging.exception("Failed to cancel bind-only payment auth")
                             except Exception:
                                 logging.exception("Failed to handle bind-only waiting_for_capture webhook")
-                except Exception as e_webhook_db_processing:
+                except Exception:
                     await session.rollback()
-                    logging.error(
-                        f"Error processing YooKassa webhook event '{notification_object.event}' "
-                        f"for YK Payment ID {payment_dict_for_processing.get('id')} in DB transaction: {e_webhook_db_processing}",
-                        exc_info=True)
+                    logging.exception(
+                        "Error processing YooKassa webhook event '%s' for YK Payment ID %s in DB transaction.",
+                        notification_object.event,
+                        payment_dict_for_processing.get('id'))
                     return web.Response(
-                        status=200, text="ok_internal_processing_error_logged")
+                        status=500, text="internal_processing_error")
 
         return web.Response(status=200, text="ok")
 
     except json.JSONDecodeError:
         logging.error("YooKassa Webhook: Invalid JSON received.")
         return web.Response(status=400, text="bad_request_invalid_json")
-    except Exception as e_general_webhook:
-        logging.error(
-            f"YooKassa Webhook general processing error: {e_general_webhook}",
-            exc_info=True)
-        return web.Response(status=200,
-                            text="ok_general_internal_error_logged")
+    except Exception:
+        logging.exception("YooKassa Webhook general processing error.")
+        return web.Response(status=500, text="internal_error")
