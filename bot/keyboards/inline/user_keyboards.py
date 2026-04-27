@@ -444,16 +444,16 @@ def get_connect_and_main_keyboard(
     builder = InlineKeyboardBuilder()
     button_target = connect_button_url or config_link
 
-    if settings.SUBSCRIPTION_MINI_APP_URL:
+    if button_target:
+        builder.row(
+            InlineKeyboardButton(text=_("connect_button"), url=button_target)
+        )
+    elif settings.SUBSCRIPTION_MINI_APP_URL:
         builder.row(
             InlineKeyboardButton(
                 text=_("connect_button"),
                 web_app=WebAppInfo(url=settings.SUBSCRIPTION_MINI_APP_URL),
             )
-        )
-    elif button_target:
-        builder.row(
-            InlineKeyboardButton(text=_("connect_button"), url=button_target)
         )
     else:
         builder.row(

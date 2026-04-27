@@ -238,23 +238,22 @@ async def my_subscription_command_handler(
         # Build rows to prepend above the base "back" markup
         prepend_rows = []
 
-        # 1) Mini-app connect button on top if enabled, otherwise fall back to config link URL
-        if settings.SUBSCRIPTION_MINI_APP_URL:
+        # 1) Connect button: prefer the actual subscription URL; fall back to mini-app
+        cfg_link_val = connect_button_url or config_link_display
+        if cfg_link_val:
+            prepend_rows.append([
+                InlineKeyboardButton(
+                    text=get_text("connect_button"),
+                    url=cfg_link_val,
+                )
+            ])
+        elif settings.SUBSCRIPTION_MINI_APP_URL:
             prepend_rows.append([
                 InlineKeyboardButton(
                     text=get_text("connect_button"),
                     web_app=WebAppInfo(url=settings.SUBSCRIPTION_MINI_APP_URL),
                 )
             ])
-        else:
-            cfg_link_val = connect_button_url or config_link_display
-            if cfg_link_val:
-                prepend_rows.append([
-                    InlineKeyboardButton(
-                        text=get_text("connect_button"),
-                        url=cfg_link_val,
-                    )
-                ])
 
         if settings.MY_DEVICES_SECTION_ENABLED:
             max_devices_value = active.get("max_devices")
