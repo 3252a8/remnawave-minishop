@@ -436,7 +436,15 @@ const MOCK = (() => {
         referral_bonus_explanation: 'Bonuses are awarded once for each invited user when they purchase a subscription.'
       }
     };
-    const I18N = readJsonScript('i18n') || (MOCK && MOCK.i18n) || {};
+    const I18N = (function () {
+      const server = readJsonScript('i18n') || (MOCK && MOCK.i18n) || {};
+      const merged = {};
+      const langs = new Set(Object.keys(FALLBACK_I18N).concat(Object.keys(server)));
+      langs.forEach(function (lang) {
+        merged[lang] = Object.assign({}, FALLBACK_I18N[lang] || {}, server[lang] || {});
+      });
+      return merged;
+    })();
 
     const accent = CFG.primaryColor || '#00fe7a';
     document.documentElement.style.setProperty('--accent', accent);
