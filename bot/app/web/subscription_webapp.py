@@ -337,15 +337,17 @@ async def _hostname_resolves_to_public_address(hostname: str) -> bool:
 
 @web.middleware
 async def _security_headers_middleware(request: web.Request, handler):
+    request["csp_nonce"] = secrets.token_urlsafe(16)
     try:
         response = await handler(request)
     except web.HTTPException as exc:
         response = exc
+    nonce = request.get("csp_nonce", "")
     response.headers.setdefault(
         "Content-Security-Policy",
         (
             "default-src 'self'; "
-            "script-src 'self' https://telegram.org; "
+            f"script-src 'self' 'nonce-{nonce}' 'unsafe-eval' https://telegram.org; "
             "frame-ancestors https://web.telegram.org https://t.me; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; "
@@ -636,10 +638,11 @@ async def index_route(request: web.Request) -> web.Response:
     html = _strip_marked_block(html, DEV_MOCK_START_MARKER, DEV_MOCK_END_MARKER)
     i18n_instance: Optional[object] = request.app.get("i18n")
     i18n_payload = getattr(i18n_instance, "locales_data", {}) if i18n_instance else {}
+    nonce = request.get("csp_nonce", "")
     html = html.replace(
         WEBAPP_CONFIG_PLACEHOLDER,
         (
-            "<script id=\"webapp-config\" type=\"application/json\">"
+            f"<script id=\"webapp-config\" type=\"application/json\" nonce=\"{nonce}\">"
             + json.dumps(config, ensure_ascii=False, separators=(",", ":"))
             + "</script>"
         ),
@@ -647,7 +650,7 @@ async def index_route(request: web.Request) -> web.Response:
     html = html.replace(
         WEBAPP_I18N_PLACEHOLDER,
         (
-            "<script id=\"i18n\" type=\"application/json\">"
+            f"<script id=\"i18n\" type=\"application/json\" nonce=\"{nonce}\">"
             + json.dumps(i18n_payload, ensure_ascii=False, separators=(",", ":"))
             + "</script>"
         ),
