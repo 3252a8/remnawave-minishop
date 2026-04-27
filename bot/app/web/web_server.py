@@ -58,6 +58,11 @@ async def build_and_start_web_app(
     app = web.Application()
     _inject_shared_instances(app, dp, bot, settings, async_session_factory)
 
+    async def _healthcheck(request: web.Request) -> web.Response:
+        return web.json_response({"status": "ok"})
+
+    app.router.add_get("/healthz", _healthcheck)
+
     setup_application(app, dp, bot=bot)
 
     telegram_uses_webhook_mode = bool(settings.WEBHOOK_BASE_URL)
