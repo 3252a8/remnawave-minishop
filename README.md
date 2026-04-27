@@ -49,8 +49,8 @@ Remnawave Minishop — это Telegram-бот **и** Web App (Mini App) для �
 
 1.  **Клонируйте репозиторий:**
     ```bash
-    git clone https://github.com/3252a8/remnawave-tg-shop
-    cd remnawave-tg-shop
+    git clone https://github.com/3252a8/remnawave-minishop
+    cd remnawave-minishop
     ```
 
 2.  **Создайте и настройте файл `.env`:**
@@ -323,7 +323,7 @@ python scripts/update_telegram_widget_js.py
 ### 1. Клонирование репозитория
 
 ```bash
-git clone https://github.com/3252a8/remnawave-tg-shop && cd remnawave-tg-shop
+git clone https://github.com/3252a8/remnawave-minishop && cd remnawave-minishop
 ```
 
 ### 2. Настройка переменных окружения
@@ -455,7 +455,7 @@ networks:
 Запустите бота:
 
 ```bash
-cd /root/remnawave-tg-shop && docker compose up -d && docker compose logs -f -t
+cd /root/remnawave-minishop && docker compose up -d && docker compose logs -f -t
 ```
 
 Перезапустите Nginx:
