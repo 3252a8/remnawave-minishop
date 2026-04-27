@@ -14,7 +14,11 @@ from db.dal import payment_dal
 router = Router(name="user_subscription_payments_platega_router")
 
 
-@router.callback_query(F.data.startswith("pay_platega:"))
+@router.callback_query(
+    F.data.startswith("pay_platega_sbp:")
+    | F.data.startswith("pay_platega_crypto:")
+    | F.data.startswith("pay_platega:")
+)
 async def pay_platega_callback_handler(
     callback: types.CallbackQuery,
     settings: Settings,
@@ -22,6 +26,29 @@ async def pay_platega_callback_handler(
     platega_service: PlategaService,
     session: AsyncSession,
 ):
+    callback_prefix, _, _ = (callback.data or "").partition(":")
+    if callback_prefix == "pay_platega_crypto":
+        platega_method_id = settings.PLATEGA_CRYPTO_METHOD
+        platega_variant = "crypto"
+        if not settings.PLATEGA_CRYPTO_ENABLED:
+            try:
+                await callback.answer()
+            except Exception:
+                pass
+            return
+    elif callback_prefix == "pay_platega_sbp":
+        platega_method_id = settings.platega_sbp_method_resolved
+        platega_variant = "sbp"
+        if not settings.PLATEGA_SBP_ENABLED:
+            try:
+                await callback.answer()
+            except Exception:
+                pass
+            return
+    else:
+        # Legacy callback (pre-split): keep working as SBP
+        platega_method_id = settings.platega_sbp_method_resolved
+        platega_variant = "sbp"
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -103,6 +130,7 @@ async def pay_platega_callback_handler(
             "user_id": user_id,
             "months": months,
             "sale_mode": sale_mode,
+            "platega_variant": platega_variant,
         }
     )
 
@@ -114,6 +142,7 @@ async def pay_platega_callback_handler(
         currency=currency_code,
         description=payment_description,
         payload=payload_meta,
+        payment_method=platega_method_id,
     )
 
     if success:

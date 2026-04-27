@@ -2066,7 +2066,8 @@ def _serialize_payment_methods(
     labels = {
         "severpay": "SeverPay",
         "freekassa": "FreeKassa / СБП",
-        "platega": "Platega",
+        "platega_sbp": "Platega · СБП",
+        "platega_crypto": "Platega · Crypto",
         "yookassa": "Банковская карта",
         "stars": "Telegram Stars",
         "cryptopay": "CryptoPay",
@@ -2078,7 +2079,9 @@ def _serialize_payment_methods(
             methods.append({"id": method, "name": labels[method]})
         elif method == "freekassa" and _service_configured(app, "freekassa_service"):
             methods.append({"id": method, "name": labels[method]})
-        elif method == "platega" and _service_configured(app, "platega_service"):
+        elif method == "platega_sbp" and settings.PLATEGA_SBP_ENABLED and _service_configured(app, "platega_service"):
+            methods.append({"id": method, "name": labels[method]})
+        elif method == "platega_crypto" and settings.PLATEGA_CRYPTO_ENABLED and _service_configured(app, "platega_service"):
             methods.append({"id": method, "name": labels[method]})
         elif method == "yookassa" and _service_configured(app, "yookassa_service"):
             methods.append({"id": method, "name": labels[method]})
@@ -2116,9 +2119,9 @@ async def _create_subscription_payment(
         return await _create_freekassa_payment(
             request, session, user_id, months, price, description
         )
-    if method == "platega":
+    if method in ("platega", "platega_sbp", "platega_crypto"):
         return await _create_platega_payment(
-            request, session, user_id, months, price, description
+            request, session, user_id, months, price, description, variant=method
         )
     if method == "severpay":
         return await _create_severpay_payment(
@@ -2316,11 +2319,20 @@ async def _create_platega_payment(
     months: int,
     price: float,
     description: str,
+    variant: str = "platega_sbp",
 ) -> web.Response:
     settings: Settings = request.app["settings"]
     service: PlategaService = request.app["platega_service"]
     if not service or not service.configured:
         return _json_error(400, "payment_unavailable", "Payment method unavailable")
+    if variant == "platega_crypto":
+        if not settings.PLATEGA_CRYPTO_ENABLED:
+            return _json_error(400, "payment_unavailable", "Payment method unavailable")
+        platega_method_id = settings.PLATEGA_CRYPTO_METHOD
+    else:
+        if variant == "platega_sbp" and not settings.PLATEGA_SBP_ENABLED:
+            return _json_error(400, "payment_unavailable", "Payment method unavailable")
+        platega_method_id = settings.platega_sbp_method_resolved
 
     try:
         payment = await _create_base_payment_record(
@@ -2340,6 +2352,7 @@ async def _create_platega_payment(
                 "months": months,
                 "sale_mode": "subscription",
                 "source": "webapp",
+                "platega_variant": "crypto" if variant == "platega_crypto" else "sbp",
             }
         )
         success, response_data = await service.create_transaction(
@@ -2350,6 +2363,7 @@ async def _create_platega_payment(
             currency=settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
             description=description,
             payload=payload,
+            payment_method=platega_method_id,
         )
         payment_url = (
             response_data.get("redirect")

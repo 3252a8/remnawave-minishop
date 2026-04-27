@@ -49,6 +49,8 @@
   "yookassa_autopay_charge_initiated": "Запрос на списание с выбранной карты отправлен. Сообщим, как только платёж завершится.",
   "pay_with_sbp_button": "📱 СБП",
   "pay_with_platega_button": "💳 Platega (СБП/карты)",
+  "pay_with_platega_sbp_button": "🏦 Оплата через СБП",
+  "pay_with_platega_crypto_button": "🪙 Оплата криптой",
   "pay_with_severpay_button": "💳 SeverPay",
   "back_to_payment_methods_button": "⬅️ Назад",
   "pay_with_cryptopay_button": "💎 CryptoBot",

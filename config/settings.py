@@ -44,6 +44,10 @@ class PaymentSettings(BaseModel):
     platega_merchant_id: Optional[str]
     platega_secret: Optional[str]
     platega_payment_method: int
+    platega_sbp_enabled: bool
+    platega_crypto_enabled: bool
+    platega_sbp_method: int
+    platega_crypto_method: int
     platega_return_url: Optional[str]
     platega_failed_url: Optional[str]
     severpay_enabled: bool
@@ -179,7 +183,24 @@ class Settings(BaseSettings):
     PLATEGA_MERCHANT_ID: Optional[str] = None
     PLATEGA_SECRET: Optional[str] = None
     PLATEGA_PAYMENT_METHOD: int = Field(
-        default=2, description="Platega payment method ID (e.g., 2 for SBP QR)"
+        default=2,
+        description="Legacy Platega payment method ID. Used as fallback for PLATEGA_SBP_METHOD when the new field is unset.",
+    )
+    PLATEGA_SBP_ENABLED: bool = Field(
+        default=False,
+        description="Show a separate Platega SBP payment button.",
+    )
+    PLATEGA_CRYPTO_ENABLED: bool = Field(
+        default=False,
+        description="Show a separate Platega crypto payment button.",
+    )
+    PLATEGA_SBP_METHOD: int = Field(
+        default=2,
+        description="Platega method ID for SBP QR (default 2).",
+    )
+    PLATEGA_CRYPTO_METHOD: int = Field(
+        default=13,
+        description="Platega method ID for crypto (default 13).",
     )
     PLATEGA_RETURN_URL: Optional[str] = Field(default=None)
     PLATEGA_FAILED_URL: Optional[str] = Field(default=None)
@@ -404,6 +425,10 @@ class Settings(BaseSettings):
             platega_merchant_id=self.PLATEGA_MERCHANT_ID,
             platega_secret=self.PLATEGA_SECRET,
             platega_payment_method=self.PLATEGA_PAYMENT_METHOD,
+            platega_sbp_enabled=self.PLATEGA_SBP_ENABLED,
+            platega_crypto_enabled=self.PLATEGA_CRYPTO_ENABLED,
+            platega_sbp_method=self.platega_sbp_method_resolved,
+            platega_crypto_method=self.PLATEGA_CRYPTO_METHOD,
             platega_return_url=self.PLATEGA_RETURN_URL,
             platega_failed_url=self.PLATEGA_FAILED_URL,
             severpay_enabled=self.SEVERPAY_ENABLED,
@@ -750,7 +775,8 @@ class Settings(BaseSettings):
         """
         default_order = [
             "freekassa",
-            "platega",
+            "platega_sbp",
+            "platega_crypto",
             "severpay",
             "yookassa",
             "stars",
@@ -758,12 +784,28 @@ class Settings(BaseSettings):
         ]
         if not self.PAYMENT_METHODS_ORDER:
             return default_order
-        methods = []
+        methods: List[str] = []
         for item in self.PAYMENT_METHODS_ORDER.split(","):
             slug = item.strip().lower()
-            if slug:
-                methods.append(slug)
+            if not slug:
+                continue
+            if slug == "platega":
+                # Legacy slug — expand to the new sub-methods preserving order
+                if "platega_sbp" not in methods:
+                    methods.append("platega_sbp")
+                if "platega_crypto" not in methods:
+                    methods.append("platega_crypto")
+                continue
+            methods.append(slug)
         return methods or default_order
+
+    @computed_field
+    @property
+    def platega_sbp_method_resolved(self) -> int:
+        """SBP method ID, falling back to legacy PLATEGA_PAYMENT_METHOD when SBP-specific value is the default."""
+        if self.PLATEGA_SBP_METHOD != 2:
+            return self.PLATEGA_SBP_METHOD
+        return self.PLATEGA_PAYMENT_METHOD or 2
 
     @computed_field
     @property

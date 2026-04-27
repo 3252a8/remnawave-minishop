@@ -42,6 +42,8 @@ class PlategaService:
         self.merchant_id = settings.PLATEGA_MERCHANT_ID
         self.secret = settings.PLATEGA_SECRET
         self.payment_method = settings.PLATEGA_PAYMENT_METHOD
+        self.sbp_method = settings.platega_sbp_method_resolved
+        self.crypto_method = settings.PLATEGA_CRYPTO_METHOD
         self.return_url = settings.PLATEGA_RETURN_URL or f"https://t.me/{default_return_url}"
         self.failed_url = settings.PLATEGA_FAILED_URL or self.return_url
 
@@ -77,6 +79,7 @@ class PlategaService:
         currency: Optional[str],
         description: str,
         payload: Optional[str] = None,
+        payment_method: Optional[int] = None,
     ) -> Tuple[bool, Dict[str, Any]]:
         if not self.configured:
             logging.error("PlategaService is not configured. Cannot create transaction.")
@@ -85,9 +88,10 @@ class PlategaService:
         session = await self._get_session()
         url = f"{self.base_url}/transaction/process"
         currency_code = (currency or self.settings.DEFAULT_CURRENCY_SYMBOL or "RUB").upper()
+        method_id = int(payment_method if payment_method is not None else self.payment_method)
 
         body: Dict[str, Any] = {
-            "paymentMethod": int(self.payment_method),
+            "paymentMethod": method_id,
             "paymentDetails": {"amount": float(amount), "currency": currency_code},
             "description": description,
             "return": self.return_url,

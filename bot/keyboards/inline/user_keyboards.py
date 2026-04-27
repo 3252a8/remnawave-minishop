@@ -206,10 +206,15 @@ def get_payment_method_keyboard(months: int, price: float,
                 text=_("pay_with_sbp_button"),
                 callback_data=f"pay_fk:{value_str}:{price}{mode_suffix}",
             )
-        elif method == "platega" and settings.PLATEGA_ENABLED:
+        elif method == "platega_sbp" and settings.PLATEGA_ENABLED and settings.PLATEGA_SBP_ENABLED:
             builder.button(
-                text=_("pay_with_platega_button"),
-                callback_data=f"pay_platega:{value_str}:{price}{mode_suffix}",
+                text=_("pay_with_platega_sbp_button"),
+                callback_data=f"pay_platega_sbp:{value_str}:{price}{mode_suffix}",
+            )
+        elif method == "platega_crypto" and settings.PLATEGA_ENABLED and settings.PLATEGA_CRYPTO_ENABLED:
+            builder.button(
+                text=_("pay_with_platega_crypto_button"),
+                callback_data=f"pay_platega_crypto:{value_str}:{price}{mode_suffix}",
             )
         elif method == "yookassa" and settings.YOOKASSA_ENABLED:
             builder.button(
