@@ -212,7 +212,49 @@ class NotificationService:
         # Send to log channel
         profile_keyboard = self._build_profile_keyboard(_, user_id, referred_by_id)
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
-    
+
+    async def notify_new_email_user_registration(
+        self,
+        user_id: int,
+        email: str,
+        referred_by_id: Optional[int] = None,
+    ):
+        """Send notification about new user registration via email (Web App)."""
+        if not self.settings.LOG_NEW_USERS:
+            return
+
+        admin_lang = self.settings.DEFAULT_LANGUAGE
+        _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
+
+        referral_text = ""
+        if referred_by_id:
+            referrer_link = hd.link(str(referred_by_id), f"tg://user?id={referred_by_id}")
+            referral_text = _(
+                "log_referral_suffix",
+                referrer_link=referrer_link,
+            )
+
+        message = _(
+            "log_new_email_user_registration",
+            user_id=user_id,
+            email=hd.quote(email),
+            referral_text=referral_text,
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        )
+
+        # Email users have a synthetic (negative) user_id with no Telegram profile,
+        # so we only attach the referrer button when a real referrer is present.
+        reply_markup: Optional[InlineKeyboardMarkup] = None
+        if referred_by_id and referred_by_id > 0:
+            reply_markup = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(
+                    text=_("log_open_referrer_profile_button"),
+                    url=f"tg://user?id={referred_by_id}",
+                )
+            ]])
+
+        await self._send_to_log_channel(message, reply_markup=reply_markup)
+
     async def notify_payment_received(self, user_id: int, amount: float, currency: str,
                                     months: int, payment_provider: str, 
                                     username: Optional[str] = None,

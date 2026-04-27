@@ -811,6 +811,8 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
     referral_param = str(payload.get("referral_code") or payload.get("start_param") or "")
     email_service: EmailAuthService = request.app["email_auth_service"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
+    created_user = False
+    new_user_referrer_id: Optional[int] = None
 
     async with async_session_factory() as session:
         try:
@@ -835,7 +837,6 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
                 )
 
             db_user = await user_dal.get_user_by_email(session, email)
-            created_user = False
             if not db_user:
                 referred_by_id = await _resolve_referrer_id(
                     session,
@@ -850,6 +851,7 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
                     referred_by_id=referred_by_id,
                 )
                 created_user = True
+                new_user_referrer_id = referred_by_id
             elif not db_user.email_verified_at:
                 db_user.email_verified_at = datetime.now(timezone.utc)
 
@@ -876,6 +878,24 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
             await session.rollback()
             logger.exception("Email WebApp auth failed")
             return _json_error(500, "auth_failed", "Auth failed")
+
+    if created_user:
+        try:
+            from bot.services.notification_service import NotificationService
+
+            bot: Bot = request.app["bot"]
+            notification_service = NotificationService(
+                bot,
+                settings,
+                request.app.get("i18n"),
+            )
+            await notification_service.notify_new_email_user_registration(
+                user_id=int(db_user.user_id),
+                email=email,
+                referred_by_id=new_user_referrer_id,
+            )
+        except Exception:
+            logger.exception("Failed to send new email user notification")
 
     token = create_webapp_session_token(settings, int(db_user.user_id))
     return _build_webapp_auth_response(
