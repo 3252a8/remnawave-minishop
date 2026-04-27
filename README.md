@@ -1,6 +1,6 @@
-# Telegram-бот для продажи подписок Remnawave
+# Remnawave Minishop
 
-Этот Telegram-бот предназначен для автоматизации продажи и управления подписками для панели **Remnawave**. Он интегрируется с API Remnawave для управления пользователями и подписками, а также использует различные платежные системы для приема платежей.
+Remnawave Minishop — это Telegram-бот **и** Web App (Mini App) для автоматизации продажи и управления подписками панели **Remnawave**. Бот закрывает сценарий покупки, продления и работы с поддержкой прямо в чате, а Web App в едином интерфейсе показывает ссылку подключения, остаток времени, трафик, оплату и устройства, поддерживая вход через Telegram Mini Apps `initData`, Telegram Login Widget и одноразовый код по email. Под капотом — интеграция с API Remnawave для управления пользователями и подписками и набор платёжных шлюзов для приёма платежей.
 
 ## ✨ Ключевые возможности
 
@@ -52,7 +52,7 @@
     ```
 
 2.  **Создайте и настройте файл `.env`:**
-    Скопируйте `env.example` в `.env` и заполните своими данными.
+    Скопируйте `.env.example` в `.env` и заполните своими данными.
     ```bash
     cp .env.example .env
     nano .env 
@@ -203,7 +203,7 @@
     ```bash
     docker compose up -d
     ```
-    Эта команда скачает образ и запустит сервис в фоновом режиме.
+    Эта команда соберёт образ из `Dockerfile` (Python + сборка Web App на Node) и запустит сервис в фоновом режиме. Если нужен запуск из готового образа GHCR — используйте `docker-compose-remote-server.yml`.
 
 5.  **Настройка вебхуков (Обязательно):**
     Вебхуки являются **обязательным** компонентом для работы бота, так как они используются для получения уведомлений от платежных систем (YooKassa, FreeKassa, CryptoPay, Platega, SeverPay) и панели Remnawave.
@@ -517,31 +517,36 @@ docker compose -f docker-compose-caddy.yml up -d --build
 ```
 .
 ├── bot/
-│   ├── filters/          # Пользовательские фильтры Aiogram
-│   ├── handlers/         # Обработчики сообщений и колбэков
-│   ├── keyboards/        # Клавиатуры
-│   ├── middlewares/      # Промежуточные слои (i18n, проверка бана)
-│   ├── services/         # Бизнес-логика (платежи, API панели)
-│   ├── states/           # Состояния FSM
-│   └── main_bot.py       # Основная логика бота
+│   ├── app/                          # Сборка приложения (фабрики, контроллеры, Web App)
+│   │   ├── controllers/              # Запуск Aiogram dispatcher
+│   │   ├── factories/                # Фабрики сервисов (платежи, панель и т.д.)
+│   │   └── web/                      # Web App / Mini App (сервер, аутентификация, шаблоны)
+│   ├── filters/                      # Пользовательские фильтры Aiogram
+│   ├── handlers/                     # Обработчики сообщений и колбэков (admin/, user/)
+│   ├── keyboards/                    # Клавиатуры
+│   ├── middlewares/                  # Промежуточные слои (i18n, проверка бана и т.д.)
+│   ├── services/                     # Бизнес-логика (платёжные шлюзы, API панели, email и т.д.)
+│   ├── states/                       # Состояния FSM (admin/user)
+│   ├── utils/                        # Вспомогательные утилиты
+│   ├── routers.py                    # Регистрация всех роутеров Aiogram
+│   └── main_bot.py                   # Основная логика бота
 ├── config/
-│   └── settings.py       # Настройки Pydantic
+│   └── settings.py                   # Настройки Pydantic
 ├── db/
-│   ├── dal/              # Слой доступа к данным (DAL)
-│   ├── database_setup.py # Настройка БД
-│   └── models.py         # Модели SQLAlchemy
-├── locales/              # Файлы локализации (ru, en)
-├── .env.example          # Пример файла с переменными окружения
-├── Dockerfile            # Инструкции для сборки Docker-образа
-├── docker-compose.yml    # Файл для оркестрации контейнеров
-├── requirements.txt      # Зависимости Python
-└── main.py               # Точка входа в приложение
+│   ├── dal/                          # Слой доступа к данным (DAL)
+│   ├── database_setup.py             # Настройка БД и подключения
+│   ├── migrator.py                   # Миграции схемы при старте
+│   └── models.py                     # Модели SQLAlchemy
+├── locales/                          # Файлы локализации (ru.json, en.json)
+├── scripts/                          # Сборка JS Web App и обновление копий Telegram JS
+├── tests/                            # Pytest-тесты
+├── .env.example                      # Пример файла с переменными окружения
+├── Caddyfile                         # Пример конфигурации Caddy
+├── Dockerfile                        # Multi-stage сборка (Python + Node для Web App)
+├── docker-compose.yml                # Локальная сборка и запуск
+├── docker-compose-caddy.yml          # Запуск с Caddy в качестве reverse proxy
+├── docker-compose-remote-server.yml  # Запуск из готового образа GHCR
+├── package.json                      # Frontend-зависимости (Tailwind, esbuild) и сборка Web App
+├── requirements.txt                  # Зависимости Python
+└── main.py                           # Точка входа в приложение
 ```
-
-## 🔮 Планы на будущее
-
--   Расширенные типы промокодов (например, скидки в процентах).
-
-## ❤️ Поддержка
-- Карты РФ и зарубежные: [Tribute](https://t.me/tribute/app?startapp=dqdg)
-- Crypto: `USDT TRC-20 TT3SqBbfU4vYm6SUwUVNZsy278m2xbM4GE`
