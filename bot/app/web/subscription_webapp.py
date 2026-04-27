@@ -2472,7 +2472,7 @@ async def _create_stars_payment(
                 title=description,
                 description=description,
                 payload=payload,
-                provider_token="",
+                provider_token="",  # Required to be empty for Telegram Stars (XTR) per Telegram Bot API.
                 currency="XTR",
                 prices=prices,
             )

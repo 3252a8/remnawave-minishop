@@ -130,7 +130,7 @@ async def upsert_subscription(session: AsyncSession,
 
 async def deactivate_other_active_subscriptions(
         session: AsyncSession, panel_user_uuid: str,
-        current_panel_subscription_uuid: Optional[str]):
+        current_panel_subscription_uuid: Optional[str]) -> None:
     stmt = (update(Subscription).where(
         Subscription.panel_user_uuid == panel_user_uuid,
         Subscription.is_active == True,
