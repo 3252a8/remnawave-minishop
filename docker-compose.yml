@@ -1,15 +1,15 @@
 services:
-  remnawave-tg-shop:
+  remnawave-minishop:
     build: .
-    container_name: remnawave-tg-shop
-    hostname: remnawave-tg-shop
+    container_name: remnawave-minishop
+    hostname: remnawave-minishop
     env_file:
       - .env
     networks:
       - remnawave-network
     restart: unless-stopped
     depends_on:
-      remnawave-tg-shop-db:
+      remnawave-minishop-db:
         condition: service_healthy
     ports:
       - 127.0.0.1:8080:8080
@@ -21,14 +21,14 @@ services:
       retries: 5
       start_period: 30s
 
-  remnawave-tg-shop-db:
+  remnawave-minishop-db:
     image: postgres:17
-    container_name: remnawave-tg-shop-db
-    hostname: remnawave-tg-shop-db
+    container_name: remnawave-minishop-db
+    hostname: remnawave-minishop-db
     env_file:
       - .env
     volumes:
-      - remnawave-tg-shop-db-data:/var/lib/postgresql/data
+      - remnawave-minishop-db-data:/var/lib/postgresql/data
     networks:
       - remnawave-network
     restart: unless-stopped
@@ -43,5 +43,5 @@ networks:
     external: true
 
 volumes:
-  remnawave-tg-shop-db-data:
-    name: remnawave-tg-shop-db-data
+  remnawave-minishop-db-data:
+    name: remnawave-minishop-db-data

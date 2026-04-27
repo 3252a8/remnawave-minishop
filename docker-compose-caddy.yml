@@ -1,8 +1,8 @@
 services:
-  remnawave-tg-shop:
+  remnawave-minishop:
     build: .
-    container_name: remnawave-tg-shop
-    hostname: remnawave-tg-shop
+    container_name: remnawave-minishop
+    hostname: remnawave-minishop
     env_file:
       - .env
     environment:
@@ -11,19 +11,19 @@ services:
       - ./locales:/app/locales
     restart: unless-stopped
     depends_on:
-      remnawave-tg-shop-db:
+      remnawave-minishop-db:
         condition: service_healthy
 
-  remnawave-tg-shop-db:
+  remnawave-minishop-db:
     image: postgres:17
-    container_name: remnawave-tg-shop-db
-    hostname: remnawave-tg-shop-db
+    container_name: remnawave-minishop-db
+    hostname: remnawave-minishop-db
     env_file:
       - .env
     environment:
       - TZ=UTC
     volumes:
-      - remnawave-tg-shop-db-data:/var/lib/postgresql/data
+      - remnawave-minishop-db-data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
@@ -33,14 +33,14 @@ services:
 
   caddy:
     image: caddy:2-alpine
-    container_name: remnawave-tg-shop-caddy
-    hostname: remnawave-tg-shop-caddy
+    container_name: remnawave-minishop-caddy
+    hostname: remnawave-minishop-caddy
     environment:
       - TZ=UTC
       - WEB_SERVER_PORT=${WEB_SERVER_PORT:-8080}
       - WEBAPP_SERVER_PORT=${WEBAPP_SERVER_PORT:-8081}
     depends_on:
-      - remnawave-tg-shop
+      - remnawave-minishop
     ports:
       - "80:80"
       - "443:443"
@@ -51,9 +51,9 @@ services:
     restart: unless-stopped
 
 volumes:
-  remnawave-tg-shop-db-data:
-    name: remnawave-tg-shop-db-data
+  remnawave-minishop-db-data:
+    name: remnawave-minishop-db-data
   caddy_data:
-    name: remnawave-tg-shop-caddy-data
+    name: remnawave-minishop-caddy-data
   caddy_config:
-    name: remnawave-tg-shop-caddy-config
+    name: remnawave-minishop-caddy-config

@@ -1,8 +1,8 @@
 services:
-  remnawave-tg-shop:
+  remnawave-minishop:
     image: ghcr.io/3252a8/remnawave-tg-shop:${IMAGE_TAG:-3.0.0}
-    container_name: remnawave-tg-shop
-    hostname: remnawave-tg-shop
+    container_name: remnawave-minishop
+    hostname: remnawave-minishop
     env_file:
       - .env
     ports:
@@ -16,17 +16,17 @@ services:
       - ./locales:/app/locales
     restart: unless-stopped
     depends_on:
-      - remnawave-tg-shop-db
-  remnawave-tg-shop-db:
+      - remnawave-minishop-db
+  remnawave-minishop-db:
     image: postgres:17
-    container_name: remnawave-tg-shop-db
-    hostname: remnawave-tg-shop-db
+    container_name: remnawave-minishop-db
+    hostname: remnawave-minishop-db
     env_file:
       - .env
     environment:
       - TZ=UTC
     volumes:
-      - remnawave-tg-shop-db-data:/var/lib/postgresql/data
+      - remnawave-minishop-db-data:/var/lib/postgresql/data
     networks:
       - remnawave-network
     restart: unless-stopped
@@ -38,5 +38,5 @@ services:
 networks:
   remnawave-network: null
 volumes:
-  remnawave-tg-shop-db-data:
-    name: remnawave-tg-shop-db-data
+  remnawave-minishop-db-data:
+    name: remnawave-minishop-db-data
