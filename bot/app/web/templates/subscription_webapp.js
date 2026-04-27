@@ -48,7 +48,8 @@ window.__WEBAPP_DEV_MOCK__ = {
         ],
         payment_methods: [
           {id: 'cryptopay', name: 'CryptoPay'},
-          {id: 'platega', name: 'Platega'},
+          {id: 'platega_sbp', name: 'Platega · СБП'},
+          {id: 'platega_crypto', name: 'Platega · Crypto'},
           {id: 'freekassa', name: 'FreeKassa / СБП'}
         ],
         referral: {
@@ -154,6 +155,8 @@ const MOCK = (() => {
       planPrice: 'plan-price',
       paymentMethodCard: 'payment-method-card',
       paymentMethodCardPlatega: 'payment-method-card--platega',
+      paymentMethodCardPlategaSbp: 'payment-method-card--platega payment-method-card--platega-sbp',
+      paymentMethodCardPlategaCrypto: 'payment-method-card--platega payment-method-card--platega-crypto',
       paymentMethodCardCryptopay: 'payment-method-card--cryptopay',
       notice: 'notice',
       stepNum: 'step-num',
@@ -192,6 +195,8 @@ const MOCK = (() => {
         check_payment: 'Проверить оплату',
         choose_other_method: 'Выбрать другой способ',
         pay_with_platega_button: 'Оплатить картой (СБП)',
+        pay_with_platega_sbp_button: 'Оплата через СБП',
+        pay_with_platega_crypto_button: 'Оплата криптой',
         pay_with_cryptopay_button: 'Оплатить криптой',
         support: 'Поддержка',
         account_title: 'Аккаунт',
@@ -329,6 +334,8 @@ const MOCK = (() => {
         check_payment: 'Check payment',
         choose_other_method: 'Choose another method',
         pay_with_platega_button: 'Pay by card (SBP)',
+        pay_with_platega_sbp_button: 'Pay via SBP',
+        pay_with_platega_crypto_button: 'Pay with crypto',
         pay_with_cryptopay_button: 'Pay with crypto',
         support: 'Support',
         account_title: 'Account',
@@ -1982,12 +1989,21 @@ const MOCK = (() => {
       }
 
       methods.innerHTML = available.map(method => {
-        const labelKey = method.id === 'platega'
-          ? 'pay_with_platega_button'
-          : 'pay_with_cryptopay_button';
-        const variantClass = method.id === 'platega'
-          ? TW.paymentMethodCardPlatega
-          : TW.paymentMethodCardCryptopay;
+        let labelKey;
+        let variantClass;
+        if (method.id === 'platega_sbp') {
+          labelKey = 'pay_with_platega_sbp_button';
+          variantClass = TW.paymentMethodCardPlategaSbp;
+        } else if (method.id === 'platega_crypto') {
+          labelKey = 'pay_with_platega_crypto_button';
+          variantClass = TW.paymentMethodCardPlategaCrypto;
+        } else if (method.id === 'platega') {
+          labelKey = 'pay_with_platega_button';
+          variantClass = TW.paymentMethodCardPlatega;
+        } else {
+          labelKey = 'pay_with_cryptopay_button';
+          variantClass = TW.paymentMethodCardCryptopay;
+        }
         return `
           <button class="${TW.paymentMethodCard} ${variantClass}" type="button" data-action="create-payment" data-method="${escapeAttr(method.id)}" data-i18n="${labelKey}" ${state.creatingPayment ? 'disabled' : ''}>
             ${escapeHtml(t(labelKey))}
@@ -2044,7 +2060,7 @@ const MOCK = (() => {
       const methodsById = new Map(
         (state.data.payment_methods || []).map(method => [String(method.id || '').toLowerCase(), method])
       );
-      return ['platega', 'cryptopay']
+      return ['platega_sbp', 'platega_crypto', 'platega', 'cryptopay']
         .map(methodId => methodsById.get(methodId))
         .filter(Boolean);
     }
