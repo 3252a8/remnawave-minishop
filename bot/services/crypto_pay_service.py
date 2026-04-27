@@ -70,6 +70,7 @@ class CryptoPayService:
         amount: float,
         description: str,
         sale_mode: str = "subscription",
+        url_kind: str = "bot",
     ) -> Optional[str]:
         if not self.configured or not self.client:
             logging.error("CryptoPayService not configured")
@@ -128,6 +129,12 @@ class CryptoPayService:
                     payment_record.payment_id,
                 )
                 return None
+            if url_kind == "web":
+                return (
+                    getattr(invoice, "web_app_invoice_url", None)
+                    or getattr(invoice, "mini_app_invoice_url", None)
+                    or invoice.bot_invoice_url
+                )
             return invoice.bot_invoice_url
         except Exception:
             logging.exception("CryptoPay invoice creation failed.")

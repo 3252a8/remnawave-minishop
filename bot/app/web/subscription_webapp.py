@@ -2138,6 +2138,7 @@ async def _create_subscription_payment(
             amount=price,
             description=description,
             sale_mode="subscription",
+            url_kind="web",
         )
         if not url:
             return _json_error(502, "payment_failed", "Failed to create payment")
