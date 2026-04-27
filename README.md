@@ -13,7 +13,7 @@
 -   **Пробная подписка:** Система пробных подписок для новых пользователей (активируется вручную по кнопке).
 -   **Промокоды:** Возможность применять промокоды для получения скидок или бонусных дней.
 -   **Реферальная программа:** Пользователи могут приглашать друзей и получать за это бонусные дни подписки.
-    -   **Оплата:** Поддержка оплаты через YooKassa, FreeKassa (REST API), Platega, SeverPay, CryptoPay и Telegram Stars.
+-   **Оплата:** Поддержка оплаты через YooKassa, FreeKassa (REST API), Platega, SeverPay, CryptoPay и Telegram Stars.
 
 ### Для администраторов:
 -   **Защищенная админ-панель:** Доступ только для администраторов, указанных в `ADMIN_IDS`.
@@ -67,30 +67,30 @@
     | `BOT_TOKEN` | **Обязательно.** Токен вашего Telegram-бота. | `1234567890:ABC-DEF1234ghIkl-zyx57W2v1u123ew11` |
     | `ADMIN_IDS` | **Обязательно.** ID администраторов в Telegram через запятую. | `12345678,98765432` |
     | `DEFAULT_LANGUAGE` | Язык по умолчанию для новых пользователей. | `ru` |
-| `SUPPORT_LINK` | (Опционально) Ссылка на поддержку. | `https://t.me/your_support` |
-| `PRIVACY_POLICY_URL` | (Опционально) Ссылка на политику конфиденциальности, показывается внизу Web App. | `https://example.com/privacy` |
-| `USER_AGREEMENT_URL` | (Опционально) Ссылка на пользовательское соглашение, показывается внизу Web App. | `https://example.com/agreement` |
-| `SUBSCRIPTION_MINI_APP_URL` | (Опционально) Публичный URL Mini App для показа подписки. Если задан, кнопка «Моя подписка» откроет Web App. | `https://app.domain.com/` |
-| `WEBAPP_ENABLED` | Включить Web App в том же контейнере, но на отдельном порту. | `true` |
-| `WEBAPP_SERVER_PORT` | Внутренний порт Web App. | `8081` |
-| `WEBAPP_TITLE` | Заголовок Web App. | `Моя подписка` |
-| `WEBAPP_PRIMARY_COLOR` | Основной цвет Web App. | `#00fe7a` |
-| `WEBAPP_LOGO_URL` | (Опционально) URL логотипа Web App. Если значение пустое, логотип не показывается вообще; если задано, он отображается в шапке и на экране логина. | `https://domain.com/logo.png` |
-| `SMTP_HOST` | SMTP-сервер для кодов входа по email. Для Brevo: `smtp-relay.brevo.com`. | `smtp-relay.brevo.com` |
-| `SMTP_PORT` | SMTP-порт. Для Brevo обычно используется 587 с STARTTLS. | `587` |
-| `SMTP_FALLBACK_PORTS` | Дополнительные SMTP-порты через запятую. Пробуются после `SMTP_PORT`; порт `465` автоматически используется через SSL. Для Brevo удобно оставить `2525,465`. | `2525,465` |
-| `SMTP_TIMEOUT_SECONDS` | Timeout для каждой SMTP-попытки подключения и отправки. | `30` |
-| `SMTP_USERNAME` / `SMTP_PASSWORD` | Логин и SMTP key/password из Brevo. Если не заданы вместе с `SMTP_FROM_EMAIL`, вход по email скрывается. | `user@smtp-brevo.com` |
-| `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME` | Подтвержденный отправитель и отображаемое имя отправителя для писем с кодом. | `no-reply@example.com` |
-| `EMAIL_CODE_TTL_SECONDS` | Срок действия кода подтверждения email. | `600` |
-| `EMAIL_CODE_RESEND_SECONDS` | Минимальная пауза между отправками кода на один email. | `60` |
-| `EMAIL_CODE_MAX_ATTEMPTS` | Максимум попыток на один конкретный код. | `5` |
-| `BRUTE_FORCE_MAX_FAILURES` | Максимум неудачных попыток в окне защиты от перебора. | `5` |
-| `BRUTE_FORCE_WINDOW_SECONDS` | Длительность окна, в котором считаются неудачные попытки. | `900` |
-| `BRUTE_FORCE_LOCK_SECONDS` | Время временной блокировки после превышения лимита. | `1800` |
-| `MY_DEVICES_SECTION_ENABLED` | Включить раздел «Мои устройства» в меню подписки (`true`/`false`). | `false` |
-| `WEBAPP_SESSION_SECRET` | (Опционально) HMAC-секрет для подписи сессий Web App. Если пусто — генерируется при старте, но тогда сессии станут невалидными после перезапуска контейнера. Для прода задайте явно. | `см. раздел «Генерация секретов»` |
-| `WEBHOOK_SECRET_TOKEN` | (Опционально) Secret token для проверки подлинности вебхуков Telegram. Если пусто — генерируется при старте. Для прода задайте явно, чтобы значение пережило рестарт. | `см. раздел «Генерация секретов»` |
+    | `SUPPORT_LINK` | (Опционально) Ссылка на поддержку. | `https://t.me/your_support` |
+    | `PRIVACY_POLICY_URL` | (Опционально) Ссылка на политику конфиденциальности, показывается внизу Web App. | `https://example.com/privacy` |
+    | `USER_AGREEMENT_URL` | (Опционально) Ссылка на пользовательское соглашение, показывается внизу Web App. | `https://example.com/agreement` |
+    | `SUBSCRIPTION_MINI_APP_URL` | (Опционально) Публичный URL Mini App для показа подписки. Если задан, кнопка «Моя подписка» откроет Web App. | `https://app.domain.com/` |
+    | `WEBAPP_ENABLED` | Включить Web App в том же контейнере, но на отдельном порту. | `true` |
+    | `WEBAPP_SERVER_PORT` | Внутренний порт Web App. | `8081` |
+    | `WEBAPP_TITLE` | Заголовок Web App. | `Моя подписка` |
+    | `WEBAPP_PRIMARY_COLOR` | Основной цвет Web App. | `#00fe7a` |
+    | `WEBAPP_LOGO_URL` | (Опционально) URL логотипа Web App. Если значение пустое, логотип не показывается вообще; если задано, он отображается в шапке и на экране логина. | `https://domain.com/logo.png` |
+    | `SMTP_HOST` | SMTP-сервер для кодов входа по email. Для Brevo: `smtp-relay.brevo.com`. | `smtp-relay.brevo.com` |
+    | `SMTP_PORT` | SMTP-порт. Для Brevo обычно используется 587 с STARTTLS. | `587` |
+    | `SMTP_FALLBACK_PORTS` | Дополнительные SMTP-порты через запятую. Пробуются после `SMTP_PORT`; порт `465` автоматически используется через SSL. Для Brevo удобно оставить `2525,465`. | `2525,465` |
+    | `SMTP_TIMEOUT_SECONDS` | Timeout для каждой SMTP-попытки подключения и отправки. | `30` |
+    | `SMTP_USERNAME` / `SMTP_PASSWORD` | Логин и SMTP key/password из Brevo. Если не заданы вместе с `SMTP_FROM_EMAIL`, вход по email скрывается. | `user@smtp-brevo.com` |
+    | `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME` | Подтвержденный отправитель и отображаемое имя отправителя для писем с кодом. | `no-reply@example.com` |
+    | `EMAIL_CODE_TTL_SECONDS` | Срок действия кода подтверждения email. | `600` |
+    | `EMAIL_CODE_RESEND_SECONDS` | Минимальная пауза между отправками кода на один email. | `60` |
+    | `EMAIL_CODE_MAX_ATTEMPTS` | Максимум попыток на один конкретный код. | `5` |
+    | `BRUTE_FORCE_MAX_FAILURES` | Максимум неудачных попыток в окне защиты от перебора. | `5` |
+    | `BRUTE_FORCE_WINDOW_SECONDS` | Длительность окна, в котором считаются неудачные попытки. | `900` |
+    | `BRUTE_FORCE_LOCK_SECONDS` | Время временной блокировки после превышения лимита. | `1800` |
+    | `MY_DEVICES_SECTION_ENABLED` | Включить раздел «Мои устройства» в меню подписки (`true`/`false`). | `false` |
+    | `WEBAPP_SESSION_SECRET` | (Опционально) HMAC-секрет для подписи сессий Web App. Если пусто — генерируется при старте, но тогда сессии станут невалидными после перезапуска контейнера. Для прода задайте явно. | `см. раздел «Генерация секретов»` |
+    | `WEBHOOK_SECRET_TOKEN` | (Опционально) Secret token для проверки подлинности вебхуков Telegram. Если пусто — генерируется при старте. Для прода задайте явно, чтобы значение пережило рестарт. | `см. раздел «Генерация секретов»` |
     | `REQUIRED_CHANNEL_ID` | (Опционально) ID канала, на который пользователь должен подписаться перед использованием. Оставьте пустым, если проверка не нужна. | `-1001234567890` |
     | `REQUIRED_CHANNEL_LINK` | (Опционально) Публичная ссылка или invite на канал для кнопки «Проверить подписку». | `https://t.me/your_channel` |
     </details>
@@ -100,15 +100,15 @@
 
     | Переменная | Описание |
     | --- | --- |
-| `WEBHOOK_BASE_URL`| **Обязательно.** Базовый URL для вебхуков, например `https://your.domain.com`. |
-| `WEB_SERVER_HOST` | Хост для веб-сервера. | `0.0.0.0` |
-| `WEB_SERVER_PORT` | Порт для веб-сервера. | `8080` |
-| `WEBAPP_SERVER_HOST` | Хост отдельного веб-сервера Mini App. | `0.0.0.0` |
-| `WEBAPP_SERVER_PORT` | Порт отдельного веб-сервера Mini App. | `8081` |
-| `PAYMENT_METHODS_ORDER` | (Опционально) Порядок отображения кнопок оплаты через запятую. Поддерживаемые ключи: `severpay`, `freekassa`, `platega`, `yookassa`, `stars`, `cryptopay`. Первый будет сверху. |
+    | `WEBHOOK_BASE_URL` | **Обязательно.** Базовый URL для вебхуков, например `https://your.domain.com`. |
+    | `WEB_SERVER_HOST` | Хост для веб-сервера (по умолчанию `0.0.0.0`). |
+    | `WEB_SERVER_PORT` | Порт для веб-сервера (по умолчанию `8080`). |
+    | `WEBAPP_SERVER_HOST` | Хост отдельного веб-сервера Mini App (по умолчанию `0.0.0.0`). |
+    | `WEBAPP_SERVER_PORT` | Порт отдельного веб-сервера Mini App (по умолчанию `8081`). |
+    | `PAYMENT_METHODS_ORDER` | (Опционально) Порядок отображения кнопок оплаты через запятую. Поддерживаемые ключи: `severpay`, `freekassa`, `platega`, `yookassa`, `stars`, `cryptopay`. Первый будет сверху. |
     | `YOOKASSA_ENABLED` | Включить/выключить YooKassa (`true`/`false`). |
     | `YOOKASSA_SHOP_ID` | ID вашего магазина в YooKassa. |
-    | `YOOKASSA_SECRET_KEY`| Секретный ключ магазина YooKassa. |
+    | `YOOKASSA_SECRET_KEY` | Секретный ключ магазина YooKassa. |
     | `YOOKASSA_AUTOPAYMENTS_ENABLED` | Включить автопродление (сохранение карт, автосписания, управление способами оплаты). |
     | `YOOKASSA_AUTOPAYMENTS_REQUIRE_CARD_BINDING` | Требовать обязательную привязку карты при оплате с автосписанием. Установите `false`, чтобы пользователю показывался чекбокс «Сохранить карту». |
     | `NALOGO_INN` | ИНН для авторизации в nalog.ru (самозанятый). |
@@ -123,12 +123,12 @@
     | `FREEKASSA_PAYMENT_IP` | Внешний IP вашего сервера, который будет передаваться в запрос оплаты. |
     | `FREEKASSA_PAYMENT_METHOD_ID` | ID метода оплаты через магазин FreeKassa. По умолчанию `44`. |
     | `STARS_ENABLED` | Включить/выключить Telegram Stars (`true`/`false`). |
-    | `PLATEGA_ENABLED`| Включить/выключить Platega (`true`/`false`). |
-    | `PLATEGA_MERCHANT_ID`| MerchantId из личного кабинета Platega. |
-    | `PLATEGA_SECRET`| API секрет для запросов Platega. |
-    | `PLATEGA_PAYMENT_METHOD`| ID способа оплаты (2 — SBP QR, 10 — РФ карты, 12 — международные карты, 13 — crypto). |
-    | `PLATEGA_RETURN_URL`| (Опционально) URL редиректа после успешной оплаты. По умолчанию ссылка на бота. |
-    | `PLATEGA_FAILED_URL`| (Опционально) URL редиректа при ошибке/отмене. По умолчанию как `PLATEGA_RETURN_URL`. |
+    | `PLATEGA_ENABLED` | Включить/выключить Platega (`true`/`false`). |
+    | `PLATEGA_MERCHANT_ID` | MerchantId из личного кабинета Platega. |
+    | `PLATEGA_SECRET` | API секрет для запросов Platega. |
+    | `PLATEGA_PAYMENT_METHOD` | ID способа оплаты (2 — SBP QR, 10 — РФ карты, 12 — международные карты, 13 — crypto). |
+    | `PLATEGA_RETURN_URL` | (Опционально) URL редиректа после успешной оплаты. По умолчанию ссылка на бота. |
+    | `PLATEGA_FAILED_URL` | (Опционально) URL редиректа при ошибке/отмене. По умолчанию как `PLATEGA_RETURN_URL`. |
     | `SEVERPAY_ENABLED` | Включить/выключить SeverPay (`true`/`false`). |
     | `SEVERPAY_MID` | MID магазина в SeverPay. |
     | `SEVERPAY_TOKEN` | Секрет/токен для подписи запросов SeverPay. |
