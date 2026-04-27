@@ -348,6 +348,7 @@ async def _security_headers_middleware(request: web.Request, handler):
         (
             "default-src 'self'; "
             f"script-src 'self' 'nonce-{nonce}' 'unsafe-eval' https://telegram.org; "
+            "frame-src https://oauth.telegram.org; "
             "frame-ancestors https://web.telegram.org https://t.me; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; "
