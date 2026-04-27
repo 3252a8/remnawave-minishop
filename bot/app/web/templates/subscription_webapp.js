@@ -92,6 +92,7 @@ const MOCK = (() => {
     const CFG = readJsonScript('webapp-config') || (MOCK && MOCK.config) || {};
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
     const TELEGRAM_LOGIN_WIDGET_URL = './telegram-widget.js';
+    const MANUAL_LOGOUT_FLAG_KEY = 'rw_webapp_manual_logout';
     const state = {
       token: MOCK ? 'local-preview' : (localStorage.getItem('rw_webapp_token') || ''),
       csrfToken: MOCK ? '' : (readCookie('rw_webapp_csrf') || ''),
@@ -507,6 +508,12 @@ const MOCK = (() => {
       showLoader();
       if (MOCK) {
         await loadData();
+        return;
+      }
+
+      // Explicit logout should survive refresh, even if the old cookie session is still valid.
+      if (isManuallyLoggedOut()) {
+        await startExternalAuth();
         return;
       }
 
@@ -2212,6 +2219,7 @@ const MOCK = (() => {
     }
 
     function setToken(token, csrfToken = '') {
+      clearManualLogoutFlag();
       state.token = token;
       state.csrfToken = csrfToken || readCookie('rw_webapp_csrf') || state.csrfToken || '';
     }
@@ -2220,6 +2228,30 @@ const MOCK = (() => {
       state.token = '';
       state.csrfToken = '';
       localStorage.removeItem('rw_webapp_token');
+    }
+
+    function clearReadableAuthCookie() {
+      document.cookie = 'rw_webapp_csrf=; Max-Age=0; path=/; SameSite=None; Secure';
+    }
+
+    function isManuallyLoggedOut() {
+      try {
+        return localStorage.getItem(MANUAL_LOGOUT_FLAG_KEY) === '1';
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function markManualLogout() {
+      try {
+        localStorage.setItem(MANUAL_LOGOUT_FLAG_KEY, '1');
+      } catch (e) { }
+    }
+
+    function clearManualLogoutFlag() {
+      try {
+        localStorage.removeItem(MANUAL_LOGOUT_FLAG_KEY);
+      } catch (e) { }
     }
 
     function readCookie(name) {
@@ -2251,13 +2283,17 @@ const MOCK = (() => {
       if (button) button.disabled = Boolean(busy);
     }
 
-    function logout() {
+    async function logout() {
       toggleUserMenu(false);
-      void publicApi('/auth/logout', {}).catch(() => {});
+      markManualLogout();
+      clearReadableAuthCookie();
       clearToken();
       closePaymentFlow();
       closeEmailLoginCodeModal();
       startExternalAuth();
+      try {
+        await publicApi('/auth/logout', {keepalive: true});
+      } catch (e) { }
     }
 
     function showLoader() {
