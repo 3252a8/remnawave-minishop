@@ -26,6 +26,10 @@ Dockerfile
 .dockerignore
 tmp/
 
+# WebApp build artifacts (regenerated inside Docker)
+bot/app/web/templates/subscription_webapp.css
+bot/app/web/templates/subscription_webapp.min.*.js
+
 # Byte-compiled / optimized / DLL files
 **/__pycache__/
 **/*.py[cod]
