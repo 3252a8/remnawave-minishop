@@ -120,8 +120,8 @@ class NotificationService:
                 logging.error(
                     f"Failed to send notification to log channel {self.settings.LOG_CHAT_ID}: {exc}"
                 )
-            except Exception as e:
-                logging.error(f"Failed to send notification to log channel {self.settings.LOG_CHAT_ID}: {e}")
+            except Exception:
+                logging.exception("Failed to send notification to log channel %s.", self.settings.LOG_CHAT_ID)
             return
         
         try:
@@ -143,8 +143,8 @@ class NotificationService:
             # Queue message for sending (groups are rate limited to 15/minute)
             await queue_manager.send_message(self.settings.LOG_CHAT_ID, **kwargs)
             
-        except Exception as e:
-            logging.error(f"Failed to queue notification to log channel {self.settings.LOG_CHAT_ID}: {e}")
+        except Exception:
+            logging.exception("Failed to queue notification to log channel %s.", self.settings.LOG_CHAT_ID)
     
     async def _send_to_admins(self, message: str):
         """Send message to all admin users using message queue"""
@@ -162,8 +162,8 @@ class NotificationService:
                         parse_mode="HTML",
                         disable_web_page_preview=True
                     )
-                except Exception as e:
-                    logging.error(f"Failed to send notification to admin {admin_id}: {e}")
+                except Exception:
+                    logging.exception("Failed to send notification to admin %s.", admin_id)
             return
         
         for admin_id in self.settings.ADMIN_IDS:
@@ -174,8 +174,8 @@ class NotificationService:
                     parse_mode="HTML",
                     disable_web_page_preview=True
                 )
-            except Exception as e:
-                logging.error(f"Failed to queue notification to admin {admin_id}: {e}")
+            except Exception:
+                logging.exception("Failed to queue notification to admin %s.", admin_id)
     
     async def notify_new_user_registration(self, user_id: int, username: Optional[str] = None, 
                                          first_name: Optional[str] = None, 

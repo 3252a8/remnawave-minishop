@@ -137,7 +137,7 @@ class FreeKassaService:
 
                 return True, response_data
         except Exception as exc:
-            logging.error("FreeKassa create_order: request failed: %s", exc, exc_info=True)
+            logging.exception("FreeKassa create_order: request failed.")
             return False, {"message": str(exc)}
 
     async def _get_session(self) -> ClientSession:
@@ -196,8 +196,8 @@ class FreeKassaService:
                 return web.Response(status=403)
 
             raw_body = await request.read()
-        except Exception as e:
-            logging.error("FreeKassa webhook: failed to read request body: %s", e)
+        except Exception:
+            logging.exception("FreeKassa webhook: failed to read request body.")
             return web.Response(status=400, text="bad_request")
 
         payload_dict: Dict[str, Any] = {}
@@ -299,9 +299,9 @@ class FreeKassaService:
                     )
 
                 await session.commit()
-            except Exception as e:
+            except Exception:
                 await session.rollback()
-                logging.error(f"FreeKassa webhook: failed to process payment {payment_db_id}: {e}", exc_info=True)
+                logging.exception("FreeKassa webhook: failed to process payment %s.", payment_db_id)
                 return web.Response(status=500, text="processing_error")
 
             db_user = payment.user or await user_dal.get_user_by_id(session, payment.user_id)
@@ -385,8 +385,8 @@ class FreeKassaService:
                     parse_mode="HTML",
                     disable_web_page_preview=True,
                 )
-            except Exception as e:
-                logging.error(f"FreeKassa notification: failed to send message to user {payment.user_id}: {e}")
+            except Exception:
+                logging.exception("FreeKassa notification: failed to send message to user %s.", payment.user_id)
 
             try:
                 notification_service = NotificationService(self.bot, self.settings, self.i18n)
@@ -399,8 +399,8 @@ class FreeKassaService:
                     payment_provider="freekassa",
                     username=db_user.username if db_user else None,
                 )
-            except Exception as e:
-                logging.error(f"FreeKassa notification: failed to notify admins: {e}")
+            except Exception:
+                logging.exception("FreeKassa notification: failed to notify admins.")
 
         return web.Response(text="YES")
 

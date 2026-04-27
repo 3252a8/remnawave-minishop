@@ -142,7 +142,7 @@ class SeverPayService:
 
                 return True, response_data.get("data") or response_data
         except Exception as exc:
-            logging.error("SeverPay create_payment: request failed: %s", exc, exc_info=True)
+            logging.exception("SeverPay create_payment: request failed.")
             return False, {"message": str(exc)}
 
     async def webhook_route(self, request: web.Request) -> web.Response:
@@ -151,8 +151,8 @@ class SeverPayService:
 
         try:
             payload = await request.json()
-        except Exception as exc:
-            logging.error("SeverPay webhook: failed to parse JSON: %s", exc)
+        except Exception:
+            logging.exception("SeverPay webhook: failed to parse JSON.")
             return web.json_response({"status": False, "msg": "bad_request"}, status=400)
 
         if not isinstance(payload, dict) or not self._validate_signature(payload):
@@ -223,9 +223,9 @@ class SeverPayService:
                         )
 
                     await session.commit()
-                except Exception as exc:
+                except Exception:
                     await session.rollback()
-                    logging.error("SeverPay webhook: failed to process payment %s: %s", provider_payment_id, exc, exc_info=True)
+                    logging.exception("SeverPay webhook: failed to process payment %s.", provider_payment_id)
                     return web.json_response({"status": False, "msg": "processing_error"}, status=500)
 
                 db_user = payment.user or await user_dal.get_user_by_id(session, payment.user_id)
@@ -304,8 +304,8 @@ class SeverPayService:
                         parse_mode="HTML",
                         disable_web_page_preview=True,
                     )
-                except Exception as exc:
-                    logging.error("SeverPay webhook: failed to notify user %s: %s", payment.user_id, exc)
+                except Exception:
+                    logging.exception("SeverPay webhook: failed to notify user %s.", payment.user_id)
 
                 try:
                     notification_service = NotificationService(self.bot, self.settings, self.i18n)
@@ -318,8 +318,8 @@ class SeverPayService:
                         payment_provider="severpay",
                         username=db_user.username if db_user else None,
                     )
-                except Exception as exc:
-                    logging.error("SeverPay webhook: failed to notify admins: %s", exc)
+                except Exception:
+                    logging.exception("SeverPay webhook: failed to notify admins.")
 
                 return web.json_response({"status": True})
 
@@ -332,9 +332,9 @@ class SeverPayService:
                         "failed",
                     )
                     await session.commit()
-                except Exception as exc:
+                except Exception:
                     await session.rollback()
-                    logging.error("SeverPay webhook: failed to mark payment %s as failed: %s", provider_payment_id, exc)
+                    logging.exception("SeverPay webhook: failed to mark payment %s as failed.", provider_payment_id)
                     return web.json_response({"status": False, "msg": "processing_error"}, status=500)
 
                 db_user = payment.user or await user_dal.get_user_by_id(session, payment.user_id)
@@ -355,9 +355,9 @@ class SeverPayService:
                         "pending_severpay",
                     )
                     await session.commit()
-                except Exception as exc:
+                except Exception:
                     await session.rollback()
-                    logging.error("SeverPay webhook: failed to update pending status for %s: %s", provider_payment_id, exc)
+                    logging.exception("SeverPay webhook: failed to update pending status for %s.", provider_payment_id)
                 return web.json_response({"status": True})
 
             logging.warning("SeverPay webhook: unhandled status '%s' for payment %s", status, provider_payment_id)

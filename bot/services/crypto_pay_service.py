@@ -121,16 +121,16 @@ class CryptoPayService:
                     str(invoice.status),
                 )
                 await session.commit()
-            except Exception as e_db_update:
+            except Exception:
                 await session.rollback()
-                logging.error(
-                    f"Failed to update cryptopay payment record {payment_record.payment_id}: {e_db_update}",
-                    exc_info=True,
+                logging.exception(
+                    "Failed to update cryptopay payment record %s.",
+                    payment_record.payment_id,
                 )
                 return None
             return invoice.bot_invoice_url
-        except Exception as e:
-            logging.error(f"CryptoPay invoice creation failed: {e}", exc_info=True)
+        except Exception:
+            logging.exception("CryptoPay invoice creation failed.")
             return None
 
     async def _invoice_paid_handler(self, update: Update, app: web.Application):
@@ -145,8 +145,8 @@ class CryptoPayService:
             payment_db_id = int(meta["payment_db_id"])
             sale_mode = meta.get("sale_mode") or ("traffic" if self.settings.traffic_sale_mode else "subscription")
             traffic_gb = float(meta.get("traffic_gb")) if meta.get("traffic_gb") else months
-        except Exception as e:
-            logging.error(f"Failed to parse CryptoPay payload: {e}")
+        except Exception:
+            logging.exception("Failed to parse CryptoPay payload.")
             return
 
         async_session_factory: sessionmaker = app["async_session_factory"]
@@ -184,9 +184,9 @@ class CryptoPayService:
                         skip_if_active_before_payment=False,
                     )
                 await session.commit()
-            except Exception as e:
+            except Exception:
                 await session.rollback()
-                logging.error(f"Failed to process CryptoPay invoice: {e}", exc_info=True)
+                logging.exception("Failed to process CryptoPay invoice.")
                 return
 
             db_user = await user_dal.get_user_by_id(session, user_id)
@@ -247,8 +247,8 @@ class CryptoPayService:
                     parse_mode="HTML",
                     disable_web_page_preview=True,
                 )
-            except Exception as e:
-                logging.error(f"Failed to send CryptoPay success message: {e}")
+            except Exception:
+                logging.exception("Failed to send CryptoPay success message.")
 
             # Send notification about payment
             try:
@@ -263,8 +263,8 @@ class CryptoPayService:
                     payment_provider="crypto_pay",
                     username=user.username if user else None
                 )
-            except Exception as e:
-                logging.error(f"Failed to send crypto_pay payment notification: {e}")
+            except Exception:
+                logging.exception("Failed to send crypto_pay payment notification.")
 
     def _validate_webhook_signature(self, raw_body: bytes, signature: str) -> bool:
         if not self.token:

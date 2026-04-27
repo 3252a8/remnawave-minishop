@@ -35,9 +35,8 @@ class YooKassaService:
                 self.configured = True
                 logging.info(
                     f"YooKassa SDK configured for shop_id: {shop_id[:5]}...")
-            except Exception as e:
-                logging.error(f"Failed to configure YooKassa SDK: {e}",
-                              exc_info=True)
+            except Exception:
+                logging.exception("Failed to configure YooKassa SDK.")
                 self.configured = False
 
         if configured_return_url:
@@ -201,9 +200,8 @@ class YooKassaService:
                 response.test if hasattr(response, 'test') else None,
                 "payment_method": getattr(response, 'payment_method', None),
             }
-        except Exception as e:
-            logging.error(f"YooKassa payment creation failed: {e}",
-                          exc_info=True)
+        except Exception:
+            logging.exception("YooKassa payment creation failed.")
             return None
 
     async def get_payment_info(
@@ -266,10 +264,9 @@ class YooKassaService:
                     f"No payment info found in YooKassa for ID: {payment_id_in_yookassa}"
                 )
                 return None
-        except Exception as e:
-            logging.error(
-                f"YooKassa get payment info for {payment_id_in_yookassa} failed: {e}",
-                exc_info=True)
+        except Exception:
+            logging.exception(
+                "YooKassa get payment info for %s failed.", payment_id_in_yookassa)
             return None
 
     async def cancel_payment(self, payment_id_in_yookassa: str) -> bool:
@@ -280,6 +277,6 @@ class YooKassaService:
             await asyncio.to_thread(YooKassaPayment.cancel, payment_id_in_yookassa)
             logging.info(f"Cancelled YooKassa payment {payment_id_in_yookassa}")
             return True
-        except Exception as e:
-            logging.error(f"Failed to cancel YooKassa payment {payment_id_in_yookassa}: {e}")
+        except Exception:
+            logging.exception("Failed to cancel YooKassa payment %s.", payment_id_in_yookassa)
             return False

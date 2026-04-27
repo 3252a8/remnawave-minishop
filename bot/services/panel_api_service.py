@@ -174,7 +174,7 @@ class PanelApiService:
                 "message": f"Connection error: {str(e)}"
             }
         except aiohttp.ClientError as e:
-            logging.error(f"Panel API ClientError to {url_for_request}: {e}")
+            logging.exception("Panel API ClientError to %s.", url_for_request)
             return {
                 "error": True,
                 "status_code": -2,

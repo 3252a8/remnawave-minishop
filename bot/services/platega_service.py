@@ -127,7 +127,7 @@ class PlategaService:
 
                 return True, response_data
         except Exception as exc:
-            logging.error("Platega create_transaction: request failed: %s", exc, exc_info=True)
+            logging.exception("Platega create_transaction: request failed.")
             return False, {"message": str(exc)}
 
     async def webhook_route(self, request: web.Request) -> web.Response:
@@ -136,8 +136,8 @@ class PlategaService:
 
         try:
             data = await request.json()
-        except Exception as exc:
-            logging.error("Platega webhook: failed to parse JSON: %s", exc)
+        except Exception:
+            logging.exception("Platega webhook: failed to parse JSON.")
             return web.Response(status=400, text="bad_request")
 
         header_merchant = request.headers.get("X-MerchantId")
@@ -215,9 +215,9 @@ class PlategaService:
                         )
 
                     await session.commit()
-                except Exception as exc:
+                except Exception:
                     await session.rollback()
-                    logging.error("Platega webhook: failed to process payment %s: %s", transaction_id, exc, exc_info=True)
+                    logging.exception("Platega webhook: failed to process payment %s.", transaction_id)
                     return web.Response(status=500, text="processing_error")
 
                 db_user = await user_dal.get_user_by_id(session, payment.user_id)
@@ -296,8 +296,8 @@ class PlategaService:
                         parse_mode="HTML",
                         disable_web_page_preview=True,
                     )
-                except Exception as exc:
-                    logging.error("Platega webhook: failed to notify user %s: %s", payment.user_id, exc)
+                except Exception:
+                    logging.exception("Platega webhook: failed to notify user %s.", payment.user_id)
 
                 try:
                     notification_service = NotificationService(self.bot, self.settings, self.i18n)
@@ -310,8 +310,8 @@ class PlategaService:
                         payment_provider="platega",
                         username=db_user.username if db_user else None,
                     )
-                except Exception as exc:
-                    logging.error("Platega webhook: failed to notify admins: %s", exc)
+                except Exception:
+                    logging.exception("Platega webhook: failed to notify admins.")
 
                 return web.Response(text="ok")
 
@@ -324,9 +324,9 @@ class PlategaService:
                         "canceled",
                     )
                     await session.commit()
-                except Exception as exc:
+                except Exception:
                     await session.rollback()
-                    logging.error("Platega webhook: failed to cancel payment %s: %s", transaction_id, exc)
+                    logging.exception("Platega webhook: failed to cancel payment %s.", transaction_id)
                     return web.Response(status=500, text="processing_error")
 
                 db_user = await user_dal.get_user_by_id(session, payment.user_id)

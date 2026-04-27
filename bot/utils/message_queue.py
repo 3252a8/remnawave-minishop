@@ -82,9 +82,9 @@ class MessageQueue:
                     self.total_failed += 1
                     logging.error(f"Failed to send queued message to {message.chat_id}: {exc}")
                     
-                except Exception as e:
+                except Exception:
                     self.total_failed += 1
-                    logging.error(f"Failed to send queued message to {message.chat_id}: {e}")
+                    logging.exception("Failed to send queued message to %s.", message.chat_id)
                     
         finally:
             self.is_processing = False
