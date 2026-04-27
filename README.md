@@ -556,3 +556,6 @@ docker compose -f docker-compose-caddy.yml up -d --build
 ├── requirements.txt                  # Зависимости Python
 └── main.py                           # Точка входа в приложение
 ```
+
+## ❤️ Поддержка
+- Crypto: `USDT/Other ERC-20 0xeD506D44aae634fEc0E01C8835744fBedb7B2a44 (Ethereum/Polygon/Gnosis)`
