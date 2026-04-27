@@ -195,6 +195,14 @@ def get_payment_method_keyboard(months: int, price: float,
         return str(int(val)) if float(val).is_integer() else f"{val:g}"
     value_str = _format_value(months)
     mode_suffix = f":{sale_mode}"
+    import logging as _kbd_logging
+    _kbd_logging.info(
+        "payment_method_keyboard build: order=%s | platega_enabled=%s sbp=%s crypto=%s",
+        settings.payment_methods_order,
+        settings.PLATEGA_ENABLED,
+        settings.PLATEGA_SBP_ENABLED,
+        settings.PLATEGA_CRYPTO_ENABLED,
+    )
     for method in settings.payment_methods_order:
         if method == "severpay" and getattr(settings, "SEVERPAY_ENABLED", False):
             builder.button(

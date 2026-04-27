@@ -59,6 +59,14 @@ class PlategaService:
         )
         if not self.configured:
             logging.warning("PlategaService initialized but not fully configured. Payments disabled.")
+        else:
+            logging.info(
+                "PlategaService configured. SBP button: %s (method=%s), Crypto button: %s (method=%s)",
+                "ON" if settings.PLATEGA_SBP_ENABLED else "OFF",
+                self.sbp_method,
+                "ON" if settings.PLATEGA_CRYPTO_ENABLED else "OFF",
+                self.crypto_method,
+            )
 
     async def _get_session(self) -> ClientSession:
         if self._session is None or self._session.closed:
