@@ -29,6 +29,7 @@ from bot.app.web.webapp_auth import (
 )
 from bot.services.crypto_pay_service import CryptoPayService
 from bot.services.email_auth_service import EmailAuthService, normalize_email
+from bot.services.email_templates import render_account_merged
 from bot.services.freekassa_service import FreeKassaService
 from bot.services.platega_service import PlategaService
 from bot.services.promo_code_service import PromoCodeService
@@ -1019,15 +1020,21 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
 
                 email_service: EmailAuthService = request.app.get("email_auth_service")
                 if email_service and final_email:
-                    email_payload = _build_account_merge_email(
-                        merge_notice.get("language") or settings.DEFAULT_LANGUAGE,
-                        merge_notice,
+                    email_content = render_account_merged(
+                        settings,
+                        language_code=merge_notice.get("language") or settings.DEFAULT_LANGUAGE,
+                        primary_user_id=merge_notice.get("primary_user_id"),
+                        removed_user_id=merge_notice.get("removed_user_id"),
+                        final_end_date_text=str(
+                            merge_notice.get("final_end_date_text")
+                            or merge_notice.get("final_end_date")
+                            or ""
+                        ),
                     )
                     try:
-                        await email_service.send_custom_email(
+                        await email_service.send_rendered_email(
                             email=final_email,
-                            subject=email_payload["subject"],
-                            body=email_payload["body"],
+                            content=email_content,
                         )
                     except Exception as exc:
                         logger.warning(
@@ -1143,15 +1150,21 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
 
                 email_service: EmailAuthService = request.app.get("email_auth_service")
                 if email_service and final_email:
-                    email_payload = _build_account_merge_email(
-                        merge_notice.get("language") or settings.DEFAULT_LANGUAGE,
-                        merge_notice,
+                    email_content = render_account_merged(
+                        settings,
+                        language_code=merge_notice.get("language") or settings.DEFAULT_LANGUAGE,
+                        primary_user_id=merge_notice.get("primary_user_id"),
+                        removed_user_id=merge_notice.get("removed_user_id"),
+                        final_end_date_text=str(
+                            merge_notice.get("final_end_date_text")
+                            or merge_notice.get("final_end_date")
+                            or ""
+                        ),
                     )
                     try:
-                        await email_service.send_custom_email(
+                        await email_service.send_rendered_email(
                             email=final_email,
-                            subject=email_payload["subject"],
-                            body=email_payload["body"],
+                            content=email_content,
                         )
                     except Exception as exc:
                         logger.warning(
@@ -1572,39 +1585,6 @@ async def _build_account_merge_notice(
         "removed_panel_user_uuid": source_panel_uuid,
         "final_end_date": final_end_date.isoformat() if final_end_date else None,
         "final_end_date_text": _format_webapp_datetime(final_end_date),
-    }
-
-
-def _build_account_merge_email(language: str, merge_info: Dict[str, Any]) -> Dict[str, str]:
-    lang = _normalize_language(language)
-    primary_user_id = merge_info.get("primary_user_id")
-    removed_user_id = merge_info.get("removed_user_id")
-    final_end_date_text = (
-        merge_info.get("final_end_date_text")
-        or merge_info.get("final_end_date")
-        or "N/A"
-    )
-    if lang == "en":
-        return {
-            "subject": "Accounts merged",
-            "body": (
-                "We merged your accounts into one profile.\n\n"
-                f"Kept account: #{primary_user_id}\n"
-                f"Removed account: #{removed_user_id}\n"
-                f"Paid periods were combined. New subscription end date: {final_end_date_text}.\n"
-                "Your subscription link stayed the same, and the later account was removed from Remnawave automatically."
-            ),
-        }
-
-    return {
-        "subject": "Аккаунты объединены",
-        "body": (
-            "Мы объединили ваши аккаунты в один профиль.\n\n"
-            f"Оставлен аккаунт: #{primary_user_id}\n"
-            f"Удалён аккаунт: #{removed_user_id}\n"
-            f"Оплаченные периоды сложились. Новая дата окончания подписки: {final_end_date_text}.\n"
-            "Ссылка на подписку осталась прежней, а более поздний аккаунт был удалён из Remnawave автоматически."
-        ),
     }
 
 

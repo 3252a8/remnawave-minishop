@@ -12,6 +12,8 @@ from db.models import User, Subscription
 
 from config.settings import Settings
 from .panel_api_service import PanelApiService
+from .email_auth_service import EmailAuthService
+from .email_templates import render_payment_success
 
 
 class SubscriptionService:
@@ -574,6 +576,16 @@ class SubscriptionService:
         final_subscription_url = updated_panel_user.get("subscriptionUrl")
         final_panel_short_uuid = updated_panel_user.get("shortUuid", panel_short_uuid)
 
+        await self._send_payment_success_email(
+            db_user=db_user,
+            sale_mode="traffic",
+            months=0,
+            traffic_gb=float(traffic_gb),
+            payment_amount=payment_amount,
+            end_date=None,
+            provider=provider,
+        )
+
         return {
             "subscription_id": new_or_updated_sub.subscription_id,
             "end_date": final_end_date,
@@ -735,6 +747,16 @@ class SubscriptionService:
 
         final_subscription_url = updated_panel_user.get("subscriptionUrl")
         final_panel_short_uuid = updated_panel_user.get("shortUuid", panel_short_uuid)
+
+        await self._send_payment_success_email(
+            db_user=db_user,
+            sale_mode="subscription",
+            months=months_int,
+            traffic_gb=None,
+            payment_amount=payment_amount,
+            end_date=final_end_date,
+            provider=provider,
+        )
 
         return {
             "subscription_id": new_or_updated_sub.subscription_id,
@@ -1066,6 +1088,61 @@ class SubscriptionService:
             return False
         logging.info(f"Auto-renew initiated for user {sub.user_id} payment_id={resp.get('id')}")
         return True
+
+    _PROVIDER_LABELS = {
+        "yookassa": "YooKassa",
+        "freekassa": "FreeKassa",
+        "platega": "Platega",
+        "severpay": "SeverPay",
+        "cryptopay": "Crypto Pay",
+        "crypto_pay": "Crypto Pay",
+        "stars": "Telegram Stars",
+        "tribute": "Tribute",
+    }
+
+    async def _send_payment_success_email(
+        self,
+        *,
+        db_user: User,
+        sale_mode: str,
+        months: int,
+        traffic_gb: Optional[float],
+        payment_amount: float,
+        end_date: Optional[datetime],
+        provider: str,
+    ) -> None:
+        """Best-effort branded email confirming the payment. No-op if SMTP or
+        the user's email aren't set. Failures are logged and swallowed so the
+        payment flow is never blocked by mail delivery."""
+        if not self.settings.email_auth_configured:
+            return
+        recipient = (db_user.email or "").strip() if db_user else ""
+        if not recipient:
+            return
+
+        end_date_text = end_date.strftime("%Y-%m-%d") if end_date else ""
+        provider_label = self._PROVIDER_LABELS.get((provider or "").lower())
+        dashboard_url = (self.settings.SUBSCRIPTION_MINI_APP_URL or "").strip() or None
+
+        try:
+            content = render_payment_success(
+                self.settings,
+                language_code=db_user.language_code or self.settings.DEFAULT_LANGUAGE,
+                sale_mode=sale_mode,
+                months=int(months or 0),
+                traffic_gb=traffic_gb,
+                amount=float(payment_amount or 0),
+                currency=self.settings.DEFAULT_CURRENCY_SYMBOL,
+                end_date_text=end_date_text,
+                dashboard_url=dashboard_url,
+                provider_label=provider_label,
+            )
+            email_service = EmailAuthService(self.settings)
+            await email_service.send_rendered_email(email=recipient, content=content)
+        except Exception:
+            logging.exception(
+                "Failed to send payment success email to user %s", db_user.user_id
+            )
 
     async def update_last_notification_sent(
         self, session: AsyncSession, user_id: int, subscription_end_date: datetime

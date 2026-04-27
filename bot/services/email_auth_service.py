@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config.settings import Settings
 from db.dal import security_dal
 from db.models import EmailVerificationCode
+from bot.services.email_templates import EmailContent, render_login_code
 
 logger = logging.getLogger(__name__)
 
@@ -323,12 +324,27 @@ class EmailAuthService:
         email: str,
         subject: str,
         body: str,
+        html_body: Optional[str] = None,
     ) -> None:
         await asyncio.to_thread(
             self._send_custom_email_sync,
             email=email,
             subject=subject,
             body=body,
+            html_body=html_body,
+        )
+
+    async def send_rendered_email(
+        self,
+        *,
+        email: str,
+        content: EmailContent,
+    ) -> None:
+        await self.send_custom_email(
+            email=email,
+            subject=content.subject,
+            body=content.text,
+            html_body=content.html,
         )
 
     def _send_code_email_sync(
@@ -338,22 +354,14 @@ class EmailAuthService:
         code: str,
         language_code: str,
     ) -> None:
-        lang = (language_code or self.settings.DEFAULT_LANGUAGE or "ru").split("-")[0]
-        if lang == "en":
-            subject = "Your login code"
-            body = (
-                f"Your verification code: {code}\n\n"
-                f"The code expires in {max(1, int(self.settings.EMAIL_CODE_TTL_SECONDS) // 60)} minutes."
-            )
-        else:
-            subject = "Код подтверждения"
-            body = (
-                f"Ваш код подтверждения: {code}\n\n"
-                f"Код действует {max(1, int(self.settings.EMAIL_CODE_TTL_SECONDS) // 60)} мин."
-            )
+        content = render_login_code(
+            self.settings,
+            code=code,
+            language_code=language_code,
+        )
 
         message = EmailMessage()
-        message["Subject"] = subject
+        message["Subject"] = content.subject
         message["From"] = formataddr(
             (
                 self.settings.SMTP_FROM_NAME or self.settings.WEBAPP_TITLE,
@@ -361,7 +369,8 @@ class EmailAuthService:
             )
         )
         message["To"] = email
-        message.set_content(body)
+        message.set_content(content.text)
+        message.add_alternative(content.html, subtype="html")
 
         context = ssl.create_default_context()
         smtp_host = self.settings.SMTP_HOST
@@ -411,6 +420,7 @@ class EmailAuthService:
         email: str,
         subject: str,
         body: str,
+        html_body: Optional[str] = None,
     ) -> None:
         message = EmailMessage()
         message["Subject"] = subject
@@ -422,6 +432,8 @@ class EmailAuthService:
         )
         message["To"] = email
         message.set_content(body)
+        if html_body:
+            message.add_alternative(html_body, subtype="html")
 
         context = ssl.create_default_context()
         smtp_host = self.settings.SMTP_HOST

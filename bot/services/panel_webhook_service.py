@@ -9,6 +9,8 @@ from sqlalchemy.orm import sessionmaker
 from typing import Optional
 from config.settings import Settings
 from .panel_api_service import PanelApiService
+from .email_auth_service import EmailAuthService
+from .email_templates import render_subscription_expiring
 from bot.middlewares.i18n import JsonI18n
 from bot.keyboards.inline.user_keyboards import get_subscribe_only_markup, get_autorenew_cancel_keyboard
 from db.dal import user_dal
@@ -64,6 +66,7 @@ class PanelWebhookService:
             internal_user_id = db_user.user_id if db_user else user_id
             lang = db_user.language_code if db_user and db_user.language_code else self.settings.DEFAULT_LANGUAGE
             first_name = db_user.first_name or f"User {user_id}" if db_user else f"User {user_id}"
+            user_email = (db_user.email or "").strip() if db_user else ""
 
         markup = get_subscribe_only_markup(lang, self.i18n)
 
@@ -122,6 +125,13 @@ class PanelWebhookService:
                     user_name=first_name,
                     end_date=user_payload.get("expireAt", "")[:10],
                 )
+                if days_left == 3 and user_email:
+                    await self._send_subscription_expiring_email(
+                        recipient=user_email,
+                        lang=lang,
+                        days_left=days_left,
+                        end_date_text=user_payload.get("expireAt", "")[:10],
+                    )
         elif event_name == "user.expired":
             if self.settings.SUBSCRIPTION_NOTIFY_ON_EXPIRE:
                 await self._send_message(
@@ -141,6 +151,30 @@ class PanelWebhookService:
                 user_name=first_name,
                 end_date=user_payload.get("expireAt", "")[:10],
             )
+
+    async def _send_subscription_expiring_email(
+        self,
+        *,
+        recipient: str,
+        lang: str,
+        days_left: int,
+        end_date_text: str,
+    ) -> None:
+        """Best-effort branded reminder; silently no-ops without SMTP config."""
+        if not self.settings.email_auth_configured:
+            return
+        try:
+            content = render_subscription_expiring(
+                self.settings,
+                language_code=lang,
+                days_left=days_left,
+                end_date_text=end_date_text,
+                dashboard_url=(self.settings.SUBSCRIPTION_MINI_APP_URL or "").strip() or None,
+            )
+            email_service = EmailAuthService(self.settings)
+            await email_service.send_rendered_email(email=recipient, content=content)
+        except Exception:
+            logging.exception("Failed to send subscription-expiring email to %s", recipient)
 
     async def handle_webhook(self, raw_body: bytes, signature_header: Optional[str]) -> web.Response:
         if not self.settings.PANEL_WEBHOOK_SECRET:
