@@ -46,6 +46,15 @@ class EmailCodeVerifyResult:
     retry_after: Optional[int] = None
 
 
+@dataclass(frozen=True)
+class EmailMagicVerifyResult:
+    ok: bool
+    error: Optional[str] = None
+    email: Optional[str] = None
+    purpose: Optional[str] = None
+    target_user_id: Optional[int] = None
+
+
 def normalize_email(value: str) -> str:
     return (value or "").strip().lower()
 
@@ -97,6 +106,31 @@ class EmailAuthService:
         ).digest()
         payload = f"{purpose}:{email}:{code}".encode("utf-8")
         return hmac.new(secret, payload, hashlib.sha256).hexdigest()
+
+    def _hash_magic_token(self, token: str) -> str:
+        secret = hmac.new(
+            self.settings.BOT_TOKEN.encode("utf-8"),
+            b"remnawave-tg-shop-email-magic",
+            hashlib.sha256,
+        ).digest()
+        return hmac.new(secret, token.encode("utf-8"), hashlib.sha256).hexdigest()
+
+    def _build_magic_link(self, *, token: str, purpose: str) -> Optional[str]:
+        base_url = (self.settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
+        if not base_url:
+            return None
+        from urllib.parse import urlencode, urlsplit, urlunsplit
+
+        parsed = urlsplit(base_url)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            return None
+        params = {"login_token": token}
+        if purpose and purpose != "login":
+            params["login_purpose"] = purpose
+        existing_query = parsed.query
+        new_query = urlencode(params)
+        merged_query = f"{existing_query}&{new_query}" if existing_query else new_query
+        return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, merged_query, parsed.fragment))
 
     async def request_code(
         self,
@@ -159,9 +193,12 @@ class EmailAuthService:
         )
 
         code = f"{secrets.randbelow(1_000_000):06d}"
+        magic_token = secrets.token_urlsafe(32)
+        magic_link = self._build_magic_link(token=magic_token, purpose=purpose)
         code_model = EmailVerificationCode(
             email=normalized_email,
             code_hash=self._hash_code(normalized_email, purpose, code),
+            magic_token_hash=self._hash_magic_token(magic_token) if magic_link else None,
             purpose=purpose,
             target_user_id=target_user_id,
             expires_at=now + timedelta(seconds=max(60, int(self.settings.EMAIL_CODE_TTL_SECONDS))),
@@ -174,6 +211,7 @@ class EmailAuthService:
             email=normalized_email,
             code=code,
             language_code=language_code,
+            magic_link=magic_link,
         )
         return EmailCodeRequestResult(ok=True)
 
@@ -304,18 +342,74 @@ class EmailAuthService:
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def verify_magic_token(
+        self,
+        session: AsyncSession,
+        *,
+        token: str,
+        purpose: str,
+        target_user_id: Optional[int] = None,
+    ) -> EmailMagicVerifyResult:
+        if not token:
+            return EmailMagicVerifyResult(ok=False, error="invalid_token")
+
+        token_hash = self._hash_magic_token(token)
+        now = datetime.now(timezone.utc)
+        stmt = (
+            select(EmailVerificationCode)
+            .where(
+                EmailVerificationCode.magic_token_hash == token_hash,
+                EmailVerificationCode.purpose == purpose,
+                EmailVerificationCode.target_user_id == target_user_id,
+                EmailVerificationCode.status == "active",
+                EmailVerificationCode.consumed_at.is_(None),
+            )
+            .limit(1)
+        )
+        result = await session.execute(stmt)
+        record = result.scalar_one_or_none()
+        if not record:
+            return EmailMagicVerifyResult(ok=False, error="invalid_token")
+
+        expires_at = record.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < now:
+            return EmailMagicVerifyResult(ok=False, error="expired_token")
+
+        record.consumed_at = now
+        throttle_identifier = _email_throttle_identifier(
+            record.email,
+            purpose,
+            target_user_id,
+        )
+        await security_dal.clear_throttle_state(
+            session,
+            scope=security_dal.EMAIL_CODE_VERIFY_SCOPE,
+            identifier=throttle_identifier,
+        )
+        await session.flush()
+        return EmailMagicVerifyResult(
+            ok=True,
+            email=record.email,
+            purpose=record.purpose,
+            target_user_id=record.target_user_id,
+        )
+
     async def _send_code_email(
         self,
         *,
         email: str,
         code: str,
         language_code: str,
+        magic_link: Optional[str] = None,
     ) -> None:
         await asyncio.to_thread(
             self._send_code_email_sync,
             email=email,
             code=code,
             language_code=language_code,
+            magic_link=magic_link,
         )
 
     async def send_custom_email(
@@ -353,11 +447,13 @@ class EmailAuthService:
         email: str,
         code: str,
         language_code: str,
+        magic_link: Optional[str] = None,
     ) -> None:
         content = render_login_code(
             self.settings,
             code=code,
             language_code=language_code,
+            magic_link=magic_link,
         )
 
         message = EmailMessage()

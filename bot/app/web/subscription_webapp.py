@@ -71,6 +71,7 @@ WEBAPP_CSRF_EXEMPT_PATHS = {
     "/api/auth/token",
     "/api/auth/email/request",
     "/api/auth/email/verify",
+    "/api/auth/email/magic",
     "/api/auth/logout",
 }
 
@@ -91,6 +92,12 @@ class WebAppEmailPayload(BaseModel):
 
 class WebAppEmailCodePayload(WebAppEmailPayload):
     code: str = ""
+
+
+class WebAppEmailMagicPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    token: constr(min_length=8, max_length=512)
 
 
 class WebAppPaymentCreatePayload(BaseModel):
@@ -166,6 +173,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/auth/token", auth_token_route)
     app.router.add_post("/api/auth/email/request", email_auth_request_route)
     app.router.add_post("/api/auth/email/verify", email_auth_verify_route)
+    app.router.add_post("/api/auth/email/magic", email_auth_magic_route)
     app.router.add_post("/api/auth/logout", logout_route)
     app.router.add_get("/api/me", me_route)
     app.router.add_post("/api/account/email/request", account_email_request_route)
@@ -906,6 +914,113 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
             "telegram_id": _telegram_id_for_user(db_user),
         },
         token=token,
+    )
+
+
+async def email_auth_magic_route(request: web.Request) -> web.Response:
+    settings: Settings = request.app["settings"]
+    payload = await _read_json(request)
+    magic_payload, validation_error = _validate_model_payload(WebAppEmailMagicPayload, payload)
+    if validation_error:
+        return validation_error
+    token_value = str(magic_payload.token).strip()
+    referral_param = str(payload.get("referral_code") or payload.get("start_param") or "")
+    email_service: EmailAuthService = request.app["email_auth_service"]
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    created_user = False
+    new_user_referrer_id: Optional[int] = None
+    verified_email: Optional[str] = None
+
+    async with async_session_factory() as session:
+        try:
+            magic_result = await email_service.verify_magic_token(
+                session,
+                token=token_value,
+                purpose="login",
+                target_user_id=None,
+            )
+            if not magic_result.ok:
+                await session.commit()
+                return web.json_response(
+                    {
+                        "ok": False,
+                        "error": magic_result.error or "invalid_token",
+                        "message": "Invalid login link",
+                    },
+                    status=400,
+                )
+
+            verified_email = magic_result.email or ""
+            db_user = await user_dal.get_user_by_email(session, verified_email)
+            if not db_user:
+                referred_by_id = await _resolve_referrer_id(
+                    session,
+                    referral_param,
+                    current_user_id=None,
+                )
+                db_user, _ = await user_dal.create_email_user(
+                    session,
+                    email=verified_email,
+                    language_code=_normalize_language(settings.DEFAULT_LANGUAGE),
+                    email_verified_at=datetime.now(timezone.utc),
+                    referred_by_id=referred_by_id,
+                )
+                created_user = True
+                new_user_referrer_id = referred_by_id
+            elif not db_user.email_verified_at:
+                db_user.email_verified_at = datetime.now(timezone.utc)
+
+            referral_applied = await _apply_referral_to_existing_user(
+                request,
+                session,
+                db_user,
+                referral_param,
+            )
+            if created_user or referral_applied:
+                await _apply_referral_welcome_bonus_if_needed(
+                    request,
+                    session,
+                    db_user,
+                    referral_param,
+                )
+
+            if db_user.is_banned:
+                await session.rollback()
+                return _json_error(403, "banned", "Access denied")
+
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            logger.exception("Email magic-link auth failed")
+            return _json_error(500, "auth_failed", "Auth failed")
+
+    if created_user and verified_email:
+        try:
+            from bot.services.notification_service import NotificationService
+
+            bot: Bot = request.app["bot"]
+            notification_service = NotificationService(
+                bot,
+                settings,
+                request.app.get("i18n"),
+            )
+            await notification_service.notify_new_email_user_registration(
+                user_id=int(db_user.user_id),
+                email=verified_email,
+                referred_by_id=new_user_referrer_id,
+            )
+        except Exception:
+            logger.exception("Failed to send new email user notification")
+
+    session_token = create_webapp_session_token(settings, int(db_user.user_id))
+    return _build_webapp_auth_response(
+        settings,
+        {
+            "ok": True,
+            "user_id": int(db_user.user_id),
+            "telegram_id": _telegram_id_for_user(db_user),
+        },
+        token=session_token,
     )
 
 

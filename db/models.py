@@ -100,6 +100,7 @@ class EmailVerificationCode(Base):
     code_id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(String, nullable=False, index=True)
     code_hash = Column(String, nullable=False)
+    magic_token_hash = Column(String, nullable=True, index=True)
     purpose = Column(String, nullable=False, index=True)
     target_user_id = Column(
         BigInteger,

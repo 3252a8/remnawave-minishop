@@ -511,6 +511,14 @@ const MOCK = (() => {
         return;
       }
 
+      const magicToken = readMagicLoginToken();
+      if (magicToken) {
+        const authenticated = await finalizeMagicLogin(magicToken);
+        if (authenticated) {
+          return;
+        }
+      }
+
       // Explicit logout should survive refresh, even if the old cookie session is still valid.
       if (isManuallyLoggedOut()) {
         await startExternalAuth();
@@ -547,6 +555,54 @@ const MOCK = (() => {
       }
 
       await startExternalAuth();
+    }
+
+    function readMagicLoginToken() {
+      const query = new URLSearchParams(window.location.search);
+      const token = (query.get('login_token') || '').trim();
+      return token || null;
+    }
+
+    function clearMagicLoginQuery() {
+      const url = new URL(window.location.href);
+      ['login_token', 'login_purpose'].forEach(key => url.searchParams.delete(key));
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
+      }
+    }
+
+    async function finalizeMagicLogin(token) {
+      if (state.authInProgress) return false;
+      state.authInProgress = true;
+      setAuthStatus(t('telegram_auth_verifying'));
+      try {
+        const payload = {token};
+        if (state.referralParam) payload.referral_code = state.referralParam;
+        const data = await publicApi('/auth/email/magic', payload);
+        if (data && data.ok && data.token) {
+          setToken(data.token, data.csrf_token);
+          clearManualLogoutFlag();
+          clearMagicLoginQuery();
+          try {
+            setAuthStatus('');
+            await loadData();
+            return true;
+          } catch (e) {
+            clearToken();
+            setAuthStatus(t('telegram_auth_failed'), true);
+            return false;
+          }
+        }
+        clearMagicLoginQuery();
+        setAuthStatus(emailErrorMessage(data, 'email_code_invalid'), true);
+        return false;
+      } catch (e) {
+        clearMagicLoginQuery();
+        setAuthStatus(t('telegram_auth_failed'), true);
+        return false;
+      } finally {
+        state.authInProgress = false;
+      }
     }
 
     function readTelegramLoginWidgetAuthData() {
@@ -2181,6 +2237,9 @@ const MOCK = (() => {
         return {ok: true};
       }
       if (path === '/auth/email/verify') {
+        return {ok: true, token: 'local-preview', csrf_token: 'local-preview-csrf'};
+      }
+      if (path === '/auth/email/magic') {
         return {ok: true, token: 'local-preview', csrf_token: 'local-preview-csrf'};
       }
       if (path === '/account/email/verify') {

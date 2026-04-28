@@ -282,6 +282,27 @@ def _migration_0008_add_email_verification_code_status(connection: Connection) -
     )
 
 
+def _migration_0010_add_email_magic_token_hash(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("email_verification_codes")}
+
+    if "magic_token_hash" not in columns:
+        connection.execute(
+            text(
+                "ALTER TABLE email_verification_codes ADD COLUMN magic_token_hash VARCHAR"
+            )
+        )
+
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_email_verification_codes_magic_token_hash
+            ON email_verification_codes (magic_token_hash)
+            """
+        )
+    )
+
+
 def _migration_0009_add_composite_indexes(connection: Connection) -> None:
     connection.execute(
         text(
@@ -354,6 +375,11 @@ MIGRATIONS: List[Migration] = [
         id="0009_add_composite_indexes",
         description="Add composite indexes for subscription and payment lookups",
         upgrade=_migration_0009_add_composite_indexes,
+    ),
+    Migration(
+        id="0010_add_email_magic_token_hash",
+        description="Store hashed magic-link tokens for email login deeplinks",
+        upgrade=_migration_0010_add_email_magic_token_hash,
     ),
 ]
 

@@ -207,6 +207,7 @@ def render_login_code(
     *,
     code: str,
     language_code: Optional[str],
+    magic_link: Optional[str] = None,
     i18n: Optional[JsonI18n] = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
@@ -214,6 +215,7 @@ def render_login_code(
     minutes = _format_minutes(settings.EMAIL_CODE_TTL_SECONDS)
     accent = _safe_color(settings.WEBAPP_PRIMARY_COLOR)
     brand = _brand_title(settings)
+    safe_magic_link = (magic_link or "").strip()
 
     subject = _t_text(i18n, lang, "email_login_code_subject", code=code)
     preheader = _t_text(i18n, lang, "email_login_code_preheader", minutes=minutes)
@@ -222,19 +224,47 @@ def render_login_code(
     expiry_html = _t_html(i18n, lang, "email_login_code_expiry_html", minutes=minutes)
     security = _t_text(i18n, lang, "email_login_code_security")
     footer = _t_html(i18n, lang, "email_footer_auto", brand=brand)
-    text = _t_text(i18n, lang, "email_login_code_text", code=code, minutes=minutes)
+    text_lines = [_t_text(i18n, lang, "email_login_code_text", code=code, minutes=minutes)]
+    if safe_magic_link:
+        text_lines.append(
+            _t_text(i18n, lang, "email_login_code_text_magic", url=safe_magic_link)
+        )
 
-    body_html = f"""
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px 0;">
-  <tr>
-    <td align="center" style="background:{_BG};border:1px solid {_BORDER};border-radius:14px;padding:22px 16px;">
-      <div style="font-family:'JetBrains Mono','SFMono-Regular',Menlo,Consolas,monospace;font-size:36px;line-height:1;font-weight:700;letter-spacing:10px;color:{accent};">{html.escape(code)}</div>
-    </td>
-  </tr>
-</table>
-<p style="margin:0 0 8px 0;font-size:13px;line-height:1.55;color:{_TEXT_MUTED};">{expiry_html}</p>
-<p style="margin:0;font-size:12px;line-height:1.55;color:{_TEXT_DIM};">{html.escape(security)}</p>
-"""
+    code_block = (
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px 0;">'
+        f'<tr><td align="center" style="background:{_BG};border:1px solid {_BORDER};border-radius:14px;padding:22px 16px;">'
+        f'<div style="font-family:\'JetBrains Mono\',\'SFMono-Regular\',Menlo,Consolas,monospace;font-size:36px;line-height:1;font-weight:700;letter-spacing:10px;color:{accent};">'
+        f'{html.escape(code)}'
+        f'</div></td></tr></table>'
+    )
+
+    magic_block = ""
+    if safe_magic_link:
+        cta_label = _t_text(i18n, lang, "email_login_code_magic_cta")
+        divider_label = _t_text(i18n, lang, "email_login_code_magic_or")
+        magic_intro = _t_text(i18n, lang, "email_login_code_magic_intro")
+        magic_hint = _t_text(i18n, lang, "email_login_code_magic_hint")
+        divider_html = (
+            f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 14px 0;">'
+            f'<tr>'
+            f'<td width="40%" style="border-bottom:1px solid {_BORDER};font-size:0;line-height:0;">&nbsp;</td>'
+            f'<td align="center" style="padding:0 10px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:{_TEXT_DIM};white-space:nowrap;">{html.escape(divider_label)}</td>'
+            f'<td width="40%" style="border-bottom:1px solid {_BORDER};font-size:0;line-height:0;">&nbsp;</td>'
+            f'</tr></table>'
+        )
+        magic_block = (
+            divider_html
+            + f'<p style="margin:0 0 4px 0;font-size:13px;line-height:1.55;color:{_TEXT_MUTED};text-align:center;">{html.escape(magic_intro)}</p>'
+            + _cta_button_html(label=cta_label, url=safe_magic_link, accent=accent)
+            + f'<p style="margin:0 0 6px 0;font-size:12px;line-height:1.55;color:{_TEXT_DIM};text-align:center;">{html.escape(magic_hint)}</p>'
+        )
+
+    body_html = (
+        code_block
+        + f'<p style="margin:0 0 8px 0;font-size:13px;line-height:1.55;color:{_TEXT_MUTED};">{expiry_html}</p>'
+        + f'<p style="margin:0 0 4px 0;font-size:12px;line-height:1.55;color:{_TEXT_DIM};">{html.escape(security)}</p>'
+        + magic_block
+    )
 
     rendered = _layout(
         settings=settings,
@@ -244,7 +274,7 @@ def render_login_code(
         body_html=body_html,
         footer_html=footer,
     )
-    return EmailContent(subject=subject, text=text, html=rendered)
+    return EmailContent(subject=subject, text="\n".join(text_lines), html=rendered)
 
 
 def render_account_merged(

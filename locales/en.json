@@ -529,7 +529,12 @@
   "email_login_code_intro": "Use this 6-digit code to finish signing in to your subscription dashboard.",
   "email_login_code_expiry_html": "The code is valid for <strong style=\"color:#e6e9ef;\">{minutes} min</strong>.",
   "email_login_code_security": "If you didn't request this code, you can ignore this email — your account stays safe.",
+  "email_login_code_magic_cta": "Sign in with one tap",
+  "email_login_code_magic_intro": "Don't want to type the code? Sign in with this link.",
+  "email_login_code_magic_hint": "The link is single-use and expires together with the code.",
+  "email_login_code_magic_or": "or",
   "email_login_code_text": "Your verification code: {code}\n\nThe code is valid for {minutes} min.\nIf you didn't request this code, ignore this message.",
+  "email_login_code_text_magic": "Or sign in with this single-use link: {url}",
 
   "email_account_merged_subject": "Accounts merged",
   "email_account_merged_preheader": "Your accounts were combined into one profile.",

@@ -529,7 +529,12 @@
   "email_login_code_intro": "Введите этот 6-значный код, чтобы завершить вход в личный кабинет подписки.",
   "email_login_code_expiry_html": "Код действует <strong style=\"color:#e6e9ef;\">{minutes} мин</strong>.",
   "email_login_code_security": "Если вы не запрашивали код, просто проигнорируйте это письмо — ваш аккаунт в безопасности.",
+  "email_login_code_magic_cta": "Войти одним нажатием",
+  "email_login_code_magic_intro": "Не хотите вводить код? Войдите по ссылке.",
+  "email_login_code_magic_hint": "Ссылка одноразовая и действует столько же, сколько код.",
+  "email_login_code_magic_or": "или",
   "email_login_code_text": "Ваш код подтверждения: {code}\n\nКод действует {minutes} мин.\nЕсли вы не запрашивали код, проигнорируйте это письмо.",
+  "email_login_code_text_magic": "Или войдите по ссылке (одноразовая): {url}",
 
   "email_account_merged_subject": "Аккаунты объединены",
   "email_account_merged_preheader": "Мы объединили ваши аккаунты в один профиль.",
