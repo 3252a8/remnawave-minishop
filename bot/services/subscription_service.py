@@ -1,11 +1,13 @@
 import logging
+import math
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List, Tuple
 from aiogram import Bot
 from bot.middlewares.i18n import JsonI18n
 
-from db.dal import user_dal, subscription_dal, promo_code_dal, payment_dal, user_billing_dal
+from db.dal import user_dal, subscription_dal, promo_code_dal, payment_dal, user_billing_dal, tariff_dal
+from config.tariffs_config import Tariff
 from bot.utils.date_utils import add_months
 from bot.utils.config_link import prepare_config_links
 from db.models import User, Subscription
@@ -29,6 +31,72 @@ class SubscriptionService:
         self.panel_service = panel_service
         self.bot = bot
         self.i18n = i18n
+
+    @staticmethod
+    def gb_to_bytes(gb: float) -> int:
+        return int(float(gb) * (1024**3))
+
+    @staticmethod
+    def _far_future() -> datetime:
+        return datetime(2099, 1, 1, tzinfo=timezone.utc)
+
+    def _parse_sale_mode_context(
+        self,
+        sale_mode: str,
+        explicit_tariff_key: Optional[str] = None,
+    ) -> Tuple[str, Optional[str]]:
+        mode = (sale_mode or "subscription").strip()
+        tariff_key = explicit_tariff_key
+        for separator in ("@", "|"):
+            if separator in mode:
+                base, suffix = mode.split(separator, 1)
+                mode = base or mode
+                tariff_key = tariff_key or suffix or None
+                break
+        return mode, tariff_key
+
+    def _tariffs_config(self):
+        return getattr(self.settings, "tariffs_config", None)
+
+    def _default_tariff(self) -> Optional[Tariff]:
+        config = self._tariffs_config()
+        return config.default if config else None
+
+    def _resolve_tariff(self, tariff_key: Optional[str], billing_model: Optional[str] = None) -> Optional[Tariff]:
+        config = self._tariffs_config()
+        if not config:
+            return None
+        tariff = config.require(tariff_key or config.default_tariff)
+        if billing_model and tariff.billing_model != billing_model:
+            raise ValueError(f"Tariff {tariff.key} is {tariff.billing_model}, expected {billing_model}")
+        return tariff
+
+    def _panel_squads_for_tariff(self, tariff: Optional[Tariff]) -> Optional[List[str]]:
+        if tariff:
+            return tariff.squad_uuids
+        return self.settings.parsed_user_squad_uuids
+
+    def _traffic_limit_for_period_tariff(self, tariff: Optional[Tariff], topup_balance_bytes: int = 0) -> int:
+        if tariff:
+            return int(tariff.monthly_bytes + max(0, topup_balance_bytes))
+        return self.settings.user_traffic_limit_bytes
+
+    async def _record_payment_context(
+        self,
+        session: AsyncSession,
+        payment_db_id: int,
+        *,
+        sale_mode: str,
+        tariff_key: Optional[str],
+        purchased_gb: Optional[float] = None,
+    ) -> None:
+        payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
+        if not payment:
+            return
+        payment.sale_mode = sale_mode
+        payment.tariff_key = tariff_key
+        payment.purchased_gb = purchased_gb
+        await session.flush()
 
     async def get_user_language(self, session: AsyncSession, user_id: int) -> str:
         user_record = await user_dal.get_user_by_id(session, user_id)
@@ -490,8 +558,18 @@ class SubscriptionService:
         payment_amount: float,
         payment_db_id: int,
         provider: str = "yookassa",
+        tariff_key: Optional[str] = None,
+        sale_mode: str = "traffic",
     ) -> Optional[Dict[str, Any]]:
         """Activate or extend a traffic-based package instead of a time-based subscription."""
+        tariff = self._resolve_tariff(tariff_key, "traffic") if self._tariffs_config() else None
+        await self._record_payment_context(
+            session,
+            payment_db_id,
+            sale_mode=sale_mode,
+            tariff_key=tariff.key if tariff else tariff_key,
+            purchased_gb=float(traffic_gb),
+        )
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user:
             logging.error("User %s not found for traffic package activation", user_id)
@@ -516,12 +594,14 @@ class SubscriptionService:
         if current_used is None and active_sub:
             current_used = active_sub.traffic_used_bytes
 
-        purchase_bytes = int(float(traffic_gb) * (1024**3))
-        new_limit = (current_limit or 0) + purchase_bytes
+        purchase_bytes = self.gb_to_bytes(traffic_gb)
+        remaining_bytes = max(0, int(current_limit or 0) - int(current_used or 0))
+        new_balance = remaining_bytes + purchase_bytes
+        new_limit = int(current_used or 0) + new_balance
 
         start_date = datetime.now(timezone.utc)
         # Set a far-future expiry to satisfy panel requirements; keep the latest known expiry if it's further.
-        far_future = datetime(2099, 1, 1, tzinfo=timezone.utc)
+        far_future = self._far_future()
         final_end_date = far_future
         if active_sub and active_sub.end_date and active_sub.end_date > final_end_date:
             final_end_date = active_sub.end_date
@@ -544,6 +624,12 @@ class SubscriptionService:
             "provider": provider,
             "skip_notifications": True,
             "auto_renew_enabled": False,
+            "tariff_key": tariff.key if tariff else None,
+            "tier_baseline_bytes": 0,
+            "topup_balance_bytes": new_balance,
+            "period_start_at": None,
+            "is_throttled": False,
+            "effective_monthly_price_rub": None,
         }
 
         try:
@@ -559,6 +645,8 @@ class SubscriptionService:
             traffic_limit_bytes=new_limit,
             traffic_limit_strategy="NO_RESET",
         )
+        if tariff:
+            panel_update_payload["activeInternalSquads"] = tariff.squad_uuids
 
         panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
 
@@ -575,6 +663,13 @@ class SubscriptionService:
 
         final_subscription_url = updated_panel_user.get("subscriptionUrl")
         final_panel_short_uuid = updated_panel_user.get("shortUuid", panel_short_uuid)
+        await tariff_dal.create_traffic_topup(
+            session,
+            subscription_id=new_or_updated_sub.subscription_id,
+            payment_id=payment_db_id,
+            purchased_bytes=purchase_bytes,
+            kind="traffic_package",
+        )
 
         await self._send_payment_success_email(
             db_user=db_user,
@@ -595,7 +690,203 @@ class SubscriptionService:
             "subscription_url": final_subscription_url,
             "applied_promo_bonus_days": 0,
             "traffic_limit_bytes": new_limit,
+            "tariff_key": tariff.key if tariff else None,
         }
+
+    async def activate_topup(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        tariff_key: str,
+        traffic_gb: float,
+        payment_amount: float,
+        payment_db_id: int,
+        provider: str = "yookassa",
+    ) -> Optional[Dict[str, Any]]:
+        tariff = self._resolve_tariff(tariff_key)
+        if tariff.billing_model == "traffic":
+            return await self._activate_traffic_package(
+                session=session,
+                user_id=user_id,
+                traffic_gb=traffic_gb,
+                payment_amount=payment_amount,
+                payment_db_id=payment_db_id,
+                provider=provider,
+                tariff_key=tariff.key,
+                sale_mode="traffic_package",
+            )
+
+        await self._record_payment_context(
+            session,
+            payment_db_id,
+            sale_mode="topup",
+            tariff_key=tariff.key,
+            purchased_gb=float(traffic_gb),
+        )
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user or not db_user.panel_user_uuid:
+            return None
+        sub = await subscription_dal.get_active_subscription_by_user_id(session, user_id, db_user.panel_user_uuid)
+        if not sub:
+            return None
+
+        purchase_bytes = self.gb_to_bytes(traffic_gb)
+        new_topup_balance = int(sub.topup_balance_bytes or 0) + purchase_bytes
+        new_limit = int(sub.tier_baseline_bytes or tariff.monthly_bytes) + new_topup_balance
+        updated_sub = await subscription_dal.update_subscription(
+            session,
+            sub.subscription_id,
+            {
+                "topup_balance_bytes": new_topup_balance,
+                "traffic_limit_bytes": new_limit,
+                "is_throttled": False,
+                "tariff_key": tariff.key,
+            },
+        )
+        panel_payload = self._build_panel_update_payload(
+            panel_user_uuid=db_user.panel_user_uuid,
+            expire_at=updated_sub.end_date,
+            status="ACTIVE",
+            traffic_limit_bytes=new_limit,
+        )
+        panel_payload["activeInternalSquads"] = tariff.squad_uuids
+        panel_payload.update(self._panel_identity_payload_for_user(db_user))
+        await self.panel_service.update_user_details_on_panel(db_user.panel_user_uuid, panel_payload)
+        await tariff_dal.create_traffic_topup(
+            session,
+            subscription_id=sub.subscription_id,
+            payment_id=payment_db_id,
+            purchased_bytes=purchase_bytes,
+            kind="topup",
+        )
+        return {
+            "subscription_id": sub.subscription_id,
+            "traffic_limit_bytes": new_limit,
+            "topup_balance_bytes": new_topup_balance,
+            "tariff_key": tariff.key,
+        }
+
+    def calculate_tariff_switch_options(self, sub: Subscription, target_tariff: Tariff) -> Dict[str, Any]:
+        current_tariff = self._resolve_tariff(sub.tariff_key) if sub.tariff_key else self._default_tariff()
+        now = datetime.now(timezone.utc)
+        remaining_days = max(0, (sub.end_date - now).days) if sub.end_date else 0
+        effective = float(sub.effective_monthly_price_rub or 0)
+        current_model = current_tariff.billing_model if current_tariff else "period"
+
+        if current_model == "period" and target_tariff.billing_model == "period":
+            target_monthly = target_tariff.period_price(1, "rub") or target_tariff.min_period_price_rub() or effective or 1
+            remaining_value = remaining_days * (effective / 30) if effective else 0
+            days_after = math.floor((remaining_value / float(target_monthly)) * 30) if target_monthly else remaining_days
+            paid_diff = max(0, math.ceil((float(target_monthly) - effective) * remaining_days / 30)) if effective else 0
+            return {
+                "mode": "period_to_period",
+                "remaining_days": remaining_days,
+                "recalc_days": max(0, days_after),
+                "paid_diff_rub": paid_diff,
+                "target_monthly_rub": float(target_monthly),
+            }
+
+        if current_model == "period" and target_tariff.billing_model == "traffic":
+            rub_per_gb = target_tariff.rub_per_gb_for_conversion()
+            remaining_value = remaining_days * (effective / 30) if effective else 0
+            converted_gb = math.floor(remaining_value / rub_per_gb) if rub_per_gb else 0
+            return {
+                "mode": "period_to_traffic",
+                "remaining_days": remaining_days,
+                "converted_gb": max(0, converted_gb),
+                "rub_per_gb": rub_per_gb,
+            }
+
+        return {"mode": "traffic_to_period", "remaining_days": remaining_days}
+
+    async def switch_tariff_without_payment(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        target_tariff_key: str,
+        mode: str,
+    ) -> Optional[Dict[str, Any]]:
+        config = self._tariffs_config()
+        if not config:
+            return None
+        target = config.require(target_tariff_key)
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user or not db_user.panel_user_uuid:
+            return None
+        sub = await subscription_dal.get_active_subscription_by_user_id(session, user_id, db_user.panel_user_uuid)
+        if not sub:
+            return None
+        before_tariff_key = sub.tariff_key
+        options = self.calculate_tariff_switch_options(sub, target)
+        now = datetime.now(timezone.utc)
+        update_data: Dict[str, Any] = {"tariff_key": target.key, "is_throttled": False}
+        converted_bytes = None
+
+        if target.billing_model == "period":
+            update_data["tier_baseline_bytes"] = target.monthly_bytes
+            update_data["traffic_limit_bytes"] = target.monthly_bytes + int(sub.topup_balance_bytes or 0)
+            update_data["period_start_at"] = sub.period_start_at or now
+            update_data["effective_monthly_price_rub"] = target.period_price(1, "rub") or target.min_period_price_rub()
+            if mode == "recalc_days" and options.get("recalc_days") is not None:
+                update_data["end_date"] = now + timedelta(days=int(options["recalc_days"]))
+        else:
+            converted_gb = float(options.get("converted_gb", 0))
+            converted_bytes = self.gb_to_bytes(converted_gb)
+            old_topup = int(sub.topup_balance_bytes or 0)
+            new_balance = old_topup + converted_bytes
+            panel_user = await self.panel_service.get_user_by_uuid(db_user.panel_user_uuid, log_response=False) or {}
+            current_used, _, _ = self._extract_panel_traffic_details(panel_user)
+            update_data.update(
+                {
+                    "end_date": self._far_future(),
+                    "period_start_at": None,
+                    "tier_baseline_bytes": 0,
+                    "topup_balance_bytes": new_balance,
+                    "traffic_limit_bytes": int(current_used or 0) + new_balance,
+                    "traffic_used_bytes": current_used,
+                    "effective_monthly_price_rub": None,
+                    "auto_renew_enabled": False,
+                    "skip_notifications": True,
+                }
+            )
+
+        updated = await subscription_dal.update_subscription(session, sub.subscription_id, update_data)
+        if not updated:
+            return None
+        panel_payload = self._build_panel_update_payload(
+            panel_user_uuid=db_user.panel_user_uuid,
+            expire_at=updated.end_date,
+            status="ACTIVE",
+            traffic_limit_bytes=updated.traffic_limit_bytes,
+            traffic_limit_strategy="NO_RESET" if target.billing_model == "traffic" else self.settings.USER_TRAFFIC_STRATEGY,
+        )
+        panel_payload["activeInternalSquads"] = target.squad_uuids
+        panel_payload.update(self._panel_identity_payload_for_user(db_user))
+        await self.panel_service.update_user_details_on_panel(db_user.panel_user_uuid, panel_payload)
+        if converted_bytes:
+            await tariff_dal.create_traffic_topup(
+                session,
+                subscription_id=updated.subscription_id,
+                payment_id=None,
+                purchased_bytes=converted_bytes,
+                kind="conversion",
+            )
+        await tariff_dal.create_tariff_change(
+            session,
+            {
+                "subscription_id": updated.subscription_id,
+                "from_tariff_key": before_tariff_key,
+                "to_tariff_key": target.key,
+                "mode": mode,
+                "payment_id": None,
+                "days_before": options.get("remaining_days"),
+                "days_after": (updated.end_date - now).days if updated.end_date and target.billing_model == "period" else None,
+                "converted_bytes": converted_bytes,
+                "eff_price_before": sub.effective_monthly_price_rub,
+                "eff_price_after": updated.effective_monthly_price_rub,
+            },
+        )
+        return {"subscription_id": updated.subscription_id, "tariff_key": target.key}
 
     async def activate_subscription(
         self,
@@ -608,9 +899,14 @@ class SubscriptionService:
         provider: str = "yookassa",
         sale_mode: str = "subscription",
         traffic_gb: Optional[float] = None,
+        tariff_key: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
 
-        if sale_mode == "traffic" or getattr(self.settings, "traffic_sale_mode", False):
+        sale_mode_base, sale_mode_tariff_key = self._parse_sale_mode_context(sale_mode, tariff_key)
+        tariff_key = sale_mode_tariff_key
+        if sale_mode_base in {"traffic", "traffic_package"} or (
+            getattr(self.settings, "traffic_sale_mode", False) and not self._tariffs_config()
+        ):
             target_gb = traffic_gb if traffic_gb is not None else float(months)
             return await self._activate_traffic_package(
                 session=session,
@@ -619,7 +915,79 @@ class SubscriptionService:
                 payment_amount=payment_amount,
                 payment_db_id=payment_db_id,
                 provider=provider,
+                tariff_key=tariff_key,
+                sale_mode="traffic_package" if self._tariffs_config() else "traffic",
             )
+        if sale_mode_base == "topup":
+            if not tariff_key:
+                active_user = await user_dal.get_user_by_id(session, user_id)
+                active_sub = (
+                    await subscription_dal.get_active_subscription_by_user_id(
+                        session, user_id, active_user.panel_user_uuid
+                    )
+                    if active_user and active_user.panel_user_uuid
+                    else None
+                )
+                tariff_key = active_sub.tariff_key if active_sub else None
+            if not tariff_key:
+                logging.error("Top-up activation requires tariff_key for user %s", user_id)
+                return None
+            return await self.activate_topup(
+                session=session,
+                user_id=user_id,
+                tariff_key=tariff_key,
+                traffic_gb=traffic_gb if traffic_gb is not None else float(months),
+                payment_amount=payment_amount,
+                payment_db_id=payment_db_id,
+                provider=provider,
+            )
+        if sale_mode_base == "tariff_upgrade":
+            if not tariff_key:
+                logging.error("Tariff upgrade activation requires tariff_key for user %s", user_id)
+                return None
+            await self._record_payment_context(
+                session,
+                payment_db_id,
+                sale_mode="tariff_upgrade",
+                tariff_key=tariff_key,
+                purchased_gb=None,
+            )
+            result = await self.switch_tariff_without_payment(
+                session,
+                user_id,
+                tariff_key,
+                "paid_diff",
+            )
+            if result:
+                sub = await subscription_dal.get_active_subscription_by_user_id(session, user_id)
+                if sub:
+                    await tariff_dal.create_tariff_change(
+                        session,
+                        {
+                            "subscription_id": sub.subscription_id,
+                            "from_tariff_key": None,
+                            "to_tariff_key": tariff_key,
+                            "mode": "paid_diff",
+                            "payment_id": payment_db_id,
+                            "days_before": None,
+                            "days_after": (sub.end_date - datetime.now(timezone.utc)).days if sub.end_date else None,
+                            "converted_bytes": None,
+                            "eff_price_before": None,
+                            "eff_price_after": sub.effective_monthly_price_rub,
+                        },
+                    )
+                    result["end_date"] = sub.end_date
+                    result["is_active"] = sub.is_active
+            return result
+
+        tariff = self._resolve_tariff(tariff_key, "period") if self._tariffs_config() else None
+        await self._record_payment_context(
+            session,
+            payment_db_id,
+            sale_mode=sale_mode_base,
+            tariff_key=tariff.key if tariff else tariff_key,
+            purchased_gb=None,
+        )
 
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user:
@@ -647,6 +1015,11 @@ class SubscriptionService:
             session, user_id, panel_user_uuid
         )
         start_date = datetime.now(timezone.utc)
+        starts_after_lapse = not (
+            current_active_sub
+            and current_active_sub.end_date
+            and current_active_sub.end_date > start_date
+        )
         if (
             current_active_sub
             and current_active_sub.end_date
@@ -702,6 +1075,15 @@ class SubscriptionService:
                 session, user_id
             )
 
+        topup_balance_bytes = int(getattr(current_active_sub, "topup_balance_bytes", 0) or 0)
+        tier_baseline_bytes = tariff.monthly_bytes if tariff else self.settings.user_traffic_limit_bytes
+        period_start_at = (
+            datetime.now(timezone.utc)
+            if starts_after_lapse or not current_active_sub or not getattr(current_active_sub, "period_start_at", None)
+            else current_active_sub.period_start_at
+        )
+        effective_monthly_price = float(payment_amount) / max(1, months_int)
+        traffic_limit_bytes = self._traffic_limit_for_period_tariff(tariff, topup_balance_bytes)
         sub_payload = {
             "user_id": user_id,
             "panel_user_uuid": panel_user_uuid,
@@ -711,10 +1093,16 @@ class SubscriptionService:
             "duration_months": months_int,
             "is_active": True,
             "status_from_panel": "ACTIVE",
-            "traffic_limit_bytes": self.settings.user_traffic_limit_bytes,
+            "traffic_limit_bytes": traffic_limit_bytes,
             "provider": provider,
             "skip_notifications": False,
             "auto_renew_enabled": auto_renew_should_enable,
+            "tariff_key": tariff.key if tariff else None,
+            "tier_baseline_bytes": tier_baseline_bytes,
+            "topup_balance_bytes": topup_balance_bytes,
+            "period_start_at": period_start_at,
+            "is_throttled": False,
+            "effective_monthly_price_rub": effective_monthly_price,
         }
         try:
             new_or_updated_sub = await subscription_dal.upsert_subscription(
@@ -731,8 +1119,10 @@ class SubscriptionService:
             panel_user_uuid=panel_user_uuid,
             expire_at=final_end_date,
             status="ACTIVE",
-            traffic_limit_bytes=self.settings.user_traffic_limit_bytes,
+            traffic_limit_bytes=traffic_limit_bytes,
         )
+        if tariff:
+            panel_update_payload["activeInternalSquads"] = tariff.squad_uuids
 
         panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
 
@@ -766,6 +1156,7 @@ class SubscriptionService:
             "panel_short_uuid": final_panel_short_uuid,
             "subscription_url": final_subscription_url,
             "applied_promo_bonus_days": applied_promo_bonus_days,
+            "tariff_key": tariff.key if tariff else None,
         }
 
     async def extend_active_subscription_days(
@@ -983,6 +1374,12 @@ class SubscriptionService:
         hwid_limit = panel_user_data.get("hwidDeviceLimit")
         if hwid_limit is None:
             hwid_limit = self.settings.USER_HWID_DEVICE_LIMIT
+        tariff = None
+        if local_active_sub and local_active_sub.tariff_key and self._tariffs_config():
+            try:
+                tariff = self._resolve_tariff(local_active_sub.tariff_key)
+            except Exception:
+                tariff = None
 
         return {
             "user_id": panel_user_data.get("uuid"),
@@ -993,6 +1390,14 @@ class SubscriptionService:
             "traffic_limit_bytes": panel_traffic_limit,
             "traffic_used_bytes": panel_traffic_used,
             "traffic_limit_strategy": panel_traffic_strategy,
+            "tariff_key": local_active_sub.tariff_key if local_active_sub else None,
+            "tariff_name": tariff.name(db_user.language_code or self.settings.DEFAULT_LANGUAGE) if tariff else None,
+            "tariff_description": tariff.description(db_user.language_code or self.settings.DEFAULT_LANGUAGE) if tariff else None,
+            "billing_model": tariff.billing_model if tariff else ("traffic" if getattr(self.settings, "traffic_sale_mode", False) else "period"),
+            "tier_baseline_bytes": local_active_sub.tier_baseline_bytes if local_active_sub else None,
+            "topup_balance_bytes": local_active_sub.topup_balance_bytes if local_active_sub else 0,
+            "period_start_at": local_active_sub.period_start_at if local_active_sub else None,
+            "is_throttled": bool(local_active_sub.is_throttled) if local_active_sub else False,
             "user_bot_username": db_user.username,
             "is_panel_data": True,
             "max_devices": hwid_limit,

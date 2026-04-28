@@ -274,22 +274,23 @@ class FreeKassaService:
                     new_status="succeeded",
                 )
 
-                months = payment.subscription_duration_months or 1
-                sale_mode = "traffic" if self.settings.traffic_sale_mode else "subscription"
+                months = payment.purchased_gb or payment.subscription_duration_months or 1
+                sale_mode = payment.sale_mode or ("traffic" if self.settings.traffic_sale_mode else "subscription")
+                sale_base = sale_mode.split("@", 1)[0].split("|", 1)[0]
 
                 activation = await self.subscription_service.activate_subscription(
                     session,
                     payment.user_id,
-                    int(months) if sale_mode != "traffic" else 0,
+                    int(months) if sale_base == "subscription" else int(float(months)),
                     float(payment.amount),
                     payment.payment_id,
                     provider="freekassa",
                     sale_mode=sale_mode,
-                    traffic_gb=months if sale_mode == "traffic" else None,
+                    traffic_gb=float(months) if sale_base in {"traffic", "traffic_package", "topup"} else None,
                 )
 
                 referral_bonus = None
-                if sale_mode != "traffic":
+                if sale_base == "subscription":
                     referral_bonus = await self.referral_service.apply_referral_bonuses_for_payment(
                         session,
                         payment.user_id,
@@ -312,8 +313,8 @@ class FreeKassaService:
             config_link_display, connect_button_url = await prepare_config_links(self.settings, raw_config_link)
             config_link_text = config_link_display or _("config_link_not_available")
             final_end = activation.get("end_date") if activation else None
-            months = payment.subscription_duration_months or 1
-            sale_mode = "traffic" if self.settings.traffic_sale_mode else "subscription"
+            months = payment.purchased_gb or payment.subscription_duration_months or 1
+            sale_mode = payment.sale_mode or ("traffic" if self.settings.traffic_sale_mode else "subscription")
 
             applied_days = 0
             if referral_bonus and referral_bonus.get("referee_new_end_date"):
@@ -330,7 +331,7 @@ class FreeKassaService:
 
             traffic_label = str(int(months)) if float(months).is_integer() else f"{months:g}"
 
-            if sale_mode == "traffic":
+            if sale_mode.split("@", 1)[0].split("|", 1)[0] in {"traffic", "traffic_package", "topup"}:
                 text = _("payment_successful_traffic_full",
                          traffic_gb=traffic_label,
                          end_date=end_date_str if final_end else "",

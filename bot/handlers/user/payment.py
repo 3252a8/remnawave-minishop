@@ -55,6 +55,7 @@ async def process_successful_payment(session: AsyncSession, bot: Bot,
     subscription_months_str = metadata.get("subscription_months")
     traffic_gb_str = metadata.get("traffic_gb")
     sale_mode = metadata.get("sale_mode") or ("traffic" if settings.traffic_sale_mode else "subscription")
+    sale_mode_base = sale_mode.split("@", 1)[0].split("|", 1)[0]
     promo_code_id_str = metadata.get("promo_code_id")
     payment_db_id_str = metadata.get("payment_db_id")
     auto_renew_subscription_id_str = metadata.get(
@@ -79,13 +80,13 @@ async def process_successful_payment(session: AsyncSession, bot: Bot,
         traffic_amount_gb = float(traffic_gb_str) if traffic_gb_str else subscription_months
         payment_db_id = int(
             payment_db_id_str) if payment_db_id_str and payment_db_id_str.isdigit() else None
-        is_auto_renew = bool(auto_renew_subscription_id_str and not payment_db_id and sale_mode != "traffic")
+        is_auto_renew = bool(auto_renew_subscription_id_str and not payment_db_id and sale_mode_base == "subscription")
         promo_code_id = int(
             promo_code_id_str
         ) if promo_code_id_str and promo_code_id_str.isdigit() else None
 
         amount_data = payment_info_from_webhook.get("amount", {})
-        months_for_record = int(subscription_months) if sale_mode != "traffic" else 0
+        months_for_record = int(subscription_months) if sale_mode_base == "subscription" else 0
         payment_value = float(amount_data.get("value", 0.0))
         yk_payment_id_from_hook = payment_info_from_webhook.get("id")
 
@@ -227,7 +228,7 @@ async def process_successful_payment(session: AsyncSession, bot: Bot,
                     logging.exception("Failed to persist multi-card YooKassa method from webhook")
         except Exception:
             logging.exception("Failed to persist YooKassa payment method from webhook")
-        months_for_activation = int(subscription_months) if sale_mode != "traffic" else 0
+        months_for_activation = int(subscription_months) if sale_mode_base == "subscription" else int(traffic_amount_gb)
         activation_details = await subscription_service.activate_subscription(
             session,
             user_id,
@@ -237,7 +238,7 @@ async def process_successful_payment(session: AsyncSession, bot: Bot,
             promo_code_id_from_payment=promo_code_id,
             provider="yookassa",
             sale_mode=sale_mode,
-            traffic_gb=traffic_amount_gb if sale_mode == "traffic" else None,
+            traffic_gb=traffic_amount_gb if sale_mode_base in {"traffic", "traffic_package", "topup"} else None,
         )
 
         if not activation_details or not activation_details.get('end_date'):

@@ -33,6 +33,10 @@ def _parse_offer_payload(payload: str) -> Optional[Tuple[float, float, str]]:
         return None
 
 
+def _sale_mode_base(sale_mode: str) -> str:
+    return (sale_mode or "subscription").split("@", 1)[0].split("|", 1)[0]
+
+
 def _format_saved_payment_method_title(get_text, network: Optional[str], last4: Optional[str], is_default: bool) -> str:
     def _is_yoomoney_network(name: Optional[str]) -> bool:
         s = (name or "").lower()
@@ -79,9 +83,10 @@ async def _initiate_yk_payment(
 
     payment_description = (
         get_text("payment_description_traffic", traffic_gb=_format_value(months))
-        if sale_mode == "traffic"
+        if _sale_mode_base(sale_mode) in {"traffic", "traffic_package", "topup"}
         else get_text("payment_description_subscription", months=int(months))
     )
+    sale_base = _sale_mode_base(sale_mode)
     payment_record_data = {
         "user_id": user_id,
         "amount": price_rub,
@@ -89,6 +94,9 @@ async def _initiate_yk_payment(
         "status": "pending_yookassa",
         "description": payment_description,
         "subscription_duration_months": int(months),
+        "sale_mode": sale_base,
+        "tariff_key": sale_mode.split("@", 1)[1] if "@" in sale_mode else None,
+        "purchased_gb": float(months) if sale_base in {"traffic", "traffic_package", "topup"} else None,
     }
 
     db_payment_record = None
@@ -123,7 +131,7 @@ async def _initiate_yk_payment(
         "payment_db_id": str(db_payment_record.payment_id),
         "sale_mode": sale_mode,
     }
-    if sale_mode == "traffic":
+    if sale_base in {"traffic", "traffic_package", "topup"}:
         yookassa_metadata["traffic_gb"] = str(months)
     if payment_method_id:
         yookassa_metadata["used_saved_payment_method_id"] = payment_method_id
@@ -363,7 +371,7 @@ async def pay_yk_callback_handler(callback: types.CallbackQuery, settings: Setti
     months, price_rub, sale_mode = parsed
     user_id = callback.from_user.id
     currency_code_for_yk = "RUB"
-    autopay_enabled = bool(settings.yookassa_autopayments_active and sale_mode != "traffic" and not settings.traffic_sale_mode)
+    autopay_enabled = bool(settings.yookassa_autopayments_active and _sale_mode_base(sale_mode) == "subscription" and not settings.traffic_sale_mode)
     autopay_require_binding = bool(
         getattr(settings, 'YOOKASSA_AUTOPAYMENTS_REQUIRE_CARD_BINDING', True)
     )
@@ -481,7 +489,7 @@ async def pay_yk_new_card_handler(callback: types.CallbackQuery, settings: Setti
     months, price_rub, sale_mode = parsed
     user_id = callback.from_user.id
     currency_code_for_yk = "RUB"
-    autopay_enabled = bool(settings.yookassa_autopayments_active and sale_mode != "traffic" and not settings.traffic_sale_mode)
+    autopay_enabled = bool(settings.yookassa_autopayments_active and _sale_mode_base(sale_mode) == "subscription" and not settings.traffic_sale_mode)
     autopay_require_binding = bool(
         getattr(settings, 'YOOKASSA_AUTOPAYMENTS_REQUIRE_CARD_BINDING', True)
     )
@@ -553,7 +561,7 @@ async def pay_yk_saved_list_handler(callback: types.CallbackQuery, settings: Set
             pass
         return
 
-    autopay_enabled = bool(settings.yookassa_autopayments_active and sale_mode != "traffic" and not settings.traffic_sale_mode)
+    autopay_enabled = bool(settings.yookassa_autopayments_active and _sale_mode_base(sale_mode) == "subscription" and not settings.traffic_sale_mode)
     if not autopay_enabled:
         try:
             await callback.answer(get_text("error_try_again"), show_alert=True)
@@ -708,7 +716,7 @@ async def pay_yk_use_saved_handler(callback: types.CallbackQuery, settings: Sett
             pass
         return
 
-    autopay_enabled = bool(settings.yookassa_autopayments_active and sale_mode != "traffic" and not settings.traffic_sale_mode)
+    autopay_enabled = bool(settings.yookassa_autopayments_active and _sale_mode_base(sale_mode) == "subscription" and not settings.traffic_sale_mode)
     if not autopay_enabled:
         try:
             await callback.answer(get_text("error_try_again"), show_alert=True)

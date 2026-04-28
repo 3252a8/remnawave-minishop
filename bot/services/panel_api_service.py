@@ -556,6 +556,48 @@ class PanelApiService:
             return response_data.get("response")
         return None
 
+    async def get_user_bandwidth_stats(self, user_uuid: str) -> Optional[Dict[str, Any]]:
+        endpoint = f"/bandwidth-stats/users/{user_uuid}"
+        response_data = await self._request("GET", endpoint, log_full_response=False)
+        if response_data and not response_data.get("error") and "response" in response_data:
+            return response_data.get("response")
+        logging.error("Failed to get bandwidth stats for user %s. Response: %s", user_uuid, response_data)
+        return None
+
+    async def reset_user_traffic(self, user_uuid: str) -> bool:
+        endpoint = f"/users/{user_uuid}/actions/reset-traffic"
+        response_data = await self._request("POST", endpoint, log_full_response=False)
+        if response_data and not response_data.get("error"):
+            return True
+        logging.error("Failed to reset traffic for user %s. Response: %s", user_uuid, response_data)
+        return False
+
+    async def add_users_to_internal_squad(self, squad_uuid: str, user_uuids: List[str]) -> bool:
+        endpoint = f"/internal-squads/{squad_uuid}/bulk-actions/add-users"
+        response_data = await self._request(
+            "POST",
+            endpoint,
+            json={"users": user_uuids, "userUuids": user_uuids},
+            log_full_response=False,
+        )
+        if response_data and not response_data.get("error"):
+            return True
+        logging.error("Failed to add users to squad %s. Response: %s", squad_uuid, response_data)
+        return False
+
+    async def remove_users_from_internal_squad(self, squad_uuid: str, user_uuids: List[str]) -> bool:
+        endpoint = f"/internal-squads/{squad_uuid}/bulk-actions/remove-users"
+        response_data = await self._request(
+            "DELETE",
+            endpoint,
+            json={"users": user_uuids, "userUuids": user_uuids},
+            log_full_response=False,
+        )
+        if response_data and not response_data.get("error"):
+            return True
+        logging.error("Failed to remove users from squad %s. Response: %s", squad_uuid, response_data)
+        return False
+
     async def get_nodes_statistics(self) -> Optional[Dict[str, Any]]:
         """Get nodes statistics"""
         response_data = await self._request("GET", "/system/stats/nodes", log_full_response=False)

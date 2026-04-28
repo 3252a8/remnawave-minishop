@@ -179,8 +179,9 @@ class PlategaService:
             if payment.status == "succeeded" and status == "CONFIRMED":
                 return web.Response(text="ok")
 
-            payment_months = payment.subscription_duration_months or 1
-            sale_mode = "traffic" if self.settings.traffic_sale_mode else "subscription"
+            payment_months = payment.purchased_gb or payment.subscription_duration_months or 1
+            sale_mode = payment.sale_mode or ("traffic" if self.settings.traffic_sale_mode else "subscription")
+            sale_base = sale_mode.split("@", 1)[0].split("|", 1)[0]
 
             if status == "CONFIRMED":
                 if amount_raw is not None:
@@ -208,16 +209,16 @@ class PlategaService:
                     activation = await self.subscription_service.activate_subscription(
                         session,
                         payment.user_id,
-                        int(payment_months) if sale_mode != "traffic" else 0,
+                        int(payment_months) if sale_base == "subscription" else int(float(payment_months)),
                         float(payment.amount),
                         payment.payment_id,
                         provider="platega",
                         sale_mode=sale_mode,
-                        traffic_gb=payment_months if sale_mode == "traffic" else None,
+                        traffic_gb=float(payment_months) if sale_base in {"traffic", "traffic_package", "topup"} else None,
                     )
 
                     referral_bonus = None
-                    if sale_mode != "traffic":
+                    if sale_base == "subscription":
                         referral_bonus = await self.referral_service.apply_referral_bonuses_for_payment(
                             session,
                             payment.user_id,
@@ -249,7 +250,7 @@ class PlategaService:
 
                 traffic_label = str(int(payment_months)) if float(payment_months).is_integer() else f"{payment_months:g}"
 
-                if sale_mode == "traffic":
+                if sale_base in {"traffic", "traffic_package", "topup"}:
                     text = _(
                         "payment_successful_traffic_full",
                         traffic_gb=traffic_label,

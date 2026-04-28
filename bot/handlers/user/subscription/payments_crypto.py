@@ -52,9 +52,10 @@ async def pay_crypto_callback_handler(
 
     user_id = callback.from_user.id
     human_value = str(int(months)) if float(months).is_integer() else f"{months:g}"
+    sale_base = sale_mode.split("@", 1)[0].split("|", 1)[0]
     payment_description = (
         get_text("payment_description_traffic", traffic_gb=human_value)
-        if sale_mode == "traffic"
+        if sale_base in {"traffic", "traffic_package", "topup"}
         else get_text("payment_description_subscription", months=int(months))
     )
 
@@ -71,7 +72,7 @@ async def pay_crypto_callback_handler(
         try:
             await callback.message.edit_text(
                 get_text(
-                    key="payment_link_message_traffic" if sale_mode == "traffic" else "payment_link_message",
+                    key="payment_link_message_traffic" if sale_base in {"traffic", "traffic_package", "topup"} else "payment_link_message",
                     months=int(months),
                     traffic_gb=human_value,
                 ),
@@ -88,7 +89,7 @@ async def pay_crypto_callback_handler(
             try:
                 await callback.message.answer(
                     get_text(
-                        key="payment_link_message_traffic" if sale_mode == "traffic" else "payment_link_message",
+                        key="payment_link_message_traffic" if sale_base in {"traffic", "traffic_package", "topup"} else "payment_link_message",
                         months=int(months),
                         traffic_gb=human_value,
                     ),

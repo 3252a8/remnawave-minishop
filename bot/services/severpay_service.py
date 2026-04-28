@@ -190,8 +190,9 @@ class SeverPayService:
                 logging.error("SeverPay webhook: payment not found (order_id=%s, provider_id=%s)", order_id_raw, provider_payment_id)
                 return web.json_response({"status": False, "msg": "payment_not_found"}, status=404)
 
-            payment_months = payment.subscription_duration_months or 1
-            sale_mode = "traffic" if self.settings.traffic_sale_mode else "subscription"
+            payment_months = payment.purchased_gb or payment.subscription_duration_months or 1
+            sale_mode = payment.sale_mode or ("traffic" if self.settings.traffic_sale_mode else "subscription")
+            sale_base = sale_mode.split("@", 1)[0].split("|", 1)[0]
             if status == "success":
                 try:
                     await payment_dal.update_provider_payment_and_status(
@@ -204,16 +205,16 @@ class SeverPayService:
                     activation = await self.subscription_service.activate_subscription(
                         session,
                         payment.user_id,
-                        int(payment_months) if sale_mode != "traffic" else 0,
+                        int(payment_months) if sale_base == "subscription" else int(float(payment_months)),
                         float(payment.amount),
                         payment.payment_id,
                         provider="severpay",
                         sale_mode=sale_mode,
-                        traffic_gb=payment_months if sale_mode == "traffic" else None,
+                        traffic_gb=float(payment_months) if sale_base in {"traffic", "traffic_package", "topup"} else None,
                     )
 
                     referral_bonus = None
-                    if sale_mode != "traffic":
+                    if sale_base == "subscription":
                         referral_bonus = await self.referral_service.apply_referral_bonuses_for_payment(
                             session,
                             payment.user_id,
@@ -245,7 +246,7 @@ class SeverPayService:
 
                 traffic_label = str(int(payment_months)) if float(payment_months).is_integer() else f"{payment_months:g}"
 
-                if sale_mode == "traffic":
+                if sale_base in {"traffic", "traffic_package", "topup"}:
                     text = _(
                         "payment_successful_traffic_full",
                         traffic_gb=traffic_label,

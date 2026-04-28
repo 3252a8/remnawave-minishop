@@ -78,6 +78,7 @@ class CryptoPayService:
 
         # Create pending payment in DB and commit to persist
         try:
+            sale_base = sale_mode.split("@", 1)[0].split("|", 1)[0]
             payment_record = await payment_dal.create_payment_record(
                 session,
                 {
@@ -88,6 +89,9 @@ class CryptoPayService:
                     "description": description,
                     "subscription_duration_months": int(months),
                     "provider": "cryptopay",
+                    "sale_mode": sale_mode,
+                    "tariff_key": sale_mode.split("@", 1)[1] if "@" in sale_mode else None,
+                    "purchased_gb": float(months) if sale_base in {"traffic", "traffic_package", "topup"} else None,
                 },
             )
             await session.commit()
@@ -103,7 +107,7 @@ class CryptoPayService:
             "subscription_months": str(months),
             "payment_db_id": str(payment_record.payment_id),
             "sale_mode": sale_mode,
-            "traffic_gb": str(months) if sale_mode == "traffic" else None,
+            "traffic_gb": str(months) if sale_base in {"traffic", "traffic_package", "topup"} else None,
         })
         try:
             invoice = await self.client.create_invoice(
@@ -151,6 +155,7 @@ class CryptoPayService:
             months = float(meta.get("subscription_months") or 0)
             payment_db_id = int(meta["payment_db_id"])
             sale_mode = meta.get("sale_mode") or ("traffic" if self.settings.traffic_sale_mode else "subscription")
+            sale_base = sale_mode.split("@", 1)[0].split("|", 1)[0]
             traffic_gb = float(meta.get("traffic_gb")) if meta.get("traffic_gb") else months
         except Exception:
             logging.exception("Failed to parse CryptoPay payload.")
@@ -174,15 +179,15 @@ class CryptoPayService:
                 activation = await subscription_service.activate_subscription(
                     session,
                     user_id,
-                    int(months) if sale_mode != "traffic" else 0,
+                    int(months) if sale_base == "subscription" else int(float(traffic_gb)),
                     float(invoice.amount),
                     payment_db_id,
                     provider="cryptopay",
                     sale_mode=sale_mode,
-                    traffic_gb=traffic_gb if sale_mode == "traffic" else None,
+                    traffic_gb=traffic_gb if sale_base in {"traffic", "traffic_package", "topup"} else None,
                 )
                 referral_bonus = None
-                if sale_mode != "traffic":
+                if sale_base == "subscription":
                     referral_bonus = await referral_service.apply_referral_bonuses_for_payment(
                         session,
                         user_id,
@@ -210,7 +215,7 @@ class CryptoPayService:
                 final_end = referral_bonus["referee_new_end_date"]
                 applied_days = referral_bonus.get("referee_bonus_applied_days", 0)
 
-            if sale_mode == "traffic":
+            if sale_base in {"traffic", "traffic_package", "topup"}:
                 text = _("payment_successful_traffic_full",
                          traffic_gb=str(int(traffic_gb)) if float(traffic_gb).is_integer() else f"{traffic_gb:g}",
                          end_date=final_end.strftime('%Y-%m-%d') if final_end else "—",
@@ -265,8 +270,8 @@ class CryptoPayService:
                     user_id=user_id,
                     amount=float(invoice.amount),
                     currency=invoice.asset or settings.DEFAULT_CURRENCY_SYMBOL,
-                    months=int(months) if sale_mode != "traffic" else 0,
-                    traffic_gb=traffic_gb if sale_mode == "traffic" else None,
+                    months=int(months) if sale_base == "subscription" else 0,
+                    traffic_gb=traffic_gb if sale_base in {"traffic", "traffic_package", "topup"} else None,
                     payment_provider="crypto_pay",
                     username=user.username if user else None
                 )
