@@ -8,7 +8,7 @@ from bot.middlewares.i18n import JsonI18n
 
 from db.dal import user_dal, subscription_dal, promo_code_dal, payment_dal, user_billing_dal, tariff_dal
 from config.tariffs_config import Tariff
-from bot.utils.date_utils import add_months, month_start
+from bot.utils.date_utils import add_months
 from bot.utils.config_link import prepare_config_links
 from db.models import User, Subscription
 
@@ -825,7 +825,7 @@ class SubscriptionService:
         if target.billing_model == "period":
             update_data["tier_baseline_bytes"] = target.monthly_bytes
             update_data["traffic_limit_bytes"] = target.monthly_bytes + int(sub.topup_balance_bytes or 0)
-            update_data["period_start_at"] = month_start()
+            update_data["period_start_at"] = None
             update_data["effective_monthly_price_rub"] = target.period_price(1, "rub") or target.min_period_price_rub()
             if mode == "recalc_days" and options.get("recalc_days") is not None:
                 update_data["end_date"] = now + timedelta(days=int(options["recalc_days"]))
@@ -858,7 +858,7 @@ class SubscriptionService:
             expire_at=updated.end_date,
             status="ACTIVE",
             traffic_limit_bytes=updated.traffic_limit_bytes,
-            traffic_limit_strategy="NO_RESET" if target.billing_model == "traffic" else self.settings.USER_TRAFFIC_STRATEGY,
+            traffic_limit_strategy="NO_RESET" if target.billing_model == "traffic" else "MONTH",
         )
         panel_payload["activeInternalSquads"] = target.squad_uuids
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
@@ -1077,11 +1077,6 @@ class SubscriptionService:
 
         topup_balance_bytes = int(getattr(current_active_sub, "topup_balance_bytes", 0) or 0)
         tier_baseline_bytes = tariff.monthly_bytes if tariff else self.settings.user_traffic_limit_bytes
-        period_start_at = month_start() if tariff else (
-            datetime.now(timezone.utc)
-            if starts_after_lapse or not current_active_sub or not getattr(current_active_sub, "period_start_at", None)
-            else current_active_sub.period_start_at
-        )
         effective_monthly_price = float(payment_amount) / max(1, months_int)
         traffic_limit_bytes = self._traffic_limit_for_period_tariff(tariff, topup_balance_bytes)
         sub_payload = {
@@ -1100,7 +1095,7 @@ class SubscriptionService:
             "tariff_key": tariff.key if tariff else None,
             "tier_baseline_bytes": tier_baseline_bytes,
             "topup_balance_bytes": topup_balance_bytes,
-            "period_start_at": period_start_at,
+            "period_start_at": None,
             "is_throttled": False,
             "effective_monthly_price_rub": effective_monthly_price,
         }
@@ -1120,6 +1115,7 @@ class SubscriptionService:
             expire_at=final_end_date,
             status="ACTIVE",
             traffic_limit_bytes=traffic_limit_bytes,
+            traffic_limit_strategy="MONTH" if tariff else self.settings.USER_TRAFFIC_STRATEGY,
         )
         if tariff:
             panel_update_payload["activeInternalSquads"] = tariff.squad_uuids
@@ -1381,7 +1377,7 @@ class SubscriptionService:
             except Exception:
                 tariff = None
         billing_model_display = tariff.billing_model if tariff else ("traffic" if getattr(self.settings, "traffic_sale_mode", False) else "period")
-        traffic_limit_strategy = "MONTH" if billing_model_display == "period" else panel_traffic_strategy
+        traffic_limit_strategy = panel_traffic_strategy
 
         return {
             "user_id": panel_user_data.get("uuid"),
