@@ -252,6 +252,7 @@ const MOCK = (() => {
         sub_ended_template: 'Закончилась {date}',
         sub_no_expiry: 'Бессрочно',
         traffic_unlimited: '∞ бесконечный трафик',
+        traffic_unavailable: 'Сервис недоступен',
         link_panel_title: 'Привяжите способ входа',
         link_panel_caption: 'Чтобы не потерять доступ к кабинету',
         link_email_title: 'Привяжите email',
@@ -391,6 +392,7 @@ const MOCK = (() => {
         sub_ended_template: 'Expired {date}',
         sub_no_expiry: 'No expiration',
         traffic_unlimited: '∞ unlimited traffic',
+        traffic_unavailable: 'Service unavailable',
         link_panel_title: 'Link a sign-in method',
         link_panel_caption: 'So you never lose access',
         link_email_title: 'Link email',
@@ -1075,7 +1077,15 @@ const MOCK = (() => {
       const usedText = sub.traffic_used || t('not_available');
       const limitText = sub.traffic_limit || t('not_available');
 
-      bar.classList.remove('over', 'unlimited');
+      bar.classList.remove('over', 'unlimited', 'inactive');
+
+      if (!sub.active) {
+        bar.classList.add('inactive');
+        fill.style.width = '100%';
+        value.textContent = t('traffic_unavailable');
+        bar.setAttribute('aria-valuenow', '0');
+        return;
+      }
 
       if (!hasLimit) {
         bar.classList.add('unlimited');

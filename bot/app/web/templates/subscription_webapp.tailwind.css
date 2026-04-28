@@ -406,6 +406,15 @@
     background: color-mix(in srgb, var(--success) 12%, transparent);
   }
 
+  .traffic-bar.inactive {
+    border-color: color-mix(in srgb, var(--danger) 60%, transparent);
+  }
+
+  .traffic-bar.inactive .traffic-bar-fill {
+    width: 100%;
+    background: color-mix(in srgb, var(--danger) 55%, transparent);
+  }
+
   .traffic-bar-value {
     @apply relative z-[1] min-w-0 px-3 font-[family-name:var(--font-mono)] text-[12px] font-bold text-center whitespace-nowrap;
     color: #ffffff;
