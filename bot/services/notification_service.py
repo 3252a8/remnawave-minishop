@@ -255,6 +255,75 @@ class NotificationService:
 
         await self._send_to_log_channel(message, reply_markup=reply_markup)
 
+    async def notify_account_email_linked(
+        self,
+        user_id: int,
+        email: str,
+        telegram_id: Optional[int] = None,
+        username: Optional[str] = None,
+        first_name: Optional[str] = None,
+    ):
+        """Send notification when an email is linked to a Telegram-created account."""
+        if not self.settings.LOG_NEW_USERS:
+            return
+
+        admin_lang = self.settings.DEFAULT_LANGUAGE
+        _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
+
+        user_display = self._format_user_display(
+            user_id=telegram_id or user_id,
+            username=username,
+            first_name=first_name,
+        )
+
+        message = _(
+            "log_account_email_linked",
+            user_id=user_id,
+            telegram_id=telegram_id or user_id,
+            user_display=user_display,
+            email=hd.quote(email),
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        )
+
+        reply_markup: Optional[InlineKeyboardMarkup] = None
+        if telegram_id and telegram_id > 0:
+            reply_markup = self._build_profile_keyboard(_, telegram_id)
+
+        await self._send_to_log_channel(message, reply_markup=reply_markup)
+
+    async def notify_account_telegram_linked(
+        self,
+        user_id: int,
+        email: Optional[str],
+        telegram_id: int,
+        username: Optional[str] = None,
+        first_name: Optional[str] = None,
+    ):
+        """Send notification when Telegram is linked to an email-created account."""
+        if not self.settings.LOG_NEW_USERS:
+            return
+
+        admin_lang = self.settings.DEFAULT_LANGUAGE
+        _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
+
+        user_display = self._format_user_display(
+            user_id=telegram_id,
+            username=username,
+            first_name=first_name,
+        )
+
+        message = _(
+            "log_account_telegram_linked",
+            user_id=user_id,
+            telegram_id=telegram_id,
+            user_display=user_display,
+            email=hd.quote(email or ""),
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        )
+
+        profile_keyboard = self._build_profile_keyboard(_, telegram_id)
+        await self._send_to_log_channel(message, reply_markup=profile_keyboard)
+
     async def notify_payment_received(self, user_id: int, amount: float, currency: str,
                                     months: int, payment_provider: str, 
                                     username: Optional[str] = None,

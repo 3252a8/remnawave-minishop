@@ -335,6 +335,8 @@
   "log_open_referrer_profile_button": "👤 Профиль пригласившего",
   "log_new_user_registration": "👤 <b>Новый пользователь</b>\n\n🆔 ID: <code>{user_id}</code>\n👤 Имя: {user_display}{referral_text}\n📅 Время: {timestamp}",
   "log_new_email_user_registration": "📧 <b>Новый пользователь (email)</b>\n\n🆔 ID: <code>{user_id}</code>\n📧 Email: <code>{email}</code>{referral_text}\n📅 Время: {timestamp}",
+  "log_account_email_linked": "📧 <b>Привязана почта</b>\n\n🆔 ID пользователя: <code>{user_id}</code>\n📨 Telegram ID: <code>{telegram_id}</code>\n👤 Пользователь: {user_display}\n📧 Email: <code>{email}</code>\n🕐 Время: {timestamp}",
+  "log_account_telegram_linked": "📨 <b>Привязан Telegram</b>\n\n🆔 ID пользователя: <code>{user_id}</code>\n📨 Telegram ID: <code>{telegram_id}</code>\n👤 Пользователь: {user_display}\n📧 Email: <code>{email}</code>\n🕐 Время: {timestamp}",
   "log_payment_received": "{provider_emoji} <b>Получен платеж</b>\n\n👤 Пользователь: {user_display}\n💰 Сумма: <b>{amount} {currency}</b>\n📅 Период: <b>{months} мес.</b>\n🏦 Провайдер: {payment_provider}\n🕐 Время: {timestamp}",
   "log_payment_received_traffic": "{provider_emoji} <b>Получен платеж</b>\n\n👤 Пользователь: {user_display}\n💰 Сумма: <b>{amount} {currency}</b>\n🗂 Трафик: <b>{traffic_gb} ГБ</b>\n🏦 Провайдер: {payment_provider}\n🕐 Время: {timestamp}",
   "log_promo_activation": "🎁 <b>Активирован промокод</b>\n\n👤 Пользователь: {user_display}\n🏷 Код: <code>{promo_code}</code>\n🎯 Бонус: <b>+{bonus_days} дн.</b>\n🕐 Время: {timestamp}",

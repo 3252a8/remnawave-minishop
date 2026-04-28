@@ -1074,7 +1074,11 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
     source_panel_uuid: Optional[str] = None
     final_user_id = user_id
     final_email = email
+    final_telegram_id: Optional[int] = None
+    final_username: Optional[str] = None
+    final_first_name: Optional[str] = None
     final_panel_uuid: Optional[str] = None
+    should_notify_email_linked = False
 
     async with async_session_factory() as session:
         try:
@@ -1102,6 +1106,10 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
             if not current_user or current_user.is_banned:
                 await session.rollback()
                 return _json_error(403, "access_denied", "Access denied")
+            should_notify_email_linked = (
+                bool(_telegram_id_for_user(current_user))
+                and not current_user.email
+            )
 
             existing_email_user = await user_dal.get_user_by_email(session, email)
             if existing_email_user and existing_email_user.user_id != current_user.user_id:
@@ -1123,6 +1131,9 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
             await _sync_panel_identity_for_user(request, current_user)
             await session.commit()
             final_user_id = int(current_user.user_id)
+            final_telegram_id = _telegram_id_for_user(current_user)
+            final_username = current_user.username
+            final_first_name = current_user.first_name
             final_panel_uuid = current_user.panel_user_uuid
 
             if merge_notice:
@@ -1185,6 +1196,26 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
             logger.exception("Email account link failed")
             return _json_error(500, "link_failed", "Link failed")
 
+    if should_notify_email_linked:
+        try:
+            from bot.services.notification_service import NotificationService
+
+            bot: Bot = request.app["bot"]
+            notification_service = NotificationService(
+                bot,
+                settings,
+                request.app.get("i18n"),
+            )
+            await notification_service.notify_account_email_linked(
+                user_id=int(final_user_id),
+                email=final_email,
+                telegram_id=final_telegram_id,
+                username=final_username,
+                first_name=final_first_name,
+            )
+        except Exception:
+            logger.exception("Failed to send account email linked notification")
+
     token = create_webapp_session_token(settings, int(final_user_id))
     response_payload: Dict[str, Any] = {"ok": True}
     if merge_notice:
@@ -1221,13 +1252,20 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
     final_user_id = user_id
     final_telegram_id: Optional[int] = None
     final_email: Optional[str] = None
+    final_username: Optional[str] = None
+    final_first_name: Optional[str] = None
     final_panel_uuid: Optional[str] = None
+    should_notify_telegram_linked = False
     async with async_session_factory() as session:
         try:
             current_user_before_link = await user_dal.get_user_by_id(session, user_id)
             if not current_user_before_link or current_user_before_link.is_banned:
                 await session.rollback()
                 return _json_error(403, "access_denied", "Access denied")
+            should_notify_telegram_linked = (
+                bool(current_user_before_link.email)
+                and not _telegram_id_for_user(current_user_before_link)
+            )
             source_panel_uuid = current_user_before_link.panel_user_uuid
 
             db_user = await _link_telegram_to_user(
@@ -1244,6 +1282,8 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
             final_user_id = int(db_user.user_id)
             final_telegram_id = _telegram_id_for_user(db_user)
             final_email = db_user.email
+            final_username = db_user.username
+            final_first_name = db_user.first_name
             final_panel_uuid = db_user.panel_user_uuid
             if final_user_id != user_id:
                 merge_notice = await _build_account_merge_notice(
@@ -1314,6 +1354,26 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
             await session.rollback()
             logger.exception("Telegram account link failed")
             return _json_error(500, "link_failed", "Link failed")
+
+    if should_notify_telegram_linked and final_telegram_id:
+        try:
+            from bot.services.notification_service import NotificationService
+
+            bot: Bot = request.app["bot"]
+            notification_service = NotificationService(
+                bot,
+                settings,
+                request.app.get("i18n"),
+            )
+            await notification_service.notify_account_telegram_linked(
+                user_id=int(final_user_id),
+                email=final_email,
+                telegram_id=int(final_telegram_id),
+                username=final_username,
+                first_name=final_first_name,
+            )
+        except Exception:
+            logger.exception("Failed to send account Telegram linked notification")
 
     token = create_webapp_session_token(settings, int(final_user_id))
     response_payload: Dict[str, Any] = {

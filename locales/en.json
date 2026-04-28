@@ -335,6 +335,8 @@
   "log_open_referrer_profile_button": "👤 Referrer profile",
   "log_new_user_registration": "👤 <b>New User</b>\n\n🆔 ID: <code>{user_id}</code>\n👤 Name: {user_display}{referral_text}\n📅 Time: {timestamp}",
   "log_new_email_user_registration": "📧 <b>New User (email)</b>\n\n🆔 ID: <code>{user_id}</code>\n📧 Email: <code>{email}</code>{referral_text}\n📅 Time: {timestamp}",
+  "log_account_email_linked": "📧 <b>Email linked</b>\n\n🆔 User ID: <code>{user_id}</code>\n📨 Telegram ID: <code>{telegram_id}</code>\n👤 User: {user_display}\n📧 Email: <code>{email}</code>\n🕐 Time: {timestamp}",
+  "log_account_telegram_linked": "📨 <b>Telegram linked</b>\n\n🆔 User ID: <code>{user_id}</code>\n📨 Telegram ID: <code>{telegram_id}</code>\n👤 User: {user_display}\n📧 Email: <code>{email}</code>\n🕐 Time: {timestamp}",
   "log_payment_received": "{provider_emoji} <b>Payment Received</b>\n\n👤 User: {user_display}\n💰 Amount: <b>{amount} {currency}</b>\n📅 Period: <b>{months} mo.</b>\n🏦 Provider: {payment_provider}\n🕐 Time: {timestamp}",
   "log_payment_received_traffic": "{provider_emoji} <b>Payment Received</b>\n\n👤 User: {user_display}\n💰 Amount: <b>{amount} {currency}</b>\n🗂 Traffic: <b>{traffic_gb} GB</b>\n🏦 Provider: {payment_provider}\n🕐 Time: {timestamp}",
   "log_promo_activation": "🎁 <b>Promo Code Activated</b>\n\n👤 User: {user_display}\n🏷 Code: <code>{promo_code}</code>\n🎯 Bonus: <b>+{bonus_days}d</b>\n🕐 Time: {timestamp}",
