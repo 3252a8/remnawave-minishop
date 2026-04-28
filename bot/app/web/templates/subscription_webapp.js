@@ -91,7 +91,8 @@ const MOCK = (() => {
 
     const CFG = readJsonScript('webapp-config') || (MOCK && MOCK.config) || {};
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-    const TELEGRAM_LOGIN_WIDGET_URL = './telegram-widget.js';
+    const TELEGRAM_LOGIN_WIDGET_URL = 'https://telegram.org/js/telegram-widget.js?23';
+    const TELEGRAM_LOGIN_WIDGET_RENDER_TIMEOUT_MS = 8000;
     const MANUAL_LOGOUT_FLAG_KEY = 'rw_webapp_manual_logout';
     const state = {
       token: MOCK ? 'local-preview' : (localStorage.getItem('rw_webapp_token') || ''),
@@ -241,7 +242,8 @@ const MOCK = (() => {
         telegram_auth: 'Telegram auth',
         telegram_auth_verifying: 'Проверяю вход...',
         telegram_auth_failed: 'Не удалось подтвердить Telegram-вход. Попробуйте еще раз.',
-        telegram_auth_unavailable: 'Telegram Login Widget недоступен. Проверьте username бота и доступ к telegram.org.',
+        telegram_auth_unavailable: 'Сервер Telegram сейчас недоступен. Попробуйте позже или войдите по email.',
+        telegram_bot_unavailable: 'Telegram Login Widget недоступен. Попробуйте позже или войдите по email.',
         telegram_auth_access_denied: 'Доступ запрещен.',
         active: 'Активна',
         inactive: 'Не активна',
@@ -381,7 +383,8 @@ const MOCK = (() => {
         telegram_auth: 'Telegram auth',
         telegram_auth_verifying: 'Verifying login...',
         telegram_auth_failed: 'Could not verify Telegram login. Try again.',
-        telegram_auth_unavailable: 'Telegram Login Widget is unavailable. Check the bot username and access to telegram.org.',
+        telegram_auth_unavailable: 'Telegram server is unavailable right now. Try again later or sign in by email.',
+        telegram_bot_unavailable: 'Telegram Login Widget is unavailable. Try again later or sign in by email.',
         telegram_auth_access_denied: 'Access denied.',
         active: 'Active',
         inactive: 'Inactive',
@@ -701,6 +704,32 @@ const MOCK = (() => {
       await finalizeTelegramAuth(user, 'auth_data');
     }
 
+    function appendTelegramLoginWidget(container, botUsername, callbackName, onUnavailable) {
+      const script = document.createElement('script');
+      let unavailableShown = false;
+      const showUnavailable = () => {
+        if (unavailableShown) return;
+        unavailableShown = true;
+        onUnavailable();
+      };
+
+      script.async = true;
+      script.src = TELEGRAM_LOGIN_WIDGET_URL;
+      script.setAttribute('data-telegram-login', botUsername);
+      script.setAttribute('data-size', 'large');
+      script.setAttribute('data-userpic', 'true');
+      script.setAttribute('data-request-access', 'write');
+      script.setAttribute('data-onauth', `${callbackName}(user)`);
+      script.onerror = showUnavailable;
+      script.onload = () => {
+        window.setTimeout(() => {
+          if (!container.contains(script) || container.querySelector('iframe')) return;
+          showUnavailable();
+        }, TELEGRAM_LOGIN_WIDGET_RENDER_TIMEOUT_MS);
+      };
+      container.appendChild(script);
+    }
+
     function setAuthMode(mode) {
       state.authMode = mode === 'telegram' ? 'telegram' : 'email';
       renderAuthMode();
@@ -740,7 +769,7 @@ const MOCK = (() => {
       container.innerHTML = '';
       const botUsername = String(CFG.telegramLoginBotUsername || '').trim();
       if (!botUsername) {
-        setAuthStatus(t('telegram_auth_unavailable'), true);
+        setAuthStatus(t('telegram_bot_unavailable'), true);
         return;
       }
 
@@ -750,16 +779,13 @@ const MOCK = (() => {
         };
       }
 
-      const script = document.createElement('script');
-      script.async = true;
-      script.src = TELEGRAM_LOGIN_WIDGET_URL;
-      script.setAttribute('data-telegram-login', botUsername);
-      script.setAttribute('data-size', 'large');
-      script.setAttribute('data-userpic', 'true');
-      script.setAttribute('data-request-access', 'write');
-      script.setAttribute('data-onauth', 'onTelegramAuth(user)');
-      script.onerror = () => setAuthStatus(t('telegram_auth_unavailable'), true);
-      container.appendChild(script);
+      setAuthStatus('');
+      appendTelegramLoginWidget(
+        container,
+        botUsername,
+        'onTelegramAuth',
+        () => setAuthStatus(t('telegram_auth_unavailable'), true)
+      );
     }
 
     function bindEmailLoginInput() {
@@ -1864,7 +1890,7 @@ const MOCK = (() => {
       container.innerHTML = '';
       const botUsername = String(CFG.telegramLoginBotUsername || '').trim();
       if (!botUsername) {
-        setTelegramLinkStatus(t('telegram_auth_unavailable'), true);
+        setTelegramLinkStatus(t('telegram_bot_unavailable'), true);
         return;
       }
 
@@ -1872,16 +1898,13 @@ const MOCK = (() => {
         await linkTelegramAccount(user);
       };
 
-      const script = document.createElement('script');
-      script.async = true;
-      script.src = TELEGRAM_LOGIN_WIDGET_URL;
-      script.setAttribute('data-telegram-login', botUsername);
-      script.setAttribute('data-size', 'large');
-      script.setAttribute('data-userpic', 'true');
-      script.setAttribute('data-request-access', 'write');
-      script.setAttribute('data-onauth', 'onTelegramLinkAuth(user)');
-      script.onerror = () => setTelegramLinkStatus(t('telegram_auth_unavailable'), true);
-      container.appendChild(script);
+      setTelegramLinkStatus('');
+      appendTelegramLoginWidget(
+        container,
+        botUsername,
+        'onTelegramLinkAuth',
+        () => setTelegramLinkStatus(t('telegram_auth_unavailable'), true)
+      );
       state.telegramLinkRendered = true;
     }
 

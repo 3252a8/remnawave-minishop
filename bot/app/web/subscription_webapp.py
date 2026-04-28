@@ -48,13 +48,7 @@ logger = logging.getLogger(__name__)
 
 TEMPLATE_PATH = Path(__file__).resolve().parent / "templates" / "subscription_webapp.html"
 ASSET_DIR = TEMPLATE_PATH.parent
-TELEGRAM_WEB_APP_SDK_URL = "https://telegram.org/js/telegram-web-app.js"
-TELEGRAM_WEB_APP_SDK_PATH = ASSET_DIR / "telegram-web-app.js"
-TELEGRAM_WIDGET_SDK_URL = "https://telegram.org/js/telegram-widget.js?23"
-TELEGRAM_WIDGET_SDK_PATH = ASSET_DIR / "telegram-widget.js"
 WEBAPP_LOGO_PROXY_PATH = "/webapp-logo"
-_UNPATCHED_WIDGET_ORIGIN_SNIPPET = """    if (origin == 'https://telegram.org') {\n      origin = default_origin;\n    } else if (origin == 'https://telegram-js.azureedge.net' || origin == 'https://tg.dev') {\n      origin = dev_origin;\n    }\n"""
-_PATCHED_WIDGET_ORIGIN_SNIPPET = """    if (origin == 'https://telegram.org') {\n      origin = default_origin;\n    } else if (origin == 'https://telegram-js.azureedge.net' || origin == 'https://tg.dev') {\n      origin = dev_origin;\n    } else {\n      origin = default_origin;\n    }\n"""
 WEBAPP_CONFIG_PLACEHOLDER = "<!-- WEBAPP_CONFIG_SCRIPT -->"
 WEBAPP_I18N_PLACEHOLDER = "<!-- WEBAPP_I18N_SCRIPT -->"
 WEBAPP_JS_PLACEHOLDER = "<!-- WEBAPP_JS_SCRIPT -->"
@@ -164,8 +158,6 @@ def create_subscription_webapp_application(
 def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/", index_route)
     app.router.add_get("/health", health_route)
-    app.router.add_get("/telegram-web-app.js", telegram_web_app_asset_route)
-    app.router.add_get("/telegram-widget.js", telegram_widget_asset_route)
     app.router.add_get(WEBAPP_LOGO_PROXY_PATH, webapp_logo_route)
     app.router.add_get("/subscription_webapp.css", css_asset_route)
     app.router.add_get("/subscription_webapp.min.{asset_hash}.js", js_asset_route)
@@ -465,144 +457,6 @@ async def _enforce_webapp_rate_limit(
         bucket.append(now)
 
     return None
-
-
-async def telegram_web_app_asset_route(request: web.Request) -> web.Response:
-    if not TELEGRAM_WEB_APP_SDK_PATH.exists():
-        await refresh_telegram_web_app_sdk()
-
-    try:
-        response = await _serve_template_asset(
-            request,
-            "telegram-web-app.js",
-            "application/javascript",
-        )
-    except FileNotFoundError:
-        logger.exception(
-            "Telegram Web App SDK is unavailable at %s",
-            TELEGRAM_WEB_APP_SDK_PATH,
-        )
-        raise web.HTTPServiceUnavailable(text="telegram_web_app_sdk_unavailable")
-
-    response.headers["Cache-Control"] = "no-cache"
-    return response
-
-
-async def telegram_widget_asset_route(request: web.Request) -> web.Response:
-    if not TELEGRAM_WIDGET_SDK_PATH.exists():
-        await refresh_telegram_login_widget_sdk()
-
-    try:
-        data = TELEGRAM_WIDGET_SDK_PATH.read_bytes()
-    except FileNotFoundError:
-        logger.exception(
-            "Telegram Login Widget SDK is unavailable at %s",
-            TELEGRAM_WIDGET_SDK_PATH,
-        )
-        raise web.HTTPServiceUnavailable(text="telegram_widget_sdk_unavailable")
-
-    data = _normalize_telegram_login_widget_sdk(data)
-    response = web.Response(body=data, content_type="application/javascript")
-    response.headers["Cache-Control"] = "no-cache"
-    return response
-
-
-async def refresh_telegram_web_app_sdk() -> bool:
-    """Best-effort refresh of the vendored Telegram Web App SDK."""
-    try:
-        session = await _get_shared_http_session()
-        async with session.get(TELEGRAM_WEB_APP_SDK_URL) as response:
-            if response.status != 200:
-                logger.warning(
-                    "Telegram Web App SDK refresh returned HTTP %s; keeping the bundled copy.",
-                    response.status,
-                )
-                return False
-            data = await response.read()
-    except Exception as exc:
-        logger.warning("Failed to refresh Telegram Web App SDK: %s", exc)
-        return False
-
-    try:
-        TELEGRAM_WEB_APP_SDK_PATH.parent.mkdir(parents=True, exist_ok=True)
-        existing_data = (
-            TELEGRAM_WEB_APP_SDK_PATH.read_bytes()
-            if TELEGRAM_WEB_APP_SDK_PATH.exists()
-            else None
-        )
-        if existing_data == data:
-            logger.info("Telegram Web App SDK is already up to date.")
-            return True
-
-        temp_path = TELEGRAM_WEB_APP_SDK_PATH.with_name(
-            f"{TELEGRAM_WEB_APP_SDK_PATH.name}.tmp"
-        )
-        temp_path.write_bytes(data)
-        temp_path.replace(TELEGRAM_WEB_APP_SDK_PATH)
-        logger.info(
-            "Telegram Web App SDK updated at %s (%d bytes).",
-            TELEGRAM_WEB_APP_SDK_PATH,
-            len(data),
-        )
-        return True
-    except Exception as exc:
-        logger.warning("Failed to store Telegram Web App SDK locally: %s", exc)
-        return False
-
-
-async def refresh_telegram_login_widget_sdk() -> bool:
-    """Best-effort refresh of the vendored Telegram Login Widget SDK."""
-    try:
-        session = await _get_shared_http_session()
-        async with session.get(TELEGRAM_WIDGET_SDK_URL) as response:
-            if response.status != 200:
-                logger.warning(
-                    "Telegram Login Widget SDK refresh returned HTTP %s; keeping the bundled copy.",
-                    response.status,
-                )
-                return False
-            data = await response.read()
-    except Exception as exc:
-        logger.warning("Failed to refresh Telegram Login Widget SDK: %s", exc)
-        return False
-
-    try:
-        data = _normalize_telegram_login_widget_sdk(data)
-        TELEGRAM_WIDGET_SDK_PATH.parent.mkdir(parents=True, exist_ok=True)
-        existing_data = (
-            TELEGRAM_WIDGET_SDK_PATH.read_bytes()
-            if TELEGRAM_WIDGET_SDK_PATH.exists()
-            else None
-        )
-        if existing_data == data:
-            logger.info("Telegram Login Widget SDK is already up to date.")
-            return True
-
-        temp_path = TELEGRAM_WIDGET_SDK_PATH.with_name(
-            f"{TELEGRAM_WIDGET_SDK_PATH.name}.tmp"
-        )
-        temp_path.write_bytes(data)
-        temp_path.replace(TELEGRAM_WIDGET_SDK_PATH)
-        logger.info(
-            "Telegram Login Widget SDK updated at %s (%d bytes).",
-            TELEGRAM_WIDGET_SDK_PATH,
-            len(data),
-        )
-        return True
-    except Exception as exc:
-        logger.warning("Failed to store Telegram Login Widget SDK locally: %s", exc)
-        return False
-
-
-def _normalize_telegram_login_widget_sdk(data: bytes) -> bytes:
-    # Keep the vendored widget pointing to Telegram's OAuth host instead of the local origin.
-    text = data.decode("utf-8")
-    normalized = text.replace(
-        _UNPATCHED_WIDGET_ORIGIN_SNIPPET,
-        _PATCHED_WIDGET_ORIGIN_SNIPPET,
-        1,
-    )
-    return normalized.encode("utf-8")
 
 
 async def js_asset_route(request: web.Request) -> web.Response:
