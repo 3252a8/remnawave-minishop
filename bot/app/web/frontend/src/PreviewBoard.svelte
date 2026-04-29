@@ -197,11 +197,12 @@
     </div>
     <Card class="auth-card">
       <div class="field-label">Вход по email</div>
-      <div class="email-row"><div class="input muted">Email</div><Button variant="outline"><Mail size={17} />Получить код</Button></div>
+      <div class="auth-email-stack"><div class="input muted">Email</div><Button class="wide"><Mail size={17} />Войти по почте</Button></div>
       <div class="or-line"><span></span>или<span></span></div>
-      <Button variant="telegram" class="wide"><Send size={18} />Войти через Telegram</Button>
+      <Button variant="telegram" class="wide telegram-login-button">
+        <span class="telegram-login-text"><Send size={17} />Войти через телеграм</span>
+      </Button>
     </Card>
-    <div class="auth-bottom">Нет аккаунта? <strong>Создать</strong></div>
   </PhoneFrame>
 
   <PhoneFrame number="9" label="Подтверждение по коду" wide>

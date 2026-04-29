@@ -15,10 +15,15 @@
 <input
   bind:value
   class={cn("input", className)}
+  on:keydown
+  on:input
+  on:focus
+  on:blur
   {type}
   {placeholder}
   {inputmode}
   {maxlength}
   {autocomplete}
   {disabled}
+  {...$$restProps}
 />

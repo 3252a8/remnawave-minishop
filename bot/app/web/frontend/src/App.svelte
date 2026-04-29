@@ -1,29 +1,30 @@
-<script>
+﻿<script>
   import {
     ArrowLeft,
     ArrowRight,
+    Check,
     CheckCircle2,
-    Circle,
+    ChevronsUpDown,
+    Bitcoin,
+    CircleX,
     Copy,
     CreditCard,
-    Crown,
-    Database,
-    Download,
+    FileText,
     Gift,
     Globe2,
     Home,
     LockKeyhole,
     Mail,
     RefreshCw,
-    Repeat2,
     Send,
+    TriangleAlert,
     Settings as SettingsIcon,
+    Shield,
     Ticket,
     UserRound,
-    WalletCards,
-    Zap,
   } from "lucide-svelte";
-  import { onMount, tick } from "svelte";
+  import { onMount } from "svelte";
+  import { Select, Tooltip } from "bits-ui";
 
   import Button from "./lib/components/ui/button.svelte";
   import Card from "./lib/components/ui/card.svelte";
@@ -32,7 +33,6 @@
   import PreviewBoard from "./PreviewBoard.svelte";
 
   const TELEGRAM_LOGIN_WIDGET_URL = "https://telegram.org/js/telegram-widget.js?23";
-  const TELEGRAM_LOGIN_WIDGET_RENDER_TIMEOUT_MS = 8000;
   const MANUAL_LOGOUT_FLAG_KEY = "rw_webapp_manual_logout";
   const LANGUAGE_LABELS = {
     ru: "Русский",
@@ -42,6 +42,21 @@
     fr: "Français",
     tr: "Türkçe",
     uk: "Українська",
+  };
+  const LANGUAGE_FLAGS = {
+    ru: "🇷🇺",
+    en: "🇬🇧",
+    de: "🇩🇪",
+    es: "🇪🇸",
+    fr: "🇫🇷",
+    tr: "🇹🇷",
+    uk: "🇺🇦",
+  };
+  const WEBAPP_LANGUAGE_ORDER = ["ru", "en"];
+  const APP_SECTION_PATHS = {
+    home: "/home",
+    invite: "/invite",
+    settings: "/settings",
   };
 
   const DEV_MOCK = {
@@ -58,6 +73,7 @@
       language: "ru",
       emailAuthEnabled: true,
       telegramLoginBotUsername: "preview_bot",
+      telegramLoginBotId: 1234567890,
     },
     data: {
       ok: true,
@@ -103,9 +119,13 @@
         webapp_link: "https://minishop.app/ref/ABCD1234",
         invited_count: 4,
         purchased_count: 2,
+        welcome_bonus_days: 3,
+        one_bonus_per_referee: false,
         bonus_details: [
-          { months: 1, title: "1 месяц", inviter_days: 7, friend_days: 3 },
-          { months: 3, title: "3 месяца", inviter_days: 14, friend_days: 7 },
+          { months: 1, title: "1 месяц", inviter_days: 14, friend_days: 7 },
+          { months: 3, title: "3 месяца", inviter_days: 21, friend_days: 14 },
+          { months: 6, title: "6 месяцев", inviter_days: 31, friend_days: 21 },
+          { months: 12, title: "12 месяцев", inviter_days: 62, friend_days: 31 },
         ],
       },
       settings: {
@@ -116,49 +136,10 @@
     },
   };
 
-  const demoTariffs = [
-    {
-      id: "subscription",
-      title: "Подписка",
-      caption: "Безлимитный трафик",
-      details: "Идеально для постоянного использования",
-      icon: "infinity",
-      billing: "period",
-    },
-    {
-      id: "traffic",
-      title: "Трафик",
-      caption: "Пакеты гигабайт",
-      details: "Платите только за нужный объем",
-      icon: "database",
-      billing: "traffic",
-    },
-    {
-      id: "premium",
-      title: "Премиум",
-      caption: "Максимальная скорость",
-      details: "Приоритетные серверы и поддержка",
-      icon: "crown",
-      billing: "period",
-    },
-  ];
-
-  const trafficPackages = [
-    { gb: 20, price: 290 },
-    { gb: 50, price: 590 },
-    { gb: 100, price: 990 },
-    { gb: 300, price: 2190 },
-  ];
-
-  const changeTariffs = [
-    { ...demoTariffs[0], recalculation: "Доплата 190 ₽" },
-    { ...demoTariffs[1], recalculation: "Доплата не требуется" },
-    { ...demoTariffs[2], recalculation: "Доплата 390 ₽" },
-  ];
-
   const query = new URLSearchParams(window.location.search);
   const isPreviewBoard = query.get("preview") === "all";
   const injectedConfig = readJsonScript("webapp-config");
+  const injectedI18n = readJsonScript("i18n");
   const isLocalShell =
     window.location.protocol === "file:" ||
     ["", "localhost", "127.0.0.1"].includes(window.location.hostname);
@@ -168,37 +149,52 @@
     ...(MOCK ? MOCK.config : {}),
     ...(injectedConfig || {}),
   };
+  const I18N = injectedI18n || {};
   const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 
   let mode = isPreviewBoard ? "preview" : "loading";
   let activeTab = "home";
   let screen = "home";
   let data = isPreviewBoard ? structuredCloneSafe(DEV_MOCK.data) : null;
-  let selectedTariff = "subscription";
-  let selectedChangeTariff = "traffic";
   let selectedPlan = null;
-  let selectedTrafficPackage = trafficPackages[2];
   let selectedMethod = "";
+  let paymentModalOpen = false;
   let payBusy = false;
+  let linkEmailOpen = false;
+  let linkEmailBusy = false;
+  let linkTelegramBusy = false;
+  let linkEmailValue = "";
+  let linkEmailPending = "";
+  let linkEmailCode = "";
+  let linkEmailStatus = "";
+  let linkEmailIsError = false;
+  let linkEmailFieldError = "";
   let promoCode = "";
   let promoBusy = false;
   let promoStatus = "";
   let promoIsError = false;
+  let promoFieldError = "";
   let toastText = "";
   let toastTimer = null;
-  let authMode = CFG.emailAuthEnabled === false ? "telegram" : "email";
   let authStatus = "";
   let authIsError = false;
   let authBusy = false;
+  let loginEmailFieldError = "";
+  let loginEmailTooltipOpen = false;
+  let authResendCooldown = 0;
+  let authResendTimer = null;
+  let languageBusy = false;
   let email = "";
   let pendingEmail = "";
   let emailCode = "";
   let emailAvatarUrl = "";
   let avatarHashToken = "";
-  let loginTelegramNode;
   let token = MOCK ? "local-preview" : localStorage.getItem("rw_webapp_token") || "";
   let csrfToken = MOCK ? "" : readCookie("rw_webapp_csrf") || "";
-  let confirmTariffOpen = false;
+  let telegramLoginSdkPromise = null;
+  let linkEmailResendCooldown = 0;
+  let linkEmailResendTimer = null;
+  let scrollLockApplied = false;
 
   $: brandTitle = CFG.title || "/minishop";
   $: brandEmoji = CFG.logoEmoji || "🫥";
@@ -208,11 +204,30 @@
   $: subscription = data?.subscription || DEV_MOCK.data.subscription;
   $: user = data?.user || {};
   $: referral = data?.referral || DEV_MOCK.data.referral;
-  $: userLanguage = languageName(user?.language_code || CFG.language || "ru");
+  $: currentLang = normalizeLangCode(user?.language_code || CFG.language || "ru");
+  $: languageOptions = WEBAPP_LANGUAGE_ORDER.map((code) => ({
+    value: code,
+    label: LANGUAGE_LABELS[code] || code.toUpperCase(),
+    flag: LANGUAGE_FLAGS[code] || "🏳️",
+  }));
+  $: currentLanguageOption = languageOptions.find((option) => option.value === currentLang) || languageOptions[0];
+  $: userLanguage = languageName(currentLang);
+  $: telegramLinkStatus = user?.telegram_linked ? t("wa_settings_linked") : t("wa_settings_not_linked");
+  $: emailLinkStatus = user?.email ? t("wa_settings_linked") : t("wa_settings_email_not_linked");
+  $: hasUnlinkedIdentity = !user?.telegram_linked || !user?.email;
+  $: referralBonusDetails = Array.isArray(referral?.bonus_details) ? referral.bonus_details : [];
+  $: referralWelcomeBonusDays = Math.max(0, Number(referral?.welcome_bonus_days || 0));
+  $: referralOneBonusPerReferee = Boolean(referral?.one_bonus_per_referee);
   $: telegramProfileName = telegramName(user);
-  $: profileEmail = user?.email || "Почта не привязана";
-  $: profileTelegramId = user?.telegram_id ? `TG ID ${user.telegram_id}` : "TG ID не привязан";
+  $: profileEmail = user?.email || t("wa_settings_email_not_linked");
+  $: profileTelegramId = user?.telegram_id ? `TG ID ${user.telegram_id}` : t("wa_tg_id_not_linked");
   $: profileAvatarUrl = user?.telegram_photo_url || emailAvatarUrl || "";
+  $: privacyPolicyUrl = String(CFG.privacyPolicyUrl || "").trim();
+  $: userAgreementUrl = String(CFG.userAgreementUrl || "").trim();
+  $: supportUrl = String(data?.settings?.support_url || CFG.supportUrl || "").trim();
+  $: telegramLoginBotId = Number(CFG.telegramLoginBotId || 0);
+  $: applyFavicon(CFG.logoUrl, brandEmoji);
+  $: syncBodyScrollLock(paymentModalOpen || linkEmailOpen);
   $: if (!selectedPlan && plans.length) selectedPlan = plans[Math.min(1, plans.length - 1)];
   $: if (!selectedMethod && methods.length) selectedMethod = methods[0].id;
   $: {
@@ -230,7 +245,26 @@
 
   onMount(() => {
     if (isPreviewBoard) return;
+    const onAnyPointerDown = () => {
+      if (mode === "login") loginEmailTooltipOpen = false;
+    };
+    const onPopState = () => {
+      const section = sectionFromPath(window.location.pathname);
+      if (mode === "app") {
+        activeTab = section;
+        screen = section;
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    window.addEventListener("pointerdown", onAnyPointerDown);
     boot();
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      window.removeEventListener("pointerdown", onAnyPointerDown);
+      clearCooldownTimer("auth");
+      clearCooldownTimer("link_email");
+      syncBodyScrollLock(false);
+    };
   });
 
   function readJsonScript(id) {
@@ -250,6 +284,98 @@
     } catch {
       return JSON.parse(JSON.stringify(value));
     }
+  }
+
+  function applyFavicon(logoUrl, emoji) {
+    if (typeof document === "undefined") return;
+    const favicon = document.getElementById("app-favicon");
+    if (!favicon) return;
+
+    const normalizedLogoUrl = String(logoUrl || "").trim();
+    if (normalizedLogoUrl) {
+      favicon.setAttribute("href", normalizedLogoUrl);
+      return;
+    }
+
+    const normalizedEmoji = String(emoji || "🫥").trim() || "🫥";
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="52">${escapeHtml(
+      normalizedEmoji,
+    )}</text></svg>`;
+    const encoded = encodeURIComponent(svg);
+    favicon.setAttribute("href", `data:image/svg+xml,${encoded}`);
+  }
+
+  function syncBodyScrollLock(locked) {
+    if (typeof document === "undefined") return;
+    if (locked && !scrollLockApplied) {
+      document.body.style.overflow = "hidden";
+      scrollLockApplied = true;
+      return;
+    }
+    if (!locked && scrollLockApplied) {
+      document.body.style.overflow = "";
+      scrollLockApplied = false;
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function normalizeLangCode(lang) {
+    const key = String(lang || "").trim().toLowerCase();
+    if (!key) return "ru";
+    const base = key.split("-")[0];
+    if (LANGUAGE_LABELS[base]) return base;
+    if (I18N[base]) return base;
+    if (I18N[key]) return key;
+    return "ru";
+  }
+
+  function formatTemplate(template, params = {}) {
+    const text = String(template ?? "");
+    return text.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? `{${key}}`));
+  }
+
+  function t(key, params = {}, fallback = "") {
+    const lang = normalizeLangCode(user?.language_code || CFG.language || "ru");
+    const variants = [
+      I18N?.[lang]?.[key],
+      I18N?.en?.[key],
+      I18N?.ru?.[key],
+      fallback,
+      key,
+    ];
+    const raw = variants.find((value) => typeof value === "string" && value.length);
+    return formatTemplate(raw, params);
+  }
+
+  function normalizeSection(value) {
+    const section = String(value || "").trim().toLowerCase();
+    return section === "invite" || section === "settings" ? section : "home";
+  }
+
+  function sectionFromPath(pathname) {
+    const normalizedPath = String(pathname || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\/+$/, "");
+    if (!normalizedPath || normalizedPath === "/") return "home";
+    const section = normalizedPath.startsWith("/") ? normalizedPath.slice(1) : normalizedPath;
+    return normalizeSection(section);
+  }
+
+  function syncSectionPath(section, replace = false) {
+    const normalized = normalizeSection(section);
+    const targetPath = APP_SECTION_PATHS[normalized] || APP_SECTION_PATHS.home;
+    if (window.location.pathname === targetPath) return;
+    const nextUrl = `${targetPath}${window.location.search}${window.location.hash}`;
+    window.history[replace ? "replaceState" : "pushState"](null, "", nextUrl);
   }
 
   async function boot() {
@@ -301,15 +427,17 @@
     data = payload;
     selectedPlan = payload.plans?.[Math.min(1, payload.plans.length - 1)] || payload.plans?.[0] || null;
     selectedMethod = payload.payment_methods?.[0]?.id || "";
-    screen = "home";
+    const section = sectionFromPath(window.location.pathname);
+    activeTab = section;
+    screen = section;
     mode = "app";
+    syncSectionPath(section, true);
   }
 
   function showLogin() {
     mode = "login";
     screen = "login";
     activeTab = "home";
-    renderTelegramWidgetWhenNeeded();
   }
 
   async function api(path, options = {}) {
@@ -355,6 +483,24 @@
     }
     if (path === "/promo/apply") return { ok: true, end_date_text: "31.05.2026" };
     if (path === "/auth/logout") return { ok: true };
+    if (path === "/account/language" && String(options.method || "").toUpperCase() === "POST") {
+      let payload = {};
+      try {
+        payload = options?.body ? JSON.parse(String(options.body)) : {};
+      } catch {}
+      const language = normalizeLangCode(payload?.language || currentLang);
+      DEV_MOCK.data.user.language_code = language;
+      return { ok: true, language };
+    }
+    if (path === "/account/email/request" && String(options.method || "").toUpperCase() === "POST") {
+      return { ok: true };
+    }
+    if (path === "/account/email/verify" && String(options.method || "").toUpperCase() === "POST") {
+      return { ok: true, token: "local-preview", csrf_token: "local-preview-csrf" };
+    }
+    if (path === "/account/telegram/link" && String(options.method || "").toUpperCase() === "POST") {
+      return { ok: true, token: "local-preview", csrf_token: "local-preview-csrf" };
+    }
     if (path === "/payments" && String(options.method || "").toUpperCase() === "POST") {
       return {
         ok: true,
@@ -447,7 +593,7 @@
   async function finalizeMagicLogin(loginToken) {
     if (authBusy) return false;
     authBusy = true;
-    setAuthStatus("Проверяем вход...");
+    setAuthStatus(t("wa_auth_checking_login"));
     try {
       const payload = { token: loginToken };
       const referralParam = readReferralParam();
@@ -459,9 +605,9 @@
         await loadData();
         return true;
       }
-      setAuthStatus("Не удалось подтвердить вход", true);
+      setAuthStatus(t("wa_auth_login_confirm_failed"), true);
     } catch {
-      setAuthStatus("Не удалось подтвердить вход", true);
+      setAuthStatus(t("wa_auth_login_confirm_failed"), true);
     } finally {
       authBusy = false;
     }
@@ -471,7 +617,7 @@
   async function finalizeTelegramAuth(authData, source = "auth_data") {
     if (authBusy) return false;
     authBusy = true;
-    setAuthStatus("Проверяем Telegram...");
+    setAuthStatus(t("wa_auth_checking_telegram"));
     try {
       const payload = source === "init_data" ? { init_data: authData } : { auth_data: authData };
       const referralParam = readReferralParam();
@@ -484,9 +630,9 @@
         await loadData();
         return true;
       }
-      setAuthStatus(response.error === "banned" ? "Доступ запрещен" : "Telegram-вход не подтвержден", true);
+      setAuthStatus(response.error === "banned" ? t("wa_auth_access_denied") : t("wa_auth_telegram_not_confirmed"), true);
     } catch {
-      setAuthStatus("Telegram-вход сейчас недоступен", true);
+      setAuthStatus(t("wa_auth_telegram_unavailable"), true);
     } finally {
       authBusy = false;
     }
@@ -494,15 +640,19 @@
   }
 
   async function requestEmailCode() {
+    if (screen === "code" && authResendCooldown > 0) return;
     const normalized = email.trim().toLowerCase();
     if (!normalized || !normalized.includes("@")) {
-      setAuthStatus("Введите корректный email", true);
+      loginEmailFieldError = t("wa_auth_invalid_email");
+      loginEmailTooltipOpen = true;
       return;
     }
+    loginEmailFieldError = "";
+    loginEmailTooltipOpen = false;
     authBusy = true;
-    setAuthStatus("Отправляем код...");
+    setAuthStatus(t("wa_auth_sending_code"));
     try {
-      const payload = { email: normalized, language: "ru" };
+      const payload = { email: normalized, language: currentLang };
       const referralParam = readReferralParam();
       if (referralParam) payload.referral_code = referralParam;
       const response = await publicApi("/auth/email/request", payload);
@@ -512,8 +662,9 @@
       screen = "code";
       mode = "login";
       setAuthStatus("");
+      startCooldownTimer("auth", 60);
     } catch (error) {
-      setAuthStatus(emailError(error, "Не удалось отправить код"), true);
+      setAuthStatus(emailError(error, t("wa_auth_send_code_failed")), true);
     } finally {
       authBusy = false;
     }
@@ -522,11 +673,11 @@
   async function verifyEmailCode() {
     const code = emailCode.replace(/\D/g, "").slice(0, 6);
     if (code.length !== 6) {
-      setAuthStatus("Введите 6 цифр из письма", true);
+      setAuthStatus(t("wa_auth_enter_code_6digits"), true);
       return;
     }
     authBusy = true;
-    setAuthStatus("Проверяем код...");
+    setAuthStatus(t("wa_auth_checking_code"));
     try {
       const payload = { email: pendingEmail, code };
       const referralParam = readReferralParam();
@@ -537,17 +688,17 @@
       await loadData();
       setAuthStatus("");
     } catch (error) {
-      setAuthStatus(emailError(error, "Неверный код"), true);
+      setAuthStatus(emailError(error, t("wa_auth_invalid_code")), true);
     } finally {
       authBusy = false;
     }
   }
 
   function emailError(error, fallback) {
-    if (error?.error === "rate_limited") return `Повторная отправка через ${error.retry_after || 60} сек.`;
-    if (error?.error === "invalid_email") return "Введите корректный email";
-    if (error?.error === "expired_code") return "Код устарел";
-    if (error?.error === "invalid_code" || error?.error === "too_many_attempts") return "Неверный код";
+    if (error?.error === "rate_limited") return t("wa_auth_resend_wait", { seconds: error.retry_after || 60 });
+    if (error?.error === "invalid_email") return t("wa_auth_invalid_email");
+    if (error?.error === "expired_code") return t("wa_auth_code_expired");
+    if (error?.error === "invalid_code" || error?.error === "too_many_attempts") return t("wa_auth_invalid_code");
     return fallback;
   }
 
@@ -556,56 +707,296 @@
     authIsError = isError;
   }
 
-  async function renderTelegramWidgetWhenNeeded() {
-    await tick();
-    if (authMode !== "telegram" || !loginTelegramNode) return;
-    loginTelegramNode.innerHTML = "";
-    if (tg?.initData) return;
-    const botUsername = String(CFG.telegramLoginBotUsername || "").trim();
-    if (!botUsername) {
-      setAuthStatus("Telegram Login Widget не настроен", true);
+  function clearCooldownTimer(kind) {
+    if (kind === "auth") {
+      if (authResendTimer) {
+        window.clearInterval(authResendTimer);
+        authResendTimer = null;
+      }
       return;
     }
-    window.onTelegramAuth = async (telegramUser) => {
-      await finalizeTelegramAuth(telegramUser, "auth_data");
-    };
-    appendTelegramLoginWidget(loginTelegramNode, botUsername, "onTelegramAuth", () =>
-      setAuthStatus("Telegram Login Widget сейчас недоступен", true),
-    );
+    if (linkEmailResendTimer) {
+      window.clearInterval(linkEmailResendTimer);
+      linkEmailResendTimer = null;
+    }
   }
 
-  function appendTelegramLoginWidget(container, botUsername, callbackName, onUnavailable) {
-    const script = document.createElement("script");
-    let unavailableShown = false;
-    const showUnavailable = () => {
-      if (unavailableShown) return;
-      unavailableShown = true;
-      onUnavailable();
-    };
-    script.async = true;
-    script.src = TELEGRAM_LOGIN_WIDGET_URL;
-    script.setAttribute("data-telegram-login", botUsername);
-    script.setAttribute("data-size", "large");
-    script.setAttribute("data-userpic", "true");
-    script.setAttribute("data-request-access", "write");
-    script.setAttribute("data-onauth", `${callbackName}(user)`);
-    script.onerror = showUnavailable;
-    script.onload = () => {
-      window.setTimeout(() => {
-        if (!container.contains(script) || container.querySelector("iframe")) return;
-        showUnavailable();
-      }, TELEGRAM_LOGIN_WIDGET_RENDER_TIMEOUT_MS);
-    };
-    container.appendChild(script);
+  function submitEmailOnEnter(event) {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    requestEmailCode();
+  }
+
+  function startCooldownTimer(kind, seconds = 60) {
+    if (kind === "auth") {
+      clearCooldownTimer("auth");
+      authResendCooldown = Math.max(0, Number(seconds || 60));
+      authResendTimer = window.setInterval(() => {
+        if (authResendCooldown <= 1) {
+          authResendCooldown = 0;
+          clearCooldownTimer("auth");
+          return;
+        }
+        authResendCooldown -= 1;
+      }, 1000);
+      return;
+    }
+    clearCooldownTimer("link_email");
+    linkEmailResendCooldown = Math.max(0, Number(seconds || 60));
+    linkEmailResendTimer = window.setInterval(() => {
+      if (linkEmailResendCooldown <= 1) {
+        linkEmailResendCooldown = 0;
+        clearCooldownTimer("link_email");
+        return;
+      }
+      linkEmailResendCooldown -= 1;
+    }, 1000);
+  }
+
+  async function ensureTelegramLoginSdk() {
+    if (window.Telegram?.Login?.auth) return true;
+    if (telegramLoginSdkPromise) return telegramLoginSdkPromise;
+
+    telegramLoginSdkPromise = new Promise((resolve) => {
+      const existingScript = Array.from(document.querySelectorAll("script")).find((node) =>
+        String(node?.src || "").includes("telegram-widget.js"),
+      );
+      const script = existingScript || document.createElement("script");
+      const onReady = () => resolve(Boolean(window.Telegram?.Login?.auth));
+
+      if (!existingScript) {
+        script.async = true;
+        script.src = TELEGRAM_LOGIN_WIDGET_URL;
+        script.setAttribute("data-rw-telegram-login-sdk", "1");
+        document.head.appendChild(script);
+      }
+
+      if (window.Telegram?.Login?.auth) {
+        onReady();
+        return;
+      }
+
+      script.addEventListener("load", onReady, { once: true });
+      script.addEventListener("error", () => resolve(false), { once: true });
+    }).finally(() => {
+      if (!window.Telegram?.Login?.auth) {
+        telegramLoginSdkPromise = null;
+      }
+    });
+
+    return telegramLoginSdkPromise;
   }
 
   async function openTelegramLogin() {
-    authMode = "telegram";
+    if (authBusy) return;
     if (tg?.initData) {
       await finalizeTelegramAuth(tg.initData, "init_data");
       return;
     }
-    renderTelegramWidgetWhenNeeded();
+
+    if (!telegramLoginBotId) {
+      setAuthStatus(t("wa_auth_telegram_not_configured"), true);
+      return;
+    }
+
+    const sdkReady = await ensureTelegramLoginSdk();
+    if (!sdkReady || !window.Telegram?.Login?.auth) {
+      setAuthStatus(t("wa_auth_telegram_unavailable"), true);
+      return;
+    }
+
+    setAuthStatus("");
+    try {
+      window.Telegram.Login.auth(
+        {
+          bot_id: telegramLoginBotId,
+          request_access: "write",
+          lang: currentLang,
+        },
+        async (telegramUser) => {
+          if (!telegramUser) {
+            setAuthStatus(t("wa_auth_telegram_cancelled"), true);
+            return;
+          }
+          await finalizeTelegramAuth(telegramUser, "auth_data");
+        },
+      );
+    } catch {
+      setAuthStatus(t("wa_auth_telegram_unavailable"), true);
+    }
+  }
+
+  function setLinkEmailStatus(message, isError = false) {
+    linkEmailStatus = message;
+    linkEmailIsError = isError;
+  }
+
+  function openLinkEmailDialog() {
+    linkEmailOpen = true;
+    linkEmailBusy = false;
+    linkEmailCode = "";
+    linkEmailPending = "";
+    linkEmailStatus = "";
+    linkEmailIsError = false;
+    linkEmailFieldError = "";
+    linkEmailValue = user?.email || "";
+    linkEmailResendCooldown = 0;
+    clearCooldownTimer("link_email");
+  }
+
+  function closeLinkEmailDialog() {
+    linkEmailOpen = false;
+    linkEmailBusy = false;
+    linkEmailCode = "";
+    linkEmailPending = "";
+    linkEmailStatus = "";
+    linkEmailIsError = false;
+    linkEmailFieldError = "";
+    linkEmailResendCooldown = 0;
+    clearCooldownTimer("link_email");
+  }
+
+  async function requestLinkEmailCode() {
+    if (linkEmailPending && linkEmailResendCooldown > 0) return;
+    const normalized = String(linkEmailValue || "").trim().toLowerCase();
+    if (!normalized || !normalized.includes("@")) {
+      linkEmailFieldError = t("wa_auth_invalid_email");
+      return;
+    }
+    linkEmailFieldError = "";
+    linkEmailBusy = true;
+    setLinkEmailStatus(t("wa_auth_sending_code"));
+    try {
+      const response = await api("/account/email/request", {
+        method: "POST",
+        body: JSON.stringify({ email: normalized }),
+      });
+      if (!response?.ok) throw response;
+      linkEmailPending = normalized;
+      linkEmailCode = "";
+      setLinkEmailStatus(t("wa_email_sent_to", { email: normalized }));
+      startCooldownTimer("link_email", 60);
+    } catch (error) {
+      setLinkEmailStatus(emailError(error, t("wa_auth_send_code_failed")), true);
+    } finally {
+      linkEmailBusy = false;
+    }
+  }
+
+  async function verifyLinkEmailCode() {
+    const code = String(linkEmailCode || "").replace(/\D/g, "").slice(0, 6);
+    if (!linkEmailPending) {
+      setLinkEmailStatus(t("wa_auth_send_code_failed"), true);
+      return;
+    }
+    if (code.length !== 6) {
+      setLinkEmailStatus(t("wa_auth_enter_code_6digits"), true);
+      return;
+    }
+    linkEmailBusy = true;
+    setLinkEmailStatus(t("wa_auth_checking_code"));
+    try {
+      const response = await api("/account/email/verify", {
+        method: "POST",
+        body: JSON.stringify({ email: linkEmailPending, code }),
+      });
+      if (!response?.ok) throw response;
+      if (response?.token) setToken(response.token, response.csrf_token);
+      await loadData();
+      closeLinkEmailDialog();
+      showToast(t("wa_settings_linked"));
+    } catch (error) {
+      setLinkEmailStatus(emailError(error, t("wa_auth_invalid_code")), true);
+    } finally {
+      linkEmailBusy = false;
+    }
+  }
+
+  async function linkTelegramAccountWithPayload(payload) {
+    linkTelegramBusy = true;
+    try {
+      const response = await api("/account/telegram/link", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!response?.ok) throw response;
+      if (response?.token) setToken(response.token, response.csrf_token);
+      await loadData();
+      showToast(t("wa_settings_linked"));
+    } catch (error) {
+      showToast(error?.message || t("wa_auth_telegram_not_confirmed"));
+    } finally {
+      linkTelegramBusy = false;
+    }
+  }
+
+  async function linkTelegramAccount() {
+    if (linkTelegramBusy) return;
+    if (tg?.initData) {
+      await linkTelegramAccountWithPayload({ init_data: tg.initData });
+      return;
+    }
+    if (!telegramLoginBotId) {
+      showToast(t("wa_auth_telegram_not_configured"));
+      return;
+    }
+    const sdkReady = await ensureTelegramLoginSdk();
+    if (!sdkReady || !window.Telegram?.Login?.auth) {
+      showToast(t("wa_auth_telegram_unavailable"));
+      return;
+    }
+    window.Telegram.Login.auth(
+      {
+        bot_id: telegramLoginBotId,
+        request_access: "write",
+        lang: currentLang,
+      },
+      async (telegramUser) => {
+        if (!telegramUser) {
+          showToast(t("wa_auth_telegram_cancelled"));
+          return;
+        }
+        await linkTelegramAccountWithPayload({ auth_data: telegramUser });
+      },
+    );
+  }
+
+  async function updateAccountLanguage(nextValue) {
+    const language = normalizeLangCode(nextValue);
+    if (!language || languageBusy || language === currentLang) return;
+    languageBusy = true;
+    try {
+      const response = await api("/account/language", {
+        method: "POST",
+        body: JSON.stringify({ language }),
+      });
+      if (!response?.ok) throw response;
+      if (data?.user) {
+        const updatedLanguage = normalizeLangCode(response.language || language);
+        data = {
+          ...data,
+          user: {
+            ...data.user,
+            language_code: updatedLanguage,
+          },
+        };
+      }
+      const previousScreen = screen;
+      const previousTab = activeTab;
+      const payload = await api("/me");
+      if (payload?.ok) {
+        data = payload;
+        selectedPlan = payload.plans?.[Math.min(1, payload.plans.length - 1)] || payload.plans?.[0] || null;
+        selectedMethod = payload.payment_methods?.[0]?.id || "";
+        mode = "app";
+        screen = previousScreen;
+        activeTab = previousTab;
+      }
+    } catch {
+      showToast(t("wa_settings_language_update_failed"));
+    } finally {
+      languageBusy = false;
+    }
   }
 
   async function createPayment() {
@@ -617,10 +1008,11 @@
         body: JSON.stringify({ months: selectedPlan.months, method: selectedMethod }),
       });
       if (!response.ok || !response.payment_url) throw response;
-      showToast("Платеж создан");
+      showToast(t("wa_payment_created"));
       openExternalLink(response.payment_url);
+      paymentModalOpen = false;
     } catch (error) {
-      showToast(error?.message || "Не удалось создать платеж");
+      showToast(error?.message || t("wa_payment_create_failed"));
     } finally {
       payBusy = false;
     }
@@ -628,22 +1020,25 @@
 
   function openExternalLink(url) {
     if (!url) return;
-    if (tg?.openLink) tg.openLink(url);
-    else window.open(url, "_blank", "noopener");
+    if (tg?.openLink) {
+      tg.openLink(url);
+      return;
+    }
+    window.location.assign(url);
   }
 
   function openConnectLink() {
     const url = subscription?.connect_url || subscription?.config_link;
     if (!url) {
-      showToast("Ссылка для подключения пока недоступна");
+      showToast(t("wa_connect_link_unavailable"));
       return;
     }
     openExternalLink(url);
   }
 
-  async function copyText(value, success = "Скопировано") {
+  async function copyText(value, success = t("wa_copied")) {
     if (!value) {
-      showToast("Пока недоступно");
+      showToast(t("wa_unavailable"));
       return;
     }
     try {
@@ -662,10 +1057,10 @@
   async function applyPromo() {
     const code = promoCode.trim();
     if (!code) {
-      promoStatus = "Введите промокод";
-      promoIsError = true;
+      promoFieldError = t("wa_promo_enter");
       return;
     }
+    promoFieldError = "";
     promoBusy = true;
     promoStatus = "";
     try {
@@ -676,13 +1071,14 @@
       if (!response.ok) throw response;
       promoCode = "";
       promoStatus = response.end_date_text
-        ? `Промокод активирован. Подписка до ${response.end_date_text}`
-        : "Промокод активирован";
+        ? t("wa_promo_activated_until", { date: response.end_date_text })
+        : t("wa_promo_activated");
       promoIsError = false;
       await loadData();
     } catch (error) {
-      promoStatus = error?.message || "Не удалось активировать промокод";
+      promoStatus = error?.message || t("wa_promo_activation_failed");
       promoIsError = true;
+      promoFieldError = promoStatus;
     } finally {
       promoBusy = false;
     }
@@ -706,35 +1102,64 @@
   }
 
   function goHome() {
+    paymentModalOpen = false;
     activeTab = "home";
     screen = "home";
+    syncSectionPath("home");
   }
 
   function goInvite() {
+    paymentModalOpen = false;
     activeTab = "invite";
     screen = "invite";
+    syncSectionPath("invite");
   }
 
   function goSettings() {
+    paymentModalOpen = false;
     activeTab = "settings";
     screen = "settings";
+    syncSectionPath("settings");
+  }
+
+  function openPaymentModal() {
+    paymentModalOpen = true;
+  }
+
+  function closePaymentModal() {
+    paymentModalOpen = false;
   }
 
   function methodMeta(method) {
     const id = String(method?.id || "").toLowerCase();
+    if (id.includes("platega_sbp")) {
+      return { title: t("wa_method_platega_sbp_card"), icon: CreditCard };
+    }
+    if (id.includes("platega_crypto")) {
+      return { title: t("wa_method_platega_crypto"), icon: Bitcoin };
+    }
     if (id.includes("yookassa") || id.includes("card")) {
-      return { title: method.name || "Карта", note: "Visa, Mastercard", icon: CreditCard };
+      return { title: t("pay_with_yookassa_button"), icon: null };
     }
-    if (id.includes("platega") || id.includes("sbp")) {
-      return { title: method.name || "СБП", note: "Быстро и удобно", icon: Send };
+    if (id.includes("severpay")) {
+      return { title: t("pay_with_severpay_button"), icon: null };
     }
-    if (id.includes("crypto")) {
-      return { title: method.name || "Криптовалюта", note: "USDT, BTC, ETH", icon: WalletCards };
+    if (id.includes("freekassa")) {
+      return { title: t("pay_with_sbp_button"), icon: null };
+    }
+    if (id.includes("cryptopay")) {
+      return { title: t("pay_with_cryptopay_button"), icon: null };
     }
     if (id.includes("stars")) {
-      return { title: "Telegram Stars", note: "Оплата звездами", icon: Zap };
+      return { title: t("pay_with_stars_button"), icon: null };
     }
-    return { title: method.name || "Другие способы", note: "ЮMoney, СБП и др.", icon: WalletCards };
+    if (id.includes("sbp")) {
+      return { title: t("pay_with_sbp_button"), icon: null };
+    }
+    if (id.includes("crypto")) {
+      return { title: t("pay_with_cryptopay_button"), icon: null };
+    }
+    return { title: t("wa_method_other_title"), icon: null };
   }
 
   function formatMoney(value, currency = CFG.currency || "RUB") {
@@ -752,8 +1177,128 @@
   }
 
   function trafficLabel(sub) {
-    if (!sub?.traffic_limit_bytes || Number(sub.traffic_limit_bytes) <= 0) return "Безлимитный трафик";
-    return `${sub.traffic_used || "0 GB"} из ${sub.traffic_limit || "0 GB"}`;
+    if (!sub?.traffic_limit_bytes || Number(sub.traffic_limit_bytes) <= 0) return t("wa_unlimited_traffic");
+    return t("wa_traffic_of", { used: sub.traffic_used || "0 GB", limit: sub.traffic_limit || "0 GB" });
+  }
+
+  function trafficResetLabel(sub) {
+    const strategy = String(sub?.traffic_limit_strategy || "").trim().toUpperCase();
+    if (!strategy || strategy.includes("NO_RESET")) {
+      return t("wa_traffic_reset_none");
+    }
+    if (strategy.includes("MONTH")) {
+      return t("wa_traffic_reset_monthly");
+    }
+    if (strategy.includes("WEEK")) {
+      return t("wa_traffic_reset_weekly");
+    }
+    if (strategy.includes("DAY")) {
+      return t("wa_traffic_reset_daily");
+    }
+    if (strategy.includes("YEAR")) {
+      return t("wa_traffic_reset_yearly");
+    }
+    return t("wa_traffic_reset_policy");
+  }
+
+  function planDisplayTitle(plan) {
+    const months = Number(plan?.months || 0);
+    if (months === 12) {
+      return t("wa_plan_one_year");
+    }
+    return plan?.title || "";
+  }
+
+  function activeSubscriptionTermLabel(sub) {
+    const forever = isForeverSubscription(sub);
+    if (forever) return t("wa_sub_term_forever");
+
+    const days = Math.max(0, Number(sub?.days_left || 0));
+    if (!days) return t("wa_sub_term_value_unit", { value: "0", unit: termUnitLabel(0, "day") });
+
+    if (days < 30) {
+      return t("wa_sub_term_value_unit", { value: String(days), unit: termUnitLabel(days, "day") });
+    }
+
+    if (days < 365) {
+      const months = roundToHalf(days / 30);
+      return t("wa_sub_term_value_unit", {
+        value: formatFraction(months),
+        unit: termUnitLabel(months, "month"),
+      });
+    }
+
+    const years = roundToHalf(days / 365);
+    return t("wa_sub_term_value_unit", {
+      value: formatFraction(years),
+      unit: termUnitLabel(years, "year"),
+    });
+  }
+
+  function isForeverSubscription(sub) {
+    const raw = String(sub?.end_date_text || "").trim();
+    if (!raw) return false;
+    const year = extractYear(raw);
+    return year >= 2099;
+  }
+
+  function extractYear(text) {
+    const iso = text.match(/\b(\d{4})-\d{1,2}-\d{1,2}\b/);
+    if (iso) return Number(iso[1] || 0);
+    const dmy = text.match(/\b\d{1,2}\.\d{1,2}\.(\d{4})\b/);
+    if (dmy) return Number(dmy[1] || 0);
+    const any4 = text.match(/\b(\d{4})\b/);
+    if (any4) return Number(any4[1] || 0);
+    return 0;
+  }
+
+  function roundToHalf(value) {
+    return Math.round(Number(value || 0) * 2) / 2;
+  }
+
+  function formatFraction(value) {
+    const n = Number(value || 0);
+    if (Number.isInteger(n)) return String(n);
+    return n.toFixed(1);
+  }
+
+  function ruPlural(value, one, few, many) {
+    const n = Math.abs(Number(value || 0));
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return one;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+    return many;
+  }
+
+  function ruFractionAware(value, one, few, many) {
+    const n = Number(value || 0);
+    if (!Number.isInteger(n)) return few;
+    return ruPlural(n, one, few, many);
+  }
+
+  function unitPluralBucket(value) {
+    if (currentLang === "ru") {
+      const n = Number(value || 0);
+      if (!Number.isInteger(n)) {
+        const base = Math.floor(Math.abs(n));
+        const mod10 = base % 10;
+        const mod100 = base % 100;
+        return mod10 >= 1 && mod10 <= 4 && (mod100 < 11 || mod100 > 14) ? "few" : "many";
+      }
+      const abs = Math.abs(n);
+      const mod10 = abs % 10;
+      const mod100 = abs % 100;
+      if (mod10 === 1 && mod100 !== 11) return "one";
+      if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "few";
+      return "many";
+    }
+    return Number(value) === 1 ? "one" : "many";
+  }
+
+  function termUnitLabel(value, unit) {
+    const bucket = unitPluralBucket(value);
+    return t(`wa_sub_term_${unit}_${bucket}`);
   }
 
   function normalizedEmail(value) {
@@ -762,7 +1307,7 @@
 
   function languageName(code) {
     const key = String(code || "").trim().toLowerCase();
-    if (!key) return "Русский";
+    if (!key) return t("wa_language_default");
     return LANGUAGE_LABELS[key] || key.toUpperCase();
   }
 
@@ -772,7 +1317,7 @@
     if (first || last) return `${first} ${last}`.trim();
     const username = String(profile?.username || "").trim();
     if (username) return `@${username}`;
-    return "Telegram не привязан";
+    return t("wa_telegram_not_linked");
   }
 
   function bytesToHex(buffer) {
@@ -795,42 +1340,39 @@
     }
   }
 
-  function tariffIcon(id) {
-    if (id === "traffic") return Database;
-    if (id === "premium") return Crown;
-    return Zap;
-  }
 </script>
 
 <svelte:head>
   <title>{brandTitle}</title>
 </svelte:head>
 
-{#if isPreviewBoard}
-  <PreviewBoard config={CFG} mockData={DEV_MOCK.data} />
-{:else}
-  <div class="app-shell" style={`--accent: ${accent};`}>
-    {#if mode === "loading"}
-      <div class="loader">
-        <div class="brand-mark brand-mark-lg">
-          {#if CFG.logoUrl}
-            <img src={CFG.logoUrl} alt="" />
-          {:else}
-            <span>{brandEmoji}</span>
-          {/if}
+<Tooltip.Provider>
+  {#key currentLang}
+    {#if isPreviewBoard}
+      <PreviewBoard config={CFG} mockData={DEV_MOCK.data} />
+    {:else}
+      <div class="app-shell" style={`--accent: ${accent};`}>
+      {#if mode === "loading"}
+        <div class="loader">
+          <div class="brand-mark brand-mark-lg">
+            {#if CFG.logoUrl}
+              <img src={CFG.logoUrl} alt="" />
+            {:else}
+              <span>{brandEmoji}</span>
+            {/if}
+          </div>
+          <div>{t("wa_loading")}</div>
         </div>
-        <div>Загрузка...</div>
-      </div>
-    {:else if mode === "login"}
+      {:else if mode === "login"}
       <div class="phone-screen auth-screen">
         {#if screen === "code"}
           <header class="screen-head center-title">
-            <Button variant="icon" size="icon" onclick={() => (screen = "login")} aria-label="Назад">
+            <Button variant="icon" size="icon" onclick={() => (screen = "login")} aria-label={t("wa_back")}>
               <ArrowLeft size={19} />
             </Button>
             <div>
-              <h1>Подтверждение по email</h1>
-              <p>Мы отправили код на <strong>{pendingEmail}</strong></p>
+              <h1>{t("wa_email_verification_title")}</h1>
+              <p>{t("wa_email_sent_to", { email: pendingEmail })}</p>
             </div>
             <span></span>
           </header>
@@ -841,7 +1383,7 @@
                 inputmode="numeric"
                 autocomplete="one-time-code"
                 maxlength="6"
-                aria-label="Код подтверждения"
+                aria-label={t("wa_email_code_aria")}
               />
               <span class="otp-slots" aria-hidden="true">
                 {#each Array.from({ length: 6 }) as _, index}
@@ -850,19 +1392,24 @@
               </span>
             </label>
             <Button class="wide" onclick={verifyEmailCode} disabled={authBusy}>
-              Подтвердить
+              {t("wa_confirm")}
             </Button>
             {#if authStatus}
               <div class:error={authIsError} class="status-line">{authStatus}</div>
             {/if}
-            <button class="link-button" type="button" on:click={requestEmailCode} disabled={authBusy}>
+            <button
+              class="link-button"
+              type="button"
+              on:click={requestEmailCode}
+              disabled={authBusy || authResendCooldown > 0}
+            >
               <RefreshCw size={15} />
-              Отправить код повторно
+              {authResendCooldown > 0 ? t("wa_auth_resend_wait", { seconds: authResendCooldown }) : t("wa_resend_code")}
             </button>
           </div>
         {:else}
           <div class="auth-card-wrap">
-            <div class="login-brand">
+            <div class="login-brand login-brand-auth">
               <div class="brand-mark brand-mark-xl">
                 {#if CFG.logoUrl}
                   <img src={CFG.logoUrl} alt="" />
@@ -871,48 +1418,89 @@
                 {/if}
               </div>
               <h1>{brandTitle}</h1>
-              <p>Войдите в свой аккаунт</p>
             </div>
             <Card class="auth-card">
-              <div class="segmented">
-                <button class:active={authMode === "email"} type="button" on:click={() => (authMode = "email")}>
-                  Email
-                </button>
-                <button class:active={authMode === "telegram"} type="button" on:click={openTelegramLogin}>
-                  Telegram
-                </button>
-              </div>
-              {#if authMode === "email"}
+              {#if CFG.emailAuthEnabled !== false}
                 <div class="auth-pane">
-                  <div class="field-label">Вход по email</div>
-                  <div class="email-row">
-                    <Input bind:value={email} type="email" placeholder="Email" autocomplete="email" />
-                    <Button variant="outline" onclick={requestEmailCode} disabled={authBusy}>
+                  <div class="auth-email-stack">
+                    <div class="field-error-wrap">
+                      <Tooltip.Root open={Boolean(loginEmailFieldError) && loginEmailTooltipOpen}>
+                        <Input
+                          bind:value={email}
+                          type="email"
+                          placeholder={t("wa_email_placeholder")}
+                          autocomplete="email"
+                          class={loginEmailFieldError ? "input-error" : ""}
+                          on:keydown={submitEmailOnEnter}
+                          on:input={() => {
+                            loginEmailFieldError = "";
+                            loginEmailTooltipOpen = false;
+                          }}
+                        />
+                        {#if loginEmailFieldError}
+                          <Tooltip.Trigger class="field-error-trigger" aria-label={loginEmailFieldError}>
+                            <span class="field-error-icon" aria-hidden="true"><TriangleAlert size={18} /></span>
+                          </Tooltip.Trigger>
+                        {/if}
+                        {#if loginEmailFieldError}
+                          <Tooltip.Portal>
+                            <Tooltip.Content class="field-error-tooltip">{loginEmailFieldError}</Tooltip.Content>
+                          </Tooltip.Portal>
+                        {/if}
+                      </Tooltip.Root>
+                    </div>
+                    <Button class="wide" onclick={requestEmailCode} disabled={authBusy}>
                       <Mail size={18} />
-                      Код
+                      {t("wa_send_code_email")}
                     </Button>
                   </div>
                 </div>
-              {:else}
-                <div class="auth-pane">
-                  <div class="field-label">Вход через Telegram</div>
-                  {#if tg?.initData}
-                    <Button variant="telegram" onclick={openTelegramLogin} disabled={authBusy}>
-                      <Send size={19} />
-                      Войти через Telegram
-                    </Button>
-                  {:else}
-                    <div class="telegram-widget" bind:this={loginTelegramNode}></div>
-                  {/if}
-                </div>
               {/if}
+              {#if CFG.emailAuthEnabled !== false}
+                <div class="or-line"><span></span>{t("wa_or")}<span></span></div>
+              {/if}
+              <div class="auth-pane">
+                <Button variant="telegram" class="wide telegram-login-button" onclick={openTelegramLogin} disabled={authBusy}>
+                  <span class="telegram-login-text">
+                    <Send size={17} />
+                    {t("wa_login_telegram_button")}
+                  </span>
+                </Button>
+              </div>
               {#if authStatus}
-                <div class:error={authIsError} class="status-line">{authStatus}</div>
+                <div class:error={authIsError} class="status-line auth-login-status">{authStatus}</div>
               {/if}
             </Card>
-            <div class="auth-bottom">
-              Нет аккаунта? <strong>Создать</strong>
-            </div>
+            {#if userAgreementUrl || privacyPolicyUrl}
+              <div class="auth-legal">
+                <span class="auth-legal-intro">{t("wa_auth_legal_intro")}</span>
+                <div class="auth-legal-links">
+                  {#if privacyPolicyUrl}
+                    <a
+                      href={privacyPolicyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      on:click|preventDefault={() => openExternalLink(privacyPolicyUrl)}
+                    >
+                      {t("wa_auth_legal_privacy")}
+                    </a>
+                  {/if}
+                  {#if privacyPolicyUrl && userAgreementUrl}
+                    <span>{t("wa_auth_legal_and")}</span>
+                  {/if}
+                  {#if userAgreementUrl}
+                    <a
+                      href={userAgreementUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      on:click|preventDefault={() => openExternalLink(userAgreementUrl)}
+                    >
+                      {t("wa_auth_legal_agreement")}
+                    </a>
+                  {/if}
+                </div>
+              </div>
+            {/if}
           </div>
         {/if}
       </div>
@@ -947,269 +1535,125 @@
             </div>
 
             <div class="home-bottom">
-              <Card class="status-card">
-                <div class="sub-status">
-                  <CheckCircle2 size={23} />
-                  <div>
-                    <h2>{subscription.active ? "Подписка активна" : "Подписка не активна"}</h2>
-                    <p>{subscription.end_date_text ? `до ${subscription.end_date_text}` : subscription.remaining_text}</p>
+              <Card class={`status-card${subscription.active ? "" : " status-card-inactive"}`}>
+                {#if subscription.active}
+                  <div class="sub-status">
+                    <CheckCircle2 size={23} />
+                    <div>
+                      <h2>{t("wa_home_subscription_active")} | {activeSubscriptionTermLabel(subscription)}</h2>
+                      <p>{subscription.end_date_text ? t("wa_until_date", { date: subscription.end_date_text }) : subscription.remaining_text}</p>
+                    </div>
                   </div>
-                </div>
+                {:else}
+                  <div class="sub-status sub-status-inactive">
+                    <CircleX size={23} />
+                    <h2>{t("wa_home_subscription_inactive")}</h2>
+                  </div>
+                {/if}
               </Card>
 
-              <Card>
-                <div class="traffic-top">
-                  <span>Использовано трафика</span>
-                  <strong>{trafficLabel(subscription)}</strong>
-                </div>
-                <div class="progress">
-                  <span style={`width: ${trafficPercent(subscription)}%`}></span>
-                </div>
-                <div class="traffic-percent">{trafficPercent(subscription)}%</div>
-              </Card>
+              {#if subscription.active}
+                <Card>
+                  <div class="traffic-top">
+                    <span>{t("wa_home_traffic_used")}</span>
+                    <strong>{trafficLabel(subscription)}</strong>
+                  </div>
+                  <div class="progress">
+                    <span style={`width: ${trafficPercent(subscription)}%`}></span>
+                  </div>
+                  <div class="traffic-meta">
+                    <span>{trafficResetLabel(subscription)}</span>
+                    <span class="traffic-percent">{trafficPercent(subscription)}%</span>
+                  </div>
+                </Card>
+              {/if}
 
               <div class="action-stack">
-                <Button class="wide" onclick={openConnectLink}>
-                  <Download size={18} />
-                  Установить и настроить
-                </Button>
-                <Button variant="secondary" class="wide" onclick={() => (screen = "payment")}>
-                  <RefreshCw size={18} />
-                  Продлить
-                </Button>
-                <Button variant="secondary" class="wide" onclick={() => (screen = "change-tariff")}>
-                  <Repeat2 size={18} />
-                  Сменить тариф
+                <Button class="wide" onclick={openPaymentModal}>
+                  {#if subscription.active}
+                    <RefreshCw size={18} />
+                  {/if}
+                  {subscription.active ? t("wa_renew") : t("wa_pay_subscription")}
                 </Button>
               </div>
             </div>
-          </main>
-        {:else if screen === "tariff-select"}
-          <main class="content">
-            <header class="screen-head">
-              <Button variant="icon" size="icon" onclick={goHome} aria-label="Назад">
-                <ArrowLeft size={19} />
-              </Button>
-              <div class="center-copy">
-                <h1>Выбор тарифа</h1>
-                <p>Экраны тарифов пока сверстаны без подключения</p>
-              </div>
-              <span></span>
-            </header>
-            <div class="tariff-list">
-              {#each demoTariffs as tariff}
-                <button
-                  class:active={selectedTariff === tariff.id}
-                  class="select-card"
-                  type="button"
-                  on:click={() => (selectedTariff = tariff.id)}
-                >
-                  <span class="select-icon">
-                    <svelte:component this={tariffIcon(tariff.id)} size={25} />
-                  </span>
-                  <span>
-                    <strong>{tariff.title}</strong>
-                    <small>{tariff.caption}</small>
-                    <em>{tariff.details}</em>
-                  </span>
-                  {#if selectedTariff === tariff.id}
-                    <CheckCircle2 size={22} />
-                  {:else}
-                    <Circle size={22} />
-                  {/if}
-                </button>
-              {/each}
-            </div>
-            <Button class="wide bottom-action" onclick={() => showToast("Тарифы пока не подключены")}>
-              Далее
-              <ArrowRight size={18} />
-            </Button>
-          </main>
-        {:else if screen === "payment"}
-          <main class="content">
-            <header class="screen-head">
-              <Button variant="icon" size="icon" onclick={goHome} aria-label="Назад">
-                <ArrowLeft size={19} />
-              </Button>
-              <div class="center-copy">
-                <h1>Подписка</h1>
-                <p>Выберите срок подписки</p>
-              </div>
-              <span></span>
-            </header>
-            <div class="period-grid">
-              {#each plans as plan}
-                <button
-                  class:active={selectedPlan?.months === plan.months}
-                  class="period-card"
-                  type="button"
-                  on:click={() => (selectedPlan = plan)}
-                >
-                  <strong>{plan.title}</strong>
-                  <span>{formatMoney(plan.price, plan.currency)}</span>
-                  {#if plan.months > 1}
-                    <small>{formatMoney(plan.price / plan.months, plan.currency)}/мес</small>
-                  {/if}
-                  {#if selectedPlan?.months === plan.months}
-                    <CheckCircle2 size={18} />
-                  {/if}
-                </button>
-              {/each}
-            </div>
-            <Card class="total-card">
-              <span>Итого<br /><small>К оплате</small></span>
-              <strong>{selectedPlan ? formatMoney(selectedPlan.price, selectedPlan.currency) : "..."}</strong>
-            </Card>
-            <div class="method-grid">
-              {#if methods.length}
-                {#each methods as method}
-                  {@const meta = methodMeta(method)}
-                  <button
-                    class:active={selectedMethod === method.id}
-                    class="method-card"
-                    type="button"
-                    on:click={() => (selectedMethod = method.id)}
-                  >
-                    <svelte:component this={meta.icon} size={19} />
-                    <span>
-                      <strong>{meta.title}</strong>
-                      <small>{meta.note}</small>
-                    </span>
-                  </button>
-                {/each}
-              {:else}
-                <Card class="empty-card">Способы оплаты пока не настроены</Card>
-              {/if}
-            </div>
-            <Button class="wide bottom-action" onclick={createPayment} disabled={!methods.length || payBusy}>
-              Оплатить {selectedPlan ? formatMoney(selectedPlan.price, selectedPlan.currency) : ""}
-              <LockKeyhole size={17} />
-            </Button>
-          </main>
-        {:else if screen === "traffic-payment"}
-          <main class="content">
-            <header class="screen-head">
-              <Button variant="icon" size="icon" onclick={goHome} aria-label="Назад">
-                <ArrowLeft size={19} />
-              </Button>
-              <div class="center-copy">
-                <h1>Трафик</h1>
-                <p>Выберите пакет трафика</p>
-              </div>
-              <span></span>
-            </header>
-            <div class="period-grid">
-              {#each trafficPackages as pack}
-                <button
-                  class:active={selectedTrafficPackage.gb === pack.gb}
-                  class="period-card"
-                  type="button"
-                  on:click={() => (selectedTrafficPackage = pack)}
-                >
-                  <strong>{pack.gb} ГБ</strong>
-                  <span>{formatMoney(pack.price)}</span>
-                  <small>{formatMoney(pack.price / pack.gb)}/ГБ</small>
-                  {#if selectedTrafficPackage.gb === pack.gb}
-                    <CheckCircle2 size={18} />
-                  {/if}
-                </button>
-              {/each}
-            </div>
-            <Card class="total-card">
-              <span>Итого<br /><small>К оплате</small></span>
-              <strong>{formatMoney(selectedTrafficPackage.price)}</strong>
-            </Card>
-            <div class="method-grid">
-              {#each DEV_MOCK.data.payment_methods as method}
-                {@const meta = methodMeta(method)}
-                <button class="method-card" type="button">
-                  <svelte:component this={meta.icon} size={19} />
-                  <span>
-                    <strong>{meta.title}</strong>
-                    <small>{meta.note}</small>
-                  </span>
-                </button>
-              {/each}
-            </div>
-            <Button class="wide bottom-action" onclick={() => showToast("Пакеты трафика пока не подключены")}>
-              Оплатить {formatMoney(selectedTrafficPackage.price)}
-              <LockKeyhole size={17} />
-            </Button>
-          </main>
-        {:else if screen === "change-tariff"}
-          <main class="content">
-            <header class="screen-head">
-              <Button variant="icon" size="icon" onclick={goHome} aria-label="Назад">
-                <ArrowLeft size={19} />
-              </Button>
-              <div class="center-copy">
-                <h1>Смена тарифа</h1>
-                <p>Остаток 12 дней будет пересчитан</p>
-              </div>
-              <span></span>
-            </header>
-            <div class="tariff-list compact">
-              {#each changeTariffs as tariff}
-                <button
-                  class:active={selectedChangeTariff === tariff.id}
-                  class="select-card"
-                  type="button"
-                  on:click={() => (selectedChangeTariff = tariff.id)}
-                >
-                  <span>
-                    <strong>{tariff.title}</strong>
-                    <small>{tariff.caption}</small>
-                  </span>
-                  <em>{tariff.recalculation}</em>
-                  {#if selectedChangeTariff === tariff.id}
-                    <CheckCircle2 size={20} />
-                  {:else}
-                    <Circle size={20} />
-                  {/if}
-                </button>
-              {/each}
-            </div>
-            <Button
-              class="wide bottom-action"
-              onclick={() =>
-                selectedChangeTariff === "traffic"
-                  ? (confirmTariffOpen = true)
-                  : showToast("Оплата смены тарифа пока не подключена")}
-            >
-              Далее
-              <ArrowRight size={18} />
-            </Button>
           </main>
         {:else if screen === "invite"}
           <main class="content with-nav">
-            <Card>
-              <div class="card-label">Ваша реферальная ссылка</div>
-              <div class="copy-row">
-                <code>{referral.webapp_link || referral.bot_link || "Ссылка пока недоступна"}</code>
-                <Button onclick={() => copyText(referral.webapp_link || referral.bot_link, "Ссылка скопирована")}>
-                  Копировать
-                  <Copy size={17} />
-                </Button>
-              </div>
-            </Card>
             <Card class="bonus-card">
-              <Gift size={42} />
-              <div>
-                <span>Ваш бонус</span>
-                <strong>+7 дней за каждого друга</strong>
-                <p>Друг получит +3 дня к подписке после регистрации.</p>
+              <div class="bonus-card-head">
+                <Gift size={42} />
+                <div>
+                  <strong>{t("wa_referral_bonus_overview_title")}</strong>
+                  {#if referralOneBonusPerReferee}
+                    <p>{t("wa_referral_bonus_once_note")}</p>
+                  {/if}
+                </div>
               </div>
+              <div>
+                <h3 class="card-heading">{t("wa_referral_link_title")}</h3>
+                <div class="copy-row referral-copy-row">
+                  <code>{referral.webapp_link || referral.bot_link || t("wa_link_unavailable")}</code>
+                  <Button class="referral-copy-button" onclick={() => copyText(referral.webapp_link || referral.bot_link, t("wa_link_copied"))}>
+                    {t("wa_copy")}
+                    <Copy size={17} />
+                  </Button>
+                </div>
+              </div>
+              {#if referralBonusDetails.length || referralWelcomeBonusDays > 0}
+                <div class="referral-bonus-list">
+                  {#if referralWelcomeBonusDays > 0}
+                    <div class="referral-bonus-row">
+                      <strong>{t("wa_referral_bonus_registration_title")}</strong>
+                      <small>{t("wa_referral_bonus_friend_days", { days: referralWelcomeBonusDays })}</small>
+                    </div>
+                  {/if}
+                  {#if referralBonusDetails.length}
+                    <p class="referral-bonus-intro">{t("wa_referral_bonus_paid_intro")}</p>
+                  {/if}
+                  {#each referralBonusDetails as bonus, index (bonus.months || index)}
+                    <div class="referral-bonus-row">
+                      <strong>{bonus.title || `${bonus.months || "?"}`}</strong>
+                      <small>{t("wa_referral_bonus_you_days", { days: Number(bonus.inviter_days || 0) })}</small>
+                      <small>{t("wa_referral_bonus_friend_days", { days: Number(bonus.friend_days || 0) })}</small>
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <p class="status-line">{t("wa_referral_bonus_not_configured")}</p>
+              {/if}
             </Card>
             <Card>
-              <div class="card-label">Промокод</div>
+              <h3 class="card-heading card-heading-accent promo-heading">
+                <Ticket size={18} />
+                <span>{t("wa_activate_promo_title")}</span>
+              </h3>
               <div class="copy-row">
-                <Input bind:value={promoCode} placeholder="PROMO2026" />
+                <div class="field-error-wrap">
+                  <Tooltip.Root open={Boolean(promoFieldError)}>
+                    <Input
+                      bind:value={promoCode}
+                      placeholder="PROMO2026"
+                      class={promoFieldError ? "input-error" : ""}
+                      on:input={() => (promoFieldError = "")}
+                    />
+                    {#if promoFieldError}
+                      <Tooltip.Trigger class="field-error-trigger" aria-label={promoFieldError}>
+                        <span class="field-error-icon" aria-hidden="true"><TriangleAlert size={18} /></span>
+                      </Tooltip.Trigger>
+                    {/if}
+                    {#if promoFieldError}
+                      <Tooltip.Portal>
+                        <Tooltip.Content class="field-error-tooltip">{promoFieldError}</Tooltip.Content>
+                      </Tooltip.Portal>
+                    {/if}
+                  </Tooltip.Root>
+                </div>
                 <Button variant="outline" onclick={applyPromo} disabled={promoBusy}>
-                  <Ticket size={17} />
-                  Активировать
+                  {t("wa_activate")}
                 </Button>
               </div>
-              {#if promoStatus}
+              {#if promoStatus && !(promoIsError && promoFieldError)}
                 <p class:error={promoIsError} class="status-line">{promoStatus}</p>
               {/if}
             </Card>
@@ -1219,7 +1663,7 @@
             <Card class="settings-profile">
               <div class="settings-avatar">
                 {#if profileAvatarUrl}
-                  <img src={profileAvatarUrl} alt="Аватар пользователя" loading="lazy" referrerpolicy="no-referrer" />
+                  <img src={profileAvatarUrl} alt={t("wa_settings_avatar_alt")} loading="lazy" referrerpolicy="no-referrer" />
                 {:else}
                   <UserRound size={30} />
                 {/if}
@@ -1230,25 +1674,108 @@
                 <small>{profileTelegramId}</small>
               </div>
             </Card>
+            <div class="settings-links-block">
+              <div class="settings-divider" aria-hidden="true"></div>
+              {#if user?.telegram_linked}
+                <div class="settings-row settings-row-linked">
+                  <CheckCircle2 size={21} />
+                  <span>
+                    <strong>{t("wa_settings_telegram_linked_title")}</strong>
+                    <small>{profileTelegramId}</small>
+                  </span>
+                </div>
+              {:else}
+                <Button
+                  variant="telegram"
+                  class="wide settings-telegram-link-btn attention-wrap"
+                  onclick={linkTelegramAccount}
+                  disabled={linkTelegramBusy}
+                >
+                  <span class="attention-dot" aria-hidden="true"></span>
+                  <Send size={18} />
+                  {t("wa_settings_link_telegram_action")}
+                </Button>
+              {/if}
+              {#if user?.email}
+                <div class="settings-row settings-row-linked">
+                  <CheckCircle2 size={21} />
+                  <span>
+                    <strong>{t("wa_settings_email_linked_title")}</strong>
+                    <small>{user?.email}</small>
+                  </span>
+                </div>
+              {:else}
+                <button class="settings-row attention-wrap" type="button" on:click={openLinkEmailDialog} disabled={linkEmailBusy}>
+                  <span class="attention-dot" aria-hidden="true"></span>
+                  <Mail size={21} />
+                  <span>
+                    <strong>{t("wa_settings_link_email_action")}</strong>
+                    <small>{emailLinkStatus}</small>
+                  </span>
+                  <ArrowRight size={17} />
+                </button>
+              {/if}
+              <div class="settings-divider" aria-hidden="true"></div>
+            </div>
             <div class="settings-list">
-              <button class="settings-row" type="button">
+              <div class="settings-row settings-row-language">
                 <Globe2 size={21} />
-                <span><strong>Выбор языка</strong><small>{userLanguage}</small></span>
-                <ArrowRight size={17} />
-              </button>
-              <button class="settings-row" type="button">
-                <Send size={21} />
-                <span><strong>Привязка Telegram</strong><small>{user.telegram_linked ? `@${user.username || "username"}` : "Не привязан"}</small></span>
-                <ArrowRight size={17} />
-              </button>
-              <button class="settings-row" type="button">
-                <Mail size={21} />
-                <span><strong>Привязка почты</strong><small>{user.email || "Не привязана"}</small></span>
-                <ArrowRight size={17} />
-              </button>
+                <Select.Root
+                  type="single"
+                  value={currentLang}
+                  items={languageOptions}
+                  disabled={languageBusy}
+                  onValueChange={updateAccountLanguage}
+                >
+                  <Select.Trigger class="language-select-trigger" aria-label={t("wa_settings_language")}>
+                    <span class="language-select-copy">
+                      <strong>{t("wa_settings_language")}</strong>
+                      <small class="language-select-current">
+                        <span class="emoji-flag" aria-hidden="true">{currentLanguageOption?.flag || "🏳️"}</span>
+                        {currentLanguageOption?.label || userLanguage}
+                      </small>
+                    </span>
+                    <ChevronsUpDown size={16} />
+                  </Select.Trigger>
+                  <Select.Content class="language-select-content" side="bottom" align="end" sideOffset={6}>
+                    <Select.Viewport class="language-select-viewport">
+                      {#each languageOptions as option (option.value)}
+                        <Select.Item value={option.value} label={option.label} class="language-select-item">
+                          <span class="language-select-item-main">
+                            <span class="emoji-flag" aria-hidden="true">{option.flag}</span>
+                            <span>{option.label}</span>
+                          </span>
+                          <Check size={15} class="language-select-item-check" />
+                        </Select.Item>
+                      {/each}
+                    </Select.Viewport>
+                  </Select.Content>
+                </Select.Root>
+              </div>
+              {#if supportUrl}
+                <button class="settings-row" type="button" on:click={() => openExternalLink(supportUrl)}>
+                  <Send size={21} />
+                  <span><strong>{t("menu_support_button")}</strong></span>
+                  <ArrowRight size={17} />
+                </button>
+              {/if}
+              {#if userAgreementUrl}
+                <button class="settings-row" type="button" on:click={() => openExternalLink(userAgreementUrl)}>
+                  <FileText size={21} />
+                  <span><strong>{t("wa_settings_user_agreement")}</strong></span>
+                  <ArrowRight size={17} />
+                </button>
+              {/if}
+              {#if privacyPolicyUrl}
+                <button class="settings-row" type="button" on:click={() => openExternalLink(privacyPolicyUrl)}>
+                  <Shield size={21} />
+                  <span><strong>{t("wa_settings_privacy_policy")}</strong></span>
+                  <ArrowRight size={17} />
+                </button>
+              {/if}
               <button class="settings-row" type="button" on:click={logout}>
                 <UserRound size={21} />
-                <span><strong>Выйти</strong><small>Завершить сессию</small></span>
+                <span><strong>{t("wa_logout")}</strong><small>{t("wa_end_session")}</small></span>
                 <ArrowRight size={17} />
               </button>
             </div>
@@ -1256,45 +1783,165 @@
         {/if}
 
         {#if screen === "home" || screen === "invite" || screen === "settings"}
-          <nav class="bottom-nav" aria-label="Навигация">
+          <nav class="bottom-nav" aria-label={t("wa_navigation")}>
             <button class:active={activeTab === "home"} type="button" on:click={goHome}>
               <Home size={21} />
-              <span>Главная</span>
+              <span>{t("wa_nav_home")}</span>
             </button>
             <button class:active={activeTab === "invite"} type="button" on:click={goInvite}>
               <Gift size={21} />
-              <span>Пригласить</span>
+              <span>{t("wa_nav_bonuses")}</span>
             </button>
-            <button class:active={activeTab === "settings"} type="button" on:click={goSettings}>
+            <button class:active={activeTab === "settings"} class="attention-wrap" type="button" on:click={goSettings}>
+              {#if hasUnlinkedIdentity}
+                <span class="attention-dot nav-attention-dot" aria-hidden="true"></span>
+              {/if}
               <SettingsIcon size={21} />
-              <span>Настройки</span>
+              <span>{t("wa_nav_settings")}</span>
             </button>
           </nav>
         {/if}
       </div>
-    {/if}
 
-    <Dialog
-      open={confirmTariffOpen}
-      title="Сменить тариф без доплаты?"
-      description="Остаток 12 дней будет пересчитан по новому тарифу."
-      onclose={() => (confirmTariffOpen = false)}
-    >
-      <div class="dialog-actions">
-        <Button
-          onclick={() => {
-            confirmTariffOpen = false;
-            showToast("Смена тарифа пока не подключена");
-          }}
-        >
-          Да, сменить
-        </Button>
-        <Button variant="secondary" onclick={() => (confirmTariffOpen = false)}>Отмена</Button>
-      </div>
-    </Dialog>
+      <Dialog
+        open={paymentModalOpen}
+        title={t("wa_subscription_title")}
+        description={t("wa_subscription_choose_period")}
+        closeLabel={t("wa_close")}
+        onclose={closePaymentModal}
+        class="payment-dialog-card"
+      >
+        <div class="payment-dialog-body">
+          <div class="period-grid period-grid-two-columns">
+            {#each plans as plan}
+              <button
+                class:active={selectedPlan?.months === plan.months}
+                class="period-card"
+                type="button"
+                on:click={() => (selectedPlan = plan)}
+              >
+                <strong>{planDisplayTitle(plan)}</strong>
+                <span>{formatMoney(plan.price, plan.currency)}</span>
+                {#if plan.months > 1}
+                  <small>{formatMoney(plan.price / plan.months, plan.currency)}{t("wa_per_month_short")}</small>
+                {/if}
+                {#if selectedPlan?.months === plan.months}
+                  <CheckCircle2 size={18} />
+                {/if}
+              </button>
+            {/each}
+          </div>
+          <div class="payment-divider" aria-hidden="true"></div>
+          <div class="method-grid">
+            {#if methods.length}
+              {#each methods as method}
+                {@const meta = methodMeta(method)}
+                <button
+                  class:active={selectedMethod === method.id}
+                  class="method-card"
+                  type="button"
+                  on:click={() => (selectedMethod = method.id)}
+                >
+                  <span class="method-card-main">
+                    {#if meta.icon}
+                      <svelte:component this={meta.icon} size={19} />
+                    {/if}
+                    <strong>{meta.title}</strong>
+                  </span>
+                </button>
+              {/each}
+            {:else}
+              <Card class="empty-card">{t("wa_payment_methods_not_configured")}</Card>
+            {/if}
+          </div>
+          <Button class="wide bottom-action payment-submit-button" onclick={createPayment} disabled={!methods.length || payBusy}>
+            {t("wa_pay")} {selectedPlan ? formatMoney(selectedPlan.price, selectedPlan.currency) : ""}
+            <LockKeyhole size={17} />
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={linkEmailOpen}
+        title={t("wa_link_email_modal_title")}
+        description={linkEmailPending ? t("wa_email_sent_to", { email: linkEmailPending }) : t("wa_link_email_modal_desc")}
+        closeLabel={t("wa_close")}
+        onclose={closeLinkEmailDialog}
+        class="payment-dialog-card link-email-dialog-card"
+      >
+        <div class="payment-dialog-body">
+          {#if !linkEmailPending}
+            <div class="field-error-wrap">
+              <Tooltip.Root open={Boolean(linkEmailFieldError)}>
+                <Input
+                  bind:value={linkEmailValue}
+                  type="email"
+                  placeholder={t("wa_email_placeholder")}
+                  autocomplete="email"
+                  class={linkEmailFieldError ? "input-error" : ""}
+                  on:input={() => (linkEmailFieldError = "")}
+                />
+                {#if linkEmailFieldError}
+                  <Tooltip.Trigger class="field-error-trigger" aria-label={linkEmailFieldError}>
+                    <span class="field-error-icon" aria-hidden="true"><TriangleAlert size={18} /></span>
+                  </Tooltip.Trigger>
+                {/if}
+                {#if linkEmailFieldError}
+                  <Tooltip.Portal>
+                    <Tooltip.Content class="field-error-tooltip">{linkEmailFieldError}</Tooltip.Content>
+                  </Tooltip.Portal>
+                {/if}
+              </Tooltip.Root>
+            </div>
+            <Button class="wide bottom-action payment-submit-button" onclick={requestLinkEmailCode} disabled={linkEmailBusy}>
+              {t("wa_send_code_email")}
+            </Button>
+          {:else}
+            <div class="link-email-code-layout">
+              <div class="otp-wrap link-email-code-center">
+                <label class="otp-input-wrap">
+                  <input
+                    bind:value={linkEmailCode}
+                    inputmode="numeric"
+                    autocomplete="one-time-code"
+                    maxlength="6"
+                    aria-label={t("wa_email_code_aria")}
+                  />
+                  <span class="otp-slots" aria-hidden="true">
+                    {#each Array.from({ length: 6 }) as _, index}
+                      <span class:filled={linkEmailCode[index]}>{linkEmailCode[index] || ""}</span>
+                    {/each}
+                  </span>
+                </label>
+                <Button class="wide bottom-action payment-submit-button" onclick={verifyLinkEmailCode} disabled={linkEmailBusy}>
+                  {t("wa_confirm")}
+                </Button>
+              </div>
+              <button
+                class="link-button link-email-resend"
+                type="button"
+                on:click={requestLinkEmailCode}
+                disabled={linkEmailBusy || linkEmailResendCooldown > 0}
+              >
+                <RefreshCw size={15} />
+                {linkEmailResendCooldown > 0
+                  ? t("wa_auth_resend_wait", { seconds: linkEmailResendCooldown })
+                  : t("wa_resend_code")}
+              </button>
+            </div>
+          {/if}
+          {#if linkEmailStatus}
+            <p class:error={linkEmailIsError} class="status-line">{linkEmailStatus}</p>
+          {/if}
+        </div>
+      </Dialog>
+    {/if}
 
     {#if toastText}
       <div class="toast" role="status">{toastText}</div>
+      {/if}
+      </div>
     {/if}
-  </div>
-{/if}
+  {/key}
+</Tooltip.Provider>
+

@@ -37,9 +37,12 @@ COPY . .
 
 # Replace template assets with freshly built ones
 RUN rm -f bot/app/web/templates/subscription_webapp.css \
+          bot/app/web/templates/subscription_webapp.js \
           bot/app/web/templates/subscription_webapp.min.*.js
 COPY --from=webapp-builder /webapp/bot/app/web/templates/subscription_webapp.css \
                            bot/app/web/templates/subscription_webapp.css
+COPY --from=webapp-builder /webapp/bot/app/web/templates/subscription_webapp.js \
+                           bot/app/web/templates/subscription_webapp.js
 COPY --from=webapp-builder /webapp/bot/app/web/templates/subscription_webapp.min.*.js \
                            bot/app/web/templates/
 

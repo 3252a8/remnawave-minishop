@@ -103,6 +103,12 @@ class WebAppPaymentCreatePayload(BaseModel):
     comment: Optional[constr(max_length=4096)] = None
     note: Optional[constr(max_length=4096)] = None
 
+
+class WebAppLanguagePayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    language: constr(min_length=2, max_length=16)
+
 _SHARED_HTTP_SESSION: Optional[ClientSession] = None
 _SHARED_HTTP_SESSION_LOCK = asyncio.Lock()
 
@@ -157,6 +163,9 @@ def create_subscription_webapp_application(
 
 def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/", index_route)
+    app.router.add_get("/home", index_route)
+    app.router.add_get("/invite", index_route)
+    app.router.add_get("/settings", index_route)
     app.router.add_get("/health", health_route)
     app.router.add_get(WEBAPP_LOGO_PROXY_PATH, webapp_logo_route)
     app.router.add_get("/subscription_webapp.css", css_asset_route)
@@ -168,6 +177,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/auth/email/magic", email_auth_magic_route)
     app.router.add_post("/api/auth/logout", logout_route)
     app.router.add_get("/api/me", me_route)
+    app.router.add_post("/api/account/language", account_language_route)
     app.router.add_post("/api/account/email/request", account_email_request_route)
     app.router.add_post("/api/account/email/verify", account_email_verify_route)
     app.router.add_post("/api/account/telegram/link", account_telegram_link_route)
@@ -190,9 +200,21 @@ def _resolve_webapp_logo_url(settings: Settings) -> str:
         return ""
 
     parsed_logo_url = urlsplit(raw_logo_url)
-    if parsed_logo_url.scheme == "https" and parsed_logo_url.hostname:
-        return WEBAPP_LOGO_PROXY_PATH
+    if parsed_logo_url.scheme in {"https", "http", "data"}:
+        return raw_logo_url
+    if raw_logo_url.startswith("/"):
+        return raw_logo_url
     return ""
+
+
+def _resolve_telegram_bot_id(bot_token: str) -> Optional[int]:
+    token_prefix = str(bot_token or "").strip().split(":", 1)[0]
+    if not token_prefix.isdigit():
+        return None
+    try:
+        return int(token_prefix)
+    except ValueError:
+        return None
 
 
 async def webapp_logo_route(request: web.Request) -> web.Response:
@@ -353,7 +375,7 @@ async def _security_headers_middleware(request: web.Request, handler):
             "frame-ancestors https://web.telegram.org https://t.me; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; "
-            "img-src 'self' data: https:; "
+            "img-src 'self' data: https: http:; "
             "connect-src 'self'; "
             "object-src 'none'; "
             "base-uri 'self'; "
@@ -492,6 +514,7 @@ async def index_route(request: web.Request) -> web.Response:
         "logoEmoji": settings.WEBAPP_LOGO_EMOJI,
         "apiBase": "/api",
         "telegramLoginBotUsername": request.app.get("bot_username") or "",
+        "telegramLoginBotId": _resolve_telegram_bot_id(settings.BOT_TOKEN) or 0,
         "supportUrl": cached["support_url"],
         "termsUrl": cached["terms_url"],
         "privacyPolicyUrl": cached["privacy_policy_url"],
@@ -522,7 +545,7 @@ async def index_route(request: web.Request) -> web.Response:
     )
     html = html.replace(
         WEBAPP_JS_PLACEHOLDER,
-        f'<script src="./{_resolve_webapp_js_asset_name()}" defer></script>',
+        f'<script src="/{_resolve_webapp_js_asset_name()}" defer></script>',
     )
     return web.Response(text=html, content_type="text/html", charset="utf-8")
 
@@ -1247,6 +1270,29 @@ async def me_route(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, **data})
 
 
+async def account_language_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    payload = await _read_json(request)
+    language_payload, validation_error = _validate_model_payload(WebAppLanguagePayload, payload)
+    if validation_error:
+        return validation_error
+
+    language = _normalize_language(str(language_payload.language or ""))
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async with async_session_factory() as session:
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user or db_user.is_banned:
+            await session.rollback()
+            return _json_error(403, "access_denied", "Access denied")
+
+        if _normalize_language(db_user.language_code or "") != language:
+            db_user.language_code = language
+            await session.flush()
+        await session.commit()
+
+    return web.json_response({"ok": True, "language": language})
+
+
 async def apply_promo_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     payload = await _read_json(request)
@@ -1963,6 +2009,8 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             "webapp_link": webapp_referral_link,
             "invited_count": referral_stats.get("invited_count", 0),
             "purchased_count": referral_stats.get("purchased_count", 0),
+            "welcome_bonus_days": max(0, int(getattr(settings, "REFERRAL_WELCOME_BONUS_DAYS", 0) or 0)),
+            "one_bonus_per_referee": bool(getattr(settings, "REFERRAL_ONE_BONUS_PER_REFEREE", False)),
             "bonus_details": _serialize_referral_bonus_details(settings, lang),
         },
         "plans": _serialize_plans(
@@ -2060,6 +2108,7 @@ def _serialize_subscription(
         "traffic_used": _format_bytes(active.get("traffic_used_bytes")),
         "traffic_limit_bytes": _coerce_int_or_none(active.get("traffic_limit_bytes")),
         "traffic_used_bytes": _coerce_int_or_none(active.get("traffic_used_bytes")),
+        "traffic_limit_strategy": str(active.get("traffic_limit_strategy") or ""),
         "auto_renew_enabled": bool(getattr(local_sub, "auto_renew_enabled", False)),
         "provider": getattr(local_sub, "provider", None),
     }
