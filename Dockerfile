@@ -16,6 +16,7 @@ COPY package.json package-lock.json* ./
 RUN --mount=type=cache,target=/root/.npm \
     if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
+COPY bot/app/web/frontend ./bot/app/web/frontend
 COPY bot/app/web/templates ./bot/app/web/templates
 COPY scripts/build_subscription_webapp_js.mjs ./scripts/build_subscription_webapp_js.mjs
 

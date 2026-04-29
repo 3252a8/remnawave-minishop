@@ -489,6 +489,7 @@ async def index_route(request: web.Request) -> web.Response:
         "title": settings.WEBAPP_TITLE,
         "primaryColor": settings.WEBAPP_PRIMARY_COLOR,
         "logoUrl": cached["logo_url"],
+        "logoEmoji": settings.WEBAPP_LOGO_EMOJI,
         "apiBase": "/api",
         "telegramLoginBotUsername": request.app.get("bot_username") or "",
         "supportUrl": cached["support_url"],
