@@ -2137,7 +2137,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             "trial_available": trial_available,
             "trial_duration_days": int(settings.TRIAL_DURATION_DAYS or 0),
             "trial_traffic_limit_gb": float(settings.TRIAL_TRAFFIC_LIMIT_GB or 0),
-            "trial_traffic_strategy": settings.TRIAL_TRAFFIC_STRATEGY,
+            "trial_traffic_strategy": getattr(settings, "TRIAL_TRAFFIC_STRATEGY", "NO_RESET"),
             "email_auth_enabled": settings.email_auth_configured,
         },
     }

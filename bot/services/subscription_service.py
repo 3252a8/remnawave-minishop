@@ -427,6 +427,7 @@ class SubscriptionService:
             "is_active": True,
             "status_from_panel": "TRIAL",
             "traffic_limit_bytes": self.settings.trial_traffic_limit_bytes,
+            "traffic_limit_strategy": self.settings.TRIAL_TRAFFIC_STRATEGY,
             "auto_renew_enabled": False,
         }
         try:
@@ -448,6 +449,7 @@ class SubscriptionService:
             expire_at=end_date,
             status="ACTIVE",
             traffic_limit_bytes=self.settings.trial_traffic_limit_bytes,
+            traffic_limit_strategy=self.settings.TRIAL_TRAFFIC_STRATEGY,
         )
 
         panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
