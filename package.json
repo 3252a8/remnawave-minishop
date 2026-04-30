@@ -1,13 +1,22 @@
 {
   "private": true,
   "scripts": {
-    "build:webapp:css": "tailwindcss -i ./bot/app/web/templates/subscription_webapp.tailwind.css -o ./bot/app/web/templates/subscription_webapp.css --minify",
+    "build:webapp:svelte": "vite build --config ./bot/app/web/frontend/vite.config.mjs",
+    "build:webapp:css": "npm run build:webapp:svelte",
     "build:webapp:js": "node ./scripts/build_subscription_webapp_js.mjs",
-    "build:webapp": "npm run build:webapp:css && npm run build:webapp:js"
+    "build:webapp": "npm run build:webapp:svelte && npm run build:webapp:js"
   },
   "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@tailwindcss/cli": "4.2.4",
+    "bits-ui": "^2.18.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "esbuild": "^0.28.0",
-    "tailwindcss": "4.2.4"
+    "lucide-svelte": "^1.0.1",
+    "svelte": "^5.55.5",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "4.2.4",
+    "vite": "^8.0.10"
   }
 }

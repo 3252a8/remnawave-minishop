@@ -87,6 +87,7 @@ class WebAppSettings(BaseModel):
     title: str
     primary_color: str
     logo_url: Optional[str]
+    logo_emoji: str
     session_ttl_seconds: int
     session_secret: str
     webhook_secret_token: str
@@ -315,6 +316,7 @@ class Settings(BaseSettings):
     TRIAL_ENABLED: bool = Field(default=True)
     TRIAL_DURATION_DAYS: int = Field(default=3)
     TRIAL_TRAFFIC_LIMIT_GB: Optional[float] = Field(default=5.0)
+    TRIAL_TRAFFIC_STRATEGY: str = Field(default="NO_RESET")
 
     CRYPT4_ENABLED: bool = Field(default=False, description="Enable happ crypt4 encryption for subscription URLs")
     CRYPT4_REDIRECT_URL: Optional[str] = Field(default=None, description="Base redirect URL used for the connect button when crypt4 is enabled")
@@ -331,6 +333,7 @@ class Settings(BaseSettings):
     WEBAPP_TITLE: str = Field(default="Моя подписка")
     WEBAPP_PRIMARY_COLOR: str = Field(default="#00fe7a")
     WEBAPP_LOGO_URL: Optional[str] = Field(default=None)
+    WEBAPP_LOGO_EMOJI: str = Field(default="🫥")
     WEBAPP_SESSION_SECRET: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     WEBHOOK_SECRET_TOKEN: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     WEBAPP_SESSION_TTL_SECONDS: int = Field(default=24 * 60 * 60)
@@ -475,6 +478,7 @@ class Settings(BaseSettings):
             title=self.WEBAPP_TITLE,
             primary_color=self.WEBAPP_PRIMARY_COLOR,
             logo_url=self.WEBAPP_LOGO_URL,
+            logo_emoji=self.WEBAPP_LOGO_EMOJI,
             session_ttl_seconds=self.WEBAPP_SESSION_TTL_SECONDS,
             session_secret=self.WEBAPP_SESSION_SECRET,
             webhook_secret_token=self.WEBHOOK_SECRET_TOKEN,

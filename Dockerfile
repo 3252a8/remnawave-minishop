@@ -16,6 +16,7 @@ COPY package.json package-lock.json* ./
 RUN --mount=type=cache,target=/root/.npm \
     if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
+COPY bot/app/web/frontend ./bot/app/web/frontend
 COPY bot/app/web/templates ./bot/app/web/templates
 COPY scripts/build_subscription_webapp_js.mjs ./scripts/build_subscription_webapp_js.mjs
 
@@ -36,9 +37,12 @@ COPY . .
 
 # Replace template assets with freshly built ones
 RUN rm -f bot/app/web/templates/subscription_webapp.css \
+          bot/app/web/templates/subscription_webapp.js \
           bot/app/web/templates/subscription_webapp.min.*.js
 COPY --from=webapp-builder /webapp/bot/app/web/templates/subscription_webapp.css \
                            bot/app/web/templates/subscription_webapp.css
+COPY --from=webapp-builder /webapp/bot/app/web/templates/subscription_webapp.js \
+                           bot/app/web/templates/subscription_webapp.js
 COPY --from=webapp-builder /webapp/bot/app/web/templates/subscription_webapp.min.*.js \
                            bot/app/web/templates/
 

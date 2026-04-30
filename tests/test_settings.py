@@ -80,3 +80,14 @@ class SettingsTests(unittest.TestCase):
 
             self.assertIsNotNone(settings.tariffs_config)
             self.assertFalse(settings.traffic_sale_mode)
+
+    def test_trial_traffic_strategy_is_available(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            TRIAL_TRAFFIC_STRATEGY="WEEK",
+        )
+
+        self.assertEqual(settings.TRIAL_TRAFFIC_STRATEGY, "WEEK")

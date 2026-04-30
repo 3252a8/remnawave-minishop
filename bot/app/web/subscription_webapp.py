@@ -37,6 +37,7 @@ from bot.services.referral_service import ReferralService
 from bot.services.severpay_service import SeverPayService
 from bot.services.subscription_service import SubscriptionService
 from bot.services.yookassa_service import YooKassaService
+from bot.utils.config_link import prepare_config_links
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from bot.utils.request_security import request_client_ip
 from config.settings import Settings
@@ -48,13 +49,7 @@ logger = logging.getLogger(__name__)
 
 TEMPLATE_PATH = Path(__file__).resolve().parent / "templates" / "subscription_webapp.html"
 ASSET_DIR = TEMPLATE_PATH.parent
-TELEGRAM_WEB_APP_SDK_URL = "https://telegram.org/js/telegram-web-app.js"
-TELEGRAM_WEB_APP_SDK_PATH = ASSET_DIR / "telegram-web-app.js"
-TELEGRAM_WIDGET_SDK_URL = "https://telegram.org/js/telegram-widget.js?23"
-TELEGRAM_WIDGET_SDK_PATH = ASSET_DIR / "telegram-widget.js"
 WEBAPP_LOGO_PROXY_PATH = "/webapp-logo"
-_UNPATCHED_WIDGET_ORIGIN_SNIPPET = """    if (origin == 'https://telegram.org') {\n      origin = default_origin;\n    } else if (origin == 'https://telegram-js.azureedge.net' || origin == 'https://tg.dev') {\n      origin = dev_origin;\n    }\n"""
-_PATCHED_WIDGET_ORIGIN_SNIPPET = """    if (origin == 'https://telegram.org') {\n      origin = default_origin;\n    } else if (origin == 'https://telegram-js.azureedge.net' || origin == 'https://tg.dev') {\n      origin = dev_origin;\n    } else {\n      origin = default_origin;\n    }\n"""
 WEBAPP_CONFIG_PLACEHOLDER = "<!-- WEBAPP_CONFIG_SCRIPT -->"
 WEBAPP_I18N_PLACEHOLDER = "<!-- WEBAPP_I18N_SCRIPT -->"
 WEBAPP_JS_PLACEHOLDER = "<!-- WEBAPP_JS_SCRIPT -->"
@@ -105,9 +100,23 @@ class WebAppPaymentCreatePayload(BaseModel):
 
     method: str = ""
     months: Any = None
+    traffic_gb: Any = None
+    tariff_key: Optional[constr(max_length=128)] = None
     description: Optional[constr(max_length=4096)] = None
     comment: Optional[constr(max_length=4096)] = None
     note: Optional[constr(max_length=4096)] = None
+
+
+class WebAppLanguagePayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    language: constr(min_length=2, max_length=16)
+
+
+class WebAppDeviceDisconnectPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    token: constr(min_length=8, max_length=128)
 
 _SHARED_HTTP_SESSION: Optional[ClientSession] = None
 _SHARED_HTTP_SESSION_LOCK = asyncio.Lock()
@@ -163,9 +172,11 @@ def create_subscription_webapp_application(
 
 def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/", index_route)
+    app.router.add_get("/home", index_route)
+    app.router.add_get("/invite", index_route)
+    app.router.add_get("/devices", index_route)
+    app.router.add_get("/settings", index_route)
     app.router.add_get("/health", health_route)
-    app.router.add_get("/telegram-web-app.js", telegram_web_app_asset_route)
-    app.router.add_get("/telegram-widget.js", telegram_widget_asset_route)
     app.router.add_get(WEBAPP_LOGO_PROXY_PATH, webapp_logo_route)
     app.router.add_get("/subscription_webapp.css", css_asset_route)
     app.router.add_get("/subscription_webapp.min.{asset_hash}.js", js_asset_route)
@@ -176,10 +187,14 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/auth/email/magic", email_auth_magic_route)
     app.router.add_post("/api/auth/logout", logout_route)
     app.router.add_get("/api/me", me_route)
+    app.router.add_post("/api/account/language", account_language_route)
     app.router.add_post("/api/account/email/request", account_email_request_route)
     app.router.add_post("/api/account/email/verify", account_email_verify_route)
     app.router.add_post("/api/account/telegram/link", account_telegram_link_route)
     app.router.add_post("/api/promo/apply", apply_promo_route)
+    app.router.add_post("/api/trial/activate", activate_trial_route)
+    app.router.add_get("/api/devices", devices_route)
+    app.router.add_post("/api/devices/disconnect", disconnect_device_route)
     app.router.add_post("/api/payments", create_payment_route)
     app.router.add_get("/api/payments/{payment_id}", payment_status_route)
 
@@ -198,9 +213,21 @@ def _resolve_webapp_logo_url(settings: Settings) -> str:
         return ""
 
     parsed_logo_url = urlsplit(raw_logo_url)
-    if parsed_logo_url.scheme == "https" and parsed_logo_url.hostname:
-        return WEBAPP_LOGO_PROXY_PATH
+    if parsed_logo_url.scheme in {"https", "http", "data"}:
+        return raw_logo_url
+    if raw_logo_url.startswith("/"):
+        return raw_logo_url
     return ""
+
+
+def _resolve_telegram_bot_id(bot_token: str) -> Optional[int]:
+    token_prefix = str(bot_token or "").strip().split(":", 1)[0]
+    if not token_prefix.isdigit():
+        return None
+    try:
+        return int(token_prefix)
+    except ValueError:
+        return None
 
 
 async def webapp_logo_route(request: web.Request) -> web.Response:
@@ -361,7 +388,7 @@ async def _security_headers_middleware(request: web.Request, handler):
             "frame-ancestors https://web.telegram.org https://t.me; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; "
-            "img-src 'self' data: https:; "
+            "img-src 'self' data: https: http:; "
             "connect-src 'self'; "
             "object-src 'none'; "
             "base-uri 'self'; "
@@ -416,6 +443,8 @@ def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
             "logo_url": _resolve_webapp_logo_url(settings),
             "subscription_options": settings.subscription_options,
             "stars_subscription_options": settings.stars_subscription_options,
+            "traffic_packages": settings.traffic_packages,
+            "stars_traffic_packages": settings.stars_traffic_packages,
             "support_url": settings.SUPPORT_LINK or "",
             "terms_url": settings.TERMS_OF_SERVICE_URL or "",
             "privacy_policy_url": settings.PRIVACY_POLICY_URL or "",
@@ -467,144 +496,6 @@ async def _enforce_webapp_rate_limit(
     return None
 
 
-async def telegram_web_app_asset_route(request: web.Request) -> web.Response:
-    if not TELEGRAM_WEB_APP_SDK_PATH.exists():
-        await refresh_telegram_web_app_sdk()
-
-    try:
-        response = await _serve_template_asset(
-            request,
-            "telegram-web-app.js",
-            "application/javascript",
-        )
-    except FileNotFoundError:
-        logger.exception(
-            "Telegram Web App SDK is unavailable at %s",
-            TELEGRAM_WEB_APP_SDK_PATH,
-        )
-        raise web.HTTPServiceUnavailable(text="telegram_web_app_sdk_unavailable")
-
-    response.headers["Cache-Control"] = "no-cache"
-    return response
-
-
-async def telegram_widget_asset_route(request: web.Request) -> web.Response:
-    if not TELEGRAM_WIDGET_SDK_PATH.exists():
-        await refresh_telegram_login_widget_sdk()
-
-    try:
-        data = TELEGRAM_WIDGET_SDK_PATH.read_bytes()
-    except FileNotFoundError:
-        logger.exception(
-            "Telegram Login Widget SDK is unavailable at %s",
-            TELEGRAM_WIDGET_SDK_PATH,
-        )
-        raise web.HTTPServiceUnavailable(text="telegram_widget_sdk_unavailable")
-
-    data = _normalize_telegram_login_widget_sdk(data)
-    response = web.Response(body=data, content_type="application/javascript")
-    response.headers["Cache-Control"] = "no-cache"
-    return response
-
-
-async def refresh_telegram_web_app_sdk() -> bool:
-    """Best-effort refresh of the vendored Telegram Web App SDK."""
-    try:
-        session = await _get_shared_http_session()
-        async with session.get(TELEGRAM_WEB_APP_SDK_URL) as response:
-            if response.status != 200:
-                logger.warning(
-                    "Telegram Web App SDK refresh returned HTTP %s; keeping the bundled copy.",
-                    response.status,
-                )
-                return False
-            data = await response.read()
-    except Exception as exc:
-        logger.warning("Failed to refresh Telegram Web App SDK: %s", exc)
-        return False
-
-    try:
-        TELEGRAM_WEB_APP_SDK_PATH.parent.mkdir(parents=True, exist_ok=True)
-        existing_data = (
-            TELEGRAM_WEB_APP_SDK_PATH.read_bytes()
-            if TELEGRAM_WEB_APP_SDK_PATH.exists()
-            else None
-        )
-        if existing_data == data:
-            logger.info("Telegram Web App SDK is already up to date.")
-            return True
-
-        temp_path = TELEGRAM_WEB_APP_SDK_PATH.with_name(
-            f"{TELEGRAM_WEB_APP_SDK_PATH.name}.tmp"
-        )
-        temp_path.write_bytes(data)
-        temp_path.replace(TELEGRAM_WEB_APP_SDK_PATH)
-        logger.info(
-            "Telegram Web App SDK updated at %s (%d bytes).",
-            TELEGRAM_WEB_APP_SDK_PATH,
-            len(data),
-        )
-        return True
-    except Exception as exc:
-        logger.warning("Failed to store Telegram Web App SDK locally: %s", exc)
-        return False
-
-
-async def refresh_telegram_login_widget_sdk() -> bool:
-    """Best-effort refresh of the vendored Telegram Login Widget SDK."""
-    try:
-        session = await _get_shared_http_session()
-        async with session.get(TELEGRAM_WIDGET_SDK_URL) as response:
-            if response.status != 200:
-                logger.warning(
-                    "Telegram Login Widget SDK refresh returned HTTP %s; keeping the bundled copy.",
-                    response.status,
-                )
-                return False
-            data = await response.read()
-    except Exception as exc:
-        logger.warning("Failed to refresh Telegram Login Widget SDK: %s", exc)
-        return False
-
-    try:
-        data = _normalize_telegram_login_widget_sdk(data)
-        TELEGRAM_WIDGET_SDK_PATH.parent.mkdir(parents=True, exist_ok=True)
-        existing_data = (
-            TELEGRAM_WIDGET_SDK_PATH.read_bytes()
-            if TELEGRAM_WIDGET_SDK_PATH.exists()
-            else None
-        )
-        if existing_data == data:
-            logger.info("Telegram Login Widget SDK is already up to date.")
-            return True
-
-        temp_path = TELEGRAM_WIDGET_SDK_PATH.with_name(
-            f"{TELEGRAM_WIDGET_SDK_PATH.name}.tmp"
-        )
-        temp_path.write_bytes(data)
-        temp_path.replace(TELEGRAM_WIDGET_SDK_PATH)
-        logger.info(
-            "Telegram Login Widget SDK updated at %s (%d bytes).",
-            TELEGRAM_WIDGET_SDK_PATH,
-            len(data),
-        )
-        return True
-    except Exception as exc:
-        logger.warning("Failed to store Telegram Login Widget SDK locally: %s", exc)
-        return False
-
-
-def _normalize_telegram_login_widget_sdk(data: bytes) -> bytes:
-    # Keep the vendored widget pointing to Telegram's OAuth host instead of the local origin.
-    text = data.decode("utf-8")
-    normalized = text.replace(
-        _UNPATCHED_WIDGET_ORIGIN_SNIPPET,
-        _PATCHED_WIDGET_ORIGIN_SNIPPET,
-        1,
-    )
-    return normalized.encode("utf-8")
-
-
 async def js_asset_route(request: web.Request) -> web.Response:
     asset_hash = request.match_info.get("asset_hash")
     filename = (
@@ -635,8 +526,10 @@ async def index_route(request: web.Request) -> web.Response:
         "title": settings.WEBAPP_TITLE,
         "primaryColor": settings.WEBAPP_PRIMARY_COLOR,
         "logoUrl": cached["logo_url"],
+        "logoEmoji": settings.WEBAPP_LOGO_EMOJI,
         "apiBase": "/api",
         "telegramLoginBotUsername": request.app.get("bot_username") or "",
+        "telegramLoginBotId": _resolve_telegram_bot_id(settings.BOT_TOKEN) or 0,
         "supportUrl": cached["support_url"],
         "termsUrl": cached["terms_url"],
         "privacyPolicyUrl": cached["privacy_policy_url"],
@@ -667,7 +560,7 @@ async def index_route(request: web.Request) -> web.Response:
     )
     html = html.replace(
         WEBAPP_JS_PLACEHOLDER,
-        f'<script src="./{_resolve_webapp_js_asset_name()}" defer></script>',
+        f'<script src="/{_resolve_webapp_js_asset_name()}" defer></script>',
     )
     return web.Response(text=html, content_type="text/html", charset="utf-8")
 
@@ -1392,6 +1285,29 @@ async def me_route(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, **data})
 
 
+async def account_language_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    payload = await _read_json(request)
+    language_payload, validation_error = _validate_model_payload(WebAppLanguagePayload, payload)
+    if validation_error:
+        return validation_error
+
+    language = _normalize_language(str(language_payload.language or ""))
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async with async_session_factory() as session:
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user or db_user.is_banned:
+            await session.rollback()
+            return _json_error(403, "access_denied", "Access denied")
+
+        if _normalize_language(db_user.language_code or "") != language:
+            db_user.language_code = language
+            await session.flush()
+        await session.commit()
+
+    return web.json_response({"ok": True, "language": language})
+
+
 async def apply_promo_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     payload = await _read_json(request)
@@ -1451,19 +1367,111 @@ async def create_payment_route(request: web.Request) -> web.Response:
     if validation_error:
         return validation_error
     method = str(payment_payload.method or "").strip().lower()
-    try:
-        months = int(float(payment_payload.months))
-    except (TypeError, ValueError):
-        return _json_error(400, "invalid_plan", "Invalid subscription period")
-
     settings: Settings = request.app["settings"]
     cached = _get_cached_webapp_settings(request)
-    price = cached["subscription_options"].get(months)
-    stars_price = cached["stars_subscription_options"].get(months)
-    if price is None and method != "stars":
-        return _json_error(400, "invalid_plan", "Subscription period is not available")
-    if method == "stars" and (stars_price is None or int(stars_price) <= 0):
-        return _json_error(400, "invalid_plan", "Stars price is not configured")
+    tariffs_config = settings.tariffs_config
+    traffic_mode = bool(settings.traffic_sale_mode)
+    sale_mode = "subscription"
+    traffic_gb_for_payment: Optional[float] = None
+
+    if tariffs_config:
+        tariff_key = str(payment_payload.tariff_key or "").strip()
+        if not tariff_key:
+            return _json_error(400, "invalid_plan", "Tariff is not selected")
+        try:
+            tariff = tariffs_config.require(tariff_key)
+        except Exception:
+            return _json_error(400, "invalid_plan", "Tariff is not available")
+
+        if tariff.billing_model == "traffic":
+            try:
+                traffic_gb = float(
+                    payment_payload.traffic_gb
+                    if payment_payload.traffic_gb is not None
+                    else payment_payload.months
+                )
+            except (TypeError, ValueError):
+                return _json_error(400, "invalid_plan", "Invalid traffic package")
+            if traffic_gb <= 0:
+                return _json_error(400, "invalid_plan", "Invalid traffic package")
+            rub_packages = {
+                float(package.gb): float(package.price)
+                for package in (tariff.traffic_packages.rub if tariff.traffic_packages else [])
+            }
+            stars_packages = {
+                float(package.gb): int(float(package.price))
+                for package in (tariff.traffic_packages.stars if tariff.traffic_packages else [])
+            }
+            package_key = _resolve_numeric_option_key(rub_packages, traffic_gb)
+            stars_package_key = _resolve_numeric_option_key(stars_packages, traffic_gb)
+            price = rub_packages.get(package_key) if package_key is not None else None
+            stars_price = (
+                stars_packages.get(stars_package_key)
+                if stars_package_key is not None
+                else None
+            )
+            if price is None and method != "stars":
+                return _json_error(400, "invalid_plan", "Traffic package is not available")
+            if method == "stars" and (stars_price is None or int(stars_price) <= 0):
+                return _json_error(400, "invalid_plan", "Stars price is not configured")
+            payment_units = int(traffic_gb) if float(traffic_gb).is_integer() else traffic_gb
+            traffic_gb_for_payment = float(payment_units)
+            sale_mode = f"traffic_package@{tariff.key}"
+        else:
+            try:
+                months = int(float(payment_payload.months))
+            except (TypeError, ValueError):
+                return _json_error(400, "invalid_plan", "Invalid subscription period")
+            if months not in tariff.enabled_periods:
+                return _json_error(400, "invalid_plan", "Subscription period is not available")
+            price = tariff.period_price(months, "rub")
+            stars_price_raw = tariff.period_price(months, "stars")
+            stars_price = int(stars_price_raw) if stars_price_raw and stars_price_raw > 0 else None
+            if price is None and method != "stars":
+                return _json_error(400, "invalid_plan", "Subscription period is not available")
+            if method == "stars" and (stars_price is None or int(stars_price) <= 0):
+                return _json_error(400, "invalid_plan", "Stars price is not configured")
+            payment_units = months
+            sale_mode = f"subscription@{tariff.key}"
+    elif traffic_mode:
+        try:
+            traffic_gb = float(
+                payment_payload.traffic_gb
+                if payment_payload.traffic_gb is not None
+                else payment_payload.months
+            )
+        except (TypeError, ValueError):
+            return _json_error(400, "invalid_plan", "Invalid traffic package")
+        if traffic_gb <= 0:
+            return _json_error(400, "invalid_plan", "Invalid traffic package")
+        package_key = _resolve_numeric_option_key(cached["traffic_packages"], traffic_gb)
+        stars_package_key = _resolve_numeric_option_key(cached["stars_traffic_packages"], traffic_gb)
+        price = cached["traffic_packages"].get(package_key) if package_key is not None else None
+        stars_price = (
+            cached["stars_traffic_packages"].get(stars_package_key)
+            if stars_package_key is not None
+            else None
+        )
+        if price is None and method != "stars":
+            return _json_error(400, "invalid_plan", "Traffic package is not available")
+        if method == "stars" and (stars_price is None or int(stars_price) <= 0):
+            return _json_error(400, "invalid_plan", "Stars price is not configured")
+        payment_units = int(traffic_gb) if float(traffic_gb).is_integer() else traffic_gb
+        traffic_gb_for_payment = float(payment_units)
+        sale_mode = "traffic"
+    else:
+        try:
+            months = int(float(payment_payload.months))
+        except (TypeError, ValueError):
+            return _json_error(400, "invalid_plan", "Invalid subscription period")
+        price = cached["subscription_options"].get(months)
+        stars_price = cached["stars_subscription_options"].get(months)
+        if price is None and method != "stars":
+            return _json_error(400, "invalid_plan", "Subscription period is not available")
+        if method == "stars" and (stars_price is None or int(stars_price) <= 0):
+            return _json_error(400, "invalid_plan", "Stars price is not configured")
+        payment_units = months
+        sale_mode = "subscription"
 
     async_session_factory: sessionmaker = request.app["async_session_factory"]
     async with async_session_factory() as session:
@@ -1476,11 +1484,184 @@ async def create_payment_route(request: web.Request) -> web.Response:
             session=session,
             user_id=user_id,
             method=method,
-            months=months,
+            months=payment_units,
             price=float(price or 0),
             stars_price=stars_price,
             lang=lang,
+            sale_mode=sale_mode,
+            traffic_gb=traffic_gb_for_payment,
         )
+
+
+async def activate_trial_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    rate_limit_response = await _enforce_webapp_rate_limit(
+        request,
+        user_id=user_id,
+        action="trial_activate",
+    )
+    if rate_limit_response:
+        return rate_limit_response
+
+    settings: Settings = request.app["settings"]
+    if not settings.TRIAL_ENABLED or settings.TRIAL_DURATION_DAYS <= 0:
+        return _json_error(400, "trial_unavailable", "Trial is not available")
+
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    subscription_service: SubscriptionService = request.app["subscription_service"]
+    async with async_session_factory() as session:
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user or db_user.is_banned:
+            return _json_error(403, "access_denied", "Access denied")
+
+        activation_result = await subscription_service.activate_trial_subscription(session, user_id)
+        if not activation_result or not activation_result.get("activated"):
+            await session.rollback()
+            message_key = (
+                activation_result.get("message_key", "trial_activation_failed")
+                if activation_result
+                else "trial_activation_failed"
+            )
+            status = 400 if message_key != "trial_activation_failed_panel_update" else 502
+            return _json_error(status, message_key, message_key)
+
+        end_date = activation_result.get("end_date")
+        config_link, connect_url = await prepare_config_links(
+            settings,
+            activation_result.get("subscription_url"),
+        )
+
+        i18n_instance = request.app.get("i18n")
+        if settings.LOG_TRIAL_ACTIVATIONS and i18n_instance:
+            try:
+                notification_service = NotificationService(request.app["bot"], settings, i18n_instance)
+                await notification_service.notify_trial_activation(user_id, end_date)
+            except Exception:
+                logger.exception("Failed to send WebApp trial activation notification")
+
+        try:
+            from db.dal import ad_dal as _ad_dal
+
+            await _ad_dal.mark_trial_activated(session, user_id)
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            logger.exception("Failed to mark WebApp trial activation for ad attribution")
+
+        return web.json_response(
+            {
+                "ok": True,
+                "activated": True,
+                "days": activation_result.get("days", settings.TRIAL_DURATION_DAYS),
+                "end_date": end_date.isoformat() if isinstance(end_date, datetime) else None,
+                "end_date_text": _format_webapp_datetime(end_date) if isinstance(end_date, datetime) else None,
+                "traffic_gb": activation_result.get("traffic_gb", settings.TRIAL_TRAFFIC_LIMIT_GB),
+                "config_link": config_link,
+                "connect_url": connect_url or config_link,
+            }
+        )
+
+
+async def devices_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    settings: Settings = request.app["settings"]
+    if not settings.MY_DEVICES_SECTION_ENABLED:
+        return _json_error(404, "devices_disabled", "Devices section is disabled")
+
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    subscription_service: SubscriptionService = request.app["subscription_service"]
+    async with async_session_factory() as session:
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user or db_user.is_banned:
+            return _json_error(403, "access_denied", "Access denied")
+
+        active = await subscription_service.get_active_subscription_details(session, user_id)
+        panel_user_uuid = active.get("user_id") if active else None
+        if not panel_user_uuid:
+            return _json_error(400, "subscription_not_active", "Subscription is not active")
+
+        panel_service = getattr(subscription_service, "panel_service", None)
+        if not panel_service:
+            return _json_error(503, "panel_unavailable", "Panel service unavailable")
+
+        try:
+            devices_response = await panel_service.get_user_devices(panel_user_uuid)
+        except Exception:
+            logger.exception("Failed to load WebApp devices for user %s", user_id)
+            return _json_error(502, "devices_load_failed", "Failed to load devices")
+
+    devices = _normalize_devices_response(devices_response)
+    max_devices = _coerce_int_or_none(active.get("max_devices")) if active else None
+    return web.json_response(
+        {
+            "ok": True,
+            "enabled": True,
+            "current_devices": len(devices),
+            "max_devices": max_devices,
+            "max_devices_label": _format_devices_limit(max_devices),
+            "devices": [_serialize_device(device, index) for index, device in enumerate(devices, start=1)],
+        }
+    )
+
+
+async def disconnect_device_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    rate_limit_response = await _enforce_webapp_rate_limit(
+        request,
+        user_id=user_id,
+        action="devices_disconnect",
+    )
+    if rate_limit_response:
+        return rate_limit_response
+
+    settings: Settings = request.app["settings"]
+    if not settings.MY_DEVICES_SECTION_ENABLED:
+        return _json_error(404, "devices_disabled", "Devices section is disabled")
+
+    payload = await _read_json(request)
+    disconnect_payload, validation_error = _validate_model_payload(WebAppDeviceDisconnectPayload, payload)
+    if validation_error:
+        return validation_error
+    token = str(disconnect_payload.token or "").strip()
+
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    subscription_service: SubscriptionService = request.app["subscription_service"]
+    async with async_session_factory() as session:
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user or db_user.is_banned:
+            return _json_error(403, "access_denied", "Access denied")
+
+        active = await subscription_service.get_active_subscription_details(session, user_id)
+        panel_user_uuid = active.get("user_id") if active else None
+        if not panel_user_uuid:
+            return _json_error(400, "subscription_not_active", "Subscription is not active")
+
+        panel_service = getattr(subscription_service, "panel_service", None)
+        if not panel_service:
+            return _json_error(503, "panel_unavailable", "Panel service unavailable")
+
+        try:
+            devices_response = await panel_service.get_user_devices(panel_user_uuid)
+        except Exception:
+            logger.exception("Failed to load WebApp devices before disconnect for user %s", user_id)
+            return _json_error(502, "devices_load_failed", "Failed to load devices")
+
+        target_hwid = None
+        for device in _normalize_devices_response(devices_response):
+            hwid = str(device.get("hwid") or "").strip()
+            if hwid and hmac.compare_digest(_device_hwid_token(hwid), token):
+                target_hwid = hwid
+                break
+
+        if not target_hwid:
+            return _json_error(404, "device_not_found", "Device not found")
+
+        success = await panel_service.disconnect_device(panel_user_uuid, target_hwid)
+        if not success:
+            return _json_error(502, "device_disconnect_failed", "Failed to disconnect device")
+        await session.commit()
+
+    return web.json_response({"ok": True})
 
 
 async def payment_status_route(request: web.Request) -> web.Response:
@@ -2083,6 +2264,11 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             user_id,
             db_user.panel_user_uuid,
         ) if db_user.panel_user_uuid else None
+        trial_available = bool(
+            settings.TRIAL_ENABLED
+            and settings.TRIAL_DURATION_DAYS > 0
+            and not await subscription_service.has_had_any_subscription(session, user_id)
+        )
         try:
             await session.commit()
         except Exception:
@@ -2108,6 +2294,8 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             "webapp_link": webapp_referral_link,
             "invited_count": referral_stats.get("invited_count", 0),
             "purchased_count": referral_stats.get("purchased_count", 0),
+            "welcome_bonus_days": max(0, int(getattr(settings, "REFERRAL_WELCOME_BONUS_DAYS", 0) or 0)),
+            "one_bonus_per_referee": bool(getattr(settings, "REFERRAL_ONE_BONUS_PER_REFEREE", False)),
             "bonus_details": _serialize_referral_bonus_details(settings, lang),
         },
         "plans": _serialize_plans(
@@ -2115,11 +2303,24 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             lang,
             subscription_options=cached["subscription_options"],
             stars_subscription_options=cached["stars_subscription_options"],
+            traffic_packages=cached["traffic_packages"],
+            stars_traffic_packages=cached["stars_traffic_packages"],
         ),
         "payment_methods": _serialize_payment_methods(settings, request.app),
         "settings": {
             "support_url": settings.SUPPORT_LINK,
             "traffic_mode": bool(settings.traffic_sale_mode),
+            "my_devices_enabled": bool(settings.MY_DEVICES_SECTION_ENABLED),
+            "user_hwid_device_limit": (
+                int(settings.USER_HWID_DEVICE_LIMIT)
+                if settings.USER_HWID_DEVICE_LIMIT is not None
+                else None
+            ),
+            "trial_enabled": bool(settings.TRIAL_ENABLED),
+            "trial_available": trial_available,
+            "trial_duration_days": int(settings.TRIAL_DURATION_DAYS or 0),
+            "trial_traffic_limit_gb": float(settings.TRIAL_TRAFFIC_LIMIT_GB or 0),
+            "trial_traffic_strategy": getattr(settings, "TRIAL_TRAFFIC_STRATEGY", "NO_RESET"),
             "email_auth_enabled": settings.email_auth_configured,
         },
     }
@@ -2209,11 +2410,12 @@ def _serialize_subscription(
         "tariff_name": active.get("tariff_name"),
         "tariff_description": active.get("tariff_description"),
         "billing_model": active.get("billing_model"),
-        "traffic_limit_strategy": active.get("traffic_limit_strategy"),
+        "traffic_limit_strategy": str(active.get("traffic_limit_strategy") or ""),
         "tier_baseline_bytes": _coerce_int_or_none(active.get("tier_baseline_bytes")),
         "topup_balance_bytes": _coerce_int_or_none(active.get("topup_balance_bytes")),
         "period_start_at": active.get("period_start_at").isoformat() if active.get("period_start_at") else None,
         "is_throttled": bool(active.get("is_throttled")),
+        "max_devices": _coerce_int_or_none(active.get("max_devices")),
         "auto_renew_enabled": bool(getattr(local_sub, "auto_renew_enabled", False)),
         "provider": getattr(local_sub, "provider", None),
     }
@@ -2225,33 +2427,92 @@ def _serialize_plans(
     *,
     subscription_options: Optional[Dict[int, float]] = None,
     stars_subscription_options: Optional[Dict[int, int]] = None,
+    traffic_packages: Optional[Dict[float, float]] = None,
+    stars_traffic_packages: Optional[Dict[float, int]] = None,
 ) -> List[Dict[str, Any]]:
-    if settings.tariffs_config:
+    tariffs_config = settings.tariffs_config
+    if tariffs_config:
         plans: List[Dict[str, Any]] = []
-        for tariff in settings.tariffs_config.enabled_tariffs:
-            item: Dict[str, Any] = {
+        for tariff in tariffs_config.enabled_tariffs:
+            common = {
                 "tariff_key": tariff.key,
+                "tariff_name": tariff.name(lang),
                 "billing_model": tariff.billing_model,
-                "title": tariff.name(lang),
                 "description": tariff.description(lang),
                 "squad_uuids": tariff.squad_uuids,
+                "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
             }
             if tariff.billing_model == "period":
-                item["periods"] = [
-                    {
+                for months in sorted(tariff.enabled_periods):
+                    price = tariff.period_price(int(months), "rub")
+                    stars_price = tariff.period_price(int(months), "stars")
+                    if price is None and (stars_price is None or int(stars_price) <= 0):
+                        continue
+                    plan = {
+                        **common,
+                        "id": f"{tariff.key}:period:{int(months)}",
+                        "sale_mode": "subscription",
                         "months": int(months),
-                        "price": tariff.period_price(int(months), "rub"),
-                        "stars_price": tariff.period_price(int(months), "stars"),
+                        "price": float(price or 0),
+                        "title": tariff.name(lang),
+                        "subtitle": _format_months_title(int(months), lang),
+                        "monthly_gb": tariff.monthly_gb,
                     }
-                    for months in tariff.enabled_periods
-                ]
-                item["monthly_gb"] = tariff.monthly_gb
+                    if stars_price is not None and int(stars_price) > 0:
+                        plan["stars_price"] = int(stars_price)
+                    plans.append(plan)
             else:
-                item["traffic_packages"] = [
-                    {"gb": package.gb, "price": package.price}
+                rub_packages = {
+                    float(package.gb): float(package.price)
                     for package in (tariff.traffic_packages.rub if tariff.traffic_packages else [])
-                ]
-            plans.append(item)
+                }
+                stars_packages = {
+                    float(package.gb): int(float(package.price))
+                    for package in (tariff.traffic_packages.stars if tariff.traffic_packages else [])
+                }
+                for traffic_gb in sorted(set(rub_packages) | set(stars_packages)):
+                    price = rub_packages.get(traffic_gb)
+                    stars_price = stars_packages.get(traffic_gb)
+                    if price is None and (stars_price is None or int(stars_price) <= 0):
+                        continue
+                    traffic_value = float(traffic_gb)
+                    plan = {
+                        **common,
+                        "id": f"{tariff.key}:traffic:{_format_number_for_payload(traffic_value)}",
+                        "sale_mode": "traffic_package",
+                        "months": int(traffic_value) if traffic_value.is_integer() else traffic_value,
+                        "traffic_gb": traffic_value,
+                        "price": float(price or 0),
+                        "title": tariff.name(lang),
+                        "subtitle": _format_traffic_title(traffic_value, lang),
+                    }
+                    if stars_price is not None and int(stars_price) > 0:
+                        plan["stars_price"] = int(stars_price)
+                    plans.append(plan)
+        return plans
+
+    if getattr(settings, "traffic_sale_mode", False):
+        active_traffic_packages = traffic_packages or settings.traffic_packages
+        active_stars_traffic_packages = stars_traffic_packages or settings.stars_traffic_packages
+        traffic_units = sorted(set(active_traffic_packages) | set(active_stars_traffic_packages))
+        plans: List[Dict[str, Any]] = []
+        for traffic_gb in traffic_units:
+            price = active_traffic_packages.get(traffic_gb)
+            stars_price = active_stars_traffic_packages.get(traffic_gb)
+            if price is None and (stars_price is None or int(stars_price) <= 0):
+                continue
+            traffic_value = float(traffic_gb)
+            plan = {
+                "months": int(traffic_value) if traffic_value.is_integer() else traffic_value,
+                "traffic_gb": traffic_value,
+                "price": float(price or 0),
+                "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+                "title": _format_traffic_title(traffic_value, lang),
+                "sale_mode": "traffic",
+            }
+            if stars_price is not None and int(stars_price) > 0:
+                plan["stars_price"] = int(stars_price)
+            plans.append(plan)
         return plans
 
     active_subscription_options = subscription_options or settings.subscription_options
@@ -2263,6 +2524,7 @@ def _serialize_plans(
             "price": float(price),
             "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
             "title": _format_months_title(int(months), lang),
+            "sale_mode": "subscription",
         }
         stars_price = active_stars_subscription_options.get(months)
         if stars_price is not None and int(stars_price) > 0:
@@ -2309,35 +2571,57 @@ def _service_configured(app: web.Application, key: str) -> bool:
     return bool(service and getattr(service, "configured", False))
 
 
+def _sale_mode_base(sale_mode: str) -> str:
+    return str(sale_mode or "subscription").split("@", 1)[0].split("|", 1)[0]
+
+
+def _sale_mode_tariff_key(sale_mode: str) -> Optional[str]:
+    if "@" not in str(sale_mode or ""):
+        return None
+    return str(sale_mode).split("@", 1)[1].split("|", 1)[0] or None
+
+
+def _sale_mode_is_traffic(sale_mode: str) -> bool:
+    return _sale_mode_base(sale_mode) in {"traffic", "traffic_package", "topup"}
+
+
 async def _create_subscription_payment(
     *,
     request: web.Request,
     session: AsyncSession,
     user_id: int,
     method: str,
-    months: int,
+    months: Any,
     price: float,
     stars_price: Optional[int],
     lang: str,
+    sale_mode: str = "subscription",
+    traffic_gb: Optional[float] = None,
 ) -> web.Response:
     settings: Settings = request.app["settings"]
-    description = _payment_description(months, lang)
+    sale_mode = str(sale_mode or "subscription")
+    traffic_sale = _sale_mode_is_traffic(sale_mode)
+    description = (
+        _traffic_payment_description(float(traffic_gb if traffic_gb is not None else months), lang)
+        if traffic_sale
+        else _payment_description(int(months), lang)
+    )
 
     if method == "yookassa":
         return await _create_yookassa_payment(
-            request, session, user_id, months, price, description
+            request, session, user_id, months, price, description, sale_mode=sale_mode, traffic_gb=traffic_gb
         )
     if method == "freekassa":
         return await _create_freekassa_payment(
-            request, session, user_id, months, price, description
+            request, session, user_id, months, price, description, sale_mode=sale_mode, traffic_gb=traffic_gb
         )
     if method in ("platega", "platega_sbp", "platega_crypto"):
         return await _create_platega_payment(
-            request, session, user_id, months, price, description, variant=method
+            request, session, user_id, months, price, description, variant=method, sale_mode=sale_mode, traffic_gb=traffic_gb
         )
     if method == "severpay":
         return await _create_severpay_payment(
-            request, session, user_id, months, price, description
+            request, session, user_id, months, price, description, sale_mode=sale_mode, traffic_gb=traffic_gb
         )
     if method == "cryptopay":
         service: CryptoPayService = request.app["cryptopay_service"]
@@ -2349,7 +2633,7 @@ async def _create_subscription_payment(
             months=months,
             amount=price,
             description=description,
-            sale_mode="subscription",
+            sale_mode=sale_mode,
             url_kind="web",
         )
         if not url:
@@ -2361,7 +2645,7 @@ async def _create_subscription_payment(
         if not settings.STARS_ENABLED or stars_price is None:
             return _json_error(400, "payment_unavailable", "Payment method unavailable")
         return await _create_stars_payment(
-            request, session, user_id, months, int(stars_price), description
+            request, session, user_id, months, int(stars_price), description, sale_mode=sale_mode, traffic_gb=traffic_gb
         )
 
     return _json_error(400, "payment_unavailable", "Payment method unavailable")
@@ -2377,6 +2661,9 @@ async def _create_base_payment_record(
     description: str,
     months: int,
     provider: str,
+    sale_mode: Optional[str] = None,
+    tariff_key: Optional[str] = None,
+    purchased_gb: Optional[float] = None,
 ) -> Payment:
     payment = await payment_dal.create_payment_record(
         session,
@@ -2388,6 +2675,9 @@ async def _create_base_payment_record(
             "description": description,
             "subscription_duration_months": months,
             "provider": provider,
+            "sale_mode": sale_mode,
+            "tariff_key": tariff_key,
+            "purchased_gb": purchased_gb,
         },
     )
     await session.commit()
@@ -2398,9 +2688,12 @@ async def _create_yookassa_payment(
     request: web.Request,
     session: AsyncSession,
     user_id: int,
-    months: int,
+    months: Any,
     price: float,
     description: str,
+    *,
+    sale_mode: str = "subscription",
+    traffic_gb: Optional[float] = None,
 ) -> web.Response:
     settings: Settings = request.app["settings"]
     service: YooKassaService = request.app["yookassa_service"]
@@ -2408,6 +2701,7 @@ async def _create_yookassa_payment(
         return _json_error(400, "payment_unavailable", "Payment method unavailable")
 
     try:
+        traffic_sale = _sale_mode_is_traffic(sale_mode)
         payment = await _create_base_payment_record(
             session,
             user_id=user_id,
@@ -2415,20 +2709,28 @@ async def _create_yookassa_payment(
             currency="RUB",
             status="pending_yookassa",
             description=description,
-            months=months,
+            months=int(float(months)) if not traffic_sale else int(float(traffic_gb or months)),
             provider="yookassa",
+            sale_mode=sale_mode,
+            tariff_key=_sale_mode_tariff_key(sale_mode),
+            purchased_gb=float(traffic_gb or months) if traffic_sale else None,
         )
+        metadata = {
+            "user_id": str(user_id),
+            "subscription_months": str(int(float(months)) if not traffic_sale else 0),
+            "payment_db_id": str(payment.payment_id),
+            "sale_mode": sale_mode,
+            "source": "webapp",
+        }
+        if traffic_sale:
+            metadata["traffic_gb"] = _format_number_for_payload(traffic_gb or months)
+        if _sale_mode_tariff_key(sale_mode):
+            metadata["tariff_key"] = _sale_mode_tariff_key(sale_mode)
         response = await service.create_payment(
             amount=price,
             currency="RUB",
             description=description,
-            metadata={
-                "user_id": str(user_id),
-                "subscription_months": str(months),
-                "payment_db_id": str(payment.payment_id),
-                "sale_mode": "subscription",
-                "source": "webapp",
-            },
+            metadata=metadata,
             receipt_email=settings.YOOKASSA_DEFAULT_RECEIPT_EMAIL,
             save_payment_method=bool(
                 settings.yookassa_autopayments_active
@@ -2468,9 +2770,12 @@ async def _create_freekassa_payment(
     request: web.Request,
     session: AsyncSession,
     user_id: int,
-    months: int,
+    months: Any,
     price: float,
     description: str,
+    *,
+    sale_mode: str = "subscription",
+    traffic_gb: Optional[float] = None,
 ) -> web.Response:
     settings: Settings = request.app["settings"]
     service: FreeKassaService = request.app["freekassa_service"]
@@ -2478,6 +2783,7 @@ async def _create_freekassa_payment(
         return _json_error(400, "payment_unavailable", "Payment method unavailable")
 
     try:
+        traffic_sale = _sale_mode_is_traffic(sale_mode)
         payment = await _create_base_payment_record(
             session,
             user_id=user_id,
@@ -2485,8 +2791,11 @@ async def _create_freekassa_payment(
             currency=service.default_currency,
             status="pending_freekassa",
             description=description,
-            months=months,
+            months=int(float(months)) if not traffic_sale else int(float(traffic_gb or months)),
             provider="freekassa",
+            sale_mode=sale_mode,
+            tariff_key=_sale_mode_tariff_key(sale_mode),
+            purchased_gb=float(traffic_gb or months) if traffic_sale else None,
         )
         success, response_data = await service.create_order(
             payment_db_id=payment.payment_id,
@@ -2529,10 +2838,12 @@ async def _create_platega_payment(
     request: web.Request,
     session: AsyncSession,
     user_id: int,
-    months: int,
+    months: Any,
     price: float,
     description: str,
     variant: str = "platega_sbp",
+    sale_mode: str = "subscription",
+    traffic_gb: Optional[float] = None,
 ) -> web.Response:
     settings: Settings = request.app["settings"]
     service: PlategaService = request.app["platega_service"]
@@ -2548,6 +2859,7 @@ async def _create_platega_payment(
         platega_method_id = settings.platega_sbp_method_resolved
 
     try:
+        traffic_sale = _sale_mode_is_traffic(sale_mode)
         payment = await _create_base_payment_record(
             session,
             user_id=user_id,
@@ -2555,15 +2867,20 @@ async def _create_platega_payment(
             currency=settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
             status="pending_platega",
             description=description,
-            months=months,
+            months=int(float(months)) if not traffic_sale else int(float(traffic_gb or months)),
             provider="platega",
+            sale_mode=sale_mode,
+            tariff_key=_sale_mode_tariff_key(sale_mode),
+            purchased_gb=float(traffic_gb or months) if traffic_sale else None,
         )
+        months_for_provider = int(float(months)) if not traffic_sale else int(float(traffic_gb or months))
         payload = json.dumps(
             {
                 "payment_db_id": payment.payment_id,
                 "user_id": user_id,
-                "months": months,
-                "sale_mode": "subscription",
+                "months": months_for_provider if not traffic_sale else 0,
+                "sale_mode": sale_mode,
+                "traffic_gb": _format_number_for_payload(traffic_gb or months) if traffic_sale else None,
                 "source": "webapp",
                 "platega_variant": "crypto" if variant == "platega_crypto" else "sbp",
             }
@@ -2571,7 +2888,7 @@ async def _create_platega_payment(
         success, response_data = await service.create_transaction(
             payment_db_id=payment.payment_id,
             user_id=user_id,
-            months=months,
+            months=months_for_provider,
             amount=price,
             currency=settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
             description=description,
@@ -2616,9 +2933,12 @@ async def _create_severpay_payment(
     request: web.Request,
     session: AsyncSession,
     user_id: int,
-    months: int,
+    months: Any,
     price: float,
     description: str,
+    *,
+    sale_mode: str = "subscription",
+    traffic_gb: Optional[float] = None,
 ) -> web.Response:
     settings: Settings = request.app["settings"]
     service: SeverPayService = request.app["severpay_service"]
@@ -2626,6 +2946,7 @@ async def _create_severpay_payment(
         return _json_error(400, "payment_unavailable", "Payment method unavailable")
 
     try:
+        traffic_sale = _sale_mode_is_traffic(sale_mode)
         payment = await _create_base_payment_record(
             session,
             user_id=user_id,
@@ -2633,8 +2954,11 @@ async def _create_severpay_payment(
             currency=settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
             status="pending_severpay",
             description=description,
-            months=months,
+            months=int(float(months)) if not traffic_sale else int(float(traffic_gb or months)),
             provider="severpay",
+            sale_mode=sale_mode,
+            tariff_key=_sale_mode_tariff_key(sale_mode),
+            purchased_gb=float(traffic_gb or months) if traffic_sale else None,
         )
         success, response_data = await service.create_payment(
             payment_db_id=payment.payment_id,
@@ -2679,12 +3003,15 @@ async def _create_stars_payment(
     request: web.Request,
     session: AsyncSession,
     user_id: int,
-    months: int,
+    months: Any,
     stars_price: int,
     description: str,
+    sale_mode: str = "subscription",
+    traffic_gb: Optional[float] = None,
 ) -> web.Response:
     bot: Bot = request.app["bot"]
     try:
+        traffic_sale = _sale_mode_is_traffic(sale_mode)
         payment = await _create_base_payment_record(
             session,
             user_id=user_id,
@@ -2692,10 +3019,14 @@ async def _create_stars_payment(
             currency="XTR",
             status="pending_stars",
             description=description,
-            months=months,
+            months=int(float(months)) if not traffic_sale else int(float(traffic_gb or months)),
             provider="telegram_stars",
+            sale_mode=sale_mode,
+            tariff_key=_sale_mode_tariff_key(sale_mode),
+            purchased_gb=float(traffic_gb or months) if traffic_sale else None,
         )
-        payload = f"{payment.payment_id}:{months}:subscription"
+        payload_units = traffic_gb if traffic_sale and traffic_gb is not None else months
+        payload = f"{payment.payment_id}:{_format_number_for_payload(payload_units)}:{sale_mode}"
         prices = [LabeledPrice(label=description, amount=stars_price)]
         create_invoice_link = getattr(bot, "create_invoice_link", None)
         if callable(create_invoice_link):
@@ -2790,6 +3121,67 @@ def _format_bytes(value: Optional[Any]) -> str:
     return f"{size:.2f} {units[index]}"
 
 
+def _device_hwid_token(hwid: str) -> str:
+    return hashlib.sha256(str(hwid or "").encode()).hexdigest()[:32]
+
+
+def _shorten_hwid_for_display(hwid: Optional[str], max_length: int = 24) -> str:
+    value = str(hwid or "").strip()
+    if len(value) <= max_length:
+        return value
+    return f"{value[:8]}...{value[-6:]}"
+
+
+def _normalize_devices_response(devices_response: Any) -> List[Dict[str, Any]]:
+    if isinstance(devices_response, dict):
+        devices = devices_response.get("devices") or []
+    else:
+        devices = devices_response or []
+    if not isinstance(devices, list):
+        return []
+    return [device for device in devices if isinstance(device, dict)]
+
+
+def _format_devices_limit(max_devices: Optional[int]) -> str:
+    if max_devices in (None, 0):
+        return "Unlimited"
+    return str(max_devices)
+
+
+def _format_device_datetime(value: Any) -> str:
+    if not value:
+        return ""
+    text = str(value)
+    try:
+        normalized = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        return normalized.strftime("%d.%m.%Y %H:%M")
+    except Exception:
+        return text
+
+
+def _serialize_device(device: Dict[str, Any], index: int) -> Dict[str, Any]:
+    hwid = str(device.get("hwid") or "").strip()
+    model = str(device.get("deviceModel") or "").strip()
+    platform = str(device.get("platform") or "").strip()
+    os_version = str(device.get("osVersion") or "").strip()
+    user_agent = str(device.get("userAgent") or "").strip()
+    display_name = model or platform or f"Device {index}"
+    platform_label = " ".join(part for part in (platform, os_version) if part).strip()
+    return {
+        "index": index,
+        "display_name": display_name,
+        "platform": platform,
+        "os_version": os_version,
+        "platform_label": platform_label,
+        "user_agent": user_agent,
+        "created_at": device.get("createdAt"),
+        "created_at_text": _format_device_datetime(device.get("createdAt")),
+        "hwid_short": _shorten_hwid_for_display(hwid),
+        "token": _device_hwid_token(hwid) if hwid else "",
+        "can_disconnect": bool(hwid),
+    }
+
+
 def _format_months_title(months: int, lang: str) -> str:
     if lang == "en":
         if months == 1:
@@ -2800,6 +3192,31 @@ def _format_months_title(months: int, lang: str) -> str:
     if 2 <= months <= 4:
         return f"{months} месяца"
     return f"{months} месяцев"
+
+
+def _format_number_for_payload(value: Any) -> str:
+    numeric = float(value or 0)
+    return str(int(numeric)) if numeric.is_integer() else f"{numeric:g}"
+
+
+def _format_traffic_title(traffic_gb: float, lang: str) -> str:
+    return f"{_format_number_for_payload(traffic_gb)} GB"
+
+
+def _traffic_payment_description(traffic_gb: float, lang: str) -> str:
+    if lang == "en":
+        return f"Traffic package {_format_traffic_title(traffic_gb, lang)}"
+    return f"Пакет трафика {_format_traffic_title(traffic_gb, lang)}"
+
+
+def _resolve_numeric_option_key(options: Dict[Any, Any], target: float) -> Optional[Any]:
+    for key in options:
+        try:
+            if abs(float(key) - float(target)) < 0.000001:
+                return key
+        except (TypeError, ValueError):
+            continue
+    return None
 
 
 def _payment_description(months: int, lang: str) -> str:
