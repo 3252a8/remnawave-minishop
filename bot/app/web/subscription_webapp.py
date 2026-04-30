@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import hashlib
 import hmac
 import ipaddress
@@ -22,9 +23,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.webapp_auth import (
+    create_signed_telegram_oauth_state,
+    create_telegram_oauth_nonce,
     create_webapp_session_token,
+    validate_telegram_oauth_id_token,
     validate_telegram_login_widget_data,
     validate_telegram_webapp_init_data,
+    verify_signed_telegram_oauth_state,
+    verify_telegram_oauth_nonce,
     verify_webapp_session_token,
 )
 from bot.services.crypto_pay_service import CryptoPayService
@@ -63,6 +69,7 @@ WEBAPP_CSRF_COOKIE_NAME = "rw_webapp_csrf"
 WEBAPP_CSRF_HEADER_NAME = "X-CSRF-Token"
 WEBAPP_STATE_CHANGING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 WEBAPP_CSRF_EXEMPT_PATHS = {
+    "/api/auth/telegram/nonce",
     "/api/auth/token",
     "/api/auth/email/request",
     "/api/auth/email/verify",
@@ -175,11 +182,14 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/invite", index_route)
     app.router.add_get("/devices", index_route)
     app.router.add_get("/settings", index_route)
+    app.router.add_get("/auth/telegram/start", telegram_oauth_start_route)
+    app.router.add_get("/auth/telegram/callback", telegram_oauth_callback_route)
     app.router.add_get("/health", health_route)
     app.router.add_get(WEBAPP_LOGO_PROXY_PATH, webapp_logo_route)
     app.router.add_get("/subscription_webapp.css", css_asset_route)
     app.router.add_get("/subscription_webapp.min.{asset_hash}.js", js_asset_route)
     app.router.add_get("/subscription_webapp.js", js_asset_route)
+    app.router.add_post("/api/auth/telegram/nonce", telegram_oauth_nonce_route)
     app.router.add_post("/api/auth/token", auth_token_route)
     app.router.add_post("/api/auth/email/request", email_auth_request_route)
     app.router.add_post("/api/auth/email/verify", email_auth_verify_route)
@@ -226,6 +236,103 @@ def _resolve_telegram_bot_id(bot_token: str) -> Optional[int]:
     try:
         return int(token_prefix)
     except ValueError:
+        return None
+
+
+def _resolve_telegram_oauth_client_id(settings: Settings) -> Optional[int]:
+    configured_client_id = getattr(settings, "TELEGRAM_OAUTH_CLIENT_ID", None)
+    if configured_client_id:
+        try:
+            return int(configured_client_id)
+        except (TypeError, ValueError):
+            return None
+    return _resolve_telegram_bot_id(settings.BOT_TOKEN)
+
+
+def _resolve_telegram_oauth_request_access(settings: Settings) -> List[str]:
+    raw_value = str(getattr(settings, "TELEGRAM_OAUTH_REQUEST_ACCESS", "") or "")
+    allowed = {"write", "phone"}
+    scopes = []
+    for item in raw_value.split(","):
+        value = item.strip().lower()
+        if value in allowed and value not in scopes:
+            scopes.append(value)
+    return scopes
+
+
+def _public_webapp_base_url(settings: Settings, request: web.Request) -> str:
+    configured_url = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
+    if configured_url:
+        parsed_url = urlsplit(configured_url)
+        if parsed_url.scheme and parsed_url.netloc:
+            return f"{parsed_url.scheme}://{parsed_url.netloc}"
+
+    scheme = request.headers.get("X-Forwarded-Proto") or request.scheme
+    host = request.headers.get("X-Forwarded-Host") or request.headers.get("Host") or request.host
+    return f"{scheme}://{host}".rstrip("/")
+
+
+def _telegram_oauth_callback_url(settings: Settings, request: web.Request) -> str:
+    return f"{_public_webapp_base_url(settings, request)}/auth/telegram/callback"
+
+
+def _telegram_oauth_redirect_url(path: str = "/", *, status: Optional[str] = None) -> str:
+    target_path = path if path.startswith("/") else "/"
+    if target_path not in {"/", "/settings"}:
+        target_path = "/"
+    if not status:
+        return target_path
+    separator = "&" if "?" in target_path else "?"
+    return f"{target_path}{separator}telegram_auth={status}"
+
+
+def _urlsafe_sha256(value: str) -> str:
+    digest = hashlib.sha256(value.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+
+
+async def _exchange_telegram_oauth_code(
+    request: web.Request,
+    *,
+    code: str,
+    code_verifier: str,
+    redirect_uri: str,
+) -> Optional[Dict[str, Any]]:
+    settings: Settings = request.app["settings"]
+    client_id = _resolve_telegram_oauth_client_id(settings)
+    client_secret = str(getattr(settings, "TELEGRAM_OAUTH_CLIENT_SECRET", "") or "").strip()
+    if not client_id or not client_secret or not code or not code_verifier:
+        return None
+
+    credentials = base64.b64encode(f"{client_id}:{client_secret}".encode("utf-8")).decode("ascii")
+    session = await _get_shared_http_session()
+    try:
+        async with session.post(
+            "https://oauth.telegram.org/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": str(client_id),
+                "code_verifier": code_verifier,
+            },
+            headers={
+                "Authorization": f"Basic {credentials}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            timeout=ClientTimeout(total=15),
+        ) as response:
+            payload = await response.json(content_type=None)
+            if response.status >= 400:
+                logger.warning(
+                    "Telegram OAuth token exchange failed with HTTP %s: %s",
+                    response.status,
+                    payload,
+                )
+                return None
+            return payload if isinstance(payload, dict) else None
+    except Exception as exc:
+        logger.warning("Telegram OAuth token exchange failed: %s", exc)
         return None
 
 
@@ -529,6 +636,8 @@ async def index_route(request: web.Request) -> web.Response:
         "apiBase": "/api",
         "telegramLoginBotUsername": request.app.get("bot_username") or "",
         "telegramLoginBotId": _resolve_telegram_bot_id(settings.BOT_TOKEN) or 0,
+        "telegramOAuthClientId": _resolve_telegram_oauth_client_id(settings) or 0,
+        "telegramOAuthRequestAccess": _resolve_telegram_oauth_request_access(settings),
         "supportUrl": cached["support_url"],
         "termsUrl": cached["terms_url"],
         "privacyPolicyUrl": cached["privacy_policy_url"],
@@ -586,6 +695,203 @@ async def _serve_template_asset(
     return web.Response(text=text, content_type=content_type, charset="utf-8")
 
 
+async def telegram_oauth_nonce_route(request: web.Request) -> web.Response:
+    settings: Settings = request.app["settings"]
+    client_id = _resolve_telegram_oauth_client_id(settings)
+    if not client_id:
+        return _json_error(400, "telegram_oauth_not_configured", "Telegram OAuth is not configured")
+
+    nonce = create_telegram_oauth_nonce(
+        settings,
+        ttl_seconds=settings.WEBAPP_LOGIN_TOKEN_TTL_SECONDS,
+    )
+    return web.json_response(
+        {
+            "ok": True,
+            "nonce": nonce,
+            "client_id": client_id,
+            "request_access": _resolve_telegram_oauth_request_access(settings),
+        }
+    )
+
+
+async def telegram_oauth_start_route(request: web.Request) -> web.Response:
+    settings: Settings = request.app["settings"]
+    client_id = _resolve_telegram_oauth_client_id(settings)
+    client_secret = str(getattr(settings, "TELEGRAM_OAUTH_CLIENT_SECRET", "") or "").strip()
+    if not client_id or not client_secret:
+        raise web.HTTPFound(_telegram_oauth_redirect_url("/", status="not_configured"))
+
+    purpose = str(request.query.get("purpose") or "login").strip().lower()
+    if purpose not in {"login", "link"}:
+        purpose = "login"
+
+    current_user_id = _extract_authenticated_user_id(request)
+    if purpose == "link" and not current_user_id:
+        raise web.HTTPFound(_telegram_oauth_redirect_url("/", status="unauthorized"))
+
+    code_verifier = secrets.token_urlsafe(64)
+    code_challenge = _urlsafe_sha256(code_verifier)
+    nonce = create_telegram_oauth_nonce(
+        settings,
+        ttl_seconds=settings.WEBAPP_LOGIN_TOKEN_TTL_SECONDS,
+    )
+    state = create_signed_telegram_oauth_state(
+        settings,
+        {
+            "purpose": purpose,
+            "user_id": int(current_user_id) if current_user_id else None,
+            "referral_code": str(request.query.get("referral_code") or "")[:128],
+            "code_verifier": code_verifier,
+            "nonce": nonce,
+        },
+        ttl_seconds=settings.WEBAPP_LOGIN_TOKEN_TTL_SECONDS,
+    )
+
+    scopes = ["openid", "profile"]
+    for permission in _resolve_telegram_oauth_request_access(settings):
+        if permission == "phone":
+            scopes.append("phone")
+        elif permission == "write":
+            scopes.append("telegram:bot_access")
+
+    auth_query = urlencode(
+        {
+            "client_id": str(client_id),
+            "redirect_uri": _telegram_oauth_callback_url(settings, request),
+            "response_type": "code",
+            "scope": " ".join(scopes),
+            "state": state,
+            "nonce": nonce,
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+        }
+    )
+    raise web.HTTPFound(f"https://oauth.telegram.org/auth?{auth_query}")
+
+
+async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
+    settings: Settings = request.app["settings"]
+    error = str(request.query.get("error") or "")
+    if error:
+        raise web.HTTPFound(_telegram_oauth_redirect_url("/", status="cancelled"))
+
+    code = str(request.query.get("code") or "")
+    state = verify_signed_telegram_oauth_state(settings, str(request.query.get("state") or ""))
+    if not code or not state:
+        raise web.HTTPFound(_telegram_oauth_redirect_url("/", status="invalid_state"))
+
+    token_payload = await _exchange_telegram_oauth_code(
+        request,
+        code=code,
+        code_verifier=str(state.get("code_verifier") or ""),
+        redirect_uri=_telegram_oauth_callback_url(settings, request),
+    )
+    id_token = str(token_payload.get("id_token") or "") if token_payload else ""
+    telegram_user = await validate_telegram_oauth_id_token(
+        id_token,
+        client_id=int(_resolve_telegram_oauth_client_id(settings) or 0),
+        expected_nonce=str(state.get("nonce") or ""),
+        max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
+    )
+    if not telegram_user:
+        raise web.HTTPFound(_telegram_oauth_redirect_url("/", status="invalid_token"))
+
+    purpose = str(state.get("purpose") or "login")
+    redirect_path = "/settings" if purpose == "link" else "/"
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    final_user_id: Optional[int] = None
+    async with async_session_factory() as session:
+        try:
+            if purpose == "link":
+                current_user_id = int(state.get("user_id") or 0)
+                db_user = await _link_telegram_to_user(
+                    request,
+                    session,
+                    current_user_id=current_user_id,
+                    telegram_user=telegram_user,
+                    settings=settings,
+                )
+            else:
+                db_user = await _ensure_user_from_telegram(
+                    session,
+                    telegram_user,
+                    settings,
+                    referral_param=str(state.get("referral_code") or ""),
+                )
+                referral_applied = await _apply_referral_to_existing_user(
+                    request,
+                    session,
+                    db_user,
+                    str(state.get("referral_code") or "") or telegram_user.get("start_param"),
+                )
+                if getattr(db_user, "_webapp_created", False) or referral_applied:
+                    await _apply_referral_welcome_bonus_if_needed(
+                        request,
+                        session,
+                        db_user,
+                        str(state.get("referral_code") or "") or telegram_user.get("start_param"),
+                    )
+
+            if db_user.is_banned:
+                await session.rollback()
+                raise web.HTTPFound(_telegram_oauth_redirect_url("/", status="banned"))
+
+            final_user_id = int(db_user.user_id)
+            await session.commit()
+        except web.HTTPFound:
+            raise
+        except UserMergeConflictError:
+            await session.rollback()
+            raise web.HTTPFound(_telegram_oauth_redirect_url(redirect_path, status="merge_conflict"))
+        except Exception:
+            await session.rollback()
+            logger.exception("Telegram OAuth callback failed")
+            raise web.HTTPFound(_telegram_oauth_redirect_url(redirect_path, status="failed"))
+
+    token = create_webapp_session_token(settings, int(final_user_id))
+    response = web.HTTPFound(_telegram_oauth_redirect_url(redirect_path, status="success"))
+    _set_webapp_auth_cookies(response, settings, token, secrets.token_hex(32))
+    raise response
+
+
+async def _validate_telegram_auth_payload(
+    request: web.Request,
+    payload: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    settings: Settings = request.app["settings"]
+    init_data = str(payload.get("init_data") or "")
+    if init_data:
+        return validate_telegram_webapp_init_data(
+            init_data,
+            settings.BOT_TOKEN,
+            max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
+        )
+
+    oauth_id_token = str(payload.get("id_token") or "")
+    if oauth_id_token:
+        nonce = str(payload.get("nonce") or "")
+        client_id = _resolve_telegram_oauth_client_id(settings)
+        if not client_id or not verify_telegram_oauth_nonce(settings, nonce):
+            return None
+        return await validate_telegram_oauth_id_token(
+            oauth_id_token,
+            client_id=client_id,
+            expected_nonce=nonce,
+            max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
+        )
+
+    auth_data = payload.get("auth_data")
+    if auth_data is not None:
+        return validate_telegram_login_widget_data(
+            auth_data,
+            settings.BOT_TOKEN,
+            max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
+        )
+
+    return None
+
+
 def _resolve_webapp_js_asset_name() -> str:
     minified_assets = []
     for path in ASSET_DIR.glob("subscription_webapp.min.*.js"):
@@ -612,22 +918,8 @@ def _strip_marked_block(html: str, start_marker: str, end_marker: str) -> str:
 async def auth_token_route(request: web.Request) -> web.Response:
     settings: Settings = request.app["settings"]
     payload = await _read_json(request)
-    init_data = str(payload.get("init_data") or "")
-    auth_data = payload.get("auth_data")
     referral_param = str(payload.get("referral_code") or payload.get("start_param") or "")
-    telegram_user = None
-    if init_data:
-        telegram_user = validate_telegram_webapp_init_data(
-            init_data,
-            settings.BOT_TOKEN,
-            max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
-        )
-    elif auth_data is not None:
-        telegram_user = validate_telegram_login_widget_data(
-            auth_data,
-            settings.BOT_TOKEN,
-            max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
-        )
+    telegram_user = await _validate_telegram_auth_payload(request, payload)
 
     if not telegram_user:
         return _json_error(401, "invalid_auth", "Invalid Telegram auth data")
@@ -1120,21 +1412,7 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     settings: Settings = request.app["settings"]
     payload = await _read_json(request)
-    init_data = str(payload.get("init_data") or "")
-    auth_data = payload.get("auth_data")
-    telegram_user = None
-    if init_data:
-        telegram_user = validate_telegram_webapp_init_data(
-            init_data,
-            settings.BOT_TOKEN,
-            max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
-        )
-    elif auth_data is not None:
-        telegram_user = validate_telegram_login_widget_data(
-            auth_data,
-            settings.BOT_TOKEN,
-            max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
-        )
+    telegram_user = await _validate_telegram_auth_payload(request, payload)
     if not telegram_user:
         return _json_error(401, "invalid_auth", "Invalid Telegram auth data")
 

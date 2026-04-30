@@ -34,7 +34,6 @@
   import Input from "./lib/components/ui/input.svelte";
   import PreviewBoard from "./PreviewBoard.svelte";
 
-  const TELEGRAM_LOGIN_WIDGET_URL = "https://telegram.org/js/telegram-widget.js?23";
   const MANUAL_LOGOUT_FLAG_KEY = "rw_webapp_manual_logout";
   const LANGUAGE_LABELS = {
     ru: "Русский",
@@ -77,6 +76,8 @@
       emailAuthEnabled: true,
       telegramLoginBotUsername: "preview_bot",
       telegramLoginBotId: 1234567890,
+      telegramOAuthClientId: 1234567890,
+      telegramOAuthRequestAccess: ["write"],
     },
     data: {
       ok: true,
@@ -254,7 +255,6 @@
   let avatarHashToken = "";
   let token = MOCK ? "local-preview" : localStorage.getItem("rw_webapp_token") || "";
   let csrfToken = MOCK ? "" : readCookie("rw_webapp_csrf") || "";
-  let telegramLoginSdkPromise = null;
   let linkEmailResendCooldown = 0;
   let linkEmailResendTimer = null;
   let scrollLockApplied = false;
@@ -345,6 +345,7 @@
   $: userAgreementUrl = String(CFG.userAgreementUrl || "").trim();
   $: supportUrl = String(appSettings?.support_url || CFG.supportUrl || "").trim();
   $: telegramLoginBotId = Number(CFG.telegramLoginBotId || 0);
+  $: telegramOAuthClientId = Number(CFG.telegramOAuthClientId || telegramLoginBotId || 0);
   $: applyFavicon(CFG.logoUrl, brandEmoji);
   $: syncBodyScrollLock(paymentModalOpen || linkEmailOpen);
   $: if (!selectedPlan && plans.length) selectedPlan = plans[Math.min(1, plans.length - 1)];
@@ -537,6 +538,24 @@
 
     const magicToken = readMagicLoginToken();
     if (magicToken && (await finalizeMagicLogin(magicToken))) return;
+
+    const telegramAuthStatus = readTelegramAuthStatus();
+    if (telegramAuthStatus === "success") {
+      clearManualLogoutFlag();
+      clearAuthQuery();
+      try {
+        await loadData();
+        return;
+      } catch {
+        clearToken();
+      }
+    } else if (telegramAuthStatus) {
+      clearAuthQuery();
+      setAuthStatus(
+        telegramAuthStatus === "cancelled" ? t("wa_auth_telegram_cancelled") : t("wa_auth_telegram_not_confirmed"),
+        true,
+      );
+    }
 
     if (isManuallyLoggedOut()) {
       showLogin();
@@ -736,6 +755,11 @@
     return localStorage.getItem("rw_webapp_referral") || "";
   }
 
+  function readTelegramAuthStatus() {
+    const params = new URLSearchParams(window.location.search);
+    return (params.get("telegram_auth") || "").trim().toLowerCase() || null;
+  }
+
   function readMagicLoginToken() {
     const params = new URLSearchParams(window.location.search);
     return (params.get("login_token") || "").trim() || null;
@@ -757,7 +781,18 @@
 
   function clearAuthQuery() {
     const url = new URL(window.location.href);
-    ["login_token", "login_purpose", "id", "first_name", "last_name", "username", "photo_url", "auth_date", "hash"].forEach((key) =>
+    [
+      "login_token",
+      "login_purpose",
+      "telegram_auth",
+      "id",
+      "first_name",
+      "last_name",
+      "username",
+      "photo_url",
+      "auth_date",
+      "hash",
+    ].forEach((key) =>
       url.searchParams.delete(key),
     );
     window.history?.replaceState?.({}, document.title, url.pathname + url.search + url.hash);
@@ -792,7 +827,12 @@
     authBusy = true;
     setAuthStatus(t("wa_auth_checking_telegram"));
     try {
-      const payload = source === "init_data" ? { init_data: authData } : { auth_data: authData };
+      const payload =
+        source === "init_data"
+          ? { init_data: authData }
+          : source === "id_token"
+            ? { id_token: authData.id_token, nonce: authData.nonce }
+            : { auth_data: authData };
       const referralParam = readReferralParam();
       if (referralParam) payload.referral_code = referralParam;
       const response = await publicApi("/auth/token", payload);
@@ -926,38 +966,12 @@
     }, 1000);
   }
 
-  async function ensureTelegramLoginSdk() {
-    if (window.Telegram?.Login?.auth) return true;
-    if (telegramLoginSdkPromise) return telegramLoginSdkPromise;
-
-    telegramLoginSdkPromise = new Promise((resolve) => {
-      const existingScript = Array.from(document.querySelectorAll("script")).find((node) =>
-        String(node?.src || "").includes("telegram-widget.js"),
-      );
-      const script = existingScript || document.createElement("script");
-      const onReady = () => resolve(Boolean(window.Telegram?.Login?.auth));
-
-      if (!existingScript) {
-        script.async = true;
-        script.src = TELEGRAM_LOGIN_WIDGET_URL;
-        script.setAttribute("data-rw-telegram-login-sdk", "1");
-        document.head.appendChild(script);
-      }
-
-      if (window.Telegram?.Login?.auth) {
-        onReady();
-        return;
-      }
-
-      script.addEventListener("load", onReady, { once: true });
-      script.addEventListener("error", () => resolve(false), { once: true });
-    }).finally(() => {
-      if (!window.Telegram?.Login?.auth) {
-        telegramLoginSdkPromise = null;
-      }
-    });
-
-    return telegramLoginSdkPromise;
+  function buildTelegramOAuthStartUrl(purpose = "login") {
+    const url = new URL("/auth/telegram/start", window.location.origin);
+    url.searchParams.set("purpose", purpose);
+    const referralParam = readReferralParam();
+    if (referralParam) url.searchParams.set("referral_code", referralParam);
+    return url.toString();
   }
 
   async function openTelegramLogin() {
@@ -967,36 +981,14 @@
       return;
     }
 
-    if (!telegramLoginBotId) {
+    if (!telegramOAuthClientId) {
       setAuthStatus(t("wa_auth_telegram_not_configured"), true);
       return;
     }
 
-    const sdkReady = await ensureTelegramLoginSdk();
-    if (!sdkReady || !window.Telegram?.Login?.auth) {
-      setAuthStatus(t("wa_auth_telegram_unavailable"), true);
-      return;
-    }
-
-    setAuthStatus("");
-    try {
-      window.Telegram.Login.auth(
-        {
-          bot_id: telegramLoginBotId,
-          request_access: "write",
-          lang: currentLang,
-        },
-        async (telegramUser) => {
-          if (!telegramUser) {
-            setAuthStatus(t("wa_auth_telegram_cancelled"), true);
-            return;
-          }
-          await finalizeTelegramAuth(telegramUser, "auth_data");
-        },
-      );
-    } catch {
-      setAuthStatus(t("wa_auth_telegram_unavailable"), true);
-    }
+    authBusy = true;
+    setAuthStatus(t("wa_auth_checking_telegram"));
+    window.location.assign(buildTelegramOAuthStartUrl("login"));
   }
 
   function setLinkEmailStatus(message, isError = false) {
@@ -1109,29 +1101,12 @@
       await linkTelegramAccountWithPayload({ init_data: tg.initData });
       return;
     }
-    if (!telegramLoginBotId) {
+    if (!telegramOAuthClientId) {
       showToast(t("wa_auth_telegram_not_configured"));
       return;
     }
-    const sdkReady = await ensureTelegramLoginSdk();
-    if (!sdkReady || !window.Telegram?.Login?.auth) {
-      showToast(t("wa_auth_telegram_unavailable"));
-      return;
-    }
-    window.Telegram.Login.auth(
-      {
-        bot_id: telegramLoginBotId,
-        request_access: "write",
-        lang: currentLang,
-      },
-      async (telegramUser) => {
-        if (!telegramUser) {
-          showToast(t("wa_auth_telegram_cancelled"));
-          return;
-        }
-        await linkTelegramAccountWithPayload({ auth_data: telegramUser });
-      },
-    );
+    linkTelegramBusy = true;
+    window.location.assign(buildTelegramOAuthStartUrl("link"));
   }
 
   async function updateAccountLanguage(nextValue) {

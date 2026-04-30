@@ -337,6 +337,18 @@ class Settings(BaseSettings):
     WEBAPP_SESSION_TTL_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_AUTH_MAX_AGE_SECONDS: int = Field(default=24 * 60 * 60)
     WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int = Field(default=10 * 60)
+    TELEGRAM_OAUTH_CLIENT_ID: Optional[int] = Field(
+        default=None,
+        description="Telegram Web Login Client ID from BotFather. Defaults to the numeric bot ID from BOT_TOKEN.",
+    )
+    TELEGRAM_OAUTH_CLIENT_SECRET: Optional[str] = Field(
+        default=None,
+        description="Telegram Web Login Client Secret from BotFather. Reserved for full OIDC authorization code integrations.",
+    )
+    TELEGRAM_OAUTH_REQUEST_ACCESS: Optional[str] = Field(
+        default="write",
+        description="Comma-separated Telegram Login permissions to request: write,phone. Leave empty to request only OpenID profile.",
+    )
 
     SMTP_HOST: str = Field(default="smtp-relay.brevo.com")
     SMTP_PORT: int = Field(default=587)
@@ -895,6 +907,8 @@ class Settings(BaseSettings):
         'USER_AGREEMENT_URL',
         'SUBSCRIPTION_MINI_APP_URL',
         'WEBAPP_LOGO_URL',
+        'TELEGRAM_OAUTH_CLIENT_SECRET',
+        'TELEGRAM_OAUTH_REQUEST_ACCESS',
         'SMTP_USERNAME',
         'SMTP_PASSWORD',
         'SMTP_FROM_EMAIL',

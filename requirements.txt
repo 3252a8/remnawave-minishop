@@ -9,3 +9,4 @@ email-validator==2.3.0
 sqlalchemy[asyncio]==2.0.45
 asyncpg==0.31.0
 aiocryptopay==0.4.8
+PyJWT[crypto]==2.10.1

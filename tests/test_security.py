@@ -7,7 +7,11 @@ from unittest.mock import AsyncMock
 from aiohttp import web
 
 from bot.app.web import subscription_webapp
-from bot.app.web.webapp_auth import create_webapp_session_token
+from bot.app.web.webapp_auth import (
+    create_telegram_oauth_nonce,
+    create_webapp_session_token,
+    verify_telegram_oauth_nonce,
+)
 from bot.services.crypto_pay_service import CryptoPayService
 from bot.handlers.user.payment import yookassa_webhook_route
 from bot.services.freekassa_service import FreeKassaService
@@ -226,6 +230,29 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(model)
         self.assertEqual(response.status, 400)
         self.assertIn("description_too_long", response.text)
+
+    def test_telegram_oauth_nonce_round_trips(self):
+        settings = SimpleNamespace(
+            WEBAPP_SESSION_SECRET="session-secret",
+            WEBAPP_SESSION_TTL_SECONDS=3600,
+        )
+        nonce = create_telegram_oauth_nonce(settings, ttl_seconds=60)
+
+        self.assertTrue(verify_telegram_oauth_nonce(settings, nonce))
+        self.assertFalse(verify_telegram_oauth_nonce(settings, nonce + "tampered"))
+
+    def test_telegram_oauth_client_id_defaults_to_bot_id(self):
+        settings = SimpleNamespace(
+            BOT_TOKEN="123456789:secret",
+            TELEGRAM_OAUTH_CLIENT_ID=None,
+            TELEGRAM_OAUTH_REQUEST_ACCESS="write, phone, unknown, write",
+        )
+
+        self.assertEqual(subscription_webapp._resolve_telegram_oauth_client_id(settings), 123456789)
+        self.assertEqual(
+            subscription_webapp._resolve_telegram_oauth_request_access(settings),
+            ["write", "phone"],
+        )
 
 
 def asyncio_run(coro):

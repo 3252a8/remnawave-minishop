@@ -1,8 +1,10 @@
 import base64
+import asyncio
 import hashlib
 import hmac
 import json
 import logging
+import secrets
 import time
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qsl
@@ -13,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 # 5 minutes clock skew tolerance for Telegram clients
 TELEGRAM_CLOCK_SKEW_SECONDS = 300
+TELEGRAM_OAUTH_ISSUER = "https://oauth.telegram.org"
+TELEGRAM_OAUTH_JWKS_URL = "https://oauth.telegram.org/.well-known/jwks.json"
+TELEGRAM_OAUTH_ALGORITHMS = ["RS256", "ES256", "EdDSA"]
 
 
 def _urlsafe_b64encode(raw: bytes) -> str:
@@ -71,6 +76,181 @@ def verify_webapp_session_token(settings: Settings, token: str) -> Optional[int]
         return int(payload["sub"])
     except Exception as exc:
         logger.debug("Failed to verify webapp session token: %s", exc)
+        return None
+
+
+def create_telegram_oauth_nonce(settings: Settings, *, ttl_seconds: int = 600) -> str:
+    now = int(time.time())
+    payload = {
+        "n": secrets.token_urlsafe(24),
+        "iat": now,
+        "exp": now + max(60, int(ttl_seconds)),
+    }
+    payload_part = _urlsafe_b64encode(
+        json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    )
+    signature = hmac.new(
+        _session_secret(settings),
+        f"telegram-oauth-nonce.{payload_part}".encode("ascii"),
+        hashlib.sha256,
+    ).digest()
+    return f"{payload_part}.{_urlsafe_b64encode(signature)}"
+
+
+def verify_telegram_oauth_nonce(settings: Settings, nonce: str) -> bool:
+    if not nonce or "." not in nonce:
+        return False
+
+    try:
+        payload_part, signature_part = nonce.split(".", 1)
+        expected_signature = hmac.new(
+            _session_secret(settings),
+            f"telegram-oauth-nonce.{payload_part}".encode("ascii"),
+            hashlib.sha256,
+        ).digest()
+        received_signature = _urlsafe_b64decode(signature_part)
+        if not hmac.compare_digest(expected_signature, received_signature):
+            return False
+
+        payload = json.loads(_urlsafe_b64decode(payload_part).decode("utf-8"))
+        now = int(time.time())
+        if int(payload.get("exp", 0)) < now:
+            return False
+        if int(payload.get("iat", 0)) > now + TELEGRAM_CLOCK_SKEW_SECONDS:
+            return False
+        return bool(payload.get("n"))
+    except Exception as exc:
+        logger.debug("Failed to verify Telegram OAuth nonce: %s", exc)
+        return False
+
+
+def create_signed_telegram_oauth_state(
+    settings: Settings,
+    payload: Dict[str, Any],
+    *,
+    ttl_seconds: int = 600,
+) -> str:
+    now = int(time.time())
+    state_payload = {
+        **payload,
+        "iat": now,
+        "exp": now + max(60, int(ttl_seconds)),
+    }
+    payload_part = _urlsafe_b64encode(
+        json.dumps(state_payload, separators=(",", ":")).encode("utf-8")
+    )
+    signature = hmac.new(
+        _session_secret(settings),
+        f"telegram-oauth-state.{payload_part}".encode("ascii"),
+        hashlib.sha256,
+    ).digest()
+    return f"{payload_part}.{_urlsafe_b64encode(signature)}"
+
+
+def verify_signed_telegram_oauth_state(
+    settings: Settings,
+    state: str,
+) -> Optional[Dict[str, Any]]:
+    if not state or "." not in state:
+        return None
+
+    try:
+        payload_part, signature_part = state.split(".", 1)
+        expected_signature = hmac.new(
+            _session_secret(settings),
+            f"telegram-oauth-state.{payload_part}".encode("ascii"),
+            hashlib.sha256,
+        ).digest()
+        received_signature = _urlsafe_b64decode(signature_part)
+        if not hmac.compare_digest(expected_signature, received_signature):
+            return None
+
+        payload = json.loads(_urlsafe_b64decode(payload_part).decode("utf-8"))
+        now = int(time.time())
+        if int(payload.get("exp", 0)) < now:
+            return None
+        if int(payload.get("iat", 0)) > now + TELEGRAM_CLOCK_SKEW_SECONDS:
+            return None
+        return payload
+    except Exception as exc:
+        logger.debug("Failed to verify Telegram OAuth state: %s", exc)
+        return None
+
+
+async def validate_telegram_oauth_id_token(
+    id_token: str,
+    *,
+    client_id: int,
+    expected_nonce: str,
+    max_age_seconds: int,
+) -> Optional[Dict[str, Any]]:
+    """Validate Telegram OIDC ID token and return a Telegram-like user payload."""
+
+    if not id_token or not client_id or not expected_nonce:
+        return None
+
+    try:
+        import jwt
+        from jwt import PyJWKClient
+    except Exception as exc:
+        logger.error(
+            "PyJWT is not installed; Telegram OAuth ID token validation is unavailable: %s",
+            exc,
+        )
+        return None
+
+    try:
+        jwks_client = PyJWKClient(TELEGRAM_OAUTH_JWKS_URL)
+        signing_key = await asyncio.to_thread(
+            jwks_client.get_signing_key_from_jwt,
+            id_token,
+        )
+        claims = await asyncio.to_thread(
+            jwt.decode,
+            id_token,
+            signing_key.key,
+            algorithms=TELEGRAM_OAUTH_ALGORITHMS,
+            audience=str(client_id),
+            issuer=TELEGRAM_OAUTH_ISSUER,
+            leeway=TELEGRAM_CLOCK_SKEW_SECONDS,
+            options={"require": ["exp", "iat", "iss", "aud"]},
+        )
+
+        if not hmac.compare_digest(str(claims.get("nonce") or ""), expected_nonce):
+            logger.warning("Telegram OAuth nonce mismatch.")
+            return None
+
+        now = int(time.time())
+        issued_at = int(claims.get("iat") or 0)
+        max_age = max(60, int(max_age_seconds))
+        if issued_at > now + TELEGRAM_CLOCK_SKEW_SECONDS or now - issued_at > max_age:
+            logger.warning("Telegram OAuth ID token is stale.")
+            return None
+
+        telegram_id_raw = claims.get("id")
+        if not telegram_id_raw:
+            return None
+        telegram_id = int(telegram_id_raw)
+
+        full_name = str(claims.get("name") or "").strip()
+        first_name = str(claims.get("given_name") or "").strip()
+        last_name = str(claims.get("family_name") or "").strip()
+        if full_name and not first_name:
+            name_parts = full_name.split(None, 1)
+            first_name = name_parts[0]
+            if len(name_parts) > 1 and not last_name:
+                last_name = name_parts[1]
+
+        return {
+            "id": telegram_id,
+            "username": claims.get("preferred_username") or claims.get("username"),
+            "first_name": first_name or full_name or "Telegram",
+            "last_name": last_name,
+            "photo_url": claims.get("picture"),
+            "language_code": claims.get("locale"),
+        }
+    except Exception as exc:
+        logger.warning("Failed to validate Telegram OAuth ID token: %s", exc)
         return None
 
 
