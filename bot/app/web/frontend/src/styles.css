@@ -391,6 +391,124 @@ a {
   line-height: 1.28;
 }
 
+.devices-summary-card {
+  display: grid;
+  gap: 10px;
+}
+
+.devices-summary-head,
+.device-card-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+}
+
+.devices-summary-head > svg {
+  color: var(--accent);
+}
+
+.devices-summary-head span,
+.device-card-head span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.devices-summary-head strong,
+.device-card-head strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.devices-summary-head small,
+.device-card-head small,
+.device-meta span,
+.device-meta small,
+.devices-empty-card small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.devices-progress {
+  margin-top: 0;
+}
+
+.devices-list {
+  display: grid;
+  gap: 8px;
+}
+
+.device-card {
+  display: grid;
+  gap: 12px;
+}
+
+.device-card-head {
+  grid-template-columns: 38px minmax(0, 1fr);
+}
+
+.device-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 9%, rgba(255, 255, 255, 0.03));
+  color: var(--accent);
+}
+
+.device-meta {
+  display: grid;
+  gap: 7px;
+}
+
+.device-meta div {
+  display: grid;
+  gap: 2px;
+}
+
+.device-meta strong,
+.device-meta code {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-meta code {
+  font-family: var(--font-mono);
+}
+
+.device-user-agent small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-disconnect-button,
+.device-danger-button {
+  border-color: color-mix(in srgb, var(--danger) 62%, var(--border));
+  color: #ffb8b8;
+}
+
+.devices-empty-card {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  text-align: center;
+}
+
+.devices-empty-card svg {
+  color: var(--accent);
+}
+
 .action-stack {
   display: grid;
   gap: 8px;
@@ -1092,6 +1210,10 @@ a {
   backdrop-filter: blur(16px);
 }
 
+.bottom-nav-devices {
+  grid-template-columns: repeat(4, 1fr);
+}
+
 .bottom-nav.static {
   position: fixed;
 }
@@ -1411,9 +1533,14 @@ a {
 .link-email-dialog-card {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  height: 100%;
+  height: min(100%, 560px);
   max-height: 100%;
   overflow: hidden;
+}
+
+.link-email-dialog-card .dialog-head {
+  position: relative;
+  z-index: 2;
 }
 
 .link-email-dialog-card .payment-dialog-body {

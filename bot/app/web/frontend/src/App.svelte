@@ -18,6 +18,7 @@
     Mail,
     RefreshCw,
     Send,
+    Smartphone,
     TriangleAlert,
     Settings as SettingsIcon,
     Shield,
@@ -57,6 +58,7 @@
   const APP_SECTION_PATHS = {
     home: "/home",
     invite: "/invite",
+    devices: "/devices",
     settings: "/settings",
   };
 
@@ -101,6 +103,46 @@
         traffic_limit: "100 GB",
         traffic_used_bytes: 19756849561,
         traffic_limit_bytes: 107374182400,
+        max_devices: 5,
+      },
+      devices: {
+        ok: true,
+        enabled: true,
+        current_devices: 3,
+        max_devices: 5,
+        max_devices_label: "5",
+        devices: [
+          {
+            index: 1,
+            display_name: "iPhone 15 Pro",
+            platform_label: "iOS 18.4",
+            user_agent: "Streisand/1.6 CFNetwork",
+            created_at_text: "28.04.2026 16:12",
+            hwid_short: "A1B2C3D4...98FA01",
+            token: "preview-device-1",
+            can_disconnect: true,
+          },
+          {
+            index: 2,
+            display_name: "MacBook Air",
+            platform_label: "macOS 15.4",
+            user_agent: "Happ/3.1.0",
+            created_at_text: "29.04.2026 09:40",
+            hwid_short: "F0E1D2C3...44AB22",
+            token: "preview-device-2",
+            can_disconnect: true,
+          },
+          {
+            index: 3,
+            display_name: "Android Phone",
+            platform_label: "Android 15",
+            user_agent: "v2rayNG/1.9.35",
+            created_at_text: "30.04.2026 07:55",
+            hwid_short: "778899AA...BCDD10",
+            token: "preview-device-3",
+            can_disconnect: true,
+          },
+        ],
       },
       plans: [
         { months: 1, price: 290, currency: "RUB", title: "1 месяц" },
@@ -132,6 +174,8 @@
       settings: {
         support_url: "https://t.me/support",
         traffic_mode: false,
+        my_devices_enabled: false,
+        user_hwid_device_limit: 5,
         trial_enabled: true,
         trial_available: true,
         trial_duration_days: 5,
@@ -182,6 +226,14 @@
   let promoStatus = "";
   let promoIsError = false;
   let promoFieldError = "";
+  let devicesData = DEV_MOCK.data.devices;
+  let devicesLoaded = false;
+  let devicesBusy = false;
+  let devicesStatus = "";
+  let devicesIsError = false;
+  let deviceConfirmOpen = false;
+  let deviceToDisconnect = null;
+  let deviceDisconnectBusy = false;
   let toastText = "";
   let toastTimer = null;
   let authStatus = "";
@@ -228,6 +280,13 @@
         { months: 100, traffic_gb: 100, price: 1390, currency: "RUB", title: "100 GB", sale_mode: "traffic" },
         { months: 300, traffic_gb: 300, price: 3490, currency: "RUB", title: "300 GB", sale_mode: "traffic" },
       ];
+    } else if (mode === "devices") {
+      DEV_MOCK.data.settings.my_devices_enabled = true;
+      DEV_MOCK.data.subscription = {
+        ...DEV_MOCK.data.subscription,
+        active: true,
+        max_devices: 5,
+      };
     } else if (mode === "trial") {
       DEV_MOCK.data.settings.traffic_mode = false;
       DEV_MOCK.data.settings.trial_enabled = true;
@@ -257,6 +316,7 @@
   $: methods = data?.payment_methods?.length ? data.payment_methods : [];
   $: appSettings = data?.settings || DEV_MOCK.data.settings;
   $: trafficMode = Boolean(appSettings?.traffic_mode);
+  $: devicesEnabled = Boolean(appSettings?.my_devices_enabled);
   $: subscription = data?.subscription || DEV_MOCK.data.subscription;
   $: user = data?.user || {};
   $: referral = data?.referral || DEV_MOCK.data.referral;
@@ -307,8 +367,10 @@
     const onPopState = () => {
       const section = sectionFromPath(window.location.pathname);
       if (mode === "app") {
-        activeTab = section;
-        screen = section;
+        const nextSection = section === "devices" && !devicesEnabled ? "home" : section;
+        activeTab = nextSection;
+        screen = nextSection;
+        if (nextSection === "devices") loadDevices();
       }
     };
     window.addEventListener("popstate", onPopState);
@@ -413,7 +475,7 @@
 
   function normalizeSection(value) {
     const section = String(value || "").trim().toLowerCase();
-    return section === "invite" || section === "settings" ? section : "home";
+    return section === "invite" || section === "devices" || section === "settings" ? section : "home";
   }
 
   function sectionFromPath(pathname) {
@@ -484,11 +546,15 @@
     data = payload;
     selectedPlan = payload.plans?.[Math.min(1, payload.plans.length - 1)] || payload.plans?.[0] || null;
     selectedMethod = payload.payment_methods?.[0]?.id || "";
-    const section = sectionFromPath(window.location.pathname);
+    let section = MOCK && query.get("screen") ? normalizeSection(query.get("screen")) : sectionFromPath(window.location.pathname);
+    if (section === "devices" && !payload.settings?.my_devices_enabled) section = "home";
     activeTab = section;
     screen = section;
     mode = "app";
     syncSectionPath(section, true);
+    if (section === "devices" && payload.settings?.my_devices_enabled) {
+      await loadDevices();
+    }
   }
 
   function showLogin() {
@@ -539,6 +605,16 @@
       return { ok: true, token: "local-preview", csrf_token: "local-preview-csrf" };
     }
     if (path === "/promo/apply") return { ok: true, end_date_text: "31.05.2026" };
+    if (path === "/devices") return structuredCloneSafe(DEV_MOCK.data.devices);
+    if (path === "/devices/disconnect" && String(options.method || "").toUpperCase() === "POST") {
+      let payload = {};
+      try {
+        payload = options?.body ? JSON.parse(String(options.body)) : {};
+      } catch {}
+      DEV_MOCK.data.devices.devices = DEV_MOCK.data.devices.devices.filter((device) => device.token !== payload.token);
+      DEV_MOCK.data.devices.current_devices = DEV_MOCK.data.devices.devices.length;
+      return { ok: true };
+    }
     if (path === "/trial/activate" && String(options.method || "").toUpperCase() === "POST") {
       DEV_MOCK.data.subscription = {
         ...DEV_MOCK.data.subscription,
@@ -947,7 +1023,7 @@
       if (!response?.ok) throw response;
       linkEmailPending = normalized;
       linkEmailCode = "";
-      setLinkEmailStatus(t("wa_email_sent_to", { email: normalized }));
+      setLinkEmailStatus("");
       startCooldownTimer("link_email", 60);
     } catch (error) {
       setLinkEmailStatus(emailError(error, t("wa_auth_send_code_failed")), true);
@@ -1179,6 +1255,58 @@
     }
   }
 
+  async function loadDevices(force = false) {
+    if (!devicesEnabled || devicesBusy || (devicesLoaded && !force)) return;
+    devicesBusy = true;
+    devicesStatus = "";
+    devicesIsError = false;
+    try {
+      const response = await api("/devices");
+      if (!response?.ok) throw response;
+      devicesData = response;
+      devicesLoaded = true;
+    } catch (error) {
+      devicesStatus = error?.message || t("wa_devices_load_failed");
+      devicesIsError = true;
+      devicesLoaded = true;
+    } finally {
+      devicesBusy = false;
+    }
+  }
+
+  function openDeviceDisconnectDialog(device) {
+    deviceToDisconnect = device;
+    deviceConfirmOpen = true;
+  }
+
+  function closeDeviceDisconnectDialog() {
+    if (deviceDisconnectBusy) return;
+    deviceConfirmOpen = false;
+    deviceToDisconnect = null;
+  }
+
+  async function disconnectDevice() {
+    const token = String(deviceToDisconnect?.token || "").trim();
+    if (!token || deviceDisconnectBusy) return;
+    deviceDisconnectBusy = true;
+    try {
+      const response = await api("/devices/disconnect", {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      });
+      if (!response?.ok) throw response;
+      showToast(t("wa_device_disconnected"));
+      deviceConfirmOpen = false;
+      deviceToDisconnect = null;
+      devicesLoaded = false;
+      await loadDevices(true);
+    } catch (error) {
+      showToast(error?.message || t("wa_device_disconnect_failed"));
+    } finally {
+      deviceDisconnectBusy = false;
+    }
+  }
+
   async function logout() {
     markManualLogout();
     clearToken();
@@ -1208,6 +1336,15 @@
     activeTab = "invite";
     screen = "invite";
     syncSectionPath("invite");
+  }
+
+  function goDevices() {
+    if (!devicesEnabled) return;
+    paymentModalOpen = false;
+    activeTab = "devices";
+    screen = "devices";
+    syncSectionPath("devices");
+    loadDevices();
   }
 
   function goSettings() {
@@ -1353,6 +1490,24 @@
   function trialTrafficLabel() {
     const limit = Number(appSettings?.trial_traffic_limit_gb || 0);
     return limit > 0 ? formatTrafficGb(limit) : t("wa_unlimited_traffic");
+  }
+
+  function devicesLimitLabel(value = devicesData?.max_devices) {
+    const numeric = Number(value ?? 0);
+    if (!Number.isFinite(numeric) || numeric <= 0) return t("wa_devices_unlimited");
+    return String(Math.trunc(numeric));
+  }
+
+  function devicesCountLabel() {
+    const current = Number(devicesData?.current_devices ?? devicesData?.devices?.length ?? 0);
+    return t("wa_devices_count", { current, max: devicesLimitLabel() });
+  }
+
+  function devicesPercent() {
+    const current = Number(devicesData?.current_devices ?? devicesData?.devices?.length ?? 0);
+    const max = Number(devicesData?.max_devices || 0);
+    if (!max || max <= 0) return 100;
+    return Math.max(0, Math.min(100, Math.round((current / max) * 100)));
   }
 
   function activeSubscriptionTermLabel(sub) {
@@ -1652,7 +1807,7 @@
       </div>
     {:else}
       <div class="phone-screen">
-        {#if screen === "invite" || screen === "settings"}
+        {#if screen === "invite" || screen === "devices" || screen === "settings"}
           <header class="app-header accent-title">
             <div class="brand-row">
               <div class="brand-mark">
@@ -1822,6 +1977,78 @@
               {/if}
             </Card>
           </main>
+        {:else if screen === "devices"}
+          <main class="content with-nav">
+            <Card class="devices-summary-card">
+              <div class="devices-summary-head">
+                <Smartphone size={28} />
+                <span>
+                  <strong>{t("wa_devices_title")}</strong>
+                  <small>{devicesCountLabel()}</small>
+                </span>
+                <Button variant="icon" size="icon" onclick={() => loadDevices(true)} disabled={devicesBusy} aria-label={t("wa_devices_refresh")}>
+                  <RefreshCw size={18} />
+                </Button>
+              </div>
+              <div class="progress devices-progress">
+                <span style={`width: ${devicesPercent()}%`}></span>
+              </div>
+            </Card>
+
+            {#if devicesBusy && !devicesLoaded}
+              <Card class="empty-card">{t("wa_devices_loading")}</Card>
+            {:else if devicesStatus}
+              <Card class="empty-card">
+                <p class:error={devicesIsError} class="status-line">{devicesStatus}</p>
+              </Card>
+            {:else if !devicesData?.devices?.length}
+              <Card class="empty-card devices-empty-card">
+                <Smartphone size={28} />
+                <span>{t("wa_devices_empty")}</span>
+                <small>{t("wa_devices_empty_hint", { max: devicesLimitLabel() })}</small>
+              </Card>
+            {:else}
+              <div class="devices-list">
+                {#each devicesData.devices as device (device.token || device.index)}
+                  <Card class="device-card">
+                    <div class="device-card-head">
+                      <div class="device-icon"><Smartphone size={20} /></div>
+                      <span>
+                        <strong>{device.display_name || t("wa_device_fallback_name", { index: device.index })}</strong>
+                        <small>{device.platform_label || t("wa_devices_platform_unknown")}</small>
+                      </span>
+                    </div>
+                    <div class="device-meta">
+                      {#if device.created_at_text}
+                        <div>
+                          <span>{t("wa_devices_connected_at")}</span>
+                          <strong>{device.created_at_text}</strong>
+                        </div>
+                      {/if}
+                      {#if device.hwid_short}
+                        <div>
+                          <span>HWID</span>
+                          <code>{device.hwid_short}</code>
+                        </div>
+                      {/if}
+                      {#if device.user_agent}
+                        <div class="device-user-agent">
+                          <span>User Agent</span>
+                          <small>{device.user_agent}</small>
+                        </div>
+                      {/if}
+                    </div>
+                    {#if device.can_disconnect}
+                      <Button variant="outline" class="wide device-disconnect-button" onclick={() => openDeviceDisconnectDialog(device)}>
+                        <CircleX size={17} />
+                        {t("wa_devices_disconnect")}
+                      </Button>
+                    {/if}
+                  </Card>
+                {/each}
+              </div>
+            {/if}
+          </main>
         {:else if screen === "settings"}
           <main class="content with-nav">
             <Card class="settings-profile">
@@ -1946,8 +2173,8 @@
           </main>
         {/if}
 
-        {#if screen === "home" || screen === "invite" || screen === "settings"}
-          <nav class="bottom-nav" aria-label={t("wa_navigation")}>
+        {#if screen === "home" || screen === "invite" || screen === "devices" || screen === "settings"}
+          <nav class:bottom-nav-devices={devicesEnabled} class="bottom-nav" aria-label={t("wa_navigation")}>
             <button class:active={activeTab === "home"} type="button" on:click={goHome}>
               <Home size={21} />
               <span>{t("wa_nav_home")}</span>
@@ -1956,6 +2183,12 @@
               <Gift size={21} />
               <span>{t("wa_nav_bonuses")}</span>
             </button>
+            {#if devicesEnabled}
+              <button class:active={activeTab === "devices"} type="button" on:click={goDevices}>
+                <Smartphone size={21} />
+                <span>{t("wa_nav_devices")}</span>
+              </button>
+            {/if}
             <button class:active={activeTab === "settings"} class="attention-wrap" type="button" on:click={goSettings}>
               {#if hasUnlinkedIdentity}
                 <span class="attention-dot nav-attention-dot" aria-hidden="true"></span>
@@ -2026,12 +2259,33 @@
       </Dialog>
 
       <Dialog
+        open={deviceConfirmOpen}
+        title={t("wa_devices_disconnect_title")}
+        description={t("wa_devices_disconnect_desc", {
+          device: deviceToDisconnect?.display_name || t("wa_device_fallback_name", { index: deviceToDisconnect?.index || "" }),
+        })}
+        closeLabel={t("wa_close")}
+        onclose={closeDeviceDisconnectDialog}
+        class="payment-dialog-card"
+      >
+        <div class="payment-dialog-body">
+          <Button variant="outline" class="wide device-danger-button" onclick={disconnectDevice} disabled={deviceDisconnectBusy}>
+            <CircleX size={17} />
+            {t("wa_devices_disconnect_confirm")}
+          </Button>
+          <Button variant="secondary" class="wide" onclick={closeDeviceDisconnectDialog} disabled={deviceDisconnectBusy}>
+            {t("wa_cancel")}
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog
         open={linkEmailOpen}
         title={t("wa_link_email_modal_title")}
         description={linkEmailPending ? t("wa_email_sent_to", { email: linkEmailPending }) : t("wa_link_email_modal_desc")}
         closeLabel={t("wa_close")}
         onclose={closeLinkEmailDialog}
-        class="payment-dialog-card link-email-dialog-card"
+        class={`payment-dialog-card${linkEmailPending ? " link-email-dialog-card" : ""}`}
       >
         <div class="payment-dialog-body">
           {#if !linkEmailPending}
