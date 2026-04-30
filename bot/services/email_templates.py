@@ -99,7 +99,7 @@ def _layout(
         logo_block = (
             f'<img src="{html.escape(logo_url, quote=True)}" width="64" height="64" '
             f'alt="" style="display:block;border:0;outline:none;text-decoration:none;'
-            f'border-radius:16px;background:{_CARD_BG};">'
+            f'border-radius:16px;">'
         )
 
     return f"""<!DOCTYPE html>
