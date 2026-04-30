@@ -6,9 +6,27 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from bot.app.web import subscription_webapp
+from config.settings import Settings
 
 
 class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
+    def test_serialize_plans_uses_traffic_packages_in_traffic_mode(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            TRAFFIC_PACKAGES="10:199,50:799",
+            STARS_TRAFFIC_PACKAGES="50:2500",
+        )
+
+        plans = subscription_webapp._serialize_plans(settings, "en")
+
+        self.assertEqual([plan["traffic_gb"] for plan in plans], [10.0, 50.0])
+        self.assertEqual(plans[0]["sale_mode"], "traffic")
+        self.assertEqual(plans[0]["price"], 199.0)
+        self.assertEqual(plans[1]["stars_price"], 2500)
+
     def test_resolve_webapp_js_asset_name_prefers_latest_minified_build(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             asset_dir = Path(tmpdir)

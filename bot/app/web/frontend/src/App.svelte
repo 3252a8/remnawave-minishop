@@ -9,6 +9,7 @@
     CircleX,
     Copy,
     CreditCard,
+    Database,
     FileText,
     Gift,
     Globe2,
@@ -131,12 +132,18 @@
       settings: {
         support_url: "https://t.me/support",
         traffic_mode: false,
+        trial_enabled: true,
+        trial_available: true,
+        trial_duration_days: 5,
+        trial_traffic_limit_gb: 10,
+        trial_traffic_strategy: "NO_RESET",
         email_auth_enabled: true,
       },
     },
   };
 
   const query = new URLSearchParams(window.location.search);
+  applyPreviewMock(query.get("mock"));
   const isPreviewBoard = query.get("preview") === "all";
   const injectedConfig = readJsonScript("webapp-config");
   const injectedI18n = readJsonScript("i18n");
@@ -160,6 +167,7 @@
   let selectedMethod = "";
   let paymentModalOpen = false;
   let payBusy = false;
+  let trialBusy = false;
   let linkEmailOpen = false;
   let linkEmailBusy = false;
   let linkTelegramBusy = false;
@@ -196,11 +204,59 @@
   let linkEmailResendTimer = null;
   let scrollLockApplied = false;
 
+  function applyPreviewMock(kind) {
+    const mode = String(kind || "").trim().toLowerCase();
+    if (mode === "traffic") {
+      DEV_MOCK.data.settings.traffic_mode = true;
+      DEV_MOCK.data.settings.trial_available = false;
+      DEV_MOCK.data.subscription = {
+        ...DEV_MOCK.data.subscription,
+        active: true,
+        status: "ACTIVE",
+        remaining_text: "Навсегда",
+        end_date_text: "01.01.2099 00:00",
+        days_left: 26000,
+        traffic_used: "18.4 GB",
+        traffic_limit: "100 GB",
+        traffic_used_bytes: 19756849561,
+        traffic_limit_bytes: 107374182400,
+        traffic_limit_strategy: "NO_RESET",
+      };
+      DEV_MOCK.data.plans = [
+        { months: 10, traffic_gb: 10, price: 199, currency: "RUB", title: "10 GB", sale_mode: "traffic" },
+        { months: 50, traffic_gb: 50, price: 799, currency: "RUB", title: "50 GB", sale_mode: "traffic" },
+        { months: 100, traffic_gb: 100, price: 1390, currency: "RUB", title: "100 GB", sale_mode: "traffic" },
+        { months: 300, traffic_gb: 300, price: 3490, currency: "RUB", title: "300 GB", sale_mode: "traffic" },
+      ];
+    } else if (mode === "trial") {
+      DEV_MOCK.data.settings.traffic_mode = false;
+      DEV_MOCK.data.settings.trial_enabled = true;
+      DEV_MOCK.data.settings.trial_available = true;
+      DEV_MOCK.data.settings.trial_duration_days = 5;
+      DEV_MOCK.data.settings.trial_traffic_limit_gb = 10;
+      DEV_MOCK.data.subscription = {
+        active: false,
+        status: "INACTIVE",
+        remaining_text: "Подписка не активна",
+        end_date_text: "",
+        days_left: 0,
+        config_link: null,
+        connect_url: null,
+        traffic_used: "0 B",
+        traffic_limit: "10 GB",
+        traffic_used_bytes: 0,
+        traffic_limit_bytes: 10737418240,
+      };
+    }
+  }
+
   $: brandTitle = CFG.title || "/minishop";
   $: brandEmoji = CFG.logoEmoji || "🫥";
   $: accent = CFG.primaryColor || "#00fe7a";
   $: plans = data?.plans?.length ? data.plans : DEV_MOCK.data.plans;
   $: methods = data?.payment_methods?.length ? data.payment_methods : [];
+  $: appSettings = data?.settings || DEV_MOCK.data.settings;
+  $: trafficMode = Boolean(appSettings?.traffic_mode);
   $: subscription = data?.subscription || DEV_MOCK.data.subscription;
   $: user = data?.user || {};
   $: referral = data?.referral || DEV_MOCK.data.referral;
@@ -224,7 +280,7 @@
   $: profileAvatarUrl = user?.telegram_photo_url || emailAvatarUrl || "";
   $: privacyPolicyUrl = String(CFG.privacyPolicyUrl || "").trim();
   $: userAgreementUrl = String(CFG.userAgreementUrl || "").trim();
-  $: supportUrl = String(data?.settings?.support_url || CFG.supportUrl || "").trim();
+  $: supportUrl = String(appSettings?.support_url || CFG.supportUrl || "").trim();
   $: telegramLoginBotId = Number(CFG.telegramLoginBotId || 0);
   $: applyFavicon(CFG.logoUrl, brandEmoji);
   $: syncBodyScrollLock(paymentModalOpen || linkEmailOpen);
@@ -371,6 +427,7 @@
   }
 
   function syncSectionPath(section, replace = false) {
+    if (window.location.protocol === "file:") return;
     const normalized = normalizeSection(section);
     const targetPath = APP_SECTION_PATHS[normalized] || APP_SECTION_PATHS.home;
     if (window.location.pathname === targetPath) return;
@@ -482,6 +539,22 @@
       return { ok: true, token: "local-preview", csrf_token: "local-preview-csrf" };
     }
     if (path === "/promo/apply") return { ok: true, end_date_text: "31.05.2026" };
+    if (path === "/trial/activate" && String(options.method || "").toUpperCase() === "POST") {
+      DEV_MOCK.data.subscription = {
+        ...DEV_MOCK.data.subscription,
+        active: true,
+        status: "TRIAL",
+        remaining_text: "5 д. 0 ч.",
+        end_date_text: "05.05.2026 12:00",
+        days_left: 5,
+        traffic_limit: "10 GB",
+        traffic_limit_bytes: 10737418240,
+        traffic_used: "0 B",
+        traffic_used_bytes: 0,
+      };
+      DEV_MOCK.data.settings.trial_available = false;
+      return { ok: true, activated: true, end_date_text: "05.05.2026 12:00" };
+    }
     if (path === "/auth/logout") return { ok: true };
     if (path === "/account/language" && String(options.method || "").toUpperCase() === "POST") {
       let payload = {};
@@ -1005,7 +1078,11 @@
     try {
       const response = await api("/payments", {
         method: "POST",
-        body: JSON.stringify({ months: selectedPlan.months, method: selectedMethod }),
+        body: JSON.stringify({
+          months: selectedPlan.months,
+          traffic_gb: selectedPlan.traffic_gb,
+          method: selectedMethod,
+        }),
       });
       if (!response.ok || !response.payment_url) throw response;
       showToast(t("wa_payment_created"));
@@ -1081,6 +1158,24 @@
       promoFieldError = promoStatus;
     } finally {
       promoBusy = false;
+    }
+  }
+
+  async function activateTrial() {
+    if (trialBusy) return;
+    trialBusy = true;
+    try {
+      const response = await api("/trial/activate", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) throw response;
+      showToast(t("wa_trial_activated"));
+      await loadData();
+    } catch (error) {
+      showToast(error?.message || t("wa_trial_activation_failed"));
+    } finally {
+      trialBusy = false;
     }
   }
 
@@ -1169,6 +1264,19 @@
     return `${formatted} ${symbol}`;
   }
 
+  function priceLabel(plan, methodId = selectedMethod) {
+    if (String(methodId || "").toLowerCase().includes("stars") && Number(plan?.stars_price || 0) > 0) {
+      return `${Number(plan.stars_price)} ⭐`;
+    }
+    return formatMoney(plan?.price || 0, plan?.currency);
+  }
+
+  function formatTrafficGb(value) {
+    const numeric = Number(value || 0);
+    const formatted = Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+    return `${formatted} GB`;
+  }
+
   function trafficPercent(sub) {
     const used = Number(sub?.traffic_used_bytes || 0);
     const limit = Number(sub?.traffic_limit_bytes || 0);
@@ -1202,11 +1310,49 @@
   }
 
   function planDisplayTitle(plan) {
+    if (trafficMode || plan?.sale_mode === "traffic") {
+      return plan?.title || formatTrafficGb(plan?.traffic_gb || plan?.months);
+    }
     const months = Number(plan?.months || 0);
     if (months === 12) {
       return t("wa_plan_one_year");
     }
     return plan?.title || "";
+  }
+
+  function planUnitHint(plan) {
+    if (trafficMode || plan?.sale_mode === "traffic") {
+      const gb = Number(plan?.traffic_gb || plan?.months || 0);
+      if (!gb) return "";
+      if (String(selectedMethod || "").toLowerCase().includes("stars") && Number(plan?.stars_price || 0) > 0) {
+        return `${Number(plan.stars_price / gb).toFixed(0)} ⭐${t("wa_per_gb_short")}`;
+      }
+      return `${formatMoney(Number(plan?.price || 0) / gb, plan?.currency)}${t("wa_per_gb_short")}`;
+    }
+    const months = Number(plan?.months || 0);
+    if (!months || months <= 1) return "";
+    if (String(selectedMethod || "").toLowerCase().includes("stars") && Number(plan?.stars_price || 0) > 0) {
+      return `${Number(plan.stars_price / months).toFixed(0)} ⭐${t("wa_per_month_short")}`;
+    }
+    return `${formatMoney(Number(plan?.price || 0) / months, plan?.currency)}${t("wa_per_month_short")}`;
+  }
+
+  function paymentTitle() {
+    return trafficMode ? t("wa_traffic_packages_title") : t("wa_subscription_title");
+  }
+
+  function paymentDescription() {
+    return trafficMode ? t("wa_traffic_packages_choose") : t("wa_subscription_choose_period");
+  }
+
+  function primaryPayActionLabel() {
+    if (trafficMode) return t("wa_buy_traffic");
+    return subscription.active ? t("wa_renew") : t("wa_pay_subscription");
+  }
+
+  function trialTrafficLabel() {
+    const limit = Number(appSettings?.trial_traffic_limit_gb || 0);
+    return limit > 0 ? formatTrafficGb(limit) : t("wa_unlimited_traffic");
   }
 
   function activeSubscriptionTermLabel(sub) {
@@ -1540,7 +1686,7 @@
                   <div class="sub-status">
                     <CheckCircle2 size={23} />
                     <div>
-                      <h2>{t("wa_home_subscription_active")} | {activeSubscriptionTermLabel(subscription)}</h2>
+                      <h2>{trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")} | {activeSubscriptionTermLabel(subscription)}</h2>
                       <p>{subscription.end_date_text ? t("wa_until_date", { date: subscription.end_date_text }) : subscription.remaining_text}</p>
                     </div>
                   </div>
@@ -1566,15 +1712,33 @@
                     <span class="traffic-percent">{trafficPercent(subscription)}%</span>
                   </div>
                 </Card>
+              {:else if appSettings?.trial_enabled && appSettings?.trial_available}
+                <Card class="trial-card">
+                  <div class="trial-card-head">
+                    <Gift size={22} />
+                    <span>
+                      <strong>{t("wa_trial_title")}</strong>
+                      <small>{t("wa_trial_details", { days: Number(appSettings?.trial_duration_days || 0), traffic: trialTrafficLabel() })}</small>
+                    </span>
+                  </div>
+                </Card>
               {/if}
 
               <div class="action-stack">
                 <Button class="wide" onclick={openPaymentModal}>
                   {#if subscription.active}
                     <RefreshCw size={18} />
+                  {:else if trafficMode}
+                    <Database size={18} />
                   {/if}
-                  {subscription.active ? t("wa_renew") : t("wa_pay_subscription")}
+                  {primaryPayActionLabel()}
                 </Button>
+                {#if !subscription.active && appSettings?.trial_enabled && appSettings?.trial_available}
+                  <Button class="wide" variant="secondary" onclick={activateTrial} disabled={trialBusy}>
+                    <Gift size={18} />
+                    {t("wa_activate_trial")}
+                  </Button>
+                {/if}
               </div>
             </div>
           </main>
@@ -1805,8 +1969,8 @@
 
       <Dialog
         open={paymentModalOpen}
-        title={t("wa_subscription_title")}
-        description={t("wa_subscription_choose_period")}
+        title={paymentTitle()}
+        description={paymentDescription()}
         closeLabel={t("wa_close")}
         onclose={closePaymentModal}
         class="payment-dialog-card"
@@ -1821,9 +1985,9 @@
                 on:click={() => (selectedPlan = plan)}
               >
                 <strong>{planDisplayTitle(plan)}</strong>
-                <span>{formatMoney(plan.price, plan.currency)}</span>
-                {#if plan.months > 1}
-                  <small>{formatMoney(plan.price / plan.months, plan.currency)}{t("wa_per_month_short")}</small>
+                <span>{priceLabel(plan)}</span>
+                {#if planUnitHint(plan)}
+                  <small>{planUnitHint(plan)}</small>
                 {/if}
                 {#if selectedPlan?.months === plan.months}
                   <CheckCircle2 size={18} />
@@ -1855,7 +2019,7 @@
             {/if}
           </div>
           <Button class="wide bottom-action payment-submit-button" onclick={createPayment} disabled={!methods.length || payBusy}>
-            {t("wa_pay")} {selectedPlan ? formatMoney(selectedPlan.price, selectedPlan.currency) : ""}
+            {t("wa_pay")} {selectedPlan ? priceLabel(selectedPlan) : ""}
             <LockKeyhole size={17} />
           </Button>
         </div>

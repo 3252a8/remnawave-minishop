@@ -37,6 +37,7 @@ from bot.services.referral_service import ReferralService
 from bot.services.severpay_service import SeverPayService
 from bot.services.subscription_service import SubscriptionService
 from bot.services.yookassa_service import YooKassaService
+from bot.utils.config_link import prepare_config_links
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from bot.utils.request_security import request_client_ip
 from config.settings import Settings
@@ -99,6 +100,7 @@ class WebAppPaymentCreatePayload(BaseModel):
 
     method: str = ""
     months: Any = None
+    traffic_gb: Any = None
     description: Optional[constr(max_length=4096)] = None
     comment: Optional[constr(max_length=4096)] = None
     note: Optional[constr(max_length=4096)] = None
@@ -182,6 +184,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/account/email/verify", account_email_verify_route)
     app.router.add_post("/api/account/telegram/link", account_telegram_link_route)
     app.router.add_post("/api/promo/apply", apply_promo_route)
+    app.router.add_post("/api/trial/activate", activate_trial_route)
     app.router.add_post("/api/payments", create_payment_route)
     app.router.add_get("/api/payments/{payment_id}", payment_status_route)
 
@@ -430,6 +433,8 @@ def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
             "logo_url": _resolve_webapp_logo_url(settings),
             "subscription_options": settings.subscription_options,
             "stars_subscription_options": settings.stars_subscription_options,
+            "traffic_packages": settings.traffic_packages,
+            "stars_traffic_packages": settings.stars_traffic_packages,
             "support_url": settings.SUPPORT_LINK or "",
             "terms_url": settings.TERMS_OF_SERVICE_URL or "",
             "privacy_policy_url": settings.PRIVACY_POLICY_URL or "",
@@ -1352,19 +1357,46 @@ async def create_payment_route(request: web.Request) -> web.Response:
     if validation_error:
         return validation_error
     method = str(payment_payload.method or "").strip().lower()
-    try:
-        months = int(float(payment_payload.months))
-    except (TypeError, ValueError):
-        return _json_error(400, "invalid_plan", "Invalid subscription period")
-
     settings: Settings = request.app["settings"]
     cached = _get_cached_webapp_settings(request)
-    price = cached["subscription_options"].get(months)
-    stars_price = cached["stars_subscription_options"].get(months)
-    if price is None and method != "stars":
-        return _json_error(400, "invalid_plan", "Subscription period is not available")
-    if method == "stars" and (stars_price is None or int(stars_price) <= 0):
-        return _json_error(400, "invalid_plan", "Stars price is not configured")
+    traffic_mode = bool(settings.traffic_sale_mode)
+
+    if traffic_mode:
+        try:
+            traffic_gb = float(
+                payment_payload.traffic_gb
+                if payment_payload.traffic_gb is not None
+                else payment_payload.months
+            )
+        except (TypeError, ValueError):
+            return _json_error(400, "invalid_plan", "Invalid traffic package")
+        if traffic_gb <= 0:
+            return _json_error(400, "invalid_plan", "Invalid traffic package")
+        package_key = _resolve_numeric_option_key(cached["traffic_packages"], traffic_gb)
+        stars_package_key = _resolve_numeric_option_key(cached["stars_traffic_packages"], traffic_gb)
+        price = cached["traffic_packages"].get(package_key) if package_key is not None else None
+        stars_price = (
+            cached["stars_traffic_packages"].get(stars_package_key)
+            if stars_package_key is not None
+            else None
+        )
+        if price is None and method != "stars":
+            return _json_error(400, "invalid_plan", "Traffic package is not available")
+        if method == "stars" and (stars_price is None or int(stars_price) <= 0):
+            return _json_error(400, "invalid_plan", "Stars price is not configured")
+        payment_units = int(traffic_gb) if float(traffic_gb).is_integer() else traffic_gb
+    else:
+        try:
+            months = int(float(payment_payload.months))
+        except (TypeError, ValueError):
+            return _json_error(400, "invalid_plan", "Invalid subscription period")
+        price = cached["subscription_options"].get(months)
+        stars_price = cached["stars_subscription_options"].get(months)
+        if price is None and method != "stars":
+            return _json_error(400, "invalid_plan", "Subscription period is not available")
+        if method == "stars" and (stars_price is None or int(stars_price) <= 0):
+            return _json_error(400, "invalid_plan", "Stars price is not configured")
+        payment_units = months
 
     async_session_factory: sessionmaker = request.app["async_session_factory"]
     async with async_session_factory() as session:
@@ -1377,10 +1409,81 @@ async def create_payment_route(request: web.Request) -> web.Response:
             session=session,
             user_id=user_id,
             method=method,
-            months=months,
+            months=payment_units,
             price=float(price or 0),
             stars_price=stars_price,
             lang=lang,
+            sale_mode="traffic" if traffic_mode else "subscription",
+            traffic_gb=float(payment_units) if traffic_mode else None,
+        )
+
+
+async def activate_trial_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    rate_limit_response = await _enforce_webapp_rate_limit(
+        request,
+        user_id=user_id,
+        action="trial_activate",
+    )
+    if rate_limit_response:
+        return rate_limit_response
+
+    settings: Settings = request.app["settings"]
+    if not settings.TRIAL_ENABLED or settings.TRIAL_DURATION_DAYS <= 0:
+        return _json_error(400, "trial_unavailable", "Trial is not available")
+
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    subscription_service: SubscriptionService = request.app["subscription_service"]
+    async with async_session_factory() as session:
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user or db_user.is_banned:
+            return _json_error(403, "access_denied", "Access denied")
+
+        activation_result = await subscription_service.activate_trial_subscription(session, user_id)
+        if not activation_result or not activation_result.get("activated"):
+            await session.rollback()
+            message_key = (
+                activation_result.get("message_key", "trial_activation_failed")
+                if activation_result
+                else "trial_activation_failed"
+            )
+            status = 400 if message_key != "trial_activation_failed_panel_update" else 502
+            return _json_error(status, message_key, message_key)
+
+        end_date = activation_result.get("end_date")
+        config_link, connect_url = await prepare_config_links(
+            settings,
+            activation_result.get("subscription_url"),
+        )
+
+        i18n_instance = request.app.get("i18n")
+        if settings.LOG_TRIAL_ACTIVATIONS and i18n_instance:
+            try:
+                notification_service = NotificationService(request.app["bot"], settings, i18n_instance)
+                await notification_service.notify_trial_activation(user_id, end_date)
+            except Exception:
+                logger.exception("Failed to send WebApp trial activation notification")
+
+        try:
+            from db.dal import ad_dal as _ad_dal
+
+            await _ad_dal.mark_trial_activated(session, user_id)
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            logger.exception("Failed to mark WebApp trial activation for ad attribution")
+
+        return web.json_response(
+            {
+                "ok": True,
+                "activated": True,
+                "days": activation_result.get("days", settings.TRIAL_DURATION_DAYS),
+                "end_date": end_date.isoformat() if isinstance(end_date, datetime) else None,
+                "end_date_text": _format_webapp_datetime(end_date) if isinstance(end_date, datetime) else None,
+                "traffic_gb": activation_result.get("traffic_gb", settings.TRIAL_TRAFFIC_LIMIT_GB),
+                "config_link": config_link,
+                "connect_url": connect_url or config_link,
+            }
         )
 
 
@@ -1984,6 +2087,11 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             user_id,
             db_user.panel_user_uuid,
         ) if db_user.panel_user_uuid else None
+        trial_available = bool(
+            settings.TRIAL_ENABLED
+            and settings.TRIAL_DURATION_DAYS > 0
+            and not await subscription_service.has_had_any_subscription(session, user_id)
+        )
         try:
             await session.commit()
         except Exception:
@@ -2018,11 +2126,18 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             lang,
             subscription_options=cached["subscription_options"],
             stars_subscription_options=cached["stars_subscription_options"],
+            traffic_packages=cached["traffic_packages"],
+            stars_traffic_packages=cached["stars_traffic_packages"],
         ),
         "payment_methods": _serialize_payment_methods(settings, request.app),
         "settings": {
             "support_url": settings.SUPPORT_LINK,
             "traffic_mode": bool(settings.traffic_sale_mode),
+            "trial_enabled": bool(settings.TRIAL_ENABLED),
+            "trial_available": trial_available,
+            "trial_duration_days": int(settings.TRIAL_DURATION_DAYS or 0),
+            "trial_traffic_limit_gb": float(settings.TRIAL_TRAFFIC_LIMIT_GB or 0),
+            "trial_traffic_strategy": settings.TRIAL_TRAFFIC_STRATEGY,
             "email_auth_enabled": settings.email_auth_configured,
         },
     }
@@ -2120,7 +2235,33 @@ def _serialize_plans(
     *,
     subscription_options: Optional[Dict[int, float]] = None,
     stars_subscription_options: Optional[Dict[int, int]] = None,
+    traffic_packages: Optional[Dict[float, float]] = None,
+    stars_traffic_packages: Optional[Dict[float, int]] = None,
 ) -> List[Dict[str, Any]]:
+    if getattr(settings, "traffic_sale_mode", False):
+        active_traffic_packages = traffic_packages or settings.traffic_packages
+        active_stars_traffic_packages = stars_traffic_packages or settings.stars_traffic_packages
+        traffic_units = sorted(set(active_traffic_packages) | set(active_stars_traffic_packages))
+        plans: List[Dict[str, Any]] = []
+        for traffic_gb in traffic_units:
+            price = active_traffic_packages.get(traffic_gb)
+            stars_price = active_stars_traffic_packages.get(traffic_gb)
+            if price is None and (stars_price is None or int(stars_price) <= 0):
+                continue
+            traffic_value = float(traffic_gb)
+            plan = {
+                "months": int(traffic_value) if traffic_value.is_integer() else traffic_value,
+                "traffic_gb": traffic_value,
+                "price": float(price or 0),
+                "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+                "title": _format_traffic_title(traffic_value, lang),
+                "sale_mode": "traffic",
+            }
+            if stars_price is not None and int(stars_price) > 0:
+                plan["stars_price"] = int(stars_price)
+            plans.append(plan)
+        return plans
+
     active_subscription_options = subscription_options or settings.subscription_options
     active_stars_subscription_options = stars_subscription_options or settings.stars_subscription_options
     plans: List[Dict[str, Any]] = []
@@ -2130,6 +2271,7 @@ def _serialize_plans(
             "price": float(price),
             "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
             "title": _format_months_title(int(months), lang),
+            "sale_mode": "subscription",
         }
         stars_price = active_stars_subscription_options.get(months)
         if stars_price is not None and int(stars_price) > 0:
@@ -2182,17 +2324,24 @@ async def _create_subscription_payment(
     session: AsyncSession,
     user_id: int,
     method: str,
-    months: int,
+    months: Any,
     price: float,
     stars_price: Optional[int],
     lang: str,
+    sale_mode: str = "subscription",
+    traffic_gb: Optional[float] = None,
 ) -> web.Response:
     settings: Settings = request.app["settings"]
-    description = _payment_description(months, lang)
+    sale_mode = "traffic" if sale_mode == "traffic" else "subscription"
+    description = (
+        _traffic_payment_description(float(traffic_gb if traffic_gb is not None else months), lang)
+        if sale_mode == "traffic"
+        else _payment_description(int(months), lang)
+    )
 
     if method == "yookassa":
         return await _create_yookassa_payment(
-            request, session, user_id, months, price, description
+            request, session, user_id, months, price, description, sale_mode=sale_mode, traffic_gb=traffic_gb
         )
     if method == "freekassa":
         return await _create_freekassa_payment(
@@ -2200,7 +2349,7 @@ async def _create_subscription_payment(
         )
     if method in ("platega", "platega_sbp", "platega_crypto"):
         return await _create_platega_payment(
-            request, session, user_id, months, price, description, variant=method
+            request, session, user_id, months, price, description, variant=method, sale_mode=sale_mode, traffic_gb=traffic_gb
         )
     if method == "severpay":
         return await _create_severpay_payment(
@@ -2216,7 +2365,7 @@ async def _create_subscription_payment(
             months=months,
             amount=price,
             description=description,
-            sale_mode="subscription",
+            sale_mode=sale_mode,
             url_kind="web",
         )
         if not url:
@@ -2228,7 +2377,7 @@ async def _create_subscription_payment(
         if not settings.STARS_ENABLED or stars_price is None:
             return _json_error(400, "payment_unavailable", "Payment method unavailable")
         return await _create_stars_payment(
-            request, session, user_id, months, int(stars_price), description
+            request, session, user_id, months, int(stars_price), description, sale_mode=sale_mode
         )
 
     return _json_error(400, "payment_unavailable", "Payment method unavailable")
@@ -2265,9 +2414,12 @@ async def _create_yookassa_payment(
     request: web.Request,
     session: AsyncSession,
     user_id: int,
-    months: int,
+    months: Any,
     price: float,
     description: str,
+    *,
+    sale_mode: str = "subscription",
+    traffic_gb: Optional[float] = None,
 ) -> web.Response:
     settings: Settings = request.app["settings"]
     service: YooKassaService = request.app["yookassa_service"]
@@ -2282,20 +2434,23 @@ async def _create_yookassa_payment(
             currency="RUB",
             status="pending_yookassa",
             description=description,
-            months=months,
+            months=int(float(months)) if sale_mode != "traffic" else int(float(traffic_gb or months)),
             provider="yookassa",
         )
+        metadata = {
+            "user_id": str(user_id),
+            "subscription_months": str(int(float(months)) if sale_mode != "traffic" else 0),
+            "payment_db_id": str(payment.payment_id),
+            "sale_mode": sale_mode,
+            "source": "webapp",
+        }
+        if sale_mode == "traffic":
+            metadata["traffic_gb"] = _format_number_for_payload(traffic_gb or months)
         response = await service.create_payment(
             amount=price,
             currency="RUB",
             description=description,
-            metadata={
-                "user_id": str(user_id),
-                "subscription_months": str(months),
-                "payment_db_id": str(payment.payment_id),
-                "sale_mode": "subscription",
-                "source": "webapp",
-            },
+            metadata=metadata,
             receipt_email=settings.YOOKASSA_DEFAULT_RECEIPT_EMAIL,
             save_payment_method=bool(
                 settings.yookassa_autopayments_active
@@ -2335,7 +2490,7 @@ async def _create_freekassa_payment(
     request: web.Request,
     session: AsyncSession,
     user_id: int,
-    months: int,
+    months: Any,
     price: float,
     description: str,
 ) -> web.Response:
@@ -2352,7 +2507,7 @@ async def _create_freekassa_payment(
             currency=service.default_currency,
             status="pending_freekassa",
             description=description,
-            months=months,
+            months=int(float(months)),
             provider="freekassa",
         )
         success, response_data = await service.create_order(
@@ -2396,10 +2551,12 @@ async def _create_platega_payment(
     request: web.Request,
     session: AsyncSession,
     user_id: int,
-    months: int,
+    months: Any,
     price: float,
     description: str,
     variant: str = "platega_sbp",
+    sale_mode: str = "subscription",
+    traffic_gb: Optional[float] = None,
 ) -> web.Response:
     settings: Settings = request.app["settings"]
     service: PlategaService = request.app["platega_service"]
@@ -2422,15 +2579,17 @@ async def _create_platega_payment(
             currency=settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
             status="pending_platega",
             description=description,
-            months=months,
+            months=int(float(months)) if sale_mode != "traffic" else int(float(traffic_gb or months)),
             provider="platega",
         )
+        months_for_provider = int(float(months)) if sale_mode != "traffic" else int(float(traffic_gb or months))
         payload = json.dumps(
             {
                 "payment_db_id": payment.payment_id,
                 "user_id": user_id,
-                "months": months,
-                "sale_mode": "subscription",
+                "months": months_for_provider if sale_mode != "traffic" else 0,
+                "sale_mode": sale_mode,
+                "traffic_gb": _format_number_for_payload(traffic_gb or months) if sale_mode == "traffic" else None,
                 "source": "webapp",
                 "platega_variant": "crypto" if variant == "platega_crypto" else "sbp",
             }
@@ -2438,7 +2597,7 @@ async def _create_platega_payment(
         success, response_data = await service.create_transaction(
             payment_db_id=payment.payment_id,
             user_id=user_id,
-            months=months,
+            months=months_for_provider,
             amount=price,
             currency=settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
             description=description,
@@ -2483,7 +2642,7 @@ async def _create_severpay_payment(
     request: web.Request,
     session: AsyncSession,
     user_id: int,
-    months: int,
+    months: Any,
     price: float,
     description: str,
 ) -> web.Response:
@@ -2500,7 +2659,7 @@ async def _create_severpay_payment(
             currency=settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
             status="pending_severpay",
             description=description,
-            months=months,
+            months=int(float(months)),
             provider="severpay",
         )
         success, response_data = await service.create_payment(
@@ -2546,9 +2705,10 @@ async def _create_stars_payment(
     request: web.Request,
     session: AsyncSession,
     user_id: int,
-    months: int,
+    months: Any,
     stars_price: int,
     description: str,
+    sale_mode: str = "subscription",
 ) -> web.Response:
     bot: Bot = request.app["bot"]
     try:
@@ -2559,10 +2719,10 @@ async def _create_stars_payment(
             currency="XTR",
             status="pending_stars",
             description=description,
-            months=months,
+            months=int(float(months)),
             provider="telegram_stars",
         )
-        payload = f"{payment.payment_id}:{months}:subscription"
+        payload = f"{payment.payment_id}:{_format_number_for_payload(months)}:{sale_mode}"
         prices = [LabeledPrice(label=description, amount=stars_price)]
         create_invoice_link = getattr(bot, "create_invoice_link", None)
         if callable(create_invoice_link):
@@ -2667,6 +2827,31 @@ def _format_months_title(months: int, lang: str) -> str:
     if 2 <= months <= 4:
         return f"{months} месяца"
     return f"{months} месяцев"
+
+
+def _format_number_for_payload(value: Any) -> str:
+    numeric = float(value or 0)
+    return str(int(numeric)) if numeric.is_integer() else f"{numeric:g}"
+
+
+def _format_traffic_title(traffic_gb: float, lang: str) -> str:
+    return f"{_format_number_for_payload(traffic_gb)} GB"
+
+
+def _traffic_payment_description(traffic_gb: float, lang: str) -> str:
+    if lang == "en":
+        return f"Traffic package {_format_traffic_title(traffic_gb, lang)}"
+    return f"Пакет трафика {_format_traffic_title(traffic_gb, lang)}"
+
+
+def _resolve_numeric_option_key(options: Dict[Any, Any], target: float) -> Optional[Any]:
+    for key in options:
+        try:
+            if abs(float(key) - float(target)) < 0.000001:
+                return key
+        except (TypeError, ValueError):
+            continue
+    return None
 
 
 def _payment_description(months: int, lang: str) -> str:

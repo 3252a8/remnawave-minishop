@@ -359,6 +359,38 @@ a {
   font-size: 11px;
 }
 
+.trial-card {
+  padding: 13px 14px;
+}
+
+.trial-card-head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.trial-card-head > svg {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.trial-card-head span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.trial-card-head strong {
+  font-size: 13px;
+  line-height: 1.18;
+}
+
+.trial-card-head small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.28;
+}
+
 .action-stack {
   display: grid;
   gap: 8px;
