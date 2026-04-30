@@ -732,6 +732,19 @@ a {
   gap: 8px;
 }
 
+.settings-list.settings-list--language-open .settings-row:not(.settings-row-language) {
+  pointer-events: none;
+}
+
+.language-select-guard {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
 .copy-row,
 .email-row {
   display: grid;
@@ -1067,7 +1080,7 @@ a {
 }
 
 .language-select-content {
-  z-index: 60;
+  z-index: 140;
   width: min(210px, calc(100vw - 28px));
   min-width: 170px;
   max-width: min(210px, calc(100vw - 28px));

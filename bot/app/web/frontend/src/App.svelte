@@ -244,6 +244,9 @@
   let authResendCooldown = 0;
   let authResendTimer = null;
   let languageBusy = false;
+  let languageMenuOpen = false;
+  let languageClickGuard = false;
+  let languageClickGuardTimer = null;
   let email = "";
   let pendingEmail = "";
   let emailCode = "";
@@ -381,6 +384,7 @@
       window.removeEventListener("pointerdown", onAnyPointerDown);
       clearCooldownTimer("auth");
       clearCooldownTimer("link_email");
+      clearLanguageClickGuard();
       syncBodyScrollLock(false);
     };
   });
@@ -434,6 +438,26 @@
       document.body.style.overflow = "";
       scrollLockApplied = false;
     }
+  }
+
+  function clearLanguageClickGuard() {
+    if (languageClickGuardTimer) {
+      window.clearTimeout(languageClickGuardTimer);
+      languageClickGuardTimer = null;
+    }
+  }
+
+  function setLanguageMenuOpen(open) {
+    languageMenuOpen = Boolean(open);
+    clearLanguageClickGuard();
+    if (languageMenuOpen) {
+      languageClickGuard = true;
+      return;
+    }
+    languageClickGuardTimer = window.setTimeout(() => {
+      languageClickGuard = false;
+      languageClickGuardTimer = null;
+    }, 260);
   }
 
   function escapeHtml(value) {
@@ -2108,14 +2132,25 @@
               {/if}
               <div class="settings-divider" aria-hidden="true"></div>
             </div>
-            <div class="settings-list">
+            {#if languageMenuOpen || languageClickGuard}
+              <button
+                class="language-select-guard"
+                type="button"
+                aria-label={t("wa_close")}
+                on:pointerdown|preventDefault|stopPropagation={() => setLanguageMenuOpen(false)}
+                on:click|preventDefault|stopPropagation={() => setLanguageMenuOpen(false)}
+              ></button>
+            {/if}
+            <div class="settings-list" class:settings-list--language-open={languageMenuOpen}>
               <div class="settings-row settings-row-language">
                 <Globe2 size={21} />
                 <Select.Root
                   type="single"
+                  bind:open={languageMenuOpen}
                   value={currentLang}
                   items={languageOptions}
                   disabled={languageBusy}
+                  onOpenChange={setLanguageMenuOpen}
                   onValueChange={updateAccountLanguage}
                 >
                   <Select.Trigger class="language-select-trigger" aria-label={t("wa_settings_language")}>
