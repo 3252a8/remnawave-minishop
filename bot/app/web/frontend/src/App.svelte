@@ -10,6 +10,7 @@
     Copy,
     CreditCard,
     Database,
+    Download,
     FileText,
     Gift,
     Globe2,
@@ -1879,7 +1880,13 @@
               {/if}
 
               <div class="action-stack">
-                <Button class="wide" onclick={openPaymentModal}>
+                {#if subscription.active}
+                  <Button class="wide" onclick={openConnectLink}>
+                    <Download size={18} />
+                    {t("wa_install_and_configure")}
+                  </Button>
+                {/if}
+                <Button class="wide" variant={subscription.active ? "secondary" : "default"} onclick={openPaymentModal}>
                   {#if subscription.active}
                     <RefreshCw size={18} />
                   {:else if trafficMode}

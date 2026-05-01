@@ -643,6 +643,7 @@
   "wa_trial_details": "{days} days, {traffic}",
   "wa_trial_activated": "Trial activated",
   "wa_trial_activation_failed": "Failed to activate trial",
+  "wa_install_and_configure": "Install and configure",
   "wa_payment_methods_not_configured": "Payment methods are not configured yet",
   "wa_pay": "Pay",
   "wa_referral_link_title": "Your referral link",

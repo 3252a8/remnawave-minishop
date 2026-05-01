@@ -643,6 +643,7 @@
   "wa_trial_details": "{days} дн., {traffic}",
   "wa_trial_activated": "Пробный период активирован",
   "wa_trial_activation_failed": "Не удалось активировать пробный период",
+  "wa_install_and_configure": "Установить и настроить",
   "wa_payment_methods_not_configured": "Способы оплаты пока не настроены",
   "wa_pay": "Оплатить",
   "wa_referral_link_title": "Ваша реферальная ссылка",
