@@ -28,10 +28,20 @@ def get_main_menu_inline_keyboard(
             )
         )
 
+    builder.row(
+        InlineKeyboardButton(text=_(key="menu_bot_interface_button"),
+                             callback_data="main_action:bot_interface"))
+
     if settings.SUPPORT_LINK:
         builder.row(
             InlineKeyboardButton(text=_(key="menu_support_button"),
                                  url=settings.SUPPORT_LINK))
+
+    user_agreement_url = settings.USER_AGREEMENT_URL or settings.TERMS_OF_SERVICE_URL
+    if settings.PRIVACY_POLICY_URL or user_agreement_url:
+        builder.row(
+            InlineKeyboardButton(text=_(key="menu_info_button"),
+                                 callback_data="main_action:info"))
 
     return builder.as_markup()
 
@@ -59,26 +69,26 @@ def get_bot_interface_inline_keyboard(
 
     builder.row(
         InlineKeyboardButton(text=_(key="menu_subscribe_inline"),
-                             callback_data="main_action:subscribe"))
+                             callback_data="main_action:bot_subscribe"))
     builder.row(
         InlineKeyboardButton(
             text=_(key="menu_my_subscription_inline"),
-            callback_data="main_action:my_subscription",
+            callback_data="main_action:bot_my_subscription",
         )
     )
 
     referral_button = InlineKeyboardButton(
         text=_(key="menu_referral_inline"),
-        callback_data="main_action:referral")
+        callback_data="main_action:bot_referral")
     promo_button = InlineKeyboardButton(
         text=_(key="menu_apply_promo_button"),
-        callback_data="main_action:apply_promo")
+        callback_data="main_action:bot_apply_promo")
     builder.row(referral_button)
     builder.row(promo_button)
 
     language_button = InlineKeyboardButton(
         text=_(key="menu_language_settings_inline"),
-        callback_data="main_action:language")
+        callback_data="main_action:bot_language")
     status_button_list = []
     if settings.SERVER_STATUS_URL:
         status_button_list.append(
@@ -99,7 +109,11 @@ def get_bot_interface_inline_keyboard(
     if settings.PRIVACY_POLICY_URL or user_agreement_url:
         builder.row(
             InlineKeyboardButton(text=_(key="menu_info_button"),
-                                 callback_data="main_action:info"))
+                                 callback_data="main_action:bot_info"))
+
+    builder.row(
+        InlineKeyboardButton(text=_(key="back_to_main_menu_button"),
+                             callback_data="main_action:back_to_main"))
 
     return builder.as_markup()
 
@@ -108,7 +122,8 @@ def get_information_links_keyboard(
         lang: str,
         i18n_instance,
         privacy_policy_url: Optional[str],
-        user_agreement_url: Optional[str]) -> InlineKeyboardMarkup:
+        user_agreement_url: Optional[str],
+        back_callback: str = "main_action:back_to_main") -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     if privacy_policy_url:
@@ -121,21 +136,23 @@ def get_information_links_keyboard(
                                  url=user_agreement_url))
     builder.row(
         InlineKeyboardButton(text=_(key="back_to_main_menu_button"),
-                             callback_data="main_action:back_to_main"))
+                             callback_data=back_callback))
     return builder.as_markup()
 
 
 def get_language_selection_keyboard(i18n_instance,
-                                    current_lang: str) -> InlineKeyboardMarkup:
+                                    current_lang: str,
+                                    back_callback: str = "main_action:back_to_main") -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(current_lang, key, **kwargs
                                                     )
+    callback_suffix = ":bot" if back_callback == "main_action:bot_interface" else ""
     builder = InlineKeyboardBuilder()
     builder.button(text=f"🇬🇧 English {'✅' if current_lang == 'en' else ''}",
-                   callback_data="set_lang_en")
+                   callback_data=f"set_lang_en{callback_suffix}")
     builder.button(text=f"🇷🇺 Русский {'✅' if current_lang == 'ru' else ''}",
-                   callback_data="set_lang_ru")
+                   callback_data=f"set_lang_ru{callback_suffix}")
     builder.button(text=_(key="back_to_main_menu_button"),
-                   callback_data="main_action:back_to_main")
+                   callback_data=back_callback)
     builder.adjust(1)
     return builder.as_markup()
 
@@ -154,7 +171,8 @@ def get_trial_confirmation_keyboard(lang: str,
 
 def get_subscription_options_keyboard(subscription_options: Dict[
     float, Optional[float]], currency_symbol_val: str, lang: str,
-                                      i18n_instance, traffic_mode: bool = False) -> InlineKeyboardMarkup:
+                                      i18n_instance, traffic_mode: bool = False,
+                                      back_callback: str = "main_action:back_to_main") -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     def _format_gb(val: float) -> str:
@@ -181,7 +199,7 @@ def get_subscription_options_keyboard(subscription_options: Dict[
         builder.adjust(1)
     builder.row(
         InlineKeyboardButton(text=_(key="back_to_main_menu_button"),
-                             callback_data="main_action:back_to_main"))
+                             callback_data=back_callback))
     return builder.as_markup()
 
 
@@ -365,13 +383,14 @@ def get_yk_saved_cards_keyboard(
 
 
 def get_referral_link_keyboard(lang: str,
-                               i18n_instance) -> InlineKeyboardMarkup:
+                               i18n_instance,
+                               back_callback: str = "main_action:back_to_main") -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     builder.button(text=_(key="referral_share_message_button"),
                    callback_data="referral_action:share_message")
     builder.button(text=_(key="back_to_main_menu_button"),
-                   callback_data="main_action:back_to_main")
+                   callback_data=back_callback)
     builder.adjust(1)
     return builder.as_markup()
 

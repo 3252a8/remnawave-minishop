@@ -31,7 +31,8 @@ MAX_PROMO_CODE_INPUT_LENGTH = 100
 
 async def prompt_promo_code_input(callback: types.CallbackQuery,
                                   state: FSMContext, i18n_data: dict,
-                                  settings: Settings, session: AsyncSession):
+                                  settings: Settings, session: AsyncSession,
+                                  back_callback: str = "main_action:back_to_main"):
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:
@@ -52,14 +53,22 @@ async def prompt_promo_code_input(callback: types.CallbackQuery,
     try:
         await callback.message.edit_text(
             text=_(key="promo_code_prompt"),
-            reply_markup=get_back_to_main_menu_markup(current_lang, i18n))
+            reply_markup=get_back_to_main_menu_markup(
+                current_lang,
+                i18n,
+                callback_data=back_callback,
+            ))
     except Exception as e_edit:
         logging.warning(
             f"Failed to edit message for promo prompt: {e_edit}. Sending new one."
         )
         await callback.message.answer(
             text=_(key="promo_code_prompt"),
-            reply_markup=get_back_to_main_menu_markup(current_lang, i18n))
+            reply_markup=get_back_to_main_menu_markup(
+                current_lang,
+                i18n,
+                callback_data=back_callback,
+            ))
 
     await safe_answer_callback(callback)
     await state.set_state(UserPromoStates.waiting_for_promo_code)

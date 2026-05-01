@@ -39,7 +39,13 @@ def _hwid_callback_token(hwid: Optional[str]) -> str:
     return hashlib.sha256(hwid_str.encode()).hexdigest()[:32]
 
 
-async def display_subscription_options(event: Union[types.Message, types.CallbackQuery], i18n_data: dict, settings: Settings, session: AsyncSession):
+async def display_subscription_options(
+    event: Union[types.Message, types.CallbackQuery],
+    i18n_data: dict,
+    settings: Settings,
+    session: AsyncSession,
+    back_callback: str = "main_action:back_to_main",
+):
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
 
@@ -75,11 +81,20 @@ async def display_subscription_options(event: Union[types.Message, types.Callbac
     if options:
         text_content = get_text("select_traffic_package") if traffic_mode else get_text("select_subscription_period")
         reply_markup = get_subscription_options_keyboard(
-            options, currency_symbol_val, current_lang, i18n, traffic_mode=traffic_mode
+            options,
+            currency_symbol_val,
+            current_lang,
+            i18n,
+            traffic_mode=traffic_mode,
+            back_callback=back_callback,
         )
     else:
         text_content = get_text("no_subscription_options_available")
-        reply_markup = get_back_to_main_menu_markup(current_lang, i18n)
+        reply_markup = get_back_to_main_menu_markup(
+            current_lang,
+            i18n,
+            callback_data=back_callback,
+        )
 
     target_message_obj = event.message if isinstance(event, types.CallbackQuery) else event
     if not target_message_obj:
@@ -116,6 +131,7 @@ async def my_subscription_command_handler(
     subscription_service: SubscriptionService,
     session: AsyncSession,
     bot: Bot,
+    back_callback: str = "main_action:back_to_main",
 ):
     target = event.message if isinstance(event, types.CallbackQuery) else event
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -139,7 +155,11 @@ async def my_subscription_command_handler(
         buy_button = InlineKeyboardButton(
             text=get_text("menu_subscribe_inline"), callback_data="main_action:subscribe"
         )
-        back_markup = get_back_to_main_menu_markup(current_lang, i18n)
+        back_markup = get_back_to_main_menu_markup(
+            current_lang,
+            i18n,
+            callback_data=back_callback,
+        )
 
         kb = InlineKeyboardMarkup(inline_keyboard=[[buy_button], *back_markup.inline_keyboard])
 
@@ -231,7 +251,11 @@ async def my_subscription_command_handler(
             traffic_period=period_label,
         )
 
-    base_markup = get_back_to_main_menu_markup(current_lang, i18n)
+    base_markup = get_back_to_main_menu_markup(
+        current_lang,
+        i18n,
+        callback_data=back_callback,
+    )
     kb = base_markup.inline_keyboard
     try:
         local_sub = await subscription_dal.get_active_subscription_by_user_id(session, event.from_user.id)

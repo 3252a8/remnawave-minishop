@@ -9,17 +9,16 @@ from config.settings import Settings
 from db.dal import user_dal
 from bot.services.referral_service import ReferralService
 
-from bot.keyboards.inline.user_keyboards import get_back_to_main_menu_markup
 from bot.middlewares.i18n import JsonI18n
 
 router = Router(name="user_referral_router")
 
 
-async def referral_command_handler(event: Union[types.Message,
-                                                types.CallbackQuery],
+async def referral_command_handler(event: Union[types.Message, types.CallbackQuery],
                                    settings: Settings, i18n_data: dict,
                                    referral_service: ReferralService, bot: Bot,
-                                   session: AsyncSession):
+                                   session: AsyncSession,
+                                   back_callback: str = "main_action:back_to_main"):
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
 
@@ -97,27 +96,35 @@ async def referral_command_handler(event: Union[types.Message,
         bonus_details_str = "\n".join(bonus_info_parts) if bonus_info_parts else _(
             "referral_no_bonuses_configured")
 
-    # Get referral statistics
     referral_stats = await referral_service.get_referral_stats(session, inviter_user_id)
+
+    webapp_referral_link = await _generate_webapp_referral_link(
+        session,
+        settings,
+        inviter_user_id,
+    )
+    webapp_link_section = (
+        _(
+            "referral_webapp_link_line",
+            webapp_referral_link=webapp_referral_link,
+        )
+        if webapp_referral_link
+        else ""
+    )
 
     text = _("referral_program_info_new",
              referral_link=referral_link,
+             webapp_link_section=webapp_link_section,
              bonus_details=bonus_details_str,
              invited_count=referral_stats["invited_count"],
              purchased_count=referral_stats["purchased_count"])
-    if settings.SUBSCRIPTION_MINI_APP_URL:
-        db_user = await user_dal.get_user_by_id(session, inviter_user_id)
-        referral_code = await user_dal.ensure_referral_code(session, db_user) if db_user else None
-        webapp_referral_link = _build_webapp_referral_link(
-            settings.SUBSCRIPTION_MINI_APP_URL,
-            referral_code,
-        )
-        if webapp_referral_link:
-            webapp_label = "Web App ссылка" if current_lang == "ru" else "Web App link"
-            text += f"\n\n🔗 {webapp_label}:\n<code>{webapp_referral_link}</code>"
 
     from bot.keyboards.inline.user_keyboards import get_referral_link_keyboard
-    reply_markup_val = get_referral_link_keyboard(current_lang, i18n)
+    reply_markup_val = get_referral_link_keyboard(
+        current_lang,
+        i18n,
+        back_callback=back_callback,
+    )
 
     if isinstance(event, types.Message):
         await event.answer(text,
@@ -152,7 +159,7 @@ async def referral_action_handler(callback: types.CallbackQuery, settings: Setti
             bot_info = await bot.get_me()
             bot_username = bot_info.username
             if not bot_username:
-                await callback.answer("Ошибка получения имени бота", show_alert=True)
+                await callback.answer(_("error_generating_referral_link"), show_alert=True)
                 return
 
             inviter_user_id = callback.from_user.id
@@ -166,18 +173,30 @@ async def referral_action_handler(callback: types.CallbackQuery, settings: Setti
                 )
                 await callback.answer(_("error_generating_referral_link"), show_alert=True)
                 return
-            
-            friend_message = _("referral_friend_message", referral_link=referral_link)
-            
+
+            webapp_referral_link = await _generate_webapp_referral_link(
+                session,
+                settings,
+                inviter_user_id,
+            )
+            if webapp_referral_link:
+                friend_message = _(
+                    "referral_friend_message_with_webapp",
+                    referral_link=referral_link,
+                    webapp_referral_link=webapp_referral_link,
+                )
+            else:
+                friend_message = _("referral_friend_message", referral_link=referral_link)
+
             await callback.message.answer(
                 friend_message,
                 disable_web_page_preview=True
             )
-            
+
         except Exception as e:
             logging.error(f"Error in referral share message: {e}")
-            await callback.answer("Произошла ошибка", show_alert=True)
-        
+            await callback.answer(_("error_occurred_try_again"), show_alert=True)
+
     await callback.answer()
 
 
@@ -196,3 +215,25 @@ def _build_webapp_referral_link(base_url: Optional[str], referral_code: Optional
             parts.fragment,
         )
     )
+
+
+async def _generate_webapp_referral_link(
+    session: AsyncSession,
+    settings: Settings,
+    inviter_user_id: int,
+) -> Optional[str]:
+    if not settings.SUBSCRIPTION_MINI_APP_URL:
+        return None
+    db_user = await user_dal.get_user_by_id(session, inviter_user_id)
+    referral_code = await user_dal.ensure_referral_code(session, db_user) if db_user else None
+    return _build_webapp_referral_link(
+        settings.SUBSCRIPTION_MINI_APP_URL,
+        referral_code,
+    )
+
+
+@router.message(Command("referral"))
+async def referral_command_message_handler(message: types.Message, settings: Settings, 
+                                          i18n_data: dict, referral_service: ReferralService, 
+                                          bot: Bot, session: AsyncSession):
+    await referral_command_handler(message, settings, i18n_data, referral_service, bot, session)

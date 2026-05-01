@@ -152,6 +152,11 @@ async def send_bot_interface_menu(
         settings, subscription_service, session, user_id)
 
     text = i18n.gettext(current_lang, "bot_interface_menu_title")
+    if settings.SUBSCRIPTION_MINI_APP_URL:
+        text = (
+            f"{text}\n\n"
+            f"{i18n.gettext(current_lang, 'bot_interface_menu_webapp_hint')}"
+        )
     reply_markup = get_bot_interface_inline_keyboard(
         current_lang, i18n, settings, show_trial_button_in_menu)
 
@@ -797,6 +802,7 @@ async def language_command_handler(
     event: Union[types.Message, types.CallbackQuery],
     i18n_data: dict,
     settings: Settings,
+    back_callback: str = "main_action:back_to_main",
 ):
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -804,7 +810,11 @@ async def language_command_handler(
                                            ) if i18n else key
 
     text_to_send = _(key="choose_language")
-    reply_markup = get_language_selection_keyboard(i18n, current_lang)
+    reply_markup = get_language_selection_keyboard(
+        i18n,
+        current_lang,
+        back_callback=back_callback,
+    )
 
     target_message_obj = event.message if isinstance(
         event, types.CallbackQuery) else event
@@ -845,7 +855,8 @@ async def select_language_callback_handler(
         return
 
     try:
-        lang_code = callback.data.split("_")[2]
+        lang_payload = callback.data.split("_", 2)[2]
+        lang_code, _, return_target = lang_payload.partition(":")
     except IndexError:
         await safe_answer_callback(
             callback,
@@ -879,12 +890,20 @@ async def select_language_callback_handler(
             exc_info=True)
         await safe_answer_callback(callback, "Error setting language.", show_alert=True)
         return
-    await send_main_menu(callback,
-                         settings,
-                         i18n_data,
-                         subscription_service,
-                         session,
-                         is_edit=True)
+    if return_target == "bot":
+        await send_bot_interface_menu(callback,
+                                      settings,
+                                      i18n_data,
+                                      subscription_service,
+                                      session,
+                                      is_edit=True)
+    else:
+        await send_main_menu(callback,
+                             settings,
+                             i18n_data,
+                             subscription_service,
+                             session,
+                             is_edit=True)
 
 
 @router.callback_query(F.data.startswith("main_action:"))
@@ -895,6 +914,9 @@ async def main_action_callback_handler(
         promo_code_service: PromoCodeService, session: AsyncSession):
     action = callback.data.split(":")[1]
     user_id = callback.from_user.id
+
+    if action in {"back_to_main", "back_to_main_keep", "bot_interface"}:
+        await state.clear()
 
     from . import subscription as user_subscription_handlers
     from . import referral as user_referral_handlers
@@ -912,10 +934,29 @@ async def main_action_callback_handler(
     if action == "subscribe":
         await user_subscription_handlers.display_subscription_options(
             callback, i18n_data, settings, session)
+    elif action == "bot_subscribe":
+        await user_subscription_handlers.display_subscription_options(
+            callback,
+            i18n_data,
+            settings,
+            session,
+            back_callback="main_action:bot_interface",
+        )
     elif action == "my_subscription":
         await user_subscription_handlers.my_subscription_command_handler(
             callback, i18n_data, settings, panel_service, subscription_service,
             session, bot)
+    elif action == "bot_my_subscription":
+        await user_subscription_handlers.my_subscription_command_handler(
+            callback,
+            i18n_data,
+            settings,
+            panel_service,
+            subscription_service,
+            session,
+            bot,
+            back_callback="main_action:bot_interface",
+        )
     elif action == "my_devices":
         await user_subscription_handlers.my_devices_command_handler(
             callback, i18n_data, settings, panel_service, subscription_service,
@@ -923,16 +964,49 @@ async def main_action_callback_handler(
     elif action == "referral":
         await user_referral_handlers.referral_command_handler(
             callback, settings, i18n_data, referral_service, bot, session)
+    elif action == "bot_referral":
+        await user_referral_handlers.referral_command_handler(
+            callback,
+            settings,
+            i18n_data,
+            referral_service,
+            bot,
+            session,
+            back_callback="main_action:bot_interface",
+        )
     elif action == "apply_promo":
         await user_promo_handlers.prompt_promo_code_input(
             callback, state, i18n_data, settings, session)
+    elif action == "bot_apply_promo":
+        await user_promo_handlers.prompt_promo_code_input(
+            callback,
+            state,
+            i18n_data,
+            settings,
+            session,
+            back_callback="main_action:bot_interface",
+        )
     elif action == "request_trial":
         await user_trial_handlers.request_trial_confirmation_handler(
             callback, settings, i18n_data, subscription_service, session)
     elif action == "language":
 
         await language_command_handler(callback, i18n_data, settings)
-    elif action == "info":
+    elif action == "bot_language":
+        await language_command_handler(
+            callback,
+            i18n_data,
+            settings,
+            back_callback="main_action:bot_interface",
+        )
+    elif action == "bot_interface":
+        await send_bot_interface_menu(callback,
+                                      settings,
+                                      i18n_data,
+                                      subscription_service,
+                                      session,
+                                      is_edit=True)
+    elif action in {"info", "bot_info"}:
         i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
         current_lang = i18n_data.get("current_language",
                                      settings.DEFAULT_LANGUAGE)
@@ -962,6 +1036,11 @@ async def main_action_callback_handler(
             i18n,
             privacy_url,
             user_agreement_url,
+            back_callback=(
+                "main_action:bot_interface"
+                if callback.data == "main_action:bot_info"
+                else "main_action:back_to_main"
+            ),
         )
         try:
             await callback.message.edit_text(_(key="info_links_message"),
