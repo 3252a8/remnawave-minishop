@@ -737,12 +737,18 @@ a {
 }
 
 .language-select-guard {
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
   position: fixed;
   inset: 0;
   z-index: 100;
   border: 0;
   background: transparent;
+  box-shadow: none;
+  outline: none;
   padding: 0;
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 
 .copy-row,
