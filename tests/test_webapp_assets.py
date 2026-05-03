@@ -27,6 +27,25 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(plans[0]["price"], 199.0)
         self.assertEqual(plans[1]["stars_price"], 2500)
 
+    def test_serialize_plans_includes_stars_only_subscription_options(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            YOOKASSA_ENABLED=False,
+            CRYPTOPAY_ENABLED=False,
+            RUB_PRICE_1_MONTH=None,
+            STARS_PRICE_1_MONTH=250,
+        )
+
+        plans = subscription_webapp._serialize_plans(settings, "en")
+
+        self.assertEqual(len(plans), 1)
+        self.assertEqual(plans[0]["months"], 1)
+        self.assertEqual(plans[0]["price"], 0.0)
+        self.assertEqual(plans[0]["stars_price"], 250)
+
     def test_resolve_webapp_js_asset_name_prefers_latest_minified_build(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             asset_dir = Path(tmpdir)

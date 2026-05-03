@@ -1171,9 +1171,18 @@
           method: selectedMethod,
         }),
       });
-      if (!response.ok || !response.payment_url) throw response;
+      if (!response.ok) throw response;
       showToast(t("wa_payment_created"));
-      openExternalLink(response.payment_url);
+      if (response.action === "open_invoice") {
+        if (!response.payment_url) throw response;
+        openTelegramInvoice(response.payment_url);
+      } else if (response.action === "invoice_sent") {
+        paymentModalOpen = false;
+        return;
+      } else {
+        if (!response.payment_url) throw response;
+        openExternalLink(response.payment_url);
+      }
       paymentModalOpen = false;
     } catch (error) {
       showToast(error?.message || t("wa_payment_create_failed"));
@@ -1189,6 +1198,22 @@
       return;
     }
     window.location.assign(url);
+  }
+
+  function openTelegramInvoice(url) {
+    if (!url) return;
+    if (tg?.openInvoice) {
+      tg.openInvoice(url, (status) => {
+        if (status === "paid") {
+          showToast(t("wa_payment_success", {}, "Payment successful"));
+          loadData();
+        } else if (status === "failed") {
+          showToast(t("wa_payment_create_failed"));
+        }
+      });
+      return;
+    }
+    openExternalLink(url);
   }
 
   function openConnectLink() {

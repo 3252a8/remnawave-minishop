@@ -2661,15 +2661,18 @@ def _serialize_plans(
     active_subscription_options = subscription_options or settings.subscription_options
     active_stars_subscription_options = stars_subscription_options or settings.stars_subscription_options
     plans: List[Dict[str, Any]] = []
-    for months, price in sorted(active_subscription_options.items()):
+    for months in sorted(set(active_subscription_options) | set(active_stars_subscription_options)):
+        price = active_subscription_options.get(months)
+        stars_price = active_stars_subscription_options.get(months)
+        if price is None and (stars_price is None or int(stars_price) <= 0):
+            continue
         plan = {
             "months": int(months),
-            "price": float(price),
+            "price": float(price or 0),
             "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
             "title": _format_months_title(int(months), lang),
             "sale_mode": "subscription",
         }
-        stars_price = active_stars_subscription_options.get(months)
         if stars_price is not None and int(stars_price) > 0:
             plan["stars_price"] = int(stars_price)
         plans.append(plan)

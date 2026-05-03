@@ -73,10 +73,15 @@ class StarsService:
                                          i18n_data: dict,
                                          sale_mode: str = "subscription") -> None:
         try:
-            await payment_dal.update_provider_payment_and_status(
+            payment_record = await payment_dal.update_provider_payment_and_status(
                 session, payment_db_id,
                 message.successful_payment.provider_payment_charge_id,
                 "succeeded")
+            target_user_id = (
+                int(payment_record.user_id)
+                if payment_record and payment_record.user_id is not None
+                else int(message.from_user.id)
+            )
             await session.commit()
         except Exception as e_upd:
             await session.rollback()
@@ -87,7 +92,7 @@ class StarsService:
 
         activation_details = await self.subscription_service.activate_subscription(
             session,
-            message.from_user.id,
+            target_user_id,
             int(months) if sale_mode != "traffic" else 0,
             float(stars_amount),
             payment_db_id,
@@ -97,14 +102,14 @@ class StarsService:
         )
         if not activation_details or not activation_details.get("end_date"):
             logging.error(
-                f"Failed to activate subscription after stars payment for user {message.from_user.id}")
+                f"Failed to activate subscription after stars payment for user {target_user_id}")
             return
 
         referral_bonus = None
         if sale_mode != "traffic":
             referral_bonus = await self.referral_service.apply_referral_bonuses_for_payment(
                 session,
-                message.from_user.id,
+                target_user_id,
                 int(months) or 1,
                 current_payment_db_id=payment_db_id,
                 skip_if_active_before_payment=False,
@@ -117,7 +122,7 @@ class StarsService:
             final_end = activation_details["end_date"]
 
         # Always use user's language from DB for user-facing messages
-        db_user = await user_dal.get_user_by_id(session, message.from_user.id)
+        db_user = await user_dal.get_user_by_id(session, target_user_id)
         current_lang = db_user.language_code if db_user and db_user.language_code else self.settings.DEFAULT_LANGUAGE
         i18n: JsonI18n = i18n_data.get("i18n_instance")
         _ = lambda k, **kw: i18n.gettext(current_lang, k, **kw) if i18n else k
@@ -135,7 +140,7 @@ class StarsService:
             )
         elif applied_days:
             inviter_name_display = _("friend_placeholder")
-            db_user = await user_dal.get_user_by_id(session, message.from_user.id)
+            db_user = await user_dal.get_user_by_id(session, target_user_id)
             if db_user and db_user.referred_by_id:
                 inviter = await user_dal.get_user_by_id(session, db_user.referred_by_id)
                 if inviter:
@@ -183,9 +188,9 @@ class StarsService:
         # Send notification about payment
         try:
             notification_service = NotificationService(self.bot, self.settings, self.i18n)
-            user = await user_dal.get_user_by_id(session, message.from_user.id)
+            user = await user_dal.get_user_by_id(session, target_user_id)
             await notification_service.notify_payment_received(
-                user_id=message.from_user.id,
+                user_id=target_user_id,
                 amount=float(stars_amount),
                 currency="XTR",
                 months=int(months) if sale_mode != "traffic" else 0,
