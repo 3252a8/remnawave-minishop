@@ -45,7 +45,7 @@ class TariffTrafficWorker:
                     await self.traffic_period_tick(session)
                     await session.commit()
                 async with self.session_factory() as session:
-                    await self.throttle_recovery_tick(session)
+                    await self.legacy_throttle_recovery_tick(session)
                     await session.commit()
             except Exception:
                 logging.exception("TariffTrafficWorker tick failed")
@@ -74,10 +74,13 @@ class TariffTrafficWorker:
                 continue
             panel_data = await self.panel_service.get_user_by_uuid(sub.panel_user_uuid, log_response=False) or {}
             used, limit, panel_strategy = self.subscription_service._extract_panel_traffic_details(panel_data)
+            panel_status = str(panel_data.get("status") or "").upper()
             if used is not None and used != sub.traffic_used_bytes:
                 sub.traffic_used_bytes = used
             if limit is not None and limit != sub.traffic_limit_bytes:
                 sub.traffic_limit_bytes = limit
+            if panel_status and panel_status != (sub.status_from_panel or "").upper():
+                sub.status_from_panel = panel_status
 
             if tariff.billing_model == "period":
                 await self._ensure_period_reset_strategy(sub, tariff, limit, panel_strategy)
@@ -103,7 +106,6 @@ class TariffTrafficWorker:
         payload = self.subscription_service._build_panel_update_payload(
             panel_user_uuid=sub.panel_user_uuid,
             expire_at=sub.end_date,
-            status="ACTIVE",
             traffic_limit_bytes=traffic_limit_bytes,
             traffic_limit_strategy="MONTH",
         )
@@ -166,21 +168,21 @@ class TariffTrafficWorker:
                     await self.bot.send_message(sub.user_id, text, reply_markup=markup)
                 except Exception:
                     logging.exception("Failed to send traffic warning to user %s", sub.user_id)
-        if ratio >= 1.0:
-            await self._throttle(session, sub, tariff)
+        if ratio >= 1.0 and not sub.is_throttled:
+            logging.info(
+                "Tariff traffic limit reached for user %s subscription %s. "
+                "Leaving access control to Remnawave status handling.",
+                sub.user_id,
+                sub.subscription_id,
+            )
 
-    async def _throttle(self, session: AsyncSession, sub: Subscription, tariff) -> None:
-        if sub.is_throttled:
-            return
-        for squad_uuid in tariff.squad_uuids:
-            await self.panel_service.remove_users_from_internal_squad(squad_uuid, [sub.panel_user_uuid])
-        await subscription_dal.update_subscription(
-            session,
-            sub.subscription_id,
-            {"is_throttled": True, "status_from_panel": "THROTTLED_BY_BOT"},
-        )
+    async def legacy_throttle_recovery_tick(self, session: AsyncSession) -> None:
+        """Recover subscriptions throttled by older bot versions.
 
-    async def throttle_recovery_tick(self, session: AsyncSession) -> None:
+        Current Remnawave versions enforce exhausted user traffic limits by
+        switching the user status to LIMITED, so new ticks must not remove users
+        from Internal Squads.
+        """
         result = await session.execute(
             select(Subscription).where(
                 Subscription.is_active == True,
