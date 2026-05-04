@@ -1,5 +1,4 @@
 import hashlib
-import hashlib
 import logging
 from aiogram import Router, F, types, Bot
 from aiogram.filters import Command
@@ -45,6 +44,29 @@ def _hwid_callback_token(hwid: Optional[str]) -> str:
     return hashlib.sha256(hwid_str.encode()).hexdigest()[:32]
 
 
+def _enabled_tariffs(settings: Settings) -> list:
+    config = getattr(settings, "tariffs_config", None)
+    return list(config.enabled_tariffs) if config else []
+
+
+def _has_multiple_enabled_tariffs(settings: Settings) -> bool:
+    return len(_enabled_tariffs(settings)) > 1
+
+
+def _tariff_purchase_markup(tariff, current_lang: str, i18n: JsonI18n, settings: Settings) -> InlineKeyboardMarkup:
+    if tariff.billing_model == "period":
+        return get_tariff_periods_keyboard(tariff, current_lang, i18n, settings)
+    return get_tariff_packages_keyboard(tariff, tariff.traffic_packages.rub, current_lang, i18n)
+
+
+def _tariff_purchase_text(tariff, current_lang: str, i18n: JsonI18n, settings: Settings) -> str:
+    if not _has_multiple_enabled_tariffs(settings):
+        if tariff.billing_model == "period":
+            return i18n.gettext(current_lang, "select_subscription_period")
+        return i18n.gettext(current_lang, "select_traffic_package")
+    return f"{tariff.name(current_lang)}\n{tariff.description(current_lang)}".strip()
+
+
 async def display_subscription_options(
     event: Union[types.Message, types.CallbackQuery],
     i18n_data: dict,
@@ -71,8 +93,14 @@ async def display_subscription_options(
     currency_symbol_val = settings.DEFAULT_CURRENCY_SYMBOL
     tariffs_config = getattr(settings, "tariffs_config", None)
     if tariffs_config:
-        text_content = get_text("select_subscription_period")
-        reply_markup = get_tariff_catalog_keyboard(tariffs_config.enabled_tariffs, current_lang, i18n)
+        enabled_tariffs = list(tariffs_config.enabled_tariffs)
+        if len(enabled_tariffs) == 1:
+            tariff = enabled_tariffs[0]
+            text_content = _tariff_purchase_text(tariff, current_lang, i18n, settings)
+            reply_markup = _tariff_purchase_markup(tariff, current_lang, i18n, settings)
+        else:
+            text_content = get_text("select_subscription_period")
+            reply_markup = get_tariff_catalog_keyboard(enabled_tariffs, current_lang, i18n)
         target_message_obj = event.message if isinstance(event, types.CallbackQuery) else event
         if isinstance(event, types.CallbackQuery):
             try:
@@ -159,11 +187,8 @@ async def select_tariff_callback(callback: types.CallbackQuery, i18n_data: dict,
     except Exception:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
-    if tariff.billing_model == "period":
-        markup = get_tariff_periods_keyboard(tariff, current_lang, i18n, settings)
-    else:
-        markup = get_tariff_packages_keyboard(tariff, tariff.traffic_packages.rub, current_lang, i18n)
-    text = f"{tariff.name(current_lang)}\n{tariff.description(current_lang)}".strip()
+    markup = _tariff_purchase_markup(tariff, current_lang, i18n, settings)
+    text = _tariff_purchase_text(tariff, current_lang, i18n, settings)
     await callback.message.edit_text(text, reply_markup=markup)
     await callback.answer()
 
@@ -567,7 +592,7 @@ async def my_subscription_command_handler(
         )
     else:
         tariff_prefix = ""
-        if active.get("tariff_name"):
+        if _has_multiple_enabled_tariffs(settings) and active.get("tariff_name"):
             tariff_prefix = f"🎟 {active.get('tariff_name')}\n"
             if active.get("tariff_description"):
                 tariff_prefix += f"{active.get('tariff_description')}\n"
@@ -699,10 +724,11 @@ async def my_subscription_command_handler(
             ])
 
         if settings.tariffs_config and local_sub and local_sub.tariff_key:
-            prepend_rows.append([
-                InlineKeyboardButton(text="Сменить тариф", callback_data="tariff_change:list"),
-                InlineKeyboardButton(text="Докупить трафик", callback_data="tariff_topup:list"),
-            ])
+            tariff_actions = []
+            if _has_multiple_enabled_tariffs(settings):
+                tariff_actions.append(InlineKeyboardButton(text="Сменить тариф", callback_data="tariff_change:list"))
+            tariff_actions.append(InlineKeyboardButton(text="Докупить трафик", callback_data="tariff_topup:list"))
+            prepend_rows.append(tariff_actions)
 
         if prepend_rows:
             kb = prepend_rows + kb

@@ -461,6 +461,8 @@
   $: trafficMode = Boolean(appSettings?.traffic_mode);
   $: tariffMode = plans.some((plan) => plan?.tariff_key);
   $: tariffCatalog = buildTariffCatalog(plans);
+  $: singleTariffMode = tariffMode && tariffCatalog.length === 1;
+  $: hasMultipleTariffs = tariffCatalog.length > 1;
   $: selectedTariff = tariffCatalog.find((tariff) => tariff.key === selectedTariffKey) || null;
   $: selectedTariffPlans = tariffMode ? (selectedTariffKey ? plans.filter((plan) => plan?.tariff_key === selectedTariffKey) : []) : plans;
   $: devicesEnabled = Boolean(appSettings?.my_devices_enabled);
@@ -498,10 +500,15 @@
   $: applyFavicon(CFG.logoUrl, brandEmoji);
   $: syncBodyScrollLock(paymentModalOpen || changeModalOpen || changeConfirmOpen || topupModalOpen || deviceTopupModalOpen || linkEmailOpen);
   $: if (!tariffMode && !selectedPlan && plans.length) selectedPlan = plans[Math.min(1, plans.length - 1)];
+  $: if (singleTariffMode && tariffCatalog[0]?.key && selectedTariffKey !== tariffCatalog[0].key) {
+    selectedTariffKey = tariffCatalog[0].key;
+    selectedPlan = plans.find((plan) => plan?.tariff_key === selectedTariffKey) || null;
+    if (paymentStep === "tariff") paymentStep = "checkout";
+  }
   $: if (tariffMode && selectedTariffKey && !tariffCatalog.some((tariff) => tariff.key === selectedTariffKey)) {
     selectedTariffKey = "";
     selectedPlan = null;
-    paymentStep = "tariff";
+    paymentStep = singleTariffMode ? "checkout" : "tariff";
   }
   $: if (tariffMode && selectedTariffKey && (!selectedPlan || selectedPlan.tariff_key !== selectedTariffKey)) {
     selectedPlan = selectedTariffPlans[0] || null;
@@ -1753,7 +1760,11 @@
 
   function openPaymentModal() {
     if (tariffMode) {
-      if (subscription?.active && subscription?.tariff_key && tariffCatalog.some((t) => t.key === subscription.tariff_key)) {
+      if (singleTariffMode && tariffCatalog[0]?.key) {
+        selectedTariffKey = tariffCatalog[0].key;
+        selectedPlan = plans.find((plan) => plan?.tariff_key === selectedTariffKey) || null;
+        paymentStep = "checkout";
+      } else if (subscription?.active && subscription?.tariff_key && tariffCatalog.some((t) => t.key === subscription.tariff_key)) {
         selectedTariffKey = subscription.tariff_key;
         selectedPlan = plans.find((plan) => plan?.tariff_key === selectedTariffKey) || null;
         paymentStep = "checkout";
@@ -2004,12 +2015,18 @@
   }
 
   function paymentTitle() {
+    if (singleTariffMode) {
+      return selectedTariff?.billing_model === "traffic" ? t("wa_traffic_packages_title") : t("wa_subscription_title");
+    }
     if (tariffMode) return t("wa_tariffs_title");
     return trafficMode ? t("wa_traffic_packages_title") : t("wa_subscription_title");
   }
 
   function paymentDescription() {
     if (tariffMode) {
+      if (singleTariffMode) {
+        return selectedTariff?.billing_model === "traffic" ? t("wa_traffic_packages_choose") : t("wa_subscription_choose_period");
+      }
       return paymentStep === "checkout" && selectedTariff
         ? t("wa_tariff_choose_period_payment", { tariff: selectedTariff.title })
         : t("wa_tariffs_choose");
@@ -2435,7 +2452,7 @@
                     <CheckCircle2 size={23} />
                     <div>
                       <h2>{trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")} | {activeSubscriptionTermLabel(subscription)}</h2>
-                      {#if hasActiveTariffSubscription && currentTariffName}
+                      {#if hasActiveTariffSubscription && hasMultipleTariffs && currentTariffName}
                         <p class="current-tariff-line">{t("wa_current_tariff", { tariff: currentTariffName })}</p>
                       {/if}
                       <p>{subscription.end_date_text ? t("wa_until_date", { date: subscription.end_date_text }) : subscription.remaining_text}</p>
@@ -2841,7 +2858,7 @@
         class="payment-dialog-card"
       >
         <div class="payment-dialog-body">
-          {#if tariffMode && paymentStep === "tariff"}
+          {#if tariffMode && !singleTariffMode && paymentStep === "tariff"}
             {#if tariffCatalog.length}
               <div class="option-list tariff-list">
                 {#each tariffCatalog as tariff}
@@ -2875,13 +2892,13 @@
             {/if}
           {:else}
             {#if tariffMode}
-              {#if !(subscription?.active && subscription?.tariff_key && tariffCatalog.some((t) => t.key === subscription.tariff_key))}
+              {#if !singleTariffMode && !(subscription?.active && subscription?.tariff_key && tariffCatalog.some((t) => t.key === subscription.tariff_key))}
                 <button class="back-inline" type="button" on:click={backToTariffList}>
                   <ArrowLeft size={16} />
                   {t("wa_back_to_tariffs")}
                 </button>
               {/if}
-              {#if selectedTariff}
+              {#if hasMultipleTariffs && selectedTariff}
                 <p class="tariff-step-caption">{t("wa_selected_tariff", { tariff: selectedTariff.title })}</p>
               {/if}
             {/if}
