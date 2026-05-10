@@ -70,6 +70,7 @@ WEBAPP_TELEGRAM_AVATAR_REFRESH_SECONDS = 24 * 60 * 60
 WEBAPP_TELEGRAM_AVATAR_FETCH_TIMEOUT_SECONDS = 4
 WEBAPP_SESSION_COOKIE_NAME = "rw_webapp_session"
 WEBAPP_CSRF_COOKIE_NAME = "rw_webapp_csrf"
+WEBAPP_TELEGRAM_OAUTH_STATE_COOKIE_NAME = "rw_tg_oauth_state"
 WEBAPP_CSRF_HEADER_NAME = "X-CSRF-Token"
 WEBAPP_STATE_CHANGING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 WEBAPP_CSRF_EXEMPT_PATHS = {
@@ -291,6 +292,51 @@ def _telegram_oauth_redirect_url(path: str = "/", *, status: Optional[str] = Non
         return target_path
     separator = "&" if "?" in target_path else "?"
     return f"{target_path}{separator}telegram_auth={status}"
+
+
+def _set_telegram_oauth_state_cookie(
+    response: web.StreamResponse,
+    settings: Settings,
+    payload: Dict[str, Any],
+) -> None:
+    max_age = max(60, int(settings.WEBAPP_LOGIN_TOKEN_TTL_SECONDS))
+    response.set_cookie(
+        WEBAPP_TELEGRAM_OAUTH_STATE_COOKIE_NAME,
+        create_signed_telegram_oauth_state(settings, payload, ttl_seconds=max_age),
+        httponly=True,
+        secure=True,
+        samesite="Lax",
+        path="/auth/telegram",
+        max_age=max_age,
+    )
+
+
+def _clear_telegram_oauth_state_cookie(response: web.StreamResponse) -> None:
+    response.set_cookie(
+        WEBAPP_TELEGRAM_OAUTH_STATE_COOKIE_NAME,
+        "",
+        httponly=True,
+        secure=True,
+        samesite="Lax",
+        path="/auth/telegram",
+        max_age=0,
+    )
+
+
+def _read_telegram_oauth_state_payload(
+    request: web.Request,
+    state_token: str,
+) -> Optional[Dict[str, Any]]:
+    settings: Settings = request.app["settings"]
+    signed_payload = request.cookies.get(WEBAPP_TELEGRAM_OAUTH_STATE_COOKIE_NAME, "")
+    payload = verify_signed_telegram_oauth_state(settings, signed_payload)
+    if not payload:
+        return None
+
+    expected_state = str(payload.get("state") or "")
+    if not expected_state or not hmac.compare_digest(expected_state, state_token):
+        return None
+    return payload
 
 
 def _urlsafe_sha256(value: str) -> str:
@@ -737,23 +783,18 @@ async def telegram_oauth_start_route(request: web.Request) -> web.Response:
     if purpose == "link" and not current_user_id:
         raise web.HTTPFound(_telegram_oauth_redirect_url("/", status="unauthorized"))
 
-    code_verifier = secrets.token_urlsafe(64)
+    code_verifier = secrets.token_urlsafe(32)
     code_challenge = _urlsafe_sha256(code_verifier)
-    nonce = create_telegram_oauth_nonce(
-        settings,
-        ttl_seconds=settings.WEBAPP_LOGIN_TOKEN_TTL_SECONDS,
-    )
-    state = create_signed_telegram_oauth_state(
-        settings,
-        {
-            "purpose": purpose,
-            "user_id": int(current_user_id) if current_user_id else None,
-            "referral_code": str(request.query.get("referral_code") or "")[:128],
-            "code_verifier": code_verifier,
-            "nonce": nonce,
-        },
-        ttl_seconds=settings.WEBAPP_LOGIN_TOKEN_TTL_SECONDS,
-    )
+    nonce = secrets.token_urlsafe(16)
+    state = secrets.token_urlsafe(16)
+    state_payload = {
+        "state": state,
+        "purpose": purpose,
+        "user_id": int(current_user_id) if current_user_id else None,
+        "referral_code": str(request.query.get("referral_code") or "")[:128],
+        "code_verifier": code_verifier,
+        "nonce": nonce,
+    }
 
     scopes = ["openid", "profile"]
     for permission in _resolve_telegram_oauth_request_access(settings):
@@ -774,19 +815,27 @@ async def telegram_oauth_start_route(request: web.Request) -> web.Response:
             "code_challenge_method": "S256",
         }
     )
-    raise web.HTTPFound(f"https://oauth.telegram.org/auth?{auth_query}")
+    response = web.HTTPFound(f"https://oauth.telegram.org/auth?{auth_query}")
+    _set_telegram_oauth_state_cookie(response, settings, state_payload)
+    raise response
 
 
 async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
     settings: Settings = request.app["settings"]
+
+    def redirect(path: str = "/", status: Optional[str] = None) -> web.HTTPFound:
+        response = web.HTTPFound(_telegram_oauth_redirect_url(path, status=status))
+        _clear_telegram_oauth_state_cookie(response)
+        return response
+
     error = str(request.query.get("error") or "")
     if error:
-        raise web.HTTPFound(_telegram_oauth_redirect_url("/", status="cancelled"))
+        raise redirect("/", "cancelled")
 
     code = str(request.query.get("code") or "")
-    state = verify_signed_telegram_oauth_state(settings, str(request.query.get("state") or ""))
+    state = _read_telegram_oauth_state_payload(request, str(request.query.get("state") or ""))
     if not code or not state:
-        raise web.HTTPFound(_telegram_oauth_redirect_url("/", status="invalid_state"))
+        raise redirect("/", "invalid_state")
 
     token_payload = await _exchange_telegram_oauth_code(
         request,
@@ -802,7 +851,7 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
         max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
     )
     if not telegram_user:
-        raise web.HTTPFound(_telegram_oauth_redirect_url("/", status="invalid_token"))
+        raise redirect("/", "invalid_token")
 
     purpose = str(state.get("purpose") or "login")
     redirect_path = "/settings" if purpose == "link" else "/"
@@ -842,7 +891,7 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
 
             if db_user.is_banned:
                 await session.rollback()
-                raise web.HTTPFound(_telegram_oauth_redirect_url("/", status="banned"))
+                raise redirect("/", "banned")
 
             final_user_id = int(db_user.user_id)
             await session.commit()
@@ -850,14 +899,15 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
             raise
         except UserMergeConflictError:
             await session.rollback()
-            raise web.HTTPFound(_telegram_oauth_redirect_url(redirect_path, status="merge_conflict"))
+            raise redirect(redirect_path, "merge_conflict")
         except Exception:
             await session.rollback()
             logger.exception("Telegram OAuth callback failed")
-            raise web.HTTPFound(_telegram_oauth_redirect_url(redirect_path, status="failed"))
+            raise redirect(redirect_path, "failed")
 
     token = create_webapp_session_token(settings, int(final_user_id))
     response = web.HTTPFound(_telegram_oauth_redirect_url(redirect_path, status="success"))
+    _clear_telegram_oauth_state_cookie(response)
     _set_webapp_auth_cookies(response, settings, token, secrets.token_hex(32))
     raise response
 

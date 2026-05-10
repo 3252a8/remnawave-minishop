@@ -3,6 +3,7 @@ import hmac
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+from urllib.parse import parse_qs, urlsplit
 
 from aiohttp import web
 
@@ -240,6 +241,46 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(verify_telegram_oauth_nonce(settings, nonce))
         self.assertFalse(verify_telegram_oauth_nonce(settings, nonce + "tampered"))
+
+    async def test_telegram_oauth_start_uses_short_public_state(self):
+        settings = SimpleNamespace(
+            WEBAPP_ENABLED=True,
+            BOT_TOKEN="123456789:secret",
+            TELEGRAM_OAUTH_CLIENT_ID=None,
+            TELEGRAM_OAUTH_CLIENT_SECRET="client-secret",
+            TELEGRAM_OAUTH_REQUEST_ACCESS="write",
+            WEBAPP_LOGIN_TOKEN_TTL_SECONDS=600,
+            WEBAPP_SESSION_SECRET="session-secret",
+            WEBAPP_SESSION_TTL_SECONDS=3600,
+            SUBSCRIPTION_MINI_APP_URL="https://app.example.com/home",
+        )
+        request = SimpleNamespace(
+            app={"settings": settings},
+            query={"purpose": "login", "referral_code": "x" * 128},
+            headers={},
+            cookies={},
+        )
+
+        with self.assertRaises(web.HTTPFound) as raised:
+            await subscription_webapp.telegram_oauth_start_route(request)
+
+        redirect = raised.exception
+        query = parse_qs(urlsplit(redirect.headers["Location"]).query)
+        state = query["state"][0]
+        self.assertLessEqual(len(state), 64)
+
+        cookie_name = subscription_webapp.WEBAPP_TELEGRAM_OAUTH_STATE_COOKIE_NAME
+        signed_state = redirect.cookies[cookie_name].value
+        callback_request = SimpleNamespace(
+            app={"settings": settings},
+            cookies={cookie_name: signed_state},
+        )
+        payload = subscription_webapp._read_telegram_oauth_state_payload(callback_request, state)
+
+        self.assertIsNotNone(payload)
+        self.assertEqual(payload["referral_code"], "x" * 128)
+        self.assertEqual(len(payload["code_verifier"]), 43)
+        self.assertIsNone(subscription_webapp._read_telegram_oauth_state_payload(callback_request, state + "x"))
 
     def test_telegram_oauth_client_id_defaults_to_bot_id(self):
         settings = SimpleNamespace(

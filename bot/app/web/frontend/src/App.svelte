@@ -63,10 +63,8 @@
     settings: "/settings",
   };
   const TELEGRAM_WEBAPP_SCRIPT_URL = "https://telegram.org/js/telegram-web-app.js";
-  const TELEGRAM_OAUTH_AVAILABILITY_URL = "https://oauth.telegram.org/";
   const TELEGRAM_SDK_BOOT_TIMEOUT_MS = 900;
   const TELEGRAM_SDK_ACTION_TIMEOUT_MS = 1800;
-  const TELEGRAM_OAUTH_AVAILABILITY_TIMEOUT_MS = 15000;
   const TELEGRAM_MINI_APP_AUTH_TIMEOUT_MS = 15000;
 
   const DEV_MOCK = {
@@ -214,7 +212,7 @@
   let telegramSdkStatus = tg ? "ready" : "idle";
   let telegramSdkPromise = null;
   let telegramLaunchParamsDetected = false;
-  let telegramOAuthUnavailable = false;
+  let telegramMiniAppInitData = "";
 
   let mode = isPreviewBoard ? "preview" : "loading";
   let activeTab = "home";
@@ -363,12 +361,9 @@
   $: supportUrl = String(appSettings?.support_url || CFG.supportUrl || "").trim();
   $: telegramLoginBotId = Number(CFG.telegramLoginBotId || 0);
   $: telegramOAuthClientId = Number(CFG.telegramOAuthClientId || telegramLoginBotId || 0);
-  $: telegramMiniAppAuthAvailable = Boolean(tg?.initData);
-  $: telegramMiniAppSdkUnavailable =
-    telegramLaunchParamsDetected && !telegramMiniAppAuthAvailable && telegramSdkStatus === "unavailable";
+  $: telegramMiniAppInitData = tg?.initData || readTelegramMiniAppInitDataFromLocation();
+  $: telegramMiniAppAuthAvailable = Boolean(telegramMiniAppInitData);
   $: telegramLoginUnavailable =
-    telegramOAuthUnavailable ||
-    telegramMiniAppSdkUnavailable ||
     (!telegramMiniAppAuthAvailable && !telegramOAuthClientId && telegramSdkStatus !== "loading");
   $: telegramLoginChecking = telegramLoginBusy || (authBusy && authStatus === t("wa_auth_checking_telegram"));
   $: telegramLoginLabel = telegramLoginUnavailable
@@ -377,9 +372,7 @@
       ? t("wa_auth_checking_telegram")
       : t("wa_login_telegram_button");
   $: telegramLoginUnavailableMessage =
-    telegramOAuthUnavailable
-      ? t("wa_auth_telegram_timeout")
-      : telegramLoginUnavailable && telegramSdkStatus === "unavailable"
+    telegramLoginUnavailable && telegramSdkStatus === "unavailable"
         ? t("wa_auth_telegram_unavailable")
         : telegramLoginUnavailable
           ? t("wa_auth_telegram_not_configured")
@@ -577,13 +570,26 @@
   function refreshTelegramWebApp() {
     tg = resolveTelegramWebApp();
     if (tg) telegramSdkStatus = "ready";
-    if (tg?.initData) telegramLaunchParamsDetected = true;
+    telegramMiniAppInitData = tg?.initData || readTelegramMiniAppInitDataFromLocation();
+    if (telegramMiniAppInitData) telegramLaunchParamsDetected = true;
     return tg;
+  }
+
+  function readTelegramMiniAppInitDataFromLocation() {
+    const queryText = window.location.search.replace(/^\?/, "");
+    const hashText = window.location.hash.replace(/^#/, "");
+    for (const text of [queryText, hashText]) {
+      if (!text) continue;
+      const params = new URLSearchParams(text);
+      const initData = params.get("tgWebAppData");
+      if (initData) return initData;
+    }
+    return "";
   }
 
   function hasTelegramLaunchParams() {
     refreshTelegramWebApp();
-    if (telegramLaunchParamsDetected || tg?.initData) {
+    if (telegramLaunchParamsDetected || telegramMiniAppInitData) {
       telegramLaunchParamsDetected = true;
       return true;
     }
@@ -656,27 +662,6 @@
   async function ensureTelegramSdkForAction() {
     if (refreshTelegramWebApp()) return tg;
     return await loadTelegramSdk(TELEGRAM_SDK_ACTION_TIMEOUT_MS);
-  }
-
-  async function ensureTelegramOAuthAvailable() {
-    telegramOAuthUnavailable = false;
-    const controller = typeof AbortController === "undefined" ? null : new AbortController();
-    const timeoutId = window.setTimeout(() => controller?.abort(), TELEGRAM_OAUTH_AVAILABILITY_TIMEOUT_MS);
-    try {
-      await fetch(`${TELEGRAM_OAUTH_AVAILABILITY_URL}?rw_check=${Date.now()}`, {
-        method: "GET",
-        mode: "no-cors",
-        cache: "no-store",
-        signal: controller?.signal,
-      });
-      return true;
-    } catch {
-      telegramSdkStatus = "unavailable";
-      telegramOAuthUnavailable = true;
-      return false;
-    } finally {
-      window.clearTimeout(timeoutId);
-    }
   }
 
   function createTelegramMiniAppAuthTimeout() {
@@ -761,9 +746,10 @@
     const widgetAuthData = readTelegramLoginWidgetAuthData();
     if (widgetAuthData && (await finalizeTelegramAuth(widgetAuthData, "auth_data"))) return;
 
-    if (tg?.initData) {
+    const initData = telegramMiniAppInitData || tg?.initData || readTelegramMiniAppInitDataFromLocation();
+    if (initData) {
       try {
-        if (await finalizeTelegramAuth(tg.initData, "init_data")) return;
+        if (await finalizeTelegramAuth(initData, "init_data")) return;
       } catch {}
     }
 
@@ -1182,11 +1168,10 @@
       if (attemptId !== telegramLoginAttemptId) return;
       telegramLoginWatchdogTimer = null;
       telegramSdkStatus = "unavailable";
-      telegramOAuthUnavailable = true;
       telegramLoginBusy = false;
       authBusy = false;
       setAuthStatus(t("wa_auth_telegram_timeout"), true);
-    }, TELEGRAM_OAUTH_AVAILABILITY_TIMEOUT_MS);
+    }, TELEGRAM_MINI_APP_AUTH_TIMEOUT_MS);
     return attemptId;
   }
 
@@ -1209,29 +1194,10 @@
     const isTelegramMiniAppAttempt = hasTelegramLaunchParams();
     if (!isTelegramMiniAppAttempt && telegramOAuthClientId) {
       telegramLoginBusy = true;
-      const attemptId = startTelegramLoginWatchdog();
-      try {
-        const available = await ensureTelegramOAuthAvailable();
-        if (!isActiveTelegramLoginAttempt(attemptId)) return;
-        if (!available) {
-          setAuthStatus(t("wa_auth_telegram_timeout"), true);
-          return;
-        }
-        stopTelegramLoginWatchdog(attemptId);
+      window.location.assign(buildTelegramOAuthStartUrl("login"));
+      window.setTimeout(() => {
         telegramLoginBusy = false;
-        authBusy = false;
-        window.location.assign(buildTelegramOAuthStartUrl("login"));
-      } catch {
-        if (!isActiveTelegramLoginAttempt(attemptId)) return;
-        telegramSdkStatus = "unavailable";
-        telegramOAuthUnavailable = true;
-        setAuthStatus(t("wa_auth_telegram_timeout"), true);
-      } finally {
-        if (isActiveTelegramLoginAttempt(attemptId)) {
-          stopTelegramLoginWatchdog(attemptId);
-          telegramLoginBusy = false;
-        }
-      }
+      }, 1500);
       return;
     }
 
@@ -1243,22 +1209,23 @@
         (async () => {
           await ensureTelegramSdkForAction();
           if (!isActiveTelegramLoginAttempt(attemptId)) return;
-          if (tg?.initData) {
-            await finalizeTelegramAuth(tg.initData, "init_data", { signal: loginTimeout.signal });
+          const initData = telegramMiniAppInitData || tg?.initData || readTelegramMiniAppInitDataFromLocation();
+          if (initData) {
+            await finalizeTelegramAuth(initData, "init_data", { signal: loginTimeout.signal });
             return;
           }
 
-          if (!telegramOAuthClientId || isTelegramMiniAppAttempt) {
+          if (!telegramOAuthClientId) {
             setAuthStatus(
               telegramSdkStatus === "unavailable"
                 ? t("wa_auth_telegram_unavailable")
-                : isTelegramMiniAppAttempt
-                  ? t("wa_auth_telegram_not_confirmed")
-                  : t("wa_auth_telegram_not_configured"),
+                : t("wa_auth_telegram_not_configured"),
               true,
             );
             return;
           }
+
+          window.location.assign(buildTelegramOAuthStartUrl("login"));
         })(),
         loginTimeout.promise,
       ]);
@@ -1391,8 +1358,9 @@
   async function linkTelegramAccount() {
     if (linkTelegramBusy) return;
     if (shouldWaitForTelegramSdkBeforeOAuth()) await ensureTelegramSdkForAction();
-    if (tg?.initData) {
-      await linkTelegramAccountWithPayload({ init_data: tg.initData });
+    const initData = telegramMiniAppInitData || tg?.initData || readTelegramMiniAppInitDataFromLocation();
+    if (initData) {
+      await linkTelegramAccountWithPayload({ init_data: initData });
       return;
     }
     if (!telegramOAuthClientId) {
