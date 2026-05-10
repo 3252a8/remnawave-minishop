@@ -132,6 +132,7 @@ class TariffsConfigTests(unittest.TestCase):
     def test_premium_squad_limit_and_topups_load(self):
         data = _valid_config()
         data["tariffs"][0]["premium_squad_uuids"] = [" premium-squad "]
+        data["tariffs"][0]["premium_names"] = {"ru": "Обход глушилок", "en": "Anti-jamming"}
         data["tariffs"][0]["premium_monthly_gb"] = 50
         data["tariffs"][0]["premium_topup_packages"] = {
             "rub": [{"gb": 10, "price": 99}],
@@ -142,6 +143,8 @@ class TariffsConfigTests(unittest.TestCase):
         tariff = config.require("standard")
 
         self.assertEqual(tariff.premium_squad_uuids, ["premium-squad"])
+        self.assertEqual(tariff.premium_name("ru"), "Обход глушилок")
+        self.assertEqual(tariff.premium_name("en"), "Anti-jamming")
         self.assertEqual(tariff.premium_monthly_bytes, 50 * 1024**3)
         self.assertTrue(tariff.has_premium_squad_limit())
 

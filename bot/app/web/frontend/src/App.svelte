@@ -134,7 +134,10 @@
         premium_baseline_bytes: 53687091200,
         premium_topup_balance_bytes: 0,
         premium_is_limited: false,
+        premium_title: "Premium-серверы",
         premium_node_labels: ["Premium NL-1", "Premium DE-1"],
+        can_topup_regular_traffic: true,
+        can_topup_premium_traffic: true,
         max_devices: 5,
       },
       devices: {
@@ -249,6 +252,7 @@
   let paymentStep = "tariff";
   let selectedTariffKey = "";
   let topupModalOpen = query.get("topup") === "1";
+  let topupKind = "regular";
   let deviceTopupModalOpen = query.get("device_topup") === "1";
   let changeModalOpen = query.get("change") === "1";
   let topupOptions = null;
@@ -506,11 +510,17 @@
   $: hasActiveTariffSubscription = Boolean(tariffMode && subscription?.active && subscription?.tariff_key);
   $: canChangeTariff = Boolean(hasActiveTariffSubscription && hasMultipleTariffs);
   $: currentTariffName = activeTariffName(subscription, plans);
-  $: canOpenTopupModal = Boolean(
+  $: canOpenRegularTopupModal = Boolean(
     hasActiveTariffSubscription &&
-      subscription?.can_topup_traffic &&
-      (Number(subscription?.traffic_limit_bytes || 0) > 0 || Number(subscription?.premium_limit_bytes || 0) > 0),
+      (subscription?.can_topup_regular_traffic ?? subscription?.can_topup_traffic) &&
+      Number(subscription?.traffic_limit_bytes || 0) > 0,
   );
+  $: canOpenPremiumTopupModal = Boolean(
+    hasActiveTariffSubscription &&
+      (subscription?.can_topup_premium_traffic ?? subscription?.can_topup_traffic) &&
+      Number(subscription?.premium_limit_bytes || 0) > 0,
+  );
+  $: canOpenTopupModal = Boolean(canOpenRegularTopupModal || canOpenPremiumTopupModal);
   $: canShowTopupButton = Boolean(
     canOpenTopupModal &&
       (trafficPercent(subscription) >= 85 || premiumTrafficPercent(subscription) >= 85),
@@ -1171,7 +1181,13 @@
     if (path === "/promo/apply") return { ok: true, end_date_text: "31.05.2026" };
     if (path === "/devices") return structuredCloneSafe(DEV_MOCK.data.devices);
     if (path === "/devices/topup-options") return structuredCloneSafe(DEV_MOCK.data.device_topup_options || { ok: true, plans: [] });
-    if (path === "/tariffs/topup-options") return structuredCloneSafe(DEV_MOCK.data.topup_options || { ok: true, plans: [] });
+    if (cleanPath === "/tariffs/topup-options") {
+      const kind = new URLSearchParams(String(path || "").split("?")[1] || "").get("kind") || "regular";
+      const payload = structuredCloneSafe(DEV_MOCK.data.topup_options || { ok: true, plans: [] });
+      payload.topup_kind = kind;
+      payload.plans = (payload.plans || []).filter((plan) => kind === "premium" ? plan.sale_mode === "premium_topup" : plan.sale_mode !== "premium_topup");
+      return payload;
+    }
     if (path === "/tariffs/change-options") return structuredCloneSafe(DEV_MOCK.data.tariff_change_options || { ok: true, targets: [] });
     if (path === "/devices/disconnect" && String(options.method || "").toUpperCase() === "POST") {
       let payload = {};
@@ -1800,11 +1816,13 @@
     }
   }
 
-  async function loadTopupOptions() {
-    if (topupOptions || tariffActionBusy) return;
+  async function loadTopupOptions(kind = topupKind) {
+    if (topupOptions?.topup_kind === kind || tariffActionBusy) return;
     tariffActionBusy = true;
     try {
-      const response = await api("/tariffs/topup-options");
+      topupOptions = null;
+      selectedTopupPlan = null;
+      const response = await api(`/tariffs/topup-options?kind=${encodeURIComponent(kind)}`);
       if (!response?.ok) throw response;
       topupOptions = response;
       selectedTopupPlan = response.plans?.[0] || null;
@@ -2252,10 +2270,11 @@
     paymentModalOpen = false;
   }
 
-  function openTopupModal() {
-    if (!canOpenTopupModal) return;
+  function openTopupModal(kind = "regular") {
+    if (kind === "premium" ? !canOpenPremiumTopupModal : !canOpenRegularTopupModal) return;
+    topupKind = kind;
     topupModalOpen = true;
-    loadTopupOptions();
+    loadTopupOptions(kind);
   }
 
   function closeTopupModal() {
@@ -2460,6 +2479,10 @@
     return t("wa_traffic_of", { used: sub?.premium_used || "0 GB", limit: sub?.premium_limit || "0 GB" });
   }
 
+  function premiumTitle(sub = subscription) {
+    return String(sub?.premium_title || "").trim() || t("wa_premium_traffic_title", {}, "Premium-серверы");
+  }
+
   function premiumTrafficLeftLabel(sub) {
     const left = Math.max(0, Number(sub?.premium_limit_bytes || 0) - Number(sub?.premium_used_bytes || 0));
     return formatTrafficBytes(left);
@@ -2594,8 +2617,14 @@
 
   function topupModalDescription() {
     if (!topupOptions) return "";
+    if (topupKind === "premium") return topupOptions?.tariff_name ? t("wa_topup_for_tariff", { tariff: topupOptions.tariff_name }) : "";
     if (singleTariffMode) return "";
     return topupOptions?.tariff_name ? t("wa_topup_for_tariff", { tariff: topupOptions.tariff_name }) : "";
+  }
+
+  function topupModalTitle() {
+    if (topupKind === "premium") return premiumTitle(subscription);
+    return t("wa_topup_traffic");
   }
 
   function topupCarryoverNotes() {
@@ -3009,9 +3038,9 @@
               </Card>
 
               {#if subscription.active}
-                <Card class={canOpenTopupModal ? "traffic-card-clickable" : ""}>
-                  {#if canOpenTopupModal}
-                    <button class="card-click-target" type="button" on:click={openTopupModal} aria-label={t("wa_topup_traffic")}></button>
+                <Card class={canOpenRegularTopupModal ? "traffic-card-clickable" : ""}>
+                  {#if canOpenRegularTopupModal}
+                    <button class="card-click-target" type="button" on:click={() => openTopupModal("regular")} aria-label={t("wa_topup_traffic")}></button>
                   {/if}
                   <div class="traffic-top">
                     <span>{t("wa_home_traffic_used")}</span>
@@ -3026,41 +3055,38 @@
                   </div>
                 </Card>
                 {#if Number(subscription?.premium_limit_bytes || 0) > 0}
-                  <Card class={`${canOpenTopupModal ? "traffic-card-clickable " : ""}premium-traffic-card${subscription?.premium_is_limited ? " premium-traffic-card-limited" : ""}`}>
-                    {#if canOpenTopupModal}
-                      <button class="card-click-target" type="button" on:click={openTopupModal} aria-label={t("wa_topup_traffic")}></button>
+                  <Card class={`${canOpenPremiumTopupModal ? "traffic-card-clickable " : ""}premium-traffic-card${subscription?.premium_is_limited ? " premium-traffic-card-limited" : ""}`}>
+                    {#if canOpenPremiumTopupModal}
+                      <button class="card-click-target" type="button" on:click={() => openTopupModal("premium")} aria-label={premiumTitle(subscription)}></button>
                     {/if}
                     <div class="traffic-top">
-                      <span>{t("wa_premium_traffic_title", {}, "Premium-серверы")}</span>
+                      <span>{premiumTitle(subscription)}</span>
                       <strong>{premiumTrafficLabel(subscription)}</strong>
                     </div>
                     <div class="progress premium-progress">
                       <span style={`width: ${premiumTrafficPercent(subscription)}%`}></span>
                     </div>
-                    <div class="traffic-meta">
-                      <span>{subscription?.premium_is_limited ? t("wa_premium_access_limited", {}, "Доступ к premium временно ограничен") : t("wa_premium_reset_monthly", {}, "Отдельный лимит на месяц")}</span>
+                    <div class="traffic-meta premium-traffic-meta">
+                      {#if premiumServerLabels(subscription).length}
+                        <details class="premium-server-dropdown">
+                          <summary>
+                            <span>{subscription?.premium_is_limited ? t("wa_premium_access_limited", {}, "Доступ к premium временно ограничен") : t("wa_premium_reset_monthly", {}, "Отдельный лимит на месяц")}</span>
+                            <ChevronsUpDown size={13} />
+                          </summary>
+                          <div class="premium-server-list premium-server-list-dropdown">
+                            <small>{t("wa_premium_servers_limited", {}, "Отдельный лимит действует на")}</small>
+                            <div>
+                              {#each premiumServerLabels(subscription).slice(0, 8) as label}
+                                <span>{label}</span>
+                              {/each}
+                            </div>
+                          </div>
+                        </details>
+                      {:else}
+                        <span>{subscription?.premium_is_limited ? t("wa_premium_access_limited", {}, "Доступ к premium временно ограничен") : t("wa_premium_reset_monthly", {}, "Отдельный лимит на месяц")}</span>
+                      {/if}
                       <span class="traffic-percent">{premiumTrafficPercent(subscription)}%</span>
                     </div>
-                    <div class="premium-detail-grid">
-                      <span>
-                        <small>{t("wa_premium_left", {}, "Осталось")}</small>
-                        <strong>{premiumTrafficLeftLabel(subscription)}</strong>
-                      </span>
-                      <span>
-                        <small>{t("wa_premium_topup_balance", {}, "Докупленный остаток")}</small>
-                        <strong>{premiumTopupBalanceLabel(subscription)}</strong>
-                      </span>
-                    </div>
-                    {#if premiumServerLabels(subscription).length}
-                      <div class="premium-server-list">
-                        <small>{t("wa_premium_servers_limited", {}, "Отдельный лимит действует на")}</small>
-                        <div>
-                          {#each premiumServerLabels(subscription).slice(0, 8) as label}
-                            <span>{label}</span>
-                          {/each}
-                        </div>
-                      </div>
-                    {/if}
                   </Card>
                 {/if}
               {:else if appSettings?.trial_enabled && appSettings?.trial_available}
@@ -3103,7 +3129,7 @@
                   </Button>
                 {/if}
                 {#if canShowTopupButton}
-                  <Button class="wide" variant="secondary" onclick={openTopupModal}>
+                  <Button class="wide" variant="secondary" onclick={() => openTopupModal(canOpenRegularTopupModal ? "regular" : "premium")}>
                     <Database size={18} />
                     {t("wa_topup_traffic")}
                   </Button>
@@ -3755,7 +3781,7 @@
 
       <Dialog
         open={topupModalOpen}
-        title={t("wa_topup_traffic")}
+        title={topupModalTitle()}
         description={topupModalDescription()}
         closeLabel={t("wa_close")}
         onclose={closeTopupModal}

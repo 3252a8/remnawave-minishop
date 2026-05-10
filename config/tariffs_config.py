@@ -62,6 +62,7 @@ class Tariff(BaseModel):
     key: str
     names: Dict[str, str] = Field(default_factory=dict)
     descriptions: Dict[str, str] = Field(default_factory=dict)
+    premium_names: Dict[str, str] = Field(default_factory=dict)
     squad_uuids: List[str] = Field(default_factory=list)
     billing_model: BillingModel
     enabled: bool = True
@@ -129,6 +130,10 @@ class Tariff(BaseModel):
 
     def description(self, lang: str, fallback: str = "ru") -> str:
         return self.descriptions.get(lang) or self.descriptions.get(fallback) or ""
+
+    def premium_name(self, lang: str, fallback: str = "ru") -> str:
+        default = "Premium-серверы" if (lang or fallback) == "ru" else "Premium servers"
+        return self.premium_names.get(lang) or self.premium_names.get(fallback) or default
 
     @property
     def monthly_bytes(self) -> int:

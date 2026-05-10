@@ -119,7 +119,28 @@ class SubscriptionService:
                 "node_labels": list(cached.get("node_labels") or []),
             }
 
+        def _extract_inbound_uuids(squad_obj: Dict[str, Any]) -> List[str]:
+            collected: List[str] = []
+            for field in ("inbounds", "internalInbounds", "configProfileInbounds"):
+                value = squad_obj.get(field)
+                if not isinstance(value, list):
+                    continue
+                for inbound in value:
+                    if isinstance(inbound, dict):
+                        ib_uuid = str(
+                            inbound.get("uuid")
+                            or inbound.get("inboundUuid")
+                            or inbound.get("id")
+                            or ""
+                        )
+                    else:
+                        ib_uuid = str(inbound or "")
+                    if ib_uuid:
+                        collected.append(ib_uuid)
+            return collected
+
         squad_name_map: Dict[str, str] = {}
+        squad_inbound_map: Dict[str, List[str]] = {}
         try:
             squads = await self.panel_service.get_internal_squads() or []
             for squad in squads:
@@ -129,11 +150,80 @@ class SubscriptionService:
                 if not squad_uuid:
                     continue
                 squad_name_map[squad_uuid] = str(squad.get("name") or squad.get("title") or squad_uuid)
+                squad_inbound_map[squad_uuid] = _extract_inbound_uuids(squad)
         except Exception:
             logging.debug("Failed to load internal squad names for premium display", exc_info=True)
 
+        for squad_uuid in tariff.premium_squad_uuids:
+            squad_uuid_str = str(squad_uuid)
+            if squad_inbound_map.get(squad_uuid_str):
+                continue
+            try:
+                detail = await self.panel_service.get_internal_squad(squad_uuid_str)
+            except Exception:
+                logging.debug("Failed to load internal squad detail for %s", squad_uuid_str, exc_info=True)
+                detail = None
+            if isinstance(detail, dict):
+                squad_inbound_map[squad_uuid_str] = _extract_inbound_uuids(detail)
+                if squad_uuid_str not in squad_name_map:
+                    squad_name_map[squad_uuid_str] = str(
+                        detail.get("name") or detail.get("title") or squad_uuid_str
+                    )
+
+        hosts_by_inbound: Dict[str, List[Dict[str, Any]]] = {}
+        try:
+            hosts = await self.panel_service.get_hosts() or []
+            for host in hosts:
+                if not isinstance(host, dict):
+                    continue
+                inbound_field = host.get("inbound") if isinstance(host.get("inbound"), dict) else {}
+                inbound_uuid = (
+                    host.get("inboundUuid")
+                    or host.get("inbound_uuid")
+                    or host.get("configProfileInboundUuid")
+                    or inbound_field.get("configProfileInboundUuid")
+                    or inbound_field.get("inboundUuid")
+                    or inbound_field.get("uuid")
+                    or ""
+                )
+                inbound_uuid = str(inbound_uuid)
+                if not inbound_uuid:
+                    continue
+                hosts_by_inbound.setdefault(inbound_uuid, []).append(host)
+            logging.debug(
+                "Premium label resolution: %d hosts grouped across %d inbounds; squad inbound map: %s",
+                len(hosts),
+                len(hosts_by_inbound),
+                {k: len(v) for k, v in squad_inbound_map.items()},
+            )
+        except Exception:
+            logging.debug("Failed to load hosts for premium display", exc_info=True)
+
+        def _host_remark(host: Dict[str, Any]) -> str:
+            for key in ("remark", "name", "label", "title"):
+                value = host.get(key)
+                if value is None:
+                    continue
+                candidate = str(value).strip()
+                if candidate:
+                    return candidate
+            return ""
+
         node_labels: List[str] = []
         for squad_uuid in tariff.premium_squad_uuids:
+            squad_uuid_str = str(squad_uuid)
+            inbound_uuids = squad_inbound_map.get(squad_uuid_str) or []
+            host_labels_for_squad: List[str] = []
+            for inbound_uuid in inbound_uuids:
+                for host in hosts_by_inbound.get(inbound_uuid, []):
+                    remark = _host_remark(host)
+                    if remark:
+                        host_labels_for_squad.append(remark)
+
+            if host_labels_for_squad:
+                node_labels.extend(host_labels_for_squad)
+                continue
+
             try:
                 nodes = await self.panel_service.get_internal_squad_accessible_nodes(squad_uuid) or []
             except Exception:
@@ -143,7 +233,15 @@ class SubscriptionService:
                 if not isinstance(node, dict):
                     continue
                 node_uuid = str(node.get("uuid") or node.get("nodeUuid") or node.get("node_uuid") or "")
-                node_name = str(node.get("name") or node.get("address") or node.get("host") or "").strip()
+                node_name = ""
+                for key in ("nodeName", "name", "nodeRemark", "remark", "label", "title", "address", "host"):
+                    value = node.get(key)
+                    if value is None:
+                        continue
+                    candidate = str(value).strip()
+                    if candidate:
+                        node_name = candidate
+                        break
                 if node_name:
                     label = node_name
                 elif node_uuid:
@@ -1820,6 +1918,7 @@ class SubscriptionService:
             "tariff_key": local_active_sub.tariff_key if local_active_sub else None,
             "tariff_name": tariff.name(db_user.language_code or self.settings.DEFAULT_LANGUAGE) if tariff else None,
             "tariff_description": tariff.description(db_user.language_code or self.settings.DEFAULT_LANGUAGE) if tariff else None,
+            "premium_title": tariff.premium_name(db_user.language_code or self.settings.DEFAULT_LANGUAGE) if tariff else None,
             "billing_model": billing_model_display,
             "tier_baseline_bytes": local_active_sub.tier_baseline_bytes if local_active_sub else None,
             "topup_balance_bytes": local_active_sub.topup_balance_bytes if local_active_sub else 0,

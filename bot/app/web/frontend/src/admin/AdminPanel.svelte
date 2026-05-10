@@ -683,6 +683,8 @@
       nameEn: "",
       descriptionRu: "",
       descriptionEn: "",
+      premiumNameRu: "",
+      premiumNameEn: "",
       squadUuids: [],
       premiumSquadUuids: [],
       billing_model: "period",
@@ -748,6 +750,8 @@
       nameEn: tariff.names?.en || "",
       descriptionRu: tariff.descriptions?.ru || "",
       descriptionEn: tariff.descriptions?.en || "",
+      premiumNameRu: tariff.premium_names?.ru || "",
+      premiumNameEn: tariff.premium_names?.en || "",
       squadUuids: tariff.squad_uuids || [],
       premiumSquadUuids: tariff.premium_squad_uuids || [],
       billing_model: tariff.billing_model || "period",
@@ -808,10 +812,15 @@
       ru: tariffDraft.descriptionRu.trim(),
       en: tariffDraft.descriptionEn.trim(),
     });
+    const premiumNames = compactMap({
+      ru: tariffDraft.premiumNameRu.trim(),
+      en: tariffDraft.premiumNameEn.trim(),
+    });
     const tariff = {
       key,
       names,
       descriptions,
+      premium_names: premiumNames,
       squad_uuids: normalizeUuidList(tariffDraft.squadUuids),
       premium_squad_uuids: normalizeUuidList(tariffDraft.premiumSquadUuids),
       billing_model: tariffDraft.billing_model,
@@ -2517,6 +2526,18 @@
             <small>Premium-сквады дают пользователю доступ к более быстрым/премиальным нодам; их трафик считается отдельно от основного, чтобы можно было ограничить или продавать дополнительно</small>
           </div>
         </header>
+        <div class="admin-form-row admin-form-row-2">
+          <Label.Root class="admin-field-label">
+            <span>Название premium-раздела, RU</span>
+            <small>Эта строка заменит «Premium-серверы» в кабинете, докупках и карточках лимитов.</small>
+            <input class="input" type="text" placeholder="Premium-серверы" bind:value={tariffDraft.premiumNameRu} />
+          </Label.Root>
+          <Label.Root class="admin-field-label">
+            <span>Название premium-раздела, EN</span>
+            <small>Опционально для английского интерфейса.</small>
+            <input class="input" type="text" placeholder="Premium servers" bind:value={tariffDraft.premiumNameEn} />
+          </Label.Root>
+        </div>
         <div class="admin-form-row admin-form-row-2">
           <div class="admin-field-label">
             <span>Premium Internal Squads</span>

@@ -606,6 +606,24 @@ class PanelApiService:
         logging.error("Failed to get internal squads. Response: %s", response_data)
         return None
 
+    async def get_internal_squad(self, squad_uuid: str) -> Optional[Dict[str, Any]]:
+        response_data = await self._request(
+            "GET", f"/internal-squads/{squad_uuid}", log_full_response=False
+        )
+        if response_data and not response_data.get("error") and "response" in response_data:
+            response = response_data.get("response")
+            if isinstance(response, dict):
+                inner = response.get("internalSquad") or response.get("squad")
+                if isinstance(inner, dict):
+                    return inner
+                return response
+        logging.error(
+            "Failed to get internal squad %s. Response: %s",
+            squad_uuid,
+            response_data,
+        )
+        return None
+
     async def get_internal_squad_accessible_nodes(
         self,
         squad_uuid: str,
@@ -632,6 +650,20 @@ class PanelApiService:
             squad_uuid,
             last_response,
         )
+        return None
+
+    async def get_hosts(self) -> Optional[List[Dict[str, Any]]]:
+        response_data = await self._request("GET", "/hosts", log_full_response=False)
+        if response_data and not response_data.get("error") and "response" in response_data:
+            response = response_data.get("response")
+            if isinstance(response, list):
+                return response
+            if isinstance(response, dict):
+                for key in ("hosts", "items", "data"):
+                    value = response.get(key)
+                    if isinstance(value, list):
+                        return value
+        logging.error("Failed to get hosts. Response: %s", response_data)
         return None
 
     async def reset_user_traffic(self, user_uuid: str) -> bool:

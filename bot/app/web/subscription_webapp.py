@@ -2084,6 +2084,9 @@ async def tariff_topup_options_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     settings: Settings = request.app["settings"]
     config = settings.tariffs_config
+    topup_kind = str(request.query.get("kind") or "all").strip().lower()
+    if topup_kind not in {"all", "regular", "premium"}:
+        return _json_error(400, "invalid_topup_kind", "Invalid topup kind")
     if not config:
         return _json_error(404, "tariffs_unavailable", "Tariffs are not configured")
 
@@ -2097,15 +2100,19 @@ async def tariff_topup_options_route(request: web.Request) -> web.Response:
             return _json_error(400, "subscription_required", "Active tariff subscription is required")
         lang = db_user.language_code or settings.DEFAULT_LANGUAGE
         tariff = config.require(sub.tariff_key)
-        plans = _serialize_topup_packages(settings, tariff, config.topup_packages_for(tariff), lang)
+        plans = (
+            _serialize_topup_packages(settings, tariff, config.topup_packages_for(tariff), lang)
+            if topup_kind in {"all", "regular"}
+            else []
+        )
         premium_plans = _serialize_topup_packages(
             settings,
             tariff,
             tariff.premium_topup_packages,
             lang,
             sale_mode="premium_topup",
-            title_prefix="Premium ",
-        ) if tariff.premium_squad_uuids else []
+            title_prefix=f"{tariff.premium_name(lang)} ",
+        ) if topup_kind in {"all", "premium"} and tariff.premium_squad_uuids else []
         premium_limit_bytes = (
             int(sub.premium_baseline_bytes or 0)
             + int(sub.premium_topup_balance_bytes or 0)
@@ -2117,6 +2124,8 @@ async def tariff_topup_options_route(request: web.Request) -> web.Response:
                 "ok": True,
                 "tariff_key": tariff.key,
                 "tariff_name": tariff.name(lang),
+                "topup_kind": topup_kind,
+                "premium_title": tariff.premium_name(lang),
                 "traffic_percent": _traffic_percent(sub.traffic_used_bytes, sub.traffic_limit_bytes),
                 "premium_traffic_percent": _traffic_percent(
                     sub.premium_used_bytes,
@@ -3222,16 +3231,23 @@ def _serialize_subscription(
             int((end_date - datetime.now(timezone.utc)).total_seconds()),
         )
 
+    can_topup_regular_traffic = False
+    can_topup_premium_traffic = False
     can_topup_traffic = False
     if settings.tariffs_config and active.get("tariff_key"):
         try:
             tariff = settings.tariffs_config.require(str(active.get("tariff_key")))
             packages = settings.tariffs_config.topup_packages_for(tariff)
-            can_topup_traffic = bool(
-                (packages and packages.has_any())
-                or (tariff.premium_topup_packages and tariff.premium_topup_packages.has_any())
+            can_topup_regular_traffic = bool(packages and packages.has_any())
+            can_topup_premium_traffic = bool(
+                tariff.premium_squad_uuids
+                and tariff.premium_topup_packages
+                and tariff.premium_topup_packages.has_any()
             )
+            can_topup_traffic = bool(can_topup_regular_traffic or can_topup_premium_traffic)
         except Exception:
+            can_topup_regular_traffic = False
+            can_topup_premium_traffic = False
             can_topup_traffic = False
 
     return {
@@ -3243,18 +3259,19 @@ def _serialize_subscription(
         "remaining_text": _format_remaining(seconds_left, lang),
         "config_link": active.get("config_link"),
         "connect_url": active.get("connect_button_url") or active.get("config_link"),
-        "traffic_limit": _format_bytes(active.get("traffic_limit_bytes")),
+        "traffic_limit": _format_bytes(active.get("traffic_limit_bytes"), zero_as_unlimited=True),
         "traffic_used": _format_bytes(active.get("traffic_used_bytes")),
         "traffic_limit_bytes": _coerce_int_or_none(active.get("traffic_limit_bytes")),
         "traffic_used_bytes": _coerce_int_or_none(active.get("traffic_used_bytes")),
         "tariff_key": active.get("tariff_key"),
         "tariff_name": active.get("tariff_name"),
         "tariff_description": active.get("tariff_description"),
+        "premium_title": active.get("premium_title"),
         "billing_model": active.get("billing_model"),
         "traffic_limit_strategy": str(active.get("traffic_limit_strategy") or ""),
         "tier_baseline_bytes": _coerce_int_or_none(active.get("tier_baseline_bytes")),
         "topup_balance_bytes": _coerce_int_or_none(active.get("topup_balance_bytes")),
-        "premium_limit": _format_bytes(active.get("premium_limit_bytes")),
+        "premium_limit": _format_bytes(active.get("premium_limit_bytes"), zero_as_unlimited=True),
         "premium_used": _format_bytes(active.get("premium_used_bytes")),
         "premium_limit_bytes": _coerce_int_or_none(active.get("premium_limit_bytes")),
         "premium_used_bytes": _coerce_int_or_none(active.get("premium_used_bytes")),
@@ -3265,6 +3282,8 @@ def _serialize_subscription(
         "premium_squad_labels": list(active.get("premium_squad_labels") or []),
         "premium_node_labels": list(active.get("premium_node_labels") or []),
         "can_topup_traffic": can_topup_traffic,
+        "can_topup_regular_traffic": can_topup_regular_traffic,
+        "can_topup_premium_traffic": can_topup_premium_traffic,
         "period_start_at": active.get("period_start_at").isoformat() if active.get("period_start_at") else None,
         "is_throttled": bool(active.get("is_throttled")),
         "max_devices": _coerce_int_or_none(active.get("max_devices")),
@@ -3434,7 +3453,7 @@ def _serialize_topup_packages(
             "price": float(price or 0),
             "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
             "title": f"{title_prefix}{_format_traffic_title(traffic_value, lang)}",
-            "subtitle": ("Premium-серверы" if lang == "ru" else "Premium servers") if sale_mode == "premium_topup" else tariff.name(lang),
+            "subtitle": tariff.premium_name(lang) if sale_mode == "premium_topup" else tariff.name(lang),
         }
         if stars_price is not None and int(stars_price) > 0:
             plan["stars_price"] = int(stars_price)
@@ -4156,15 +4175,17 @@ def _coerce_int_or_none(value: Optional[Any]) -> Optional[int]:
         return None
 
 
-def _format_bytes(value: Optional[Any]) -> str:
+def _format_bytes(value: Optional[Any], *, zero_as_unlimited: bool = False) -> str:
     if value is None:
         return "N/A"
     try:
         size = float(value)
     except (TypeError, ValueError):
         return str(value)
-    if size <= 0:
+    if size <= 0 and zero_as_unlimited:
         return "∞"
+    if size <= 0:
+        size = 0
     units = ["B", "KB", "MB", "GB", "TB"]
     index = 0
     while size >= 1024 and index < len(units) - 1:

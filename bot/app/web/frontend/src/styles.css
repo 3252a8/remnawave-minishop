@@ -422,8 +422,7 @@ a {
 }
 
 .premium-traffic-card {
-  display: grid;
-  gap: 10px;
+  display: block;
 }
 
 .premium-traffic-card-limited {
@@ -432,6 +431,52 @@ a {
 
 .premium-progress span {
   background: linear-gradient(90deg, #38bdf8, var(--accent));
+}
+
+.premium-traffic-meta {
+  align-items: flex-start;
+}
+
+.premium-server-dropdown {
+  position: relative;
+  z-index: 3;
+  min-width: 0;
+}
+
+.premium-server-dropdown summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 32px;
+  margin: -6px -8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  list-style: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.premium-server-dropdown summary:focus {
+  outline: none;
+}
+
+.premium-server-dropdown summary::-webkit-details-marker {
+  display: none;
+}
+
+.premium-server-dropdown summary span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.premium-server-dropdown svg {
+  flex: 0 0 auto;
+  opacity: 0.72;
+}
+
+.premium-server-list-dropdown {
+  margin-top: 8px;
 }
 
 .premium-detail-grid {
@@ -473,13 +518,13 @@ a {
 .premium-server-list span {
   max-width: 100%;
   padding: 4px 8px;
-  overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   color: var(--text);
   font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .topup-summary-card {
@@ -2656,7 +2701,7 @@ a {
    ============================================================ */
 
 .admin-screen-wrap {
-  --admin-sidebar-w: 248px;
+  --admin-sidebar-w: var(--desktop-rail-width);
   --admin-header-h: 60px;
 
   position: fixed;
