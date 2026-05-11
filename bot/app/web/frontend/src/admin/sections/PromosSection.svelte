@@ -104,17 +104,16 @@
   title={at("promo_create_title", {}, "Создать промокод")}
   closeLabel={at("close", {}, "Закрыть")}
   onclose={() => promosStore.setCreateOpen(false)}
-  class="admin-dialog"
+  class="admin-dialog admin-dialog-compact"
 >
-  <div class="admin-modal" data-dialog-content>
-    <div class="admin-modal-head">
-      <h3>{at("promo_create_title", {}, "Создать промокод")}</h3>
-    </div>
-    <div class="admin-modal-body admin-form">
+  <div class="admin-form" data-dialog-content>
+    <div class="admin-dialog-form-section">
       <Label.Root class="admin-field-label">
         <span>{at("promo_label_code", {}, "Код")}</span>
         <input type="text" class="input" value={promoDraft.code} on:input={(e) => promosStore.updateDraft({ code: e.target.value })} placeholder="FREE-7-DAYS" />
       </Label.Root>
+    </div>
+    <div class="admin-dialog-form-section">
       <div class="admin-form-row-2">
         <Label.Root class="admin-field-label">
           <span>{at("promo_label_bonus_days", {}, "Бонус (дней)")}</span>
@@ -130,7 +129,7 @@
         <input type="number" class="input" min="1" value={promoDraft.valid_days} on:input={(e) => promosStore.updateDraft({ valid_days: Number(e.target.value) })} />
       </Label.Root>
     </div>
-    <div class="admin-modal-footer">
+    <div class="admin-dialog-actions">
       <button type="button" class="admin-btn" on:click={() => promosStore.setCreateOpen(false)}>{at("btn_cancel", {}, "Отмена")}</button>
       <button type="button" class="admin-btn admin-btn-primary" on:click={promosStore.createPromo} disabled={!promoDraft.code.trim()}>
         {at("btn_create", {}, "Создать")}

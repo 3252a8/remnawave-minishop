@@ -1,5 +1,5 @@
 <script>
-  import { Trash2, Check } from "lucide-svelte";
+  import { Trash2 } from "lucide-svelte";
   import { getContext, onMount } from "svelte";
   import Dialog from "../../lib/components/ui/dialog.svelte";
   import { Label } from "bits-ui";
@@ -99,23 +99,36 @@
   {/if}
 </div>
 
-<Dialog open={adCreateOpen} title={at("ad_create_title", {}, "Новая кампания")} closeLabel={at("close", {}, "Закрыть")} onclose={() => adsStore.setCreateOpen(false)} class="admin-dialog">
-  <div class="admin-form">
-    <Label.Root class="admin-field-label">
-      <span>{at("ad_label_source", {}, "Источник")}</span>
-      <input class="input" type="text" placeholder="telegram_ads" value={adDraft.source} on:input={(e) => adsStore.updateDraft({ source: e.target.value })} />
-    </Label.Root>
-    <Label.Root class="admin-field-label">
-      <span>{at("ad_label_param", {}, "start-параметр")}</span>
-      <small>{at("ad_hint_param", {}, "Передаётся в /start, должен быть уникален")}</small>
-      <input class="input" type="text" placeholder="ads_summer25" value={adDraft.start_param} on:input={(e) => adsStore.updateDraft({ start_param: e.target.value })} />
-    </Label.Root>
-    <Label.Root class="admin-field-label">
-      <span>{at("ad_label_cost", {}, "Стоимость, RUB")}</span>
-      <input class="input" type="number" step="0.01" min="0" value={adDraft.cost} on:input={(e) => adsStore.updateDraft({ cost: Number(e.target.value) })} />
-    </Label.Root>
-    <button type="button" class="admin-btn admin-btn-primary" on:click={adsStore.createAd} disabled={!adDraft.source.trim() || !adDraft.start_param.trim()}>
-      <Check size={14} /> {at("btn_create", {}, "Создать")}
-    </button>
+<Dialog
+  open={adCreateOpen}
+  title={at("ad_create_title", {}, "Новая кампания")}
+  closeLabel={at("close", {}, "Закрыть")}
+  onclose={() => adsStore.setCreateOpen(false)}
+  class="admin-dialog admin-dialog-compact"
+>
+  <div class="admin-form" data-dialog-content>
+    <div class="admin-dialog-form-section">
+      <Label.Root class="admin-field-label">
+        <span>{at("ad_label_source", {}, "Источник")}</span>
+        <input class="input" type="text" placeholder="telegram_ads" value={adDraft.source} on:input={(e) => adsStore.updateDraft({ source: e.target.value })} />
+      </Label.Root>
+      <Label.Root class="admin-field-label">
+        <span>{at("ad_label_param", {}, "start-параметр")}</span>
+        <small>{at("ad_hint_param", {}, "Передаётся в /start, должен быть уникален")}</small>
+        <input class="input" type="text" placeholder="ads_summer25" value={adDraft.start_param} on:input={(e) => adsStore.updateDraft({ start_param: e.target.value })} />
+      </Label.Root>
+    </div>
+    <div class="admin-dialog-form-section">
+      <Label.Root class="admin-field-label">
+        <span>{at("ad_label_cost", {}, "Стоимость, RUB")}</span>
+        <input class="input" type="number" step="0.01" min="0" value={adDraft.cost} on:input={(e) => adsStore.updateDraft({ cost: Number(e.target.value) })} />
+      </Label.Root>
+    </div>
+    <div class="admin-dialog-actions">
+      <button type="button" class="admin-btn" on:click={() => adsStore.setCreateOpen(false)}>{at("btn_cancel", {}, "Отмена")}</button>
+      <button type="button" class="admin-btn admin-btn-primary" on:click={adsStore.createAd} disabled={!adDraft.source.trim() || !adDraft.start_param.trim()}>
+        {at("btn_create", {}, "Создать")}
+      </button>
+    </div>
   </div>
 </Dialog>

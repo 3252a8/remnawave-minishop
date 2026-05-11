@@ -117,7 +117,10 @@
   ];
 
   $: SECTION_META = {
-    stats: { title: at("section_stats_title", {}, "Дашборд"), subtitle: at("section_stats_subtitle", {}, "Сводка по магазину и панели") },
+    stats: {
+      title: at("section_stats_title", {}, "Дашборд"),
+      subtitle: at("section_stats_subtitle", {}, "Аудитория, доходы, панель Remnawave и последние платежи"),
+    },
     users: { title: at("section_users_title", {}, "Пользователи"), subtitle: at("section_users_subtitle", {}, "Поиск, баны и действия над аккаунтами") },
     payments: { title: at("section_payments_title", {}, "Платежи"), subtitle: at("section_payments_subtitle", {}, "История транзакций и экспорт") },
     promos: { title: at("section_promos_title", {}, "Промокоды"), subtitle: at("section_promos_subtitle", {}, "Создание и управление кодами") },
@@ -385,7 +388,7 @@
 
     <main class="admin-main">
       {#if active === "stats"}
-        <StatsSection {at} {fmtDate} {fmtMoney} {paymentStatusVariant} />
+        <StatsSection {at} {fmtDate} {fmtDateShort} {fmtMoney} {paymentStatusVariant} />
       {/if}
 
       {#if active === "users"}

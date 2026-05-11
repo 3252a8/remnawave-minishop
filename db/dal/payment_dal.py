@@ -2,7 +2,7 @@ import logging
 from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import update, func, and_
+from sqlalchemy import update, func, and_, cast, Date
 from sqlalchemy.orm import selectinload
 
 from db.models import Payment, User
@@ -176,6 +176,41 @@ async def update_provider_payment_and_status(
     return payment
 
 
+async def _daily_revenue_series_utc(session: AsyncSession, days: int = 14) -> List[Dict[str, Any]]:
+    """Succeeded payment totals per calendar day (UTC) for the last `days` days."""
+    from datetime import date, datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    range_start = today_start - timedelta(days=days - 1)
+
+    day_col = cast(func.date_trunc("day", Payment.created_at), Date).label("d")
+    stmt = (
+        select(day_col, func.coalesce(func.sum(Payment.amount), 0.0))
+        .where(
+            and_(
+                Payment.status == "succeeded",
+                Payment.created_at >= range_start,
+            )
+        )
+        .group_by(day_col)
+        .order_by(day_col)
+    )
+    result = await session.execute(stmt)
+    by_day: Dict[date, float] = {}
+    for row in result.all():
+        d_key = row[0]
+        if isinstance(d_key, datetime):
+            d_key = d_key.date()
+        by_day[d_key] = float(row[1] or 0)
+
+    out: List[Dict[str, Any]] = []
+    for i in range(days):
+        d = (range_start + timedelta(days=i)).date()
+        out.append({"date": d.isoformat(), "amount": float(by_day.get(d, 0.0) or 0.0)})
+    return out
+
+
 async def get_financial_statistics(session: AsyncSession) -> Dict[str, Any]:
     """Get comprehensive financial statistics."""
     from datetime import datetime, timedelta
@@ -230,13 +265,16 @@ async def get_financial_statistics(session: AsyncSession) -> Dict[str, Any]:
     )
     today_count = await session.execute(stmt_count_today)
     today_payments_count = today_count.scalar() or 0
-    
+
+    daily_series = await _daily_revenue_series_utc(session, days=14)
+
     return {
         "today_revenue": float(today_amount),
         "week_revenue": float(week_amount),
         "month_revenue": float(month_amount),
         "all_time_revenue": float(all_amount),
-        "today_payments_count": today_payments_count
+        "today_payments_count": today_payments_count,
+        "daily_series": daily_series,
     }
 
 
