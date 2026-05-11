@@ -702,106 +702,6 @@ a {
   gap: 8px;
 }
 
-.btn {
-  display: inline-flex;
-  min-height: 44px;
-  min-width: 0;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-  padding: 10px 14px;
-  text-align: center;
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 850;
-  line-height: 1.1;
-  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-}
-
-.btn-primary {
-  border-color: color-mix(in srgb, var(--accent) 72%, transparent);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 94%, white), var(--accent));
-  color: #031009;
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--accent) 20%, transparent);
-}
-
-.btn-secondary,
-.btn-outline {
-  border-color: var(--border-strong);
-  background: rgba(255, 255, 255, 0.045);
-  color: var(--text);
-}
-
-.btn-outline {
-  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
-  color: var(--accent);
-}
-
-.btn-ghost {
-  background: transparent;
-  color: var(--muted);
-}
-
-.btn-telegram {
-  border-color: #2d9cff;
-  background: linear-gradient(180deg, #2f9ff4, #1786df);
-  color: white;
-}
-
-.btn-icon {
-  border-color: var(--border);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text);
-}
-
-.btn-square {
-  width: 42px;
-  min-width: 42px;
-  height: 42px;
-  padding: 0;
-}
-
-.btn-sm {
-  min-height: 36px;
-  padding: 8px 10px;
-  font-size: 12px;
-}
-
-.wide {
-  width: 100%;
-}
-
-.input {
-  width: 100%;
-  min-height: 44px;
-  min-width: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: rgba(4, 8, 11, 0.48);
-  color: var(--text);
-  outline: none;
-  padding: 11px 12px;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.input:focus {
-  border-color: color-mix(in srgb, var(--accent) 68%, var(--border));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.input.muted {
-  display: flex;
-  align-items: center;
-  color: var(--dim);
-}
-
 .bottom-action {
   margin-top: 4px;
 }
@@ -2002,123 +1902,6 @@ a {
   font-size: 13px;
 }
 
-.dialog {
-  position: fixed;
-  inset: 0;
-  z-index: 70;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  padding:
-    16px
-    var(--screen-gutter)
-    calc(var(--bottom-nav-height) + var(--bottom-nav-offset) + 16px + env(safe-area-inset-bottom));
-}
-
-.dialog-backdrop {
-  position: absolute;
-  inset: 0;
-  border: 0;
-  background: rgba(2, 7, 11, 0.54);
-  backdrop-filter: blur(10px);
-  animation: fade-in 0.18s ease-out both;
-}
-
-.dialog-card {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  width: min(100%, 420px);
-  gap: 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  background: var(--panel);
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.5);
-  padding: 14px;
-  transform-origin: center;
-  animation: modal-enter 0.2s ease-out both;
-}
-
-.dialog-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px;
-  align-items: start;
-  gap: 10px;
-}
-
-.dialog-head h2 {
-  margin: 0;
-  color: var(--text);
-  font-size: 18px;
-  line-height: 1.16;
-  font-weight: 850;
-}
-
-.dialog-head p {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.3;
-}
-
-.payment-dialog-card {
-  max-height: 100%;
-  overflow-y: auto;
-}
-
-.link-email-dialog-card {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  height: min(100%, 560px);
-  max-height: 100%;
-  overflow: hidden;
-}
-
-.link-email-dialog-card .dialog-head {
-  position: relative;
-  z-index: 2;
-}
-
-.link-email-dialog-card .payment-dialog-body {
-  min-height: 0;
-}
-
-.link-email-code-layout {
-  display: grid;
-  min-height: 0;
-  height: 100%;
-  grid-template-rows: minmax(0, 1fr) auto;
-}
-
-.link-email-code-center {
-  align-self: center;
-}
-
-.link-email-resend {
-  align-self: end;
-}
-
-.payment-dialog-body {
-  display: grid;
-  gap: 10px;
-}
-
-.payment-divider {
-  height: 1px;
-  width: 100%;
-  background: var(--border);
-}
-
-.payment-submit-button {
-  border-color: color-mix(in srgb, var(--accent) 72%, transparent);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 94%, white), var(--accent));
-  color: #031009;
-  box-shadow:
-    0 16px 38px color-mix(in srgb, var(--accent) 28%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent),
-    0 0 26px color-mix(in srgb, var(--accent) 42%, transparent);
-}
-
 .toast {
   position: fixed;
   right: 16px;
@@ -2136,15 +1919,6 @@ a {
   animation: toast-enter 0.22s ease-out both;
 }
 
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 @keyframes section-enter {
   from {
     opacity: 0;
@@ -2160,17 +1934,6 @@ a {
   from {
     opacity: 0;
     transform: translateY(-6px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes modal-enter {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.98);
   }
   to {
     opacity: 1;

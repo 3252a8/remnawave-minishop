@@ -1,4 +1,101 @@
-/*
-  Shared control primitives live in webapp.css for now to preserve cascade order
-  while the Svelte views are being split into screen components.
-*/
+/* Shared control primitives: buttons, inputs. */
+
+.btn {
+  display: inline-flex;
+  min-height: 44px;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  text-align: center;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.1;
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  border-color: color-mix(in srgb, var(--accent) 72%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 94%, white), var(--accent));
+  color: #031009;
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.btn-secondary,
+.btn-outline {
+  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text);
+}
+
+.btn-outline {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+  color: var(--accent);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--muted);
+}
+
+.btn-telegram {
+  border-color: #2d9cff;
+  background: linear-gradient(180deg, #2f9ff4, #1786df);
+  color: white;
+}
+
+.btn-icon {
+  border-color: var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.btn-square {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  padding: 0;
+}
+
+.btn-sm {
+  min-height: 36px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.wide {
+  width: 100%;
+}
+
+.input {
+  width: 100%;
+  min-height: 44px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(4, 8, 11, 0.48);
+  color: var(--text);
+  outline: none;
+  padding: 11px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.input:focus {
+  border-color: color-mix(in srgb, var(--accent) 68%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.input.muted {
+  display: flex;
+  align-items: center;
+  color: var(--dim);
+}

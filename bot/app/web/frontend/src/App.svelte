@@ -1,41 +1,13 @@
 <script>
-  import {
-    ArrowLeft,
-    ArrowRight,
-    Check,
-    CheckCircle2,
-    ChevronsUpDown,
-    Bitcoin,
-    CircleX,
-    Copy,
-    CreditCard,
-    Database,
-    Download,
-    FileText,
-    Gift,
-    Globe2,
-    LockKeyhole,
-    Mail,
-    Plus,
-    RefreshCw,
-    Send,
-    Smartphone,
-    TriangleAlert,
-    Shield,
-    Ticket,
-    UserRound,
-  } from "lucide-svelte";
+  import { Bitcoin, CreditCard } from "lucide-svelte";
   import { onMount } from "svelte";
-  import { Select, Tooltip } from "bits-ui";
+  import { Tooltip } from "bits-ui";
 
-  import Button from "./lib/components/ui/button.svelte";
   import BrandMark from "./BrandMark.svelte";
-  import Card from "./lib/components/ui/card.svelte";
-  import Dialog from "./lib/components/ui/dialog.svelte";
-  import Input from "./lib/components/ui/input.svelte";
   import PreviewBoard from "./PreviewBoard.svelte";
   import AdminPanel from "./admin/AdminPanel.svelte";
-  import BottomNav from "./webapp/BottomNav.svelte";
+  import WebAppShell from "./webapp/WebAppShell.svelte";
+  import AuthScreen from "./webapp/auth/AuthScreen.svelte";
   import PaymentDialogs from "./webapp/PaymentDialogs.svelte";
   import TariffDialogs from "./webapp/TariffDialogs.svelte";
   import DevicesScreen from "./webapp/screens/DevicesScreen.svelte";
@@ -55,6 +27,50 @@
   } from "./lib/webapp/constants.js";
   import { applyFavicon, readJsonScript, structuredCloneSafe } from "./lib/webapp/browser.js";
   import { createApiClient } from "./lib/webapp/publicApi.js";
+  import { createI18n } from "./lib/webapp/i18n.js";
+  import {
+    formatMoney as fmtMoney,
+    formatTrafficGb as fmtTrafficGb,
+    formatTrafficBytes as fmtTrafficBytes,
+    formatCompactNumber as fmtCompactNumber,
+    normalizedEmail as fmtNormalizedEmail,
+    telegramName as fmtTelegramName,
+  } from "./lib/webapp/formatters.js";
+  import {
+    buildTariffCatalog as buildTariffCatalogFn,
+    activeTariffName as activeTariffNameFn,
+    planKey as planKeyFn,
+    planDisplayTitle as planDisplayTitleFn,
+    planSubtitle as planSubtitleFn,
+    planUnitHint as planUnitHintFn,
+    tariffLimitLabel as tariffLimitLabelFn,
+    actionKey as actionKeyFn,
+    priceLabel as priceLabelFn,
+  } from "./lib/webapp/tariffs.js";
+  import {
+    trafficPercent as trafficPercentFn,
+    trafficLabel as trafficLabelFn,
+    trafficResetLabel as trafficResetLabelFn,
+    premiumTrafficPercent as premiumTrafficPercentFn,
+    premiumTrafficLabel as premiumTrafficLabelFn,
+    premiumTitle as premiumTitleFn,
+    premiumTrafficLeftLabel as premiumTrafficLeftLabelFn,
+    premiumTopupBalanceLabel as premiumTopupBalanceLabelFn,
+    premiumServerLabels as premiumServerLabelsFn,
+    isForeverSubscription as isForeverSubscriptionFn,
+    activeSubscriptionTermLabel as activeSubscriptionTermLabelFn,
+  } from "./lib/webapp/traffic.js";
+  import { buildGravatarUrl } from "./lib/webapp/gravatar.js";
+  import { createBillingActions } from "./lib/webapp/billingActions.js";
+  import {
+    readReferralParam as readReferralParamHelper,
+    readTelegramAuthStatus,
+    readMagicLoginToken,
+    readTelegramLoginWidgetAuthData,
+    clearAuthQuery,
+    buildTelegramOAuthStartUrl as buildTelegramOAuthStartUrlHelper,
+    emailError as emailErrorHelper,
+  } from "./lib/webapp/authHelpers.js";
   import {
     clearManualLogoutFlag as clearManualLogoutFlagInStorage,
     clearStoredToken,
@@ -63,9 +79,7 @@
     markManualLogout as markManualLogoutInStorage,
     persistToken,
     readCookie,
-    readReferral,
     readStoredToken,
-    rememberReferral,
   } from "./lib/webapp/session.js";
   import { createTelegramSdk } from "./lib/webapp/telegramSdk.js";
   import { mockApi as runMockApi } from "./lib/webapp/mockApi.js";
@@ -197,6 +211,7 @@
       : null,
     getMockContext: () => ({ currentLang, normalizeLangCode, clone: structuredCloneSafe }),
   });
+  const billing = createBillingActions({ api: (path, options) => apiClient.api(path, options), t: (...args) => t(...args) });
 
 
   $: brandTitle = CFG.title || "/minishop";
@@ -384,33 +399,15 @@
   }
 
 
-  function normalizeLangCode(lang) {
-    const key = String(lang || "").trim().toLowerCase();
-    if (!key) return "ru";
-    const base = key.split("-")[0];
-    if (LANGUAGE_LABELS[base]) return base;
-    if (I18N[base]) return base;
-    if (I18N[key]) return key;
-    return "ru";
-  }
-
-  function formatTemplate(template, params = {}) {
-    const text = String(template ?? "");
-    return text.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? `{${key}}`));
-  }
-
-  function t(key, params = {}, fallback = "") {
-    const lang = normalizeLangCode(user?.language_code || CFG.language || "ru");
-    const variants = [
-      I18N?.[lang]?.[key],
-      I18N?.en?.[key],
-      I18N?.ru?.[key],
-      fallback,
-      key,
-    ];
-    const raw = variants.find((value) => typeof value === "string" && value.length);
-    return formatTemplate(raw, params);
-  }
+  const i18n = createI18n({
+    messages: I18N,
+    defaultLang: "ru",
+    getLang: () => user?.language_code || CFG.language || "ru",
+  });
+  const normalizeLangCode = i18n.normalizeLangCode;
+  const t = i18n.t;
+  const termUnitLabel = i18n.termUnitLabel;
+  const languageName = i18n.languageName;
 
 
   function resolveTelegramWebApp() {
@@ -584,54 +581,15 @@
   }
 
   function readReferralParam() {
-    const params = new URLSearchParams(window.location.search);
-    const fromQuery = params.get("ref") || params.get("start") || params.get("start_param") || "";
-    const fromTelegram = tg?.initDataUnsafe?.start_param || "";
-    const value = String(fromTelegram || fromQuery || "").trim();
-    return value ? rememberReferral(value) : readReferral();
+    return readReferralParamHelper(tg);
   }
 
-  function readTelegramAuthStatus() {
-    const params = new URLSearchParams(window.location.search);
-    return (params.get("telegram_auth") || "").trim().toLowerCase() || null;
+  function buildTelegramOAuthStartUrl(purpose = "login") {
+    return buildTelegramOAuthStartUrlHelper(purpose, tg);
   }
 
-  function readMagicLoginToken() {
-    const params = new URLSearchParams(window.location.search);
-    return (params.get("login_token") || "").trim() || null;
-  }
-
-  function readTelegramLoginWidgetAuthData() {
-    const params = new URLSearchParams(window.location.search);
-    const keys = ["id", "first_name", "last_name", "username", "photo_url", "auth_date", "hash"];
-    const authData = {};
-    let hasAuthValue = false;
-    keys.forEach((key) => {
-      if (!params.has(key)) return;
-      authData[key] = params.get(key) || "";
-      hasAuthValue = true;
-    });
-    if (!hasAuthValue || !authData.id || !authData.auth_date || !authData.hash) return null;
-    return authData;
-  }
-
-  function clearAuthQuery() {
-    const url = new URL(window.location.href);
-    [
-      "login_token",
-      "login_purpose",
-      "telegram_auth",
-      "id",
-      "first_name",
-      "last_name",
-      "username",
-      "photo_url",
-      "auth_date",
-      "hash",
-    ].forEach((key) =>
-      url.searchParams.delete(key),
-    );
-    window.history?.replaceState?.({}, document.title, url.pathname + url.search + url.hash);
+  function emailError(error, fallback) {
+    return emailErrorHelper(error, fallback, t);
   }
 
   async function finalizeMagicLogin(loginToken) {
@@ -746,14 +704,6 @@
     }
   }
 
-  function emailError(error, fallback) {
-    if (error?.error === "rate_limited") return t("wa_auth_resend_wait", { seconds: error.retry_after || 60 });
-    if (error?.error === "invalid_email") return t("wa_auth_invalid_email");
-    if (error?.error === "expired_code") return t("wa_auth_code_expired");
-    if (error?.error === "invalid_code" || error?.error === "too_many_attempts") return t("wa_auth_invalid_code");
-    return fallback;
-  }
-
   function setAuthStatus(message, isError = false) {
     authStatus = message;
     authIsError = isError;
@@ -803,14 +753,6 @@
       }
       linkEmailResendCooldown -= 1;
     }, 1000);
-  }
-
-  function buildTelegramOAuthStartUrl(purpose = "login") {
-    const url = new URL("/auth/telegram/start", window.location.origin);
-    url.searchParams.set("purpose", purpose);
-    const referralParam = readReferralParam();
-    if (referralParam) url.searchParams.set("referral_code", referralParam);
-    return url.toString();
   }
 
   function startTelegramLoginWatchdog() {
@@ -1070,17 +1012,7 @@
     if (!selectedPlan || !selectedMethod || payBusy) return;
     payBusy = true;
     try {
-      const response = await api("/payments", {
-        method: "POST",
-        body: JSON.stringify({
-          months: selectedPlan.months,
-          traffic_gb: selectedPlan.traffic_gb,
-          device_count: selectedPlan.device_count,
-          tariff_key: selectedPlan.tariff_key,
-          sale_mode: selectedPlan.sale_mode,
-          method: selectedMethod,
-        }),
-      });
+      const response = await billing.postPayment(billing.planPaymentBody(selectedPlan, selectedMethod));
       if (!response.ok) throw response;
       showToast(t("wa_payment_created"));
       if (response.action === "open_invoice") {
@@ -1108,7 +1040,7 @@
     try {
       topupOptions = null;
       selectedTopupPlan = null;
-      const response = await api(`/tariffs/topup-options?kind=${encodeURIComponent(kind)}`);
+      const response = await billing.fetchTopupOptions(kind);
       if (requestId !== topupOptionsRequestId || kind !== topupKind) return;
       if (!response?.ok) throw response;
       topupOptions = response;
@@ -1126,7 +1058,7 @@
     if (changeOptions || tariffActionBusy) return;
     tariffActionBusy = true;
     try {
-      const response = await api("/tariffs/change-options");
+      const response = await billing.fetchTariffChangeOptions();
       if (!response?.ok) throw response;
       changeOptions = response;
       selectedChangeTarget = response.targets?.[0] || null;
@@ -1143,16 +1075,9 @@
     if (!selectedTopupPlan || !selectedMethod || payBusy) return;
     payBusy = true;
     try {
-      const response = await api("/payments", {
-        method: "POST",
-        body: JSON.stringify({
-          months: selectedTopupPlan.months,
-          traffic_gb: selectedTopupPlan.traffic_gb,
-          tariff_key: selectedTopupPlan.tariff_key || topupOptions?.tariff_key,
-          sale_mode: selectedTopupPlan.sale_mode || "topup",
-          method: selectedMethod,
-        }),
-      });
+      const response = await billing.postPayment(
+        billing.topupPaymentBody(selectedTopupPlan, selectedMethod, topupOptions?.tariff_key),
+      );
       if (!response.ok || !response.payment_url) throw response;
       showToast(t("wa_payment_created"));
       openExternalLink(response.payment_url);
@@ -1168,7 +1093,7 @@
     if (deviceTopupOptions || tariffActionBusy) return;
     tariffActionBusy = true;
     try {
-      const response = await api("/devices/topup-options");
+      const response = await billing.fetchDeviceTopupOptions();
       if (!response?.ok) throw response;
       deviceTopupOptions = response;
       selectedDeviceTopupPlan = response.plans?.[0] || null;
@@ -1184,16 +1109,9 @@
     if (!selectedDeviceTopupPlan || !selectedMethod || payBusy) return;
     payBusy = true;
     try {
-      const response = await api("/payments", {
-        method: "POST",
-        body: JSON.stringify({
-          months: selectedDeviceTopupPlan.device_count || selectedDeviceTopupPlan.months,
-          device_count: selectedDeviceTopupPlan.device_count || selectedDeviceTopupPlan.months,
-          tariff_key: selectedDeviceTopupPlan.tariff_key || deviceTopupOptions?.tariff_key,
-          sale_mode: "hwid_devices",
-          method: selectedMethod,
-        }),
-      });
+      const response = await billing.postPayment(
+        billing.deviceTopupPaymentBody(selectedDeviceTopupPlan, selectedMethod, deviceTopupOptions?.tariff_key),
+      );
       if (!response.ok || !response.payment_url) throw response;
       showToast(t("wa_payment_created"));
       openExternalLink(response.payment_url);
@@ -1213,12 +1131,9 @@
     }
     tariffActionBusy = true;
     try {
-      const response = await api("/tariffs/change", {
-        method: "POST",
-        body: JSON.stringify({
-          tariff_key: selectedChangeTarget.tariff_key,
-          mode: selectedChangeAction.mode,
-        }),
+      const response = await billing.postTariffChange({
+        tariff_key: selectedChangeTarget.tariff_key,
+        mode: selectedChangeAction.mode,
       });
       if (!response?.ok) throw response;
       showToast(t("wa_tariff_change_applied"));
@@ -1237,36 +1152,11 @@
     if (!selectedChangeTarget || !selectedChangeAction || !selectedMethod || payBusy) return;
     payBusy = true;
     try {
-      let response;
-      if (selectedChangeAction.mode === "buy_package") {
-        response = await api("/payments", {
-          method: "POST",
-          body: JSON.stringify({
-            tariff_key: selectedChangeTarget.tariff_key,
-            traffic_gb: selectedChangeAction.traffic_gb,
-            months: selectedChangeAction.traffic_gb,
-            sale_mode: "topup",
-            method: selectedMethod,
-          }),
-        });
-      } else if (selectedChangeAction.mode === "buy_period") {
-        response = await api("/payments", {
-          method: "POST",
-          body: JSON.stringify({
-            tariff_key: selectedChangeTarget.tariff_key,
-            months: selectedChangeAction.months,
-            method: selectedMethod,
-          }),
-        });
-      } else {
-        response = await api("/tariffs/change-payment", {
-          method: "POST",
-          body: JSON.stringify({
-            tariff_key: selectedChangeTarget.tariff_key,
-            method: selectedMethod,
-          }),
-        });
-      }
+      const body = billing.changePaymentBody(selectedChangeAction, selectedChangeTarget, selectedMethod);
+      const response =
+        selectedChangeAction.mode === "buy_package" || selectedChangeAction.mode === "buy_period"
+          ? await billing.postPayment(body)
+          : await billing.postTariffChangePayment(body);
       if (!response.ok || !response.payment_url) throw response;
       showToast(t("wa_payment_created"));
       openExternalLink(response.payment_url);
@@ -1595,6 +1485,85 @@
     changeConfirmOpen = false;
   }
 
+  function formatMoney(value, currency = CFG.currency || "RUB") {
+    return fmtMoney(value, currency);
+  }
+  function priceLabel(plan, methodId = selectedMethod) {
+    return priceLabelFn(plan, methodId);
+  }
+  function formatTrafficGb(value) {
+    return fmtTrafficGb(value);
+  }
+  function formatTrafficBytes(value) {
+    return fmtTrafficBytes(value);
+  }
+  function formatCompactNumber(value) {
+    return fmtCompactNumber(value);
+  }
+  function normalizedEmail(value) {
+    return fmtNormalizedEmail(value);
+  }
+  function telegramName(profile) {
+    return fmtTelegramName(profile, t("wa_telegram_not_linked"));
+  }
+  function planKey(plan) {
+    return planKeyFn(plan);
+  }
+  function buildTariffCatalog(planList) {
+    return buildTariffCatalogFn(planList);
+  }
+  function activeTariffName(sub, planList) {
+    return activeTariffNameFn(sub, planList);
+  }
+  function planDisplayTitle(plan) {
+    return planDisplayTitleFn(plan, { trafficMode, t });
+  }
+  function planSubtitle(plan) {
+    return planSubtitleFn(plan, { lang: currentLang });
+  }
+  function planUnitHint(plan) {
+    return planUnitHintFn(plan, { trafficMode, selectedMethod, t });
+  }
+  function tariffLimitLabel(tariff) {
+    return tariffLimitLabelFn(tariff, { t });
+  }
+  function actionKey(action) {
+    return actionKeyFn(action);
+  }
+  function trafficPercent(sub) {
+    return trafficPercentFn(sub);
+  }
+  function trafficLabel(sub) {
+    return trafficLabelFn(sub, t);
+  }
+  function trafficResetLabel(sub) {
+    return trafficResetLabelFn(sub, t);
+  }
+  function premiumTrafficPercent(sub) {
+    return premiumTrafficPercentFn(sub);
+  }
+  function premiumTrafficLabel(sub) {
+    return premiumTrafficLabelFn(sub, t);
+  }
+  function premiumTitle(sub = subscription) {
+    return premiumTitleFn(sub, t);
+  }
+  function premiumTrafficLeftLabel(sub) {
+    return premiumTrafficLeftLabelFn(sub);
+  }
+  function premiumTopupBalanceLabel(sub) {
+    return premiumTopupBalanceLabelFn(sub);
+  }
+  function premiumServerLabels(sub) {
+    return premiumServerLabelsFn(sub);
+  }
+  function isForeverSubscription(sub) {
+    return isForeverSubscriptionFn(sub);
+  }
+  function activeSubscriptionTermLabel(sub) {
+    return activeSubscriptionTermLabelFn(sub, { t, termUnitLabel });
+  }
+
   function methodMeta(method) {
     const id = String(method?.id || "").toLowerCase();
     if (id.includes("platega_sbp")) {
@@ -1627,68 +1596,6 @@
     return { title: t("wa_method_other_title"), icon: null };
   }
 
-  function formatMoney(value, currency = CFG.currency || "RUB") {
-    const numeric = Number(value || 0);
-    const formatted = Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2);
-    const symbol = currency === "RUB" ? "₽" : currency;
-    return `${formatted} ${symbol}`;
-  }
-
-  function priceLabel(plan, methodId = selectedMethod) {
-    if (String(methodId || "").toLowerCase().includes("stars") && Number(plan?.stars_price || 0) > 0) {
-      return `${Number(plan.stars_price)} ⭐`;
-    }
-    return formatMoney(plan?.price || 0, plan?.currency);
-  }
-
-  function formatTrafficGb(value) {
-    const numeric = Number(value || 0);
-    const formatted = Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
-    return `${formatted} GB`;
-  }
-
-  function formatTrafficBytes(value) {
-    const gb = Number(value || 0) / 1073741824;
-    return formatTrafficGb(gb);
-  }
-
-  function planKey(plan) {
-    return plan?.id || `${plan?.tariff_key || "legacy"}:${plan?.sale_mode || "subscription"}:${plan?.months || plan?.traffic_gb || ""}`;
-  }
-
-  function buildTariffCatalog(planList) {
-    const byKey = new Map();
-    for (const plan of planList || []) {
-      const key = String(plan?.tariff_key || planKey(plan) || "").trim();
-      if (!key) continue;
-      const entry = byKey.get(key) || {
-        key,
-        title: plan?.tariff_name || plan?.title || key,
-        description: plan?.description || "",
-        billing_model: plan?.billing_model || (plan?.sale_mode === "traffic_package" || plan?.sale_mode === "traffic" ? "traffic" : "period"),
-        monthly_gb: Number(plan?.monthly_gb || 0),
-        traffic_packages: [],
-        plans_count: 0,
-      };
-      if (!entry.description && plan?.description) entry.description = plan.description;
-      if (!entry.monthly_gb && Number(plan?.monthly_gb || 0) > 0) entry.monthly_gb = Number(plan.monthly_gb);
-      const trafficGb = Number(plan?.traffic_gb || 0);
-      if (trafficGb > 0) entry.traffic_packages.push(trafficGb);
-      entry.plans_count += 1;
-      byKey.set(key, entry);
-    }
-    return Array.from(byKey.values());
-  }
-
-  function activeTariffName(sub, planList) {
-    const direct = String(sub?.tariff_name || "").trim();
-    if (direct) return direct;
-    const key = String(sub?.tariff_key || "").trim();
-    if (!key) return "";
-    const plan = (planList || []).find((item) => item?.tariff_key === key);
-    return String(plan?.tariff_name || plan?.title || key).trim();
-  }
-
   function selectTariff(tariff) {
     const key = String(tariff?.key || "").trim();
     if (!key) return;
@@ -1709,126 +1616,6 @@
       return;
     }
     paymentStep = "tariff";
-  }
-
-  function tariffLimitLabel(tariff) {
-    if (!tariff) return "";
-    if (String(tariff.billing_model || "") === "traffic") {
-      const values = (tariff.traffic_packages || []).filter((value) => Number(value) > 0).sort((a, b) => a - b);
-      if (!values.length) return t("wa_tariff_model_traffic");
-      const min = values[0];
-      const max = values[values.length - 1];
-      return min === max ? formatTrafficGb(min) : `${formatTrafficGb(min)} - ${formatTrafficGb(max)}`;
-    }
-    if (Number(tariff.monthly_gb || 0) > 0) return formatTrafficGb(tariff.monthly_gb);
-    return t("wa_unlimited_traffic");
-  }
-
-  function actionKey(action) {
-    return `${action?.mode || ""}:${action?.months || ""}:${action?.traffic_gb || ""}:${action?.price || ""}`;
-  }
-
-  function trafficPercent(sub) {
-    const used = Number(sub?.traffic_used_bytes || 0);
-    const limit = Number(sub?.traffic_limit_bytes || 0);
-    if (!limit || limit <= 0) return 100;
-    return Math.max(0, Math.min(100, Math.round((used / limit) * 100)));
-  }
-
-  function trafficLabel(sub) {
-    if (!sub?.traffic_limit_bytes || Number(sub.traffic_limit_bytes) <= 0) return t("wa_unlimited_traffic");
-    return t("wa_traffic_of", { used: sub.traffic_used || "0 GB", limit: sub.traffic_limit || "0 GB" });
-  }
-
-  function trafficResetLabel(sub) {
-    const strategy = String(sub?.traffic_limit_strategy || "").trim().toUpperCase();
-    if (!strategy || strategy.includes("NO_RESET")) {
-      return t("wa_traffic_reset_none");
-    }
-    if (strategy.includes("MONTH")) {
-      return t("wa_traffic_reset_monthly");
-    }
-    if (strategy.includes("WEEK")) {
-      return t("wa_traffic_reset_weekly");
-    }
-    if (strategy.includes("DAY")) {
-      return t("wa_traffic_reset_daily");
-    }
-    if (strategy.includes("YEAR")) {
-      return t("wa_traffic_reset_yearly");
-    }
-    return t("wa_traffic_reset_policy");
-  }
-
-  function premiumTrafficPercent(sub) {
-    const used = Number(sub?.premium_used_bytes || 0);
-    const limit = Number(sub?.premium_limit_bytes || 0);
-    if (!limit || limit <= 0) return 0;
-    return Math.max(0, Math.min(100, Math.round((used / limit) * 100)));
-  }
-
-  function premiumTrafficLabel(sub) {
-    return t("wa_traffic_of", { used: sub?.premium_used || "0 GB", limit: sub?.premium_limit || "0 GB" });
-  }
-
-  function premiumTitle(sub = subscription) {
-    return String(sub?.premium_title || "").trim() || t("wa_premium_traffic_title", {}, "Premium-серверы");
-  }
-
-  function premiumTrafficLeftLabel(sub) {
-    const left = Math.max(0, Number(sub?.premium_limit_bytes || 0) - Number(sub?.premium_used_bytes || 0));
-    return formatTrafficBytes(left);
-  }
-
-  function premiumTopupBalanceLabel(sub) {
-    return formatTrafficBytes(Number(sub?.premium_topup_balance_bytes || 0));
-  }
-
-  function premiumServerLabels(sub) {
-    const labels = Array.isArray(sub?.premium_node_labels) && sub.premium_node_labels.length
-      ? sub.premium_node_labels
-      : sub?.premium_squad_labels || [];
-    return labels.map((label) => String(label || "").trim()).filter(Boolean);
-  }
-
-  function planDisplayTitle(plan) {
-    if (plan?.tariff_key) {
-      return plan?.tariff_name || plan?.title || plan?.tariff_key;
-    }
-    if (trafficMode || plan?.sale_mode === "traffic") {
-      return plan?.title || formatTrafficGb(plan?.traffic_gb || plan?.months);
-    }
-    const months = Number(plan?.months || 0);
-    if (months === 12) {
-      return t("wa_plan_one_year");
-    }
-    return plan?.title || "";
-  }
-
-  function planSubtitle(plan) {
-    if (!plan?.tariff_key) return "";
-    if (plan?.subtitle) return plan.subtitle;
-    if (plan?.sale_mode === "traffic_package" || plan?.sale_mode === "topup" || plan?.sale_mode === "premium_topup" || plan?.billing_model === "traffic") {
-      return formatTrafficGb(plan?.traffic_gb || plan?.months);
-    }
-    return _formatMonthsForClient(plan?.months);
-  }
-
-  function planUnitHint(plan) {
-    if (trafficMode || plan?.sale_mode === "traffic" || plan?.sale_mode === "traffic_package" || plan?.sale_mode === "topup" || plan?.sale_mode === "premium_topup") {
-      const gb = Number(plan?.traffic_gb || plan?.months || 0);
-      if (!gb) return "";
-      if (String(selectedMethod || "").toLowerCase().includes("stars") && Number(plan?.stars_price || 0) > 0) {
-        return `${Number(plan.stars_price / gb).toFixed(0)} ⭐${t("wa_per_gb_short")}`;
-      }
-      return `${formatMoney(Number(plan?.price || 0) / gb, plan?.currency)}${t("wa_per_gb_short")}`;
-    }
-    const months = Number(plan?.months || 0);
-    if (!months || months <= 1) return "";
-    if (String(selectedMethod || "").toLowerCase().includes("stars") && Number(plan?.stars_price || 0) > 0) {
-      return `${Number(plan.stars_price / months).toFixed(0)} ⭐${t("wa_per_month_short")}`;
-    }
-    return `${formatMoney(Number(plan?.price || 0) / months, plan?.currency)}${t("wa_per_month_short")}`;
   }
 
   function paymentTitle() {
@@ -1893,11 +1680,6 @@
     return rows;
   }
 
-  function formatCompactNumber(value) {
-    const numeric = Number(value || 0);
-    return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
-  }
-
   function topupWarningText() {
     const percent = Number(topupOptions?.traffic_percent || trafficPercent(subscription));
     const levels = topupOptions?.warning_levels?.length ? topupOptions.warning_levels.join(" / ") : "85 / 90 / 95";
@@ -1947,13 +1729,6 @@
     return changeOptions?.current ? t("wa_current_tariff", { tariff: changeOptions.current.title }) : "";
   }
 
-  function _formatMonthsForClient(value) {
-    const months = Number(value || 0);
-    if (months === 1) return currentLang === "en" ? "1 month" : "1 месяц";
-    if (months === 12) return currentLang === "en" ? "1 year" : "1 год";
-    return currentLang === "en" ? `${months} months` : `${months} мес.`;
-  }
-
   function trialTrafficLabel() {
     const limit = Number(appSettings?.trial_traffic_limit_gb || 0);
     return limit > 0 ? formatTrafficGb(limit) : t("wa_unlimited_traffic");
@@ -1977,137 +1752,6 @@
     return Math.max(0, Math.min(100, Math.round((current / max) * 100)));
   }
 
-  function activeSubscriptionTermLabel(sub) {
-    const forever = isForeverSubscription(sub);
-    if (forever) return t("wa_sub_term_forever");
-
-    const days = Math.max(0, Number(sub?.days_left || 0));
-    if (!days) return t("wa_sub_term_value_unit", { value: "0", unit: termUnitLabel(0, "day") });
-
-    if (days < 30) {
-      return t("wa_sub_term_value_unit", { value: String(days), unit: termUnitLabel(days, "day") });
-    }
-
-    if (days < 365) {
-      const months = roundToHalf(days / 30);
-      return t("wa_sub_term_value_unit", {
-        value: formatFraction(months),
-        unit: termUnitLabel(months, "month"),
-      });
-    }
-
-    const years = roundToHalf(days / 365);
-    return t("wa_sub_term_value_unit", {
-      value: formatFraction(years),
-      unit: termUnitLabel(years, "year"),
-    });
-  }
-
-  function isForeverSubscription(sub) {
-    const raw = String(sub?.end_date_text || "").trim();
-    if (!raw) return false;
-    const year = extractYear(raw);
-    return year >= 2099;
-  }
-
-  function extractYear(text) {
-    const iso = text.match(/\b(\d{4})-\d{1,2}-\d{1,2}\b/);
-    if (iso) return Number(iso[1] || 0);
-    const dmy = text.match(/\b\d{1,2}\.\d{1,2}\.(\d{4})\b/);
-    if (dmy) return Number(dmy[1] || 0);
-    const any4 = text.match(/\b(\d{4})\b/);
-    if (any4) return Number(any4[1] || 0);
-    return 0;
-  }
-
-  function roundToHalf(value) {
-    return Math.round(Number(value || 0) * 2) / 2;
-  }
-
-  function formatFraction(value) {
-    const n = Number(value || 0);
-    if (Number.isInteger(n)) return String(n);
-    return n.toFixed(1);
-  }
-
-  function ruPlural(value, one, few, many) {
-    const n = Math.abs(Number(value || 0));
-    const mod10 = n % 10;
-    const mod100 = n % 100;
-    if (mod10 === 1 && mod100 !== 11) return one;
-    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-    return many;
-  }
-
-  function ruFractionAware(value, one, few, many) {
-    const n = Number(value || 0);
-    if (!Number.isInteger(n)) return few;
-    return ruPlural(n, one, few, many);
-  }
-
-  function unitPluralBucket(value) {
-    if (currentLang === "ru") {
-      const n = Number(value || 0);
-      if (!Number.isInteger(n)) {
-        const base = Math.floor(Math.abs(n));
-        const mod10 = base % 10;
-        const mod100 = base % 100;
-        return mod10 >= 1 && mod10 <= 4 && (mod100 < 11 || mod100 > 14) ? "few" : "many";
-      }
-      const abs = Math.abs(n);
-      const mod10 = abs % 10;
-      const mod100 = abs % 100;
-      if (mod10 === 1 && mod100 !== 11) return "one";
-      if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "few";
-      return "many";
-    }
-    return Number(value) === 1 ? "one" : "many";
-  }
-
-  function termUnitLabel(value, unit) {
-    const bucket = unitPluralBucket(value);
-    return t(`wa_sub_term_${unit}_${bucket}`);
-  }
-
-  function normalizedEmail(value) {
-    return String(value || "").trim().toLowerCase();
-  }
-
-  function languageName(code) {
-    const key = String(code || "").trim().toLowerCase();
-    if (!key) return t("wa_language_default");
-    return LANGUAGE_LABELS[key] || key.toUpperCase();
-  }
-
-  function telegramName(profile) {
-    const first = String(profile?.first_name || "").trim();
-    const last = String(profile?.last_name || "").trim();
-    if (first || last) return `${first} ${last}`.trim();
-    const username = String(profile?.username || "").trim();
-    if (username) return `@${username}`;
-    return t("wa_telegram_not_linked");
-  }
-
-  function bytesToHex(buffer) {
-    return Array.from(new Uint8Array(buffer), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  }
-
-  async function sha256Hex(value) {
-    const data = new TextEncoder().encode(value);
-    const hashBuffer = await window.crypto.subtle.digest("SHA-256", data);
-    return bytesToHex(hashBuffer);
-  }
-
-  async function buildGravatarUrl(emailValue) {
-    if (!emailValue || !window.crypto?.subtle) return "";
-    try {
-      const hash = await sha256Hex(emailValue);
-      return `https://www.gravatar.com/avatar/${hash}?d=mp&s=160`;
-    } catch {
-      return "";
-    }
-  }
-
 </script>
 
 <svelte:head>
@@ -2126,155 +1770,39 @@
           <div>{t("wa_loading")}</div>
         </div>
       {:else if mode === "login"}
-      <div class="phone-screen auth-screen">
-        {#if screen === "code"}
-          <header class="screen-head center-title">
-            <Button variant="icon" size="icon" onclick={() => (screen = "login")} aria-label={t("wa_back")}>
-              <ArrowLeft size={19} />
-            </Button>
-            <div>
-              <h1>{t("wa_email_verification_title")}</h1>
-              <p>{t("wa_email_sent_to", { email: pendingEmail })}</p>
-            </div>
-            <span></span>
-          </header>
-          <div class="otp-wrap">
-            <label class="otp-input-wrap">
-              <input
-                bind:value={emailCode}
-                inputmode="numeric"
-                autocomplete="one-time-code"
-                maxlength="6"
-                aria-label={t("wa_email_code_aria")}
-              />
-              <span class="otp-slots" aria-hidden="true">
-                {#each Array.from({ length: 6 }) as _, index}
-                  <span class:filled={emailCode[index]}>{emailCode[index] || ""}</span>
-                {/each}
-              </span>
-            </label>
-            <Button class="wide" onclick={verifyEmailCode} disabled={authBusy}>
-              {t("wa_confirm")}
-            </Button>
-            {#if authStatus}
-              <div class:error={authIsError} class="status-line">{authStatus}</div>
-            {/if}
-            <button
-              class="link-button"
-              type="button"
-              on:click={requestEmailCode}
-              disabled={authBusy || authResendCooldown > 0}
-            >
-              <RefreshCw size={15} />
-              {authResendCooldown > 0 ? t("wa_auth_resend_wait", { seconds: authResendCooldown }) : t("wa_resend_code")}
-            </button>
-          </div>
-        {:else}
-          <div class="auth-card-wrap">
-            <div class="login-brand login-brand-auth">
-              <BrandMark class="brand-mark-xl" logoUrl={CFG.logoUrl} emoji={brandEmoji} />
-              <h1>{brandTitle}</h1>
-            </div>
-            <Card class="auth-card">
-              {#if CFG.emailAuthEnabled !== false}
-                <div class="auth-pane">
-                  <div class="auth-email-stack">
-                    <div class="field-error-wrap">
-                      <Tooltip.Root open={Boolean(loginEmailFieldError) && loginEmailTooltipOpen}>
-                        <Input
-                          bind:value={email}
-                          type="email"
-                          placeholder={t("wa_email_placeholder")}
-                          autocomplete="email"
-                          class={loginEmailFieldError ? "input-error" : ""}
-                          on:keydown={submitEmailOnEnter}
-                          on:input={() => {
-                            loginEmailFieldError = "";
-                            loginEmailTooltipOpen = false;
-                          }}
-                        />
-                        {#if loginEmailFieldError}
-                          <Tooltip.Trigger class="field-error-trigger" aria-label={loginEmailFieldError}>
-                            <span class="field-error-icon" aria-hidden="true"><TriangleAlert size={18} /></span>
-                          </Tooltip.Trigger>
-                        {/if}
-                        {#if loginEmailFieldError}
-                          <Tooltip.Portal>
-                            <Tooltip.Content class="field-error-tooltip">{loginEmailFieldError}</Tooltip.Content>
-                          </Tooltip.Portal>
-                        {/if}
-                      </Tooltip.Root>
-                    </div>
-                    <Button class="wide" onclick={requestEmailCode} disabled={authBusy}>
-                      <Mail size={18} />
-                      {t("wa_send_code_email")}
-                    </Button>
-                  </div>
-                </div>
-              {/if}
-              {#if CFG.emailAuthEnabled !== false}
-                <div class="or-line"><span></span>{t("wa_or")}<span></span></div>
-              {/if}
-              <div class="auth-pane">
-                <Button
-                  variant="telegram"
-                  class={`wide telegram-login-button${telegramLoginUnavailable ? " unavailable" : ""}${telegramLoginChecking ? " checking" : ""}`}
-                  onclick={openTelegramLogin}
-                  disabled={authBusy || telegramLoginBusy || telegramLoginUnavailable}
-                  aria-label={telegramLoginLabel}
-                >
-                  <span class="telegram-login-text">
-                    {#if telegramLoginChecking}
-                      <span class="telegram-button-spinner" aria-hidden="true"></span>
-                    {:else}
-                      <Send size={17} />
-                    {/if}
-                    {telegramLoginLabel}
-                  </span>
-                </Button>
-              </div>
-              {#if !telegramLoginChecking && (authStatus || telegramLoginUnavailableMessage)}
-                <div
-                  class:error={authIsError || Boolean(telegramLoginUnavailableMessage)}
-                  class="status-line auth-login-status"
-                >
-                  {authStatus || telegramLoginUnavailableMessage}
-                </div>
-              {/if}
-            </Card>
-            {#if userAgreementUrl || privacyPolicyUrl}
-              <div class="auth-legal">
-                <span class="auth-legal-intro">{t("wa_auth_legal_intro")}</span>
-                <div class="auth-legal-links">
-                  {#if privacyPolicyUrl}
-                    <a
-                      href={privacyPolicyUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      on:click|preventDefault={() => openExternalLink(privacyPolicyUrl)}
-                    >
-                      {t("wa_auth_legal_privacy")}
-                    </a>
-                  {/if}
-                  {#if privacyPolicyUrl && userAgreementUrl}
-                    <span>{t("wa_auth_legal_and")}</span>
-                  {/if}
-                  {#if userAgreementUrl}
-                    <a
-                      href={userAgreementUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      on:click|preventDefault={() => openExternalLink(userAgreementUrl)}
-                    >
-                      {t("wa_auth_legal_agreement")}
-                    </a>
-                  {/if}
-                </div>
-              </div>
-            {/if}
-          </div>
-        {/if}
-      </div>
+        <AuthScreen
+          {screen}
+          {CFG}
+          {brandTitle}
+          {brandEmoji}
+          bind:email
+          bind:emailCode
+          {pendingEmail}
+          {authStatus}
+          {authIsError}
+          {authBusy}
+          {authResendCooldown}
+          {loginEmailFieldError}
+          {loginEmailTooltipOpen}
+          {telegramLoginBusy}
+          {telegramLoginUnavailable}
+          {telegramLoginChecking}
+          {telegramLoginLabel}
+          {telegramLoginUnavailableMessage}
+          {privacyPolicyUrl}
+          {userAgreementUrl}
+          {t}
+          {requestEmailCode}
+          {verifyEmailCode}
+          {openTelegramLogin}
+          {openExternalLink}
+          {submitEmailOnEnter}
+          onBackToLogin={() => (screen = "login")}
+          clearLoginEmailError={() => {
+            loginEmailFieldError = "";
+            loginEmailTooltipOpen = false;
+          }}
+        />
     {:else if screen === "admin" && isAdmin}
       <AdminPanel
         api={api}
@@ -2297,16 +1825,22 @@
         t={t}
       />
     {:else}
-      <div class="phone-screen" class:home-screen={screen === "home"}>
-        {#if screen === "invite" || screen === "devices" || screen === "settings"}
-          <header class="app-header accent-title">
-            <div class="brand-row">
-              <BrandMark logoUrl={CFG.logoUrl} emoji={brandEmoji} />
-              <strong>{brandTitle}</strong>
-            </div>
-          </header>
-        {/if}
-
+      <WebAppShell
+        {screen}
+        {activeTab}
+        {CFG}
+        {brandTitle}
+        {brandEmoji}
+        {devicesEnabled}
+        {hasUnlinkedIdentity}
+        {isAdmin}
+        {openAdminPanel}
+        {goDevices}
+        {goHome}
+        {goInvite}
+        {goSettings}
+        {t}
+      >
         {#if screen === "home"}
           <HomeScreen
             {CFG}
@@ -2404,25 +1938,7 @@
             {updateAccountLanguage}
           />
         {/if}
-
-        {#if screen === "home" || screen === "invite" || screen === "devices" || screen === "settings"}
-          <BottomNav
-            {activeTab}
-            {brandTitle}
-            {devicesEnabled}
-            {hasUnlinkedIdentity}
-            {isAdmin}
-            logoEmoji={brandEmoji}
-            logoUrl={CFG.logoUrl}
-            onAdmin={openAdminPanel}
-            onDevices={goDevices}
-            onHome={goHome}
-            onInvite={goInvite}
-            onSettings={goSettings}
-            {t}
-          />
-        {/if}
-      </div>
+      </WebAppShell>
 
       <PaymentDialogs
         bind:linkEmailCode

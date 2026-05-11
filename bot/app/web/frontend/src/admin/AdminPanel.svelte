@@ -47,6 +47,34 @@
   import TariffsSection from "./sections/TariffsSection.svelte";
   import UsersSection from "./sections/UsersSection.svelte";
 
+  import {
+    structuredCloneSafe,
+    pretty,
+    fmtDate,
+    fmtDateShort,
+    fmtMoney,
+    fmtTrafficBytes,
+    trafficPercentValue,
+    trafficLeftLabel,
+    trafficOfLabel,
+    paymentStatusVariant,
+    optionLabel,
+  } from "../lib/admin/format.js";
+  import {
+    userDisplayName,
+    userSecondaryName,
+    userInitials,
+    userAvatarUrl,
+    createGravatarCache,
+  } from "../lib/admin/users.js";
+  import {
+    emptyTariffDraft,
+    cloneCatalog,
+    draftFromTariff,
+    tariffFromDraft as tariffFromDraftFn,
+    normalizeUuidList,
+  } from "../lib/admin/tariffDraft.js";
+
   export let api;
   export let onClose = () => {};
   export let onToast = () => {};
@@ -681,200 +709,7 @@
   }
 
   // ─── Tariffs ─────────────────────────────────────────────────
-  function emptyTariffDraft() {
-    return {
-      key: "",
-      nameRu: "",
-      nameEn: "",
-      descriptionRu: "",
-      descriptionEn: "",
-      premiumNameRu: "",
-      premiumNameEn: "",
-      squadUuids: [],
-      premiumSquadUuids: [],
-      billing_model: "period",
-      enabled: true,
-      monthly_gb: 500,
-      premium_monthly_gb: "",
-      hwid_device_limit: "",
-      conversion_rate_rub_per_gb: "",
-      periodRows: [
-        { months: 1, rub: 150, stars: "" },
-        { months: 3, rub: 400, stars: "" },
-        { months: 6, rub: 750, stars: "" },
-        { months: 12, rub: 1400, stars: "" },
-      ],
-      topupRubRows: [],
-      topupStarsRows: [],
-      premiumTopupRubRows: [],
-      premiumTopupStarsRows: [],
-      trafficRubRows: [
-        { gb: 10, price: 199 },
-        { gb: 50, price: 799 },
-      ],
-      trafficStarsRows: [],
-      hwidRubRows: [],
-      hwidStarsRows: [],
-    };
-  }
-
-  function cloneCatalog(catalog) {
-    return structuredCloneSafe({
-      default_tariff: catalog?.default_tariff || "",
-      topup_packages_default: catalog?.topup_packages_default || { rub: [], stars: [] },
-      tariffs: catalog?.tariffs || [],
-    });
-  }
-
-  function rowsFromPackages(packageSet, currency, valueKey) {
-    return (packageSet?.[currency] || []).map((pkg) => ({
-      [valueKey]: pkg[valueKey],
-      price: pkg.price,
-    }));
-  }
-
-  function draftFromTariff(tariff) {
-    const months = new Set([
-      ...(tariff.enabled_periods || []),
-      ...Object.keys(tariff.prices_rub || {}).map(Number),
-      ...Object.keys(tariff.prices_stars || {}).map(Number),
-    ]);
-    const periodRows = [...months]
-      .filter((month) => Number.isFinite(month) && month > 0)
-      .sort((a, b) => a - b)
-      .map((month) => ({
-        months: month,
-        rub: tariff.prices_rub?.[String(month)] ?? "",
-        stars: tariff.prices_stars?.[String(month)] ?? "",
-      }));
-
-    return {
-      ...emptyTariffDraft(),
-      key: tariff.key || "",
-      nameRu: tariff.names?.ru || "",
-      nameEn: tariff.names?.en || "",
-      descriptionRu: tariff.descriptions?.ru || "",
-      descriptionEn: tariff.descriptions?.en || "",
-      premiumNameRu: tariff.premium_names?.ru || "",
-      premiumNameEn: tariff.premium_names?.en || "",
-      squadUuids: tariff.squad_uuids || [],
-      premiumSquadUuids: tariff.premium_squad_uuids || [],
-      billing_model: tariff.billing_model || "period",
-      enabled: tariff.enabled !== false,
-      monthly_gb: tariff.monthly_gb ?? "",
-      premium_monthly_gb: tariff.premium_monthly_gb ?? "",
-      hwid_device_limit: tariff.hwid_device_limit ?? "",
-      conversion_rate_rub_per_gb: tariff.conversion_rate_rub_per_gb ?? "",
-      periodRows: periodRows.length ? periodRows : emptyTariffDraft().periodRows,
-      topupRubRows: rowsFromPackages(tariff.topup_packages, "rub", "gb"),
-      topupStarsRows: rowsFromPackages(tariff.topup_packages, "stars", "gb"),
-      premiumTopupRubRows: rowsFromPackages(tariff.premium_topup_packages, "rub", "gb"),
-      premiumTopupStarsRows: rowsFromPackages(tariff.premium_topup_packages, "stars", "gb"),
-      trafficRubRows: rowsFromPackages(tariff.traffic_packages, "rub", "gb"),
-      trafficStarsRows: rowsFromPackages(tariff.traffic_packages, "stars", "gb"),
-      hwidRubRows: rowsFromPackages(tariff.hwid_device_packages, "rub", "count"),
-      hwidStarsRows: rowsFromPackages(tariff.hwid_device_packages, "stars", "count"),
-    };
-  }
-
-  function parseNumber(value, fallback = null) {
-    if (value === "" || value === null || value === undefined) return fallback;
-    const num = Number(value);
-    return Number.isFinite(num) ? num : fallback;
-  }
-
-  function parseIntNumber(value, fallback = null) {
-    const num = parseNumber(value, fallback);
-    return num === null ? fallback : Math.trunc(num);
-  }
-
-  function compactMap(obj) {
-    return Object.fromEntries(Object.entries(obj).filter(([, value]) => value !== "" && value !== null && value !== undefined));
-  }
-
-  function packagesFromRows(rows, valueKey) {
-    return (rows || [])
-      .map((row) => ({
-        [valueKey]: parseNumber(row[valueKey]),
-        price: parseNumber(row.price),
-      }))
-      .filter((row) => row[valueKey] > 0 && row.price !== null && row.price >= 0);
-  }
-
-  function packageSetFromRows(rubRows, starsRows, valueKey) {
-    const rub = packagesFromRows(rubRows, valueKey);
-    const stars = packagesFromRows(starsRows, valueKey);
-    return rub.length || stars.length ? { rub, stars } : null;
-  }
-
-  function tariffFromDraft() {
-    const key = tariffDraft.key.trim();
-    const names = compactMap({
-      ru: tariffDraft.nameRu.trim(),
-      en: tariffDraft.nameEn.trim(),
-    });
-    const descriptions = compactMap({
-      ru: tariffDraft.descriptionRu.trim(),
-      en: tariffDraft.descriptionEn.trim(),
-    });
-    const premiumNames = compactMap({
-      ru: tariffDraft.premiumNameRu.trim(),
-      en: tariffDraft.premiumNameEn.trim(),
-    });
-    const tariff = {
-      key,
-      names,
-      descriptions,
-      premium_names: premiumNames,
-      squad_uuids: normalizeUuidList(tariffDraft.squadUuids),
-      premium_squad_uuids: normalizeUuidList(tariffDraft.premiumSquadUuids),
-      billing_model: tariffDraft.billing_model,
-      enabled: Boolean(tariffDraft.enabled),
-    };
-
-    const hwidLimit = parseIntNumber(tariffDraft.hwid_device_limit);
-    if (hwidLimit !== null) tariff.hwid_device_limit = hwidLimit;
-    const hwidPackages = packageSetFromRows(tariffDraft.hwidRubRows, tariffDraft.hwidStarsRows, "count");
-    if (hwidPackages) tariff.hwid_device_packages = hwidPackages;
-    const premiumMonthlyGb = parseNumber(tariffDraft.premium_monthly_gb);
-    if (premiumMonthlyGb !== null) tariff.premium_monthly_gb = premiumMonthlyGb;
-    const premiumTopupPackages = packageSetFromRows(
-      tariffDraft.premiumTopupRubRows,
-      tariffDraft.premiumTopupStarsRows,
-      "gb",
-    );
-    if (premiumTopupPackages) tariff.premium_topup_packages = premiumTopupPackages;
-
-    if (tariff.billing_model === "period") {
-      const seenMonths = new Set();
-      const rows = (tariffDraft.periodRows || [])
-        .map((row) => ({
-          months: parseIntNumber(row.months),
-          rub: parseNumber(row.rub, 0),
-          stars: parseNumber(row.stars, 0),
-        }))
-        .filter((row) => row.months > 0)
-        .filter((row) => {
-          if (seenMonths.has(row.months)) return false;
-          seenMonths.add(row.months);
-          return true;
-        })
-        .sort((a, b) => a.months - b.months);
-      tariff.monthly_gb = parseNumber(tariffDraft.monthly_gb, 0);
-      tariff.enabled_periods = rows.map((row) => row.months);
-      tariff.prices_rub = Object.fromEntries(rows.map((row) => [String(row.months), row.rub || 0]));
-      tariff.prices_stars = Object.fromEntries(rows.map((row) => [String(row.months), row.stars || 0]));
-      const topupPackages = packageSetFromRows(tariffDraft.topupRubRows, tariffDraft.topupStarsRows, "gb");
-      if (topupPackages) tariff.topup_packages = topupPackages;
-    } else {
-      const trafficPackages = packageSetFromRows(tariffDraft.trafficRubRows, tariffDraft.trafficStarsRows, "gb");
-      if (trafficPackages) tariff.traffic_packages = trafficPackages;
-      const conversion = parseNumber(tariffDraft.conversion_rate_rub_per_gb);
-      if (conversion !== null) tariff.conversion_rate_rub_per_gb = conversion;
-    }
-
-    return tariff;
-  }
+  const tariffFromDraft = () => tariffFromDraftFn(tariffDraft);
 
   async function loadTariffs() {
     tariffsLoading = true;
@@ -903,14 +738,6 @@
     } finally {
       panelSquadsLoading = false;
     }
-  }
-
-  function normalizeUuidList(value) {
-    if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
-    return String(value || "")
-      .split(/[\n,]+/)
-      .map((item) => item.trim())
-      .filter(Boolean);
   }
 
   function squadLabel(uuid) {
@@ -1151,69 +978,6 @@
     }
   }
 
-  // ─── Helpers ──────────────────────────────────────────────────
-  function structuredCloneSafe(value) {
-    if (typeof structuredClone === "function") return structuredClone(value);
-    return JSON.parse(JSON.stringify(value));
-  }
-
-  function pretty(value) {
-    if (value === null || value === undefined) return "—";
-    if (typeof value === "boolean") return value ? "Да" : "Нет";
-    return String(value);
-  }
-
-  function fmtDate(value) {
-    if (!value) return "—";
-    try {
-      return new Date(value).toLocaleString("ru-RU");
-    } catch {
-      return String(value);
-    }
-  }
-
-  function fmtDateShort(value) {
-    if (!value) return "—";
-    try {
-      return new Date(value).toLocaleDateString("ru-RU");
-    } catch {
-      return String(value);
-    }
-  }
-
-  function fmtMoney(amount, currency) {
-    const sym = currency === "RUB" ? "₽" : currency || "";
-    const num = Number(amount || 0);
-    return `${num.toFixed(2)} ${sym}`.trim();
-  }
-
-  function fmtTrafficBytes(value) {
-    const bytes = Number(value || 0);
-    if (!bytes || bytes <= 0) return "0 GB";
-    const gb = bytes / 1073741824;
-    const formatted = gb >= 10 ? gb.toFixed(1) : gb.toFixed(2);
-    return `${formatted.replace(/\.0+$/, "").replace(/(\.\d*[1-9])0+$/, "$1")} GB`;
-  }
-
-  function trafficPercentValue(used, limit) {
-    const usedBytes = Number(used || 0);
-    const limitBytes = Number(limit || 0);
-    if (!limitBytes || limitBytes <= 0) return 0;
-    return Math.max(0, Math.min(100, Math.round((usedBytes / limitBytes) * 100)));
-  }
-
-  function trafficLeftLabel(used, limit) {
-    const limitBytes = Number(limit || 0);
-    if (!limitBytes || limitBytes <= 0) return "Без лимита";
-    return fmtTrafficBytes(Math.max(0, limitBytes - Number(used || 0)));
-  }
-
-  function trafficOfLabel(used, limit) {
-    const limitBytes = Number(limit || 0);
-    if (!limitBytes || limitBytes <= 0) return `${fmtTrafficBytes(used)} / без лимита`;
-    return `${fmtTrafficBytes(used)} / ${fmtTrafficBytes(limit)}`;
-  }
-
   function tariffName(tariff) {
     return tariff?.names?.ru || tariff?.names?.en || tariff?.key || "—";
   }
@@ -1245,63 +1009,12 @@
     return `${first[valueKey]} ${unit}, всего ${total}`;
   }
 
-  function userDisplayName(user) {
-    const full = [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim();
-    return full || (user?.username ? `@${user.username}` : user?.email || `User #${user?.user_id || "—"}`);
-  }
-
-  function userSecondaryName(user) {
-    if (user?.username && userDisplayName(user) !== `@${user.username}`) return `@${user.username}`;
-    if (user?.email && userDisplayName(user) !== user.email) return user.email;
-    return `ID ${user?.user_id || "—"}`;
-  }
-
-  function userInitials(user) {
-    const source = userDisplayName(user).replace(/^@/, "").trim();
-    const parts = source.split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    return (source.slice(0, 2) || "U").toUpperCase();
-  }
-
-  function userAvatarUrl(user) {
-    // Prefer the admin cached endpoint (cheap, ETag'd, served from DB cache);
-    // fall back to the raw Telegram photo URL only if there's no cache yet.
-    const cached = String(user?.avatar_url || "").trim();
-    if (cached) return cached;
-    const value = String(user?.telegram_photo_url || "").trim();
-    return value && !value.startsWith("/api/account/avatar") ? value : "";
-  }
-
-  // Gravatar fallback for users with no Telegram avatar but a known email.
-  // Gravatar accepts SHA-256 hashes since 2024 — convenient because the
-  // browser SubtleCrypto can compute SHA-256 natively (no MD5 dep needed).
-  const _gravatarCache = new Map();
-  const _gravatarPending = new Map();
-
-  async function _sha256Hex(value) {
-    const buf = new TextEncoder().encode(value);
-    const digest = await crypto.subtle.digest("SHA-256", buf);
-    return Array.from(new Uint8Array(digest))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-  }
-
+  const _gravatarCache = createGravatarCache(() => {
+    users = users;
+    openedUser = openedUser;
+  });
   function userGravatarUrl(user) {
-    const email = String(user?.email || "").trim().toLowerCase();
-    if (!email) return "";
-    if (_gravatarCache.has(email)) return _gravatarCache.get(email);
-    if (_gravatarPending.has(email)) return "";
-    _gravatarPending.set(
-      email,
-      _sha256Hex(email)
-        .then((h) => {
-          _gravatarCache.set(email, `https://gravatar.com/avatar/${h}?d=identicon&s=80`);
-          users = users; // trigger reactivity
-          openedUser = openedUser;
-        })
-        .catch(() => _gravatarPending.delete(email)),
-    );
-    return "";
+    return _gravatarCache.gravatarUrl(user?.email);
   }
 
   function resolvedAvatarUrl(user) {
@@ -1332,12 +1045,6 @@
     }
   }
 
-  function paymentStatusVariant(status) {
-    if (status === "succeeded") return "success";
-    if (typeof status === "string" && status.startsWith("pending")) return "warning";
-    return "danger";
-  }
-
   function sectionTitle(id) {
     const map = {
       general: at("settings_section_general", {}, "Общие"),
@@ -1350,10 +1057,6 @@
       devices: at("settings_section_devices", {}, "Устройства"),
     };
     return map[id] || id;
-  }
-
-  function optionLabel(options, value) {
-    return options.find((option) => option.value === value)?.label || value;
   }
 
   $: dirtyCount = Object.keys(settingsDirty).length;
