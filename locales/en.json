@@ -701,6 +701,8 @@
   "wa_tariff_no_description": "Tariff description is not configured",
   "wa_change_tariff": "Change tariff",
   "wa_topup_traffic": "Buy traffic",
+  "wa_add_traffic": "Add traffic",
+  "wa_add_traffic_premium": "Add traffic on {target}",
   "wa_current_tariff": "Current tariff: {tariff}",
   "wa_tariff_options_loading": "Loading options",
   "wa_tariff_options_failed": "Failed to load tariff options",

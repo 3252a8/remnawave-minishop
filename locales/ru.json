@@ -701,6 +701,8 @@
   "wa_tariff_no_description": "Описание тарифа не задано",
   "wa_change_tariff": "Сменить тариф",
   "wa_topup_traffic": "Докупить трафик",
+  "wa_add_traffic": "Добавить трафик",
+  "wa_add_traffic_premium": "Добавить трафик на {target}",
   "wa_current_tariff": "Текущий тариф: {tariff}",
   "wa_tariff_options_loading": "Загружаем варианты",
   "wa_tariff_options_failed": "Не удалось загрузить варианты тарифов",

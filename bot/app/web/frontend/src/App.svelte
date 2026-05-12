@@ -35,6 +35,9 @@
   import { normalizedEmail, telegramName } from "./lib/webapp/formatters.js";
   import { activeTariffName, buildTariffCatalog } from "./lib/webapp/tariffs.js";
   import { premiumTrafficPercent, trafficPercent } from "./lib/webapp/traffic.js";
+
+  /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
+  const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
   import { buildGravatarUrl } from "./lib/webapp/gravatar.js";
   import { createBillingActions } from "./lib/webapp/billingActions.js";
   import { invalidateWebappTariffOptionCaches } from "./lib/webapp/billingOptionCache.js";
@@ -215,10 +218,26 @@
       (subscription?.can_topup_premium_traffic ?? subscription?.can_topup_traffic) &&
       Number(subscription?.premium_limit_bytes || 0) > 0,
   );
-  $: canOpenTopupModal = Boolean(canOpenRegularTopupModal || canOpenPremiumTopupModal);
-  $: canShowTopupButton = Boolean(
-    canOpenTopupModal &&
-      (trafficPercent(subscription) >= 85 || premiumTrafficPercent(subscription) >= 85),
+  $: activeTariffCatalogEntry =
+    tariffCatalog.find((entry) => entry.key === String(subscription?.tariff_key || "").trim()) || null;
+  $: subscriptionIsTrafficTariff = Boolean(
+    String(subscription?.billing_model || activeTariffCatalogEntry?.billing_model || "")
+      .toLowerCase() === "traffic",
+  );
+  $: regularTrafficTopupUnlocked = Boolean(
+    canOpenRegularTopupModal && trafficPercent(subscription) >= TRAFFIC_TOPUP_UNLOCK_PERCENT,
+  );
+  $: premiumTrafficTopupUnlocked = Boolean(
+    canOpenPremiumTopupModal && premiumTrafficPercent(subscription) >= TRAFFIC_TOPUP_UNLOCK_PERCENT,
+  );
+  /** Progress-bar card opens top-up immediately on traffic-only tariffs; period tariffs still need 80% usage */
+  $: regularTrafficTopupBarClickable = Boolean(
+    canOpenRegularTopupModal &&
+      (subscriptionIsTrafficTariff || trafficPercent(subscription) >= TRAFFIC_TOPUP_UNLOCK_PERCENT),
+  );
+  $: premiumTrafficTopupBarClickable = Boolean(
+    canOpenPremiumTopupModal &&
+      (subscriptionIsTrafficTariff || premiumTrafficPercent(subscription) >= TRAFFIC_TOPUP_UNLOCK_PERCENT),
   );
   $: user = data?.user || {};
   $: isAdmin = Boolean(user?.is_admin);
@@ -877,12 +896,13 @@
             {brandEmoji}
             {brandTitle}
             {canChangeTariff}
-            {canOpenPremiumTopupModal}
-            {canOpenRegularTopupModal}
-            {canShowTopupButton}
             {currentTariffName}
             {hasActiveTariffSubscription}
             {hasMultipleTariffs}
+            {premiumTrafficTopupBarClickable}
+            {premiumTrafficTopupUnlocked}
+            {regularTrafficTopupBarClickable}
+            {regularTrafficTopupUnlocked}
             {subscription}
             {termUnitLabel}
             {trafficMode}

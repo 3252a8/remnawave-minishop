@@ -23,9 +23,10 @@
   export let brandEmoji = "";
   export let brandTitle = "";
   export let canChangeTariff = false;
-  export let canOpenPremiumTopupModal = false;
-  export let canOpenRegularTopupModal = false;
-  export let canShowTopupButton = false;
+  export let premiumTrafficTopupBarClickable = false;
+  export let premiumTrafficTopupUnlocked = false;
+  export let regularTrafficTopupBarClickable = false;
+  export let regularTrafficTopupUnlocked = false;
   export let currentTariffName = "";
   export let hasActiveTariffSubscription = false;
   export let hasMultipleTariffs = false;
@@ -86,9 +87,9 @@
     </Card>
 
     {#if subscription.active}
-      <Card class={canOpenRegularTopupModal ? "traffic-card-clickable" : ""}>
-        {#if canOpenRegularTopupModal}
-          <button class="card-click-target" type="button" onclick={openRegularTopupModal} aria-label={t("wa_topup_traffic")}></button>
+      <Card class={regularTrafficTopupBarClickable ? "traffic-card-clickable" : ""}>
+        {#if regularTrafficTopupBarClickable}
+          <button class="card-click-target" type="button" onclick={openRegularTopupModal} aria-label={t("wa_add_traffic")}></button>
         {/if}
         <div class="traffic-top">
           <span>{t("wa_home_traffic_used")}</span>
@@ -128,9 +129,14 @@
           </div>
         </Card>
       {:else if Number(subscription?.premium_limit_bytes || 0) > 0}
-        <Card class={`${canOpenPremiumTopupModal ? "traffic-card-clickable " : ""}premium-traffic-card${subscription?.premium_is_limited ? " premium-traffic-card-limited" : ""}`}>
-          {#if canOpenPremiumTopupModal}
-            <button class="card-click-target" type="button" onclick={openPremiumTopupModal} aria-label={premiumTitle(subscription)}></button>
+        <Card class={`${premiumTrafficTopupBarClickable ? "traffic-card-clickable " : ""}premium-traffic-card${subscription?.premium_is_limited ? " premium-traffic-card-limited" : ""}`}>
+          {#if premiumTrafficTopupBarClickable}
+            <button
+              class="card-click-target"
+              type="button"
+              onclick={openPremiumTopupModal}
+              aria-label={t("wa_add_traffic_premium", { target: premiumTitle(subscription) })}
+            ></button>
           {/if}
           <div class="traffic-top">
             <span>{premiumTitle(subscription)}</span>
@@ -199,10 +205,16 @@
           {t("wa_change_tariff")}
         </Button>
       {/if}
-      {#if canShowTopupButton}
-        <Button class="wide" variant="secondary" onclick={canOpenRegularTopupModal ? openRegularTopupModal : openPremiumTopupModal}>
+      {#if regularTrafficTopupUnlocked}
+        <Button class="wide" variant="secondary" onclick={openRegularTopupModal}>
           <Database size={18} />
-          {t("wa_topup_traffic")}
+          {t("wa_add_traffic")}
+        </Button>
+      {/if}
+      {#if premiumTrafficTopupUnlocked}
+        <Button class="wide" variant="secondary" onclick={openPremiumTopupModal}>
+          <Database size={18} />
+          {t("wa_add_traffic_premium", { target: premiumTitle(subscription) })}
         </Button>
       {/if}
     </div>
