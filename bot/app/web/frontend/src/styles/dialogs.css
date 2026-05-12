@@ -29,7 +29,6 @@
   background: rgba(0, 0, 0, 0.56);
   backdrop-filter: blur(10px);
   cursor: pointer;
-  animation: dialog-fade-in 0.18s ease-out both;
 }
 
 .dialog-card {
@@ -47,7 +46,6 @@
   background: color-mix(in srgb, var(--panel) 94%, #07111a);
   color: var(--text);
   box-shadow: 0 26px 70px rgba(0, 0, 0, 0.46);
-  animation: dialog-slide-up 0.2s ease-out both;
 }
 
 .dialog-head {
@@ -116,22 +114,6 @@
 
 .link-email-dialog-card .payment-dialog-body {
   min-height: 0;
-}
-
-@keyframes dialog-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes dialog-slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(18px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
 }
 
 @media (min-width: 720px) {

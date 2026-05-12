@@ -66,11 +66,32 @@ export async function mockApi(path, options = {}, context = {}) {
       premium_traffic: { state: "none" },
     },
   ];
+  const mockAdminDailySeries = (() => {
+    const days = 730;
+    const out = [];
+    const now = new Date();
+    for (let i = 0; i < days; i++) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      d.setUTCDate(d.getUTCDate() - (days - 1 - i));
+      const iso = d.toISOString().slice(0, 10);
+      const wave = Math.sin(i / 5) * 520 + 720 + ((i * 41) % 280);
+      out.push({ date: iso, amount: Math.max(0, Math.round(wave)) });
+    }
+    return out;
+  })();
   if (path === "/admin/stats") {
     return {
       ok: true,
+      currency_symbol: "RUB",
       users: { total_users: 248, active_subscriptions: 172, banned_users: 3 },
-      financial: { total_revenue: 186240, successful_payments_count: 934 },
+      financial: {
+        today_revenue: 1240,
+        week_revenue: 15800,
+        month_revenue: 44100,
+        all_time_revenue: 186240,
+        today_payments_count: 4,
+        daily_series: mockAdminDailySeries,
+      },
       panel_sync: {
         status: "success",
         last_sync_time: new Date().toISOString(),

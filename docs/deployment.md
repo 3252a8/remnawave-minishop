@@ -47,14 +47,21 @@ docker compose up -d --build
 
 ## Резервная копия и восстановление PostgreSQL
 
-Имя контейнера БД в типичном Compose — `remnawave-minishop-db`. Подставьте значения **`POSTGRES_USER`** и **`POSTGRES_DB`** из `.env` (на хосте можно выполнить `set -a && source .env && set +a` перед командами или подставить вручную).
+Имя контейнера БД в типичном Compose — `remnawave-minishop-db`. Учётные данные уже передаются в контейнер через `env_file: .env`, поэтому надёжнее вызывать `pg_dump` / `psql` **внутри** контейнера через `sh -c '...'`, чтобы переменные раскрылись там, а не на хосте.
 
-### Резервная копия (текстовый SQL)
+Если написать на хосте `pg_dump -U "$POSTGRES_USER" ...` без экспорта переменных из `.env`, подставится пустая строка: PostgreSQL тогда берёт имя пользователя ОС (часто `root`) и выдаёт `FATAL: role "root" does not exist`. В **PowerShell** `$POSTGRES_DB` из файла `.env` сам не подхватывается — пустое имя базы даёт у `dropdb` ошибку `missing required argument database name`.
 
-Логическое дампирование в один файл:
+**Вариант A (рекомендуется):** переменные только внутри контейнера:
 
 ```bash
-docker exec remnawave-minishop-db pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > backup.sql
+docker exec remnawave-minishop-db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > backup.sql
+```
+
+**Вариант B:** сначала загрузить `.env` в текущую сессию на сервере, затем обычная команда (переменные раскроются на хосте):
+
+```bash
+set -a && source .env && set +a
+docker exec remnawave-minishop-db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" > backup.sql
 ```
 
 Такой файл удобно хранить вне сервера. При необходимости добавьте к `pg_dump` параметры сжатия или расписание через cron.
@@ -74,17 +81,29 @@ docker compose -f docker-compose-remote-server.yml stop remnawave-minishop
 2. Удалите базу и создайте пустую с тем же именем — пользователь из `.env` в официальном образе PostgreSQL обычно суперпользователь и может это сделать:
 
 ```bash
-docker exec remnawave-minishop-db dropdb -U "$POSTGRES_USER" "$POSTGRES_DB" --if-exists
-docker exec remnawave-minishop-db createdb -U "$POSTGRES_USER" "$POSTGRES_DB"
+docker exec remnawave-minishop-db sh -c 'dropdb -U "$POSTGRES_USER" --if-exists "$POSTGRES_DB"'
+docker exec remnawave-minishop-db sh -c 'createdb -U "$POSTGRES_USER" "$POSTGRES_DB"'
 ```
+
+Имя базы у `dropdb` — последний аргумент; флаг **`--if-exists`** ставьте перед ним (иначе клиент может неверно разобрать командную строку).
 
 Если `dropdb` сообщает, что база занята, убедитесь, что остановлен сервис `remnawave-minishop` и к базе нет других подключений.
 
-3. Восстановите данные из файла на хосте:
+3. Восстановите данные из файла на хосте. Переменные снова должны раскрываться **внутри** контейнера; на стороне `psql` имеет смысл включить **`ON_ERROR_STOP`**, чтобы при первой ошибке в дампе команда завершилась с ненулевым кодом.
+
+**Bash:**
 
 ```bash
-docker exec -i remnawave-minishop-db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < backup.sql
+docker exec -i remnawave-minishop-db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < backup.sql
 ```
+
+**PowerShell** (перенаправление `<` в `docker exec` часто не подходит; надёжнее передать дамп в stdin через pipe; явная **UTF-8**, чтобы кириллица в комментариях/SQL не исказилась):
+
+```powershell
+Get-Content backup.sql -Encoding utf8 | docker exec -i remnawave-minishop-db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+Если путь к файлу содержит пробелы, используйте кавычки: `Get-Content "E:\backups\backup.sql" -Encoding utf8 | ...`
 
 4. Запустите приложение снова:
 

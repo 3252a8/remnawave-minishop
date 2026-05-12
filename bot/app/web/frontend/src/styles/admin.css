@@ -17,9 +17,7 @@
   inset: 0;
   width: 100vw;
   height: 100dvh;
-  background:
-    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 32%),
-    #02070b;
+  background: #02070b;
   color: var(--admin-text);
   overflow: hidden;
   overscroll-behavior: contain;
@@ -313,6 +311,15 @@
   flex-shrink: 0;
 }
 
+.admin-section-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  flex-shrink: 0;
+  width: 100%;
+}
+
 .admin-card {
   border: 1px solid var(--admin-border);
   background: var(--admin-card-bg);
@@ -551,6 +558,185 @@
   min-width: 0;
 }
 
+.admin-revenue-chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 14px;
+  min-width: 0;
+}
+
+.admin-revenue-chart-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-revenue-chart-toolbar .admin-revenue-period {
+  flex: 1 1 auto;
+  justify-content: flex-end;
+}
+
+.admin-revenue-granularity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.admin-revenue-period-btn--compact {
+  padding: 4px 9px;
+  font-size: 10px;
+}
+
+.admin-revenue-period-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.admin-revenue-range-popover {
+  z-index: 80;
+  width: min(100vw - 24px, 320px);
+  padding: 12px 14px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.admin-revenue-range-popover__title {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--admin-text);
+}
+
+.admin-revenue-range-popover__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.admin-revenue-rcal {
+  margin-top: 2px;
+}
+
+.admin-revenue-rcal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.admin-revenue-rcal__heading {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.admin-revenue-rcal__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--admin-border);
+  background: color-mix(in srgb, var(--admin-surface-2) 70%, var(--admin-bg));
+  color: var(--admin-text);
+  cursor: pointer;
+}
+
+.admin-revenue-rcal__nav:hover {
+  background: color-mix(in srgb, var(--admin-surface) 80%, var(--admin-bg));
+}
+
+.admin-revenue-rcal__grids {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-revenue-rcal__grid {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-revenue-rcal__weekrow {
+  display: flex;
+  width: 100%;
+}
+
+.admin-revenue-rcal__headcell {
+  flex: 1;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--admin-muted);
+  padding: 2px 0 6px;
+  min-width: 0;
+}
+
+.admin-revenue-rcal__cell {
+  flex: 1;
+  padding: 0;
+  text-align: center;
+  min-width: 0;
+}
+
+.admin-revenue-rcal__day {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 36px;
+  height: 32px;
+  margin: 0 auto;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--admin-text);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.admin-revenue-rcal__day:hover {
+  background: color-mix(in srgb, var(--admin-surface-2) 80%, var(--admin-bg));
+}
+
+.admin-revenue-rcal__day[data-highlighted] {
+  background: color-mix(in srgb, var(--accent) 10%, var(--admin-surface));
+}
+
+.admin-revenue-rcal__day[data-selection-start],
+.admin-revenue-rcal__day[data-selection-end] {
+  background: color-mix(in srgb, var(--accent) 35%, var(--admin-surface));
+  color: var(--admin-text);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.admin-revenue-rcal__day[data-selected]:not([data-selection-start]):not([data-selection-end]) {
+  background: color-mix(in srgb, var(--accent) 14%, var(--admin-surface));
+}
+
+.admin-revenue-rcal__day[data-disabled] {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.admin-revenue-rcal__day[data-outside-month] {
+  opacity: 0.25;
+}
+
 .admin-revenue-chart-title {
   font-size: 11px;
   font-weight: 600;
@@ -559,17 +745,129 @@
   color: var(--admin-muted);
 }
 
+.admin-revenue-period {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--admin-border) 80%, transparent);
+  background: color-mix(in srgb, var(--admin-surface-2) 55%, var(--admin-bg));
+}
+
+.admin-revenue-period-btn {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--admin-muted);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1.1;
+}
+
+.admin-revenue-period-btn:hover {
+  color: var(--admin-text);
+  background: color-mix(in srgb, var(--admin-surface) 55%, transparent);
+}
+
+.admin-revenue-period-btn.is-active {
+  color: color-mix(in srgb, var(--accent) 22%, var(--admin-text));
+  background: color-mix(in srgb, var(--accent) 12%, var(--admin-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.admin-revenue-chart-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.admin-revenue-chart-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.admin-revenue-chart-meta-sep {
+  opacity: 0.55;
+}
+
 .admin-revenue-svg-frame {
+  position: relative;
+  width: 100%;
+  min-width: 0;
   border-radius: 10px;
   border: 1px solid var(--admin-border);
   background: color-mix(in srgb, var(--admin-bg) 88%, var(--admin-surface-2));
   overflow: hidden;
 }
 
-.admin-revenue-svg {
+.admin-revenue-svg-frame--chart {
   width: 100%;
-  height: 168px;
+}
+
+.admin-revenue-uplot-host {
+  width: 100%;
+  min-width: 0;
   display: block;
+}
+
+/* uPlot ships `width: min-content` on `.uplot`, which can prevent full-width layout */
+.admin-revenue-uplot-host .uplot {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.admin-revenue-uplot-host .u-wrap {
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* uPlot (canvas) — dark admin theme */
+.admin-uplot.uplot {
+  color: var(--admin-muted);
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
+
+.admin-uplot .u-title {
+  color: var(--admin-text);
+}
+
+.admin-revenue-uplot-host .u-legend {
+  padding: 10px 12px 8px;
+  box-sizing: border-box;
+}
+
+.admin-uplot .u-legend {
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+
+.admin-uplot .u-legend th,
+.admin-uplot .u-legend td {
+  color: var(--admin-text);
+}
+
+.admin-uplot .u-inline {
+  border-color: var(--admin-border);
+}
+
+.admin-revenue-chart-skeleton {
+  display: block;
+  width: 100%;
+  height: min(204px, 36vw);
+  min-height: 120px;
 }
 
 .admin-revenue-xlabels {

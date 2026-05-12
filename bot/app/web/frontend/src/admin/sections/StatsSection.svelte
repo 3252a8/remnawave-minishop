@@ -10,10 +10,18 @@
     AdminDashboardStack,
     AdminBadge,
     AdminEmptyState,
+    AdminRevenueChart,
+    AdminRevenueCustomRangePopover,
     AdminSectionHeader,
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
+  import {
+    aggregateRevenueSeries,
+    filterDailyByIsoRange,
+    inclusiveDaySpan,
+    sliceLastDays,
+  } from "../../lib/admin/revenueSeriesAgg.js";
 
   export let at;
   export let fmtDate = (value) => value;
@@ -35,12 +43,78 @@
   $: panelBw = panelPayload && !panelPayload.error ? parsePanelBandwidth(panelPayload) : null;
   $: panelNodeTraffic =
     panelPayload && !panelPayload.error ? parsePanelNodeTraffic(panelPayload) : null;
+  /** Same rows as the «Per node (7 days)» block — not system.nodes.totalOnline from /system/stats */
+  $: panelNodesListedCount = panelNodeTraffic?.seven?.length ?? 0;
 
   const PANEL_NODE_TILE_LIMIT = 10;
 
+  const REVENUE_CHART_MAX_CSS_HEIGHT = 204;
+
+  const REVENUE_PRESET_DAYS = [7, 14, 30, 90, 180, 365];
+
+  /** @type {"preset" | "custom"} */
+  let revenueRangeMode = "preset";
+  let revenuePresetDays = 14;
+  /** @type {{ from: string; to: string } | null} */
+  let revenueCustomIso = null;
+  /** @type {"day" | "week" | "month"} */
+  let revenueGranularity = "day";
+  let revenueCustomPopoverOpen = false;
+
   $: dailySeries = Array.isArray(fin.daily_series) ? fin.daily_series : [];
+  $: revenueBoundsIso =
+    dailySeries.length > 0
+      ? { min: dailySeries[0].date, max: dailySeries[dailySeries.length - 1].date }
+      : null;
+
+  $: revenueDailyFiltered = (() => {
+    if (!dailySeries.length) return [];
+    if (revenueRangeMode === "custom" && revenueCustomIso) {
+      return filterDailyByIsoRange(dailySeries, revenueCustomIso.from, revenueCustomIso.to);
+    }
+    return sliceLastDays(dailySeries, revenuePresetDays);
+  })();
+
+  $: revenueChartSeries = aggregateRevenueSeries(revenueDailyFiltered, revenueGranularity);
+
   $: revenueKpis = computeRevenueKpis(fin, dailySeries);
-  $: chartModel = buildRevenueChartModel(dailySeries, fmtDateShort);
+  $: chartRangeSum = revenueChartSeries.reduce((a, p) => a + (Number(p.amount) || 0), 0);
+
+  function setRevenuePresetDays(days) {
+    const next = Number(days);
+    if (!REVENUE_PRESET_DAYS.includes(next)) return;
+    revenueRangeMode = "preset";
+    revenuePresetDays = next;
+    revenueCustomPopoverOpen = false;
+  }
+
+  function onCustomRangeApply({ fromIso, toIso }) {
+    revenueRangeMode = "custom";
+    revenueCustomIso = { from: fromIso, to: toIso };
+  }
+
+  function setRevenueGranularity(next) {
+    const g = String(next);
+    if (g !== "day" && g !== "week" && g !== "month") return;
+    revenueGranularity = g;
+  }
+
+  function revenuePeriodLabel(days) {
+    return at(`stats_revenue_period_${days}`, {}, `${days}d`);
+  }
+
+  function revenueChartHintKey() {
+    if (revenueGranularity === "week") return "stats_revenue_chart_hint_week";
+    if (revenueGranularity === "month") return "stats_revenue_chart_hint_month";
+    return "stats_revenue_chart_hint";
+  }
+
+  $: revenueChartShortfall =
+    revenueRangeMode === "preset" && dailySeries.length < revenuePresetDays;
+  $: revenueCustomDaySpan =
+    revenueRangeMode === "custom" && revenueCustomIso
+      ? inclusiveDaySpan(revenueCustomIso.from, revenueCustomIso.to)
+      : 0;
   $: recentPaymentHeaders = [
     at("id", {}, ""),
     at("user", {}, ""),
@@ -60,7 +134,6 @@
     const memTotal = Number(mem.total) || 0;
     const memUsed = Number(mem.used) || 0;
     const memPct = memTotal > 0 ? (memUsed / memTotal) * 100 : null;
-    const nodes = system.nodes || {};
     const cpuRaw =
       system.cpu?.usage ??
       system.cpu?.usedPercent ??
@@ -75,7 +148,6 @@
       expired: statusCounts.EXPIRED ?? 0,
       limited: statusCounts.LIMITED ?? 0,
       totalPanelUsers: u.totalUsers ?? 0,
-      nodesOnline: nodes.totalOnline != null ? nodes.totalOnline : null,
       memPct,
       cpuPct: Number.isFinite(cpuPct) ? cpuPct : null,
     };
@@ -396,42 +468,10 @@
     const tc = Number(financial.today_payments_count) || 0;
     const tr = Number(financial.today_revenue) || 0;
     const avgToday = tc > 0 ? tr / tc : null;
-    const total14 = amounts.reduce((a, b) => a + b, 0);
-    const maxY = Math.max(...amounts, 1e-9);
+    const tail14 = n >= 14 ? amounts.slice(-14) : amounts;
+    const total14 = tail14.reduce((a, b) => a + b, 0);
+    const maxY = amounts.length ? Math.max(...amounts, 1e-9) : 1e-9;
     return { last7, prev7, growthPct, avgToday, total14, maxY, amounts, n };
-  }
-
-  function buildRevenueChartModel(series, fmtShort) {
-    const W = 360;
-    const H = 168;
-    const pad = { t: 12, r: 10, b: 26, l: 8 };
-    const innerW = W - pad.l - pad.r;
-    const innerH = H - pad.t - pad.b;
-    const amounts = series.map((p) => Number(p.amount) || 0);
-    const n = amounts.length;
-    if (!n) return null;
-    const maxY = Math.max(...amounts, 1e-9);
-    const pts = amounts.map((amt, i) => {
-      const x = pad.l + (n <= 1 ? innerW / 2 : (i / (n - 1)) * innerW);
-      const y = pad.t + innerH - (amt / maxY) * innerH;
-      return { x, y, amt, date: series[i]?.date };
-    });
-    const lineD = pts
-      .map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`)
-      .join("");
-    const baseY = (pad.t + innerH).toFixed(1);
-    const areaD = `${lineD} L${pts[n - 1].x.toFixed(1)},${baseY} L${pts[0].x.toFixed(1)},${baseY} Z`;
-    const pickIdx = (() => {
-      if (n === 1) return [0];
-      const u = new Set([0, Math.floor((n - 1) / 3), Math.floor((2 * (n - 1)) / 3), n - 1]);
-      return [...u].sort((a, b) => a - b);
-    })();
-    const ticks = pickIdx.map((i) => ({
-      x: pts[i].x,
-      label: fmtShort(series[i]?.date),
-    }));
-    const gridYs = [0.33, 0.66].map((g) => pad.t + innerH * (1 - g));
-    return { lineD, areaD, ticks, W, H, maxY, gridYs, pad, innerW, innerH };
   }
 
   function growthBadgeVariant(pct) {
@@ -470,26 +510,139 @@
         </Card.Root>
       {/each}
     </AdminDashboardGrid>
-    <Card.Root class="admin-cn-card-skeleton">
+
+    <AdminSectionHeader
+      title={at("stats_section_revenue", {}, "")}
+      description={at("stats_section_revenue_hint", {}, "")}
+    />
+    <Card.Root class="admin-cn-card-skeleton admin-cn-card-skeleton--tall">
       <Card.Header>
         <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span>
         <span
           class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
-          style="width:40%"
+          style="width:48%"
         ></span>
       </Card.Header>
-      <Card.Content class="admin-cn-card-content--flush">
-        <div class="admin-revenue-svg-frame">
-          <div class="admin-skeleton" style="height:168px;border-radius:10px;"></div>
+      <Card.Content>
+        <div class="admin-revenue-kpis" aria-hidden="true">
+          {#each Array(6) as _, i (i)}
+            <div class="admin-revenue-kpi">
+              <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny" style="width:72%"
+              ></span>
+              <span
+                class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
+                style="width:58%;height:20px;margin-top:4px"
+              ></span>
+            </div>
+          {/each}
+          <div class="admin-revenue-kpi admin-revenue-kpi--wide">
+            <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny" style="width:46%"
+            ></span>
+            <span
+              class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
+              style="width:36%;height:20px;margin-top:4px"
+            ></span>
+            <span class="admin-skeleton admin-skeleton-line" style="width:92%;height:9px;margin-top:6px"
+            ></span>
+          </div>
+        </div>
+        <div class="admin-revenue-chart">
+          <div class="admin-revenue-chart-title">
+            <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny" style="width:42%"
+            ></span>
+          </div>
+          <div class="admin-revenue-svg-frame">
+            <div
+              class="admin-skeleton admin-revenue-chart-skeleton"
+              style="display:block;width:100%;border-radius:0"
+            ></div>
+          </div>
+          <div class="admin-revenue-xlabels" aria-hidden="true">
+            {#each Array(4) as _, j (j)}
+              <span
+                class="admin-skeleton admin-skeleton-line"
+                style="display:block;height:8px;flex:1;max-width:24%"
+              ></span>
+            {/each}
+          </div>
         </div>
       </Card.Content>
     </Card.Root>
-    <AdminSectionHeader title={at("stats_recent_payments", {}, "")} />
-    <AdminTableSkeleton
-      headers={recentPaymentHeaders}
-      rows={6}
-      widths={["48px", "120px", "78px", "82px", "72px", "96px"]}
+
+    <AdminSectionHeader
+      title={at("stats_section_panel", {}, "")}
+      description={at("stats_section_panel_hint", {}, "")}
     />
+    <Card.Root class="admin-cn-card-skeleton admin-cn-card-skeleton--tall">
+      <Card.Content class="admin-cn-card-content admin-panel-dash-card">
+        <div class="admin-panel-dash">
+          <div class="admin-panel-dash-tiles" aria-hidden="true">
+            {#each Array(9) as _, k (k)}
+              <div class="admin-panel-dash-tile">
+                <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny" style="width:58%"
+                ></span>
+                <span
+                  class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
+                  style="width:44%;height:22px;margin-top:6px"
+                ></span>
+              </div>
+            {/each}
+          </div>
+          <div class="admin-panel-dash-nodes">
+            <div class="admin-panel-dash-nodes-head">
+              <span class="admin-skeleton admin-skeleton-line" style="width:40%;height:12px"></span>
+              <span class="admin-skeleton admin-skeleton-line" style="width:78%;height:9px;margin-top:6px"
+              ></span>
+            </div>
+            <div class="admin-panel-dash-nodes-grid">
+              {#each Array(4) as _, m (m)}
+                <div class="admin-panel-dash-node">
+                  <span class="admin-skeleton admin-skeleton-line" style="width:82%"></span>
+                  <span
+                    class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
+                    style="width:52%;height:16px;margin-top:6px"
+                  ></span>
+                  <span
+                    class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
+                    style="width:44%;margin-top:6px"
+                  ></span>
+                </div>
+              {/each}
+            </div>
+          </div>
+        </div>
+      </Card.Content>
+    </Card.Root>
+
+    <Card.Root>
+      <Card.Content class="admin-cn-card-content--flush" style="padding-top:12px;padding-bottom:12px;">
+        <div class="admin-sync-strip" style="border:0;background:transparent;padding:0;">
+          <span
+            class="admin-skeleton admin-skeleton-line"
+            style="display:block;width:min(100%, 340px);height:12px"
+          ></span>
+          <span
+            class="admin-skeleton admin-skeleton-line"
+            style="display:block;width:min(100%, 220px);height:11px;margin-top:8px"
+          ></span>
+        </div>
+      </Card.Content>
+    </Card.Root>
+
+    <Card.Root>
+      <Card.Header class="admin-cn-card-header--lead">
+        <span class="admin-skeleton admin-skeleton-line" style="width:44%;height:14px"></span>
+        <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny" style="width:30%;margin-top:8px"
+        ></span>
+      </Card.Header>
+      <Card.Content class="admin-cn-card-content--flush">
+        <AdminTableSkeleton
+          headers={recentPaymentHeaders}
+          rows={5}
+          widths={["48px", "120px", "78px", "82px", "72px", "96px"]}
+        />
+      </Card.Content>
+    </Card.Root>
   </AdminDashboardStack>
 {:else if stats}
   <AdminDashboardStack>
@@ -633,50 +786,104 @@
         </div>
 
         <div class="admin-revenue-chart">
-          <div class="admin-revenue-chart-title">{at("stats_revenue_chart_title", {}, "")}</div>
-          {#if chartModel}
-            <div
-              class="admin-revenue-svg-frame"
-              role="img"
-              aria-label={at("stats_revenue_chart_aria", {}, "")}
-            >
-              <svg
-                class="admin-revenue-svg"
-                viewBox="0 0 {chartModel.W} {chartModel.H}"
-                preserveAspectRatio="none"
+          <div class="admin-revenue-chart-head">
+            <div class="admin-revenue-chart-title">{at("stats_revenue_chart_title", {}, "")}</div>
+            <div class="admin-revenue-chart-toolbar">
+              <div
+                class="admin-revenue-period"
+                role="tablist"
+                aria-label={at("stats_revenue_chart_aria", {}, "")}
               >
-                <defs>
-                  <linearGradient id="adminRevenueFillDashboard" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="var(--admin-muted)" stop-opacity="0.28" />
-                    <stop offset="100%" stop-color="var(--admin-muted)" stop-opacity="0" />
-                  </linearGradient>
-                </defs>
-                {#each chartModel.gridYs as gy}
-                  <line
-                    x1={chartModel.pad.l}
-                    y1={gy}
-                    x2={chartModel.W - chartModel.pad.r}
-                    y2={gy}
-                    stroke="var(--admin-border)"
-                    stroke-opacity="0.45"
-                    stroke-width="1"
-                  />
+                {#each REVENUE_PRESET_DAYS as d (d)}
+                  <button
+                    type="button"
+                    class="admin-revenue-period-btn"
+                    class:is-active={revenueRangeMode === "preset" && revenuePresetDays === d}
+                    role="tab"
+                    aria-selected={revenueRangeMode === "preset" && revenuePresetDays === d}
+                    on:click={() => setRevenuePresetDays(d)}
+                  >
+                    {revenuePeriodLabel(d)}
+                  </button>
                 {/each}
-                <path d={chartModel.areaD} fill="url(#adminRevenueFillDashboard)" stroke="none" />
-                <path
-                  d={chartModel.lineD}
-                  fill="none"
-                  stroke="color-mix(in srgb, var(--admin-muted) 55%, var(--admin-text))"
-                  stroke-width="2"
-                  stroke-linejoin="round"
-                  stroke-linecap="round"
-                />
-              </svg>
+              </div>
+              <AdminRevenueCustomRangePopover
+                bind:open={revenueCustomPopoverOpen}
+                minIso={revenueBoundsIso?.min ?? ""}
+                maxIso={revenueBoundsIso?.max ?? ""}
+                committedFrom={revenueCustomIso?.from ?? ""}
+                committedTo={revenueCustomIso?.to ?? ""}
+                title={at("stats_revenue_custom_range_title", {}, "")}
+                triggerLabel={at("stats_revenue_period_custom", {}, "Custom")}
+                applyLabel={at("stats_revenue_custom_range_apply", {}, "Apply")}
+                isActive={revenueRangeMode === "custom"}
+                onApply={onCustomRangeApply}
+              />
             </div>
-            <div class="admin-revenue-xlabels">
-              {#each chartModel.ticks as tk}
-                <span>{tk.label}</span>
-              {/each}
+          </div>
+          <div
+            class="admin-revenue-granularity"
+            role="tablist"
+            aria-label={at("stats_revenue_granularity_aria", {}, "")}
+          >
+            {#each ["day", "week", "month"] as g (g)}
+              <button
+                type="button"
+                class="admin-revenue-period-btn admin-revenue-period-btn--compact"
+                class:is-active={revenueGranularity === g}
+                role="tab"
+                aria-selected={revenueGranularity === g}
+                on:click={() => setRevenueGranularity(g)}
+              >
+                {at(`stats_revenue_granularity_${g}`, {}, g)}
+              </button>
+            {/each}
+          </div>
+          <p class="admin-revenue-chart-hint admin-muted">{at(revenueChartHintKey(), {}, "")}</p>
+          {#if revenueChartSeries.length}
+            <div class="admin-revenue-chart-meta admin-muted">
+              <span
+                >{at(
+                  "stats_revenue_chart_range_sum",
+                  { value: fmtMoney(chartRangeSum, currency) },
+                  ""
+                )}</span
+              >
+              {#if revenueGranularity !== "day"}
+                <span class="admin-revenue-chart-meta-sep" aria-hidden="true">·</span>
+                <span
+                  >{at("stats_revenue_chart_bucket_count", { count: revenueChartSeries.length }, "")}</span
+                >
+              {/if}
+              {#if revenueChartShortfall}
+                <span class="admin-revenue-chart-meta-sep" aria-hidden="true">·</span>
+                <span
+                  >{at(
+                    "stats_revenue_chart_days_available",
+                    { count: dailySeries.length },
+                    ""
+                  )}</span
+                >
+              {:else if revenueRangeMode === "custom" && revenueCustomDaySpan > 0}
+                <span class="admin-revenue-chart-meta-sep" aria-hidden="true">·</span>
+                <span
+                  >{at(
+                    "stats_revenue_chart_custom_span",
+                    { days: revenueCustomDaySpan },
+                    ""
+                  )}</span
+                >
+              {/if}
+            </div>
+            <div class="admin-revenue-svg-frame admin-revenue-svg-frame--chart">
+              <AdminRevenueChart
+                series={revenueChartSeries}
+                plotHeight={REVENUE_CHART_MAX_CSS_HEIGHT}
+                {fmtMoney}
+                {currency}
+                legendTimeLabel={at("stats_revenue_chart_uplot_time", {}, "Time")}
+                legendValueLabel={at("stats_revenue_chart_uplot_value", {}, "Value")}
+              />
             </div>
           {:else}
             <p class="admin-muted">{at("stats_revenue_no_chart", {}, "")}</p>
@@ -736,14 +943,17 @@
                 <div class="admin-panel-dash-tile-label">{at("stats_panel_limited", {}, "")}</div>
                 <div class="admin-panel-dash-tile-value">{panelMetrics.limited}</div>
               </div>
-              {#if panelMetrics.nodesOnline != null}
-                <div class="admin-panel-dash-tile">
+              {#if panelNodesListedCount > 0}
+                <div
+                  class="admin-panel-dash-tile"
+                  title={at("stats_panel_nodes_online_hint", {}, "")}
+                >
                   <div class="admin-panel-dash-tile-label">
                     <span class="admin-panel-dash-ico" aria-hidden="true"><Server size={12} /></span
                     >
                     {at("stats_panel_nodes_online", {}, "")}
                   </div>
-                  <div class="admin-panel-dash-tile-value">{panelMetrics.nodesOnline}</div>
+                  <div class="admin-panel-dash-tile-value">{panelNodesListedCount}</div>
                 </div>
               {/if}
               {#if panelMetrics.memPct != null}

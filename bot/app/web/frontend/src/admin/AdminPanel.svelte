@@ -20,6 +20,7 @@
     UsersRound,
   } from "$components/ui/icons.js";
   import { onMount, setContext } from "svelte";
+  import { fade } from "svelte/transition";
   import { Select } from "$components/ui/primitives.js";
   import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
 
@@ -176,6 +177,15 @@
   let adminLanguageClickGuardArmed = false;
   let adminLanguageClickGuardTimer = null;
   let adminLanguageClickGuardArmTimer = null;
+
+  function readReduceMotion() {
+    return (
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    );
+  }
+
+  let reduceMotion = readReduceMotion();
 
   function flash(text) {
     onToast(text);
@@ -345,6 +355,16 @@
   }
 
   onMount(() => {
+    reduceMotion = readReduceMotion();
+    let motionMql = null;
+    const onMotionChange = () => {
+      reduceMotion = readReduceMotion();
+    };
+    if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+      motionMql = window.matchMedia("(prefers-reduced-motion: reduce)");
+      reduceMotion = motionMql.matches;
+      motionMql.addEventListener("change", onMotionChange);
+    }
     if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
       compactMql = window.matchMedia("(max-width: 720px)");
       isCompact = compactMql.matches;
@@ -355,6 +375,7 @@
       window.addEventListener("popstate", onPopState);
     }
     return () => {
+      if (motionMql) motionMql.removeEventListener("change", onMotionChange);
       if (compactMql) {
         if (compactMql.removeEventListener)
           compactMql.removeEventListener("change", onCompactChange);
@@ -364,6 +385,9 @@
       clearAdminLanguageClickGuard();
     };
   });
+
+  $: sectionFade = reduceMotion ? { duration: 0 } : { duration: 200 };
+  $: sidebarBackdropFade = reduceMotion ? { duration: 0 } : { duration: 180 };
 
   $: if (
     active === "users" &&
@@ -380,6 +404,8 @@
       type="button"
       class="admin-sidebar-backdrop"
       aria-label={at("close_menu", {}, "Закрыть меню")}
+      in:fade={sidebarBackdropFade}
+      out:fade={sidebarBackdropFade}
       on:click={() => (sidebarOpen = false)}
     ></button>
   {/if}
@@ -563,55 +589,59 @@
     </header>
 
     <main class="admin-main">
-      {#if active === "stats"}
-        <StatsSection {at} {fmtDate} {fmtDateShort} {fmtMoney} {paymentStatusVariant} />
-      {/if}
+      {#key active}
+        <div class="admin-section-stage" in:fade={sectionFade} out:fade={sectionFade}>
+          {#if active === "stats"}
+            <StatsSection {at} {fmtDate} {fmtDateShort} {fmtMoney} {paymentStatusVariant} />
+          {/if}
 
-      {#if active === "users"}
-        <UsersSection
-          {at}
-          {fmtDateShort}
-          {panelStatusBadge}
-          {resolvedAvatarUrl}
-          {userDisplayName}
-          {userInitials}
-          {userSecondaryName}
-        />
-      {/if}
+          {#if active === "users"}
+            <UsersSection
+              {at}
+              {fmtDateShort}
+              {panelStatusBadge}
+              {resolvedAvatarUrl}
+              {userDisplayName}
+              {userInitials}
+              {userSecondaryName}
+            />
+          {/if}
 
-      {#if active === "payments"}
-        <PaymentsSection
-          {at}
-          {fmtDate}
-          {fmtMoney}
-          {paymentStatusVariant}
-          onOpenUserCard={openPaymentUserCard}
-        />
-      {/if}
+          {#if active === "payments"}
+            <PaymentsSection
+              {at}
+              {fmtDate}
+              {fmtMoney}
+              {paymentStatusVariant}
+              onOpenUserCard={openPaymentUserCard}
+            />
+          {/if}
 
-      {#if active === "promos"}
-        <PromosSection {at} {fmtDateShort} />
-      {/if}
+          {#if active === "promos"}
+            <PromosSection {at} {fmtDateShort} />
+          {/if}
 
-      {#if active === "ads"}
-        <AdsSection {at} {fmtMoney} />
-      {/if}
+          {#if active === "ads"}
+            <AdsSection {at} {fmtMoney} />
+          {/if}
 
-      {#if active === "broadcast"}
-        <BroadcastSection {at} />
-      {/if}
+          {#if active === "broadcast"}
+            <BroadcastSection {at} />
+          {/if}
 
-      {#if active === "logs"}
-        <LogsSection {at} {fmtDate} />
-      {/if}
+          {#if active === "logs"}
+            <LogsSection {at} {fmtDate} />
+          {/if}
 
-      {#if active === "tariffs"}
-        <TariffsSection {at} {fmtMoney} />
-      {/if}
+          {#if active === "tariffs"}
+            <TariffsSection {at} {fmtMoney} />
+          {/if}
 
-      {#if active === "settings"}
-        <SettingsSection {at} {isCompact} {onSettingsSaved} {currentLang} />
-      {/if}
+          {#if active === "settings"}
+            <SettingsSection {at} {isCompact} {onSettingsSaved} {currentLang} />
+          {/if}
+        </div>
+      {/key}
     </main>
   </section>
 </div>

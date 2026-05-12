@@ -251,7 +251,8 @@ async def get_financial_statistics(session: AsyncSession) -> Dict[str, Any]:
     today_count = await session.execute(stmt_count_today)
     today_payments_count = today_count.scalar() or 0
 
-    daily_series = await _daily_revenue_series_utc(session, days=14)
+    # Longer tail for admin dashboard charts (presets up to 1y + custom range on the client).
+    daily_series = await _daily_revenue_series_utc(session, days=730)
 
     return {
         "today_revenue": float(today_amount),

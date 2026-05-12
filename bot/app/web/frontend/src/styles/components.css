@@ -96,6 +96,10 @@
   min-height: 132px;
 }
 
+.admin-cn-card-skeleton--tall {
+  min-height: 0;
+}
+
 @media (min-width: 900px) {
   .admin-cn-card-title {
     font-size: 1.65rem;

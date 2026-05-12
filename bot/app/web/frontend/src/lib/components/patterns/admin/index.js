@@ -5,6 +5,8 @@ export { default as AdminDashboardStack } from "./AdminDashboardStack.svelte";
 export { default as AdminEmptyState } from "./AdminEmptyState.svelte";
 export { default as AdminField } from "./AdminField.svelte";
 export { default as AdminPagination } from "./AdminPagination.svelte";
+export { default as AdminRevenueChart } from "./AdminRevenueChart.svelte";
+export { default as AdminRevenueCustomRangePopover } from "./AdminRevenueCustomRangePopover.svelte";
 export { default as AdminSelect } from "./AdminSelect.svelte";
 export { default as AdminSectionHeader } from "./AdminSectionHeader.svelte";
 export { default as AdminTable } from "./AdminTable.svelte";
