@@ -494,7 +494,7 @@
       {/if}
 
       {#if active === "settings"}
-        <SettingsSection {at} {isCompact} {onSettingsSaved} />
+        <SettingsSection {at} {isCompact} {onSettingsSaved} {currentLang} />
       {/if}
     </main>
   </section>

@@ -173,8 +173,8 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "notifications",
         "Логировать действия администраторов",
         "Если выключено, события от пользователей из ADMIN_IDS не записываются в message logs.",
-        i18n_label_key="admin_settings_field_log_admin_actions_label",
-        i18n_description_key="admin_settings_field_log_admin_actions_description",
+        i18n_label_key="settings_field_log_admin_actions_label",
+        i18n_description_key="settings_field_log_admin_actions_description",
     ),
     SettingField("LOG_LEVEL", "string", "notifications", "Глобальный уровень логов", "DEBUG / INFO / WARNING / ERROR"),
     SettingField("LOG_CHAT_ID", "int", "notifications", "ID чата для логов"),
@@ -255,6 +255,8 @@ def manifest_payload() -> List[dict]:
     }
     items: List[dict] = []
     for field in SETTINGS_MANIFEST:
+        auto_label_i18n_key = f"settings_field_{field.key.lower()}_label"
+        auto_description_i18n_key = f"settings_field_{field.key.lower()}_description"
         items.append(
             {
                 "key": field.key,
@@ -264,8 +266,10 @@ def manifest_payload() -> List[dict]:
                 "subsection": field.subsection,
                 "label": field.label,
                 "description": field.description,
-                "i18n_label_key": field.i18n_label_key,
-                "i18n_description_key": field.i18n_description_key,
+                "i18n_label_key": field.i18n_label_key or auto_label_i18n_key,
+                "i18n_description_key": field.i18n_description_key or (
+                    auto_description_i18n_key if field.description else None
+                ),
                 "placeholder": field.placeholder,
                 "optional": field.optional,
                 "secret": field.secret,

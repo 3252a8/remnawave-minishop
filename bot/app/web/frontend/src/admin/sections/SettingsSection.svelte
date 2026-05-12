@@ -7,6 +7,7 @@
   export let at;
   export let onSettingsSaved;
   export let isCompact = false;
+  export let currentLang = "ru";
 
   const settingsStore = getContext("settingsStore");
 
@@ -90,6 +91,28 @@
     };
     return map[id] || id;
   }
+
+  function englishFieldLabelFallback(key, originalLabel) {
+    if (!key) return originalLabel || "";
+    return String(key)
+      .toLowerCase()
+      .split("_")
+      .filter(Boolean)
+      .map((part) => {
+        if (part === "id") return "ID";
+        if (part === "url") return "URL";
+        if (part === "api") return "API";
+        if (part === "tg") return "TG";
+        return part.charAt(0).toUpperCase() + part.slice(1);
+      })
+      .join(" ");
+  }
+
+  function fieldLabelText(field) {
+    const isEnglish = String(currentLang || "").toLowerCase().startsWith("en");
+    const fallback = isEnglish ? englishFieldLabelFallback(field.key, field.label) : field.label;
+    return field.i18n_label_key ? at(field.i18n_label_key, {}, fallback) : fallback;
+  }
 </script>
 
 {#snippet renderField(field)}
@@ -97,7 +120,7 @@
   <div class="admin-setting" class:is-overridden={isOverridden(field)}>
     <div class="admin-setting-meta">
       <strong>
-        {field.i18n_label_key ? at(field.i18n_label_key, {}, field.label) : field.label}
+        {fieldLabelText(field)}
           <AdminBadge variant="warning">{at("settings_badge_secret", {}, "Secret")}</AdminBadge>
         {#if isOverridden(field)}
           <AdminBadge variant="success">{at("settings_badge_override", {}, "Override")}</AdminBadge>
