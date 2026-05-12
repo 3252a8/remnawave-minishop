@@ -195,9 +195,12 @@ def _serialize_subscription(sub: Subscription) -> Dict[str, Any]:
 
 
 def _serialize_payment(payment: Payment) -> Dict[str, Any]:
-    user_label = None
-    if payment.user:
-        user_label = payment.user.username or payment.user.first_name or str(payment.user_id)
+    # Avoid lazy-loading `payment.user` outside an active SQLAlchemy session.
+    # Some admin routes serialize payments after the session scope is closed.
+    user_label = str(payment.user_id)
+    loaded_user = payment.__dict__.get("user")
+    if loaded_user is not None:
+        user_label = loaded_user.username or loaded_user.first_name or str(payment.user_id)
     return {
         "payment_id": int(payment.payment_id),
         "user_id": int(payment.user_id),

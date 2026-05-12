@@ -520,6 +520,94 @@ def _migration_0015_add_premium_topup_carryover_fields(connection: Connection) -
         connection.execute(text(stmt))
 
 
+def _migration_0016_add_message_logs_admin_fields(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("message_logs")}
+    statements: List[str] = []
+
+    if "is_admin_event" not in columns:
+        statements.append(
+            "ALTER TABLE message_logs ADD COLUMN is_admin_event BOOLEAN NOT NULL DEFAULT FALSE"
+        )
+    if "target_user_id" not in columns:
+        statements.append(
+            "ALTER TABLE message_logs ADD COLUMN target_user_id BIGINT REFERENCES users(user_id)"
+        )
+
+    for stmt in statements:
+        connection.execute(text(stmt))
+
+    connection.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS ix_message_logs_target_user_id ON message_logs (target_user_id)"
+        )
+    )
+
+
+def _migration_0017_reconcile_legacy_admin_api_schema(connection: Connection) -> None:
+    """Backfill columns required by admin user detail API on legacy databases.
+
+    Some self-hosted instances were upgraded from older builds where parts of
+    the tariffs/admin schema were missing. This migration is intentionally
+    idempotent and only adds absent columns/indexes.
+    """
+    inspector = inspect(connection)
+
+    table_names = set(inspector.get_table_names())
+    if "subscriptions" in table_names:
+        sub_columns: Set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+        sub_statements: List[str] = []
+        if "tariff_key" not in sub_columns:
+            sub_statements.append("ALTER TABLE subscriptions ADD COLUMN tariff_key VARCHAR")
+        if "tier_baseline_bytes" not in sub_columns:
+            sub_statements.append("ALTER TABLE subscriptions ADD COLUMN tier_baseline_bytes BIGINT")
+        if "topup_balance_bytes" not in sub_columns:
+            sub_statements.append("ALTER TABLE subscriptions ADD COLUMN topup_balance_bytes BIGINT NOT NULL DEFAULT 0")
+        if "premium_baseline_bytes" not in sub_columns:
+            sub_statements.append("ALTER TABLE subscriptions ADD COLUMN premium_baseline_bytes BIGINT NOT NULL DEFAULT 0")
+        if "premium_topup_balance_bytes" not in sub_columns:
+            sub_statements.append("ALTER TABLE subscriptions ADD COLUMN premium_topup_balance_bytes BIGINT NOT NULL DEFAULT 0")
+        if "premium_topup_used_bytes" not in sub_columns:
+            sub_statements.append("ALTER TABLE subscriptions ADD COLUMN premium_topup_used_bytes BIGINT NOT NULL DEFAULT 0")
+        if "premium_used_bytes" not in sub_columns:
+            sub_statements.append("ALTER TABLE subscriptions ADD COLUMN premium_used_bytes BIGINT NOT NULL DEFAULT 0")
+        if "premium_is_limited" not in sub_columns:
+            sub_statements.append("ALTER TABLE subscriptions ADD COLUMN premium_is_limited BOOLEAN NOT NULL DEFAULT FALSE")
+        if "is_throttled" not in sub_columns:
+            sub_statements.append("ALTER TABLE subscriptions ADD COLUMN is_throttled BOOLEAN NOT NULL DEFAULT FALSE")
+        for stmt in sub_statements:
+            connection.execute(text(stmt))
+
+    if "payments" in table_names:
+        pay_columns: Set[str] = {col["name"] for col in inspector.get_columns("payments")}
+        pay_statements: List[str] = []
+        if "sale_mode" not in pay_columns:
+            pay_statements.append("ALTER TABLE payments ADD COLUMN sale_mode VARCHAR")
+        if "tariff_key" not in pay_columns:
+            pay_statements.append("ALTER TABLE payments ADD COLUMN tariff_key VARCHAR")
+        if "purchased_gb" not in pay_columns:
+            pay_statements.append("ALTER TABLE payments ADD COLUMN purchased_gb DOUBLE PRECISION")
+        if "purchased_hwid_devices" not in pay_columns:
+            pay_statements.append("ALTER TABLE payments ADD COLUMN purchased_hwid_devices INTEGER")
+        for stmt in pay_statements:
+            connection.execute(text(stmt))
+
+    if "message_logs" in table_names:
+        msg_columns: Set[str] = {col["name"] for col in inspector.get_columns("message_logs")}
+        msg_statements: List[str] = []
+        if "is_admin_event" not in msg_columns:
+            msg_statements.append("ALTER TABLE message_logs ADD COLUMN is_admin_event BOOLEAN NOT NULL DEFAULT FALSE")
+        if "target_user_id" not in msg_columns:
+            msg_statements.append("ALTER TABLE message_logs ADD COLUMN target_user_id BIGINT REFERENCES users(user_id)")
+        for stmt in msg_statements:
+            connection.execute(text(stmt))
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_message_logs_target_user_id ON message_logs (target_user_id)"
+            )
+        )
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -606,6 +694,16 @@ MIGRATIONS: List[Migration] = [
         id="0015_add_premium_topup_carryover_fields",
         description="Track premium top-up usage within the current monthly period",
         upgrade=_migration_0015_add_premium_topup_carryover_fields,
+    ),
+    Migration(
+        id="0016_add_message_logs_admin_fields",
+        description="Add admin-related message log fields used by admin user detail APIs",
+        upgrade=_migration_0016_add_message_logs_admin_fields,
+    ),
+    Migration(
+        id="0017_reconcile_legacy_admin_api_schema",
+        description="Reconcile legacy DB schema for admin user detail endpoint compatibility",
+        upgrade=_migration_0017_reconcile_legacy_admin_api_schema,
     ),
 ]
 
