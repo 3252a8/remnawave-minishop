@@ -1,8 +1,15 @@
 <script>
-  import { Trash2 } from "lucide-svelte";
+  import { Trash2 } from "$components/ui/icons.js";
   import { getContext, onMount } from "svelte";
   import Dialog from "$components/ui/dialog.svelte";
-  import { Label } from "$components/ui/primitives.js";
+  import {
+    AdminBadge,
+    AdminButton,
+    AdminEmptyState,
+    AdminField,
+    AdminTable,
+    AdminTableSkeleton,
+  } from "$components/patterns/admin/index.js";
 
   export let at;
   export let fmtMoney;
@@ -16,6 +23,16 @@
     adCreateOpen,
     adDraft,
   } = $adsStore);
+  $: adHeaders = [
+    at("id", {}, "ID"),
+    at("ads_col_source", {}, "Источник"),
+    at("ads_col_param", {}, "Параметр"),
+    at("ads_col_cost", {}, "Стоимость"),
+    at("ads_col_registrations", {}, "Регистрации"),
+    at("ads_col_conversions", {}, "Конверсии"),
+    at("ads_col_status", {}, "Статус"),
+    at("actions", {}, "Действия"),
+  ];
 
   onMount(() => {
     adsStore.loadAds();
@@ -24,38 +41,11 @@
 
 <div class="admin-table-wrap">
   {#if adsLoading}
-    <table class="admin-table admin-table-skeleton" aria-hidden="true">
-      <thead>
-        <tr>
-          <th>{at("id", {}, "ID")}</th>
-          <th>{at("ads_col_source", {}, "Источник")}</th>
-          <th>{at("ads_col_param", {}, "Параметр")}</th>
-          <th>{at("ads_col_cost", {}, "Стоимость")}</th>
-          <th>{at("ads_col_registrations", {}, "Регистрации")}</th>
-          <th>{at("ads_col_conversions", {}, "Конверсии")}</th>
-          <th>{at("ads_col_status", {}, "Статус")}</th>
-          <th class="admin-cell-actions">{at("actions", {}, "Действия")}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each Array(6) as _, i (i)}
-          <tr>
-            <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"></span></td>
-            <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span></td>
-            <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span></td>
-            <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"></span></td>
-            <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"></span></td>
-            <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"></span></td>
-            <td><span class="admin-skeleton admin-skeleton-badge"></span></td>
-            <td><span class="admin-skeleton admin-skeleton-line"></span></td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
+    <AdminTableSkeleton headers={adHeaders} rows={6} actionColumn widths={["44px", "96px", "110px", "70px", "54px", "54px", "72px", "92px"]} />
   {:else if !ads.length}
-    <div class="admin-card-body"><span class="admin-muted">{at("ads_empty", {}, "Кампаний нет")}</span></div>
+    <AdminEmptyState tone="card"><span class="admin-muted">{at("ads_empty", {}, "Кампаний нет")}</span></AdminEmptyState>
   {:else}
-    <table class="admin-table">
+    <AdminTable>
       <thead>
         <tr>
           <th>{at("id", {}, "ID")}</th>
@@ -79,23 +69,23 @@
             <td data-label={at("ads_col_conversions", {}, "Конверсии")}>{ad.stats?.conversions ?? 0}</td>
             <td data-label={at("ads_col_status", {}, "Статус")}>
               {#if ad.is_active}
-                <span class="admin-badge admin-badge-success">{at("status_active", {}, "Активна")}</span>
+                <AdminBadge variant="success">{at("status_active", {}, "Активна")}</AdminBadge>
               {:else}
-                <span class="admin-badge admin-badge-muted">{at("status_disabled", {}, "Выключена")}</span>
+                <AdminBadge variant="muted">{at("status_disabled", {}, "Выключена")}</AdminBadge>
               {/if}
             </td>
             <td class="admin-cell-actions" data-label={at("actions", {}, "Действия")}>
-              <button type="button" class="admin-btn admin-btn-sm" on:click={() => adsStore.toggleAd(ad)}>
+              <AdminButton size="sm" onclick={() => adsStore.toggleAd(ad)}>
                 {ad.is_active ? at("btn_disable", {}, "Выкл") : at("btn_enable", {}, "Вкл")}
-              </button>
-              <button type="button" class="admin-btn admin-btn-sm admin-btn-danger" on:click={() => adsStore.deleteAd(ad)}>
+              </AdminButton>
+              <AdminButton size="sm" variant="danger" onclick={() => adsStore.deleteAd(ad)}>
                 <Trash2 size={13} />
-              </button>
+              </AdminButton>
             </td>
           </tr>
         {/each}
       </tbody>
-    </table>
+    </AdminTable>
   {/if}
 </div>
 
@@ -108,27 +98,26 @@
 >
   <div class="admin-form" data-dialog-content>
     <div class="admin-dialog-form-section">
-      <Label.Root class="admin-field-label">
-        <span>{at("ad_label_source", {}, "Источник")}</span>
+      <AdminField label={at("ad_label_source", {}, "Источник")}>
         <input class="input" type="text" placeholder="telegram_ads" value={adDraft.source} on:input={(e) => adsStore.updateDraft({ source: e.target.value })} />
-      </Label.Root>
-      <Label.Root class="admin-field-label">
-        <span>{at("ad_label_param", {}, "start-параметр")}</span>
-        <small>{at("ad_hint_param", {}, "Передаётся в /start, должен быть уникален")}</small>
+      </AdminField>
+      <AdminField
+        label={at("ad_label_param", {}, "start-параметр")}
+        hint={at("ad_hint_param", {}, "Передаётся в /start, должен быть уникален")}
+      >
         <input class="input" type="text" placeholder="ads_summer25" value={adDraft.start_param} on:input={(e) => adsStore.updateDraft({ start_param: e.target.value })} />
-      </Label.Root>
+      </AdminField>
     </div>
     <div class="admin-dialog-form-section">
-      <Label.Root class="admin-field-label">
-        <span>{at("ad_label_cost", {}, "Стоимость, RUB")}</span>
+      <AdminField label={at("ad_label_cost", {}, "Стоимость, RUB")}>
         <input class="input" type="number" step="0.01" min="0" value={adDraft.cost} on:input={(e) => adsStore.updateDraft({ cost: Number(e.target.value) })} />
-      </Label.Root>
+      </AdminField>
     </div>
     <div class="admin-dialog-actions">
-      <button type="button" class="admin-btn" on:click={() => adsStore.setCreateOpen(false)}>{at("btn_cancel", {}, "Отмена")}</button>
-      <button type="button" class="admin-btn admin-btn-primary" on:click={adsStore.createAd} disabled={!adDraft.source.trim() || !adDraft.start_param.trim()}>
+      <AdminButton onclick={() => adsStore.setCreateOpen(false)}>{at("btn_cancel", {}, "Отмена")}</AdminButton>
+      <AdminButton variant="primary" onclick={adsStore.createAd} disabled={!adDraft.source.trim() || !adDraft.start_param.trim()}>
         {at("btn_create", {}, "Создать")}
-      </button>
+      </AdminButton>
     </div>
   </div>
 </Dialog>

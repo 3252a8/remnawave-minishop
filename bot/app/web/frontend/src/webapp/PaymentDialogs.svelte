@@ -1,11 +1,11 @@
 <script>
-  import { ArrowLeft, CheckCircle2, CircleX, LockKeyhole, RefreshCw, TriangleAlert } from "lucide-svelte";
+  import { ArrowLeft, CheckCircle2, CircleX, LockKeyhole, RefreshCw, TriangleAlert } from "$components/ui/icons.js";
   import { Tooltip } from "$components/ui/primitives.js";
 
   import Button from "$components/ui/button.svelte";
-  import Card from "$components/ui/card.svelte";
   import Dialog from "$components/ui/dialog.svelte";
   import Input from "$components/ui/input.svelte";
+  import { EmptyCard, PaymentMethodGrid, StatusMessage } from "$components/patterns/webapp/index.js";
   import {
     planKey as planKeyFn,
     planDisplayTitle as planDisplayTitleFn,
@@ -14,7 +14,6 @@
     tariffLimitLabel as tariffLimitLabelFn,
     priceLabel as priceLabelFn,
   } from "../lib/webapp/tariffs.js";
-  import { Bitcoin, CreditCard } from "lucide-svelte";
 
 
   export let createPayment = () => {};
@@ -48,19 +47,6 @@
   export let tariffMode = false;
   export let trafficMode = false;
   
-  function methodMeta(method) {
-    const id = String(method?.id || "").toLowerCase();
-    if (id.includes("platega_sbp")) return { title: t("wa_method_platega_sbp_card"), icon: CreditCard };
-    if (id.includes("platega_crypto")) return { title: t("wa_method_platega_crypto"), icon: Bitcoin };
-    if (id.includes("yookassa") || id.includes("card")) return { title: t("pay_with_yookassa_button"), icon: null };
-    if (id.includes("severpay")) return { title: t("pay_with_severpay_button"), icon: null };
-    if (id.includes("freekassa")) return { title: t("pay_with_sbp_button"), icon: null };
-    if (id.includes("cryptopay") || id.includes("crypto")) return { title: t("pay_with_cryptopay_button"), icon: null };
-    if (id.includes("stars")) return { title: t("pay_with_stars_button"), icon: null };
-    if (id.includes("sbp")) return { title: t("pay_with_sbp_button"), icon: null };
-    return { title: t("wa_method_other_title"), icon: null };
-  }
-
   function priceLabel(plan) { return priceLabelFn(plan, selectedMethod); }
   function planKey(plan) { return planKeyFn(plan); }
   function planDisplayTitle(plan) { return planDisplayTitleFn(plan, { trafficMode, t }); }
@@ -140,7 +126,7 @@
           <ArrowRight size={17} />
         </Button>
       {:else}
-        <Card class="empty-card">{t("wa_no_tariff_change_options")}</Card>
+        <EmptyCard>{t("wa_no_tariff_change_options")}</EmptyCard>
       {/if}
     {:else}
       {#if tariffMode}
@@ -175,34 +161,17 @@
           {/each}
         </div>
         <div class="payment-divider" aria-hidden="true"></div>
-        <div class="method-grid">
-          {#if methods.length}
-            {#each methods as method}
-              {@const meta = methodMeta(method)}
-              <button
-                class:active={selectedMethod === method.id}
-                class="method-card"
-                type="button"
-                onclick={() => (selectedMethod = method.id)}
-              >
-                <span class="method-card-main">
-                  {#if meta.icon}
-                    <svelte:component this={meta.icon} size={19} />
-                  {/if}
-                  <strong>{meta.title}</strong>
-                </span>
-              </button>
-            {/each}
-          {:else}
-            <Card class="empty-card">{t("wa_payment_methods_not_configured")}</Card>
-          {/if}
-        </div>
+        {#if methods.length}
+          <PaymentMethodGrid {methods} {selectedMethod} {t} onSelect={(id) => (selectedMethod = id)} />
+        {:else}
+          <EmptyCard>{t("wa_payment_methods_not_configured")}</EmptyCard>
+        {/if}
         <Button class="wide bottom-action payment-submit-button" onclick={createPayment} disabled={!selectedPlan || !methods.length || payBusy}>
           {t("wa_pay")} {selectedPlan ? priceLabel(selectedPlan) : ""}
           <LockKeyhole size={17} />
         </Button>
       {:else}
-        <Card class="empty-card">{t("wa_no_tariff_change_options")}</Card>
+        <EmptyCard>{t("wa_no_tariff_change_options")}</EmptyCard>
       {/if}
     {/if}
     {#if !tariffMode}
@@ -229,28 +198,11 @@
         {/each}
       </div>
       <div class="payment-divider" aria-hidden="true"></div>
-      <div class="method-grid">
-        {#if methods.length}
-          {#each methods as method}
-            {@const meta = methodMeta(method)}
-            <button
-              class:active={selectedMethod === method.id}
-              class="method-card"
-              type="button"
-              onclick={() => (selectedMethod = method.id)}
-            >
-              <span class="method-card-main">
-                {#if meta.icon}
-                  <svelte:component this={meta.icon} size={19} />
-                {/if}
-                <strong>{meta.title}</strong>
-              </span>
-            </button>
-          {/each}
-        {:else}
-          <Card class="empty-card">{t("wa_payment_methods_not_configured")}</Card>
-        {/if}
-      </div>
+      {#if methods.length}
+        <PaymentMethodGrid {methods} {selectedMethod} {t} onSelect={(id) => (selectedMethod = id)} />
+      {:else}
+        <EmptyCard>{t("wa_payment_methods_not_configured")}</EmptyCard>
+      {/if}
       <Button class="wide bottom-action payment-submit-button" onclick={createPayment} disabled={!selectedPlan || !methods.length || payBusy}>
         {t("wa_pay")} {selectedPlan ? priceLabel(selectedPlan) : ""}
         <LockKeyhole size={17} />
@@ -350,7 +302,7 @@
       </div>
     {/if}
     {#if linkEmailStatus}
-      <p class:error={linkEmailIsError} class="status-line">{linkEmailStatus}</p>
+      <StatusMessage error={linkEmailIsError}>{linkEmailStatus}</StatusMessage>
     {/if}
   </div>
 </Dialog>

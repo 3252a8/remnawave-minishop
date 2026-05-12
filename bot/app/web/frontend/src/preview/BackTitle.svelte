@@ -1,5 +1,5 @@
 <script>
-  import { ArrowLeft } from "lucide-svelte";
+  import { ArrowLeft } from "$components/ui/icons.js";
 
   export let title = "";
   export let subtitle = "";

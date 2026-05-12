@@ -1,11 +1,12 @@
 <script>
   import { Label, Select, Separator, Tabs } from "$components/ui/primitives.js";
   import Dialog from "$components/ui/dialog.svelte";
+  import { AdminBadge, AdminButton, AdminTrafficCard } from "$components/patterns/admin/index.js";
   import {
     CalendarDays, Copy, CreditCard, ExternalLink, Eye, Info, Key,
     Mail, Map, MessageSquare, MousePointerClick, QrCode, RefreshCw, Send,
     Plus, Settings, Shield, Trash2, User, UserMinus, UserPlus, Users
-  } from "lucide-svelte";
+  } from "$components/ui/icons.js";
   import { getContext } from "svelte";
   
   export let at;
@@ -71,14 +72,14 @@
               <small>{userSecondaryName(openedUser)}</small>
               <div class="admin-user-summary-tags">
                 {#if openedUser.is_banned}
-                  <span class="admin-badge admin-badge-danger">{at("badge_banned", {}, "Бан")}</span>
+                  <AdminBadge variant="danger">{at("badge_banned", {}, "Бан")}</AdminBadge>
                 {:else}
-                  <span class="admin-badge admin-badge-success">{at("badge_active", {}, "Активен")}</span>
+                  <AdminBadge variant="success">{at("badge_active", {}, "Активен")}</AdminBadge>
                 {/if}
                 {#if openedUserDetail.active_subscription}
-                  <span class="admin-badge admin-badge-success">{at("badge_subscription", {}, "Подписка")}</span>
+                  <AdminBadge variant="success">{at("badge_subscription", {}, "Подписка")}</AdminBadge>
                 {:else}
-                  <span class="admin-badge admin-badge-muted">{at("badge_no_subscription", {}, "Без подписки")}</span>
+                  <AdminBadge variant="muted">{at("badge_no_subscription", {}, "Без подписки")}</AdminBadge>
                 {/if}
               </div>
             </div>
@@ -116,9 +117,9 @@
                       {openedUserDetail.subscription_url}
                     </a>
                   </div>
-                  <button type="button" class="admin-btn admin-btn-icon" title={at("user_copy_tooltip", {}, "Скопировать")} on:click={() => usersStore.copyToClipboard(openedUserDetail.subscription_url, at("user_sub_link_copied", {}, "Ссылка на подписку скопирована"))}>
+                  <AdminButton size="icon" variant="icon" title={at("user_copy_tooltip", {}, "Скопировать")} onclick={() => usersStore.copyToClipboard(openedUserDetail.subscription_url, at("user_sub_link_copied", {}, "Ссылка на подписку скопирована"))}>
                     <Copy size={14} />
-                  </button>
+                  </AdminButton>
                 </div>
               {/if}
               {#if openedUserDetail.referral?.bot_link}
@@ -129,9 +130,9 @@
                       {openedUserDetail.referral.bot_link}
                     </a>
                   </div>
-                  <button type="button" class="admin-btn admin-btn-icon" title={at("user_copy_tooltip", {}, "Скопировать")} on:click={() => usersStore.copyToClipboard(openedUserDetail.referral.bot_link, at("user_ref_link_copied", {}, "Реф. ссылка скопирована"))}>
+                  <AdminButton size="icon" variant="icon" title={at("user_copy_tooltip", {}, "Скопировать")} onclick={() => usersStore.copyToClipboard(openedUserDetail.referral.bot_link, at("user_ref_link_copied", {}, "Реф. ссылка скопирована"))}>
                     <Copy size={14} />
-                  </button>
+                  </AdminButton>
                 </div>
               {/if}
               {#if openedUserDetail.referral?.webapp_link}
@@ -142,9 +143,9 @@
                       {openedUserDetail.referral.webapp_link}
                     </a>
                   </div>
-                  <button type="button" class="admin-btn admin-btn-icon" title={at("user_copy_tooltip", {}, "Скопировать")} on:click={() => usersStore.copyToClipboard(openedUserDetail.referral.webapp_link, at("user_ref_link_copied", {}, "Реф. ссылка скопирована"))}>
+                  <AdminButton size="icon" variant="icon" title={at("user_copy_tooltip", {}, "Скопировать")} onclick={() => usersStore.copyToClipboard(openedUserDetail.referral.webapp_link, at("user_ref_link_copied", {}, "Реф. ссылка скопирована"))}>
                     <Copy size={14} />
-                  </button>
+                  </AdminButton>
                 </div>
               {/if}
             </div>
@@ -168,33 +169,24 @@
               <li><span>{at("user_label_provider", {}, "Провайдер")}</span><strong>{openedUserDetail.active_subscription.provider || "—"}</strong></li>
             </ul>
             <div class="admin-traffic-summary">
-              <div class={`admin-traffic-card${openedUserDetail.active_subscription.is_throttled ? " admin-traffic-card-warning" : ""}`}>
-                <div class="admin-traffic-head">
-                  <span>{at("user_label_main_traffic", {}, "Основной трафик")}</span>
-                  <strong>{trafficOfLabel(openedUserDetail.active_subscription.traffic_used_bytes, openedUserDetail.active_subscription.traffic_limit_bytes)}</strong>
-                </div>
-                <div class="admin-traffic-bar" aria-label={at("aria_label_main_traffic", {}, "Использование основного трафика")}>
-                  <span style={`width: ${trafficPercentValue(openedUserDetail.active_subscription.traffic_used_bytes, openedUserDetail.active_subscription.traffic_limit_bytes)}%`}></span>
-                </div>
-                <div class="admin-traffic-meta">
-                  <span>{at("user_traffic_left", { left: trafficLeftLabel(openedUserDetail.active_subscription.traffic_used_bytes, openedUserDetail.active_subscription.traffic_limit_bytes) }, "Осталось: " + trafficLeftLabel(openedUserDetail.active_subscription.traffic_used_bytes, openedUserDetail.active_subscription.traffic_limit_bytes))}</span>
-                  <span>{trafficPercentValue(openedUserDetail.active_subscription.traffic_used_bytes, openedUserDetail.active_subscription.traffic_limit_bytes)}%</span>
-                </div>
-              </div>
+              <AdminTrafficCard
+                title={at("user_label_main_traffic", {}, "Основной трафик")}
+                value={trafficOfLabel(openedUserDetail.active_subscription.traffic_used_bytes, openedUserDetail.active_subscription.traffic_limit_bytes)}
+                left={at("user_traffic_left", { left: trafficLeftLabel(openedUserDetail.active_subscription.traffic_used_bytes, openedUserDetail.active_subscription.traffic_limit_bytes) }, "Осталось: " + trafficLeftLabel(openedUserDetail.active_subscription.traffic_used_bytes, openedUserDetail.active_subscription.traffic_limit_bytes))}
+                percent={trafficPercentValue(openedUserDetail.active_subscription.traffic_used_bytes, openedUserDetail.active_subscription.traffic_limit_bytes)}
+                warning={openedUserDetail.active_subscription.is_throttled}
+                label={at("aria_label_main_traffic", {}, "Использование основного трафика")}
+              />
               {#if Number(openedUserDetail.active_subscription.premium_limit_bytes || 0) > 0}
-                <div class={`admin-traffic-card admin-traffic-card-premium${openedUserDetail.active_subscription.premium_is_limited ? " admin-traffic-card-warning" : ""}`}>
-                  <div class="admin-traffic-head">
-                    <span>{at("user_label_premium_squads", {}, "Premium-сквады")}</span>
-                    <strong>{trafficOfLabel(openedUserDetail.active_subscription.premium_used_bytes, openedUserDetail.active_subscription.premium_limit_bytes)}</strong>
-                  </div>
-                  <div class="admin-traffic-bar admin-traffic-bar-premium" aria-label={at("aria_label_premium_traffic", {}, "Использование premium-трафика")}>
-                    <span style={`width: ${trafficPercentValue(openedUserDetail.active_subscription.premium_used_bytes, openedUserDetail.active_subscription.premium_limit_bytes)}%`}></span>
-                  </div>
-                  <div class="admin-traffic-meta">
-                    <span>{at("user_traffic_left", { left: trafficLeftLabel(openedUserDetail.active_subscription.premium_used_bytes, openedUserDetail.active_subscription.premium_limit_bytes) }, "Осталось: " + trafficLeftLabel(openedUserDetail.active_subscription.premium_used_bytes, openedUserDetail.active_subscription.premium_limit_bytes))}</span>
-                    <span>{trafficPercentValue(openedUserDetail.active_subscription.premium_used_bytes, openedUserDetail.active_subscription.premium_limit_bytes)}%</span>
-                  </div>
-                </div>
+                <AdminTrafficCard
+                  premium
+                  title={at("user_label_premium_squads", {}, "Premium-сквады")}
+                  value={trafficOfLabel(openedUserDetail.active_subscription.premium_used_bytes, openedUserDetail.active_subscription.premium_limit_bytes)}
+                  left={at("user_traffic_left", { left: trafficLeftLabel(openedUserDetail.active_subscription.premium_used_bytes, openedUserDetail.active_subscription.premium_limit_bytes) }, "Осталось: " + trafficLeftLabel(openedUserDetail.active_subscription.premium_used_bytes, openedUserDetail.active_subscription.premium_limit_bytes))}
+                  percent={trafficPercentValue(openedUserDetail.active_subscription.premium_used_bytes, openedUserDetail.active_subscription.premium_limit_bytes)}
+                  warning={openedUserDetail.active_subscription.premium_is_limited}
+                  label={at("aria_label_premium_traffic", {}, "Использование premium-трафика")}
+                />
               {/if}
             </div>
           {:else}
@@ -212,9 +204,9 @@
                     <small>{at("user_history_until", { date: fmtDate(sub.end_date) }, `до ${fmtDate(sub.end_date)}`)}</small>
                   </div>
                   {#if sub.is_active}
-                    <span class="admin-badge admin-badge-success">{at("user_history_active", {}, "Активна")}</span>
+                    <AdminBadge variant="success">{at("user_history_active", {}, "Активна")}</AdminBadge>
                   {:else}
-                    <span class="admin-badge admin-badge-muted">{sub.status_from_panel || at("user_history_status_panel", {}, "История")}</span>
+                    <AdminBadge variant="muted">{sub.status_from_panel || at("user_history_status_panel", {}, "История")}</AdminBadge>
                   {/if}
                 </div>
               {/each}
@@ -232,7 +224,7 @@
                     <strong>{fmtMoney(payment.amount, payment.currency)}</strong>
                     <small>{payment.provider} · {fmtDateShort(payment.created_at)}</small>
                   </div>
-                  <span class="admin-badge admin-badge-{paymentStatusVariant(payment.status)}">{payment.status}</span>
+                  <AdminBadge variant={paymentStatusVariant(payment.status)}>{payment.status}</AdminBadge>
                 </div>
               {/each}
             </div>
@@ -243,16 +235,16 @@
 
         <Tabs.Content value="actions" class="admin-tabs-content admin-actions-tab">
           <div class="admin-user-quick-actions">
-            <button type="button" class="admin-btn admin-reset-trial-btn" on:click={usersStore.resetTrialUser} disabled={userActionBusy}>
+            <AdminButton class="admin-reset-trial-btn" onclick={usersStore.resetTrialUser} disabled={userActionBusy}>
               <RefreshCw size={14} /> {at("user_btn_reset_trial", {}, "Сбросить триал")}
-            </button>
+            </AdminButton>
             <Label.Root class="admin-field-label admin-extend-field">
               <span>{at("user_label_extend", {}, "Продлить подписку")}</span>
               <div class="admin-extend-control">
                 <input class="input" type="number" min="1" bind:value={$usersStore.userExtendDays} aria-label={at("user_label_extend_days", {}, "Дней")} />
-                <button type="button" class="admin-btn" on:click={usersStore.extendUser} disabled={userActionBusy}>
+                <AdminButton onclick={usersStore.extendUser} disabled={userActionBusy}>
                   <Plus size={14} /> {at("user_btn_extend", {}, "Продлить")}
-                </button>
+                </AdminButton>
               </div>
             </Label.Root>
           </div>
@@ -263,12 +255,12 @@
             <textarea class="admin-textarea" rows="3" placeholder={at("user_placeholder_msg", {}, "Текст сообщения")} bind:value={$usersStore.userMessageDraft}></textarea>
           </Label.Root>
           <div class="admin-message-actions">
-            <button type="button" class="admin-btn" on:click={usersStore.previewUserMessage} disabled={userActionBusy || !userMessageDraft.trim()}>
+            <AdminButton onclick={usersStore.previewUserMessage} disabled={userActionBusy || !userMessageDraft.trim()}>
               <Eye size={14} /> {at("btn_preview_tg", {}, "Превью в Telegram")}
-            </button>
-            <button type="button" class="admin-btn admin-btn-primary" on:click={usersStore.requestSendUserMessage} disabled={userActionBusy || !userMessageDraft.trim()}>
+            </AdminButton>
+            <AdminButton variant="primary" onclick={usersStore.requestSendUserMessage} disabled={userActionBusy || !userMessageDraft.trim()}>
               <Send size={14} /> {at("btn_send_msg", {}, "Отправить сообщение")}
-            </button>
+            </AdminButton>
           </div>
 
           <section class="admin-danger-zone">
@@ -278,17 +270,17 @@
             </header>
             <div class="admin-action-grid">
               {#if openedUser.is_banned}
-                <button type="button" class="admin-btn admin-btn-danger-soft" on:click={usersStore.requestBanToggle} disabled={userActionBusy}>
+                <AdminButton variant="dangerSoft" onclick={usersStore.requestBanToggle} disabled={userActionBusy}>
                   <UserPlus size={14} /> {at("btn_unban", {}, "Разбанить пользователя")}
-                </button>
+                </AdminButton>
               {:else}
-                <button type="button" class="admin-btn admin-btn-danger" on:click={usersStore.requestBanToggle} disabled={userActionBusy}>
+                <AdminButton variant="danger" onclick={usersStore.requestBanToggle} disabled={userActionBusy}>
                   <UserMinus size={14} /> {at("btn_ban", {}, "Заблокировать")}
-                </button>
+                </AdminButton>
               {/if}
-              <button type="button" class="admin-btn admin-btn-danger" on:click={() => usersStore.updateState({ userDeleteOpen: true })} disabled={userActionBusy}>
+              <AdminButton variant="danger" onclick={() => usersStore.updateState({ userDeleteOpen: true })} disabled={userActionBusy}>
                 <Trash2 size={14} /> {at("btn_delete_account", {}, "Удалить аккаунт")}
-              </button>
+              </AdminButton>
             </div>
           </section>
         </Tabs.Content>
@@ -309,10 +301,10 @@
 >
   <div class="admin-confirm-message-preview">{userMessageDraft}</div>
   <div class="admin-dialog-actions">
-    <button type="button" class="admin-btn" on:click={() => usersStore.updateState({ userMessageConfirmOpen: false })}>{at("btn_cancel", {}, "Отмена")}</button>
-    <button type="button" class="admin-btn admin-btn-primary" on:click={usersStore.sendUserMessage} disabled={userActionBusy || !userMessageDraft.trim()}>
+    <AdminButton onclick={() => usersStore.updateState({ userMessageConfirmOpen: false })}>{at("btn_cancel", {}, "Отмена")}</AdminButton>
+    <AdminButton variant="primary" onclick={usersStore.sendUserMessage} disabled={userActionBusy || !userMessageDraft.trim()}>
       <Send size={14} /> {at("btn_confirm_send", {}, "Подтвердить отправку")}
-    </button>
+    </AdminButton>
   </div>
 </Dialog>
 
@@ -325,10 +317,10 @@
   class="admin-dialog"
 >
   <div class="admin-dialog-actions">
-    <button type="button" class="admin-btn" on:click={() => usersStore.updateState({ userBanConfirmOpen: false })}>{at("btn_cancel", {}, "Отмена")}</button>
-    <button type="button" class="admin-btn admin-btn-danger" on:click={() => usersStore.applyBanToggle(true)} disabled={userActionBusy}>
+    <AdminButton onclick={() => usersStore.updateState({ userBanConfirmOpen: false })}>{at("btn_cancel", {}, "Отмена")}</AdminButton>
+    <AdminButton variant="danger" onclick={() => usersStore.applyBanToggle(true)} disabled={userActionBusy}>
       <UserMinus size={14} /> {at("btn_ban", {}, "Заблокировать")}
-    </button>
+    </AdminButton>
   </div>
 </Dialog>
 
@@ -341,9 +333,9 @@
   class="admin-dialog"
 >
   <div class="admin-form-row">
-    <button type="button" class="admin-btn" on:click={() => usersStore.updateState({ userDeleteOpen: false })}>{at("btn_cancel", {}, "Отмена")}</button>
-    <button type="button" class="admin-btn admin-btn-danger" on:click={usersStore.deleteUser} disabled={userActionBusy}>
+    <AdminButton onclick={() => usersStore.updateState({ userDeleteOpen: false })}>{at("btn_cancel", {}, "Отмена")}</AdminButton>
+    <AdminButton variant="danger" onclick={usersStore.deleteUser} disabled={userActionBusy}>
       <Trash2 size={14} /> {at("btn_confirm_delete", {}, "Подтвердить удаление")}
-    </button>
+    </AdminButton>
   </div>
 </Dialog>

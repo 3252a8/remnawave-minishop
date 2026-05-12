@@ -1,5 +1,5 @@
 <script>
-  import { Gift, Home, Settings } from "lucide-svelte";
+  import { Gift, Home, Settings } from "$components/ui/icons.js";
 
   export let active = "home";
 </script>

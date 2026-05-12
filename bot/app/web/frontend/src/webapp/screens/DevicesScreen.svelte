@@ -1,8 +1,9 @@
 <script>
-  import { CircleX, Plus, RefreshCw, Smartphone } from "lucide-svelte";
+  import { CircleX, Plus, RefreshCw, Smartphone } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
+  import { EmptyCard, LinearProgress, StatusMessage } from "$components/patterns/webapp/index.js";
   import { devicesCountLabel, devicesLimitLabel, devicesPercent } from "../../lib/webapp/devicesLabels.js";
 
   export let devicesBusy = false;
@@ -31,9 +32,7 @@
         <RefreshCw size={18} />
       </Button>
     </div>
-    <div class="progress devices-progress">
-      <span style={`width: ${devicesPercent(devicesData)}%`}></span>
-    </div>
+    <LinearProgress class="devices-progress" value={devicesPercent(devicesData)} label={t("wa_devices_title")} />
     {#if subscription?.active && subscription?.max_devices !== 0}
       <Button variant="secondary" class="wide" onclick={openDeviceTopupModal}>
         <Plus size={17} />
@@ -43,17 +42,17 @@
   </Card>
 
   {#if devicesBusy && !devicesLoaded}
-    <Card class="empty-card">{t("wa_devices_loading")}</Card>
+    <EmptyCard>{t("wa_devices_loading")}</EmptyCard>
   {:else if devicesStatus}
-    <Card class="empty-card">
-      <p class:error={devicesIsError} class="status-line">{devicesStatus}</p>
-    </Card>
+    <EmptyCard>
+      <StatusMessage error={devicesIsError}>{devicesStatus}</StatusMessage>
+    </EmptyCard>
   {:else if !devicesData?.devices?.length}
-    <Card class="empty-card devices-empty-card">
+    <EmptyCard class="devices-empty-card">
       <Smartphone size={28} />
       <span>{t("wa_devices_empty")}</span>
       <small>{t("wa_devices_empty_hint", { max: devicesLimitLabel(devicesData, t) })}</small>
-    </Card>
+    </EmptyCard>
   {:else}
     <div class="devices-list">
       {#each devicesData.devices as device (device.token || device.index)}

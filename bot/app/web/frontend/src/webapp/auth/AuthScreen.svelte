@@ -1,11 +1,13 @@
 <script>
-  import { ArrowLeft, Mail, RefreshCw, Send, TriangleAlert } from "lucide-svelte";
+  import { ArrowLeft, Mail, RefreshCw, Send, TriangleAlert } from "$components/ui/icons.js";
   import { Tooltip } from "$components/ui/primitives.js";
 
   import Button from "$components/ui/button.svelte";
   import BrandMark from "../../BrandMark.svelte";
   import Card from "$components/ui/card.svelte";
   import Input from "$components/ui/input.svelte";
+  import Spinner from "$components/ui/spinner.svelte";
+  import { StatusMessage } from "$components/patterns/webapp/index.js";
 
   export let screen;
   export let CFG;
@@ -68,7 +70,7 @@
         {t("wa_confirm")}
       </Button>
       {#if authStatus}
-        <div class:error={authIsError} class="status-line">{authStatus}</div>
+        <StatusMessage error={authIsError}>{authStatus}</StatusMessage>
       {/if}
       <button
         class="link-button"
@@ -133,7 +135,7 @@
           >
             <span class="telegram-login-text">
               {#if telegramLoginChecking}
-                <span class="telegram-button-spinner" aria-hidden="true"></span>
+                <Spinner size="sm" />
               {:else}
                 <Send size={17} />
               {/if}
@@ -142,12 +144,12 @@
           </Button>
         </div>
         {#if !telegramLoginChecking && (authStatus || telegramLoginUnavailableMessage)}
-          <div
-            class:error={authIsError || Boolean(telegramLoginUnavailableMessage)}
-            class="status-line auth-login-status"
+          <StatusMessage
+            error={authIsError || Boolean(telegramLoginUnavailableMessage)}
+            class="auth-login-status"
           >
             {authStatus || telegramLoginUnavailableMessage}
-          </div>
+          </StatusMessage>
         {/if}
       </Card>
       {#if userAgreementUrl || privacyPolicyUrl}

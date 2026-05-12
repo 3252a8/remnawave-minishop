@@ -1,5 +1,5 @@
 <script>
-  import { Gift, Home, Settings as SettingsIcon, Shield, Smartphone } from "lucide-svelte";
+  import { Gift, Home, Settings as SettingsIcon, Shield, Smartphone } from "$components/ui/icons.js";
 
   import BrandMark from "../BrandMark.svelte";
 

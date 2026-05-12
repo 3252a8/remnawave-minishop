@@ -1,5 +1,5 @@
 <script>
-  import { CreditCard, Send, WalletCards } from "lucide-svelte";
+  import { CreditCard, Send, WalletCards } from "$components/ui/icons.js";
 
   export let methods = [];
 

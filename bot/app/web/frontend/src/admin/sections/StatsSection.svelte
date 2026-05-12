@@ -1,5 +1,5 @@
 <script>
-  import { Activity, Radio, Server, TrendingDown, TrendingUp } from "lucide-svelte";
+  import { Activity, Radio, Server, TrendingDown, TrendingUp } from "$components/ui/icons.js";
   import { getContext, onMount } from "svelte";
 
   import Badge from "$components/ui/badge.svelte";
@@ -7,8 +7,11 @@
   import {
     AdminDashboardGrid,
     AdminDashboardStack,
+    AdminBadge,
     AdminEmptyState,
     AdminSectionHeader,
+    AdminTable,
+    AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
 
   export let at;
@@ -39,6 +42,14 @@
   $: dailySeries = Array.isArray(fin.daily_series) ? fin.daily_series : [];
   $: revenueKpis = computeRevenueKpis(fin, dailySeries);
   $: chartModel = buildRevenueChartModel(dailySeries, fmtDateShort);
+  $: recentPaymentHeaders = [
+    at("id", {}, ""),
+    at("user", {}, ""),
+    at("amount", {}, ""),
+    at("provider", {}, ""),
+    at("status", {}, ""),
+    at("date", {}, ""),
+  ];
 
   function parsePanelSystem(panel) {
     const system = panel?.system;
@@ -161,32 +172,7 @@
       </Card.Content>
     </Card.Root>
     <AdminSectionHeader title={at("stats_recent_payments", {}, "")} />
-    <div class="admin-table-wrap">
-      <table class="admin-table admin-table-skeleton" aria-hidden="true">
-        <thead>
-          <tr>
-            <th>{at("id", {}, "")}</th>
-            <th>{at("user", {}, "")}</th>
-            <th>{at("amount", {}, "")}</th>
-            <th>{at("provider", {}, "")}</th>
-            <th>{at("status", {}, "")}</th>
-            <th>{at("date", {}, "")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each Array(6) as _, k (k)}
-            <tr>
-              <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"></span></td>
-              <td><span class="admin-skeleton admin-skeleton-line"></span></td>
-              <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span></td>
-              <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span></td>
-              <td><span class="admin-skeleton admin-skeleton-badge"></span></td>
-              <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span></td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+    <AdminTableSkeleton headers={recentPaymentHeaders} rows={6} widths={["48px", "120px", "78px", "82px", "72px", "96px"]} />
   </AdminDashboardStack>
 {:else if stats}
   <AdminDashboardStack>
@@ -457,32 +443,9 @@
       <Card.Content class="admin-cn-card-content--flush">
         <div class="admin-table-wrap">
           {#if statsLoading}
-            <table class="admin-table admin-table-skeleton" aria-hidden="true">
-              <thead>
-                <tr>
-                  <th>{at("id", {}, "")}</th>
-                  <th>{at("user", {}, "")}</th>
-                  <th>{at("amount", {}, "")}</th>
-                  <th>{at("provider", {}, "")}</th>
-                  <th>{at("status", {}, "")}</th>
-                  <th>{at("date", {}, "")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each Array(5) as _, r (r)}
-                  <tr>
-                    <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"></span></td>
-                    <td><span class="admin-skeleton admin-skeleton-line"></span></td>
-                    <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span></td>
-                    <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span></td>
-                    <td><span class="admin-skeleton admin-skeleton-badge"></span></td>
-                    <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span></td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+            <AdminTableSkeleton headers={recentPaymentHeaders} rows={5} widths={["48px", "120px", "78px", "82px", "72px", "96px"]} />
           {:else if (stats.recent_payments || []).length}
-            <table class="admin-table">
+            <AdminTable>
               <thead>
                 <tr>
                   <th>{at("id", {}, "")}</th>
@@ -501,13 +464,13 @@
                     <td data-label={at("amount", {}, "")}>{fmtMoney(p.amount, p.currency)}</td>
                     <td data-label={at("provider", {}, "")}>{p.provider}</td>
                     <td data-label={at("status", {}, "")}>
-                      <span class="admin-badge admin-badge-{paymentStatusVariant(p.status)}">{p.status}</span>
+                      <AdminBadge variant={paymentStatusVariant(p.status)}>{p.status}</AdminBadge>
                     </td>
                     <td data-label={at("date", {}, "")}>{fmtDate(p.created_at)}</td>
                   </tr>
                 {/each}
               </tbody>
-            </table>
+            </AdminTable>
           {:else}
             <AdminEmptyState tone="card"><span class="admin-muted">{at("no_data", {}, "")}</span></AdminEmptyState>
           {/if}

@@ -18,9 +18,10 @@
     Sparkles,
     Tag,
     UsersRound,
-  } from "lucide-svelte";
+  } from "$components/ui/icons.js";
   import { onMount, setContext } from "svelte";
   import { Select } from "$components/ui/primitives.js";
+  import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
 
   import BrandMark from "../BrandMark.svelte";
   import AdsSection from "./sections/AdsSection.svelte";
@@ -140,6 +141,11 @@
   }
   let sidebarOpen = false;
   let isCompact = false;
+  let adminLanguageMenuOpen = false;
+  let adminLanguageClickGuard = false;
+  let adminLanguageClickGuardArmed = false;
+  let adminLanguageClickGuardTimer = null;
+  let adminLanguageClickGuardArmTimer = null;
 
   function flash(text) {
     onToast(text);
@@ -246,6 +252,44 @@
     isCompact = Boolean(event?.matches);
   }
 
+  function clearAdminLanguageClickGuard() {
+    if (adminLanguageClickGuardTimer) {
+      window.clearTimeout(adminLanguageClickGuardTimer);
+      adminLanguageClickGuardTimer = null;
+    }
+    if (adminLanguageClickGuardArmTimer) {
+      window.clearTimeout(adminLanguageClickGuardArmTimer);
+      adminLanguageClickGuardArmTimer = null;
+    }
+    adminLanguageClickGuard = false;
+    adminLanguageClickGuardArmed = false;
+  }
+
+  function setAdminLanguageMenuOpen(open) {
+    adminLanguageMenuOpen = Boolean(open);
+    clearAdminLanguageClickGuard();
+    if (adminLanguageMenuOpen) {
+      adminLanguageClickGuard = true;
+      adminLanguageClickGuardArmTimer = window.setTimeout(() => {
+        adminLanguageClickGuardArmed = true;
+        adminLanguageClickGuardArmTimer = null;
+      }, 220);
+      return;
+    }
+    adminLanguageClickGuard = true;
+    adminLanguageClickGuardArmed = false;
+    adminLanguageClickGuardTimer = window.setTimeout(() => {
+      adminLanguageClickGuard = false;
+      adminLanguageClickGuardTimer = null;
+    }, 260);
+  }
+
+  function closeAdminLanguageFromGuard(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (adminLanguageClickGuardArmed) setAdminLanguageMenuOpen(false);
+  }
+
   onMount(() => {
     if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
       compactMql = window.matchMedia("(max-width: 720px)");
@@ -262,6 +306,7 @@
         else if (compactMql.removeListener) compactMql.removeListener(onCompactChange);
       }
       if (typeof window !== "undefined") window.removeEventListener("popstate", onPopState);
+      clearAdminLanguageClickGuard();
     };
   });
 
@@ -274,6 +319,16 @@
   {#if sidebarOpen}
     <button type="button" class="admin-sidebar-backdrop" aria-label={at("close_menu", {}, "Закрыть меню")} on:click={() => (sidebarOpen = false)}></button>
   {/if}
+  {#if adminLanguageMenuOpen || adminLanguageClickGuard}
+    <button
+      class="language-select-guard"
+      class:language-select-guard--armed={adminLanguageClickGuardArmed}
+      type="button"
+      aria-label={t("wa_close", {}, at("close", {}, "Закрыть"))}
+      on:pointerdown={closeAdminLanguageFromGuard}
+      on:click={closeAdminLanguageFromGuard}
+    ></button>
+  {/if}
 
   <aside class="admin-sidebar" aria-label={at("sidebar_navigation", {}, "Навигация админки")}>
     <div class="admin-sidebar-brand">
@@ -282,9 +337,9 @@
         <strong class="admin-brand-title">{brandTitle}</strong>
         <small>{at("panel_title", {}, "Админ-панель")}</small>
       </div>
-      <button type="button" class="admin-btn admin-btn-icon admin-btn-ghost" on:click={onClose} aria-label={at("exit", {}, "Выйти")}>
+      <AdminButton variant="ghost" size="icon" onclick={onClose} aria-label={at("exit", {}, "Выйти")}>
         <ArrowLeft size={16} />
-      </button>
+      </AdminButton>
     </div>
 
     {#each NAV_GROUPS as group}
@@ -304,7 +359,15 @@
       {#if languageOptions.length}
         <div class="admin-language-switch">
           <Globe2 size={16} />
-          <Select.Root type="single" value={currentLang} items={languageOptions} disabled={languageBusy} onValueChange={onLanguageChange}>
+          <Select.Root
+            type="single"
+            bind:open={adminLanguageMenuOpen}
+            value={currentLang}
+            items={languageOptions}
+            disabled={languageBusy}
+            onOpenChange={setAdminLanguageMenuOpen}
+            onValueChange={onLanguageChange}
+          >
             <Select.Trigger class="admin-language-trigger" aria-label={t("wa_settings_language", {}, at("language", {}, "Язык"))}>
               <span>
                 <strong>{t("wa_settings_language", {}, at("language", {}, "Язык"))}</strong>
@@ -351,37 +414,37 @@
       </div>
       <div class="admin-header-actions">
         {#if active === "stats"}
-          <button type="button" class="admin-btn" on:click={statsStore.triggerSync} disabled={syncBusy}>
+          <AdminButton onclick={statsStore.triggerSync} disabled={syncBusy}>
             <RefreshCw size={14} /> {syncBusy ? at("btn_syncing", {}, "Синхронизация...") : at("btn_sync", {}, "Синхронизировать")}
-          </button>
+          </AdminButton>
         {/if}
         {#if active === "payments"}
-          <button type="button" class="admin-btn" on:click={exportPayments}>
+          <AdminButton onclick={exportPayments}>
             <Download size={14} /> CSV
-          </button>
+          </AdminButton>
         {/if}
         {#if active === "promos"}
-          <button type="button" class="admin-btn admin-btn-primary" on:click={() => promosStore.setCreateOpen(true)}>
+          <AdminButton variant="primary" onclick={() => promosStore.setCreateOpen(true)}>
             <Plus size={14} /> {at("btn_create", {}, "Создать")}
-          </button>
+          </AdminButton>
         {/if}
         {#if active === "ads"}
-          <button type="button" class="admin-btn admin-btn-primary" on:click={() => adsStore.setCreateOpen(true)}>
+          <AdminButton variant="primary" onclick={() => adsStore.setCreateOpen(true)}>
             <Plus size={14} /> {at("btn_campaign", {}, "Кампания")}
-          </button>
+          </AdminButton>
         {/if}
         {#if active === "tariffs"}
-          <button type="button" class="admin-btn admin-btn-primary" on:click={tariffsStore.openCreateTariff}>
+          <AdminButton variant="primary" onclick={tariffsStore.openCreateTariff}>
             <Plus size={14} /> {at("btn_tariff", {}, "Тариф")}
-          </button>
+          </AdminButton>
         {/if}
         {#if active === "settings"}
           {#if dirtyCount}
-            <span class="admin-badge admin-badge-warning">{at("settings_dirty_count", { count: dirtyCount }, "Изменений: " + dirtyCount)}</span>
+            <AdminBadge variant="warning">{at("settings_dirty_count", { count: dirtyCount }, "Изменений: " + dirtyCount)}</AdminBadge>
           {/if}
-          <button type="button" class="admin-btn admin-btn-primary" on:click={() => settingsStore.saveSettings(onSettingsSaved)} disabled={!dirtyCount || settingsSaving}>
+          <AdminButton variant="primary" onclick={() => settingsStore.saveSettings(onSettingsSaved)} disabled={!dirtyCount || settingsSaving}>
             <Save size={14} /> {settingsSaving ? at("btn_saving", {}, "Сохранение...") : at("btn_save", {}, "Сохранить")}
-          </button>
+          </AdminButton>
         {/if}
       </div>
     </header>
@@ -395,7 +458,6 @@
         <UsersSection
           {at}
           {fmtDateShort}
-          {optionLabel}
           {panelStatusBadge}
           {resolvedAvatarUrl}
           {userDisplayName}
@@ -417,7 +479,7 @@
       {/if}
 
       {#if active === "broadcast"}
-        <BroadcastSection {at} {optionLabel} />
+        <BroadcastSection {at} />
       {/if}
 
       {#if active === "logs"}

@@ -1,7 +1,8 @@
 <script>
-  import { Tabs, Select, Switch, Label } from "$components/ui/primitives.js";
+  import { Tabs, Switch, Label } from "$components/ui/primitives.js";
   import Dialog from "$components/ui/dialog.svelte";
-  import { Check, ChevronDown, Plus, Save, Trash2, X } from "lucide-svelte";
+  import { Plus, Save, Trash2, X } from "$components/ui/icons.js";
+  import { AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
   import { getContext } from "svelte";
   import { normalizeUuidList } from "../../lib/admin/tariffDraft.js";
   
@@ -21,6 +22,15 @@
     panelSquads,
     tariffEditorTab,
   } = $tariffsStore);
+
+  $: billingModelOptions = [
+    { value: "period", label: at("tariff_model_period_label", {}, "Период") },
+    { value: "traffic", label: at("tariff_model_traffic_label", {}, "Трафик") },
+  ];
+  $: panelSquadOptions = (panelSquads || []).map((squad) => ({
+    value: squad.uuid,
+    label: squad.name,
+  }));
 
 </script>
 
@@ -52,24 +62,11 @@
         <div class="admin-field-label">
           <span>{at("tariff_label_model", {}, "Модель тарификации")}</span>
           <small><b>{at("tariff_model_period_label", {}, "Период")}</b> — {at("tariff_model_period_desc", {}, "пользователь покупает фиксированный срок (1/3/12 мес. и т.д.)")}. <b>{at("tariff_model_traffic_label", {}, "Трафик")}</b> — {at("tariff_model_traffic_desc", {}, "пользователь покупает пакеты гигабайт по фиксированной цене за GB")}</small>
-          <Select.Root type="single" bind:value={$tariffsStore.tariffDraft.billing_model}>
-            <Select.Trigger class="admin-select-trigger" aria-label={at("tariff_label_model", {}, "Модель")}>
-              <span>{tariffDraft.billing_model === "traffic" ? at("tariff_model_traffic_label", {}, "Трафик") : at("tariff_model_period_label", {}, "Период")}</span>
-              <ChevronDown size={14} class="admin-select-icon" />
-            </Select.Trigger>
-            <Select.Portal>
-              <Select.Content class="admin-select-content" sideOffset={6}>
-                <Select.Item value="period" class="admin-select-item">
-                  <span>{at("tariff_model_period_label", {}, "Период")}</span>
-                  <Check size={14} class="admin-select-item-check" />
-                </Select.Item>
-                <Select.Item value="traffic" class="admin-select-item">
-                  <span>{at("tariff_model_traffic_label", {}, "Трафик")}</span>
-                  <Check size={14} class="admin-select-item-check" />
-                </Select.Item>
-              </Select.Content>
-            </Select.Portal>
-          </Select.Root>
+          <AdminSelect
+            bind:value={$tariffsStore.tariffDraft.billing_model}
+            items={billingModelOptions}
+            ariaLabel={at("tariff_label_model", {}, "Модель")}
+          />
         </div>
       </div>
 
@@ -112,29 +109,16 @@
       <div class="admin-field-label">
         <span>{at("tariff_label_squads", {}, "Базовые Internal Squads")}</span>
         <small>{panelSquadsLoading ? at("loading_squads", {}, "Загружаю список из панели…") : at("tariff_hint_squads", {}, "Сквады Remnawave, к которым подключается пользователь по этому тарифу. Выберите один или несколько")}</small>
-        <Select.Root
-          type="single"
+        <AdminSelect
           bind:value={$tariffsStore.selectedBaseSquad}
+          items={panelSquadOptions}
+          placeholder={at("btn_add_squad", {}, "Добавить сквад")}
+          ariaLabel={at("btn_add_squad", {}, "Добавить основной сквад")}
           onValueChange={(value) => {
             tariffsStore.addSquadToDraft("squadUuids", value);
             selectedBaseSquad = "";
           }}
-        >
-          <Select.Trigger class="admin-select-trigger" aria-label={at("btn_add_squad", {}, "Добавить основной сквад")}>
-            <span>{at("btn_add_squad", {}, "Добавить сквад")}</span>
-            <ChevronDown size={14} class="admin-select-icon" />
-          </Select.Trigger>
-          <Select.Portal>
-            <Select.Content class="admin-select-content" sideOffset={6}>
-              {#each panelSquads as squad}
-                <Select.Item value={squad.uuid} class="admin-select-item">
-                  <span>{squad.name}</span>
-                  <Check size={14} class="admin-select-item-check" />
-                </Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Portal>
-        </Select.Root>
+        />
         <div class="admin-chip-list">
           {#each normalizeUuidList(tariffDraft.squadUuids) as uuid}
             <button type="button" class="admin-chip" on:click={() => tariffsStore.removeSquadFromDraft("squadUuids", uuid)}>
@@ -190,29 +174,16 @@
           <div class="admin-field-label">
             <span>{at("tariff_label_premium_squads", {}, "Premium Internal Squads")}</span>
             <small>{at("tariff_hint_premium_squads", {}, "Сквады из Remnawave, доступные только владельцам этого тарифа. Трафик считается по их accessible nodes")}</small>
-            <Select.Root
-              type="single"
+            <AdminSelect
               bind:value={$tariffsStore.selectedPremiumSquad}
+              items={panelSquadOptions}
+              placeholder={at("btn_add_premium_squad", {}, "Добавить premium-сквад")}
+              ariaLabel={at("btn_add_premium_squad", {}, "Добавить premium-сквад")}
               onValueChange={(value) => {
                 tariffsStore.addSquadToDraft("premiumSquadUuids", value);
                 selectedPremiumSquad = "";
               }}
-            >
-              <Select.Trigger class="admin-select-trigger" aria-label={at("btn_add_premium_squad", {}, "Добавить premium-сквад")}>
-                <span>{at("btn_add_premium_squad", {}, "Добавить premium-сквад")}</span>
-                <ChevronDown size={14} class="admin-select-icon" />
-              </Select.Trigger>
-              <Select.Portal>
-                <Select.Content class="admin-select-content" sideOffset={6}>
-                  {#each panelSquads as squad}
-                    <Select.Item value={squad.uuid} class="admin-select-item">
-                      <span>{squad.name}</span>
-                      <Check size={14} class="admin-select-item-check" />
-                    </Select.Item>
-                  {/each}
-                </Select.Content>
-              </Select.Portal>
-            </Select.Root>
+            />
             <div class="admin-chip-list">
               {#each normalizeUuidList(tariffDraft.premiumSquadUuids) as uuid}
                 <button type="button" class="admin-chip" on:click={() => tariffsStore.removeSquadFromDraft("premiumSquadUuids", uuid)}>
@@ -236,8 +207,8 @@
             <small>{at("tariff_premium_topup_subtitle", {}, "Пакеты для расширения месячного premium-лимита, когда пользователь его исчерпал")}</small>
           </div>
           <div class="admin-editor-section-actions">
-            <button type="button" class="admin-btn admin-btn-sm" on:click={() => tariffsStore.addDraftRow("premiumTopupRubRows", { gb: 10, price: "" })}><Plus size={12} /> {at("tariff_btn_package_rub", {}, "Пакет ₽")}</button>
-            <button type="button" class="admin-btn admin-btn-sm" on:click={() => tariffsStore.addDraftRow("premiumTopupStarsRows", { gb: 10, price: "" })}><Plus size={12} /> {at("tariff_btn_package_stars", {}, "Пакет ⭐")}</button>
+            <AdminButton size="sm" onclick={() => tariffsStore.addDraftRow("premiumTopupRubRows", { gb: 10, price: "" })}><Plus size={12} /> {at("tariff_btn_package_rub", {}, "Пакет ₽")}</AdminButton>
+            <AdminButton size="sm" onclick={() => tariffsStore.addDraftRow("premiumTopupStarsRows", { gb: 10, price: "" })}><Plus size={12} /> {at("tariff_btn_package_stars", {}, "Пакет ⭐")}</AdminButton>
           </div>
         </header>
         <div class="admin-package-columns">
@@ -254,7 +225,7 @@
               <div class="admin-row-editor-line">
                 <input class="input" type="number" min="0.1" step="0.1" placeholder="10" bind:value={row.gb} aria-label={at("tariff_col_volume_gb", {}, "Объём premium-пакета в GB")} />
                 <input class="input" type="number" min="0" step="0.01" placeholder="199" bind:value={row.price} aria-label={at("tariff_label_price_rub", {}, "Цена premium-пакета в рублях")} />
-                <button type="button" class="admin-btn admin-btn-sm admin-btn-danger" on:click={() => tariffsStore.removeDraftRow("premiumTopupRubRows", index)} aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></button>
+                <AdminButton size="sm" variant="danger" onclick={() => tariffsStore.removeDraftRow("premiumTopupRubRows", index)} aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></AdminButton>
               </div>
             {/each}
           </div>
@@ -271,7 +242,7 @@
               <div class="admin-row-editor-line">
                 <input class="input" type="number" min="0.1" step="0.1" placeholder="10" bind:value={row.gb} aria-label={at("tariff_col_volume_gb", {}, "Объём premium-пакета в GB")} />
                 <input class="input" type="number" min="0" step="1" placeholder="100" bind:value={row.price} aria-label={at("tariff_label_price_stars", {}, "Цена premium-пакета в Telegram Stars")} />
-                <button type="button" class="admin-btn admin-btn-sm admin-btn-danger" on:click={() => tariffsStore.removeDraftRow("premiumTopupStarsRows", index)} aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></button>
+                <AdminButton size="sm" variant="danger" onclick={() => tariffsStore.removeDraftRow("premiumTopupStarsRows", index)} aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></AdminButton>
               </div>
             {/each}
           </div>
@@ -287,9 +258,9 @@
               <strong>{at("tariff_pricing_period_title", {}, "Периоды подписки и цены")}</strong>
               <small>{at("tariff_pricing_period_subtitle", {}, "Каждая строка — отдельный вариант на витрине: за сколько месяцев пользователь платит и сколько это стоит")}</small>
             </div>
-            <button type="button" class="admin-btn admin-btn-sm" on:click={() => tariffsStore.addDraftRow("periodRows", { months: 1, rub: "", stars: "" })}>
+            <AdminButton size="sm" onclick={() => tariffsStore.addDraftRow("periodRows", { months: 1, rub: "", stars: "" })}>
               <Plus size={13} /> {at("tariff_btn_period", {}, "Период")}
-            </button>
+            </AdminButton>
           </header>
           {#if !tariffDraft.periodRows.length}
             <p class="admin-muted">{at("tariff_pricing_empty", {}, "Добавьте хотя бы один период — без него тариф не появится на витрине.")}</p>
@@ -306,9 +277,9 @@
                   <input class="input" type="number" min="1" placeholder="1" bind:value={row.months} aria-label={at("tariff_col_period_months", {}, "Срок (месяцы)")} />
                   <input class="input" type="number" min="0" step="0.01" placeholder="299" bind:value={row.rub} aria-label={at("tariff_label_price_rub", {}, "Цена в рублях")} />
                   <input class="input" type="number" min="0" step="1" placeholder="150" bind:value={row.stars} aria-label={at("tariff_label_price_stars", {}, "Цена в Telegram Stars")} />
-                  <button type="button" class="admin-btn admin-btn-sm admin-btn-danger" on:click={() => tariffsStore.removeDraftRow("periodRows", index)} aria-label={at("btn_delete", {}, "Удалить")}>
+                  <AdminButton size="sm" variant="danger" onclick={() => tariffsStore.removeDraftRow("periodRows", index)} aria-label={at("btn_delete", {}, "Удалить")}>
                     <Trash2 size={13} />
-                  </button>
+                  </AdminButton>
                 </div>
               {/each}
             </div>
@@ -322,8 +293,8 @@
               <small>{at("tariff_pricing_traffic_subtitle", {}, "Базовая витрина для трафиковой модели. Каждая строка — пакет «N гигабайт за N единиц валюты»")}</small>
             </div>
             <div class="admin-editor-section-actions">
-              <button type="button" class="admin-btn admin-btn-sm" on:click={() => tariffsStore.addDraftRow("trafficRubRows", { gb: 10, price: "" })}><Plus size={12} /> {at("tariff_btn_package_rub", {}, "Пакет ₽")}</button>
-              <button type="button" class="admin-btn admin-btn-sm" on:click={() => tariffsStore.addDraftRow("trafficStarsRows", { gb: 10, price: "" })}><Plus size={12} /> {at("tariff_btn_package_stars", {}, "Пакет ⭐")}</button>
+              <AdminButton size="sm" onclick={() => tariffsStore.addDraftRow("trafficRubRows", { gb: 10, price: "" })}><Plus size={12} /> {at("tariff_btn_package_rub", {}, "Пакет ₽")}</AdminButton>
+              <AdminButton size="sm" onclick={() => tariffsStore.addDraftRow("trafficStarsRows", { gb: 10, price: "" })}><Plus size={12} /> {at("tariff_btn_package_stars", {}, "Пакет ⭐")}</AdminButton>
             </div>
           </header>
           <div class="admin-package-columns">
@@ -340,7 +311,7 @@
                 <div class="admin-row-editor-line">
                   <input class="input" type="number" min="0.1" step="0.1" placeholder="50" bind:value={row.gb} aria-label={at("tariff_col_volume_gb", {}, "Объём пакета в GB")} />
                   <input class="input" type="number" min="0" step="0.01" placeholder="299" bind:value={row.price} aria-label={at("tariff_label_price_rub", {}, "Цена пакета в рублях")} />
-                  <button type="button" class="admin-btn admin-btn-sm admin-btn-danger" on:click={() => tariffsStore.removeDraftRow("trafficRubRows", index)} aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></button>
+                  <AdminButton size="sm" variant="danger" onclick={() => tariffsStore.removeDraftRow("trafficRubRows", index)} aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></AdminButton>
                 </div>
               {/each}
             </div>
@@ -357,7 +328,7 @@
                 <div class="admin-row-editor-line">
                   <input class="input" type="number" min="0.1" step="0.1" placeholder="50" bind:value={row.gb} aria-label={at("tariff_col_volume_gb", {}, "Объём пакета в GB")} />
                   <input class="input" type="number" min="0" step="1" placeholder="150" bind:value={row.price} aria-label={at("tariff_label_price_stars", {}, "Цена пакета в Telegram Stars")} />
-                  <button type="button" class="admin-btn admin-btn-sm admin-btn-danger" on:click={() => tariffsStore.removeDraftRow("trafficStarsRows", index)} aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></button>
+                  <AdminButton size="sm" variant="danger" onclick={() => tariffsStore.removeDraftRow("trafficStarsRows", index)} aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></AdminButton>
                 </div>
               {/each}
             </div>
@@ -375,8 +346,8 @@
               <small>{at("tariff_topup_subtitle", {}, "Когда у пользователя кончился месячный лимит, ему предложат купить дополнительный пакет, не меняя срок подписки")}</small>
             </div>
             <div class="admin-editor-section-actions">
-              <button type="button" class="admin-btn admin-btn-sm" on:click={() => tariffsStore.addDraftRow("topupRubRows", { gb: 10, price: "" })}><Plus size={12} /> {at("tariff_btn_package_rub", {}, "Пакет ₽")}</button>
-              <button type="button" class="admin-btn admin-btn-sm" on:click={() => tariffsStore.addDraftRow("topupStarsRows", { gb: 10, price: "" })}><Plus size={12} /> {at("tariff_btn_package_stars", {}, "Пакет ⭐")}</button>
+              <AdminButton size="sm" onclick={() => tariffsStore.addDraftRow("topupRubRows", { gb: 10, price: "" })}><Plus size={12} /> {at("tariff_btn_package_rub", {}, "Пакет ₽")}</AdminButton>
+              <AdminButton size="sm" onclick={() => tariffsStore.addDraftRow("topupStarsRows", { gb: 10, price: "" })}><Plus size={12} /> {at("tariff_btn_package_stars", {}, "Пакет ⭐")}</AdminButton>
             </div>
           </header>
           <div class="admin-package-columns">
@@ -393,7 +364,7 @@
                 <div class="admin-row-editor-line">
                   <input class="input" type="number" min="0.1" step="0.1" placeholder="20" bind:value={row.gb} aria-label={at("tariff_col_volume_gb", {}, "Объём пакета в GB")} />
                   <input class="input" type="number" min="0" step="0.01" placeholder="149" bind:value={row.price} aria-label={at("tariff_label_price_rub", {}, "Цена пакета в рублях")} />
-                  <button type="button" class="admin-btn admin-btn-sm admin-btn-danger" on:click={() => tariffsStore.removeDraftRow("topupRubRows", index)} aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></button>
+                  <AdminButton size="sm" variant="danger" onclick={() => tariffsStore.removeDraftRow("topupRubRows", index)} aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></AdminButton>
                 </div>
               {/each}
             </div>
@@ -410,7 +381,7 @@
                 <div class="admin-row-editor-line">
                   <input class="input" type="number" min="0.1" step="0.1" placeholder="20" bind:value={row.gb} aria-label={at("tariff_col_volume_gb", {}, "Объём пакета в GB")} />
                   <input class="input" type="number" min="0" step="1" placeholder="75" bind:value={row.price} aria-label={at("tariff_label_price_stars", {}, "Цена пакета в Telegram Stars")} />
-                  <button type="button" class="admin-btn admin-btn-sm admin-btn-danger" on:click={() => tariffsStore.removeDraftRow("topupStarsRows", index)} aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></button>
+                  <AdminButton size="sm" variant="danger" onclick={() => tariffsStore.removeDraftRow("topupStarsRows", index)} aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></AdminButton>
                 </div>
               {/each}
             </div>
@@ -429,8 +400,8 @@
             <small>{at("tariff_hwid_packages_subtitle", {}, "Расширяет лимит, указанный во вкладке «Основное». Каждая строка — пакет «+N устройств за N единиц валюты»")}</small>
           </div>
           <div class="admin-editor-section-actions">
-            <button type="button" class="admin-btn admin-btn-sm" on:click={() => tariffsStore.addDraftRow("hwidRubRows", { count: 1, price: "" })}><Plus size={12} /> {at("tariff_btn_package_rub", {}, "Пакет ₽")}</button>
-            <button type="button" class="admin-btn admin-btn-sm" on:click={() => tariffsStore.addDraftRow("hwidStarsRows", { count: 1, price: "" })}><Plus size={12} /> {at("tariff_btn_package_stars", {}, "Пакет ⭐")}</button>
+            <AdminButton size="sm" onclick={() => tariffsStore.addDraftRow("hwidRubRows", { count: 1, price: "" })}><Plus size={12} /> {at("tariff_btn_package_rub", {}, "Пакет ₽")}</AdminButton>
+            <AdminButton size="sm" onclick={() => tariffsStore.addDraftRow("hwidStarsRows", { count: 1, price: "" })}><Plus size={12} /> {at("tariff_btn_package_stars", {}, "Пакет ⭐")}</AdminButton>
           </div>
         </header>
         <div class="admin-package-columns">
@@ -447,7 +418,7 @@
               <div class="admin-row-editor-line">
                 <input class="input" type="number" min="1" step="1" placeholder="1" bind:value={row.count} aria-label={at("tariff_label_hwid_count_full", {}, "Сколько устройств добавляет пакет")} />
                 <input class="input" type="number" min="0" step="0.01" placeholder="99" bind:value={row.price} aria-label={at("tariff_label_price_rub", {}, "Цена пакета в рублях")} />
-                <button type="button" class="admin-btn admin-btn-sm admin-btn-danger" on:click={() => tariffsStore.removeDraftRow("hwidRubRows", index)} aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></button>
+                <AdminButton size="sm" variant="danger" onclick={() => tariffsStore.removeDraftRow("hwidRubRows", index)} aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></AdminButton>
               </div>
             {/each}
           </div>
@@ -464,7 +435,7 @@
               <div class="admin-row-editor-line">
                 <input class="input" type="number" min="1" step="1" placeholder="1" bind:value={row.count} aria-label={at("tariff_label_hwid_count_full", {}, "Сколько устройств добавляет пакет")} />
                 <input class="input" type="number" min="0" step="1" placeholder="50" bind:value={row.price} aria-label={at("tariff_label_price_stars", {}, "Цена пакета в Telegram Stars")} />
-                <button type="button" class="admin-btn admin-btn-sm admin-btn-danger" on:click={() => tariffsStore.removeDraftRow("hwidStarsRows", index)} aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></button>
+                <AdminButton size="sm" variant="danger" onclick={() => tariffsStore.removeDraftRow("hwidStarsRows", index)} aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></AdminButton>
               </div>
             {/each}
           </div>
@@ -474,10 +445,10 @@
   </Tabs.Root>
 
   <div class="admin-dialog-actions">
-    <button type="button" class="admin-btn" on:click={() => tariffsStore.updateState({ tariffEditorOpen: false })}>{at("btn_cancel", {}, "Отмена")}</button>
-    <button type="button" class="admin-btn admin-btn-primary" on:click={tariffsStore.saveTariffDraft} disabled={tariffsSaving || !tariffDraft.key.trim()}>
+    <AdminButton onclick={() => tariffsStore.updateState({ tariffEditorOpen: false })}>{at("btn_cancel", {}, "Отмена")}</AdminButton>
+    <AdminButton variant="primary" onclick={tariffsStore.saveTariffDraft} disabled={tariffsSaving || !tariffDraft.key.trim()}>
       <Save size={14} /> {tariffsSaving ? at("btn_saving", {}, "Сохранение...") : at("btn_save_tariff", {}, "Сохранить тариф")}
-    </button>
+    </AdminButton>
   </div>
 </Dialog>
 
@@ -490,9 +461,9 @@
   class="admin-dialog"
 >
   <div class="admin-form-row">
-    <button type="button" class="admin-btn" on:click={() => tariffsStore.updateState({ tariffDeleteOpen: false })}>{at("btn_cancel", {}, "Отмена")}</button>
-    <button type="button" class="admin-btn admin-btn-danger" on:click={tariffsStore.deleteTariff} disabled={tariffsSaving}>
+    <AdminButton onclick={() => tariffsStore.updateState({ tariffDeleteOpen: false })}>{at("btn_cancel", {}, "Отмена")}</AdminButton>
+    <AdminButton variant="danger" onclick={tariffsStore.deleteTariff} disabled={tariffsSaving}>
       <Trash2 size={14} /> {at("btn_confirm_delete", {}, "Подтвердить удаление")}
-    </button>
+    </AdminButton>
   </div>
 </Dialog>

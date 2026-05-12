@@ -1,6 +1,6 @@
 <script>
-  import { ChevronLeft, ChevronRight } from "lucide-svelte";
   import { getContext, onMount } from "svelte";
+  import { AdminButton, AdminEmptyState, AdminPagination, AdminTable, AdminTableSkeleton } from "$components/patterns/admin/index.js";
 
   export let at;
   export let fmtDate;
@@ -16,6 +16,13 @@
   } = $logsStore);
 
   $: logsHasMore = logs.length > 0 && logsTotal > (logsPage + 1) * 50; // 50 is LOGS_PAGE_SIZE
+  $: logHeaders = [
+    at("date", {}, "Дата"),
+    at("event", {}, "Событие"),
+    at("user_short", {}, "User"),
+    at("target_short", {}, "Target"),
+    at("content", {}, "Контент"),
+  ];
 
   onMount(() => {
     logsStore.loadLogs();
@@ -32,8 +39,8 @@
       on:input={(e) => logsStore.setFilter(e.target.value)}
       on:keydown={(e) => e.key === "Enter" && (logsStore.setPage(0))}
     />
-    <button type="button" class="admin-btn admin-btn-primary" on:click={() => { logsStore.setPage(0); }}>{at("apply", {}, "Применить")}</button>
-    <button type="button" class="admin-btn admin-btn-ghost" on:click={() => { logsStore.setFilter(""); logsStore.setPage(0); }}>{at("reset", {}, "Сбросить")}</button>
+    <AdminButton variant="primary" onclick={() => { logsStore.setPage(0); }}>{at("apply", {}, "Применить")}</AdminButton>
+    <AdminButton variant="ghost" onclick={() => { logsStore.setFilter(""); logsStore.setPage(0); }}>{at("reset", {}, "Сбросить")}</AdminButton>
   </div>
   <div class="admin-toolbar-summary">
     <span class="admin-toolbar-field-label">{at("total", {}, "Всего")}</span>
@@ -43,28 +50,11 @@
 
 <div class="admin-table-wrap">
   {#if logsLoading}
-    <table class="admin-table admin-table-skeleton" aria-hidden="true">
-      <thead>
-        <tr>
-          <th>{at("date", {}, "Дата")}</th><th>{at("event", {}, "Событие")}</th><th>User</th><th>Target</th><th>{at("content", {}, "Контент")}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each Array(10) as _, i (i)}
-          <tr>
-            <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span></td>
-            <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span></td>
-            <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"></span></td>
-            <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"></span></td>
-            <td><span class="admin-skeleton admin-skeleton-line"></span></td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
+    <AdminTableSkeleton headers={logHeaders} rows={10} widths={["120px", "120px", "58px", "58px", "220px"]} />
   {:else if !logs.length}
-    <div class="admin-card-body"><span class="admin-muted">{at("logs_empty", {}, "Записей нет")}</span></div>
+    <AdminEmptyState tone="card"><span class="admin-muted">{at("logs_empty", {}, "Записей нет")}</span></AdminEmptyState>
   {:else}
-    <table class="admin-table">
+    <AdminTable>
       <thead>
         <tr>
           <th>{at("date", {}, "Дата")}</th>
@@ -85,18 +75,16 @@
           </tr>
         {/each}
       </tbody>
-    </table>
+    </AdminTable>
   {/if}
 </div>
 
-<div class="admin-pagination">
-  <span class="admin-pagination-meta">{at("page_short", {}, "Стр.")} {logsPage + 1}</span>
-  <div class="admin-pagination-buttons">
-    <button type="button" class="admin-btn admin-btn-sm" disabled={logsPage === 0} on:click={() => { logsStore.setPage(Math.max(0, logsPage - 1)); }}>
-      <ChevronLeft size={14} /> {at("back", {}, "Назад")}
-    </button>
-    <button type="button" class="admin-btn admin-btn-sm" disabled={!logsHasMore} on:click={() => { logsStore.setPage(logsPage + 1); }}>
-      {at("next", {}, "Далее")} <ChevronRight size={14} />
-    </button>
-  </div>
-</div>
+<AdminPagination
+  meta={`${at("page_short", {}, "Стр.")} ${logsPage + 1}`}
+  prevLabel={at("back", {}, "Назад")}
+  nextLabel={at("next", {}, "Далее")}
+  prevDisabled={logsPage === 0}
+  nextDisabled={!logsHasMore}
+  onPrev={() => { logsStore.setPage(Math.max(0, logsPage - 1)); }}
+  onNext={() => { logsStore.setPage(logsPage + 1); }}
+/>

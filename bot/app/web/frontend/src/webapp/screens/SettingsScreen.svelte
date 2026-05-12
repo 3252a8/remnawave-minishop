@@ -1,9 +1,9 @@
 <script>
-  import { ArrowRight, Check, CheckCircle2, ChevronsUpDown, FileText, Globe2, Mail, Send, Shield, UserRound } from "lucide-svelte";
-  import { Select } from "$components/ui/primitives.js";
+  import { ArrowRight, CheckCircle2, FileText, Mail, Send, Shield, UserRound } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
+  import { LanguageSelect } from "$components/patterns/webapp/index.js";
 
   export let currentLang = "ru";
   export let currentLanguageOption = null;
@@ -107,53 +107,21 @@
     {/if}
     <div class="settings-divider" aria-hidden="true"></div>
   </div>
-  {#if languageMenuOpen || languageClickGuard}
-    <button
-      class="language-select-guard"
-      class:language-select-guard--armed={languageClickGuardArmed}
-      type="button"
-      aria-label={t("wa_close")}
-      onpointerdown={(e) => { e.preventDefault(); e.stopPropagation(); if (languageClickGuardArmed) setLanguageMenuOpen(false); }}
-      onclick={(e) => { e.preventDefault(); e.stopPropagation(); if (languageClickGuardArmed) setLanguageMenuOpen(false); }}
-    ></button>
-  {/if}
   <div class="settings-list" class:settings-list--language-open={languageMenuOpen}>
-    <div class="settings-row settings-row-language">
-      <Globe2 size={21} />
-      <Select.Root
-        type="single"
-        bind:open={languageMenuOpen}
-        value={currentLang}
-        items={languageOptions}
-        disabled={languageBusy}
-        onOpenChange={setLanguageMenuOpen}
-        onValueChange={updateAccountLanguage}
-      >
-        <Select.Trigger class="language-select-trigger" aria-label={t("wa_settings_language")}>
-          <span class="language-select-copy">
-            <strong>{t("wa_settings_language")}</strong>
-            <small class="language-select-current">
-              <span class="emoji-flag" aria-hidden="true">{currentLanguageOption?.flag || "🏳️"}</span>
-              {currentLanguageOption?.label || userLanguage}
-            </small>
-          </span>
-          <ChevronsUpDown size={16} />
-        </Select.Trigger>
-        <Select.Content class="language-select-content" side="bottom" align="end" sideOffset={6}>
-          <Select.Viewport class="language-select-viewport">
-            {#each languageOptions as option (option.value)}
-              <Select.Item value={option.value} label={option.label} class="language-select-item">
-                <span class="language-select-item-main">
-                  <span class="emoji-flag" aria-hidden="true">{option.flag}</span>
-                  <span>{option.label}</span>
-                </span>
-                <Check size={15} class="language-select-item-check" />
-              </Select.Item>
-            {/each}
-          </Select.Viewport>
-        </Select.Content>
-      </Select.Root>
-    </div>
+    <LanguageSelect
+      bind:open={languageMenuOpen}
+      value={currentLang}
+      currentOption={currentLanguageOption}
+      {userLanguage}
+      options={languageOptions}
+      disabled={languageBusy}
+      clickGuard={languageClickGuard}
+      clickGuardArmed={languageClickGuardArmed}
+      closeLabel={t("wa_close")}
+      label={t("wa_settings_language")}
+      onOpenChange={setLanguageMenuOpen}
+      onValueChange={updateAccountLanguage}
+    />
     {#if supportUrl}
       <button class="settings-row settings-row-support" type="button" onclick={() => openExternalLink(supportUrl)}>
         <Send size={21} />

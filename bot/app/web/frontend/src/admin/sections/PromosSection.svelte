@@ -1,8 +1,15 @@
 <script>
-  import { Trash2 } from "lucide-svelte";
+  import { Trash2 } from "$components/ui/icons.js";
   import { getContext, onMount } from "svelte";
   import Dialog from "$components/ui/dialog.svelte";
-  import { Label } from "$components/ui/primitives.js";
+  import {
+    AdminBadge,
+    AdminButton,
+    AdminEmptyState,
+    AdminField,
+    AdminTable,
+    AdminTableSkeleton,
+  } from "$components/patterns/admin/index.js";
 
   export let at;
   export let fmtDateShort;
@@ -19,6 +26,14 @@
   } = $promosStore);
 
   $: promosHasMore = promos.length < promosTotal;
+  $: promoHeaders = [
+    at("promo_col_code", {}, "Код"),
+    at("promo_col_bonus", {}, "Бонус"),
+    at("promo_col_activations", {}, "Активаций"),
+    at("promo_col_valid_until", {}, "Действует до"),
+    at("promo_col_status", {}, "Статус"),
+    at("actions", {}, "Действия"),
+  ];
 
   onMount(() => {
     promosStore.loadPromos();
@@ -27,34 +42,11 @@
 
 <div class="admin-table-wrap">
   {#if promosLoading}
-    <table class="admin-table admin-table-skeleton" aria-hidden="true">
-      <thead>
-        <tr>
-          <th>{at("promo_col_code", {}, "Код")}</th>
-          <th>{at("promo_col_bonus", {}, "Бонус")}</th>
-          <th>{at("promo_col_activations", {}, "Активаций")}</th>
-          <th>{at("promo_col_valid_until", {}, "Действует до")}</th>
-          <th>{at("promo_col_status", {}, "Статус")}</th>
-          <th class="admin-cell-actions">{at("actions", {}, "Действия")}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each Array(6) as _, i (i)}
-          <tr>
-            <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span></td>
-            <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"></span></td>
-            <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"></span></td>
-            <td><span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span></td>
-            <td><span class="admin-skeleton admin-skeleton-badge"></span></td>
-            <td><span class="admin-skeleton admin-skeleton-line"></span></td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
+    <AdminTableSkeleton headers={promoHeaders} rows={6} actionColumn widths={["92px", "52px", "64px", "96px", "72px", "92px"]} />
   {:else if !promos.length}
-    <div class="admin-card-body"><span class="admin-muted">{at("promos_empty", {}, "Промокодов нет")}</span></div>
+    <AdminEmptyState tone="card"><span class="admin-muted">{at("promos_empty", {}, "Промокодов нет")}</span></AdminEmptyState>
   {:else}
-    <table class="admin-table">
+    <AdminTable>
       <thead>
         <tr>
           <th>{at("promo_col_code", {}, "Код")}</th>
@@ -74,27 +66,27 @@
             <td data-label={at("promo_col_valid_until", {}, "Действует до")}>{p.valid_until ? fmtDateShort(p.valid_until) : "∞"}</td>
             <td data-label={at("promo_col_status", {}, "Статус")}>
               {#if p.is_active}
-                <span class="admin-badge admin-badge-success">{at("status_active", {}, "Активен")}</span>
+                <AdminBadge variant="success">{at("status_active", {}, "Активен")}</AdminBadge>
               {:else}
-                <span class="admin-badge admin-badge-muted">{at("status_disabled", {}, "Выключен")}</span>
+                <AdminBadge variant="muted">{at("status_disabled", {}, "Выключен")}</AdminBadge>
               {/if}
             </td>
             <td class="admin-cell-actions" data-label={at("actions", {}, "Действия")}>
-              <button type="button" class="admin-btn admin-btn-sm" on:click={() => promosStore.togglePromo(p)}>
+              <AdminButton size="sm" onclick={() => promosStore.togglePromo(p)}>
                 {p.is_active ? at("btn_disable", {}, "Выкл") : at("btn_enable", {}, "Вкл")}
-              </button>
-              <button type="button" class="admin-btn admin-btn-sm admin-btn-danger" on:click={() => promosStore.deletePromo(p)}>
+              </AdminButton>
+              <AdminButton size="sm" variant="danger" onclick={() => promosStore.deletePromo(p)}>
                 <Trash2 size={13} />
-              </button>
+              </AdminButton>
             </td>
           </tr>
         {/each}
       </tbody>
-    </table>
+    </AdminTable>
   {/if}
   {#if promosHasMore}
     <div style="padding: 12px; text-align: center;">
-      <button type="button" class="admin-btn" on:click={() => promosStore.setPage(promosPage + 1)}>{at("btn_show_more", {}, "Показать еще")}</button>
+      <AdminButton onclick={() => promosStore.setPage(promosPage + 1)}>{at("btn_show_more", {}, "Показать еще")}</AdminButton>
     </div>
   {/if}
 </div>
@@ -108,32 +100,28 @@
 >
   <div class="admin-form" data-dialog-content>
     <div class="admin-dialog-form-section">
-      <Label.Root class="admin-field-label">
-        <span>{at("promo_label_code", {}, "Код")}</span>
+      <AdminField label={at("promo_label_code", {}, "Код")}>
         <input type="text" class="input" value={promoDraft.code} on:input={(e) => promosStore.updateDraft({ code: e.target.value })} placeholder="FREE-7-DAYS" />
-      </Label.Root>
+      </AdminField>
     </div>
     <div class="admin-dialog-form-section">
       <div class="admin-form-row-2">
-        <Label.Root class="admin-field-label">
-          <span>{at("promo_label_bonus_days", {}, "Бонус (дней)")}</span>
+        <AdminField label={at("promo_label_bonus_days", {}, "Бонус (дней)")}>
           <input type="number" class="input" min="1" value={promoDraft.bonus_days} on:input={(e) => promosStore.updateDraft({ bonus_days: Number(e.target.value) })} />
-        </Label.Root>
-        <Label.Root class="admin-field-label">
-          <span>{at("promo_label_max_activations", {}, "Макс. активаций")}</span>
+        </AdminField>
+        <AdminField label={at("promo_label_max_activations", {}, "Макс. активаций")}>
           <input type="number" class="input" min="1" value={promoDraft.max_activations} on:input={(e) => promosStore.updateDraft({ max_activations: Number(e.target.value) })} />
-        </Label.Root>
+        </AdminField>
       </div>
-      <Label.Root class="admin-field-label">
-        <span>{at("promo_label_valid_days", {}, "Срок действия (дней от текущего)")}</span>
+      <AdminField label={at("promo_label_valid_days", {}, "Срок действия (дней от текущего)")}>
         <input type="number" class="input" min="1" value={promoDraft.valid_days} on:input={(e) => promosStore.updateDraft({ valid_days: Number(e.target.value) })} />
-      </Label.Root>
+      </AdminField>
     </div>
     <div class="admin-dialog-actions">
-      <button type="button" class="admin-btn" on:click={() => promosStore.setCreateOpen(false)}>{at("btn_cancel", {}, "Отмена")}</button>
-      <button type="button" class="admin-btn admin-btn-primary" on:click={promosStore.createPromo} disabled={!promoDraft.code.trim()}>
+      <AdminButton onclick={() => promosStore.setCreateOpen(false)}>{at("btn_cancel", {}, "Отмена")}</AdminButton>
+      <AdminButton variant="primary" onclick={promosStore.createPromo} disabled={!promoDraft.code.trim()}>
         {at("btn_create", {}, "Создать")}
-      </button>
+      </AdminButton>
     </div>
   </div>
 </Dialog>

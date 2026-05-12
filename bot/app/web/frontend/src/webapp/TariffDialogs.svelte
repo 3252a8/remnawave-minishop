@@ -1,5 +1,5 @@
 <script>
-  import { ArrowRight, CheckCircle2, LockKeyhole } from "lucide-svelte";
+  import { ArrowRight, CheckCircle2, LockKeyhole } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
   import {
@@ -10,10 +10,10 @@
   } from "../lib/webapp/tariffs.js";
   import { premiumTitle as premiumTitleFn, trafficPercent as trafficPercentFn } from "../lib/webapp/traffic.js";
   import { formatCompactNumber } from "../lib/webapp/formatters.js";
-  import { Bitcoin, CreditCard } from "lucide-svelte";
 
   import Card from "$components/ui/card.svelte";
   import Dialog from "$components/ui/dialog.svelte";
+  import { DialogOptionsSkeleton, EmptyCard, PaymentMethodGrid } from "$components/patterns/webapp/index.js";
 
   export let applyTariffChange = () => {};
   export let changeConfirmOpen = false;
@@ -42,19 +42,6 @@
   export let topupKind = "regular";
   export let subscription = {};
   export let trafficMode = false;
-
-  function methodMeta(method) {
-    const id = String(method?.id || "").toLowerCase();
-    if (id.includes("platega_sbp")) return { title: t("wa_method_platega_sbp_card"), icon: CreditCard };
-    if (id.includes("platega_crypto")) return { title: t("wa_method_platega_crypto"), icon: Bitcoin };
-    if (id.includes("yookassa") || id.includes("card")) return { title: t("pay_with_yookassa_button"), icon: null };
-    if (id.includes("severpay")) return { title: t("pay_with_severpay_button"), icon: null };
-    if (id.includes("freekassa")) return { title: t("pay_with_sbp_button"), icon: null };
-    if (id.includes("cryptopay") || id.includes("crypto")) return { title: t("pay_with_cryptopay_button"), icon: null };
-    if (id.includes("stars")) return { title: t("pay_with_stars_button"), icon: null };
-    if (id.includes("sbp")) return { title: t("pay_with_sbp_button"), icon: null };
-    return { title: t("wa_method_other_title"), icon: null };
-  }
 
   function priceLabel(plan) { return priceLabelFn(plan, selectedMethod); }
   function planKey(plan) { return planKeyFn(plan); }
@@ -152,31 +139,7 @@
 >
   <div class="payment-dialog-body">
     {#if !changeOptions}
-      <div class="dialog-skeleton" aria-label={t("wa_tariff_options_loading")}>
-        <div class="tariff-action-list">
-          {#each [1, 2] as _}
-            <div class="tariff-action-card skeleton-row">
-              <span>
-                <span class="skeleton-line skeleton-line-title"></span>
-                <span class="skeleton-line skeleton-line-short"></span>
-              </span>
-              <span class="skeleton-line skeleton-line-price"></span>
-            </div>
-          {/each}
-        </div>
-        <div class="payment-divider" aria-hidden="true"></div>
-        <div class="option-list">
-          {#each [1, 2] as _}
-            <div class="option-row change-action-row skeleton-row">
-              <span class="option-row-main">
-                <span class="skeleton-line skeleton-line-title"></span>
-                <span class="skeleton-line skeleton-line-short"></span>
-              </span>
-            </div>
-          {/each}
-        </div>
-        <div class="skeleton-pay-button"></div>
-      </div>
+      <DialogOptionsSkeleton label={t("wa_tariff_options_loading")} actions={2} rows={2} methods={0} showMeta={false} />
     {:else if changeOptions?.targets?.length}
       <p class="section-kicker">{t("wa_tariff_change_targets_title")}</p>
       <div class="tariff-action-list">
@@ -226,34 +189,17 @@
           {/each}
         </div>
         {#if selectedChangeAction?.kind === "payment"}
-          <div class="method-grid">
-            {#each methods as method}
-              {@const meta = methodMeta(method)}
-              <button
-                class:active={selectedMethod === method.id}
-                class="method-card"
-                type="button"
-                onclick={() => (selectedMethod = method.id)}
-              >
-                <span class="method-card-main">
-                  {#if meta.icon}
-                    <svelte:component this={meta.icon} size={19} />
-                  {/if}
-                  <strong>{meta.title}</strong>
-                </span>
-              </button>
-            {/each}
-          </div>
+          <PaymentMethodGrid {methods} {selectedMethod} {t} onSelect={(id) => (selectedMethod = id)} />
         {/if}
         <Button class="wide bottom-action payment-submit-button" onclick={openTariffChangeConfirm} disabled={tariffActionBusy || payBusy}>
           {selectedChangeAction?.kind === "payment" ? t("wa_pay") : t("wa_apply")}
           <ArrowRight size={17} />
         </Button>
       {:else}
-        <Card class="empty-card">{t("wa_no_tariff_change_options")}</Card>
+        <EmptyCard>{t("wa_no_tariff_change_options")}</EmptyCard>
       {/if}
     {:else}
-      <Card class="empty-card">{t("wa_no_tariff_change_options")}</Card>
+      <EmptyCard>{t("wa_no_tariff_change_options")}</EmptyCard>
     {/if}
   </div>
 </Dialog>
@@ -292,35 +238,7 @@
 >
   <div class="payment-dialog-body">
     {#if !topupOptions}
-      <div class="dialog-skeleton" aria-label={t("wa_tariff_options_loading")}>
-        <div class="option-list">
-          {#each [1, 2, 3] as _}
-            <div class="option-row plan-row skeleton-row">
-              <span class="option-row-main">
-                <span class="skeleton-line skeleton-line-title"></span>
-                <span class="skeleton-line skeleton-line-short"></span>
-              </span>
-              <span class="option-row-meta">
-                <span class="skeleton-line skeleton-line-price"></span>
-                <span class="skeleton-line skeleton-line-tiny"></span>
-              </span>
-            </div>
-          {/each}
-        </div>
-        <div class="topup-carryover-note skeleton-carryover-note">
-          <span class="skeleton-line"></span>
-          <span class="skeleton-line skeleton-line-short"></span>
-        </div>
-        <div class="method-grid">
-          {#each [1, 2] as _}
-            <div class="method-card skeleton-method">
-              <span class="skeleton-dot"></span>
-              <span class="skeleton-line skeleton-line-method"></span>
-            </div>
-          {/each}
-        </div>
-        <div class="skeleton-pay-button"></div>
-      </div>
+      <DialogOptionsSkeleton label={t("wa_tariff_options_loading")} rows={3} showNote />
     {:else if topupOptions?.plans?.length}
       <div class="option-list">
         {#each topupOptions.plans as plan}
@@ -353,30 +271,13 @@
           {/each}
         </div>
       {/if}
-      <div class="method-grid">
-        {#each methods as method}
-          {@const meta = methodMeta(method)}
-          <button
-            class:active={selectedMethod === method.id}
-            class="method-card"
-            type="button"
-            onclick={() => (selectedMethod = method.id)}
-          >
-            <span class="method-card-main">
-              {#if meta.icon}
-                <svelte:component this={meta.icon} size={19} />
-              {/if}
-              <strong>{meta.title}</strong>
-            </span>
-          </button>
-        {/each}
-      </div>
+      <PaymentMethodGrid {methods} {selectedMethod} {t} onSelect={(id) => (selectedMethod = id)} />
       <Button class="wide bottom-action payment-submit-button" onclick={createTopupPayment} disabled={!selectedTopupPlan || !methods.length || payBusy}>
         {t("wa_buy_traffic")} {selectedTopupPlan ? priceLabel(selectedTopupPlan) : ""}
         <LockKeyhole size={17} />
       </Button>
     {:else}
-      <Card class="empty-card">{t("wa_no_topup_options")}</Card>
+      <EmptyCard>{t("wa_no_topup_options")}</EmptyCard>
     {/if}
   </div>
 </Dialog>
@@ -391,30 +292,7 @@
 >
   <div class="payment-dialog-body">
     {#if !deviceTopupOptions}
-      <div class="dialog-skeleton" aria-label={t("wa_tariff_options_loading")}>
-        <div class="option-list">
-          {#each [1, 2, 3] as _}
-            <div class="option-row plan-row skeleton-row">
-              <span class="option-row-main">
-                <span class="skeleton-line skeleton-line-title"></span>
-                <span class="skeleton-line skeleton-line-short"></span>
-              </span>
-              <span class="option-row-meta">
-                <span class="skeleton-line skeleton-line-price"></span>
-              </span>
-            </div>
-          {/each}
-        </div>
-        <div class="method-grid">
-          {#each [1, 2] as _}
-            <div class="method-card skeleton-method">
-              <span class="skeleton-dot"></span>
-              <span class="skeleton-line skeleton-line-method"></span>
-            </div>
-          {/each}
-        </div>
-        <div class="skeleton-pay-button"></div>
-      </div>
+      <DialogOptionsSkeleton label={t("wa_tariff_options_loading")} rows={3} />
     {:else if deviceTopupOptions?.plans?.length}
       <div class="option-list">
         {#each deviceTopupOptions.plans as plan}
@@ -437,30 +315,13 @@
           </button>
         {/each}
       </div>
-      <div class="method-grid">
-        {#each methods as method}
-          {@const meta = methodMeta(method)}
-          <button
-            class:active={selectedMethod === method.id}
-            class="method-card"
-            type="button"
-            onclick={() => (selectedMethod = method.id)}
-          >
-            <span class="method-card-main">
-              {#if meta.icon}
-                <svelte:component this={meta.icon} size={19} />
-              {/if}
-              <strong>{meta.title}</strong>
-            </span>
-          </button>
-        {/each}
-      </div>
+      <PaymentMethodGrid {methods} {selectedMethod} {t} onSelect={(id) => (selectedMethod = id)} />
       <Button class="wide bottom-action payment-submit-button" onclick={createDeviceTopupPayment} disabled={!selectedDeviceTopupPlan || !methods.length || payBusy}>
         {t("wa_pay")} {selectedDeviceTopupPlan ? priceLabel(selectedDeviceTopupPlan) : ""}
         <LockKeyhole size={17} />
       </Button>
     {:else}
-      <Card class="empty-card">{t("wa_no_hwid_device_options")}</Card>
+      <EmptyCard>{t("wa_no_hwid_device_options")}</EmptyCard>
     {/if}
   </div>
 </Dialog>

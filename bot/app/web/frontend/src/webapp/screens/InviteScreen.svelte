@@ -1,10 +1,11 @@
 <script>
-  import { Copy, Gift, Ticket, TriangleAlert } from "lucide-svelte";
+  import { Copy, Gift, Ticket, TriangleAlert } from "$components/ui/icons.js";
   import { Tooltip } from "$components/ui/primitives.js";
 
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import Input from "$components/ui/input.svelte";
+  import { StatusMessage } from "$components/patterns/webapp/index.js";
 
   export let referral = {};
   export let referralBonusDetails = [];
@@ -63,7 +64,7 @@
         {/each}
       </div>
     {:else}
-      <p class="status-line">{t("wa_referral_bonus_not_configured")}</p>
+      <StatusMessage>{t("wa_referral_bonus_not_configured")}</StatusMessage>
     {/if}
   </Card>
   <Card>
@@ -97,7 +98,7 @@
       </Button>
     </div>
     {#if promoStatus && !(promoIsError && promoFieldError)}
-      <p class:error={promoIsError} class="status-line">{promoStatus}</p>
+      <StatusMessage error={promoIsError}>{promoStatus}</StatusMessage>
     {/if}
   </Card>
 </main>

@@ -1,9 +1,10 @@
 <script>
-  import { CheckCircle2, ChevronsUpDown, CircleX, Database, Download, Gift, RefreshCw } from "lucide-svelte";
+  import { CheckCircle2, ChevronsUpDown, CircleX, Database, Download, Gift, RefreshCw } from "$components/ui/icons.js";
 
   import BrandMark from "../../BrandMark.svelte";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
+  import { LinearProgress } from "$components/patterns/webapp/index.js";
   import { formatTrafficGb } from "../../lib/webapp/formatters.js";
   import {
     trafficPercent as trafficPercentFn,
@@ -93,9 +94,7 @@
           <span>{t("wa_home_traffic_used")}</span>
           <strong>{trafficLabel(subscription)}</strong>
         </div>
-        <div class="progress">
-          <span style={`width: ${trafficPercent(subscription)}%`}></span>
-        </div>
+        <LinearProgress value={trafficPercent(subscription)} label={t("wa_home_traffic_used")} />
         <div class="traffic-meta">
           <span>{trafficResetLabel(subscription)}</span>
           <span class="traffic-percent">{trafficPercent(subscription)}%</span>
@@ -110,9 +109,7 @@
             <span>{premiumTitle(subscription)}</span>
             <strong>{premiumTrafficLabel(subscription)}</strong>
           </div>
-          <div class="progress premium-progress">
-            <span style={`width: ${premiumTrafficPercent(subscription)}%`}></span>
-          </div>
+          <LinearProgress class="premium-progress" value={premiumTrafficPercent(subscription)} label={premiumTitle(subscription)} />
           <div class="traffic-meta premium-traffic-meta">
             {#if premiumServerLabels(subscription).length}
               <details class="premium-server-dropdown">

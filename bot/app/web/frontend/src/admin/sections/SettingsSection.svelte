@@ -1,6 +1,7 @@
 <script>
-  import { ChevronRight, Eye, EyeOff, X } from "lucide-svelte";
+  import { ChevronRight, Eye, EyeOff, X } from "$components/ui/icons.js";
   import { Accordion, Switch } from "$components/ui/primitives.js";
+  import { AdminBadge, AdminButton, AdminEmptyState } from "$components/patterns/admin/index.js";
   import { getContext, onMount } from "svelte";
 
   export let at;
@@ -97,9 +98,9 @@
     <div class="admin-setting-meta">
       <strong>
         {field.label}
-          <span class="admin-badge admin-badge-warning">{at("settings_badge_secret", {}, "Secret")}</span>
+          <AdminBadge variant="warning">{at("settings_badge_secret", {}, "Secret")}</AdminBadge>
         {#if isOverridden(field)}
-          <span class="admin-badge admin-badge-success">{at("settings_badge_override", {}, "Override")}</span>
+          <AdminBadge variant="success">{at("settings_badge_override", {}, "Override")}</AdminBadge>
         {/if}
       </strong>
       <code>{field.key}</code>
@@ -150,14 +151,14 @@
           value={valueFor(field) ?? ""}
           on:input={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
         />
-        <button
-          type="button"
-          class="admin-btn admin-btn-sm admin-btn-ghost"
+        <AdminButton
+          size="sm"
+          variant="ghost"
           aria-label={revealed ? at("hide", {}, "Скрыть") : at("show", {}, "Показать")}
-          on:click={() => toggleSecretReveal(field.key)}
+          onclick={() => toggleSecretReveal(field.key)}
         >
           {#if revealed}<EyeOff size={13} />{:else}<Eye size={13} />{/if}
-        </button>
+        </AdminButton>
       {:else}
         <input
           class="input"
@@ -168,29 +169,29 @@
         />
       {/if}
       {#if isOverridden(field) || settingsDirty[field.key]}
-        <button type="button" class="admin-btn admin-btn-sm admin-btn-ghost" on:click={() => settingsStore.resetField(field)}>
+        <AdminButton size="sm" variant="ghost" onclick={() => settingsStore.resetField(field)}>
           <X size={12} /> {at("reset", {}, "Сбросить")}
-        </button>
+        </AdminButton>
       {/if}
     </div>
   </div>
 {/snippet}
 
 {#if settingsLoading || !settingsSections.length}
-  <div class="admin-empty">{settingsLoading ? at("loading", {}, "Загрузка…") : at("no_data", {}, "Нет данных")}</div>
+  <AdminEmptyState>{settingsLoading ? at("loading", {}, "Загрузка…") : at("no_data", {}, "Нет данных")}</AdminEmptyState>
 {:else}
   <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
     <p class="admin-muted" style="margin:0;">
       {at("settings_hint", {}, "Изменения в админке имеют приоритет над .env. Кнопка «Сбросить» возвращает значение из переменных окружения.")}
     </p>
     <div style="display:flex; gap:8px;">
-      <button type="button" class="admin-btn admin-btn-sm admin-btn-ghost" on:click={toggleAllSections}>
+      <AdminButton size="sm" variant="ghost" onclick={toggleAllSections}>
         {settingsAllOpen ? at("collapse_all", {}, "Свернуть всё") : at("expand_all", {}, "Развернуть всё")}
-      </button>
+      </AdminButton>
       {#if Object.keys(settingsDirty).length > 0}
-        <button type="button" class="admin-btn admin-btn-sm admin-btn-primary" on:click={() => settingsStore.saveSettings(onSettingsSaved)} disabled={settingsSaving}>
+        <AdminButton size="sm" variant="primary" onclick={() => settingsStore.saveSettings(onSettingsSaved)} disabled={settingsSaving}>
           {settingsSaving ? at("saving", {}, "Сохранение...") : at("save", {}, "Сохранить")}
-        </button>
+        </AdminButton>
       {/if}
     </div>
   </div>

@@ -1,11 +1,10 @@
 <script>
-  import { Send, ChevronDown, Check } from "lucide-svelte";
+  import { Send } from "$components/ui/icons.js";
   import { getContext } from "svelte";
-  import { Label, Select } from "$components/ui/primitives.js";
+  import { Label } from "$components/ui/primitives.js";
+  import { AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
 
   export let at;
-  export let optionLabel;
-
   const broadcastStore = getContext("broadcastStore");
 
   $: ({
@@ -27,22 +26,12 @@
     <div class="admin-form">
       <Label.Root class="admin-field-label">
         <span>{at("broadcast_label_audience", {}, "Аудитория")}</span>
-        <Select.Root type="single" value={broadcastTarget} onValueChange={(value) => broadcastStore.updateField({ broadcastTarget: value })}>
-          <Select.Trigger class="admin-select-trigger" aria-label={at("broadcast_label_audience", {}, "Аудитория")}>
-            <span>{optionLabel(BROADCAST_TARGET_OPTIONS, broadcastTarget)}</span>
-            <ChevronDown size={14} class="admin-select-icon" />
-          </Select.Trigger>
-          <Select.Portal>
-            <Select.Content class="admin-select-content" sideOffset={6}>
-              {#each BROADCAST_TARGET_OPTIONS as opt}
-                <Select.Item value={opt.value} class="admin-select-item">
-                  <span>{opt.label}</span>
-                  <Check size={14} class="admin-select-item-check" />
-                </Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Portal>
-        </Select.Root>
+        <AdminSelect
+          value={broadcastTarget}
+          items={BROADCAST_TARGET_OPTIONS}
+          ariaLabel={at("broadcast_label_audience", {}, "Аудитория")}
+          onValueChange={(value) => broadcastStore.updateField({ broadcastTarget: value })}
+        />
       </Label.Root>
       <Label.Root class="admin-field-label">
         <span>{at("broadcast_label_text", {}, "Текст сообщения")}</span>
@@ -50,9 +39,9 @@
         <textarea class="admin-textarea" rows="6" value={broadcastText} on:input={(e) => broadcastStore.updateField({ broadcastText: e.target.value })}></textarea>
       </Label.Root>
       <div style="display:flex; gap:8px; align-items:center;">
-        <button type="button" class="admin-btn admin-btn-primary" on:click={broadcastStore.runBroadcast} disabled={broadcastBusy || !broadcastText.trim()}>
+        <AdminButton variant="primary" onclick={broadcastStore.runBroadcast} disabled={broadcastBusy || !broadcastText.trim()}>
           <Send size={14} /> {broadcastBusy ? at("btn_sending", {}, "Отправка...") : at("btn_queue", {}, "Поставить в очередь")}
-        </button>
+        </AdminButton>
         {#if broadcastResult}
           <span class="admin-muted">{at("broadcast_stat_queued", {}, "В очереди")}: {broadcastResult.queued} · {at("broadcast_stat_failed", {}, "Неудач")}: {broadcastResult.failed}</span>
         {/if}

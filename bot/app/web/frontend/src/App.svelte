@@ -376,6 +376,8 @@
       }, 220);
       return;
     }
+    languageClickGuard = true;
+    languageClickGuardArmed = false;
     languageClickGuardTimer = window.setTimeout(() => {
       languageClickGuard = false;
       languageClickGuardTimer = null;

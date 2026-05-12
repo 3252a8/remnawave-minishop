@@ -1,6 +1,7 @@
 <script>
-  import { RefreshCw, Trash2, Plus } from "lucide-svelte";
+  import { RefreshCw, Trash2, Plus } from "$components/ui/icons.js";
   import { getContext, onMount } from "svelte";
+  import { AdminBadge, AdminButton, AdminEmptyState } from "$components/patterns/admin/index.js";
 
   export let at;
   export let fmtMoney;
@@ -45,7 +46,7 @@
 </script>
 
 {#if tariffsLoading}
-  <div class="admin-empty">{at("loading", {}, "Загрузка…")}</div>
+  <AdminEmptyState>{at("loading", {}, "Загрузка…")}</AdminEmptyState>
 {:else}
   <div class="admin-stat-grid">
     <div class="admin-stat-card">
@@ -72,19 +73,19 @@
         <small>{tariffsPath || "data/tariffs.json"}</small>
       </div>
       <div class="admin-editor-section-actions">
-        <button type="button" class="admin-btn admin-btn-sm" on:click={tariffsStore.loadTariffs} disabled={tariffsLoading || tariffsSaving}>
+        <AdminButton size="sm" onclick={tariffsStore.loadTariffs} disabled={tariffsLoading || tariffsSaving}>
           <RefreshCw size={13} /> {at("btn_refresh", {}, "Обновить")}
-        </button>
-        <button type="button" class="admin-btn admin-btn-sm admin-btn-primary" on:click={tariffsStore.openCreateTariff} disabled={tariffsLoading || tariffsSaving}>
+        </AdminButton>
+        <AdminButton size="sm" variant="primary" onclick={tariffsStore.openCreateTariff} disabled={tariffsLoading || tariffsSaving}>
           <Plus size={13} /> {at("btn_create_tariff", {}, "Создать тариф")}
-        </button>
+        </AdminButton>
       </div>
     </header>
     <div class="admin-card-body">
       {#if !tariffsCatalog.tariffs.length}
-        <div class="admin-empty">
+        <AdminEmptyState>
           {at("tariffs_catalog_empty", {}, "Каталог пуст. Добавьте первый тариф, после сохранения будет создан JSON-файл каталога.")}
-        </div>
+        </AdminEmptyState>
       {:else}
         <div class="admin-tariff-grid">
           {#each tariffsCatalog.tariffs as tariff}
@@ -94,15 +95,15 @@
                   <div class="admin-tariff-title">
                     <strong>{tariffName(tariff)}</strong>
                     {#if tariff.key === tariffsCatalog.default_tariff}
-                      <span class="admin-badge admin-badge-success">{at("status_default", {}, "Default")}</span>
+                      <AdminBadge variant="success">{at("status_default", {}, "Default")}</AdminBadge>
                     {/if}
                   </div>
                   <code>{tariff.key}</code>
                 </div>
                 {#if tariff.enabled === false}
-                  <span class="admin-badge admin-badge-muted">{at("status_disabled", {}, "Выключен")}</span>
+                  <AdminBadge variant="muted">{at("status_disabled", {}, "Выключен")}</AdminBadge>
                 {:else}
-                  <span class="admin-badge admin-badge-success">{at("status_active", {}, "Активен")}</span>
+                  <AdminBadge variant="success">{at("status_active", {}, "Активен")}</AdminBadge>
                 {/if}
               </div>
               <p>{tariff.descriptions?.ru || tariff.descriptions?.en || at("no_description", {}, "Без описания")}</p>
@@ -114,29 +115,28 @@
                 <span>{at("tariff_devices", {}, "Устройства")}: {tariff.hwid_device_limit ?? "env"}</span>
               </div>
               <div class="admin-tariff-actions">
-                <button type="button" class="admin-btn admin-btn-sm" on:click={() => tariffsStore.openEditTariff(tariff)}>
+                <AdminButton size="sm" onclick={() => tariffsStore.openEditTariff(tariff)}>
                   {at("btn_configure", {}, "Настроить")}
-                </button>
-                <button type="button" class="admin-btn admin-btn-sm" on:click={() => tariffsStore.toggleTariffEnabled(tariff)} disabled={tariffsSaving}>
+                </AdminButton>
+                <AdminButton size="sm" onclick={() => tariffsStore.toggleTariffEnabled(tariff)} disabled={tariffsSaving}>
                   {tariff.enabled === false ? at("btn_enable", {}, "Включить") : at("btn_disable", {}, "Выключить")}
-                </button>
-                <button
-                  type="button"
-                  class="admin-btn admin-btn-sm"
-                  on:click={() => tariffsStore.setDefaultTariff(tariff.key)}
+                </AdminButton>
+                <AdminButton
+                  size="sm"
+                  onclick={() => tariffsStore.setDefaultTariff(tariff.key)}
                   disabled={tariffsSaving || tariff.enabled === false || tariff.key === tariffsCatalog.default_tariff}
                 >
                   {at("btn_set_default", {}, "По умолчанию")}
-                </button>
-                <button
-                  type="button"
-                  class="admin-btn admin-btn-sm admin-btn-danger"
-                  on:click={() => tariffsStore.updateState({ tariffDeleteTarget: tariff, tariffDeleteOpen: true })}
+                </AdminButton>
+                <AdminButton
+                  size="sm"
+                  variant="danger"
+                  onclick={() => tariffsStore.updateState({ tariffDeleteTarget: tariff, tariffDeleteOpen: true })}
                   disabled={tariffsSaving}
                   aria-label={at("btn_delete_tariff", {}, "Удалить тариф")}
                 >
                   <Trash2 size={13} />
-                </button>
+                </AdminButton>
               </div>
             </article>
           {/each}

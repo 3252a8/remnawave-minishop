@@ -17,10 +17,11 @@
     Ticket,
     UserRound,
     Zap,
-  } from "lucide-svelte";
+  } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
+  import { LinearProgress } from "$components/patterns/webapp/index.js";
   import BackTitle from "./preview/BackTitle.svelte";
   import PhoneFrame from "./preview/PhoneFrame.svelte";
   import PreviewMethods from "./preview/PreviewMethods.svelte";
@@ -78,7 +79,7 @@
         </Card>
         <Card>
           <div class="traffic-top"><span>Использовано трафика</span><strong>{sub.traffic_used} из {sub.traffic_limit}</strong></div>
-          <div class="progress"><span style="width: 18%"></span></div>
+          <LinearProgress value={18} />
           <div class="traffic-percent">18%</div>
         </Card>
         <div class="action-stack">

@@ -1,11 +1,10 @@
 <script>
-  import { Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-svelte";
-  import { Label, Select } from "$components/ui/primitives.js";
+  import { Label } from "$components/ui/primitives.js";
+  import { AdminBadge, AdminButton, AdminEmptyState, AdminPagination, AdminSelect } from "$components/patterns/admin/index.js";
   import { getContext, onMount } from "svelte";
 
   export let at = (key) => key;
   export let fmtDateShort = (value) => value;
-  export let optionLabel = () => "";
   export let panelStatusBadge = () => ({});
   export let resolvedAvatarUrl = () => "";
   export let userDisplayName = () => "";
@@ -70,80 +69,41 @@
       on:input={(e) => usersStore.updateState({ usersQuery: e.target.value })}
       on:keydown={(e) => e.key === "Enter" && (usersStore.updateState({ usersPage: 0 }), usersStore.loadUsers())}
     />
-    <button type="button" class="admin-btn admin-btn-primary" on:click={() => { usersStore.updateState({ usersPage: 0 }); usersStore.loadUsers(); }}>{at("find", {}, "Найти")}</button>
+    <AdminButton variant="primary" onclick={() => { usersStore.updateState({ usersPage: 0 }); usersStore.loadUsers(); }}>{at("find", {}, "Найти")}</AdminButton>
   </div>
 
   <div class="admin-toolbar-controls">
     <Label.Root class="admin-toolbar-field">
       <span class="admin-toolbar-field-label">{at("filter", {}, "Фильтр")}</span>
-      <Select.Root
-        type="single"
+      <AdminSelect
         value={usersFilter}
+        items={USERS_FILTER_OPTIONS}
+        class="admin-toolbar-select"
+        ariaLabel={at("filter", {}, "Фильтр")}
         onValueChange={(value) => { usersStore.updateState({ usersFilter: value, usersPage: 0 }); usersStore.loadUsers(); }}
-      >
-        <Select.Trigger class="admin-select-trigger admin-toolbar-select" aria-label={at("filter", {}, "Фильтр")}>
-          <span>{optionLabel(USERS_FILTER_OPTIONS, usersFilter)}</span>
-          <ChevronDown size={14} class="admin-select-icon" />
-        </Select.Trigger>
-        <Select.Portal>
-          <Select.Content class="admin-select-content" sideOffset={6}>
-            {#each USERS_FILTER_OPTIONS as opt}
-              <Select.Item value={opt.value} class="admin-select-item">
-                <span>{opt.label}</span>
-                <Check size={14} class="admin-select-item-check" />
-              </Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Portal>
-      </Select.Root>
+      />
     </Label.Root>
 
     <Label.Root class="admin-toolbar-field">
       <span class="admin-toolbar-field-label">{at("panel_status", {}, "Статус панели")}</span>
-      <Select.Root
-        type="single"
+      <AdminSelect
         value={usersPanelStatus}
+        items={USERS_PANEL_STATUS_OPTIONS}
+        class="admin-toolbar-select"
+        ariaLabel={at("panel_status", {}, "Статус панели")}
         onValueChange={(value) => { usersStore.updateState({ usersPanelStatus: value, usersPage: 0 }); usersStore.loadUsers(); }}
-      >
-        <Select.Trigger class="admin-select-trigger admin-toolbar-select" aria-label={at("panel_status", {}, "Статус панели")}>
-          <span>{optionLabel(USERS_PANEL_STATUS_OPTIONS, usersPanelStatus)}</span>
-          <ChevronDown size={14} class="admin-select-icon" />
-        </Select.Trigger>
-        <Select.Portal>
-          <Select.Content class="admin-select-content" sideOffset={6}>
-            {#each USERS_PANEL_STATUS_OPTIONS as opt}
-              <Select.Item value={opt.value} class="admin-select-item">
-                <span>{opt.label}</span>
-                <Check size={14} class="admin-select-item-check" />
-              </Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Portal>
-      </Select.Root>
+      />
     </Label.Root>
 
     <Label.Root class="admin-toolbar-field">
       <span class="admin-toolbar-field-label">{at("sort", {}, "Сортировка")}</span>
-      <Select.Root
-        type="single"
+      <AdminSelect
         value={usersSort}
+        items={USERS_SORT_OPTIONS}
+        class="admin-toolbar-select"
+        ariaLabel={at("sort", {}, "Сортировка")}
         onValueChange={(value) => { usersStore.updateState({ usersSort: value, usersPage: 0 }); usersStore.loadUsers(); }}
-      >
-        <Select.Trigger class="admin-select-trigger admin-toolbar-select" aria-label={at("sort", {}, "Сортировка")}>
-          <span>{optionLabel(USERS_SORT_OPTIONS, usersSort)}</span>
-          <ChevronDown size={14} class="admin-select-icon" />
-        </Select.Trigger>
-        <Select.Portal>
-          <Select.Content class="admin-select-content" sideOffset={6}>
-            {#each USERS_SORT_OPTIONS as opt}
-              <Select.Item value={opt.value} class="admin-select-item">
-                <span>{opt.label}</span>
-                <Check size={14} class="admin-select-item-check" />
-              </Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Portal>
-      </Select.Root>
+      />
     </Label.Root>
 
     <div class="admin-toolbar-summary">
@@ -173,7 +133,7 @@
       {/each}
     </ul>
   {:else if !users.length}
-    <div class="admin-card-body"><span class="admin-muted">{at("users_empty", {}, "Никого не найдено")}</span></div>
+    <AdminEmptyState tone="card"><span class="admin-muted">{at("users_empty", {}, "Никого не найдено")}</span></AdminEmptyState>
   {:else}
     <ul class="admin-user-list">
       {#each users as user}
@@ -193,7 +153,7 @@
               <small>{userSecondaryName(user)}</small>
             </span>
             <span class="admin-user-side">
-              <span class="admin-badge admin-badge-{badge.variant}">{badge.label}</span>
+              <AdminBadge variant={badge.variant}>{badge.label}</AdminBadge>
               <span class="admin-user-tertiary">{fmtDateShort(user.registration_date)}</span>
             </span>
           </button>
@@ -203,14 +163,12 @@
   {/if}
 </div>
 
-<div class="admin-pagination">
-  <span class="admin-pagination-meta">{at("page", {}, "Страница")} {usersPage + 1}</span>
-  <div class="admin-pagination-buttons">
-    <button type="button" class="admin-btn admin-btn-sm" disabled={usersPage === 0} on:click={() => { usersStore.updateState({ usersPage: Math.max(0, usersPage - 1) }); usersStore.loadUsers(); }}>
-      <ChevronLeft size={14} /> {at("back", {}, "Назад")}
-    </button>
-    <button type="button" class="admin-btn admin-btn-sm" disabled={!usersHasMore} on:click={() => { usersStore.updateState({ usersPage: usersPage + 1 }); usersStore.loadUsers(); }}>
-      {at("next", {}, "Далее")} <ChevronRight size={14} />
-    </button>
-  </div>
-</div>
+<AdminPagination
+  meta={`${at("page", {}, "Страница")} ${usersPage + 1}`}
+  prevLabel={at("back", {}, "Назад")}
+  nextLabel={at("next", {}, "Далее")}
+  prevDisabled={usersPage === 0}
+  nextDisabled={!usersHasMore}
+  onPrev={() => { usersStore.updateState({ usersPage: Math.max(0, usersPage - 1) }); usersStore.loadUsers(); }}
+  onNext={() => { usersStore.updateState({ usersPage: usersPage + 1 }); usersStore.loadUsers(); }}
+/>

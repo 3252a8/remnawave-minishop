@@ -3,5 +3,8 @@ export { default as Button } from "./button.svelte";
 export { default as Dialog } from "./dialog.svelte";
 export { default as Input } from "./input.svelte";
 export { default as LegacyCard } from "./card.svelte";
+export { default as Skeleton } from "./skeleton.svelte";
+export { default as Spinner } from "./spinner.svelte";
+export * as Icons from "./icons.js";
 export * as Card from "./card/index.js";
 export { Accordion, Label, Select, Separator, Switch, Tabs, Tooltip } from "./primitives.js";

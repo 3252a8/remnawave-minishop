@@ -25,8 +25,12 @@
   min-width: 0;
   border-radius: 12px;
   border: 1px solid var(--admin-border);
-  background: var(--admin-surface);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
+    var(--admin-surface);
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
   position: relative;
   overflow: hidden;
 }
@@ -179,4 +183,109 @@
 .admin-cn-badge-muted {
   background: color-mix(in srgb, var(--admin-surface-2) 70%, var(--admin-bg));
   color: var(--admin-muted);
+}
+
+.ui-spinner,
+.telegram-button-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  display: inline-block;
+  flex: 0 0 auto;
+  animation: ui-spin 0.72s linear infinite;
+}
+
+.ui-spinner-sm {
+  width: 13px;
+  height: 13px;
+  border-width: 2px;
+}
+
+.ui-spinner-lg {
+  width: 24px;
+  height: 24px;
+  border-width: 3px;
+}
+
+@keyframes ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ui-skeleton,
+.admin-skeleton,
+.skeleton-line,
+.skeleton-dot,
+.skeleton-pay-button {
+  display: inline-block;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.14),
+    rgba(255, 255, 255, 0.08)
+  );
+  background-size: 220% 100%;
+  animation: ui-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+.ui-skeleton {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 10px;
+}
+
+.ui-skeleton-line,
+.admin-skeleton-line,
+.skeleton-line {
+  width: 100%;
+  height: 10px;
+  min-height: 0;
+  border-radius: 999px;
+}
+
+.ui-skeleton-title,
+.skeleton-line-title {
+  height: 14px;
+  min-height: 0;
+  width: 72%;
+}
+
+.ui-skeleton-short,
+.admin-skeleton-line-short,
+.skeleton-line-short {
+  width: 56%;
+}
+
+.ui-skeleton-tiny,
+.admin-skeleton-line-tiny,
+.skeleton-line-tiny {
+  width: 34%;
+}
+
+.ui-skeleton-badge,
+.admin-skeleton-badge {
+  width: 64px;
+  height: 18px;
+  min-height: 0;
+  border-radius: 999px;
+}
+
+.ui-skeleton-dot,
+.skeleton-dot {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  border-radius: 999px;
+}
+
+@keyframes ui-skeleton-pulse {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
 }

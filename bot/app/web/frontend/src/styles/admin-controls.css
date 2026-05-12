@@ -52,7 +52,7 @@
   height: 36px;
   border-radius: 8px;
   border: 1px solid var(--admin-border-strong);
-  background: var(--admin-bg);
+  background: color-mix(in srgb, var(--admin-bg) 82%, var(--admin-surface-2));
   color: var(--admin-text);
   padding: 0 12px;
   font-size: 13px;
@@ -88,7 +88,9 @@
   padding: 0 14px;
   border-radius: 8px;
   border: 1px solid var(--admin-border);
-  background: var(--admin-surface-2);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.014)),
+    var(--admin-surface-2);
   color: var(--admin-text);
   font-size: 13px;
   font-weight: 500;
@@ -98,7 +100,10 @@
 }
 
 .admin-btn:hover:not(:disabled) {
-  background: var(--admin-elev);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.068), rgba(255, 255, 255, 0.018)),
+    var(--admin-elev);
+  border-color: var(--admin-border-strong);
 }
 
 .admin-btn:disabled {
@@ -124,7 +129,7 @@
 }
 
 .admin-btn.admin-btn-ghost:hover:not(:disabled) {
-  background: var(--admin-surface-2);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--admin-text);
 }
 
