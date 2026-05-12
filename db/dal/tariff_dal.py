@@ -63,14 +63,21 @@ async def get_warning(
     level: int,
     traffic_limit_bytes: Optional[int] = None,
 ) -> Optional[TrafficWarning]:
+    """Return an existing traffic warning row if one was already recorded.
+
+    For traffic-style billing ``period_start_at`` is NULL. Do **not** match on
+    ``traffic_limit_bytes`` in that case: the effective limit can change between
+    worker ticks (panel sync, top-ups, admin adjustments). Matching on the exact
+    bytes caused duplicate Telegram alerts after restarts or the next poll.
+    The ``traffic_limit_bytes`` argument is kept for call-site compatibility
+    but is ignored when ``period_start_at`` is None.
+    """
     conditions = [
         TrafficWarning.subscription_id == subscription_id,
         TrafficWarning.level == level,
     ]
     if period_start_at is None:
         conditions.append(TrafficWarning.period_start_at.is_(None))
-        if traffic_limit_bytes is not None:
-            conditions.append(TrafficWarning.traffic_limit_bytes == traffic_limit_bytes)
     else:
         conditions.append(TrafficWarning.period_start_at == period_start_at)
     result = await session.execute(select(TrafficWarning).where(and_(*conditions)).limit(1))
