@@ -9,7 +9,7 @@
     RefreshCw,
   } from "$components/ui/icons.js";
 
-  import BrandMark from "../../BrandMark.svelte";
+  import BrandMark from "$lib/webapp/BrandMark.svelte";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { LinearProgress } from "$components/patterns/webapp/index.js";
@@ -25,9 +25,8 @@
     activeSubscriptionTermLabel as activeSubscriptionTermLabelFn,
   } from "../../lib/webapp/traffic.js";
 
-  export let CFG = {};
   export let appSettings = {};
-  export let brandEmoji = "";
+  export let brand = {};
   export let brandTitle = "";
   export let canChangeTariff = false;
   export let premiumTrafficTopupBarClickable = false;
@@ -83,7 +82,7 @@
 
 <main class="home-layout">
   <div class="login-brand home-brand">
-    <BrandMark class="brand-mark-xl" logoUrl={CFG.logoUrl} emoji={brandEmoji} />
+    <BrandMark {brand} size="xl" />
     <h1>{brandTitle}</h1>
   </div>
 

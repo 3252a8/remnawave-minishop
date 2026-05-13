@@ -89,6 +89,7 @@ class WebAppSettings(BaseModel):
     primary_color: str
     logo_url: Optional[str]
     logo_emoji: str
+    logo_emoji_font: str
     session_ttl_seconds: int
     session_secret: str
     webhook_secret_token: str
@@ -352,6 +353,13 @@ class Settings(BaseSettings):
     WEBAPP_PRIMARY_COLOR: str = Field(default="#00fe7a")
     WEBAPP_LOGO_URL: Optional[str] = Field(default=None)
     WEBAPP_LOGO_EMOJI: str = Field(default="🫥")
+    WEBAPP_LOGO_EMOJI_FONT: str = Field(
+        default="system",
+        description=(
+            "Emoji font for logo fallback: system, noto-color, noto-color-animated, "
+            "noto-emoji, twemoji, openmoji, apple, segoe, noto-local"
+        ),
+    )
     WEBAPP_SESSION_SECRET: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     WEBHOOK_SECRET_TOKEN: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     WEBAPP_SESSION_TTL_SECONDS: int = Field(default=24 * 60 * 60)
@@ -521,6 +529,7 @@ class Settings(BaseSettings):
             primary_color=self.WEBAPP_PRIMARY_COLOR,
             logo_url=self.WEBAPP_LOGO_URL,
             logo_emoji=self.WEBAPP_LOGO_EMOJI,
+            logo_emoji_font=self.WEBAPP_LOGO_EMOJI_FONT,
             session_ttl_seconds=self.WEBAPP_SESSION_TTL_SECONDS,
             session_secret=self.WEBAPP_SESSION_SECRET,
             webhook_secret_token=self.WEBHOOK_SECRET_TOKEN,

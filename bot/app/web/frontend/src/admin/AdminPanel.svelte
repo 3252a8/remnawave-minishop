@@ -24,7 +24,7 @@
   import { Select } from "$components/ui/primitives.js";
   import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
 
-  import BrandMark from "../BrandMark.svelte";
+  import BrandMark from "$lib/webapp/BrandMark.svelte";
   import AdsSection from "./sections/AdsSection.svelte";
   import BroadcastSection from "./sections/BroadcastSection.svelte";
   import LogsSection from "./sections/LogsSection.svelte";
@@ -71,9 +71,8 @@
   export let onSectionChange = () => {};
   export let onSettingsSaved = () => {};
   export let onTariffsSaved = () => {};
+  export let brand = {};
   export let brandTitle = "/minishop";
-  export let logoUrl = "";
-  export let logoEmoji = "🫥";
   export let appVersion = "dev+local";
   export let appRepositoryUrl = "https://github.com/3252a8/remnawave-minishop";
   export let currentLang = "ru";
@@ -180,8 +179,7 @@
 
   function readReduceMotion() {
     return (
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
     );
   }
 
@@ -423,7 +421,7 @@
 
   <aside class="admin-sidebar" aria-label={at("sidebar_navigation", {}, "Навигация админки")}>
     <div class="admin-sidebar-brand">
-      <BrandMark class="admin-brand-mark" {logoUrl} emoji={logoEmoji} />
+      <BrandMark class="admin-brand-mark" {brand} />
       <div>
         <strong class="admin-brand-title">{brandTitle}</strong>
         <small>{at("panel_title", {}, "Админ-панель")}</small>

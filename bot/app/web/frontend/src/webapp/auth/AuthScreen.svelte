@@ -3,7 +3,7 @@
   import { Tooltip } from "$components/ui/primitives.js";
 
   import Button from "$components/ui/button.svelte";
-  import BrandMark from "../../BrandMark.svelte";
+  import BrandMark from "$lib/webapp/BrandMark.svelte";
   import Card from "$components/ui/card.svelte";
   import Input from "$components/ui/input.svelte";
   import Spinner from "$components/ui/spinner.svelte";
@@ -11,8 +11,8 @@
 
   export let screen;
   export let CFG;
+  export let brand = {};
   export let brandTitle;
-  export let brandEmoji;
   export let email;
   export let emailCode;
   export let pendingEmail;
@@ -87,7 +87,7 @@
   {:else}
     <div class="auth-card-wrap">
       <div class="login-brand login-brand-auth">
-        <BrandMark class="brand-mark-xl" logoUrl={CFG.logoUrl} emoji={brandEmoji} />
+        <BrandMark {brand} size="xl" />
         <h1>{brandTitle}</h1>
       </div>
       <Card class="auth-card">

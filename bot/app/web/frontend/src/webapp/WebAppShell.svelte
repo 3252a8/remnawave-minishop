@@ -1,12 +1,11 @@
 <script>
-  import BrandMark from "../BrandMark.svelte";
+  import BrandMark from "$lib/webapp/BrandMark.svelte";
   import BottomNav from "./BottomNav.svelte";
 
   export let screen;
   export let activeTab;
-  export let CFG;
+  export let brand = {};
   export let brandTitle;
-  export let brandEmoji;
   export let devicesEnabled;
   export let hasUnlinkedIdentity;
   export let isAdmin;
@@ -22,7 +21,7 @@
   {#if screen === "invite" || screen === "devices" || screen === "settings"}
     <header class="app-header accent-title">
       <div class="brand-row">
-        <BrandMark logoUrl={CFG.logoUrl} emoji={brandEmoji} />
+        <BrandMark {brand} />
         <strong>{brandTitle}</strong>
       </div>
     </header>
@@ -32,12 +31,11 @@
 
   <BottomNav
     {activeTab}
+    {brand}
     {brandTitle}
     {devicesEnabled}
     {hasUnlinkedIdentity}
     {isAdmin}
-    logoEmoji={brandEmoji}
-    logoUrl={CFG.logoUrl}
     onAdmin={openAdminPanel}
     onDevices={goDevices}
     onHome={goHome}

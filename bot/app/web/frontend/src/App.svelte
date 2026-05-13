@@ -6,7 +6,7 @@
   import { createAccountStore } from "./lib/webapp/stores/accountStore.js";
   import { Tooltip } from "$components/ui/primitives.js";
 
-  import BrandMark from "./BrandMark.svelte";
+  import BrandMark from "$lib/webapp/BrandMark.svelte";
   import PreviewBoard from "./PreviewBoard.svelte";
   import AdminPanel from "./admin/AdminPanel.svelte";
   import WebAppShell from "./webapp/WebAppShell.svelte";
@@ -29,7 +29,12 @@
     WEBAPP_LANGUAGE_ORDER,
   } from "./lib/webapp/constants.js";
 
-  import { applyFavicon, readJsonScript, structuredCloneSafe } from "./lib/webapp/browser.js";
+  import {
+    applyFavicon,
+    normalizeBrand,
+    readJsonScript,
+    structuredCloneSafe,
+  } from "./lib/webapp/browser.js";
   import { createApiClient } from "./lib/webapp/publicApi.js";
   import { createI18n } from "./lib/webapp/i18n.js";
   import { normalizedEmail, telegramName } from "./lib/webapp/formatters.js";
@@ -241,6 +246,13 @@
 
   $: brandTitle = CFG.title || "/minishop";
   $: brandEmoji = CFG.logoEmoji || "🫥";
+  $: brandEmojiFont = CFG.logoEmojiFont || "system";
+  $: brand = normalizeBrand({
+    title: brandTitle,
+    logoUrl: CFG.logoUrl,
+    emoji: brandEmoji,
+    emojiFont: brandEmojiFont,
+  });
   $: accent = CFG.primaryColor || "#00fe7a";
   $: plans = data?.plans?.length ? data.plans : DEV_MOCK.data.plans;
   $: methods = data?.payment_methods?.length ? data.payment_methods : [];
@@ -344,7 +356,7 @@
       : telegramLoginUnavailable
         ? t("wa_auth_telegram_not_configured")
         : "";
-  $: applyFavicon(CFG.logoUrl, brandEmoji);
+  $: applyFavicon(brand);
   $: syncBodyScrollLock(
     paymentModalOpen ||
       changeModalOpen ||
@@ -903,7 +915,7 @@
       <div class="app-shell" style={`--accent: ${accent};`}>
         {#if mode === "loading"}
           <div class="loader">
-            <BrandMark class="brand-mark-lg" logoUrl={CFG.logoUrl} emoji={brandEmoji} />
+            <BrandMark {brand} size="md" />
             <div>{t("wa_loading")}</div>
           </div>
         {:else if mode === "login"}
@@ -911,7 +923,7 @@
             {screen}
             {CFG}
             {brandTitle}
-            {brandEmoji}
+            {brand}
             bind:email={$authStore.email}
             bind:emailCode={$authStore.emailCode}
             {pendingEmail}
@@ -952,8 +964,7 @@
             onSettingsSaved={handleAdminPersistedSaved}
             onTariffsSaved={handleAdminPersistedSaved}
             {brandTitle}
-            logoUrl={CFG.logoUrl}
-            logoEmoji={brandEmoji}
+            {brand}
             appVersion={CFG.appVersion}
             appRepositoryUrl={CFG.appRepositoryUrl}
             {currentLang}
@@ -966,9 +977,8 @@
           <WebAppShell
             {screen}
             {activeTab}
-            {CFG}
             {brandTitle}
-            {brandEmoji}
+            {brand}
             {devicesEnabled}
             {hasUnlinkedIdentity}
             {isAdmin}
@@ -981,9 +991,8 @@
           >
             {#if screen === "home"}
               <HomeScreen
-                {CFG}
                 {appSettings}
-                {brandEmoji}
+                {brand}
                 {brandTitle}
                 {canChangeTariff}
                 {currentTariffName}

@@ -63,6 +63,8 @@ logger = logging.getLogger(__name__)
 TEMPLATE_PATH = Path(__file__).resolve().parent / "templates" / "subscription_webapp.html"
 ASSET_DIR = TEMPLATE_PATH.parent
 WEBAPP_LOGO_PROXY_PATH = "/webapp-logo"
+WEBAPP_LOGO_CACHE_DIR = Path(__file__).resolve().parents[3] / "data" / "webapp-logo"
+WEBAPP_EMOJI_CACHE_DIR = Path(__file__).resolve().parents[3] / "data" / "webapp-emoji"
 WEBAPP_CONFIG_PLACEHOLDER = "<!-- WEBAPP_CONFIG_SCRIPT -->"
 WEBAPP_I18N_PLACEHOLDER = "<!-- WEBAPP_I18N_SCRIPT -->"
 WEBAPP_JS_PLACEHOLDER = "<!-- WEBAPP_JS_SCRIPT -->"
@@ -72,6 +74,7 @@ DEV_MOCK_END_MARKER = "<!-- WEBAPP_DEV_MOCK_END -->"
 WEBAPP_RATE_LIMIT_WINDOW_SECONDS = 60
 WEBAPP_RATE_LIMIT_MAX_REQUESTS = 30
 WEBAPP_LOGO_MAX_BYTES = 2 * 1024 * 1024
+WEBAPP_EMOJI_MAX_BYTES = 4 * 1024 * 1024
 WEBAPP_TELEGRAM_AVATAR_MAX_BYTES = 128 * 1024
 WEBAPP_TELEGRAM_AVATAR_REFRESH_SECONDS = 24 * 60 * 60
 WEBAPP_TELEGRAM_AVATAR_FETCH_TIMEOUT_SECONDS = 4
@@ -179,6 +182,8 @@ def create_subscription_webapp_application(
 
     async def _startup(app_obj: web.Application) -> None:
         await _ensure_shared_http_session()
+        await _warm_webapp_logo_cache(app_obj)
+        await _warm_webapp_animated_emoji_cache(app_obj)
 
     async def _shutdown(app_obj: web.Application) -> None:
         await _close_shared_http_session()
@@ -220,6 +225,10 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/auth/telegram/callback", telegram_oauth_callback_route)
     app.router.add_get("/health", health_route)
     app.router.add_get(WEBAPP_LOGO_PROXY_PATH, webapp_logo_route)
+    app.router.add_get(
+        r"/webapp-emoji/{codepoints:[0-9a-f_]+}/512.{ext:gif|webp}",
+        webapp_animated_emoji_route,
+    )
     app.router.add_get("/subscription_webapp.css", css_asset_route)
     app.router.add_get("/subscription_webapp.min.{asset_hash}.js", js_asset_route)
     app.router.add_get("/subscription_webapp.js", js_asset_route)
@@ -264,12 +273,46 @@ def _resolve_webapp_logo_url(settings: Settings) -> str:
 
     parsed_logo_url = urlsplit(raw_logo_url)
     if parsed_logo_url.scheme == "https":
-        return WEBAPP_LOGO_PROXY_PATH
+        cache_key = hashlib.sha256(raw_logo_url.encode("utf-8")).hexdigest()[:12]
+        return f"{WEBAPP_LOGO_PROXY_PATH}?v={cache_key}"
     if parsed_logo_url.scheme in {"http", "data"}:
         return raw_logo_url
     if raw_logo_url.startswith("/"):
         return raw_logo_url
     return ""
+
+
+def _webapp_logo_cache_key(logo_url: str) -> str:
+    return hashlib.sha256(logo_url.encode("utf-8")).hexdigest()
+
+
+def _webapp_logo_disk_paths(logo_url: str) -> Tuple[Path, Path]:
+    cache_key = _webapp_logo_cache_key(logo_url)
+    return WEBAPP_LOGO_CACHE_DIR / f"{cache_key}.bin", WEBAPP_LOGO_CACHE_DIR / f"{cache_key}.json"
+
+
+def _is_proxyable_webapp_logo_url(logo_url: str) -> bool:
+    parsed_logo_url = urlsplit(logo_url)
+    return parsed_logo_url.scheme == "https" and bool(parsed_logo_url.hostname)
+
+
+def _emoji_to_codepoints(value: str) -> str:
+    return "_".join(f"{ord(char):x}" for char in str(value or "").strip())
+
+
+def _webapp_emoji_disk_path(codepoints: str, ext: str) -> Path:
+    return WEBAPP_EMOJI_CACHE_DIR / f"{codepoints}.512.{ext}"
+
+
+def _webapp_animated_emoji_source_url(codepoints: str, ext: str) -> str:
+    return f"https://fonts.gstatic.com/s/e/notoemoji/latest/{codepoints}/512.{ext}"
+
+
+def _webapp_animated_emoji_asset_path(emoji: str, ext: str = "gif") -> str:
+    codepoints = _emoji_to_codepoints(emoji)
+    if not codepoints or ext not in {"gif", "webp"}:
+        return ""
+    return f"/webapp-emoji/{codepoints}/512.{ext}"
 
 
 def _resolve_telegram_bot_id(bot_token: str) -> Optional[int]:
@@ -430,30 +473,241 @@ async def webapp_logo_route(request: web.Request) -> web.Response:
     if not raw_logo_url:
         raise web.HTTPNotFound(text="webapp_logo_not_configured")
 
-    parsed_logo_url = urlsplit(raw_logo_url)
-    if parsed_logo_url.scheme != "https" or not parsed_logo_url.hostname:
+    if not _is_proxyable_webapp_logo_url(raw_logo_url):
         raise web.HTTPNotFound(text="webapp_logo_not_proxied")
 
+    parsed_logo_url = urlsplit(raw_logo_url)
     if not await _hostname_resolves_to_public_address(parsed_logo_url.hostname):
         raise web.HTTPNotFound(text="webapp_logo_not_proxied")
 
     source_logo_url = raw_logo_url
-    logo_cache: Optional[Tuple[bytes, str]] = request.app.get("webapp_logo_cache")
-    if logo_cache is None:
+    logo_cache: Optional[Tuple[str, bytes, str]] = request.app.get("webapp_logo_cache")
+    if logo_cache is None or logo_cache[0] != source_logo_url:
         cache_lock: asyncio.Lock = request.app["webapp_logo_cache_lock"]
         async with cache_lock:
             logo_cache = request.app.get("webapp_logo_cache")
-            if logo_cache is None:
-                logo_cache = await _fetch_webapp_logo(source_logo_url)
+            if logo_cache is None or logo_cache[0] != source_logo_url:
+                fetched_logo = await _load_or_fetch_webapp_logo(source_logo_url)
+                logo_cache = (
+                    (source_logo_url, fetched_logo[0], fetched_logo[1]) if fetched_logo else None
+                )
                 request.app["webapp_logo_cache"] = logo_cache
 
     if not logo_cache:
         raise web.HTTPNotFound(text="webapp_logo_unavailable")
 
-    body, content_type = logo_cache
+    _, body, content_type = logo_cache
     response = web.Response(body=body, content_type=content_type)
-    response.headers["Cache-Control"] = "public, max-age=3600"
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     return response
+
+
+async def webapp_animated_emoji_route(request: web.Request) -> web.Response:
+    codepoints = str(request.match_info.get("codepoints") or "").strip().lower()
+    ext = str(request.match_info.get("ext") or "").strip().lower()
+    if not re.fullmatch(r"[0-9a-f]+(?:_[0-9a-f]+)*", codepoints) or ext not in {"gif", "webp"}:
+        raise web.HTTPNotFound(text="webapp_emoji_not_found")
+
+    emoji_cache_key = f"{codepoints}:{ext}"
+    emoji_caches: Dict[str, Tuple[bytes, str]] = request.app.setdefault("webapp_emoji_cache", {})
+    emoji_cache = emoji_caches.get(emoji_cache_key)
+    if emoji_cache is None:
+        cache_lock: asyncio.Lock = request.app.setdefault("webapp_emoji_cache_lock", asyncio.Lock())
+        async with cache_lock:
+            emoji_cache = emoji_caches.get(emoji_cache_key)
+            if emoji_cache is None:
+                emoji_cache = await _load_or_fetch_webapp_animated_emoji(codepoints, ext)
+                if emoji_cache:
+                    emoji_caches[emoji_cache_key] = emoji_cache
+
+    if not emoji_cache:
+        raise web.HTTPNotFound(text="webapp_emoji_unavailable")
+
+    body, content_type = emoji_cache
+    response = web.Response(body=body, content_type=content_type)
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
+
+
+async def _warm_webapp_logo_cache(app: web.Application) -> None:
+    settings: Settings = app["settings"]
+    raw_logo_url = (settings.WEBAPP_LOGO_URL or "").strip()
+    if not raw_logo_url or not _is_proxyable_webapp_logo_url(raw_logo_url):
+        return
+
+    parsed_logo_url = urlsplit(raw_logo_url)
+    if not parsed_logo_url.hostname or not await _hostname_resolves_to_public_address(
+        parsed_logo_url.hostname
+    ):
+        return
+
+    cache_lock: asyncio.Lock = app["webapp_logo_cache_lock"]
+    async with cache_lock:
+        logo_cache: Optional[Tuple[str, bytes, str]] = app.get("webapp_logo_cache")
+        if logo_cache and logo_cache[0] == raw_logo_url:
+            return
+        loaded_logo = await _load_or_fetch_webapp_logo(raw_logo_url)
+        app["webapp_logo_cache"] = (
+            (raw_logo_url, loaded_logo[0], loaded_logo[1]) if loaded_logo else None
+        )
+
+
+async def _warm_webapp_animated_emoji_cache(app: web.Application) -> None:
+    settings: Settings = app["settings"]
+    if str(settings.WEBAPP_LOGO_EMOJI_FONT or "").strip() != "noto-color-animated":
+        return
+
+    codepoints = _emoji_to_codepoints(settings.WEBAPP_LOGO_EMOJI)
+    if not codepoints:
+        return
+
+    app.setdefault("webapp_emoji_cache", {})
+    app.setdefault("webapp_emoji_cache_lock", asyncio.Lock())
+    emoji_caches: Dict[str, Tuple[bytes, str]] = app["webapp_emoji_cache"]
+
+    for ext in ("gif", "webp"):
+        emoji_cache_key = f"{codepoints}:{ext}"
+        if emoji_cache_key in emoji_caches:
+            continue
+        loaded_emoji = await _load_or_fetch_webapp_animated_emoji(codepoints, ext)
+        if loaded_emoji:
+            emoji_caches[emoji_cache_key] = loaded_emoji
+            if ext == "gif":
+                return
+
+
+async def _load_or_fetch_webapp_animated_emoji(
+    codepoints: str, ext: str
+) -> Optional[Tuple[bytes, str]]:
+    disk_emoji = await asyncio.to_thread(_read_webapp_animated_emoji_from_disk, codepoints, ext)
+    if disk_emoji:
+        return disk_emoji
+
+    fetched_emoji = await _fetch_webapp_animated_emoji(codepoints, ext)
+    if fetched_emoji:
+        await asyncio.to_thread(
+            _write_webapp_animated_emoji_to_disk, codepoints, ext, fetched_emoji
+        )
+    return fetched_emoji
+
+
+def _read_webapp_animated_emoji_from_disk(codepoints: str, ext: str) -> Optional[Tuple[bytes, str]]:
+    path = _webapp_emoji_disk_path(codepoints, ext)
+    try:
+        body = path.read_bytes()
+    except OSError:
+        return None
+
+    if not body or len(body) > WEBAPP_EMOJI_MAX_BYTES:
+        return None
+    return body, "image/gif" if ext == "gif" else "image/webp"
+
+
+def _write_webapp_animated_emoji_to_disk(
+    codepoints: str, ext: str, emoji: Tuple[bytes, str]
+) -> None:
+    body, _content_type = emoji
+    if not body or len(body) > WEBAPP_EMOJI_MAX_BYTES:
+        return
+
+    path = _webapp_emoji_disk_path(codepoints, ext)
+    try:
+        WEBAPP_EMOJI_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(body)
+    except OSError as exc:
+        logger.warning("Failed to write WEBAPP animated emoji cache: %s", exc)
+
+
+async def _fetch_webapp_animated_emoji(codepoints: str, ext: str) -> Optional[Tuple[bytes, str]]:
+    try:
+        session = await _get_shared_http_session()
+        timeout = ClientTimeout(total=4)
+        source_url = _webapp_animated_emoji_source_url(codepoints, ext)
+        async with session.get(
+            source_url,
+            allow_redirects=False,
+            headers={"Accept": "image/gif,image/webp,image/*,*/*;q=0.8"},
+            timeout=timeout,
+        ) as response:
+            if response.status != 200:
+                return None
+
+            content_type = (
+                (response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+            )
+            expected_content_type = "image/gif" if ext == "gif" else "image/webp"
+            if content_type and content_type != expected_content_type:
+                return None
+
+            body = bytearray()
+            async for chunk in response.content.iter_chunked(64 * 1024):
+                body.extend(chunk)
+                if len(body) > WEBAPP_EMOJI_MAX_BYTES:
+                    logger.warning("WEBAPP animated emoji exceeded the 4 MiB limit.")
+                    return None
+
+            if not body:
+                return None
+
+            return bytes(body), expected_content_type
+    except Exception as exc:
+        logger.warning("Failed to fetch WEBAPP animated emoji: %s", exc)
+        return None
+
+
+async def _load_or_fetch_webapp_logo(logo_url: str) -> Optional[Tuple[bytes, str]]:
+    disk_logo = await asyncio.to_thread(_read_webapp_logo_from_disk, logo_url)
+    if disk_logo:
+        return disk_logo
+
+    fetched_logo = await _fetch_webapp_logo(logo_url)
+    if fetched_logo:
+        await asyncio.to_thread(_write_webapp_logo_to_disk, logo_url, fetched_logo)
+    return fetched_logo
+
+
+def _read_webapp_logo_from_disk(logo_url: str) -> Optional[Tuple[bytes, str]]:
+    body_path, meta_path = _webapp_logo_disk_paths(logo_url)
+    try:
+        metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+        if metadata.get("source_url") != logo_url:
+            return None
+        content_type = str(metadata.get("content_type") or "").strip().lower()
+        if not content_type.startswith("image/"):
+            return None
+        body = body_path.read_bytes()
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    if not body or len(body) > WEBAPP_LOGO_MAX_BYTES:
+        return None
+    return body, content_type
+
+
+def _write_webapp_logo_to_disk(logo_url: str, logo: Tuple[bytes, str]) -> None:
+    body, content_type = logo
+    if not body or len(body) > WEBAPP_LOGO_MAX_BYTES:
+        return
+
+    body_path, meta_path = _webapp_logo_disk_paths(logo_url)
+    try:
+        WEBAPP_LOGO_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        body_path.write_bytes(body)
+        meta_path.write_text(
+            json.dumps(
+                {
+                    "source_url": logo_url,
+                    "content_type": content_type,
+                    "cached_at": datetime.now(timezone.utc).isoformat(),
+                    "bytes": len(body),
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        logger.warning("Failed to write WEBAPP_LOGO_URL cache: %s", exc)
 
 
 async def _fetch_webapp_logo(logo_url: str) -> Optional[Tuple[bytes, str]]:
@@ -461,7 +715,12 @@ async def _fetch_webapp_logo(logo_url: str) -> Optional[Tuple[bytes, str]]:
     try:
         session = await _get_shared_http_session()
         timeout = ClientTimeout(total=3)
-        async with session.get(logo_url, allow_redirects=False, timeout=timeout) as response:
+        async with session.get(
+            logo_url,
+            allow_redirects=False,
+            headers={"Accept": "image/avif,image/webp,image/svg+xml,image/png,image/*,*/*;q=0.8"},
+            timeout=timeout,
+        ) as response:
             if response.status != 200:
                 logger.warning(
                     "WEBAPP_LOGO_URL returned HTTP %s; keeping the logo hidden.",
@@ -504,7 +763,7 @@ async def _get_shared_http_session() -> ClientSession:
                 timeout=ClientTimeout(total=30),
                 headers={
                     "User-Agent": "Mozilla/5.0",
-                    "Accept": "application/javascript,text/javascript,*/*;q=0.8",
+                    "Accept": "*/*",
                 },
             )
         return _SHARED_HTTP_SESSION
@@ -582,8 +841,8 @@ async def _security_headers_middleware(request: web.Request, handler):
             f"script-src 'self' 'nonce-{nonce}' 'unsafe-eval' https://telegram.org; "
             "frame-src https://oauth.telegram.org; "
             "frame-ancestors https://web.telegram.org https://t.me; "
-            "style-src 'self' 'unsafe-inline'; "
-            "font-src 'self' https://cdn.jsdelivr.net data:; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
+            "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; "
             "img-src 'self' data: https: http:; "
             "connect-src 'self' https://oauth.telegram.org; "
             "object-src 'none'; "
@@ -782,6 +1041,7 @@ async def index_route(request: web.Request) -> web.Response:
         "primaryColor": settings.WEBAPP_PRIMARY_COLOR,
         "logoUrl": cached["logo_url"],
         "logoEmoji": settings.WEBAPP_LOGO_EMOJI,
+        "logoEmojiFont": settings.WEBAPP_LOGO_EMOJI_FONT,
         "apiBase": "/api",
         "telegramLoginBotUsername": request.app.get("bot_username") or "",
         "telegramLoginBotId": _resolve_telegram_bot_id(settings.BOT_TOKEN) or 0,
@@ -821,6 +1081,19 @@ async def index_route(request: web.Request) -> web.Response:
         WEBAPP_JS_PLACEHOLDER,
         f'<script src="/{_resolve_webapp_js_asset_name()}" defer></script>',
     )
+    brand_asset_url = cached["logo_url"]
+    if not brand_asset_url and settings.WEBAPP_LOGO_EMOJI_FONT == "noto-color-animated":
+        brand_asset_url = _webapp_animated_emoji_asset_path(settings.WEBAPP_LOGO_EMOJI)
+    if brand_asset_url:
+        html = html.replace(
+            '<link rel="preload" id="logo-preload" href="" as="image" fetchpriority="high" crossorigin="anonymous">',
+            f'<link rel="preload" href="{brand_asset_url}" as="image" fetchpriority="high" crossorigin="anonymous">',
+        )
+    else:
+        html = html.replace(
+            '<link rel="preload" id="logo-preload" href="" as="image" fetchpriority="high" crossorigin="anonymous">',
+            "",
+        )
     return web.Response(text=html, content_type="text/html", charset="utf-8")
 
 

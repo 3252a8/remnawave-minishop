@@ -1,7 +1,12 @@
 <script>
   import { ChevronRight, Eye, EyeOff, X } from "$components/ui/icons.js";
   import { Accordion, Switch } from "$components/ui/primitives.js";
-  import { AdminBadge, AdminButton, AdminEmptyState } from "$components/patterns/admin/index.js";
+  import {
+    AdminBadge,
+    AdminButton,
+    AdminEmptyState,
+    AdminSelect,
+  } from "$components/patterns/admin/index.js";
   import { getContext, onMount } from "svelte";
 
   export let at;
@@ -161,6 +166,15 @@
           type="text"
           value={valueFor(field) || ""}
           on:input={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+        />
+      {:else if field.choices && field.choices.length > 0}
+        <AdminSelect
+          class="admin-setting-select"
+          value={valueFor(field) || ""}
+          items={field.choices}
+          ariaLabel={fieldLabelText(field)}
+          placeholder={field.placeholder || fieldLabelText(field)}
+          onValueChange={(value) => settingsStore.markDirty(field.key, value)}
         />
       {:else if field.type === "int" || field.type === "float"}
         <input

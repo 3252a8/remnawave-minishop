@@ -4,6 +4,7 @@ export const DEV_MOCK = {
     primaryColor: "#00fe7a",
     logoUrl: "",
     logoEmoji: "🫥",
+    logoEmojiFont: "system",
     apiBase: "/api",
     supportUrl: "https://t.me/support",
     privacyPolicyUrl: "https://example.com/privacy",

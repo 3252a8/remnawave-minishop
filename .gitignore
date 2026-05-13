@@ -30,5 +30,6 @@ __pycache__/
 locales/ru_backup.json
 locales/en_backup.json
 db/models_old.py
-data/tariffs.json
+data/*
+!data/tariffs.example.json
 docker-compose-dev.yml

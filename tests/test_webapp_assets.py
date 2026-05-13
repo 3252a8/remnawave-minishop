@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import tempfile
@@ -84,7 +85,16 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
     def test_https_webapp_logo_uses_same_origin_proxy(self):
         settings = SimpleNamespace(WEBAPP_LOGO_URL="https://cdn.example.com/logo.png")
 
-        self.assertEqual(subscription_webapp._resolve_webapp_logo_url(settings), "/webapp-logo")
+        self.assertRegex(
+            subscription_webapp._resolve_webapp_logo_url(settings),
+            r"^/webapp-logo\?v=[0-9a-f]{12}$",
+        )
+
+    def test_animated_emoji_asset_path_uses_same_origin_route(self):
+        self.assertEqual(
+            subscription_webapp._webapp_animated_emoji_asset_path("🤩"),
+            "/webapp-emoji/1f929/512.gif",
+        )
 
     def test_telegram_avatar_url_uses_same_origin_account_route(self):
         avatar = SimpleNamespace(
@@ -210,3 +220,79 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 response.headers["Cache-Control"], "public, max-age=31536000, immutable"
             )
             self.assertEqual(response.text, "console.log('minified');")
+
+    def test_webapp_logo_disk_cache_roundtrip(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            logo_url = "https://cdn.example.com/logo.png"
+            logo = (b"png-bytes", "image/png")
+
+            with patch.object(subscription_webapp, "WEBAPP_LOGO_CACHE_DIR", Path(tmpdir)):
+                subscription_webapp._write_webapp_logo_to_disk(logo_url, logo)
+
+                self.assertEqual(subscription_webapp._read_webapp_logo_from_disk(logo_url), logo)
+
+    async def test_warm_webapp_logo_cache_uses_disk_cache(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            logo_url = "https://cdn.example.com/logo.png"
+            logo = (b"cached-logo", "image/png")
+            app = {
+                "settings": SimpleNamespace(WEBAPP_LOGO_URL=logo_url),
+                "webapp_logo_cache": None,
+                "webapp_logo_cache_lock": asyncio.Lock(),
+            }
+
+            with (
+                patch.object(subscription_webapp, "WEBAPP_LOGO_CACHE_DIR", Path(tmpdir)),
+                patch.object(
+                    subscription_webapp,
+                    "_hostname_resolves_to_public_address",
+                    return_value=True,
+                ),
+                patch.object(subscription_webapp, "_fetch_webapp_logo") as fetch_logo,
+            ):
+                subscription_webapp._write_webapp_logo_to_disk(logo_url, logo)
+
+                await subscription_webapp._warm_webapp_logo_cache(app)
+
+            fetch_logo.assert_not_called()
+            self.assertEqual(app["webapp_logo_cache"], (logo_url, logo[0], logo[1]))
+
+    def test_webapp_animated_emoji_disk_cache_roundtrip(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch.object(subscription_webapp, "WEBAPP_EMOJI_CACHE_DIR", Path(tmpdir)):
+                subscription_webapp._write_webapp_animated_emoji_to_disk(
+                    "1f929",
+                    "gif",
+                    (b"gif-bytes", "image/gif"),
+                )
+
+                self.assertEqual(
+                    subscription_webapp._read_webapp_animated_emoji_from_disk("1f929", "gif"),
+                    (b"gif-bytes", "image/gif"),
+                )
+
+    async def test_warm_webapp_animated_emoji_cache_uses_disk_cache(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app = {
+                "settings": SimpleNamespace(
+                    WEBAPP_LOGO_EMOJI="🤩",
+                    WEBAPP_LOGO_EMOJI_FONT="noto-color-animated",
+                ),
+                "webapp_emoji_cache": {},
+                "webapp_emoji_cache_lock": asyncio.Lock(),
+            }
+
+            with (
+                patch.object(subscription_webapp, "WEBAPP_EMOJI_CACHE_DIR", Path(tmpdir)),
+                patch.object(subscription_webapp, "_fetch_webapp_animated_emoji") as fetch_emoji,
+            ):
+                subscription_webapp._write_webapp_animated_emoji_to_disk(
+                    "1f929",
+                    "gif",
+                    (b"cached-gif", "image/gif"),
+                )
+
+                await subscription_webapp._warm_webapp_animated_emoji_cache(app)
+
+            fetch_emoji.assert_not_called()
+            self.assertEqual(app["webapp_emoji_cache"]["1f929:gif"], (b"cached-gif", "image/gif"))

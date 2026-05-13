@@ -81,6 +81,24 @@ SETTINGS_MANIFEST: List[SettingField] = [
     ),
     SettingField("WEBAPP_LOGO_URL", "url", "appearance", "URL логотипа"),
     SettingField("WEBAPP_LOGO_EMOJI", "string", "appearance", "Эмоджи-логотип", placeholder="🫥"),
+    SettingField(
+        "WEBAPP_LOGO_EMOJI_FONT",
+        "string",
+        "appearance",
+        "Шрифт эмоджи-логотипа",
+        "Выберите шрифт для отображения эмодзи-логотипа",
+        choices=(
+            ("system", "Системный (по умолчанию)"),
+            ("noto-color", "Noto Color Emoji"),
+            ("noto-color-animated", "Noto Color Emoji Animated"),
+            ("noto-emoji", "Noto Emoji"),
+            ("twemoji", "Twitter Emoji"),
+            ("openmoji", "OpenMoji"),
+            ("apple", "Apple Color Emoji (local)"),
+            ("segoe", "Segoe UI Emoji (local)"),
+            ("noto-local", "Noto Emoji (local)"),
+        ),
+    ),
     SettingField("WEBAPP_ENABLED", "bool", "appearance", "Web App включён"),
     # ─── Subscription periods & pricing ────────────────────────────
     SettingField("MONTH_1_ENABLED", "bool", "pricing", "Тариф 1 месяц"),
@@ -488,21 +506,22 @@ def manifest_payload() -> List[dict]:
     for field in SETTINGS_MANIFEST:
         auto_label_i18n_key = f"settings_field_{field.key.lower()}_label"
         auto_description_i18n_key = f"settings_field_{field.key.lower()}_description"
-        items.append(
-            {
-                "key": field.key,
-                "type": field.type,
-                "section": field.section,
-                "section_order": sections_order.get(field.section, 99),
-                "subsection": field.subsection,
-                "label": field.label,
-                "description": field.description,
-                "i18n_label_key": field.i18n_label_key or auto_label_i18n_key,
-                "i18n_description_key": field.i18n_description_key
-                or (auto_description_i18n_key if field.description else None),
-                "placeholder": field.placeholder,
-                "optional": field.optional,
-                "secret": field.secret,
-            }
-        )
+        item = {
+            "key": field.key,
+            "type": field.type,
+            "section": field.section,
+            "section_order": sections_order.get(field.section, 99),
+            "subsection": field.subsection,
+            "label": field.label,
+            "description": field.description,
+            "i18n_label_key": field.i18n_label_key or auto_label_i18n_key,
+            "i18n_description_key": field.i18n_description_key
+            or (auto_description_i18n_key if field.description else None),
+            "placeholder": field.placeholder,
+            "optional": field.optional,
+            "secret": field.secret,
+        }
+        if field.choices:
+            item["choices"] = [{"value": v, "label": lbl} for v, lbl in field.choices]
+        items.append(item)
     return items
