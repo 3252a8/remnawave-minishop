@@ -1,4 +1,4 @@
-export function createBillingActions({ api, t }) {
+export function createBillingActions({ api }) {
   async function fetchTopupOptions(kind) {
     return api(`/tariffs/topup-options?kind=${encodeURIComponent(kind)}`);
   }

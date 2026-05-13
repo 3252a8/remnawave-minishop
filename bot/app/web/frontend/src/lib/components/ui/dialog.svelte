@@ -16,8 +16,7 @@
 
   function readReduceMotion() {
     return (
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
     );
   }
 
@@ -35,9 +34,7 @@
   });
 
   $: backdropTransition = reduceMotion ? { duration: 0 } : { duration: 200 };
-  $: cardIn = reduceMotion
-    ? { duration: 0, y: 0 }
-    : { duration: 260, y: 16, easing: cubicOut };
+  $: cardIn = reduceMotion ? { duration: 0, y: 0 } : { duration: 260, y: 16, easing: cubicOut };
   $: cardOut = reduceMotion ? { duration: 0, y: 0 } : { duration: 200, y: 10, easing: cubicOut };
 </script>
 
@@ -51,11 +48,7 @@
       in:fade={backdropTransition}
       out:fade={backdropTransition}
     ></button>
-    <section
-      class={cn("dialog-card", className)}
-      in:fly={cardIn}
-      out:fly={cardOut}
-    >
+    <section class={cn("dialog-card", className)} in:fly={cardIn} out:fly={cardOut}>
       <div class="dialog-head">
         <div>
           {#if title}<h2>{title}</h2>{/if}

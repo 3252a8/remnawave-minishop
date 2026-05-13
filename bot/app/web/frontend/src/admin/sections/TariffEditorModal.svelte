@@ -16,11 +16,8 @@
     tariffsSaving,
     tariffDeleteOpen,
     tariffDeleteTarget,
-    selectedBaseSquad,
-    selectedPremiumSquad,
     panelSquadsLoading,
     panelSquads,
-    tariffEditorTab,
   } = $tariffsStore);
 
   $: billingModelOptions = [
@@ -187,7 +184,7 @@
           ariaLabel={at("btn_add_squad", {}, "Добавить основной сквад")}
           onValueChange={(value) => {
             tariffsStore.addSquadToDraft("squadUuids", value);
-            selectedBaseSquad = "";
+            tariffsStore.update((s) => ({ ...s, selectedBaseSquad: "" }));
           }}
         />
         <div class="admin-chip-list">
@@ -331,7 +328,7 @@
               ariaLabel={at("btn_add_premium_squad", {}, "Добавить premium-сквад")}
               onValueChange={(value) => {
                 tariffsStore.addSquadToDraft("premiumSquadUuids", value);
-                selectedPremiumSquad = "";
+                tariffsStore.update((s) => ({ ...s, selectedPremiumSquad: "" }));
               }}
             />
             <div class="admin-chip-list">

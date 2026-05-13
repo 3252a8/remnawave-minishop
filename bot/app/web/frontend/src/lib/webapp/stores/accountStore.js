@@ -216,7 +216,9 @@ export function createAccountStore({
     clearToken();
     try {
       await publicApi("/auth/logout", { keepalive: true });
-    } catch {}
+    } catch (_error) {
+      void _error;
+    }
     showLogin();
   }
 

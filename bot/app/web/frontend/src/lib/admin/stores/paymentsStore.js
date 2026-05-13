@@ -1,6 +1,6 @@
 import { writable } from "svelte/store";
 
-export function createPaymentsStore({ api, at }) {
+export function createPaymentsStore({ api }) {
   const state = writable({
     payments: [],
     paymentsTotal: 0,

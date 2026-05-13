@@ -8,10 +8,7 @@
     priceLabel as priceLabelFn,
     actionKey as actionKeyFn,
   } from "../lib/webapp/tariffs.js";
-  import {
-    premiumTitle as premiumTitleFn,
-    trafficPercent as trafficPercentFn,
-  } from "../lib/webapp/traffic.js";
+  import { premiumTitle as premiumTitleFn } from "../lib/webapp/traffic.js";
   import { formatCompactNumber } from "../lib/webapp/formatters.js";
 
   import Card from "$components/ui/card.svelte";

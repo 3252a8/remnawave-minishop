@@ -8,7 +8,7 @@ export function createSettingsStore({ api, onToast, at }) {
     settingsSaving: false,
   });
 
-  async function loadSettings(isCompact = false) {
+  async function loadSettings() {
     state.update((s) => ({ ...s, settingsLoading: true, settingsDirty: {} }));
     try {
       const data = await api("/admin/settings");

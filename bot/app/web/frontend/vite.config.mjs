@@ -29,7 +29,10 @@ export default defineConfig({
       fileName: () => "subscription_webapp.js",
       cssFileName: "subscription_webapp",
     },
-    rollupOptions: {
+    rolldownOptions: {
+      checks: {
+        pluginTimings: false,
+      },
       output: {
         assetFileNames: (assetInfo) => {
           if (assetInfo.name && assetInfo.name.endsWith(".css")) {

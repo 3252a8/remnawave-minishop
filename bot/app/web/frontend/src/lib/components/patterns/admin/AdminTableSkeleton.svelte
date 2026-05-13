@@ -29,7 +29,7 @@
   <tbody>
     {#each Array(rows) as _, rowIndex (rowIndex)}
       <tr>
-        {#each headers as header, colIndex (`${rowIndex}-${colIndex}`)}
+        {#each headers as _header, colIndex (`${rowIndex}-${colIndex}`)}
           <td>
             <Skeleton variant="line" width={widthFor(colIndex)} />
           </td>

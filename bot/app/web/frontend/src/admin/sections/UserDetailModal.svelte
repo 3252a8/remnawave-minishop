@@ -1,5 +1,5 @@
 <script>
-  import { Label, Select, Separator, Tabs } from "$components/ui/primitives.js";
+  import { Label, Separator, Tabs } from "$components/ui/primitives.js";
   import Dialog from "$components/ui/dialog.svelte";
   import {
     AdminBadge,
@@ -9,28 +9,14 @@
     AdminTrafficCard,
   } from "$components/patterns/admin/index.js";
   import {
-    CalendarDays,
     Copy,
-    CreditCard,
-    ExternalLink,
     Eye,
-    Info,
-    Key,
-    Mail,
-    Map,
-    MessageSquare,
-    MousePointerClick,
-    QrCode,
     RefreshCw,
     Send,
     Plus,
-    Settings,
-    Shield,
     Trash2,
-    User,
     UserMinus,
     UserPlus,
-    Users,
   } from "$components/ui/icons.js";
   import { getContext } from "svelte";
 
@@ -60,14 +46,11 @@
     openedUserDetail,
     userDetailLoading,
     userMessageDraft,
-    userExtendDays,
     userActionBusy,
     userDeleteOpen,
     userBanConfirmOpen,
     userMessageConfirmOpen,
-    userDetailTab,
     premiumUnlimitedDraft,
-    premiumBonusGbDraft,
   } = $usersStore);
 </script>
 

@@ -118,7 +118,11 @@
                     {#each month.weeks as weekDates, wi (wi)}
                       <RangeCalendar.GridRow class="admin-revenue-rcal__weekrow">
                         {#each weekDates as cellDate, di (`${wi}-${di}-${cellDate.toString()}`)}
-                          <RangeCalendar.Cell date={cellDate} month={month.value} class="admin-revenue-rcal__cell">
+                          <RangeCalendar.Cell
+                            date={cellDate}
+                            month={month.value}
+                            class="admin-revenue-rcal__cell"
+                          >
                             <RangeCalendar.Day class="admin-revenue-rcal__day">
                               {cellDate.day}
                             </RangeCalendar.Day>

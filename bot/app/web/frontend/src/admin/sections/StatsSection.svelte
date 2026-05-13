@@ -527,7 +527,9 @@
         <div class="admin-revenue-kpis" aria-hidden="true">
           {#each Array(6) as _, i (i)}
             <div class="admin-revenue-kpi">
-              <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny" style="width:72%"
+              <span
+                class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
+                style="width:72%"
               ></span>
               <span
                 class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
@@ -536,19 +538,25 @@
             </div>
           {/each}
           <div class="admin-revenue-kpi admin-revenue-kpi--wide">
-            <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny" style="width:46%"
+            <span
+              class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
+              style="width:46%"
             ></span>
             <span
               class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
               style="width:36%;height:20px;margin-top:4px"
             ></span>
-            <span class="admin-skeleton admin-skeleton-line" style="width:92%;height:9px;margin-top:6px"
+            <span
+              class="admin-skeleton admin-skeleton-line"
+              style="width:92%;height:9px;margin-top:6px"
             ></span>
           </div>
         </div>
         <div class="admin-revenue-chart">
           <div class="admin-revenue-chart-title">
-            <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny" style="width:42%"
+            <span
+              class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
+              style="width:42%"
             ></span>
           </div>
           <div class="admin-revenue-svg-frame">
@@ -579,7 +587,9 @@
           <div class="admin-panel-dash-tiles" aria-hidden="true">
             {#each Array(9) as _, k (k)}
               <div class="admin-panel-dash-tile">
-                <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny" style="width:58%"
+                <span
+                  class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
+                  style="width:58%"
                 ></span>
                 <span
                   class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
@@ -591,7 +601,9 @@
           <div class="admin-panel-dash-nodes">
             <div class="admin-panel-dash-nodes-head">
               <span class="admin-skeleton admin-skeleton-line" style="width:40%;height:12px"></span>
-              <span class="admin-skeleton admin-skeleton-line" style="width:78%;height:9px;margin-top:6px"
+              <span
+                class="admin-skeleton admin-skeleton-line"
+                style="width:78%;height:9px;margin-top:6px"
               ></span>
             </div>
             <div class="admin-panel-dash-nodes-grid">
@@ -615,7 +627,10 @@
     </Card.Root>
 
     <Card.Root>
-      <Card.Content class="admin-cn-card-content--flush" style="padding-top:12px;padding-bottom:12px;">
+      <Card.Content
+        class="admin-cn-card-content--flush"
+        style="padding-top:12px;padding-bottom:12px;"
+      >
         <div class="admin-sync-strip" style="border:0;background:transparent;padding:0;">
           <span
             class="admin-skeleton admin-skeleton-line"
@@ -632,7 +647,9 @@
     <Card.Root>
       <Card.Header class="admin-cn-card-header--lead">
         <span class="admin-skeleton admin-skeleton-line" style="width:44%;height:14px"></span>
-        <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny" style="width:30%;margin-top:8px"
+        <span
+          class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
+          style="width:30%;margin-top:8px"
         ></span>
       </Card.Header>
       <Card.Content class="admin-cn-card-content--flush">
@@ -852,7 +869,11 @@
               {#if revenueGranularity !== "day"}
                 <span class="admin-revenue-chart-meta-sep" aria-hidden="true">·</span>
                 <span
-                  >{at("stats_revenue_chart_bucket_count", { count: revenueChartSeries.length }, "")}</span
+                  >{at(
+                    "stats_revenue_chart_bucket_count",
+                    { count: revenueChartSeries.length },
+                    ""
+                  )}</span
                 >
               {/if}
               {#if revenueChartShortfall}
@@ -867,11 +888,7 @@
               {:else if revenueRangeMode === "custom" && revenueCustomDaySpan > 0}
                 <span class="admin-revenue-chart-meta-sep" aria-hidden="true">·</span>
                 <span
-                  >{at(
-                    "stats_revenue_chart_custom_span",
-                    { days: revenueCustomDaySpan },
-                    ""
-                  )}</span
+                  >{at("stats_revenue_chart_custom_span", { days: revenueCustomDaySpan }, "")}</span
                 >
               {/if}
             </div>

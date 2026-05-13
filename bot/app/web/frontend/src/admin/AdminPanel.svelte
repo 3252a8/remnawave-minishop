@@ -49,7 +49,6 @@
     fmtDate,
     fmtDateShort,
     fmtMoney,
-    optionLabel,
     paymentStatusVariant,
     trafficLeftLabel,
     trafficOfLabel,
@@ -79,7 +78,7 @@
   export let languageOptions = [];
   export let languageBusy = false;
   export let onLanguageChange = () => {};
-  export let t = (key, params = {}, fallback = "") => fallback || key;
+  export let t = (key, _params = {}, fallback = "") => fallback || key;
 
   const at = (key, params = {}, fallback = "") => t(`admin_${key}`, params, fallback || key);
 

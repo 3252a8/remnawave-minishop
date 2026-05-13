@@ -226,7 +226,9 @@ export async function mockApi(path, options = {}, context = {}) {
     let payload = {};
     try {
       payload = options?.body ? JSON.parse(String(options.body)) : {};
-    } catch {}
+    } catch (_error) {
+      void _error;
+    }
     DEV_MOCK.data.devices.devices = DEV_MOCK.data.devices.devices.filter(
       (device) => device.token !== payload.token
     );
@@ -254,7 +256,9 @@ export async function mockApi(path, options = {}, context = {}) {
     let payload = {};
     try {
       payload = options?.body ? JSON.parse(String(options.body)) : {};
-    } catch {}
+    } catch (_error) {
+      void _error;
+    }
     const language = normalizeLangCode(payload?.language || currentLang);
     DEV_MOCK.data.user.language_code = language;
     return { ok: true, language };

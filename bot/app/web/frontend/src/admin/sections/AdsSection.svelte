@@ -16,7 +16,7 @@
 
   const adsStore = getContext("adsStore");
 
-  $: ({ ads, adsTotals, adsLoading, adCreateOpen, adDraft } = $adsStore);
+  $: ({ ads, adsLoading, adCreateOpen, adDraft } = $adsStore);
   $: adHeaders = [
     at("id", {}, "ID"),
     at("ads_col_source", {}, "Источник"),

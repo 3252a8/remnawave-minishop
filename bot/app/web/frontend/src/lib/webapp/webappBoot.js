@@ -73,7 +73,9 @@ export async function runWebappBoot({
   if (initData) {
     try {
       if (await finalizeTelegramAuth(initData, "init_data")) return;
-    } catch {}
+    } catch (_error) {
+      void _error;
+    }
   }
 
   if (getToken() || getCsrfToken()) {

@@ -7,7 +7,7 @@ import {
   normalizeUuidList,
 } from "../tariffDraft.js";
 
-export function createTariffsStore({ api, onToast, onTariffsSaved, flash, at }) {
+export function createTariffsStore({ api, onTariffsSaved, flash, at }) {
   const state = writable({
     tariffsCatalog: {
       default_tariff: "",
@@ -62,7 +62,8 @@ export function createTariffsStore({ api, onToast, onTariffsSaved, flash, at }) 
     try {
       const data = await api("/admin/panel/internal-squads");
       if (data?.ok) state.update((s) => ({ ...s, panelSquads: data.squads || [] }));
-    } catch (e) {
+    } catch (_error) {
+      void _error;
       state.update((s) => ({ ...s, panelSquads: [] }));
     } finally {
       state.update((s) => ({ ...s, panelSquadsLoading: false }));

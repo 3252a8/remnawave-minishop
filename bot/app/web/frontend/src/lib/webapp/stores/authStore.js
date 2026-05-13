@@ -1,9 +1,6 @@
 import { writable, get } from "svelte/store";
 import {
   readReferralParam,
-  readTelegramAuthStatus,
-  readMagicLoginToken,
-  readTelegramLoginWidgetAuthData,
   clearAuthQuery,
   buildTelegramOAuthStartUrl,
   emailError,
@@ -17,7 +14,6 @@ export function createAuthStore({
   getTg,
   t,
   currentLang,
-  clearManualLogoutFlag,
 }) {
   const state = writable({
     authStatus: "",

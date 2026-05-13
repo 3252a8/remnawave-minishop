@@ -1,6 +1,6 @@
 import { writable } from "svelte/store";
 
-export function createLogsStore({ api, at }) {
+export function createLogsStore({ api }) {
   const state = writable({
     logs: [],
     logsTotal: 0,

@@ -2,6 +2,10 @@ export const TOKEN_STORAGE_KEY = "rw_webapp_token";
 export const CSRF_COOKIE_NAME = "rw_webapp_csrf";
 export const REFERRAL_STORAGE_KEY = "rw_webapp_referral";
 
+function ignoreStorageError(error) {
+  void error;
+}
+
 export function readCookie(name) {
   if (typeof document === "undefined") return "";
   const prefix = `${name}=`;
@@ -27,13 +31,17 @@ export function clearStoredToken(storageKey = TOKEN_STORAGE_KEY) {
 export function markManualLogout(flagKey) {
   try {
     localStorage.setItem(flagKey, "1");
-  } catch {}
+  } catch (error) {
+    ignoreStorageError(error);
+  }
 }
 
 export function clearManualLogoutFlag(flagKey) {
   try {
     localStorage.removeItem(flagKey);
-  } catch {}
+  } catch (error) {
+    ignoreStorageError(error);
+  }
 }
 
 export function isManuallyLoggedOut(flagKey) {
@@ -49,7 +57,9 @@ export function rememberReferral(value) {
   if (!normalized) return readReferral();
   try {
     localStorage.setItem(REFERRAL_STORAGE_KEY, normalized);
-  } catch {}
+  } catch (error) {
+    ignoreStorageError(error);
+  }
   return normalized;
 }
 

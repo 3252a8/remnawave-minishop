@@ -90,8 +90,6 @@
   let activeTab = "home";
   let screen = "home";
   let data = isPreviewBoard ? structuredCloneSafe(DEV_MOCK.data) : null;
-  let selectedPlan = null;
-  let selectedMethod = "";
   let trialBusy = false;
   let promoCode = "";
   let promoBusy = false;
@@ -201,9 +199,7 @@
     loginEmailFieldError,
     loginEmailTooltipOpen,
     authResendCooldown,
-    email,
     pendingEmail,
-    emailCode,
   } = $authStore);
   $: ({
     paymentModalOpen,
@@ -234,12 +230,9 @@
     linkEmailOpen,
     linkEmailBusy,
     linkTelegramBusy,
-    linkEmailValue,
     linkEmailPending,
-    linkEmailCode,
     linkEmailStatus,
     linkEmailIsError,
-    linkEmailFieldError,
     linkEmailResendCooldown,
     languageBusy,
   } = $accountStore);
@@ -489,16 +482,6 @@
     }, 260);
   }
 
-  function resolveTelegramWebApp() {
-    return telegramSdk.tg;
-  }
-
-  function refreshTelegramWebApp() {
-    tg = telegramSdk.refresh();
-    telegramMiniAppInitData = telegramSdk.initData;
-    return tg;
-  }
-
   function readTelegramMiniAppInitDataFromLocation() {
     return telegramSdk.readInitDataFromLocation();
   }
@@ -515,20 +498,6 @@
     });
   }
 
-  async function ensureTelegramSdkForAction() {
-    tg = await telegramSdk.ensureForAction();
-    telegramMiniAppInitData = telegramSdk.initData;
-    return tg;
-  }
-
-  function createTelegramMiniAppAuthTimeout() {
-    return telegramSdk.createMiniAppAuthTimeout();
-  }
-
-  function shouldWaitForTelegramSdkBeforeOAuth() {
-    return hasTelegramLaunchParams() || !telegramOAuthClientId;
-  }
-
   async function boot() {
     await runWebappBoot({
       MOCK,
@@ -542,7 +511,9 @@
         try {
           tg.ready();
           tg.expand();
-        } catch {}
+        } catch (_error) {
+          void _error;
+        }
       },
       loadData,
       showLogin,
