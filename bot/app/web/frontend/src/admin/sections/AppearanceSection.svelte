@@ -134,6 +134,12 @@
     return `#${hex}`;
   }
 
+  function homeLogoScale(theme) {
+    const scale = Number(theme.tokens?.home_logo_scale || 100);
+    if (!Number.isFinite(scale)) return 100;
+    return Math.min(300, Math.max(50, Math.round(scale)));
+  }
+
   function openThemeAccentPicker(theme) {
     themesStore.setThemeAccent(theme.key, pickerHex(theme.tokens?.accent || "#00fe7a"));
   }
@@ -214,6 +220,10 @@
 
   function setThemeAccent(theme, value) {
     themesStore.setThemeAccent(theme.key, value);
+  }
+
+  function setThemeHomeLogoScale(theme, value) {
+    themesStore.setThemeHomeLogoScale(theme.key, value);
   }
 
   function selectTheme(theme, event = null) {
@@ -472,6 +482,37 @@
                   />
                   <span>{at("themes_use_in_admin", {}, "Использовать в админке")}</span>
                 </label>
+                <label class="admin-theme-card-option appearance-logo-scale-row">
+                  <span
+                    >{at(
+                      "appearance_theme_home_logo_scale",
+                      {},
+                      "Логотип на главной и входе"
+                    )}</span
+                  >
+                  <input
+                    class="appearance-logo-scale-range"
+                    type="range"
+                    min="50"
+                    max="300"
+                    step="5"
+                    value={homeLogoScale(theme)}
+                    oninput={(event) => setThemeHomeLogoScale(theme, event.currentTarget.value)}
+                  />
+                  <span class="appearance-logo-scale-value">
+                    <input
+                      class="input"
+                      type="number"
+                      min="50"
+                      max="300"
+                      step="5"
+                      value={homeLogoScale(theme)}
+                      oninput={(event) =>
+                        setThemeHomeLogoScale(theme, event.currentTarget.value)}
+                    />
+                    %
+                  </span>
+                </label>
                 <div class="appearance-theme-actions">
                   <AdminButton
                     size="sm"
@@ -701,6 +742,31 @@
 
   .appearance-color-text {
     min-width: 0;
+  }
+
+  .appearance-logo-scale-row {
+    display: grid;
+    grid-template-columns: auto minmax(96px, 1fr) auto;
+    width: 100%;
+  }
+
+  .appearance-logo-scale-range {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+
+  .appearance-logo-scale-value {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--admin-text);
+  }
+
+  .appearance-logo-scale-value .input {
+    width: 70px;
+    min-height: 32px;
+    padding: 4px 8px;
+    font-size: 12px;
   }
 
   .admin-color.is-empty {

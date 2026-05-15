@@ -183,12 +183,38 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     }));
   }
 
+  function setThemeHomeLogoScale(key, scale) {
+    if (String(scale ?? "").trim() === "") scale = 100;
+    const numeric = Number(scale);
+    const nextScale = Number.isFinite(numeric)
+      ? Math.min(300, Math.max(50, Math.round(numeric)))
+      : 100;
+    state.update((s) => ({
+      ...s,
+      themesCatalog: {
+        ...s.themesCatalog,
+        themes: (s.themesCatalog.themes || []).map((theme) =>
+          theme.key === key
+            ? {
+                ...theme,
+                tokens: {
+                  ...(theme.tokens || {}),
+                  home_logo_scale: nextScale === 100 ? null : nextScale,
+                },
+              }
+            : theme
+        ),
+      },
+    }));
+  }
+
   return {
     subscribe: state.subscribe,
     loadThemes,
     saveThemes,
     setCurrentTheme,
     setThemeAccent,
+    setThemeHomeLogoScale,
     togglePrimaryAccent,
     toggleAdminUse,
     uploadLogoFile,

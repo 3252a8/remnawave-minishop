@@ -17,6 +17,7 @@ const TOKEN_TO_CSS_VAR = {
   font_sans: "--font-sans",
   font_logo: "--font-logo",
   font_mono: "--font-mono",
+  home_logo_scale: "--home-logo-scale",
   admin_bg: "--admin-bg",
   admin_surface: "--admin-surface",
   admin_surface_2: "--admin-surface-2",
@@ -38,6 +39,12 @@ export function themeTokensToInlineStyle(tokens, primaryFallback = "#00fe7a", op
     if (key === "accent") continue;
     const value = t[key];
     if (value === undefined || value === null || value === "") continue;
+    if (key === "home_logo_scale") {
+      const scale = Number(value);
+      if (!Number.isFinite(scale) || scale <= 0) continue;
+      parts.push(`${cssVar}:${scale / 100}`);
+      continue;
+    }
     parts.push(`${cssVar}:${String(value)}`);
   }
   return parts.join(";");

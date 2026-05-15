@@ -33,7 +33,7 @@ class WebappThemesConfigTests(unittest.TestCase):
         self.assertEqual(win95.tokens.style_preset, "win95")
         self.assertFalse(win95.use_primary_accent)
         self.assertTrue(win95.use_in_admin)
-        self.assertEqual(win95.assets_version, 1)
+        self.assertEqual(win95.assets_version, 3)
         ascii_theme = cfg.theme_by_key("ascii")
         self.assertIsNotNone(ascii_theme)
         self.assertEqual(ascii_theme.css_file, "style.css")
@@ -294,6 +294,25 @@ class WebappThemesConfigTests(unittest.TestCase):
 
         self.assertEqual(cfg.theme_by_key("custom").tokens.accent, "#00ff88")
 
+    def test_theme_home_logo_scale_is_public_token(self):
+        cfg = WebappThemesConfig(
+            default_theme="custom",
+            themes=[
+                {
+                    "key": "custom",
+                    "enabled": True,
+                    "default": True,
+                    "tokens": {"color_scheme": "dark", "home_logo_scale": 135},
+                }
+            ],
+        )
+
+        payload = public_themes_catalog_payload(cfg, "#abc123")
+        custom = payload["themes"][0]
+
+        self.assertEqual(cfg.theme_by_key("custom").tokens.home_logo_scale, 135)
+        self.assertEqual(custom["tokens"]["home_logo_scale"], 135)
+
     def test_theme_accent_rejects_non_hex_values(self):
         with self.assertRaises(ValueError):
             WebappThemesConfig(
@@ -361,11 +380,14 @@ class WebappThemesConfigTests(unittest.TestCase):
                 descriptor["assets_version"],
                 cfg.theme_by_key("windows95").assets_version,
             )
-            self.assertEqual(descriptor["assets_version"], 1)
+            self.assertEqual(descriptor["assets_version"], 3)
             self.assertIn("lucide-house", css)
             self.assertIn("lucide-earth", css)
             self.assertIn("lucide-circle-check", css)
             self.assertIn("lucide-circle-check-big", css)
+            self.assertIn("filter: none !important", css)
+            self.assertIn("Press Start 2P", css)
+            self.assertIn(".theme-key-windows95 .traffic-top strong", css)
             self.assertTrue((stale_theme_dir / "icons" / "dashboard.png").exists())
 
     def test_resolved_refreshes_stale_builtin_light_assets(self):

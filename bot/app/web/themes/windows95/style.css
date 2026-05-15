@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap&subset=cyrillic");
+
 .theme-key-windows95 {
   color-scheme: light;
   image-rendering: pixelated;
@@ -15,7 +17,7 @@
   --blue: #000080;
   --radius: 0px;
   --font-sans: "MS Sans Serif", Tahoma, "Segoe UI", sans-serif;
-  --font-logo: "MS Sans Serif", Tahoma, "Segoe UI", sans-serif;
+  --font-logo: "Press Start 2P", "Pixel Cyr", "MS Sans Serif", Tahoma, "Segoe UI", sans-serif;
   --font-mono: Consolas, "Courier New", monospace;
   --accent-contrast: #ffffff;
   --surface-sheen: transparent;
@@ -89,6 +91,8 @@
 .theme-key-windows95 svg.lucide-bitcoin,
 .theme-key-windows95 svg.lucide-check,
 .theme-key-windows95 svg.lucide-check-circle-2,
+.theme-key-windows95 svg.lucide-circle-check,
+.theme-key-windows95 svg.lucide-circle-check-big,
 .theme-key-windows95 svg.lucide-chevrons-up-down,
 .theme-key-windows95 svg.lucide-circle-x,
 .theme-key-windows95 svg.lucide-coins,
@@ -142,6 +146,7 @@
   background-repeat: no-repeat;
   background-size: contain;
   image-rendering: pixelated;
+  filter: none !important;
 }
 
 .theme-key-windows95 svg.lucide-arrow-left {
@@ -545,6 +550,10 @@
 .theme-key-windows95 .login-brand h1,
 .theme-key-windows95 .bottom-nav button.active {
   color: var(--accent);
+}
+
+.theme-key-windows95 .traffic-top strong {
+  color: var(--muted);
 }
 
 .theme-key-windows95 .btn-primary,

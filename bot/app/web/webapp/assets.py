@@ -857,12 +857,12 @@ async def index_route(request: web.Request) -> web.Response:
         brand_asset_url = _webapp_animated_emoji_asset_path(settings.WEBAPP_LOGO_EMOJI)
     if brand_asset_url:
         html = html.replace(
-            '<link rel="preload" id="logo-preload" href="" as="image" fetchpriority="high" crossorigin="anonymous">',  # noqa: E501
-            f'<link rel="preload" href="{brand_asset_url}" as="image" fetchpriority="high" crossorigin="anonymous">',  # noqa: E501
+            '<link rel="preload" id="logo-preload" href="" as="image" fetchpriority="high">',
+            f'<link rel="preload" href="{brand_asset_url}" as="image" fetchpriority="high">',
         )
     else:
         html = html.replace(
-            '<link rel="preload" id="logo-preload" href="" as="image" fetchpriority="high" crossorigin="anonymous">',  # noqa: E501
+            '<link rel="preload" id="logo-preload" href="" as="image" fetchpriority="high">',
             "",
         )
     return web.Response(text=html, content_type="text/html", charset="utf-8")

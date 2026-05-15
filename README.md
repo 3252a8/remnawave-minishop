@@ -1,5 +1,7 @@
 # Remnawave Minishop
 
+![Remnawave Minishop](docs/remnawave-minishop.webp)
+
 Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи и управления подписками Remnawave. Бот обрабатывает регистрацию, оплату, продление, пробный период, промокоды, рефералов и поддержку в чате. Web App показывает ссылку подключения, срок действия, трафик, оплату, устройства и вход по Telegram Mini Apps `initData`, Telegram OAuth / OpenID Connect и одноразовому email-коду.
 
 Проект является переработанным форком [kavore/remnawave-tg-shop](https://github.com/kavore/remnawave-tg-shop). Для переноса данных из прежнего стека используйте [инструкцию по миграции](docs/migration-to-minishop.md).

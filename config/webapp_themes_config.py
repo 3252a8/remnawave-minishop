@@ -38,6 +38,7 @@ class ThemeTokens(BaseModel):
     font_sans: Optional[str] = None
     font_logo: Optional[str] = None
     font_mono: Optional[str] = None
+    home_logo_scale: Optional[int] = None
     admin_bg: Optional[str] = None
     admin_surface: Optional[str] = None
     admin_surface_2: Optional[str] = None
@@ -63,6 +64,16 @@ class ThemeTokens(BaseModel):
         if len(hex_value) == 3:
             hex_value = "".join(char * 2 for char in hex_value)
         return f"#{hex_value}"
+
+    @field_validator("home_logo_scale")
+    @classmethod
+    def _normalize_home_logo_scale(cls, value: Optional[int]) -> Optional[int]:
+        if value is None:
+            return None
+        scale = int(value)
+        if scale < 50 or scale > 300:
+            raise ValueError("home_logo_scale must be between 50 and 300 percent")
+        return scale
 
 
 class WebappTheme(BaseModel):

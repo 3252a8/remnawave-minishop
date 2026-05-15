@@ -30,10 +30,16 @@ a {
   display: grid;
   min-height: 100dvh;
   place-items: center;
-  align-content: center;
+  align-content: safe center;
   gap: 14px;
   color: var(--muted);
   font-weight: 800;
+}
+
+.loader .brand-mark.brand-mark-lg {
+  width: calc(4.125rem * var(--home-logo-scale, 1));
+  height: calc(4.125rem * var(--home-logo-scale, 1));
+  font-size: calc(2.875rem * var(--home-logo-scale, 1));
 }
 
 .app-header,
@@ -1530,15 +1536,27 @@ a {
 .home-layout {
   display: grid;
   min-height: calc(100dvh - 34px);
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(min-content, 1fr) auto;
   gap: 18px;
   padding-bottom: 86px;
   animation: section-enter 0.24s ease-out both;
 }
 
 .home-brand {
-  align-self: center;
+  align-self: safe center;
   padding-top: 0;
+}
+
+.home-brand .brand-mark.brand-mark-xl {
+  width: calc(6rem * var(--home-logo-scale, 1));
+  height: calc(6rem * var(--home-logo-scale, 1));
+  font-size: calc(4.375rem * var(--home-logo-scale, 1));
+}
+
+.login-brand-auth .brand-mark.brand-mark-xl {
+  width: calc(116px * var(--home-logo-scale, 1));
+  height: calc(116px * var(--home-logo-scale, 1));
+  font-size: calc(84px * var(--home-logo-scale, 1));
 }
 
 .home-bottom {
@@ -1549,7 +1567,7 @@ a {
 
 .auth-screen {
   display: grid;
-  align-content: center;
+  align-content: safe center;
 }
 
 .auth-card-wrap {
@@ -1566,12 +1584,6 @@ a {
 
 .login-brand.small {
   gap: 5px;
-}
-
-.login-brand-auth .brand-mark.brand-mark-xl {
-  width: 116px;
-  height: 116px;
-  font-size: 84px;
 }
 
 .login-brand h1 {
@@ -2129,9 +2141,9 @@ a {
   .home-brand .brand-mark,
   .home-brand .brand-mark-lg,
   .home-brand .brand-mark-xl {
-    width: clamp(180px, 18vw, 260px);
-    height: clamp(180px, 18vw, 260px);
-    font-size: clamp(124px, 13vw, 184px);
+    width: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale, 1));
+    height: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale, 1));
+    font-size: calc(clamp(124px, 13vw, 184px) * var(--home-logo-scale, 1));
   }
 
   .home-bottom {
