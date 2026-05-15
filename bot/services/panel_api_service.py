@@ -235,7 +235,7 @@ class PanelApiService:
         return all_users
 
     async def get_user_by_uuid(
-        self, user_uuid: str, log_response: bool = True
+        self, user_uuid: str, log_response: bool = False
     ) -> Optional[Dict[str, Any]]:
         endpoint = f"/users/{user_uuid}"
         full_response = await self._request("GET", endpoint, log_full_response=log_response)
@@ -251,7 +251,7 @@ class PanelApiService:
         telegram_id: Optional[int] = None,
         username: Optional[str] = None,
         email: Optional[str] = None,
-        log_response: bool = True,
+        log_response: bool = False,
     ) -> Optional[Dict[str, Any]]:
         if uuid:
             return await self.get_user_by_uuid(uuid, log_response=log_response)
@@ -271,7 +271,7 @@ class PanelApiService:
         telegram_id: Optional[int] = None,
         username: Optional[str] = None,
         email: Optional[str] = None,
-        log_response: bool = True,
+        log_response: bool = False,
     ) -> Optional[List[Dict[str, Any]]]:
 
         response_data = None
@@ -348,7 +348,7 @@ class PanelApiService:
         description: Optional[str] = None,
         tag: Optional[str] = None,
         status: str = "ACTIVE",
-        log_response: bool = True,
+        log_response: bool = False,
     ) -> Optional[Dict[str, Any]]:
 
         username_is_valid = (
@@ -434,7 +434,7 @@ class PanelApiService:
         return None
 
     async def update_user_status_on_panel(
-        self, user_uuid: str, enable: bool, log_response: bool = True
+        self, user_uuid: str, enable: bool, log_response: bool = False
     ) -> bool:
         action = "enable" if enable else "disable"
         endpoint = f"/users/{user_uuid}/actions/{action}"
@@ -459,7 +459,7 @@ class PanelApiService:
         )
         return False
 
-    async def delete_user_from_panel(self, user_uuid: str, log_response: bool = True) -> bool:
+    async def delete_user_from_panel(self, user_uuid: str, log_response: bool = False) -> bool:
         """Delete a user from the panel. Treat not-found as already deleted."""
         endpoint = f"/users/{user_uuid}"
         response_data = await self._request("DELETE", endpoint, log_full_response=log_response)
