@@ -33,7 +33,7 @@ class WebappThemesConfigTests(unittest.TestCase):
         self.assertEqual(win95.tokens.style_preset, "win95")
         self.assertFalse(win95.use_primary_accent)
         self.assertTrue(win95.use_in_admin)
-        self.assertEqual(win95.assets_version, 3)
+        self.assertEqual(win95.assets_version, 5)
         ascii_theme = cfg.theme_by_key("ascii")
         self.assertIsNotNone(ascii_theme)
         self.assertEqual(ascii_theme.css_file, "style.css")
@@ -380,7 +380,7 @@ class WebappThemesConfigTests(unittest.TestCase):
                 descriptor["assets_version"],
                 cfg.theme_by_key("windows95").assets_version,
             )
-            self.assertEqual(descriptor["assets_version"], 3)
+            self.assertEqual(descriptor["assets_version"], 5)
             self.assertIn("lucide-house", css)
             self.assertIn("lucide-earth", css)
             self.assertIn("lucide-circle-check", css)

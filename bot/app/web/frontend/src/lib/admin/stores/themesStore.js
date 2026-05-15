@@ -119,8 +119,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     }
   }
 
-  async function setCurrentTheme(key) {
-    let changed = false;
+  function setCurrentTheme(key) {
     state.update((s) => ({
       ...s,
       themesCatalog: {
@@ -132,11 +131,6 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
         })),
       },
     }));
-    state.update((s) => {
-      changed = s.themesCatalog.default_theme === key;
-      return s;
-    });
-    if (changed) await saveThemes({ silent: true });
   }
 
   function togglePrimaryAccent(key, enabled) {
