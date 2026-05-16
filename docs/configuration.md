@@ -112,7 +112,7 @@ docker compose up -d --build --force-recreate
 
 Переопределения из веб-админки сохраняются в БД и применяются поверх `.env` без перезапуска. Для платежных методов кнопка отображается только если соответствующий `*_ENABLED=true` и сервис настроен.
 
-Редактор тарифов в админке сохраняет не override в БД, а сам JSON-файл `TARIFFS_CONFIG_PATH`. Редактор настроек админки, наоборот, работает через allowlist из `bot/app/web/admin_settings_manifest.py` и сохраняет overrides в БД. Через него можно менять только заявленные в manifest параметры приложения; остальные параметры остаются в `.env`. Подробнее: [admin.md](admin.md).
+Редактор тарифов в админке сохраняет не override в БД, а сам JSON-файл `TARIFFS_CONFIG_PATH`. Редактор настроек админки, наоборот, работает через allowlist из `backend/bot/app/web/admin_settings_manifest.py` и сохраняет overrides в БД. Через него можно менять только заявленные в manifest параметры приложения; остальные параметры остаются в `.env`. Подробнее: [admin.md](admin.md).
 
 ## Web App и email-вход
 
@@ -229,7 +229,7 @@ docker compose up -d --build --force-recreate
 | `LOG_SUSPICIOUS_ACTIVITY` | Уведомлять о подозрительных попытках. |
 | `LOG_ADMIN_ACTIONS` | Писать в журнал админки действия пользователей из `ADMIN_IDS`. |
 
-Часть этих переключателей доступна для правки через Web App (allowlist в `bot/app/web/admin_settings_manifest.py`), см. [admin.md](admin.md).
+Часть этих переключателей доступна для правки через Web App (allowlist в `backend/bot/app/web/admin_settings_manifest.py`), см. [admin.md](admin.md).
 
 ## Миниатюры inline-режима
 
