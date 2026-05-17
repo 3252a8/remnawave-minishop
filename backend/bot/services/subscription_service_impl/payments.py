@@ -3,6 +3,19 @@ from ._runtime import *  # noqa: F403,F405
 
 
 class PaymentContextMixin:
+    # Human-readable provider names rendered in payment-success emails.
+    # Keys are the lowercased value persisted in ``subscriptions.provider``
+    # (see the call sites in lifecycle.py / traffic.py); missing keys produce
+    # no row in the email rather than raising.
+    _PROVIDER_LABELS = {
+        "yookassa": "YooKassa",
+        "freekassa": "FreeKassa",
+        "platega": "Platega",
+        "severpay": "SeverPay",
+        "cryptopay": "Crypto Pay",
+        "telegram_stars": "Telegram Stars",
+    }
+
     async def _record_payment_context(
         self,
         session: AsyncSession,
