@@ -81,14 +81,12 @@ def build_core_services(
         api_url=settings.LKNPD_API_URL,
     )
 
-    # Wire services that depend on each other
-    try:
-        # Attach YooKassa to subscription service for auto-renew charges
-        setattr(subscription_service, "yookassa_service", yookassa_service)
-        # Allow panel webhook to trigger renewals through subscription service
-        setattr(panel_webhook_service, "subscription_service", subscription_service)
-    except Exception:
-        pass
+    # Wire services that depend on each other. These attachments are critical
+    # for auto-renew (subscription_service.yookassa_service) and for the panel
+    # webhook handler's 24h pre-expiry renewal trigger; do NOT swallow errors —
+    # silent wiring failures previously caused auto-renew to disappear.
+    subscription_service.yookassa_service = yookassa_service
+    panel_webhook_service.subscription_service = subscription_service
 
     return {
         "panel_service": panel_service,
