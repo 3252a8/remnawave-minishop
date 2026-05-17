@@ -118,9 +118,21 @@ class SubscriptionLifecycleMixin:
             include_premium=not bool(updated.premium_is_limited),
         )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
-        await self.panel_service.update_user_details_on_panel(
+        updated_panel = await self.panel_service.update_user_details_on_panel(
             db_user.panel_user_uuid, panel_payload
         )
+        if not updated_panel or updated_panel.get("error"):
+            # The tariff row is already swapped locally; if the panel rejects
+            # the squad/limit update the user sees the new tariff in the app
+            # but stays on the old squads on Remnawave. Surface the failure
+            # so the caller can roll back.
+            logging.warning(
+                "Panel user details update FAILED for tariff switch user %s -> %s. Response: %s",
+                user_id,
+                target.key,
+                updated_panel,
+            )
+            return None
         if converted_bytes:
             await tariff_dal.create_traffic_topup(
                 session,

@@ -249,9 +249,18 @@ class TrafficMixin:
             include_premium=not bool(getattr(updated_sub, "premium_is_limited", False)),
         )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
-        await self.panel_service.update_user_details_on_panel(
+        updated_panel = await self.panel_service.update_user_details_on_panel(
             db_user.panel_user_uuid, panel_payload
         )
+        if not updated_panel or updated_panel.get("error"):
+            # Otherwise the user pays for top-up bytes that are recorded locally
+            # but never reach Remnawave — they cannot actually use the traffic.
+            logging.warning(
+                "Panel user details update FAILED for traffic top-up user %s. Response: %s",
+                user_id,
+                updated_panel,
+            )
+            return None
         await tariff_dal.create_traffic_topup(
             session,
             subscription_id=sub.subscription_id,
@@ -347,9 +356,19 @@ class TrafficMixin:
                 include_premium=not premium_is_limited,
             ),
         }
-        await self.panel_service.update_user_details_on_panel(
+        updated_panel = await self.panel_service.update_user_details_on_panel(
             db_user.panel_user_uuid, panel_payload
         )
+        if not updated_panel or updated_panel.get("error"):
+            # Otherwise the user pays for premium top-up but the panel never
+            # re-grants premium squad access (the most common case here is
+            # transitioning from premium_is_limited=True back to False).
+            logging.warning(
+                "Panel user details update FAILED for premium top-up user %s. Response: %s",
+                user_id,
+                updated_panel,
+            )
+            return None
         await tariff_dal.create_traffic_topup(
             session,
             subscription_id=sub.subscription_id,
