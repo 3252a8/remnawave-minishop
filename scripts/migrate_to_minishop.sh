@@ -9,13 +9,28 @@ OLD_DB_VOLUME="${OLD_PREFIX}-db-data"
 NEW_DB_VOLUME="${NEW_PREFIX}-db-data"
 OLD_CADDY_VOLUMES=("${OLD_PREFIX}-caddy-data" "${OLD_PREFIX}-caddy-config")
 NEW_CADDY_VOLUMES=("${NEW_PREFIX}-caddy-data" "${NEW_PREFIX}-caddy-config")
+# Container names span three eras: original ``remnawave-tg-shop*`` (≤ v2.7.0),
+# the renamed but still single-container ``remnawave-minishop*`` (v3.1.0 –
+# v3.3.x), and the split-arch stack introduced in v3.4.0 (backend / worker /
+# frontend / migrate / postgres / redis, plus optional caddy). The list is
+# used only to stop existing containers before migration, so it is safe —
+# and idempotent — to include every known name from every era.
 KNOWN_CONTAINERS=(
+  # v2.7.0 (upstream remnawave-tg-shop):
   "${OLD_PREFIX}"
   "${OLD_PREFIX}-db"
   "${OLD_PREFIX}-caddy"
+  # v3.1.0 – v3.2.x (renamed but still one container):
   "${NEW_PREFIX}"
   "${NEW_PREFIX}-db"
   "${NEW_PREFIX}-caddy"
+  # v3.4.0+ (split architecture):
+  "${NEW_PREFIX}-backend"
+  "${NEW_PREFIX}-worker"
+  "${NEW_PREFIX}-frontend"
+  "${NEW_PREFIX}-migrate"
+  "${NEW_PREFIX}-postgres"
+  "${NEW_PREFIX}-redis"
 )
 
 log() {
