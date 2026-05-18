@@ -13,16 +13,16 @@ import db.database_setup as database_setup
 from app_logging import configure_logging
 from bot.app.factories.build_services import build_core_services
 from bot.handlers.admin.sync_admin import perform_sync
-from bot.handlers.user.payment import (
+from bot.infra.redis import close_redis, redis_lock
+from bot.infra.webhook_queue import pop_webhook_event, webhook_queue_depth
+from bot.middlewares.i18n import get_i18n_instance
+from bot.payment_providers.yookassa import (
     YOOKASSA_EVENT_PAYMENT_CANCELED,
     YOOKASSA_EVENT_PAYMENT_SUCCEEDED,
     payment_processing_lock,
     process_cancelled_payment,
     process_successful_payment,
 )
-from bot.infra.redis import close_redis, redis_lock
-from bot.infra.webhook_queue import pop_webhook_event, webhook_queue_depth
-from bot.middlewares.i18n import get_i18n_instance
 from bot.services.settings_override_service import load_overrides_from_db
 from bot.services.tariff_worker import TariffTrafficWorker
 from bot.utils.message_queue import init_queue_manager

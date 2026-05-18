@@ -1,6 +1,8 @@
 <script>
-  import { ChevronRight, Eye, EyeOff, X } from "$components/ui/icons.js";
+  import { ChevronRight, Eye, EyeOff, Search, X } from "$components/ui/icons.js";
+  import * as UiIcons from "$components/ui/icons.js";
   import { Accordion, Switch } from "$components/ui/primitives.js";
+  import Dialog from "$components/ui/dialog.svelte";
   import {
     AdminBadge,
     AdminButton,
@@ -22,10 +24,18 @@
   let settingsOpenSections = [];
   let settingsOpenSubsections = {};
   let revealedSecrets = new Set();
+  let iconPickerField = null;
+  let iconPickerSearch = "";
 
   $: settingsAllOpen =
     visibleSettingsSections.length > 0 &&
     settingsOpenSections.length === visibleSettingsSections.length;
+  $: iconOptions = Object.keys(UiIcons)
+    .filter((name) => /^[A-Z]/.test(name))
+    .sort((a, b) => a.localeCompare(b));
+  $: filteredIconOptions = iconOptions.filter((name) =>
+    name.toLowerCase().includes(iconPickerSearch.trim().toLowerCase())
+  );
 
   onMount(() => {
     settingsStore.loadSettings().then(() => {
@@ -73,6 +83,27 @@
     if (settingsDirty[field.key]?.deleted) return field.placeholder || "••••••••";
     if (field.has_value) return at("settings_secret_configured", {}, "Secret is set");
     return field.placeholder || at("settings_secret_empty", {}, "Not set");
+  }
+
+  function iconComponent(name) {
+    const key = String(name || "").trim();
+    return key ? UiIcons[key] || null : null;
+  }
+
+  function openIconPicker(field) {
+    iconPickerField = field;
+    iconPickerSearch = "";
+  }
+
+  function closeIconPicker() {
+    iconPickerField = null;
+    iconPickerSearch = "";
+  }
+
+  function selectIcon(name) {
+    if (!iconPickerField) return;
+    settingsStore.markDirty(iconPickerField.key, name);
+    closeIconPicker();
   }
 
   function groupSectionFields(section) {
@@ -171,14 +202,37 @@
           class="admin-color"
           type="color"
           value={valueFor(field) || "#00fe7a"}
-          on:input={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
         />
         <input
           class="input"
           type="text"
           value={valueFor(field) || ""}
-          on:input={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
         />
+      {:else if field.type === "icon"}
+        {@const selectedIconName = valueFor(field) || ""}
+        {@const SelectedIcon = iconComponent(selectedIconName)}
+        <AdminButton
+          class="admin-icon-picker-trigger"
+          variant="ghost"
+          onclick={() => openIconPicker(field)}
+        >
+          {#if SelectedIcon}
+            <svelte:component this={SelectedIcon} size={16} />
+          {/if}
+          <span>{selectedIconName || at("settings_icon_empty", {}, "Default icon")}</span>
+        </AdminButton>
+        {#if selectedIconName}
+          <AdminButton
+            size="sm"
+            variant="ghost"
+            onclick={() => settingsStore.markDirty(field.key, "")}
+          >
+            <X size={12} />
+            {at("clear", {}, "Clear")}
+          </AdminButton>
+        {/if}
       {:else if field.choices && field.choices.length > 0}
         <AdminSelect
           class="admin-setting-select"
@@ -195,7 +249,7 @@
           step={field.type === "float" ? "0.1" : "1"}
           placeholder={field.placeholder}
           value={valueFor(field) ?? ""}
-          on:input={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
         />
       {:else if field.secret}
         <input
@@ -204,7 +258,7 @@
           placeholder={secretPlaceholder(field)}
           autocomplete="off"
           value={valueFor(field) ?? ""}
-          on:input={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
         />
         <AdminButton
           size="sm"
@@ -220,7 +274,7 @@
           type="text"
           placeholder={field.placeholder}
           value={valueFor(field) ?? ""}
-          on:input={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
         />
       {/if}
       {#if isOverridden(field) || settingsDirty[field.key]}
@@ -360,3 +414,40 @@
     {/each}
   </Accordion.Root>
 {/if}
+
+<Dialog
+  open={Boolean(iconPickerField)}
+  title={at("settings_icon_picker_title", {}, "Choose icon")}
+  description={iconPickerField ? fieldLabelText(iconPickerField) : ""}
+  closeLabel={at("close", {}, "Close")}
+  onclose={closeIconPicker}
+  class="admin-icon-picker-dialog"
+>
+  <div class="admin-icon-picker-body">
+    <label class="admin-icon-picker-search">
+      <Search size={15} />
+      <input
+        bind:value={iconPickerSearch}
+        class="input"
+        type="text"
+        placeholder={at("search", {}, "Search")}
+      />
+    </label>
+    <div class="admin-icon-picker-grid">
+      {#each filteredIconOptions as iconName}
+        {@const Icon = iconComponent(iconName)}
+        <button
+          class:active={iconPickerField && valueFor(iconPickerField) === iconName}
+          class="admin-icon-picker-option"
+          type="button"
+          onclick={() => selectIcon(iconName)}
+        >
+          {#if Icon}
+            <svelte:component this={Icon} size={18} />
+          {/if}
+          <span>{iconName}</span>
+        </button>
+      {/each}
+    </div>
+  </div>
+</Dialog>

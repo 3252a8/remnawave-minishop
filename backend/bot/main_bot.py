@@ -187,20 +187,16 @@ async def on_shutdown_configured(dispatcher: Dispatcher):
                 except Exception as e:
                     logging.warning(f"Failed to close session for {key}: {e}")
 
+    from bot.payment_providers import iter_service_keys
+
     for service_key in (
         "panel_service",
-        "cryptopay_service",
-        "freekassa_service",
         "panel_webhook_service",
-        "yookassa_service",
         "lknpd_service",
         "promo_code_service",
-        "stars_service",
         "subscription_service",
         "referral_service",
-        "platega_service",
-        "severpay_service",
-        "wata_service",
+        *iter_service_keys(),
     ):
         await close_service(service_key)
 

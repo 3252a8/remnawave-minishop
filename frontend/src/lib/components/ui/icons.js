@@ -42,6 +42,7 @@ export {
   RefreshCw,
   Repeat2,
   Save,
+  Search,
   Send,
   Server,
   Settings,

@@ -38,17 +38,14 @@ def create_subscription_webapp_application(
     app.on_startup.append(_startup)
     app.on_shutdown.append(_shutdown)
 
+    from bot.payment_providers import iter_service_keys
+
     for key in (
         "subscription_service",
-        "yookassa_service",
-        "freekassa_service",
-        "cryptopay_service",
-        "platega_service",
-        "severpay_service",
-        "wata_service",
         "promo_code_service",
         "referral_service",
         "panel_service",
+        *iter_service_keys(),
     ):
         if hasattr(dp, "workflow_data") and key in dp.workflow_data:  # type: ignore[attr-defined]
             app[key] = dp.workflow_data[key]  # type: ignore[index]

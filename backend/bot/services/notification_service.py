@@ -375,15 +375,12 @@ class NotificationService:
             username=username,
         )
 
-        provider_emoji = {
-            "wata": "💳",
-            "yookassa": "💳",
-            "freekassa": "💳",
-            "cryptopay": "₿",
-            "stars": "⭐",
-            "platega": "💳",
-            "severpay": "💳",
-        }.get(payment_provider.lower(), "💰")
+        try:
+            from bot.payment_providers import provider_emoji_map
+
+            provider_emoji = provider_emoji_map(self.settings).get(payment_provider.lower(), "💰")
+        except Exception:
+            provider_emoji = "💰"
 
         if traffic_gb is not None:
             traffic_label = self._format_traffic_gb_admin(float(traffic_gb))

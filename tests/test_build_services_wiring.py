@@ -20,9 +20,9 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from bot.app.factories.build_services import build_core_services
+from bot.payment_providers.yookassa import YooKassaService
 from bot.services.panel_webhook_service import PanelWebhookService
 from bot.services.subscription_service import SubscriptionService
-from bot.services.yookassa_service import YooKassaService
 from config.settings import Settings
 
 

@@ -162,10 +162,10 @@ export const DEV_MOCK = {
       { months: 12, price: 2690, currency: "RUB", title: "12 месяцев" },
     ],
     payment_methods: [
-      { id: "yookassa", name: "Карта" },
-      { id: "platega_sbp", name: "Telegram Pay" },
-      { id: "cryptopay", name: "Криптовалюта" },
-      { id: "freekassa", name: "Другие способы" },
+      { id: "yookassa", name: "Карта", icon: "CreditCard" },
+      { id: "platega_sbp", name: "Telegram Pay", icon: "CreditCard" },
+      { id: "cryptopay", name: "Криптовалюта", icon: "Bitcoin" },
+      { id: "freekassa", name: "Другие способы", icon: "Smartphone" },
     ],
     referral: {
       code: "ABCD1234",

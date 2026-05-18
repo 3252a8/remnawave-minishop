@@ -6,22 +6,36 @@ from typing import Optional
 
 from aiocryptopay import AioCryptoPay, Networks
 from aiocryptopay.models.update import Update
-from aiogram import Bot
+from aiogram import Bot, F, Router, types
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-from bot.keyboards.inline.user_keyboards import get_connect_and_main_keyboard
 from bot.middlewares.i18n import JsonI18n
-from bot.services.notification_service import NotificationService
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
-from bot.utils.config_link import prepare_config_links
-from bot.utils.text_sanitizer import sanitize_display_name, username_for_display
 from config.settings import Settings
-from db.dal import payment_dal, user_dal
+from db.dal import payment_dal
+
+from .base import PaymentProviderSpec, ServiceFactoryContext, WebAppPaymentContext
+from .shared import (
+    PaymentSuccessRequest,
+    describe_payment,
+    finalize_successful_payment,
+    make_translator,
+    notify_callback_parse_error,
+    notify_service_unavailable,
+    parse_payment_callback,
+    payment_failed,
+    payment_link_response,
+    payment_unavailable,
+    render_payment_link,
+    sale_mode_base,
+    sale_mode_tariff_key,
+)
 
 logger = logging.getLogger(__name__)
+_LOG = "cryptopay"
 
 
 class CryptoPayService:
@@ -54,13 +68,12 @@ class CryptoPayService:
             self.configured = False
 
     async def close(self):
-        """Close underlying AioCryptoPay session if initialized."""
         if self.client:
             try:
                 await self.client.close()
                 logging.info("CryptoPay client session closed.")
             except Exception as e:
-                logging.warning(f"Failed to close CryptoPay client: {e}")
+                logging.warning("Failed to close CryptoPay client: %s", e)
 
     async def create_invoice(
         self,
@@ -76,9 +89,9 @@ class CryptoPayService:
             logging.error("CryptoPayService not configured")
             return None
 
-        # Create pending payment in DB and commit to persist
+        sale_base = sale_mode_base(sale_mode)
+        is_traffic = sale_base in {"traffic", "traffic_package", "topup", "premium_topup"}
         try:
-            sale_base = sale_mode.split("@", 1)[0].split("|", 1)[0]
             payment_record = await payment_dal.create_payment_record(
                 session,
                 {
@@ -87,34 +100,28 @@ class CryptoPayService:
                     "currency": self.settings.CRYPTOPAY_ASSET,
                     "status": "pending_cryptopay",
                     "description": description,
-                    "subscription_duration_months": int(months)
-                    if sale_base == "subscription"
-                    else None,
+                    "subscription_duration_months": (
+                        int(months) if sale_base == "subscription" else None
+                    ),
                     "provider": "cryptopay",
                     "sale_mode": sale_mode,
-                    "tariff_key": sale_mode.split("@", 1)[1] if "@" in sale_mode else None,
-                    "purchased_gb": float(months)
-                    if sale_base in {"traffic", "traffic_package", "topup", "premium_topup"}
-                    else None,
+                    "tariff_key": sale_mode_tariff_key(sale_mode),
+                    "purchased_gb": float(months) if is_traffic else None,
                 },
             )
             await session.commit()
-        except Exception as e_db_create:
+        except Exception:
             await session.rollback()
-            logging.error(
-                f"Failed to create cryptopay payment record for user {user_id}: {e_db_create}",
-                exc_info=True,
-            )
+            logging.exception("Failed to create cryptopay payment record for user %s.", user_id)
             return None
+
         payload = json.dumps(
             {
                 "user_id": str(user_id),
                 "subscription_months": str(months),
                 "payment_db_id": str(payment_record.payment_id),
                 "sale_mode": sale_mode,
-                "traffic_gb": str(months)
-                if sale_base in {"traffic", "traffic_package", "topup", "premium_topup"}
-                else None,
+                "traffic_gb": str(months) if is_traffic else None,
             }
         )
         try:
@@ -169,7 +176,6 @@ class CryptoPayService:
             sale_mode = meta.get("sale_mode") or (
                 "traffic" if self.settings.traffic_sale_mode else "subscription"
             )
-            sale_base = sale_mode.split("@", 1)[0].split("|", 1)[0]
             traffic_gb = float(meta.get("traffic_gb")) if meta.get("traffic_gb") else months
         except Exception:
             logging.exception("Failed to parse CryptoPay payload.")
@@ -190,135 +196,44 @@ class CryptoPayService:
                     str(invoice.invoice_id),
                     "succeeded",
                 )
-                activation = await subscription_service.activate_subscription(
-                    session,
-                    user_id,
-                    int(months) if sale_base == "subscription" else int(float(traffic_gb)),
-                    float(invoice.amount),
-                    payment_db_id,
-                    provider="cryptopay",
-                    sale_mode=sale_mode,
-                    traffic_gb=traffic_gb
-                    if sale_base in {"traffic", "traffic_package", "topup", "premium_topup"}
-                    else None,
-                )
-                referral_bonus = None
-                if sale_base == "subscription":
-                    referral_bonus = await referral_service.apply_referral_bonuses_for_payment(
-                        session,
-                        user_id,
-                        int(months) or 1,
-                        current_payment_db_id=payment_db_id,
-                        skip_if_active_before_payment=False,
-                    )
                 await session.commit()
             except Exception:
                 await session.rollback()
-                logging.exception("Failed to process CryptoPay invoice.")
+                logging.exception(
+                    "Failed to mark CryptoPay invoice %s as succeeded.",
+                    payment_db_id,
+                )
                 return
 
-            db_user = await user_dal.get_user_by_id(session, user_id)
-            # Use DB language for user-facing messages
-            lang = (
-                db_user.language_code
-                if db_user and db_user.language_code
-                else settings.DEFAULT_LANGUAGE
-            )
-            _ = lambda k, **kw: i18n.gettext(lang, k, **kw)
-
-            raw_config_link = activation.get("subscription_url") if activation else None
-            display_link, button_link = await prepare_config_links(settings, raw_config_link)
-            config_link_text = display_link or _("config_link_not_available")
-            final_end = activation.get("end_date")
-            applied_days = 0
-            if referral_bonus and referral_bonus.get("referee_new_end_date"):
-                final_end = referral_bonus["referee_new_end_date"]
-                applied_days = referral_bonus.get("referee_bonus_applied_days", 0)
-
-            if sale_base in {"traffic", "traffic_package", "topup", "premium_topup"}:
-                text = _(
-                    "payment_successful_traffic_full",
-                    traffic_gb=str(int(traffic_gb))
-                    if float(traffic_gb).is_integer()
-                    else f"{traffic_gb:g}",
-                    end_date=final_end.strftime("%Y-%m-%d") if final_end else "—",
-                    config_link=config_link_text,
+            payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
+            if not payment:
+                logging.error(
+                    "CryptoPay webhook: payment %s vanished after status update.",
+                    payment_db_id,
                 )
-            elif applied_days:
-                inviter_name_display = _("friend_placeholder")
-                if db_user and db_user.referred_by_id:
-                    inviter = await user_dal.get_user_by_id(session, db_user.referred_by_id)
-                    if inviter:
-                        safe_name = (
-                            sanitize_display_name(inviter.first_name)
-                            if inviter.first_name
-                            else None
-                        )
-                        if safe_name:
-                            inviter_name_display = safe_name
-                        elif inviter.username:
-                            inviter_name_display = username_for_display(
-                                inviter.username, with_at=False
-                            )
-                text = _(
-                    "payment_successful_with_referral_bonus_full",
-                    months=int(months),
-                    base_end_date=activation["end_date"].strftime("%Y-%m-%d"),
-                    bonus_days=applied_days,
-                    final_end_date=final_end.strftime("%Y-%m-%d"),
-                    inviter_name=inviter_name_display,
-                    config_link=config_link_text,
-                )
-            else:
-                text = _(
-                    "payment_successful_full",
-                    months=int(months),
-                    end_date=final_end.strftime("%Y-%m-%d") if final_end else "—",
-                    config_link=config_link_text,
-                )
+                return
 
-            markup = get_connect_and_main_keyboard(
-                lang,
-                i18n,
-                settings,
-                display_link,
-                connect_button_url=button_link,
-                preserve_message=True,
-            )
-            try:
-                await bot.send_message(
-                    user_id,
-                    text,
-                    reply_markup=markup,
-                    parse_mode="HTML",
-                    disable_web_page_preview=True,
-                )
-            except Exception:
-                logging.exception("Failed to send CryptoPay success message.")
-
-            # Send notification about payment
-            try:
-                payment_row = await payment_dal.get_payment_by_db_id(session, payment_db_id)
-            except Exception:
-                payment_row = None
-            try:
-                notification_service = NotificationService(bot, settings, i18n)
-                user = await user_dal.get_user_by_id(session, user_id)
-                await notification_service.notify_payment_received(
+            currency = invoice.asset or settings.DEFAULT_CURRENCY_SYMBOL
+            await finalize_successful_payment(
+                PaymentSuccessRequest(
+                    bot=bot,
+                    settings=settings,
+                    i18n=i18n,
+                    session=session,
+                    subscription_service=subscription_service,
+                    referral_service=referral_service,
+                    payment=payment,
                     user_id=user_id,
                     amount=float(invoice.amount),
-                    currency=invoice.asset or settings.DEFAULT_CURRENCY_SYMBOL,
-                    months=int(months) if sale_base == "subscription" else 0,
-                    traffic_gb=traffic_gb
-                    if sale_base in {"traffic", "traffic_package", "topup", "premium_topup"}
-                    else None,
-                    payment_provider="crypto_pay",
-                    username=user.username if user else None,
-                    traffic_is_premium=sale_base == "premium_topup",
-                    tariff_key=getattr(payment_row, "tariff_key", None) if payment_row else None,
+                    currency=str(currency),
+                    sale_mode=sale_mode,
+                    months=int(months) if months else int(traffic_gb),
+                    traffic_amount=float(traffic_gb),
+                    provider_subscription="cryptopay",
+                    provider_notification="crypto_pay",
+                    log_prefix="CryptoPay webhook",
                 )
-            except Exception:
-                logging.exception("Failed to send crypto_pay payment notification.")
+            )
 
     def _validate_webhook_signature(self, raw_body: bytes, signature: str) -> bool:
         if not self.token:
@@ -347,3 +262,116 @@ class CryptoPayService:
 async def cryptopay_webhook_route(request: web.Request) -> web.Response:
     service: CryptoPayService = request.app["cryptopay_service"]
     return await service.webhook_route(request)
+
+
+router = Router(name="user_subscription_payments_crypto_router")
+
+
+@router.callback_query(F.data.startswith("pay_crypto:"))
+async def pay_crypto_callback_handler(
+    callback: types.CallbackQuery,
+    settings: Settings,
+    i18n_data: dict,
+    session: AsyncSession,
+    cryptopay_service: CryptoPayService,
+):
+    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
+    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    translator = make_translator(i18n, current_lang)
+
+    if not i18n or not callback.message:
+        await notify_callback_parse_error(callback, translator)
+        return
+
+    if (
+        not settings.CRYPTOPAY_ENABLED
+        or not cryptopay_service
+        or not getattr(cryptopay_service, "configured", False)
+    ):
+        await notify_service_unavailable(callback, translator)
+        return
+
+    parts = parse_payment_callback(callback.data or "")
+    if not parts:
+        await notify_callback_parse_error(callback, translator)
+        return
+
+    payment_description = describe_payment(translator, parts)
+    invoice_url = await cryptopay_service.create_invoice(
+        session=session,
+        user_id=callback.from_user.id,
+        months=parts.months,
+        amount=parts.price,
+        description=payment_description,
+        sale_mode=parts.sale_mode,
+    )
+
+    if invoice_url:
+        await render_payment_link(
+            callback,
+            translator=translator,
+            current_lang=current_lang,
+            i18n=i18n,
+            parts=parts,
+            payment_url=invoice_url,
+            log_prefix=_LOG,
+        )
+        return
+
+    from .shared import safe_callback_answer
+
+    await safe_callback_answer(callback, translator("error_payment_gateway"), show_alert=True)
+
+
+def create_service(ctx: ServiceFactoryContext) -> CryptoPayService:
+    return CryptoPayService(
+        ctx.settings.CRYPTOPAY_TOKEN,
+        ctx.settings.CRYPTOPAY_NETWORK,
+        ctx.bot,
+        ctx.settings,
+        ctx.i18n,
+        ctx.async_session_factory,
+        ctx.subscription_service,
+        ctx.referral_service,
+    )
+
+
+async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
+    service: CryptoPayService = ctx.request.app["cryptopay_service"]
+    if not service or not service.configured:
+        return payment_unavailable()
+    url = await service.create_invoice(
+        session=ctx.session,
+        user_id=ctx.user_id,
+        months=ctx.months,
+        amount=ctx.price,
+        description=ctx.description,
+        sale_mode=ctx.sale_mode,
+        url_kind="web",
+    )
+    if not url:
+        return payment_failed()
+    return payment_link_response(payment_url=url, payment_id=None)
+
+
+SPEC = PaymentProviderSpec(
+    id="cryptopay",
+    provider_key="cryptopay",
+    label="CryptoPay",
+    webapp_label="CryptoPay",
+    webapp_labels={"ru": "CryptoPay", "en": "CryptoPay"},
+    webapp_icon="Bitcoin",
+    telegram_labels={"ru": "CryptoBot", "en": "CryptoBot"},
+    pending_status="pending_cryptopay",
+    enabled=lambda settings: settings.CRYPTOPAY_ENABLED,
+    service_key="cryptopay_service",
+    button_text_key="pay_with_cryptopay_button",
+    callback_prefix="pay_crypto",
+    router=router,
+    create_service=create_service,
+    webhook_path=lambda settings: settings.cryptopay_webhook_path,
+    webhook_route=cryptopay_webhook_route,
+    create_webapp_payment=create_webapp_payment,
+    emoji="₿",
+    telegram_emoji="₿",
+)

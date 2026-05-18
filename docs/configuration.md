@@ -49,6 +49,8 @@ nano .env
 | Переменная | Назначение |
 | --- | --- |
 | `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты через запятую: `severpay`, `wata`, `freekassa`, `platega`, `yookassa`, `stars`, `cryptopay`. |
+| `PAYMENT_<METHOD>_WEBAPP_LABEL_RU` / `PAYMENT_<METHOD>_WEBAPP_LABEL_EN` / `PAYMENT_<METHOD>_WEBAPP_ICON` | Необязательная мультиязычная кастомизация текста и lucide-иконки кнопки оплаты в Web App. |
+| `PAYMENT_<METHOD>_TELEGRAM_LABEL_RU` / `PAYMENT_<METHOD>_TELEGRAM_LABEL_EN` / `PAYMENT_<METHOD>_TELEGRAM_EMOJI` | Необязательная мультиязычная кастомизация текста и эмодзи кнопки оплаты в Telegram-боте. |
 | `YOOKASSA_ENABLED` | Включает YooKassa. |
 | `YOOKASSA_SHOP_ID` / `YOOKASSA_SECRET_KEY` | Данные магазина YooKassa. |
 | `YOOKASSA_RETURN_URL` | URL возврата пользователя после оплаты. |

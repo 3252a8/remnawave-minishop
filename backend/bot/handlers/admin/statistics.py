@@ -10,6 +10,7 @@ from bot.keyboards.inline.admin_keyboards import (
     get_back_to_user_management_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.payment_providers import pending_statuses
 from bot.services.panel_api_service import PanelApiService
 from config.settings import Settings
 from db.dal import panel_sync_dal, payment_dal, user_dal
@@ -209,20 +210,11 @@ async def show_statistics_handler(
     if last_payments_models:
         stats_text_parts.append(f"\n<b>{_('admin_stats_recent_payments_header')}</b>")
         for payment in last_payments_models:
-            pending_statuses = [
-                "pending",
-                "pending_yookassa",
-                "pending_freekassa",
-                "pending_platega",
-                "pending_severpay",
-                "pending_wata",
-                "pending_cryptopay",
-            ]
             status_emoji = (
                 "✅"
                 if payment.status == "succeeded"
                 else "⏳"
-                if payment.status in pending_statuses
+                if payment.status in pending_statuses()
                 else "❌"
             )
 

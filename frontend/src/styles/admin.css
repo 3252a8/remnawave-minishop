@@ -1880,6 +1880,81 @@
   min-width: 0;
 }
 
+.admin-icon-picker-trigger {
+  min-width: 180px;
+  justify-content: flex-start;
+}
+
+.admin-icon-picker-trigger span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-icon-picker-dialog {
+  width: min(100%, 720px);
+}
+
+.admin-icon-picker-body {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-icon-picker-search {
+  position: relative;
+  display: block;
+}
+
+.admin-icon-picker-search > svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--admin-muted);
+  pointer-events: none;
+}
+
+.admin-icon-picker-search .input {
+  width: 100%;
+  padding-left: 36px;
+}
+
+.admin-icon-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 8px;
+  max-height: min(52vh, 460px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.admin-icon-picker-option {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--admin-text);
+  padding: 9px 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-icon-picker-option span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-icon-picker-option:hover,
+.admin-icon-picker-option.active {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--admin-border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-muted));
+}
+
 .admin-setting-control .admin-color {
   width: 36px;
   height: 36px;

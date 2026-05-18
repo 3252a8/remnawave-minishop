@@ -358,6 +358,28 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(methods, [])
 
+    def test_serialize_payment_methods_includes_provider_presentation(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            TARIFFS_CONFIG_PATH="missing-tariffs.json",
+            PAYMENT_METHODS_ORDER="yookassa",
+            YOOKASSA_ENABLED=True,
+            PAYMENT_YOOKASSA_WEBAPP_LABEL_RU="Карта",
+            PAYMENT_YOOKASSA_WEBAPP_LABEL_EN="Bank card",
+            PAYMENT_YOOKASSA_WEBAPP_ICON="WalletCards",
+        )
+        app = {"yookassa_service": SimpleNamespace(configured=True)}
+
+        methods = subscription_webapp._serialize_payment_methods(settings, app, "en")
+
+        self.assertEqual(
+            methods,
+            [{"id": "yookassa", "name": "Bank card", "icon": "WalletCards"}],
+        )
+
     def test_serialize_plans_includes_stars_only_subscription_options(self):
         settings = Settings(
             _env_file=None,

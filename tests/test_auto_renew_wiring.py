@@ -9,7 +9,7 @@ Prior to the fix, ``charge_subscription_renewal`` did::
         yk = None
 
 There is no ``yookassa_service`` module inside ``subscription_service_impl``
-(the real one lives in ``bot.services.yookassa_service``), so the import
+(the real implementation lives in ``bot.payment_providers.yookassa``), so the import
 always raised ``ModuleNotFoundError``, ``yk`` became ``None``, and every
 auto-renew silently logged ``YooKassa unavailable for auto-renew`` and
 returned False — even though ``build_core_services`` had wired a real

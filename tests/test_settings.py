@@ -152,6 +152,27 @@ class SettingsTests(unittest.TestCase):
 
         self.assertEqual(settings.TRIAL_TRAFFIC_STRATEGY, "WEEK")
 
+    def test_payment_button_presentation_env_values_are_available(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            PAYMENT_YOOKASSA_WEBAPP_LABEL_RU="Карта",
+            PAYMENT_YOOKASSA_WEBAPP_LABEL_EN="Card",
+            PAYMENT_YOOKASSA_WEBAPP_ICON="CreditCard",
+            PAYMENT_YOOKASSA_TELEGRAM_LABEL_RU="Банковская карта",
+            PAYMENT_YOOKASSA_TELEGRAM_LABEL_EN="Bank card",
+            PAYMENT_YOOKASSA_TELEGRAM_EMOJI="💳",
+        )
+
+        self.assertEqual(settings.PAYMENT_YOOKASSA_WEBAPP_LABEL_RU, "Карта")
+        self.assertEqual(settings.PAYMENT_YOOKASSA_WEBAPP_LABEL_EN, "Card")
+        self.assertEqual(settings.PAYMENT_YOOKASSA_WEBAPP_ICON, "CreditCard")
+        self.assertEqual(settings.PAYMENT_YOOKASSA_TELEGRAM_LABEL_RU, "Банковская карта")
+        self.assertEqual(settings.PAYMENT_YOOKASSA_TELEGRAM_LABEL_EN, "Bank card")
+        self.assertEqual(settings.PAYMENT_YOOKASSA_TELEGRAM_EMOJI, "💳")
+
     def test_tariff_warning_levels_are_parsed(self):
         settings = Settings(
             _env_file=None,

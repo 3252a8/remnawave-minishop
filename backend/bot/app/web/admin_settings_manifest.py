@@ -15,7 +15,7 @@ from typing import Any, List, Optional, Tuple
 @dataclass(frozen=True)
 class SettingField:
     key: str
-    type: str  # "string" | "int" | "float" | "bool" | "text" | "url" | "color" | "secret"
+    type: str  # "string" | "int" | "float" | "bool" | "text" | "url" | "color" | "icon"
     section: str
     label: str
     description: str = ""
@@ -28,6 +28,61 @@ class SettingField:
     subsection: Optional[str] = None  # group label inside a section
     i18n_label_key: Optional[str] = None
     i18n_description_key: Optional[str] = None
+
+
+def _payment_presentation_fields(method_key: str, subsection: str) -> List[SettingField]:
+    prefix = f"PAYMENT_{method_key}"
+    return [
+        SettingField(
+            f"{prefix}_WEBAPP_LABEL_RU",
+            "string",
+            "payments",
+            "WebApp button text (RU)",
+            "Custom Russian text shown in the Web App payment method button.",
+            subsection=subsection,
+        ),
+        SettingField(
+            f"{prefix}_WEBAPP_LABEL_EN",
+            "string",
+            "payments",
+            "WebApp button text (EN)",
+            "Custom English text shown in the Web App payment method button.",
+            subsection=subsection,
+        ),
+        SettingField(
+            f"{prefix}_WEBAPP_ICON",
+            "icon",
+            "payments",
+            "WebApp button icon",
+            "Lucide icon name rendered inside the Web App payment method button.",
+            subsection=subsection,
+        ),
+        SettingField(
+            f"{prefix}_TELEGRAM_LABEL_RU",
+            "string",
+            "payments",
+            "Telegram button text (RU)",
+            "Custom Russian text shown in Telegram bot payment buttons.",
+            subsection=subsection,
+        ),
+        SettingField(
+            f"{prefix}_TELEGRAM_LABEL_EN",
+            "string",
+            "payments",
+            "Telegram button text (EN)",
+            "Custom English text shown in Telegram bot payment buttons.",
+            subsection=subsection,
+        ),
+        SettingField(
+            f"{prefix}_TELEGRAM_EMOJI",
+            "string",
+            "payments",
+            "Telegram button emoji",
+            "Emoji prepended to the Telegram bot payment button when customized.",
+            subsection=subsection,
+            placeholder="💳",
+        ),
+    ]
 
 
 SETTINGS_MANIFEST: List[SettingField] = [
@@ -136,6 +191,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
     # ─── Payment providers (toggles) ───────────────────────────────
     # Common
     SettingField("STARS_ENABLED", "bool", "payments", "Telegram Stars", subsection="Общие"),
+    *_payment_presentation_fields("STARS", "Telegram Stars"),
     SettingField(
         "PAYMENT_METHODS_ORDER",
         "string",
@@ -187,6 +243,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "Принудительная привязка карты",
         subsection="YooKassa",
     ),
+    *_payment_presentation_fields("YOOKASSA", "YooKassa"),
     # FreeKassa
     SettingField("FREEKASSA_ENABLED", "bool", "payments", "Включена", subsection="FreeKassa"),
     SettingField(
@@ -243,6 +300,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "Через запятую — IP-адреса, с которых принимаются нотификации",
         subsection="FreeKassa",
     ),
+    *_payment_presentation_fields("FREEKASSA", "FreeKassa"),
     # Platega
     SettingField("PLATEGA_ENABLED", "bool", "payments", "Включена", subsection="Platega"),
     SettingField(
@@ -270,6 +328,8 @@ SETTINGS_MANIFEST: List[SettingField] = [
     ),
     SettingField("PLATEGA_RETURN_URL", "url", "payments", "Return URL", subsection="Platega"),
     SettingField("PLATEGA_FAILED_URL", "url", "payments", "Failed URL", subsection="Platega"),
+    *_payment_presentation_fields("PLATEGA_SBP", "Platega SBP"),
+    *_payment_presentation_fields("PLATEGA_CRYPTO", "Platega Crypto"),
     # SeverPay
     SettingField("SEVERPAY_ENABLED", "bool", "payments", "Включена", subsection="SeverPay"),
     SettingField("SEVERPAY_MID", "int", "payments", "MID", subsection="SeverPay"),
@@ -295,6 +355,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
         min=30,
         max=4320,
     ),
+    *_payment_presentation_fields("SEVERPAY", "SeverPay"),
     # Wata
     SettingField("WATA_ENABLED", "bool", "payments", "Enabled", subsection="Wata"),
     SettingField(
@@ -349,6 +410,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "Comma-separated IP addresses accepted for Wata webhooks.",
         subsection="Wata",
     ),
+    *_payment_presentation_fields("WATA", "Wata"),
     # CryptoPay
     SettingField("CRYPTOPAY_ENABLED", "bool", "payments", "Включена", subsection="CryptoPay"),
     SettingField(
@@ -373,6 +435,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
     SettingField(
         "CRYPTOPAY_ASSET", "string", "payments", "Asset", placeholder="RUB", subsection="CryptoPay"
     ),
+    *_payment_presentation_fields("CRYPTOPAY", "CryptoPay"),
     # ─── Trial ─────────────────────────────────────────────────────
     SettingField("TRIAL_ENABLED", "bool", "trial", "Триал включён"),
     SettingField("TRIAL_DURATION_DAYS", "int", "trial", "Длительность триала (дней)", min=0),

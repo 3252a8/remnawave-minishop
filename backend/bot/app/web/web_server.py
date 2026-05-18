@@ -7,6 +7,7 @@ from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_applicati
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
 
+from bot.payment_providers import iter_provider_specs, iter_service_keys
 from config.settings import Settings
 
 
@@ -29,20 +30,15 @@ def _inject_shared_instances(
     app["settings"] = settings
     app["async_session_factory"] = async_session_factory
     app["i18n"] = dp.get("i18n_instance")
-    for key in (
-        "yookassa_service",
-        "lknpd_service",
+    shared_keys = [
         "subscription_service",
         "referral_service",
         "panel_service",
-        "stars_service",
-        "freekassa_service",
-        "cryptopay_service",
         "panel_webhook_service",
-        "platega_service",
-        "severpay_service",
-        "wata_service",
-    ):
+        "lknpd_service",
+        *iter_service_keys(),
+    ]
+    for key in shared_keys:
         if hasattr(dp, "workflow_data") and key in dp.workflow_data:  # type: ignore
             app[key] = dp.workflow_data[key]  # type: ignore
 
@@ -91,44 +87,21 @@ async def build_and_start_web_app(
             f"Telegram webhook route configured at: [POST] {telegram_webhook_path} (relative to base URL)"  # noqa: E501
         )
 
-    from bot.handlers.user.payment import yookassa_webhook_route
-    from bot.services.crypto_pay_service import cryptopay_webhook_route
-    from bot.services.freekassa_service import freekassa_webhook_route
     from bot.services.panel_webhook_service import panel_webhook_route
-    from bot.services.platega_service import platega_webhook_route
-    from bot.services.severpay_service import severpay_webhook_route
-    from bot.services.wata_service import wata_webhook_route
 
-    cp_path = settings.cryptopay_webhook_path
-    if cp_path.startswith("/"):
-        app.router.add_post(cp_path, cryptopay_webhook_route)
-        logging.info(f"CryptoPay webhook route configured at: [POST] {cp_path}")
-
-    fk_path = settings.freekassa_webhook_path
-    if fk_path.startswith("/"):
-        app.router.add_post(fk_path, freekassa_webhook_route)
-        logging.info(f"FreeKassa webhook route configured at: [POST] {fk_path}")
-
-    pg_path = settings.platega_webhook_path
-    if pg_path.startswith("/"):
-        app.router.add_post(pg_path, platega_webhook_route)
-        logging.info(f"Platega webhook route configured at: [POST] {pg_path}")
-
-    sp_path = settings.severpay_webhook_path
-    if sp_path.startswith("/"):
-        app.router.add_post(sp_path, severpay_webhook_route)
-        logging.info(f"SeverPay webhook route configured at: [POST] {sp_path}")
-
-    wata_path = settings.wata_webhook_path
-    if wata_path.startswith("/"):
-        app.router.add_post(wata_path, wata_webhook_route)
-        logging.info(f"Wata webhook route configured at: [POST] {wata_path}")
-
-    # YooKassa webhook (register only when base URL present and path configured)
-    yk_path = settings.yookassa_webhook_path
-    if settings.WEBHOOK_BASE_URL and yk_path and yk_path.startswith("/"):
-        app.router.add_post(yk_path, yookassa_webhook_route)
-        logging.info(f"YooKassa webhook route configured at: [POST] {yk_path}")
+    registered_webhook_paths: set[str] = set()
+    for spec in iter_provider_specs():
+        webhook_route = spec.load_webhook_route()
+        if not spec.webhook_path or not webhook_route:
+            continue
+        if spec.webhook_requires_base_url and not settings.WEBHOOK_BASE_URL:
+            continue
+        path = spec.webhook_path(settings)
+        if not path or not path.startswith("/") or path in registered_webhook_paths:
+            continue
+        registered_webhook_paths.add(path)
+        app.router.add_post(path, webhook_route)
+        logging.info("%s webhook route configured at: [POST] %s", spec.label, path)
 
     panel_path = settings.panel_webhook_path
     if panel_path.startswith("/"):

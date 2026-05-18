@@ -97,7 +97,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             traffic_packages=cached["traffic_packages"],
             stars_traffic_packages=cached["stars_traffic_packages"],
         ),
-        "payment_methods": _serialize_payment_methods(settings, request.app),
+        "payment_methods": _serialize_payment_methods(settings, request.app, lang),
         "themes_catalog": public_themes_catalog_payload(
             settings.webapp_themes_catalog,
             settings.WEBAPP_PRIMARY_COLOR or "#00fe7a",
@@ -566,66 +566,23 @@ def _serialize_tariff_change_target(
 def _serialize_payment_methods(
     settings: Settings,
     app: web.Application,
+    lang: str = "ru",
 ) -> List[Dict[str, Any]]:
-    labels = {
-        "wata": "Wata",
-        "severpay": "SeverPay",
-        "freekassa": "FreeKassa / СБП",
-        "platega_sbp": "Platega · СБП",
-        "platega_crypto": "Platega · Crypto",
-        "yookassa": "Банковская карта",
-        "stars": "Telegram Stars",
-        "cryptopay": "CryptoPay",
-    }
+    from bot.payment_providers import get_provider_spec, resolve_provider_presentation
+
     methods: List[Dict[str, Any]] = []
     for method in settings.payment_methods_order:
         method = method.lower()
-        if (
-            method == "severpay"
-            and settings.SEVERPAY_ENABLED
-            and _service_configured(app, "severpay_service")
-        ):
-            methods.append({"id": method, "name": labels[method]})
-        elif (
-            method == "freekassa"
-            and settings.FREEKASSA_ENABLED
-            and _service_configured(app, "freekassa_service")
-        ):
-            methods.append({"id": method, "name": labels[method]})
-        elif (
-            method == "platega_sbp"
-            and settings.PLATEGA_ENABLED
-            and settings.PLATEGA_SBP_ENABLED
-            and _service_configured(app, "platega_service")
-        ):
-            methods.append({"id": method, "name": labels[method]})
-        elif (
-            method == "platega_crypto"
-            and settings.PLATEGA_ENABLED
-            and settings.PLATEGA_CRYPTO_ENABLED
-            and _service_configured(app, "platega_service")
-        ):
-            methods.append({"id": method, "name": labels[method]})
-        elif (
-            method == "wata"
-            and settings.WATA_ENABLED
-            and _service_configured(app, "wata_service")
-        ):
-            methods.append({"id": method, "name": labels[method]})
-        elif (
-            method == "yookassa"
-            and settings.YOOKASSA_ENABLED
-            and _service_configured(app, "yookassa_service")
-        ):
-            methods.append({"id": method, "name": labels[method]})
-        elif method == "stars" and settings.STARS_ENABLED:
-            methods.append({"id": method, "name": labels[method]})
-        elif (
-            method == "cryptopay"
-            and settings.CRYPTOPAY_ENABLED
-            and _service_configured(app, "cryptopay_service")
-        ):
-            methods.append({"id": method, "name": labels[method]})
+        spec = get_provider_spec(method)
+        if spec and spec.is_visible(settings, app):
+            presentation = resolve_provider_presentation(spec, settings, language=lang)
+            methods.append(
+                {
+                    "id": method,
+                    "name": presentation.webapp_label,
+                    "icon": presentation.webapp_icon,
+                }
+            )
     return methods
 
 

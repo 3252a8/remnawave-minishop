@@ -289,6 +289,54 @@ class Settings(BaseSettings):
         default=None,
         description="Comma-separated list of payment methods to show (e.g., severpay,wata,freekassa,yookassa,platega,stars,cryptopay)",  # noqa: E501
     )
+    PAYMENT_FREEKASSA_WEBAPP_LABEL_RU: Optional[str] = None
+    PAYMENT_FREEKASSA_WEBAPP_LABEL_EN: Optional[str] = None
+    PAYMENT_FREEKASSA_WEBAPP_ICON: Optional[str] = None
+    PAYMENT_FREEKASSA_TELEGRAM_LABEL_RU: Optional[str] = None
+    PAYMENT_FREEKASSA_TELEGRAM_LABEL_EN: Optional[str] = None
+    PAYMENT_FREEKASSA_TELEGRAM_EMOJI: Optional[str] = None
+    PAYMENT_PLATEGA_SBP_WEBAPP_LABEL_RU: Optional[str] = None
+    PAYMENT_PLATEGA_SBP_WEBAPP_LABEL_EN: Optional[str] = None
+    PAYMENT_PLATEGA_SBP_WEBAPP_ICON: Optional[str] = None
+    PAYMENT_PLATEGA_SBP_TELEGRAM_LABEL_RU: Optional[str] = None
+    PAYMENT_PLATEGA_SBP_TELEGRAM_LABEL_EN: Optional[str] = None
+    PAYMENT_PLATEGA_SBP_TELEGRAM_EMOJI: Optional[str] = None
+    PAYMENT_PLATEGA_CRYPTO_WEBAPP_LABEL_RU: Optional[str] = None
+    PAYMENT_PLATEGA_CRYPTO_WEBAPP_LABEL_EN: Optional[str] = None
+    PAYMENT_PLATEGA_CRYPTO_WEBAPP_ICON: Optional[str] = None
+    PAYMENT_PLATEGA_CRYPTO_TELEGRAM_LABEL_RU: Optional[str] = None
+    PAYMENT_PLATEGA_CRYPTO_TELEGRAM_LABEL_EN: Optional[str] = None
+    PAYMENT_PLATEGA_CRYPTO_TELEGRAM_EMOJI: Optional[str] = None
+    PAYMENT_SEVERPAY_WEBAPP_LABEL_RU: Optional[str] = None
+    PAYMENT_SEVERPAY_WEBAPP_LABEL_EN: Optional[str] = None
+    PAYMENT_SEVERPAY_WEBAPP_ICON: Optional[str] = None
+    PAYMENT_SEVERPAY_TELEGRAM_LABEL_RU: Optional[str] = None
+    PAYMENT_SEVERPAY_TELEGRAM_LABEL_EN: Optional[str] = None
+    PAYMENT_SEVERPAY_TELEGRAM_EMOJI: Optional[str] = None
+    PAYMENT_WATA_WEBAPP_LABEL_RU: Optional[str] = None
+    PAYMENT_WATA_WEBAPP_LABEL_EN: Optional[str] = None
+    PAYMENT_WATA_WEBAPP_ICON: Optional[str] = None
+    PAYMENT_WATA_TELEGRAM_LABEL_RU: Optional[str] = None
+    PAYMENT_WATA_TELEGRAM_LABEL_EN: Optional[str] = None
+    PAYMENT_WATA_TELEGRAM_EMOJI: Optional[str] = None
+    PAYMENT_YOOKASSA_WEBAPP_LABEL_RU: Optional[str] = None
+    PAYMENT_YOOKASSA_WEBAPP_LABEL_EN: Optional[str] = None
+    PAYMENT_YOOKASSA_WEBAPP_ICON: Optional[str] = None
+    PAYMENT_YOOKASSA_TELEGRAM_LABEL_RU: Optional[str] = None
+    PAYMENT_YOOKASSA_TELEGRAM_LABEL_EN: Optional[str] = None
+    PAYMENT_YOOKASSA_TELEGRAM_EMOJI: Optional[str] = None
+    PAYMENT_STARS_WEBAPP_LABEL_RU: Optional[str] = None
+    PAYMENT_STARS_WEBAPP_LABEL_EN: Optional[str] = None
+    PAYMENT_STARS_WEBAPP_ICON: Optional[str] = None
+    PAYMENT_STARS_TELEGRAM_LABEL_RU: Optional[str] = None
+    PAYMENT_STARS_TELEGRAM_LABEL_EN: Optional[str] = None
+    PAYMENT_STARS_TELEGRAM_EMOJI: Optional[str] = None
+    PAYMENT_CRYPTOPAY_WEBAPP_LABEL_RU: Optional[str] = None
+    PAYMENT_CRYPTOPAY_WEBAPP_LABEL_EN: Optional[str] = None
+    PAYMENT_CRYPTOPAY_WEBAPP_ICON: Optional[str] = None
+    PAYMENT_CRYPTOPAY_TELEGRAM_LABEL_RU: Optional[str] = None
+    PAYMENT_CRYPTOPAY_TELEGRAM_LABEL_EN: Optional[str] = None
+    PAYMENT_CRYPTOPAY_TELEGRAM_EMOJI: Optional[str] = None
 
     MONTH_1_ENABLED: bool = Field(default=True, alias="1_MONTH_ENABLED")
     MONTH_3_ENABLED: bool = Field(default=True, alias="3_MONTHS_ENABLED")

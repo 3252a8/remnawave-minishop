@@ -15,9 +15,9 @@ from bot.app.web.webapp_auth import (
     create_webapp_session_token,
     verify_telegram_oauth_nonce,
 )
-from bot.handlers.user.payment import yookassa_webhook_route
-from bot.services.crypto_pay_service import CryptoPayService
-from bot.services.freekassa_service import FreeKassaService
+from bot.payment_providers.cryptopay import CryptoPayService
+from bot.payment_providers.freekassa import FreeKassaService
+from bot.payment_providers.yookassa import yookassa_webhook_route
 from bot.utils.request_security import request_client_ip
 from config.settings import Settings
 from db.database_setup import redacted_database_url

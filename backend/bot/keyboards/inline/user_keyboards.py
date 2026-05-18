@@ -344,7 +344,6 @@ def get_payment_method_keyboard(
         return str(int(val)) if float(val).is_integer() else f"{val:g}"
 
     value_str = _format_value(months)
-    mode_suffix = f":{sale_mode}"
     import logging as _kbd_logging
 
     _kbd_logging.info(
@@ -354,51 +353,24 @@ def get_payment_method_keyboard(
         settings.PLATEGA_SBP_ENABLED,
         settings.PLATEGA_CRYPTO_ENABLED,
     )
+    from bot.payment_providers import get_provider_spec, provider_telegram_button_text
+
     for method in settings.payment_methods_order:
-        if method == "severpay" and getattr(settings, "SEVERPAY_ENABLED", False):
-            builder.button(
-                text=_("pay_with_severpay_button"),
-                callback_data=f"pay_severpay:{value_str}:{price}{mode_suffix}",
-            )
-        elif method == "wata" and getattr(settings, "WATA_ENABLED", False):
-            builder.button(
-                text=_("pay_with_wata_button"),
-                callback_data=f"pay_wata:{value_str}:{price}{mode_suffix}",
-            )
-        elif method == "freekassa" and settings.FREEKASSA_ENABLED:
-            builder.button(
-                text=_("pay_with_sbp_button"),
-                callback_data=f"pay_fk:{value_str}:{price}{mode_suffix}",
-            )
-        elif method == "platega_sbp" and settings.PLATEGA_ENABLED and settings.PLATEGA_SBP_ENABLED:
-            builder.button(
-                text=_("pay_with_platega_sbp_button"),
-                callback_data=f"pay_platega_sbp:{value_str}:{price}{mode_suffix}",
-            )
-        elif (
-            method == "platega_crypto"
-            and settings.PLATEGA_ENABLED
-            and settings.PLATEGA_CRYPTO_ENABLED
-        ):
-            builder.button(
-                text=_("pay_with_platega_crypto_button"),
-                callback_data=f"pay_platega_crypto:{value_str}:{price}{mode_suffix}",
-            )
-        elif method == "yookassa" and settings.YOOKASSA_ENABLED:
-            builder.button(
-                text=_("pay_with_yookassa_button"),
-                callback_data=f"pay_yk:{value_str}:{price}{mode_suffix}",
-            )
-        elif method == "stars" and settings.STARS_ENABLED and stars_price is not None:
-            builder.button(
-                text=_("pay_with_stars_button"),
-                callback_data=f"pay_stars:{value_str}:{stars_price}{mode_suffix}",
-            )
-        elif method == "cryptopay" and settings.CRYPTOPAY_ENABLED:
-            builder.button(
-                text=_("pay_with_cryptopay_button"),
-                callback_data=f"pay_crypto:{value_str}:{price}{mode_suffix}",
-            )
+        spec = get_provider_spec(method)
+        if not spec or not spec.button_text_key or not spec.is_enabled(settings):
+            continue
+        callback_data = spec.callback_data(
+            value=value_str,
+            rub_price=price,
+            stars_price=stars_price,
+            sale_mode=sale_mode,
+        )
+        if not callback_data:
+            continue
+        builder.button(
+            text=provider_telegram_button_text(spec, settings, _, language=lang),
+            callback_data=callback_data,
+        )
     builder.button(text=_(key="cancel_button"), callback_data="main_action:subscribe")
     builder.adjust(1)
     return builder.as_markup()
