@@ -197,7 +197,6 @@ SETTINGS_MANIFEST: List[SettingField] = [
     # ─── Payment providers (toggles) ───────────────────────────────
     # Common
     SettingField("STARS_ENABLED", "bool", "payments", "Telegram Stars", subsection="Общие"),
-    *_payment_presentation_fields("STARS", "Telegram Stars", default_icon="Sparkles"),
     SettingField(
         "PAYMENT_METHODS_ORDER",
         "string",

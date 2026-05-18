@@ -4,6 +4,7 @@ from typing import Optional
 from aiogram import Bot, F, Router, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 from aiohttp import web
+from pydantic_settings import SettingsConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import payment_methods_back_callback
@@ -15,8 +16,11 @@ from db.dal import payment_dal
 
 from .base import (
     PaymentProviderSpec,
+    ProviderEnvConfig,
+    ProviderManifestField,
     ServiceFactoryContext,
     WebAppPaymentContext,
+    provider_env_file,
 )
 from .shared import (
     PaymentSuccessRequest,
@@ -35,6 +39,22 @@ from .shared import (
     sale_mode_base,
     sale_mode_tariff_key,
 )
+
+
+class StarsPresentation(ProviderEnvConfig):
+    model_config = SettingsConfigDict(
+        env_file=provider_env_file(),
+        env_file_encoding="utf-8",
+        env_prefix="PAYMENT_STARS_",
+        extra="ignore",
+    )
+
+    WEBAPP_LABEL_RU: Optional[str] = None
+    WEBAPP_LABEL_EN: Optional[str] = None
+    WEBAPP_ICON: Optional[str] = None
+    TELEGRAM_LABEL_RU: Optional[str] = None
+    TELEGRAM_LABEL_EN: Optional[str] = None
+    TELEGRAM_EMOJI: Optional[str] = None
 
 
 class StarsService:
@@ -349,6 +369,31 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
         return payment_failed("Failed to create invoice")
 
 
+_PRESENTATION_MANIFEST = tuple(
+    ProviderManifestField(
+        key=key, type=type_, label=label, description=description,
+        placeholder=placeholder, subsection="Telegram Stars",
+        target="presentation", attr=attr,
+    )
+    for key, type_, label, description, placeholder, attr in (
+        ("PAYMENT_STARS_WEBAPP_LABEL_RU", "string", "WebApp button text (RU)",
+         "Custom Russian text shown in the Web App payment method button.", "", "WEBAPP_LABEL_RU"),
+        ("PAYMENT_STARS_WEBAPP_LABEL_EN", "string", "WebApp button text (EN)",
+         "Custom English text shown in the Web App payment method button.", "", "WEBAPP_LABEL_EN"),
+        ("PAYMENT_STARS_WEBAPP_ICON", "icon", "WebApp button icon",
+         "Lucide icon name rendered inside the Web App payment method button.",
+         "Sparkles", "WEBAPP_ICON"),
+        ("PAYMENT_STARS_TELEGRAM_LABEL_RU", "string", "Telegram button text (RU)",
+         "Custom Russian text shown in Telegram bot payment buttons.", "", "TELEGRAM_LABEL_RU"),
+        ("PAYMENT_STARS_TELEGRAM_LABEL_EN", "string", "Telegram button text (EN)",
+         "Custom English text shown in Telegram bot payment buttons.", "", "TELEGRAM_LABEL_EN"),
+        ("PAYMENT_STARS_TELEGRAM_EMOJI", "string", "Telegram button emoji",
+         "Emoji prepended to the Telegram bot payment button when customized.",
+         "🌟", "TELEGRAM_EMOJI"),
+    )
+)
+
+
 SPEC = PaymentProviderSpec(
     id="stars",
     provider_key="telegram_stars",
@@ -358,7 +403,10 @@ SPEC = PaymentProviderSpec(
     webapp_icon="Sparkles",
     telegram_labels={"ru": "Звёзды Telegram", "en": "Telegram Stars"},
     pending_status="pending_stars",
-    enabled=lambda settings: settings.STARS_ENABLED,
+    # STARS_ENABLED stays on the global Settings — subscription_options reads
+    # it together with STARS_PRICE_* fields, so it has cross-cutting bizlogic
+    # reach beyond just the provider flag.
+    enabled=lambda settings: bool(getattr(settings, "STARS_ENABLED", False)),
     service_key="stars_service",
     callback_prefix="pay_stars",
     router=router,
@@ -368,4 +416,6 @@ SPEC = PaymentProviderSpec(
     price_source="stars",
     emoji="⭐",
     telegram_emoji="⭐",
+    presentation_class=StarsPresentation,
+    manifest_fields=_PRESENTATION_MANIFEST,
 )
