@@ -272,10 +272,14 @@ async def run_bot(settings_param: Settings):
         await dp.emit_shutdown()
         raise SystemExit("WEBHOOK_BASE_URL is required. Polling mode is disabled.")
 
+    from bot.payment_providers import get_provider_spec
+
+    _yk_spec = get_provider_spec("yookassa")
+    _yk_path = _yk_spec.webhook_path(settings_param) if _yk_spec and _yk_spec.webhook_path else "-"
     logging.info(
         "Starting AIOHTTP server: webhook_base=%s yookassa_path=%s",
         settings_param.WEBHOOK_BASE_URL,
-        settings_param.yookassa_webhook_path,
+        _yk_path,
     )
 
     async def web_server_task():
