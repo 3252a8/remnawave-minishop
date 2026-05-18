@@ -10,6 +10,8 @@ from urllib.parse import parse_qsl
 
 from aiogram import Bot, F, Router, types
 from aiohttp import web
+from pydantic import Field, field_validator
+from pydantic_settings import SettingsConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
@@ -22,6 +24,8 @@ from db.dal import payment_dal
 
 from .base import (
     PaymentProviderSpec,
+    ProviderEnvConfig,
+    ProviderManifestField,
     ServiceFactoryContext,
     WebAppPaymentContext,
 )
@@ -50,12 +54,77 @@ from .shared import (
 _LOG = "freekassa"
 
 
+class FreeKassaConfig(ProviderEnvConfig):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="FREEKASSA_",
+        extra="ignore",
+    )
+
+    ENABLED: bool = Field(default=False)
+    MERCHANT_ID: Optional[str] = None
+    FIRST_SECRET: Optional[str] = None
+    SECOND_SECRET: Optional[str] = None
+    PAYMENT_URL: str = Field(default="https://pay.freekassa.ru/")
+    API_KEY: Optional[str] = None
+    PAYMENT_IP: Optional[str] = None
+    PAYMENT_METHOD_ID: Optional[int] = None
+    TRUSTED_IPS: str = Field(
+        default="168.119.157.136,168.119.60.227,178.154.197.79,51.250.54.238"
+    )
+
+    @field_validator("PAYMENT_METHOD_ID", mode="before")
+    @classmethod
+    def _empty_to_none_int(cls, v):
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return None
+        return v
+
+    @field_validator(
+        "MERCHANT_ID", "FIRST_SECRET", "SECOND_SECRET", "API_KEY", "PAYMENT_IP",
+        mode="before",
+    )
+    @classmethod
+    def _strip_optional(cls, v):
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
+
+    @property
+    def webhook_path(self) -> str:
+        return "/webhook/freekassa"
+
+    @property
+    def trusted_ips_list(self) -> list:
+        return [item.strip() for item in (self.TRUSTED_IPS or "").split(",") if item.strip()]
+
+
+class FreeKassaPresentation(ProviderEnvConfig):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="PAYMENT_FREEKASSA_",
+        extra="ignore",
+    )
+
+    WEBAPP_LABEL_RU: Optional[str] = None
+    WEBAPP_LABEL_EN: Optional[str] = None
+    WEBAPP_ICON: Optional[str] = None
+    TELEGRAM_LABEL_RU: Optional[str] = None
+    TELEGRAM_LABEL_EN: Optional[str] = None
+    TELEGRAM_EMOJI: Optional[str] = None
+
+
 class FreeKassaService(HttpClientMixin):
     def __init__(
         self,
         *,
         bot: Bot,
         settings: Settings,
+        config: FreeKassaConfig,
         i18n: JsonI18n,
         async_session_factory: sessionmaker,
         subscription_service: SubscriptionService,
@@ -63,29 +132,30 @@ class FreeKassaService(HttpClientMixin):
     ):
         self.bot = bot
         self.settings = settings
+        self.config = config
         self.i18n = i18n
         self.async_session_factory = async_session_factory
         self.subscription_service = subscription_service
         self.referral_service = referral_service
 
-        self.shop_id: Optional[str] = settings.FREEKASSA_MERCHANT_ID
-        self.api_key: Optional[str] = settings.FREEKASSA_API_KEY
-        self.second_secret: Optional[str] = settings.FREEKASSA_SECOND_SECRET
+        self.shop_id: Optional[str] = config.MERCHANT_ID
+        self.api_key: Optional[str] = config.API_KEY
+        self.second_secret: Optional[str] = config.SECOND_SECRET
         self.default_currency: str = (settings.DEFAULT_CURRENCY_SYMBOL or "RUB").upper()
-        self.server_ip: Optional[str] = settings.FREEKASSA_PAYMENT_IP
-        self.payment_method_id: Optional[int] = settings.FREEKASSA_PAYMENT_METHOD_ID
+        self.server_ip: Optional[str] = config.PAYMENT_IP
+        self.payment_method_id: Optional[int] = config.PAYMENT_METHOD_ID
 
         self.api_base_url: str = "https://api.fk.life/v1"
         self._init_http_client(total_timeout=15)
         self._nonce_lock = asyncio.Lock()
         self._last_nonce = int(time.time() * 1000)
 
-        self.configured: bool = bool(settings.FREEKASSA_ENABLED and self.shop_id and self.api_key)
+        self.configured: bool = bool(config.ENABLED and self.shop_id and self.api_key)
         if not self.configured:
             logging.warning(
                 "FreeKassaService initialized but not fully configured. Payments disabled."
             )
-        if settings.FREEKASSA_ENABLED and not self.server_ip:
+        if config.ENABLED and not self.server_ip:
             logging.warning(
                 "FreeKassaService: FREEKASSA_PAYMENT_IP is not set. Requests may be rejected by the provider."  # noqa: E501
             )
@@ -185,7 +255,7 @@ class FreeKassaService(HttpClientMixin):
 
         try:
             client_ip = request_client_ip(request, trusted_proxies=self.settings.trusted_proxies)
-            if not ip_in_allowlist(client_ip, self.settings.freekassa_trusted_ips):
+            if not ip_in_allowlist(client_ip, self.config.trusted_ips_list):
                 return web.Response(status=403)
 
             raw_body = await request.read()
@@ -431,9 +501,12 @@ async def pay_fk_callback_handler(
 
 
 def create_service(ctx: ServiceFactoryContext) -> FreeKassaService:
+    bundle = ctx.config_for("freekassa_service")
+    config = bundle.config if bundle and isinstance(bundle.config, FreeKassaConfig) else FreeKassaConfig()
     return FreeKassaService(
         bot=ctx.bot,
         settings=ctx.settings,
+        config=config,
         i18n=ctx.i18n,
         async_session_factory=ctx.async_session_factory,
         subscription_service=ctx.subscription_service,
@@ -479,6 +552,56 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     )
 
 
+_PRESENTATION_MANIFEST = tuple(
+    ProviderManifestField(
+        key=key, type=type_, label=label, description=description,
+        placeholder=placeholder, subsection="FreeKassa",
+        target="presentation", attr=attr,
+    )
+    for key, type_, label, description, placeholder, attr in (
+        ("PAYMENT_FREEKASSA_WEBAPP_LABEL_RU", "string", "WebApp button text (RU)",
+         "Custom Russian text shown in the Web App payment method button.", "", "WEBAPP_LABEL_RU"),
+        ("PAYMENT_FREEKASSA_WEBAPP_LABEL_EN", "string", "WebApp button text (EN)",
+         "Custom English text shown in the Web App payment method button.", "", "WEBAPP_LABEL_EN"),
+        ("PAYMENT_FREEKASSA_WEBAPP_ICON", "icon", "WebApp button icon",
+         "Lucide icon name rendered inside the Web App payment method button.",
+         "Smartphone", "WEBAPP_ICON"),
+        ("PAYMENT_FREEKASSA_TELEGRAM_LABEL_RU", "string", "Telegram button text (RU)",
+         "Custom Russian text shown in Telegram bot payment buttons.", "", "TELEGRAM_LABEL_RU"),
+        ("PAYMENT_FREEKASSA_TELEGRAM_LABEL_EN", "string", "Telegram button text (EN)",
+         "Custom English text shown in Telegram bot payment buttons.", "", "TELEGRAM_LABEL_EN"),
+        ("PAYMENT_FREEKASSA_TELEGRAM_EMOJI", "string", "Telegram button emoji",
+         "Emoji prepended to the Telegram bot payment button when customized.",
+         "📱", "TELEGRAM_EMOJI"),
+    )
+)
+
+_CONFIG_MANIFEST = (
+    ProviderManifestField("FREEKASSA_ENABLED", "bool", "Включена",
+                          subsection="FreeKassa", attr="ENABLED"),
+    ProviderManifestField("FREEKASSA_MERCHANT_ID", "string", "Merchant ID",
+                          subsection="FreeKassa", attr="MERCHANT_ID"),
+    ProviderManifestField("FREEKASSA_FIRST_SECRET", "string", "First secret",
+                          subsection="FreeKassa", secret=True, attr="FIRST_SECRET"),
+    ProviderManifestField("FREEKASSA_SECOND_SECRET", "string", "Second secret",
+                          subsection="FreeKassa", secret=True, attr="SECOND_SECRET"),
+    ProviderManifestField("FREEKASSA_API_KEY", "string", "API key",
+                          subsection="FreeKassa", secret=True, attr="API_KEY"),
+    ProviderManifestField("FREEKASSA_PAYMENT_URL", "url", "Payment URL",
+                          placeholder="https://pay.freekassa.ru/",
+                          subsection="FreeKassa", attr="PAYMENT_URL"),
+    ProviderManifestField("FREEKASSA_PAYMENT_METHOD_ID", "int", "Payment method ID",
+                          description="See https://merchant.freekassa.net/settings/currencies",
+                          subsection="FreeKassa", attr="PAYMENT_METHOD_ID"),
+    ProviderManifestField("FREEKASSA_PAYMENT_IP", "string", "Server IP",
+                          description="Public IP address reported to FreeKassa.",
+                          subsection="FreeKassa", attr="PAYMENT_IP"),
+    ProviderManifestField("FREEKASSA_TRUSTED_IPS", "string", "Trusted IPs",
+                          description="Comma-separated IP addresses accepted for FreeKassa webhooks.",
+                          subsection="FreeKassa", attr="TRUSTED_IPS"),
+)
+
+
 SPEC = PaymentProviderSpec(
     id="freekassa",
     provider_key="freekassa",
@@ -489,12 +612,15 @@ SPEC = PaymentProviderSpec(
     telegram_labels={"ru": "СБП", "en": "SBP"},
     telegram_emoji="📱",
     pending_status="pending_freekassa",
-    enabled=lambda settings: settings.FREEKASSA_ENABLED,
+    enabled=lambda config: bool(getattr(config, "ENABLED", False)),
     service_key="freekassa_service",
     callback_prefix="pay_fk",
     router=router,
     create_service=create_service,
-    webhook_path=lambda settings: settings.freekassa_webhook_path,
+    webhook_path=lambda source: "/webhook/freekassa",
     webhook_route=freekassa_webhook_route,
     create_webapp_payment=create_webapp_payment,
+    config_class=FreeKassaConfig,
+    presentation_class=FreeKassaPresentation,
+    manifest_fields=_CONFIG_MANIFEST + _PRESENTATION_MANIFEST,
 )

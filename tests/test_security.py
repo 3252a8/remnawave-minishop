@@ -60,21 +60,25 @@ class RequestSecurityTests(unittest.IsolatedAsyncioTestCase):
 
 class FreeKassaServiceTests(unittest.TestCase):
     def _make_service(self) -> FreeKassaService:
+        from bot.payment_providers.freekassa import FreeKassaConfig
+
         settings = SimpleNamespace(
-            FREEKASSA_ENABLED=True,
-            FREEKASSA_MERCHANT_ID="123456",
-            FREEKASSA_API_KEY="api-key",
-            FREEKASSA_SECOND_SECRET="second-secret",
             DEFAULT_CURRENCY_SYMBOL="RUB",
-            FREEKASSA_PAYMENT_IP="203.0.113.10",
-            FREEKASSA_PAYMENT_METHOD_ID=44,
-            FREEKASSA_TRUSTED_IPS="127.0.0.1,203.0.113.0/24",
             trusted_proxies=["127.0.0.1"],
-            freekassa_trusted_ips=["127.0.0.1", "203.0.113.0/24"],
+        )
+        config = FreeKassaConfig(
+            ENABLED=True,
+            MERCHANT_ID="123456",
+            API_KEY="api-key",
+            SECOND_SECRET="second-secret",
+            PAYMENT_IP="203.0.113.10",
+            PAYMENT_METHOD_ID=44,
+            TRUSTED_IPS="127.0.0.1,203.0.113.0/24",
         )
         return FreeKassaService(
             bot=object(),
             settings=settings,
+            config=config,
             i18n=object(),
             async_session_factory=object(),
             subscription_service=object(),

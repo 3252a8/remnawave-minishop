@@ -38,13 +38,6 @@ class PaymentSettings(BaseModel):
     yookassa_payment_subject: str
     yookassa_autopayments_enabled: bool
     yookassa_autopayments_require_card_binding: bool
-    freekassa_enabled: bool
-    freekassa_merchant_id: Optional[str]
-    freekassa_second_secret: Optional[str]
-    freekassa_api_key: Optional[str]
-    freekassa_payment_ip: Optional[str]
-    freekassa_payment_method_id: Optional[int]
-    freekassa_trusted_ips: List[str]
     platega_enabled: bool
     platega_base_url: str
     platega_merchant_id: Optional[str]
@@ -226,31 +219,12 @@ class Settings(BaseSettings):
     PLATEGA_RETURN_URL: Optional[str] = Field(default=None)
     PLATEGA_FAILED_URL: Optional[str] = Field(default=None)
 
-    FREEKASSA_ENABLED: bool = Field(default=False)
-    FREEKASSA_MERCHANT_ID: Optional[str] = None
-    FREEKASSA_FIRST_SECRET: Optional[str] = None
-    FREEKASSA_SECOND_SECRET: Optional[str] = None
-    FREEKASSA_PAYMENT_URL: str = Field(default="https://pay.freekassa.ru/")
-    FREEKASSA_API_KEY: Optional[str] = None
-    FREEKASSA_PAYMENT_IP: Optional[str] = None
-    FREEKASSA_PAYMENT_METHOD_ID: Optional[int] = None
-    FREEKASSA_TRUSTED_IPS: str = Field(
-        default="168.119.157.136,168.119.60.227,178.154.197.79,51.250.54.238",
-        description="Comma-separated FreeKassa webhook IP allowlist.",
-    )
-
     YOOKASSA_ENABLED: bool = Field(default=True)
     STARS_ENABLED: bool = Field(default=True)
     PAYMENT_METHODS_ORDER: Optional[str] = Field(
         default=None,
         description="Comma-separated list of payment methods to show (e.g., severpay,wata,freekassa,yookassa,platega,stars,cryptopay)",  # noqa: E501
     )
-    PAYMENT_FREEKASSA_WEBAPP_LABEL_RU: Optional[str] = None
-    PAYMENT_FREEKASSA_WEBAPP_LABEL_EN: Optional[str] = None
-    PAYMENT_FREEKASSA_WEBAPP_ICON: Optional[str] = None
-    PAYMENT_FREEKASSA_TELEGRAM_LABEL_RU: Optional[str] = None
-    PAYMENT_FREEKASSA_TELEGRAM_LABEL_EN: Optional[str] = None
-    PAYMENT_FREEKASSA_TELEGRAM_EMOJI: Optional[str] = None
     PAYMENT_PLATEGA_SBP_WEBAPP_LABEL_RU: Optional[str] = None
     PAYMENT_PLATEGA_SBP_WEBAPP_LABEL_EN: Optional[str] = None
     PAYMENT_PLATEGA_SBP_WEBAPP_ICON: Optional[str] = None
@@ -528,13 +502,6 @@ class Settings(BaseSettings):
             yookassa_payment_subject=self.YOOKASSA_PAYMENT_SUBJECT,
             yookassa_autopayments_enabled=self.YOOKASSA_AUTOPAYMENTS_ENABLED,
             yookassa_autopayments_require_card_binding=self.YOOKASSA_AUTOPAYMENTS_REQUIRE_CARD_BINDING,
-            freekassa_enabled=self.FREEKASSA_ENABLED,
-            freekassa_merchant_id=self.FREEKASSA_MERCHANT_ID,
-            freekassa_second_secret=self.FREEKASSA_SECOND_SECRET,
-            freekassa_api_key=self.FREEKASSA_API_KEY,
-            freekassa_payment_ip=self.FREEKASSA_PAYMENT_IP,
-            freekassa_payment_method_id=self.FREEKASSA_PAYMENT_METHOD_ID,
-            freekassa_trusted_ips=self.freekassa_trusted_ips,
             platega_enabled=self.PLATEGA_ENABLED,
             platega_base_url=self.PLATEGA_BASE_URL,
             platega_merchant_id=self.PLATEGA_MERCHANT_ID,
@@ -659,11 +626,6 @@ class Settings(BaseSettings):
 
     @computed_field
     @property
-    def freekassa_trusted_ips(self) -> List[str]:
-        return _split_csv(self.FREEKASSA_TRUSTED_IPS)
-
-    @computed_field
-    @property
     def telegram_webhook_path(self) -> str:
         return "/tg/webhook"
 
@@ -707,18 +669,6 @@ class Settings(BaseSettings):
             return f"{base.rstrip('/')}{self.cryptopay_webhook_path}"
         return None
 
-    @computed_field
-    @property
-    def freekassa_webhook_path(self) -> str:
-        return "/webhook/freekassa"
-
-    @computed_field
-    @property
-    def freekassa_full_webhook_url(self) -> Optional[str]:
-        base = self.WEBHOOK_BASE_URL
-        if base:
-            return f"{base.rstrip('/')}{self.freekassa_webhook_path}"
-        return None
 
     @computed_field
     @property
@@ -1152,23 +1102,6 @@ def get_settings() -> Settings:
                 logging.warning(
                     "WARNING: LKNPD credentials are incomplete. Receipt sending will be disabled."
                 )
-            if _settings_instance.FREEKASSA_ENABLED:
-                if (
-                    not _settings_instance.FREEKASSA_MERCHANT_ID
-                    or not _settings_instance.FREEKASSA_API_KEY
-                ):
-                    logging.warning(
-                        "CRITICAL: FreeKassa is enabled but SHOP_ID or API key is missing. FreeKassa payments will not work."  # noqa: E501
-                    )
-                if not _settings_instance.FREEKASSA_SECOND_SECRET:
-                    logging.warning(
-                        "WARNING: FreeKassa second secret is not set. Incoming payment notifications cannot be verified."  # noqa: E501
-                    )
-                if not _settings_instance.subscription_options:
-                    logging.warning(
-                        "CRITICAL: FreeKassa is enabled but no subscription prices are configured (RUB_PRICE_*). Users will not see payment buttons."  # noqa: E501
-                    )
-
             if _settings_instance.PLATEGA_ENABLED:
                 if (
                     not _settings_instance.PLATEGA_MERCHANT_ID

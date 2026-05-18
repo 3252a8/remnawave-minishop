@@ -59,14 +59,11 @@ async def select_subscription_period_callback_handler(
 
     if price_rub is None:
         if traffic_mode and not price_source and stars_price is not None:
+            from bot.payment_providers import iter_provider_specs
+
             currency_methods_enabled = any(
-                [
-                    settings.FREEKASSA_ENABLED,
-                    settings.PLATEGA_ENABLED,
-                    settings.SEVERPAY_ENABLED,
-                    settings.YOOKASSA_ENABLED,
-                    settings.CRYPTOPAY_ENABLED,
-                ]
+                spec.price_source != "stars" and spec.is_enabled(settings)
+                for spec in iter_provider_specs()
             )
             if currency_methods_enabled:
                 logging.error(

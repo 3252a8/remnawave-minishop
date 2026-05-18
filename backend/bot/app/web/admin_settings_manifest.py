@@ -250,63 +250,6 @@ SETTINGS_MANIFEST: List[SettingField] = [
         subsection="YooKassa",
     ),
     *_payment_presentation_fields("YOOKASSA", "YooKassa", default_icon="CreditCard"),
-    # FreeKassa
-    SettingField("FREEKASSA_ENABLED", "bool", "payments", "Включена", subsection="FreeKassa"),
-    SettingField(
-        "FREEKASSA_MERCHANT_ID", "string", "payments", "Merchant ID", subsection="FreeKassa"
-    ),
-    SettingField(
-        "FREEKASSA_FIRST_SECRET",
-        "string",
-        "payments",
-        "First secret",
-        subsection="FreeKassa",
-        secret=True,
-    ),
-    SettingField(
-        "FREEKASSA_SECOND_SECRET",
-        "string",
-        "payments",
-        "Second secret",
-        "Используется для проверки подписи входящих уведомлений",
-        subsection="FreeKassa",
-        secret=True,
-    ),
-    SettingField(
-        "FREEKASSA_API_KEY", "string", "payments", "API key", subsection="FreeKassa", secret=True
-    ),
-    SettingField(
-        "FREEKASSA_PAYMENT_URL",
-        "url",
-        "payments",
-        "Payment URL",
-        placeholder="https://pay.freekassa.ru/",
-        subsection="FreeKassa",
-    ),
-    SettingField(
-        "FREEKASSA_PAYMENT_METHOD_ID",
-        "int",
-        "payments",
-        "Метод оплаты по умолчанию",
-        subsection="FreeKassa",
-    ),
-    SettingField(
-        "FREEKASSA_PAYMENT_IP",
-        "string",
-        "payments",
-        "IP сервера",
-        "Передаётся в подпись запроса при создании платежа",
-        subsection="FreeKassa",
-    ),
-    SettingField(
-        "FREEKASSA_TRUSTED_IPS",
-        "string",
-        "payments",
-        "Доверенные IP",
-        "Через запятую — IP-адреса, с которых принимаются нотификации",
-        subsection="FreeKassa",
-    ),
-    *_payment_presentation_fields("FREEKASSA", "FreeKassa", default_icon="Smartphone"),
     # Platega
     SettingField("PLATEGA_ENABLED", "bool", "payments", "Включена", subsection="Platega"),
     SettingField(
