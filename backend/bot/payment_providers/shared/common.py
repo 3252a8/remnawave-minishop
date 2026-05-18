@@ -123,7 +123,9 @@ def sale_mode_is_hwid_devices(sale_mode: str) -> bool:
 
 
 def sale_mode_tariff_key(sale_mode: str) -> Optional[str]:
-    return str(sale_mode or "").split("@", 1)[1] if "@" in str(sale_mode or "") else None
+    if "@" not in str(sale_mode or ""):
+        return None
+    return str(sale_mode).split("@", 1)[1].split("|", 1)[0] or None
 
 
 def format_number_for_payload(value: Any) -> str:

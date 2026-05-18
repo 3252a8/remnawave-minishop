@@ -22,7 +22,10 @@ class TariffMixin:
             if separator in mode:
                 base, suffix = mode.split(separator, 1)
                 mode = base or mode
-                tariff_key = tariff_key or suffix or None
+                suffix_key = suffix.split("|", 1)[0]
+                if separator == "|" and suffix_key in {"bot"}:
+                    suffix_key = ""
+                tariff_key = tariff_key or suffix_key or None
                 break
         return mode, tariff_key
 

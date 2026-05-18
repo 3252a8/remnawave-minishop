@@ -273,6 +273,7 @@ def test_common_sale_mode_helpers_cover_provider_payment_records():
     assert sale_mode_is_traffic("premium_topup@vip")
     assert sale_mode_is_hwid_devices("hwid_devices@vip")
     assert sale_mode_tariff_key("subscription@vip") == "vip"
+    assert sale_mode_tariff_key("subscription@vip|bot") == "vip"
     assert format_number_for_payload(10.0) == "10"
     assert format_number_for_payload(10.5) == "10.5"
 

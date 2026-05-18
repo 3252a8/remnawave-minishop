@@ -4,7 +4,11 @@ from typing import Optional
 from aiogram import F, Router, types
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.keyboards.inline.user_keyboards import get_payment_method_keyboard
+from bot.keyboards.inline.user_keyboards import (
+    get_payment_method_keyboard,
+    sale_mode_with_callback_context,
+    subscription_options_callback,
+)
 from bot.middlewares.i18n import JsonI18n
 from config.settings import Settings
 
@@ -32,8 +36,10 @@ async def select_subscription_period_callback_handler(
     traffic_packages = getattr(settings, "traffic_packages", {}) or {}
     stars_traffic_packages = getattr(settings, "stars_traffic_packages", {}) or {}
     traffic_mode = bool(getattr(settings, "traffic_sale_mode", False) or stars_traffic_packages)
+    parts = callback.data.split(":")
+    callback_context = parts[2] if len(parts) > 2 else None
     try:
-        months = float(callback.data.split(":")[-1])
+        months = float(parts[1])
     except (ValueError, IndexError):
         logging.error(f"Invalid subscription period in callback_data: {callback.data}")
         try:
@@ -97,7 +103,10 @@ async def select_subscription_period_callback_handler(
         current_lang,
         i18n,
         settings,
-        sale_mode="traffic" if traffic_mode else "subscription",
+        sale_mode=sale_mode_with_callback_context(
+            "traffic" if traffic_mode else "subscription", callback_context
+        ),
+        back_callback=subscription_options_callback(callback_context),
     )
 
     try:

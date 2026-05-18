@@ -30,7 +30,12 @@ class SettingField:
     i18n_description_key: Optional[str] = None
 
 
-def _payment_presentation_fields(method_key: str, subsection: str) -> List[SettingField]:
+def _payment_presentation_fields(
+    method_key: str,
+    subsection: str,
+    *,
+    default_icon: str,
+) -> List[SettingField]:
     prefix = f"PAYMENT_{method_key}"
     return [
         SettingField(
@@ -56,6 +61,7 @@ def _payment_presentation_fields(method_key: str, subsection: str) -> List[Setti
             "WebApp button icon",
             "Lucide icon name rendered inside the Web App payment method button.",
             subsection=subsection,
+            placeholder=default_icon,
         ),
         SettingField(
             f"{prefix}_TELEGRAM_LABEL_RU",
@@ -191,7 +197,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
     # ─── Payment providers (toggles) ───────────────────────────────
     # Common
     SettingField("STARS_ENABLED", "bool", "payments", "Telegram Stars", subsection="Общие"),
-    *_payment_presentation_fields("STARS", "Telegram Stars"),
+    *_payment_presentation_fields("STARS", "Telegram Stars", default_icon="Sparkles"),
     SettingField(
         "PAYMENT_METHODS_ORDER",
         "string",
@@ -243,7 +249,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "Принудительная привязка карты",
         subsection="YooKassa",
     ),
-    *_payment_presentation_fields("YOOKASSA", "YooKassa"),
+    *_payment_presentation_fields("YOOKASSA", "YooKassa", default_icon="CreditCard"),
     # FreeKassa
     SettingField("FREEKASSA_ENABLED", "bool", "payments", "Включена", subsection="FreeKassa"),
     SettingField(
@@ -300,7 +306,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "Через запятую — IP-адреса, с которых принимаются нотификации",
         subsection="FreeKassa",
     ),
-    *_payment_presentation_fields("FREEKASSA", "FreeKassa"),
+    *_payment_presentation_fields("FREEKASSA", "FreeKassa", default_icon="Smartphone"),
     # Platega
     SettingField("PLATEGA_ENABLED", "bool", "payments", "Включена", subsection="Platega"),
     SettingField(
@@ -328,8 +334,8 @@ SETTINGS_MANIFEST: List[SettingField] = [
     ),
     SettingField("PLATEGA_RETURN_URL", "url", "payments", "Return URL", subsection="Platega"),
     SettingField("PLATEGA_FAILED_URL", "url", "payments", "Failed URL", subsection="Platega"),
-    *_payment_presentation_fields("PLATEGA_SBP", "Platega SBP"),
-    *_payment_presentation_fields("PLATEGA_CRYPTO", "Platega Crypto"),
+    *_payment_presentation_fields("PLATEGA_SBP", "Platega SBP", default_icon="CreditCard"),
+    *_payment_presentation_fields("PLATEGA_CRYPTO", "Platega Crypto", default_icon="Bitcoin"),
     # SeverPay
     SettingField("SEVERPAY_ENABLED", "bool", "payments", "Включена", subsection="SeverPay"),
     SettingField("SEVERPAY_MID", "int", "payments", "MID", subsection="SeverPay"),
@@ -355,7 +361,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
         min=30,
         max=4320,
     ),
-    *_payment_presentation_fields("SEVERPAY", "SeverPay"),
+    *_payment_presentation_fields("SEVERPAY", "SeverPay", default_icon="CreditCard"),
     # Wata
     SettingField("WATA_ENABLED", "bool", "payments", "Enabled", subsection="Wata"),
     SettingField(
@@ -410,7 +416,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "Comma-separated IP addresses accepted for Wata webhooks.",
         subsection="Wata",
     ),
-    *_payment_presentation_fields("WATA", "Wata"),
+    *_payment_presentation_fields("WATA", "Wata", default_icon="WalletCards"),
     # CryptoPay
     SettingField("CRYPTOPAY_ENABLED", "bool", "payments", "Включена", subsection="CryptoPay"),
     SettingField(
@@ -435,7 +441,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
     SettingField(
         "CRYPTOPAY_ASSET", "string", "payments", "Asset", placeholder="RUB", subsection="CryptoPay"
     ),
-    *_payment_presentation_fields("CRYPTOPAY", "CryptoPay"),
+    *_payment_presentation_fields("CRYPTOPAY", "CryptoPay", default_icon="Bitcoin"),
     # ─── Trial ─────────────────────────────────────────────────────
     SettingField("TRIAL_ENABLED", "bool", "trial", "Триал включён"),
     SettingField("TRIAL_DURATION_DAYS", "int", "trial", "Длительность триала (дней)", min=0),

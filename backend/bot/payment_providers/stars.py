@@ -6,6 +6,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPri
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.keyboards.inline.user_keyboards import payment_methods_back_callback
 from bot.middlewares.i18n import JsonI18n
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
@@ -210,7 +211,9 @@ async def pay_stars_callback_handler(
                 [
                     InlineKeyboardButton(
                         text=translator("back_to_payment_methods_button"),
-                        callback_data=f"subscribe_period:{parts.human_value}",
+                        callback_data=payment_methods_back_callback(
+                            parts.human_value, parts.sale_mode, parts.price
+                        ),
                     )
                 ]
             ]

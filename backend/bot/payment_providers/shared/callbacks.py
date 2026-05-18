@@ -7,7 +7,10 @@ from typing import Optional
 from aiogram import types
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.keyboards.inline.user_keyboards import get_payment_url_keyboard
+from bot.keyboards.inline.user_keyboards import (
+    get_payment_url_keyboard,
+    payment_methods_back_callback,
+)
 from bot.middlewares.i18n import JsonI18n
 from db.dal import payment_dal
 from db.models import Payment
@@ -155,7 +158,9 @@ async def render_payment_link(
         payment_url,
         current_lang,
         i18n,
-        back_callback=f"subscribe_period:{parts.human_value}",
+        back_callback=payment_methods_back_callback(
+            parts.human_value, parts.sale_mode, parts.price
+        ),
         back_text_key=back_text_key,
     )
     await edit_or_answer(

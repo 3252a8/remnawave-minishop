@@ -90,6 +90,23 @@
     return key ? UiIcons[key] || null : null;
   }
 
+  function iconValue(field) {
+    return String(valueFor(field) || field?.placeholder || "").trim();
+  }
+
+  function iconIsDefault(field) {
+    return !String(valueFor(field) || "").trim();
+  }
+
+  function iconLabel(field) {
+    const iconName = iconValue(field);
+    if (!iconName) return at("settings_icon_empty", {}, "Default icon");
+    if (iconIsDefault(field)) {
+      return at("settings_icon_default_value", { icon: iconName }, `Default: ${iconName}`);
+    }
+    return iconName;
+  }
+
   function openIconPicker(field) {
     iconPickerField = field;
     iconPickerSearch = "";
@@ -211,7 +228,7 @@
           oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
         />
       {:else if field.type === "icon"}
-        {@const selectedIconName = valueFor(field) || ""}
+        {@const selectedIconName = iconValue(field)}
         {@const SelectedIcon = iconComponent(selectedIconName)}
         <AdminButton
           class="admin-icon-picker-trigger"
@@ -221,9 +238,9 @@
           {#if SelectedIcon}
             <svelte:component this={SelectedIcon} size={16} />
           {/if}
-          <span>{selectedIconName || at("settings_icon_empty", {}, "Default icon")}</span>
+          <span>{iconLabel(field)}</span>
         </AdminButton>
-        {#if selectedIconName}
+        {#if !iconIsDefault(field)}
           <AdminButton
             size="sm"
             variant="ghost"
@@ -424,20 +441,47 @@
   class="admin-icon-picker-dialog"
 >
   <div class="admin-icon-picker-body">
-    <label class="admin-icon-picker-search">
-      <Search size={15} />
-      <input
-        bind:value={iconPickerSearch}
-        class="input"
-        type="text"
-        placeholder={at("search", {}, "Search")}
-      />
-    </label>
+    {#if iconPickerField}
+      {@const currentIconName = iconValue(iconPickerField)}
+      {@const CurrentIcon = iconComponent(currentIconName)}
+      <div class="admin-icon-picker-current">
+        <span class="admin-icon-picker-current-preview" aria-hidden="true">
+          {#if CurrentIcon}
+            <svelte:component this={CurrentIcon} size={24} />
+          {/if}
+        </span>
+        <span class="admin-icon-picker-current-meta">
+          <small>{at("settings_icon_current", {}, "Current icon")}</small>
+          <strong>{iconLabel(iconPickerField)}</strong>
+        </span>
+        {#if !iconIsDefault(iconPickerField)}
+          <AdminButton
+            size="sm"
+            variant="ghost"
+            onclick={() => settingsStore.markDirty(iconPickerField.key, "")}
+          >
+            <X size={12} />
+            {at("settings_icon_use_default", {}, "Use default")}
+          </AdminButton>
+        {/if}
+      </div>
+    {/if}
+    <div class="admin-icon-picker-toolbar">
+      <label class="admin-icon-picker-search">
+        <Search size={15} />
+        <input
+          bind:value={iconPickerSearch}
+          class="input"
+          type="text"
+          placeholder={at("search", {}, "Search")}
+        />
+      </label>
+    </div>
     <div class="admin-icon-picker-grid">
       {#each filteredIconOptions as iconName}
         {@const Icon = iconComponent(iconName)}
         <button
-          class:active={iconPickerField && valueFor(iconPickerField) === iconName}
+          class:active={iconPickerField && iconValue(iconPickerField) === iconName}
           class="admin-icon-picker-option"
           type="button"
           onclick={() => selectIcon(iconName)}

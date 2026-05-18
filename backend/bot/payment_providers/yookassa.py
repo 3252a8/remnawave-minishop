@@ -26,6 +26,7 @@ from bot.keyboards.inline.user_keyboards import (
     get_payment_url_keyboard,
     get_yk_autopay_choice_keyboard,
     get_yk_saved_cards_keyboard,
+    payment_methods_back_callback,
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.services.lknpd_service import LknpdService
@@ -1132,7 +1133,9 @@ async def _initiate_yk_payment(
         "description": payment_description,
         "subscription_duration_months": int(months) if sale_base == "subscription" else None,
         "sale_mode": sale_base,
-        "tariff_key": sale_mode.split("@", 1)[1] if "@" in sale_mode else None,
+        "tariff_key": sale_mode.split("@", 1)[1].split("|", 1)[0]
+        if "@" in sale_mode
+        else None,
         "purchased_gb": float(months)
         if sale_base in {"traffic", "traffic_package", "topup", "premium_topup"}
         else None,
@@ -1458,6 +1461,9 @@ async def pay_yk_callback_handler(
                     i18n,
                     has_saved_cards=True,
                     sale_mode=sale_mode,
+                    back_callback=payment_methods_back_callback(
+                        _format_value(months), sale_mode, price_rub
+                    ),
                 ),
             )
         except Exception as e_edit:
@@ -1472,6 +1478,9 @@ async def pay_yk_callback_handler(
                         i18n,
                         has_saved_cards=True,
                         sale_mode=sale_mode,
+                        back_callback=payment_methods_back_callback(
+                            _format_value(months), sale_mode, price_rub
+                        ),
                     ),
                 )
             except Exception:
@@ -1495,7 +1504,7 @@ async def pay_yk_callback_handler(
         price_rub=price_rub,
         currency_code_for_yk=currency_code_for_yk,
         save_payment_method=autopay_enabled and autopay_require_binding,
-        back_callback=f"subscribe_period:{_format_value(months)}",
+        back_callback=payment_methods_back_callback(_format_value(months), sale_mode, price_rub),
         sale_mode=sale_mode,
     )
     try:
@@ -1579,7 +1588,7 @@ async def pay_yk_new_card_handler(
         price_rub=price_rub,
         currency_code_for_yk=currency_code_for_yk,
         save_payment_method=autopay_enabled and autopay_require_binding,
-        back_callback=f"subscribe_period:{_format_value(months)}",
+        back_callback=payment_methods_back_callback(_format_value(months), sale_mode, price_rub),
         sale_mode=sale_mode,
     )
     try:
@@ -1671,6 +1680,9 @@ async def pay_yk_saved_list_handler(
                     i18n,
                     has_saved_cards=False,
                     sale_mode=sale_mode,
+                    back_callback=payment_methods_back_callback(
+                        _format_value(months), sale_mode, price_rub
+                    ),
                 ),
             )
         except Exception as e_edit:
@@ -1685,6 +1697,9 @@ async def pay_yk_saved_list_handler(
                         i18n,
                         has_saved_cards=False,
                         sale_mode=sale_mode,
+                        back_callback=payment_methods_back_callback(
+                            _format_value(months), sale_mode, price_rub
+                        ),
                     ),
                 )
             except Exception:

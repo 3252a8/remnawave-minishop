@@ -1892,12 +1892,64 @@
 }
 
 .admin-icon-picker-dialog {
-  width: min(100%, 720px);
+  width: min(100%, 760px);
 }
 
 .admin-icon-picker-body {
   display: grid;
+  gap: 18px;
+}
+
+.admin-icon-picker-current {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
   gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, var(--surface-sheen), transparent),
+    color-mix(in srgb, var(--admin-surface-2) 86%, transparent);
+}
+
+.admin-icon-picker-current-preview {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--admin-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-muted));
+  color: var(--admin-text);
+}
+
+.admin-icon-picker-current-meta {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.admin-icon-picker-current-meta small {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-icon-picker-current-meta strong {
+  overflow: hidden;
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-icon-picker-toolbar {
+  display: grid;
+  gap: 10px;
 }
 
 .admin-icon-picker-search {
@@ -1921,26 +1973,31 @@
 
 .admin-icon-picker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
   max-height: min(52vh, 460px);
   overflow-y: auto;
-  padding-right: 4px;
+  padding: 2px 4px 4px 0;
 }
 
 .admin-icon-picker-option {
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
+  grid-template-columns: 24px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
-  min-height: 42px;
+  gap: 10px;
+  min-height: 48px;
   border: 1px solid var(--admin-border);
   border-radius: 8px;
   background: var(--surface-muted);
   color: var(--admin-text);
-  padding: 9px 10px;
+  padding: 11px 12px;
   text-align: left;
   cursor: pointer;
+}
+
+.admin-icon-picker-option > svg {
+  justify-self: center;
+  color: var(--admin-muted);
 }
 
 .admin-icon-picker-option span {
@@ -1953,6 +2010,30 @@
 .admin-icon-picker-option.active {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--admin-border));
   background: color-mix(in srgb, var(--accent) 12%, var(--surface-muted));
+}
+
+.admin-icon-picker-option.active > svg {
+  color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .admin-icon-picker-current {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .admin-icon-picker-current > .admin-btn {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .admin-icon-picker-current-preview {
+    width: 44px;
+    height: 44px;
+  }
+
+  .admin-icon-picker-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
 }
 
 .admin-setting-control .admin-color {

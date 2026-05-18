@@ -5,6 +5,81 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
 from config.settings import Settings
 
+BOT_MENU_CONTEXT = "bot"
+
+
+def callback_context_from_back_callback(back_callback: Optional[str]) -> Optional[str]:
+    if back_callback == "main_action:bot_interface":
+        return BOT_MENU_CONTEXT
+    return None
+
+
+def sale_mode_with_callback_context(sale_mode: str, context: Optional[str]) -> str:
+    sale_mode = sale_mode or "subscription"
+    if not context or "|" in sale_mode:
+        return sale_mode
+    return f"{sale_mode}|{context}"
+
+
+def callback_context_from_sale_mode(sale_mode: Optional[str]) -> Optional[str]:
+    if not sale_mode or "|" not in sale_mode:
+        return None
+    context = str(sale_mode).split("|", 1)[1].strip()
+    return context or None
+
+
+def callback_suffix_for_context(context: Optional[str]) -> str:
+    return f":{context}" if context else ""
+
+
+def subscription_options_callback(context: Optional[str]) -> str:
+    return "main_action:bot_subscribe" if context == BOT_MENU_CONTEXT else "main_action:subscribe"
+
+
+def payment_methods_back_callback(
+    value: str, sale_mode: str = "subscription", price: Optional[float] = None
+) -> str:
+    sale_mode = sale_mode or "subscription"
+    context = callback_context_from_sale_mode(sale_mode)
+    context_suffix = callback_suffix_for_context(context)
+    sale_mode_main = sale_mode.split("|", 1)[0]
+    sale_base = sale_mode_main.split("@", 1)[0]
+    tariff_key = sale_mode_main.split("@", 1)[1] if "@" in sale_mode_main else None
+
+    if sale_base == "subscription" and tariff_key:
+        return f"tariff:period:{tariff_key}:{value}{context_suffix}"
+    if sale_base == "traffic_package" and tariff_key:
+        return f"tariff:package:{tariff_key}:{value}{context_suffix}"
+    if sale_base == "topup" and tariff_key:
+        return f"tariff:package:{tariff_key}:{value}"
+    if sale_base == "premium_topup" and tariff_key:
+        return f"tariff:premium_package:{tariff_key}:{value}"
+    if sale_base in {"hwid_device", "hwid_devices"} and tariff_key:
+        return f"hwid_devices:package:{tariff_key}:{value}"
+    if sale_base == "tariff_upgrade" and tariff_key:
+        amount = str(price) if price is not None else value
+        return f"tariff_change:pay:{tariff_key}:{amount}"
+    if sale_base in {"subscription", "traffic"}:
+        return f"subscribe_period:{value}{context_suffix}"
+    return subscription_options_callback(context)
+
+
+def payment_options_back_callback(sale_mode: str = "subscription") -> str:
+    sale_mode = sale_mode or "subscription"
+    context = callback_context_from_sale_mode(sale_mode)
+    context_suffix = callback_suffix_for_context(context)
+    sale_mode_main = sale_mode.split("|", 1)[0]
+    sale_base = sale_mode_main.split("@", 1)[0]
+    tariff_key = sale_mode_main.split("@", 1)[1] if "@" in sale_mode_main else None
+
+    if sale_base in {"subscription", "traffic_package"} and tariff_key:
+        return f"tariff:select:{tariff_key}{context_suffix}"
+    if sale_base in {"topup", "premium_topup"}:
+        return "tariff_topup:list"
+    if sale_base in {"hwid_device", "hwid_devices"}:
+        return "hwid_devices:list"
+    return subscription_options_callback(context)
+
 
 def get_main_menu_inline_keyboard(
     lang: str, i18n_instance, settings: Settings, show_trial_button: bool = False
@@ -187,9 +262,11 @@ def get_subscription_options_keyboard(
     i18n_instance,
     traffic_mode: bool = False,
     back_callback: str = "main_action:back_to_main",
+    callback_context: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
+    callback_context = callback_context or callback_context_from_back_callback(back_callback)
 
     def _format_gb(val: float) -> str:
         return str(int(val)) if float(val).is_integer() else f"{val:g}"
@@ -204,7 +281,10 @@ def get_subscription_options_keyboard(
                         price=price,
                         currency_symbol=currency_symbol_val,
                     )
-                    callback_data = f"subscribe_period:{_format_gb(months)}"
+                    callback_data = (
+                        f"subscribe_period:{_format_gb(months)}"
+                        f"{callback_suffix_for_context(callback_context)}"
+                    )
                 else:
                     button_text = _(
                         "subscribe_for_months_button",
@@ -212,7 +292,10 @@ def get_subscription_options_keyboard(
                         price=price,
                         currency_symbol=currency_symbol_val,
                     )
-                    callback_data = f"subscribe_period:{months}"
+                    callback_data = (
+                        f"subscribe_period:{months}"
+                        f"{callback_suffix_for_context(callback_context)}"
+                    )
                 builder.button(text=button_text, callback_data=callback_data)
         builder.adjust(1)
     builder.row(
@@ -222,9 +305,14 @@ def get_subscription_options_keyboard(
 
 
 def get_tariff_catalog_keyboard(
-    tariffs: List[Any], lang: str, i18n_instance
+    tariffs: List[Any],
+    lang: str,
+    i18n_instance,
+    back_callback: str = "main_action:back_to_main",
+    callback_context: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+    callback_context = callback_context or callback_context_from_back_callback(back_callback)
     for tariff in tariffs:
         label = tariff.name(lang)
         if tariff.billing_model == "period":
@@ -235,20 +323,32 @@ def get_tariff_catalog_keyboard(
             package = tariff.min_traffic_package_rub()
             if package:
                 label = f"{label} от {package.price:g} / {package.gb:g} GB"
-        builder.row(InlineKeyboardButton(text=label, callback_data=f"tariff:select:{tariff.key}"))
+        builder.row(
+            InlineKeyboardButton(
+                text=label,
+                callback_data=f"tariff:select:{tariff.key}"
+                f"{callback_suffix_for_context(callback_context)}",
+            )
+        )
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder.row(
         InlineKeyboardButton(
-            text=_(key="back_to_main_menu_button"), callback_data="main_action:back_to_main"
+            text=_(key="back_to_main_menu_button"), callback_data=back_callback
         )
     )
     return builder.as_markup()
 
 
 def get_tariff_periods_keyboard(
-    tariff: Any, lang: str, i18n_instance, settings: Settings
+    tariff: Any,
+    lang: str,
+    i18n_instance,
+    settings: Settings,
+    back_callback: str = "main_action:subscribe",
+    callback_context: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+    callback_context = callback_context or callback_context_from_back_callback(back_callback)
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     for months in tariff.enabled_periods:
         rub_price = tariff.period_price(months, "rub")
@@ -261,12 +361,13 @@ def get_tariff_periods_keyboard(
                         price=rub_price,
                         currency_symbol=settings.DEFAULT_CURRENCY_SYMBOL,
                     ),
-                    callback_data=f"tariff:period:{tariff.key}:{months}",
+                    callback_data=f"tariff:period:{tariff.key}:{months}"
+                    f"{callback_suffix_for_context(callback_context)}",
                 )
             )
     builder.row(
         InlineKeyboardButton(
-            text=_(key="back_to_main_menu_button"), callback_data="main_action:subscribe"
+            text=_(key="back_to_main_menu_button"), callback_data=back_callback
         )
     )
     return builder.as_markup()
@@ -278,8 +379,10 @@ def get_tariff_packages_keyboard(
     lang: str,
     i18n_instance,
     back_callback: str = "main_action:subscribe",
+    callback_context: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+    callback_context = callback_context or callback_context_from_back_callback(back_callback)
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     for package in packages:
         builder.row(
@@ -290,7 +393,8 @@ def get_tariff_packages_keyboard(
                     price=package.price,
                     currency_symbol="RUB",
                 ),
-                callback_data=f"tariff:package:{tariff.key}:{package.gb:g}",
+                callback_data=f"tariff:package:{tariff.key}:{package.gb:g}"
+                f"{callback_suffix_for_context(callback_context)}",
             )
         )
     builder.row(
@@ -336,6 +440,7 @@ def get_payment_method_keyboard(
     i18n_instance,
     settings: Settings,
     sale_mode: str = "subscription",
+    back_callback: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -371,7 +476,10 @@ def get_payment_method_keyboard(
             text=provider_telegram_button_text(spec, settings, _, language=lang),
             callback_data=callback_data,
         )
-    builder.button(text=_(key="cancel_button"), callback_data="main_action:subscribe")
+    builder.button(
+        text=_(key="cancel_button"),
+        callback_data=back_callback or payment_options_back_callback(sale_mode),
+    )
     builder.adjust(1)
     return builder.as_markup()
 
@@ -403,6 +511,7 @@ def get_yk_autopay_choice_keyboard(
     i18n_instance,
     has_saved_cards: bool = True,
     sale_mode: str = "subscription",
+    back_callback: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
     """Keyboard for choosing between saved card charge or new card payment when auto-renew is enabled."""  # noqa: E501
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -430,7 +539,7 @@ def get_yk_autopay_choice_keyboard(
     builder.row(
         InlineKeyboardButton(
             text=_(key="back_to_payment_methods_button"),
-            callback_data=f"subscribe_period:{value_str}",
+            callback_data=back_callback or payment_methods_back_callback(value_str, sale_mode),
         )
     )
     return builder.as_markup()
