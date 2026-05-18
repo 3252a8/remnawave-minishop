@@ -707,7 +707,24 @@ class Settings(BaseSettings):
     def payment_methods_order(self) -> List[str]:
         """
         Ordered list of payment providers to show in the subscription payment keyboard.
+
+        Honors PAYMENT_METHODS_ORDER from the env (user-controlled order), but
+        always appends any newly added provider that the user hasn't listed —
+        otherwise upgrading to a release that adds, say, ``heleket`` would
+        silently hide the new button until the operator manually updated their
+        .env. Toggling the button on/off stays on the per-provider ENABLED
+        flag, not on this list.
         """
+        from bot.payment_providers import iter_provider_specs
+
+        all_specs = list(iter_provider_specs())
+        spec_ids: List[str] = []
+        seen_ids: set = set()
+        for spec in all_specs:
+            if spec.id not in seen_ids:
+                spec_ids.append(spec.id)
+                seen_ids.add(spec.id)
+
         default_order = [
             "freekassa",
             "platega_sbp",
@@ -719,8 +736,14 @@ class Settings(BaseSettings):
             "cryptopay",
             "heleket",
         ]
+        # Make sure default_order itself includes every registered spec.
+        for sid in spec_ids:
+            if sid not in default_order:
+                default_order.append(sid)
+
         if not self.PAYMENT_METHODS_ORDER:
             return default_order
+
         methods: List[str] = []
         for item in self.PAYMENT_METHODS_ORDER.split(","):
             slug = item.strip().lower()
@@ -734,6 +757,12 @@ class Settings(BaseSettings):
                     methods.append("platega_crypto")
                 continue
             methods.append(slug)
+        # Append any registered spec that the operator didn't list — keeps
+        # newly shipped providers visible after an upgrade without forcing a
+        # .env edit. Toggling the button is still controlled by ENABLED.
+        for sid in spec_ids:
+            if sid not in methods:
+                methods.append(sid)
         return methods or default_order
 
     @computed_field

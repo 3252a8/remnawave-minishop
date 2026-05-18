@@ -394,11 +394,15 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             POSTGRES_PASSWORD="app_password",
             TARIFFS_CONFIG_PATH="missing-tariffs.json",
             PAYMENT_METHODS_ORDER="yookassa",
+            STARS_ENABLED=False,
         )
         app = {"yookassa_service": SimpleNamespace(configured=True)}
 
         methods = subscription_webapp._serialize_payment_methods(settings, app, "en")
 
+        # Only yookassa is configured/enabled; every other provider gets
+        # filtered out by is_visible even though they're auto-appended to the
+        # order list now.
         self.assertEqual(
             methods,
             [{"id": "yookassa", "name": "Bank card", "icon": "WalletCards"}],
