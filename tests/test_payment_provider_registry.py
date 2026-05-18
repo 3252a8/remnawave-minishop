@@ -75,7 +75,6 @@ def test_wata_is_registered_as_single_provider_module():
     assert spec is not None
     assert spec.service_key == "wata_service"
     assert spec.pending_status == "pending_wata"
-    assert spec.button_text_key == "pay_with_wata_button"
     assert spec.callback_prefix == "pay_wata"
     assert spec.router is not None
     assert spec.create_service is not None
@@ -175,15 +174,14 @@ def test_provider_telegram_button_text_uses_provider_defaults_until_customized()
     spec = get_provider_spec("wata")
     assert spec is not None
 
-    translate = lambda key: f"i18n:{key}"
     assert (
-        provider_telegram_button_text(spec, SimpleNamespace(), translate, language="en")
+        provider_telegram_button_text(spec, SimpleNamespace(), language="en")
         == f"{spec.default_telegram_emoji} Wata"
     )
 
     settings = SimpleNamespace(PAYMENT_WATA_TELEGRAM_LABEL_EN="Pay Wata")
     assert (
-        provider_telegram_button_text(spec, settings, translate, language="en")
+        provider_telegram_button_text(spec, settings, language="en")
         == f"{spec.default_telegram_emoji} Pay Wata"
     )
 

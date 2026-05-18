@@ -360,7 +360,6 @@ SPEC = PaymentProviderSpec(
     pending_status="pending_stars",
     enabled=lambda settings: settings.STARS_ENABLED,
     service_key="stars_service",
-    button_text_key="pay_with_stars_button",
     callback_prefix="pay_stars",
     router=router,
     create_service=create_service,

@@ -471,7 +471,6 @@ SPEC = PaymentProviderSpec(
     pending_status="pending_heleket",
     enabled=lambda settings: settings.HELEKET_ENABLED,
     service_key="heleket_service",
-    button_text_key="pay_with_heleket_button",
     callback_prefix="pay_heleket",
     router=router,
     create_service=create_service,

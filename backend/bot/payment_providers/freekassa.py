@@ -491,7 +491,6 @@ SPEC = PaymentProviderSpec(
     pending_status="pending_freekassa",
     enabled=lambda settings: settings.FREEKASSA_ENABLED,
     service_key="freekassa_service",
-    button_text_key="pay_with_sbp_button",
     callback_prefix="pay_fk",
     router=router,
     create_service=create_service,

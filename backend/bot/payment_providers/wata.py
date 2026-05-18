@@ -440,7 +440,6 @@ SPEC = PaymentProviderSpec(
     pending_status="pending_wata",
     enabled=lambda settings: settings.WATA_ENABLED,
     service_key="wata_service",
-    button_text_key="pay_with_wata_button",
     callback_prefix="pay_wata",
     router=router,
     create_service=create_service,

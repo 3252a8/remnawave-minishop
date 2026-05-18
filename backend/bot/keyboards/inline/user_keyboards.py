@@ -462,7 +462,7 @@ def get_payment_method_keyboard(
 
     for method in settings.payment_methods_order:
         spec = get_provider_spec(method)
-        if not spec or not spec.button_text_key or not spec.is_enabled(settings):
+        if not spec or not spec.callback_prefix or not spec.is_enabled(settings):
             continue
         callback_data = spec.callback_data(
             value=value_str,
@@ -473,7 +473,7 @@ def get_payment_method_keyboard(
         if not callback_data:
             continue
         builder.button(
-            text=provider_telegram_button_text(spec, settings, _, language=lang),
+            text=provider_telegram_button_text(spec, settings, language=lang),
             callback_data=callback_data,
         )
     builder.button(

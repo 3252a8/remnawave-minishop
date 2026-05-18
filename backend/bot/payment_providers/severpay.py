@@ -434,7 +434,6 @@ SPEC = PaymentProviderSpec(
     pending_status="pending_severpay",
     enabled=lambda settings: settings.SEVERPAY_ENABLED,
     service_key="severpay_service",
-    button_text_key="pay_with_severpay_button",
     callback_prefix="pay_severpay",
     router=router,
     create_service=create_service,

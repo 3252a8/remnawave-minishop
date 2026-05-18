@@ -2514,7 +2514,6 @@ SPEC = PaymentProviderSpec(
     pending_status="pending_yookassa",
     enabled=lambda settings: settings.YOOKASSA_ENABLED,
     service_key="yookassa_service",
-    button_text_key="pay_with_yookassa_button",
     callback_prefix="pay_yk",
     router=router,
     create_service=create_service,

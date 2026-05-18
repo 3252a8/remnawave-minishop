@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
+from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 from . import cryptopay, freekassa, heleket, platega, severpay, stars, wata, yookassa
 from .base import PaymentProviderPresentation, PaymentProviderSpec, ServiceFactoryContext
@@ -83,7 +83,6 @@ def resolve_provider_presentation(
     settings: Any = None,
     *,
     language: Optional[str] = None,
-    translate: Optional[Callable[[str], str]] = None,
 ) -> PaymentProviderPresentation:
     lang = _normalize_language(language, settings)
     webapp_label = (
@@ -111,14 +110,6 @@ def resolve_provider_presentation(
     )
     telegram_emoji = telegram_emoji_override or spec.default_telegram_emoji
 
-    if (
-        not telegram_label_override
-        and not spec.telegram_labels
-        and translate
-        and spec.button_text_key
-    ):
-        telegram_label = translate(spec.button_text_key)
-
     return PaymentProviderPresentation(
         webapp_label=webapp_label,
         webapp_icon=webapp_icon,
@@ -131,7 +122,6 @@ def resolve_provider_presentation(
 def provider_telegram_button_text(
     spec: PaymentProviderSpec,
     settings: Any,
-    translate: Callable[[str], str],
     *,
     language: Optional[str] = None,
 ) -> str:

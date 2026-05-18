@@ -499,7 +499,6 @@ SBP_SPEC = PaymentProviderSpec(
     pending_status="pending_platega",
     enabled=lambda settings: settings.PLATEGA_ENABLED and settings.PLATEGA_SBP_ENABLED,
     service_key="platega_service",
-    button_text_key="pay_with_platega_sbp_button",
     callback_prefix="pay_platega_sbp",
     aliases=("platega",),
     router=router,
@@ -521,7 +520,6 @@ CRYPTO_SPEC = PaymentProviderSpec(
     pending_status="pending_platega",
     enabled=lambda settings: settings.PLATEGA_ENABLED and settings.PLATEGA_CRYPTO_ENABLED,
     service_key="platega_service",
-    button_text_key="pay_with_platega_crypto_button",
     callback_prefix="pay_platega_crypto",
     create_webapp_payment=create_crypto_webapp_payment,
 )

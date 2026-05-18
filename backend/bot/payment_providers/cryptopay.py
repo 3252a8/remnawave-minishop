@@ -365,7 +365,6 @@ SPEC = PaymentProviderSpec(
     pending_status="pending_cryptopay",
     enabled=lambda settings: settings.CRYPTOPAY_ENABLED,
     service_key="cryptopay_service",
-    button_text_key="pay_with_cryptopay_button",
     callback_prefix="pay_crypto",
     router=router,
     create_service=create_service,

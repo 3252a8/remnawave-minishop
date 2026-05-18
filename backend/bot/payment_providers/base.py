@@ -44,7 +44,6 @@ class PaymentProviderSpec:
     pending_status: str
     enabled: EnabledPredicate
     service_key: Optional[str] = None
-    button_text_key: Optional[str] = None
     callback_prefix: Optional[str] = None
     webapp_label: Optional[str] = None
     webapp_labels: Optional[Mapping[str, str]] = None
