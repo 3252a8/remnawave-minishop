@@ -2,13 +2,15 @@ import base64
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from aiogram import Bot, F, Router, types
 from aiohttp import web
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
+from pydantic import Field, field_validator
+from pydantic_settings import SettingsConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
@@ -19,7 +21,13 @@ from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
 from db.dal import payment_dal
 
-from .base import PaymentProviderSpec, ServiceFactoryContext, WebAppPaymentContext
+from .base import (
+    PaymentProviderSpec,
+    ProviderEnvConfig,
+    ProviderManifestField,
+    ServiceFactoryContext,
+    WebAppPaymentContext,
+)
 from .shared import (
     HttpClientMixin,
     PaymentSuccessRequest,
@@ -48,12 +56,74 @@ router = Router(name="user_subscription_payments_wata_router")
 _LOG = "wata"
 
 
+class WataConfig(ProviderEnvConfig):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="WATA_",
+        extra="ignore",
+    )
+
+    ENABLED: bool = Field(default=False)
+    API_TOKEN: Optional[str] = None
+    BASE_URL: str = Field(default="https://api.wata.pro/api/h2h")
+    RETURN_URL: Optional[str] = None
+    FAILED_URL: Optional[str] = None
+    PAYMENT_LINK_TTL_DAYS: int = Field(default=3)
+    WEBHOOK_VERIFY_SIGNATURE: bool = Field(default=True)
+    PUBLIC_KEY: Optional[str] = None
+    TRUSTED_IPS: str = Field(default="62.84.126.140,51.250.106.150")
+
+    @field_validator("PAYMENT_LINK_TTL_DAYS", mode="before")
+    @classmethod
+    def _clamp_ttl(cls, v):
+        if isinstance(v, str):
+            v = v.strip()
+        try:
+            value = int(v)
+        except (TypeError, ValueError):
+            return 3
+        return min(30, max(1, value))
+
+    @field_validator("API_TOKEN", "RETURN_URL", "FAILED_URL", "PUBLIC_KEY", mode="before")
+    @classmethod
+    def _strip_optional(cls, v):
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
+
+    @property
+    def webhook_path(self) -> str:
+        return "/webhook/wata"
+
+    @property
+    def trusted_ips_list(self) -> List[str]:
+        return [item.strip() for item in (self.TRUSTED_IPS or "").split(",") if item.strip()]
+
+
+class WataPresentation(ProviderEnvConfig):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="PAYMENT_WATA_",
+        extra="ignore",
+    )
+
+    WEBAPP_LABEL_RU: Optional[str] = None
+    WEBAPP_LABEL_EN: Optional[str] = None
+    WEBAPP_ICON: Optional[str] = None
+    TELEGRAM_LABEL_RU: Optional[str] = None
+    TELEGRAM_LABEL_EN: Optional[str] = None
+    TELEGRAM_EMOJI: Optional[str] = None
+
+
 class WataService(HttpClientMixin):
     def __init__(
         self,
         *,
         bot: Bot,
         settings: Settings,
+        config: WataConfig,
         i18n: JsonI18n,
         async_session_factory: sessionmaker,
         subscription_service: SubscriptionService,
@@ -62,21 +132,22 @@ class WataService(HttpClientMixin):
     ):
         self.bot = bot
         self.settings = settings
+        self.config = config
         self.i18n = i18n
         self.async_session_factory = async_session_factory
         self.subscription_service = subscription_service
         self.referral_service = referral_service
 
-        self.base_url = (settings.WATA_BASE_URL or "https://api.wata.pro/api/h2h").rstrip("/")
-        self.api_token = settings.WATA_API_TOKEN or ""
-        self.return_url = settings.WATA_RETURN_URL or f"https://t.me/{default_return_url}"
-        self.failed_url = settings.WATA_FAILED_URL or self.return_url
-        self.payment_link_ttl_days = settings.WATA_PAYMENT_LINK_TTL_DAYS
-        self.verify_webhook_signature = settings.WATA_WEBHOOK_VERIFY_SIGNATURE
-        self._public_key_pem = settings.WATA_PUBLIC_KEY
+        self.base_url = (config.BASE_URL or "https://api.wata.pro/api/h2h").rstrip("/")
+        self.api_token = config.API_TOKEN or ""
+        self.return_url = config.RETURN_URL or f"https://t.me/{default_return_url}"
+        self.failed_url = config.FAILED_URL or self.return_url
+        self.payment_link_ttl_days = config.PAYMENT_LINK_TTL_DAYS
+        self.verify_webhook_signature = config.WEBHOOK_VERIFY_SIGNATURE
+        self._public_key_pem = config.PUBLIC_KEY
 
         self._init_http_client(total_timeout=20)
-        self.configured: bool = bool(settings.WATA_ENABLED and self.api_token)
+        self.configured: bool = bool(config.ENABLED and self.api_token)
         if not self.configured:
             logging.warning("WataService initialized but not fully configured. Payments disabled.")
 
@@ -119,7 +190,8 @@ class WataService(HttpClientMixin):
 
     async def _get_public_key_pem(self) -> Optional[str]:
         if self._public_key_pem:
-            return self._public_key_pem.replace("\\n", "\n")
+            value = self._public_key_pem
+            return value.replace("\\n", "\n") if isinstance(value, str) else None
 
         session = await self._get_session()
         try:
@@ -159,9 +231,8 @@ class WataService(HttpClientMixin):
             return web.Response(status=503, text="wata_disabled")
 
         client_ip = request_client_ip(request, trusted_proxies=self.settings.trusted_proxies)
-        if self.settings.wata_trusted_ips and not ip_in_allowlist(
-            client_ip, self.settings.wata_trusted_ips
-        ):
+        trusted = self.config.trusted_ips_list
+        if trusted and not ip_in_allowlist(client_ip, trusted):
             logging.warning("Wata webhook denied from unauthorized IP source.")
             return web.Response(status=403, text="forbidden")
 
@@ -417,15 +488,67 @@ async def wata_webhook_route(request: web.Request) -> web.Response:
 
 
 def create_service(ctx: ServiceFactoryContext) -> WataService:
+    bundle = ctx.config_for("wata_service")
+    config = bundle.config if bundle and isinstance(bundle.config, WataConfig) else WataConfig()
     return WataService(
         bot=ctx.bot,
         settings=ctx.settings,
+        config=config,
         i18n=ctx.i18n,
         async_session_factory=ctx.async_session_factory,
         subscription_service=ctx.subscription_service,
         referral_service=ctx.referral_service,
         default_return_url=ctx.bot_username_for_default_return,
     )
+
+
+_PRESENTATION_MANIFEST = tuple(
+    ProviderManifestField(
+        key=key, type=type_, label=label, description=description,
+        placeholder=placeholder, subsection="Wata",
+        target="presentation", attr=attr,
+    )
+    for key, type_, label, description, placeholder, attr in (
+        ("PAYMENT_WATA_WEBAPP_LABEL_RU", "string", "WebApp button text (RU)",
+         "Custom Russian text shown in the Web App payment method button.", "", "WEBAPP_LABEL_RU"),
+        ("PAYMENT_WATA_WEBAPP_LABEL_EN", "string", "WebApp button text (EN)",
+         "Custom English text shown in the Web App payment method button.", "", "WEBAPP_LABEL_EN"),
+        ("PAYMENT_WATA_WEBAPP_ICON", "icon", "WebApp button icon",
+         "Lucide icon name rendered inside the Web App payment method button.",
+         "WalletCards", "WEBAPP_ICON"),
+        ("PAYMENT_WATA_TELEGRAM_LABEL_RU", "string", "Telegram button text (RU)",
+         "Custom Russian text shown in Telegram bot payment buttons.", "", "TELEGRAM_LABEL_RU"),
+        ("PAYMENT_WATA_TELEGRAM_LABEL_EN", "string", "Telegram button text (EN)",
+         "Custom English text shown in Telegram bot payment buttons.", "", "TELEGRAM_LABEL_EN"),
+        ("PAYMENT_WATA_TELEGRAM_EMOJI", "string", "Telegram button emoji",
+         "Emoji prepended to the Telegram bot payment button when customized.",
+         "💳", "TELEGRAM_EMOJI"),
+    )
+)
+
+_CONFIG_MANIFEST = (
+    ProviderManifestField("WATA_ENABLED", "bool", "Enabled", subsection="Wata", attr="ENABLED"),
+    ProviderManifestField("WATA_API_TOKEN", "string", "API token", subsection="Wata",
+                          secret=True, attr="API_TOKEN"),
+    ProviderManifestField("WATA_BASE_URL", "url", "Base URL",
+                          placeholder="https://api.wata.pro/api/h2h",
+                          subsection="Wata", attr="BASE_URL"),
+    ProviderManifestField("WATA_RETURN_URL", "url", "Return URL",
+                          subsection="Wata", attr="RETURN_URL"),
+    ProviderManifestField("WATA_FAILED_URL", "url", "Failed URL",
+                          subsection="Wata", attr="FAILED_URL"),
+    ProviderManifestField("WATA_PAYMENT_LINK_TTL_DAYS", "int", "Payment link lifetime (days)",
+                          description="1..30; Wata defaults to 3 days and allows up to 30 days.",
+                          subsection="Wata", min=1, max=30, attr="PAYMENT_LINK_TTL_DAYS"),
+    ProviderManifestField("WATA_WEBHOOK_VERIFY_SIGNATURE", "bool", "Verify webhook signature",
+                          subsection="Wata", attr="WEBHOOK_VERIFY_SIGNATURE"),
+    ProviderManifestField("WATA_PUBLIC_KEY", "text", "Webhook public key",
+                          description="Optional. If empty, the backend fetches it from Wata.",
+                          subsection="Wata", secret=True, attr="PUBLIC_KEY"),
+    ProviderManifestField("WATA_TRUSTED_IPS", "string", "Trusted IPs",
+                          description="Comma-separated IP addresses accepted for Wata webhooks.",
+                          subsection="Wata", attr="TRUSTED_IPS"),
+)
 
 
 SPEC = PaymentProviderSpec(
@@ -438,12 +561,15 @@ SPEC = PaymentProviderSpec(
     telegram_labels={"ru": "Wata", "en": "Wata"},
     telegram_emoji="💳",
     pending_status="pending_wata",
-    enabled=lambda settings: settings.WATA_ENABLED,
+    enabled=lambda config: bool(getattr(config, "ENABLED", False)),
     service_key="wata_service",
     callback_prefix="pay_wata",
     router=router,
     create_service=create_service,
-    webhook_path=lambda settings: settings.wata_webhook_path,
+    webhook_path=lambda source: "/webhook/wata",
     webhook_route=wata_webhook_route,
     create_webapp_payment=create_webapp_payment,
+    config_class=WataConfig,
+    presentation_class=WataPresentation,
+    manifest_fields=_CONFIG_MANIFEST + _PRESENTATION_MANIFEST,
 )

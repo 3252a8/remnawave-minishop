@@ -198,7 +198,14 @@ def test_provider_presentation_ignores_cross_language_override():
     )
 
 
-def test_payment_method_keyboard_uses_custom_telegram_text_without_changing_callback():
+def test_payment_method_keyboard_uses_custom_telegram_text_without_changing_callback(monkeypatch):
+    from bot.payment_providers import build_provider_configs
+
+    monkeypatch.setenv("WATA_ENABLED", "True")
+    monkeypatch.setenv("PAYMENT_WATA_TELEGRAM_LABEL_EN", "Wata custom")
+    monkeypatch.setenv("PAYMENT_WATA_TELEGRAM_EMOJI", "💸")
+    build_provider_configs()
+
     settings = Settings(
         _env_file=None,
         BOT_TOKEN="token",
@@ -206,9 +213,6 @@ def test_payment_method_keyboard_uses_custom_telegram_text_without_changing_call
         POSTGRES_PASSWORD="app_password",
         TARIFFS_CONFIG_PATH="missing-tariffs.json",
         PAYMENT_METHODS_ORDER="wata",
-        WATA_ENABLED=True,
-        PAYMENT_WATA_TELEGRAM_LABEL_EN="Wata custom",
-        PAYMENT_WATA_TELEGRAM_EMOJI="💸",
     )
     i18n = SimpleNamespace(gettext=lambda _lang, key, **_kwargs: key)
 

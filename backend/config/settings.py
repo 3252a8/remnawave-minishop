@@ -56,15 +56,6 @@ class PaymentSettings(BaseModel):
     platega_crypto_method: int
     platega_return_url: Optional[str]
     platega_failed_url: Optional[str]
-    wata_enabled: bool
-    wata_api_token: Optional[str]
-    wata_base_url: str
-    wata_return_url: Optional[str]
-    wata_failed_url: Optional[str]
-    wata_payment_link_ttl_days: int
-    wata_webhook_verify_signature: bool
-    wata_public_key: Optional[str]
-    wata_trusted_ips: List[str]
     cryptopay_enabled: bool
     cryptopay_token: Optional[str]
     cryptopay_network: str
@@ -248,25 +239,6 @@ class Settings(BaseSettings):
         description="Comma-separated FreeKassa webhook IP allowlist.",
     )
 
-    WATA_ENABLED: bool = Field(default=False)
-    WATA_API_TOKEN: Optional[str] = None
-    WATA_BASE_URL: str = Field(default="https://api.wata.pro/api/h2h")
-    WATA_RETURN_URL: Optional[str] = None
-    WATA_FAILED_URL: Optional[str] = None
-    WATA_PAYMENT_LINK_TTL_DAYS: int = Field(
-        default=3,
-        description="Payment link lifetime in days (1-30).",
-    )
-    WATA_WEBHOOK_VERIFY_SIGNATURE: bool = Field(default=True)
-    WATA_PUBLIC_KEY: Optional[str] = Field(
-        default=None,
-        description="Optional cached Wata RSA public key for webhook signature verification.",
-    )
-    WATA_TRUSTED_IPS: str = Field(
-        default="62.84.126.140,51.250.106.150",
-        description="Comma-separated Wata webhook IP allowlist.",
-    )
-
     YOOKASSA_ENABLED: bool = Field(default=True)
     STARS_ENABLED: bool = Field(default=True)
     PAYMENT_METHODS_ORDER: Optional[str] = Field(
@@ -291,12 +263,6 @@ class Settings(BaseSettings):
     PAYMENT_PLATEGA_CRYPTO_TELEGRAM_LABEL_RU: Optional[str] = None
     PAYMENT_PLATEGA_CRYPTO_TELEGRAM_LABEL_EN: Optional[str] = None
     PAYMENT_PLATEGA_CRYPTO_TELEGRAM_EMOJI: Optional[str] = None
-    PAYMENT_WATA_WEBAPP_LABEL_RU: Optional[str] = None
-    PAYMENT_WATA_WEBAPP_LABEL_EN: Optional[str] = None
-    PAYMENT_WATA_WEBAPP_ICON: Optional[str] = None
-    PAYMENT_WATA_TELEGRAM_LABEL_RU: Optional[str] = None
-    PAYMENT_WATA_TELEGRAM_LABEL_EN: Optional[str] = None
-    PAYMENT_WATA_TELEGRAM_EMOJI: Optional[str] = None
     PAYMENT_YOOKASSA_WEBAPP_LABEL_RU: Optional[str] = None
     PAYMENT_YOOKASSA_WEBAPP_LABEL_EN: Optional[str] = None
     PAYMENT_YOOKASSA_WEBAPP_ICON: Optional[str] = None
@@ -580,15 +546,6 @@ class Settings(BaseSettings):
             platega_crypto_method=self.PLATEGA_CRYPTO_METHOD,
             platega_return_url=self.PLATEGA_RETURN_URL,
             platega_failed_url=self.PLATEGA_FAILED_URL,
-            wata_enabled=self.WATA_ENABLED,
-            wata_api_token=self.WATA_API_TOKEN,
-            wata_base_url=self.WATA_BASE_URL,
-            wata_return_url=self.WATA_RETURN_URL,
-            wata_failed_url=self.WATA_FAILED_URL,
-            wata_payment_link_ttl_days=self.WATA_PAYMENT_LINK_TTL_DAYS,
-            wata_webhook_verify_signature=self.WATA_WEBHOOK_VERIFY_SIGNATURE,
-            wata_public_key=self.WATA_PUBLIC_KEY,
-            wata_trusted_ips=self.wata_trusted_ips,
             cryptopay_enabled=self.CRYPTOPAY_ENABLED,
             cryptopay_token=self.CRYPTOPAY_TOKEN,
             cryptopay_network=self.CRYPTOPAY_NETWORK,
@@ -762,24 +719,6 @@ class Settings(BaseSettings):
         if base:
             return f"{base.rstrip('/')}{self.freekassa_webhook_path}"
         return None
-
-    @computed_field
-    @property
-    def wata_webhook_path(self) -> str:
-        return "/webhook/wata"
-
-    @computed_field
-    @property
-    def wata_full_webhook_url(self) -> Optional[str]:
-        base = self.WEBHOOK_BASE_URL
-        if base:
-            return f"{base.rstrip('/')}{self.wata_webhook_path}"
-        return None
-
-    @computed_field
-    @property
-    def wata_trusted_ips(self) -> List[str]:
-        return _split_csv(self.WATA_TRUSTED_IPS)
 
     @computed_field
     @property
@@ -1123,10 +1062,6 @@ class Settings(BaseSettings):
         "REQUIRED_CHANNEL_LINK",
         "PLATEGA_RETURN_URL",
         "PLATEGA_FAILED_URL",
-        "WATA_RETURN_URL",
-        "WATA_FAILED_URL",
-        "WATA_API_TOKEN",
-        "WATA_PUBLIC_KEY",
         "CRYPT4_REDIRECT_URL",
         "PRIVACY_POLICY_URL",
         "USER_AGREEMENT_URL",
@@ -1155,17 +1090,6 @@ class Settings(BaseSettings):
             if not v:
                 return None
         return v
-
-    @field_validator("WATA_PAYMENT_LINK_TTL_DAYS", mode="before")
-    @classmethod
-    def validate_wata_ttl_days(cls, v):
-        if isinstance(v, str):
-            v = v.strip()
-        try:
-            value = int(v)
-        except (TypeError, ValueError):
-            return 3
-        return min(30, max(1, value))
 
     # Notification types
     LOG_NEW_USERS: bool = Field(
@@ -1252,11 +1176,6 @@ def get_settings() -> Settings:
                 ):
                     logging.warning(
                         "CRITICAL: Platega is enabled but merchant credentials (PLATEGA_MERCHANT_ID/PLATEGA_SECRET) are missing. Platega payments will not work."  # noqa: E501
-                    )
-            if _settings_instance.WATA_ENABLED:
-                if not _settings_instance.WATA_API_TOKEN:
-                    logging.warning(
-                        "CRITICAL: Wata is enabled but WATA_API_TOKEN is missing. Wata payments will not work."  # noqa: E501
                     )
 
         except ValidationError as e:
