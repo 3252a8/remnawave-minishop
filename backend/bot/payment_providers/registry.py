@@ -324,3 +324,38 @@ def find_manifest_owner(key: str) -> Optional[tuple[PaymentProviderSpec, Provide
         if field.key == key:
             return spec, field
     return None
+
+
+def manifest_field_default(
+    spec: PaymentProviderSpec,
+    manifest_field: ProviderManifestField,
+) -> Optional[str]:
+    """Resolve the SPEC-declared default for a presentation manifest field.
+
+    Used by the admin UI to render a placeholder/hint that shows users what
+    button text or icon the bot falls back to when they leave the override
+    blank. Returns None for non-presentation fields or attributes we don't
+    have a mapping for (admin shouldn't render a misleading hint).
+    """
+    if manifest_field.target != "presentation":
+        return None
+    attr = manifest_field.attr or manifest_field.key
+    if attr == "WEBAPP_LABEL_RU":
+        return (
+            _localized_default(spec.webapp_labels, "ru", spec.webapp_label)
+            or spec.label
+        )
+    if attr == "WEBAPP_LABEL_EN":
+        return (
+            _localized_default(spec.webapp_labels, "en", spec.webapp_label)
+            or spec.label
+        )
+    if attr == "WEBAPP_ICON":
+        return spec.webapp_icon
+    if attr == "TELEGRAM_LABEL_RU":
+        return _localized_default(spec.telegram_labels, "ru", None) or spec.label
+    if attr == "TELEGRAM_LABEL_EN":
+        return _localized_default(spec.telegram_labels, "en", None) or spec.label
+    if attr == "TELEGRAM_EMOJI":
+        return spec.default_telegram_emoji
+    return None

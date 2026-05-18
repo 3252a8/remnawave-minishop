@@ -353,7 +353,15 @@ def coerce_value(field: SettingField, raw: Any) -> Any:
 
 
 def manifest_payload() -> List[dict]:
-    """Serialize the manifest for the admin UI."""
+    """Serialize the manifest for the admin UI.
+
+    For provider presentation fields we resolve the SPEC-declared default
+    (e.g. the button text the bot would use if the admin leaves the override
+    blank) and expose it as ``default``; ``placeholder`` falls back to the
+    same value so existing UIs that only read ``placeholder`` also show the
+    hint inside the empty input.
+    """
+    from bot.payment_providers import find_manifest_owner, manifest_field_default
 
     sections_order = {
         "general": 1,
@@ -369,6 +377,17 @@ def manifest_payload() -> List[dict]:
     for field in aggregated_manifest():
         auto_label_i18n_key = f"settings_field_{field.key.lower()}_label"
         auto_description_i18n_key = f"settings_field_{field.key.lower()}_description"
+
+        default_value: Optional[str] = None
+        owner = find_manifest_owner(field.key)
+        if owner is not None:
+            spec, manifest_field = owner
+            default_value = manifest_field_default(spec, manifest_field)
+
+        placeholder = field.placeholder
+        if not placeholder and default_value:
+            placeholder = default_value
+
         item = {
             "key": field.key,
             "type": field.type,
@@ -380,10 +399,12 @@ def manifest_payload() -> List[dict]:
             "i18n_label_key": field.i18n_label_key or auto_label_i18n_key,
             "i18n_description_key": field.i18n_description_key
             or (auto_description_i18n_key if field.description else None),
-            "placeholder": field.placeholder,
+            "placeholder": placeholder,
             "optional": field.optional,
             "secret": field.secret,
         }
+        if default_value is not None:
+            item["default"] = default_value
         if field.choices:
             item["choices"] = [{"value": v, "label": lbl} for v, lbl in field.choices]
         items.append(item)
