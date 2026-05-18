@@ -25,6 +25,50 @@ export function userAvatarUrl(user) {
   return value && !value.startsWith("/api/account/avatar") ? value : "";
 }
 
+export function userTelegramProfileLink(user) {
+  const username = String(user?.username || "")
+    .trim()
+    .replace(/^@+/, "");
+  if (username) return `https://t.me/${encodeURIComponent(username)}`;
+
+  const telegramId = Number(user?.telegram_id);
+  if (Number.isFinite(telegramId) && telegramId > 0) {
+    return `tg://user?id=${encodeURIComponent(String(Math.trunc(telegramId)))}`;
+  }
+
+  return "";
+}
+
+export function userTelegramProfileLinkKind(user) {
+  return String(user?.username || "").trim()
+    ? "username"
+    : userTelegramProfileLink(user)
+      ? "id"
+      : "";
+}
+
+export function openTelegramProfileLink(link) {
+  if (!link || typeof window === "undefined") return false;
+
+  const tg = window.Telegram?.WebApp;
+  if (/^https:\/\/(?:t|telegram)\.me\//i.test(link) && typeof tg?.openTelegramLink === "function") {
+    try {
+      tg.openTelegramLink(link);
+      return true;
+    } catch {
+      // Fall through to the normal browser/deep-link handling below.
+    }
+  }
+
+  if (/^https?:\/\//i.test(link)) {
+    window.open(link, "_blank", "noopener,noreferrer");
+    return true;
+  }
+
+  window.location.href = link;
+  return true;
+}
+
 export function createGravatarCache(onResolved = () => {}) {
   const cache = new Map();
   const pending = new Map();

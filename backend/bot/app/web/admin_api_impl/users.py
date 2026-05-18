@@ -1,6 +1,10 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
 
+from html import escape as html_escape
+
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
 
 async def admin_users_list_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
@@ -622,6 +626,107 @@ async def admin_user_message_preview_route(request: web.Request) -> web.Response
         )
 
     return _ok({})
+
+
+def _admin_user_display_name_for_message(user: User) -> str:
+    full = " ".join(
+        part
+        for part in [getattr(user, "first_name", None), getattr(user, "last_name", None)]
+        if part
+    ).strip()
+    return (
+        full
+        or (f"@{user.username}" if getattr(user, "username", None) else None)
+        or getattr(user, "email", None)
+        or f"User #{user.user_id}"
+    )
+
+
+async def admin_user_telegram_profile_link_route(request: web.Request) -> web.Response:
+    actor_id = _require_admin_user_id(request)
+    admin_telegram_id = request.get("admin_telegram_id")
+    if not admin_telegram_id:
+        return _error(403, "admin_telegram_unavailable")
+
+    queue_manager = get_queue_manager()
+    if not queue_manager:
+        return _error(503, "queue_unavailable")
+
+    target_id = int(request.match_info["user_id"])
+    settings: Settings = request.app["settings"]
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+
+    async with async_session_factory() as session:
+        target_user = await user_dal.get_user_by_id(session, target_id)
+        if not target_user:
+            return _error(404, "not_found")
+        if not target_user.telegram_id:
+            return _error(404, "no_telegram_account")
+
+        admin_user = await user_dal.get_user_by_id(session, actor_id)
+        lang = (
+            getattr(admin_user, "language_code", None)
+            or getattr(settings, "DEFAULT_LANGUAGE", None)
+            or "ru"
+        )
+
+        await message_log_dal.create_message_log(
+            session,
+            {
+                "user_id": actor_id,
+                "event_type": "admin_profile_link_webapp",
+                "content": f"Requested Telegram profile link for user_id={target_id}",
+                "is_admin_event": True,
+                "target_user_id": target_id,
+            },
+        )
+        await session.commit()
+
+    i18n_instance = request.app.get("i18n")
+    translate = (
+        (lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs))
+        if i18n_instance is not None
+        else (lambda key, **kwargs: key.format(**kwargs) if kwargs else key)
+    )
+    target_name = _admin_user_display_name_for_message(target_user)
+    telegram_id = int(target_user.telegram_id)
+    profile_url = f"tg://user?id={telegram_id}"
+    message_text = translate(
+        "admin_user_profile_link_message",
+        name=html_escape(target_name),
+        user_id=target_user.user_id,
+        telegram_id=telegram_id,
+    )
+    if message_text == "admin_user_profile_link_message":
+        message_text = (
+            f"Профиль пользователя: <b>{html_escape(target_name)}</b>\n"
+            f"User ID: <code>{target_user.user_id}</code>\n"
+            f"Telegram ID: <code>{telegram_id}</code>\n\n"
+            "Нажмите кнопку ниже, чтобы открыть профиль в Telegram."
+        )
+
+    button_text = translate("user_card_open_profile_button")
+    if button_text == "user_card_open_profile_button":
+        button_text = "👤 Открыть профиль"
+
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=button_text, url=profile_url)]]
+    )
+
+    try:
+        await send_message_via_queue(
+            queue_manager,
+            int(admin_telegram_id),
+            MessageContent(content_type="text", text=message_text),
+            parse_mode="HTML",
+            disable_web_page_preview=True,
+            reply_markup=markup,
+        )
+    except Exception as exc:
+        logger.warning("Admin profile link message enqueue failed: %s", exc)
+        return _error(502, "send_failed", str(exc))
+
+    return _ok({"queued": True})
 
 
 async def admin_user_delete_route(request: web.Request) -> web.Response:

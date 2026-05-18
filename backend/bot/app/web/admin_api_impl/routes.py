@@ -15,6 +15,10 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_post(
         "/api/admin/users/{user_id:-?\\d+}/message/preview", admin_user_message_preview_route
     )
+    router.add_post(
+        "/api/admin/users/{user_id:-?\\d+}/telegram-profile-link",
+        admin_user_telegram_profile_link_route,
+    )
     router.add_post("/api/admin/users/{user_id:-?\\d+}/reset-trial", admin_user_reset_trial_route)
     router.add_post("/api/admin/users/{user_id:-?\\d+}/extend", admin_user_extend_route)
     router.add_post(

@@ -319,6 +319,28 @@ export function createUsersStore({ api, onToast, at }) {
     }
   }
 
+  async function sendTelegramProfileLink() {
+    let s;
+    state.update((st) => {
+      s = st;
+      return st;
+    });
+    if (!s.openedUser) return;
+    state.update((st) => ({ ...st, userActionBusy: true }));
+    try {
+      const res = await api(`/admin/users/${s.openedUser.user_id}/telegram-profile-link`, {
+        method: "POST",
+      });
+      if (res?.ok) {
+        onToast(at("user_tg_profile_link_sent", {}, "Ссылка отправлена в Telegram"));
+      } else {
+        onToast(res?.error || at("user_tg_profile_link_failed", {}, "Не удалось отправить ссылку"));
+      }
+    } finally {
+      state.update((st) => ({ ...st, userActionBusy: false }));
+    }
+  }
+
   async function extendUser() {
     let s;
     state.update((st) => {
@@ -510,6 +532,7 @@ export function createUsersStore({ api, onToast, at }) {
     sendUserMessage,
     requestSendUserMessage,
     previewUserMessage,
+    sendTelegramProfileLink,
     extendUser,
     resetTrialUser,
     deleteUser,

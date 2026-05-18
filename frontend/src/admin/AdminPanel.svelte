@@ -59,10 +59,13 @@
   } from "../lib/admin/format.js";
   import {
     createGravatarCache,
+    openTelegramProfileLink,
     userAvatarUrl,
     userDisplayName,
     userInitials,
     userSecondaryName,
+    userTelegramProfileLink,
+    userTelegramProfileLinkKind,
   } from "../lib/admin/users.js";
 
   export let api;
@@ -679,6 +682,9 @@
   {userDisplayName}
   {userSecondaryName}
   {userInitials}
+  {userTelegramProfileLink}
+  {userTelegramProfileLinkKind}
+  {openTelegramProfileLink}
   {paymentStatusVariant}
   {trafficPercentValue}
   {trafficLeftLabel}
