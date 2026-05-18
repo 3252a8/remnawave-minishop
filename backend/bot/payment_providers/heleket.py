@@ -171,26 +171,61 @@ class HeleketService(HttpClientMixin):
         self.async_session_factory = async_session_factory
         self.subscription_service = subscription_service
         self.referral_service = referral_service
-
-        self.base_url = (config.BASE_URL or "https://api.heleket.com").rstrip("/")
-        self.merchant_id = config.MERCHANT_ID or ""
-        self.api_key = config.API_KEY or ""
-        self.currency = (config.CURRENCY or "RUB").upper()
-        self.to_currency = (config.TO_CURRENCY or "").strip() or None
-        self.network = (config.NETWORK or "").strip() or None
-        self.return_url = config.RETURN_URL or f"https://t.me/{default_return_url}"
-        self.success_url = config.SUCCESS_URL or self.return_url
-        self.lifetime_seconds = config.LIFETIME_SECONDS
-        self.verify_webhook_signature = config.VERIFY_WEBHOOK_SIGNATURE
+        self._default_return_url = default_return_url
 
         self._init_http_client(total_timeout=20)
-        self.configured: bool = bool(
-            config.ENABLED and self.merchant_id and self.api_key
-        )
         if not self.configured:
             logging.warning(
                 "HeleketService initialized but not fully configured. Payments disabled."
             )
+
+    # All of the following are properties on top of the live ``self.config``
+    # so admin UI changes (which mutate the config bundle) take effect without
+    # restarting the bot — otherwise ``configured`` would be frozen to the
+    # ``False`` state from startup and the button would never appear.
+    @property
+    def configured(self) -> bool:
+        return bool(self.config.ENABLED and self.merchant_id and self.api_key)
+
+    @property
+    def base_url(self) -> str:
+        return (self.config.BASE_URL or "https://api.heleket.com").rstrip("/")
+
+    @property
+    def merchant_id(self) -> str:
+        return self.config.MERCHANT_ID or ""
+
+    @property
+    def api_key(self) -> str:
+        return self.config.API_KEY or ""
+
+    @property
+    def currency(self) -> str:
+        return (self.config.CURRENCY or "RUB").upper()
+
+    @property
+    def to_currency(self):
+        return (self.config.TO_CURRENCY or "").strip() or None
+
+    @property
+    def network(self):
+        return (self.config.NETWORK or "").strip() or None
+
+    @property
+    def return_url(self) -> str:
+        return self.config.RETURN_URL or f"https://t.me/{self._default_return_url}"
+
+    @property
+    def success_url(self) -> str:
+        return self.config.SUCCESS_URL or self.return_url
+
+    @property
+    def lifetime_seconds(self) -> int:
+        return self.config.LIFETIME_SECONDS
+
+    @property
+    def verify_webhook_signature(self) -> bool:
+        return self.config.VERIFY_WEBHOOK_SIGNATURE
 
     async def create_payment_link(
         self,

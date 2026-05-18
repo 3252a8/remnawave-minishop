@@ -124,20 +124,38 @@ class SeverPayService(HttpClientMixin):
         self.async_session_factory = async_session_factory
         self.subscription_service = subscription_service
         self.referral_service = referral_service
-
-        self.base_url = (config.BASE_URL or "https://severpay.io/api/merchant").rstrip("/")
-        self.mid = config.MID
-        self.token = config.TOKEN or ""
-        self.return_url = config.RETURN_URL or f"https://t.me/{default_return_url}"
-        self.lifetime_minutes = config.LIFETIME_MINUTES
+        self._default_return_url = default_return_url
 
         self._init_http_client(total_timeout=15)
 
-        self.configured: bool = bool(config.ENABLED and self.mid and self.token)
         if not self.configured:
             logging.warning(
                 "SeverPayService initialized but not fully configured. Payments disabled."
             )
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.config.ENABLED and self.mid and self.token)
+
+    @property
+    def base_url(self) -> str:
+        return (self.config.BASE_URL or "https://severpay.io/api/merchant").rstrip("/")
+
+    @property
+    def mid(self):
+        return self.config.MID
+
+    @property
+    def token(self) -> str:
+        return self.config.TOKEN or ""
+
+    @property
+    def return_url(self) -> str:
+        return self.config.RETURN_URL or f"https://t.me/{self._default_return_url}"
+
+    @property
+    def lifetime_minutes(self):
+        return self.config.LIFETIME_MINUTES
 
     @staticmethod
     def _format_amount(amount: float) -> str:

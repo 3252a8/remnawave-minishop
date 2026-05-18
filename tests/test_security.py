@@ -117,8 +117,10 @@ class FreeKassaServiceTests(unittest.TestCase):
 
 class CryptoPayServiceTests(unittest.TestCase):
     def _make_service(self) -> CryptoPayService:
+        from bot.payment_providers.cryptopay import CryptoPayConfig
+
         service = CryptoPayService.__new__(CryptoPayService)
-        service.token = "cryptopay-token"
+        service.config = CryptoPayConfig(TOKEN="cryptopay-token")
         return service
 
     def test_validate_webhook_signature_accepts_valid_signature(self):

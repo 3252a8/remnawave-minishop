@@ -143,23 +143,9 @@ class PlategaService(HttpClientMixin):
         self.async_session_factory = async_session_factory
         self.subscription_service = subscription_service
         self.referral_service = referral_service
-
-        self.base_url = (config.BASE_URL or "https://app.platega.io").rstrip("/")
-        self.merchant_id = config.MERCHANT_ID
-        self.secret = config.SECRET
-        self.payment_method = config.PAYMENT_METHOD
-        self.sbp_method = config.sbp_method_resolved
-        self.crypto_method = config.CRYPTO_METHOD
-        self.return_url = config.RETURN_URL or f"https://t.me/{default_return_url}"
-        self.failed_url = config.FAILED_URL or self.return_url
+        self._default_return_url = default_return_url
 
         self._init_http_client(total_timeout=20)
-        self._auth_headers = {
-            "X-MerchantId": self.merchant_id or "",
-            "X-Secret": self.secret or "",
-            "Content-Type": "application/json",
-        }
-        self.configured: bool = bool(config.ENABLED and self.merchant_id and self.secret)
         if not self.configured:
             logging.warning(
                 "PlategaService initialized but not fully configured. Payments disabled."
@@ -172,6 +158,50 @@ class PlategaService(HttpClientMixin):
                 "ON" if config.CRYPTO_ENABLED else "OFF",
                 self.crypto_method,
             )
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.config.ENABLED and self.merchant_id and self.secret)
+
+    @property
+    def base_url(self) -> str:
+        return (self.config.BASE_URL or "https://app.platega.io").rstrip("/")
+
+    @property
+    def merchant_id(self):
+        return self.config.MERCHANT_ID
+
+    @property
+    def secret(self):
+        return self.config.SECRET
+
+    @property
+    def payment_method(self) -> int:
+        return self.config.PAYMENT_METHOD
+
+    @property
+    def sbp_method(self) -> int:
+        return self.config.sbp_method_resolved
+
+    @property
+    def crypto_method(self) -> int:
+        return self.config.CRYPTO_METHOD
+
+    @property
+    def return_url(self) -> str:
+        return self.config.RETURN_URL or f"https://t.me/{self._default_return_url}"
+
+    @property
+    def failed_url(self) -> str:
+        return self.config.FAILED_URL or self.return_url
+
+    @property
+    def _auth_headers(self) -> dict:
+        return {
+            "X-MerchantId": self.merchant_id or "",
+            "X-Secret": self.secret or "",
+            "Content-Type": "application/json",
+        }
 
     async def create_transaction(
         self,

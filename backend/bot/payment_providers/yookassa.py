@@ -145,41 +145,54 @@ class YooKassaService:
 
         self.settings = settings_obj
         self.config = config or YooKassaConfig()
+        self._bot_username_for_default_return = bot_username_for_default_return
+        self._configured_return_url_override = configured_return_url
+        self._sdk_configured_for = None  # (shop_id, secret_key) currently loaded into the global SDK
 
-        if not self.config.ENABLED:
-            logging.warning(
-                "YooKassa is disabled via YOOKASSA_ENABLED flag. Payment functionality will be DISABLED."  # noqa: E501
-            )
-            self.configured = False
-        elif not shop_id or not secret_key:
-            logging.warning(
-                "YooKassa SHOP_ID or SECRET_KEY not configured in settings. "
-                "Payment functionality will be DISABLED."
-            )
-            self.configured = False
-        else:
-            try:
-                Configuration.configure(shop_id, secret_key)
-                self.configured = True
-                logging.info(f"YooKassa SDK configured for shop_id: {shop_id[:5]}...")
-            except Exception:
-                logging.exception("Failed to configure YooKassa SDK.")
-                self.configured = False
+        if not self.configured:
+            if not self.config.ENABLED:
+                logging.warning(
+                    "YooKassa is disabled via YOOKASSA_ENABLED flag. Payment functionality will be DISABLED."  # noqa: E501
+                )
+            else:
+                logging.warning(
+                    "YooKassa SHOP_ID or SECRET_KEY not configured in settings. "
+                    "Payment functionality will be DISABLED."
+                )
+        logging.info("YooKassa Service effective return_url for payments: %s", self.return_url)
 
-        if configured_return_url:
-            self.return_url = configured_return_url
-        elif bot_username_for_default_return:
-            self.return_url = f"https://t.me/{bot_username_for_default_return}"
-            logging.info(
-                f"YOOKASSA_RETURN_URL not set, using dynamic default based on bot username: {self.return_url}"  # noqa: E501
-            )
-        else:
-            self.return_url = "https://example.com/payment_error_no_return_url_configured"
-            logging.warning(
-                f"CRITICAL: YOOKASSA_RETURN_URL not set AND bot username not provided. "
-                f"Using placeholder: {self.return_url}. Payments may not complete correctly."
-            )
-        logging.info(f"YooKassa Service effective return_url for payments: {self.return_url}")
+    @property
+    def configured(self) -> bool:
+        if not (self.config.ENABLED and self.config.SHOP_ID and self.config.SECRET_KEY):
+            return False
+        self._ensure_sdk_configured()
+        return self._sdk_configured_for is not None
+
+    def _ensure_sdk_configured(self) -> None:
+        """Reconfigure the global YooKassa SDK if shop_id/secret_key changed at runtime."""
+        shop_id = self.config.SHOP_ID
+        secret_key = self.config.SECRET_KEY
+        if not shop_id or not secret_key:
+            self._sdk_configured_for = None
+            return
+        if self._sdk_configured_for == (shop_id, secret_key):
+            return
+        try:
+            Configuration.configure(shop_id, secret_key)
+            self._sdk_configured_for = (shop_id, secret_key)
+            logging.info("YooKassa SDK (re)configured for shop_id: %s...", shop_id[:5])
+        except Exception:
+            logging.exception("Failed to configure YooKassa SDK.")
+            self._sdk_configured_for = None
+
+    @property
+    def return_url(self) -> str:
+        url = self._configured_return_url_override or self.config.RETURN_URL
+        if url:
+            return url
+        if self._bot_username_for_default_return:
+            return f"https://t.me/{self._bot_username_for_default_return}"
+        return "https://example.com/payment_error_no_return_url_configured"
 
     async def create_payment(
         self,

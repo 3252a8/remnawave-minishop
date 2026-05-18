@@ -139,19 +139,13 @@ class FreeKassaService(HttpClientMixin):
         self.subscription_service = subscription_service
         self.referral_service = referral_service
 
-        self.shop_id: Optional[str] = config.MERCHANT_ID
-        self.api_key: Optional[str] = config.API_KEY
-        self.second_secret: Optional[str] = config.SECOND_SECRET
         self.default_currency: str = (settings.DEFAULT_CURRENCY_SYMBOL or "RUB").upper()
-        self.server_ip: Optional[str] = config.PAYMENT_IP
-        self.payment_method_id: Optional[int] = config.PAYMENT_METHOD_ID
 
         self.api_base_url: str = "https://api.fk.life/v1"
         self._init_http_client(total_timeout=15)
         self._nonce_lock = asyncio.Lock()
         self._last_nonce = int(time.time() * 1000)
 
-        self.configured: bool = bool(config.ENABLED and self.shop_id and self.api_key)
         if not self.configured:
             logging.warning(
                 "FreeKassaService initialized but not fully configured. Payments disabled."
@@ -160,6 +154,30 @@ class FreeKassaService(HttpClientMixin):
             logging.warning(
                 "FreeKassaService: FREEKASSA_PAYMENT_IP is not set. Requests may be rejected by the provider."  # noqa: E501
             )
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.config.ENABLED and self.shop_id and self.api_key)
+
+    @property
+    def shop_id(self):
+        return self.config.MERCHANT_ID
+
+    @property
+    def api_key(self):
+        return self.config.API_KEY
+
+    @property
+    def second_secret(self):
+        return self.config.SECOND_SECRET
+
+    @property
+    def server_ip(self):
+        return self.config.PAYMENT_IP
+
+    @property
+    def payment_method_id(self):
+        return self.config.PAYMENT_METHOD_ID
 
     async def create_order(
         self,

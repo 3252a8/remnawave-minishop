@@ -107,21 +107,40 @@ class CryptoPayService:
         self.async_session_factory = async_session_factory
         self.subscription_service = subscription_service
         self.referral_service = referral_service
-        self.token = config.TOKEN
-        if self.token:
-            net = Networks.TEST_NET if str(config.NETWORK).lower() == "testnet" else Networks.MAIN_NET
-            self.client = AioCryptoPay(token=self.token, network=net)
-            self.client.register_pay_handler(self._invoice_paid_handler)
-            self.configured = True
-        else:
+        self._client = None
+        self._client_token = None
+        self._client_network = None
+        if not self.config.TOKEN:
             logging.warning("CryptoPay token not provided. CryptoPay disabled")
-            self.client = None
-            self.configured = False
+
+    @property
+    def token(self):
+        return self.config.TOKEN
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.config.ENABLED and self.config.TOKEN)
+
+    @property
+    def client(self):
+        # Recreate the SDK client whenever the admin changes the token / network
+        # at runtime — otherwise we'd keep talking to the old account.
+        token = self.config.TOKEN
+        network = self.config.NETWORK
+        if not token:
+            return None
+        if self._client is None or token != self._client_token or network != self._client_network:
+            net = Networks.TEST_NET if str(network).lower() == "testnet" else Networks.MAIN_NET
+            self._client = AioCryptoPay(token=token, network=net)
+            self._client.register_pay_handler(self._invoice_paid_handler)
+            self._client_token = token
+            self._client_network = network
+        return self._client
 
     async def close(self):
-        if self.client:
+        if self._client:
             try:
-                await self.client.close()
+                await self._client.close()
                 logging.info("CryptoPay client session closed.")
             except Exception as e:
                 logging.warning("Failed to close CryptoPay client: %s", e)

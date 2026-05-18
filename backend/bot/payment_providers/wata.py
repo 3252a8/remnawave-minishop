@@ -138,19 +138,48 @@ class WataService(HttpClientMixin):
         self.async_session_factory = async_session_factory
         self.subscription_service = subscription_service
         self.referral_service = referral_service
-
-        self.base_url = (config.BASE_URL or "https://api.wata.pro/api/h2h").rstrip("/")
-        self.api_token = config.API_TOKEN or ""
-        self.return_url = config.RETURN_URL or f"https://t.me/{default_return_url}"
-        self.failed_url = config.FAILED_URL or self.return_url
-        self.payment_link_ttl_days = config.PAYMENT_LINK_TTL_DAYS
-        self.verify_webhook_signature = config.WEBHOOK_VERIFY_SIGNATURE
-        self._public_key_pem = config.PUBLIC_KEY
+        self._default_return_url = default_return_url
+        self._cached_public_key_pem = None  # populated by webhook on first verify
 
         self._init_http_client(total_timeout=20)
-        self.configured: bool = bool(config.ENABLED and self.api_token)
         if not self.configured:
             logging.warning("WataService initialized but not fully configured. Payments disabled.")
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.config.ENABLED and self.api_token)
+
+    @property
+    def base_url(self) -> str:
+        return (self.config.BASE_URL or "https://api.wata.pro/api/h2h").rstrip("/")
+
+    @property
+    def api_token(self) -> str:
+        return self.config.API_TOKEN or ""
+
+    @property
+    def return_url(self) -> str:
+        return self.config.RETURN_URL or f"https://t.me/{self._default_return_url}"
+
+    @property
+    def failed_url(self) -> str:
+        return self.config.FAILED_URL or self.return_url
+
+    @property
+    def payment_link_ttl_days(self) -> int:
+        return self.config.PAYMENT_LINK_TTL_DAYS
+
+    @property
+    def verify_webhook_signature(self) -> bool:
+        return self.config.WEBHOOK_VERIFY_SIGNATURE
+
+    @property
+    def _public_key_pem(self):
+        return self.config.PUBLIC_KEY or self._cached_public_key_pem
+
+    @_public_key_pem.setter
+    def _public_key_pem(self, value):
+        self._cached_public_key_pem = value
 
     def _auth_headers(self) -> Dict[str, str]:
         return {
