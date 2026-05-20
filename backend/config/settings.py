@@ -101,6 +101,7 @@ class Settings(BaseSettings):
     PANEL_ALL_USERS_CACHE_TTL_SECONDS: int = Field(default=5)
     PANEL_ALL_USERS_PAGE_SIZE: int = Field(default=1000)
     ADMIN_PANEL_STATS_CACHE_TTL_SECONDS: int = Field(default=15)
+    ADMIN_DB_STATS_CACHE_TTL_SECONDS: int = Field(default=5)
     PROFILE_SYNC_CACHE_TTL_SECONDS: int = Field(default=900)
     PANEL_SYNC_LIFETIME_TRAFFIC_MIN_INTERVAL_SECONDS: int = Field(default=3600)
     PANEL_SYNC_LIFETIME_TRAFFIC_MIN_DELTA_BYTES: int = Field(default=104857600)

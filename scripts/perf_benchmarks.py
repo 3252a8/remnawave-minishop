@@ -355,6 +355,99 @@ async def bench_admin_stats_cache(users: int) -> dict:
     }
 
 
+async def bench_admin_db_stats_cache(users: int) -> dict:
+    admin_stats_module._ADMIN_DB_STATS_CACHES.clear()
+    settings = SimpleNamespace(
+        ADMIN_DB_STATS_CACHE_TTL_SECONDS=60,
+        REDIS_URL=None,
+        REDIS_KEY_PREFIX="bench",
+    )
+    dal_calls = 0
+
+    class FakeSessionFactory:
+        def __call__(self):
+            return self
+
+        async def __aenter__(self):
+            return SimpleNamespace()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+    async def fake_user_stats(session):
+        nonlocal dal_calls
+        dal_calls += 1
+        await asyncio.sleep(0.001)
+        return {
+            "total_users": users,
+            "banned_users": 0,
+            "active_today": 0,
+            "paid_subscriptions": users,
+            "trial_users": 0,
+            "inactive_users": 0,
+            "referral_users": 0,
+        }
+
+    async def fake_financial_stats(session):
+        nonlocal dal_calls
+        dal_calls += 1
+        await asyncio.sleep(0.001)
+        return {
+            "today_revenue": 0.0,
+            "week_revenue": 0.0,
+            "month_revenue": 0.0,
+            "all_time_revenue": 0.0,
+            "today_payments_count": 0,
+            "daily_series": [],
+        }
+
+    async def fake_sync_status(session):
+        nonlocal dal_calls
+        dal_calls += 1
+        await asyncio.sleep(0.001)
+        return SimpleNamespace(
+            status="success",
+            last_sync_time=None,
+            details=None,
+            users_processed_from_panel=users,
+            subscriptions_synced=users,
+        )
+
+    async def fake_recent_payments(session, limit=10):
+        nonlocal dal_calls
+        dal_calls += 1
+        await asyncio.sleep(0.001)
+        return []
+
+    started = time.perf_counter()
+    with (
+        patch.object(admin_stats_module.user_dal, "get_enhanced_user_statistics", fake_user_stats),
+        patch.object(
+            admin_stats_module.payment_dal, "get_financial_statistics", fake_financial_stats
+        ),
+        patch.object(admin_stats_module.panel_sync_dal, "get_panel_sync_status", fake_sync_status),
+        patch.object(
+            admin_stats_module.payment_dal,
+            "get_recent_payment_logs_with_user",
+            fake_recent_payments,
+        ),
+    ):
+        await asyncio.gather(
+            *(
+                admin_stats_module._load_admin_db_stats(settings, FakeSessionFactory())
+                for _ in range(users)
+            )
+        )
+    elapsed = time.perf_counter() - started
+    return {
+        "seconds": elapsed,
+        "dal_loader_calls": dal_calls,
+        "optimized_db_round_trips_per_miss_estimate": 6,
+        "optimized_db_round_trips_with_cache_estimate": 6,
+        "legacy_db_round_trips_estimate": users * 15,
+    }
+
+
 async def bench_profile_sync_guard(users: int) -> dict:
     profile_sync_module._LOCAL_PROFILE_SYNC_CHECKS.clear()
     settings = SimpleNamespace(
@@ -427,6 +520,7 @@ async def run_suite(user_sizes: tuple[int, ...]) -> dict:
             "premium_usage_1_node": await bench_premium_usage(users),
             "ttl_cache_cold_single_key": await bench_ttl_singleflight(users),
             "admin_stats_cache": await bench_admin_stats_cache(users),
+            "admin_db_stats_cache": await bench_admin_db_stats_cache(users),
             "profile_sync_guard": await bench_profile_sync_guard(users),
             "crypt4_same_link": await bench_crypt4(users),
         }
@@ -437,9 +531,10 @@ def _print_table(results: dict[str, dict]) -> None:
     print(
         "users | bulk_pages_est | premium_usage_s | premium_panel_calls | "
         "sync_db_reads_est | sync_db_writes | user_cache_calls | "
-        "all_users_calls | device_cache_calls | admin_panel_calls | crypt4_panel_calls"
+        "all_users_calls | device_cache_calls | admin_panel_calls | admin_db_reads_est | "
+        "crypt4_panel_calls"
     )
-    print("-" * 154)
+    print("-" * 177)
     for users, data in results.items():
         sync_optimized_reads = (
             data["panel_sync_startup"]["optimized_user_lookup_queries_estimate"]
@@ -456,6 +551,7 @@ def _print_table(results: dict[str, dict]) -> None:
             f"{data['panel_all_users_cache']['panel_calls']:>15} | "
             f"{data['panel_devices_cache']['panel_calls']:>18} | "
             f"{data['admin_stats_cache']['panel_endpoint_calls']:>17} | "
+            f"{data['admin_db_stats_cache']['optimized_db_round_trips_with_cache_estimate']:>18} | "
             f"{data['crypt4_same_link']['panel_calls']:>18}"
         )
 

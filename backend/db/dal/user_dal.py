@@ -4,7 +4,7 @@ import string
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, delete, desc, func, or_, update
+from sqlalchemy import and_, case, delete, desc, func, or_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -591,54 +591,45 @@ async def get_enhanced_user_statistics(session: AsyncSession) -> Dict[str, Any]:
     now = datetime.now(timezone.utc)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # Total users
-    total_users_stmt = select(func.count(User.user_id))
-    total_users = (await session.execute(total_users_stmt)).scalar() or 0
-
-    # Banned users
-    banned_users_stmt = select(func.count(User.user_id)).where(User.is_banned == True)
-    banned_users = (await session.execute(banned_users_stmt)).scalar() or 0
-
-    # Active users today (proxy: registered today)
-    active_today_stmt = select(func.count(User.user_id)).where(
-        User.registration_date >= today_start
+    user_counts_stmt = select(
+        func.count(User.user_id),
+        func.coalesce(func.sum(case((User.is_banned == True, 1), else_=0)), 0),
+        func.coalesce(func.sum(case((User.registration_date >= today_start, 1), else_=0)), 0),
+        func.coalesce(func.sum(case((User.referred_by_id.is_not(None), 1), else_=0)), 0),
     )
-    active_today = (await session.execute(active_today_stmt)).scalar() or 0
+    user_counts = (await session.execute(user_counts_stmt)).one()
+    total_users = int(user_counts[0] or 0)
+    banned_users = int(user_counts[1] or 0)
+    active_today = int(user_counts[2] or 0)
+    referral_users = int(user_counts[3] or 0)
 
-    # Users with active paid subscriptions (non-trial providers only)
-    paid_subs_stmt = (
-        select(func.count(func.distinct(Subscription.user_id)))
+    subscription_counts_stmt = (
+        select(
+            func.count(
+                func.distinct(
+                    case((Subscription.provider.is_not(None), Subscription.user_id), else_=None)
+                )
+            ),
+            func.count(
+                func.distinct(
+                    case((Subscription.provider.is_(None), Subscription.user_id), else_=None)
+                )
+            ),
+        )
         .join(User, Subscription.user_id == User.user_id)
         .where(
             and_(
                 Subscription.is_active == True,
                 Subscription.end_date > now,
-                Subscription.provider.is_not(None),  # Not trial
             )
         )
     )
-    paid_subs_users = (await session.execute(paid_subs_stmt)).scalar() or 0
-
-    # Users on trial period
-    trial_subs_stmt = (
-        select(func.count(func.distinct(Subscription.user_id)))
-        .join(User, Subscription.user_id == User.user_id)
-        .where(
-            and_(
-                Subscription.is_active == True,
-                Subscription.end_date > now,
-                Subscription.provider.is_(None),  # Trial subscriptions
-            )
-        )
-    )
-    trial_users = (await session.execute(trial_subs_stmt)).scalar() or 0
+    subscription_counts = (await session.execute(subscription_counts_stmt)).one()
+    paid_subs_users = int(subscription_counts[0] or 0)
+    trial_users = int(subscription_counts[1] or 0)
 
     # Inactive users (no active subscription)
     inactive_users = total_users - paid_subs_users - trial_users - banned_users
-
-    # Users attracted via referral
-    referral_users_stmt = select(func.count(User.user_id)).where(User.referred_by_id.is_not(None))
-    referral_users = (await session.execute(referral_users_stmt)).scalar() or 0
 
     return {
         "total_users": total_users,

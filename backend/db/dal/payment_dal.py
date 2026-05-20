@@ -1,10 +1,10 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import Date, and_, cast, func
+from sqlalchemy import Date, and_, case, cast, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from db.models import Payment, User
 
@@ -80,7 +80,7 @@ async def get_payment_by_db_id(session: AsyncSession, payment_db_id: int) -> Opt
     stmt = (
         select(Payment)
         .where(Payment.payment_id == payment_db_id)
-        .options(selectinload(Payment.user), selectinload(Payment.promo_code_used))
+        .options(joinedload(Payment.user), joinedload(Payment.promo_code_used))
     )
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
@@ -108,7 +108,7 @@ async def get_recent_payment_logs_with_user(
 ) -> List[Payment]:
     stmt = (
         select(Payment)
-        .options(selectinload(Payment.user))
+        .options(joinedload(Payment.user))
         .where(Payment.status == "succeeded")
         .order_by(Payment.created_at.desc())
         .limit(limit)
@@ -211,45 +211,31 @@ async def get_financial_statistics(session: AsyncSession) -> Dict[str, Any]:
     """Get comprehensive financial statistics."""
     from datetime import datetime, timedelta
 
-    from sqlalchemy import and_
-
     now = datetime.utcnow()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     week_start = today_start - timedelta(days=7)
     month_start = today_start - timedelta(days=30)
 
-    # Today's revenue
-    stmt_today = select(func.sum(Payment.amount)).where(
-        and_(Payment.status == "succeeded", Payment.created_at >= today_start)
-    )
-    today_revenue = await session.execute(stmt_today)
-    today_amount = today_revenue.scalar() or 0
-
-    # Week revenue
-    stmt_week = select(func.sum(Payment.amount)).where(
-        and_(Payment.status == "succeeded", Payment.created_at >= week_start)
-    )
-    week_revenue = await session.execute(stmt_week)
-    week_amount = week_revenue.scalar() or 0
-
-    # Month revenue
-    stmt_month = select(func.sum(Payment.amount)).where(
-        and_(Payment.status == "succeeded", Payment.created_at >= month_start)
-    )
-    month_revenue = await session.execute(stmt_month)
-    month_amount = month_revenue.scalar() or 0
-
-    # All time revenue
-    stmt_all = select(func.sum(Payment.amount)).where(Payment.status == "succeeded")
-    all_revenue = await session.execute(stmt_all)
-    all_amount = all_revenue.scalar() or 0
-
-    # Count of successful payments today
-    stmt_count_today = select(func.count(Payment.payment_id)).where(
-        and_(Payment.status == "succeeded", Payment.created_at >= today_start)
-    )
-    today_count = await session.execute(stmt_count_today)
-    today_payments_count = today_count.scalar() or 0
+    revenue_stmt = select(
+        func.coalesce(
+            func.sum(case((Payment.created_at >= today_start, Payment.amount), else_=0)), 0
+        ),
+        func.coalesce(
+            func.sum(case((Payment.created_at >= week_start, Payment.amount), else_=0)), 0
+        ),
+        func.coalesce(
+            func.sum(case((Payment.created_at >= month_start, Payment.amount), else_=0)),
+            0,
+        ),
+        func.coalesce(func.sum(Payment.amount), 0),
+        func.coalesce(func.sum(case((Payment.created_at >= today_start, 1), else_=0)), 0),
+    ).where(Payment.status == "succeeded")
+    revenue_row = (await session.execute(revenue_stmt)).one()
+    today_amount = revenue_row[0] or 0
+    week_amount = revenue_row[1] or 0
+    month_amount = revenue_row[2] or 0
+    all_amount = revenue_row[3] or 0
+    today_payments_count = int(revenue_row[4] or 0)
 
     # Longer tail for admin dashboard charts (presets up to 1y + custom range on the client).
     daily_series = await _daily_revenue_series_utc(session, days=730)

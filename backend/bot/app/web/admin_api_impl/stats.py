@@ -2,9 +2,12 @@
 import asyncio
 
 from ._runtime import *  # noqa: F403,F405
+from .auth import _require_admin_user_id
+from .common import _ok, _serialize_payment
 from bot.utils.ttl_cache import AsyncTTLCache
 
 _ADMIN_PANEL_STATS_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
+_ADMIN_DB_STATS_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
 
 
 async def admin_me_route(request: web.Request) -> web.Response:
@@ -18,26 +21,7 @@ async def admin_stats_route(request: web.Request) -> web.Response:
     settings: Settings = request.app["settings"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
 
-    async with async_session_factory() as session:
-        user_stats = await user_dal.get_enhanced_user_statistics(session)
-        financial_stats = await payment_dal.get_financial_statistics(session)
-        sync_status = await panel_sync_dal.get_panel_sync_status(session)
-        recent_payments = await payment_dal.get_recent_payment_logs_with_user(session, limit=10)
-
-    payload = {
-        "users": user_stats,
-        "financial": financial_stats,
-        "panel_sync": {
-            "status": sync_status.status if sync_status else "never_run",
-            "last_sync_time": sync_status.last_sync_time.isoformat()
-            if sync_status and sync_status.last_sync_time
-            else None,
-            "details": sync_status.details if sync_status else None,
-            "users_processed": sync_status.users_processed_from_panel if sync_status else 0,
-            "subscriptions_synced": sync_status.subscriptions_synced if sync_status else 0,
-        },
-        "recent_payments": [_serialize_payment(p) for p in recent_payments],
-    }
+    payload = dict(await _load_admin_db_stats(settings, async_session_factory))
 
     panel_service = request.app.get("panel_service")
     if panel_service is not None:
@@ -52,6 +36,58 @@ async def admin_stats_route(request: web.Request) -> web.Response:
 
     payload["currency_symbol"] = settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
     return _ok(payload)
+
+
+async def _load_admin_db_stats(
+    settings: Settings,
+    async_session_factory: sessionmaker,
+) -> Dict[str, Any]:
+    cache = _admin_db_stats_cache(settings)
+    if cache is None:
+        return await _load_admin_db_stats_uncached(async_session_factory)
+    return await cache.get_or_load(
+        "db",
+        lambda: _load_admin_db_stats_uncached(async_session_factory),
+    )
+
+
+async def _load_admin_db_stats_uncached(async_session_factory: sessionmaker) -> Dict[str, Any]:
+    async with async_session_factory() as session:
+        user_stats = await user_dal.get_enhanced_user_statistics(session)
+        financial_stats = await payment_dal.get_financial_statistics(session)
+        sync_status = await panel_sync_dal.get_panel_sync_status(session)
+        recent_payments = await payment_dal.get_recent_payment_logs_with_user(session, limit=10)
+
+    return {
+        "users": user_stats,
+        "financial": financial_stats,
+        "panel_sync": {
+            "status": sync_status.status if sync_status else "never_run",
+            "last_sync_time": sync_status.last_sync_time.isoformat()
+            if sync_status and sync_status.last_sync_time
+            else None,
+            "details": sync_status.details if sync_status else None,
+            "users_processed": sync_status.users_processed_from_panel if sync_status else 0,
+            "subscriptions_synced": sync_status.subscriptions_synced if sync_status else 0,
+        },
+        "recent_payments": [_serialize_payment(p) for p in recent_payments],
+    }
+
+
+def _admin_db_stats_cache(settings: Settings) -> Optional[AsyncTTLCache]:
+    ttl_seconds = int(getattr(settings, "ADMIN_DB_STATS_CACHE_TTL_SECONDS", 5) or 0)
+    if ttl_seconds <= 0:
+        return None
+    cache_key = (id(settings), ttl_seconds)
+    cache = _ADMIN_DB_STATS_CACHES.get(cache_key)
+    if cache is None:
+        cache = AsyncTTLCache(
+            ttl_seconds=ttl_seconds,
+            settings=settings,
+            namespace="admin:db_stats",
+        )
+        _ADMIN_DB_STATS_CACHES[cache_key] = cache
+    return cache
 
 
 async def _load_admin_panel_stats(
