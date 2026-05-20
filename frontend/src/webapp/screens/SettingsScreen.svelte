@@ -11,6 +11,7 @@
 
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
+  import { AttentionDot } from "$components/ui/index.js";
   import { LanguageSelect } from "$components/patterns/webapp/index.js";
 
   export let currentLang = "ru";
@@ -95,7 +96,7 @@
         onclick={linkTelegramAccount}
         disabled={linkTelegramBusy}
       >
-        <span class="attention-dot" aria-hidden="true"></span>
+        <AttentionDot />
         <Send size={18} />
         {t("wa_settings_link_telegram_action")}
       </Button>
@@ -127,7 +128,7 @@
         onclick={openLinkEmailDialog}
         disabled={linkEmailBusy}
       >
-        <span class="attention-dot" aria-hidden="true"></span>
+        <AttentionDot />
         <Mail size={21} />
         <span>
           <strong>{t("wa_settings_link_email_action")}</strong>

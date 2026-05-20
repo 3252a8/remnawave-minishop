@@ -152,11 +152,22 @@ class SettingsTests(unittest.TestCase):
 
         self.assertEqual(settings.TRIAL_TRAFFIC_STRATEGY, "WEEK")
 
+    def test_support_admin_email_notifications_default_to_disabled(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+        )
+
+        self.assertFalse(settings.SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED)
+
     def test_payment_button_presentation_env_values_are_available(self):
         """Presentation overrides now live on each provider's BaseSettings
         model instead of the central Settings — verify they're loaded from
         env and exposed via the provider bundle."""
         import os
+
         from bot.payment_providers import build_provider_configs, get_spec_presentation
 
         os.environ["PAYMENT_YOOKASSA_WEBAPP_LABEL_RU"] = "Карта"

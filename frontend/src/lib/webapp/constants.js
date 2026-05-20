@@ -22,6 +22,7 @@ export const APP_SECTION_PATHS = {
   home: "/home",
   invite: "/invite",
   devices: "/devices",
+  support: "/support",
   settings: "/settings",
   admin: "/admin",
 };
@@ -33,6 +34,7 @@ export const ADMIN_SECTIONS = new Set([
   "ads",
   "broadcast",
   "logs",
+  "support",
   "tariffs",
   "appearance",
   "settings",

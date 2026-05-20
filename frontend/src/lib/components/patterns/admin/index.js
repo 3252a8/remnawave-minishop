@@ -12,3 +12,7 @@ export { default as AdminSectionHeader } from "./AdminSectionHeader.svelte";
 export { default as AdminTable } from "./AdminTable.svelte";
 export { default as AdminTableSkeleton } from "./AdminTableSkeleton.svelte";
 export { default as AdminTrafficCard } from "./AdminTrafficCard.svelte";
+export { default as SupportComposer } from "./SupportComposer.svelte";
+export { default as SupportInboxRow } from "./SupportInboxRow.svelte";
+export { default as SupportTicketHeader } from "./SupportTicketHeader.svelte";
+export { default as SupportUserContextPanel } from "./SupportUserContextPanel.svelte";

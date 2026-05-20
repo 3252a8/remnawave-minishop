@@ -38,6 +38,11 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             if referral_service
             else {"invited_count": 0, "purchased_count": 0}
         )
+        support_unread_count = (
+            await support_dal.count_user_unread(session, user_id)
+            if settings.SUPPORT_TICKETS_ENABLED
+            else 0
+        )
         local_sub = (
             await subscription_dal.get_active_subscription_by_user_id(
                 session,
@@ -106,8 +111,14 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             settings.WEBAPP_PRIMARY_COLOR or "#00fe7a",
             enabled_only=True,
         ),
+        "support_unread_count": int(support_unread_count or 0),
         "settings": {
             "support_url": settings.SUPPORT_LINK,
+            "support_tickets_enabled": bool(settings.SUPPORT_TICKETS_ENABLED),
+            "support_ticket_max_body_length": int(settings.SUPPORT_TICKET_MAX_BODY_LENGTH or 4000),
+            "support_ticket_max_subject_length": int(
+                settings.SUPPORT_TICKET_MAX_SUBJECT_LENGTH or 160
+            ),
             "traffic_mode": bool(settings.traffic_sale_mode),
             "my_devices_enabled": bool(settings.MY_DEVICES_SECTION_ENABLED),
             "user_hwid_device_limit": (

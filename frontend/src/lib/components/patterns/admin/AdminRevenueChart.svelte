@@ -68,7 +68,7 @@
     const accent = readCssColor("--accent", "#00fe7a");
     const lineStroke = readCssColor(
       "--admin-chart-stroke",
-      readCssColor("--admin-text", "#e8f0ec"),
+      readCssColor("--admin-text", "#e8f0ec")
     );
     const lineFill = readCssColor("--admin-chart-fill", "rgba(120, 140, 132, 0.14)");
 

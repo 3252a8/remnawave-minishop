@@ -336,6 +336,13 @@ class Settings(BaseSettings):
         description="Log updates/events triggered by users from ADMIN_IDS.",
     )
 
+    SUPPORT_TICKETS_ENABLED: bool = Field(default=True)
+    SUPPORT_TICKET_MAX_BODY_LENGTH: int = Field(default=4000)
+    SUPPORT_TICKET_MAX_SUBJECT_LENGTH: int = Field(default=160)
+    SUPPORT_TICKET_RATE_LIMIT_PER_HOUR: int = Field(default=5)
+    SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED: bool = Field(default=False)
+    SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS: int = Field(default=5 * 60)
+    SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS: int = Field(default=30 * 60)
     SUBSCRIPTION_MINI_APP_URL: Optional[str] = Field(default=None)
 
     START_COMMAND_DESCRIPTION: Optional[str] = Field(default=None)
@@ -805,6 +812,9 @@ class Settings(BaseSettings):
     LOG_THREAD_ID: Optional[int] = Field(
         default=None, description="Thread ID for supergroup messages (optional)"
     )
+    LOG_SUPPORT_THREAD_ID: Optional[int] = Field(
+        default=None, description="Thread ID for support ticket log messages"
+    )
 
     @field_validator("LOG_LEVEL", mode="before")
     @classmethod
@@ -835,7 +845,7 @@ class Settings(BaseSettings):
             return v
         return secrets.token_urlsafe(32)
 
-    @field_validator("LOG_CHAT_ID", "LOG_THREAD_ID", mode="before")
+    @field_validator("LOG_CHAT_ID", "LOG_THREAD_ID", "LOG_SUPPORT_THREAD_ID", mode="before")
     @classmethod
     def validate_optional_int_fields(cls, v):
         """Convert empty strings to None for optional integer fields"""
@@ -890,6 +900,7 @@ class Settings(BaseSettings):
     LOG_SUSPICIOUS_ACTIVITY: bool = Field(
         default=True, description="Send notifications for suspicious promo attempts"
     )
+    LOG_SUPPORT: bool = Field(default=True, description="Send support ticket notifications")
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore", populate_by_name=True

@@ -18,14 +18,13 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from bot.app.factories.build_services import build_core_services
 from bot.payment_providers.yookassa import YooKassaService
 from bot.services.panel_webhook_service import PanelWebhookService
 from bot.services.subscription_service import SubscriptionService
 from config.settings import Settings
-
 
 # Strip all provider env so per-provider BaseSettings models don't pick up
 # real credentials from the local .env file during tests.
@@ -140,6 +139,9 @@ class BuildServicesWiringTests(unittest.TestCase):
             "subscription_service",
             "referral_service",
             "promo_code_service",
+            "notification_service",
+            "email_auth_service",
+            "support_service",
             "stars_service",
             "cryptopay_service",
             "freekassa_service",

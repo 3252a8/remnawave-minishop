@@ -1,6 +1,8 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
 
+from typing import Literal
+
 
 class WebAppEmailPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -69,3 +71,52 @@ class WebAppDeviceDisconnectPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     token: constr(min_length=8, max_length=128)
+
+
+SupportCategory = Literal["billing", "technical", "account", "other"]
+SupportPriority = Literal["low", "normal", "high", "urgent"]
+SupportStatus = Literal["open", "awaiting_user", "awaiting_admin", "resolved", "closed"]
+
+
+class CreateTicketPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    subject: constr(min_length=1, max_length=160)
+    category: SupportCategory = "other"
+    priority: Literal["normal", "high"] = "normal"
+    body: constr(min_length=1, max_length=4000)
+
+    @field_validator("subject", "body")
+    @classmethod
+    def _strip_required_text(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("empty_text")
+        return stripped
+
+
+class TicketReplyPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    body: constr(min_length=1, max_length=4000)
+
+    @field_validator("body")
+    @classmethod
+    def _strip_body(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("empty_text")
+        return stripped
+
+
+class AdminTicketReplyPayload(TicketReplyPayload):
+    is_internal_note: bool = False
+
+
+class AdminTicketPatchPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    status: Optional[SupportStatus] = None
+    priority: Optional[SupportPriority] = None
+    category: Optional[SupportCategory] = None
+    assigned_admin_id: Optional[int] = None

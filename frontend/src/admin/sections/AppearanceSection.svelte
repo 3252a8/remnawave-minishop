@@ -532,7 +532,9 @@
               >
                 <Switch.Thumb class="admin-switch-thumb" />
               </Switch.Root>
-              <span>{at("appearance_use_custom_favicon", {}, "Использовать отдельную favicon")}</span>
+              <span
+                >{at("appearance_use_custom_favicon", {}, "Использовать отдельную favicon")}</span
+              >
             </label>
             <input
               bind:this={faviconFileInput}
@@ -697,8 +699,7 @@
                       max="300"
                       step="5"
                       value={homeLogoScale(theme)}
-                      oninput={(event) =>
-                        setThemeHomeLogoScale(theme, event.currentTarget.value)}
+                      oninput={(event) => setThemeHomeLogoScale(theme, event.currentTarget.value)}
                     />
                     %
                   </span>

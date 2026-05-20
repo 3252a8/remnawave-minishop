@@ -17,6 +17,15 @@ const sourcePath = path.join(
   "templates",
   "subscription_webapp.js"
 );
+const sourceCssPath = path.join(
+  repoRoot,
+  "backend",
+  "bot",
+  "app",
+  "web",
+  "templates",
+  "subscription_webapp.css"
+);
 
 function normalizeLineEndings(value) {
   return value.replace(/\r\n/g, "\n");
@@ -50,16 +59,11 @@ function stripFallbackI18n(source) {
   );
 }
 
-async function removeOldMinifiedAssets(assetDir, keepName) {
+async function removeOldHashedAssets(assetDir, pattern, keepName) {
   const entries = await readdir(assetDir, { withFileTypes: true });
   await Promise.all(
     entries
-      .filter(
-        (entry) =>
-          entry.isFile() &&
-          /^subscription_webapp\.min\.[0-9a-f]{8}\.js$/.test(entry.name) &&
-          entry.name !== keepName
-      )
+      .filter((entry) => entry.isFile() && pattern.test(entry.name) && entry.name !== keepName)
       .map((entry) => unlink(path.join(assetDir, entry.name)))
   );
 }
@@ -84,10 +88,30 @@ async function main() {
   const hash = createHash("sha256").update(code, "utf8").digest("hex").slice(0, 8);
   const outputPath = path.join(path.dirname(sourcePath), `subscription_webapp.min.${hash}.js`);
 
-  await removeOldMinifiedAssets(path.dirname(sourcePath), path.basename(outputPath));
+  await removeOldHashedAssets(
+    path.dirname(sourcePath),
+    /^subscription_webapp\.min\.[0-9a-f]{8}\.js$/,
+    path.basename(outputPath)
+  );
   await writeFile(outputPath, code, "utf8");
   console.log(
     `Wrote ${path.relative(repoRoot, outputPath)} (${Buffer.byteLength(code, "utf8")} bytes)`
+  );
+
+  const css = await readFile(sourceCssPath, "utf8");
+  const cssHash = createHash("sha256").update(css, "utf8").digest("hex").slice(0, 8);
+  const cssOutputPath = path.join(
+    path.dirname(sourceCssPath),
+    `subscription_webapp.${cssHash}.css`
+  );
+  await removeOldHashedAssets(
+    path.dirname(sourceCssPath),
+    /^subscription_webapp\.[0-9a-f]{8}\.css$/,
+    path.basename(cssOutputPath)
+  );
+  await writeFile(cssOutputPath, css, "utf8");
+  console.log(
+    `Wrote ${path.relative(repoRoot, cssOutputPath)} (${Buffer.byteLength(css, "utf8")} bytes)`
   );
 }
 

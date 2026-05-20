@@ -1466,20 +1466,6 @@ a {
   position: relative;
 }
 
-.attention-dot {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 13px;
-  height: 13px;
-  transform: translate(50%, -50%);
-  border-radius: 999px;
-  background: #ff4b4b;
-  box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.75);
-  animation: attention-pulse 1.6s ease-out infinite;
-  pointer-events: none;
-}
-
 .nav-attention-dot {
   top: 6px;
   right: 10px;
@@ -1488,20 +1474,6 @@ a {
 
 .bottom-nav button.attention-wrap {
   padding-right: 6px;
-}
-
-@keyframes attention-pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.75);
-  }
-
-  70% {
-    box-shadow: 0 0 0 8px rgba(255, 75, 75, 0);
-  }
-
-  100% {
-    box-shadow: 0 0 0 0 rgba(255, 75, 75, 0);
-  }
 }
 
 .bottom-nav {
@@ -1514,9 +1486,11 @@ a {
   bottom: max(var(--bottom-nav-offset), env(safe-area-inset-bottom));
   z-index: 80;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(var(--bottom-nav-visible-items, 3), minmax(0, 1fr));
+  grid-auto-flow: column;
   gap: 2px;
   min-height: 64px;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--nav-bg);
@@ -1525,7 +1499,7 @@ a {
 }
 
 .bottom-nav-devices {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(var(--bottom-nav-visible-items, 4), minmax(0, 1fr));
 }
 
 .bottom-nav.static {
@@ -1534,6 +1508,7 @@ a {
 
 .bottom-nav button {
   display: grid;
+  min-width: 0;
   place-items: center;
   align-content: center;
   gap: 4px;
@@ -1542,14 +1517,75 @@ a {
   color: var(--muted);
   font-size: 10px;
   font-weight: 800;
+  overflow: hidden;
+  padding: 6px 2px;
 }
 
 .bottom-nav button.active {
   color: var(--accent);
 }
 
+.bottom-nav .bottom-nav-label {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+
 .rail-admin-entry {
   display: none !important;
+}
+
+@media (max-width: 380px) {
+  .bottom-nav.bottom-nav-many {
+    min-height: 58px;
+  }
+
+  .bottom-nav.bottom-nav-many button {
+    gap: 0;
+    padding: 0 2px;
+  }
+
+  .bottom-nav.bottom-nav-many .bottom-nav-label {
+    display: none;
+  }
+
+  .bottom-nav.bottom-nav-many .nav-attention-dot {
+    top: 8px;
+    right: calc(50% - 18px);
+  }
+
+  .bottom-nav.bottom-nav-many .nav-badge-floating {
+    top: 6px;
+    right: calc(50% - 24px);
+  }
+}
+
+@media (max-width: 360px) {
+  .bottom-nav {
+    min-height: 56px;
+  }
+
+  .bottom-nav button {
+    gap: 0;
+    padding: 0 2px;
+  }
+
+  .bottom-nav .bottom-nav-label {
+    display: none;
+  }
+
+  .bottom-nav .nav-attention-dot {
+    top: 8px;
+    right: calc(50% - 18px);
+  }
+
+  .bottom-nav .nav-badge-floating {
+    top: 6px;
+    right: calc(50% - 24px);
+  }
 }
 
 .home-layout {
@@ -1975,6 +2011,10 @@ a {
   font-size: 9px;
 }
 
+.preview-phone .bottom-nav .bottom-nav-label {
+  font-size: 9px;
+}
+
 .preview-phone .card {
   padding: 12px;
 }
@@ -2247,10 +2287,14 @@ a {
     display: grid !important;
     grid-template-columns: 1fr !important;
     grid-template-rows: none !important;
+    grid-auto-flow: row !important;
     grid-auto-rows: auto !important;
+    grid-auto-columns: 1fr !important;
     align-content: start !important;
     gap: 2px !important;
     padding: 28px 14px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
     border: 0 !important;
     border-right: 1px solid var(--border) !important;
     border-radius: 0 !important;
@@ -2271,7 +2315,7 @@ a {
     align-items: center !important;
     justify-items: start !important;
     gap: 12px !important;
-    padding: 12px 14px !important;
+    padding: 12px 42px 12px 14px !important;
     border-radius: 10px !important;
     text-align: left !important;
     font-size: 13px !important;
@@ -2281,6 +2325,7 @@ a {
       background 0.12s ease,
       color 0.12s ease,
       border-color 0.12s ease;
+    width: 100%;
   }
 
   .bottom-nav button > svg {
@@ -2288,7 +2333,7 @@ a {
     height: 20px;
   }
 
-  .bottom-nav button > span {
+  .bottom-nav .bottom-nav-label {
     text-align: left !important;
     font-size: 13px !important;
     font-weight: 600;
@@ -2305,9 +2350,11 @@ a {
     color: var(--text);
   }
 
-  .bottom-nav .nav-attention-dot {
-    top: 14px;
+  .bottom-nav .nav-attention-dot,
+  .bottom-nav .nav-badge-floating {
+    top: 50%;
     right: 14px;
+    transform: translateY(-50%);
   }
 
   .bottom-nav .rail-admin-entry {
@@ -2393,6 +2440,7 @@ a {
 @media (min-width: 1024px) {
   .bottom-nav .rail-brand {
     display: flex;
+    width: 100%;
     align-items: center;
     gap: 12px;
     padding: 4px 12px 18px;

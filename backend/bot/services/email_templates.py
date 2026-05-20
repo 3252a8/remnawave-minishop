@@ -492,3 +492,155 @@ def render_subscription_expiring(
         footer_html=footer,
     )
     return EmailContent(subject=subject, text="\n".join(text_lines), html=rendered)
+
+
+def _support_email(
+    settings: Settings,
+    i18n: Optional[JsonI18n],
+    language: Optional[str],
+    *,
+    subject: str,
+    heading: str,
+    intro: str,
+    rows: Sequence[Tuple[str, str]],
+    body_preview: str,
+    ticket_url: Optional[str],
+    cta_label: str,
+) -> EmailContent:
+    lang = _normalize_lang(language, settings)
+    brand = _brand_title(settings)
+    accent = _safe_color(settings.WEBAPP_PRIMARY_COLOR)
+    safe_url = (ticket_url or "").strip()
+    footer = _t_html(_resolve_i18n(i18n), lang, "email_footer_auto", brand=brand)
+    preview_block = (
+        f'<div style="margin:0 0 16px 0;background:{_BG};border:1px solid {_BORDER};'
+        f'border-radius:14px;padding:14px 16px;font-size:14px;line-height:1.55;color:{_TEXT};'
+        f'white-space:pre-wrap;">{html.escape(body_preview or "")}</div>'
+    )
+    body_parts = [_info_rows_html(rows), preview_block]
+    if safe_url:
+        body_parts.append(_cta_button_html(label=cta_label, url=safe_url, accent=accent))
+    rendered = _layout(
+        settings=settings,
+        preheader=intro,
+        heading=heading,
+        intro_html=html.escape(intro),
+        body_html="".join(body_parts),
+        footer_html=footer,
+    )
+    text_lines = [intro, "", *[f"{label}: {value}" for label, value in rows], "", body_preview]
+    if safe_url:
+        text_lines.extend(["", safe_url])
+    return EmailContent(subject=subject, text="\n".join(text_lines), html=rendered)
+
+
+def render_support_new_ticket_admin(
+    settings: Settings,
+    i18n: Optional[JsonI18n],
+    language: Optional[str],
+    *,
+    ticket_id: int,
+    user_display: str,
+    subject: str,
+    body_preview: str,
+    snapshot_rows: Sequence[Tuple[str, str]],
+    ticket_url: Optional[str],
+) -> EmailContent:
+    rows = [
+        ("Ticket", f"#{ticket_id}"),
+        ("User", user_display),
+        ("Subject", subject),
+        *snapshot_rows,
+    ]
+    return _support_email(
+        settings,
+        i18n,
+        language,
+        subject=f"New support ticket #{ticket_id}",
+        heading=f"New support ticket #{ticket_id}",
+        intro="A user opened a new support ticket.",
+        rows=rows,
+        body_preview=body_preview,
+        ticket_url=ticket_url,
+        cta_label="Open ticket",
+    )
+
+
+def render_support_user_reply_admin(
+    settings: Settings,
+    i18n: Optional[JsonI18n],
+    language: Optional[str],
+    *,
+    ticket_id: int,
+    user_display: str,
+    subject: str,
+    body_preview: str,
+    snapshot_rows: Sequence[Tuple[str, str]],
+    ticket_url: Optional[str],
+) -> EmailContent:
+    rows = [
+        ("Ticket", f"#{ticket_id}"),
+        ("User", user_display),
+        ("Subject", subject),
+        *snapshot_rows,
+    ]
+    return _support_email(
+        settings,
+        i18n,
+        language,
+        subject=f"New user reply in ticket #{ticket_id}",
+        heading=f"User replied in ticket #{ticket_id}",
+        intro="A user sent a new support message.",
+        rows=rows,
+        body_preview=body_preview,
+        ticket_url=ticket_url,
+        cta_label="Open ticket",
+    )
+
+
+def render_support_admin_reply_user(
+    settings: Settings,
+    i18n: Optional[JsonI18n],
+    language: Optional[str],
+    *,
+    ticket_id: int,
+    subject: str,
+    body_preview: str,
+    ticket_url: Optional[str],
+) -> EmailContent:
+    return _support_email(
+        settings,
+        i18n,
+        language,
+        subject=f"New reply for ticket #{ticket_id}",
+        heading=f"New reply for ticket #{ticket_id}",
+        intro="Support has replied to your ticket.",
+        rows=[("Ticket", f"#{ticket_id}"), ("Subject", subject)],
+        body_preview=body_preview,
+        ticket_url=ticket_url,
+        cta_label="Open in Mini App",
+    )
+
+
+def render_support_ticket_closed_user(
+    settings: Settings,
+    i18n: Optional[JsonI18n],
+    language: Optional[str],
+    *,
+    ticket_id: int,
+    subject: str,
+    body_preview: str = "",
+    ticket_url: Optional[str],
+) -> EmailContent:
+    return _support_email(
+        settings,
+        i18n,
+        language,
+        subject=f"Ticket #{ticket_id} was closed",
+        heading=f"Ticket #{ticket_id} was closed",
+        intro="Your support ticket has been closed.",
+        rows=[("Ticket", f"#{ticket_id}"), ("Subject", subject)],
+        body_preview=body_preview or "The ticket is closed.",
+        ticket_url=ticket_url,
+        cta_label="Open in Mini App",
+    )

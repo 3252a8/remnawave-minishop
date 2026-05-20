@@ -7,6 +7,7 @@ from . import (
     promo_code_dal,
     security_dal,
     subscription_dal,
+    support_dal,
     user_billing_dal,
     user_dal,
 )
@@ -22,4 +23,5 @@ __all__ = (
     "ad_dal",
     "security_dal",
     "app_settings_dal",
+    "support_dal",
 )

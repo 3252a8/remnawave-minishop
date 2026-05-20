@@ -51,7 +51,7 @@ from bot.utils.config_link import prepare_config_links
 from bot.utils.request_security import parse_ip_entries, request_client_ip
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
-from db.dal import payment_dal, security_dal, subscription_dal, user_dal
+from db.dal import payment_dal, security_dal, subscription_dal, support_dal, user_dal
 from db.dal.user_dal import UserMergeConflictError
 from db.models import Payment, User, UserTelegramAvatar
 

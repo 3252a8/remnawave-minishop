@@ -33,6 +33,7 @@ tmp/
 backend/bot/app/web/templates/subscription_webapp.css
 backend/bot/app/web/templates/subscription_webapp.js
 backend/bot/app/web/templates/subscription_webapp.min.*.js
+backend/bot/app/web/templates/subscription_webapp.*.css
 
 # Byte-compiled / optimized / DLL files
 **/__pycache__/

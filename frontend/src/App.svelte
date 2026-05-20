@@ -3,6 +3,7 @@
   import { createAuthStore } from "./lib/webapp/stores/authStore.js";
   import { createBillingStore } from "./lib/webapp/stores/billingStore.js";
   import { createDevicesStore } from "./lib/webapp/stores/devicesStore.js";
+  import { createSupportStore } from "./lib/webapp/stores/supportStore.js";
   import { createAccountStore } from "./lib/webapp/stores/accountStore.js";
   import { Tooltip } from "$components/ui/primitives.js";
 
@@ -17,6 +18,8 @@
   import HomeScreen from "./webapp/screens/HomeScreen.svelte";
   import InviteScreen from "./webapp/screens/InviteScreen.svelte";
   import SettingsScreen from "./webapp/screens/SettingsScreen.svelte";
+  import SupportScreen from "./webapp/screens/SupportScreen.svelte";
+  import SupportTicketScreen from "./webapp/screens/SupportTicketScreen.svelte";
 
   import {
     LANGUAGE_FLAGS,
@@ -70,6 +73,7 @@
     adminUserIdFromPath,
     normalizeSection,
     sectionFromPath,
+    supportTicketIdFromPath,
     syncSectionPath,
   } from "./lib/webapp/routes.js";
 
@@ -114,6 +118,8 @@
   let token = MOCK ? "local-preview" : "";
   let csrfToken = MOCK ? "" : readCookie(CSRF_COOKIE_NAME) || "";
   let scrollLockApplied = false;
+  let adminI18nLoaded = false;
+  let adminI18nPromise = null;
   let tg = null;
   const telegramSdk = createTelegramSdk({
     scriptUrl: TELEGRAM_WEBAPP_SCRIPT_URL,
@@ -170,6 +176,7 @@
     tg,
   });
   const devicesStore = createDevicesStore({ api, t, showToast });
+  const supportStore = createSupportStore({ api, t, showToast });
   const accountStore = createAccountStore({
     api,
     publicApi,
@@ -194,6 +201,7 @@
   setContext("authStore", authStore);
   setContext("billingStore", billingStore);
   setContext("devicesStore", devicesStore);
+  setContext("supportStore", supportStore);
   setContext("accountStore", accountStore);
 
   $: ({
@@ -233,6 +241,11 @@
     deviceToDisconnect,
     deviceDisconnectBusy,
   } = $devicesStore);
+  $: ({
+    unreadCount: supportUnreadCount,
+    unreadLoading: supportUnreadLoading,
+    unreadLoaded: supportUnreadLoaded,
+  } = $supportStore);
   $: ({
     linkEmailOpen,
     linkEmailBusy,
@@ -278,6 +291,7 @@
       : []
     : plans;
   $: devicesEnabled = Boolean(appSettings?.my_devices_enabled);
+  $: supportEnabled = Boolean(appSettings?.support_tickets_enabled ?? true);
   $: subscription = data?.subscription || DEV_MOCK.data.subscription;
   $: hasActiveTariffSubscription = Boolean(
     tariffMode && subscription?.active && subscription?.tariff_key
@@ -467,13 +481,28 @@
       }
       if (mode === "app") {
         if (section === "admin" && isAdmin) {
-          screen = "admin";
+          const pathAtStart = window.location.pathname;
+          void ensureI18nScope("admin").finally(() => {
+            if (sectionFromPath(window.location.pathname) !== "admin") return;
+            if (window.location.pathname !== pathAtStart) return;
+            activeTab = "settings";
+            screen = "admin";
+          });
           return;
         }
-        const nextSection = section === "devices" && !devicesEnabled ? "home" : section;
+        const nextSection =
+          section === "devices" && !devicesEnabled
+            ? "home"
+            : section === "support" && !supportEnabled
+              ? "home"
+              : section;
         activeTab = nextSection;
         screen = nextSection;
         if (nextSection === "devices") devicesStore.loadDevices(devicesEnabled);
+        if (nextSection === "support") {
+          supportStore.loadList();
+          supportStore.startPolling({ includeList: true });
+        }
       }
     };
     window.addEventListener("popstate", onPopState);
@@ -486,6 +515,7 @@
       authStore.clearCooldownTimer();
       accountStore.clearLinkEmailResendTimer();
       accountStore.clearSetPasswordResendTimer();
+      supportStore.closePolling();
       clearLanguageClickGuard();
       syncBodyScrollLock(false);
     };
@@ -550,6 +580,29 @@
       telegramMiniAppInitData = telegramSdk.initData;
       return value;
     });
+  }
+
+  async function ensureI18nScope(scope) {
+    if (MOCK || scope !== "admin" || adminI18nLoaded) return;
+    if (adminI18nPromise) return adminI18nPromise;
+    const apiBase = String(CFG.apiBase || "/api").replace(/\/+$/, "");
+    adminI18nPromise = fetch(`${apiBase}/i18n?scope=admin`, {
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (!payload?.ok || !payload.i18n) return;
+        i18n.mergeMessages(payload.i18n);
+        adminI18nLoaded = true;
+      })
+      .catch((_error) => {
+        void _error;
+      })
+      .finally(() => {
+        adminI18nPromise = null;
+      });
+    return adminI18nPromise;
   }
 
   async function boot() {
@@ -640,16 +693,46 @@
         : sectionFromPath(window.location.pathname);
     if (section === "admin" && !payload.user?.is_admin) section = "settings";
     if (section === "devices" && !payload.settings?.my_devices_enabled) section = "home";
+    if (section === "support" && payload.settings?.support_tickets_enabled === false) {
+      section = "home";
+    }
+    const initialAdminSection =
+      section === "admin" ? adminSectionFromPath(window.location.pathname) : null;
+    if (section === "admin" && payload.user?.is_admin) {
+      await ensureI18nScope("admin");
+    }
+    const initialSupportTicketId =
+      section === "support" ? supportTicketIdFromPath(window.location.pathname) : null;
     activeTab = section === "admin" ? "settings" : section;
     screen = section;
     mode = "app";
-    syncSectionPath(
-      section,
-      true,
-      section === "admin" ? adminSectionFromPath(window.location.pathname) : null
-    );
+    if (payload.settings?.support_tickets_enabled !== false) {
+      if (typeof payload.support_unread_count !== "undefined") {
+        supportStore.hydrateUnread(payload.support_unread_count);
+      }
+      void supportStore.refreshUnread();
+      supportStore.startPolling({ includeList: false });
+    }
+    if (section === "support" && initialSupportTicketId) {
+      const targetPath = `/support/${initialSupportTicketId}`;
+      if (window.location.protocol !== "file:" && window.location.pathname !== targetPath) {
+        window.history.replaceState(
+          null,
+          "",
+          `${targetPath}${window.location.search}${window.location.hash}`
+        );
+      }
+    } else {
+      syncSectionPath(section, true, initialAdminSection);
+    }
     if (section === "devices" && payload.settings?.my_devices_enabled) {
       await devicesStore.loadDevices(true);
+    }
+    if (section === "support") {
+      if (initialSupportTicketId)
+        await supportStore.openTicket(initialSupportTicketId, { skipPush: true });
+      else await supportStore.loadList();
+      supportStore.startPolling({ includeList: true });
     }
     if (topupModalOpen) await billingStore.loadTopupOptions(topupKind);
     if (deviceTopupModalOpen) await billingStore.loadDeviceTopupOptions();
@@ -846,6 +929,16 @@
     devicesStore.loadDevices(devicesEnabled);
   }
 
+  function goSupport() {
+    if (!supportEnabled) return;
+    billingStore.closePaymentModal();
+    activeTab = "support";
+    screen = "support";
+    syncSectionPath("support");
+    supportStore.loadList();
+    supportStore.startPolling({ includeList: true });
+  }
+
   function defaultPaymentMethod() {
     return methods[0]?.id || "";
   }
@@ -900,10 +993,11 @@
     syncSectionPath("settings");
   }
 
-  function openAdminPanel() {
+  async function openAdminPanel() {
     if (!isAdmin) return;
     clearLanguageClickGuard();
     billingStore.closePaymentModal();
+    await ensureI18nScope("admin");
     activeTab = "settings";
     screen = "admin";
     syncSectionPath("admin", false, adminSectionFromPath(window.location.pathname));
@@ -1067,12 +1161,17 @@
             {brandTitle}
             {brand}
             {devicesEnabled}
+            {supportEnabled}
+            {supportUnreadCount}
+            {supportUnreadLoading}
+            {supportUnreadLoaded}
             {hasUnlinkedIdentity}
             {isAdmin}
             {openAdminPanel}
             {goDevices}
             {goHome}
             {goInvite}
+            {goSupport}
             {goSettings}
             {t}
           >
@@ -1131,6 +1230,24 @@
                 {openDeviceTopupModal}
                 {t}
               />
+            {:else if screen === "support"}
+              {#if $supportStore.openedTicketId}
+                <SupportTicketScreen
+                  maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
+                  {brand}
+                  userAvatarUrl={profileAvatarUrl}
+                  userInitials={telegramProfileName
+                    ? telegramProfileName.slice(0, 2).toUpperCase()
+                    : "U"}
+                  {t}
+                />
+              {:else}
+                <SupportScreen
+                  maxSubjectLength={appSettings?.support_ticket_max_subject_length || 160}
+                  maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
+                  {t}
+                />
+              {/if}
             {:else if screen === "settings"}
               <SettingsScreen
                 {currentLang}

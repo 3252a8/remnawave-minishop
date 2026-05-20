@@ -66,6 +66,150 @@ export async function mockApi(path, options = {}, context = {}) {
       premium_traffic: { state: "none" },
     },
   ];
+  const supportTickets = [
+    {
+      ticket_id: 42,
+      user_id: 100200300,
+      subject: "Не подключается профиль на телефоне",
+      category: "technical",
+      priority: "high",
+      status: "awaiting_admin",
+      unread_user_count: 0,
+      unread_admin_count: 2,
+      last_message_at: new Date(Date.now() - 18 * 60000).toISOString(),
+      created_at: new Date(Date.now() - 2 * 3600000).toISOString(),
+      user: adminUsers[0],
+    },
+    {
+      ticket_id: 43,
+      user_id: 100200300,
+      subject: "Вопрос по оплате подписки",
+      category: "billing",
+      priority: "normal",
+      status: "awaiting_user",
+      unread_user_count: 1,
+      unread_admin_count: 0,
+      last_message_at: new Date(Date.now() - 4 * 3600000).toISOString(),
+      created_at: new Date(Date.now() - 6 * 3600000).toISOString(),
+      user: adminUsers[0],
+    },
+    {
+      ticket_id: 41,
+      user_id: 100200300,
+      subject: "Закрытый вопрос по старому профилю",
+      category: "technical",
+      priority: "low",
+      status: "closed",
+      unread_user_count: 0,
+      unread_admin_count: 0,
+      last_message_at: new Date(Date.now() - 4 * 86400000).toISOString(),
+      created_at: new Date(Date.now() - 6 * 86400000).toISOString(),
+      closed_at: new Date(Date.now() - 4 * 86400000).toISOString(),
+      user: adminUsers[0],
+    },
+  ];
+  function supportCounts(items = supportTickets) {
+    const byStatus = { open: 0, awaiting_admin: 0, awaiting_user: 0, resolved: 0 };
+    for (const item of items) {
+      byStatus[item.status] = (byStatus[item.status] || 0) + 1;
+    }
+    const closed = (byStatus.closed || 0) + (byStatus.resolved || 0);
+    const active = items.length - closed;
+    return { ...byStatus, active, closed, total: items.length };
+  }
+  function filterSupportTickets(items, params) {
+    let out = [...items];
+    const status = params.get("status");
+    if (status === "active")
+      out = out.filter((item) => !["closed", "resolved"].includes(item.status));
+    else if (status === "closed")
+      out = out.filter((item) => ["closed", "resolved"].includes(item.status));
+    else if (status) out = out.filter((item) => item.status === status);
+    const priority = params.get("priority");
+    if (priority) out = out.filter((item) => item.priority === priority);
+    const category = params.get("category");
+    if (category) out = out.filter((item) => item.category === category);
+    const search = (params.get("search") || "").trim().toLowerCase();
+    if (search) {
+      out = out.filter((item) =>
+        [item.subject, item.user?.username, item.user?.email, String(item.ticket_id)]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(search))
+      );
+    }
+    const sort = params.get("sort") || "updated_desc";
+    const priorityRank = { urgent: 4, high: 3, normal: 2, low: 1 };
+    out.sort((a, b) => {
+      if (sort === "importance_desc") {
+        return (
+          (priorityRank[b.priority] || 0) - (priorityRank[a.priority] || 0) ||
+          new Date(b.last_message_at || b.created_at) - new Date(a.last_message_at || a.created_at)
+        );
+      }
+      if (sort === "updated_asc") {
+        return (
+          new Date(a.last_message_at || a.created_at) - new Date(b.last_message_at || b.created_at)
+        );
+      }
+      if (sort === "created_desc") return new Date(b.created_at) - new Date(a.created_at);
+      if (sort === "created_asc") return new Date(a.created_at) - new Date(b.created_at);
+      return (
+        new Date(b.last_message_at || b.created_at) - new Date(a.last_message_at || a.created_at)
+      );
+    });
+    return out;
+  }
+  const supportMessages = {
+    42: [
+      {
+        message_id: 1,
+        ticket_id: 42,
+        author_role: "user",
+        author_user_id: 100200300,
+        author_name: "Анна Смирнова",
+        body: "После обновления приложения профиль перестал подключаться. Ошибка появляется сразу после импорта ссылки.",
+        created_at: new Date(Date.now() - 2 * 3600000).toISOString(),
+      },
+      {
+        message_id: 2,
+        ticket_id: 42,
+        author_role: "admin",
+        author_user_id: 1,
+        author_name: "Мария, поддержка",
+        body: "Проверили подписку, она активна. Попробуйте удалить старый профиль и импортировать ссылку ещё раз.",
+        created_at: new Date(Date.now() - 90 * 60000).toISOString(),
+      },
+      {
+        message_id: 3,
+        ticket_id: 42,
+        author_role: "user",
+        author_user_id: 100200300,
+        author_name: "Анна Смирнова",
+        body: "Сделал так, но теперь вижу timeout. Телефон iPhone, сеть домашний Wi‑Fi.",
+        created_at: new Date(Date.now() - 18 * 60000).toISOString(),
+      },
+    ],
+    43: [
+      {
+        message_id: 4,
+        ticket_id: 43,
+        author_role: "user",
+        author_user_id: 100200300,
+        author_name: "Анна Смирнова",
+        body: "Оплата прошла, но срок подписки не изменился.",
+        created_at: new Date(Date.now() - 6 * 3600000).toISOString(),
+      },
+      {
+        message_id: 5,
+        ticket_id: 43,
+        author_role: "admin",
+        author_user_id: 2,
+        author_name: "Иван, поддержка",
+        body: "Платёж нашли и применили вручную. Проверьте, пожалуйста, дату окончания подписки.",
+        created_at: new Date(Date.now() - 4 * 3600000).toISOString(),
+      },
+    ],
+  };
   const mockAdminDailySeries = (() => {
     const days = 730;
     const out = [];
@@ -331,8 +475,134 @@ export async function mockApi(path, options = {}, context = {}) {
         },
       ],
     };
+  if (cleanPath === "/admin/support/stats") {
+    return {
+      ok: true,
+      stats: { ...supportCounts(), total_unread_admin: 2 },
+    };
+  }
+  if (cleanPath === "/admin/support/tickets") {
+    const params = new URLSearchParams(String(path || "").split("?")[1] || "");
+    const tickets = filterSupportTickets(supportTickets, params);
+    return { ok: true, tickets: clone(tickets), total: tickets.length };
+  }
+  if (cleanPath.startsWith("/admin/support/tickets/")) {
+    const parts = cleanPath.split("/");
+    const ticketId = Number(parts[4]);
+    const ticket = clone(
+      supportTickets.find((item) => item.ticket_id === ticketId) || supportTickets[0]
+    );
+    if (parts[5] === "messages") {
+      return {
+        ok: true,
+        ticket,
+        message: {
+          message_id: Date.now(),
+          ticket_id: ticket.ticket_id,
+          author_role: "admin",
+          author_user_id: 1,
+          author_name: "Мария, поддержка",
+          body: JSON.parse(options?.body || "{}")?.body || "",
+          is_internal_note: Boolean(JSON.parse(options?.body || "{}")?.is_internal_note),
+          created_at: new Date().toISOString(),
+        },
+      };
+    }
+    if (String(options.method || "GET").toUpperCase() === "PATCH") {
+      return { ok: true, ticket: { ...ticket, ...(JSON.parse(options?.body || "{}") || {}) } };
+    }
+    return {
+      ok: true,
+      ticket,
+      messages: clone([
+        ...(supportMessages[ticket.ticket_id] || []),
+        {
+          message_id: 99,
+          ticket_id: ticket.ticket_id,
+          author_role: "admin",
+          author_user_id: 1,
+          author_name: "Мария, поддержка",
+          body: "Внутренняя заметка для команды: проверить последние логи панели перед ответом.",
+          is_internal_note: true,
+          created_at: new Date(Date.now() - 12 * 60000).toISOString(),
+        },
+      ]),
+      user_snapshot: {
+        user_id: ticket.user_id,
+        name: "Анна Смирнова",
+        username: "anna_ops",
+        email: "anna@example.com",
+        tariff: "Standard",
+        panel_status: "ACTIVE",
+        remaining: "20 д. 4 ч.",
+        regular_traffic: "12 GB / 500 GB",
+        premium_traffic: "4 GB / 25 GB",
+      },
+    };
+  }
   if (cleanPath.startsWith("/admin/"))
     return { ok: true, payments: [], promos: [], logs: [], campaigns: [], total: 0 };
+  if (
+    cleanPath === "/support/tickets" &&
+    String(options.method || "GET").toUpperCase() === "POST"
+  ) {
+    let payload = {};
+    try {
+      payload = JSON.parse(options?.body || "{}");
+    } catch (_error) {
+      void _error;
+    }
+    return {
+      ok: true,
+      ticket: {
+        ticket_id: 44,
+        user_id: 100200300,
+        subject: payload.subject || "Новое обращение",
+        category: payload.category || "other",
+        priority: payload.priority || "normal",
+        status: "awaiting_admin",
+        unread_user_count: 0,
+        unread_admin_count: 1,
+        last_message_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      },
+    };
+  }
+  if (cleanPath === "/support/tickets") {
+    const params = new URLSearchParams(String(path || "").split("?")[1] || "");
+    const tickets = filterSupportTickets(supportTickets, params);
+    return {
+      ok: true,
+      tickets: clone(tickets),
+      total: tickets.length,
+      counts: supportCounts(),
+    };
+  }
+  if (cleanPath.startsWith("/support/tickets/")) {
+    const parts = cleanPath.split("/");
+    const ticketId = Number(parts[3]);
+    const ticket = clone(
+      supportTickets.find((item) => item.ticket_id === ticketId) || supportTickets[0]
+    );
+    if (parts[4] === "read") return { ok: true };
+    if (parts[4] === "messages") {
+      return {
+        ok: true,
+        ticket,
+        message: {
+          message_id: Date.now(),
+          ticket_id: ticket.ticket_id,
+          author_role: "user",
+          author_user_id: 100200300,
+          author_name: "Анна Смирнова",
+          body: JSON.parse(options?.body || "{}")?.body || "",
+          created_at: new Date().toISOString(),
+        },
+      };
+    }
+    return { ok: true, ticket, messages: clone(supportMessages[ticket.ticket_id] || []) };
+  }
+  if (cleanPath === "/support/unread") return { ok: true, unread: 1 };
   if (path === "/me") return clone(DEV_MOCK.data);
   if (path === "/auth/email/request") return { ok: true };
   if (path === "/auth/email/verify" || path === "/auth/email/magic") {

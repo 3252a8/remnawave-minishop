@@ -14,6 +14,7 @@ from bot.app.web.webapp import (
     payloads as _payloads,
     routes as _routes,
     serializers as _serializers,
+    support as _support,
 )
 
 _MODULES = (
@@ -26,6 +27,7 @@ _MODULES = (
     _serializers,
     _billing,
     _devices,
+    _support,
     _routes,
     _application,
 )

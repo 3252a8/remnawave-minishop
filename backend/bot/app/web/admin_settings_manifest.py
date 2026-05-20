@@ -235,6 +235,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
     ),
     SettingField("LOG_NEW_USERS", "bool", "notifications", "Логировать новых пользователей"),
     SettingField("LOG_PAYMENTS", "bool", "notifications", "Логировать платежи"),
+    SettingField("LOG_SUPPORT", "bool", "notifications", "Логировать тикеты поддержки"),
     SettingField(
         "LOG_PROMO_ACTIVATIONS", "bool", "notifications", "Логировать активации промокодов"
     ),
@@ -248,8 +249,8 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "notifications",
         "Логировать действия администраторов",
         "Если выключено, события от пользователей из ADMIN_IDS не записываются в message logs.",
-        i18n_label_key="settings_field_log_admin_actions_label",
-        i18n_description_key="settings_field_log_admin_actions_description",
+        i18n_label_key="admin_settings_field_log_admin_actions_label",
+        i18n_description_key="admin_settings_field_log_admin_actions_description",
     ),
     SettingField(
         "LOG_LEVEL",
@@ -260,6 +261,73 @@ SETTINGS_MANIFEST: List[SettingField] = [
     ),
     SettingField("LOG_CHAT_ID", "int", "notifications", "ID чата для логов"),
     SettingField("LOG_THREAD_ID", "int", "notifications", "ID треда (для супергрупп)"),
+    SettingField(
+        "LOG_SUPPORT_THREAD_ID",
+        "int",
+        "notifications",
+        "ID треда поддержки",
+        "Тред лог-чата для уведомлений о тикетах поддержки.",
+    ),
+    SettingField(
+        "SUPPORT_TICKETS_ENABLED",
+        "bool",
+        "support",
+        "Тикеты поддержки включены",
+        "Показывает раздел поддержки в ЛК и включает создание тикетов.",
+    ),
+    SettingField(
+        "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED",
+        "bool",
+        "support",
+        "Email-уведомления админам",
+        (
+            "Если выключено, новые тикеты и ответы пользователей останутся "
+            "только в Telegram и лог-чате."
+        ),
+    ),
+    SettingField(
+        "SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS",
+        "int",
+        "support",
+        "Пауза Telegram-уведомлений",
+        (
+            "Минимум секунд между повторными Telegram/log уведомлениями "
+            "по одному непрочитанному тикету."
+        ),
+        min=0,
+    ),
+    SettingField(
+        "SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS",
+        "int",
+        "support",
+        "Пауза email-уведомлений",
+        "Минимум секунд между повторными email-уведомлениями по одному непрочитанному тикету.",
+        min=0,
+    ),
+    SettingField(
+        "SUPPORT_TICKET_MAX_BODY_LENGTH",
+        "int",
+        "support",
+        "Макс. длина сообщения",
+        "Максимальное количество символов в сообщении тикета.",
+        min=1,
+    ),
+    SettingField(
+        "SUPPORT_TICKET_MAX_SUBJECT_LENGTH",
+        "int",
+        "support",
+        "Макс. длина темы",
+        "Максимальное количество символов в теме тикета.",
+        min=1,
+    ),
+    SettingField(
+        "SUPPORT_TICKET_RATE_LIMIT_PER_HOUR",
+        "int",
+        "support",
+        "Лимит тикетов в час",
+        "Сколько новых тикетов пользователь может создать за час. 0 — без лимита.",
+        min=0,
+    ),
     # ─── Devices ───────────────────────────────────────────────────
     SettingField("MY_DEVICES_SECTION_ENABLED", "bool", "devices", "Раздел «Мои устройства»"),
     SettingField(
@@ -371,12 +439,15 @@ def manifest_payload() -> List[dict]:
         "trial": 5,
         "referral": 6,
         "notifications": 7,
-        "devices": 8,
+        "support": 8,
+        "devices": 9,
     }
     items: List[dict] = []
     for field in aggregated_manifest():
-        auto_label_i18n_key = f"settings_field_{field.key.lower()}_label"
-        auto_description_i18n_key = f"settings_field_{field.key.lower()}_description"
+        auto_label_i18n_key = f"admin_settings_field_{field.key.lower()}_label"
+        auto_description_i18n_key = (
+            f"admin_settings_field_{field.key.lower()}_description"
+        )
 
         default_value: Optional[str] = None
         owner = find_manifest_owner(field.key)

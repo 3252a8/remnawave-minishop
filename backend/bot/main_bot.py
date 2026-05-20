@@ -196,6 +196,9 @@ async def on_shutdown_configured(dispatcher: Dispatcher):
         "promo_code_service",
         "subscription_service",
         "referral_service",
+        "support_service",
+        "notification_service",
+        "email_auth_service",
         *iter_service_keys(),
     ):
         await close_service(service_key)

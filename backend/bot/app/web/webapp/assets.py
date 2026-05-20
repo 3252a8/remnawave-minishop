@@ -15,7 +15,13 @@ async def health_route(request: web.Request) -> web.Response:
 
 
 async def css_asset_route(request: web.Request) -> web.Response:
-    return await _serve_template_asset(request, "subscription_webapp.css", "text/css")
+    asset_hash = request.match_info.get("asset_hash")
+    filename = f"subscription_webapp.{asset_hash}.css" if asset_hash else "subscription_webapp.css"
+    response = await _serve_template_asset(request, filename, "text/css")
+    response.headers["Cache-Control"] = (
+        "public, max-age=31536000, immutable" if asset_hash else "no-cache"
+    )
+    return response
 
 
 def _safe_theme_css_relative_path(raw_path: str) -> Optional[Path]:
@@ -121,9 +127,7 @@ async def theme_asset_route(request: web.Request) -> web.Response:
     query = getattr(request, "query", {})
     response = web.Response(body=body, content_type=content_type)
     response.headers["Cache-Control"] = (
-        "public, max-age=31536000, immutable"
-        if query.get("v")
-        else "public, max-age=3600"
+        "public, max-age=31536000, immutable" if query.get("v") else "public, max-age=3600"
     )
     return response
 
@@ -887,6 +891,41 @@ async def js_asset_route(request: web.Request) -> web.Response:
     return response
 
 
+WEBAPP_BOOTSTRAP_I18N_PREFIXES = ("wa_",)
+WEBAPP_BOOTSTRAP_I18N_KEYS = {"menu_support_button"}
+WEBAPP_I18N_SCOPES = {"webapp", "admin"}
+
+
+def _is_webapp_bootstrap_i18n_key(key: str) -> bool:
+    return key in WEBAPP_BOOTSTRAP_I18N_KEYS or key.startswith(WEBAPP_BOOTSTRAP_I18N_PREFIXES)
+
+
+def _normalize_i18n_scope(raw_scope: object) -> str:
+    scope = str(raw_scope or "webapp").strip().lower()
+    return scope if scope in WEBAPP_I18N_SCOPES else "webapp"
+
+
+def _filter_webapp_i18n_payload(locales_data: object, scope: str = "webapp") -> Dict[str, Any]:
+    if not isinstance(locales_data, dict):
+        return {}
+
+    normalized_scope = _normalize_i18n_scope(scope)
+    payload: Dict[str, Any] = {}
+    for lang, messages in locales_data.items():
+        if not isinstance(messages, dict):
+            continue
+        filtered: Dict[str, Any] = {}
+        for key, value in messages.items():
+            key_text = str(key)
+            is_bootstrap_key = _is_webapp_bootstrap_i18n_key(key_text)
+            if (normalized_scope == "webapp" and is_bootstrap_key) or (
+                normalized_scope == "admin" and not is_bootstrap_key
+            ):
+                filtered[key_text] = value
+        payload[str(lang)] = filtered
+    return payload
+
+
 def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
     settings: Settings = request.app["settings"]
     cached = _get_cached_webapp_settings(request)
@@ -897,6 +936,8 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
     if preview_theme is None or not preview_theme.enabled:
         preview_key = ""
     i18n_instance: Optional[object] = request.app.get("i18n")
+    i18n_scope = _normalize_i18n_scope(request.query.get("i18n_scope") or "webapp")
+    locales_data = getattr(i18n_instance, "locales_data", {}) if i18n_instance else {}
     return {
         "config": {
             "title": settings.WEBAPP_TITLE,
@@ -929,12 +970,29 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
             "appVersion": _resolve_app_version(),
             "appRepositoryUrl": APP_REPOSITORY_URL,
         },
-        "i18n": getattr(i18n_instance, "locales_data", {}) if i18n_instance else {},
+        "i18n": _filter_webapp_i18n_payload(locales_data, i18n_scope),
     }
 
 
 async def bootstrap_route(request: web.Request) -> web.Response:
-    return web.json_response({"ok": True, **_build_webapp_bootstrap_payload(request)})
+    response = web.json_response({"ok": True, **_build_webapp_bootstrap_payload(request)})
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+async def i18n_route(request: web.Request) -> web.Response:
+    i18n_instance: Optional[object] = request.app.get("i18n")
+    scope = _normalize_i18n_scope(request.query.get("scope") or "webapp")
+    locales_data = getattr(i18n_instance, "locales_data", {}) if i18n_instance else {}
+    response = web.json_response(
+        {
+            "ok": True,
+            "scope": scope,
+            "i18n": _filter_webapp_i18n_payload(locales_data, scope),
+        }
+    )
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 async def index_route(request: web.Request) -> web.Response:
@@ -950,6 +1008,11 @@ async def index_route(request: web.Request) -> web.Response:
     bootstrap = _build_webapp_bootstrap_payload(request)
     config = bootstrap["config"]
     html = _strip_marked_block(html, DEV_MOCK_START_MARKER, DEV_MOCK_END_MARKER)
+    html = html.replace(
+        'href="/subscription_webapp.css"',
+        f'href="/{_resolve_webapp_css_asset_name()}"',
+        1,
+    )
     initial_theme_markup = _initial_theme_head_markup(request, initial_theme, primary_color)
     if initial_theme_markup:
         html = html.replace("</head>", f"{initial_theme_markup}\n</head>", 1)
@@ -997,7 +1060,9 @@ async def index_route(request: web.Request) -> web.Response:
             ),
             1,
         )
-    return web.Response(text=html, content_type="text/html", charset="utf-8")
+    response = web.Response(text=html, content_type="text/html", charset="utf-8")
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 async def _serve_template_asset(
@@ -1033,6 +1098,21 @@ def _resolve_webapp_js_asset_name() -> str:
         minified_assets.sort(reverse=True)
         return minified_assets[0][1]
     return "subscription_webapp.js"
+
+
+def _resolve_webapp_css_asset_name() -> str:
+    hashed_assets = []
+    for path in ASSET_DIR.glob("subscription_webapp.*.css"):
+        if not re.fullmatch(r"subscription_webapp\.[0-9a-f]{8}\.css", path.name):
+            continue
+        try:
+            hashed_assets.append((path.stat().st_mtime, path.name))
+        except OSError:
+            continue
+    if hashed_assets:
+        hashed_assets.sort(reverse=True)
+        return hashed_assets[0][1]
+    return "subscription_webapp.css"
 
 
 _INITIAL_THEME_TOKEN_CSS_MAP = {

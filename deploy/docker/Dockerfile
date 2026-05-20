@@ -105,6 +105,7 @@ COPY --from=version-builder /build-tag /build-tag
 COPY --from=version-builder /build-commit /build-commit
 COPY backend/bot/app/web/templates/subscription_webapp.html /usr/share/nginx/html/index.html
 COPY --from=frontend-builder /app/backend/bot/app/web/templates/subscription_webapp.css /usr/share/nginx/html/subscription_webapp.css
+COPY --from=frontend-builder /app/backend/bot/app/web/templates/subscription_webapp.*.css /usr/share/nginx/html/
 COPY --from=frontend-builder /app/backend/bot/app/web/templates/subscription_webapp.js /usr/share/nginx/html/subscription_webapp.js
 COPY --from=frontend-builder /app/backend/bot/app/web/templates/subscription_webapp.min.*.js /usr/share/nginx/html/
 
@@ -112,9 +113,17 @@ RUN set -eu; \
     find /docker-entrypoint.d -type f -name '*.sh' -exec sed -i 's/\r$//' {} +; \
     HASHED=$(ls /usr/share/nginx/html/subscription_webapp.min.*.js 2>/dev/null | sort | tail -n1 | xargs -n1 basename || true); \
     JS_NAME="${HASHED:-subscription_webapp.js}"; \
+    CSS_NAME="subscription_webapp.css"; \
+    for candidate in /usr/share/nginx/html/subscription_webapp.*.css; do \
+      name="$(basename "$candidate")"; \
+      case "$name" in \
+        subscription_webapp.[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].css) CSS_NAME="$name" ;; \
+      esac; \
+    done; \
     sed -i \
       -e '/WEBAPP_I18N_SCRIPT/d' \
       -e '/WEBAPP_CONFIG_SCRIPT/d' \
+      -e "s|href=\"/subscription_webapp.css\"|href=\"/${CSS_NAME}\"|" \
       -e "/WEBAPP_JS_SCRIPT/c\\  <script src=\"/${JS_NAME}\" type=\"module\"></script>" \
       -e '/WEBAPP_DEV_MOCK_START/d' \
       -e '/WEBAPP_DEV_MOCK_END/d' \

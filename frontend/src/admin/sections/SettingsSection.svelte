@@ -139,14 +139,15 @@
 
   function sectionTitle(id) {
     const map = {
-      general: at("settings_section_general", {}, "Общие"),
-      appearance: at("settings_section_appearance", {}, "Внешний вид"),
-      pricing: at("settings_section_pricing", {}, "Тарифы и цены"),
-      payments: at("settings_section_payments", {}, "Платёжные системы"),
-      trial: at("settings_section_trial", {}, "Триал"),
-      referral: at("settings_section_referral", {}, "Реферальная программа"),
-      notifications: at("settings_section_notifications", {}, "Уведомления"),
-      devices: at("settings_section_devices", {}, "Устройства"),
+      general: at("admin_settings_section_general", {}, "Общие"),
+      appearance: at("admin_settings_section_appearance", {}, "Внешний вид"),
+      pricing: at("admin_settings_section_pricing", {}, "Тарифы и цены"),
+      payments: at("admin_settings_section_payments", {}, "Платёжные системы"),
+      trial: at("admin_settings_section_trial", {}, "Триал"),
+      referral: at("admin_settings_section_referral", {}, "Реферальная программа"),
+      notifications: at("admin_settings_section_notifications", {}, "Уведомления"),
+      support: at("admin_settings_section_support", {}, "Поддержка"),
+      devices: at("admin_settings_section_devices", {}, "Устройства"),
     };
     return map[id] || id;
   }

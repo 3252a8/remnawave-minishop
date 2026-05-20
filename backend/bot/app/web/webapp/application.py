@@ -44,6 +44,9 @@ def create_subscription_webapp_application(
         "subscription_service",
         "promo_code_service",
         "referral_service",
+        "support_service",
+        "notification_service",
+        "email_auth_service",
         "panel_service",
         *iter_service_keys(),
     ):
