@@ -95,6 +95,7 @@ class Settings(BaseSettings):
     REDIS_URL: Optional[str] = Field(default=None)
     REDIS_KEY_PREFIX: str = Field(default="remnawave-tg-shop")
     WEBAPP_ME_CACHE_TTL_SECONDS: int = Field(default=15)
+    WEBAPP_DEVICES_CACHE_TTL_SECONDS: int = Field(default=5)
     WEBAPP_RATE_LIMIT_TTL_SECONDS: int = Field(default=60)
     WEBAPP_RATE_LIMIT_MAX_REQUESTS: int = Field(default=30)
     WEBHOOK_QUEUE_NAME: str = Field(default="webhook-events")
@@ -102,6 +103,7 @@ class Settings(BaseSettings):
     WORKER_PANEL_SYNC_INTERVAL_SECONDS: int = Field(default=900)
     TARIFF_WORKER_LOCK_TTL_SECONDS: int = Field(default=240)
     TARIFF_WORKER_TICK_SECONDS: int = Field(default=300)
+    TARIFF_WORKER_BULK_PANEL_FETCH_THRESHOLD: int = Field(default=200)
 
     DEFAULT_LANGUAGE: str = Field(default="ru")
     DEFAULT_CURRENCY_SYMBOL: str = Field(default="RUB")
@@ -268,6 +270,10 @@ class Settings(BaseSettings):
     CRYPT4_REDIRECT_URL: Optional[str] = Field(
         default=None,
         description="Base redirect URL used for the connect button when crypt4 is enabled",
+    )
+    CRYPT4_LINK_CACHE_TTL_SECONDS: int = Field(
+        default=3600,
+        description="TTL for cached happ crypt4 encryption results keyed by raw subscription URL",
     )
 
     WEB_SERVER_HOST: str = Field(default="0.0.0.0")

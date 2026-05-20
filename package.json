@@ -11,6 +11,7 @@
     "format:check:py": "python -m ruff format --check .",
     "format:check:js": "npm --prefix frontend run format:check",
     "format:check": "npm run format:check:py && npm run format:check:js",
+    "bench:bot": "python scripts/perf_benchmarks.py",
     "test": "pytest -q",
     "check": "npm run lint && npm test && npm run build:webapp"
   }

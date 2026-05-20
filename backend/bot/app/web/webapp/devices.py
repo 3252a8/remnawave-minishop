@@ -15,6 +15,11 @@ async def devices_route(request: web.Request) -> web.Response:
         if not db_user or db_user.is_banned:
             return _json_error(403, "access_denied", "Access denied")
 
+        cache_key = redis_key(settings, "cache", "webapp", "devices", user_id)
+        cached = await cache_get_json(settings, cache_key)
+        if isinstance(cached, dict):
+            return web.json_response({"ok": True, **cached})
+
         active = await subscription_service.get_active_subscription_details(session, user_id)
         panel_user_uuid = active.get("user_id") if active else None
         if not panel_user_uuid:
@@ -32,18 +37,22 @@ async def devices_route(request: web.Request) -> web.Response:
 
     devices = _normalize_devices_response(devices_response)
     max_devices = _coerce_int_or_none(active.get("max_devices")) if active else None
-    return web.json_response(
-        {
-            "ok": True,
-            "enabled": True,
-            "current_devices": len(devices),
-            "max_devices": max_devices,
-            "max_devices_label": _format_devices_limit(max_devices),
-            "devices": [
-                _serialize_device(device, index) for index, device in enumerate(devices, start=1)
-            ],
-        }
+    payload = {
+        "enabled": True,
+        "current_devices": len(devices),
+        "max_devices": max_devices,
+        "max_devices_label": _format_devices_limit(max_devices),
+        "devices": [
+            _serialize_device(device, index) for index, device in enumerate(devices, start=1)
+        ],
+    }
+    await cache_set_json(
+        settings,
+        cache_key,
+        payload,
+        max(1, int(getattr(settings, "WEBAPP_DEVICES_CACHE_TTL_SECONDS", 5) or 5)),
     )
+    return web.json_response({"ok": True, **payload})
 
 
 async def disconnect_device_route(request: web.Request) -> web.Response:
@@ -103,6 +112,7 @@ async def disconnect_device_route(request: web.Request) -> web.Response:
         success = await panel_service.disconnect_device(panel_user_uuid, target_hwid)
         if not success:
             return _json_error(502, "device_disconnect_failed", "Failed to disconnect device")
+        await cache_delete(settings, redis_key(settings, "cache", "webapp", "devices", user_id))
         await session.commit()
 
     return web.json_response({"ok": True})

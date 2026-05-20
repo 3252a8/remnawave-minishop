@@ -531,3 +531,89 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             # 4 GB used vs 1 GB baseline + 10 GB bonus = 11 GB limit → not limited.
             self.assertFalse(sub.premium_is_limited)
             self.assertEqual(int(sub.premium_used_bytes), 4 * (1024**3))
+
+    async def test_premium_usage_lookup_sums_uuid_and_username_without_double_counting(self):
+        panel_service = AsyncMock(spec=PanelApiService)
+        panel_service.get_node_users_bandwidth_stats = AsyncMock(
+            return_value={
+                "topUsers": [
+                    {"user": {"uuid": "u-1", "username": "alice"}, "total": 10},
+                    {"username": "alice", "total": 5},
+                    {"userUuid": "u-1", "total": 7},
+                    {"user": {"uuid": "other", "username": "alice"}, "total": 3},
+                ]
+            }
+        )
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(),
+            session_factory=SimpleNamespace(),
+            panel_service=panel_service,
+            subscription_service=SimpleNamespace(),
+        )
+
+        total = await worker._premium_usage_for_user(
+            "u-1",
+            ["node-1"],
+            "2026-05-01",
+            "2026-05-20",
+            panel_username="alice",
+        )
+        total_again = await worker._premium_usage_for_user(
+            "u-1",
+            ["node-1"],
+            "2026-05-01",
+            "2026-05-20",
+            panel_username="alice",
+        )
+
+        # The first row has both uuid and username, so it should be counted once.
+        self.assertEqual(total, 25)
+        self.assertEqual(total_again, 25)
+        panel_service.get_node_users_bandwidth_stats.assert_awaited_once()
+
+    async def test_bulk_panel_prefetch_maps_panel_users_by_uuid_above_threshold(self):
+        settings = SimpleNamespace(TARIFF_WORKER_BULK_PANEL_FETCH_THRESHOLD=2)
+        panel_service = AsyncMock(spec=PanelApiService)
+        panel_service.get_all_panel_users = AsyncMock(
+            return_value=[
+                {"uuid": "panel-1", "username": "one"},
+                {"uuid": "panel-2", "username": "two"},
+                {"username": "missing-uuid"},
+            ]
+        )
+        worker = TariffTrafficWorker(
+            settings=settings,
+            session_factory=SimpleNamespace(),
+            panel_service=panel_service,
+            subscription_service=SimpleNamespace(),
+        )
+
+        result = await worker._prefetch_panel_users_by_uuid(
+            [
+                SimpleNamespace(panel_user_uuid="panel-1"),
+                SimpleNamespace(panel_user_uuid="panel-2"),
+            ]
+        )
+
+        self.assertEqual(set(result), {"panel-1", "panel-2"})
+        panel_service.get_all_panel_users.assert_awaited_once_with(log_responses=False)
+
+    async def test_bulk_panel_prefetch_skips_below_threshold(self):
+        settings = SimpleNamespace(TARIFF_WORKER_BULK_PANEL_FETCH_THRESHOLD=3)
+        panel_service = AsyncMock(spec=PanelApiService)
+        worker = TariffTrafficWorker(
+            settings=settings,
+            session_factory=SimpleNamespace(),
+            panel_service=panel_service,
+            subscription_service=SimpleNamespace(),
+        )
+
+        result = await worker._prefetch_panel_users_by_uuid(
+            [
+                SimpleNamespace(panel_user_uuid="panel-1"),
+                SimpleNamespace(panel_user_uuid="panel-2"),
+            ]
+        )
+
+        self.assertIsNone(result)
+        panel_service.get_all_panel_users.assert_not_awaited()

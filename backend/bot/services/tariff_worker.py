@@ -29,6 +29,7 @@ PREMIUM_WARNING_DEPLETED_LEVEL = PREMIUM_WARNING_LEVEL_OFFSET + 100
 # to avoid an N+1 serial chain to the Remnawave panel each tick.
 TARIFF_WORKER_BATCH_SIZE = 50
 TARIFF_WORKER_PANEL_CONCURRENCY = 10
+TARIFF_WORKER_BULK_PANEL_FETCH_THRESHOLD = 200
 
 
 class TariffTrafficWorker:
@@ -49,7 +50,7 @@ class TariffTrafficWorker:
         self.i18n = i18n
         self._stopped = asyncio.Event()
         self._premium_nodes_cache = {}
-        self._premium_node_stats_tick_cache = {}
+        self._premium_node_usage_tick_cache = {}
 
     async def _user_lang(self, session: AsyncSession, user_id: int) -> str:
         try:
@@ -133,7 +134,7 @@ class TariffTrafficWorker:
 
     async def traffic_period_tick(self, session: AsyncSession) -> None:
         now = datetime.now(timezone.utc)
-        self._premium_node_stats_tick_cache = {}
+        self._premium_node_usage_tick_cache = {}
         warning_period_start = month_start(now)
         result = await session.execute(
             select(Subscription).where(
@@ -146,9 +147,15 @@ class TariffTrafficWorker:
         if not subs:
             return
 
+        panel_users_by_uuid = await self._prefetch_panel_users_by_uuid(subs)
         semaphore = asyncio.Semaphore(TARIFF_WORKER_PANEL_CONCURRENCY)
 
         async def _fetch_panel(sub: Subscription) -> dict:
+            if panel_users_by_uuid is not None:
+                cached_panel_user = panel_users_by_uuid.get(str(sub.panel_user_uuid))
+                if cached_panel_user is not None:
+                    return cached_panel_user
+
             async with semaphore:
                 try:
                     data = await self.panel_service.get_user_by_uuid(
@@ -207,6 +214,46 @@ class TariffTrafficWorker:
                     panel_username=panel_username,
                     panel_user_dict=panel_data,
                 )
+
+    async def _prefetch_panel_users_by_uuid(
+        self,
+        subs: list[Subscription],
+    ) -> Optional[dict[str, dict]]:
+        threshold = int(
+            getattr(
+                self.settings,
+                "TARIFF_WORKER_BULK_PANEL_FETCH_THRESHOLD",
+                TARIFF_WORKER_BULK_PANEL_FETCH_THRESHOLD,
+            )
+            or 0
+        )
+        if threshold <= 0 or len(subs) < threshold:
+            return None
+        try:
+            panel_users = await self.panel_service.get_all_panel_users(log_responses=False)
+        except Exception:
+            logging.exception("TariffTrafficWorker: failed to bulk-prefetch panel users")
+            return None
+        if not panel_users:
+            return None
+
+        by_uuid: dict[str, dict] = {}
+        for user in panel_users:
+            if not isinstance(user, dict):
+                continue
+            uuid = user.get("uuid")
+            if uuid:
+                by_uuid[str(uuid)] = user
+        if not by_uuid:
+            return None
+        matched = sum(1 for sub in subs if str(sub.panel_user_uuid) in by_uuid)
+        logging.info(
+            "metric panel_bulk_user_prefetch users=%s matched=%s active_subscriptions=%s",
+            len(by_uuid),
+            matched,
+            len(subs),
+        )
+        return by_uuid
 
     async def _ensure_period_reset_strategy(
         self,
@@ -642,53 +689,94 @@ class TariffTrafficWorker:
         found = False
         username = (panel_username or "").strip() or None
         for node_uuid in node_uuids:
-            stats_cache_key = (node_uuid, start_date, end_date)
-            if stats_cache_key not in self._premium_node_stats_tick_cache:
-                self._premium_node_stats_tick_cache[
-                    stats_cache_key
-                ] = await self.panel_service.get_node_users_bandwidth_stats(
-                    node_uuid,
-                    start=start_date,
-                    end=end_date,
-                )
-            stats = self._premium_node_stats_tick_cache.get(stats_cache_key)
-            if not stats:
+            lookup = await self._premium_usage_lookup_for_node(node_uuid, start_date, end_date)
+            if not lookup:
                 continue
-            entries = stats.get("topUsers") or stats.get("usersStats") or stats.get("users") or []
-            if not isinstance(entries, list):
-                continue
-            for entry in entries:
-                if not isinstance(entry, dict):
-                    continue
-                user_obj = entry.get("user") if isinstance(entry.get("user"), dict) else {}
-                entry_uuid = (
-                    user_obj.get("uuid")
-                    or entry.get("userUuid")
-                    or entry.get("uuid")
-                    or entry.get("user_uuid")
+
+            uuid_total = 0
+            username_total = 0
+            overlap_total = 0
+            if user_uuid:
+                user_uuid_str = str(user_uuid)
+                uuid_total = int(lookup["by_uuid"].get(user_uuid_str, 0) or 0)
+            else:
+                user_uuid_str = ""
+            if username:
+                username_total = int(lookup["by_username"].get(username, 0) or 0)
+            if user_uuid_str and username:
+                overlap_total = int(
+                    lookup["by_uuid_username"].get((user_uuid_str, username), 0) or 0
                 )
-                entry_username = (
-                    user_obj.get("username") or entry.get("username") or entry.get("userUsername")
-                )
-                # Remnawave's /bandwidth-stats/nodes/{uuid}/users response
-                # currently exposes only {color, username, total}; match by
-                # username first, fall back to UUID if a future version
-                # adds it back.
-                matched = False
-                if entry_uuid and entry_uuid == user_uuid:
-                    matched = True
-                elif username and entry_username and entry_username == username:
-                    matched = True
-                if not matched:
-                    continue
-                value = entry.get("total")
-                if value is None:
-                    value = int(entry.get("download", 0) or 0) + int(entry.get("upload", 0) or 0)
-                total += int(value or 0)
+
+            node_total = uuid_total + username_total - overlap_total
+            if node_total or (
+                user_uuid_str in lookup["by_uuid"]
+                or (username and username in lookup["by_username"])
+            ):
+                total += node_total
                 found = True
-            if len(node_uuids) > 1:
-                await asyncio.sleep(0.1)
         return total if found else 0
+
+    async def _premium_usage_lookup_for_node(
+        self,
+        node_uuid: str,
+        start_date: str,
+        end_date: str,
+    ) -> Optional[dict]:
+        stats_cache_key = (node_uuid, start_date, end_date)
+        if stats_cache_key not in self._premium_node_usage_tick_cache:
+            stats = await self.panel_service.get_node_users_bandwidth_stats(
+                node_uuid,
+                start=start_date,
+                end=end_date,
+            )
+            self._premium_node_usage_tick_cache[stats_cache_key] = self._build_premium_usage_lookup(
+                stats
+            )
+        return self._premium_node_usage_tick_cache.get(stats_cache_key)
+
+    @staticmethod
+    def _build_premium_usage_lookup(stats: Optional[dict]) -> Optional[dict]:
+        if not isinstance(stats, dict):
+            return None
+        entries = stats.get("topUsers") or stats.get("usersStats") or stats.get("users") or []
+        if not isinstance(entries, list):
+            return None
+
+        by_uuid: dict[str, int] = {}
+        by_username: dict[str, int] = {}
+        by_uuid_username: dict[tuple[str, str], int] = {}
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            user_obj = entry.get("user") if isinstance(entry.get("user"), dict) else {}
+            entry_uuid = (
+                user_obj.get("uuid")
+                or entry.get("userUuid")
+                or entry.get("uuid")
+                or entry.get("user_uuid")
+            )
+            entry_username = (
+                user_obj.get("username") or entry.get("username") or entry.get("userUsername")
+            )
+            value = entry.get("total")
+            if value is None:
+                value = int(entry.get("download", 0) or 0) + int(entry.get("upload", 0) or 0)
+            total = int(value or 0)
+            uuid_key = str(entry_uuid) if entry_uuid else ""
+            username_key = str(entry_username) if entry_username else ""
+            if uuid_key:
+                by_uuid[uuid_key] = by_uuid.get(uuid_key, 0) + total
+            if username_key:
+                by_username[username_key] = by_username.get(username_key, 0) + total
+            if uuid_key and username_key:
+                pair = (uuid_key, username_key)
+                by_uuid_username[pair] = by_uuid_username.get(pair, 0) + total
+        return {
+            "by_uuid": by_uuid,
+            "by_username": by_username,
+            "by_uuid_username": by_uuid_username,
+        }
 
     async def legacy_throttle_recovery_tick(self, session: AsyncSession) -> None:
         """Recover subscriptions throttled by older bot versions.

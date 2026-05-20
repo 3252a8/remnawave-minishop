@@ -37,37 +37,45 @@ class AsyncTTLCache:
         return True
 
     async def get_or_load(self, key: str, loader: Callable[[], Awaitable[Any]]) -> Any:
-        if self.settings is not None and self.namespace:
-            try:
-                from bot.infra.redis import cache_get_json, cache_set_json, redis_key
-
-                cache_key = redis_key(self.settings, "cache", self.namespace, key)
-                cached = await cache_get_json(self.settings, cache_key)
-                if cached is not None:
-                    return cached
-                value = await loader()
-                if self._is_cacheable(value):
-                    await cache_set_json(
-                        self.settings,
-                        cache_key,
-                        value,
-                        max(1, int(self.ttl_seconds)),
-                    )
-                return value
-            except Exception:
-                pass
-
         cached = self.get_fresh(key)
         if cached is not None:
             return cached
+
         lock = self._locks.setdefault(key, asyncio.Lock())
         async with lock:
             cached = self.get_fresh(key)
             if cached is not None:
                 return cached
+
+            cache_key = None
+            if self.settings is not None and self.namespace:
+                try:
+                    from bot.infra.redis import cache_get_json, redis_key
+
+                    cache_key = redis_key(self.settings, "cache", self.namespace, key)
+                    cached = await cache_get_json(self.settings, cache_key)
+                    if cached is not None:
+                        if self._is_cacheable(cached):
+                            self._data[key] = (time.monotonic() + self.ttl_seconds, cached)
+                        return cached
+                except Exception:
+                    cache_key = None
+
             value = await loader()
             if self._is_cacheable(value):
                 self._data[key] = (time.monotonic() + self.ttl_seconds, value)
+                if cache_key is not None:
+                    try:
+                        from bot.infra.redis import cache_set_json
+
+                        await cache_set_json(
+                            self.settings,
+                            cache_key,
+                            value,
+                            max(1, int(self.ttl_seconds)),
+                        )
+                    except Exception:
+                        pass
             return value
 
     def invalidate(self, key: Optional[str] = None) -> None:
