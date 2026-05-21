@@ -738,10 +738,148 @@ def _migration_0022_add_indexes_for_admin_reports(connection: Connection) -> Non
     )
     connection.execute(
         text(
-            "CREATE INDEX IF NOT EXISTS ix_message_logs_timestamp "
-            "ON message_logs (timestamp DESC)"
+            "CREATE INDEX IF NOT EXISTS ix_message_logs_timestamp ON message_logs (timestamp DESC)"
         )
     )
+
+
+def _migration_0023_add_email_password_auth_fields(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+
+    if "password_hash" not in columns:
+        connection.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR"))
+    if "password_set_at" not in columns:
+        connection.execute(text("ALTER TABLE users ADD COLUMN password_set_at TIMESTAMPTZ"))
+
+
+def _migration_0024_add_support_tickets(connection: Connection) -> None:
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS support_tickets (
+                ticket_id SERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL REFERENCES users(user_id),
+                subject VARCHAR(160) NOT NULL,
+                category VARCHAR(32) NOT NULL DEFAULT 'other',
+                priority VARCHAR(16) NOT NULL DEFAULT 'normal',
+                status VARCHAR(24) NOT NULL DEFAULT 'open',
+                assigned_admin_id BIGINT NULL,
+                last_message_at TIMESTAMPTZ DEFAULT NOW(),
+                last_message_role VARCHAR(16) NULL,
+                unread_user_count INTEGER NOT NULL DEFAULT 0,
+                unread_admin_count INTEGER NOT NULL DEFAULT 0,
+                admin_last_notified_at TIMESTAMPTZ NULL,
+                admin_last_emailed_at TIMESTAMPTZ NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NULL,
+                closed_at TIMESTAMPTZ NULL,
+                closed_by_admin_id BIGINT NULL
+            )
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS support_ticket_messages (
+                message_id SERIAL PRIMARY KEY,
+                ticket_id INTEGER NOT NULL REFERENCES support_tickets(ticket_id) ON DELETE CASCADE,
+                author_role VARCHAR(16) NOT NULL,
+                author_user_id BIGINT NULL REFERENCES users(user_id),
+                body TEXT NOT NULL,
+                is_internal_note BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                read_by_user_at TIMESTAMPTZ NULL,
+                read_by_admin_at TIMESTAMPTZ NULL
+            )
+            """
+        )
+    )
+
+    inspector = inspect(connection)
+    ticket_columns: Set[str] = {col["name"] for col in inspector.get_columns("support_tickets")}
+    ticket_column_sql = {
+        "user_id": "BIGINT NOT NULL REFERENCES users(user_id)",
+        "subject": "VARCHAR(160) NOT NULL DEFAULT ''",
+        "category": "VARCHAR(32) NOT NULL DEFAULT 'other'",
+        "priority": "VARCHAR(16) NOT NULL DEFAULT 'normal'",
+        "status": "VARCHAR(24) NOT NULL DEFAULT 'open'",
+        "assigned_admin_id": "BIGINT NULL",
+        "last_message_at": "TIMESTAMPTZ DEFAULT NOW()",
+        "last_message_role": "VARCHAR(16) NULL",
+        "unread_user_count": "INTEGER NOT NULL DEFAULT 0",
+        "unread_admin_count": "INTEGER NOT NULL DEFAULT 0",
+        "admin_last_notified_at": "TIMESTAMPTZ NULL",
+        "admin_last_emailed_at": "TIMESTAMPTZ NULL",
+        "created_at": "TIMESTAMPTZ DEFAULT NOW()",
+        "updated_at": "TIMESTAMPTZ NULL",
+        "closed_at": "TIMESTAMPTZ NULL",
+        "closed_by_admin_id": "BIGINT NULL",
+    }
+    for column, definition in ticket_column_sql.items():
+        if column not in ticket_columns:
+            connection.execute(
+                text(f"ALTER TABLE support_tickets ADD COLUMN {column} {definition}")
+            )
+
+    message_columns: Set[str] = {
+        col["name"] for col in inspector.get_columns("support_ticket_messages")
+    }
+    message_column_sql = {
+        "ticket_id": "INTEGER NOT NULL REFERENCES support_tickets(ticket_id) ON DELETE CASCADE",
+        "author_role": "VARCHAR(16) NOT NULL DEFAULT 'user'",
+        "author_user_id": "BIGINT NULL REFERENCES users(user_id)",
+        "body": "TEXT NOT NULL DEFAULT ''",
+        "is_internal_note": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "created_at": "TIMESTAMPTZ DEFAULT NOW()",
+        "read_by_user_at": "TIMESTAMPTZ NULL",
+        "read_by_admin_at": "TIMESTAMPTZ NULL",
+    }
+    for column, definition in message_column_sql.items():
+        if column not in message_columns:
+            connection.execute(
+                text(f"ALTER TABLE support_ticket_messages ADD COLUMN {column} {definition}")
+            )
+
+    index_statements = [
+        "CREATE INDEX IF NOT EXISTS ix_support_tickets_user_id ON support_tickets (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_support_tickets_category ON support_tickets (category)",
+        "CREATE INDEX IF NOT EXISTS ix_support_tickets_priority ON support_tickets (priority)",
+        "CREATE INDEX IF NOT EXISTS ix_support_tickets_status ON support_tickets (status)",
+        "CREATE INDEX IF NOT EXISTS ix_support_tickets_assigned_admin_id ON support_tickets (assigned_admin_id)",  # noqa: E501
+        "CREATE INDEX IF NOT EXISTS ix_support_tickets_last_message_at ON support_tickets (last_message_at)",  # noqa: E501
+        "CREATE INDEX IF NOT EXISTS ix_support_tickets_status_last_msg ON support_tickets (status, last_message_at)",  # noqa: E501
+        "CREATE INDEX IF NOT EXISTS ix_support_ticket_messages_ticket_id ON support_ticket_messages (ticket_id)",  # noqa: E501
+        "CREATE INDEX IF NOT EXISTS ix_support_ticket_messages_author_user_id ON support_ticket_messages (author_user_id)",  # noqa: E501
+        "CREATE INDEX IF NOT EXISTS ix_support_ticket_messages_is_internal_note ON support_ticket_messages (is_internal_note)",  # noqa: E501
+        "CREATE INDEX IF NOT EXISTS ix_support_ticket_messages_created_at ON support_ticket_messages (created_at)",  # noqa: E501
+    ]
+    for stmt in index_statements:
+        connection.execute(text(stmt))
+
+
+def _migration_0025_add_support_notification_timestamps(connection: Connection) -> None:
+    inspector = inspect(connection)
+    ticket_columns: Set[str] = {col["name"] for col in inspector.get_columns("support_tickets")}
+    column_sql = {
+        "admin_last_notified_at": "TIMESTAMPTZ NULL",
+        "admin_last_emailed_at": "TIMESTAMPTZ NULL",
+    }
+    for column, definition in column_sql.items():
+        if column not in ticket_columns:
+            connection.execute(
+                text(f"ALTER TABLE support_tickets ADD COLUMN {column} {definition}")
+            )
+
+
+def _migration_0026_add_lifetime_traffic_synced_at(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    if "lifetime_used_traffic_synced_at" not in columns:
+        connection.execute(
+            text("ALTER TABLE users ADD COLUMN lifetime_used_traffic_synced_at TIMESTAMPTZ")
+        )
 
 
 MIGRATIONS: List[Migration] = [
@@ -865,6 +1003,26 @@ MIGRATIONS: List[Migration] = [
         id="0022_add_indexes_for_admin_reports",
         description="Indexes to speed up financial stats and admin log queries",
         upgrade=_migration_0022_add_indexes_for_admin_reports,
+    ),
+    Migration(
+        id="0023_add_email_password_auth_fields",
+        description="Store hashed passwords for optional email password login",
+        upgrade=_migration_0023_add_email_password_auth_fields,
+    ),
+    Migration(
+        id="0024_add_support_tickets",
+        description="Add support ticket inbox and messages",
+        upgrade=_migration_0024_add_support_tickets,
+    ),
+    Migration(
+        id="0025_add_support_notification_timestamps",
+        description="Track support ticket admin notification cooldown timestamps",
+        upgrade=_migration_0025_add_support_notification_timestamps,
+    ),
+    Migration(
+        id="0026_add_lifetime_traffic_synced_at",
+        description="Track when lifetime traffic usage was last synced from panel",
+        upgrade=_migration_0026_add_lifetime_traffic_synced_at,
     ),
 ]
 

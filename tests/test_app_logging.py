@@ -51,8 +51,13 @@ class ConfigureLoggingTests(unittest.TestCase):
         # Confirm the format string structure by emitting a record into a buffer.
         formatter = handler.formatter
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname=__file__, lineno=1,
-            msg="hello", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname=__file__,
+            lineno=1,
+            msg="hello",
+            args=(),
+            exc_info=None,
         )
         rendered = formatter.format(record) if formatter else ""
         # Format is "%(asctime)s - %(name)s - %(levelname)s - %(message)s".

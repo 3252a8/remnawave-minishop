@@ -32,13 +32,37 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 28px 14px;
+  gap: 1px;
+  padding: 22px 14px;
   border-right: 1px solid var(--admin-border);
   background: var(--rail-bg);
   backdrop-filter: blur(14px);
   box-shadow: inset -1px 0 0 var(--admin-border);
   overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--admin-muted) 34%, var(--admin-border)) transparent;
+}
+
+.admin-sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.admin-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-muted) 34%, var(--admin-border));
+  background-clip: padding-box;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--admin-muted) 48%, var(--admin-border));
+  background-clip: padding-box;
 }
 
 .admin-sidebar > *:not(.admin-sidebar-footer) {
@@ -50,8 +74,8 @@
   grid-template-columns: 38px minmax(0, 1fr) 34px;
   align-items: center;
   gap: 12px;
-  padding: 4px 12px 18px;
-  margin-bottom: 8px;
+  padding: 2px 10px 14px;
+  margin-bottom: 6px;
   border-bottom: 1px solid var(--admin-border);
   color: var(--admin-text);
 }
@@ -89,7 +113,7 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--admin-dim);
-  padding: 14px 12px 6px;
+  padding: 10px 10px 5px;
 }
 
 .admin-nav {
@@ -102,8 +126,9 @@
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 10px;
+  min-height: 38px;
+  padding: 9px 12px;
   border-radius: 10px;
   border: 1px solid transparent;
   background: transparent;
@@ -120,8 +145,34 @@
 }
 
 .admin-nav-item > svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
+}
+
+.admin-nav-item > span:last-child {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.admin-nav-item .admin-badge.admin-badge-danger {
+  display: inline-grid;
+  box-sizing: border-box;
+  --numeric-badge-optical-y: 0.5px;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 0;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 7px;
+  text-align: center;
+  font-variant-numeric: lining-nums;
+  font-feature-settings: "lnum";
 }
 
 .admin-nav-item:hover {
@@ -142,7 +193,7 @@
 
 .admin-sidebar-footer {
   margin-top: auto;
-  padding: 14px 0 0;
+  padding: 10px 0 0;
   border-top: 1px solid var(--admin-border);
   font-size: 11px;
   color: var(--admin-dim);
@@ -319,6 +370,11 @@
   min-width: 0;
   flex-shrink: 0;
   width: 100%;
+}
+
+.admin-section-stage:has(.support-admin-layout) {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .admin-card {
@@ -1538,6 +1594,7 @@
 }
 
 .admin-textarea:focus,
+.admin-screen-wrap textarea:focus,
 .admin-dialog textarea:focus {
   border-color: var(--admin-ring);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
@@ -1878,6 +1935,162 @@
   gap: 8px;
   flex-wrap: wrap;
   min-width: 0;
+}
+
+.admin-icon-picker-trigger {
+  min-width: 180px;
+  justify-content: flex-start;
+}
+
+.admin-icon-picker-trigger span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-icon-picker-dialog {
+  width: min(100%, 760px);
+}
+
+.admin-icon-picker-body {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-icon-picker-current {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, var(--surface-sheen), transparent),
+    color-mix(in srgb, var(--admin-surface-2) 86%, transparent);
+}
+
+.admin-icon-picker-current-preview {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--admin-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-muted));
+  color: var(--admin-text);
+}
+
+.admin-icon-picker-current-meta {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.admin-icon-picker-current-meta small {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-icon-picker-current-meta strong {
+  overflow: hidden;
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-icon-picker-toolbar {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-icon-picker-search {
+  position: relative;
+  display: block;
+}
+
+.admin-icon-picker-search > svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--admin-muted);
+  pointer-events: none;
+}
+
+.admin-icon-picker-search .input {
+  width: 100%;
+  padding-left: 36px;
+}
+
+.admin-icon-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  max-height: min(52vh, 460px);
+  overflow-y: auto;
+  padding: 2px 4px 4px 0;
+}
+
+.admin-icon-picker-option {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--admin-text);
+  padding: 11px 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-icon-picker-option > svg {
+  justify-self: center;
+  color: var(--admin-muted);
+}
+
+.admin-icon-picker-option span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-icon-picker-option:hover,
+.admin-icon-picker-option.active {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--admin-border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-muted));
+}
+
+.admin-icon-picker-option.active > svg {
+  color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .admin-icon-picker-current {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .admin-icon-picker-current > .admin-btn {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .admin-icon-picker-current-preview {
+    width: 44px;
+    height: 44px;
+  }
+
+  .admin-icon-picker-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
 }
 
 .admin-setting-control .admin-color {
@@ -2708,6 +2921,13 @@
     box-shadow 0.12s ease;
 }
 
+.admin-select-trigger span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .admin-select-trigger:hover {
   border-color: var(--admin-border-strong);
 }
@@ -3212,5 +3432,1680 @@
   .admin-settings-subsection-meta {
     grid-area: meta;
     white-space: normal;
+  }
+}
+.support-admin-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) minmax(520px, 1fr) minmax(280px, 340px);
+  gap: 16px;
+  align-items: stretch;
+  min-height: min(820px, calc(100dvh - var(--admin-header-h) - 120px));
+}
+
+.support-admin-inbox,
+.support-admin-detail,
+.support-user-context {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.support-admin-inbox,
+.support-admin-detail {
+  min-height: 0;
+  align-self: stretch;
+}
+
+.support-admin-inbox {
+  grid-template-rows: auto minmax(0, 1fr);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--admin-surface) 88%, var(--admin-bg));
+  padding: 14px;
+}
+
+.support-admin-toolbar {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.support-admin-inbox .support-admin-toolbar {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.support-admin-search {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.support-admin-search svg {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  color: var(--admin-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.support-admin-search .input {
+  width: 100%;
+  padding-left: 36px;
+}
+
+.support-admin-filter-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-items: center;
+}
+
+.support-admin-filter-row > :last-child {
+  grid-column: 1 / -1;
+}
+
+.support-inbox-list {
+  gap: 8px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+  scrollbar-width: thin;
+}
+
+.support-inbox-row {
+  position: relative;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--admin-surface) 72%, var(--admin-bg));
+  color: inherit;
+  padding: 12px 12px 12px 14px;
+  cursor: pointer;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.support-inbox-row::before {
+  content: "";
+  position: absolute;
+  inset: 10px auto 10px 5px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--admin-border-strong);
+  transition: background 0.16s ease;
+}
+
+.support-inbox-row[data-status="open"]::before,
+.support-inbox-row[data-status="awaiting_admin"]::before {
+  background: var(--accent);
+}
+
+.support-inbox-row[data-status="awaiting_user"]::before {
+  background: var(--info);
+}
+
+.support-inbox-row[data-status="resolved"]::before,
+.support-inbox-row[data-status="closed"]::before {
+  background: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+
+.support-inbox-row[data-priority="urgent"]::before {
+  background: var(--danger);
+}
+
+.support-inbox-row:hover {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--admin-border));
+  background: color-mix(in srgb, var(--admin-surface) 78%, var(--accent) 6%);
+}
+
+.support-inbox-row.active {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--admin-border));
+  background: color-mix(in srgb, var(--admin-surface) 82%, var(--accent) 10%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.support-inbox-row-avatar {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-surface-2) 80%, transparent);
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.support-inbox-row-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.support-inbox-row-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.support-inbox-row-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.support-inbox-row-title svg {
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--accent) 72%, var(--admin-muted));
+}
+
+.support-inbox-row-title strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  color: var(--admin-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-inbox-row-main > small {
+  display: block;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-row-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.support-row-badges small {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.support-row-badges b {
+  display: inline-grid;
+  box-sizing: border-box;
+  --numeric-badge-optical-y: 0.5px;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 7px;
+  text-align: center;
+  font-variant-numeric: lining-nums;
+  font-feature-settings: "lnum";
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 22%, transparent);
+}
+
+.support-ticket-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 16px;
+  align-items: start;
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--admin-surface) 88%, var(--admin-bg));
+  padding: 16px;
+}
+
+.support-ticket-title {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.support-ticket-title small,
+.support-ticket-controls label > span {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.support-ticket-title h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  color: var(--admin-text);
+}
+
+.support-ticket-title-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.support-ticket-close {
+  justify-self: end;
+  align-self: start;
+  white-space: nowrap;
+}
+
+.support-ticket-controls {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--admin-border);
+}
+
+.support-ticket-controls label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.support-admin-message-scroll {
+  border-color: var(--admin-border);
+  background: color-mix(in srgb, var(--admin-bg) 70%, transparent);
+}
+
+.support-admin-messages .ticket-message-content {
+  max-width: min(78%, 760px);
+}
+
+.support-admin-messages .ticket-message-bubble {
+  --ticket-bubble-border: var(--admin-border);
+  border-color: var(--admin-border);
+}
+
+.support-admin-composer {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: var(--admin-surface);
+  padding: 14px;
+  transition: border-color 0.16s ease;
+}
+
+.support-admin-composer:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--admin-border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.support-admin-composer-textarea {
+  min-height: 118px;
+  resize: vertical;
+}
+
+.support-admin-composer-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.support-admin-note-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 6px 10px 6px 6px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-surface-2) 78%, transparent);
+}
+
+.support-admin-note-toggle label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.support-admin-note-toggle label svg {
+  color: var(--warning);
+}
+
+.support-user-context {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--admin-surface) 88%, var(--admin-bg));
+  padding: 16px;
+}
+
+.support-user-context > h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  color: var(--admin-muted);
+  text-transform: uppercase;
+}
+
+.support-user-context-head {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.support-user-context-avatar {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-surface-2) 80%, transparent);
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.support-user-context-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.support-user-context-identity {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.support-user-context-identity strong {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: var(--admin-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-user-context-identity small {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.support-user-context-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.support-user-context dl {
+  display: grid;
+  grid-template-columns: minmax(80px, auto) 1fr;
+  gap: 8px 12px;
+  margin: 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--admin-border);
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.support-user-context dt {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  align-self: center;
+}
+
+.support-user-context dd {
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  align-self: center;
+}
+
+.support-user-context .admin-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (min-width: 981px) {
+  .support-admin-layout {
+    height: clamp(620px, calc(100dvh - var(--admin-header-h) - 120px), 820px);
+  }
+
+  .support-admin-detail {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 0;
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--admin-surface) 92%, var(--admin-bg));
+    padding: 16px;
+  }
+
+  .support-admin-detail > .admin-empty-state {
+    min-height: 420px;
+    align-self: stretch;
+  }
+
+  .support-admin-detail .support-ticket-header {
+    border: 0;
+    border-bottom: 1px solid var(--admin-border);
+    border-radius: 0;
+    background: transparent;
+    padding: 0 0 14px;
+  }
+
+  .support-admin-detail .support-admin-message-scroll {
+    height: 100%;
+    min-height: 0;
+    max-height: none !important;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 16px 4px;
+  }
+
+  .support-admin-detail .support-admin-composer {
+    margin-top: 0;
+    border-radius: 0;
+    border: 0;
+    border-top: 1px solid var(--admin-border);
+    background: transparent;
+    padding: 14px 0 0;
+  }
+
+  .support-admin-detail .support-admin-composer:focus-within {
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  .support-user-context {
+    position: sticky;
+    top: 0;
+    align-self: start;
+  }
+}
+
+@media (max-width: 1420px) {
+  .support-admin-layout {
+    grid-template-columns: minmax(280px, 350px) minmax(0, 1fr);
+  }
+
+  .support-user-context {
+    grid-column: 1 / -1;
+    position: static;
+  }
+}
+
+@media (max-width: 980px) {
+  .support-admin-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    height: auto;
+    min-height: 0;
+  }
+
+  .support-admin-inbox {
+    border-radius: 12px;
+    padding: 12px;
+  }
+
+  .support-admin-filter-row,
+  .support-ticket-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .support-ticket-header {
+    grid-template-columns: 1fr;
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .support-admin-composer,
+  .support-user-context {
+    border-radius: 12px;
+    padding: 14px;
+  }
+
+  .support-inbox-row {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 11px 11px 11px 13px;
+  }
+
+  .support-inbox-row-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .support-row-badges {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+
+  .support-ticket-title h3 {
+    font-size: 17px;
+  }
+
+  .support-ticket-controls {
+    padding-top: 10px;
+  }
+
+  .support-admin-messages .ticket-message-content {
+    max-width: min(86%, calc(100vw - 80px));
+  }
+
+  .support-admin-composer-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .support-admin-composer-row .admin-btn {
+    width: 100%;
+  }
+}
+
+/* Support tickets: structured inbox + conversation workspace. */
+
+.support-admin-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+  width: 100%;
+}
+
+.support-admin-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.support-admin-summary span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--admin-surface) 86%, var(--admin-bg));
+  padding: 12px 14px;
+  box-shadow: var(--admin-card-shadow);
+}
+
+.support-admin-summary strong {
+  color: var(--admin-text);
+  font-size: 24px;
+  font-weight: 750;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.support-admin-summary small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-admin-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.support-admin-inbox,
+.support-admin-detail,
+.support-admin-detail .support-ticket-header,
+.support-admin-detail .support-admin-composer,
+.support-user-context {
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--admin-surface) 88%, var(--admin-bg));
+  box-shadow: var(--admin-card-shadow);
+}
+
+.support-admin-inbox {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  padding: 14px;
+}
+
+.support-admin-inbox .support-admin-toolbar {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.support-admin-filter-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.support-admin-filter-row > :last-child {
+  grid-column: 1 / -1;
+}
+
+.support-inbox-list {
+  align-content: start;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+  scrollbar-width: thin;
+}
+
+.support-inbox-row {
+  min-height: 82px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--admin-surface) 74%, var(--admin-bg));
+}
+
+.support-inbox-row-title strong {
+  letter-spacing: 0;
+}
+
+.support-row-badges {
+  min-width: 86px;
+  max-width: 132px;
+}
+
+.support-row-badges .admin-badge {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-admin-detail {
+  display: grid;
+  grid-template-rows: auto;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  padding: 14px;
+}
+
+.support-admin-detail > .admin-empty-state {
+  min-height: 360px;
+  align-self: stretch;
+}
+
+.support-admin-detail .support-ticket-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  padding: 14px;
+}
+
+.support-ticket-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.support-ticket-close {
+  white-space: nowrap;
+}
+
+.support-ticket-controls {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--admin-border);
+}
+
+.support-ticket-controls label {
+  display: grid;
+  flex: 1 1 150px;
+  gap: 6px;
+  min-width: 0;
+}
+
+.support-admin-detail .support-admin-message-scroll {
+  min-height: 240px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--admin-bg) 68%, transparent);
+  padding: 16px;
+}
+
+.support-admin-detail .support-admin-composer {
+  display: grid;
+  gap: 10px;
+  margin-top: 0;
+  padding: 14px;
+}
+
+.support-admin-detail .support-admin-composer-textarea {
+  min-height: 86px;
+}
+
+.support-admin-detail .support-admin-composer:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--admin-border));
+  box-shadow:
+    var(--admin-card-shadow),
+    0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.support-user-context {
+  display: grid;
+  grid-column: auto;
+  gap: 12px;
+  position: static;
+  min-width: 0;
+  padding: 12px;
+}
+
+.support-user-context-head {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.support-user-context-avatar {
+  width: 44px;
+  height: 44px;
+}
+
+.support-user-context-identity {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.support-user-context-identity small {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.support-user-context-identity strong,
+.support-user-context-identity span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-user-context-identity strong {
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.15;
+}
+
+.support-user-context-identity span {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.support-user-context-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.support-user-context-metrics span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--admin-border) 82%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--admin-surface-2) 68%, var(--admin-bg));
+  padding: 9px 10px;
+}
+
+.support-user-context-metrics small {
+  color: var(--admin-muted);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.support-user-context-metrics strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--admin-text);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-user-context-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.support-user-context-actions .admin-btn {
+  width: auto;
+  justify-content: center;
+}
+
+@media (min-width: 981px) {
+  .support-admin-workspace {
+    grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+    height: clamp(660px, calc(100dvh - var(--admin-header-h) - 112px), 840px);
+  }
+
+  .support-admin-inbox,
+  .support-admin-detail {
+    height: 100%;
+  }
+
+  .support-admin-detail {
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    overflow: hidden;
+  }
+
+  .support-admin-detail .support-admin-message-scroll {
+    height: 100%;
+    min-height: 0;
+    max-height: none !important;
+    overflow: auto;
+  }
+}
+
+@media (min-width: 1360px) {
+  .support-user-context {
+    grid-template-columns: minmax(170px, 0.65fr) minmax(260px, 1.35fr) auto;
+    align-items: center;
+  }
+
+  .support-user-context-actions {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 640px) {
+  .support-admin-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .support-admin-detail .support-ticket-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .support-ticket-actions {
+    justify-content: stretch;
+  }
+
+  .support-ticket-actions .admin-btn,
+  .support-user-context-actions .admin-btn {
+    width: 100%;
+  }
+
+  .support-ticket-controls,
+  .support-admin-composer-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .support-ticket-controls label {
+    flex-basis: auto;
+  }
+
+  .support-inbox-row {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .support-row-badges {
+    grid-column: 2;
+    max-width: none;
+    min-width: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+  }
+}
+
+/* Support tickets v2: one-column admin list with modal ticket details. */
+
+.support-admin-layout {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: start;
+  gap: 14px;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+}
+
+.support-admin-summary span {
+  min-height: 66px;
+}
+
+.support-admin-list-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--admin-surface) 88%, var(--admin-bg));
+  box-shadow: var(--admin-card-shadow);
+  padding: 14px;
+}
+
+.support-admin-ticket-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--admin-bg) 78%, var(--admin-surface));
+  padding: 4px;
+}
+
+.support-admin-ticket-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.support-admin-ticket-tabs button.active {
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: var(--admin-card-shadow);
+}
+
+.support-admin-ticket-tabs button b {
+  display: inline-grid;
+  min-width: 21px;
+  height: 21px;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-surface-2) 76%, transparent);
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 850;
+  padding-inline: 7px;
+}
+
+.support-admin-ticket-tabs button.active b {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: color-mix(in srgb, var(--accent) 78%, white);
+}
+
+.support-admin-list-panel .support-admin-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.85fr) minmax(0, 1.35fr);
+  gap: 10px;
+  align-items: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.support-admin-list-panel .support-admin-search .input {
+  box-sizing: border-box;
+  height: 36px;
+  padding-left: 42px;
+}
+
+.support-admin-list-panel .support-admin-filter-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+}
+
+.support-admin-list-panel .support-admin-filter-row .admin-select-trigger,
+.support-admin-list-panel .support-admin-filter-row .admin-btn {
+  height: 46px;
+  min-height: 46px;
+}
+
+.support-admin-list-panel .support-admin-filter-row > :last-child {
+  grid-column: auto;
+}
+
+.support-admin-list-panel .support-inbox-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  padding: 0;
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
+
+.support-admin-list-panel > .admin-empty-state {
+  align-self: stretch;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border: 1px dashed color-mix(in srgb, var(--admin-border) 84%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--admin-bg) 66%, transparent);
+}
+
+.support-admin-list-panel .support-inbox-row {
+  min-height: 74px;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--admin-surface) 74%, var(--admin-bg));
+}
+
+.support-admin-list-panel .support-inbox-row[data-priority="high"]::before {
+  background: var(--warning);
+}
+
+.support-admin-list-panel .support-inbox-row[data-priority="urgent"]::before {
+  background: var(--danger);
+}
+
+.support-admin-list-panel .support-inbox-row-avatar {
+  width: 38px;
+  height: 38px;
+}
+
+.support-admin-list-panel .support-row-badges {
+  min-width: 168px;
+  max-width: 240px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.support-admin-list-panel .support-row-badges small {
+  flex-basis: 100%;
+  text-align: right;
+}
+
+.support-ticket-list-skeleton {
+  display: grid;
+  gap: 8px;
+}
+
+.support-ticket-row-skeleton {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) minmax(120px, auto);
+  align-items: center;
+  gap: 12px;
+  min-height: 74px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--admin-surface) 74%, var(--admin-bg));
+  padding: 12px 14px;
+}
+
+.support-ticket-row-skeleton-main,
+.support-ticket-row-skeleton-side {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.support-ticket-row-skeleton-side {
+  justify-items: end;
+}
+
+.support-ticket-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(1040px, calc(100vw - 28px));
+  max-height: min(840px, calc(100dvh - 28px));
+  overflow: hidden;
+}
+
+.support-ticket-dialog-body {
+  display: grid;
+  grid-template-rows: auto auto minmax(180px, 1fr) auto;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.support-ticket-dialog .support-ticket-header,
+.support-ticket-dialog .support-user-context,
+.support-ticket-dialog .support-admin-composer {
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--admin-surface) 88%, var(--admin-bg));
+  box-shadow: none;
+}
+
+.support-ticket-dialog .support-ticket-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 14px;
+}
+
+.support-ticket-dialog .support-user-context {
+  padding: 12px;
+}
+
+.support-ticket-dialog .support-admin-message-scroll {
+  min-height: 0;
+  height: 100%;
+  max-height: none !important;
+  overflow: auto;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--admin-bg) 68%, transparent);
+  padding: 16px;
+}
+
+.support-ticket-dialog .support-admin-composer {
+  margin: 0;
+  padding: 12px;
+}
+
+.support-ticket-dialog .support-admin-composer-textarea {
+  min-height: 76px;
+}
+
+.support-ticket-dialog-skeleton {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+@media (max-width: 1120px) {
+  .support-admin-list-panel .support-admin-toolbar,
+  .support-admin-list-panel .support-admin-filter-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .support-admin-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .support-admin-summary span {
+    min-height: 56px;
+    border-radius: 10px;
+    padding: 9px 8px;
+  }
+
+  .support-admin-summary strong {
+    font-size: 20px;
+  }
+
+  .support-admin-summary small {
+    font-size: 10px;
+  }
+
+  .support-admin-list-panel {
+    padding: 12px;
+  }
+
+  .support-admin-list-panel .support-inbox-row,
+  .support-ticket-row-skeleton {
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .support-admin-list-panel .support-row-badges,
+  .support-ticket-row-skeleton-side {
+    grid-column: 2;
+    min-width: 0;
+    max-width: none;
+    justify-content: flex-start;
+    justify-items: start;
+  }
+
+  .support-admin-list-panel .support-row-badges small {
+    flex-basis: auto;
+    text-align: left;
+  }
+
+  .support-ticket-dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 14px;
+    overflow-y: auto;
+  }
+
+  .support-ticket-dialog-body {
+    grid-template-rows: auto auto auto auto;
+    gap: 10px;
+    overflow: visible;
+  }
+
+  .support-ticket-dialog .support-ticket-header {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .support-ticket-dialog .support-ticket-actions {
+    justify-content: stretch;
+  }
+
+  .support-ticket-dialog .support-ticket-actions .admin-btn {
+    width: 100%;
+  }
+
+  .support-ticket-dialog .support-admin-message-scroll {
+    height: auto;
+    min-height: 180px;
+    max-height: min(32dvh, 260px) !important;
+    padding: 12px 10px;
+  }
+
+  .support-ticket-dialog .support-admin-composer-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .support-ticket-dialog .support-admin-composer-row .admin-btn {
+    width: 100%;
+  }
+}
+
+/* Support ticket dialog v3: one readable page, compact metadata, no nested chat scroll. */
+
+.dialog:has(.support-ticket-dialog) {
+  align-items: start;
+  overflow-y: auto;
+}
+
+.support-ticket-dialog {
+  display: grid;
+  grid-template-rows: auto;
+  gap: 10px;
+  width: min(940px, calc(100vw - 24px));
+  max-height: none;
+  margin-block: 0;
+  overflow: visible;
+  padding: 14px;
+  border-radius: 16px;
+}
+
+.support-ticket-dialog .dialog-head {
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.support-ticket-dialog .dialog-head h2 {
+  overflow: hidden;
+  font-size: 18px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-ticket-dialog .dialog-head p {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.support-ticket-dialog-body {
+  display: grid;
+  grid-template-rows: auto;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+}
+
+.support-ticket-dialog .support-ticket-header,
+.support-ticket-dialog .support-user-context,
+.support-ticket-dialog .support-admin-composer {
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.support-ticket-dialog .support-ticket-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+}
+
+.support-ticket-statusbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.support-ticket-statusbar .admin-badge {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-ticket-dialog .support-ticket-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.support-ticket-dialog .support-ticket-close {
+  min-height: 34px;
+  white-space: nowrap;
+}
+
+.support-ticket-dialog .support-ticket-controls {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--admin-border);
+}
+
+.support-ticket-dialog .support-ticket-controls .admin-select-trigger {
+  height: 34px;
+  min-width: 0;
+  padding-inline: 10px;
+}
+
+.support-ticket-dialog .support-ticket-controls .admin-select-trigger span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-ticket-dialog .support-user-context {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.4fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+}
+
+.support-ticket-dialog .support-user-context-head {
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 9px;
+}
+
+.support-ticket-dialog .support-user-context-avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 12px;
+}
+
+.support-ticket-dialog .support-user-context-identity {
+  gap: 2px;
+}
+
+.support-ticket-dialog .support-user-context-identity strong {
+  font-size: 13px;
+}
+
+.support-ticket-dialog .support-user-context-identity small {
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.support-ticket-dialog .support-user-context-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.support-ticket-dialog .support-user-context-metrics span {
+  gap: 2px;
+  min-height: 44px;
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.support-ticket-dialog .support-user-context-metrics small {
+  font-size: 9px;
+  line-height: 1;
+}
+
+.support-ticket-dialog .support-user-context-metrics strong {
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.support-ticket-dialog .support-user-context-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.support-ticket-dialog .support-user-context-actions .admin-btn {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  min-height: 30px;
+  border-radius: 7px;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.support-ticket-dialog .support-admin-message-scroll {
+  height: auto;
+  min-height: 0;
+  max-height: none !important;
+  overflow: visible;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.support-ticket-dialog .support-admin-messages {
+  gap: 12px;
+}
+
+.support-ticket-dialog .support-admin-composer {
+  margin: 0;
+  padding: 10px;
+}
+
+.support-ticket-dialog .support-admin-composer-textarea {
+  min-height: 74px;
+}
+
+.support-ticket-dialog .support-admin-composer-row {
+  gap: 8px;
+}
+
+@media (min-width: 721px) {
+  .dialog:has(.support-ticket-dialog) {
+    align-items: start;
+  }
+
+  .support-ticket-dialog {
+    grid-template-rows: auto minmax(0, 1fr);
+    height: calc(100dvh - 28px);
+    min-height: calc(100dvh - 28px);
+    max-height: calc(100dvh - 28px);
+    overflow: hidden;
+  }
+
+  .support-ticket-dialog-body {
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .support-ticket-dialog .support-admin-message-scroll {
+    height: 100%;
+    min-height: 320px;
+    overflow: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .dialog:has(.support-ticket-dialog) {
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+
+  .support-ticket-dialog {
+    width: calc(100vw - 16px);
+    max-height: none;
+    padding: 12px;
+    border-radius: 14px;
+    overflow: visible;
+  }
+
+  .support-ticket-dialog .dialog-head {
+    padding-bottom: 8px;
+  }
+
+  .support-ticket-dialog .dialog-head h2 {
+    font-size: 16px;
+  }
+
+  .support-ticket-dialog .support-ticket-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 9px;
+  }
+
+  .support-ticket-dialog .support-ticket-actions {
+    justify-content: flex-start;
+  }
+
+  .support-ticket-dialog .support-ticket-actions .admin-btn {
+    width: auto;
+  }
+
+  .support-ticket-dialog .support-ticket-controls {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .support-ticket-dialog .support-ticket-controls .admin-select-trigger {
+    height: 32px;
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+
+  .support-ticket-dialog .support-user-context {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 9px;
+  }
+
+  .support-ticket-dialog .support-user-context-metrics {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .support-ticket-dialog .support-user-context-actions {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    justify-content: flex-start;
+  }
+
+  .support-ticket-dialog .support-admin-message-scroll {
+    height: auto;
+    min-height: 0;
+    max-height: none !important;
+    padding: 10px 8px;
+  }
+
+  .support-ticket-dialog .support-admin-composer-row {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .support-ticket-dialog .support-admin-composer-row .admin-btn {
+    width: auto;
   }
 }

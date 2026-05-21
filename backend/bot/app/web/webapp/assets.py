@@ -1,5 +1,6 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
+import gzip
 
 from config.webapp_themes_config import (
     default_webapp_theme_asset_file,
@@ -9,13 +10,39 @@ from config.webapp_themes_config import (
     public_themes_catalog_payload,
 )
 
+_TEXT_FILE_CACHE: Dict[tuple[str, bool], tuple[int, int, str]] = {}
+_BINARY_FILE_CACHE: Dict[str, tuple[int, int, bytes]] = {}
+_GZIP_BODY_CACHE: Dict[str, bytes] = {}
+_ASSET_NAME_CACHE: Dict[tuple[str, str], tuple[float, str]] = {}
+_I18N_PAYLOAD_CACHE: Dict[tuple[int, str, tuple[tuple[str, int, int], ...]], Dict[str, Any]] = {}
+_ASSET_NAME_CACHE_TTL_SECONDS = 30.0
+
 
 async def health_route(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
 async def css_asset_route(request: web.Request) -> web.Response:
-    return await _serve_template_asset(request, "subscription_webapp.css", "text/css")
+    return await _css_asset_route(request, base_name="subscription_webapp")
+
+
+async def admin_css_asset_route(request: web.Request) -> web.Response:
+    return await _css_asset_route(request, base_name="subscription_webapp_admin")
+
+
+async def _css_asset_route(request: web.Request, *, base_name: str) -> web.Response:
+    asset_hash = request.match_info.get("asset_hash")
+    filename = f"{base_name}.{asset_hash}.css" if asset_hash else f"{base_name}.css"
+    response = await _serve_template_asset(
+        request,
+        filename,
+        "text/css",
+        allow_precompressed=bool(asset_hash),
+    )
+    response.headers["Cache-Control"] = (
+        "public, max-age=31536000, immutable" if asset_hash else "no-cache"
+    )
+    return response
 
 
 def _safe_theme_css_relative_path(raw_path: str) -> Optional[Path]:
@@ -67,19 +94,51 @@ async def theme_css_asset_route(request: web.Request) -> web.Response:
     except ValueError:
         raise web.HTTPNotFound(text="theme_css_not_found") from None
 
+    query = getattr(request, "query", {}) or {}
+    cache_control = (
+        "public, max-age=31536000, immutable" if query.get("v") else "no-cache"
+    )
     try:
-        if path.stat().st_size > WEBAPP_THEME_CSS_MAX_BYTES:
+        stat = path.stat()
+        if stat.st_size > WEBAPP_THEME_CSS_MAX_BYTES:
             raise web.HTTPNotFound(text="theme_css_too_large")
+        etag = _theme_asset_etag(
+            "theme-css",
+            rel_path,
+            stat_mtime_ns=stat.st_mtime_ns,
+            size=stat.st_size,
+        )
+        if _request_etag_matches(request, etag):
+            return _not_modified_response(
+                cache_control=cache_control,
+                etag=etag,
+                vary="Accept-Encoding",
+            )
         text = path.read_text(encoding="utf-8")
     except OSError:
         defaults = default_webapp_theme_css_files()
         text = defaults.get(rel_path.as_posix())
         if text is None:
             raise web.HTTPNotFound(text="theme_css_not_found") from None
+        etag = _theme_asset_etag(
+            "theme-css",
+            rel_path,
+            body=text.encode("utf-8"),
+        )
+        if _request_etag_matches(request, etag):
+            return _not_modified_response(
+                cache_control=cache_control,
+                etag=etag,
+                vary="Accept-Encoding",
+            )
 
-    response = web.Response(text=text, content_type="text/css", charset="utf-8")
-    response.headers["Cache-Control"] = "no-cache"
-    return response
+    return _theme_text_response(
+        request,
+        text,
+        content_type="text/css",
+        cache_control=cache_control,
+        etag=etag,
+    )
 
 
 async def theme_asset_route(request: web.Request) -> web.Response:
@@ -104,9 +163,23 @@ async def theme_asset_route(request: web.Request) -> web.Response:
     if not content_type:
         raise web.HTTPNotFound(text="theme_asset_not_found")
 
+    query = getattr(request, "query", {})
+    cache_control = (
+        "public, max-age=31536000, immutable" if query.get("v") else "public, max-age=3600"
+    )
+
     try:
-        if path.stat().st_size > WEBAPP_THEME_ASSET_MAX_BYTES:
+        stat = path.stat()
+        if stat.st_size > WEBAPP_THEME_ASSET_MAX_BYTES:
             raise web.HTTPNotFound(text="theme_asset_too_large")
+        etag = _theme_asset_etag(
+            "theme-asset",
+            rel_path,
+            stat_mtime_ns=stat.st_mtime_ns,
+            size=stat.st_size,
+        )
+        if _request_etag_matches(request, etag):
+            return _not_modified_response(cache_control=cache_control, etag=etag)
         body = path.read_bytes()
     except OSError:
         fallback = default_webapp_theme_asset_file(rel_path)
@@ -114,17 +187,16 @@ async def theme_asset_route(request: web.Request) -> web.Response:
             raise web.HTTPNotFound(text="theme_asset_not_found") from None
         body, fallback_suffix = fallback
         content_type = WEBAPP_THEME_ASSET_CONTENT_TYPES.get(fallback_suffix, content_type)
+        etag = _theme_asset_etag("theme-asset", rel_path, body=body)
+        if _request_etag_matches(request, etag):
+            return _not_modified_response(cache_control=cache_control, etag=etag)
 
     if not body or len(body) > WEBAPP_THEME_ASSET_MAX_BYTES:
         raise web.HTTPNotFound(text="theme_asset_not_found")
 
-    query = getattr(request, "query", {})
     response = web.Response(body=body, content_type=content_type)
-    response.headers["Cache-Control"] = (
-        "public, max-age=31536000, immutable"
-        if query.get("v")
-        else "public, max-age=3600"
-    )
+    response.headers["Cache-Control"] = cache_control
+    response.headers["ETag"] = etag
     return response
 
 
@@ -816,25 +888,30 @@ async def _enforce_webapp_rate_limit(
         or "unknown"
     )
     key = f"{action}:{ip_address}:{int(user_id)}"
-    redis = await get_redis(settings)
-    if redis is not None:
-        redis_rate_key = redis_key(settings, "rate-limit", "webapp", key)
-        current = await redis.incr(redis_rate_key)
-        if current == 1:
-            await redis.expire(redis_rate_key, settings.WEBAPP_RATE_LIMIT_TTL_SECONDS)
-        if current > settings.WEBAPP_RATE_LIMIT_MAX_REQUESTS:
-            ttl = await redis.ttl(redis_rate_key)
-            retry_after = max(1, int(ttl if ttl and ttl > 0 else WEBAPP_RATE_LIMIT_WINDOW_SECONDS))
-            return web.json_response(
-                {
-                    "ok": False,
-                    "error": "rate_limited",
-                    "retry_after": retry_after,
-                },
-                status=429,
-                headers={"Retry-After": str(retry_after)},
-            )
-        return None
+    try:
+        redis = await get_redis(settings)
+        if redis is not None:
+            redis_rate_key = redis_key(settings, "rate-limit", "webapp", key)
+            current = await redis.incr(redis_rate_key)
+            if current == 1:
+                await redis.expire(redis_rate_key, settings.WEBAPP_RATE_LIMIT_TTL_SECONDS)
+            if current > settings.WEBAPP_RATE_LIMIT_MAX_REQUESTS:
+                ttl = await redis.ttl(redis_rate_key)
+                retry_after = max(
+                    1, int(ttl if ttl and ttl > 0 else WEBAPP_RATE_LIMIT_WINDOW_SECONDS)
+                )
+                return web.json_response(
+                    {
+                        "ok": False,
+                        "error": "rate_limited",
+                        "retry_after": retry_after,
+                    },
+                    status=429,
+                    headers={"Retry-After": str(retry_after)},
+                )
+            return None
+    except Exception as exc:
+        logger.warning("Redis webapp rate limiter unavailable; using local fallback: %s", exc)
 
     buckets: Dict[str, deque[float]] = request.app["webapp_rate_limit_buckets"]
     lock: asyncio.Lock = request.app["webapp_rate_limit_lock"]
@@ -871,20 +948,82 @@ async def _enforce_webapp_rate_limit(
 
 
 async def js_asset_route(request: web.Request) -> web.Response:
+    return await _js_asset_route(request, base_name="subscription_webapp")
+
+
+async def admin_js_asset_route(request: web.Request) -> web.Response:
+    return await _js_asset_route(request, base_name="subscription_webapp_admin")
+
+
+async def _js_asset_route(request: web.Request, *, base_name: str) -> web.Response:
     asset_hash = request.match_info.get("asset_hash")
-    filename = (
-        f"subscription_webapp.min.{asset_hash}.js" if asset_hash else "subscription_webapp.js"
-    )
+    filename = f"{base_name}.min.{asset_hash}.js" if asset_hash else f"{base_name}.js"
     response = await _serve_template_asset(
         request,
         filename,
         "application/javascript",
+        allow_precompressed=bool(asset_hash),
         strip_dev_mock=not asset_hash,
     )
     response.headers["Cache-Control"] = (
         "public, max-age=31536000, immutable" if asset_hash else "no-cache"
     )
     return response
+
+
+WEBAPP_BOOTSTRAP_I18N_PREFIXES = ("wa_",)
+WEBAPP_BOOTSTRAP_I18N_KEYS = {"menu_support_button"}
+WEBAPP_I18N_SCOPES = {"webapp", "admin"}
+
+
+def _is_webapp_bootstrap_i18n_key(key: str) -> bool:
+    return key in WEBAPP_BOOTSTRAP_I18N_KEYS or key.startswith(WEBAPP_BOOTSTRAP_I18N_PREFIXES)
+
+
+def _normalize_i18n_scope(raw_scope: object) -> str:
+    scope = str(raw_scope or "webapp").strip().lower()
+    return scope if scope in WEBAPP_I18N_SCOPES else "webapp"
+
+
+def _i18n_cache_fingerprint(
+    locales_data: Dict[str, Any],
+) -> tuple[tuple[str, int, int], ...]:
+    return tuple(
+        sorted(
+            (str(lang), id(messages), len(messages))
+            for lang, messages in locales_data.items()
+            if isinstance(messages, dict)
+        )
+    )
+
+
+def _filter_webapp_i18n_payload(locales_data: object, scope: str = "webapp") -> Dict[str, Any]:
+    if not isinstance(locales_data, dict):
+        return {}
+
+    normalized_scope = _normalize_i18n_scope(scope)
+    cache_key = (id(locales_data), normalized_scope, _i18n_cache_fingerprint(locales_data))
+    cached = _I18N_PAYLOAD_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    payload: Dict[str, Any] = {}
+    for lang, messages in locales_data.items():
+        if not isinstance(messages, dict):
+            continue
+        filtered: Dict[str, Any] = {}
+        for key, value in messages.items():
+            key_text = str(key)
+            is_bootstrap_key = _is_webapp_bootstrap_i18n_key(key_text)
+            if (normalized_scope == "webapp" and is_bootstrap_key) or (
+                normalized_scope == "admin" and not is_bootstrap_key
+            ):
+                filtered[key_text] = value
+        payload[str(lang)] = filtered
+    if len(_I18N_PAYLOAD_CACHE) > 32:
+        _I18N_PAYLOAD_CACHE.clear()
+    _I18N_PAYLOAD_CACHE[cache_key] = payload
+    return payload
 
 
 def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
@@ -897,6 +1036,8 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
     if preview_theme is None or not preview_theme.enabled:
         preview_key = ""
     i18n_instance: Optional[object] = request.app.get("i18n")
+    i18n_scope = _normalize_i18n_scope(request.query.get("i18n_scope") or "webapp")
+    locales_data = getattr(i18n_instance, "locales_data", {}) if i18n_instance else {}
     return {
         "config": {
             "title": settings.WEBAPP_TITLE,
@@ -915,6 +1056,8 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
             "faviconUrl": cached["favicon_url"],
             "faviconUseCustom": bool(settings.WEBAPP_FAVICON_USE_CUSTOM),
             "apiBase": "/api",
+            "adminJsAsset": f"/{_resolve_webapp_admin_js_asset_name()}",
+            "adminCssAsset": f"/{_resolve_webapp_admin_css_asset_name()}",
             "telegramLoginBotUsername": request.app.get("bot_username") or "",
             "telegramLoginBotId": _resolve_telegram_bot_id(settings.BOT_TOKEN) or 0,
             "telegramOAuthClientId": _resolve_telegram_oauth_client_id(settings) or 0,
@@ -929,12 +1072,29 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
             "appVersion": _resolve_app_version(),
             "appRepositoryUrl": APP_REPOSITORY_URL,
         },
-        "i18n": getattr(i18n_instance, "locales_data", {}) if i18n_instance else {},
+        "i18n": _filter_webapp_i18n_payload(locales_data, i18n_scope),
     }
 
 
 async def bootstrap_route(request: web.Request) -> web.Response:
-    return web.json_response({"ok": True, **_build_webapp_bootstrap_payload(request)})
+    response = web.json_response({"ok": True, **_build_webapp_bootstrap_payload(request)})
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+async def i18n_route(request: web.Request) -> web.Response:
+    i18n_instance: Optional[object] = request.app.get("i18n")
+    scope = _normalize_i18n_scope(request.query.get("scope") or "webapp")
+    locales_data = getattr(i18n_instance, "locales_data", {}) if i18n_instance else {}
+    response = web.json_response(
+        {
+            "ok": True,
+            "scope": scope,
+            "i18n": _filter_webapp_i18n_payload(locales_data, scope),
+        }
+    )
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 async def index_route(request: web.Request) -> web.Response:
@@ -942,7 +1102,7 @@ async def index_route(request: web.Request) -> web.Response:
     if not settings.WEBAPP_ENABLED:
         raise web.HTTPNotFound(text="webapp_disabled")
 
-    html = TEMPLATE_PATH.read_text(encoding="utf-8")
+    html = _read_template_text_cached(TEMPLATE_PATH)
     cached = _get_cached_webapp_settings(request)
     themes_catalog = settings.webapp_themes_catalog
     primary_color = settings.WEBAPP_PRIMARY_COLOR or "#00fe7a"
@@ -950,6 +1110,11 @@ async def index_route(request: web.Request) -> web.Response:
     bootstrap = _build_webapp_bootstrap_payload(request)
     config = bootstrap["config"]
     html = _strip_marked_block(html, DEV_MOCK_START_MARKER, DEV_MOCK_END_MARKER)
+    html = html.replace(
+        'href="/subscription_webapp.css"',
+        f'href="/{_resolve_webapp_css_asset_name()}"',
+        1,
+    )
     initial_theme_markup = _initial_theme_head_markup(request, initial_theme, primary_color)
     if initial_theme_markup:
         html = html.replace("</head>", f"{initial_theme_markup}\n</head>", 1)
@@ -997,7 +1162,9 @@ async def index_route(request: web.Request) -> web.Response:
             ),
             1,
         )
-    return web.Response(text=html, content_type="text/html", charset="utf-8")
+    response = web.Response(text=html, content_type="text/html", charset="utf-8")
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 async def _serve_template_asset(
@@ -1005,6 +1172,7 @@ async def _serve_template_asset(
     filename: str,
     content_type: str,
     *,
+    allow_precompressed: bool = False,
     strip_dev_mock: bool = False,
 ) -> web.Response:
     settings: Settings = request.app["settings"]
@@ -1012,6 +1180,176 @@ async def _serve_template_asset(
         raise web.HTTPNotFound(text="webapp_disabled")
 
     path = ASSET_DIR / filename
+    if allow_precompressed:
+        compressed = _precompressed_template_asset_response(request, path, content_type)
+        if compressed is not None:
+            return compressed
+
+    text = _read_template_text_cached(path, strip_dev_mock=strip_dev_mock)
+    return web.Response(text=text, content_type=content_type, charset="utf-8")
+
+
+def _precompressed_template_asset_response(
+    request: web.Request,
+    path: Path,
+    content_type: str,
+) -> Optional[web.Response]:
+    for encoding, suffix in (("br", ".br"), ("gzip", ".gz")):
+        if not _request_accepts_encoding(request, encoding):
+            continue
+        compressed_path = path.with_name(f"{path.name}{suffix}")
+        try:
+            body = _read_template_binary_cached(compressed_path)
+        except OSError:
+            continue
+        response = web.Response(body=body, content_type=content_type)
+        response.headers["Content-Encoding"] = encoding
+        response.headers["Vary"] = "Accept-Encoding"
+        return response
+    return None
+
+
+def _request_accepts_encoding(request: web.Request, encoding: str) -> bool:
+    headers = getattr(request, "headers", {}) or {}
+    value = str(headers.get("Accept-Encoding", ""))
+    if not value:
+        return False
+
+    expected = encoding.lower()
+    for part in value.split(","):
+        token, *params = part.strip().split(";")
+        token = token.strip().lower()
+        if token not in {expected, "*"}:
+            continue
+        for param in params:
+            param = param.strip().lower()
+            if not param.startswith("q="):
+                continue
+            try:
+                if float(param[2:].strip()) <= 0:
+                    return False
+            except ValueError:
+                return False
+        return True
+    return False
+
+
+def _request_etag_matches(request: web.Request, etag: str) -> bool:
+    headers = getattr(request, "headers", {}) or {}
+    value = str(headers.get("If-None-Match", ""))
+    if not value:
+        return False
+    if value.strip() == "*":
+        return True
+
+    expected = _normalize_etag_for_compare(etag)
+    return any(_normalize_etag_for_compare(part.strip()) == expected for part in value.split(","))
+
+
+def _normalize_etag_for_compare(value: str) -> str:
+    text = str(value or "").strip()
+    if text.lower().startswith("w/"):
+        text = text[2:].strip()
+    return text
+
+
+def _theme_asset_etag(
+    kind: str,
+    rel_path: Path,
+    *,
+    stat_mtime_ns: int = 0,
+    size: int = 0,
+    body: bytes = b"",
+) -> str:
+    if body:
+        digest = hashlib.sha256(
+            b"\0".join(
+                [
+                    kind.encode("utf-8"),
+                    rel_path.as_posix().encode("utf-8"),
+                    body,
+                ]
+            )
+        ).hexdigest()[:16]
+    else:
+        raw = f"{kind}:{rel_path.as_posix()}:{int(stat_mtime_ns)}:{int(size)}"
+        digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+    return f'W/"{digest}"'
+
+
+def _not_modified_response(
+    *,
+    cache_control: str,
+    etag: str,
+    vary: Optional[str] = None,
+) -> web.Response:
+    response = web.Response(status=304)
+    response.headers["Cache-Control"] = cache_control
+    response.headers["ETag"] = etag
+    if vary:
+        response.headers["Vary"] = vary
+    return response
+
+
+def _theme_text_response(
+    request: web.Request,
+    text: str,
+    *,
+    content_type: str,
+    cache_control: str,
+    etag: str,
+) -> web.Response:
+    body = text.encode("utf-8")
+    if _request_accepts_encoding(request, "gzip"):
+        response = web.Response(
+            body=_gzip_body_cached(etag, body),
+            content_type=content_type,
+            charset="utf-8",
+        )
+        response.headers["Content-Encoding"] = "gzip"
+        response.headers["Vary"] = "Accept-Encoding"
+    else:
+        response = web.Response(text=text, content_type=content_type, charset="utf-8")
+    response.headers["Cache-Control"] = cache_control
+    response.headers["ETag"] = etag
+    return response
+
+
+def _gzip_body_cached(cache_key: str, body: bytes) -> bytes:
+    cached = _GZIP_BODY_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    compressed = gzip.compress(body, compresslevel=9, mtime=0)
+    _GZIP_BODY_CACHE[cache_key] = compressed
+    if len(_GZIP_BODY_CACHE) > 24:
+        _GZIP_BODY_CACHE.clear()
+        _GZIP_BODY_CACHE[cache_key] = compressed
+    return compressed
+
+
+def _read_template_binary_cached(path: Path) -> bytes:
+    stat = path.stat()
+    key = str(path.resolve())
+    cached = _BINARY_FILE_CACHE.get(key)
+    if cached and cached[0] == stat.st_mtime_ns and cached[1] == stat.st_size:
+        return cached[2]
+
+    body = path.read_bytes()
+    _BINARY_FILE_CACHE[key] = (stat.st_mtime_ns, stat.st_size, body)
+    if len(_BINARY_FILE_CACHE) > 24:
+        _BINARY_FILE_CACHE.clear()
+        _BINARY_FILE_CACHE[key] = (stat.st_mtime_ns, stat.st_size, body)
+    return body
+
+
+def _read_template_text_cached(path: Path, *, strip_dev_mock: bool = False) -> str:
+    stat = path.stat()
+    key = (str(path.resolve()), strip_dev_mock)
+    cached = _TEXT_FILE_CACHE.get(key)
+    if cached and cached[0] == stat.st_mtime_ns and cached[1] == stat.st_size:
+        return cached[2]
+
     text = path.read_text(encoding="utf-8")
     if strip_dev_mock:
         text = _strip_marked_block(
@@ -1019,20 +1357,94 @@ async def _serve_template_asset(
             "/* WEBAPP_DEV_MOCK_START */",
             "/* WEBAPP_DEV_MOCK_END */",
         )
-    return web.Response(text=text, content_type=content_type, charset="utf-8")
+    _TEXT_FILE_CACHE[key] = (stat.st_mtime_ns, stat.st_size, text)
+    if len(_TEXT_FILE_CACHE) > 24:
+        _TEXT_FILE_CACHE.clear()
+        _TEXT_FILE_CACHE[key] = (stat.st_mtime_ns, stat.st_size, text)
+    return text
 
 
 def _resolve_webapp_js_asset_name() -> str:
+    return _resolve_hashed_js_asset_name(
+        kind="js",
+        base_name="subscription_webapp",
+    )
+
+
+def _resolve_webapp_admin_js_asset_name() -> str:
+    return _resolve_hashed_js_asset_name(
+        kind="admin-js",
+        base_name="subscription_webapp_admin",
+    )
+
+
+def _resolve_hashed_js_asset_name(*, kind: str, base_name: str) -> str:
+    cached = _get_cached_asset_name(kind)
+    if cached:
+        return cached
     minified_assets = []
-    for path in ASSET_DIR.glob("subscription_webapp.min.*.js"):
+    pattern = re.compile(rf"{re.escape(base_name)}\.min\.[0-9a-f]{{8}}\.js")
+    for path in ASSET_DIR.glob(f"{base_name}.min.*.js"):
+        if not pattern.fullmatch(path.name):
+            continue
         try:
             minified_assets.append((path.stat().st_mtime, path.name))
         except OSError:
             continue
     if minified_assets:
         minified_assets.sort(reverse=True)
-        return minified_assets[0][1]
-    return "subscription_webapp.js"
+        return _set_cached_asset_name(kind, minified_assets[0][1])
+    return _set_cached_asset_name(kind, f"{base_name}.js")
+
+
+def _resolve_webapp_css_asset_name() -> str:
+    return _resolve_hashed_css_asset_name(
+        kind="css",
+        base_name="subscription_webapp",
+    )
+
+
+def _resolve_webapp_admin_css_asset_name() -> str:
+    return _resolve_hashed_css_asset_name(
+        kind="admin-css",
+        base_name="subscription_webapp_admin",
+    )
+
+
+def _resolve_hashed_css_asset_name(*, kind: str, base_name: str) -> str:
+    cached = _get_cached_asset_name(kind)
+    if cached:
+        return cached
+    hashed_assets = []
+    pattern = re.compile(rf"{re.escape(base_name)}\.[0-9a-f]{{8}}\.css")
+    for path in ASSET_DIR.glob(f"{base_name}.*.css"):
+        if not pattern.fullmatch(path.name):
+            continue
+        try:
+            hashed_assets.append((path.stat().st_mtime, path.name))
+        except OSError:
+            continue
+    if hashed_assets:
+        hashed_assets.sort(reverse=True)
+        return _set_cached_asset_name(kind, hashed_assets[0][1])
+    return _set_cached_asset_name(kind, f"{base_name}.css")
+
+
+def _get_cached_asset_name(kind: str) -> Optional[str]:
+    key = (str(ASSET_DIR.resolve()), kind)
+    cached = _ASSET_NAME_CACHE.get(key)
+    if not cached:
+        return None
+    cached_at, filename = cached
+    if time.monotonic() - cached_at >= _ASSET_NAME_CACHE_TTL_SECONDS:
+        return None
+    return filename
+
+
+def _set_cached_asset_name(kind: str, filename: str) -> str:
+    key = (str(ASSET_DIR.resolve()), kind)
+    _ASSET_NAME_CACHE[key] = (time.monotonic(), filename)
+    return filename
 
 
 _INITIAL_THEME_TOKEN_CSS_MAP = {
@@ -1047,6 +1459,21 @@ _INITIAL_THEME_TOKEN_CSS_MAP = {
     "muted": "--muted",
     "dim": "--dim",
     "danger": "--danger",
+    "danger_text": "--danger-text",
+    "danger_soft": "--danger-soft",
+    "danger_border": "--danger-border",
+    "success": "--success",
+    "success_text": "--success-text",
+    "success_soft": "--success-soft",
+    "success_border": "--success-border",
+    "warning": "--warning",
+    "warning_text": "--warning-text",
+    "warning_soft": "--warning-soft",
+    "warning_border": "--warning-border",
+    "info": "--info",
+    "info_text": "--info-text",
+    "info_soft": "--info-soft",
+    "info_border": "--info-border",
     "blue": "--blue",
     "radius": "--radius",
     "font_sans": "--font-sans",
@@ -1074,7 +1501,14 @@ def _theme_css_href_for_html(theme: Any) -> str:
         return ""
     themed_path = "/".join([key, *parts])
     encoded = "/".join(quote(part, safe="") for part in themed_path.split("/"))
-    return f"/webapp-theme-css/{encoded}" if encoded else ""
+    href = f"/webapp-theme-css/{encoded}" if encoded else ""
+    try:
+        version = int(getattr(theme, "assets_version", 0) or 0)
+    except (TypeError, ValueError):
+        version = 0
+    if href and version > 0:
+        href = f"{href}?v={quote(str(version), safe='')}"
+    return href
 
 
 def _initial_theme_for_request(request: web.Request, catalog: Any) -> Any:

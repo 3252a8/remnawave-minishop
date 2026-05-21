@@ -1,9 +1,21 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
 
+import hashlib
+from html import escape as html_escape
+
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
+from bot.infra.redis import cache_delete_pattern, redis_key
+from bot.utils.ttl_cache import AsyncTTLCache
+
+_ADMIN_USERS_LIST_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
+
 
 async def admin_users_list_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
+    settings: Settings = request.app["settings"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
 
     page = max(0, int(request.query.get("page", 0) or 0))
@@ -14,6 +26,79 @@ async def admin_users_list_route(request: web.Request) -> web.Response:
     premium_traffic = (request.query.get("premium_traffic") or "all").lower()
     sort_value = (request.query.get("sort") or "registered_desc").lower()
 
+    payload = await _load_admin_users_list_payload(
+        settings,
+        async_session_factory,
+        page=page,
+        page_size=page_size,
+        query=query,
+        filter_value=filter_value,
+        panel_status=panel_status,
+        premium_traffic=premium_traffic,
+        sort_value=sort_value,
+    )
+    return _ok(payload)
+
+
+async def _load_admin_users_list_payload(
+    settings: Settings,
+    async_session_factory: sessionmaker,
+    *,
+    page: int,
+    page_size: int,
+    query: str,
+    filter_value: str,
+    panel_status: str,
+    premium_traffic: str,
+    sort_value: str,
+) -> Dict[str, Any]:
+    cache = _admin_users_list_cache(settings)
+    cache_key = _admin_users_list_cache_key(
+        page=page,
+        page_size=page_size,
+        query=query,
+        filter_value=filter_value,
+        panel_status=panel_status,
+        premium_traffic=premium_traffic,
+        sort_value=sort_value,
+    )
+    if cache is None:
+        return await _load_admin_users_list_payload_uncached(
+            async_session_factory,
+            page=page,
+            page_size=page_size,
+            query=query,
+            filter_value=filter_value,
+            panel_status=panel_status,
+            premium_traffic=premium_traffic,
+            sort_value=sort_value,
+        )
+    return await cache.get_or_load(
+        cache_key,
+        lambda: _load_admin_users_list_payload_uncached(
+            async_session_factory,
+            page=page,
+            page_size=page_size,
+            query=query,
+            filter_value=filter_value,
+            panel_status=panel_status,
+            premium_traffic=premium_traffic,
+            sort_value=sort_value,
+        ),
+    )
+
+
+async def _load_admin_users_list_payload_uncached(
+    async_session_factory: sessionmaker,
+    *,
+    page: int,
+    page_size: int,
+    query: str,
+    filter_value: str,
+    panel_status: str,
+    premium_traffic: str,
+    sort_value: str,
+) -> Dict[str, Any]:
     async with async_session_factory() as session:
         users, total = await _filter_and_sort_users(
             session,
@@ -47,14 +132,58 @@ async def admin_users_list_route(request: web.Request) -> web.Response:
         payload["premium_traffic"] = _premium_traffic_list_payload(active_subs.get(user.user_id))
         serialized.append(payload)
 
-    return _ok(
-        {
-            "users": serialized,
-            "page": page,
-            "page_size": page_size,
-            "total": total,
-        }
-    )
+    return {
+        "users": serialized,
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+    }
+
+
+def _admin_users_list_cache(settings: Settings) -> Optional[AsyncTTLCache]:
+    ttl_seconds = int(getattr(settings, "ADMIN_USERS_LIST_CACHE_TTL_SECONDS", 3) or 0)
+    if ttl_seconds <= 0:
+        return None
+    cache_key = (id(settings), ttl_seconds)
+    cache = _ADMIN_USERS_LIST_CACHES.get(cache_key)
+    if cache is None:
+        cache = AsyncTTLCache(
+            ttl_seconds=ttl_seconds,
+            settings=settings,
+            namespace="admin:users_list",
+        )
+        _ADMIN_USERS_LIST_CACHES[cache_key] = cache
+    return cache
+
+
+def _admin_users_list_cache_key(**params: Any) -> str:
+    raw = json.dumps(params, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+async def _invalidate_admin_users_list_cache(settings: Settings) -> None:
+    for settings_id, _ttl in tuple(_ADMIN_USERS_LIST_CACHES):
+        if settings_id == id(settings):
+            _ADMIN_USERS_LIST_CACHES[(settings_id, _ttl)].invalidate()
+    try:
+        await cache_delete_pattern(settings, redis_key(settings, "cache", "admin:users_list", "*"))
+    except Exception:
+        return
+
+
+async def _invalidate_after_admin_user_mutation(
+    settings: Settings,
+    user_id: Optional[int] = None,
+    *,
+    include_devices: bool = True,
+) -> None:
+    await _invalidate_admin_users_list_cache(settings)
+    if user_id is not None:
+        await invalidate_webapp_user_caches(
+            settings,
+            user_id,
+            include_devices=include_devices,
+        )
 
 
 async def _bulk_user_statuses(
@@ -526,6 +655,7 @@ async def admin_user_ban_route(request: web.Request) -> web.Response:
     payload = await _read_json(request)
     desired = bool(payload.get("banned"))
 
+    settings: Settings = request.app["settings"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
     async with async_session_factory() as session:
         user = await user_dal.get_user_by_id(session, target_id)
@@ -534,6 +664,7 @@ async def admin_user_ban_route(request: web.Request) -> web.Response:
         user.is_banned = bool(desired)
         await session.commit()
         await session.refresh(user)
+    await _invalidate_after_admin_user_mutation(settings, target_id)
     return _ok({"user": _serialize_user(user)})
 
 
@@ -624,10 +755,112 @@ async def admin_user_message_preview_route(request: web.Request) -> web.Response
     return _ok({})
 
 
+def _admin_user_display_name_for_message(user: User) -> str:
+    full = " ".join(
+        part
+        for part in [getattr(user, "first_name", None), getattr(user, "last_name", None)]
+        if part
+    ).strip()
+    return (
+        full
+        or (f"@{user.username}" if getattr(user, "username", None) else None)
+        or getattr(user, "email", None)
+        or f"User #{user.user_id}"
+    )
+
+
+async def admin_user_telegram_profile_link_route(request: web.Request) -> web.Response:
+    actor_id = _require_admin_user_id(request)
+    admin_telegram_id = request.get("admin_telegram_id")
+    if not admin_telegram_id:
+        return _error(403, "admin_telegram_unavailable")
+
+    queue_manager = get_queue_manager()
+    if not queue_manager:
+        return _error(503, "queue_unavailable")
+
+    target_id = int(request.match_info["user_id"])
+    settings: Settings = request.app["settings"]
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+
+    async with async_session_factory() as session:
+        target_user = await user_dal.get_user_by_id(session, target_id)
+        if not target_user:
+            return _error(404, "not_found")
+        if not target_user.telegram_id:
+            return _error(404, "no_telegram_account")
+
+        admin_user = await user_dal.get_user_by_id(session, actor_id)
+        lang = (
+            getattr(admin_user, "language_code", None)
+            or getattr(settings, "DEFAULT_LANGUAGE", None)
+            or "ru"
+        )
+
+        await message_log_dal.create_message_log(
+            session,
+            {
+                "user_id": actor_id,
+                "event_type": "admin_profile_link_webapp",
+                "content": f"Requested Telegram profile link for user_id={target_id}",
+                "is_admin_event": True,
+                "target_user_id": target_id,
+            },
+        )
+        await session.commit()
+
+    i18n_instance = request.app.get("i18n")
+    translate = (
+        (lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs))
+        if i18n_instance is not None
+        else (lambda key, **kwargs: key.format(**kwargs) if kwargs else key)
+    )
+    target_name = _admin_user_display_name_for_message(target_user)
+    telegram_id = int(target_user.telegram_id)
+    profile_url = f"tg://user?id={telegram_id}"
+    message_text = translate(
+        "admin_user_profile_link_message",
+        name=html_escape(target_name),
+        user_id=target_user.user_id,
+        telegram_id=telegram_id,
+    )
+    if message_text == "admin_user_profile_link_message":
+        message_text = (
+            f"Профиль пользователя: <b>{html_escape(target_name)}</b>\n"
+            f"User ID: <code>{target_user.user_id}</code>\n"
+            f"Telegram ID: <code>{telegram_id}</code>\n\n"
+            "Нажмите кнопку ниже, чтобы открыть профиль в Telegram."
+        )
+
+    button_text = translate("user_card_open_profile_button")
+    if button_text == "user_card_open_profile_button":
+        button_text = "👤 Открыть профиль"
+
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=button_text, url=profile_url)]]
+    )
+
+    try:
+        await send_message_via_queue(
+            queue_manager,
+            int(admin_telegram_id),
+            MessageContent(content_type="text", text=message_text),
+            parse_mode="HTML",
+            disable_web_page_preview=True,
+            reply_markup=markup,
+        )
+    except Exception as exc:
+        logger.warning("Admin profile link message enqueue failed: %s", exc)
+        return _error(502, "send_failed", str(exc))
+
+    return _ok({"queued": True})
+
+
 async def admin_user_delete_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
 
+    settings: Settings = request.app["settings"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
     async with async_session_factory() as session:
         ok = await user_dal.delete_user_and_relations(session, target_id)
@@ -644,12 +877,14 @@ async def admin_user_delete_route(request: web.Request) -> web.Response:
             },
         )
         await session.commit()
+    await _invalidate_after_admin_user_mutation(settings, target_id)
     return _ok({})
 
 
 async def admin_user_reset_trial_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
+    settings: Settings = request.app["settings"]
     panel_service = request.app.get("panel_service")
     subscription_service = request.app.get("subscription_service")
     if panel_service is None or subscription_service is None:
@@ -676,6 +911,7 @@ async def admin_user_reset_trial_route(request: web.Request) -> web.Response:
             },
         )
         await session.commit()
+    await _invalidate_after_admin_user_mutation(settings, target_id)
     return _ok({})
 
 
@@ -683,6 +919,7 @@ async def admin_user_premium_override_route(request: web.Request) -> web.Respons
     """Premium-squad traffic overrides only (unlimited toggle + bonus GB)."""
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
+    settings: Settings = request.app["settings"]
     payload = await _read_json(request)
     subscription_service = request.app.get("subscription_service")
 
@@ -734,6 +971,7 @@ async def admin_user_premium_override_route(request: web.Request) -> web.Respons
             await session.commit()
             await session.refresh(active)
 
+    await _invalidate_after_admin_user_mutation(settings, target_id)
     return _ok({"subscription": _serialize_subscription(active)})
 
 
@@ -741,6 +979,7 @@ async def admin_user_regular_traffic_override_route(request: web.Request) -> web
     """Main (regular) traffic: unlimited-style ceiling + admin bonus GB."""
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
+    settings: Settings = request.app["settings"]
     payload = await _read_json(request)
 
     unlimited = bool(payload.get("unlimited"))
@@ -791,6 +1030,7 @@ async def admin_user_regular_traffic_override_route(request: web.Request) -> web
         await session.commit()
         await session.refresh(active)
 
+    await _invalidate_after_admin_user_mutation(settings, target_id)
     return _ok({"subscription": _serialize_subscription(active)})
 
 
@@ -805,6 +1045,7 @@ async def admin_user_traffic_grant_route(request: web.Request) -> web.Response:
     """
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
+    settings: Settings = request.app["settings"]
     payload = await _read_json(request)
 
     kind = str(payload.get("kind") or "regular").strip().lower()
@@ -865,6 +1106,7 @@ async def admin_user_traffic_grant_route(request: web.Request) -> web.Response:
 
         refreshed = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
 
+    await _invalidate_after_admin_user_mutation(settings, target_id)
     return _ok(
         {
             "subscription": _serialize_subscription(refreshed) if refreshed else None,
@@ -880,6 +1122,7 @@ async def admin_user_traffic_grant_route(request: web.Request) -> web.Response:
 async def admin_user_extend_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
+    settings: Settings = request.app["settings"]
     payload = await _read_json(request)
     try:
         days = int(payload.get("days") or 0)
@@ -918,6 +1161,7 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
 
         refreshed = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
 
+    await _invalidate_after_admin_user_mutation(settings, target_id)
     return _ok(
         {
             "subscription": _serialize_subscription(refreshed) if refreshed else None,

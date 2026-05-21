@@ -206,11 +206,31 @@
 
 .admin-setting-control .input,
 .admin-setting-control .admin-setting-select,
+.admin-setting-control .admin-setting-textarea,
 .admin-setting-control input[type="text"],
 .admin-setting-control input[type="number"] {
   flex: 1 1 160px;
   min-width: 0;
   width: 100%;
+}
+
+.admin-setting-control .admin-setting-textarea {
+  min-height: 86px;
+  resize: vertical;
+  border-radius: 8px;
+  border: 1px solid var(--admin-border-strong);
+  background: color-mix(in srgb, var(--admin-bg) 82%, var(--admin-surface-2));
+  color: var(--admin-text);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  outline: none;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.admin-setting-control .admin-setting-textarea:focus {
+  border-color: var(--admin-ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .admin-btn.admin-btn-icon {

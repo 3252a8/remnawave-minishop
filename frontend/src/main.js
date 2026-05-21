@@ -6,7 +6,7 @@ import "./styles.css";
 async function loadBootstrap() {
   if (document.getElementById("webapp-config")) return;
   try {
-    const response = await fetch("/api/bootstrap", {
+    const response = await fetch("/api/bootstrap?i18n_scope=webapp", {
       credentials: "include",
       headers: { Accept: "application/json" },
     });
@@ -31,6 +31,7 @@ const target = document.getElementById("app");
 
 if (target) {
   loadBootstrap().finally(() => {
+    target.replaceChildren();
     mount(App, { target });
   });
 }

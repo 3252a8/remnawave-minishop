@@ -4,3 +4,6 @@ export { default as LinearProgress } from "./LinearProgress.svelte";
 export { default as LanguageSelect } from "./LanguageSelect.svelte";
 export { default as PaymentMethodGrid } from "./PaymentMethodGrid.svelte";
 export { default as StatusMessage } from "./StatusMessage.svelte";
+export { default as TicketCard } from "./TicketCard.svelte";
+export { default as TicketComposer } from "./TicketComposer.svelte";
+export { default as TicketMessageBubble } from "./TicketMessageBubble.svelte";

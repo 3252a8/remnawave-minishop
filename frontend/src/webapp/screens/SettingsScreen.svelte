@@ -11,6 +11,7 @@
 
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
+  import { AttentionDot } from "$components/ui/index.js";
   import { LanguageSelect } from "$components/patterns/webapp/index.js";
 
   export let currentLang = "ru";
@@ -39,6 +40,7 @@
   export let openAdminPanel = () => {};
   export let openExternalLink = () => {};
   export let openLinkEmailDialog = () => {};
+  export let openSetPasswordDialog = () => {};
   export let setLanguageMenuOpen = () => {};
   export let t = (key) => key;
   export let updateAccountLanguage = () => {};
@@ -94,18 +96,30 @@
         onclick={linkTelegramAccount}
         disabled={linkTelegramBusy}
       >
-        <span class="attention-dot" aria-hidden="true"></span>
+        <AttentionDot />
         <Send size={18} />
         {t("wa_settings_link_telegram_action")}
       </Button>
     {/if}
     {#if user?.email}
-      <div class="settings-row settings-row-linked">
+      <div class="settings-row settings-row-linked settings-row-linked-with-action">
         <CheckCircle2 size={21} />
         <span>
           <strong>{t("wa_settings_email_linked_title")}</strong>
           <small>{user?.email}</small>
         </span>
+        {#if user?.email_verified}
+          <Button
+            variant="secondary"
+            size="sm"
+            class="settings-inline-action"
+            onclick={openSetPasswordDialog}
+          >
+            {user?.password_auth_enabled
+              ? t("wa_settings_change_password_action")
+              : t("wa_settings_set_password_action")}
+          </Button>
+        {/if}
       </div>
     {:else}
       <button
@@ -114,7 +128,7 @@
         onclick={openLinkEmailDialog}
         disabled={linkEmailBusy}
       >
-        <span class="attention-dot" aria-hidden="true"></span>
+        <AttentionDot />
         <Mail size={21} />
         <span>
           <strong>{t("wa_settings_link_email_action")}</strong>

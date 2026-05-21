@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
 from bot.middlewares.i18n import JsonI18n
+from bot.payment_providers import pending_statuses, provider_label_map
 from config.settings import Settings
 from db.dal import payment_dal
 from db.models import Payment
@@ -38,18 +39,10 @@ def format_payment_text(payment: Payment, i18n: JsonI18n, lang: str, settings: S
     """Format single payment info as text."""
     _ = lambda key, **kwargs: i18n.gettext(lang, key, **kwargs)
 
-    pending_statuses = [
-        "pending",
-        "pending_yookassa",
-        "pending_freekassa",
-        "pending_platega",
-        "pending_severpay",
-        "pending_cryptopay",
-    ]
     status_emoji = (
         "✅"
         if payment.status == "succeeded"
-        else ("⏳" if payment.status in pending_statuses else "❌")
+        else ("⏳" if payment.status in pending_statuses() else "❌")
     )
 
     user_info = f"User {payment.user_id}"
@@ -60,14 +53,10 @@ def format_payment_text(payment: Payment, i18n: JsonI18n, lang: str, settings: S
 
     payment_date = payment.created_at.strftime("%Y-%m-%d %H:%M") if payment.created_at else "N/A"
 
-    provider_text = {
-        "yookassa": "YooKassa",
-        "telegram_stars": "Telegram Stars",
-        "cryptopay": "CryptoPay",
-        "freekassa": "FreeKassa",
-        "severpay": "SeverPay",
-        "platega": "Platega",
-    }.get(payment.provider, payment.provider or "Unknown")
+    provider_text = provider_label_map(settings, lang).get(
+        payment.provider,
+        payment.provider or "Unknown",
+    )
 
     sale_base = (payment.sale_mode or "").split("@", 1)[0].split("|", 1)[0]
     traffic_like = sale_base in {"traffic", "traffic_package", "topup", "premium_topup"}

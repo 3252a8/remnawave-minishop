@@ -199,10 +199,17 @@ def sanitize_display_name(value: Optional[str]) -> Optional[str]:
 def sanitize_username(value: Optional[str]) -> Optional[str]:
     if value is None:
         return None
-    clean = value.strip()
-    clean = clean.lstrip("@")
-    clean = _remove_patterns(clean)
-    return _finalize(clean)
+    clean = unicodedata.normalize("NFKC", str(value))
+    clean = clean.strip().lstrip("@").strip()
+    if not clean:
+        return None
+
+    # Telegram usernames are already a constrained identifier, not free-form display text.
+    # Do not apply display-name anti-spoofing filters here: they remove words like
+    # "service" or "support" from valid usernames such as "name_service".
+    if re.fullmatch(r"[A-Za-z0-9_-]{1,64}", clean):
+        return clean
+    return None
 
 
 def username_for_display(username: Optional[str], with_at: bool = False) -> str:

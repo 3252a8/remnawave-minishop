@@ -1,25 +1,60 @@
 <!doctype html>
 <html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#03070b" />
+    <link id="app-favicon" rel="icon" href="data:," sizes="any" />
+    <title>/minishop</title>
+    <link rel="stylesheet" href="/subscription_webapp.css" />
+    <style>
+      .app-boot-fallback {
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: #03070b;
+      }
 
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="robots" content="noindex, nofollow">
-  <meta name="theme-color" content="#03070b">
-  <link id="app-favicon" rel="icon" href="data:," sizes="any">
-  <title>/minishop</title>
-  <link rel="stylesheet" href="/subscription_webapp.css">
-</head>
+      .app-boot-fallback__spinner {
+        width: 28px;
+        height: 28px;
+        border: 2px solid rgba(242, 247, 244, 0.18);
+        border-top-color: #00fe7a;
+        border-radius: 999px;
+        animation: appBootSpin 0.8s linear infinite;
+      }
 
-<body>
-  <main id="app"></main>
+      @media (prefers-reduced-motion: reduce) {
+        .app-boot-fallback__spinner {
+          animation: none;
+        }
+      }
 
-  <!-- WEBAPP_I18N_SCRIPT -->
-  <!-- WEBAPP_CONFIG_SCRIPT -->
-  <!-- WEBAPP_JS_SCRIPT -->
-  <!-- WEBAPP_DEV_MOCK_START -->
-  <script src="/subscription_webapp.js" defer></script>
-  <!-- WEBAPP_DEV_MOCK_END -->
-</body>
+      @keyframes appBootSpin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
 
+  <body>
+    <main id="app">
+      <div class="app-boot-fallback" role="status" aria-label="Загрузка">
+        <div class="app-boot-fallback__spinner" aria-hidden="true"></div>
+      </div>
+    </main>
+
+    <!-- WEBAPP_I18N_SCRIPT -->
+    <!-- WEBAPP_CONFIG_SCRIPT -->
+    <!-- WEBAPP_JS_SCRIPT -->
+    <!-- WEBAPP_DEV_MOCK_START -->
+    <script src="/subscription_webapp.js" defer></script>
+    <!-- WEBAPP_DEV_MOCK_END -->
+  </body>
 </html>

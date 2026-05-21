@@ -18,6 +18,21 @@
   --muted: #b0b0b0;
   --dim: #6a6a6a;
   --danger: #ff5555;
+  --danger-text: #ff5555;
+  --danger-soft: #000000;
+  --danger-border: #ff5555;
+  --success: #ffffff;
+  --success-text: #ffffff;
+  --success-soft: #000000;
+  --success-border: #ffffff;
+  --warning: #ffffff;
+  --warning-text: #ffffff;
+  --warning-soft: #000000;
+  --warning-border: #ffffff;
+  --info: #ffffff;
+  --info-text: #ffffff;
+  --info-soft: #000000;
+  --info-border: #ffffff;
   --blue: #ffffff;
   --radius: 0px;
   --font-sans: "JetBrains Mono", "Cascadia Code", "Fira Code", "Consolas",
@@ -112,11 +127,28 @@
 .theme-key-ascii .tariff-action-card,
 .theme-key-ascii .tariff-warning-card,
 .theme-key-ascii .topup-carryover-note,
-.theme-key-ascii .input,
+.theme-key-ascii .subscription-purchase-description,
 .theme-key-ascii .dialog-card,
 .theme-key-ascii .language-select-content,
 .theme-key-ascii .bottom-nav,
 .theme-key-ascii .toast,
+.theme-key-ascii .auth-card,
+.theme-key-ascii .support-overview-card,
+.theme-key-ascii .support-list-card,
+.theme-key-ascii .support-ticket-card,
+.theme-key-ascii .support-conversation-card,
+.theme-key-ascii .support-new-ticket-button,
+.theme-key-ascii .support-create-panel,
+.theme-key-ascii .support-select-trigger,
+.theme-key-ascii .support-select-content,
+.theme-key-ascii .support-status-tabs-list,
+.theme-key-ascii .support-user-ticket-skeleton,
+.theme-key-ascii .ticket-card,
+.theme-key-ascii .support-empty-state,
+.theme-key-ascii .support-message-scroll,
+.theme-key-ascii .ticket-message-avatar,
+.theme-key-ascii .ticket-message-bubble,
+.theme-key-ascii .ticket-composer,
 .theme-key-ascii .admin-sidebar,
 .theme-key-ascii .admin-header,
 .theme-key-ascii .admin-card,
@@ -147,6 +179,10 @@
 .theme-key-ascii .btn,
 .theme-key-ascii .language-select-trigger,
 .theme-key-ascii .bottom-nav button,
+.theme-key-ascii .link-button,
+.theme-key-ascii .support-new-ticket-button,
+.theme-key-ascii .support-select-trigger,
+.theme-key-ascii .support-status-tabs-trigger,
 .theme-key-ascii .admin-btn,
 .theme-key-ascii .admin-chip,
 .theme-key-ascii .admin-tabs-trigger,
@@ -176,6 +212,8 @@
 
 .theme-key-ascii .btn:active:not(:disabled),
 .theme-key-ascii .bottom-nav button:active,
+.theme-key-ascii .support-new-ticket-button:active,
+.theme-key-ascii .support-status-tabs-trigger:active,
 .theme-key-ascii .admin-btn:active:not(:disabled) {
   background: #ffffff;
   color: #000000;
@@ -188,6 +226,10 @@
 .theme-key-ascii .period-card.active,
 .theme-key-ascii .method-card.active,
 .theme-key-ascii .option-row.active,
+.theme-key-ascii .support-new-ticket-button.active,
+.theme-key-ascii .support-status-tabs-trigger[data-state="active"],
+.theme-key-ascii .support-select-item[data-highlighted],
+.theme-key-ascii .support-select-item[data-selected],
 .theme-key-ascii .admin-nav-item.active,
 .theme-key-ascii .admin-tabs-trigger[data-state="active"],
 .theme-key-ascii .admin-revenue-period-btn.is-active {
@@ -226,6 +268,7 @@
 /* ---------- Inputs ---------- */
 
 .theme-key-ascii .input,
+.theme-key-ascii .textarea,
 .theme-key-ascii .admin-input,
 .theme-key-ascii .admin-textarea,
 .theme-key-ascii .admin-screen-wrap textarea,
@@ -240,6 +283,7 @@
 }
 
 .theme-key-ascii .input::placeholder,
+.theme-key-ascii .textarea::placeholder,
 .theme-key-ascii .admin-input::placeholder,
 .theme-key-ascii .admin-textarea::placeholder,
 .theme-key-ascii .admin-screen-wrap textarea::placeholder,
@@ -249,6 +293,7 @@
 }
 
 .theme-key-ascii .input:focus,
+.theme-key-ascii .textarea:focus,
 .theme-key-ascii .admin-input:focus,
 .theme-key-ascii .admin-textarea:focus,
 .theme-key-ascii .admin-screen-wrap textarea:focus,
@@ -256,6 +301,140 @@
   outline: none;
   border-color: #ffffff;
   box-shadow: inset 0 0 0 1px #ffffff;
+}
+
+/* ---------- New webapp surfaces: support, purchase info, password login ---------- */
+
+.theme-key-ascii .subscription-purchase-description,
+.theme-key-ascii .support-create-panel,
+.theme-key-ascii .ticket-composer {
+  background: #000000;
+}
+
+.theme-key-ascii .support-heading-icon,
+.theme-key-ascii .support-new-ticket-icon,
+.theme-key-ascii .support-empty-state svg,
+.theme-key-ascii .ticket-card-title svg,
+.theme-key-ascii .field-error-icon {
+  color: #ffffff;
+}
+
+.theme-key-ascii .password-switch-divider,
+.theme-key-ascii .or-line span {
+  height: 1px;
+  background: #ffffff;
+}
+
+.theme-key-ascii .link-button {
+  min-height: 28px;
+  padding: 0 8px;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.theme-key-ascii .link-button:hover:not(:disabled),
+.theme-key-ascii .support-status-tabs-trigger:hover {
+  background: #ffffff;
+  color: #000000;
+}
+
+.theme-key-ascii .ticket-card::before {
+  inset: 0 auto 0 0;
+  width: 1px;
+  border-radius: 0;
+  background: #ffffff;
+}
+
+.theme-key-ascii .ticket-status-badge,
+.theme-key-ascii .ticket-priority-badge,
+.theme-key-ascii .ticket-message-role-badge {
+  border-color: #ffffff;
+  background: #000000;
+  color: #ffffff;
+}
+
+.theme-key-ascii .ticket-status-badge::before,
+.theme-key-ascii .ticket-priority-badge::before,
+.theme-key-ascii .support-status-tabs-trigger b::before {
+  content: "[";
+}
+
+.theme-key-ascii .ticket-status-badge::after,
+.theme-key-ascii .ticket-priority-badge::after,
+.theme-key-ascii .support-status-tabs-trigger b::after {
+  content: "]";
+}
+
+.theme-key-ascii .ticket-message-row,
+.theme-key-ascii .ticket-message-row--admin,
+.theme-key-ascii .ticket-message-row--user,
+.theme-key-ascii .ticket-message-row--system,
+.theme-key-ascii .ticket-message-row--internal {
+  --ticket-bubble-bg: #000000;
+  --ticket-bubble-border: #ffffff;
+  --ticket-bubble-text: #ffffff;
+}
+
+.theme-key-ascii .ticket-message-bubble,
+.theme-key-ascii .ticket-message-row--outgoing .ticket-message-bubble {
+  border-radius: 0;
+}
+
+.theme-key-ascii .ticket-message-row--outgoing .ticket-message-bubble::after,
+.theme-key-ascii .ticket-message-row--incoming .ticket-message-bubble::before {
+  color: #ffffff;
+  font-family: var(--font-mono);
+}
+
+.theme-key-ascii .ticket-message-row--outgoing .ticket-message-bubble::after {
+  content: " >";
+}
+
+.theme-key-ascii .ticket-message-row--incoming .ticket-message-bubble::before {
+  content: "< ";
+}
+
+.theme-key-ascii .ticket-composer:focus-within,
+.theme-key-ascii .support-select-trigger:focus-visible,
+.theme-key-ascii .ticket-card:focus-visible,
+.theme-key-ascii .support-status-tabs-trigger:focus-visible {
+  border-color: #ffffff;
+  box-shadow: inset 0 0 0 1px #ffffff;
+}
+
+.theme-key-ascii .support-message-scroll,
+.theme-key-ascii .scroll-area--mono::-webkit-scrollbar-thumb {
+  border-radius: 0;
+}
+
+.theme-key-ascii .auth-card {
+  transition: none;
+}
+
+body:has(.theme-key-ascii) .support-select-content,
+body:has(.theme-key-ascii) .field-error-tooltip {
+  border: 1px solid #ffffff;
+  border-radius: 0;
+  background: #000000;
+  color: #ffffff;
+  box-shadow: 0 0 0 1px #ffffff;
+}
+
+body:has(.theme-key-ascii) .support-select-item {
+  border-radius: 0;
+  color: #ffffff;
+}
+
+body:has(.theme-key-ascii) .support-select-item[data-highlighted],
+body:has(.theme-key-ascii) .support-select-item[data-selected] {
+  background: #ffffff;
+  color: #000000 !important;
+}
+
+body:has(.theme-key-ascii) .support-select-item[data-highlighted] svg,
+body:has(.theme-key-ascii) .support-select-item[data-selected] svg {
+  color: #000000 !important;
+  stroke: #000000 !important;
 }
 
 /* ---------- Bottom nav (desktop rail) ---------- */
@@ -867,8 +1046,17 @@
   .btn, .input,
   .period-card, .method-card, .settings-row, .option-row,
   .tariff-selected-card, .tariff-action-card, .tariff-warning-card,
-  .topup-carryover-note, .language-select-content, .language-select-item,
+  .topup-carryover-note, .subscription-purchase-description,
+  .language-select-content, .language-select-item,
   .language-select-trigger, .bottom-nav, .bottom-nav button,
+  .link-button,
+  .support-overview-card, .support-list-card, .support-ticket-card,
+  .support-conversation-card, .support-new-ticket-button,
+  .support-create-panel, .support-select-trigger, .support-select-content,
+  .support-select-item, .support-status-tabs-list, .support-status-tabs-trigger,
+  .support-user-ticket-skeleton, .ticket-card, .support-empty-state,
+  .support-message-scroll, .ticket-message-avatar, .ticket-message-bubble,
+  .ticket-composer, .textarea,
   .field-error-tooltip,
   .admin-card, .admin-card-head, .admin-card-body,
   .admin-stat-card, .admin-stat-skeleton-card, .admin-stat-skeleton-wide,

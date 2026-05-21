@@ -25,6 +25,7 @@ _PROVIDERS_FROM_CALLERS = {
     "freekassa",
     "platega",
     "severpay",
+    "wata",
     "cryptopay",
     "telegram_stars",
 }
@@ -86,9 +87,7 @@ class SendPaymentSuccessEmailTests(unittest.IsolatedAsyncioTestCase):
             DEFAULT_CURRENCY_SYMBOL="RUB",
             SUBSCRIPTION_MINI_APP_URL="https://app.example.com/",
         )
-        user = _FakeUser(
-            user_id=42, email="buyer@example.com", language_code="en"
-        )
+        user = _FakeUser(user_id=42, email="buyer@example.com", language_code="en")
 
         with (
             patch.object(payments_module, "render_payment_success", fake_render),

@@ -9,7 +9,7 @@ Prior to the fix, ``charge_subscription_renewal`` did::
         yk = None
 
 There is no ``yookassa_service`` module inside ``subscription_service_impl``
-(the real one lives in ``bot.services.yookassa_service``), so the import
+(the real implementation lives in ``bot.payment_providers.yookassa``), so the import
 always raised ``ModuleNotFoundError``, ``yk`` became ``None``, and every
 auto-renew silently logged ``YooKassa unavailable for auto-renew`` and
 returned False — even though ``build_core_services`` had wired a real
@@ -33,9 +33,7 @@ class _FakeYooKassaService:
     def __init__(self, configured: bool = True, response: Optional[Dict[str, Any]] = None) -> None:
         self.configured = configured
         self.calls: List[Dict[str, Any]] = []
-        self._response = response if response is not None else {
-            "id": "pay-1", "status": "pending"
-        }
+        self._response = response if response is not None else {"id": "pay-1", "status": "pending"}
 
     async def create_payment(self, **kwargs):
         self.calls.append(kwargs)

@@ -12,6 +12,7 @@ class PaymentContextMixin:
         "freekassa": "FreeKassa",
         "platega": "Platega",
         "severpay": "SeverPay",
+        "wata": "Wata",
         "cryptopay": "Crypto Pay",
         "telegram_stars": "Telegram Stars",
     }
@@ -84,7 +85,15 @@ class PaymentContextMixin:
             return
 
         end_date_text = end_date.strftime("%Y-%m-%d") if end_date else ""
-        provider_label = self._PROVIDER_LABELS.get((provider or "").lower())
+        try:
+            from bot.payment_providers import provider_label_map
+
+            provider_label = provider_label_map(
+                self.settings,
+                db_user.language_code or self.settings.DEFAULT_LANGUAGE,
+            ).get((provider or "").lower())
+        except Exception:
+            provider_label = self._PROVIDER_LABELS.get((provider or "").lower())
         dashboard_url = (self.settings.SUBSCRIPTION_MINI_APP_URL or "").strip() or None
 
         try:

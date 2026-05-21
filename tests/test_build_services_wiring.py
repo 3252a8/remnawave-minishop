@@ -13,6 +13,7 @@ silently swallows the wiring step.
 """
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,10 +21,31 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from bot.app.factories.build_services import build_core_services
+from bot.payment_providers.yookassa import YooKassaService
 from bot.services.panel_webhook_service import PanelWebhookService
 from bot.services.subscription_service import SubscriptionService
-from bot.services.yookassa_service import YooKassaService
 from config.settings import Settings
+
+# Strip all provider env so per-provider BaseSettings models don't pick up
+# real credentials from the local .env file during tests.
+_PROVIDER_ENV_PREFIXES = (
+    "FREEKASSA_",
+    "PLATEGA_",
+    "SEVERPAY_",
+    "WATA_",
+    "HELEKET_",
+    "CRYPTOPAY_",
+    "YOOKASSA_",
+    "STARS_",
+)
+
+
+def _clean_env() -> dict[str, str]:
+    return {
+        k: v
+        for k, v in os.environ.items()
+        if not any(k.startswith(p) for p in _PROVIDER_ENV_PREFIXES) and not k.startswith("PAYMENT_")
+    }
 
 
 def _make_settings(tmpdir: str, **overrides: Any) -> Settings:
@@ -100,9 +122,7 @@ class BuildServicesWiringTests(unittest.TestCase):
         panel_webhook = services["panel_webhook_service"]
         subscription = services["subscription_service"]
         self.assertIsInstance(panel_webhook, PanelWebhookService)
-        self.assertIs(
-            getattr(panel_webhook, "subscription_service", None), subscription
-        )
+        self.assertIs(getattr(panel_webhook, "subscription_service", None), subscription)
 
     def test_factory_returns_every_documented_service(self):
         """Guards against silently dropping a service from the bundle. The
@@ -123,6 +143,9 @@ class BuildServicesWiringTests(unittest.TestCase):
             "subscription_service",
             "referral_service",
             "promo_code_service",
+            "notification_service",
+            "email_auth_service",
+            "support_service",
             "stars_service",
             "cryptopay_service",
             "freekassa_service",
@@ -131,6 +154,8 @@ class BuildServicesWiringTests(unittest.TestCase):
             "lknpd_service",
             "platega_service",
             "severpay_service",
+            "wata_service",
+            "heleket_service",
         }
         self.assertEqual(set(services), expected_keys)
 

@@ -1,8 +1,12 @@
+import hashlib
 import logging
 from typing import Optional, Tuple
 
 from bot.services.panel_api_service import PanelApiService
+from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
+
+_CRYPT4_LINK_CACHES: dict[tuple[int, int], AsyncTTLCache] = {}
 
 
 async def _encrypt_raw_link(settings: Settings, raw_link: str) -> Optional[str]:
@@ -12,6 +16,30 @@ async def _encrypt_raw_link(settings: Settings, raw_link: str) -> Optional[str]:
         if encrypted_link:
             return encrypted_link
     return None
+
+
+def _crypt4_link_cache(settings: Settings) -> Optional[AsyncTTLCache]:
+    ttl_seconds = int(getattr(settings, "CRYPT4_LINK_CACHE_TTL_SECONDS", 3600) or 0)
+    if ttl_seconds <= 0:
+        return None
+    cache_key = (id(settings), ttl_seconds)
+    cache = _CRYPT4_LINK_CACHES.get(cache_key)
+    if cache is None:
+        cache = AsyncTTLCache(
+            ttl_seconds=ttl_seconds,
+            settings=settings,
+            namespace="crypt4:links",
+        )
+        _CRYPT4_LINK_CACHES[cache_key] = cache
+    return cache
+
+
+async def _encrypt_raw_link_cached(settings: Settings, raw_link: str) -> Optional[str]:
+    cache = _crypt4_link_cache(settings)
+    if cache is None:
+        return await _encrypt_raw_link(settings, raw_link)
+    key = hashlib.sha256(raw_link.encode("utf-8")).hexdigest()
+    return await cache.get_or_load(key, lambda: _encrypt_raw_link(settings, raw_link))
 
 
 async def prepare_config_links(
@@ -35,7 +63,7 @@ async def prepare_config_links(
     button_link = cleaned
 
     if settings.CRYPT4_ENABLED:
-        encrypted_payload = await _encrypt_raw_link(settings, cleaned)
+        encrypted_payload = await _encrypt_raw_link_cached(settings, cleaned)
         if encrypted_payload:
             display_link = encrypted_payload
             button_link = display_link

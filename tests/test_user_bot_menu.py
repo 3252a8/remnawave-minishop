@@ -5,13 +5,19 @@ from types import SimpleNamespace
 
 from bot.app.web import subscription_webapp
 from bot.handlers.user import referral
+from bot.handlers.user.subscription.core import _with_subscription_purchase_description
 from bot.keyboards.inline.user_keyboards import (
     get_bot_interface_inline_keyboard,
     get_information_links_keyboard,
     get_language_selection_keyboard,
     get_main_menu_inline_keyboard,
+    get_payment_method_keyboard,
     get_referral_link_keyboard,
     get_subscription_options_keyboard,
+    get_tariff_catalog_keyboard,
+    get_tariff_periods_keyboard,
+    payment_methods_back_callback,
+    payment_options_back_callback,
 )
 
 
@@ -94,6 +100,97 @@ class UserBotMenuTests(unittest.TestCase):
         self.assertIn("main_action:bot_interface", self._callback_data(referral_markup))
         self.assertIn("main_action:bot_interface", self._callback_data(info_markup))
         self.assertIn("set_lang_ru:bot", self._callback_data(language_markup))
+        self.assertIn("subscribe_period:1:bot", self._callback_data(subscription_markup))
+
+    def test_subscription_purchase_description_is_prepended_before_period_selection(self):
+        settings = SimpleNamespace(
+            subscription_purchase_description=lambda language: f"Description {language}"
+        )
+
+        self.assertEqual(
+            _with_subscription_purchase_description(
+                "Choose period",
+                settings,
+                "en",
+                include=True,
+            ),
+            "Description en\n\nChoose period",
+        )
+        self.assertEqual(
+            _with_subscription_purchase_description(
+                "Choose traffic",
+                settings,
+                "en",
+                include=False,
+            ),
+            "Choose traffic",
+        )
+
+    def test_payment_navigation_context_keeps_bot_menu_source(self):
+        settings = SimpleNamespace(
+            payment_methods_order=[],
+            PLATEGA_ENABLED=False,
+            PLATEGA_SBP_ENABLED=False,
+            PLATEGA_CRYPTO_ENABLED=False,
+        )
+        markup = get_payment_method_keyboard(
+            1,
+            100,
+            None,
+            "RUB",
+            "en",
+            self.i18n,
+            settings,
+            sale_mode="subscription|bot",
+        )
+
+        self.assertIn("main_action:bot_subscribe", self._callback_data(markup))
+        self.assertEqual(
+            payment_methods_back_callback("1", "subscription|bot"),
+            "subscribe_period:1:bot",
+        )
+
+    def test_tariff_back_buttons_return_to_previous_level(self):
+        tariff = SimpleNamespace(
+            key="basic",
+            billing_model="period",
+            enabled_periods=[1],
+            name=lambda _lang: "Basic",
+            description=lambda _lang: "Basic plan",
+            min_period_price_rub=lambda: 100,
+            period_price=lambda months, currency: (
+                100 if months == 1 and currency == "rub" else None
+            ),
+        )
+        settings = SimpleNamespace(DEFAULT_CURRENCY_SYMBOL="RUB")
+
+        catalog = get_tariff_catalog_keyboard(
+            [tariff],
+            "en",
+            self.i18n,
+            back_callback="main_action:bot_interface",
+        )
+        periods = get_tariff_periods_keyboard(
+            tariff,
+            "en",
+            self.i18n,
+            settings,
+            back_callback="main_action:bot_subscribe",
+            callback_context="bot",
+        )
+
+        self.assertIn("tariff:select:basic:bot", self._callback_data(catalog))
+        self.assertIn("main_action:bot_interface", self._callback_data(catalog))
+        self.assertIn("tariff:period:basic:1:bot", self._callback_data(periods))
+        self.assertIn("main_action:bot_subscribe", self._callback_data(periods))
+        self.assertEqual(
+            payment_options_back_callback("subscription@basic|bot"),
+            "tariff:select:basic:bot",
+        )
+        self.assertEqual(
+            payment_methods_back_callback("1", "subscription@basic|bot"),
+            "tariff:period:basic:1:bot",
+        )
 
     def test_webapp_referral_link_uses_ref_query_and_is_normalized(self):
         link = referral._build_webapp_referral_link(

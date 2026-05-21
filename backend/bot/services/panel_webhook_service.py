@@ -255,8 +255,7 @@ class PanelWebhookService:
             "panel",
             {"event": event_name, "user": user_data},
             event_id=(
-                f"{event_name}:"
-                f"{telegram_id or user_data.get('uuid') or user_data.get('shortUuid')}"
+                f"{event_name}:{telegram_id or user_data.get('uuid') or user_data.get('shortUuid')}"
             ),
         )
         if not queued:

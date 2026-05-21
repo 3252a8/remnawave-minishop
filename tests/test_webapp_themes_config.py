@@ -33,13 +33,13 @@ class WebappThemesConfigTests(unittest.TestCase):
         self.assertEqual(win95.tokens.style_preset, "win95")
         self.assertFalse(win95.use_primary_accent)
         self.assertTrue(win95.use_in_admin)
-        self.assertEqual(win95.assets_version, 6)
+        self.assertEqual(win95.assets_version, 9)
         ascii_theme = cfg.theme_by_key("ascii")
         self.assertIsNotNone(ascii_theme)
         self.assertEqual(ascii_theme.css_file, "style.css")
         self.assertFalse(ascii_theme.use_primary_accent)
         self.assertTrue(ascii_theme.use_in_admin)
-        self.assertEqual(ascii_theme.assets_version, 1)
+        self.assertEqual(ascii_theme.assets_version, 3)
 
     def test_env_override_default_theme(self):
         cfg = builtin_webapp_themes_config("#00fe7a")
@@ -273,6 +273,7 @@ class WebappThemesConfigTests(unittest.TestCase):
         win95 = next(theme for theme in payload["themes"] if theme["key"] == "windows95")
 
         self.assertEqual(light["css_file"], "style.css")
+        self.assertEqual(light["assets_version"], cfg.theme_by_key("light").assets_version)
         self.assertEqual(light["tokens"]["accent"], "#abc123")
         self.assertEqual(dark["tokens"]["accent"], "#abc123")
         self.assertFalse(win95["use_primary_accent"])
@@ -380,7 +381,7 @@ class WebappThemesConfigTests(unittest.TestCase):
                 descriptor["assets_version"],
                 cfg.theme_by_key("windows95").assets_version,
             )
-            self.assertEqual(descriptor["assets_version"], 6)
+            self.assertEqual(descriptor["assets_version"], 9)
             self.assertIn("lucide-house", css)
             self.assertIn("lucide-earth", css)
             self.assertIn("lucide-circle-check", css)
@@ -388,7 +389,13 @@ class WebappThemesConfigTests(unittest.TestCase):
             self.assertIn("filter: none !important", css)
             self.assertIn("Press Start 2P", css)
             self.assertIn("::-webkit-slider-thumb", css)
-            self.assertIn("?v=6", css)
+            self.assertIn("?v=9", css)
+            self.assertIn("lucide-life-buoy", css)
+            self.assertIn("New webapp surfaces: support, purchase info, password login", css)
+            self.assertIn(
+                ".theme-key-windows95 .support-list-card {\n    grid-template-rows: auto auto minmax(0, 1fr);",
+                css,
+            )
             self.assertIn(".theme-key-windows95 .traffic-top strong", css)
             self.assertTrue((stale_theme_dir / "icons" / "dashboard.png").exists())
 

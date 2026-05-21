@@ -1,6 +1,10 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
 
+from bot.app.web.webapp.cache_helpers import webapp_cached_user_payload
+from .auth import _hash_email_password
+from .common import _invalidate_webapp_user_caches
+
 
 async def account_email_request_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
@@ -173,6 +177,7 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
             logger.exception("Email account link failed")
             return _json_error(500, "link_failed", "Link failed")
 
+    await _invalidate_webapp_user_caches(settings, user_id, final_user_id, include_devices=True)
     if should_notify_email_linked:
         try:
             from bot.services.notification_service import NotificationService
@@ -199,6 +204,84 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
         response_payload["account_merge"] = merge_notice
         response_payload["user_id"] = final_user_id
     return _build_webapp_auth_response(settings, response_payload, token=token)
+
+
+async def account_password_request_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    settings: Settings = request.app["settings"]
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+
+    async with async_session_factory() as session:
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user or db_user.is_banned:
+            return _json_error(403, "access_denied", "Access denied")
+        if not db_user.email or not db_user.email_verified_at:
+            return _json_error(400, "email_not_linked", "Email is not linked")
+        email = db_user.email
+        lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
+
+    return await _request_email_code(
+        request,
+        email=email,
+        purpose="set_password",
+        language_code=lang,
+        target_user_id=user_id,
+    )
+
+
+async def account_password_confirm_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    payload = await _read_json(request)
+    password_payload, validation_error = _validate_model_payload(WebAppSetPasswordPayload, payload)
+    if validation_error:
+        return validation_error
+    if password_payload.password != password_payload.password_confirm:
+        return _json_error(400, "password_mismatch", "Passwords do not match")
+
+    settings: Settings = request.app["settings"]
+    email_service: EmailAuthService = request.app["email_auth_service"]
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async with async_session_factory() as session:
+        try:
+            db_user = await user_dal.get_user_by_id(session, user_id)
+            if not db_user or db_user.is_banned:
+                await session.rollback()
+                return _json_error(403, "access_denied", "Access denied")
+            if not db_user.email or not db_user.email_verified_at:
+                await session.rollback()
+                return _json_error(400, "email_not_linked", "Email is not linked")
+
+            verify_result = await email_service.verify_code(
+                session,
+                email=db_user.email,
+                purpose="set_password",
+                code=str(password_payload.code or ""),
+                target_user_id=user_id,
+            )
+            if not verify_result.ok:
+                await session.commit()
+                status = 429 if verify_result.error == "rate_limited" else 400
+                return web.json_response(
+                    {
+                        "ok": False,
+                        "error": verify_result.error or "invalid_code",
+                        "retry_after": verify_result.retry_after,
+                        "message": "Invalid code",
+                    },
+                    status=status,
+                )
+
+            db_user.password_hash = _hash_email_password(str(password_payload.password))
+            db_user.password_set_at = datetime.now(timezone.utc)
+            await session.flush()
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            logger.exception("Email password setup failed")
+            return _json_error(500, "password_setup_failed", "Password setup failed")
+
+    await _invalidate_webapp_user_caches(settings, user_id)
+    return web.json_response({"ok": True, "password_auth_enabled": True})
 
 
 async def account_telegram_link_route(request: web.Request) -> web.Response:
@@ -317,6 +400,7 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
             logger.exception("Telegram account link failed")
             return _json_error(500, "link_failed", "Link failed")
 
+    await _invalidate_webapp_user_caches(settings, user_id, final_user_id, include_devices=True)
     if should_notify_telegram_linked and final_telegram_id:
         try:
             from bot.services.notification_service import NotificationService
@@ -351,12 +435,13 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
 async def me_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     settings: Settings = request.app["settings"]
-    cache_key = redis_key(settings, "cache", "webapp", "me", user_id)
-    cached = await cache_get_json(settings, cache_key)
-    if cached:
-        return web.json_response({"ok": True, **cached})
-    data = await _build_user_payload(request, user_id)
-    await cache_set_json(settings, cache_key, data, settings.WEBAPP_ME_CACHE_TTL_SECONDS)
+    data = await webapp_cached_user_payload(
+        settings,
+        "me",
+        user_id,
+        int(getattr(settings, "WEBAPP_ME_CACHE_TTL_SECONDS", 15) or 0),
+        lambda: _build_user_payload(request, user_id),
+    )
     return web.json_response({"ok": True, **data})
 
 
@@ -409,6 +494,7 @@ async def account_language_route(request: web.Request) -> web.Response:
             await session.flush()
         await session.commit()
 
+    await _invalidate_webapp_user_caches(settings, user_id)
     return web.json_response({"ok": True, "language": language})
 
 

@@ -15,7 +15,8 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 - покупка подписок, пакетов трафика, обычная и premium-докупка трафика, докупка устройств по настроенному каталогу тарифов;
 - Web App / Mini App с входом через Telegram или email;
 - пробный период, промокоды и реферальная программа;
-- оплата через YooKassa, FreeKassa, Platega, SeverPay, CryptoPay и Telegram Stars;
+- оплата через YooKassa, FreeKassa, Platega, SeverPay, Wata, CryptoPay, Heleket и Telegram Stars;
+- тикеты поддержки в Web App и внешняя ссылка на поддержку;
 - раздел "Мои устройства" при включенном `MY_DEVICES_SECTION_ENABLED`.
 
 Для администраторов:
@@ -23,16 +24,18 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 - админ-панель для пользователей из `ADMIN_IDS` (только при входе через Telegram, не для аккаунтов только с email);
 - статистика пользователей, подписок, платежей и синхронизации с Remnawave;
 - список пользователей с поиском, фильтрами и колонкой premium-трафика;
-- блокировка пользователей, рассылки, промокоды, логи действий и настройка разрешенных параметров приложения поверх `.env`;
+- блокировка пользователей, поддержка через тикеты, рассылки, промокоды, логи действий и настройка разрешенных параметров приложения поверх `.env`;
 - редактор JSON-каталога тарифов с period/traffic-моделями, Internal Squads, premium-сквадами и HWID-пакетами;
 - ручная синхронизация пользователей и подписок с панелью.
 
 ## Документация
 
-- [Настройка окружения](docs/configuration.md) - основные переменные `.env`, платежи, Remnawave, пробный период, SMTP для email-входа и секреты.
+- [Настройка окружения](docs/configuration.md) - bootstrap `.env` и рекомендуемая настройка через Web App админку.
+- [Переменные `.env`](docs/env-vars.md) - полный справочник всех env-ключей по разделам.
 - [Тарифы](docs/tariffs.md) - каталог тарифов, period- и traffic-модели, обычные и premium-докупки, premium-сквады, смена тарифа, HWID-лимиты и обработка трафика.
 - [Админ-панель](docs/admin.md) - права доступа, настройки, редактор тарифов, premium-сквады и сохранение JSON-каталога.
 - [Web App / Mini App](docs/webapp.md) - отдельный порт, домен, Telegram OAuth, email-вход и реферальные ссылки.
+- [Поддержка](docs/support.md) - тикеты в Mini App, входящий список админки, уведомления, лимиты и внешняя ссылка поддержки.
 - [Темы Web App](docs/webapp-themes.md) - кастомные темы, настройка внешнего вида, логотипы, CSS/ассеты и пайплайн создания новой темы.
 - [Развертывание](docs/deployment.md) - Docker Compose, reverse proxy, Nginx, Caddy, вебхуки, запуск из образа и обновление версии (`IMAGE_TAG`).
 - [Миграция с remnawave-tg-shop](docs/migration-to-minishop.md) - перенос данных из прежнего стека.
@@ -60,7 +63,7 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 - Docker и Docker Compose;
 - рабочая панель Remnawave версии **`> 2.7.0`** (см. раздел «Совместимость»);
 - токен Telegram-бота;
-- параметры хотя бы одного платежного провайдера.
+- публичные домены для webhook и Mini App.
 
 ```bash
 git clone https://github.com/3252a8/remnawave-minishop
@@ -76,10 +79,14 @@ docker compose logs -f backend worker frontend
 - `BOT_TOKEN` - токен Telegram-бота;
 - `ADMIN_IDS` - Telegram ID администраторов через запятую;
 - `WEBHOOK_BASE_URL` - публичный URL вебхуков;
+- `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` - доступы PostgreSQL;
+- `WEBAPP_ENABLED=True` - включает Web App и админку для первого входа;
+- `WEBAPP_SESSION_SECRET`, `WEBHOOK_SECRET_TOKEN` - стабильные секреты;
+- `SUBSCRIPTION_MINI_APP_URL` - публичный HTTPS URL Mini App/frontend, например `https://app.domain.com/`;
 - `PANEL_API_URL`, `PANEL_API_KEY`, `PANEL_WEBHOOK_SECRET` - доступ к Remnawave;
-- `USER_SQUAD_UUIDS` - Internal Squads для пользователей;
-- настройки платежного провайдера;
-- `SUBSCRIPTION_MINI_APP_URL`, если используется Web App.
+- остальные настройки удобнее задать в Web App админке.
+
+После первого входа в админку настройте тарифы, платежные провайдеры, внешний вид, поддержку и уведомления через UI. Полный справочник env-переменных: [docs/env-vars.md](docs/env-vars.md).
 
 Для каталога тарифов используется `TARIFFS_CONFIG_PATH` со значением по умолчанию `data/tariffs.json`. Пример формата лежит в [data/tariffs.example.json](data/tariffs.example.json), подробности - в [docs/tariffs.md](docs/tariffs.md).
 
@@ -113,6 +120,6 @@ GHCR image names for releases:
 - `ghcr.io/3252a8/remnawave-minishop-worker`
 - `ghcr.io/3252a8/remnawave-minishop-frontend`
 
-## Поддержка
+## Поддержать проект
 
 - Crypto: `USDT/Other ERC-20 0xeD506D44aae634fEc0E01C8835744fBedb7B2a44 (Ethereum/Polygon/Gnosis)`

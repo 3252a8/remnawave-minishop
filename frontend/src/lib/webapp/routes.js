@@ -7,6 +7,7 @@ export function normalizeSection(value) {
   if (
     section === "invite" ||
     section === "devices" ||
+    section === "support" ||
     section === "settings" ||
     section === "admin"
   ) {
@@ -22,6 +23,7 @@ export function sectionFromPath(pathname) {
     .replace(/\/+$/, "");
   if (!normalizedPath || normalizedPath === "/") return "home";
   if (normalizedPath === "/admin" || normalizedPath.startsWith("/admin/")) return "admin";
+  if (normalizedPath === "/support" || normalizedPath.startsWith("/support/")) return "support";
   const section = normalizedPath.startsWith("/") ? normalizedPath.slice(1) : normalizedPath;
   return normalizeSection(section);
 }
@@ -43,6 +45,22 @@ export function adminUserIdFromPath(pathname) {
   return m ? Number(m[1]) : null;
 }
 
+export function supportTicketIdFromPath(pathname) {
+  const normalized = String(pathname || "")
+    .toLowerCase()
+    .replace(/\/+$/, "");
+  const m = normalized.match(/^\/support\/(\d+)$/);
+  return m ? Number(m[1]) : null;
+}
+
+export function adminSupportTicketIdFromPath(pathname) {
+  const normalized = String(pathname || "")
+    .toLowerCase()
+    .replace(/\/+$/, "");
+  const m = normalized.match(/^\/admin\/support\/(\d+)$/);
+  return m ? Number(m[1]) : null;
+}
+
 export function syncSectionPath(section, replace = false, adminSection = null, adminUserId = null) {
   if (window.location.protocol === "file:") return;
   const normalized = normalizeSection(section);
@@ -51,7 +69,11 @@ export function syncSectionPath(section, replace = false, adminSection = null, a
     const adm = adminSection || adminSectionFromPath(window.location.pathname) || "stats";
     const uid =
       adminUserId ?? (adm === "users" ? adminUserIdFromPath(window.location.pathname) : null);
-    targetPath = adm === "users" && uid ? `/admin/users/${uid}` : `/admin/${adm}`;
+    const supportTicketId =
+      adm === "support" ? adminSupportTicketIdFromPath(window.location.pathname) : null;
+    if (adm === "users" && uid) targetPath = `/admin/users/${uid}`;
+    else if (adm === "support" && supportTicketId) targetPath = `/admin/support/${supportTicketId}`;
+    else targetPath = `/admin/${adm}`;
   }
   if (window.location.pathname === targetPath) return;
   const nextUrl = `${targetPath}${window.location.search}${window.location.hash}`;

@@ -196,7 +196,11 @@ class EmailAuthService:
 
         code = f"{secrets.randbelow(1_000_000):06d}"
         magic_token = secrets.token_urlsafe(32)
-        magic_link = self._build_magic_link(token=magic_token, purpose=purpose)
+        magic_link = (
+            self._build_magic_link(token=magic_token, purpose=purpose)
+            if purpose == "login"
+            else None
+        )
         code_model = EmailVerificationCode(
             email=normalized_email,
             code_hash=self._hash_code(normalized_email, purpose, code),
@@ -214,6 +218,7 @@ class EmailAuthService:
             code=code,
             language_code=language_code,
             magic_link=magic_link,
+            purpose=purpose,
         )
         return EmailCodeRequestResult(ok=True)
 
@@ -405,6 +410,7 @@ class EmailAuthService:
         code: str,
         language_code: str,
         magic_link: Optional[str] = None,
+        purpose: str = "login",
     ) -> None:
         await asyncio.to_thread(
             self._send_code_email_sync,
@@ -412,6 +418,7 @@ class EmailAuthService:
             code=code,
             language_code=language_code,
             magic_link=magic_link,
+            purpose=purpose,
         )
 
     async def send_custom_email(
@@ -450,12 +457,14 @@ class EmailAuthService:
         code: str,
         language_code: str,
         magic_link: Optional[str] = None,
+        purpose: str = "login",
     ) -> None:
         content = render_login_code(
             self.settings,
             code=code,
             language_code=language_code,
             magic_link=magic_link,
+            purpose=purpose,
         )
 
         message = EmailMessage()

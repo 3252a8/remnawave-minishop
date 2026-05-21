@@ -25,8 +25,11 @@ export function createAuthStore({
     loginEmailTooltipOpen: false,
     authResendCooldown: 0,
     email: "",
+    emailPassword: "",
     pendingEmail: "",
     emailCode: "",
+    passwordLoginMode: false,
+    passwordLoginFallback: false,
   });
 
   let authResendTimer = null;
@@ -169,6 +172,7 @@ export function createAuthStore({
       loginEmailFieldError: "",
       loginEmailTooltipOpen: false,
       authBusy: true,
+      passwordLoginFallback: false,
     }));
     setAuthStatus(t("wa_auth_sending_code"));
     try {
@@ -183,6 +187,53 @@ export function createAuthStore({
       startCooldownTimer(60);
     } catch (error) {
       setAuthStatus(emailError(error, t("wa_auth_send_code_failed"), t), true);
+    } finally {
+      state.update((s) => ({ ...s, authBusy: false }));
+    }
+  }
+
+  async function loginWithEmailPassword() {
+    const s = get(state);
+    const normalized = s.email.trim().toLowerCase();
+    const password = String(s.emailPassword || "");
+    if (!normalized || !normalized.includes("@")) {
+      state.update((s) => ({
+        ...s,
+        loginEmailFieldError: t("wa_auth_invalid_email"),
+        loginEmailTooltipOpen: true,
+      }));
+      return;
+    }
+    if (!password) {
+      setAuthStatus(t("wa_auth_password_required"), true);
+      return;
+    }
+    state.update((s) => ({
+      ...s,
+      loginEmailFieldError: "",
+      loginEmailTooltipOpen: false,
+      authBusy: true,
+      passwordLoginFallback: false,
+    }));
+    setAuthStatus(t("wa_auth_checking_password"));
+    try {
+      const response = await publicApi("/auth/email/password", {
+        email: normalized,
+        password,
+      });
+      if (!response.ok || !response.csrf_token) throw response;
+      setToken("", response.csrf_token);
+      await loadData();
+      setAuthStatus("");
+    } catch (error) {
+      if (error?.error === "rate_limited") {
+        setAuthStatus(emailError(error, t("wa_auth_password_login_failed"), t), true);
+      } else if (error?.error === "banned") {
+        setAuthStatus(t("wa_auth_access_denied"), true);
+      } else {
+        state.update((s) => ({ ...s, passwordLoginFallback: true }));
+        setAuthStatus(t("wa_auth_password_login_failed"), true);
+      }
     } finally {
       state.update((s) => ({ ...s, authBusy: false }));
     }
@@ -278,6 +329,7 @@ export function createAuthStore({
     finalizeMagicLogin,
     finalizeTelegramAuth,
     requestEmailCode,
+    loginWithEmailPassword,
     verifyEmailCode,
     openTelegramLogin,
     clearCooldownTimer,

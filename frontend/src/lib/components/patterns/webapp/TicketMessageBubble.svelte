@@ -1,0 +1,79 @@
+<script>
+  import BrandMark from "$lib/webapp/BrandMark.svelte";
+  import { LifeBuoy, Lock, MessageSquare, UserRound } from "$components/ui/icons.js";
+
+  export let role = "user";
+  export let body = "";
+  export let createdAt = "";
+  export let isInternalNote = false;
+  export let perspective = "user";
+  export let userAvatarUrl = "";
+  export let userInitials = "";
+  export let authorName = "";
+  export let supportBrand = {};
+  export let t = (key, _params = {}, fallback = "") => fallback || key;
+
+  $: messageRole = role || "system";
+  $: serviceMessage = isInternalNote || messageRole === "system";
+  $: outgoing =
+    (perspective === "admin" && (messageRole === "admin" || serviceMessage)) ||
+    (!serviceMessage && perspective !== "admin" && messageRole === "user");
+  $: roleLabel = isInternalNote
+    ? [authorName, t("wa_support_internal_note", {}, "Внутренняя заметка")]
+        .filter(Boolean)
+        .join(" / ")
+    : authorName || t(`wa_support_role_${messageRole}`, {}, messageRole);
+  $: timeLabel = formatTime(createdAt);
+  $: showSupportAvatar = !isInternalNote && messageRole === "admin";
+  $: showUserAvatar = !isInternalNote && messageRole === "user";
+
+  function formatTime(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleString(undefined, {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+</script>
+
+<article
+  class={`ticket-message-row ticket-message-row--${messageRole}`.trim()}
+  class:ticket-message-row--outgoing={outgoing}
+  class:ticket-message-row--incoming={!outgoing}
+  class:ticket-message-row--internal={isInternalNote}
+>
+  <span class="ticket-message-avatar" aria-hidden="true">
+    {#if isInternalNote}
+      <Lock size={15} />
+    {:else if showSupportAvatar}
+      <BrandMark brand={supportBrand} size="sm" fallbackEmoji={true} />
+    {:else if showUserAvatar && userAvatarUrl}
+      <img src={userAvatarUrl} alt="" loading="lazy" referrerpolicy="no-referrer" />
+    {:else if showUserAvatar && userInitials}
+      <strong>{userInitials}</strong>
+    {:else if messageRole === "admin"}
+      <LifeBuoy size={15} />
+    {:else if messageRole === "user"}
+      <UserRound size={15} />
+    {:else}
+      <MessageSquare size={15} />
+    {/if}
+  </span>
+
+  <div class="ticket-message-content">
+    <div class="ticket-message-meta">
+      <span class="ticket-message-author">{roleLabel}</span>
+      {#if timeLabel}
+        <time datetime={createdAt}>{timeLabel}</time>
+      {/if}
+    </div>
+
+    <div class="ticket-message-bubble">
+      <p>{body}</p>
+    </div>
+  </div>
+</article>

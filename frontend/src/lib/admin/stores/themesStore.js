@@ -69,13 +69,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
         body,
       });
       if (data?.ok) {
-        flash(
-          at(
-            "appearance_logo_uploaded_pending",
-            {},
-            "Логотип загружен и применен."
-          )
-        );
+        flash(at("appearance_logo_uploaded_pending", {}, "Логотип загружен и применен."));
         return { logoUrl: data.logo_url || "", faviconUrl: data.favicon_url || "" };
       }
       flash(
@@ -99,13 +93,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
         body: JSON.stringify({ url: sourceUrl }),
       });
       if (data?.ok) {
-        flash(
-          at(
-            "appearance_logo_uploaded_pending",
-            {},
-            "Логотип загружен и применен."
-          )
-        );
+        flash(at("appearance_logo_uploaded_pending", {}, "Логотип загружен и применен."));
         return { logoUrl: data.logo_url || "", faviconUrl: data.favicon_url || "" };
       }
       flash(
@@ -130,13 +118,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
         body,
       });
       if (data?.ok) {
-        flash(
-          at(
-            "appearance_favicon_uploaded_pending",
-            {},
-            "Favicon загружена и применена."
-          )
-        );
+        flash(at("appearance_favicon_uploaded_pending", {}, "Favicon загружена и применена."));
         return { faviconUrl: data.favicon_url || "", variants: data.variants || {} };
       }
       flash(
@@ -160,13 +142,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
         body: JSON.stringify({ url: sourceUrl }),
       });
       if (data?.ok) {
-        flash(
-          at(
-            "appearance_favicon_uploaded_pending",
-            {},
-            "Favicon загружена и применена."
-          )
-        );
+        flash(at("appearance_favicon_uploaded_pending", {}, "Favicon загружена и применена."));
         return { faviconUrl: data.favicon_url || "", variants: data.variants || {} };
       }
       flash(

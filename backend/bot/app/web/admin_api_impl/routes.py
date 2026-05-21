@@ -15,6 +15,10 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_post(
         "/api/admin/users/{user_id:-?\\d+}/message/preview", admin_user_message_preview_route
     )
+    router.add_post(
+        "/api/admin/users/{user_id:-?\\d+}/telegram-profile-link",
+        admin_user_telegram_profile_link_route,
+    )
     router.add_post("/api/admin/users/{user_id:-?\\d+}/reset-trial", admin_user_reset_trial_route)
     router.add_post("/api/admin/users/{user_id:-?\\d+}/extend", admin_user_extend_route)
     router.add_post(
@@ -40,6 +44,16 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_delete("/api/admin/promos/{promo_id:\\d+}", admin_promo_delete_route)
 
     router.add_get("/api/admin/logs", admin_logs_route)
+
+    router.add_get("/api/admin/support/tickets", admin_support_tickets_route)
+    router.add_get("/api/admin/support/tickets/{id:\\d+}", admin_support_ticket_detail_route)
+    router.add_post(
+        "/api/admin/support/tickets/{id:\\d+}/messages",
+        admin_support_ticket_reply_route,
+    )
+    router.add_patch("/api/admin/support/tickets/{id:\\d+}", admin_support_ticket_patch_route)
+    router.add_post("/api/admin/support/tickets/{id:\\d+}/read", admin_support_ticket_read_route)
+    router.add_get("/api/admin/support/stats", admin_support_stats_route)
 
     router.add_post("/api/admin/broadcast", admin_broadcast_route)
     router.add_post("/api/admin/sync", admin_sync_route)

@@ -11,6 +11,8 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import (
+    callback_context_from_back_callback,
+    callback_suffix_for_context,
     get_autorenew_confirm_keyboard,
     get_back_to_main_menu_markup,
     get_hwid_device_packages_keyboard,
@@ -19,6 +21,8 @@ from bot.keyboards.inline.user_keyboards import (
     get_tariff_catalog_keyboard,
     get_tariff_packages_keyboard,
     get_tariff_periods_keyboard,
+    sale_mode_with_callback_context,
+    subscription_options_callback,
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
@@ -56,11 +60,30 @@ def _has_multiple_enabled_tariffs(settings: Settings) -> bool:
 
 
 def _tariff_purchase_markup(
-    tariff, current_lang: str, i18n: JsonI18n, settings: Settings
+    tariff,
+    current_lang: str,
+    i18n: JsonI18n,
+    settings: Settings,
+    back_callback: str = "main_action:subscribe",
+    callback_context: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
     if tariff.billing_model == "period":
-        return get_tariff_periods_keyboard(tariff, current_lang, i18n, settings)
-    return get_tariff_packages_keyboard(tariff, tariff.traffic_packages.rub, current_lang, i18n)
+        return get_tariff_periods_keyboard(
+            tariff,
+            current_lang,
+            i18n,
+            settings,
+            back_callback=back_callback,
+            callback_context=callback_context,
+        )
+    return get_tariff_packages_keyboard(
+        tariff,
+        tariff.traffic_packages.rub,
+        current_lang,
+        i18n,
+        back_callback=back_callback,
+        callback_context=callback_context,
+    )
 
 
 def _tariff_purchase_text(tariff, current_lang: str, i18n: JsonI18n, settings: Settings) -> str:
@@ -69,6 +92,22 @@ def _tariff_purchase_text(tariff, current_lang: str, i18n: JsonI18n, settings: S
             return i18n.gettext(current_lang, "select_subscription_period")
         return i18n.gettext(current_lang, "select_traffic_package")
     return f"{tariff.name(current_lang)}\n{tariff.description(current_lang)}".strip()
+
+
+def _with_subscription_purchase_description(
+    text: str,
+    settings: Settings,
+    current_lang: str,
+    *,
+    include: bool,
+) -> str:
+    if not include:
+        return text
+    description_resolver = getattr(settings, "subscription_purchase_description", None)
+    description = description_resolver(current_lang) if callable(description_resolver) else ""
+    if not description:
+        return text
+    return f"{description}\n\n{text}"
 
 
 async def display_subscription_options(
@@ -98,13 +137,39 @@ async def display_subscription_options(
     tariffs_config = getattr(settings, "tariffs_config", None)
     if tariffs_config:
         enabled_tariffs = list(tariffs_config.enabled_tariffs)
+        callback_context = callback_context_from_back_callback(back_callback)
         if len(enabled_tariffs) == 1:
             tariff = enabled_tariffs[0]
             text_content = _tariff_purchase_text(tariff, current_lang, i18n, settings)
-            reply_markup = _tariff_purchase_markup(tariff, current_lang, i18n, settings)
+            text_content = _with_subscription_purchase_description(
+                text_content,
+                settings,
+                current_lang,
+                include=tariff.billing_model == "period",
+            )
+            reply_markup = _tariff_purchase_markup(
+                tariff,
+                current_lang,
+                i18n,
+                settings,
+                back_callback=back_callback,
+                callback_context=callback_context,
+            )
         else:
             text_content = get_text("select_subscription_period")
-            reply_markup = get_tariff_catalog_keyboard(enabled_tariffs, current_lang, i18n)
+            text_content = _with_subscription_purchase_description(
+                text_content,
+                settings,
+                current_lang,
+                include=any(tariff.billing_model == "period" for tariff in enabled_tariffs),
+            )
+            reply_markup = get_tariff_catalog_keyboard(
+                enabled_tariffs,
+                current_lang,
+                i18n,
+                back_callback=back_callback,
+                callback_context=callback_context,
+            )
         target_message_obj = event.message if isinstance(event, types.CallbackQuery) else event
         if isinstance(event, types.CallbackQuery):
             try:
@@ -137,6 +202,12 @@ async def display_subscription_options(
             if traffic_mode
             else get_text("select_subscription_period")
         )
+        text_content = _with_subscription_purchase_description(
+            text_content,
+            settings,
+            current_lang,
+            include=not traffic_mode,
+        )
         reply_markup = get_subscription_options_keyboard(
             options,
             currency_symbol_val,
@@ -144,6 +215,7 @@ async def display_subscription_options(
             i18n,
             traffic_mode=traffic_mode,
             back_callback=back_callback,
+            callback_context=callback_context_from_back_callback(back_callback),
         )
     else:
         text_content = get_text("no_subscription_options_available")
@@ -193,14 +265,29 @@ async def select_tariff_callback(
     if not config or not callback.message:
         await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         return
-    tariff_key = callback.data.split(":", 2)[2]
+    parts = callback.data.split(":")
+    tariff_key = parts[2] if len(parts) > 2 else ""
+    callback_context = parts[3] if len(parts) > 3 else None
     try:
         tariff = config.require(tariff_key)
     except Exception:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
-    markup = _tariff_purchase_markup(tariff, current_lang, i18n, settings)
+    markup = _tariff_purchase_markup(
+        tariff,
+        current_lang,
+        i18n,
+        settings,
+        back_callback=subscription_options_callback(callback_context),
+        callback_context=callback_context,
+    )
     text = _tariff_purchase_text(tariff, current_lang, i18n, settings)
+    text = _with_subscription_purchase_description(
+        text,
+        settings,
+        current_lang,
+        include=tariff.billing_model == "period",
+    )
     await callback.message.edit_text(text, reply_markup=markup)
     await callback.answer()
 
@@ -216,7 +303,12 @@ async def select_tariff_period_callback(
     if not config or not callback.message:
         await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         return
-    _, _, tariff_key, months_raw = callback.data.split(":", 3)
+    parts = callback.data.split(":")
+    if len(parts) < 4:
+        await callback.answer(get_text("error_try_again"), show_alert=True)
+        return
+    tariff_key, months_raw = parts[2], parts[3]
+    callback_context = parts[4] if len(parts) > 4 else None
     tariff = config.require(tariff_key)
     months = int(months_raw)
     price_rub = tariff.period_price(months, "rub")
@@ -232,7 +324,8 @@ async def select_tariff_period_callback(
         current_lang,
         i18n,
         settings,
-        sale_mode=f"subscription@{tariff.key}",
+        sale_mode=sale_mode_with_callback_context(f"subscription@{tariff.key}", callback_context),
+        back_callback=f"tariff:select:{tariff.key}{callback_suffix_for_context(callback_context)}",
     )
     await callback.message.edit_text(get_text("choose_payment_method"), reply_markup=markup)
     await callback.answer()
@@ -249,7 +342,12 @@ async def select_tariff_package_callback(
     if not config or not callback.message:
         await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         return
-    _, _, tariff_key, gb_raw = callback.data.split(":", 3)
+    parts = callback.data.split(":")
+    if len(parts) < 4:
+        await callback.answer(get_text("error_try_again"), show_alert=True)
+        return
+    tariff_key, gb_raw = parts[2], parts[3]
+    callback_context = parts[4] if len(parts) > 4 else None
     tariff = config.require(tariff_key)
     gb = float(gb_raw)
     packages = (
@@ -264,6 +362,12 @@ async def select_tariff_package_callback(
     sale_mode = (
         f"{'traffic_package' if tariff.billing_model == 'traffic' else 'topup'}@{tariff.key}"
     )
+    sale_mode = sale_mode_with_callback_context(sale_mode, callback_context)
+    back_callback = (
+        f"tariff:select:{tariff.key}{callback_suffix_for_context(callback_context)}"
+        if tariff.billing_model == "traffic"
+        else "tariff_topup:list"
+    )
     markup = get_payment_method_keyboard(
         gb,
         package.price,
@@ -273,6 +377,7 @@ async def select_tariff_package_callback(
         i18n,
         settings,
         sale_mode=sale_mode,
+        back_callback=back_callback,
     )
     await callback.message.edit_text(get_text("choose_payment_method_traffic"), reply_markup=markup)
     await callback.answer()
@@ -384,6 +489,7 @@ async def select_tariff_premium_package_callback(
         i18n,
         settings,
         sale_mode=f"premium_topup@{tariff.key}",
+        back_callback="tariff_topup:list",
     )
     await callback.message.edit_text(get_text("choose_payment_method_traffic"), reply_markup=markup)
     await callback.answer()
@@ -462,6 +568,7 @@ async def hwid_devices_package_callback(
         i18n,
         settings,
         sale_mode=f"hwid_devices@{tariff.key}",
+        back_callback="hwid_devices:list",
     )
     await callback.message.edit_text(
         get_text("choose_payment_method_hwid_devices"), reply_markup=markup
@@ -731,6 +838,7 @@ async def tariff_change_pay_callback(
         i18n,
         settings,
         sale_mode=f"tariff_upgrade@{tariff_key}",
+        back_callback=f"tariff_change:confirm_pay:{tariff_key}:{amount_raw}",
     )
     await callback.message.edit_text("Выберите способ оплаты", reply_markup=markup)
     await callback.answer()

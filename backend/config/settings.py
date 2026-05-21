@@ -12,6 +12,15 @@ from config.webapp_themes_config import (
     resolved_webapp_themes_catalog,
 )
 
+DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_RU = (
+    "Покупая или продлевая подписку, вы получаете доступ к VPN/прокси-сервису, "
+    "который помогает защищать ваше соединение и поддерживать стабильный доступ к сети."
+)
+DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_EN = (
+    "By buying or renewing a subscription, you get access to a VPN/proxy service "
+    "that helps protect your connection and keep your access stable."
+)
+
 
 def _split_csv(value: Optional[str]) -> List[str]:
     if not value:
@@ -25,48 +34,6 @@ class DBSettings(BaseModel):
     host: str
     port: int
     database: str
-
-
-class PaymentSettings(BaseModel):
-    yookassa_enabled: bool
-    yookassa_shop_id: Optional[str]
-    yookassa_secret_key: Optional[str]
-    yookassa_return_url: Optional[str]
-    yookassa_default_receipt_email: Optional[str]
-    yookassa_vat_code: int
-    yookassa_payment_mode: str
-    yookassa_payment_subject: str
-    yookassa_autopayments_enabled: bool
-    yookassa_autopayments_require_card_binding: bool
-    freekassa_enabled: bool
-    freekassa_merchant_id: Optional[str]
-    freekassa_second_secret: Optional[str]
-    freekassa_api_key: Optional[str]
-    freekassa_payment_ip: Optional[str]
-    freekassa_payment_method_id: Optional[int]
-    freekassa_trusted_ips: List[str]
-    platega_enabled: bool
-    platega_base_url: str
-    platega_merchant_id: Optional[str]
-    platega_secret: Optional[str]
-    platega_payment_method: int
-    platega_sbp_enabled: bool
-    platega_crypto_enabled: bool
-    platega_sbp_method: int
-    platega_crypto_method: int
-    platega_return_url: Optional[str]
-    platega_failed_url: Optional[str]
-    severpay_enabled: bool
-    severpay_mid: Optional[int]
-    severpay_token: Optional[str]
-    severpay_return_url: Optional[str]
-    severpay_base_url: str
-    severpay_lifetime_minutes: Optional[int]
-    cryptopay_enabled: bool
-    cryptopay_token: Optional[str]
-    cryptopay_network: str
-    cryptopay_currency_type: str
-    cryptopay_asset: str
 
 
 class EmailSettings(BaseModel):
@@ -128,6 +95,17 @@ class Settings(BaseSettings):
     REDIS_URL: Optional[str] = Field(default=None)
     REDIS_KEY_PREFIX: str = Field(default="remnawave-tg-shop")
     WEBAPP_ME_CACHE_TTL_SECONDS: int = Field(default=15)
+    WEBAPP_DEVICES_CACHE_TTL_SECONDS: int = Field(default=5)
+    PANEL_USER_CACHE_TTL_SECONDS: int = Field(default=5)
+    PANEL_DEVICES_CACHE_TTL_SECONDS: int = Field(default=5)
+    PANEL_ALL_USERS_CACHE_TTL_SECONDS: int = Field(default=5)
+    PANEL_ALL_USERS_PAGE_SIZE: int = Field(default=1000)
+    ADMIN_PANEL_STATS_CACHE_TTL_SECONDS: int = Field(default=15)
+    ADMIN_DB_STATS_CACHE_TTL_SECONDS: int = Field(default=5)
+    ADMIN_USERS_LIST_CACHE_TTL_SECONDS: int = Field(default=3)
+    PROFILE_SYNC_CACHE_TTL_SECONDS: int = Field(default=900)
+    PANEL_SYNC_LIFETIME_TRAFFIC_MIN_INTERVAL_SECONDS: int = Field(default=3600)
+    PANEL_SYNC_LIFETIME_TRAFFIC_MIN_DELTA_BYTES: int = Field(default=104857600)
     WEBAPP_RATE_LIMIT_TTL_SECONDS: int = Field(default=60)
     WEBAPP_RATE_LIMIT_MAX_REQUESTS: int = Field(default=30)
     WEBHOOK_QUEUE_NAME: str = Field(default="webhook-events")
@@ -135,6 +113,7 @@ class Settings(BaseSettings):
     WORKER_PANEL_SYNC_INTERVAL_SECONDS: int = Field(default=900)
     TARIFF_WORKER_LOCK_TTL_SECONDS: int = Field(default=240)
     TARIFF_WORKER_TICK_SECONDS: int = Field(default=300)
+    TARIFF_WORKER_BULK_PANEL_FETCH_THRESHOLD: int = Field(default=50)
 
     DEFAULT_LANGUAGE: str = Field(default="ru")
     DEFAULT_CURRENCY_SYMBOL: str = Field(default="RUB")
@@ -150,22 +129,6 @@ class Settings(BaseSettings):
     REQUIRED_CHANNEL_LINK: Optional[str] = Field(
         default=None,
         description="Public username or invite link to the required channel for join button",
-    )
-
-    YOOKASSA_SHOP_ID: Optional[str] = None
-    YOOKASSA_SECRET_KEY: Optional[str] = None
-    YOOKASSA_RETURN_URL: Optional[str] = None
-
-    YOOKASSA_DEFAULT_RECEIPT_EMAIL: Optional[str] = Field(default=None)
-    YOOKASSA_VAT_CODE: int = Field(default=1)
-    # Deprecated: explicit receipt fields are now derived from YOOKASSA_AUTOPAYMENTS_ENABLED
-    YOOKASSA_PAYMENT_MODE: str = Field(default="full_prepayment")
-    YOOKASSA_PAYMENT_SUBJECT: str = Field(default="service")
-    # Single toggle to enable recurring payments (saving cards, managing payment methods, auto-renew)  # noqa: E501
-    YOOKASSA_AUTOPAYMENTS_ENABLED: bool = Field(default=False)
-    YOOKASSA_AUTOPAYMENTS_REQUIRE_CARD_BINDING: bool = Field(
-        default=True,
-        description="When true, new YooKassa payments in autopay mode force card binding without a user checkbox.",  # noqa: E501
     )
 
     LKNPD_INN: Optional[str] = Field(
@@ -200,66 +163,22 @@ class Settings(BaseSettings):
         description="Comma-separated list of reverse proxy IPs or CIDRs trusted to forward X-Forwarded-For.",  # noqa: E501
     )
 
-    CRYPTOPAY_TOKEN: Optional[str] = None
-    CRYPTOPAY_NETWORK: str = Field(default="mainnet")
-    CRYPTOPAY_CURRENCY_TYPE: str = Field(default="fiat")
-    CRYPTOPAY_ASSET: str = Field(default="RUB")
-    CRYPTOPAY_ENABLED: bool = Field(default=True)
-    PLATEGA_ENABLED: bool = Field(default=False)
-    PLATEGA_BASE_URL: str = Field(default="https://app.platega.io")
-    PLATEGA_MERCHANT_ID: Optional[str] = None
-    PLATEGA_SECRET: Optional[str] = None
-    PLATEGA_PAYMENT_METHOD: int = Field(
-        default=2,
-        description="Legacy Platega payment method ID. Used as fallback for PLATEGA_SBP_METHOD when the new field is unset.",  # noqa: E501
-    )
-    PLATEGA_SBP_ENABLED: bool = Field(
-        default=False,
-        description="Show a separate Platega SBP payment button.",
-    )
-    PLATEGA_CRYPTO_ENABLED: bool = Field(
-        default=False,
-        description="Show a separate Platega crypto payment button.",
-    )
-    PLATEGA_SBP_METHOD: int = Field(
-        default=2,
-        description="Platega method ID for SBP QR (default 2).",
-    )
-    PLATEGA_CRYPTO_METHOD: int = Field(
-        default=13,
-        description="Platega method ID for crypto (default 13).",
-    )
-    PLATEGA_RETURN_URL: Optional[str] = Field(default=None)
-    PLATEGA_FAILED_URL: Optional[str] = Field(default=None)
-
-    FREEKASSA_ENABLED: bool = Field(default=False)
-    FREEKASSA_MERCHANT_ID: Optional[str] = None
-    FREEKASSA_FIRST_SECRET: Optional[str] = None
-    FREEKASSA_SECOND_SECRET: Optional[str] = None
-    FREEKASSA_PAYMENT_URL: str = Field(default="https://pay.freekassa.ru/")
-    FREEKASSA_API_KEY: Optional[str] = None
-    FREEKASSA_PAYMENT_IP: Optional[str] = None
-    FREEKASSA_PAYMENT_METHOD_ID: Optional[int] = None
-    FREEKASSA_TRUSTED_IPS: str = Field(
-        default="168.119.157.136,168.119.60.227,178.154.197.79,51.250.54.238",
-        description="Comma-separated FreeKassa webhook IP allowlist.",
-    )
-
-    SEVERPAY_ENABLED: bool = Field(default=False)
-    SEVERPAY_MID: Optional[int] = None
-    SEVERPAY_TOKEN: Optional[str] = None
-    SEVERPAY_RETURN_URL: Optional[str] = None
-    SEVERPAY_BASE_URL: str = Field(default="https://severpay.io/api/merchant")
-    SEVERPAY_LIFETIME_MINUTES: Optional[int] = Field(
-        default=None,
-        description="Lifetime of the payment link in minutes (30-4320, defaults to provider value)",
-    )
-
-    YOOKASSA_ENABLED: bool = Field(default=True)
     STARS_ENABLED: bool = Field(default=True)
     PAYMENT_METHODS_ORDER: Optional[str] = Field(
         default=None,
-        description="Comma-separated list of payment methods to show (e.g., severpay,freekassa,yookassa,platega,stars,cryptopay)",  # noqa: E501
+        description="Comma-separated list of payment methods to show (e.g., severpay,wata,freekassa,yookassa,platega,stars,cryptopay)",  # noqa: E501
+    )
+    SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED: bool = Field(
+        default=True,
+        description="Show a localized description of the subscription before users choose a purchase/renewal period.",  # noqa: E501
+    )
+    SUBSCRIPTION_PURCHASE_DESCRIPTION_RU: str = Field(
+        default=DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_RU,
+        description="Russian subscription description shown before purchase/renewal options.",
+    )
+    SUBSCRIPTION_PURCHASE_DESCRIPTION_EN: str = Field(
+        default=DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_EN,
+        description="English subscription description shown before purchase/renewal options.",
     )
 
     MONTH_1_ENABLED: bool = Field(default=True, alias="1_MONTH_ENABLED")
@@ -362,6 +281,10 @@ class Settings(BaseSettings):
         default=None,
         description="Base redirect URL used for the connect button when crypt4 is enabled",
     )
+    CRYPT4_LINK_CACHE_TTL_SECONDS: int = Field(
+        default=3600,
+        description="TTL for cached happ crypt4 encryption results keyed by raw subscription URL",
+    )
 
     WEB_SERVER_HOST: str = Field(default="0.0.0.0")
     WEB_SERVER_PORT: int = Field(default=8080)
@@ -450,6 +373,13 @@ class Settings(BaseSettings):
         description="Log updates/events triggered by users from ADMIN_IDS.",
     )
 
+    SUPPORT_TICKETS_ENABLED: bool = Field(default=True)
+    SUPPORT_TICKET_MAX_BODY_LENGTH: int = Field(default=4000)
+    SUPPORT_TICKET_MAX_SUBJECT_LENGTH: int = Field(default=160)
+    SUPPORT_TICKET_RATE_LIMIT_PER_HOUR: int = Field(default=5)
+    SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED: bool = Field(default=False)
+    SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS: int = Field(default=5 * 60)
+    SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS: int = Field(default=30 * 60)
     SUBSCRIPTION_MINI_APP_URL: Optional[str] = Field(default=None)
 
     START_COMMAND_DESCRIPTION: Optional[str] = Field(default=None)
@@ -492,51 +422,6 @@ class Settings(BaseSettings):
             host=self.POSTGRES_HOST,
             port=self.POSTGRES_PORT,
             database=self.POSTGRES_DB,
-        )
-
-    @computed_field
-    @property
-    def payment_settings(self) -> PaymentSettings:
-        return PaymentSettings(
-            yookassa_enabled=self.YOOKASSA_ENABLED,
-            yookassa_shop_id=self.YOOKASSA_SHOP_ID,
-            yookassa_secret_key=self.YOOKASSA_SECRET_KEY,
-            yookassa_return_url=self.YOOKASSA_RETURN_URL,
-            yookassa_default_receipt_email=self.YOOKASSA_DEFAULT_RECEIPT_EMAIL,
-            yookassa_vat_code=self.YOOKASSA_VAT_CODE,
-            yookassa_payment_mode=self.YOOKASSA_PAYMENT_MODE,
-            yookassa_payment_subject=self.YOOKASSA_PAYMENT_SUBJECT,
-            yookassa_autopayments_enabled=self.YOOKASSA_AUTOPAYMENTS_ENABLED,
-            yookassa_autopayments_require_card_binding=self.YOOKASSA_AUTOPAYMENTS_REQUIRE_CARD_BINDING,
-            freekassa_enabled=self.FREEKASSA_ENABLED,
-            freekassa_merchant_id=self.FREEKASSA_MERCHANT_ID,
-            freekassa_second_secret=self.FREEKASSA_SECOND_SECRET,
-            freekassa_api_key=self.FREEKASSA_API_KEY,
-            freekassa_payment_ip=self.FREEKASSA_PAYMENT_IP,
-            freekassa_payment_method_id=self.FREEKASSA_PAYMENT_METHOD_ID,
-            freekassa_trusted_ips=self.freekassa_trusted_ips,
-            platega_enabled=self.PLATEGA_ENABLED,
-            platega_base_url=self.PLATEGA_BASE_URL,
-            platega_merchant_id=self.PLATEGA_MERCHANT_ID,
-            platega_secret=self.PLATEGA_SECRET,
-            platega_payment_method=self.PLATEGA_PAYMENT_METHOD,
-            platega_sbp_enabled=self.PLATEGA_SBP_ENABLED,
-            platega_crypto_enabled=self.PLATEGA_CRYPTO_ENABLED,
-            platega_sbp_method=self.platega_sbp_method_resolved,
-            platega_crypto_method=self.PLATEGA_CRYPTO_METHOD,
-            platega_return_url=self.PLATEGA_RETURN_URL,
-            platega_failed_url=self.PLATEGA_FAILED_URL,
-            severpay_enabled=self.SEVERPAY_ENABLED,
-            severpay_mid=self.SEVERPAY_MID,
-            severpay_token=self.SEVERPAY_TOKEN,
-            severpay_return_url=self.SEVERPAY_RETURN_URL,
-            severpay_base_url=self.SEVERPAY_BASE_URL,
-            severpay_lifetime_minutes=self.SEVERPAY_LIFETIME_MINUTES,
-            cryptopay_enabled=self.CRYPTOPAY_ENABLED,
-            cryptopay_token=self.CRYPTOPAY_TOKEN,
-            cryptopay_network=self.CRYPTOPAY_NETWORK,
-            cryptopay_currency_type=self.CRYPTOPAY_CURRENCY_TYPE,
-            cryptopay_asset=self.CRYPTOPAY_ASSET,
         )
 
     @computed_field
@@ -645,27 +530,8 @@ class Settings(BaseSettings):
 
     @computed_field
     @property
-    def freekassa_trusted_ips(self) -> List[str]:
-        return _split_csv(self.FREEKASSA_TRUSTED_IPS)
-
-    @computed_field
-    @property
     def telegram_webhook_path(self) -> str:
         return "/tg/webhook"
-
-    @computed_field
-    @property
-    def yookassa_webhook_path(self) -> str:
-
-        return "/webhook/yookassa"
-
-    @computed_field
-    @property
-    def yookassa_full_webhook_url(self) -> Optional[str]:
-        base = self.WEBHOOK_BASE_URL
-        if base:
-            return f"{base.rstrip('/')}{self.yookassa_webhook_path}"
-        return None
 
     @computed_field
     @property
@@ -679,71 +545,6 @@ class Settings(BaseSettings):
         if base:
             return f"{base.rstrip('/')}{self.panel_webhook_path}"
         return None
-
-    @computed_field
-    @property
-    def cryptopay_webhook_path(self) -> str:
-        return "/webhook/cryptopay"
-
-    @computed_field
-    @property
-    def cryptopay_full_webhook_url(self) -> Optional[str]:
-        base = self.WEBHOOK_BASE_URL
-        if base:
-            return f"{base.rstrip('/')}{self.cryptopay_webhook_path}"
-        return None
-
-    @computed_field
-    @property
-    def freekassa_webhook_path(self) -> str:
-        return "/webhook/freekassa"
-
-    @computed_field
-    @property
-    def freekassa_full_webhook_url(self) -> Optional[str]:
-        base = self.WEBHOOK_BASE_URL
-        if base:
-            return f"{base.rstrip('/')}{self.freekassa_webhook_path}"
-        return None
-
-    @computed_field
-    @property
-    def severpay_webhook_path(self) -> str:
-        return "/webhook/severpay"
-
-    @computed_field
-    @property
-    def severpay_full_webhook_url(self) -> Optional[str]:
-        base = self.WEBHOOK_BASE_URL
-        if base:
-            return f"{base.rstrip('/')}{self.severpay_webhook_path}"
-        return None
-
-    @computed_field
-    @property
-    def platega_webhook_path(self) -> str:
-        return "/webhook/platega"
-
-    @computed_field
-    @property
-    def platega_full_webhook_url(self) -> Optional[str]:
-        base = self.WEBHOOK_BASE_URL
-        if base:
-            return f"{base.rstrip('/')}{self.platega_webhook_path}"
-        return None
-
-    # Computed YooKassa receipt fields based on recurring toggle
-    @computed_field
-    @property
-    def yk_receipt_payment_mode(self) -> str:
-        # If autopayments are enabled, use service; otherwise full prepayment
-        return "service" if self.YOOKASSA_AUTOPAYMENTS_ENABLED else "full_prepayment"
-
-    @computed_field
-    @property
-    def yk_receipt_payment_subject(self) -> str:
-        # If autopayments are enabled, use full_payment; otherwise payment
-        return "full_payment" if self.YOOKASSA_AUTOPAYMENTS_ENABLED else "payment"
 
     @computed_field
     @property
@@ -931,29 +732,62 @@ class Settings(BaseSettings):
             bonuses[12] = self.REFERRAL_BONUS_DAYS_REFEREE_12_MONTHS
         return bonuses
 
-    @computed_field
     @property
     def yookassa_autopayments_active(self) -> bool:
-        """Autopay features are available only when YooKassa itself is enabled."""
-        return bool(self.YOOKASSA_ENABLED and self.YOOKASSA_AUTOPAYMENTS_ENABLED)
+        """Autopay features are available only when YooKassa itself is enabled.
+
+        Proxies into the YooKassaConfig BaseSettings model that lives in the
+        yookassa provider module — env-config is owned by the provider now.
+        """
+        from bot.payment_providers import get_provider_bundle
+
+        bundle = get_provider_bundle("yookassa_service")
+        if bundle is None or bundle.config is None:
+            return False
+        return bool(bundle.config.autopayments_active)
 
     @computed_field
     @property
     def payment_methods_order(self) -> List[str]:
         """
         Ordered list of payment providers to show in the subscription payment keyboard.
+
+        Honors PAYMENT_METHODS_ORDER from the env (user-controlled order), but
+        always appends any newly added provider that the user hasn't listed —
+        otherwise upgrading to a release that adds, say, ``heleket`` would
+        silently hide the new button until the operator manually updated their
+        .env. Toggling the button on/off stays on the per-provider ENABLED
+        flag, not on this list.
         """
+        from bot.payment_providers import iter_provider_specs
+
+        all_specs = list(iter_provider_specs())
+        spec_ids: List[str] = []
+        seen_ids: set = set()
+        for spec in all_specs:
+            if spec.id not in seen_ids:
+                spec_ids.append(spec.id)
+                seen_ids.add(spec.id)
+
         default_order = [
             "freekassa",
             "platega_sbp",
             "platega_crypto",
             "severpay",
+            "wata",
             "yookassa",
             "stars",
             "cryptopay",
+            "heleket",
         ]
+        # Make sure default_order itself includes every registered spec.
+        for sid in spec_ids:
+            if sid not in default_order:
+                default_order.append(sid)
+
         if not self.PAYMENT_METHODS_ORDER:
             return default_order
+
         methods: List[str] = []
         for item in self.PAYMENT_METHODS_ORDER.split(","):
             slug = item.strip().lower()
@@ -967,15 +801,29 @@ class Settings(BaseSettings):
                     methods.append("platega_crypto")
                 continue
             methods.append(slug)
+        # Append any registered spec that the operator didn't list — keeps
+        # newly shipped providers visible after an upgrade without forcing a
+        # .env edit. Toggling the button is still controlled by ENABLED.
+        for sid in spec_ids:
+            if sid not in methods:
+                methods.append(sid)
         return methods or default_order
 
-    @computed_field
-    @property
-    def platega_sbp_method_resolved(self) -> int:
-        """SBP method ID, falling back to legacy PLATEGA_PAYMENT_METHOD when SBP-specific value is the default."""  # noqa: E501
-        if self.PLATEGA_SBP_METHOD != 2:
-            return self.PLATEGA_SBP_METHOD
-        return self.PLATEGA_PAYMENT_METHOD or 2
+    def subscription_purchase_description(self, language: Optional[str] = None) -> str:
+        if not self.SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED:
+            return ""
+        lang = (language or self.DEFAULT_LANGUAGE or "ru").split("-")[0].lower()
+        primary = (
+            self.SUBSCRIPTION_PURCHASE_DESCRIPTION_EN
+            if lang == "en"
+            else self.SUBSCRIPTION_PURCHASE_DESCRIPTION_RU
+        )
+        fallback = (
+            self.SUBSCRIPTION_PURCHASE_DESCRIPTION_RU
+            if lang == "en"
+            else self.SUBSCRIPTION_PURCHASE_DESCRIPTION_EN
+        )
+        return (primary or fallback or "").strip()
 
     @computed_field
     @property
@@ -1017,6 +865,9 @@ class Settings(BaseSettings):
     LOG_THREAD_ID: Optional[int] = Field(
         default=None, description="Thread ID for supergroup messages (optional)"
     )
+    LOG_SUPPORT_THREAD_ID: Optional[int] = Field(
+        default=None, description="Thread ID for support ticket log messages"
+    )
 
     @field_validator("LOG_LEVEL", mode="before")
     @classmethod
@@ -1047,7 +898,7 @@ class Settings(BaseSettings):
             return v
         return secrets.token_urlsafe(32)
 
-    @field_validator("LOG_CHAT_ID", "LOG_THREAD_ID", mode="before")
+    @field_validator("LOG_CHAT_ID", "LOG_THREAD_ID", "LOG_SUPPORT_THREAD_ID", mode="before")
     @classmethod
     def validate_optional_int_fields(cls, v):
         """Convert empty strings to None for optional integer fields"""
@@ -1057,9 +908,6 @@ class Settings(BaseSettings):
 
     @field_validator(
         "REQUIRED_CHANNEL_LINK",
-        "PLATEGA_RETURN_URL",
-        "PLATEGA_FAILED_URL",
-        "SEVERPAY_RETURN_URL",
         "CRYPT4_REDIRECT_URL",
         "PRIVACY_POLICY_URL",
         "USER_AGREEMENT_URL",
@@ -1080,9 +928,7 @@ class Settings(BaseSettings):
             return None
         return v
 
-    @field_validator(
-        "USER_HWID_DEVICE_LIMIT", "SEVERPAY_MID", "SEVERPAY_LIFETIME_MINUTES", mode="before"
-    )
+    @field_validator("USER_HWID_DEVICE_LIMIT", mode="before")
     @classmethod
     def validate_optional_int(cls, v):
         if isinstance(v, str):
@@ -1107,6 +953,7 @@ class Settings(BaseSettings):
     LOG_SUSPICIOUS_ACTIVITY: bool = Field(
         default=True, description="Send notifications for suspicious promo attempts"
     )
+    LOG_SUPPORT: bool = Field(default=True, description="Send support ticket notifications")
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore", populate_by_name=True
@@ -1139,49 +986,12 @@ def get_settings() -> Settings:
                 logging.warning(
                     "WEBHOOK_SECRET_TOKEN is not set. A generated secret will be used for this process only."  # noqa: E501
                 )
-            if (
-                not _settings_instance.YOOKASSA_SHOP_ID
-                or not _settings_instance.YOOKASSA_SECRET_KEY
-            ):
-                logging.warning(
-                    "CRITICAL: YooKassa credentials (SHOP_ID or SECRET_KEY) are not set. Payments will not work."  # noqa: E501
-                )
             if (_settings_instance.LKNPD_INN or _settings_instance.LKNPD_PASSWORD) and not (
                 _settings_instance.LKNPD_INN and _settings_instance.LKNPD_PASSWORD
             ):
                 logging.warning(
                     "WARNING: LKNPD credentials are incomplete. Receipt sending will be disabled."
                 )
-            if _settings_instance.FREEKASSA_ENABLED:
-                if (
-                    not _settings_instance.FREEKASSA_MERCHANT_ID
-                    or not _settings_instance.FREEKASSA_API_KEY
-                ):
-                    logging.warning(
-                        "CRITICAL: FreeKassa is enabled but SHOP_ID or API key is missing. FreeKassa payments will not work."  # noqa: E501
-                    )
-                if not _settings_instance.FREEKASSA_SECOND_SECRET:
-                    logging.warning(
-                        "WARNING: FreeKassa second secret is not set. Incoming payment notifications cannot be verified."  # noqa: E501
-                    )
-                if not _settings_instance.subscription_options:
-                    logging.warning(
-                        "CRITICAL: FreeKassa is enabled but no subscription prices are configured (RUB_PRICE_*). Users will not see payment buttons."  # noqa: E501
-                    )
-
-            if _settings_instance.PLATEGA_ENABLED:
-                if (
-                    not _settings_instance.PLATEGA_MERCHANT_ID
-                    or not _settings_instance.PLATEGA_SECRET
-                ):
-                    logging.warning(
-                        "CRITICAL: Platega is enabled but merchant credentials (PLATEGA_MERCHANT_ID/PLATEGA_SECRET) are missing. Platega payments will not work."  # noqa: E501
-                    )
-            if _settings_instance.SEVERPAY_ENABLED:
-                if not _settings_instance.SEVERPAY_MID or not _settings_instance.SEVERPAY_TOKEN:
-                    logging.warning(
-                        "CRITICAL: SeverPay is enabled but MID or TOKEN is missing. SeverPay payments will not work."  # noqa: E501
-                    )
 
         except ValidationError as e:
             logging.critical(f"Pydantic validation error while loading settings: {e}")

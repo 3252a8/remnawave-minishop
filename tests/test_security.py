@@ -10,16 +10,20 @@ from aiohttp import web
 
 from bot.app.web import admin_api, subscription_webapp
 from bot.app.web.admin_api_impl import settings as admin_settings_routes
+from bot.app.web.webapp import account as account_routes
 from bot.app.web.webapp_auth import (
     create_telegram_oauth_nonce,
     create_webapp_session_token,
     verify_telegram_oauth_nonce,
 )
-from bot.handlers.user.payment import yookassa_webhook_route
-from bot.services.crypto_pay_service import CryptoPayService
-from bot.services.freekassa_service import FreeKassaService
+from bot.payment_providers.cryptopay import CryptoPayService
+from bot.payment_providers.freekassa import FreeKassaService
+from bot.payment_providers.heleket import HeleketConfig, HeleketService, _compute_signature
+from bot.payment_providers.yookassa import yookassa_webhook_route
+from bot.services.email_templates import render_login_code
 from bot.utils.request_security import request_client_ip
 from config.settings import Settings
+from db.dal import security_dal
 from db.database_setup import redacted_database_url
 
 
@@ -60,21 +64,25 @@ class RequestSecurityTests(unittest.IsolatedAsyncioTestCase):
 
 class FreeKassaServiceTests(unittest.TestCase):
     def _make_service(self) -> FreeKassaService:
+        from bot.payment_providers.freekassa import FreeKassaConfig
+
         settings = SimpleNamespace(
-            FREEKASSA_ENABLED=True,
-            FREEKASSA_MERCHANT_ID="123456",
-            FREEKASSA_API_KEY="api-key",
-            FREEKASSA_SECOND_SECRET="second-secret",
             DEFAULT_CURRENCY_SYMBOL="RUB",
-            FREEKASSA_PAYMENT_IP="203.0.113.10",
-            FREEKASSA_PAYMENT_METHOD_ID=44,
-            FREEKASSA_TRUSTED_IPS="127.0.0.1,203.0.113.0/24",
             trusted_proxies=["127.0.0.1"],
-            freekassa_trusted_ips=["127.0.0.1", "203.0.113.0/24"],
+        )
+        config = FreeKassaConfig(
+            ENABLED=True,
+            MERCHANT_ID="123456",
+            API_KEY="api-key",
+            SECOND_SECRET="second-secret",
+            PAYMENT_IP="203.0.113.10",
+            PAYMENT_METHOD_ID=44,
+            TRUSTED_IPS="127.0.0.1,203.0.113.0/24",
         )
         return FreeKassaService(
             bot=object(),
             settings=settings,
+            config=config,
             i18n=object(),
             async_session_factory=object(),
             subscription_service=object(),
@@ -113,8 +121,10 @@ class FreeKassaServiceTests(unittest.TestCase):
 
 class CryptoPayServiceTests(unittest.TestCase):
     def _make_service(self) -> CryptoPayService:
+        from bot.payment_providers.cryptopay import CryptoPayConfig
+
         service = CryptoPayService.__new__(CryptoPayService)
-        service.token = "cryptopay-token"
+        service.config = CryptoPayConfig(TOKEN="cryptopay-token")
         return service
 
     def test_validate_webhook_signature_accepts_valid_signature(self):
@@ -134,7 +144,81 @@ class CryptoPayServiceTests(unittest.TestCase):
         self.assertFalse(service._validate_webhook_signature(b"payload", "not-a-signature"))
 
 
+class HeleketServiceTests(unittest.TestCase):
+    def _make_service(self, api_key: str = " payment-api-key ") -> HeleketService:
+        service = HeleketService.__new__(HeleketService)
+        service.config = HeleketConfig(ENABLED=True, MERCHANT_ID="merchant", API_KEY=api_key)
+        return service
+
+    def test_verify_signature_accepts_php_style_webhook_with_unicode_and_nested_payload(self):
+        payload = {
+            "type": "payment",
+            "uuid": "1467f384-b053-42db-9066-d8a445cc52d3",
+            "order_id": "435",
+            "amount": "190.00000000",
+            "payment_amount": "2.61000000",
+            "payment_amount_usd": "2.61",
+            "merchant_amount": "2.55780000",
+            "commission": "0.05220000",
+            "is_final": True,
+            "status": "paid",
+            "from": "0x7876fa0152a8eceb847154297b4ffdc85e3c4bd1",
+            "wallet_address_uuid": None,
+            "network": "polygon",
+            "currency": "RUB",
+            "payer_currency": "USDT",
+            "payer_amount": "2.61000000",
+            "payer_amount_exchange_rate": "72.72073217",
+            "additional_data": "Подписка на 1 месяц",
+            "transfer_id": None,
+            "convert": {
+                "to_currency": "USDC",
+                "commission": "0.00000000",
+                "rate": "0.99870036",
+                "amount": "2.55447580",
+            },
+            "txid": "0x91f2a28213bf79fba51675f92a741c820ee321babe6ec48a3ae9301d31977f83",
+        }
+        payload["sign"] = _compute_signature(payload, "payment-api-key")
+
+        self.assertTrue(self._make_service()._verify_signature(payload))
+
+    def test_verify_signature_accepts_escaped_unicode_webhook_variant(self):
+        payload = {
+            "order_id": "435",
+            "status": "paid",
+            "additional_data": "Подписка на 1 месяц",
+        }
+        payload["sign"] = _compute_signature(payload, "payment-api-key", ensure_ascii=True)
+
+        self.assertTrue(self._make_service()._verify_signature(payload))
+
+    def test_verify_signature_rejects_invalid_signature(self):
+        service = self._make_service("payment-api-key")
+
+        self.assertFalse(service._verify_signature({"order_id": "435", "sign": "bad"}))
+
+
 class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
+    class _AsyncSessionFactory:
+        def __call__(self):
+            return self
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def commit(self):
+            return None
+
+        async def rollback(self):
+            return None
+
+        async def flush(self):
+            return None
+
     def test_auth_response_sets_cookies_and_does_not_return_session_token(self):
         settings = SimpleNamespace(
             WEBAPP_SESSION_SECRET="session-secret",
@@ -243,6 +327,208 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(model)
         self.assertEqual(response.status, 400)
         self.assertIn("email_too_long", response.text)
+
+    def test_email_password_hash_round_trips_without_plaintext(self):
+        password = "correct horse battery staple"
+
+        stored_hash = subscription_webapp._hash_email_password(password)
+
+        self.assertNotIn(password, stored_hash)
+        self.assertTrue(subscription_webapp._verify_email_password(password, stored_hash))
+        self.assertFalse(subscription_webapp._verify_email_password("wrong-password", stored_hash))
+
+    def test_set_password_email_code_copy_mentions_password_creation(self):
+        settings = SimpleNamespace(
+            DEFAULT_LANGUAGE="ru",
+            EMAIL_CODE_TTL_SECONDS=600,
+            WEBAPP_LOGO_URL="",
+            WEBAPP_LOGO_USE_EMOJI=False,
+            WEBAPP_PRIMARY_COLOR="#00fe7a",
+            WEBAPP_TITLE="Remnawave",
+        )
+
+        content = render_login_code(
+            settings,
+            code="123456",
+            language_code="ru",
+            magic_link="https://example.com/login",
+            purpose="set_password",
+        )
+
+        self.assertIn("создания пароля", content.subject)
+        self.assertIn("создание пароля", content.html)
+        self.assertIn("код для создания пароля", content.text)
+        self.assertNotIn("Подтвердите вход", content.html)
+        self.assertNotIn("https://example.com/login", content.text)
+
+    async def test_email_password_login_success_sets_session_cookie(self):
+        settings = SimpleNamespace(
+            WEBAPP_SESSION_SECRET="session-secret",
+            WEBAPP_SESSION_TTL_SECONDS=3600,
+            email_auth_configured=True,
+            BRUTE_FORCE_MAX_FAILURES=5,
+            BRUTE_FORCE_WINDOW_SECONDS=60,
+            BRUTE_FORCE_LOCK_SECONDS=300,
+        )
+        stored_hash = subscription_webapp._hash_email_password("secret-password")
+        db_user = SimpleNamespace(
+            user_id=42,
+            email_verified_at=object(),
+            password_hash=stored_hash,
+            is_banned=False,
+            telegram_id=None,
+        )
+        request = SimpleNamespace(
+            app={"settings": settings, "async_session_factory": self._AsyncSessionFactory()},
+            json=AsyncMock(
+                return_value={"email": "user@example.com", "password": "secret-password"}
+            ),
+        )
+
+        with (
+            patch.object(
+                subscription_webapp.security_dal,
+                "check_throttle",
+                AsyncMock(return_value=security_dal.ThrottleDecision(locked=False)),
+            ),
+            patch.object(
+                subscription_webapp.security_dal,
+                "clear_throttle_state",
+                AsyncMock(return_value=None),
+            ),
+            patch.object(
+                subscription_webapp.user_dal,
+                "get_user_by_email",
+                AsyncMock(return_value=db_user),
+            ),
+        ):
+            response = await subscription_webapp.email_password_auth_route(request)
+
+        payload = json.loads(response.text)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["user_id"], 42)
+        self.assertIn("rw_webapp_session", response.cookies)
+
+    async def test_email_password_login_failures_use_same_fallback_error(self):
+        settings = SimpleNamespace(
+            email_auth_configured=True,
+            BRUTE_FORCE_MAX_FAILURES=5,
+            BRUTE_FORCE_WINDOW_SECONDS=60,
+            BRUTE_FORCE_LOCK_SECONDS=300,
+        )
+        cases = [
+            None,
+            SimpleNamespace(
+                user_id=42,
+                email_verified_at=object(),
+                password_hash=None,
+                is_banned=False,
+            ),
+            SimpleNamespace(
+                user_id=42,
+                email_verified_at=object(),
+                password_hash=subscription_webapp._hash_email_password("other-password"),
+                is_banned=False,
+            ),
+        ]
+
+        for db_user in cases:
+            request = SimpleNamespace(
+                app={"settings": settings, "async_session_factory": self._AsyncSessionFactory()},
+                json=AsyncMock(
+                    return_value={"email": "user@example.com", "password": "secret-password"}
+                ),
+            )
+            with (
+                patch.object(
+                    subscription_webapp.security_dal,
+                    "check_throttle",
+                    AsyncMock(return_value=security_dal.ThrottleDecision(locked=False)),
+                ),
+                patch.object(
+                    subscription_webapp.security_dal,
+                    "record_throttle_failure",
+                    AsyncMock(return_value=security_dal.ThrottleDecision(locked=False)),
+                ),
+                patch.object(
+                    subscription_webapp.user_dal,
+                    "get_user_by_email",
+                    AsyncMock(return_value=db_user),
+                ),
+            ):
+                response = await subscription_webapp.email_password_auth_route(request)
+
+            payload = json.loads(response.text)
+            self.assertEqual(response.status, 401)
+            self.assertEqual(payload["error"], "password_login_failed")
+            self.assertEqual(payload["fallback"], "email_code")
+
+    async def test_account_password_confirm_requires_matching_passwords(self):
+        request = SimpleNamespace(
+            app={},
+            json=AsyncMock(
+                return_value={
+                    "password": "secret-password",
+                    "password_confirm": "other-password",
+                    "code": "123456",
+                }
+            ),
+        )
+
+        with patch.object(account_routes, "_require_user_id", return_value=42):
+            response = await account_routes.account_password_confirm_route(request)
+
+        self.assertEqual(response.status, 400)
+        self.assertIn("password_mismatch", response.text)
+
+    async def test_account_password_confirm_sets_hash_after_email_code(self):
+        settings = SimpleNamespace(
+            REDIS_URL=None,
+            REDIS_KEY_PREFIX="test",
+        )
+        db_user = SimpleNamespace(
+            user_id=42,
+            email="user@example.com",
+            email_verified_at=object(),
+            is_banned=False,
+            password_hash=None,
+            password_set_at=None,
+        )
+        email_service = SimpleNamespace(
+            verify_code=AsyncMock(
+                return_value=SimpleNamespace(ok=True, error=None, retry_after=None)
+            )
+        )
+        request = SimpleNamespace(
+            app={
+                "settings": settings,
+                "email_auth_service": email_service,
+                "async_session_factory": self._AsyncSessionFactory(),
+            },
+            json=AsyncMock(
+                return_value={
+                    "password": "secret-password",
+                    "password_confirm": "secret-password",
+                    "code": "123456",
+                }
+            ),
+        )
+
+        with (
+            patch.object(account_routes, "_require_user_id", return_value=42),
+            patch.object(
+                account_routes.user_dal,
+                "get_user_by_id",
+                AsyncMock(return_value=db_user),
+            ),
+        ):
+            response = await account_routes.account_password_confirm_route(request)
+
+        self.assertEqual(response.status, 200)
+        self.assertTrue(
+            subscription_webapp._verify_email_password("secret-password", db_user.password_hash)
+        )
+        self.assertIsNotNone(db_user.password_set_at)
 
     def test_payment_payload_rejects_overlong_description(self):
         model, response = subscription_webapp._validate_model_payload(
@@ -389,12 +675,21 @@ class AdminSettingsSecurityTests(unittest.IsolatedAsyncioTestCase):
             async def __aexit__(self, exc_type, exc, tb):
                 return False
 
+        from bot.payment_providers import (
+            build_provider_configs,
+            get_provider_bundle,
+        )
+
+        build_provider_configs(force=True)
+        bundle = get_provider_bundle("yookassa_service")
+        if bundle and bundle.config is not None:
+            bundle.config.SECRET_KEY = "super-secret"
+
         settings = Settings(
             _env_file=None,
             BOT_TOKEN="token",
             POSTGRES_USER="app_user",
             POSTGRES_PASSWORD="app_password",
-            YOOKASSA_SECRET_KEY="super-secret",
             SHOP_NAME="Visible shop",
         )
         request = SimpleNamespace(

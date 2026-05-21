@@ -8,6 +8,7 @@ the API, even by an admin.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple
 
@@ -15,7 +16,7 @@ from typing import Any, List, Optional, Tuple
 @dataclass(frozen=True)
 class SettingField:
     key: str
-    type: str  # "string" | "int" | "float" | "bool" | "text" | "url" | "color" | "secret"
+    type: str  # "string" | "int" | "float" | "bool" | "text" | "url" | "color" | "icon"
     section: str
     label: str
     description: str = ""
@@ -28,6 +29,7 @@ class SettingField:
     subsection: Optional[str] = None  # group label inside a section
     i18n_label_key: Optional[str] = None
     i18n_description_key: Optional[str] = None
+    i18n_subsection_key: Optional[str] = None
 
 
 SETTINGS_MANIFEST: List[SettingField] = [
@@ -72,9 +74,58 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "Ссылка на канал",
         "Имя пользователя или invite-link.",
     ),
+    SettingField(
+        "PANEL_API_URL",
+        "url",
+        "general",
+        "URL API Remnawave",
+        "Например, https://panel.example.com/api.",
+        subsection="Remnawave",
+    ),
+    SettingField(
+        "PANEL_API_KEY",
+        "string",
+        "general",
+        "API-ключ Remnawave",
+        "Секретный ключ API панели.",
+        secret=True,
+        subsection="Remnawave",
+    ),
+    SettingField(
+        "PANEL_WEBHOOK_SECRET",
+        "string",
+        "general",
+        "Секрет вебхуков Remnawave",
+        "Используется для проверки входящих вебхуков панели.",
+        secret=True,
+        subsection="Remnawave",
+    ),
+    SettingField(
+        "USER_SQUAD_UUIDS",
+        "string",
+        "general",
+        "Internal Squads по умолчанию",
+        "UUID через запятую для legacy-режима без JSON-каталога тарифов.",
+        subsection="Remnawave",
+    ),
+    SettingField(
+        "USER_EXTERNAL_SQUAD_UUID",
+        "string",
+        "general",
+        "External Squad по умолчанию",
+        "Необязательный UUID External Squad для новых пользователей.",
+        subsection="Remnawave",
+    ),
     # ─── Web app appearance ────────────────────────────────────────
     SettingField(
         "WEBAPP_TITLE", "string", "appearance", "Название Web App", placeholder="Моя подписка"
+    ),
+    SettingField(
+        "SUBSCRIPTION_MINI_APP_URL",
+        "url",
+        "appearance",
+        "Публичный URL Mini App",
+        "Например, https://app.example.com/.",
     ),
     SettingField(
         "WEBAPP_PRIMARY_COLOR", "color", "appearance", "Основной цвет", placeholder="#00fe7a"
@@ -131,193 +182,39 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "string",
         "pricing",
         "Порядок методов оплаты",
-        "Через запятую, например: severpay,freekassa,yookassa",
+        "Через запятую, например: severpay,freekassa,yookassa,heleket",
+    ),
+    SettingField(
+        "SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED",
+        "bool",
+        "pricing",
+        "Показывать описание подписки",
+        "Текст появится перед выбором срока покупки или продления.",
+    ),
+    SettingField(
+        "SUBSCRIPTION_PURCHASE_DESCRIPTION_RU",
+        "text",
+        "pricing",
+        "Описание подписки (RU)",
+        "Русская версия текста на этапе оплаты.",
+    ),
+    SettingField(
+        "SUBSCRIPTION_PURCHASE_DESCRIPTION_EN",
+        "text",
+        "pricing",
+        "Описание подписки (EN)",
+        "Английская версия текста на этапе оплаты.",
     ),
     # ─── Payment providers (toggles) ───────────────────────────────
     # Common
-    SettingField("STARS_ENABLED", "bool", "payments", "Telegram Stars", subsection="Общие"),
+    SettingField("STARS_ENABLED", "bool", "payments", "Telegram Stars", subsection="common"),
     SettingField(
         "PAYMENT_METHODS_ORDER",
         "string",
         "payments",
         "Порядок методов оплаты",
-        "Через запятую: severpay,freekassa,yookassa,platega,stars,cryptopay",
-        subsection="Общие",
-    ),
-    # YooKassa
-    SettingField("YOOKASSA_ENABLED", "bool", "payments", "Включена", subsection="YooKassa"),
-    SettingField("YOOKASSA_SHOP_ID", "string", "payments", "Shop ID", subsection="YooKassa"),
-    SettingField(
-        "YOOKASSA_SECRET_KEY",
-        "string",
-        "payments",
-        "Secret key",
-        subsection="YooKassa",
-        secret=True,
-    ),
-    SettingField("YOOKASSA_RETURN_URL", "url", "payments", "Return URL", subsection="YooKassa"),
-    SettingField(
-        "YOOKASSA_DEFAULT_RECEIPT_EMAIL",
-        "string",
-        "payments",
-        "Email для чека по умолчанию",
-        subsection="YooKassa",
-    ),
-    SettingField(
-        "YOOKASSA_VAT_CODE",
-        "int",
-        "payments",
-        "VAT code",
-        "1..6 в зависимости от системы налогообложения",
-        subsection="YooKassa",
-        min=1,
-        max=6,
-    ),
-    SettingField(
-        "YOOKASSA_AUTOPAYMENTS_ENABLED",
-        "bool",
-        "payments",
-        "Автоплатежи (recurring)",
-        subsection="YooKassa",
-    ),
-    SettingField(
-        "YOOKASSA_AUTOPAYMENTS_REQUIRE_CARD_BINDING",
-        "bool",
-        "payments",
-        "Принудительная привязка карты",
-        subsection="YooKassa",
-    ),
-    # FreeKassa
-    SettingField("FREEKASSA_ENABLED", "bool", "payments", "Включена", subsection="FreeKassa"),
-    SettingField(
-        "FREEKASSA_MERCHANT_ID", "string", "payments", "Merchant ID", subsection="FreeKassa"
-    ),
-    SettingField(
-        "FREEKASSA_FIRST_SECRET",
-        "string",
-        "payments",
-        "First secret",
-        subsection="FreeKassa",
-        secret=True,
-    ),
-    SettingField(
-        "FREEKASSA_SECOND_SECRET",
-        "string",
-        "payments",
-        "Second secret",
-        "Используется для проверки подписи входящих уведомлений",
-        subsection="FreeKassa",
-        secret=True,
-    ),
-    SettingField(
-        "FREEKASSA_API_KEY", "string", "payments", "API key", subsection="FreeKassa", secret=True
-    ),
-    SettingField(
-        "FREEKASSA_PAYMENT_URL",
-        "url",
-        "payments",
-        "Payment URL",
-        placeholder="https://pay.freekassa.ru/",
-        subsection="FreeKassa",
-    ),
-    SettingField(
-        "FREEKASSA_PAYMENT_METHOD_ID",
-        "int",
-        "payments",
-        "Метод оплаты по умолчанию",
-        subsection="FreeKassa",
-    ),
-    SettingField(
-        "FREEKASSA_PAYMENT_IP",
-        "string",
-        "payments",
-        "IP сервера",
-        "Передаётся в подпись запроса при создании платежа",
-        subsection="FreeKassa",
-    ),
-    SettingField(
-        "FREEKASSA_TRUSTED_IPS",
-        "string",
-        "payments",
-        "Доверенные IP",
-        "Через запятую — IP-адреса, с которых принимаются нотификации",
-        subsection="FreeKassa",
-    ),
-    # Platega
-    SettingField("PLATEGA_ENABLED", "bool", "payments", "Включена", subsection="Platega"),
-    SettingField(
-        "PLATEGA_BASE_URL",
-        "url",
-        "payments",
-        "Base URL",
-        placeholder="https://app.platega.io",
-        subsection="Platega",
-    ),
-    SettingField("PLATEGA_MERCHANT_ID", "string", "payments", "Merchant ID", subsection="Platega"),
-    SettingField(
-        "PLATEGA_SECRET", "string", "payments", "Secret", subsection="Platega", secret=True
-    ),
-    SettingField(
-        "PLATEGA_PAYMENT_METHOD", "int", "payments", "Метод оплаты (legacy)", subsection="Platega"
-    ),
-    SettingField("PLATEGA_SBP_ENABLED", "bool", "payments", "SBP-кнопка", subsection="Platega"),
-    SettingField("PLATEGA_SBP_METHOD", "int", "payments", "SBP method ID", subsection="Platega"),
-    SettingField(
-        "PLATEGA_CRYPTO_ENABLED", "bool", "payments", "Crypto-кнопка", subsection="Platega"
-    ),
-    SettingField(
-        "PLATEGA_CRYPTO_METHOD", "int", "payments", "Crypto method ID", subsection="Platega"
-    ),
-    SettingField("PLATEGA_RETURN_URL", "url", "payments", "Return URL", subsection="Platega"),
-    SettingField("PLATEGA_FAILED_URL", "url", "payments", "Failed URL", subsection="Platega"),
-    # SeverPay
-    SettingField("SEVERPAY_ENABLED", "bool", "payments", "Включена", subsection="SeverPay"),
-    SettingField("SEVERPAY_MID", "int", "payments", "MID", subsection="SeverPay"),
-    SettingField(
-        "SEVERPAY_TOKEN", "string", "payments", "Token", subsection="SeverPay", secret=True
-    ),
-    SettingField(
-        "SEVERPAY_BASE_URL",
-        "url",
-        "payments",
-        "Base URL",
-        placeholder="https://severpay.io/api/merchant",
-        subsection="SeverPay",
-    ),
-    SettingField("SEVERPAY_RETURN_URL", "url", "payments", "Return URL", subsection="SeverPay"),
-    SettingField(
-        "SEVERPAY_LIFETIME_MINUTES",
-        "int",
-        "payments",
-        "Срок жизни ссылки (мин)",
-        "30..4320; пусто — значение провайдера",
-        subsection="SeverPay",
-        min=30,
-        max=4320,
-    ),
-    # CryptoPay
-    SettingField("CRYPTOPAY_ENABLED", "bool", "payments", "Включена", subsection="CryptoPay"),
-    SettingField(
-        "CRYPTOPAY_TOKEN", "string", "payments", "Token", subsection="CryptoPay", secret=True
-    ),
-    SettingField(
-        "CRYPTOPAY_NETWORK",
-        "string",
-        "payments",
-        "Network",
-        "mainnet или testnet",
-        subsection="CryptoPay",
-    ),
-    SettingField(
-        "CRYPTOPAY_CURRENCY_TYPE",
-        "string",
-        "payments",
-        "Currency type",
-        "fiat или crypto",
-        subsection="CryptoPay",
-    ),
-    SettingField(
-        "CRYPTOPAY_ASSET", "string", "payments", "Asset", placeholder="RUB", subsection="CryptoPay"
+        "Через запятую: severpay,freekassa,yookassa,platega,stars,cryptopay,heleket",
+        subsection="common",
     ),
     # ─── Trial ─────────────────────────────────────────────────────
     SettingField("TRIAL_ENABLED", "bool", "trial", "Триал включён"),
@@ -410,6 +307,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
     ),
     SettingField("LOG_NEW_USERS", "bool", "notifications", "Логировать новых пользователей"),
     SettingField("LOG_PAYMENTS", "bool", "notifications", "Логировать платежи"),
+    SettingField("LOG_SUPPORT", "bool", "notifications", "Логировать тикеты поддержки"),
     SettingField(
         "LOG_PROMO_ACTIVATIONS", "bool", "notifications", "Логировать активации промокодов"
     ),
@@ -423,8 +321,8 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "notifications",
         "Логировать действия администраторов",
         "Если выключено, события от пользователей из ADMIN_IDS не записываются в message logs.",
-        i18n_label_key="settings_field_log_admin_actions_label",
-        i18n_description_key="settings_field_log_admin_actions_description",
+        i18n_label_key="admin_settings_field_log_admin_actions_label",
+        i18n_description_key="admin_settings_field_log_admin_actions_description",
     ),
     SettingField(
         "LOG_LEVEL",
@@ -435,6 +333,73 @@ SETTINGS_MANIFEST: List[SettingField] = [
     ),
     SettingField("LOG_CHAT_ID", "int", "notifications", "ID чата для логов"),
     SettingField("LOG_THREAD_ID", "int", "notifications", "ID треда (для супергрупп)"),
+    SettingField(
+        "LOG_SUPPORT_THREAD_ID",
+        "int",
+        "notifications",
+        "ID треда поддержки",
+        "Тред лог-чата для уведомлений о тикетах поддержки.",
+    ),
+    SettingField(
+        "SUPPORT_TICKETS_ENABLED",
+        "bool",
+        "support",
+        "Тикеты поддержки включены",
+        "Показывает раздел поддержки в ЛК и включает создание тикетов.",
+    ),
+    SettingField(
+        "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED",
+        "bool",
+        "support",
+        "Email-уведомления админам",
+        (
+            "Если выключено, новые тикеты и ответы пользователей останутся "
+            "только в Telegram и лог-чате."
+        ),
+    ),
+    SettingField(
+        "SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS",
+        "int",
+        "support",
+        "Пауза Telegram-уведомлений",
+        (
+            "Минимум секунд между повторными Telegram/log уведомлениями "
+            "по одному непрочитанному тикету."
+        ),
+        min=0,
+    ),
+    SettingField(
+        "SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS",
+        "int",
+        "support",
+        "Пауза email-уведомлений",
+        "Минимум секунд между повторными email-уведомлениями по одному непрочитанному тикету.",
+        min=0,
+    ),
+    SettingField(
+        "SUPPORT_TICKET_MAX_BODY_LENGTH",
+        "int",
+        "support",
+        "Макс. длина сообщения",
+        "Максимальное количество символов в сообщении тикета.",
+        min=1,
+    ),
+    SettingField(
+        "SUPPORT_TICKET_MAX_SUBJECT_LENGTH",
+        "int",
+        "support",
+        "Макс. длина темы",
+        "Максимальное количество символов в теме тикета.",
+        min=1,
+    ),
+    SettingField(
+        "SUPPORT_TICKET_RATE_LIMIT_PER_HOUR",
+        "int",
+        "support",
+        "Лимит тикетов в час",
+        "Сколько новых тикетов пользователь может создать за час. 0 — без лимита.",
+        min=0,
+    ),
     # ─── Devices ───────────────────────────────────────────────────
     SettingField("MY_DEVICES_SECTION_ENABLED", "bool", "devices", "Раздел «Мои устройства»"),
     SettingField(
@@ -445,15 +410,45 @@ SETTINGS_MANIFEST: List[SettingField] = [
 ]
 
 
+def _provider_field_to_setting_field(spec: Any, manifest_field: Any) -> SettingField:
+    return SettingField(
+        key=manifest_field.key,
+        type=manifest_field.type,
+        section="payments",
+        label=manifest_field.label,
+        description=manifest_field.description,
+        placeholder=manifest_field.placeholder,
+        optional=manifest_field.optional,
+        secret=manifest_field.secret,
+        min=manifest_field.min,
+        max=manifest_field.max,
+        choices=tuple(manifest_field.choices) if manifest_field.choices else None,
+        subsection=manifest_field.subsection,
+        i18n_label_key=getattr(manifest_field, "i18n_label_key", None),
+        i18n_description_key=getattr(manifest_field, "i18n_description_key", None),
+        i18n_subsection_key=getattr(manifest_field, "i18n_subsection_key", None),
+    )
+
+
+def aggregated_manifest() -> List[SettingField]:
+    """SETTINGS_MANIFEST + per-provider fragments declared in provider SPECs."""
+    from bot.payment_providers import iter_provider_manifest_fields  # local to avoid cycle
+
+    fields: List[SettingField] = list(SETTINGS_MANIFEST)
+    for spec, manifest_field in iter_provider_manifest_fields():
+        fields.append(_provider_field_to_setting_field(spec, manifest_field))
+    return fields
+
+
 def get_field_by_key(key: str) -> Optional[SettingField]:
-    for field in SETTINGS_MANIFEST:
+    for field in aggregated_manifest():
         if field.key == key:
             return field
     return None
 
 
 def manifest_keys() -> List[str]:
-    return [f.key for f in SETTINGS_MANIFEST]
+    return [f.key for f in aggregated_manifest()]
 
 
 def coerce_value(field: SettingField, raw: Any) -> Any:
@@ -498,8 +493,21 @@ def coerce_value(field: SettingField, raw: Any) -> Any:
     return str(raw)
 
 
+def _i18n_slug(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "_", value.strip().lower()).strip("_")
+    return slug or "default"
+
+
 def manifest_payload() -> List[dict]:
-    """Serialize the manifest for the admin UI."""
+    """Serialize the manifest for the admin UI.
+
+    For provider presentation fields we resolve the SPEC-declared default
+    (e.g. the button text the bot would use if the admin leaves the override
+    blank) and expose it as ``default``; ``placeholder`` falls back to the
+    same value so existing UIs that only read ``placeholder`` also show the
+    hint inside the empty input.
+    """
+    from bot.payment_providers import find_manifest_owner, manifest_field_default
 
     sections_order = {
         "general": 1,
@@ -509,12 +517,29 @@ def manifest_payload() -> List[dict]:
         "trial": 5,
         "referral": 6,
         "notifications": 7,
-        "devices": 8,
+        "support": 8,
+        "devices": 9,
     }
     items: List[dict] = []
-    for field in SETTINGS_MANIFEST:
-        auto_label_i18n_key = f"settings_field_{field.key.lower()}_label"
-        auto_description_i18n_key = f"settings_field_{field.key.lower()}_description"
+    for field in aggregated_manifest():
+        auto_label_i18n_key = f"admin_settings_field_{field.key.lower()}_label"
+        auto_description_i18n_key = f"admin_settings_field_{field.key.lower()}_description"
+        auto_subsection_i18n_key = (
+            f"admin_settings_subsection_{_i18n_slug(field.subsection)}"
+            if field.subsection
+            else None
+        )
+
+        default_value: Optional[str] = None
+        owner = find_manifest_owner(field.key)
+        if owner is not None:
+            spec, manifest_field = owner
+            default_value = manifest_field_default(spec, manifest_field)
+
+        placeholder = field.placeholder
+        if not placeholder and default_value:
+            placeholder = default_value
+
         item = {
             "key": field.key,
             "type": field.type,
@@ -526,11 +551,26 @@ def manifest_payload() -> List[dict]:
             "i18n_label_key": field.i18n_label_key or auto_label_i18n_key,
             "i18n_description_key": field.i18n_description_key
             or (auto_description_i18n_key if field.description else None),
-            "placeholder": field.placeholder,
+            "i18n_subsection_key": field.i18n_subsection_key or auto_subsection_i18n_key,
+            "i18n_placeholder_key": (
+                f"admin_settings_field_{field.key.lower()}_placeholder" if placeholder else None
+            ),
+            "placeholder": placeholder,
             "optional": field.optional,
             "secret": field.secret,
         }
+        if default_value is not None:
+            item["default"] = default_value
         if field.choices:
-            item["choices"] = [{"value": v, "label": lbl} for v, lbl in field.choices]
+            item["choices"] = [
+                {
+                    "value": v,
+                    "label": lbl,
+                    "i18n_label_key": (
+                        f"admin_settings_field_{field.key.lower()}_choice_{_i18n_slug(str(v))}"
+                    ),
+                }
+                for v, lbl in field.choices
+            ]
         items.append(item)
     return items

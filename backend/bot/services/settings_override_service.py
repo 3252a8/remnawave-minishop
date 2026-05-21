@@ -60,7 +60,46 @@ def _resolve_attribute_name(settings: Settings, key: str) -> Optional[str]:
     return None
 
 
+def _apply_to_provider_bundle(key: str, value: Any) -> bool:
+    """Route an override into the matching provider config/presentation model.
+
+    Provider modules own their env-config via BaseSettings subclasses; here
+    we look up which one owns ``key`` and write the value into the right
+    attribute on the right model.
+    """
+    from bot.payment_providers import (
+        find_manifest_owner,
+        get_provider_bundle,
+        get_spec_presentation,
+    )
+
+    owner = find_manifest_owner(key)
+    if owner is None:
+        return False
+    spec, manifest_field = owner
+    if manifest_field.target == "presentation":
+        target = get_spec_presentation(spec.id)
+        if target is None:
+            bundle = get_provider_bundle(spec.service_key)
+            target = bundle.presentation if bundle else None
+    else:
+        bundle = get_provider_bundle(spec.service_key)
+        target = bundle.config if bundle else None
+    if target is None:
+        return False
+    attr_name = manifest_field.attr or key
+    try:
+        setattr(target, attr_name, value)
+        return True
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Failed to apply provider override %s=%r: %s", key, value, exc)
+        return False
+
+
 def _apply_value(settings: Settings, key: str, value: Any) -> bool:
+    # Provider-owned keys go to provider models, not the central Settings.
+    if _apply_to_provider_bundle(key, value):
+        return True
     attr_name = _resolve_attribute_name(settings, key)
     if not attr_name:
         return False
@@ -156,16 +195,24 @@ def write_appearance_backup(settings: Settings) -> None:
 
 
 async def load_overrides_from_db(settings: Settings, async_session_factory: sessionmaker) -> int:
-    """Fetch overrides from the DB and apply them to the in-memory settings."""
+    """Fetch overrides from the DB and apply them to the in-memory settings.
+
+    Provider env-configs live on per-provider BaseSettings bundles instead of
+    the central Settings model. Apply needs those bundles to already exist,
+    otherwise provider-owned overrides (e.g. ``HELEKET_ENABLED``) silently
+    drop on the floor. Build them up-front; the call is idempotent so the
+    later ``build_core_services`` invocation reuses these same instances.
+    """
+    from bot.payment_providers import build_provider_configs
+
+    build_provider_configs()
 
     try:
         async with async_session_factory() as session:
             overrides = await app_settings_dal.get_all_overrides(session)
             backup_overrides = _read_appearance_backup()
             missing_backup_overrides = {
-                key: value
-                for key, value in backup_overrides.items()
-                if key not in overrides
+                key: value for key, value in backup_overrides.items() if key not in overrides
             }
             if missing_backup_overrides:
                 for key, value in missing_backup_overrides.items():
@@ -233,12 +280,45 @@ async def update_overrides(
                 await app_settings_dal.delete_override(session, key)
 
     # Apply locally; deletes need an env-default fallback. We re-read the env
-    # default by instantiating a fresh Settings() (cheap; just a few ms) and
-    # copying the matching attributes back over.
+    # default by instantiating a fresh Settings() / provider-config model
+    # (cheap; just a few ms) and copying the matching attributes back over.
     if valid_deletes:
+        from bot.payment_providers import (
+            find_manifest_owner,
+            get_provider_bundle,
+            get_spec_presentation,
+        )
+
         try:
             env_only = Settings()
             for key in valid_deletes:
+                owner = find_manifest_owner(key)
+                if owner is not None:
+                    spec, manifest_field = owner
+                    if manifest_field.target == "presentation":
+                        target = get_spec_presentation(spec.id)
+                        if target is None:
+                            bundle = get_provider_bundle(spec.service_key)
+                            target = bundle.presentation if bundle else None
+                    else:
+                        bundle = get_provider_bundle(spec.service_key)
+                        target = bundle.config if bundle else None
+                    if target is None:
+                        continue
+                    cls = type(target)
+                    try:
+                        fresh = cls()
+                    except Exception as exc:
+                        logger.warning(
+                            "Failed to reload provider env defaults for %s: %s",
+                            key,
+                            exc,
+                        )
+                        continue
+                    attr = manifest_field.attr or key
+                    if hasattr(fresh, attr):
+                        setattr(target, attr, getattr(fresh, attr))
+                    continue
                 attr_name = _resolve_attribute_name(env_only, key) or key
                 if hasattr(env_only, attr_name):
                     setattr(settings, attr_name, getattr(env_only, attr_name))
@@ -260,6 +340,30 @@ def overridable_keys() -> list:
 
 
 def current_value(settings: Settings, key: str) -> Any:
+    # Provider-owned keys live on per-provider BaseSettings bundles, not the
+    # central Settings — check there first.
+    from bot.payment_providers import (
+        find_manifest_owner,
+        get_provider_bundle,
+        get_spec_presentation,
+    )
+
+    owner = find_manifest_owner(key)
+    if owner is not None:
+        spec, manifest_field = owner
+        if manifest_field.target == "presentation":
+            target = get_spec_presentation(spec.id)
+            if target is None:
+                bundle = get_provider_bundle(spec.service_key)
+                target = bundle.presentation if bundle else None
+        else:
+            bundle = get_provider_bundle(spec.service_key)
+            target = bundle.config if bundle else None
+        if target is not None:
+            attr = manifest_field.attr or key
+            return getattr(target, attr, None)
+        return None
+
     attr_name = _resolve_attribute_name(settings, key)
     if not attr_name:
         return None

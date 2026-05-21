@@ -59,18 +59,14 @@ class MigrationDocumentationFactsTests(unittest.TestCase):
     def test_doc_lists_every_running_container_in_current_compose(self):
         """The architecture table must reflect what ``docker compose up``
         actually produces today."""
-        missing = sorted(
-            name for name in EXPECTED_CONTAINER_NAMES if name not in self.doc
-        )
+        missing = sorted(name for name in EXPECTED_CONTAINER_NAMES if name not in self.doc)
         self.assertFalse(
             missing,
             f"migration-to-minishop.md is missing container names from current compose: {missing}",
         )
 
     def test_doc_lists_every_volume_in_current_compose(self):
-        missing = sorted(
-            name for name in EXPECTED_VOLUME_NAMES if name not in self.doc
-        )
+        missing = sorted(name for name in EXPECTED_VOLUME_NAMES if name not in self.doc)
         self.assertFalse(
             missing,
             f"migration-to-minishop.md is missing volume names from current compose: {missing}",
@@ -185,8 +181,7 @@ class MigrationScriptCoverageTests(unittest.TestCase):
         missing = sorted(EXPECTED_CONTAINER_NAMES - self.known)
         self.assertFalse(
             missing,
-            f"KNOWN_CONTAINERS missing split-arch entries: {missing}\n"
-            f"actual: {sorted(self.known)}",
+            f"KNOWN_CONTAINERS missing split-arch entries: {missing}\nactual: {sorted(self.known)}",
         )
 
     def test_known_containers_still_covers_legacy_eras(self):

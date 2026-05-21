@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models import SecurityThrottle
 
 EMAIL_CODE_VERIFY_SCOPE = "email_code_verify"
+EMAIL_PASSWORD_LOGIN_SCOPE = "email_password_login"
 PROMO_CODE_APPLY_SCOPE = "promo_code_apply"
 
 

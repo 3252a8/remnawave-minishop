@@ -1,6 +1,8 @@
 <script>
-  import { ChevronRight, Eye, EyeOff, X } from "$components/ui/icons.js";
+  import { ChevronRight, Eye, EyeOff, Search, X } from "$components/ui/icons.js";
+  import * as UiIcons from "$components/ui/icons.js";
   import { Accordion, Switch } from "$components/ui/primitives.js";
+  import Dialog from "$components/ui/dialog.svelte";
   import {
     AdminBadge,
     AdminButton,
@@ -22,10 +24,18 @@
   let settingsOpenSections = [];
   let settingsOpenSubsections = {};
   let revealedSecrets = new Set();
+  let iconPickerField = null;
+  let iconPickerSearch = "";
 
   $: settingsAllOpen =
     visibleSettingsSections.length > 0 &&
     settingsOpenSections.length === visibleSettingsSections.length;
+  $: iconOptions = Object.keys(UiIcons)
+    .filter((name) => /^[A-Z]/.test(name))
+    .sort((a, b) => a.localeCompare(b));
+  $: filteredIconOptions = iconOptions.filter((name) =>
+    name.toLowerCase().includes(iconPickerSearch.trim().toLowerCase())
+  );
 
   onMount(() => {
     settingsStore.loadSettings().then(() => {
@@ -70,37 +80,92 @@
   }
 
   function secretPlaceholder(field) {
-    if (settingsDirty[field.key]?.deleted) return field.placeholder || "••••••••";
+    if (settingsDirty[field.key]?.deleted) return fieldPlaceholderText(field) || "********";
     if (field.has_value) return at("settings_secret_configured", {}, "Secret is set");
-    return field.placeholder || at("settings_secret_empty", {}, "Not set");
+    return fieldPlaceholderText(field) || at("settings_secret_empty", {}, "Not set");
+  }
+
+  function iconComponent(name) {
+    const key = String(name || "").trim();
+    return key ? UiIcons[key] || null : null;
+  }
+
+  function iconValue(field) {
+    return String(valueFor(field) || field?.placeholder || "").trim();
+  }
+
+  function iconIsDefault(field) {
+    return !String(valueFor(field) || "").trim();
+  }
+
+  function iconLabel(field) {
+    const iconName = iconValue(field);
+    if (!iconName) return at("settings_icon_empty", {}, "Default icon");
+    if (iconIsDefault(field)) {
+      return at("settings_icon_default_value", { icon: iconName }, `Default: ${iconName}`);
+    }
+    return iconName;
+  }
+
+  function openIconPicker(field) {
+    iconPickerField = field;
+    iconPickerSearch = "";
+  }
+
+  function closeIconPicker() {
+    iconPickerField = null;
+    iconPickerSearch = "";
+  }
+
+  function selectIcon(name) {
+    if (!iconPickerField) return;
+    settingsStore.markDirty(iconPickerField.key, name);
+    closeIconPicker();
   }
 
   function groupSectionFields(section) {
     const groups = new Map();
     for (const field of section.fields || []) {
       const key = field.subsection || "_root";
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(field);
+      if (!groups.has(key)) {
+        groups.set(key, { fields: [], i18nLabelKey: field.i18n_subsection_key || null });
+      }
+      const group = groups.get(key);
+      group.fields.push(field);
+      if (!group.i18nLabelKey && field.i18n_subsection_key) {
+        group.i18nLabelKey = field.i18n_subsection_key;
+      }
     }
-    return Array.from(groups.entries()).map(([id, fields]) => ({
+    return Array.from(groups.entries()).map(([id, group]) => ({
       id,
       label: id === "_root" ? null : id,
-      fields,
+      i18nLabelKey: group.i18nLabelKey,
+      fields: group.fields,
     }));
+  }
+
+  function adminLocaleKey(key) {
+    const raw = String(key || "");
+    return raw.startsWith("admin_") ? raw.slice("admin_".length) : raw;
+  }
+
+  function adminText(key, params = {}, fallback = "") {
+    return key ? at(adminLocaleKey(key), params, fallback) : fallback;
   }
 
   function sectionTitle(id) {
     const map = {
-      general: at("settings_section_general", {}, "Общие"),
-      appearance: at("settings_section_appearance", {}, "Внешний вид"),
-      pricing: at("settings_section_pricing", {}, "Тарифы и цены"),
-      payments: at("settings_section_payments", {}, "Платёжные системы"),
-      trial: at("settings_section_trial", {}, "Триал"),
-      referral: at("settings_section_referral", {}, "Реферальная программа"),
-      notifications: at("settings_section_notifications", {}, "Уведомления"),
-      devices: at("settings_section_devices", {}, "Устройства"),
+      general: "Общие",
+      appearance: "Внешний вид",
+      pricing: "Тарифы и цены",
+      payments: "Платёжные системы",
+      trial: "Триал",
+      referral: "Реферальная программа",
+      notifications: "Уведомления",
+      support: "Поддержка",
+      devices: "Устройства",
     };
-    return map[id] || id;
+    return adminText(`settings_section_${id}`, {}, map[id] || id);
   }
 
   function englishFieldLabelFallback(key, originalLabel) {
@@ -124,7 +189,33 @@
       .toLowerCase()
       .startsWith("en");
     const fallback = isEnglish ? englishFieldLabelFallback(field.key, field.label) : field.label;
-    return field.i18n_label_key ? at(field.i18n_label_key, {}, fallback) : fallback;
+    return field.i18n_label_key ? adminText(field.i18n_label_key, {}, fallback) : fallback;
+  }
+
+  function fieldDescriptionText(field) {
+    if (!field.description) return "";
+    return field.i18n_description_key
+      ? adminText(field.i18n_description_key, {}, field.description)
+      : field.description;
+  }
+
+  function fieldPlaceholderText(field) {
+    const fallback = field.placeholder || "";
+    return field.i18n_placeholder_key ? adminText(field.i18n_placeholder_key, {}, fallback) : fallback;
+  }
+
+  function subsectionTitle(group) {
+    if (!group?.label) return "";
+    return group.i18nLabelKey ? adminText(group.i18nLabelKey, {}, group.label) : group.label;
+  }
+
+  function choiceItems(field) {
+    return (field.choices || []).map((choice) => ({
+      ...choice,
+      label: choice.i18n_label_key
+        ? adminText(choice.i18n_label_key, {}, choice.label)
+        : choice.label,
+    }));
   }
 </script>
 
@@ -142,12 +233,8 @@
         {/if}
       </strong>
       <code>{field.key}</code>
-      {#if field.description}
-        <small
-          >{field.i18n_description_key
-            ? at(field.i18n_description_key, {}, field.description)
-            : field.description}</small
-        >
+      {#if fieldDescriptionText(field)}
+        <small>{fieldDescriptionText(field)}</small>
       {/if}
     </div>
     <div class="admin-setting-control">
@@ -171,21 +258,44 @@
           class="admin-color"
           type="color"
           value={valueFor(field) || "#00fe7a"}
-          on:input={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
         />
         <input
           class="input"
           type="text"
           value={valueFor(field) || ""}
-          on:input={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
         />
+      {:else if field.type === "icon"}
+        {@const selectedIconName = iconValue(field)}
+        {@const SelectedIcon = iconComponent(selectedIconName)}
+        <AdminButton
+          class="admin-icon-picker-trigger"
+          variant="ghost"
+          onclick={() => openIconPicker(field)}
+        >
+          {#if SelectedIcon}
+            <svelte:component this={SelectedIcon} size={16} />
+          {/if}
+          <span>{iconLabel(field)}</span>
+        </AdminButton>
+        {#if !iconIsDefault(field)}
+          <AdminButton
+            size="sm"
+            variant="ghost"
+            onclick={() => settingsStore.markDirty(field.key, "")}
+          >
+            <X size={12} />
+            {at("clear", {}, "Clear")}
+          </AdminButton>
+        {/if}
       {:else if field.choices && field.choices.length > 0}
         <AdminSelect
           class="admin-setting-select"
           value={valueFor(field) || ""}
-          items={field.choices}
+          items={choiceItems(field)}
           ariaLabel={fieldLabelText(field)}
-          placeholder={field.placeholder || fieldLabelText(field)}
+          placeholder={fieldPlaceholderText(field) || fieldLabelText(field)}
           onValueChange={(value) => settingsStore.markDirty(field.key, value)}
         />
       {:else if field.type === "int" || field.type === "float"}
@@ -193,10 +303,18 @@
           class="input"
           type="number"
           step={field.type === "float" ? "0.1" : "1"}
-          placeholder={field.placeholder}
+          placeholder={fieldPlaceholderText(field)}
           value={valueFor(field) ?? ""}
-          on:input={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
         />
+      {:else if field.type === "text"}
+        <textarea
+          class="admin-setting-textarea"
+          rows="4"
+          placeholder={fieldPlaceholderText(field)}
+          value={valueFor(field) ?? ""}
+          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+        ></textarea>
       {:else if field.secret}
         <input
           class="input"
@@ -204,7 +322,7 @@
           placeholder={secretPlaceholder(field)}
           autocomplete="off"
           value={valueFor(field) ?? ""}
-          on:input={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
         />
         <AdminButton
           size="sm"
@@ -218,9 +336,9 @@
         <input
           class="input"
           type="text"
-          placeholder={field.placeholder}
+          placeholder={fieldPlaceholderText(field)}
           value={valueFor(field) ?? ""}
-          on:input={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
         />
       {/if}
       {#if isOverridden(field) || settingsDirty[field.key]}
@@ -322,7 +440,7 @@
                   <Accordion.Item value={group.id} class="admin-settings-subsection">
                     <Accordion.Header class="admin-accordion-header">
                       <Accordion.Trigger class="admin-settings-subsection-trigger">
-                        <strong>{group.label}</strong>
+                        <strong>{subsectionTitle(group)}</strong>
                         <span class="admin-settings-subsection-meta">
                           {at(
                             "settings_fields_count",
@@ -360,3 +478,67 @@
     {/each}
   </Accordion.Root>
 {/if}
+
+<Dialog
+  open={Boolean(iconPickerField)}
+  title={at("settings_icon_picker_title", {}, "Choose icon")}
+  description={iconPickerField ? fieldLabelText(iconPickerField) : ""}
+  closeLabel={at("close", {}, "Close")}
+  onclose={closeIconPicker}
+  class="admin-icon-picker-dialog"
+>
+  <div class="admin-icon-picker-body">
+    {#if iconPickerField}
+      {@const currentIconName = iconValue(iconPickerField)}
+      {@const CurrentIcon = iconComponent(currentIconName)}
+      <div class="admin-icon-picker-current">
+        <span class="admin-icon-picker-current-preview" aria-hidden="true">
+          {#if CurrentIcon}
+            <svelte:component this={CurrentIcon} size={24} />
+          {/if}
+        </span>
+        <span class="admin-icon-picker-current-meta">
+          <small>{at("settings_icon_current", {}, "Current icon")}</small>
+          <strong>{iconLabel(iconPickerField)}</strong>
+        </span>
+        {#if !iconIsDefault(iconPickerField)}
+          <AdminButton
+            size="sm"
+            variant="ghost"
+            onclick={() => settingsStore.markDirty(iconPickerField.key, "")}
+          >
+            <X size={12} />
+            {at("settings_icon_use_default", {}, "Use default")}
+          </AdminButton>
+        {/if}
+      </div>
+    {/if}
+    <div class="admin-icon-picker-toolbar">
+      <label class="admin-icon-picker-search">
+        <Search size={15} />
+        <input
+          bind:value={iconPickerSearch}
+          class="input"
+          type="text"
+          placeholder={at("search", {}, "Search")}
+        />
+      </label>
+    </div>
+    <div class="admin-icon-picker-grid">
+      {#each filteredIconOptions as iconName}
+        {@const Icon = iconComponent(iconName)}
+        <button
+          class:active={iconPickerField && iconValue(iconPickerField) === iconName}
+          class="admin-icon-picker-option"
+          type="button"
+          onclick={() => selectIcon(iconName)}
+        >
+          {#if Icon}
+            <svelte:component this={Icon} size={18} />
+          {/if}
+          <span>{iconName}</span>
+        </button>
+      {/each}
+    </div>
+  </div>
+</Dialog>

@@ -387,11 +387,12 @@ async def ensure_required_channel_subscription(
 )
 @router.message(CommandStart(magic=F.args.regexp(r"^promo_(\w+)$").as_("promo_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^admin_user_(\d+)$").as_("admin_user_match")))
+@router.message(CommandStart(magic=F.args.regexp(r"^ticket_(\d+)$").as_("ticket_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^page_ref$").as_("page_ref_match")))
 @router.message(
     CommandStart(
         magic=F.args.regexp(
-            r"^(?!ref_|promo_|admin_user_|page_ref$|webapp_auth_)([A-Za-z0-9_\-]{2,64})$"
+            r"^(?!ref_|promo_|admin_user_|ticket_|page_ref$|webapp_auth_)([A-Za-z0-9_\-]{2,64})$"
         ).as_("ad_param_match")
     )
 )
@@ -408,6 +409,7 @@ async def start_command_handler(
     page_ref_match: Optional[re.Match] = None,
     ad_param_match: Optional[re.Match] = None,
     admin_user_match: Optional[re.Match] = None,
+    ticket_match: Optional[re.Match] = None,
 ):
     await state.clear()
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -463,6 +465,31 @@ async def start_command_handler(
                 exc_info=True,
             )
             await message.answer(_("admin_user_card_error"))
+            return
+
+    if ticket_match:
+        ticket_id = int(ticket_match.group(1))
+        base_url = (settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
+        if base_url:
+            ticket_url = f"{base_url.rstrip('/')}/support/{ticket_id}"
+            keyboard = types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text=i18n.gettext(current_lang, "wa_support_open_ticket")
+                            if i18n
+                            else "Открыть тикет",
+                            web_app=types.WebAppInfo(url=ticket_url),
+                        )
+                    ]
+                ]
+            )
+            await message.answer(
+                i18n.gettext(current_lang, "wa_support_open_ticket_hint")
+                if i18n
+                else "Откройте тикет в Mini App.",
+                reply_markup=keyboard,
+            )
             return
 
     referred_by_user_id: Optional[int] = None

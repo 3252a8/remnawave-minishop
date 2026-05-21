@@ -24,28 +24,36 @@ async def enqueue_webhook_event(
     if redis is None:
         return False
 
-    dedupe_id = event_id or payload.get("id") or payload.get("event_id")
-    if dedupe_id:
-        dedupe_key = redis_key(settings, "webhook", "seen", provider, dedupe_id)
-        if not await redis.set(dedupe_key, "1", nx=True, ex=24 * 60 * 60):
-            logger.info("Skipping duplicate %s webhook event %s", provider, dedupe_id)
-            return True
+    try:
+        dedupe_id = event_id or payload.get("id") or payload.get("event_id")
+        if dedupe_id:
+            dedupe_key = redis_key(settings, "webhook", "seen", provider, dedupe_id)
+            if not await redis.set(dedupe_key, "1", nx=True, ex=24 * 60 * 60):
+                logger.info("Skipping duplicate %s webhook event %s", provider, dedupe_id)
+                return True
 
-    message = {
-        "provider": provider,
-        "event_id": dedupe_id,
-        "payload": payload,
-        "enqueued_at": time.time(),
-    }
-    await redis.lpush(webhook_queue_key(settings), json.dumps(message, ensure_ascii=False))
-    return True
+        message = {
+            "provider": provider,
+            "event_id": dedupe_id,
+            "payload": payload,
+            "enqueued_at": time.time(),
+        }
+        await redis.lpush(webhook_queue_key(settings), json.dumps(message, ensure_ascii=False))
+        return True
+    except Exception as exc:
+        logger.warning("Redis webhook enqueue failed for %s: %s", provider, exc)
+        return False
 
 
 async def pop_webhook_event(settings: Settings, timeout_seconds: int = 5) -> Optional[dict]:
     redis = await get_redis(settings)
     if redis is None:
         return None
-    item = await redis.brpop(webhook_queue_key(settings), timeout=timeout_seconds)
+    try:
+        item = await redis.brpop(webhook_queue_key(settings), timeout=timeout_seconds)
+    except Exception as exc:
+        logger.warning("Redis webhook pop failed: %s", exc)
+        return None
     if not item:
         return None
     _, raw = item
@@ -60,4 +68,8 @@ async def webhook_queue_depth(settings: Settings) -> int:
     redis = await get_redis(settings)
     if redis is None:
         return 0
-    return int(await redis.llen(webhook_queue_key(settings)))
+    try:
+        return int(await redis.llen(webhook_queue_key(settings)))
+    except Exception as exc:
+        logger.warning("Redis webhook queue depth failed: %s", exc)
+        return 0

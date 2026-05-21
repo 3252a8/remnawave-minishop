@@ -61,9 +61,7 @@ class SkipPathTests(unittest.IsolatedAsyncioTestCase):
     async def test_no_inviter_returns_empty_payload(self):
         settings = _make_settings()
         subscription_service = AsyncMock()
-        service, _bot = _make_service(
-            settings=settings, subscription_service=subscription_service
-        )
+        service, _bot = _make_service(settings=settings, subscription_service=subscription_service)
         # Referred_by_id is None → bail out immediately.
         with patch(
             "bot.services.referral_service.user_dal.get_user_by_id",
@@ -85,16 +83,14 @@ class SkipPathTests(unittest.IsolatedAsyncioTestCase):
         # when the same referee buys multiple subscriptions.
         settings = _make_settings(REFERRAL_ONE_BONUS_PER_REFEREE=True)
         subscription_service = AsyncMock()
-        service, _bot = _make_service(
-            settings=settings, subscription_service=subscription_service
-        )
+        service, _bot = _make_service(settings=settings, subscription_service=subscription_service)
         with (
             patch(
                 "bot.services.referral_service.user_dal.get_user_by_id",
                 AsyncMock(
-                    side_effect=lambda session, uid: _make_user(uid, referred_by_id=1)
-                    if uid == 42
-                    else _make_user(uid)
+                    side_effect=lambda session, uid: (
+                        _make_user(uid, referred_by_id=1) if uid == 42 else _make_user(uid)
+                    )
                 ),
             ),
             patch(
@@ -118,15 +114,13 @@ class SkipPathTests(unittest.IsolatedAsyncioTestCase):
         settings = _make_settings(REFERRAL_ONE_BONUS_PER_REFEREE=False)
         subscription_service = AsyncMock()
         subscription_service.has_active_subscription = AsyncMock(return_value=True)
-        service, _bot = _make_service(
-            settings=settings, subscription_service=subscription_service
-        )
+        service, _bot = _make_service(settings=settings, subscription_service=subscription_service)
         with patch(
             "bot.services.referral_service.user_dal.get_user_by_id",
             AsyncMock(
-                side_effect=lambda session, uid: _make_user(uid, referred_by_id=1)
-                if uid == 42
-                else _make_user(uid)
+                side_effect=lambda session, uid: (
+                    _make_user(uid, referred_by_id=1) if uid == 42 else _make_user(uid)
+                )
             ),
         ):
             result = await service.apply_referral_bonuses_for_payment(
@@ -156,16 +150,14 @@ class InviterBonusTests(unittest.IsolatedAsyncioTestCase):
         )
         new_end = datetime(2026, 1, 1, tzinfo=timezone.utc)
         subscription_service.extend_active_subscription_days = AsyncMock(return_value=new_end)
-        service, bot = _make_service(
-            settings=settings, subscription_service=subscription_service
-        )
+        service, bot = _make_service(settings=settings, subscription_service=subscription_service)
 
         with patch(
             "bot.services.referral_service.user_dal.get_user_by_id",
             AsyncMock(
-                side_effect=lambda session, uid: _make_user(uid, referred_by_id=1)
-                if uid == 42
-                else _make_user(uid)
+                side_effect=lambda session, uid: (
+                    _make_user(uid, referred_by_id=1) if uid == 42 else _make_user(uid)
+                )
             ),
         ):
             result = await service.apply_referral_bonuses_for_payment(
@@ -204,17 +196,15 @@ class InviterBonusTests(unittest.IsolatedAsyncioTestCase):
             return_value={"ok": True}
         )
 
-        service, bot = _make_service(
-            settings=settings, subscription_service=subscription_service
-        )
+        service, bot = _make_service(settings=settings, subscription_service=subscription_service)
 
         with (
             patch(
                 "bot.services.referral_service.user_dal.get_user_by_id",
                 AsyncMock(
-                    side_effect=lambda session, uid: _make_user(uid, referred_by_id=1)
-                    if uid == 42
-                    else _make_user(uid)
+                    side_effect=lambda session, uid: (
+                        _make_user(uid, referred_by_id=1) if uid == 42 else _make_user(uid)
+                    )
                 ),
             ),
             patch(
@@ -262,16 +252,14 @@ class RefereeBonusTests(unittest.IsolatedAsyncioTestCase):
         subscription_service.extend_active_subscription_days = AsyncMock(
             return_value=referee_new_end
         )
-        service, _bot = _make_service(
-            settings=settings, subscription_service=subscription_service
-        )
+        service, _bot = _make_service(settings=settings, subscription_service=subscription_service)
 
         with patch(
             "bot.services.referral_service.user_dal.get_user_by_id",
             AsyncMock(
-                side_effect=lambda session, uid: _make_user(uid, referred_by_id=1)
-                if uid == 42
-                else _make_user(uid)
+                side_effect=lambda session, uid: (
+                    _make_user(uid, referred_by_id=1) if uid == 42 else _make_user(uid)
+                )
             ),
         ):
             # 3-month plan → 10-day referee bonus, 21-day inviter bonus.
@@ -303,16 +291,14 @@ class RefereeBonusTests(unittest.IsolatedAsyncioTestCase):
         subscription_service = AsyncMock()
         subscription_service.has_active_subscription = AsyncMock(return_value=False)
         subscription_service.extend_active_subscription_days = AsyncMock(return_value=None)
-        service, _bot = _make_service(
-            settings=settings, subscription_service=subscription_service
-        )
+        service, _bot = _make_service(settings=settings, subscription_service=subscription_service)
 
         with patch(
             "bot.services.referral_service.user_dal.get_user_by_id",
             AsyncMock(
-                side_effect=lambda session, uid: _make_user(uid, referred_by_id=1)
-                if uid == 42
-                else _make_user(uid)
+                side_effect=lambda session, uid: (
+                    _make_user(uid, referred_by_id=1) if uid == 42 else _make_user(uid)
+                )
             ),
         ):
             result = await service.apply_referral_bonuses_for_payment(
@@ -331,16 +317,14 @@ class RefereeBonusTests(unittest.IsolatedAsyncioTestCase):
         subscription_service = AsyncMock()
         subscription_service.has_active_subscription = AsyncMock(return_value=False)
         subscription_service.extend_active_subscription_days = AsyncMock()
-        service, _bot = _make_service(
-            settings=settings, subscription_service=subscription_service
-        )
+        service, _bot = _make_service(settings=settings, subscription_service=subscription_service)
 
         with patch(
             "bot.services.referral_service.user_dal.get_user_by_id",
             AsyncMock(
-                side_effect=lambda session, uid: _make_user(uid, referred_by_id=1)
-                if uid == 42
-                else _make_user(uid)
+                side_effect=lambda session, uid: (
+                    _make_user(uid, referred_by_id=1) if uid == 42 else _make_user(uid)
+                )
             ),
         ):
             result = await service.apply_referral_bonuses_for_payment(
@@ -359,9 +343,7 @@ class GenerateReferralLinkTests(unittest.IsolatedAsyncioTestCase):
     async def test_includes_bot_username_and_referral_code(self):
         settings = _make_settings()
         subscription_service = AsyncMock()
-        service, _bot = _make_service(
-            settings=settings, subscription_service=subscription_service
-        )
+        service, _bot = _make_service(settings=settings, subscription_service=subscription_service)
 
         with (
             patch(
@@ -383,9 +365,7 @@ class GenerateReferralLinkTests(unittest.IsolatedAsyncioTestCase):
     async def test_returns_none_when_user_missing(self):
         settings = _make_settings()
         subscription_service = AsyncMock()
-        service, _bot = _make_service(
-            settings=settings, subscription_service=subscription_service
-        )
+        service, _bot = _make_service(settings=settings, subscription_service=subscription_service)
 
         with patch(
             "bot.services.referral_service.user_dal.get_user_by_id",
@@ -401,9 +381,7 @@ class GenerateReferralLinkTests(unittest.IsolatedAsyncioTestCase):
     async def test_returns_none_when_referral_code_unavailable(self):
         settings = _make_settings()
         subscription_service = AsyncMock()
-        service, _bot = _make_service(
-            settings=settings, subscription_service=subscription_service
-        )
+        service, _bot = _make_service(settings=settings, subscription_service=subscription_service)
 
         with (
             patch(

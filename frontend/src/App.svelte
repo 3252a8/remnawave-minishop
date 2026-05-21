@@ -3,12 +3,12 @@
   import { createAuthStore } from "./lib/webapp/stores/authStore.js";
   import { createBillingStore } from "./lib/webapp/stores/billingStore.js";
   import { createDevicesStore } from "./lib/webapp/stores/devicesStore.js";
+  import { createSupportStore } from "./lib/webapp/stores/supportStore.js";
   import { createAccountStore } from "./lib/webapp/stores/accountStore.js";
   import { Tooltip } from "$components/ui/primitives.js";
 
   import BrandMark from "$lib/webapp/BrandMark.svelte";
   import PreviewBoard from "./PreviewBoard.svelte";
-  import AdminPanel from "./admin/AdminPanel.svelte";
   import WebAppShell from "./webapp/WebAppShell.svelte";
   import AuthScreen from "./webapp/auth/AuthScreen.svelte";
   import PaymentDialogs from "./webapp/PaymentDialogs.svelte";
@@ -17,6 +17,8 @@
   import HomeScreen from "./webapp/screens/HomeScreen.svelte";
   import InviteScreen from "./webapp/screens/InviteScreen.svelte";
   import SettingsScreen from "./webapp/screens/SettingsScreen.svelte";
+  import SupportScreen from "./webapp/screens/SupportScreen.svelte";
+  import SupportTicketScreen from "./webapp/screens/SupportTicketScreen.svelte";
 
   import {
     LANGUAGE_FLAGS,
@@ -70,6 +72,7 @@
     adminUserIdFromPath,
     normalizeSection,
     sectionFromPath,
+    supportTicketIdFromPath,
     syncSectionPath,
   } from "./lib/webapp/routes.js";
 
@@ -114,6 +117,14 @@
   let token = MOCK ? "local-preview" : "";
   let csrfToken = MOCK ? "" : readCookie(CSRF_COOKIE_NAME) || "";
   let scrollLockApplied = false;
+  let adminI18nLoaded = false;
+  let adminI18nPromise = null;
+  let adminBundleApi = null;
+  let adminBundlePromise = null;
+  let adminBundleError = "";
+  let adminMountTarget = null;
+  let adminMountHandle = null;
+  let adminPanelProps = {};
   let tg = null;
   const telegramSdk = createTelegramSdk({
     scriptUrl: TELEGRAM_WEBAPP_SCRIPT_URL,
@@ -170,6 +181,7 @@
     tg,
   });
   const devicesStore = createDevicesStore({ api, t, showToast });
+  const supportStore = createSupportStore({ api, t, showToast });
   const accountStore = createAccountStore({
     api,
     publicApi,
@@ -194,6 +206,7 @@
   setContext("authStore", authStore);
   setContext("billingStore", billingStore);
   setContext("devicesStore", devicesStore);
+  setContext("supportStore", supportStore);
   setContext("accountStore", accountStore);
 
   $: ({
@@ -203,6 +216,8 @@
     telegramLoginBusy,
     loginEmailFieldError,
     loginEmailTooltipOpen,
+    passwordLoginFallback,
+    passwordLoginMode,
     authResendCooldown,
     pendingEmail,
   } = $authStore);
@@ -232,6 +247,11 @@
     deviceDisconnectBusy,
   } = $devicesStore);
   $: ({
+    unreadCount: supportUnreadCount,
+    unreadLoading: supportUnreadLoading,
+    unreadLoaded: supportUnreadLoaded,
+  } = $supportStore);
+  $: ({
     linkEmailOpen,
     linkEmailBusy,
     linkTelegramBusy,
@@ -239,6 +259,12 @@
     linkEmailStatus,
     linkEmailIsError,
     linkEmailResendCooldown,
+    setPasswordBusy,
+    setPasswordIsError,
+    setPasswordOpen,
+    setPasswordPending,
+    setPasswordResendCooldown,
+    setPasswordStatus,
     languageBusy,
   } = $accountStore);
 
@@ -258,6 +284,9 @@
   $: plans = data?.plans?.length ? data.plans : DEV_MOCK.data.plans;
   $: methods = data?.payment_methods?.length ? data.payment_methods : [];
   $: appSettings = data?.settings || DEV_MOCK.data.settings;
+  $: subscriptionPurchaseDescription = String(
+    appSettings?.subscription_purchase_description || ""
+  ).trim();
   $: trafficMode = Boolean(appSettings?.traffic_mode);
   $: tariffMode = plans.some((plan) => plan?.tariff_key);
   $: tariffCatalog = buildTariffCatalog(plans);
@@ -270,6 +299,8 @@
       : []
     : plans;
   $: devicesEnabled = Boolean(appSettings?.my_devices_enabled);
+  $: supportEnabled = Boolean(appSettings?.support_tickets_enabled ?? true);
+  $: supportStore.setActive(Boolean(mode === "app" && screen === "support" && supportEnabled));
   $: subscription = data?.subscription || DEV_MOCK.data.subscription;
   $: hasActiveTariffSubscription = Boolean(
     tariffMode && subscription?.active && subscription?.tariff_key
@@ -388,7 +419,8 @@
       changeConfirmOpen ||
       topupModalOpen ||
       deviceTopupModalOpen ||
-      linkEmailOpen
+      linkEmailOpen ||
+      setPasswordOpen
   );
   $: if (!tariffMode && !$billingStore.selectedPlan && plans.length) {
     billingStore.update((s) => ({ ...s, selectedPlan: plans[Math.min(1, plans.length - 1)] }));
@@ -421,8 +453,15 @@
   ) {
     billingStore.update((s) => ({ ...s, selectedPlan: selectedTariffPlans[0] || null }));
   }
-  $: if (!$billingStore.selectedMethod && methods.length) {
-    billingStore.update((s) => ({ ...s, selectedMethod: methods[0].id }));
+  $: if (methods.length) {
+    const selectedMethodAvailable = methods.some(
+      (method) => method.id === $billingStore.selectedMethod
+    );
+    if (!$billingStore.selectedMethod || !selectedMethodAvailable) {
+      billingStore.update((s) => ({ ...s, selectedMethod: methods[0].id }));
+    }
+  } else if ($billingStore.selectedMethod) {
+    billingStore.update((s) => ({ ...s, selectedMethod: "" }));
   }
   $: {
     const emailKey = normalizedEmail(user?.email);
@@ -444,15 +483,39 @@
     };
     const onPopState = () => {
       const section = sectionFromPath(window.location.pathname);
+      if (mode === "login") {
+        setPasswordLoginMode(isPasswordLoginPath(), true);
+        screen = "login";
+        return;
+      }
       if (mode === "app") {
         if (section === "admin" && isAdmin) {
-          screen = "admin";
+          const pathAtStart = window.location.pathname;
+          void Promise.all([ensureI18nScope("admin"), ensureAdminBundle()])
+            .then(() => {
+              if (sectionFromPath(window.location.pathname) !== "admin") return;
+              if (window.location.pathname !== pathAtStart) return;
+              activeTab = "settings";
+              screen = "admin";
+            })
+            .catch(() => {
+              showToast(t("wa_unavailable"));
+            });
           return;
         }
-        const nextSection = section === "devices" && !devicesEnabled ? "home" : section;
+        const nextSection =
+          section === "devices" && !devicesEnabled
+            ? "home"
+            : section === "support" && !supportEnabled
+              ? "home"
+              : section;
         activeTab = nextSection;
         screen = nextSection;
         if (nextSection === "devices") devicesStore.loadDevices(devicesEnabled);
+        if (nextSection === "support") {
+          supportStore.loadList();
+          supportStore.startPolling({ includeList: true });
+        }
       }
     };
     window.addEventListener("popstate", onPopState);
@@ -464,8 +527,11 @@
       authStore.stopTelegramLoginWatchdog();
       authStore.clearCooldownTimer();
       accountStore.clearLinkEmailResendTimer();
+      accountStore.clearSetPasswordResendTimer();
+      supportStore.closePolling();
       clearLanguageClickGuard();
       syncBodyScrollLock(false);
+      destroyAdminMount();
     };
   });
 
@@ -530,6 +596,150 @@
     });
   }
 
+  async function ensureI18nScope(scope) {
+    if (MOCK || scope !== "admin" || adminI18nLoaded) return;
+    if (adminI18nPromise) return adminI18nPromise;
+    const apiBase = String(CFG.apiBase || "/api").replace(/\/+$/, "");
+    adminI18nPromise = fetch(`${apiBase}/i18n?scope=admin`, {
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (!payload?.ok || !payload.i18n) return;
+        i18n.mergeMessages(payload.i18n);
+        adminI18nLoaded = true;
+      })
+      .catch((_error) => {
+        void _error;
+      })
+      .finally(() => {
+        adminI18nPromise = null;
+      });
+    return adminI18nPromise;
+  }
+
+  function resolveWebappAssetPath(configValue, fallbackName) {
+    const raw = String(configValue || "").trim() || fallbackName;
+    if (/^(?:https?:)?\/\//i.test(raw) || raw.startsWith("data:")) return fallbackName;
+    if (window.location.protocol === "file:" && raw.startsWith("/")) return raw.slice(1);
+    return raw.startsWith("/") ? raw : `/${raw}`;
+  }
+
+  function appendStylesheetOnce(id, href) {
+    if (!href || document.getElementById(id)) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href = href;
+      link.onload = () => resolve();
+      link.onerror = () => reject(new Error(`stylesheet_load_failed:${href}`));
+      document.head.appendChild(link);
+    });
+  }
+
+  function appendScriptOnce(id, src) {
+    if (!src || document.getElementById(id)) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.id = id;
+      script.src = src;
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(`script_load_failed:${src}`));
+      document.head.appendChild(script);
+    });
+  }
+
+  function readAdminBundleApi() {
+    const bundle = window.SubscriptionWebAppAdmin;
+    return bundle?.mount ? bundle : null;
+  }
+
+  async function ensureAdminBundle() {
+    if (adminBundleApi) return true;
+    if (adminBundlePromise) return adminBundlePromise;
+
+    const existing = readAdminBundleApi();
+    if (existing) {
+      adminBundleApi = existing;
+      return true;
+    }
+
+    adminBundleError = "";
+    adminBundlePromise = (async () => {
+      const cssHref = resolveWebappAssetPath(CFG.adminCssAsset, "subscription_webapp_admin.css");
+      const jsSrc = resolveWebappAssetPath(CFG.adminJsAsset, "subscription_webapp_admin.js");
+      await appendStylesheetOnce("subscription-webapp-admin-css", cssHref);
+      await appendScriptOnce("subscription-webapp-admin-js", jsSrc);
+      const loaded = readAdminBundleApi();
+      if (!loaded) throw new Error("admin_bundle_missing_mount");
+      adminBundleApi = loaded;
+      return true;
+    })()
+      .catch((error) => {
+        adminBundleError = error?.message || "admin_bundle_load_failed";
+        throw error;
+      })
+      .finally(() => {
+        adminBundlePromise = null;
+      });
+
+    return adminBundlePromise;
+  }
+
+  function destroyAdminMount() {
+    if (!adminMountHandle) return;
+    adminMountHandle.destroy?.();
+    adminMountHandle = null;
+  }
+
+  $: adminPanelProps = {
+    api,
+    onClose: closeAdminPanel,
+    onToast: (text) => showToast(text),
+    initialSection: adminSectionFromPath(window.location.pathname),
+    initialUserId: adminUserIdFromPath(window.location.pathname),
+    onSectionChange: handleAdminSectionChange,
+    onSettingsSaved: handleAdminPersistedSaved,
+    onTariffsSaved: handleAdminPersistedSaved,
+    onThemesSaved: handleAdminPersistedSaved,
+    brandTitle,
+    brand,
+    appFaviconUrl: CFG.faviconUrl,
+    appFaviconUseCustom: CFG.faviconUseCustom,
+    appVersion: CFG.appVersion,
+    appRepositoryUrl: CFG.appRepositoryUrl,
+    currentLang,
+    languageOptions,
+    languageBusy,
+    onLanguageChange: accountStore.updateAccountLanguage,
+    t,
+  };
+
+  $: {
+    const shouldMountAdmin = screen === "admin" && isAdmin && adminBundleApi && adminMountTarget;
+    const props = adminPanelProps;
+
+    if (shouldMountAdmin) {
+      try {
+        if (adminMountHandle) {
+          adminMountHandle.update?.(props);
+        } else {
+          adminMountTarget.replaceChildren();
+          adminMountHandle = adminBundleApi.mount(adminMountTarget, props);
+        }
+      } catch (error) {
+        adminBundleError = error?.message || "admin_bundle_mount_failed";
+        adminBundleApi = null;
+        destroyAdminMount();
+      }
+    } else {
+      destroyAdminMount();
+    }
+  }
+
   async function boot() {
     await runWebappBoot({
       MOCK,
@@ -573,6 +783,34 @@
     window.history.replaceState(null, "", `${u.pathname}${qs}${u.hash}`);
   }
 
+  function isPasswordLoginPath(pathname = window.location.pathname) {
+    return (
+      String(pathname || "")
+        .replace(/\/+$/, "")
+        .toLowerCase() === "/login/password"
+    );
+  }
+
+  function syncPasswordLoginPath(enabled, replace = false) {
+    if (typeof window === "undefined" || window.location.protocol === "file:") return;
+    const targetPath = enabled ? "/login/password" : "/";
+    if (window.location.pathname === targetPath) return;
+    const nextUrl = `${targetPath}${window.location.search}${window.location.hash}`;
+    window.history[replace ? "replaceState" : "pushState"](null, "", nextUrl);
+  }
+
+  function setPasswordLoginMode(enabled, replace = false) {
+    const nextEnabled = Boolean(enabled);
+    authStore.update((s) => ({
+      ...s,
+      passwordLoginMode: nextEnabled,
+      passwordLoginFallback: false,
+      authStatus: "",
+      authIsError: false,
+    }));
+    syncPasswordLoginPath(nextEnabled, replace);
+  }
+
   async function loadData() {
     const payload = await api("/me");
     if (!payload.ok) throw new Error(payload.error || "load_failed");
@@ -590,16 +828,55 @@
         : sectionFromPath(window.location.pathname);
     if (section === "admin" && !payload.user?.is_admin) section = "settings";
     if (section === "devices" && !payload.settings?.my_devices_enabled) section = "home";
+    if (section === "support" && payload.settings?.support_tickets_enabled === false) {
+      section = "home";
+    }
+    const initialAdminSection =
+      section === "admin" ? adminSectionFromPath(window.location.pathname) : null;
+    if (section === "admin" && payload.user?.is_admin) {
+      try {
+        await ensureI18nScope("admin");
+        await ensureAdminBundle();
+      } catch (_error) {
+        void _error;
+        section = "settings";
+        activeTab = "settings";
+        showToast(t("wa_unavailable"));
+      }
+    }
+    const initialSupportTicketId =
+      section === "support" ? supportTicketIdFromPath(window.location.pathname) : null;
     activeTab = section === "admin" ? "settings" : section;
     screen = section;
     mode = "app";
-    syncSectionPath(
-      section,
-      true,
-      section === "admin" ? adminSectionFromPath(window.location.pathname) : null
-    );
+    if (payload.settings?.support_tickets_enabled !== false) {
+      if (typeof payload.support_unread_count !== "undefined") {
+        supportStore.hydrateUnread(payload.support_unread_count);
+      } else {
+        void supportStore.refreshUnread();
+      }
+      supportStore.startPolling({ includeList: false });
+    }
+    if (section === "support" && initialSupportTicketId) {
+      const targetPath = `/support/${initialSupportTicketId}`;
+      if (window.location.protocol !== "file:" && window.location.pathname !== targetPath) {
+        window.history.replaceState(
+          null,
+          "",
+          `${targetPath}${window.location.search}${window.location.hash}`
+        );
+      }
+    } else {
+      syncSectionPath(section, true, initialAdminSection);
+    }
     if (section === "devices" && payload.settings?.my_devices_enabled) {
       await devicesStore.loadDevices(true);
+    }
+    if (section === "support") {
+      if (initialSupportTicketId)
+        await supportStore.openTicket(initialSupportTicketId, { skipPush: true });
+      else await supportStore.loadList();
+      supportStore.startPolling({ includeList: true });
     }
     if (topupModalOpen) await billingStore.loadTopupOptions(topupKind);
     if (deviceTopupModalOpen) await billingStore.loadDeviceTopupOptions();
@@ -639,6 +916,7 @@
     mode = "login";
     screen = "login";
     activeTab = "home";
+    setPasswordLoginMode(isPasswordLoginPath(), true);
   }
 
   async function api(path, options = {}) {
@@ -795,6 +1073,16 @@
     devicesStore.loadDevices(devicesEnabled);
   }
 
+  function goSupport() {
+    if (!supportEnabled) return;
+    billingStore.closePaymentModal();
+    activeTab = "support";
+    screen = "support";
+    syncSectionPath("support");
+    supportStore.loadList();
+    supportStore.startPolling({ includeList: true });
+  }
+
   function defaultPaymentMethod() {
     return methods[0]?.id || "";
   }
@@ -849,10 +1137,18 @@
     syncSectionPath("settings");
   }
 
-  function openAdminPanel() {
+  async function openAdminPanel() {
     if (!isAdmin) return;
     clearLanguageClickGuard();
     billingStore.closePaymentModal();
+    try {
+      await ensureI18nScope("admin");
+      await ensureAdminBundle();
+    } catch (_error) {
+      void _error;
+      showToast(t("wa_unavailable"));
+      return;
+    }
     activeTab = "settings";
     screen = "admin";
     syncSectionPath("admin", false, adminSectionFromPath(window.location.pathname));
@@ -953,6 +1249,7 @@
             {brandTitle}
             {brand}
             bind:email={$authStore.email}
+            bind:emailPassword={$authStore.emailPassword}
             bind:emailCode={$authStore.emailCode}
             {pendingEmail}
             {authStatus}
@@ -961,6 +1258,8 @@
             {authResendCooldown}
             {loginEmailFieldError}
             {loginEmailTooltipOpen}
+            {passwordLoginFallback}
+            {passwordLoginMode}
             {telegramLoginBusy}
             {telegramLoginUnavailable}
             {telegramLoginChecking}
@@ -970,6 +1269,7 @@
             {userAgreementUrl}
             {t}
             requestEmailCode={() => authStore.requestEmailCode((s) => (screen = s))}
+            loginWithEmailPassword={authStore.loginWithEmailPassword}
             verifyEmailCode={authStore.verifyEmailCode}
             openTelegramLogin={() =>
               authStore.openTelegramLogin(telegramOAuthClientId, () => telegramMiniAppInitData)}
@@ -980,30 +1280,17 @@
               loginEmailFieldError = "";
               loginEmailTooltipOpen = false;
             }}
+            setPasswordLoginMode={(enabled) => setPasswordLoginMode(enabled)}
           />
         {:else if screen === "admin" && isAdmin}
-          <AdminPanel
-            {api}
-            onClose={closeAdminPanel}
-            onToast={(text) => showToast(text)}
-            initialSection={adminSectionFromPath(window.location.pathname)}
-            initialUserId={adminUserIdFromPath(window.location.pathname)}
-            onSectionChange={handleAdminSectionChange}
-            onSettingsSaved={handleAdminPersistedSaved}
-            onTariffsSaved={handleAdminPersistedSaved}
-            onThemesSaved={handleAdminPersistedSaved}
-            {brandTitle}
-            {brand}
-            appFaviconUrl={CFG.faviconUrl}
-            appFaviconUseCustom={CFG.faviconUseCustom}
-            appVersion={CFG.appVersion}
-            appRepositoryUrl={CFG.appRepositoryUrl}
-            {currentLang}
-            {languageOptions}
-            {languageBusy}
-            onLanguageChange={accountStore.updateAccountLanguage}
-            {t}
-          />
+          {#if adminBundleApi}
+            <div class="admin-mount" bind:this={adminMountTarget}></div>
+          {:else}
+            <div class="loader">
+              <BrandMark {brand} size="md" />
+              <div>{adminBundleError ? t("wa_unavailable") : t("wa_loading")}</div>
+            </div>
+          {/if}
         {:else}
           <WebAppShell
             {screen}
@@ -1011,12 +1298,17 @@
             {brandTitle}
             {brand}
             {devicesEnabled}
+            {supportEnabled}
+            {supportUnreadCount}
+            {supportUnreadLoading}
+            {supportUnreadLoaded}
             {hasUnlinkedIdentity}
             {isAdmin}
             {openAdminPanel}
             {goDevices}
             {goHome}
             {goInvite}
+            {goSupport}
             {goSettings}
             {t}
           >
@@ -1075,6 +1367,24 @@
                 {openDeviceTopupModal}
                 {t}
               />
+            {:else if screen === "support"}
+              {#if $supportStore.openedTicketId}
+                <SupportTicketScreen
+                  maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
+                  {brand}
+                  userAvatarUrl={profileAvatarUrl}
+                  userInitials={telegramProfileName
+                    ? telegramProfileName.slice(0, 2).toUpperCase()
+                    : "U"}
+                  {t}
+                />
+              {:else}
+                <SupportScreen
+                  maxSubjectLength={appSettings?.support_ticket_max_subject_length || 160}
+                  maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
+                  {t}
+                />
+              {/if}
             {:else if screen === "settings"}
               <SettingsScreen
                 {currentLang}
@@ -1102,6 +1412,7 @@
                 {openAdminPanel}
                 {openExternalLink}
                 openLinkEmailDialog={accountStore.openLinkEmailDialog}
+                openSetPasswordDialog={accountStore.openSetPasswordDialog}
                 {setLanguageMenuOpen}
                 {t}
                 updateAccountLanguage={accountStore.updateAccountLanguage}
@@ -1118,6 +1429,10 @@
             bind:selectedMethod={$billingStore.selectedMethod}
             bind:selectedPlan={$billingStore.selectedPlan}
             bind:selectedTariffKey={$billingStore.selectedTariffKey}
+            bind:setPasswordCode={$accountStore.setPasswordCode}
+            bind:setPasswordConfirm={$accountStore.setPasswordConfirm}
+            bind:setPasswordValue={$accountStore.setPasswordValue}
+            setPasswordEmail={user?.email || ""}
             createPayment={billingStore.createPayment}
             {deviceConfirmOpen}
             {deviceDisconnectBusy}
@@ -1129,6 +1444,12 @@
             {linkEmailPending}
             {linkEmailResendCooldown}
             {linkEmailStatus}
+            {setPasswordBusy}
+            {setPasswordIsError}
+            {setPasswordOpen}
+            {setPasswordPending}
+            {setPasswordResendCooldown}
+            {setPasswordStatus}
             {hasMultipleTariffs}
             {methods}
             {payBusy}
@@ -1137,18 +1458,22 @@
             {selectedTariffPlans}
             {singleTariffMode}
             {subscription}
+            {subscriptionPurchaseDescription}
             {tariffCatalog}
             {tariffMode}
             closeDeviceDisconnectDialog={devicesStore.closeDeviceDisconnectDialog}
             closeLinkEmailDialog={accountStore.closeLinkEmailDialog}
             closePaymentModal={billingStore.closePaymentModal}
+            closeSetPasswordDialog={accountStore.closeSetPasswordDialog}
             {backToTariffList}
             {continueWithSelectedTariff}
             requestLinkEmailCode={accountStore.requestLinkEmailCode}
+            requestSetPasswordCode={accountStore.requestSetPasswordCode}
             {selectTariff}
             {t}
             {termUnitLabel}
             verifyLinkEmailCode={accountStore.verifyLinkEmailCode}
+            confirmSetPassword={accountStore.confirmSetPassword}
           />
 
           <TariffDialogs

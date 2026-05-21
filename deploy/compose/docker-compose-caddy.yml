@@ -60,6 +60,7 @@ services:
       POSTGRES_HOST: postgres
       REDIS_URL: redis://redis:6379/0
       WEBAPP_ENABLED: "true"
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.1,::1,172.16.0.0/12}
     volumes:
       - shop-data:/app/data
     networks:

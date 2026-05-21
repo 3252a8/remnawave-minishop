@@ -37,6 +37,46 @@ WEBAPP_LOGO_UPLOAD_CONTENT_TYPES = {
 }
 
 
+def _theme_payload_for_version_compare(theme: Any) -> Dict[str, Any]:
+    if hasattr(theme, "model_dump"):
+        data = theme.model_dump(mode="json", exclude_none=True)
+    elif isinstance(theme, dict):
+        data = dict(theme)
+    else:
+        data = {}
+    data.pop("assets_version", None)
+    data.pop("default", None)
+    return data
+
+
+def _bump_theme_asset_versions(
+    config: WebappThemesConfig,
+    previous: WebappThemesConfig,
+) -> WebappThemesConfig:
+    previous_by_key = {theme.key: theme for theme in previous.themes}
+    default_changed = config.default_theme != previous.default_theme
+    data = config.model_dump(mode="json", exclude_none=True)
+    for theme in data.get("themes", []):
+        if not isinstance(theme, dict):
+            continue
+        if not str(theme.get("css_file") or "").strip():
+            continue
+        key = str(theme.get("key") or "")
+        previous_theme = previous_by_key.get(key)
+        previous_version = int(getattr(previous_theme, "assets_version", 0) or 0)
+        current_version = int(theme.get("assets_version") or 1)
+        theme_changed = (
+            previous_theme is None
+            or _theme_payload_for_version_compare(theme)
+            != _theme_payload_for_version_compare(previous_theme)
+        )
+        if theme_changed or (default_changed and key == config.default_theme):
+            theme["assets_version"] = max(previous_version + 1, current_version, 1)
+        elif previous_version > current_version:
+            theme["assets_version"] = previous_version
+    return WebappThemesConfig.model_validate(data)
+
+
 def _detect_logo_extension(
     body: bytes, content_type: str = "", filename: str = ""
 ) -> Optional[str]:
@@ -420,6 +460,11 @@ async def admin_themes_get_route(request: web.Request) -> web.Response:
 async def admin_themes_save_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     settings: Settings = request.app["settings"]
+    previous_config = resolved_webapp_themes_catalog(
+        primary_accent=settings.WEBAPP_PRIMARY_COLOR or "#00fe7a",
+        env_default_theme=settings.WEBAPP_DEFAULT_THEME,
+        theme_dir=settings.WEBAPP_THEMES_DIR,
+    )
     payload = await _read_json(request)
     catalog = payload.get("catalog") if "catalog" in payload else payload
     if not isinstance(catalog, dict):
@@ -431,6 +476,7 @@ async def admin_themes_save_route(request: web.Request) -> web.Response:
         return _error(400, "invalid_webapp_themes_config", str(exc))
 
     config, _changed = ensure_webapp_core_themes(config, settings.WEBAPP_PRIMARY_COLOR or "#00fe7a")
+    config = _bump_theme_asset_versions(config, previous_config)
 
     try:
         write_webapp_theme_dir(settings.WEBAPP_THEMES_DIR, config, delete_missing=True)

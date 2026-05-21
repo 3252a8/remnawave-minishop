@@ -47,10 +47,10 @@ export function normalizedEmail(value) {
 }
 
 export function telegramName(profile, fallback) {
+  const username = String(profile?.username || "").trim();
+  if (username) return `@${username}`;
   const first = String(profile?.first_name || "").trim();
   const last = String(profile?.last_name || "").trim();
   if (first || last) return `${first} ${last}`.trim();
-  const username = String(profile?.username || "").trim();
-  if (username) return `@${username}`;
   return fallback;
 }

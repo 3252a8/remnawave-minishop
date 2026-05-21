@@ -1,8 +1,9 @@
 import asyncio
 import logging
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 
 from aiogram import Bot, Dispatcher
+from aiogram.exceptions import TelegramNetworkError
 from aiogram.types import BotCommand, MenuButtonDefault, MenuButtonWebApp, WebAppInfo
 from sqlalchemy.orm import sessionmaker
 
@@ -19,11 +20,73 @@ from bot.utils.message_queue import init_queue_manager
 from config.settings import Settings
 from db.database_setup import init_db_connection
 
+TELEGRAM_STARTUP_RETRY_DELAY_SECONDS = 2.0
+
 
 def redact_token(value: str, token: Optional[str]) -> str:
     if not value or not token:
         return value
     return value.replace(token, "***")
+
+
+def _telegram_network_error_detail(exc: TelegramNetworkError) -> str:
+    root_cause = exc.__cause__ or exc.__context__
+    detail = str(exc)
+    if root_cause:
+        root_detail = f"{type(root_cause).__name__}: {root_cause}"
+        if root_detail not in detail:
+            detail = f"{detail} ({root_detail})"
+    return detail
+
+
+async def _run_telegram_startup_step(
+    action: str,
+    step: Callable[[], Awaitable[object]],
+    unexpected_log_message: str,
+    *,
+    attempts: Optional[int] = None,
+    retry_delay_seconds: float = TELEGRAM_STARTUP_RETRY_DELAY_SECONDS,
+) -> bool:
+    attempt = 1
+    max_attempts = max(1, attempts) if attempts is not None else None
+    while True:
+        try:
+            await step()
+            if attempt > 1:
+                logging.info(
+                    "STARTUP: Telegram step succeeded while %s on attempt %s%s.",
+                    action,
+                    attempt,
+                    f"/{max_attempts}" if max_attempts is not None else "",
+                )
+            return True
+        except TelegramNetworkError as exc:
+            detail = _telegram_network_error_detail(exc)
+            attempt_label = (
+                f"{attempt}/{max_attempts}" if max_attempts is not None else str(attempt)
+            )
+            if max_attempts is not None and attempt >= max_attempts:
+                logging.warning(
+                    "STARTUP: Telegram network error while %s after %s attempts: %s.",
+                    action,
+                    max_attempts,
+                    detail,
+                )
+                return False
+            logging.warning(
+                "STARTUP: Telegram network error while %s on attempt %s: %s. "
+                "Retrying in %.1fs and will keep trying until Telegram is reachable.",
+                action,
+                attempt_label,
+                detail,
+                retry_delay_seconds,
+            )
+            attempt += 1
+            await asyncio.sleep(retry_delay_seconds)
+            continue
+        except Exception:
+            logging.exception(unexpected_log_message)
+            return False
 
 
 async def register_all_routers(dp: Dispatcher, settings: Settings):
@@ -49,7 +112,7 @@ async def on_startup_configured(dispatcher: Dispatcher):
             redact_token(full_telegram_webhook_url, settings.BOT_TOKEN),
         )
 
-        try:
+        async def _configure_webhook() -> None:
             current_webhook_info = await bot.get_webhook_info()
             logging.info(
                 f"STARTUP: Current Telegram webhook info BEFORE setting: {current_webhook_info.model_dump_json(exclude_none=True, indent=2)}"  # noqa: E501
@@ -81,8 +144,11 @@ async def on_startup_configured(dispatcher: Dispatcher):
                     "STARTUP: CRITICAL - Telegram Webhook URL is EMPTY after set attempt. Check bot token and URL validity."  # noqa: E501
                 )
 
-        except Exception:
-            logging.exception("STARTUP: EXCEPTION during set/get Telegram webhook.")
+        await _run_telegram_startup_step(
+            "configuring Telegram webhook",
+            _configure_webhook,
+            "STARTUP: EXCEPTION during set/get Telegram webhook.",
+        )
     else:
         logging.error(
             "STARTUP: WEBHOOK_BASE_URL not set in environment. Webhook mode is required. Exiting."
@@ -90,7 +156,7 @@ async def on_startup_configured(dispatcher: Dispatcher):
         raise SystemExit("WEBHOOK_BASE_URL is required. Polling mode is disabled.")
 
     if settings.SUBSCRIPTION_MINI_APP_URL:
-        try:
+        async def _configure_mini_app_menu() -> None:
             menu_text = i18n_instance.gettext(
                 settings.DEFAULT_LANGUAGE,
                 "menu_personal_account_button",
@@ -103,10 +169,13 @@ async def on_startup_configured(dispatcher: Dispatcher):
             )
             await bot.set_chat_menu_button(menu_button=MenuButtonDefault())
             logging.info("STARTUP: Mini app domain registered and default menu button restored.")
-        except Exception:
-            logging.exception("STARTUP: Failed to register mini app domain.")
+        await _run_telegram_startup_step(
+            "registering mini app menu button",
+            _configure_mini_app_menu,
+            "STARTUP: Failed to register mini app domain.",
+        )
 
-    try:
+    async def _configure_bot_commands() -> None:
         bot_commands = [
             BotCommand(command="tg", description="Интерфейс в боте"),
         ]
@@ -117,8 +186,11 @@ async def on_startup_configured(dispatcher: Dispatcher):
             )
         await bot.set_my_commands(bot_commands)
         logging.info("STARTUP: bot command descriptions set.")
-    except Exception:
-        logging.exception("STARTUP: Failed to set bot commands.")
+    await _run_telegram_startup_step(
+        "setting bot commands",
+        _configure_bot_commands,
+        "STARTUP: Failed to set bot commands.",
+    )
 
     # Initialize message queue manager
     try:
@@ -187,19 +259,19 @@ async def on_shutdown_configured(dispatcher: Dispatcher):
                 except Exception as e:
                     logging.warning(f"Failed to close session for {key}: {e}")
 
+    from bot.payment_providers import iter_service_keys
+
     for service_key in (
         "panel_service",
-        "cryptopay_service",
-        "freekassa_service",
         "panel_webhook_service",
-        "yookassa_service",
         "lknpd_service",
         "promo_code_service",
-        "stars_service",
         "subscription_service",
         "referral_service",
-        "platega_service",
-        "severpay_service",
+        "support_service",
+        "notification_service",
+        "email_auth_service",
+        *iter_service_keys(),
     ):
         await close_service(service_key)
 
@@ -233,7 +305,9 @@ async def run_bot(settings_param: Settings):
 
     # Get bot username for YooKassa default return URL if needed
     actual_bot_username = "your_bot_username"
-    try:
+
+    async def _resolve_bot_username() -> None:
+        nonlocal actual_bot_username
         bot_info = await bot.get_me()
         if bot_info.username:
             actual_bot_username = bot_info.username
@@ -241,10 +315,14 @@ async def run_bot(settings_param: Settings):
             logging.info(f"Bot username resolved: @{actual_bot_username}")
         else:
             logging.warning("Bot username is empty; Telegram Login Widget will be unavailable.")
-    except Exception as e:
-        logging.error(
-            f"Failed to get bot info (e.g., for YooKassa default URL): {e}. Using fallback: {actual_bot_username}"  # noqa: E501
-        )
+
+    bot_username_resolved = await _run_telegram_startup_step(
+        "getting bot info from Telegram",
+        _resolve_bot_username,
+        f"Failed to get bot info (e.g., for YooKassa default URL). Using fallback: {actual_bot_username}",  # noqa: E501
+    )
+    if not bot_username_resolved:
+        logging.warning("Using fallback bot username: %s", actual_bot_username)
 
     services = build_core_services(
         settings_param,
@@ -275,10 +353,14 @@ async def run_bot(settings_param: Settings):
         await dp.emit_shutdown()
         raise SystemExit("WEBHOOK_BASE_URL is required. Polling mode is disabled.")
 
+    from bot.payment_providers import get_provider_spec
+
+    _yk_spec = get_provider_spec("yookassa")
+    _yk_path = _yk_spec.webhook_path(settings_param) if _yk_spec and _yk_spec.webhook_path else "-"
     logging.info(
         "Starting AIOHTTP server: webhook_base=%s yookassa_path=%s",
         settings_param.WEBHOOK_BASE_URL,
-        settings_param.yookassa_webhook_path,
+        _yk_path,
     )
 
     async def web_server_task():

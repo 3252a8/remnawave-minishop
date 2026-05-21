@@ -1,5 +1,6 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
+from .common import _invalidate_webapp_user_caches
 
 
 def _resolve_telegram_bot_id(bot_token: str) -> Optional[int]:
@@ -130,6 +131,58 @@ def _read_telegram_oauth_state_payload(
 def _urlsafe_sha256(value: str) -> str:
     digest = hashlib.sha256(value.encode("ascii")).digest()
     return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+
+
+PASSWORD_HASH_ALGORITHM = "pbkdf2_sha256"
+PASSWORD_HASH_ITERATIONS = 260_000
+
+
+def _password_hash_b64(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
+
+
+def _password_hash_unb64(value: str) -> bytes:
+    padding = "=" * (-len(value) % 4)
+    return base64.urlsafe_b64decode((value + padding).encode("ascii"))
+
+
+def _hash_email_password(password: str) -> str:
+    salt = secrets.token_bytes(18)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt,
+        PASSWORD_HASH_ITERATIONS,
+    )
+    return "$".join(
+        [
+            PASSWORD_HASH_ALGORITHM,
+            str(PASSWORD_HASH_ITERATIONS),
+            _password_hash_b64(salt),
+            _password_hash_b64(digest),
+        ]
+    )
+
+
+def _verify_email_password(password: str, stored_hash: Optional[str]) -> bool:
+    if not stored_hash:
+        return False
+    try:
+        algorithm, iterations_raw, salt_raw, digest_raw = stored_hash.split("$", 3)
+        if algorithm != PASSWORD_HASH_ALGORITHM:
+            return False
+        iterations = int(iterations_raw)
+        salt = _password_hash_unb64(salt_raw)
+        expected_digest = _password_hash_unb64(digest_raw)
+        actual_digest = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            salt,
+            iterations,
+        )
+    except Exception:
+        return False
+    return hmac.compare_digest(actual_digest, expected_digest)
 
 
 async def _exchange_telegram_oauth_code(
@@ -334,6 +387,7 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
             logger.exception("Telegram OAuth callback failed")
             raise redirect(redirect_path, "failed")
 
+    await _invalidate_webapp_user_caches(settings, final_user_id, include_devices=True)
     token = create_webapp_session_token(settings, int(final_user_id))
     response = web.HTTPFound(_telegram_oauth_redirect_url(redirect_path, status="success"))
     _clear_telegram_oauth_state_cookie(response)
@@ -428,6 +482,7 @@ async def auth_token_route(request: web.Request) -> web.Response:
             logger.exception("WebApp auth failed")
             return _json_error(500, "auth_failed", "Auth failed")
 
+    await _invalidate_webapp_user_caches(settings, authenticated_user_id, include_devices=True)
     token = create_webapp_session_token(settings, int(authenticated_user_id))
     return _build_webapp_auth_response(settings, {"ok": True}, token=token)
 
@@ -436,6 +491,114 @@ async def logout_route(request: web.Request) -> web.Response:
     response = web.json_response({"ok": True})
     _clear_webapp_auth_cookies(response)
     return response
+
+
+def _password_login_failure_response(
+    *,
+    status: int = 401,
+    retry_after: Optional[int] = None,
+) -> web.Response:
+    payload: Dict[str, Any] = {
+        "ok": False,
+        "error": "password_login_failed",
+        "fallback": "email_code",
+        "message": "Password login failed",
+    }
+    if retry_after is not None:
+        payload["retry_after"] = retry_after
+    return web.json_response(payload, status=status)
+
+
+async def email_password_auth_route(request: web.Request) -> web.Response:
+    settings: Settings = request.app["settings"]
+    if not settings.email_auth_configured:
+        return _json_error(503, "email_auth_not_configured", "Email auth is not configured")
+
+    payload = await _read_json(request)
+    password_payload, validation_error = _validate_model_payload(
+        WebAppEmailPasswordPayload,
+        payload,
+    )
+    if validation_error:
+        return validation_error
+
+    email = password_payload.email
+    password = str(password_payload.password or "")
+    now = datetime.now(timezone.utc)
+
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    authenticated_user_id: Optional[int] = None
+    authenticated_telegram_id: Optional[int] = None
+    async with async_session_factory() as session:
+        try:
+            throttle = await security_dal.check_throttle(
+                session,
+                scope=security_dal.EMAIL_PASSWORD_LOGIN_SCOPE,
+                identifier=email,
+                now=now,
+            )
+            if throttle.locked:
+                await session.commit()
+                return _json_error(
+                    429,
+                    "rate_limited",
+                    "Too many password attempts",
+                )
+
+            db_user = await user_dal.get_user_by_email(session, email)
+            password_ok = bool(
+                db_user
+                and db_user.email_verified_at
+                and db_user.password_hash
+                and _verify_email_password(password, db_user.password_hash)
+            )
+
+            if not password_ok:
+                throttle_result = await security_dal.record_throttle_failure(
+                    session,
+                    scope=security_dal.EMAIL_PASSWORD_LOGIN_SCOPE,
+                    identifier=email,
+                    max_failures=settings.BRUTE_FORCE_MAX_FAILURES,
+                    window_seconds=settings.BRUTE_FORCE_WINDOW_SECONDS,
+                    lock_seconds=settings.BRUTE_FORCE_LOCK_SECONDS,
+                    now=now,
+                )
+                await session.commit()
+                if throttle_result.locked:
+                    return _json_error(
+                        429,
+                        "rate_limited",
+                        "Too many password attempts",
+                    )
+                return _password_login_failure_response()
+
+            if db_user.is_banned:
+                await session.rollback()
+                return _json_error(403, "banned", "Access denied")
+
+            await security_dal.clear_throttle_state(
+                session,
+                scope=security_dal.EMAIL_PASSWORD_LOGIN_SCOPE,
+                identifier=email,
+            )
+            authenticated_user_id = int(db_user.user_id)
+            authenticated_telegram_id = _telegram_id_for_user(db_user)
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            logger.exception("Email password auth failed")
+            return _json_error(500, "auth_failed", "Auth failed")
+
+    token = create_webapp_session_token(settings, int(authenticated_user_id))
+    return _build_webapp_auth_response(
+        settings,
+        {
+            "ok": True,
+            "user_id": int(authenticated_user_id),
+            "telegram_id": authenticated_telegram_id,
+        },
+        token=token,
+    )
 
 
 async def email_auth_request_route(request: web.Request) -> web.Response:
@@ -534,6 +697,7 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
             logger.exception("Email WebApp auth failed")
             return _json_error(500, "auth_failed", "Auth failed")
 
+    await _invalidate_webapp_user_caches(settings, int(db_user.user_id), include_devices=True)
     if created_user:
         try:
             from bot.services.notification_service import NotificationService
@@ -641,6 +805,7 @@ async def email_auth_magic_route(request: web.Request) -> web.Response:
             logger.exception("Email magic-link auth failed")
             return _json_error(500, "auth_failed", "Auth failed")
 
+    await _invalidate_webapp_user_caches(settings, int(db_user.user_id), include_devices=True)
     if created_user and verified_email:
         try:
             from bot.services.notification_service import NotificationService

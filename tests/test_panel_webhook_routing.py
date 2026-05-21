@@ -86,9 +86,7 @@ class HandleWebhookQueueingTests(unittest.IsolatedAsyncioTestCase):
         captured: List[dict] = []
 
         async def fake_enqueue(settings, provider, payload, *, event_id=None):
-            captured.append(
-                {"provider": provider, "payload": payload, "event_id": event_id}
-            )
+            captured.append({"provider": provider, "payload": payload, "event_id": event_id})
             return True
 
         body = json.dumps(
@@ -121,9 +119,7 @@ class HandleWebhookQueueingTests(unittest.IsolatedAsyncioTestCase):
         async def fake_handle_event(event_name, user_payload):
             background_seen.append((event_name, user_payload))
 
-        body = json.dumps(
-            {"name": "user.expired", "payload": {"telegramId": 7}}
-        ).encode()
+        body = json.dumps({"name": "user.expired", "payload": {"telegramId": 7}}).encode()
 
         with (
             patch.object(pws, "enqueue_webhook_event", fake_enqueue),

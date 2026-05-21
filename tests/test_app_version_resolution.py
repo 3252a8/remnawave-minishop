@@ -155,15 +155,11 @@ class LiveGitFallbackTests(unittest.TestCase):
                 return _resolve()
 
     def test_tag_with_zero_commits_since_returns_bare_tag(self):
-        result = self._run_with_git(
-            {"tag": "v2.0.0", "sha": "abcdef1", "commits_since_tag": "0"}
-        )
+        result = self._run_with_git({"tag": "v2.0.0", "sha": "abcdef1", "commits_since_tag": "0"})
         self.assertEqual(result, "v2.0.0")
 
     def test_tag_plus_distance_plus_sha_format(self):
-        result = self._run_with_git(
-            {"tag": "v2.0.0", "sha": "abcdef1", "commits_since_tag": "7"}
-        )
+        result = self._run_with_git({"tag": "v2.0.0", "sha": "abcdef1", "commits_since_tag": "7"})
         self.assertEqual(result, "v2.0.0+7.gabcdef1")
 
     def test_sha_only_when_no_tag(self):

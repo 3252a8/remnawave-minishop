@@ -58,9 +58,7 @@ class FakeRedis:
             bucket.insert(0, value)
         return len(bucket)
 
-    async def brpop(
-        self, key: str, timeout: int = 0
-    ) -> Optional[Tuple[str, str]]:
+    async def brpop(self, key: str, timeout: int = 0) -> Optional[Tuple[str, str]]:
         bucket = self._lists.get(key)
         if bucket:
             return key, bucket.pop()
@@ -230,9 +228,7 @@ class RedisLockTests(unittest.IsolatedAsyncioTestCase):
             settings = _make_settings()
             async with redis_infra.redis_lock(settings, "panel-sync", ttl_seconds=30) as first:
                 self.assertTrue(first)
-                async with redis_infra.redis_lock(
-                    settings, "panel-sync", ttl_seconds=30
-                ) as second:
+                async with redis_infra.redis_lock(settings, "panel-sync", ttl_seconds=30) as second:
                     self.assertFalse(second)
             # After exit, the lock is released and can be re-acquired.
             async with redis_infra.redis_lock(settings, "panel-sync", ttl_seconds=30) as again:

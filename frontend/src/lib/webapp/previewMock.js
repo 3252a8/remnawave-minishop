@@ -4,6 +4,7 @@ const WINDOWS_95_THEME = {
   enabled: true,
   default: false,
   css_file: "style.css",
+  assets_version: 9,
   tokens: {
     color_scheme: "light",
     style_preset: "win95",
@@ -33,6 +34,8 @@ export const DEV_MOCK = {
     faviconUrl: "",
     faviconUseCustom: false,
     apiBase: "/api",
+    adminJsAsset: "subscription_webapp_admin.js",
+    adminCssAsset: "subscription_webapp_admin.css",
     supportUrl: "https://t.me/support",
     privacyPolicyUrl: "https://example.com/privacy",
     userAgreementUrl: "https://example.com/agreement",
@@ -84,6 +87,7 @@ export const DEV_MOCK = {
       username: "username",
       email: "user@example.com",
       email_verified: true,
+      password_auth_enabled: false,
       telegram_id: 100200300,
       telegram_linked: true,
       telegram_photo_url: "",
@@ -162,10 +166,10 @@ export const DEV_MOCK = {
       { months: 12, price: 2690, currency: "RUB", title: "12 месяцев" },
     ],
     payment_methods: [
-      { id: "yookassa", name: "Карта" },
-      { id: "platega_sbp", name: "Telegram Pay" },
-      { id: "cryptopay", name: "Криптовалюта" },
-      { id: "freekassa", name: "Другие способы" },
+      { id: "yookassa", name: "Карта", icon: "CreditCard" },
+      { id: "platega_sbp", name: "Telegram Pay", icon: "CreditCard" },
+      { id: "cryptopay", name: "Криптовалюта", icon: "Bitcoin" },
+      { id: "freekassa", name: "Другие способы", icon: "Smartphone" },
     ],
     referral: {
       code: "ABCD1234",
@@ -221,6 +225,8 @@ export const DEV_MOCK = {
       trial_duration_days: 5,
       trial_traffic_limit_gb: 10,
       trial_traffic_strategy: "NO_RESET",
+      subscription_purchase_description:
+        "Покупая или продлевая подписку, вы получаете доступ к VPN/прокси-сервису, который помогает защищать ваше соединение и поддерживать стабильный доступ к сети.",
       email_auth_enabled: true,
     },
   },

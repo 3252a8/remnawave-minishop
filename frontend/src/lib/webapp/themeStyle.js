@@ -135,11 +135,20 @@ function encodeThemeCssPath(path) {
     .join("/");
 }
 
+function themeAssetsVersion(theme) {
+  const version = Number(theme?.assets_version || 0);
+  return Number.isFinite(version) && version > 0 ? String(Math.floor(version)) : "";
+}
+
 export function themeCssHref(theme) {
   const cssFile = String(theme?.css_file || "").trim();
   if (!cssFile) return "";
   if (/^(?:https?:)?\/\//i.test(cssFile) || cssFile.startsWith("data:")) return "";
-  if (cssFile.startsWith("/")) return cssFile;
+  const version = themeAssetsVersion(theme);
+  if (cssFile.startsWith("/")) {
+    if (!version) return cssFile;
+    return `${cssFile}${cssFile.includes("?") ? "&" : "?"}v=${encodeURIComponent(version)}`;
+  }
   const normalizedCssFile = cssFile.replace(/\\/g, "/").split("/").filter(Boolean).join("/");
   const key = String(theme?.key || "")
     .trim()
@@ -150,7 +159,9 @@ export function themeCssHref(theme) {
       ? `${key}/${normalizedCssFile}`
       : normalizedCssFile;
   const encoded = encodeThemeCssPath(themedPath);
-  return encoded ? `/webapp-theme-css/${encoded}` : "";
+  if (!encoded) return "";
+  const href = `/webapp-theme-css/${encoded}`;
+  return version ? `${href}?v=${encodeURIComponent(version)}` : href;
 }
 
 export function localizedThemeName(theme, lang = "en") {

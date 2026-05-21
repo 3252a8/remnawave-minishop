@@ -1,4 +1,5 @@
 import asyncio
+import gzip
 import io
 import json
 import os
@@ -15,7 +16,7 @@ from bot.app.web import subscription_webapp
 from bot.app.web.admin_api_impl import themes as admin_themes
 from bot.app.web.webapp import assets as webapp_assets
 from config.settings import Settings
-from config.webapp_themes_config import builtin_webapp_themes_config
+from config.webapp_themes_config import WebappThemesConfig, builtin_webapp_themes_config
 
 
 class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
@@ -280,10 +281,50 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
         markup = subscription_webapp._initial_theme_head_markup(request, theme, "#123456")
 
-        self.assertIn("/webapp-theme-css/light/style.css", markup)
+        self.assertIn("/webapp-theme-css/light/style.css?v=", markup)
         self.assertIn('nonce="nonce-value"', markup)
         self.assertIn("--accent:#123456", markup)
         self.assertIn("color-scheme:light", markup)
+
+    def test_theme_asset_version_bumps_for_saved_default_css_theme(self):
+        previous = WebappThemesConfig(
+            default_theme="dark",
+            themes=[
+                {
+                    "key": "dark",
+                    "default": True,
+                    "tokens": {"color_scheme": "dark"},
+                },
+                {
+                    "key": "custom",
+                    "default": False,
+                    "css_file": "style.css",
+                    "assets_version": 3,
+                    "tokens": {"color_scheme": "dark"},
+                },
+            ],
+        )
+        updated = WebappThemesConfig(
+            default_theme="custom",
+            themes=[
+                {
+                    "key": "dark",
+                    "default": False,
+                    "tokens": {"color_scheme": "dark"},
+                },
+                {
+                    "key": "custom",
+                    "default": True,
+                    "css_file": "style.css",
+                    "assets_version": 3,
+                    "tokens": {"color_scheme": "dark"},
+                },
+            ],
+        )
+
+        bumped = admin_themes._bump_theme_asset_versions(updated, previous)
+
+        self.assertEqual(bumped.theme_by_key("custom").assets_version, 4)
 
     def test_animated_emoji_asset_path_uses_same_origin_route(self):
         self.assertEqual(
@@ -332,15 +373,27 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(plans[1]["stars_price"], 2500)
 
     def test_serialize_payment_methods_respects_runtime_provider_toggles(self):
+        # Provider toggles now live in per-provider BaseSettings models. Disable
+        # all providers by giving each one an empty bundle (default ENABLED is
+        # False for everything except cryptopay/yookassa, so override those too).
+        from bot.payment_providers import (
+            build_provider_configs,
+            current_provider_configs,
+        )
+
+        build_provider_configs(force=True)
+        configs = current_provider_configs()
+        for service_key in ("cryptopay_service", "yookassa_service"):
+            bundle = configs.get(service_key)
+            if bundle and bundle.config is not None and hasattr(bundle.config, "ENABLED"):
+                bundle.config.ENABLED = False
+
         settings = Settings(
             _env_file=None,
             BOT_TOKEN="token",
             POSTGRES_USER="app_user",
             POSTGRES_PASSWORD="app_password",
             TARIFFS_CONFIG_PATH="missing-tariffs.json",
-            CRYPTOPAY_ENABLED=False,
-            FREEKASSA_ENABLED=False,
-            SEVERPAY_ENABLED=False,
             YOOKASSA_ENABLED=False,
             PLATEGA_ENABLED=False,
             STARS_ENABLED=False,
@@ -357,6 +410,44 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         methods = subscription_webapp._serialize_payment_methods(settings, app)
 
         self.assertEqual(methods, [])
+
+    def test_serialize_payment_methods_includes_provider_presentation(self):
+        from bot.payment_providers import (
+            build_provider_configs,
+            get_provider_bundle,
+            get_spec_presentation,
+        )
+
+        build_provider_configs(force=True)
+        bundle = get_provider_bundle("yookassa_service")
+        if bundle and bundle.config is not None:
+            bundle.config.ENABLED = True
+        presentation = get_spec_presentation("yookassa")
+        if presentation is not None:
+            presentation.WEBAPP_LABEL_RU = "Карта"
+            presentation.WEBAPP_LABEL_EN = "Bank card"
+            presentation.WEBAPP_ICON = "WalletCards"
+
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            TARIFFS_CONFIG_PATH="missing-tariffs.json",
+            PAYMENT_METHODS_ORDER="yookassa",
+            STARS_ENABLED=False,
+        )
+        app = {"yookassa_service": SimpleNamespace(configured=True)}
+
+        methods = subscription_webapp._serialize_payment_methods(settings, app, "en")
+
+        # Only yookassa is configured/enabled; every other provider gets
+        # filtered out by is_visible even though they're auto-appended to the
+        # order list now.
+        self.assertEqual(
+            methods,
+            [{"id": "yookassa", "name": "Bank card", "icon": "WalletCards"}],
+        )
 
     def test_serialize_plans_includes_stars_only_subscription_options(self):
         settings = Settings(
@@ -397,6 +488,38 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                     "subscription_webapp.min.22222222.js",
                 )
 
+    def test_resolve_webapp_admin_asset_names_prefer_latest_minified_builds(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            asset_dir = Path(tmpdir)
+            (asset_dir / "subscription_webapp_admin.js").write_text(
+                "console.log('admin fallback');", encoding="utf-8"
+            )
+            (asset_dir / "subscription_webapp_admin.css").write_text(
+                ".admin{color:red}", encoding="utf-8"
+            )
+            old_js = asset_dir / "subscription_webapp_admin.min.11111111.js"
+            new_js = asset_dir / "subscription_webapp_admin.min.22222222.js"
+            old_css = asset_dir / "subscription_webapp_admin.11111111.css"
+            new_css = asset_dir / "subscription_webapp_admin.22222222.css"
+            old_js.write_text("console.log('old');", encoding="utf-8")
+            new_js.write_text("console.log('new');", encoding="utf-8")
+            old_css.write_text(".old{}", encoding="utf-8")
+            new_css.write_text(".new{}", encoding="utf-8")
+            os.utime(old_js, (1, 1))
+            os.utime(old_css, (1, 1))
+            os.utime(new_js, (2, 2))
+            os.utime(new_css, (2, 2))
+
+            with patch.object(webapp_assets, "ASSET_DIR", asset_dir):
+                self.assertEqual(
+                    subscription_webapp._resolve_webapp_admin_js_asset_name(),
+                    "subscription_webapp_admin.min.22222222.js",
+                )
+                self.assertEqual(
+                    subscription_webapp._resolve_webapp_admin_css_asset_name(),
+                    "subscription_webapp_admin.22222222.css",
+                )
+
     async def test_js_asset_route_sets_immutable_cache_control_for_minified_asset(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             asset_dir = Path(tmpdir)
@@ -415,6 +538,71 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 response.headers["Cache-Control"], "public, max-age=31536000, immutable"
             )
             self.assertEqual(response.text, "console.log('minified');")
+
+    async def test_admin_js_asset_route_serves_admin_bundle(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            asset_dir = Path(tmpdir)
+            minified_asset = asset_dir / "subscription_webapp_admin.min.abcdef12.js"
+            minified_asset.write_text("console.log('admin');", encoding="utf-8")
+
+            request = SimpleNamespace(
+                app={"settings": SimpleNamespace(WEBAPP_ENABLED=True)},
+                match_info={"asset_hash": "abcdef12"},
+            )
+
+            with patch.object(webapp_assets, "ASSET_DIR", asset_dir):
+                response = await subscription_webapp.admin_js_asset_route(request)
+
+            self.assertEqual(
+                response.headers["Cache-Control"], "public, max-age=31536000, immutable"
+            )
+            self.assertEqual(response.text, "console.log('admin');")
+
+    async def test_js_asset_route_prefers_precompressed_brotli_asset(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            asset_dir = Path(tmpdir)
+            minified_asset = asset_dir / "subscription_webapp.min.abcdef12.js"
+            minified_asset.write_text("console.log('minified');", encoding="utf-8")
+            (asset_dir / "subscription_webapp.min.abcdef12.js.br").write_bytes(b"br-body")
+
+            request = SimpleNamespace(
+                app={"settings": SimpleNamespace(WEBAPP_ENABLED=True)},
+                match_info={"asset_hash": "abcdef12"},
+                headers={"Accept-Encoding": "gzip, br"},
+            )
+
+            with patch.object(webapp_assets, "ASSET_DIR", asset_dir):
+                response = await subscription_webapp.js_asset_route(request)
+
+            self.assertEqual(response.body, b"br-body")
+            self.assertEqual(response.headers["Content-Encoding"], "br")
+            self.assertEqual(response.headers["Vary"], "Accept-Encoding")
+            self.assertEqual(
+                response.headers["Cache-Control"], "public, max-age=31536000, immutable"
+            )
+
+    async def test_css_asset_route_falls_back_to_precompressed_gzip_asset(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            asset_dir = Path(tmpdir)
+            css_asset = asset_dir / "subscription_webapp.abcdef12.css"
+            css_asset.write_text(".app{color:red}", encoding="utf-8")
+            (asset_dir / "subscription_webapp.abcdef12.css.gz").write_bytes(b"gz-body")
+
+            request = SimpleNamespace(
+                app={"settings": SimpleNamespace(WEBAPP_ENABLED=True)},
+                match_info={"asset_hash": "abcdef12"},
+                headers={"Accept-Encoding": "gzip"},
+            )
+
+            with patch.object(webapp_assets, "ASSET_DIR", asset_dir):
+                response = await subscription_webapp.css_asset_route(request)
+
+            self.assertEqual(response.body, b"gz-body")
+            self.assertEqual(response.headers["Content-Encoding"], "gzip")
+            self.assertEqual(response.headers["Vary"], "Accept-Encoding")
+            self.assertEqual(
+                response.headers["Cache-Control"], "public, max-age=31536000, immutable"
+            )
 
     async def test_theme_css_asset_route_serves_file_from_configured_directory(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -437,7 +625,91 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(response.content_type, "text/css")
             self.assertEqual(response.headers["Cache-Control"], "no-cache")
+            self.assertIn("ETag", response.headers)
             self.assertIn("--bg: red", response.text)
+
+    async def test_theme_css_asset_route_uses_immutable_cache_when_versioned(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            themes_dir = Path(tmpdir)
+            (themes_dir / "custom").mkdir()
+            (themes_dir / "custom" / "theme.css").write_text(
+                ".theme-key-custom { --bg: red; }", encoding="utf-8"
+            )
+            request = SimpleNamespace(
+                app={
+                    "settings": SimpleNamespace(
+                        WEBAPP_ENABLED=True,
+                        WEBAPP_THEMES_DIR=str(themes_dir),
+                    )
+                },
+                match_info={"path": "custom/theme.css"},
+                query={"v": "2"},
+            )
+
+            response = await subscription_webapp.theme_css_asset_route(request)
+
+            self.assertEqual(
+                response.headers["Cache-Control"], "public, max-age=31536000, immutable"
+            )
+
+    async def test_theme_css_asset_route_returns_not_modified_for_matching_etag(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            themes_dir = Path(tmpdir)
+            (themes_dir / "custom").mkdir()
+            (themes_dir / "custom" / "theme.css").write_text(
+                ".theme-key-custom { --bg: red; }", encoding="utf-8"
+            )
+            request = SimpleNamespace(
+                app={
+                    "settings": SimpleNamespace(
+                        WEBAPP_ENABLED=True,
+                        WEBAPP_THEMES_DIR=str(themes_dir),
+                    )
+                },
+                match_info={"path": "custom/theme.css"},
+                headers={},
+            )
+
+            response = await subscription_webapp.theme_css_asset_route(request)
+            etag = response.headers["ETag"]
+            cached_request = SimpleNamespace(
+                app=request.app,
+                match_info=request.match_info,
+                headers={"If-None-Match": etag},
+            )
+
+            cached_response = await subscription_webapp.theme_css_asset_route(cached_request)
+
+            self.assertEqual(cached_response.status, 304)
+            self.assertEqual(cached_response.headers["ETag"], etag)
+            self.assertEqual(cached_response.headers["Cache-Control"], "no-cache")
+
+    async def test_theme_css_asset_route_serves_cached_gzip_when_accepted(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            themes_dir = Path(tmpdir)
+            (themes_dir / "custom").mkdir()
+            (themes_dir / "custom" / "theme.css").write_text(
+                ".theme-key-custom { --bg: red; }\n", encoding="utf-8"
+            )
+            request = SimpleNamespace(
+                app={
+                    "settings": SimpleNamespace(
+                        WEBAPP_ENABLED=True,
+                        WEBAPP_THEMES_DIR=str(themes_dir),
+                    )
+                },
+                match_info={"path": "custom/theme.css"},
+                headers={"Accept-Encoding": "gzip"},
+            )
+
+            response = await subscription_webapp.theme_css_asset_route(request)
+
+            self.assertEqual(response.headers["Content-Encoding"], "gzip")
+            self.assertEqual(response.headers["Vary"], "Accept-Encoding")
+            self.assertEqual(
+                gzip.decompress(response.body).decode("utf-8"),
+                ".theme-key-custom { --bg: red; }\n",
+            )
 
     async def test_theme_css_asset_route_serves_default_theme_asset_from_theme_folder(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -492,7 +764,40 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(response.content_type, "image/png")
             self.assertEqual(response.headers["Cache-Control"], "public, max-age=3600")
+            self.assertIn("ETag", response.headers)
             self.assertEqual(response.body, b"png-bytes")
+
+    async def test_theme_asset_route_returns_not_modified_for_matching_etag(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            themes_dir = Path(tmpdir)
+            (themes_dir / "custom" / "icons").mkdir(parents=True)
+            (themes_dir / "custom" / "icons" / "save.png").write_bytes(b"png-bytes")
+            request = SimpleNamespace(
+                app={
+                    "settings": SimpleNamespace(
+                        WEBAPP_ENABLED=True,
+                        WEBAPP_THEMES_DIR=str(themes_dir),
+                    )
+                },
+                match_info={"path": "custom/icons/save.png"},
+                query={},
+                headers={},
+            )
+
+            response = await subscription_webapp.theme_asset_route(request)
+            etag = response.headers["ETag"]
+            cached_request = SimpleNamespace(
+                app=request.app,
+                match_info=request.match_info,
+                query={},
+                headers={"If-None-Match": etag},
+            )
+
+            cached_response = await subscription_webapp.theme_asset_route(cached_request)
+
+            self.assertEqual(cached_response.status, 304)
+            self.assertEqual(cached_response.headers["ETag"], etag)
+            self.assertEqual(cached_response.headers["Cache-Control"], "public, max-age=3600")
 
     async def test_theme_asset_route_uses_immutable_cache_for_versioned_assets(self):
         with tempfile.TemporaryDirectory() as tmpdir:

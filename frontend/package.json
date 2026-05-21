@@ -1,7 +1,9 @@
 {
   "private": true,
   "scripts": {
-    "build:webapp:svelte": "vite build --config ./vite.config.mjs",
+    "build:webapp:svelte:main": "vite build --config ./vite.config.mjs",
+    "build:webapp:svelte:admin": "vite build --config ./vite.config.mjs --mode admin",
+    "build:webapp:svelte": "npm run build:webapp:svelte:main && npm run build:webapp:svelte:admin",
     "build:webapp:css": "npm run build:webapp:svelte",
     "build:webapp:js": "node ./scripts/build_subscription_webapp_js.mjs",
     "build:webapp": "npm run build:webapp:svelte && npm run build:webapp:js",

@@ -37,6 +37,17 @@ async def get_all_overrides(session: AsyncSession) -> Dict[str, Any]:
     return {row.key: _decode(row.value) for row in rows}
 
 
+async def get_override_value(session: AsyncSession, key: str) -> Tuple[bool, Any]:
+    row = (
+        await session.execute(
+            select(AppSettingOverride).where(AppSettingOverride.key == key).limit(1)
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        return False, None
+    return True, _decode(row.value)
+
+
 async def get_overrides_with_meta(session: AsyncSession) -> List[Dict[str, Any]]:
     rows = (await session.execute(select(AppSettingOverride))).scalars().all()
     items: List[Dict[str, Any]] = []

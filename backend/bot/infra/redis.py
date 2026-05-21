@@ -51,7 +51,11 @@ async def cache_get_json(settings: Settings, key: str) -> Any:
     redis = await get_redis(settings)
     if redis is None:
         return None
-    raw = await redis.get(key)
+    try:
+        raw = await redis.get(key)
+    except Exception as exc:
+        logger.warning("Redis cache get failed for key %s: %s", key, exc)
+        return None
     if raw is None:
         return None
     try:
@@ -65,14 +69,39 @@ async def cache_set_json(settings: Settings, key: str, value: Any, ttl_seconds: 
     redis = await get_redis(settings)
     if redis is None:
         return
-    await redis.set(key, json.dumps(value, ensure_ascii=False, default=str), ex=ttl_seconds)
+    try:
+        await redis.set(key, json.dumps(value, ensure_ascii=False, default=str), ex=ttl_seconds)
+    except Exception as exc:
+        logger.warning("Redis cache set failed for key %s: %s", key, exc)
 
 
 async def cache_delete(settings: Settings, *keys: str) -> None:
     redis = await get_redis(settings)
     if redis is None or not keys:
         return
-    await redis.delete(*keys)
+    try:
+        await redis.delete(*keys)
+    except Exception as exc:
+        logger.warning("Redis cache delete failed for %s key(s): %s", len(keys), exc)
+
+
+async def cache_delete_pattern(settings: Settings, pattern: str) -> int:
+    redis = await get_redis(settings)
+    if redis is None or not pattern:
+        return 0
+    deleted = 0
+    batch = []
+    try:
+        async for key in redis.scan_iter(match=pattern, count=100):
+            batch.append(key)
+            if len(batch) >= 100:
+                deleted += int(await redis.delete(*batch))
+                batch.clear()
+        if batch:
+            deleted += int(await redis.delete(*batch))
+    except Exception as exc:
+        logger.warning("Redis cache pattern delete failed for %s: %s", pattern, exc)
+    return deleted
 
 
 @asynccontextmanager

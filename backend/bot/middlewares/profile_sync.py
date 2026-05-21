@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Any, Awaitable, Callable, Dict, Optional
 
 from aiogram import BaseMiddleware
@@ -6,8 +7,12 @@ from aiogram.types import Update
 from aiogram.types import User as TgUser
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra.redis import cache_get_json, cache_set_json, redis_key
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username, username_for_display
+from config.settings import Settings
 from db.dal import user_dal
+
+_LOCAL_PROFILE_SYNC_CHECKS: Dict[int, float] = {}
 
 
 class ProfileSyncMiddleware(BaseMiddleware):
@@ -19,8 +24,12 @@ class ProfileSyncMiddleware(BaseMiddleware):
     ) -> Any:
         session: AsyncSession = data.get("session")
         tg_user: Optional[TgUser] = data.get("event_from_user")
+        settings: Optional[Settings] = data.get("settings")
 
         if session and tg_user:
+            if settings and await _profile_sync_recently_checked(settings, int(tg_user.id)):
+                return await handler(event, data)
+
             try:
                 db_user = await user_dal.get_user_by_telegram_id(session, tg_user.id)
                 if not db_user:
@@ -79,5 +88,42 @@ class ProfileSyncMiddleware(BaseMiddleware):
                     f"ProfileSyncMiddleware: Failed to sync profile for user {getattr(tg_user, 'id', 'N/A')}: {e}",  # noqa: E501
                     exc_info=True,
                 )
+            finally:
+                if settings:
+                    await _mark_profile_sync_checked(settings, int(tg_user.id))
 
         return await handler(event, data)
+
+
+async def _profile_sync_recently_checked(settings: Settings, telegram_id: int) -> bool:
+    ttl_seconds = int(getattr(settings, "PROFILE_SYNC_CACHE_TTL_SECONDS", 900) or 0)
+    if ttl_seconds <= 0:
+        return False
+
+    now = time.monotonic()
+    expires_at = _LOCAL_PROFILE_SYNC_CHECKS.get(telegram_id)
+    if expires_at and expires_at > now:
+        return True
+
+    key = redis_key(settings, "cache", "profile-sync", telegram_id)
+    try:
+        cached = await cache_get_json(settings, key)
+    except Exception:
+        cached = None
+    if cached:
+        _LOCAL_PROFILE_SYNC_CHECKS[telegram_id] = now + ttl_seconds
+        return True
+    return False
+
+
+async def _mark_profile_sync_checked(settings: Settings, telegram_id: int) -> None:
+    ttl_seconds = int(getattr(settings, "PROFILE_SYNC_CACHE_TTL_SECONDS", 900) or 0)
+    if ttl_seconds <= 0:
+        return
+
+    _LOCAL_PROFILE_SYNC_CHECKS[telegram_id] = time.monotonic() + ttl_seconds
+    key = redis_key(settings, "cache", "profile-sync", telegram_id)
+    try:
+        await cache_set_json(settings, key, {"checked": True}, ttl_seconds)
+    except Exception:
+        pass

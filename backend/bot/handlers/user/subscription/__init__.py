@@ -1,13 +1,12 @@
 from aiogram import Router
 
-from . import core, payment_methods, payments
+from . import core, payments
 
 router = Router(name="user_subscription_router")
 
 # Include sub-routers
 router.include_router(core.router)
 router.include_router(payments.router)
-router.include_router(payment_methods.router)
 
 # Re-export commonly used entrypoints for backward compatibility
 from .core import (  # noqa: E402,F401

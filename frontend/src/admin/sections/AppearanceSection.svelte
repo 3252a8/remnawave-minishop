@@ -23,6 +23,7 @@
   const themesStore = getContext("themesStore");
   const APPEARANCE_SETTING_KEYS = new Set([
     "WEBAPP_TITLE",
+    "SUBSCRIPTION_MINI_APP_URL",
     "WEBAPP_PRIMARY_COLOR",
     "WEBAPP_LOGO_URL",
     "WEBAPP_LOGO_USE_EMOJI",
@@ -76,7 +77,7 @@
   };
   $: emojiFontItems = (fieldMap.get("WEBAPP_LOGO_EMOJI_FONT")?.choices || []).map((item) => ({
     value: item.value,
-    label: item.label,
+    label: item.i18n_label_key ? adminText(item.i18n_label_key, {}, item.label) : item.label,
   }));
   $: dirtyCount = Object.keys(settingsDirty || {}).filter((key) =>
     isAppearanceSettingKey(key)
@@ -133,6 +134,15 @@
       return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
     }
     return Boolean(value);
+  }
+
+  function adminLocaleKey(key) {
+    const raw = String(key || "");
+    return raw.startsWith("admin_") ? raw.slice("admin_".length) : raw;
+  }
+
+  function adminText(key, params = {}, fallback = "") {
+    return key ? at(adminLocaleKey(key), params, fallback) : fallback;
   }
 
   function withLogoCacheBust(url) {
@@ -532,7 +542,9 @@
               >
                 <Switch.Thumb class="admin-switch-thumb" />
               </Switch.Root>
-              <span>{at("appearance_use_custom_favicon", {}, "Использовать отдельную favicon")}</span>
+              <span
+                >{at("appearance_use_custom_favicon", {}, "Использовать отдельную favicon")}</span
+              >
             </label>
             <input
               bind:this={faviconFileInput}
@@ -697,8 +709,7 @@
                       max="300"
                       step="5"
                       value={homeLogoScale(theme)}
-                      oninput={(event) =>
-                        setThemeHomeLogoScale(theme, event.currentTarget.value)}
+                      oninput={(event) => setThemeHomeLogoScale(theme, event.currentTarget.value)}
                     />
                     %
                   </span>

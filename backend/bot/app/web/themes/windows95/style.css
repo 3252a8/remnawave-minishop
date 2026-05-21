@@ -14,6 +14,21 @@
   --muted: #202020;
   --dim: #404040;
   --danger: #800000;
+  --danger-text: #800000;
+  --danger-soft: #f7d6d6;
+  --danger-border: #800000;
+  --success: #008000;
+  --success-text: #006000;
+  --success-soft: #d9f0d9;
+  --success-border: #008000;
+  --warning: #808000;
+  --warning-text: #606000;
+  --warning-soft: #ffffcc;
+  --warning-border: #808000;
+  --info: #000080;
+  --info-text: #000080;
+  --info-soft: #d8e6ff;
+  --info-border: #000080;
   --blue: #000080;
   --radius: 0px;
   --font-sans: "MS Sans Serif", Tahoma, "Segoe UI", sans-serif;
@@ -41,45 +56,45 @@
   --admin-text: #000000;
   --admin-muted: #202020;
   --admin-dim: #404040;
-  --win95-icon-arrow-left: url("/webapp-theme-assets/windows95/icons/arrow-left.png?v=6");
-  --win95-icon-arrow-right: url("/webapp-theme-assets/windows95/icons/arrow-right.png?v=6");
-  --win95-icon-bitcoin: url("/webapp-theme-assets/windows95/icons/bitcoin.png?v=6");
-  --win95-icon-check: url("/webapp-theme-assets/windows95/icons/check.png?v=6");
-  --win95-icon-chevrons: url("/webapp-theme-assets/windows95/icons/chevrons.png?v=6");
-  --win95-icon-coins: url("/webapp-theme-assets/windows95/icons/coins.png?v=6");
-  --win95-icon-dashboard: url("/webapp-theme-assets/windows95/icons/dashboard.png?v=6");
-  --win95-icon-database: url("/webapp-theme-assets/windows95/icons/database.png?v=6");
-  --win95-icon-download: url("/webapp-theme-assets/windows95/icons/download.png?v=6");
-  --win95-icon-error: url("/webapp-theme-assets/windows95/icons/error.png?v=6");
-  --win95-icon-file-text: url("/webapp-theme-assets/windows95/icons/file-text.png?v=6");
-  --win95-icon-folder: url("/webapp-theme-assets/windows95/icons/folder.png?v=6");
-  --win95-icon-gift: url("/webapp-theme-assets/windows95/icons/gift.png?v=6");
-  --win95-icon-globe: url("/webapp-theme-assets/windows95/icons/globe.png?v=6");
-  --win95-icon-help: url("/webapp-theme-assets/windows95/icons/help.png?v=6");
-  --win95-icon-home: url("/webapp-theme-assets/windows95/icons/home.png?v=6");
-  --win95-icon-info: url("/webapp-theme-assets/windows95/icons/info.png?v=6");
-  --win95-icon-key: url("/webapp-theme-assets/windows95/icons/key.png?v=6");
-  --win95-icon-lock: url("/webapp-theme-assets/windows95/icons/lock.png?v=6");
-  --win95-icon-megaphone: url("/webapp-theme-assets/windows95/icons/megaphone.png?v=6");
-  --win95-icon-paintbrush: url("/webapp-theme-assets/windows95/icons/paintbrush.png?v=6");
-  --win95-icon-payment-card: url("/webapp-theme-assets/windows95/icons/payment-card.png?v=6");
-  --win95-icon-print: url("/webapp-theme-assets/windows95/icons/print.png?v=6");
-  --win95-icon-refresh: url("/webapp-theme-assets/windows95/icons/refresh.png?v=6");
-  --win95-icon-save: url("/webapp-theme-assets/windows95/icons/save.png?v=6");
-  --win95-icon-search: url("/webapp-theme-assets/windows95/icons/search.png?v=6");
-  --win95-icon-send: url("/webapp-theme-assets/windows95/icons/send.png?v=6");
-  --win95-icon-settings: url("/webapp-theme-assets/windows95/icons/settings.png?v=6");
-  --win95-icon-shield: url("/webapp-theme-assets/windows95/icons/shield.png?v=6");
-  --win95-icon-smartphone: url("/webapp-theme-assets/windows95/icons/smartphone.png?v=6");
-  --win95-icon-sliders: url("/webapp-theme-assets/windows95/icons/sliders.png?v=6");
-  --win95-icon-sparkles: url("/webapp-theme-assets/windows95/icons/sparkles.png?v=6");
-  --win95-icon-tag: url("/webapp-theme-assets/windows95/icons/tag.png?v=6");
-  --win95-icon-ticket: url("/webapp-theme-assets/windows95/icons/ticket.png?v=6");
-  --win95-icon-trash: url("/webapp-theme-assets/windows95/icons/trash.png?v=6");
-  --win95-icon-user: url("/webapp-theme-assets/windows95/icons/user.png?v=6");
-  --win95-icon-users: url("/webapp-theme-assets/windows95/icons/users.png?v=6");
-  --win95-icon-warning: url("/webapp-theme-assets/windows95/icons/warning.png?v=6");
-  --win95-icon-x: url("/webapp-theme-assets/windows95/icons/x.png?v=6");
+  --win95-icon-arrow-left: url("/webapp-theme-assets/windows95/icons/arrow-left.png?v=9");
+  --win95-icon-arrow-right: url("/webapp-theme-assets/windows95/icons/arrow-right.png?v=9");
+  --win95-icon-bitcoin: url("/webapp-theme-assets/windows95/icons/bitcoin.png?v=9");
+  --win95-icon-check: url("/webapp-theme-assets/windows95/icons/check.png?v=9");
+  --win95-icon-chevrons: url("/webapp-theme-assets/windows95/icons/chevrons.png?v=9");
+  --win95-icon-coins: url("/webapp-theme-assets/windows95/icons/coins.png?v=9");
+  --win95-icon-dashboard: url("/webapp-theme-assets/windows95/icons/dashboard.png?v=9");
+  --win95-icon-database: url("/webapp-theme-assets/windows95/icons/database.png?v=9");
+  --win95-icon-download: url("/webapp-theme-assets/windows95/icons/download.png?v=9");
+  --win95-icon-error: url("/webapp-theme-assets/windows95/icons/error.png?v=9");
+  --win95-icon-file-text: url("/webapp-theme-assets/windows95/icons/file-text.png?v=9");
+  --win95-icon-folder: url("/webapp-theme-assets/windows95/icons/folder.png?v=9");
+  --win95-icon-gift: url("/webapp-theme-assets/windows95/icons/gift.png?v=9");
+  --win95-icon-globe: url("/webapp-theme-assets/windows95/icons/globe.png?v=9");
+  --win95-icon-help: url("/webapp-theme-assets/windows95/icons/help.png?v=9");
+  --win95-icon-home: url("/webapp-theme-assets/windows95/icons/home.png?v=9");
+  --win95-icon-info: url("/webapp-theme-assets/windows95/icons/info.png?v=9");
+  --win95-icon-key: url("/webapp-theme-assets/windows95/icons/key.png?v=9");
+  --win95-icon-lock: url("/webapp-theme-assets/windows95/icons/lock.png?v=9");
+  --win95-icon-megaphone: url("/webapp-theme-assets/windows95/icons/megaphone.png?v=9");
+  --win95-icon-paintbrush: url("/webapp-theme-assets/windows95/icons/paintbrush.png?v=9");
+  --win95-icon-payment-card: url("/webapp-theme-assets/windows95/icons/payment-card.png?v=9");
+  --win95-icon-print: url("/webapp-theme-assets/windows95/icons/print.png?v=9");
+  --win95-icon-refresh: url("/webapp-theme-assets/windows95/icons/refresh.png?v=9");
+  --win95-icon-save: url("/webapp-theme-assets/windows95/icons/save.png?v=9");
+  --win95-icon-search: url("/webapp-theme-assets/windows95/icons/search.png?v=9");
+  --win95-icon-send: url("/webapp-theme-assets/windows95/icons/send.png?v=9");
+  --win95-icon-settings: url("/webapp-theme-assets/windows95/icons/settings.png?v=9");
+  --win95-icon-shield: url("/webapp-theme-assets/windows95/icons/shield.png?v=9");
+  --win95-icon-smartphone: url("/webapp-theme-assets/windows95/icons/smartphone.png?v=9");
+  --win95-icon-sliders: url("/webapp-theme-assets/windows95/icons/sliders.png?v=9");
+  --win95-icon-sparkles: url("/webapp-theme-assets/windows95/icons/sparkles.png?v=9");
+  --win95-icon-tag: url("/webapp-theme-assets/windows95/icons/tag.png?v=9");
+  --win95-icon-ticket: url("/webapp-theme-assets/windows95/icons/ticket.png?v=9");
+  --win95-icon-trash: url("/webapp-theme-assets/windows95/icons/trash.png?v=9");
+  --win95-icon-user: url("/webapp-theme-assets/windows95/icons/user.png?v=9");
+  --win95-icon-users: url("/webapp-theme-assets/windows95/icons/users.png?v=9");
+  --win95-icon-warning: url("/webapp-theme-assets/windows95/icons/warning.png?v=9");
+  --win95-icon-x: url("/webapp-theme-assets/windows95/icons/x.png?v=9");
 }
 
 .theme-key-windows95.app-shell {
@@ -115,11 +130,14 @@
 .theme-key-windows95 svg.lucide-house,
 .theme-key-windows95 svg.lucide-info,
 .theme-key-windows95 svg.lucide-key,
+.theme-key-windows95 svg.lucide-life-buoy,
 .theme-key-windows95 svg.lucide-layout-dashboard,
+.theme-key-windows95 svg.lucide-lock,
 .theme-key-windows95 svg.lucide-lock-keyhole,
 .theme-key-windows95 svg.lucide-mail,
 .theme-key-windows95 svg.lucide-megaphone,
 .theme-key-windows95 svg.lucide-message-square,
+.theme-key-windows95 svg.lucide-message-square-plus,
 .theme-key-windows95 svg.lucide-paintbrush,
 .theme-key-windows95 svg.lucide-plus,
 .theme-key-windows95 svg.lucide-refresh-cw,
@@ -231,10 +249,15 @@
   --win95-button-icon: var(--win95-icon-key);
 }
 
+.theme-key-windows95 svg.lucide-life-buoy {
+  --win95-button-icon: var(--win95-icon-help);
+}
+
 .theme-key-windows95 svg.lucide-layout-dashboard {
   --win95-button-icon: var(--win95-icon-dashboard);
 }
 
+.theme-key-windows95 svg.lucide-lock,
 .theme-key-windows95 svg.lucide-lock-keyhole {
   --win95-button-icon: var(--win95-icon-lock);
 }
@@ -245,6 +268,7 @@
 
 .theme-key-windows95 svg.lucide-mail,
 .theme-key-windows95 svg.lucide-message-square,
+.theme-key-windows95 svg.lucide-message-square-plus,
 .theme-key-windows95 svg.lucide-send {
   --win95-button-icon: var(--win95-icon-send);
 }
@@ -339,11 +363,14 @@
   svg.lucide-house,
   svg.lucide-info,
   svg.lucide-key,
+  svg.lucide-life-buoy,
   svg.lucide-layout-dashboard,
+  svg.lucide-lock,
   svg.lucide-lock-keyhole,
   svg.lucide-mail,
   svg.lucide-megaphone,
   svg.lucide-message-square,
+  svg.lucide-message-square-plus,
   svg.lucide-paintbrush,
   svg.lucide-plus,
   svg.lucide-refresh-cw,
@@ -390,11 +417,14 @@
   svg.lucide-house,
   svg.lucide-info,
   svg.lucide-key,
+  svg.lucide-life-buoy,
   svg.lucide-layout-dashboard,
+  svg.lucide-lock,
   svg.lucide-lock-keyhole,
   svg.lucide-mail,
   svg.lucide-megaphone,
   svg.lucide-message-square,
+  svg.lucide-message-square-plus,
   svg.lucide-paintbrush,
   svg.lucide-plus,
   svg.lucide-refresh-cw,
@@ -438,11 +468,27 @@
 .theme-key-windows95 .tariff-action-card,
 .theme-key-windows95 .tariff-warning-card,
 .theme-key-windows95 .topup-carryover-note,
-.theme-key-windows95 .input,
+.theme-key-windows95 .subscription-purchase-description,
 .theme-key-windows95 .dialog-card,
 .theme-key-windows95 .language-select-content,
 .theme-key-windows95 .bottom-nav,
-.theme-key-windows95 .toast {
+.theme-key-windows95 .toast,
+.theme-key-windows95 .support-overview-card,
+.theme-key-windows95 .support-list-card,
+.theme-key-windows95 .support-ticket-card,
+.theme-key-windows95 .support-conversation-card,
+.theme-key-windows95 .support-new-ticket-button,
+.theme-key-windows95 .support-create-panel,
+.theme-key-windows95 .support-select-trigger,
+.theme-key-windows95 .support-select-content,
+.theme-key-windows95 .support-status-tabs-list,
+.theme-key-windows95 .support-user-ticket-skeleton,
+.theme-key-windows95 .ticket-card,
+.theme-key-windows95 .support-empty-state,
+.theme-key-windows95 .support-message-scroll,
+.theme-key-windows95 .ticket-message-avatar,
+.theme-key-windows95 .ticket-message-bubble,
+.theme-key-windows95 .ticket-composer {
   border-width: 2px;
   border-style: solid;
   border-color: #ffffff #404040 #404040 #ffffff;
@@ -463,6 +509,8 @@
 }
 
 body:has(.theme-key-windows95) .language-select-content,
+body:has(.theme-key-windows95) .support-select-content,
+body:has(.theme-key-windows95) .field-error-tooltip,
 body:has(.theme-key-windows95) .admin-select-content {
   border-width: 2px;
   border-style: solid;
@@ -476,8 +524,20 @@ body:has(.theme-key-windows95) .admin-select-content {
 }
 
 body:has(.theme-key-windows95) .language-select-item,
+body:has(.theme-key-windows95) .support-select-item,
 body:has(.theme-key-windows95) .admin-select-item {
   border-radius: 0 !important;
+}
+
+body:has(.theme-key-windows95) .support-select-item[data-highlighted],
+body:has(.theme-key-windows95) .support-select-item[data-selected] {
+  background: #000080;
+  color: #ffffff !important;
+}
+
+body:has(.theme-key-windows95) .support-select-item[data-highlighted] svg,
+body:has(.theme-key-windows95) .support-select-item[data-selected] svg {
+  filter: brightness(0) invert(1);
 }
 
 .theme-key-windows95 .card::before,
@@ -496,7 +556,11 @@ body:has(.theme-key-windows95) .admin-select-item {
 
 .theme-key-windows95 .btn,
 .theme-key-windows95 .language-select-trigger,
-.theme-key-windows95 .bottom-nav button {
+.theme-key-windows95 .bottom-nav button,
+.theme-key-windows95 .link-button,
+.theme-key-windows95 .support-new-ticket-button,
+.theme-key-windows95 .support-select-trigger,
+.theme-key-windows95 .support-status-tabs-trigger {
   min-height: 34px;
   border: 2px solid;
   border-color: #ffffff #404040 #404040 #ffffff;
@@ -557,9 +621,114 @@ body:has(.theme-key-windows95) .admin-select-item {
 .theme-key-windows95 .bottom-nav button.active,
 .theme-key-windows95 .period-card.active,
 .theme-key-windows95 .method-card.active,
-.theme-key-windows95 .option-row.active {
+.theme-key-windows95 .option-row.active,
+.theme-key-windows95 .support-new-ticket-button.active,
+.theme-key-windows95 .support-status-tabs-trigger[data-state="active"],
+.theme-key-windows95 .support-select-item[data-highlighted],
+.theme-key-windows95 .support-select-item[data-selected] {
   background: var(--accent);
   color: #ffffff;
+}
+
+/* ---------- New webapp surfaces: support, purchase info, password login ---------- */
+
+.theme-key-windows95 .subscription-purchase-description,
+.theme-key-windows95 .support-create-panel,
+.theme-key-windows95 .ticket-composer,
+.theme-key-windows95 .support-message-scroll {
+  background: #c0c0c0;
+}
+
+.theme-key-windows95 .support-heading-icon,
+.theme-key-windows95 .support-new-ticket-icon,
+.theme-key-windows95 .support-empty-state svg,
+.theme-key-windows95 .ticket-card-title svg {
+  color: var(--accent);
+}
+
+.theme-key-windows95 .password-switch-divider,
+.theme-key-windows95 .or-line span {
+  height: 2px;
+  background: #808080;
+  border-bottom: 1px solid #ffffff;
+}
+
+.theme-key-windows95 .link-button {
+  min-height: 28px;
+  padding: 2px 8px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.theme-key-windows95 .link-button:hover:not(:disabled),
+.theme-key-windows95 .support-status-tabs-trigger:hover {
+  background: color-mix(in srgb, var(--accent) 16%, #c0c0c0);
+}
+
+.theme-key-windows95 .support-status-tabs-trigger b,
+.theme-key-windows95 .ticket-status-badge,
+.theme-key-windows95 .ticket-priority-badge,
+.theme-key-windows95 .ticket-message-role-badge {
+  border: 1px solid #000000;
+  background: #c0c0c0;
+  color: #000000;
+  box-shadow: none;
+}
+
+.theme-key-windows95 .ticket-card::before {
+  inset: 0 auto 0 0;
+  width: 4px;
+  border-radius: 0;
+  background: var(--ticket-accent, var(--accent));
+}
+
+@media (min-width: 1024px) {
+  .theme-key-windows95 .support-list-card {
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .theme-key-windows95 .support-conversation-card {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .theme-key-windows95 .support-conversation-card--loading {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+}
+
+.theme-key-windows95 .ticket-message-row,
+.theme-key-windows95 .ticket-message-row--admin,
+.theme-key-windows95 .ticket-message-row--user,
+.theme-key-windows95 .ticket-message-row--system,
+.theme-key-windows95 .ticket-message-row--internal {
+  --ticket-bubble-bg: #ffffff;
+  --ticket-bubble-border: #808080;
+  --ticket-bubble-text: #000000;
+}
+
+.theme-key-windows95 .ticket-message-row--outgoing {
+  --ticket-bubble-bg: #ffffe1;
+}
+
+.theme-key-windows95 .ticket-message-bubble,
+.theme-key-windows95 .ticket-message-row--outgoing .ticket-message-bubble {
+  border-radius: 0;
+  color: #000000;
+}
+
+.theme-key-windows95 .ticket-composer:focus-within,
+.theme-key-windows95 .support-select-trigger:focus-visible,
+.theme-key-windows95 .ticket-card:focus-visible,
+.theme-key-windows95 .support-status-tabs-trigger:focus-visible {
+  outline: 1px dotted #000000;
+  outline-offset: -4px;
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080;
+}
+
+.theme-key-windows95 .auth-card {
+  transition: none;
 }
 
 .theme-key-windows95 .card-heading-accent,
@@ -746,6 +915,7 @@ body:has(.theme-key-windows95) .admin-select-item {
 .theme-key-windows95 .admin-screen-wrap textarea,
 .theme-key-windows95 .admin-dialog textarea,
 .theme-key-windows95 .input,
+.theme-key-windows95 .textarea,
 .theme-key-windows95 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 .theme-key-windows95 textarea,
 .theme-key-windows95 select {
@@ -867,7 +1037,8 @@ body:has(.theme-key-windows95) .admin-select-item {
 
 .theme-key-windows95 input::placeholder,
 .theme-key-windows95 textarea::placeholder,
-.theme-key-windows95 .input::placeholder {
+.theme-key-windows95 .input::placeholder,
+.theme-key-windows95 .textarea::placeholder {
   color: #808080;
 }
 
@@ -898,6 +1069,7 @@ body:has(.theme-key-windows95) .admin-select-item {
 .theme-key-windows95 .admin-screen-wrap textarea:focus,
 .theme-key-windows95 .admin-dialog textarea:focus,
 .theme-key-windows95 .input:focus,
+.theme-key-windows95 .textarea:focus,
 .theme-key-windows95 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
 .theme-key-windows95 textarea:focus,
 .theme-key-windows95 select:focus {

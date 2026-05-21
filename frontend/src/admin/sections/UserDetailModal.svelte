@@ -15,6 +15,7 @@
   import {
     Copy,
     Eye,
+    ExternalLink,
     RefreshCw,
     Send,
     Plus,
@@ -36,6 +37,13 @@
   export let trafficOfLabel;
   export let userInitials = () => "";
   export let fmtDateShort = (v) => v;
+  export let userTelegramProfileLink = () => "";
+  export let userTelegramProfileLinkKind = () => "";
+  export let openTelegramProfileLink = () => false;
+
+  let avatarPreviewOpen = false;
+  let avatarPreviewUrl = "";
+  let avatarPreviewName = "";
 
   function pretty(val) {
     if (val === true) return at("yes", {}, "Да");
@@ -67,8 +75,52 @@
   $: userLogsHasMore =
     Number(userLogsTotal || 0) > (Number(userLogsPage || 0) + 1) * Number(userLogsPageSize || 20);
 
+  $: openedUserAvatarUrl = openedUser ? resolvedAvatarUrl(openedUser) : "";
+  $: openedUserTelegramProfileLink = openedUser ? userTelegramProfileLink(openedUser) : "";
+  $: openedUserTelegramProfileLinkKind = openedUser ? userTelegramProfileLinkKind(openedUser) : "";
+  $: openedUserTelegramProfileHint =
+    openedUserTelegramProfileLinkKind === "id"
+      ? at(
+          "user_open_tg_profile_id_hint",
+          {},
+          "Профиль будет открыт по Telegram ID. Telegram может заблокировать переход из-за настроек приватности пользователя или ограничений клиента."
+        )
+      : at("user_open_tg_profile_hint", {}, "Открыть профиль Telegram");
+
   $: if (openedUser && userDetailTab === "logs" && !userLogsLoading && !userLogsLoaded) {
     usersStore.loadUserLogs(0);
+  }
+
+  $: if (!openedUser) {
+    avatarPreviewOpen = false;
+    avatarPreviewUrl = "";
+    avatarPreviewName = "";
+  }
+
+  function openAvatarPreview() {
+    if (!openedUserAvatarUrl || !openedUser) return;
+    avatarPreviewUrl = openedUserAvatarUrl;
+    avatarPreviewName = userDisplayName(openedUser);
+    avatarPreviewOpen = true;
+  }
+
+  function closeAvatarPreview() {
+    avatarPreviewOpen = false;
+  }
+
+  function openUserTelegramProfile() {
+    if (!openedUserTelegramProfileLink) {
+      usersStore.copyToClipboard(
+        String(openedUser?.telegram_id || ""),
+        at("user_tg_profile_unavailable", {}, "Ссылка на профиль Telegram недоступна")
+      );
+      return;
+    }
+    if (openedUserTelegramProfileLinkKind === "id") {
+      usersStore.sendTelegramProfileLink();
+      return;
+    }
+    openTelegramProfileLink(openedUserTelegramProfileLink);
   }
 </script>
 
@@ -89,18 +141,21 @@
       <div class="admin-user-dialog-body">
         <aside class="admin-user-aside">
           <div class="admin-user-summary">
-            <span class="admin-avatar admin-avatar-lg">
-              {#if resolvedAvatarUrl(openedUser)}
-                <img
-                  src={resolvedAvatarUrl(openedUser)}
-                  alt=""
-                  loading="lazy"
-                  referrerpolicy="no-referrer"
-                />
+            <button
+              type="button"
+              class="admin-avatar admin-avatar-lg admin-avatar-preview-trigger"
+              class:is-clickable={Boolean(openedUserAvatarUrl)}
+              disabled={!openedUserAvatarUrl}
+              onclick={openAvatarPreview}
+              aria-label={at("user_avatar_open", {}, "Открыть аватар")}
+              title={openedUserAvatarUrl ? at("user_avatar_open", {}, "Открыть аватар") : ""}
+            >
+              {#if openedUserAvatarUrl}
+                <img src={openedUserAvatarUrl} alt="" loading="lazy" referrerpolicy="no-referrer" />
               {:else}
                 <span>{userInitials(openedUser)}</span>
               {/if}
-            </span>
+            </button>
             <div class="admin-user-summary-meta">
               <strong>{userDisplayName(openedUser)}</strong>
               <small>{userSecondaryName(openedUser)}</small>
@@ -120,6 +175,24 @@
                   >
                 {/if}
               </div>
+              <div class="admin-user-summary-actions">
+                <AdminButton
+                  size="sm"
+                  variant="ghost"
+                  onclick={openUserTelegramProfile}
+                  disabled={!openedUserTelegramProfileLink}
+                  title={openedUserTelegramProfileHint}
+                  aria-label={at("user_open_tg_profile", {}, "Открыть профиль Telegram")}
+                >
+                  <ExternalLink size={14} />
+                  {at("user_open_tg_profile", {}, "Открыть Telegram")}
+                </AdminButton>
+              </div>
+              {#if openedUserTelegramProfileLinkKind === "id"}
+                <small class="admin-user-telegram-profile-note"
+                  >{openedUserTelegramProfileHint}</small
+                >
+              {/if}
             </div>
           </div>
 
@@ -872,6 +945,25 @@
 </Dialog>
 
 <Dialog
+  open={avatarPreviewOpen}
+  title={avatarPreviewName || at("user_avatar_title", {}, "Аватар")}
+  closeLabel={at("close", {}, "Закрыть")}
+  onclose={closeAvatarPreview}
+  class="admin-dialog admin-avatar-dialog"
+>
+  {#if avatarPreviewUrl}
+    <div class="admin-avatar-preview">
+      <img
+        src={avatarPreviewUrl}
+        alt={avatarPreviewName}
+        loading="eager"
+        referrerpolicy="no-referrer"
+      />
+    </div>
+  {/if}
+</Dialog>
+
+<Dialog
   open={userMessageConfirmOpen}
   title={at("user_msg_confirm_title", {}, "Отправить сообщение пользователю?")}
   description={openedUser
@@ -1053,6 +1145,78 @@
   .admin-user-action-sheet :global(.admin-grant-kind-select) {
     width: 100%;
     max-width: 100%;
+  }
+  .admin-avatar-preview-trigger {
+    padding: 0;
+    appearance: none;
+  }
+  .admin-avatar-preview-trigger img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .admin-avatar-preview-trigger:disabled {
+    cursor: default;
+  }
+  .admin-avatar-preview-trigger.is-clickable {
+    cursor: zoom-in;
+  }
+  .admin-avatar-preview-trigger.is-clickable:hover,
+  .admin-avatar-preview-trigger.is-clickable:focus-visible {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+  .admin-user-summary-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .admin-user-telegram-profile-note {
+    display: block;
+    margin-top: 2px;
+    color: var(--admin-dim);
+    line-height: 1.35;
+  }
+  :global(.admin-avatar-dialog) {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    width: min(920px, calc(100vw - 28px));
+    height: min(820px, calc(100dvh - 28px));
+    max-height: calc(100dvh - 28px);
+    gap: 10px;
+    padding: 12px;
+    overflow: hidden;
+  }
+  .admin-avatar-preview {
+    display: grid;
+    place-items: center;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+    padding: 4px;
+    overflow: hidden;
+  }
+  .admin-avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 14px;
+    border: 1px solid var(--admin-border);
+    background: var(--admin-surface-2);
+  }
+  @media (max-width: 640px) {
+    :global(.dialog:has(.admin-avatar-dialog)) {
+      padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+        max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    }
+    :global(.admin-avatar-dialog) {
+      width: calc(100vw - 16px);
+      height: min(88dvh, calc(100dvh - 16px));
+      max-height: calc(100dvh - 16px);
+      border-radius: 18px;
+      padding: 10px;
+    }
   }
   :global(.admin-user-dialog .admin-user-logs-tab) {
     display: flex;

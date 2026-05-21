@@ -29,6 +29,8 @@ class User(Base):
     username = Column(String, nullable=True, index=True)
     email = Column(String, nullable=True, unique=True, index=True)
     email_verified_at = Column(DateTime(timezone=True), nullable=True)
+    password_hash = Column(String, nullable=True)
+    password_set_at = Column(DateTime(timezone=True), nullable=True)
     telegram_id = Column(BigInteger, nullable=True, unique=True, index=True)
     telegram_photo_url = Column(Text, nullable=True)
     first_name = Column(String, nullable=True)
@@ -40,6 +42,7 @@ class User(Base):
     referral_code = Column(String(16), nullable=True, unique=True, index=True)
     referred_by_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=True)
     lifetime_used_traffic_bytes = Column(BigInteger, nullable=True)
+    lifetime_used_traffic_synced_at = Column(DateTime(timezone=True), nullable=True)
     channel_subscription_verified = Column(Boolean, nullable=True)
     channel_subscription_checked_at = Column(DateTime(timezone=True), nullable=True)
     channel_subscription_verified_for = Column(BigInteger, nullable=True)
@@ -370,6 +373,60 @@ class MessageLog(Base):
     target_user = relationship(
         "User", foreign_keys=[target_user_id], back_populates="message_logs_targeted"
     )
+
+
+class SupportTicket(Base):
+    __tablename__ = "support_tickets"
+
+    ticket_id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=False, index=True)
+    subject = Column(String(160), nullable=False)
+    category = Column(String(32), nullable=False, default="other", index=True)
+    priority = Column(String(16), nullable=False, default="normal", index=True)
+    status = Column(String(24), nullable=False, default="open", index=True)
+    assigned_admin_id = Column(BigInteger, nullable=True, index=True)
+    last_message_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    last_message_role = Column(String(16), nullable=True)
+    unread_user_count = Column(Integer, nullable=False, default=0)
+    unread_admin_count = Column(Integer, nullable=False, default=0)
+    admin_last_notified_at = Column(DateTime(timezone=True), nullable=True)
+    admin_last_emailed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    closed_by_admin_id = Column(BigInteger, nullable=True)
+
+    user = relationship("User")
+    messages = relationship(
+        "SupportTicketMessage",
+        back_populates="ticket",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    __table_args__ = (Index("ix_support_tickets_status_last_msg", "status", "last_message_at"),)
+
+
+class SupportTicketMessage(Base):
+    __tablename__ = "support_ticket_messages"
+
+    message_id = Column(Integer, primary_key=True, autoincrement=True)
+    ticket_id = Column(
+        Integer,
+        ForeignKey("support_tickets.ticket_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    author_role = Column(String(16), nullable=False)
+    author_user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=True, index=True)
+    body = Column(Text, nullable=False)
+    is_internal_note = Column(Boolean, nullable=False, default=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    read_by_user_at = Column(DateTime(timezone=True), nullable=True)
+    read_by_admin_at = Column(DateTime(timezone=True), nullable=True)
+
+    ticket = relationship("SupportTicket", back_populates="messages")
+    author_user = relationship("User")
 
 
 class PanelSyncStatus(Base):

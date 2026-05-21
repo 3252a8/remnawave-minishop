@@ -85,9 +85,9 @@ export function createSettingsStore({ api, onToast, at }) {
         const summary = Object.entries(res.errors)
           .map(([k, v]) => `${k}: ${v}`)
           .join("; ");
-        onToast(`Ошибки: ${summary}`);
+        onToast(at("settings_validation_errors", { errors: summary }, `Ошибки: ${summary}`));
       } else {
-        onToast(res?.error || "Ошибка");
+        onToast(at("settings_save_error", { error: res?.error || "" }, res?.error || "Ошибка"));
       }
       return false;
     } finally {

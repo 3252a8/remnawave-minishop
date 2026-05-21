@@ -1,6 +1,8 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
 
+from bot.app.web.webapp.cache_helpers import webapp_cached_user_payload
+
 
 async def devices_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
@@ -15,35 +17,80 @@ async def devices_route(request: web.Request) -> web.Response:
         if not db_user or db_user.is_banned:
             return _json_error(403, "access_denied", "Access denied")
 
-        active = await subscription_service.get_active_subscription_details(session, user_id)
-        panel_user_uuid = active.get("user_id") if active else None
-        if not panel_user_uuid:
-            return _json_error(400, "subscription_not_active", "Subscription is not active")
+        result = await webapp_cached_user_payload(
+            settings,
+            "devices",
+            user_id,
+            int(getattr(settings, "WEBAPP_DEVICES_CACHE_TTL_SECONDS", 5) or 0),
+            lambda: _load_devices_payload(subscription_service, session, user_id),
+        )
+    if isinstance(result, dict) and result.get("ok") is True:
+        return web.json_response({"ok": True, **(result.get("payload") or {})})
+    if isinstance(result, dict) and not result.get("error"):
+        # Backward-compatible with payloads written by older versions under
+        # the same Redis cache key.
+        return web.json_response({"ok": True, **result})
+    if not isinstance(result, dict):
+        result = {}
+    if not result.get("ok"):
+        return _json_error(
+            int(result.get("status") or 500),
+            str(result.get("error") or "devices_load_failed"),
+            str(result.get("message") or "Failed to load devices"),
+        )
+    return web.json_response({"ok": True, **(result.get("payload") or {})})
 
-        panel_service = getattr(subscription_service, "panel_service", None)
-        if not panel_service:
-            return _json_error(503, "panel_unavailable", "Panel service unavailable")
 
-        try:
-            devices_response = await panel_service.get_user_devices(panel_user_uuid)
-        except Exception:
-            logger.exception("Failed to load WebApp devices for user %s", user_id)
-            return _json_error(502, "devices_load_failed", "Failed to load devices")
+async def _load_devices_payload(
+    subscription_service: SubscriptionService,
+    session: AsyncSession,
+    user_id: int,
+) -> Dict[str, Any]:
+    active = await subscription_service.get_active_subscription_details(session, user_id)
+    panel_user_uuid = active.get("user_id") if active else None
+    if not panel_user_uuid:
+        return {
+            "ok": False,
+            "status": 400,
+            "error": "subscription_not_active",
+            "message": "Subscription is not active",
+        }
+
+    panel_service = getattr(subscription_service, "panel_service", None)
+    if not panel_service:
+        return {
+            "ok": False,
+            "status": 503,
+            "error": "panel_unavailable",
+            "message": "Panel service unavailable",
+        }
+
+    try:
+        devices_response = await panel_service.get_user_devices(panel_user_uuid)
+    except Exception:
+        logger.exception("Failed to load WebApp devices for user %s", user_id)
+        return {
+            "ok": False,
+            "status": 502,
+            "error": "devices_load_failed",
+            "message": "Failed to load devices",
+        }
 
     devices = _normalize_devices_response(devices_response)
     max_devices = _coerce_int_or_none(active.get("max_devices")) if active else None
-    return web.json_response(
-        {
-            "ok": True,
+    return {
+        "ok": True,
+        "payload": {
             "enabled": True,
             "current_devices": len(devices),
             "max_devices": max_devices,
             "max_devices_label": _format_devices_limit(max_devices),
             "devices": [
-                _serialize_device(device, index) for index, device in enumerate(devices, start=1)
+                _serialize_device(device, index)
+                for index, device in enumerate(devices, start=1)
             ],
-        }
-    )
+        },
+    }
 
 
 async def disconnect_device_route(request: web.Request) -> web.Response:
@@ -103,6 +150,7 @@ async def disconnect_device_route(request: web.Request) -> web.Response:
         success = await panel_service.disconnect_device(panel_user_uuid, target_hwid)
         if not success:
             return _json_error(502, "device_disconnect_failed", "Failed to disconnect device")
+        await cache_delete(settings, redis_key(settings, "cache", "webapp", "devices", user_id))
         await session.commit()
 
     return web.json_response({"ok": True})

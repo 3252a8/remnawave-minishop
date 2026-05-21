@@ -9,6 +9,7 @@
     FileText,
     Globe2,
     LayoutDashboard,
+    LifeBuoy,
     Megaphone,
     Menu,
     Paintbrush,
@@ -33,6 +34,7 @@
   import PromosSection from "./sections/PromosSection.svelte";
   import SettingsSection from "./sections/SettingsSection.svelte";
   import StatsSection from "./sections/StatsSection.svelte";
+  import SupportSection from "./sections/SupportSection.svelte";
   import TariffEditorModal from "./sections/TariffEditorModal.svelte";
   import TariffsSection from "./sections/TariffsSection.svelte";
   import AppearanceSection from "./sections/AppearanceSection.svelte";
@@ -45,6 +47,7 @@
   import { createPromosStore } from "../lib/admin/stores/promosStore.js";
   import { createSettingsStore } from "../lib/admin/stores/settingsStore.js";
   import { createStatsStore } from "../lib/admin/stores/statsStore.js";
+  import { createAdminSupportStore } from "../lib/admin/stores/supportStore.js";
   import { createTariffsStore } from "../lib/admin/stores/tariffsStore.js";
   import { createThemesStore } from "../lib/admin/stores/themesStore.js";
   import { createUsersStore } from "../lib/admin/stores/usersStore.js";
@@ -59,10 +62,13 @@
   } from "../lib/admin/format.js";
   import {
     createGravatarCache,
+    openTelegramProfileLink,
     userAvatarUrl,
     userDisplayName,
     userInitials,
     userSecondaryName,
+    userTelegramProfileLink,
+    userTelegramProfileLinkKind,
   } from "../lib/admin/users.js";
 
   export let api;
@@ -110,6 +116,7 @@
       items: [
         { id: "broadcast", label: at("nav_broadcast", {}, "Рассылка"), icon: Megaphone },
         { id: "logs", label: at("nav_logs", {}, "Логи"), icon: FileText },
+        { id: "support", label: at("nav_support", {}, "Поддержка"), icon: LifeBuoy },
       ],
     },
     {
@@ -155,6 +162,10 @@
     logs: {
       title: at("section_logs_title", {}, "Логи активности"),
       subtitle: at("section_logs_subtitle", {}, "События пользователей и админ-действия"),
+    },
+    support: {
+      title: at("section_support_title", {}, "Поддержка"),
+      subtitle: at("section_support_subtitle", {}, "Инбокс тикетов и ответы пользователям"),
     },
     tariffs: {
       title: at("section_tariffs_title", {}, "Тарифы"),
@@ -206,6 +217,7 @@
   const promosStore = createPromosStore({ api, onToast: flash, at });
   const settingsStore = createSettingsStore({ api, onToast: flash, at });
   const statsStore = createStatsStore({ api, onToast: flash, at });
+  const supportStore = createAdminSupportStore({ api, onToast: flash, at });
   const tariffsStore = createTariffsStore({ api, onToast: flash, onTariffsSaved, flash, at });
   const themesStore = createThemesStore({ api, onThemesSaved, flash, at });
   const usersStore = createUsersStore({ api, onToast: flash, at });
@@ -216,12 +228,14 @@
   setContext("logsStore", logsStore);
   setContext("paymentsStore", paymentsStore);
   setContext("statsStore", statsStore);
+  setContext("adminSupportStore", supportStore);
   setContext("settingsStore", settingsStore);
   setContext("usersStore", usersStore);
   setContext("tariffsStore", tariffsStore);
   setContext("themesStore", themesStore);
 
   $: usersStore.setActive(active);
+  $: supportStore.setActive(active);
   $: dirtyCount = Object.keys($settingsStore.settingsDirty || {}).length;
   $: syncBusy = $statsStore.syncBusy;
   $: settingsSaving = $settingsStore.settingsSaving;
@@ -237,6 +251,7 @@
     if (active === next) return;
     active = next;
     usersStore.closeUser();
+    supportStore.closeTicketView();
     onSectionChange(next);
   }
 
@@ -252,6 +267,12 @@
     return match ? Number(match[1]) : null;
   }
 
+  function readSupportTicketIdFromPath() {
+    if (typeof window === "undefined") return null;
+    const match = window.location.pathname.match(/^\/admin\/support\/(\d+)$/);
+    return match ? Number(match[1]) : null;
+  }
+
   function onPopState() {
     active = readSectionFromPath();
     sidebarOpen = false;
@@ -262,6 +283,14 @@
       }
     } else if ($usersStore.openedUser) {
       usersStore.closeUser({ skipPush: true });
+    }
+    const ticketId = readSupportTicketIdFromPath();
+    if (active === "support" && ticketId) {
+      if (!$supportStore.openedTicketId || $supportStore.openedTicketId !== ticketId) {
+        supportStore.openTicket(ticketId, { skipPush: true });
+      }
+    } else if (active === "support" && $supportStore.openedTicketId) {
+      supportStore.closeTicketView({ skipPush: true });
     }
   }
 
@@ -285,10 +314,7 @@
   }
 
   function resolvedAvatarUrl(user) {
-    return (
-      userAvatarUrl(user) ||
-      (!user?.telegram_id && user?.email ? gravatarCache.gravatarUrl(user.email) : "")
-    );
+    return userAvatarUrl(user) || (user?.email ? gravatarCache.gravatarUrl(user.email) : "");
   }
 
   function panelStatusBadge(user) {
@@ -460,7 +486,13 @@
           >
             <svelte:component this={item.icon} size={16} />
             <span>{item.label}</span>
-            <span></span>
+            <span>
+              {#if item.id === "support" && $supportStore.stats?.total_unread_admin}
+                <AdminBadge variant="danger">
+                  <span class="numeric-badge-value">{$supportStore.stats.total_unread_admin}</span>
+                </AdminBadge>
+              {/if}
+            </span>
           </button>
         {/each}
       </nav>
@@ -644,6 +676,15 @@
             <LogsSection {at} {fmtDate} />
           {/if}
 
+          {#if active === "support"}
+            <SupportSection
+              {at}
+              {brand}
+              {resolvedAvatarUrl}
+              initialTicketId={readSupportTicketIdFromPath()}
+            />
+          {/if}
+
           {#if active === "tariffs"}
             <TariffsSection {at} {fmtMoney} />
           {/if}
@@ -679,6 +720,9 @@
   {userDisplayName}
   {userSecondaryName}
   {userInitials}
+  {userTelegramProfileLink}
+  {userTelegramProfileLinkKind}
+  {openTelegramProfileLink}
   {paymentStatusVariant}
   {trafficPercentValue}
   {trafficLeftLabel}

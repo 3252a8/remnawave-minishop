@@ -151,9 +151,6 @@
                   <ChevronsUpDown size={13} />
                 </summary>
                 <div class="premium-server-list premium-server-list-dropdown">
-                  <small
-                    >{t("wa_premium_servers_limited", {}, "Отдельный лимит действует на")}</small
-                  >
                   <div>
                     {#each premiumServerLabels(subscription).slice(0, 8) as label}
                       <span>{label}</span>
@@ -199,9 +196,6 @@
                   <ChevronsUpDown size={13} />
                 </summary>
                 <div class="premium-server-list premium-server-list-dropdown">
-                  <small
-                    >{t("wa_premium_servers_limited", {}, "Отдельный лимит действует на")}</small
-                  >
                   <div>
                     {#each premiumServerLabels(subscription).slice(0, 8) as label}
                       <span>{label}</span>

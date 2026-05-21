@@ -1,6 +1,10 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
 
+from bot.app.web.webapp.cache_helpers import (
+    invalidate_local_webapp_user_payload,
+)
+
 
 async def _read_json(request: web.Request) -> Dict[str, Any]:
     try:
@@ -15,6 +19,32 @@ def _json_error(status: int, code: str, message: str) -> web.Response:
         {"ok": False, "error": code, "message": message},
         status=status,
     )
+
+
+async def _invalidate_webapp_user_caches(
+    settings: Settings,
+    *user_ids: Optional[int],
+    include_devices: bool = False,
+) -> None:
+    keys: List[str] = []
+    seen: set[int] = set()
+    for raw_user_id in user_ids:
+        if raw_user_id is None:
+            continue
+        try:
+            user_id = int(raw_user_id)
+        except (TypeError, ValueError):
+            continue
+        if user_id in seen:
+            continue
+        seen.add(user_id)
+        keys.append(redis_key(settings, "cache", "webapp", "me", user_id))
+        invalidate_local_webapp_user_payload(settings, "me", user_id)
+        if include_devices:
+            keys.append(redis_key(settings, "cache", "webapp", "devices", user_id))
+            invalidate_local_webapp_user_payload(settings, "devices", user_id)
+    if keys:
+        await cache_delete(settings, *keys)
 
 
 def _validation_error_response(exc: ValidationError) -> web.Response:
@@ -36,6 +66,13 @@ def _validation_error_response(exc: ValidationError) -> web.Response:
 
         if field in {"description", "comment", "note"} and error_type == "string_too_long":
             return _json_error(400, f"{field}_too_long", f"{field.capitalize()} is too long")
+
+        if field in {"password", "password_confirm"}:
+            if error_type == "string_too_short":
+                return _json_error(400, "password_too_short", "Password is too short")
+            if error_type == "string_too_long":
+                return _json_error(400, "password_too_long", "Password is too long")
+            return _json_error(400, "invalid_password", "Invalid password")
 
         if error_type == "string_too_long":
             return _json_error(400, "text_too_long", "Text is too long")
