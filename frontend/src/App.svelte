@@ -119,9 +119,12 @@
   let scrollLockApplied = false;
   let adminI18nLoaded = false;
   let adminI18nPromise = null;
-  let AdminPanelComponent = null;
+  let adminBundleApi = null;
   let adminBundlePromise = null;
   let adminBundleError = "";
+  let adminMountTarget = null;
+  let adminMountHandle = null;
+  let adminPanelProps = {};
   let tg = null;
   const telegramSdk = createTelegramSdk({
     scriptUrl: TELEGRAM_WEBAPP_SCRIPT_URL,
@@ -527,6 +530,7 @@
       supportStore.closePolling();
       clearLanguageClickGuard();
       syncBodyScrollLock(false);
+      destroyAdminMount();
     };
   });
 
@@ -647,13 +651,18 @@
     });
   }
 
+  function readAdminBundleApi() {
+    const bundle = window.SubscriptionWebAppAdmin;
+    return bundle?.mount ? bundle : null;
+  }
+
   async function ensureAdminBundle() {
-    if (AdminPanelComponent) return true;
+    if (adminBundleApi) return true;
     if (adminBundlePromise) return adminBundlePromise;
 
-    const existing = window.SubscriptionWebAppAdminPanel;
+    const existing = readAdminBundleApi();
     if (existing) {
-      AdminPanelComponent = existing.default || existing;
+      adminBundleApi = existing;
       return true;
     }
 
@@ -663,9 +672,9 @@
       const jsSrc = resolveWebappAssetPath(CFG.adminJsAsset, "subscription_webapp_admin.js");
       await appendStylesheetOnce("subscription-webapp-admin-css", cssHref);
       await appendScriptOnce("subscription-webapp-admin-js", jsSrc);
-      const loaded = window.SubscriptionWebAppAdminPanel;
-      if (!loaded) throw new Error("admin_bundle_missing_component");
-      AdminPanelComponent = loaded.default || loaded;
+      const loaded = readAdminBundleApi();
+      if (!loaded) throw new Error("admin_bundle_missing_mount");
+      adminBundleApi = loaded;
       return true;
     })()
       .catch((error) => {
@@ -677,6 +686,57 @@
       });
 
     return adminBundlePromise;
+  }
+
+  function destroyAdminMount() {
+    if (!adminMountHandle) return;
+    adminMountHandle.destroy?.();
+    adminMountHandle = null;
+  }
+
+  $: adminPanelProps = {
+    api,
+    onClose: closeAdminPanel,
+    onToast: (text) => showToast(text),
+    initialSection: adminSectionFromPath(window.location.pathname),
+    initialUserId: adminUserIdFromPath(window.location.pathname),
+    onSectionChange: handleAdminSectionChange,
+    onSettingsSaved: handleAdminPersistedSaved,
+    onTariffsSaved: handleAdminPersistedSaved,
+    onThemesSaved: handleAdminPersistedSaved,
+    brandTitle,
+    brand,
+    appFaviconUrl: CFG.faviconUrl,
+    appFaviconUseCustom: CFG.faviconUseCustom,
+    appVersion: CFG.appVersion,
+    appRepositoryUrl: CFG.appRepositoryUrl,
+    currentLang,
+    languageOptions,
+    languageBusy,
+    onLanguageChange: accountStore.updateAccountLanguage,
+    t,
+  };
+
+  $: {
+    const shouldMountAdmin = screen === "admin" && isAdmin && adminBundleApi && adminMountTarget;
+    const props = adminPanelProps;
+
+    if (shouldMountAdmin) {
+      try {
+        if (adminMountHandle) {
+          adminMountHandle.update?.(props);
+        } else {
+          adminMountTarget.replaceChildren();
+          adminMountHandle = adminBundleApi.mount(adminMountTarget, props);
+        }
+      } catch (error) {
+        adminBundleError = error?.message || "admin_bundle_mount_failed";
+        adminBundleApi = null;
+        destroyAdminMount();
+      }
+    } else {
+      destroyAdminMount();
+    }
   }
 
   async function boot() {
@@ -1221,30 +1281,8 @@
             setPasswordLoginMode={(enabled) => setPasswordLoginMode(enabled)}
           />
         {:else if screen === "admin" && isAdmin}
-          {#if AdminPanelComponent}
-            <svelte:component
-              this={AdminPanelComponent}
-              {api}
-              onClose={closeAdminPanel}
-              onToast={(text) => showToast(text)}
-              initialSection={adminSectionFromPath(window.location.pathname)}
-              initialUserId={adminUserIdFromPath(window.location.pathname)}
-              onSectionChange={handleAdminSectionChange}
-              onSettingsSaved={handleAdminPersistedSaved}
-              onTariffsSaved={handleAdminPersistedSaved}
-              onThemesSaved={handleAdminPersistedSaved}
-              {brandTitle}
-              {brand}
-              appFaviconUrl={CFG.faviconUrl}
-              appFaviconUseCustom={CFG.faviconUseCustom}
-              appVersion={CFG.appVersion}
-              appRepositoryUrl={CFG.appRepositoryUrl}
-              {currentLang}
-              {languageOptions}
-              {languageBusy}
-              onLanguageChange={accountStore.updateAccountLanguage}
-              {t}
-            />
+          {#if adminBundleApi}
+            <div class="admin-mount" bind:this={adminMountTarget}></div>
           {:else}
             <div class="loader">
               <BrandMark {brand} size="md" />

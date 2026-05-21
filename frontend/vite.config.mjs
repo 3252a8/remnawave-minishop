@@ -19,7 +19,12 @@ export default defineConfig(({ mode }) => {
         $components: path.resolve(__dirname, "src/lib/components"),
       },
     },
-    plugins: [tailwindcss(), svelte()],
+    plugins: [
+      tailwindcss(),
+      svelte({
+        compilerOptions: isAdminBuild ? { compatibility: { componentApi: 4 } } : {},
+      }),
+    ],
     build: {
       outDir: templateDir,
       emptyOutDir: false,
