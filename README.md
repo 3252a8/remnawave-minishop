@@ -80,8 +80,9 @@ docker compose logs -f backend worker frontend
 - `ADMIN_IDS` - Telegram ID администраторов через запятую;
 - `WEBHOOK_BASE_URL` - публичный URL вебхуков;
 - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` - доступы PostgreSQL;
+- `WEBAPP_ENABLED=True` - включает Web App и админку для первого входа;
 - `WEBAPP_SESSION_SECRET`, `WEBHOOK_SECRET_TOKEN` - стабильные секреты;
-- `SUBSCRIPTION_MINI_APP_URL` - публичный URL Mini App;
+- `SUBSCRIPTION_MINI_APP_URL` - публичный HTTPS URL Mini App/frontend, например `https://app.domain.com/`;
 - `PANEL_API_URL`, `PANEL_API_KEY`, `PANEL_WEBHOOK_SECRET` - доступ к Remnawave;
 - остальные настройки удобнее задать в Web App админке.
 

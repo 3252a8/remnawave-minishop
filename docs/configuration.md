@@ -26,9 +26,10 @@ nano .env
 | `ADMIN_IDS` | Telegram ID администраторов через запятую; без этого не попасть в Web App админку. |
 | `WEBHOOK_BASE_URL` | Публичный URL webhook-домена backend. |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Доступы PostgreSQL для Compose и backend. |
+| `WEBAPP_ENABLED` | Включает Web App и админку. Для первого запуска держите `True`. |
 | `WEBAPP_SESSION_SECRET` | Стабильный секрет сессий Web App. |
 | `WEBHOOK_SECRET_TOKEN` | Стабильный secret token Telegram webhook. |
-| `SUBSCRIPTION_MINI_APP_URL` | Публичный URL Mini App, чтобы бот мог открыть личный кабинет. |
+| `SUBSCRIPTION_MINI_APP_URL` | Публичный HTTPS URL Mini App/frontend, например `https://app.domain.com/`. Это URL, который открывают кнопки Telegram и который указывается в BotFather; не добавляйте сюда `/api` или webhook-пути. |
 | `PANEL_API_URL`, `PANEL_API_KEY`, `PANEL_WEBHOOK_SECRET` | Базовая интеграция с Remnawave. Эти значения стоит хранить в `.env`, но при необходимости их можно переопределить из админки. |
 
 `WEBAPP_SESSION_SECRET` и `WEBHOOK_SECRET_TOKEN` можно сгенерировать так:
@@ -38,6 +39,16 @@ openssl rand -hex 32
 ```
 
 Если оставить эти секреты пустыми, приложение сгенерирует их на процесс, но после рестарта Web App-сессии станут невалидными, а Telegram webhook получит новый `secret_token`.
+
+## Если Web App выключен
+
+`WEBAPP_ENABLED=False` отключает пользовательский Web App и вместе с ним админ-панель. В таком состоянии нельзя зайти в **Система -> Настройки** и включить Web App обратно через UI.
+
+Чтобы восстановить доступ:
+
+1. В `.env` выставьте `WEBAPP_ENABLED=True`.
+2. Перезапустите backend/frontend контейнеры, например `docker compose up -d --force-recreate backend frontend`.
+3. Откройте `SUBSCRIPTION_MINI_APP_URL` под Telegram-аккаунтом из `ADMIN_IDS` и при необходимости проверьте настройку в админке.
 
 ## Настройка через админку
 

@@ -52,6 +52,10 @@ SUPPORT_TICKETS_ENABLED=True
 SUPPORT_TICKET_RATE_LIMIT_PER_HOUR=5
 ```
 
+`SUBSCRIPTION_MINI_APP_URL` - это публичный HTTPS URL именно frontend/Mini App, обычно отдельный домен вроде `https://app.domain.com/`. Его указывают в BotFather в Mini Apps, а бот использует его для кнопок личного кабинета, referral-ссылок и email-входа. Не добавляйте в него `/api`, `/webhook` или путь конкретной страницы.
+
+Если `WEBAPP_ENABLED=False`, пользовательский Web App и админ-панель не регистрируются. Чтобы снова попасть в админку, включите `WEBAPP_ENABLED=True` в `.env` и перезапустите backend/frontend контейнеры.
+
 Внешний вид настраивается в админке: раздел **Внешний вид** управляет логотипом, emoji-логотипом, accent-цветом, выбранной темой и масштабом логотипа. Кастомные темы читаются из `WEBAPP_THEMES_DIR`, а `WEBAPP_DEFAULT_THEME` может принудительно выбрать тему по ключу. Подробный контракт `theme.json`, CSS/asset-роуты и пайплайн создания темы описаны в [webapp-themes.md](webapp-themes.md).
 
 Если SMTP-настройки не заполнены, вход по email скрывается.

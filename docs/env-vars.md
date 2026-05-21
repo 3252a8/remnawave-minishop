@@ -18,6 +18,7 @@
 | `POSTGRES_USER` | `.env` / Compose | Пользователь PostgreSQL. |
 | `POSTGRES_PASSWORD` | `.env` / Compose | Пароль PostgreSQL. |
 | `POSTGRES_DB` | `.env` / Compose | Имя базы PostgreSQL. |
+| `WEBAPP_ENABLED` | `.env` / админка | Включает Web App и админку. Держите `True` для первого запуска; если выключить, вернуть доступ можно только через `.env` и рестарт. |
 | `WEBAPP_SESSION_SECRET` | `.env` | Стабильный HMAC-секрет сессий Web App. Если пустой, генерируется на процесс, но сессии сбросятся после рестарта. |
 | `WEBHOOK_SECRET_TOKEN` | `.env` | Секрет Telegram webhook. Если пустой, генерируется на процесс. |
 
@@ -110,8 +111,8 @@
 
 | Переменная | Где менять | Назначение |
 | --- | --- | --- |
-| `WEBAPP_ENABLED` | Админка | Включает Web App. |
-| `SUBSCRIPTION_MINI_APP_URL` | Админка | Публичный URL Mini App. |
+| `WEBAPP_ENABLED` | `.env` / админка | Включает Web App. Если `False`, пользовательский Web App и админка недоступны до включения через `.env` и рестарта. |
+| `SUBSCRIPTION_MINI_APP_URL` | `.env` / админка | Публичный HTTPS URL Mini App/frontend, например `https://app.domain.com/`. Используется в Telegram-кнопках, referral-ссылках, email-входе и BotFather Mini App settings. Не указывайте здесь `/api` или webhook-пути. |
 | `WEBAPP_TITLE` | Админка | Заголовок Web App. |
 | `WEBAPP_THEMES_DIR` | `.env` | Каталог кастомных тем. |
 | `WEBAPP_DEFAULT_THEME` | `.env` / админка | Ключ темы по умолчанию. |
