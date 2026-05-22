@@ -1,7 +1,10 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 from bot.handlers.admin.sync_admin import (
+    _absorb_duplicate_panel_identity,
     _coerce_panel_telegram_id,
     _description_matches,
     _should_update_lifetime_used_traffic,
@@ -135,4 +138,99 @@ def test_lifetime_traffic_update_allows_large_delta_and_skips_duplicate_panel_id
         now=now + timedelta(hours=2),
         settings=settings,
         is_duplicate_panel_identity=True,
+    )
+
+
+def test_absorb_duplicate_panel_identity_extends_kept_user_and_deletes_duplicate():
+    now = datetime.now(timezone.utc)
+    target_sub = SimpleNamespace(
+        subscription_id=10,
+        user_id=42,
+        panel_user_uuid="panel-keep",
+        panel_subscription_uuid="sub-keep",
+        end_date=now - timedelta(days=2),
+        is_active=False,
+        status_from_panel="EXPIRED",
+    )
+    duplicate_sub = SimpleNamespace(
+        subscription_id=11,
+        user_id=42,
+        panel_user_uuid="panel-duplicate",
+        panel_subscription_uuid="sub-duplicate",
+        end_date=now + timedelta(days=30),
+        is_active=True,
+        skip_notifications=False,
+        status_from_panel="ACTIVE",
+    )
+    panel_service = SimpleNamespace(
+        update_user_details_on_panel=AsyncMock(return_value={"uuid": "panel-keep"}),
+        delete_user_from_panel=AsyncMock(return_value=True),
+    )
+    session = SimpleNamespace(execute=AsyncMock())
+    settings = SimpleNamespace(user_traffic_limit_bytes=0)
+    user = SimpleNamespace(
+        user_id=42,
+        panel_user_uuid="panel-keep",
+        telegram_id=969808056,
+        email="paid@example.com",
+        username="alice",
+        first_name="Alice",
+        last_name=None,
+    )
+
+    async def update_subscription(_session, subscription_id, update_data):
+        sub = target_sub if subscription_id == target_sub.subscription_id else duplicate_sub
+        for key, value in update_data.items():
+            setattr(sub, key, value)
+        return sub
+
+    with patch(
+        "bot.handlers.admin.sync_admin.subscription_dal.update_subscription",
+        AsyncMock(side_effect=update_subscription),
+    ):
+        result = asyncio.run(
+            _absorb_duplicate_panel_identity(
+                session,
+                panel_service=panel_service,
+                existing_user=user,
+                keep_panel_uuid="panel-keep",
+                keep_panel_user={
+                    "uuid": "panel-keep",
+                    "subscriptionUuid": "sub-keep",
+                    "status": "EXPIRED",
+                    "expireAt": (now - timedelta(days=2)).isoformat(),
+                },
+                duplicate_panel_user={
+                    "uuid": "panel-duplicate",
+                    "subscriptionUuid": "sub-duplicate",
+                    "telegramId": 969808056,
+                    "status": "ACTIVE",
+                    "expireAt": (now + timedelta(days=30)).isoformat(),
+                },
+                settings=settings,
+                subscriptions_by_panel_uuid={
+                    "sub-keep": target_sub,
+                    "sub-duplicate": duplicate_sub,
+                },
+                active_subscriptions_by_user_panel={},
+            )
+        )
+
+    assert result["resolved"]
+    assert result["subscriptions_updated"] == 2
+    assert target_sub.is_active
+    assert target_sub.status_from_panel == "ACTIVE_EXTENDED_BY_PANEL_DUPLICATE_MERGE"
+    assert target_sub.panel_user_uuid == "panel-keep"
+    assert target_sub.end_date > now + timedelta(days=29)
+    assert not duplicate_sub.is_active
+    assert duplicate_sub.skip_notifications
+    assert duplicate_sub.status_from_panel == "MERGED_PANEL_DUPLICATE"
+    panel_service.update_user_details_on_panel.assert_awaited_once()
+    update_uuid, update_payload = panel_service.update_user_details_on_panel.await_args.args[:2]
+    assert update_uuid == "panel-keep"
+    assert update_payload["status"] == "ACTIVE"
+    assert update_payload["telegramId"] == 969808056
+    panel_service.delete_user_from_panel.assert_awaited_once_with(
+        "panel-duplicate",
+        log_response=False,
     )
