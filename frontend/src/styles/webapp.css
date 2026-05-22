@@ -1260,6 +1260,11 @@ a {
   gap: 8px;
 }
 
+.settings-admin-block {
+  display: grid;
+  gap: 8px;
+}
+
 .settings-divider {
   height: 1px;
   background: var(--border);
@@ -1300,6 +1305,56 @@ a {
 
 .settings-row strong {
   font-size: 12px;
+}
+
+.settings-row.settings-row-admin {
+  min-height: 54px;
+  border-color: var(--warning-border);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--warning) 13%, var(--panel)),
+    color-mix(in srgb, var(--warning) 7%, var(--panel-2))
+  );
+  cursor: pointer;
+  transition:
+    transform 0.14s ease,
+    border-color 0.14s ease,
+    background 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+.settings-row.settings-row-admin:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--warning) 52%, var(--border));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--warning) 16%, var(--panel)),
+    color-mix(in srgb, var(--warning) 9%, var(--panel-2))
+  );
+}
+
+.settings-row.settings-row-admin:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.settings-row.settings-row-admin:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--warning) 58%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--warning) 24%, transparent),
+    inset 0 1px 0 var(--inset-highlight);
+}
+
+.settings-row.settings-row-admin > svg:first-child {
+  color: var(--warning-text);
+  opacity: 1;
+}
+
+.settings-row.settings-row-admin > svg:last-child {
+  color: color-mix(in srgb, var(--warning) 70%, var(--muted));
+}
+
+.settings-row.settings-row-admin strong {
+  color: var(--warning-text);
 }
 
 .settings-row-linked {

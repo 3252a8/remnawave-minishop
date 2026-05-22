@@ -2704,38 +2704,6 @@
   }
 }
 
-.settings-admin-block {
-  display: grid;
-  gap: 10px;
-  margin: 6px 0 0;
-}
-
-.settings-row.settings-row-admin {
-  border: 1px solid color-mix(in srgb, #f59e0b 42%, transparent);
-  background: color-mix(in srgb, #f59e0b 12%, transparent);
-  border-radius: var(--radius);
-  padding: 10px 12px;
-  width: 100%;
-  cursor: pointer;
-  transition:
-    background 0.12s ease,
-    border-color 0.12s ease;
-}
-
-.settings-row.settings-row-admin:hover {
-  background: color-mix(in srgb, #f59e0b 18%, transparent);
-  border-color: color-mix(in srgb, #f59e0b 58%, transparent);
-}
-
-.settings-row.settings-row-admin > svg:first-child {
-  color: #fbbf24;
-  opacity: 1;
-}
-
-.settings-row.settings-row-admin strong {
-  color: var(--text);
-}
-
 /* ============================================================
    shadcn-svelte primitives: Tabs / Select / Switch / Label
    bits-ui exposes data-state attributes; styling here matches
