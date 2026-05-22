@@ -1,5 +1,6 @@
 import json
 import unittest
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -75,6 +76,43 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(update_uuid, "panel-target")
         self.assertEqual(payload["email"], "linked@example.com")
         self.assertEqual(payload["telegramId"], 42)
+
+    async def test_merged_panel_identity_reactivates_expired_target_with_transferred_time(self):
+        expire_at = datetime.now(timezone.utc) + timedelta(days=30)
+        panel_service = SimpleNamespace(
+            delete_user_from_panel=AsyncMock(return_value=True),
+            update_user_details_on_panel=AsyncMock(return_value={"uuid": "panel-target"}),
+        )
+        request = SimpleNamespace(
+            app={"subscription_service": SimpleNamespace(panel_service=panel_service)}
+        )
+        user = SimpleNamespace(
+            user_id=42,
+            panel_user_uuid="panel-target",
+            telegram_id=42,
+            email="linked@example.com",
+            username="alice",
+            first_name="Alice",
+            last_name=None,
+        )
+
+        result = await _sync_merged_panel_identity_for_user(
+            request,
+            user,
+            source_panel_uuid="panel-email",
+            final_panel_uuid="panel-target",
+            expire_at=expire_at,
+        )
+
+        self.assertTrue(result)
+        panel_service.delete_user_from_panel.assert_awaited_once_with(
+            "panel-email",
+            log_response=False,
+        )
+        _, payload = panel_service.update_user_details_on_panel.await_args.args[:2]
+        expected_expire_at = expire_at.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+        self.assertEqual(payload["expireAt"], expected_expire_at)
+        self.assertEqual(payload["status"], "ACTIVE")
 
     async def test_telegram_merge_defers_panel_sync_until_source_cleanup(self):
         current_user = SimpleNamespace(

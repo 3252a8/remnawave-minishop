@@ -1042,7 +1042,11 @@ async def _sync_panel_identity_for_user(
     if user.email:
         payload["email"] = user.email
     if expire_at is not None:
+        if expire_at.tzinfo is None:
+            expire_at = expire_at.replace(tzinfo=timezone.utc)
         payload["expireAt"] = expire_at.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+        if expire_at > datetime.now(timezone.utc):
+            payload["status"] = "ACTIVE"
 
     try:
         await subscription_service.panel_service.update_user_details_on_panel(

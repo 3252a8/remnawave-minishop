@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -131,3 +131,109 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("user_payment_methods", delete_tables)
         self.assertIn("promo_code_activations", delete_tables)
         session.delete.assert_awaited_once_with(source)
+
+    async def test_merge_users_moves_active_email_subscription_onto_expired_telegram_account(self):
+        before = datetime.now(timezone.utc)
+        source = SimpleNamespace(
+            user_id=-100,
+            email="paid@example.com",
+            telegram_id=None,
+            panel_user_uuid="panel-email",
+            email_verified_at=before,
+            username=None,
+            first_name=None,
+            last_name=None,
+            language_code="ru",
+            telegram_photo_url=None,
+            channel_subscription_verified=False,
+            channel_subscription_checked_at=None,
+            channel_subscription_verified_for=None,
+            lifetime_used_traffic_bytes=0,
+            referred_by_id=None,
+            referral_code=None,
+        )
+        target = SimpleNamespace(
+            user_id=42,
+            email=None,
+            telegram_id=42,
+            panel_user_uuid="panel-telegram",
+            email_verified_at=None,
+            username="old",
+            first_name=None,
+            last_name=None,
+            language_code="ru",
+            telegram_photo_url=None,
+            channel_subscription_verified=False,
+            channel_subscription_checked_at=None,
+            channel_subscription_verified_for=None,
+            lifetime_used_traffic_bytes=0,
+            referred_by_id=None,
+            referral_code=None,
+        )
+        source_active_sub = SimpleNamespace(
+            end_date=before + timedelta(days=30),
+            is_active=True,
+            skip_notifications=False,
+            last_notification_sent=before,
+            status_from_panel="ACTIVE",
+            panel_user_uuid="panel-email",
+        )
+        expired_target_sub = SimpleNamespace(
+            end_date=before - timedelta(days=3),
+            is_active=False,
+            skip_notifications=False,
+            last_notification_sent=before,
+            status_from_panel="EXPIRED",
+            panel_user_uuid="panel-telegram",
+        )
+        session = SimpleNamespace(
+            execute=AsyncMock(side_effect=lambda stmt: FakeResult()),
+            delete=AsyncMock(),
+            flush=AsyncMock(),
+            refresh=AsyncMock(),
+        )
+
+        async def fake_get_user_by_id(_session, user_id):
+            if user_id == source.user_id:
+                return source
+            if user_id == target.user_id:
+                return target
+            return None
+
+        async def fake_get_active_subscription(_session, user_id, panel_user_uuid=None):
+            if user_id == source.user_id and panel_user_uuid == source.panel_user_uuid:
+                return source_active_sub
+            return None
+
+        async def fake_get_latest_subscription(_session, user_id, panel_user_uuid=None, **_kwargs):
+            if user_id == target.user_id and panel_user_uuid == target.panel_user_uuid:
+                return expired_target_sub
+            return None
+
+        with (
+            patch("db.dal.user_dal.get_user_by_id", side_effect=fake_get_user_by_id),
+            patch(
+                "db.dal.user_dal._get_active_subscription_for_user",
+                side_effect=fake_get_active_subscription,
+            ),
+            patch(
+                "db.dal.user_dal._get_latest_subscription_for_user",
+                side_effect=fake_get_latest_subscription,
+            ),
+        ):
+            merged = await user_dal.merge_users(
+                session,
+                source_user_id=source.user_id,
+                target_user_id=target.user_id,
+            )
+
+        self.assertIs(merged, target)
+        self.assertEqual(target.email, "paid@example.com")
+        self.assertTrue(expired_target_sub.is_active)
+        self.assertEqual(expired_target_sub.status_from_panel, "ACTIVE_EXTENDED_BY_MERGE")
+        self.assertIsNone(expired_target_sub.last_notification_sent)
+        self.assertGreater(expired_target_sub.end_date, before + timedelta(days=29))
+        self.assertLess(expired_target_sub.end_date, before + timedelta(days=31))
+        self.assertFalse(source_active_sub.is_active)
+        self.assertTrue(source_active_sub.skip_notifications)
+        self.assertEqual(source_active_sub.status_from_panel, "MERGED_INTO_ACCOUNT")
