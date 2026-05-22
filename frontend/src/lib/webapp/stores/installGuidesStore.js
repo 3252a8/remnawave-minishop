@@ -21,7 +21,12 @@ export function createInstallGuidesStore({ api, t, showToast }) {
     });
     if (!force && snapshot?.loaded) return snapshot;
     const promise = (async () => {
-      state.update((s) => ({ ...s, loading: true, error: "" }));
+      state.update((s) => ({
+        ...s,
+        loading: true,
+        loaded: force ? false : s.loaded,
+        error: "",
+      }));
       try {
         const response = await api(path);
         const next = {

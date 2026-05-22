@@ -1064,6 +1064,15 @@
     openExternalLink(url);
   }
 
+  function openPublicConnectLink() {
+    const url = publicInstallSubscription?.connect_url || publicInstallSubscription?.config_link;
+    if (!url) {
+      showToast(t("wa_connect_link_unavailable"));
+      return;
+    }
+    openExternalLink(url);
+  }
+
   function openInstallOrConnect() {
     if (canUseInstallGuides()) {
       goInstall();
@@ -1363,7 +1372,7 @@
               user={{}}
               subscription={publicInstallSubscription || { install_share_token: publicInstallToken }}
               {goHome}
-              {openConnectLink}
+              openConnectLink={openPublicConnectLink}
               {openExternalLink}
               {copyText}
               {t}

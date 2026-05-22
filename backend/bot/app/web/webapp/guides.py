@@ -38,8 +38,21 @@ async def public_subscription_guides_route(request: web.Request) -> web.Response
     if not share_token:
         return web.json_response({"ok": False, "error": "invalid_share_token"}, status=404)
 
-    status = await _subscription_guides_status_shared(request.app)
     subscription = await _public_subscription_payload(request, share_token)
+    if not subscription.get("active"):
+        return web.json_response(
+            {
+                "ok": False,
+                "enabled": False,
+                "config": None,
+                "source": None,
+                "subscription": subscription,
+                "error": "subscription_unavailable",
+            },
+            status=404,
+        )
+
+    status = await _subscription_guides_status_shared(request.app)
     payload = {
         "enabled": bool(status.get("enabled")),
         "config": status.get("config") if status.get("enabled") else None,
