@@ -507,7 +507,11 @@ def manifest_payload() -> List[dict]:
     same value so existing UIs that only read ``placeholder`` also show the
     hint inside the empty input.
     """
-    from bot.payment_providers import find_manifest_owner, manifest_field_default
+    from bot.payment_providers import (
+        find_manifest_owner,
+        manifest_field_default,
+        provider_webhook_metadata,
+    )
 
     sections_order = {
         "general": 1,
@@ -531,10 +535,12 @@ def manifest_payload() -> List[dict]:
         )
 
         default_value: Optional[str] = None
+        webhook_metadata: Optional[dict] = None
         owner = find_manifest_owner(field.key)
         if owner is not None:
             spec, manifest_field = owner
             default_value = manifest_field_default(spec, manifest_field)
+            webhook_metadata = provider_webhook_metadata(spec)
 
         placeholder = field.placeholder
         if not placeholder and default_value:
@@ -561,6 +567,8 @@ def manifest_payload() -> List[dict]:
         }
         if default_value is not None:
             item["default"] = default_value
+        if webhook_metadata:
+            item.update(webhook_metadata)
         if field.choices:
             item["choices"] = [
                 {

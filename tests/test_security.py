@@ -722,6 +722,61 @@ class AdminSettingsSecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(secret_field["has_value"])
         self.assertNotIn("super-secret", response.text)
 
+    async def test_admin_settings_exposes_payment_webhook_urls(self):
+        class AsyncSessionFactory:
+            def __call__(self):
+                return self
+
+            async def __aenter__(self):
+                return object()
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            SHOP_NAME="Visible shop",
+            WEBHOOK_BASE_URL="https://web.tnnl.cc/",
+        )
+        request = SimpleNamespace(
+            app={"settings": settings, "async_session_factory": AsyncSessionFactory()},
+            headers={},
+            cookies={},
+            admin_telegram_id=1,
+        )
+        request.get = lambda key, default=None: getattr(request, key, default)
+
+        with (
+            patch.object(admin_settings_routes, "_require_admin_user_id", return_value=1),
+            patch.object(
+                admin_api.app_settings_dal,
+                "get_overrides_with_meta",
+                AsyncMock(return_value=[]),
+            ),
+        ):
+            response = await admin_api.admin_settings_get_route(request)
+
+        payload = json.loads(response.text)
+        fields = {
+            field["key"]: field
+            for section in payload["sections"]
+            for field in section["fields"]
+        }
+
+        self.assertEqual(
+            fields["FREEKASSA_ENABLED"]["webhook_url"],
+            "https://web.tnnl.cc/webhook/freekassa",
+        )
+        self.assertTrue(fields["FREEKASSA_ENABLED"]["webhook_base_url_configured"])
+        self.assertEqual(
+            fields["PAYMENT_PLATEGA_CRYPTO_WEBAPP_LABEL_RU"]["webhook_url"],
+            "https://web.tnnl.cc/webhook/platega",
+        )
+        self.assertNotIn("webhook_url", fields["PAYMENT_STARS_WEBAPP_LABEL_RU"])
+
 
 class DatabaseLoggingSecurityTests(unittest.TestCase):
     def test_database_url_redaction_hides_password(self):

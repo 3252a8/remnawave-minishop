@@ -333,6 +333,46 @@ def find_manifest_owner(key: str) -> Optional[tuple[PaymentProviderSpec, Provide
     return None
 
 
+def _webhook_spec_for(spec: PaymentProviderSpec) -> Optional[PaymentProviderSpec]:
+    if spec.webhook_path and spec.webhook_route:
+        return spec
+    if not spec.service_key:
+        return None
+    for candidate in PAYMENT_PROVIDER_SPECS:
+        if (
+            candidate.service_key == spec.service_key
+            and candidate.webhook_path
+            and candidate.webhook_route
+        ):
+            return candidate
+    return None
+
+
+def provider_webhook_metadata(spec: PaymentProviderSpec) -> Optional[Dict[str, Any]]:
+    """Return admin-manifest webhook metadata for a provider SPEC.
+
+    Some visible payment buttons share one backing service and webhook route
+    (for example Platega SBP and Platega Crypto), so presentation-only specs
+    inherit the route from their service sibling.
+    """
+    webhook_spec = _webhook_spec_for(spec)
+    if webhook_spec is None or not webhook_spec.webhook_path:
+        return None
+    try:
+        path = str(webhook_spec.webhook_path(None) or "").strip()
+    except Exception:
+        return None
+    if not path:
+        return None
+    return {
+        "provider_id": spec.id,
+        "provider_label": spec.label,
+        "webhook_provider_id": webhook_spec.id,
+        "webhook_path": path,
+        "webhook_requires_base_url": bool(webhook_spec.webhook_requires_base_url),
+    }
+
+
 def manifest_field_default(
     spec: PaymentProviderSpec,
     manifest_field: ProviderManifestField,

@@ -1,5 +1,5 @@
 <script>
-  import { ChevronRight, Eye, EyeOff, Search, X } from "$components/ui/icons.js";
+  import { Check, ChevronRight, Copy, Eye, EyeOff, Search, X } from "$components/ui/icons.js";
   import * as UiIcons from "$components/ui/icons.js";
   import { Accordion, Switch } from "$components/ui/primitives.js";
   import Dialog from "$components/ui/dialog.svelte";
@@ -9,7 +9,7 @@
     AdminEmptyState,
     AdminSelect,
   } from "$components/patterns/admin/index.js";
-  import { getContext, onMount } from "svelte";
+  import { getContext, onDestroy, onMount } from "svelte";
 
   export let at;
   export let onSettingsSaved;
@@ -26,6 +26,8 @@
   let revealedSecrets = new Set();
   let iconPickerField = null;
   let iconPickerSearch = "";
+  let copiedWebhookKey = "";
+  let copiedWebhookTimer = null;
 
   $: settingsAllOpen =
     visibleSettingsSections.length > 0 &&
@@ -46,6 +48,12 @@
         settingsOpenSections = isCompact ? ids.slice(0, 1) : ids.slice();
       }
     });
+  });
+
+  onDestroy(() => {
+    if (copiedWebhookTimer && typeof window !== "undefined") {
+      window.clearTimeout(copiedWebhookTimer);
+    }
   });
 
   function toggleAllSections() {
@@ -123,6 +131,60 @@
     closeIconPicker();
   }
 
+  function normalizeWebhookPath(path) {
+    const normalized = String(path || "").trim();
+    if (!normalized) return "";
+    return normalized.startsWith("/") ? normalized : `/${normalized}`;
+  }
+
+  function webhookUrlForField(field) {
+    const explicit = String(field?.webhook_url || "").trim();
+    if (explicit) return explicit;
+    const path = normalizeWebhookPath(field?.webhook_path);
+    if (!path) return "";
+    if (field?.webhook_requires_base_url && field?.webhook_base_url_configured === false) {
+      return "";
+    }
+    if (typeof window !== "undefined" && window.location?.origin) {
+      return `${window.location.origin}${path}`;
+    }
+    return path;
+  }
+
+  function groupWebhook(fields) {
+    const field = (fields || []).find((item) => item.webhook_path || item.webhook_url);
+    if (!field) return null;
+    const path = normalizeWebhookPath(field.webhook_path);
+    const url = webhookUrlForField(field);
+    if (!url && !path) return null;
+    return {
+      key: `${field.provider_id || field.key || "provider"}:${path || url}`,
+      path,
+      url,
+      requiresBaseUrl: Boolean(field.webhook_requires_base_url),
+      baseConfigured: field.webhook_base_url_configured !== false,
+    };
+  }
+
+  async function copyWebhookUrl(webhook) {
+    if (!webhook?.url) return;
+    try {
+      await navigator.clipboard.writeText(webhook.url);
+      copiedWebhookKey = webhook.key;
+      if (copiedWebhookTimer && typeof window !== "undefined") {
+        window.clearTimeout(copiedWebhookTimer);
+      }
+      if (typeof window !== "undefined") {
+        copiedWebhookTimer = window.setTimeout(() => {
+          copiedWebhookKey = "";
+          copiedWebhookTimer = null;
+        }, 1400);
+      }
+    } catch {
+      copiedWebhookKey = "";
+    }
+  }
+
   function groupSectionFields(section) {
     const groups = new Map();
     for (const field of section.fields || []) {
@@ -140,6 +202,7 @@
       id,
       label: id === "_root" ? null : id,
       i18nLabelKey: group.i18nLabelKey,
+      webhook: groupWebhook(group.fields),
       fields: group.fields,
     }));
   }
@@ -218,6 +281,47 @@
     }));
   }
 </script>
+
+{#snippet renderWebhookHint(webhook)}
+  {@const displayValue = webhook.url || webhook.path}
+  <div class="admin-webhook-hint">
+    <div class="admin-webhook-hint-meta">
+      <strong>{at("settings_provider_webhook_url", {}, "Webhook URL")}</strong>
+      <small>
+        {webhook.url
+          ? at(
+              "settings_provider_webhook_url_hint",
+              {},
+              "Use this URL in the provider webhook settings."
+            )
+          : at(
+              "settings_provider_webhook_base_missing",
+              { path: webhook.path },
+              `Set WEBHOOK_BASE_URL to show the full URL for ${webhook.path}.`
+            )}
+      </small>
+    </div>
+    <div class="admin-webhook-value">
+      <code title={displayValue}>{displayValue}</code>
+      <AdminButton
+        class="admin-webhook-copy"
+        size="sm"
+        variant="ghost"
+        disabled={!webhook.url}
+        title={at("copy", {}, "Copy")}
+        onclick={() => copyWebhookUrl(webhook)}
+      >
+        {#if copiedWebhookKey === webhook.key}
+          <Check size={13} />
+          <span>{at("copied", {}, "Copied")}</span>
+        {:else}
+          <Copy size={13} />
+          <span>{at("copy", {}, "Copy")}</span>
+        {/if}
+      </AdminButton>
+    </div>
+  </div>
+{/snippet}
 
 {#snippet renderField(field)}
   {@const revealed = isSecretRevealed(field.key)}
@@ -420,6 +524,9 @@
           {@const labelGroups = groups.filter((g) => g.label)}
           <div class="admin-settings-fields">
             {#if rootGroup}
+              {#if rootGroup.webhook}
+                {@render renderWebhookHint(rootGroup.webhook)}
+              {/if}
               {#each rootGroup.fields as field}
                 {@render renderField(field)}
               {/each}
@@ -463,6 +570,9 @@
                     </Accordion.Header>
                     <Accordion.Content class="admin-accordion-content">
                       <div class="admin-settings-subsection-body">
+                        {#if group.webhook}
+                          {@render renderWebhookHint(group.webhook)}
+                        {/if}
                         {#each group.fields as field}
                           {@render renderField(field)}
                         {/each}

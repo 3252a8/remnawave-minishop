@@ -68,3 +68,13 @@ def test_subscription_purchase_description_settings_i18n_keys_exist():
             assert field["section"] == "pricing"
             assert field["i18n_label_key"] in messages
             assert field["i18n_description_key"] in messages
+
+
+def test_payment_provider_settings_include_webhook_metadata():
+    manifest = _manifest_by_key()
+
+    assert manifest["FREEKASSA_ENABLED"]["webhook_path"] == "/webhook/freekassa"
+    assert manifest["FREEKASSA_ENABLED"]["provider_id"] == "freekassa"
+    assert manifest["PAYMENT_PLATEGA_CRYPTO_WEBAPP_LABEL_RU"]["webhook_path"] == "/webhook/platega"
+    assert manifest["YOOKASSA_SHOP_ID"]["webhook_requires_base_url"] is True
+    assert "webhook_path" not in manifest["PAYMENT_STARS_WEBAPP_LABEL_RU"]

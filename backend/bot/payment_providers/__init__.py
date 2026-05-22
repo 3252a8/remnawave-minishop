@@ -25,6 +25,7 @@ from .registry import (
     provider_emoji_map,
     provider_label_map,
     provider_telegram_button_text,
+    provider_webhook_metadata,
     resolve_provider_presentation,
 )
 
@@ -53,5 +54,6 @@ __all__ = [
     "provider_telegram_button_text",
     "provider_emoji_map",
     "provider_label_map",
+    "provider_webhook_metadata",
     "resolve_provider_presentation",
 ]
