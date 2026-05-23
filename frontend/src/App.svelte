@@ -1055,6 +1055,44 @@
     window.location.assign(url);
   }
 
+  function hasControlChars(value) {
+    return Array.from(String(value || "")).some((char) => {
+      const code = char.charCodeAt(0);
+      return code <= 31 || code === 127;
+    });
+  }
+
+  function openAppLink(url) {
+    const raw = String(url || "").trim();
+    if (!raw || hasControlChars(raw) || /^(javascript|data|vbscript):/i.test(raw)) {
+      return;
+    }
+    if (/^https?:\/\//i.test(raw)) {
+      openExternalLink(raw);
+      return;
+    }
+    if (/^tg:\/\//i.test(raw) && tg?.openTelegramLink) {
+      try {
+        tg.openTelegramLink(raw);
+        return;
+      } catch {
+        // Fall back to the generic deeplink path below.
+      }
+    }
+    try {
+      const anchor = document.createElement("a");
+      anchor.href = raw;
+      anchor.target = "_self";
+      anchor.rel = "noreferrer";
+      anchor.style.display = "none";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    } catch {
+      window.location.assign(raw);
+    }
+  }
+
   function openConnectLink() {
     const url = subscription?.connect_url || subscription?.config_link;
     if (!url) {
@@ -1374,6 +1412,7 @@
               {goHome}
               openConnectLink={openPublicConnectLink}
               {openExternalLink}
+              {openAppLink}
               {copyText}
               {t}
               publicMode
@@ -1484,6 +1523,7 @@
                 {goHome}
                 {openConnectLink}
                 {openExternalLink}
+                {openAppLink}
                 {copyText}
                 {t}
               />

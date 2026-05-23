@@ -26,6 +26,7 @@
   export let goHome = () => {};
   export let openConnectLink = () => {};
   export let openExternalLink = () => {};
+  export let openAppLink = null;
   export let copyText = async () => {};
   export let t = (key, _params = {}, fallback = "") => fallback || key;
   export let publicMode = false;
@@ -197,11 +198,7 @@
       openConnectLink();
       return;
     }
-    if (/^https?:\/\//i.test(url)) {
-      openExternalLink(url);
-      return;
-    }
-    window.location.assign(url);
+    (openAppLink || openExternalLink)(url);
   }
 
   async function handleButton(button) {
