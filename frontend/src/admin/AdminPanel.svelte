@@ -701,7 +701,7 @@
           {/if}
 
           {#if active === "settings"}
-            <SettingsSection {at} {isCompact} {onSettingsSaved} {currentLang} />
+            <SettingsSection {at} {onSettingsSaved} {currentLang} />
           {/if}
         </div>
       {/key}

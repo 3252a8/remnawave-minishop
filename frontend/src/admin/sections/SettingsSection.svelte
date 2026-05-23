@@ -22,7 +22,6 @@
 
   export let at;
   export let onSettingsSaved;
-  export let isCompact = false;
   export let currentLang = "ru";
 
   const settingsStore = getContext("settingsStore");
@@ -49,14 +48,7 @@
   );
 
   onMount(() => {
-    settingsStore.loadSettings().then(() => {
-      if ($settingsStore.settingsSections.length) {
-        const ids = $settingsStore.settingsSections
-          .filter((s) => s.id !== "appearance")
-          .map((s) => s.id);
-        settingsOpenSections = isCompact ? ids.slice(0, 1) : ids.slice();
-      }
-    });
+    settingsStore.loadSettings();
   });
 
   onDestroy(() => {
