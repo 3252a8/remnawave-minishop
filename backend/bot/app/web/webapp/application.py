@@ -1,5 +1,6 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
+from .guides import warm_subscription_guides_config
 
 
 def create_subscription_webapp_application(
@@ -24,6 +25,8 @@ def create_subscription_webapp_application(
     app["webapp_logo_cache"] = None
     app["webapp_logo_cache_lock"] = asyncio.Lock()
     app["webapp_settings_cache"] = {"ts": 0.0, "data": {}}
+    app["subscription_guides_config_cache"] = {"fingerprint": None, "status": None}
+    app["subscription_guides_config_lock"] = asyncio.Lock()
     app["webapp_rate_limit_buckets"] = {}
     app["webapp_rate_limit_lock"] = asyncio.Lock()
 
@@ -31,6 +34,7 @@ def create_subscription_webapp_application(
         await _ensure_shared_http_session()
         await _warm_webapp_logo_cache(app_obj)
         await _warm_webapp_animated_emoji_cache(app_obj)
+        await warm_subscription_guides_config(app_obj)
 
     async def _shutdown(app_obj: web.Application) -> None:
         await _close_shared_http_session()

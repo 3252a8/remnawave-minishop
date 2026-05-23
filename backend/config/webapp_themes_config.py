@@ -365,7 +365,11 @@ def _builtin_theme_assets_need_refresh(key: str, target_dir: Path) -> bool:
     except OSError:
         return True
     if key == "light":
-        return "--success-text" not in style or ".theme-key-light.app-shell" not in style
+        return (
+            "--success-text" not in style
+            or ".theme-key-light.app-shell" not in style
+            or "Install guide theme surfaces" not in style
+        )
     if key == "ascii":
         return (
             ".theme-key-ascii" not in style
@@ -374,6 +378,7 @@ def _builtin_theme_assets_need_refresh(key: str, target_dir: Path) -> bool:
             or "ascii-boot-type" not in style
             or "Console-style tables" not in style
             or "New webapp surfaces: support, purchase info, password login" not in style
+            or "Install guide theme surfaces" not in style
         )
     if key != "windows95":
         return False
@@ -394,7 +399,9 @@ def _builtin_theme_assets_need_refresh(key: str, target_dir: Path) -> bool:
         or "::-webkit-slider-thumb" not in style
         or "?v=9" not in style
         or "lucide-life-buoy" not in style
+        or "lucide-qr-code" not in style
         or "New webapp surfaces: support, purchase info, password login" not in style
+        or "Install guide theme surfaces" not in style
         or any(not (target_dir / "icons" / icon).exists() for icon in required_icons)
     )
 

@@ -33,13 +33,14 @@ class WebappThemesConfigTests(unittest.TestCase):
         self.assertEqual(win95.tokens.style_preset, "win95")
         self.assertFalse(win95.use_primary_accent)
         self.assertTrue(win95.use_in_admin)
-        self.assertEqual(win95.assets_version, 9)
+        self.assertEqual(win95.assets_version, 11)
+        self.assertEqual(cfg.theme_by_key("light").assets_version, 3)
         ascii_theme = cfg.theme_by_key("ascii")
         self.assertIsNotNone(ascii_theme)
         self.assertEqual(ascii_theme.css_file, "style.css")
         self.assertFalse(ascii_theme.use_primary_accent)
         self.assertTrue(ascii_theme.use_in_admin)
-        self.assertEqual(ascii_theme.assets_version, 3)
+        self.assertEqual(ascii_theme.assets_version, 4)
 
     def test_env_override_default_theme(self):
         cfg = builtin_webapp_themes_config("#00fe7a")
@@ -381,7 +382,7 @@ class WebappThemesConfigTests(unittest.TestCase):
                 descriptor["assets_version"],
                 cfg.theme_by_key("windows95").assets_version,
             )
-            self.assertEqual(descriptor["assets_version"], 9)
+            self.assertEqual(descriptor["assets_version"], 11)
             self.assertIn("lucide-house", css)
             self.assertIn("lucide-earth", css)
             self.assertIn("lucide-circle-check", css)
@@ -391,7 +392,9 @@ class WebappThemesConfigTests(unittest.TestCase):
             self.assertIn("::-webkit-slider-thumb", css)
             self.assertIn("?v=9", css)
             self.assertIn("lucide-life-buoy", css)
+            self.assertIn("lucide-qr-code", css)
             self.assertIn("New webapp surfaces: support, purchase info, password login", css)
+            self.assertIn("Install guide theme surfaces", css)
             self.assertIn(
                 ".theme-key-windows95 .support-list-card {\n    grid-template-rows: auto auto minmax(0, 1fr);",
                 css,
@@ -429,3 +432,39 @@ class WebappThemesConfigTests(unittest.TestCase):
 
             css = (stale_theme_dir / "style.css").read_text(encoding="utf-8")
             self.assertIn(".theme-key-light.app-shell", css)
+            self.assertIn("Install guide theme surfaces", css)
+
+    def test_resolved_refreshes_stale_builtin_ascii_assets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            themes_dir = Path(tmp) / "themes"
+            stale_theme_dir = themes_dir / "ascii"
+            stale_theme_dir.mkdir(parents=True)
+            (stale_theme_dir / "theme.json").write_text(
+                json.dumps(
+                    {
+                        "key": "ascii",
+                        "names": {"en": "ASCII"},
+                        "enabled": True,
+                        "default": False,
+                        "use_primary_accent": False,
+                        "css_file": "style.css",
+                        "assets_version": 1,
+                        "tokens": {"color_scheme": "dark", "style_preset": "ascii"},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (stale_theme_dir / "style.css").write_text("/* stale */", encoding="utf-8")
+
+            cfg = resolved_webapp_themes_catalog(
+                theme_dir=themes_dir,
+                primary_accent="#00fe7a",
+                env_default_theme=None,
+            )
+
+            descriptor = json.loads((stale_theme_dir / "theme.json").read_text(encoding="utf-8"))
+            css = (stale_theme_dir / "style.css").read_text(encoding="utf-8")
+            self.assertEqual(descriptor["assets_version"], cfg.theme_by_key("ascii").assets_version)
+            self.assertEqual(descriptor["assets_version"], 4)
+            self.assertIn("Console-style tables", css)
+            self.assertIn("Install guide theme surfaces", css)

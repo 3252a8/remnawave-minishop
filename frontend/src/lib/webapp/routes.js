@@ -6,6 +6,7 @@ export function normalizeSection(value) {
     .toLowerCase();
   if (
     section === "invite" ||
+    section === "install" ||
     section === "devices" ||
     section === "support" ||
     section === "settings" ||
@@ -26,6 +27,14 @@ export function sectionFromPath(pathname) {
   if (normalizedPath === "/support" || normalizedPath.startsWith("/support/")) return "support";
   const section = normalizedPath.startsWith("/") ? normalizedPath.slice(1) : normalizedPath;
   return normalizeSection(section);
+}
+
+export function publicInstallTokenFromPath(pathname) {
+  const normalized = String(pathname || "")
+    .trim()
+    .replace(/\/+$/, "");
+  const match = normalized.match(/^\/s\/([a-f0-9]{32})$/i);
+  return match ? match[1].toLowerCase() : "";
 }
 
 export function adminSectionFromPath(pathname) {

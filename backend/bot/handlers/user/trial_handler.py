@@ -14,6 +14,10 @@ from bot.services.notification_service import NotificationService
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service import SubscriptionService
 from bot.utils.config_link import prepare_config_links
+from bot.utils.install_links import (
+    append_install_share_link_text,
+    ensure_user_install_guide_links,
+)
 from config.settings import Settings
 
 from .start import send_main_menu
@@ -74,6 +78,7 @@ async def request_trial_confirmation_handler(
     config_link_display_for_trial = None
     config_link_for_trial = None
     connect_button_url_for_trial = None
+    install_share_url = None
 
     if activation_result and activation_result.get("activated"):
         try:
@@ -102,6 +107,14 @@ async def request_trial_confirmation_handler(
             ),
             config_link=config_link_for_trial,
             traffic_gb=traffic_display,
+        )
+
+        install_links = await ensure_user_install_guide_links(session, settings, user_id)
+        install_share_url = install_links.public_share_url
+        final_message_text_in_chat = append_install_share_link_text(
+            final_message_text_in_chat,
+            _,
+            install_share_url,
         )
 
         # Send notification to admin about new trial
@@ -139,6 +152,7 @@ async def request_trial_confirmation_handler(
             settings,
             config_link_display_for_trial,
             connect_button_url=connect_button_url_for_trial,
+            install_share_url=install_share_url,
         )
         if activation_result and activation_result.get("activated")
         else get_main_menu_inline_keyboard(
@@ -214,6 +228,7 @@ async def confirm_activate_trial_handler(
     config_link_display_for_trial = None
     config_link_for_trial = None
     connect_button_url_for_trial = None
+    install_share_url = None
 
     if activation_result and activation_result.get("activated"):
         try:
@@ -243,6 +258,13 @@ async def confirm_activate_trial_handler(
             config_link=config_link_for_trial,
             traffic_gb=traffic_display,
         )
+        install_links = await ensure_user_install_guide_links(session, settings, user_id)
+        install_share_url = install_links.public_share_url
+        final_message_text_in_chat = append_install_share_link_text(
+            final_message_text_in_chat,
+            _,
+            install_share_url,
+        )
     else:
         message_key_from_service = (
             activation_result.get("message_key", "trial_activation_failed")
@@ -266,6 +288,7 @@ async def confirm_activate_trial_handler(
             settings,
             config_link_display_for_trial,
             connect_button_url=connect_button_url_for_trial,
+            install_share_url=install_share_url,
         )
         if activation_result and activation_result.get("activated")
         else get_main_menu_inline_keyboard(

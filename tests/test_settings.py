@@ -32,6 +32,24 @@ class SettingsTests(unittest.TestCase):
         self.assertTrue(settings.WEBHOOK_SECRET_TOKEN)
         self.assertEqual(settings.WEBAPP_SESSION_TTL_SECONDS, 86400)
 
+    def test_subscription_guides_defaults_are_enabled(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+        )
+
+        self.assertTrue(settings.SUBSCRIPTION_GUIDES_ENABLED)
+        self.assertTrue(settings.SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED)
+        self.assertTrue(settings.SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED)
+        self.assertFalse(settings.SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED)
+        self.assertEqual(
+            settings.SUBSCRIPTION_PAGE_CONFIG_PATH,
+            "data/subpage-config/multiapp.json",
+        )
+        self.assertEqual(settings.SUBSCRIPTION_PAGE_CONFIG_JSON, "")
+
     def test_deprecated_webapp_appearance_env_values_are_ignored(self):
         settings = Settings(
             _env_file=None,

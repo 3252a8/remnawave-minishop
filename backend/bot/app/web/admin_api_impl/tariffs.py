@@ -1,5 +1,6 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
+from .webapp_runtime import refresh_webapp_runtime_after_settings_change
 
 
 async def admin_tariffs_get_route(request: web.Request) -> web.Response:
@@ -55,9 +56,6 @@ async def admin_tariffs_save_route(request: web.Request) -> web.Response:
         logger.exception("Failed to write tariffs config to %s", path)
         return _error(500, "write_failed", str(exc))
 
-    cache = request.app.get("webapp_settings_cache")
-    if isinstance(cache, dict):
-        cache["ts"] = 0.0
-        cache["data"] = {}
+    await refresh_webapp_runtime_after_settings_change(request, updates={}, deletes=[])
 
     return _ok({"exists": True, "path": str(path), "catalog": _tariffs_config_payload(config)})

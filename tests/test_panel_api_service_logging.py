@@ -79,6 +79,52 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(service._request.await_count, 3)
 
+    async def test_get_subscription_page_config_by_short_uuid_uses_panel_endpoint(self):
+        service = self._make_service()
+        panel_payload = {"config": {"version": "1"}}
+        service._request = AsyncMock(return_value={"response": panel_payload})
+
+        result = await service.get_subscription_page_config_by_short_uuid(
+            "short-uuid",
+            request_headers={"user-agent": "Mozilla/5.0"},
+        )
+
+        self.assertEqual(result, panel_payload)
+        service._request.assert_awaited_once_with(
+            "GET",
+            "/subscriptions/subpage-config/short-uuid",
+            json={"requestHeaders": {"user-agent": "Mozilla/5.0"}},
+            log_full_response=False,
+        )
+
+    async def test_get_subscription_page_config_list_uses_panel_endpoint(self):
+        service = self._make_service()
+        panel_payload = {"configs": [{"uuid": "default"}]}
+        service._request = AsyncMock(return_value={"response": panel_payload})
+
+        result = await service.get_subscription_page_config_list()
+
+        self.assertEqual(result, panel_payload)
+        service._request.assert_awaited_once_with(
+            "GET",
+            "/subscription-page-configs",
+            log_full_response=False,
+        )
+
+    async def test_get_subscription_page_config_by_uuid_uses_panel_endpoint(self):
+        service = self._make_service()
+        panel_payload = {"uuid": "default", "config": {"version": "1"}}
+        service._request = AsyncMock(return_value={"response": panel_payload})
+
+        result = await service.get_subscription_page_config_by_uuid("default")
+
+        self.assertEqual(result, panel_payload)
+        service._request.assert_awaited_once_with(
+            "GET",
+            "/subscription-page-configs/default",
+            log_full_response=False,
+        )
+
     async def test_get_all_panel_users_uses_singleflight_cache_and_update_invalidates(self):
         service = self._make_service()
         get_calls = 0

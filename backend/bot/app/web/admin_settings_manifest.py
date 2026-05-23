@@ -16,7 +16,7 @@ from typing import Any, List, Optional, Tuple
 @dataclass(frozen=True)
 class SettingField:
     key: str
-    type: str  # "string" | "int" | "float" | "bool" | "text" | "url" | "color" | "icon"
+    type: str  # "string" | "int" | "float" | "bool" | "text" | "url" | "color" | "icon" | "json"
     section: str
     label: str
     description: str = ""
@@ -160,6 +160,59 @@ SETTINGS_MANIFEST: List[SettingField] = [
     SettingField("WEBAPP_FAVICON_URL", "url", "appearance", "URL отдельной favicon"),
     SettingField("WEBAPP_LOGO_FAVICON_URL", "url", "appearance", "Favicon из логотипа"),
     SettingField("WEBAPP_ENABLED", "bool", "appearance", "Web App включён"),
+    SettingField(
+        "SUBSCRIPTION_GUIDES_ENABLED",
+        "bool",
+        "subscription_guides",
+        "Embedded install guides",
+        "Open install instructions inside the Web App instead of an external connect page.",
+    ),
+    SettingField(
+        "SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED",
+        "bool",
+        "subscription_guides",
+        "Open install guides from bot",
+        (
+            "Use the Telegram Mini App install screen for bot connect buttons and show "
+            "public install guide links."
+        ),
+    ),
+    SettingField(
+        "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED",
+        "bool",
+        "subscription_guides",
+        "Use Remnawave Panel config",
+        (
+            "Fetch Subscription Page config from Remnawave Panel by the user's "
+            "subscription short UUID."
+        ),
+    ),
+    SettingField(
+        "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED",
+        "bool",
+        "subscription_guides",
+        "Enable admin JSON override",
+        "Use the JSON field below instead of Remnawave Panel config. Disabled by default.",
+    ),
+    SettingField(
+        "SUBSCRIPTION_PAGE_CONFIG_PATH",
+        "string",
+        "subscription_guides",
+        "Subscription Page config path",
+        "Fallback path to a Remnawave Subscription Page v1 JSON config file.",
+        placeholder="data/subpage-config/multiapp.json",
+    ),
+    SettingField(
+        "SUBSCRIPTION_PAGE_CONFIG_JSON",
+        "json",
+        "subscription_guides",
+        "Subscription Page config JSON",
+        (
+            "Optional admin JSON override. It is applied only when the JSON override "
+            "switch is enabled."
+        ),
+        placeholder="{\n  \"version\": \"1\"\n}",
+    ),
     # ─── Subscription periods & pricing ────────────────────────────
     SettingField("MONTH_1_ENABLED", "bool", "pricing", "Тариф 1 месяц"),
     SettingField("MONTH_3_ENABLED", "bool", "pricing", "Тариф 3 месяца"),
@@ -454,6 +507,18 @@ def manifest_keys() -> List[str]:
 def coerce_value(field: SettingField, raw: Any) -> Any:
     """Coerce a value coming from JSON to the type declared by the field."""
 
+    if field.type == "json":
+        if raw is None:
+            return ""
+        text = raw if isinstance(raw, str) else str(raw)
+        text = text.strip()
+        if not text:
+            return ""
+        from config.subscription_guides_config import validate_subscription_guides_config_text
+
+        validate_subscription_guides_config_text(text)
+        return text
+
     if raw is None or (isinstance(raw, str) and raw.strip() == ""):
         return None
 
@@ -523,6 +588,7 @@ def manifest_payload() -> List[dict]:
         "notifications": 7,
         "support": 8,
         "devices": 9,
+        "subscription_guides": 10,
     }
     items: List[dict] = []
     for field in aggregated_manifest():

@@ -22,6 +22,15 @@ SUBSCRIPTION_PURCHASE_DESCRIPTION_SETTINGS = (
     "SUBSCRIPTION_PURCHASE_DESCRIPTION_EN",
 )
 
+SUBSCRIPTION_GUIDE_SETTINGS = (
+    "SUBSCRIPTION_GUIDES_ENABLED",
+    "SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED",
+    "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED",
+    "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED",
+    "SUBSCRIPTION_PAGE_CONFIG_PATH",
+    "SUBSCRIPTION_PAGE_CONFIG_JSON",
+)
+
 
 def _manifest_by_key() -> dict[str, dict]:
     return {item["key"]: item for item in manifest_payload()}
@@ -66,6 +75,23 @@ def test_subscription_purchase_description_settings_i18n_keys_exist():
         for setting_key in SUBSCRIPTION_PURCHASE_DESCRIPTION_SETTINGS:
             field = manifest[setting_key]
             assert field["section"] == "pricing"
+            assert field["i18n_label_key"] in messages
+            assert field["i18n_description_key"] in messages
+
+
+def test_subscription_guide_settings_i18n_keys_exist():
+    manifest = _manifest_by_key()
+
+    assert manifest["SUBSCRIPTION_GUIDES_ENABLED"]["section"] == "subscription_guides"
+    assert manifest["SUBSCRIPTION_GUIDES_ENABLED"]["section_order"] == 10
+    assert manifest["SUBSCRIPTION_PAGE_CONFIG_JSON"]["type"] == "json"
+
+    for language in ("ru", "en"):
+        messages = _locale(language)
+
+        assert "admin_settings_section_subscription_guides" in messages
+        for setting_key in SUBSCRIPTION_GUIDE_SETTINGS:
+            field = manifest[setting_key]
             assert field["i18n_label_key"] in messages
             assert field["i18n_description_key"] in messages
 

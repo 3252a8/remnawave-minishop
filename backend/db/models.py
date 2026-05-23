@@ -106,6 +106,7 @@ class Subscription(Base):
     user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=False, index=True)
     panel_user_uuid = Column(String, nullable=False, index=True)
     panel_subscription_uuid = Column(String, unique=True, index=True, nullable=True)
+    install_share_token = Column(String(32), unique=True, index=True, nullable=True)
     start_date = Column(DateTime(timezone=True), nullable=True)
     end_date = Column(DateTime(timezone=True), nullable=False, index=True)
     duration_months = Column(Integer, nullable=True)

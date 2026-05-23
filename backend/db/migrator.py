@@ -882,6 +882,26 @@ def _migration_0026_add_lifetime_traffic_synced_at(connection: Connection) -> No
         )
 
 
+def _migration_0027_add_subscription_install_share_token(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+
+    if "install_share_token" not in columns:
+        connection.execute(
+            text("ALTER TABLE subscriptions ADD COLUMN install_share_token VARCHAR(32)")
+        )
+
+    connection.execute(
+        text(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_subscriptions_install_share_token
+            ON subscriptions (install_share_token)
+            WHERE install_share_token IS NOT NULL
+            """
+        )
+    )
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -1023,6 +1043,11 @@ MIGRATIONS: List[Migration] = [
         id="0026_add_lifetime_traffic_synced_at",
         description="Track when lifetime traffic usage was last synced from panel",
         upgrade=_migration_0026_add_lifetime_traffic_synced_at,
+    ),
+    Migration(
+        id="0027_add_subscription_install_share_token",
+        description="Add stable public share tokens for install instructions",
+        upgrade=_migration_0027_add_subscription_install_share_token,
     ),
 ]
 

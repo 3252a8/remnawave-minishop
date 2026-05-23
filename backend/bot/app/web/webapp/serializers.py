@@ -1,6 +1,7 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
 
+from config.subscription_guides_config import subscription_guides_available
 from config.webapp_themes_config import public_themes_catalog_payload
 
 
@@ -52,6 +53,11 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             if db_user.panel_user_uuid
             else None
         )
+        install_share_token = (
+            await subscription_dal.ensure_install_share_token(session, local_sub)
+            if active and local_sub
+            else None
+        )
         trial_available = bool(
             settings.TRIAL_ENABLED
             and settings.TRIAL_DURATION_DAYS > 0
@@ -82,7 +88,14 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             "language_code": lang,
             "is_admin": is_admin,
         },
-        "subscription": _serialize_subscription(settings, active, local_sub, lang),
+        "subscription": _serialize_subscription(
+            request,
+            settings,
+            active,
+            local_sub,
+            lang,
+            install_share_token=install_share_token,
+        ),
         "referral": {
             "code": referral_code,
             "bot_link": referral_link,
@@ -132,6 +145,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             "trial_traffic_limit_gb": float(settings.TRIAL_TRAFFIC_LIMIT_GB or 0),
             "trial_traffic_strategy": getattr(settings, "TRIAL_TRAFFIC_STRATEGY", "NO_RESET"),
             "subscription_purchase_description": settings.subscription_purchase_description(lang),
+            "subscription_guides_enabled": subscription_guides_available(settings),
             "email_auth_enabled": settings.email_auth_configured,
         },
     }
@@ -179,11 +193,26 @@ def _build_webapp_referral_link(
 
 
 def _serialize_subscription(
-    settings: Settings,
-    active: Optional[Dict[str, Any]],
-    local_sub: Optional[Any],
-    lang: str,
+    request_or_settings: Any,
+    settings_or_active: Any,
+    active_or_local_sub: Optional[Any] = None,
+    local_sub_or_lang: Optional[Any] = None,
+    lang: Optional[str] = None,
+    *,
+    install_share_token: Optional[str] = None,
 ) -> Dict[str, Any]:
+    if lang is None:
+        request = None
+        settings = request_or_settings
+        active = settings_or_active
+        local_sub = active_or_local_sub
+        lang = str(local_sub_or_lang or "ru")
+    else:
+        request = request_or_settings
+        settings = settings_or_active
+        active = active_or_local_sub
+        local_sub = local_sub_or_lang
+
     if not active:
         return {
             "active": False,
@@ -192,6 +221,9 @@ def _serialize_subscription(
             "days_left": 0,
             "config_link": None,
             "connect_url": None,
+            "panel_short_uuid": None,
+            "install_share_token": None,
+            "install_share_url": None,
         }
 
     end_date = active.get("end_date")
@@ -231,6 +263,10 @@ def _serialize_subscription(
             can_topup_traffic = False
             can_topup_devices = False
 
+    panel_short_uuid = str(active.get("panel_short_uuid") or "").strip()
+    share_token = str(
+        install_share_token or getattr(local_sub, "install_share_token", "") or ""
+    ).strip()
     return {
         "active": seconds_left > 0,
         "status": active.get("status_from_panel") or "UNKNOWN",
@@ -240,6 +276,9 @@ def _serialize_subscription(
         "remaining_text": _format_remaining(seconds_left, lang),
         "config_link": active.get("config_link"),
         "connect_url": active.get("connect_button_url") or active.get("config_link"),
+        "panel_short_uuid": panel_short_uuid or None,
+        "install_share_token": subscription_dal.normalize_install_share_token(share_token) or None,
+        "install_share_url": _build_install_share_link(request, settings, share_token),
         "traffic_limit": _format_bytes(active.get("traffic_limit_bytes"), zero_as_unlimited=True),
         "traffic_used": _format_bytes(active.get("traffic_used_bytes")),
         "traffic_limit_bytes": _coerce_int_or_none(active.get("traffic_limit_bytes")),
@@ -282,6 +321,32 @@ def _serialize_subscription(
         "auto_renew_enabled": bool(getattr(local_sub, "auto_renew_enabled", False)),
         "provider": getattr(local_sub, "provider", None),
     }
+
+
+def _build_install_share_link(
+    request: Optional[web.Request],
+    settings: Settings,
+    share_token: str,
+) -> Optional[str]:
+    share_token = subscription_dal.normalize_install_share_token(share_token)
+    if not share_token or request is None:
+        return None
+    configured_base = str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", "") or "").strip()
+    if configured_base:
+        parts = urlsplit(configured_base)
+        if parts.scheme and parts.netloc:
+            base = urlunsplit((parts.scheme, parts.netloc, "", "", ""))
+        else:
+            base = configured_base.rstrip("/")
+    else:
+        host = (
+            request.headers.get("X-Forwarded-Host")
+            or request.headers.get("Host")
+            or request.host
+        )
+        proto = request.headers.get("X-Forwarded-Proto") or request.scheme or "https"
+        base = f"{proto}://{host}"
+    return f"{base.rstrip('/')}/s/{quote(share_token)}"
 
 
 def _serialize_plans(

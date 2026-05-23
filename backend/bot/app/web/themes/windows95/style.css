@@ -138,12 +138,15 @@
 .theme-key-windows95 svg.lucide-megaphone,
 .theme-key-windows95 svg.lucide-message-square,
 .theme-key-windows95 svg.lucide-message-square-plus,
+.theme-key-windows95 svg.lucide-monitor,
 .theme-key-windows95 svg.lucide-paintbrush,
 .theme-key-windows95 svg.lucide-plus,
+.theme-key-windows95 svg.lucide-qr-code,
 .theme-key-windows95 svg.lucide-refresh-cw,
 .theme-key-windows95 svg.lucide-save,
 .theme-key-windows95 svg.lucide-search,
 .theme-key-windows95 svg.lucide-send,
+.theme-key-windows95 svg.lucide-share-2,
 .theme-key-windows95 svg.lucide-settings,
 .theme-key-windows95 svg.lucide-shield,
 .theme-key-windows95 svg.lucide-sliders,
@@ -273,12 +276,20 @@
   --win95-button-icon: var(--win95-icon-send);
 }
 
+.theme-key-windows95 svg.lucide-monitor {
+  --win95-button-icon: var(--win95-icon-dashboard);
+}
+
 .theme-key-windows95 svg.lucide-paintbrush {
   --win95-button-icon: var(--win95-icon-paintbrush);
 }
 
 .theme-key-windows95 svg.lucide-plus {
   --win95-button-icon: var(--win95-icon-folder);
+}
+
+.theme-key-windows95 svg.lucide-qr-code {
+  --win95-button-icon: var(--win95-icon-key);
 }
 
 .theme-key-windows95 svg.lucide-refresh-cw {
@@ -291,6 +302,10 @@
 
 .theme-key-windows95 svg.lucide-search {
   --win95-button-icon: var(--win95-icon-search);
+}
+
+.theme-key-windows95 svg.lucide-share-2 {
+  --win95-button-icon: var(--win95-icon-send);
 }
 
 .theme-key-windows95 svg.lucide-settings {
@@ -371,12 +386,15 @@
   svg.lucide-megaphone,
   svg.lucide-message-square,
   svg.lucide-message-square-plus,
+  svg.lucide-monitor,
   svg.lucide-paintbrush,
   svg.lucide-plus,
+  svg.lucide-qr-code,
   svg.lucide-refresh-cw,
   svg.lucide-save,
   svg.lucide-search,
   svg.lucide-send,
+  svg.lucide-share-2,
   svg.lucide-settings,
   svg.lucide-shield,
   svg.lucide-sliders,
@@ -425,12 +443,15 @@
   svg.lucide-megaphone,
   svg.lucide-message-square,
   svg.lucide-message-square-plus,
+  svg.lucide-monitor,
   svg.lucide-paintbrush,
   svg.lucide-plus,
+  svg.lucide-qr-code,
   svg.lucide-refresh-cw,
   svg.lucide-save,
   svg.lucide-search,
   svg.lucide-send,
+  svg.lucide-share-2,
   svg.lucide-settings,
   svg.lucide-shield,
   svg.lucide-sliders,
@@ -488,7 +509,13 @@
 .theme-key-windows95 .support-message-scroll,
 .theme-key-windows95 .ticket-message-avatar,
 .theme-key-windows95 .ticket-message-bubble,
-.theme-key-windows95 .ticket-composer {
+.theme-key-windows95 .ticket-composer,
+.theme-key-windows95 .install-platform-trigger,
+.theme-key-windows95 .install-app-button,
+.theme-key-windows95 .install-step,
+.theme-key-windows95 .install-subscription-card,
+.theme-key-windows95 .install-qr-wrap,
+.theme-key-windows95 .install-loading {
   border-width: 2px;
   border-style: solid;
   border-color: #ffffff #404040 #404040 #ffffff;
@@ -510,6 +537,7 @@
 
 body:has(.theme-key-windows95) .language-select-content,
 body:has(.theme-key-windows95) .support-select-content,
+body:has(.theme-key-windows95) .install-platform-content,
 body:has(.theme-key-windows95) .field-error-tooltip,
 body:has(.theme-key-windows95) .admin-select-content {
   border-width: 2px;
@@ -525,18 +553,23 @@ body:has(.theme-key-windows95) .admin-select-content {
 
 body:has(.theme-key-windows95) .language-select-item,
 body:has(.theme-key-windows95) .support-select-item,
+body:has(.theme-key-windows95) .install-platform-item,
 body:has(.theme-key-windows95) .admin-select-item {
   border-radius: 0 !important;
 }
 
 body:has(.theme-key-windows95) .support-select-item[data-highlighted],
-body:has(.theme-key-windows95) .support-select-item[data-selected] {
+body:has(.theme-key-windows95) .support-select-item[data-selected],
+body:has(.theme-key-windows95) .install-platform-item[data-highlighted],
+body:has(.theme-key-windows95) .install-platform-item[data-selected] {
   background: #000080;
   color: #ffffff !important;
 }
 
 body:has(.theme-key-windows95) .support-select-item[data-highlighted] svg,
-body:has(.theme-key-windows95) .support-select-item[data-selected] svg {
+body:has(.theme-key-windows95) .support-select-item[data-selected] svg,
+body:has(.theme-key-windows95) .install-platform-item[data-highlighted] svg,
+body:has(.theme-key-windows95) .install-platform-item[data-selected] svg {
   filter: brightness(0) invert(1);
 }
 
@@ -560,7 +593,9 @@ body:has(.theme-key-windows95) .support-select-item[data-selected] svg {
 .theme-key-windows95 .link-button,
 .theme-key-windows95 .support-new-ticket-button,
 .theme-key-windows95 .support-select-trigger,
-.theme-key-windows95 .support-status-tabs-trigger {
+.theme-key-windows95 .support-status-tabs-trigger,
+.theme-key-windows95 .install-platform-trigger,
+.theme-key-windows95 .install-app-button {
   min-height: 34px;
   border: 2px solid;
   border-color: #ffffff #404040 #404040 #ffffff;
@@ -625,7 +660,8 @@ body:has(.theme-key-windows95) .support-select-item[data-selected] svg {
 .theme-key-windows95 .support-new-ticket-button.active,
 .theme-key-windows95 .support-status-tabs-trigger[data-state="active"],
 .theme-key-windows95 .support-select-item[data-highlighted],
-.theme-key-windows95 .support-select-item[data-selected] {
+.theme-key-windows95 .support-select-item[data-selected],
+.theme-key-windows95 .install-app-button.active {
   background: var(--accent);
   color: #ffffff;
 }
@@ -718,6 +754,9 @@ body:has(.theme-key-windows95) .support-select-item[data-selected] svg {
 
 .theme-key-windows95 .ticket-composer:focus-within,
 .theme-key-windows95 .support-select-trigger:focus-visible,
+.theme-key-windows95 .install-platform-trigger:focus-visible,
+.theme-key-windows95 .install-platform-trigger[data-state="open"],
+.theme-key-windows95 .install-app-button:focus-visible,
 .theme-key-windows95 .ticket-card:focus-visible,
 .theme-key-windows95 .support-status-tabs-trigger:focus-visible {
   outline: 1px dotted #000000;
@@ -729,6 +768,85 @@ body:has(.theme-key-windows95) .support-select-item[data-selected] svg {
 
 .theme-key-windows95 .auth-card {
   transition: none;
+}
+
+/* ---------- Install guide theme surfaces ---------- */
+
+.theme-key-windows95 .install-platform-trigger,
+.theme-key-windows95 .install-app-button {
+  background: #c0c0c0;
+  color: #000000;
+  transition: none;
+  transform: none;
+}
+
+.theme-key-windows95 .install-platform-trigger:hover,
+.theme-key-windows95 .install-app-button:hover:not(:disabled):not(.active) {
+  background: #dfdfdf;
+  transform: none;
+}
+
+.theme-key-windows95 .install-app-button.active,
+.theme-key-windows95 .install-app-button.active:hover:not(:disabled) {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: #404040 #ffffff #ffffff #404040;
+  box-shadow:
+    inset 1px 1px 0 #000000,
+    inset -1px -1px 0 #dfdfdf;
+  transform: none;
+}
+
+.theme-key-windows95 .install-step,
+.theme-key-windows95 .install-subscription-card,
+.theme-key-windows95 .install-qr-wrap,
+.theme-key-windows95 .install-loading {
+  background: #c0c0c0;
+  transition: none;
+}
+
+.theme-key-windows95 .install-step:hover,
+.theme-key-windows95 .install-subscription-card:hover {
+  transform: none;
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080;
+}
+
+.theme-key-windows95 .install-step-icon,
+.theme-key-windows95 .install-subscription-header-icon {
+  border: 2px solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  background: #dfdfdf;
+  color: var(--accent);
+  box-shadow:
+    inset 1px 1px 0 #ffffff,
+    inset -1px -1px 0 #808080;
+}
+
+body:has(.theme-key-windows95) .install-platform-content {
+  background: #c0c0c0;
+}
+
+body:has(.theme-key-windows95) .install-platform-item[data-highlighted],
+body:has(.theme-key-windows95) .install-platform-item[data-selected] {
+  background: var(--accent);
+  color: #ffffff !important;
+}
+
+.theme-key-windows95 .install-qr-divider {
+  color: #404040;
+  opacity: 1;
+}
+
+.theme-key-windows95 .install-feature-star.attention-dot {
+  background: #ffff00 !important;
+  border: 1px solid #000000;
+  box-shadow: 1px 1px 0 #000000;
+}
+
+.theme-key-windows95 .install-loading .ui-spinner {
+  color: var(--accent);
 }
 
 .theme-key-windows95 .card-heading-accent,
@@ -1059,6 +1177,9 @@ body:has(.theme-key-windows95) .support-select-item[data-selected] svg {
 .theme-key-windows95 .admin-revenue-period-btn:focus-visible,
 .theme-key-windows95 .admin-mobile-toggle:focus-visible,
 .theme-key-windows95 .language-select-trigger:focus-visible,
+.theme-key-windows95 .install-platform-trigger:focus-visible,
+.theme-key-windows95 .install-platform-trigger[data-state="open"],
+.theme-key-windows95 .install-app-button:focus-visible,
 .theme-key-windows95 .bottom-nav button:focus-visible {
   outline: 1px dotted #000000;
   outline-offset: -4px;
@@ -1116,6 +1237,7 @@ body:has(.theme-key-windows95) .support-select-item[data-selected] svg {
 .theme-key-windows95 .admin-nav-item.active svg.lucide,
 .theme-key-windows95 .admin-tabs-trigger[data-state="active"] svg.lucide,
 .theme-key-windows95 .admin-revenue-period-btn.is-active svg.lucide,
+.theme-key-windows95 .install-app-button.active svg.lucide,
 .theme-key-windows95 .admin-header svg.lucide {
   filter: brightness(0) invert(1);
 }
@@ -1133,7 +1255,6 @@ body:has(.theme-key-windows95) .support-select-item[data-selected] svg {
 .theme-key-windows95 svg.lucide-map,
 .theme-key-windows95 svg.lucide-menu,
 .theme-key-windows95 svg.lucide-mouse-pointer-click,
-.theme-key-windows95 svg.lucide-qr-code,
 .theme-key-windows95 svg.lucide-radio,
 .theme-key-windows95 svg.lucide-repeat-2,
 .theme-key-windows95 svg.lucide-server,

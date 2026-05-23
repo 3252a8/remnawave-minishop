@@ -8,6 +8,7 @@ from bot.handlers.user import referral
 from bot.handlers.user.subscription.core import _with_subscription_purchase_description
 from bot.keyboards.inline.user_keyboards import (
     get_bot_interface_inline_keyboard,
+    get_connect_and_main_keyboard,
     get_information_links_keyboard,
     get_language_selection_keyboard,
     get_main_menu_inline_keyboard,
@@ -41,6 +42,13 @@ class UserBotMenuTests(unittest.TestCase):
             TERMS_OF_SERVICE_URL="",
             TRIAL_ENABLED=True,
             SERVER_STATUS_URL="",
+            SUBSCRIPTION_GUIDES_ENABLED=True,
+            SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED=False,
+            SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED=True,
+            SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED=False,
+            SUBSCRIPTION_PAGE_CONFIG_JSON="",
+            PANEL_API_URL="https://panel.example.com",
+            PANEL_API_KEY="token",
         )
 
     def _callback_data(self, markup):
@@ -69,6 +77,38 @@ class UserBotMenuTests(unittest.TestCase):
         self.assertIn("main_action:bot_referral", callbacks)
         self.assertIn("main_action:bot_info", callbacks)
         self.assertIn("main_action:back_to_main", callbacks)
+
+    def test_connect_keyboard_uses_subscription_url_when_bot_guides_disabled(self):
+        markup = get_connect_and_main_keyboard(
+            "en",
+            self.i18n,
+            self.settings,
+            "https://sb.example.com/user",
+            connect_button_url=None,
+        )
+
+        self.assertEqual(markup.inline_keyboard[0][0].url, "https://sb.example.com/user")
+        self.assertIsNone(markup.inline_keyboard[0][0].web_app)
+
+    def test_connect_keyboard_opens_install_guide_when_bot_guides_enabled(self):
+        self.settings.SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED = True
+        markup = get_connect_and_main_keyboard(
+            "en",
+            self.i18n,
+            self.settings,
+            "https://sb.example.com/user",
+            install_share_url="https://app.example.com/s/8f559061460e8fede78ef18dce887236",
+        )
+
+        self.assertIsNone(markup.inline_keyboard[0][0].url)
+        self.assertEqual(
+            markup.inline_keyboard[0][0].web_app.url,
+            "https://app.example.com/install",
+        )
+        self.assertEqual(
+            markup.inline_keyboard[1][0].url,
+            "https://app.example.com/s/8f559061460e8fede78ef18dce887236",
+        )
 
     def test_nested_bot_menu_keyboards_can_target_bot_interface_back(self):
         subscription_markup = get_subscription_options_keyboard(

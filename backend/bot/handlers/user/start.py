@@ -23,6 +23,10 @@ from bot.services.promo_code_service import PromoCodeService
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
 from bot.utils.callback_answer import safe_answer_callback
+from bot.utils.install_links import (
+    append_install_share_link_text,
+    ensure_user_install_guide_links,
+)
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
 from db.dal import user_dal
@@ -715,6 +719,23 @@ async def start_command_handler(
                     ),
                     config_link=config_link_text,
                 )
+                install_links = await ensure_user_install_guide_links(session, settings, user_id)
+                install_share_url = install_links.public_share_url
+                if install_share_url:
+                    try:
+                        await session.commit()
+                        promo_success_text = append_install_share_link_text(
+                            promo_success_text,
+                            _,
+                            install_share_url,
+                        )
+                    except Exception:
+                        await session.rollback()
+                        logging.exception(
+                            "Failed to persist install guide share token for promo user %s.",
+                            user_id,
+                        )
+                        install_share_url = None
 
                 from bot.keyboards.inline.user_keyboards import get_connect_and_main_keyboard
 
@@ -726,6 +747,7 @@ async def start_command_handler(
                         settings,
                         config_link_display,
                         connect_button_url=connect_button_url,
+                        install_share_url=install_share_url,
                     ),
                     parse_mode="HTML",
                 )

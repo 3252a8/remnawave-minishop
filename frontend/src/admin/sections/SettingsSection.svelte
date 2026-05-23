@@ -1,5 +1,14 @@
 <script>
-  import { Check, ChevronRight, Copy, Eye, EyeOff, Search, X } from "$components/ui/icons.js";
+  import {
+    Check,
+    ChevronRight,
+    Copy,
+    Eye,
+    EyeOff,
+    FileText,
+    Search,
+    X,
+  } from "$components/ui/icons.js";
   import * as UiIcons from "$components/ui/icons.js";
   import { Accordion, Switch } from "$components/ui/primitives.js";
   import Dialog from "$components/ui/dialog.svelte";
@@ -131,6 +140,17 @@
     closeIconPicker();
   }
 
+  async function handleJsonFile(field, event) {
+    const file = event?.currentTarget?.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      settingsStore.markDirty(field.key, text);
+    } finally {
+      event.currentTarget.value = "";
+    }
+  }
+
   function normalizeWebhookPath(path) {
     const normalized = String(path || "").trim();
     if (!normalized) return "";
@@ -227,6 +247,7 @@
       notifications: "Уведомления",
       support: "Поддержка",
       devices: "Устройства",
+      subscription_guides: "Connection guides",
     };
     return adminText(`settings_section_${id}`, {}, map[id] || id);
   }
@@ -264,7 +285,9 @@
 
   function fieldPlaceholderText(field) {
     const fallback = field.placeholder || "";
-    return field.i18n_placeholder_key ? adminText(field.i18n_placeholder_key, {}, fallback) : fallback;
+    return field.i18n_placeholder_key
+      ? adminText(field.i18n_placeholder_key, {}, fallback)
+      : fallback;
   }
 
   function subsectionTitle(group) {
@@ -415,6 +438,41 @@
         <textarea
           class="admin-setting-textarea"
           rows="4"
+          placeholder={fieldPlaceholderText(field)}
+          value={valueFor(field) ?? ""}
+          oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}
+        ></textarea>
+      {:else if field.type === "json"}
+        <div class="admin-json-toolbar">
+          <input
+            id={"json-file-" + field.key}
+            class="admin-json-file-input"
+            type="file"
+            accept="application/json,.json"
+            onchange={(event) => handleJsonFile(field, event)}
+          />
+          <label
+            class="admin-btn admin-btn-sm admin-btn-ghost admin-json-upload"
+            for={"json-file-" + field.key}
+          >
+            <FileText size={13} />
+            {at("settings_json_upload", {}, "Load .json")}
+          </label>
+          {#if valueFor(field)}
+            <AdminButton
+              size="sm"
+              variant="ghost"
+              onclick={() => settingsStore.markDirty(field.key, "")}
+            >
+              <X size={12} />
+              {at("clear", {}, "Clear")}
+            </AdminButton>
+          {/if}
+        </div>
+        <textarea
+          class="admin-setting-textarea admin-setting-json-textarea"
+          rows="10"
+          spellcheck="false"
           placeholder={fieldPlaceholderText(field)}
           value={valueFor(field) ?? ""}
           oninput={(e) => settingsStore.markDirty(field.key, e.currentTarget.value)}

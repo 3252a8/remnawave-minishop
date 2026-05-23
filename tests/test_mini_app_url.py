@@ -1,6 +1,12 @@
 import unittest
 
-from bot.utils.mini_app_url import append_query_params, subscription_mini_app_topup_url
+from bot.utils.mini_app_url import (
+    append_query_params,
+    subscription_mini_app_install_url,
+    subscription_mini_app_path_url,
+    subscription_mini_app_topup_url,
+    subscription_public_install_url,
+)
 from config.settings import Settings
 
 
@@ -38,4 +44,34 @@ class MiniAppUrlTests(unittest.TestCase):
         self.assertEqual(
             subscription_mini_app_topup_url(s, "regular"),
             "https://app.example.com/webapp?topup=regular",
+        )
+
+    def test_subscription_mini_app_path_url(self):
+        s = Settings(
+            _env_file=None,
+            BOT_TOKEN="x",
+            POSTGRES_USER="u",
+            POSTGRES_PASSWORD="p",
+            SUBSCRIPTION_MINI_APP_URL="https://app.example.com/webapp/",
+        )
+        self.assertEqual(
+            subscription_mini_app_path_url(s, "/install"),
+            "https://app.example.com/webapp/install",
+        )
+        self.assertEqual(
+            subscription_mini_app_install_url(s),
+            "https://app.example.com/webapp/install",
+        )
+
+    def test_subscription_public_install_url_uses_origin(self):
+        s = Settings(
+            _env_file=None,
+            BOT_TOKEN="x",
+            POSTGRES_USER="u",
+            POSTGRES_PASSWORD="p",
+            SUBSCRIPTION_MINI_APP_URL="https://app.example.com/webapp",
+        )
+        self.assertEqual(
+            subscription_public_install_url(s, "8f559061460e8fede78ef18dce887236"),
+            "https://app.example.com/s/8f559061460e8fede78ef18dce887236",
         )

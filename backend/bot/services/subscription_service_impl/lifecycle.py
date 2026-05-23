@@ -763,6 +763,10 @@ class SubscriptionLifecycleMixin:
 
         return {
             "user_id": panel_user_data.get("uuid"),
+            "panel_subscription_uuid": panel_user_data.get("subscriptionUuid")
+            or panel_user_data.get("shortUuid")
+            or (local_active_sub.panel_subscription_uuid if local_active_sub else None),
+            "panel_short_uuid": panel_user_data.get("shortUuid"),
             "end_date": panel_end_date,
             "status_from_panel": panel_user_data.get("status", "UNKNOWN").upper(),
             "config_link": display_link,

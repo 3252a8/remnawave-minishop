@@ -11,6 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.keyboards.inline.user_keyboards import get_connect_and_main_keyboard
 from bot.services.notification_service import NotificationService
 from bot.utils.config_link import prepare_config_links
+from bot.utils.install_links import (
+    append_install_share_link_text,
+    ensure_user_install_guide_links,
+)
 from bot.utils.text_sanitizer import sanitize_display_name, username_for_display
 from db.dal import payment_dal, user_dal
 from db.models import Payment, User
@@ -136,6 +140,7 @@ async def send_success_message_to_user(
     settings: Any,
     config_link_display: Optional[str],
     connect_button_url: Optional[str],
+    install_share_url: Optional[str] = None,
     include_keyboard: bool = True,
     log_prefix: str = "payment_providers",
 ) -> None:
@@ -148,6 +153,7 @@ async def send_success_message_to_user(
             settings,
             config_link_display,
             connect_button_url=connect_button_url,
+            install_share_url=install_share_url,
             preserve_message=True,
         )
     try:
@@ -332,6 +338,31 @@ async def finalize_successful_payment(
     if req.text_prefix:
         success_text = f"{req.text_prefix}\n{success_text}"
 
+    install_share_url = None
+    if not req.skip_keyboard:
+        install_links = await ensure_user_install_guide_links(
+            req.session,
+            req.settings,
+            req.user_id,
+        )
+        install_share_url = install_links.public_share_url
+        if install_share_url:
+            try:
+                await req.session.commit()
+                success_text = append_install_share_link_text(
+                    success_text,
+                    translator,
+                    install_share_url,
+                )
+            except Exception:
+                await req.session.rollback()
+                logging.exception(
+                    "%s: failed to persist install guide share token for user %s.",
+                    req.log_prefix,
+                    req.user_id,
+                )
+                install_share_url = None
+
     await send_success_message_to_user(
         bot=req.bot,
         user_id=req.user_id,
@@ -341,6 +372,7 @@ async def finalize_successful_payment(
         settings=req.settings,
         config_link_display=config_link_display,
         connect_button_url=connect_button_url,
+        install_share_url=install_share_url,
         include_keyboard=not req.skip_keyboard,
         log_prefix=req.log_prefix,
     )

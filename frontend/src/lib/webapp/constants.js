@@ -20,6 +20,7 @@ export const LANGUAGE_FLAGS = {
 export const WEBAPP_LANGUAGE_ORDER = ["ru", "en"];
 export const APP_SECTION_PATHS = {
   home: "/home",
+  install: "/install",
   invite: "/invite",
   devices: "/devices",
   support: "/support",

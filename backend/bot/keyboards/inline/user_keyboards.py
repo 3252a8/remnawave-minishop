@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from aiogram.types import InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
+from bot.utils.install_links import bot_install_guide_url
 from config.settings import Settings
 
 BOT_MENU_CONTEXT = "bot"
@@ -689,13 +690,29 @@ def get_connect_and_main_keyboard(
     config_link: Optional[str],
     connect_button_url: Optional[str] = None,
     preserve_message: bool = False,
+    install_share_url: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
     """Keyboard with a connect button and a back to main menu button."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
+    install_url = bot_install_guide_url(settings)
     button_target = connect_button_url or config_link
 
-    if button_target:
+    if install_url:
+        builder.row(
+            InlineKeyboardButton(
+                text=_("connect_button"),
+                web_app=WebAppInfo(url=install_url),
+            )
+        )
+        if install_share_url:
+            builder.row(
+                InlineKeyboardButton(
+                    text=_("install_guide_share_button"),
+                    url=install_share_url,
+                )
+            )
+    elif button_target:
         builder.row(InlineKeyboardButton(text=_("connect_button"), url=button_target))
     elif settings.SUBSCRIPTION_MINI_APP_URL:
         builder.row(

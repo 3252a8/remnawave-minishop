@@ -323,6 +323,35 @@ class Settings(BaseSettings):
     WEBAPP_FAVICON_USE_CUSTOM: bool = Field(default=False)
     WEBAPP_FAVICON_URL: Optional[str] = Field(default=None)
     WEBAPP_LOGO_FAVICON_URL: Optional[str] = Field(default=None)
+    SUBSCRIPTION_GUIDES_ENABLED: bool = Field(
+        default=True,
+        description="Show embedded install instructions inside the subscription Mini App.",
+    )
+    SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED: bool = Field(
+        default=True,
+        description=(
+            "Open Mini App install guides from Telegram bot connect buttons and show public "
+            "install guide share links."
+        ),
+    )
+    SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED: bool = Field(
+        default=True,
+        description=(
+            "Use Remnawave Panel Subscription Page config for embedded guides when available."
+        ),
+    )
+    SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED: bool = Field(
+        default=False,
+        description="Enable admin JSON override for embedded guides config.",
+    )
+    SUBSCRIPTION_PAGE_CONFIG_PATH: str = Field(
+        default="data/subpage-config/multiapp.json",
+        description="Path to Remnawave Subscription Page v1 JSON config for embedded guides.",
+    )
+    SUBSCRIPTION_PAGE_CONFIG_JSON: str = Field(
+        default="",
+        description="Admin-provided Remnawave Subscription Page v1 JSON config override.",
+    )
     WEBAPP_SESSION_SECRET: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     WEBHOOK_SECRET_TOKEN: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     WEBAPP_SESSION_TTL_SECONDS: int = Field(default=24 * 60 * 60)

@@ -597,6 +597,54 @@ class PanelApiService:
             return f"{base_sub_url}/{client_type.lower()}"
         return base_sub_url
 
+    async def get_subscription_page_config_by_short_uuid(
+        self,
+        short_uuid: str,
+        request_headers: Optional[Dict[str, str]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        if not short_uuid:
+            return None
+        endpoint = f"/subscriptions/subpage-config/{short_uuid}"
+        payload = {"requestHeaders": request_headers or {}}
+        response_data = await self._request(
+            "GET",
+            endpoint,
+            json=payload,
+            log_full_response=False,
+        )
+        if response_data and not response_data.get("error"):
+            return response_data.get("response", response_data)
+        logging.error(
+            f"Failed to get subscription page config for short UUID {short_uuid}. Response: {response_data}"  # noqa: E501
+        )
+        return None
+
+    async def get_subscription_page_config_list(self) -> Optional[Dict[str, Any]]:
+        endpoint = "/subscription-page-configs"
+        response_data = await self._request("GET", endpoint, log_full_response=False)
+        if response_data and not response_data.get("error"):
+            return response_data.get("response", response_data)
+        logging.error(
+            f"Failed to get subscription page config list from panel. Response: {response_data}"
+        )
+        return None
+
+    async def get_subscription_page_config_by_uuid(
+        self,
+        config_uuid: str,
+    ) -> Optional[Dict[str, Any]]:
+        config_uuid = str(config_uuid or "").strip()
+        if not config_uuid:
+            return None
+        endpoint = f"/subscription-page-configs/{config_uuid}"
+        response_data = await self._request("GET", endpoint, log_full_response=False)
+        if response_data and not response_data.get("error"):
+            return response_data.get("response", response_data)
+        logging.error(
+            f"Failed to get subscription page config {config_uuid} from panel. Response: {response_data}"  # noqa: E501
+        )
+        return None
+
     async def get_user_devices(self, user_uuid: str) -> Optional[List[Dict[str, Any]]]:
         if self._devices_cache.ttl_seconds <= 0:
             return await self._get_user_devices_uncached(user_uuid)

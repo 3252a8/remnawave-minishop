@@ -38,5 +38,8 @@
     "tailwindcss": "4.3.0",
     "uplot": "^1.6.32",
     "vite": "^8.0.12"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
   }
 }

@@ -27,6 +27,10 @@ from bot.keyboards.inline.user_keyboards import (
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service import SubscriptionService
+from bot.utils.install_links import (
+    append_install_share_link_text,
+    ensure_user_install_guide_links,
+)
 from config.settings import Settings
 from db.dal import subscription_dal, user_billing_dal
 from db.models import Subscription
@@ -1026,12 +1030,50 @@ async def my_subscription_command_handler(
         local_sub = await subscription_dal.get_active_subscription_by_user_id(
             session, event.from_user.id
         )
+        install_links = await ensure_user_install_guide_links(
+            session,
+            settings,
+            event.from_user.id,
+            local_subscription=local_sub,
+        )
+        install_url = install_links.personal_url
+        install_share_url = install_links.public_share_url
+        if install_share_url:
+            try:
+                await session.commit()
+                text = append_install_share_link_text(text, get_text, install_share_url)
+            except Exception:
+                await session.rollback()
+                logging.exception(
+                    "Failed to persist install guide share token for user %s.",
+                    event.from_user.id,
+                )
+                install_share_url = None
+
         # Build rows to prepend above the base "back" markup
         prepend_rows = []
 
         # 1) Connect button: prefer the actual subscription URL; fall back to mini-app
         cfg_link_val = connect_button_url or config_link_display
-        if cfg_link_val:
+        if install_url:
+            prepend_rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=get_text("connect_button"),
+                        web_app=WebAppInfo(url=install_url),
+                    )
+                ]
+            )
+            if install_share_url:
+                prepend_rows.append(
+                    [
+                        InlineKeyboardButton(
+                            text=get_text("install_guide_share_button"),
+                            url=install_share_url,
+                        )
+                    ]
+                )
+        elif cfg_link_val:
             prepend_rows.append(
                 [
                     InlineKeyboardButton(

@@ -26,6 +26,33 @@ a {
   padding-bottom: 86px;
 }
 
+.public-install-shell {
+  width: min(100%, 440px);
+  min-height: 100dvh;
+  margin: 0 auto;
+  overflow-x: hidden;
+  padding: max(16px, env(safe-area-inset-top)) max(var(--screen-gutter), var(--safe-inline))
+    max(18px, env(safe-area-inset-bottom)) max(var(--screen-gutter), var(--safe-inline));
+}
+
+.public-install-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 0 16px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.public-install-brand strong {
+  color: var(--accent);
+  font-size: 15px;
+  line-height: 1.2;
+}
+
 .loader {
   display: grid;
   min-height: 100dvh;
@@ -2267,6 +2294,26 @@ a {
     max-width: 1080px;
     margin-left: auto;
     margin-right: auto;
+  }
+
+  .public-install-shell {
+    width: auto;
+    max-width: none;
+    min-height: 100dvh;
+    margin: 0;
+    overflow-x: visible;
+    padding: max(28px, env(safe-area-inset-top)) var(--desktop-page-gutter) 40px;
+  }
+
+  .public-install-shell > .public-install-brand,
+  .public-install-shell > main {
+    max-width: 1080px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .public-install-shell > .public-install-brand {
+    width: min(100%, 1080px);
   }
 
   /* Auth screen: keep it as a focused card in the centre, hide rail. */

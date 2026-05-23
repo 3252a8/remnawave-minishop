@@ -129,3 +129,57 @@
 .theme-key-light .bonus-card-head > svg {
   color: color-mix(in srgb, var(--accent) 50%, #000000);
 }
+
+/* Install guide theme surfaces */
+
+.theme-key-light .install-platform-trigger,
+.theme-key-light .install-app-button,
+.theme-key-light .install-step,
+.theme-key-light .install-subscription-card,
+.theme-key-light .install-qr-wrap {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.055);
+}
+
+.theme-key-light .install-app-button.active {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, #ffffff);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.theme-key-light .install-platform-trigger:focus-visible,
+.theme-key-light .install-platform-trigger[data-state="open"],
+.theme-key-light .install-app-button:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+body:has(.theme-key-light) .install-platform-content {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.14);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+}
+
+body:has(.theme-key-light) .install-platform-item[data-highlighted],
+body:has(.theme-key-light) .install-platform-item[data-selected] {
+  background: color-mix(in srgb, var(--accent) 9%, #ffffff);
+}
+
+.theme-key-light .install-step-icon,
+.theme-key-light .install-subscription-header-icon {
+  background: color-mix(in srgb, var(--accent) 8%, #ffffff);
+  color: color-mix(in srgb, var(--accent) 55%, #000000);
+}
+
+.theme-key-light .install-qr-divider {
+  color: rgba(15, 23, 42, 0.24);
+}
+
+.theme-key-light .install-feature-star.attention-dot {
+  background: #f59e0b;
+}
+
+.theme-key-light .install-loading .ui-spinner {
+  color: color-mix(in srgb, var(--accent) 55%, #000000);
+}

@@ -9,6 +9,24 @@ from config.settings import Settings
 _WEBAPP_USER_PAYLOAD_CACHES: dict[tuple[int, str, int], AsyncTTLCache] = {}
 
 
+def reset_webapp_settings_cache(app: Any) -> None:
+    cache = app.get("webapp_settings_cache") if hasattr(app, "get") else None
+    if isinstance(cache, dict):
+        cache["ts"] = 0.0
+        cache["data"] = {}
+
+
+def reset_subscription_guides_cache(app: Any) -> None:
+    cache = app.get("subscription_guides_config_cache") if hasattr(app, "get") else None
+    if isinstance(cache, dict):
+        cache["fingerprint"] = None
+        cache["status"] = None
+
+
+def _payload_namespaces(include_devices: bool = False) -> tuple[str, ...]:
+    return ("me", "devices") if include_devices else ("me",)
+
+
 def _webapp_user_payload_cache(
     settings: Settings,
     namespace: str,
@@ -58,13 +76,22 @@ def invalidate_local_webapp_user_payload(
 def invalidate_all_local_webapp_user_payloads(
     settings: Settings,
     namespace: Optional[str] = None,
+    *,
+    include_devices: Optional[bool] = None,
 ) -> None:
+    if include_devices is not None:
+        namespaces: Optional[set[str]] = set(_payload_namespaces(include_devices))
+    elif namespace is not None:
+        namespaces = {namespace}
+    else:
+        namespaces = None
+
     for (settings_id, cache_namespace, _ttl), cache in tuple(
         _WEBAPP_USER_PAYLOAD_CACHES.items()
     ):
         if settings_id != id(settings):
             continue
-        if namespace is not None and cache_namespace != namespace:
+        if namespaces is not None and cache_namespace not in namespaces:
             continue
         cache.invalidate()
 
@@ -95,21 +122,23 @@ async def invalidate_webapp_user_caches(
         await cache_delete(settings, *keys)
 
 
+async def invalidate_all_webapp_user_payloads(
+    settings: Settings,
+    *,
+    include_devices: bool = False,
+) -> None:
+    for namespace in _payload_namespaces(include_devices):
+        invalidate_all_local_webapp_user_payloads(settings, namespace=namespace)
+        try:
+            pattern = redis_key(settings, "cache", "webapp", namespace, "*")
+            await cache_delete_pattern(settings, pattern)
+        except Exception:
+            continue
+
+
 async def invalidate_all_webapp_user_caches(
     settings: Settings,
     *,
     include_devices: bool = False,
 ) -> None:
-    namespaces = ["me"]
-    if include_devices:
-        namespaces.append("devices")
-
-    for namespace in namespaces:
-        invalidate_all_local_webapp_user_payloads(settings, namespace)
-        try:
-            await cache_delete_pattern(
-                settings,
-                redis_key(settings, "cache", "webapp", namespace, "*"),
-            )
-        except Exception:
-            continue
+    await invalidate_all_webapp_user_payloads(settings, include_devices=include_devices)

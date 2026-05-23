@@ -1,4 +1,6 @@
 import logging
+import re
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -8,6 +10,8 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from db.models import Subscription
+
+INSTALL_SHARE_TOKEN_BYTES = 16
 
 
 def _subscription_model_payload(sub_payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -40,6 +44,77 @@ async def get_subscription_by_panel_subscription_uuid(
     stmt = select(Subscription).where(Subscription.panel_subscription_uuid == panel_sub_uuid)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
+
+
+def normalize_install_share_token(value: Any) -> str:
+    token = str(value or "").strip().lower()
+    if not re.fullmatch(r"[a-f0-9]{32}", token):
+        return ""
+    return token
+
+
+async def get_subscription_by_install_share_token(
+    session: AsyncSession,
+    token: str,
+) -> Optional[Subscription]:
+    normalized = normalize_install_share_token(token)
+    if not normalized:
+        return None
+    stmt = select(Subscription).where(Subscription.install_share_token == normalized)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def ensure_install_share_token(
+    session: AsyncSession,
+    subscription: Subscription,
+) -> str:
+    raw_existing = str(getattr(subscription, "install_share_token", "") or "").strip()
+    existing = normalize_install_share_token(raw_existing)
+    if existing:
+        if existing != getattr(subscription, "install_share_token", None):
+            subscription.install_share_token = existing
+            await session.flush()
+        return existing
+
+    subscription_id = getattr(subscription, "subscription_id", None)
+    for _attempt in range(10):
+        token = secrets.token_hex(INSTALL_SHARE_TOKEN_BYTES)
+        if await get_subscription_by_install_share_token(session, token):
+            continue
+        if subscription_id:
+            result = await session.execute(
+                update(Subscription)
+                .where(
+                    Subscription.subscription_id == subscription_id,
+                    or_(
+                        Subscription.install_share_token.is_(None),
+                        Subscription.install_share_token == "",
+                        Subscription.install_share_token == raw_existing,
+                    ),
+                )
+                .values(install_share_token=token)
+            )
+            await session.flush()
+            if result.rowcount:
+                await session.refresh(subscription)
+                return normalize_install_share_token(
+                    getattr(subscription, "install_share_token", None)
+                ) or token
+
+            await session.refresh(subscription)
+            raw_existing = str(getattr(subscription, "install_share_token", "") or "").strip()
+            existing = normalize_install_share_token(raw_existing)
+            if existing:
+                return existing
+            continue
+
+        subscription.install_share_token = token
+        await session.flush()
+        await session.refresh(subscription)
+        return token
+
+    raise RuntimeError("Failed to generate a unique install share token")
 
 
 async def get_active_subscriptions_for_user(

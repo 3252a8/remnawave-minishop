@@ -149,6 +149,12 @@
 .theme-key-ascii .ticket-message-avatar,
 .theme-key-ascii .ticket-message-bubble,
 .theme-key-ascii .ticket-composer,
+.theme-key-ascii .install-platform-trigger,
+.theme-key-ascii .install-app-button,
+.theme-key-ascii .install-step,
+.theme-key-ascii .install-subscription-card,
+.theme-key-ascii .install-qr-wrap,
+.theme-key-ascii .install-loading,
 .theme-key-ascii .admin-sidebar,
 .theme-key-ascii .admin-header,
 .theme-key-ascii .admin-card,
@@ -183,6 +189,8 @@
 .theme-key-ascii .support-new-ticket-button,
 .theme-key-ascii .support-select-trigger,
 .theme-key-ascii .support-status-tabs-trigger,
+.theme-key-ascii .install-platform-trigger,
+.theme-key-ascii .install-app-button,
 .theme-key-ascii .admin-btn,
 .theme-key-ascii .admin-chip,
 .theme-key-ascii .admin-tabs-trigger,
@@ -230,6 +238,7 @@
 .theme-key-ascii .support-status-tabs-trigger[data-state="active"],
 .theme-key-ascii .support-select-item[data-highlighted],
 .theme-key-ascii .support-select-item[data-selected],
+.theme-key-ascii .install-app-button.active,
 .theme-key-ascii .admin-nav-item.active,
 .theme-key-ascii .admin-tabs-trigger[data-state="active"],
 .theme-key-ascii .admin-revenue-period-btn.is-active {
@@ -259,6 +268,9 @@
 .theme-key-ascii .admin-revenue-period-btn:focus-visible,
 .theme-key-ascii .admin-mobile-toggle:focus-visible,
 .theme-key-ascii .language-select-trigger:focus-visible,
+.theme-key-ascii .install-platform-trigger:focus-visible,
+.theme-key-ascii .install-platform-trigger[data-state="open"],
+.theme-key-ascii .install-app-button:focus-visible,
 .theme-key-ascii .bottom-nav button:focus-visible {
   outline: 2px solid #ffffff;
   outline-offset: 1px;
@@ -412,6 +424,7 @@
 }
 
 body:has(.theme-key-ascii) .support-select-content,
+body:has(.theme-key-ascii) .install-platform-content,
 body:has(.theme-key-ascii) .field-error-tooltip {
   border: 1px solid #ffffff;
   border-radius: 0;
@@ -420,19 +433,24 @@ body:has(.theme-key-ascii) .field-error-tooltip {
   box-shadow: 0 0 0 1px #ffffff;
 }
 
-body:has(.theme-key-ascii) .support-select-item {
+body:has(.theme-key-ascii) .support-select-item,
+body:has(.theme-key-ascii) .install-platform-item {
   border-radius: 0;
   color: #ffffff;
 }
 
 body:has(.theme-key-ascii) .support-select-item[data-highlighted],
-body:has(.theme-key-ascii) .support-select-item[data-selected] {
+body:has(.theme-key-ascii) .support-select-item[data-selected],
+body:has(.theme-key-ascii) .install-platform-item[data-highlighted],
+body:has(.theme-key-ascii) .install-platform-item[data-selected] {
   background: #ffffff;
   color: #000000 !important;
 }
 
 body:has(.theme-key-ascii) .support-select-item[data-highlighted] svg,
-body:has(.theme-key-ascii) .support-select-item[data-selected] svg {
+body:has(.theme-key-ascii) .support-select-item[data-selected] svg,
+body:has(.theme-key-ascii) .install-platform-item[data-highlighted] svg,
+body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
   color: #000000 !important;
   stroke: #000000 !important;
 }
@@ -695,7 +713,8 @@ body:has(.theme-key-ascii) .support-select-item[data-selected] svg {
 .theme-key-ascii .admin-btn-primary svg.lucide,
 .theme-key-ascii .admin-nav-item.active svg.lucide,
 .theme-key-ascii .admin-tabs-trigger[data-state="active"] svg.lucide,
-.theme-key-ascii .admin-revenue-period-btn.is-active svg.lucide {
+.theme-key-ascii .admin-revenue-period-btn.is-active svg.lucide,
+.theme-key-ascii .install-app-button.active svg.lucide {
   color: #000000 !important;
   stroke: #000000 !important;
 }
@@ -1050,6 +1069,9 @@ body:has(.theme-key-ascii) .support-select-item[data-selected] svg {
   .language-select-content, .language-select-item,
   .language-select-trigger, .bottom-nav, .bottom-nav button,
   .link-button,
+  .install-platform-trigger, .install-platform-content, .install-platform-item,
+  .install-app-button, .install-step, .install-subscription-card,
+  .install-qr-wrap, .install-subscription-header-icon, .install-loading,
   .support-overview-card, .support-list-card, .support-ticket-card,
   .support-conversation-card, .support-new-ticket-button,
   .support-create-panel, .support-select-trigger, .support-select-content,
@@ -1083,6 +1105,9 @@ body:has(.theme-key-ascii) .support-select-item[data-selected] svg {
   .admin-tariff-card, .admin-toolbar-card, .admin-table-card,
   .admin-panel-dash-card,
   .admin-select-trigger, .admin-select-content,
+  .install-platform-trigger, .install-platform-content,
+  .install-app-button, .install-step, .install-subscription-card,
+  .install-qr-wrap, .install-loading,
   .admin-cn-card,
   .admin-input, .admin-textarea, .admin-btn,
   .admin-nav-item, .admin-tabs-trigger
@@ -1094,6 +1119,71 @@ body:has(.theme-key-ascii) .support-select-item[data-selected] svg {
 .theme-key-ascii .admin-avatar,
 .theme-key-ascii .admin-skeleton-avatar {
   border-radius: 0 !important;
+}
+
+/* ---------- Install guide theme surfaces ---------- */
+
+.theme-key-ascii .install-platform-trigger,
+.theme-key-ascii .install-app-button,
+.theme-key-ascii .install-step,
+.theme-key-ascii .install-subscription-card,
+.theme-key-ascii .install-qr-wrap,
+.theme-key-ascii .install-loading,
+body:has(.theme-key-ascii) .install-platform-content {
+  border: 1px solid #ffffff !important;
+  border-radius: 0 !important;
+  background: #000000 !important;
+  box-shadow: none !important;
+}
+
+.theme-key-ascii .install-platform-trigger:hover,
+.theme-key-ascii .install-app-button:hover:not(:disabled) {
+  background: #ffffff !important;
+  color: #000000 !important;
+  transform: none !important;
+}
+
+.theme-key-ascii .install-app-button.active,
+.theme-key-ascii .install-app-button.active:hover:not(:disabled),
+body:has(.theme-key-ascii) .install-platform-item[data-highlighted],
+body:has(.theme-key-ascii) .install-platform-item[data-selected] {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+}
+
+.theme-key-ascii .install-app-button.active svg,
+body:has(.theme-key-ascii) .install-platform-item[data-highlighted] svg,
+body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
+
+.theme-key-ascii .install-step:hover,
+.theme-key-ascii .install-subscription-card:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.theme-key-ascii .install-step-icon,
+.theme-key-ascii .install-subscription-header-icon {
+  border: 1px solid currentColor !important;
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+
+.theme-key-ascii .install-qr-divider {
+  color: #ffffff !important;
+  opacity: 0.72;
+}
+
+.theme-key-ascii .install-feature-star.attention-dot {
+  background: #ffffff !important;
+  animation: ascii-caret 1s steps(1) infinite !important;
+}
+
+.theme-key-ascii .install-loading .ui-spinner {
+  color: #ffffff;
 }
 
 /* ============================================================

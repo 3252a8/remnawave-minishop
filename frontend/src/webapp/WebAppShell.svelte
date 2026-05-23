@@ -23,7 +23,7 @@
 </script>
 
 <div class="phone-screen" class:home-screen={screen === "home"}>
-  {#if screen === "invite" || screen === "devices" || screen === "support" || screen === "settings"}
+  {#if screen === "install" || screen === "invite" || screen === "devices" || screen === "support" || screen === "settings"}
     <header class="app-header accent-title">
       <div class="brand-row">
         <BrandMark {brand} />

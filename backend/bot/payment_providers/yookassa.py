@@ -36,6 +36,10 @@ from bot.services.panel_api_service import PanelApiService
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
 from bot.utils.config_link import prepare_config_links
+from bot.utils.install_links import (
+    append_install_share_link_text,
+    ensure_user_install_guide_links,
+)
 from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
 from db.dal import payment_dal, user_billing_dal, user_dal
@@ -741,6 +745,16 @@ async def process_successful_payment(
                 )
             )
             include_keyboard = True
+
+        install_share_url = None
+        if include_keyboard:
+            install_links = await ensure_user_install_guide_links(session, settings, user_id)
+            install_share_url = install_links.public_share_url
+            details_message = append_install_share_link_text(
+                details_message,
+                translator,
+                install_share_url,
+            )
         await send_success_message_to_user(
             bot=bot,
             user_id=user_id,
@@ -750,6 +764,7 @@ async def process_successful_payment(
             settings=settings,
             config_link_display=config_link_display,
             connect_button_url=connect_button_url,
+            install_share_url=install_share_url,
             include_keyboard=include_keyboard,
             log_prefix="YooKassa webhook",
         )
