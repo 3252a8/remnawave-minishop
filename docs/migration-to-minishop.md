@@ -4,17 +4,25 @@
 
 Если вы используете только готовые Docker-образы и не собираете проект
 локально, git-команды из ручного способа не нужны. Достаточно обновить
-compose-файл до варианта с готовыми образами (`deploy/compose/docker-compose-remote-server.yml`)
-и перенести/обновить БД.
+compose-файл до одного из готовых примеров в `deploy/examples` и
+перенести/обновить БД. Самый прямой вариант без встроенного reverse proxy -
+`deploy/examples/no-proxy/docker-compose.yml`; для Caddy, Nginx и Newt есть
+такие же самостоятельные папки.
 
 Минимальная последовательность:
 
 ```bash
 docker compose down
 
-# Замените compose-файл на актуальный вариант для готовых образов.
-# Если файл лежит рядом, можно запускать его явно:
-IMAGE_TAG=3.4.0 docker compose -f deploy/compose/docker-compose-remote-server.yml up --no-start
+# Скопируйте старый .env в выбранную папку примера и обновите значения там.
+cp .env deploy/examples/no-proxy/.env
+nano deploy/examples/no-proxy/.env
+
+# Подготовьте стек из готовых образов.
+IMAGE_TAG=3.4.0 docker compose \
+  --env-file deploy/examples/no-proxy/.env \
+  -f deploy/examples/no-proxy/docker-compose.yml \
+  up --no-start
 
 # Нужно только при переходе со старого имени volume remnawave-tg-shop-db-data.
 # Если у вас уже есть remnawave-minishop-db-data, этот шаг пропустите.
@@ -23,8 +31,14 @@ docker run --rm \
   -v remnawave-minishop-db-data:/to \
   alpine sh -c "cd /from && cp -a . /to"
 
-IMAGE_TAG=3.4.0 docker compose -f deploy/compose/docker-compose-remote-server.yml up -d
-docker compose -f deploy/compose/docker-compose-remote-server.yml logs migrate
+IMAGE_TAG=3.4.0 docker compose \
+  --env-file deploy/examples/no-proxy/.env \
+  -f deploy/examples/no-proxy/docker-compose.yml \
+  up -d
+docker compose \
+  --env-file deploy/examples/no-proxy/.env \
+  -f deploy/examples/no-proxy/docker-compose.yml \
+  logs migrate
 ```
 
 Сервис `migrate` сам применит недостающие схемные миграции к перенесённому
@@ -61,7 +75,7 @@ docker compose -f deploy/compose/docker-compose-remote-server.yml logs migrate
 
 - старые тома **не удаляются** автоматически — это безопасный бэкап на случай
   отката;
-- сертификаты Caddy (если используется `deploy/compose/docker-compose-caddy.yml`)
+- сертификаты Caddy (если используется `deploy/examples/caddy/docker-compose.yml`)
   тоже переносятся, чтобы Let's Encrypt не выписывал их заново и не упереться
   в rate limit;
 - схема БД обновляется автоматически: при первом `docker compose up -d` сервис
@@ -89,7 +103,7 @@ docker compose -f deploy/compose/docker-compose-remote-server.yml logs migrate
 | `remnawave-minishop-db-data` | переименовать из `remnawave-tg-shop-db-data` | переносится скриптом | PostgreSQL |
 | `remnawave-minishop-redis-data` | — | создаётся пустым | Redis (FSM, rate-limit, cache, очередь webhooks, distributed locks) |
 | `remnawave-minishop-shop-data` | — | создаётся пустым | `/app/data`: `tariffs.json`, темы Web App, кэш логотипа/emoji |
-| `remnawave-minishop-caddy-data` / `…-caddy-config` | переименовать из `remnawave-tg-shop-caddy-*` | переносится скриптом | только при Caddy-варианте |
+| `remnawave-minishop-caddy-data` / `remnawave-minishop-caddy-config` | переименовать из `remnawave-tg-shop-caddy-*` | переносится скриптом | только при Caddy-варианте |
 
 `redis-data` и `shop-data` стартуют пустыми — это нормально. Redis ничего
 долгоживущего не хранит (всё либо FSM, либо кеш с TTL), а `data/` инициализируется
@@ -152,8 +166,10 @@ bash scripts/migrate_to_minishop.sh
 Примеры:
 
 ```bash
-# Caddy-вариант из raw
-COMPOSE_FILE=deploy/compose/docker-compose-caddy.yml \
+# Caddy-вариант из raw.
+# Перед запуском скопируйте старый .env в deploy/examples/caddy/.env
+# и заполните WEBHOOK_HOST / MINIAPP_HOST.
+COMPOSE_FILE=deploy/examples/caddy/docker-compose.yml \
   bash <(curl -fsSL https://raw.githubusercontent.com/3252a8/remnawave-minishop/main/scripts/migrate_to_minishop.sh)
 
 # С переключением origin на форк 3252a8
@@ -238,11 +254,18 @@ docker volume rm remnawave-tg-shop-caddy-data remnawave-tg-shop-caddy-config 2>/
     # Локальная сборка
     docker compose up --no-start --build
 
-    # Или Caddy-вариант
-    docker compose -f deploy/compose/docker-compose-caddy.yml up --no-start
+    # Или готовый Caddy-вариант из GHCR-образов
+    cp .env deploy/examples/caddy/.env
+    nano deploy/examples/caddy/.env
+    docker compose \
+      --env-file deploy/examples/caddy/.env \
+      -f deploy/examples/caddy/docker-compose.yml \
+      up --no-start
 
-    # Или готовый образ
-    docker compose -f deploy/compose/docker-compose-remote-server.yml up --no-start
+    # Другие готовые варианты:
+    # deploy/examples/nginx/docker-compose.yml
+    # deploy/examples/newt/docker-compose.yml
+    # deploy/examples/no-proxy/docker-compose.yml
     ```
 
 5.  **Перенесите том БД в новое имя:**
@@ -275,9 +298,10 @@ docker volume rm remnawave-tg-shop-caddy-data remnawave-tg-shop-caddy-config 2>/
     ```bash
     docker compose up -d
     # или
-    docker compose -f deploy/compose/docker-compose-caddy.yml up -d
-    # или
-    docker compose -f deploy/compose/docker-compose-remote-server.yml up -d
+    docker compose \
+      --env-file deploy/examples/caddy/.env \
+      -f deploy/examples/caddy/docker-compose.yml \
+      up -d
     ```
 
     Сервис `migrate` запустится первым, обнаружит перенесённый том,
@@ -332,11 +356,12 @@ server {
 }
 ```
 
-Полные примеры (Caddy, Newt/Pangolin) — в [docs/deployment.md](deployment.md)
-и [docs/webapp.md](webapp.md). Если раньше прокси указывал на
+Полные примеры (Caddy, Nginx, Newt/Pangolin и запуск без reverse proxy) — в
+[docs/deployment.md](deployment.md), [docs/webapp.md](webapp.md) и папке
+[`deploy/examples`](../deploy/examples). Если раньше прокси указывал на
 `remnawave-tg-shop:8000` напрямую, после миграции нужно либо переключиться на
-`backend:8080` / `frontend:80`, либо использовать встроенный Caddy-вариант,
-который уже знает правильную маршрутизацию.
+`backend:8080` / `frontend:80`, либо использовать готовый Caddy/Nginx/Newt
+пример, который уже знает правильную маршрутизацию.
 
 ## Если что-то пошло не так
 

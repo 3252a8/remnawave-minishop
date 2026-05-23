@@ -1,14 +1,25 @@
+x-app-env-file: &app_env_file
+  - ${APP_ENV_FILE:-.env}
+
+x-app-environment: &app_environment
+  IMAGE_TAG: ${IMAGE_TAG:-latest}
+  POSTGRES_HOST: postgres
+  REDIS_URL: redis://redis:6379/0
+  WEBHOOK_BASE_URL: https://${WEBHOOK_HOST:?set WEBHOOK_HOST in .env}
+  SUBSCRIPTION_MINI_APP_URL: https://${MINIAPP_HOST:?set MINIAPP_HOST in .env}/
+
 services:
   postgres:
     image: postgres:17
-    container_name: remnawave-minishop-postgres
-    env_file:
-      - ${APP_ENV_FILE:-../../.env}
-    volumes:
-      - remnawave-minishop-db-data:/var/lib/postgresql/data
-    networks:
-      - remnawave-network
     restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - remnawave-shop
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -17,13 +28,12 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: remnawave-minishop-redis
+    restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
-      - remnawave-minishop-redis-data:/data
+      - redis-data:/data
     networks:
-      - remnawave-network
-    restart: unless-stopped
+      - remnawave-shop
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -31,19 +41,16 @@ services:
       retries: 20
 
   migrate:
-    container_name: remnawave-minishop-migrate
     image: ghcr.io/3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
+    restart: "no"
     command: ["python", "backend/main_migrate.py"]
-    env_file:
-      - ${APP_ENV_FILE:-../../.env}
+    env_file: *app_env_file
     environment:
-      IMAGE_TAG: ${IMAGE_TAG:-latest}
-      POSTGRES_HOST: postgres
-      REDIS_URL: redis://redis:6379/0
+      <<: *app_environment
     volumes:
       - shop-data:/app/data
     networks:
-      - remnawave-network
+      - remnawave-shop
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,21 +58,17 @@ services:
         condition: service_healthy
 
   backend:
-    container_name: remnawave-minishop-backend
     image: ghcr.io/3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
-    env_file:
-      - ${APP_ENV_FILE:-../../.env}
+    restart: unless-stopped
+    env_file: *app_env_file
     environment:
-      IMAGE_TAG: ${IMAGE_TAG:-latest}
-      POSTGRES_HOST: postgres
-      REDIS_URL: redis://redis:6379/0
-      WEBAPP_ENABLED: "true"
+      <<: *app_environment
+      WEBAPP_ENABLED: ${WEBAPP_ENABLED:-true}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.1,::1,172.16.0.0/12}
     volumes:
       - shop-data:/app/data
     networks:
-      - remnawave-network
-    restart: unless-stopped
+      - remnawave-shop
     depends_on:
       postgres:
         condition: service_healthy
@@ -81,19 +84,15 @@ services:
       start_period: 30s
 
   worker:
-    container_name: remnawave-minishop-worker
     image: ghcr.io/3252a8/remnawave-minishop-worker:${IMAGE_TAG:-latest}
-    env_file:
-      - ${APP_ENV_FILE:-../../.env}
+    restart: unless-stopped
+    env_file: *app_env_file
     environment:
-      IMAGE_TAG: ${IMAGE_TAG:-latest}
-      POSTGRES_HOST: postgres
-      REDIS_URL: redis://redis:6379/0
+      <<: *app_environment
     volumes:
       - shop-data:/app/data
     networks:
-      - remnawave-network
-    restart: unless-stopped
+      - remnawave-shop
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,15 +102,13 @@ services:
         condition: service_completed_successfully
 
   frontend:
-    container_name: remnawave-minishop-frontend
     image: ghcr.io/3252a8/remnawave-minishop-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
     environment:
       IMAGE_TAG: ${IMAGE_TAG:-latest}
-      FRONTEND_PORT: ${FRONTEND_PORT:-8082}
-      FRONTEND_PUBLIC: via caddy
+      FRONTEND_PUBLIC: https://${MINIAPP_HOST:?set MINIAPP_HOST in .env}/
     networks:
-      - remnawave-network
-    restart: unless-stopped
+      - remnawave-shop
     depends_on:
       backend:
         condition: service_healthy
@@ -121,36 +118,29 @@ services:
       timeout: 5s
       retries: 5
 
-  caddy:
-    image: caddy:2-alpine
-    container_name: remnawave-minishop-caddy
-    depends_on:
-      frontend:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
-    ports:
-      - "${HTTP_BIND:-0.0.0.0:80}:80"
-      - "${HTTPS_BIND:-0.0.0.0:443}:443"
-    volumes:
-      - ../docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    networks:
-      - remnawave-network
+  newt:
+    image: fosrl/newt:latest
     restart: unless-stopped
+    environment:
+      PANGOLIN_ENDPOINT: ${PANGOLIN_ENDPOINT:?set PANGOLIN_ENDPOINT in .env}
+      NEWT_ID: ${NEWT_ID:?set NEWT_ID in .env}
+      NEWT_SECRET: ${NEWT_SECRET:?set NEWT_SECRET in .env}
+      HEALTH_FILE: /tmp/healthy
+    networks:
+      - remnawave-shop
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
 
 networks:
-  remnawave-network:
+  remnawave-shop:
 
 volumes:
-  remnawave-minishop-db-data:
+  postgres-data:
     name: remnawave-minishop-db-data
-  remnawave-minishop-redis-data:
+  redis-data:
     name: remnawave-minishop-redis-data
   shop-data:
     name: remnawave-minishop-shop-data
-  caddy-data:
-    name: remnawave-minishop-caddy-data
-  caddy-config:
-    name: remnawave-minishop-caddy-config

@@ -122,59 +122,24 @@ Email-вход работает через одноразовый код:
 
 ## Проксирование
 
-Web App должен проксироваться отдельно от вебхуков:
+Рекомендуемая production-схема - два публичных домена:
 
-```nginx
-upstream remnawave_frontend {
-    server frontend:80;
-}
+- `WEBHOOK_BASE_URL`, например `https://webhooks.domain.com`, целиком проксируется в `backend:8080`;
+- `SUBSCRIPTION_MINI_APP_URL`, например `https://app.domain.com/`, целиком проксируется в `frontend:80`.
 
-upstream remnawave_backend_webapp {
-    server backend:8081;
-}
+`frontend` уже сам проксирует `/api/*`, `/auth/*`, `/webapp-logo` и ассеты тем/логотипов во внутренний
+WebApp API на `backend:8081`, поэтому внешний reverse proxy обычно не должен отправлять эти пути в
+`backend:8081` напрямую.
 
-upstream remnawave_backend_webhooks {
-    server backend:8080;
-}
+Готовые примеры лежат в [`deploy/examples`](../deploy/examples):
 
-server {
-    server_name app.domain.com;
-    listen 443 ssl;
-    http2 on;
+- `caddy` - Caddy с автоматическим HTTPS;
+- `nginx` - Nginx с сертификатами в соседней папке `ssl/`;
+- `newt` - Pangolin/Newt;
+- `no-proxy` - прямая публикация портов для проверки или внешней TLS-платформы.
 
-    ssl_certificate "/etc/nginx/ssl/app_fullchain.pem";
-    ssl_certificate_key "/etc/nginx/ssl/app_privkey.key";
-
-    location / {
-        proxy_pass http://remnawave_frontend;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location ~ ^/(api|auth)/ {
-        proxy_pass http://remnawave_backend_webapp;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location /webhook/ {
-        proxy_pass http://remnawave_backend_webhooks;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-В default `docker-compose.yml` наружу публикуются `frontend` и webhook/backend port, а внутри Docker network сервисы доступны друг другу по service DNS names:
+В default `docker-compose.yml` наружу публикуются `frontend` и webhook/backend port, а внутри Docker
+network сервисы доступны друг другу по service DNS names:
 
 ```yaml
 services:

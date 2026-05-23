@@ -109,12 +109,17 @@ docker compose up -d --build
 # Логи приложения
 docker compose logs -f backend worker frontend
 
-# Запуск с Caddy
-docker compose -f deploy/compose/docker-compose-caddy.yml up -d
+# Готовые production-примеры
+cd deploy/examples/caddy      # или nginx, newt, no-proxy
+cp .env.example .env
+nano .env
+docker compose up -d
 
-# Запуск из готового образа
-IMAGE_TAG=3.1.0 docker compose -f deploy/compose/docker-compose-remote-server.yml up -d
+# Запуск из готового образа с конкретным тегом
+IMAGE_TAG=3.1.0 docker compose up -d
 ```
+
+Для production-запуска удобнее брать готовые папки из [`deploy/examples`](deploy/examples): там отдельно собраны варианты для Caddy, Nginx, Newt/Pangolin и прямой публикации портов без reverse proxy. В каждой папке рядом лежат `docker-compose.yml`, `.env.example`, README и нужный proxy-конфиг.
 
 GHCR image names for releases:
 

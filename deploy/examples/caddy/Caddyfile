@@ -1,0 +1,19 @@
+# Domains are read from .env:
+#   WEBHOOK_HOST=webhooks.example.com
+#   MINIAPP_HOST=app.example.com
+#
+# If you prefer hardcoded hostnames, replace {$WEBHOOK_HOST} and
+# {$MINIAPP_HOST} with your real domains.
+
+{$WEBHOOK_HOST} {
+	encode zstd gzip
+
+	reverse_proxy backend:8080
+}
+
+{$MINIAPP_HOST} {
+	encode zstd gzip
+
+	reverse_proxy frontend:80
+}
+

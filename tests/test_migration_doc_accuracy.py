@@ -22,8 +22,10 @@ DOC_PATH = REPO_ROOT / "docs" / "migration-to-minishop.md"
 SCRIPT_PATH = REPO_ROOT / "scripts" / "migrate_to_minishop.sh"
 COMPOSE_FILES = (
     REPO_ROOT / "docker-compose.yml",
-    REPO_ROOT / "deploy" / "compose" / "docker-compose-caddy.yml",
-    REPO_ROOT / "deploy" / "compose" / "docker-compose-remote-server.yml",
+    REPO_ROOT / "deploy" / "examples" / "caddy" / "docker-compose.yml",
+    REPO_ROOT / "deploy" / "examples" / "nginx" / "docker-compose.yml",
+    REPO_ROOT / "deploy" / "examples" / "newt" / "docker-compose.yml",
+    REPO_ROOT / "deploy" / "examples" / "no-proxy" / "docker-compose.yml",
 )
 
 # Names that the current architecture must produce in at least one compose file.
@@ -223,8 +225,10 @@ class DocComposeFileReferencesTests(unittest.TestCase):
         doc = _read(DOC_PATH)
         for relpath in (
             "docker-compose.yml",
-            "deploy/compose/docker-compose-caddy.yml",
-            "deploy/compose/docker-compose-remote-server.yml",
+            "deploy/examples/caddy/docker-compose.yml",
+            "deploy/examples/nginx/docker-compose.yml",
+            "deploy/examples/newt/docker-compose.yml",
+            "deploy/examples/no-proxy/docker-compose.yml",
         ):
             with self.subTest(path=relpath):
                 self.assertIn(relpath, doc)
