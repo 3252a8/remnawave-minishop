@@ -8,7 +8,7 @@ from bot.payment_providers import yookassa
 class _I18n:
     def gettext(self, _lang, key, **kwargs):
         if key == "payment_successful_hwid_devices_full":
-            return f"HWID +{kwargs['count']} {kwargs['config_link']}"
+            return f"HWID +{kwargs['count']}"
         if key == "config_link_not_available":
             return "n/a"
         return key

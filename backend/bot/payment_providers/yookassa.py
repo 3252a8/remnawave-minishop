@@ -36,10 +36,7 @@ from bot.services.panel_api_service import PanelApiService
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
 from bot.utils.config_link import prepare_config_links
-from bot.utils.install_links import (
-    append_install_share_link_text,
-    ensure_user_install_guide_links,
-)
+from bot.utils.install_links import ensure_user_install_guide_links
 from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
 from db.dal import payment_dal, user_billing_dal, user_dal
@@ -784,7 +781,6 @@ async def process_successful_payment(
         config_link_display, connect_button_url = await prepare_config_links(
             settings, activation_details.get("subscription_url") if activation_details else None
         )
-        config_link_text = config_link_display or _("config_link_not_available")
         # Auto-renew charges show a concise message and skip the connect keyboard, so
         # they bypass the shared success-message builder.
         if sale_mode_base == "subscription" and is_auto_renew and final_end_date_for_user:
@@ -823,7 +819,6 @@ async def process_successful_payment(
                     ),
                     base_end_date=base_subscription_end_date,
                     final_end_date=final_end_date_for_user,
-                    config_link_text=config_link_text,
                     applied_referee_bonus_days=applied_referee_bonus_days_from_referral or 0,
                     applied_promo_bonus_days=applied_promo_bonus_days,
                     inviter_name=inviter_name,
@@ -836,11 +831,6 @@ async def process_successful_payment(
         if include_keyboard:
             install_links = await ensure_user_install_guide_links(session, settings, user_id)
             install_share_url = install_links.public_share_url
-            details_message = append_install_share_link_text(
-                details_message,
-                translator,
-                install_share_url,
-            )
         await send_success_message_to_user(
             bot=bot,
             user_id=user_id,

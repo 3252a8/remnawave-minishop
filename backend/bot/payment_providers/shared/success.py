@@ -11,10 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.keyboards.inline.user_keyboards import get_connect_and_main_keyboard
 from bot.services.notification_service import NotificationService
 from bot.utils.config_link import prepare_config_links
-from bot.utils.install_links import (
-    append_install_share_link_text,
-    ensure_user_install_guide_links,
-)
+from bot.utils.install_links import ensure_user_install_guide_links
 from bot.utils.text_sanitizer import sanitize_display_name, username_for_display
 from db.dal import payment_dal, user_dal
 from db.models import Payment, User
@@ -75,7 +72,6 @@ class SuccessMessage:
     months: Any
     base_end_date: Optional[datetime]
     final_end_date: Optional[datetime]
-    config_link_text: str
     applied_referee_bonus_days: int = 0
     applied_promo_bonus_days: int = 0
     inviter_name: Optional[str] = None
@@ -102,13 +98,11 @@ def build_success_message(payload: SuccessMessage) -> str:
             "payment_successful_traffic_full",
             traffic_gb=format_human_units(payload.months),
             end_date=end_text,
-            config_link=payload.config_link_text,
         )
     if base in _HWID_DEVICE_MODES:
         return _(
             "payment_successful_hwid_devices_full",
             count=format_human_units(payload.months),
-            config_link=payload.config_link_text,
         )
     if payload.applied_referee_bonus_days and payload.final_end_date:
         base_end_text = _fmt_date(payload.base_end_date or payload.final_end_date, end_text)
@@ -119,7 +113,6 @@ def build_success_message(payload: SuccessMessage) -> str:
             bonus_days=payload.applied_referee_bonus_days,
             final_end_date=end_text,
             inviter_name=payload.inviter_name or _("friend_placeholder"),
-            config_link=payload.config_link_text,
         )
     if payload.applied_promo_bonus_days and payload.final_end_date:
         return _(
@@ -127,13 +120,11 @@ def build_success_message(payload: SuccessMessage) -> str:
             months=payload.months,
             bonus_days=payload.applied_promo_bonus_days,
             end_date=end_text,
-            config_link=payload.config_link_text,
         )
     return _(
         "payment_successful_full",
         months=payload.months,
         end_date=end_text,
-        config_link=payload.config_link_text,
     )
 
 
@@ -314,7 +305,6 @@ async def finalize_successful_payment(
     config_link_display, connect_button_url = await prepare_config_links(
         req.settings, raw_config_link
     )
-    config_link_text = config_link_display or translator("config_link_not_available")
 
     base_end_date = activation.get("end_date") if activation else None
     final_end_date = base_end_date
@@ -338,7 +328,6 @@ async def finalize_successful_payment(
             ),
             base_end_date=base_end_date,
             final_end_date=final_end_date,
-            config_link_text=config_link_text,
             applied_referee_bonus_days=applied_referee_bonus_days,
             applied_promo_bonus_days=applied_promo_bonus_days,
             inviter_name=inviter_name,
@@ -358,11 +347,6 @@ async def finalize_successful_payment(
         if install_share_url:
             try:
                 await req.session.commit()
-                success_text = append_install_share_link_text(
-                    success_text,
-                    translator,
-                    install_share_url,
-                )
             except Exception:
                 await req.session.rollback()
                 logging.exception(
