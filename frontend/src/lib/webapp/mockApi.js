@@ -751,7 +751,7 @@ export async function mockApi(path, options = {}, context = {}) {
     return { ok: true, ticket, messages: clone(supportMessages[ticket.ticket_id] || []) };
   }
   if (cleanPath === "/support/unread") return { ok: true, unread: 1 };
-  if (path === "/me") return clone(DEV_MOCK.data);
+  if (cleanPath === "/me") return clone(DEV_MOCK.data);
   if (path === "/subscription-guides") return clone(DEV_MOCK.data.subscription_guides);
   if (cleanPath.startsWith("/subscription-guides/public/")) {
     const shareToken = decodeURIComponent(cleanPath.split("/").pop() || "");

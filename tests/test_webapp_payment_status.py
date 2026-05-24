@@ -2,9 +2,21 @@ from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
+import bot.app.web.subscription_webapp  # noqa: F401
 from bot.app.web.webapp import billing as billing_module
 from bot.payment_providers.base import WebAppPaymentContext
 from bot.payment_providers.yookassa import create_webapp_payment
+
+
+class _SessionFactory:
+    def __call__(self):
+        return self
+
+    async def __aenter__(self):
+        return SimpleNamespace()
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
 
 
 class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
@@ -123,3 +135,34 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
             yookassa_service.create_payment.await_args.kwargs["save_payment_method"],
             False,
         )
+
+    async def test_payment_status_invalidates_profile_cache_for_succeeded_payment(self):
+        settings = SimpleNamespace()
+        payment = SimpleNamespace(payment_id=42, user_id=1001, status="succeeded")
+        request = SimpleNamespace(
+            app={"settings": settings, "async_session_factory": _SessionFactory()},
+            match_info={"payment_id": "42"},
+        )
+
+        with (
+            patch.object(billing_module, "_require_user_id", return_value=1001),
+            patch.object(
+                billing_module.payment_dal,
+                "get_payment_by_db_id",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                billing_module,
+                "_refresh_yookassa_payment_status",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                billing_module,
+                "invalidate_webapp_user_caches",
+                AsyncMock(),
+            ) as invalidate_cache,
+        ):
+            response = await billing_module.payment_status_route(request)
+
+        invalidate_cache.assert_awaited_once_with(settings, 1001)
+        self.assertEqual(response.status, 200)

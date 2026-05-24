@@ -1,6 +1,8 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
 
+from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
+
 
 async def apply_promo_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
@@ -328,6 +330,8 @@ async def activate_trial_route(request: web.Request) -> web.Response:
         except Exception:
             await session.rollback()
             logger.exception("Failed to mark WebApp trial activation for ad attribution")
+
+        await invalidate_webapp_user_caches(settings, user_id)
 
         return web.json_response(
             {
@@ -724,6 +728,8 @@ async def payment_status_route(request: web.Request) -> web.Response:
         if not payment or payment.user_id != user_id:
             return _json_error(404, "not_found", "Payment not found")
         payment = await _refresh_yookassa_payment_status(request, session, payment)
+        if payment.status == "succeeded":
+            await invalidate_webapp_user_caches(request.app["settings"], user_id)
         return web.json_response(
             {
                 "ok": True,

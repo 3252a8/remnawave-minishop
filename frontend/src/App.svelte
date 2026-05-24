@@ -641,7 +641,7 @@
         }
       }
       if (shouldRefreshProfile) {
-        await loadData();
+        await loadData({ fresh: true });
         const shown = await maybeShowActivationSuccessDialog({
           source: "watch",
           paymentId: pending?.paymentId,
@@ -685,7 +685,7 @@
     activationResumeLastCheckAt = now;
     activationResumeRefreshBusy = true;
     try {
-      await loadData();
+      await loadData({ fresh: true });
       const shown = await maybeShowActivationSuccessDialog({ source: "resume" });
       if (!shown) startPendingActivationWatch();
     } catch (_error) {
@@ -1072,6 +1072,7 @@
       getCsrfToken: () => csrfToken,
     });
     if (mode === "app" && screen !== "admin") {
+      if (hasPendingActivationHandoff()) await loadData({ fresh: true });
       const shown = await maybeShowActivationSuccessDialog({ source: "boot" });
       if (!shown) startPendingActivationWatch();
     }
@@ -1115,8 +1116,8 @@
     syncPasswordLoginPath(nextEnabled, replace);
   }
 
-  async function loadData() {
-    const payload = await api("/me");
+  async function loadData(options = {}) {
+    const payload = await api(options?.fresh ? "/me?fresh=1" : "/me");
     if (!payload.ok) throw new Error(payload.error || "load_failed");
     data = payload;
     billingStore.update((s) => ({
@@ -1458,7 +1459,7 @@
         ? t("wa_promo_activated_until", { date: response.end_date_text })
         : t("wa_promo_activated");
       promoIsError = false;
-      await loadData();
+      await loadData({ fresh: true });
     } catch (error) {
       promoStatus = error?.message || t("wa_promo_activation_failed");
       promoIsError = true;
@@ -1481,7 +1482,7 @@
       if (!response.ok) throw response;
       trialActivationResult = response;
       showToast(t("wa_trial_activated"));
-      await loadData();
+      await loadData({ fresh: true });
       await maybeShowActivationSuccessDialog({ source: "trial", force: true });
     } catch (error) {
       const message = error?.message || t("wa_trial_activation_failed");

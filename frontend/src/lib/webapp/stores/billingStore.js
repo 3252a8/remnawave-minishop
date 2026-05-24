@@ -64,7 +64,7 @@ export function createBillingStore({
       paymentPollToken += 1;
     }
     showToast(t("wa_payment_success", {}, "Payment successful"));
-    await loadData();
+    await loadData({ fresh: true });
     if (
       successContext.initialSubscriptionPayment &&
       typeof onSubscriptionActivated === "function"

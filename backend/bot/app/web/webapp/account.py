@@ -430,6 +430,17 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
 async def me_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     settings: Settings = request.app["settings"]
+    fresh = str(request.query.get("fresh") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if fresh:
+        await _invalidate_webapp_user_caches(settings, user_id)
+        data = await _build_user_payload(request, user_id)
+        return web.json_response({"ok": True, **data})
+
     data = await webapp_cached_user_payload(
         settings,
         "me",
