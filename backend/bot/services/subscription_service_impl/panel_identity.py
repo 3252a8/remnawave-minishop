@@ -58,7 +58,6 @@ class PanelIdentityMixin:
 
     def _panel_description_for_user(self, db_user: User) -> str:
         lines = [
-            db_user.email or "",
             db_user.username or "",
             db_user.first_name or "",
             db_user.last_name or "",

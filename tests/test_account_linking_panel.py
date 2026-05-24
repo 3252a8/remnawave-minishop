@@ -8,6 +8,7 @@ from bot.app.web import subscription_webapp  # noqa: F401
 from bot.app.web.webapp import account as account_routes
 from bot.app.web.webapp.auth import (
     _link_telegram_to_user,
+    _panel_description_for_user,
     _sync_merged_panel_identity_for_user,
     _sync_panel_identity_for_user,
 )
@@ -72,6 +73,19 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(result)
         panel_service.update_user_details_on_panel.assert_awaited_once()
+        _, payload = panel_service.update_user_details_on_panel.await_args.args[:2]
+        self.assertEqual(payload["description"], "alice")
+        self.assertEqual(payload["email"], "linked@example.com")
+
+    def test_panel_description_for_user_excludes_email(self):
+        user = SimpleNamespace(
+            email="linked@example.com",
+            username="alice",
+            first_name="Alice",
+            last_name=None,
+        )
+
+        self.assertEqual(_panel_description_for_user(user), "alice\nAlice")
 
     async def test_merged_panel_identity_deletes_source_before_updating_target(self):
         calls = []

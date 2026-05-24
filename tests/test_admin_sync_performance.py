@@ -7,8 +7,10 @@ from bot.handlers.admin.sync_admin import (
     _absorb_duplicate_panel_identity,
     _coerce_panel_telegram_id,
     _description_matches,
+    _panel_description_for_user,
     _panel_identity_matches_user,
     _panel_identity_needs_full_fetch,
+    _panel_identity_payload_with_expiry,
     _panel_identity_view_for_comparison,
     _should_update_lifetime_used_traffic,
     _subscription_update_delta,
@@ -37,6 +39,55 @@ def test_description_match_rejects_different_identity_after_mojibake_repair():
 def test_panel_telegram_id_is_coerced_to_int():
     assert _coerce_panel_telegram_id("12345") == 12345
     assert _coerce_panel_telegram_id("") is None
+
+
+def test_panel_description_for_user_excludes_email():
+    user = SimpleNamespace(
+        email="linked@example.com",
+        username="alice",
+        first_name="Alice",
+        last_name="Smith",
+    )
+
+    assert _panel_description_for_user(user) == "alice\nAlice\nSmith"
+
+
+def test_panel_identity_match_accepts_list_description_without_email():
+    user = SimpleNamespace(
+        email="linked@example.com",
+        telegram_id=42,
+        username="alice",
+        first_name="Alice",
+        last_name=None,
+    )
+    panel_user = {
+        "description": "alice\nAlice",
+        "email": "linked@example.com",
+        "telegramId": 42,
+    }
+
+    assert _panel_identity_matches_user(
+        panel_user,
+        user,
+        _panel_description_for_user(user),
+    )
+
+
+def test_panel_identity_payload_with_expiry_keeps_email_out_of_description():
+    expire_at = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc)
+    user = SimpleNamespace(
+        email="linked@example.com",
+        telegram_id=42,
+        username="alice",
+        first_name="Alice",
+        last_name=None,
+    )
+
+    payload = _panel_identity_payload_with_expiry(user, expire_at=expire_at)
+
+    assert payload["description"] == "alice\nAlice"
+    assert payload["email"] == "linked@example.com"
+    assert payload["telegramId"] == 42
 
 
 def test_panel_identity_match_treats_missing_list_email_as_unknown():

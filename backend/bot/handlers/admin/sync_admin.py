@@ -143,6 +143,15 @@ def _panel_identity_update_payload(user: User, description_text: str) -> dict[st
     return payload
 
 
+def _panel_description_for_user(user: User) -> str:
+    lines = [
+        user.username or "",
+        user.first_name or "",
+        user.last_name or "",
+    ]
+    return "\n".join(line for line in lines if line).strip()
+
+
 def _datetime_matches(current: Optional[datetime], desired: datetime) -> bool:
     if current is None:
         return False
@@ -454,17 +463,7 @@ def _panel_identity_payload_with_expiry(
     *,
     expire_at: datetime,
 ) -> dict[str, Any]:
-    description_text = "\n".join(
-        line
-        for line in [
-            user.email or "",
-            user.username or "",
-            user.first_name or "",
-            user.last_name or "",
-        ]
-        if line
-    )
-    payload = _panel_identity_update_payload(user, description_text)
+    payload = _panel_identity_update_payload(user, _panel_description_for_user(user))
     payload["expireAt"] = expire_at.isoformat(timespec="milliseconds").replace("+00:00", "Z")
     if expire_at > datetime.now(timezone.utc):
         payload["status"] = "ACTIVE"
@@ -1013,16 +1012,7 @@ async def _perform_sync_impl(
                 # Ensure panel description contains Telegram fields
                 try:
                     if panel_uuid and existing_user and not is_duplicate_panel_identity:
-                        description_text = "\n".join(
-                            line
-                            for line in [
-                                existing_user.email or "",
-                                existing_user.username or "",
-                                existing_user.first_name or "",
-                                existing_user.last_name or "",
-                            ]
-                            if line
-                        )
+                        description_text = _panel_description_for_user(existing_user)
                         # Update description only when it differs from the current one on panel
                         desired_description = description_text.strip()
                         (

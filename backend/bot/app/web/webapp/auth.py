@@ -1014,7 +1014,6 @@ def _telegram_id_for_user(user: User) -> Optional[int]:
 
 def _panel_description_for_user(user: User) -> str:
     lines = [
-        user.email or "",
         user.username or "",
         user.first_name or "",
         user.last_name or "",

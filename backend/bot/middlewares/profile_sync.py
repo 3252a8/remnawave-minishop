@@ -61,7 +61,6 @@ class ProfileSyncMiddleware(BaseMiddleware):
                             if panel_service and db_user.panel_user_uuid:
                                 description_text = "\n".join(
                                     [
-                                        db_user.email or "",
                                         username_for_display(tg_user.username, with_at=False)
                                         if sanitized_username is not None
                                         else "",
