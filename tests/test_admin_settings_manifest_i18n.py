@@ -36,6 +36,10 @@ def _manifest_by_key() -> dict[str, dict]:
     return {item["key"]: item for item in manifest_payload()}
 
 
+def _manifest_items() -> list[dict]:
+    return manifest_payload()
+
+
 def _locale(language: str) -> dict[str, str]:
     return json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text(encoding="utf-8"))
 
@@ -74,7 +78,8 @@ def test_subscription_purchase_description_settings_i18n_keys_exist():
         messages = _locale(language)
         for setting_key in SUBSCRIPTION_PURCHASE_DESCRIPTION_SETTINGS:
             field = manifest[setting_key]
-            assert field["section"] == "pricing"
+            assert field["section"] == "payments"
+            assert field["subsection"] == "checkout"
             assert field["i18n_label_key"] in messages
             assert field["i18n_description_key"] in messages
 
@@ -106,12 +111,22 @@ def test_payment_provider_settings_include_webhook_metadata():
     assert "webhook_path" not in manifest["PAYMENT_STARS_WEBAPP_LABEL_RU"]
 
 
+def test_legacy_tariff_settings_are_separated_from_payment_settings():
+    manifest = _manifest_by_key()
+    payment_method_fields = [
+        item for item in _manifest_items() if item["key"] == "PAYMENT_METHODS_ORDER"
+    ]
+
+    assert len(payment_method_fields) == 1
+    assert payment_method_fields[0]["section"] == "payments"
+    assert manifest["MONTH_1_ENABLED"]["section"] == "pricing"
+    assert manifest["MONTH_1_ENABLED"]["section_order"] == 11
+
+
 def test_platega_settings_share_one_admin_subsection():
     manifest = _manifest_by_key()
     platega_keys = [
-        key
-        for key in manifest
-        if key.startswith("PLATEGA_") or key.startswith("PAYMENT_PLATEGA_")
+        key for key in manifest if key.startswith("PLATEGA_") or key.startswith("PAYMENT_PLATEGA_")
     ]
 
     assert platega_keys

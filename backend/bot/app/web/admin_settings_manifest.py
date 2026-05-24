@@ -231,32 +231,28 @@ SETTINGS_MANIFEST: List[SettingField] = [
     ),
     SettingField("STARS_TRAFFIC_PACKAGES", "string", "pricing", "Пакеты трафика (Stars)"),
     SettingField(
-        "PAYMENT_METHODS_ORDER",
-        "string",
-        "pricing",
-        "Порядок методов оплаты",
-        "Через запятую, например: severpay,freekassa,yookassa,heleket",
-    ),
-    SettingField(
         "SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED",
         "bool",
-        "pricing",
+        "payments",
         "Показывать описание подписки",
         "Текст появится перед выбором срока покупки или продления.",
+        subsection="checkout",
     ),
     SettingField(
         "SUBSCRIPTION_PURCHASE_DESCRIPTION_RU",
         "text",
-        "pricing",
+        "payments",
         "Описание подписки (RU)",
         "Русская версия текста на этапе оплаты.",
+        subsection="checkout",
     ),
     SettingField(
         "SUBSCRIPTION_PURCHASE_DESCRIPTION_EN",
         "text",
-        "pricing",
+        "payments",
         "Описание подписки (EN)",
         "Английская версия текста на этапе оплаты.",
+        subsection="checkout",
     ),
     # ─── Payment providers (toggles) ───────────────────────────────
     # Common
@@ -581,7 +577,7 @@ def manifest_payload() -> List[dict]:
     sections_order = {
         "general": 1,
         "appearance": 2,
-        "pricing": 3,
+        "pricing": 11,
         "payments": 4,
         "trial": 5,
         "referral": 6,
