@@ -221,6 +221,22 @@ class WebAppRouteContractTests(unittest.TestCase):
 
         self.assertEqual(match_info.handler.__name__, "webapp_favicon_route")
 
+    def test_webapp_root_icon_alias_routes_are_registered(self):
+        app = web.Application()
+        subscription_webapp.setup_subscription_webapp_routes(app)
+
+        for path in (
+            "/favicon.ico",
+            "/apple-touch-icon.png",
+            "/apple-touch-icon-precomposed.png",
+            "/icon-192.png",
+            "/icon-512.png",
+        ):
+            request = make_mocked_request("GET", path, app=app)
+            match_info = asyncio.run(app.router.resolve(request))
+
+            self.assertEqual(match_info.handler.__name__, "webapp_current_favicon_route")
+
     def test_app_deeplink_gateway_keeps_target_in_fragment(self):
         request = _Request(
             app={

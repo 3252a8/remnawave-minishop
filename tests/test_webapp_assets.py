@@ -210,6 +210,48 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue((Path(tmpdir) / digest / "apple-touch-icon.png").exists())
             self.assertTrue((Path(tmpdir) / digest / "favicon.ico").exists())
 
+    async def test_current_favicon_alias_serves_generated_apple_touch_icon(self):
+        digest = "abcdef1234567890"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            icon_dir = Path(tmpdir) / digest
+            icon_dir.mkdir()
+            (icon_dir / "apple-touch-icon.png").write_bytes(b"touch-icon")
+            settings = SimpleNamespace(
+                WEBAPP_ENABLED=True,
+                WEBAPP_LOGO_URL="",
+                WEBAPP_LOGO_USE_EMOJI=False,
+                WEBAPP_FAVICON_USE_CUSTOM=True,
+                WEBAPP_FAVICON_URL=f"/webapp-favicon/{digest}/icon-180.png",
+                WEBAPP_LOGO_FAVICON_URL="",
+            )
+            request = SimpleNamespace(
+                app={"settings": settings},
+                path="/apple-touch-icon-precomposed.png",
+            )
+
+            with patch.object(webapp_assets, "WEBAPP_FAVICON_DIR", Path(tmpdir)):
+                response = await webapp_assets.webapp_current_favicon_route(request)
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.content_type, "image/png")
+        self.assertEqual(response.body, b"touch-icon")
+
+    def test_static_webapp_template_exposes_ios_icon_aliases(self):
+        template = Path("backend/bot/app/web/templates/subscription_webapp.html").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('rel="apple-touch-icon"', template)
+        self.assertIn('href="/apple-touch-icon.png"', template)
+        self.assertIn('href="/favicon.ico"', template)
+
+    def test_frontend_nginx_proxies_root_icon_aliases(self):
+        nginx_conf = Path("deploy/docker/frontend/nginx.conf").read_text(encoding="utf-8")
+
+        self.assertIn("apple-touch-icon", nginx_conf)
+        self.assertIn("favicon\\.ico", nginx_conf)
+        self.assertIn("proxy_pass http://backend:8081;", nginx_conf)
+
     def test_prune_unused_appearance_assets_keeps_only_referenced_logo_and_favicons(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

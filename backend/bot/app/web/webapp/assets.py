@@ -370,6 +370,78 @@ async def webapp_favicon_route(request: web.Request) -> web.Response:
 
     digest = str(request.match_info.get("digest") or "").strip().lower()
     filename = str(request.match_info.get("filename") or "").strip()
+    return _webapp_favicon_file_response(digest, filename)
+
+
+async def webapp_current_favicon_route(request: web.Request) -> web.Response:
+    settings: Settings = request.app["settings"]
+    if not settings.WEBAPP_ENABLED:
+        raise web.HTTPNotFound(text="webapp_disabled")
+
+    requested_filename = str(request.path.rsplit("/", 1)[-1] or "").strip()
+    target_filename = _webapp_root_favicon_target_filename(requested_filename)
+    if not target_filename:
+        raise web.HTTPNotFound(text="webapp_favicon_not_found")
+
+    favicon_url = _resolve_webapp_favicon_url(settings, _resolve_webapp_logo_url(settings))
+    digest = _webapp_generated_favicon_digest(favicon_url)
+    if digest:
+        return _webapp_favicon_file_response(digest, target_filename)
+
+    redirect_url = _webapp_redirectable_favicon_url(favicon_url, target_filename)
+    if redirect_url:
+        raise web.HTTPFound(location=redirect_url)
+
+    raise web.HTTPNotFound(text="webapp_favicon_not_found")
+
+
+def _webapp_root_favicon_target_filename(filename: str) -> str:
+    if filename == "apple-touch-icon-precomposed.png":
+        return "apple-touch-icon.png"
+    if filename in {
+        "apple-touch-icon.png",
+        "favicon.ico",
+        "icon-192.png",
+        "icon-512.png",
+    }:
+        return filename
+    return ""
+
+
+def _webapp_generated_favicon_digest(favicon_url: str) -> str:
+    parsed = urlsplit(str(favicon_url or ""))
+    path = parsed.path if parsed.scheme or parsed.netloc else str(favicon_url or "")
+    match = re.fullmatch(
+        rf"{re.escape(WEBAPP_FAVICON_PATH)}/([0-9a-f]{{16}})/"
+        r"(?:icon-(?:16|32|48|180|192|512)\.png|apple-touch-icon\.png|favicon\.(?:ico|svg))",
+        path,
+    )
+    return match.group(1) if match else ""
+
+
+def _webapp_redirectable_favicon_url(favicon_url: str, target_filename: str) -> str:
+    href = str(favicon_url or "").strip()
+    if not href:
+        return ""
+
+    parsed = urlsplit(href)
+    path = parsed.path if parsed.scheme or parsed.netloc else href
+    suffix = Path(path).suffix.lower()
+    if target_filename in {"apple-touch-icon.png", "icon-192.png", "icon-512.png"}:
+        if suffix != ".png":
+            return ""
+    elif target_filename == "favicon.ico":
+        if suffix != ".ico":
+            return ""
+    else:
+        return ""
+
+    if parsed.scheme in {"http", "https"} or href.startswith("/"):
+        return href
+    return ""
+
+
+def _webapp_favicon_file_response(digest: str, filename: str) -> web.Response:
     if not re.fullmatch(r"[0-9a-f]{16}", digest):
         raise web.HTTPNotFound(text="webapp_favicon_not_found")
     if not re.fullmatch(
