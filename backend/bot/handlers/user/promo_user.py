@@ -21,6 +21,7 @@ from bot.utils.install_links import (
     ensure_user_install_guide_links,
 )
 from config.settings import Settings
+from db.dal import user_dal
 
 from .start import send_main_menu
 
@@ -137,10 +138,12 @@ async def process_promo_code_input(
                 from bot.services.notification_service import NotificationService
 
                 notification_service = NotificationService(bot, settings, i18n)
+                db_user = await user_dal.get_user_by_id(session, user.id)
                 await notification_service.notify_suspicious_promo_attempt(
                     user_id=user.id,
                     username=user.username,
                     first_name=user.first_name,
+                    email=getattr(db_user, "email", None) if db_user else None,
                     suspicious_input=code_input,
                 )
             except Exception as e:

@@ -311,7 +311,12 @@ async def activate_trial_route(request: web.Request) -> web.Response:
                 notification_service = NotificationService(
                     request.app["bot"], settings, i18n_instance
                 )
-                await notification_service.notify_trial_activation(user_id, end_date)
+                await notification_service.notify_trial_activation(
+                    user_id,
+                    end_date,
+                    username=db_user.username,
+                    email=getattr(db_user, "email", None),
+                )
             except Exception:
                 logger.exception("Failed to send WebApp trial activation notification")
 

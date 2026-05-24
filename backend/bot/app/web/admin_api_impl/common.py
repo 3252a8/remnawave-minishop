@@ -234,6 +234,7 @@ def _serialize_log(entry: MessageLog) -> Dict[str, Any]:
         "user_id": int(entry.user_id) if entry.user_id else None,
         "telegram_username": entry.telegram_username,
         "telegram_first_name": entry.telegram_first_name,
+        "email": getattr(getattr(entry, "author_user", None), "email", None),
         "event_type": entry.event_type,
         "content": entry.content,
         "is_admin_event": bool(entry.is_admin_event),

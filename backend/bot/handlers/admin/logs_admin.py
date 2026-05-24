@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
+from aiogram.utils.text_decorations import html_decoration as hd
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import (
@@ -23,6 +24,44 @@ from db.models import MessageLog, User
 router = Router(name="admin_logs_router")
 USERNAME_REGEX = re.compile(r"^[a-zA-Z0-9_]{5,32}$")
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _user_email(user: Optional[User]) -> str:
+    return str(getattr(user, "email", None) or "").strip()
+
+
+def _format_user_with_email(
+    *,
+    first_name: Optional[str] = None,
+    username: Optional[str] = None,
+    email: Optional[str] = None,
+    fallback: str = "",
+) -> str:
+    parts = []
+    if first_name:
+        parts.append(first_name)
+    if username:
+        parts.append(f"(@{username})")
+
+    display = " ".join(parts).strip() or str(fallback or "").strip()
+    clean_email = str(email or "").strip()
+    if clean_email:
+        display = (
+            f"{display} · {clean_email}" if display and display != clean_email else clean_email
+        )
+    return hd.quote(display)
+
+
+def _format_log_entry_user(log_entry: MessageLog, translate) -> str:
+    fallback = (
+        translate("system_or_unknown_user") if not log_entry.user_id else f"ID: {log_entry.user_id}"
+    )
+    return _format_user_with_email(
+        first_name=log_entry.telegram_first_name,
+        username=log_entry.telegram_username,
+        email=_user_email(getattr(log_entry, "author_user", None)),
+        fallback=fallback,
+    )
 
 
 async def display_logs_menu(
@@ -94,19 +133,7 @@ async def _display_formatted_logs(
 
         log_entries_text = []
         for log_entry_model in logs:
-            user_display_parts = []
-            if log_entry_model.telegram_first_name:
-                user_display_parts.append(log_entry_model.telegram_first_name)
-            if log_entry_model.telegram_username:
-                user_display_parts.append(f"(@{log_entry_model.telegram_username})")
-
-            user_display = " ".join(user_display_parts).strip()
-            if not user_display:
-                user_display = (
-                    _("system_or_unknown_user")
-                    if not log_entry_model.user_id
-                    else f"ID: {log_entry_model.user_id}"
-                )
+            user_display = _format_log_entry_user(log_entry_model, _)
 
             user_id_display = (
                 str(log_entry_model.user_id) if log_entry_model.user_id is not None else "N/A"
@@ -270,10 +297,11 @@ async def process_user_id_for_logs_handler(
         return
 
     target_user_id = user_model_for_logs.user_id
-    user_display_name = user_model_for_logs.first_name or (
-        f"@{user_model_for_logs.username}"
-        if user_model_for_logs.username
-        else (user_model_for_logs.email or f"ID {target_user_id}")
+    user_display_name = _format_user_with_email(
+        first_name=user_model_for_logs.first_name,
+        username=user_model_for_logs.username,
+        email=user_model_for_logs.email,
+        fallback=f"ID {target_user_id}",
     )
 
     logs_models = await message_log_dal.get_user_message_logs(
@@ -319,10 +347,11 @@ async def view_user_logs_paginated_handler(
         await callback.answer()
         return
 
-    user_display_name = user_model_for_logs.first_name or (
-        f"@{user_model_for_logs.username}"
-        if user_model_for_logs.username
-        else (user_model_for_logs.email or f"ID {target_user_id}")
+    user_display_name = _format_user_with_email(
+        first_name=user_model_for_logs.first_name,
+        username=user_model_for_logs.username,
+        email=user_model_for_logs.email,
+        fallback=f"ID {target_user_id}",
     )
 
     logs_models = await message_log_dal.get_user_message_logs(
@@ -392,6 +421,7 @@ async def export_logs_csv_handler(
             _("admin_csv_header_user_id"),
             _("admin_csv_header_telegram_username"),
             _("admin_csv_header_telegram_first_name"),
+            _("admin_csv_header_email"),
             _("admin_csv_header_event_type"),
             _("admin_csv_header_content"),
             _("admin_csv_header_is_admin_event"),
@@ -417,6 +447,7 @@ async def export_logs_csv_handler(
                 log.user_id or "",
                 log.telegram_username or "",
                 log.telegram_first_name or "",
+                _user_email(getattr(log, "author_user", None)),
                 log.event_type or "",
                 content_clean,
                 "Yes" if log.is_admin_event else "No",

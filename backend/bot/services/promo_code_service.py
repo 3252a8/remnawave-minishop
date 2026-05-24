@@ -112,6 +112,7 @@ class PromoCodeService:
                         promo_code=code_input_upper,
                         bonus_days=bonus_days,
                         username=user.username if user else None,
+                        email=getattr(user, "email", None) if user else None,
                     )
                 except Exception as e:
                     logging.error(f"Failed to send promo activation notification: {e}")

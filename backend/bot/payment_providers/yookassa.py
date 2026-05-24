@@ -874,6 +874,7 @@ async def process_successful_payment(
             ),
             payment_provider="yookassa",
             username=user_for_notify.username if user_for_notify else None,
+            email=getattr(user_for_notify, "email", None) if user_for_notify else None,
             traffic_is_premium=sale_mode_base == "premium_topup",
             tariff_key=tariff_for_log,
             log_prefix="YooKassa webhook",

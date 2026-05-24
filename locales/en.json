@@ -396,6 +396,7 @@
   "admin_csv_header_user_id": "User ID",
   "admin_csv_header_telegram_username": "Username",
   "admin_csv_header_telegram_first_name": "First Name",
+  "admin_csv_header_email": "Email",
   "admin_csv_header_event_type": "Event Type",
   "admin_csv_header_content": "Content",
   "admin_csv_header_is_admin_event": "Admin Event",

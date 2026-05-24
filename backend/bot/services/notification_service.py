@@ -56,11 +56,16 @@ class NotificationService:
         user_id: int,
         username: Optional[str] = None,
         first_name: Optional[str] = None,
+        email: Optional[str] = None,
     ) -> str:
         base_display = display_name_or_fallback(first_name, f"ID {user_id}")
         if username:
             base_display = f"{base_display} ({username_for_display(username)})"
-        return base_display
+        safe_display = hd.quote(base_display)
+        clean_email = str(email or "").strip()
+        if clean_email:
+            safe_display = f"{safe_display} · <code>{hd.quote(clean_email)}</code>"
+        return safe_display
 
     @staticmethod
     def _build_profile_keyboard(
@@ -254,8 +259,13 @@ class NotificationService:
             part for part in [user.first_name, getattr(user, "last_name", None)] if part
         )
         if user.username:
-            return f"{name or user.username} (@{user.username})"
-        return name or getattr(user, "email", None) or f"ID {user.user_id}"
+            display = f"{name or user.username} (@{user.username})"
+        else:
+            display = name or f"ID {user.user_id}"
+        email = str(getattr(user, "email", None) or "").strip()
+        if email:
+            return f"{display} · {email}" if display and display != email else email
+        return display
 
     @staticmethod
     def _support_snapshot_rows(snapshot: Optional[dict]) -> list[tuple[str, str]]:
@@ -540,6 +550,7 @@ class NotificationService:
         user_id: int,
         username: Optional[str] = None,
         first_name: Optional[str] = None,
+        email: Optional[str] = None,
         referred_by_id: Optional[int] = None,
     ):
         """Send notification about new user registration"""
@@ -553,6 +564,7 @@ class NotificationService:
             user_id=user_id,
             username=username,
             first_name=first_name,
+            email=email,
         )
 
         referral_text = ""
@@ -640,6 +652,7 @@ class NotificationService:
             user_id=telegram_id or user_id,
             username=username,
             first_name=first_name,
+            email=email,
         )
 
         message = _(
@@ -676,6 +689,7 @@ class NotificationService:
             user_id=telegram_id,
             username=username,
             first_name=first_name,
+            email=email,
         )
 
         message = _(
@@ -715,6 +729,7 @@ class NotificationService:
             user_id=display_user_id,
             username=username,
             first_name=first_name,
+            email=email,
         )
 
         message = _(
@@ -761,6 +776,7 @@ class NotificationService:
         months: int,
         payment_provider: str,
         username: Optional[str] = None,
+        email: Optional[str] = None,
         traffic_gb: Optional[float] = None,
         *,
         traffic_is_premium: bool = False,
@@ -776,6 +792,7 @@ class NotificationService:
         user_display = self._format_user_display(
             user_id=user_id,
             username=username,
+            email=email,
         )
 
         try:
@@ -827,7 +844,12 @@ class NotificationService:
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     async def notify_promo_activation(
-        self, user_id: int, promo_code: str, bonus_days: int, username: Optional[str] = None
+        self,
+        user_id: int,
+        promo_code: str,
+        bonus_days: int,
+        username: Optional[str] = None,
+        email: Optional[str] = None,
     ):
         """Send notification about promo code activation"""
         if not self.settings.LOG_PROMO_ACTIVATIONS:
@@ -839,6 +861,7 @@ class NotificationService:
         user_display = self._format_user_display(
             user_id=user_id,
             username=username,
+            email=email,
         )
 
         message = _(
@@ -854,7 +877,11 @@ class NotificationService:
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
 
     async def notify_trial_activation(
-        self, user_id: int, end_date: datetime, username: Optional[str] = None
+        self,
+        user_id: int,
+        end_date: datetime,
+        username: Optional[str] = None,
+        email: Optional[str] = None,
     ):
         """Send notification about trial activation"""
         if not self.settings.LOG_TRIAL_ACTIVATIONS:
@@ -866,6 +893,7 @@ class NotificationService:
         user_display = self._format_user_display(
             user_id=user_id,
             username=username,
+            email=email,
         )
 
         message = _(
@@ -918,6 +946,7 @@ class NotificationService:
         suspicious_input: str,
         username: Optional[str] = None,
         first_name: Optional[str] = None,
+        email: Optional[str] = None,
     ):
         """Send notification about a suspicious promo code attempt."""
         if not self.settings.LOG_SUSPICIOUS_ACTIVITY:
@@ -930,11 +959,12 @@ class NotificationService:
             user_id=user_id,
             username=username,
             first_name=first_name,
+            email=email,
         )
 
         message = _(
             "log_suspicious_promo",
-            user_display=hd.quote(user_display),
+            user_display=user_display,
             user_id=user_id,
             suspicious_input=hd.quote(suspicious_input),
             timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S %Z"),

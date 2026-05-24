@@ -4,6 +4,7 @@ from typing import List, Optional
 from sqlalchemy import func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
 from ..models import MessageLog
 
@@ -22,7 +23,13 @@ async def create_message_log(session: AsyncSession, log_data: dict) -> Optional[
 
 
 async def get_all_message_logs(session: AsyncSession, limit: int, offset: int) -> List[MessageLog]:
-    stmt = select(MessageLog).order_by(MessageLog.timestamp.desc()).limit(limit).offset(offset)
+    stmt = (
+        select(MessageLog)
+        .options(selectinload(MessageLog.author_user), selectinload(MessageLog.target_user))
+        .order_by(MessageLog.timestamp.desc())
+        .limit(limit)
+        .offset(offset)
+    )
     result = await session.execute(stmt)
     return result.scalars().all()
 
@@ -38,6 +45,7 @@ async def get_user_message_logs(
 ) -> List[MessageLog]:
     stmt = (
         select(MessageLog)
+        .options(selectinload(MessageLog.author_user), selectinload(MessageLog.target_user))
         .where(
             or_(
                 MessageLog.user_id == user_id_to_search,

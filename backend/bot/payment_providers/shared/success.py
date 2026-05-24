@@ -190,6 +190,7 @@ async def notify_admins_payment_received(
     traffic_is_premium: bool,
     tariff_key: Optional[str],
     log_prefix: str = "payment_providers",
+    email: Optional[str] = None,
 ) -> None:
     """Push the standard ``notify_payment_received`` to the admin log channel."""
     try:
@@ -202,6 +203,7 @@ async def notify_admins_payment_received(
             traffic_gb=traffic_gb_for_admin,
             payment_provider=payment_provider,
             username=username,
+            email=email,
             traffic_is_premium=traffic_is_premium,
             tariff_key=tariff_key,
         )
@@ -398,6 +400,7 @@ async def finalize_successful_payment(
         traffic_gb_for_admin=traffic_gb_for_activation,
         payment_provider=req.provider_notification,
         username=db_user.username if db_user else None,
+        email=getattr(db_user, "email", None) if db_user else None,
         traffic_is_premium=base == "premium_topup",
         tariff_key=tariff_key,
         log_prefix=req.log_prefix,
