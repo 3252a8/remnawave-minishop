@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.middlewares.i18n import JsonI18n
 from bot.services.notification_service import NotificationService
 from bot.services.panel_api_service import PanelApiService
+from bot.utils.text_sanitizer import panel_description_from_profile
 from config.settings import Settings
 from db.dal import panel_sync_dal, subscription_dal, user_dal
 from db.models import Subscription, User
@@ -354,8 +355,8 @@ async def _panel_identity_view_for_comparison(
     return full_panel_user, False
 
 
-def _panel_identity_update_payload(user: User, description_text: str) -> dict[str, Any]:
-    payload: dict[str, Any] = {"description": description_text}
+def _panel_identity_fields_update_payload(user: User) -> dict[str, Any]:
+    payload: dict[str, Any] = {}
     if user.email:
         payload["email"] = user.email
     if user.telegram_id:
@@ -364,12 +365,11 @@ def _panel_identity_update_payload(user: User, description_text: str) -> dict[st
 
 
 def _panel_description_for_user(user: User) -> str:
-    lines = [
-        user.username or "",
-        user.first_name or "",
-        user.last_name or "",
-    ]
-    return "\n".join(line for line in lines if line).strip()
+    return panel_description_from_profile(
+        user.username,
+        user.first_name,
+        user.last_name,
+    )
 
 
 def _datetime_matches(current: Optional[datetime], desired: datetime) -> bool:
@@ -683,7 +683,7 @@ def _panel_identity_payload_with_expiry(
     *,
     expire_at: datetime,
 ) -> dict[str, Any]:
-    payload = _panel_identity_update_payload(user, _panel_description_for_user(user))
+    payload = _panel_identity_fields_update_payload(user)
     payload["expireAt"] = expire_at.isoformat(timespec="milliseconds").replace("+00:00", "Z")
     if expire_at > datetime.now(timezone.utc):
         payload["status"] = "ACTIVE"
@@ -1272,11 +1272,11 @@ async def _perform_sync_impl(
                     user_was_updated = True
                     _append_unique(user_update_reasons, "lifetime_traffic_synced")
 
-                # Ensure panel description contains Telegram fields
+                # Keep structural identity fields in panel and clean legacy email from
+                # description. Plain description text is intentionally not canonical.
                 try:
                     if panel_uuid and existing_user and not is_duplicate_panel_identity:
                         description_text = _panel_description_for_user(existing_user)
-                        # Update description only when it differs from the current one on panel
                         desired_description = description_text.strip()
                         (
                             panel_user_for_identity,
@@ -1296,19 +1296,16 @@ async def _perform_sync_impl(
                         identity_matches = _panel_identity_matches_user(
                             panel_user_for_identity,
                             existing_user,
-                            desired_description,
+                            "",
                             missing_identity_fields_match=missing_identity_fields_match,
                         )
+                        panel_payload = _panel_identity_fields_update_payload(existing_user)
                         if description_has_email:
-                            description_text = _description_without_email(
+                            panel_payload["description"] = _description_without_email(
                                 current_description,
                                 existing_user.email,
                             )
                         if description_has_email or not identity_matches:
-                            panel_payload = _panel_identity_update_payload(
-                                existing_user,
-                                description_text,
-                            )
                             panel_changes = _panel_update_changes(
                                 panel_user_for_identity,
                                 panel_payload,
@@ -1339,7 +1336,7 @@ async def _perform_sync_impl(
                             )
                 except Exception as e_desc:
                     logging.warning(
-                        f"Sync: Failed to update description for panel user {panel_uuid} (tg {actual_user_id}): {e_desc}"  # noqa: E501
+                        f"Sync: Failed to update panel identity for panel user {panel_uuid} (tg {actual_user_id}): {e_desc}"  # noqa: E501
                     )
 
                 # Sync subscription data

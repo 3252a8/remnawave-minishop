@@ -146,6 +146,43 @@ _NORMALIZED_BANNED_TOKENS = {
 _USERNAME_PLACEHOLDER = "клиент"
 
 
+def looks_like_broken_panel_text(value: Optional[str]) -> bool:
+    if value is None:
+        return False
+
+    text = unicodedata.normalize("NFKC", str(value)).strip()
+    if not text:
+        return False
+    if "\ufffd" in text:
+        return True
+
+    meaningful = [ch for ch in text if not ch.isspace()]
+    if len(meaningful) < 2:
+        return False
+
+    question_count = sum(1 for ch in meaningful if ch == "?")
+    if question_count < 2:
+        return False
+
+    has_content = any(
+        ch != "?" and not unicodedata.category(ch).startswith("P") for ch in meaningful
+    )
+    return not has_content and question_count / len(meaningful) >= 0.5
+
+
+def panel_description_from_profile(
+    username: Optional[str],
+    first_name: Optional[str],
+    last_name: Optional[str],
+) -> str:
+    lines = []
+    for value in (username, first_name, last_name):
+        line = (value or "").strip()
+        if line and not looks_like_broken_panel_text(line):
+            lines.append(line)
+    return "\n".join(lines).strip()
+
+
 def _normalize_for_detection(value: str) -> str:
     if not value:
         return ""

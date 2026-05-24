@@ -47,6 +47,20 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(service._request.await_args.kwargs["log_full_response"])
 
+    async def test_create_panel_user_omits_empty_description(self):
+        service = self._make_service()
+        service._request = AsyncMock(return_value={"response": {"uuid": "user-uuid"}})
+
+        await service.create_panel_user(
+            username_on_panel="tg_42",
+            telegram_id=42,
+            description="",
+        )
+
+        payload = service._request.await_args.kwargs["json"]
+        self.assertNotIn("description", payload)
+        self.assertEqual(payload["telegramId"], 42)
+
     async def test_get_user_by_uuid_uses_short_ttl_cache_and_update_invalidates(self):
         service = self._make_service()
         service._request = AsyncMock(return_value={"response": {"uuid": "user-uuid"}})

@@ -1013,12 +1013,11 @@ def _telegram_id_for_user(user: User) -> Optional[int]:
 
 
 def _panel_description_for_user(user: User) -> str:
-    lines = [
-        user.username or "",
-        user.first_name or "",
-        user.last_name or "",
-    ]
-    return "\n".join(line for line in lines if line).strip()
+    return panel_description_from_profile(
+        user.username,
+        user.first_name,
+        user.last_name,
+    )
 
 
 def _telegram_photo_url_value(telegram_user: Dict[str, Any]) -> Optional[str]:
@@ -1041,9 +1040,7 @@ async def _sync_panel_identity_for_user(
     if not subscription_service or not subscription_service.panel_service:
         return False
 
-    payload: Dict[str, Any] = {
-        "description": _panel_description_for_user(user),
-    }
+    payload: Dict[str, Any] = {}
     telegram_id = _telegram_id_for_user(user)
     if telegram_id:
         payload["telegramId"] = telegram_id

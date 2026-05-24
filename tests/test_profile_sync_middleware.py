@@ -69,7 +69,7 @@ class ProfileSyncMiddlewareCacheTests(unittest.IsolatedAsyncioTestCase):
         get_user.assert_awaited_once()
         self.assertEqual(handler.await_count, 2)
 
-    async def test_profile_sync_keeps_email_out_of_panel_description(self):
+    async def test_profile_sync_does_not_rewrite_panel_description(self):
         middleware = ProfileSyncMiddleware()
         handler = AsyncMock(return_value="ok")
         event = SimpleNamespace()
@@ -124,8 +124,9 @@ class ProfileSyncMiddlewareCacheTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, "ok")
         panel_service.update_user_details_on_panel.assert_awaited_once()
         _, payload = panel_service.update_user_details_on_panel.await_args.args[:2]
-        self.assertEqual(payload["description"], "alice\nAlice\nSmith")
+        self.assertNotIn("description", payload)
         self.assertEqual(payload["email"], "linked@example.com")
+        self.assertEqual(payload["telegramId"], 42)
 
 
 if __name__ == "__main__":

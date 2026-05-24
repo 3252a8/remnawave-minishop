@@ -8,7 +8,7 @@ from aiogram.types import User as TgUser
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra.redis import cache_get_json, cache_set_json, redis_key
-from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username, username_for_display
+from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
 from db.dal import user_dal
 
@@ -55,21 +55,13 @@ class ProfileSyncMiddleware(BaseMiddleware):
                             f"ProfileSyncMiddleware: Updated user {tg_user.id} profile fields: {list(update_payload.keys())}"  # noqa: E501
                         )
 
-                        # Also update description on panel if linked
+                        # Keep panel identity fields fresh, but do not rewrite
+                        # description from profile changes. Remnawave may return
+                        # description with lossy encoding in list views.
                         try:
                             panel_service = data.get("panel_service")
                             if panel_service and db_user.panel_user_uuid:
-                                description_text = "\n".join(
-                                    [
-                                        username_for_display(tg_user.username, with_at=False)
-                                        if sanitized_username is not None
-                                        else "",
-                                        sanitized_first_name or "",
-                                        sanitized_last_name or "",
-                                    ]
-                                ).strip()
                                 panel_payload = {
-                                    "description": description_text,
                                     "telegramId": tg_user.id,
                                 }
                                 if db_user.email:
@@ -80,7 +72,7 @@ class ProfileSyncMiddleware(BaseMiddleware):
                                 )
                         except Exception as e_upd_desc:
                             logging.warning(
-                                f"ProfileSyncMiddleware: Failed to update panel description for user {tg_user.id}: {e_upd_desc}"  # noqa: E501
+                                f"ProfileSyncMiddleware: Failed to update panel identity for user {tg_user.id}: {e_upd_desc}"  # noqa: E501
                             )
             except Exception as e:
                 logging.error(

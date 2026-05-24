@@ -12,6 +12,7 @@ from bot.handlers.admin.sync_admin import (
     _format_panel_update_changes,
     _identity_panel_update_reasons,
     _panel_description_for_user,
+    _panel_identity_fields_update_payload,
     _panel_identity_matches_user,
     _panel_identity_needs_full_fetch,
     _panel_identity_needs_legacy_description_cleanup,
@@ -56,6 +57,17 @@ def test_panel_description_for_user_excludes_email():
     )
 
     assert _panel_description_for_user(user) == "alice\nAlice\nSmith"
+
+
+def test_panel_description_for_user_filters_broken_lines():
+    user = SimpleNamespace(
+        email="linked@example.com",
+        username="alice??",
+        first_name="????",
+        last_name="Smith",
+    )
+
+    assert _panel_description_for_user(user) == "alice??\nSmith"
 
 
 def test_panel_update_change_summary_is_compact_and_field_based():
@@ -133,7 +145,7 @@ def test_panel_identity_match_accepts_list_description_without_email():
     )
 
 
-def test_panel_identity_payload_with_expiry_keeps_email_out_of_description():
+def test_panel_identity_payload_with_expiry_excludes_description_updates():
     expire_at = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc)
     user = SimpleNamespace(
         email="linked@example.com",
@@ -145,9 +157,24 @@ def test_panel_identity_payload_with_expiry_keeps_email_out_of_description():
 
     payload = _panel_identity_payload_with_expiry(user, expire_at=expire_at)
 
-    assert payload["description"] == "alice\nAlice"
+    assert "description" not in payload
     assert payload["email"] == "linked@example.com"
     assert payload["telegramId"] == 42
+
+
+def test_panel_identity_fields_update_payload_excludes_description():
+    user = SimpleNamespace(
+        email="linked@example.com",
+        telegram_id=42,
+        username="alice",
+        first_name="Alice",
+        last_name=None,
+    )
+
+    assert _panel_identity_fields_update_payload(user) == {
+        "email": "linked@example.com",
+        "telegramId": 42,
+    }
 
 
 def test_panel_identity_detects_legacy_full_description_cleanup_need():

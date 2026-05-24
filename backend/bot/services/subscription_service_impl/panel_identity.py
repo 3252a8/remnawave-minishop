@@ -57,17 +57,14 @@ class PanelIdentityMixin:
         return f"em_{referral_code}"
 
     def _panel_description_for_user(self, db_user: User) -> str:
-        lines = [
-            db_user.username or "",
-            db_user.first_name or "",
-            db_user.last_name or "",
-        ]
-        return "\n".join(line for line in lines if line).strip()
+        return panel_description_from_profile(
+            db_user.username,
+            db_user.first_name,
+            db_user.last_name,
+        )
 
     def _panel_identity_payload_for_user(self, db_user: User) -> Dict[str, Any]:
-        payload: Dict[str, Any] = {
-            "description": self._panel_description_for_user(db_user),
-        }
+        payload: Dict[str, Any] = {}
         telegram_id = self._telegram_id_for_panel(db_user)
         if telegram_id:
             payload["telegramId"] = telegram_id

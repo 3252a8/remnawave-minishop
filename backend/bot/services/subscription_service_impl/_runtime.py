@@ -25,5 +25,6 @@ from db.models import Subscription, User
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.email_templates import render_payment_success
 from bot.services.panel_api_service import PanelApiService
+from bot.utils.text_sanitizer import panel_description_from_profile
 
 __all__ = [name for name in globals() if not name.startswith("__")]
