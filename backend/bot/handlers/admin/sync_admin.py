@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, Union
 
@@ -83,6 +84,178 @@ def _description_without_email(value: Optional[str], email: Optional[str]) -> st
             continue
         cleaned_lines.append(line)
     return "\n".join(cleaned_lines).strip()
+
+
+def _append_unique(items: list[str], item: str) -> None:
+    if item not in items:
+        items.append(item)
+
+
+def _format_counter(counter: Counter[str], *, limit: int = 8) -> str:
+    if not counter:
+        return "none"
+    parts = [f"{key}={value}" for key, value in counter.most_common(limit)]
+    if len(counter) > limit:
+        parts.append(f"+{len(counter) - limit} more")
+    return ", ".join(parts)
+
+
+def _compact_log_value(value: Any, *, max_len: int = 64) -> str:
+    if value is None:
+        return "null"
+    if value == "":
+        return "empty"
+    if isinstance(value, datetime):
+        text = value.isoformat()
+    elif isinstance(value, (list, tuple, set)):
+        values = list(value)
+        preview = ",".join(str(item) for item in values[:3])
+        suffix = ",..." if len(values) > 3 else ""
+        text = f"[{len(values)}:{preview}{suffix}]"
+    elif isinstance(value, dict):
+        keys = list(value.keys())
+        preview = ",".join(str(key) for key in keys[:4])
+        suffix = ",..." if len(keys) > 4 else ""
+        text = f"{{{preview}{suffix}}}"
+    else:
+        text = str(value)
+
+    text = text.replace("\r", "\\r").replace("\n", "\\n")
+    text = " ".join(text.split())
+    if len(text) > max_len:
+        return f"{text[: max_len - 3]}..."
+    return text
+
+
+def _panel_log_value(field: str, value: Any) -> str:
+    if value is _MISSING:
+        return "missing"
+    if field == "description":
+        normalized = _normalize_description(value)
+        if not normalized:
+            return "len=0"
+        preview = _compact_log_value(normalized, max_len=42)
+        return f"len={len(normalized)}:{preview}"
+    if field == "email":
+        return _compact_log_value(_normalize_panel_email(value), max_len=64)
+    return _compact_log_value(value)
+
+
+def _parse_panel_datetime(value: Any) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        return value
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_panel_telegram_id(value: Any) -> Optional[int]:
+    if value in (None, ""):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _panel_field_matches(current_value: Any, desired_value: Any, field: str) -> bool:
+    if current_value is _MISSING:
+        return False
+    if field == "description":
+        return _description_matches(current_value, str(desired_value or ""))
+    if field == "email":
+        return _normalize_panel_email(current_value) == _normalize_panel_email(desired_value)
+    if field == "telegramId":
+        return _safe_panel_telegram_id(current_value) == _safe_panel_telegram_id(desired_value)
+    if field == "expireAt":
+        current_dt = _parse_panel_datetime(current_value)
+        desired_dt = _parse_panel_datetime(desired_value)
+        return bool(current_dt and desired_dt and _datetime_matches(current_dt, desired_dt))
+    if field == "status":
+        return str(current_value or "").upper() == str(desired_value or "").upper()
+    return current_value == desired_value
+
+
+_MISSING = object()
+
+
+def _panel_update_changes(
+    current_panel_user: Optional[dict[str, Any]],
+    update_payload: dict[str, Any],
+) -> list[tuple[str, Any, Any]]:
+    current_panel_user = current_panel_user or {}
+    changes: list[tuple[str, Any, Any]] = []
+    for field, desired_value in update_payload.items():
+        if field == "uuid":
+            continue
+        current_value = current_panel_user.get(field, _MISSING)
+        if not _panel_field_matches(current_value, desired_value, field):
+            changes.append((field, current_value, desired_value))
+    return changes
+
+
+def _format_panel_update_changes(changes: list[tuple[str, Any, Any]]) -> str:
+    if not changes:
+        return "none"
+    formatted = [
+        f"{field}:{_panel_log_value(field, old)}->{_panel_log_value(field, new)}"
+        for field, old, new in changes[:4]
+    ]
+    if len(changes) > 4:
+        formatted.append(f"+{len(changes) - 4} more")
+    return "; ".join(formatted)
+
+
+def _identity_panel_update_reasons(
+    changes: list[tuple[str, Any, Any]],
+    *,
+    description_has_email: bool,
+) -> list[str]:
+    reasons: list[str] = []
+    if description_has_email:
+        reasons.append("remove_email_from_description")
+    for field, current_value, _desired_value in changes:
+        if current_value is _MISSING:
+            _append_unique(reasons, f"{field}_missing")
+        elif field == "description":
+            _append_unique(reasons, "description_mismatch")
+        else:
+            _append_unique(reasons, f"{field}_mismatch")
+    if not reasons:
+        reasons.append("identity_mismatch_without_visible_delta")
+    return reasons
+
+
+def _log_sync_panel_patch(
+    *,
+    source: str,
+    user: Any,
+    panel_uuid: str,
+    update_payload: dict[str, Any],
+    current_panel_user: Optional[dict[str, Any]],
+    reasons: list[str],
+    panel_view: str = "unknown",
+) -> list[str]:
+    changes = _panel_update_changes(current_panel_user, update_payload)
+    changed_fields = [field for field, _old, _new in changes]
+    payload_fields = [field for field in update_payload if field != "uuid"]
+    logging.info(
+        "Sync panel PATCH: source=%s user_id=%s telegram_id=%s panel_uuid=%s "
+        "panel_view=%s reasons=%s fields=%s payload_fields=%s changes=%s",
+        source,
+        getattr(user, "user_id", None),
+        getattr(user, "telegram_id", None),
+        panel_uuid,
+        panel_view,
+        ",".join(reasons),
+        ",".join(changed_fields) or "none",
+        ",".join(payload_fields) or "none",
+        _format_panel_update_changes(changes),
+    )
+    return changed_fields
 
 
 def _panel_identity_matches_user(
@@ -535,6 +708,7 @@ async def _absorb_duplicate_panel_identity(
 
     subscriptions_created = 0
     subscriptions_updated = 0
+    panel_patches = 0
     now = datetime.now(timezone.utc)
     duplicate_expire_at = _panel_expire_at(duplicate_panel_user)
     duplicate_status = str(duplicate_panel_user.get("status") or "").upper()
@@ -635,9 +809,20 @@ async def _absorb_duplicate_panel_identity(
         )
 
     if final_end_date:
+        panel_payload = _panel_identity_payload_with_expiry(existing_user, expire_at=final_end_date)
+        _log_sync_panel_patch(
+            source="duplicate_panel_merge",
+            user=existing_user,
+            panel_uuid=keep_panel_uuid,
+            update_payload=panel_payload,
+            current_panel_user=keep_panel_user,
+            reasons=["duplicate_panel_merge_extend"],
+            panel_view="list",
+        )
+        panel_patches += 1
         await panel_service.update_user_details_on_panel(
             keep_panel_uuid,
-            _panel_identity_payload_with_expiry(existing_user, expire_at=final_end_date),
+            panel_payload,
             log_response=False,
         )
 
@@ -663,6 +848,7 @@ async def _absorb_duplicate_panel_identity(
         "resolved": bool(deleted),
         "subscriptions_created": subscriptions_created,
         "subscriptions_updated": subscriptions_updated,
+        "panel_patches": panel_patches,
     }
 
 
@@ -714,6 +900,10 @@ async def _perform_sync_impl(
     users_uuid_updated = 0
     subscriptions_created = 0
     subscriptions_updated = 0
+    local_update_reason_counts: Counter[str] = Counter()
+    panel_patch_reason_counts: Counter[str] = Counter()
+    panel_patch_field_counts: Counter[str] = Counter()
+    panel_patch_count = 0
 
     try:
         panel_users_data = await panel_service.get_all_panel_users()
@@ -884,6 +1074,7 @@ async def _perform_sync_impl(
                 # User found in local DB
                 users_found_in_db += 1
                 user_was_updated = False
+                user_update_reasons: list[str] = []
 
                 # Get the actual user_id for subscription operations
                 actual_user_id = existing_user.user_id
@@ -942,6 +1133,10 @@ async def _perform_sync_impl(
                         existing_user.panel_user_uuid = panel_uuid
                         actual_user_id = existing_user.user_id
                         user_was_updated = True
+                        _append_unique(
+                            user_update_reasons,
+                            "panel_uuid_reassigned_after_local_merge",
+                        )
                         users_uuid_updated += 1
                         if previous_panel_uuid:
                             users_by_panel_uuid.pop(str(previous_panel_uuid), None)
@@ -1005,13 +1200,30 @@ async def _perform_sync_impl(
                         subscriptions_synced_count += int(
                             merge_result["subscriptions_created"]
                         ) + int(merge_result["subscriptions_updated"])
+                        merge_panel_patches = int(merge_result.get("panel_patches", 0))
+                        if merge_panel_patches:
+                            panel_patch_count += merge_panel_patches
+                            panel_patch_reason_counts[
+                                "duplicate_panel_merge_extend"
+                            ] += merge_panel_patches
                         if merge_result["resolved"]:
                             users_updated += 1
                             users_uuid_updated += 1
+                            local_update_reason_counts.update(
+                                ["duplicate_panel_identity_resolved"]
+                            )
                             panel_uuids_by_telegram_id.get(telegram_id_from_panel, set()).discard(
                                 str(panel_uuid)
                             )
                             users_by_panel_uuid.pop(str(panel_uuid), None)
+                            logging.info(
+                                "Sync local update: user_id=%s telegram_id=%s panel_uuid=%s "
+                                "reasons=%s",
+                                actual_user_id,
+                                existing_user.telegram_id,
+                                linked_uuid,
+                                "duplicate_panel_identity_resolved",
+                            )
                         logging.warning(
                             "Sync: duplicate panel users share telegramId %s; kept local panel UUID %s and processed duplicate panel UUID %s.",  # noqa: E501
                             telegram_id_from_panel,
@@ -1022,6 +1234,7 @@ async def _perform_sync_impl(
                     elif existing_user.panel_user_uuid != panel_uuid:
                         existing_user.panel_user_uuid = panel_uuid
                         user_was_updated = True
+                        _append_unique(user_update_reasons, "panel_uuid_synced")
                         users_uuid_updated += 1
                         users_by_panel_uuid[panel_uuid] = existing_user
                         logging.info(f"Updated panel UUID for user {actual_user_id}: {panel_uuid}")
@@ -1034,6 +1247,7 @@ async def _perform_sync_impl(
                     )
                     if email_was_bound:
                         user_was_updated = True
+                        _append_unique(user_update_reasons, "email_bound_from_panel")
                         if email_from_panel:
                             users_by_email[email_from_panel] = existing_user
                     if (
@@ -1042,6 +1256,7 @@ async def _perform_sync_impl(
                     ):
                         existing_user.telegram_id = telegram_id_from_panel
                         user_was_updated = True
+                        _append_unique(user_update_reasons, "telegram_id_bound_from_panel")
                         users_by_telegram_id[telegram_id_from_panel] = existing_user
 
                 lifetime_used = _extract_lifetime_used_traffic_bytes(panel_user_dict)
@@ -1055,6 +1270,7 @@ async def _perform_sync_impl(
                     existing_user.lifetime_used_traffic_bytes = lifetime_used
                     existing_user.lifetime_used_traffic_synced_at = datetime.now(timezone.utc)
                     user_was_updated = True
+                    _append_unique(user_update_reasons, "lifetime_traffic_synced")
 
                 # Ensure panel description contains Telegram fields
                 try:
@@ -1089,9 +1305,37 @@ async def _perform_sync_impl(
                                 existing_user.email,
                             )
                         if description_has_email or not identity_matches:
+                            panel_payload = _panel_identity_update_payload(
+                                existing_user,
+                                description_text,
+                            )
+                            panel_changes = _panel_update_changes(
+                                panel_user_for_identity,
+                                panel_payload,
+                            )
+                            panel_reasons = _identity_panel_update_reasons(
+                                panel_changes,
+                                description_has_email=description_has_email,
+                            )
+                            changed_fields = _log_sync_panel_patch(
+                                source="identity_sync",
+                                user=existing_user,
+                                panel_uuid=panel_uuid,
+                                update_payload=panel_payload,
+                                current_panel_user=panel_user_for_identity,
+                                reasons=panel_reasons,
+                                panel_view=(
+                                    "list"
+                                    if missing_identity_fields_match
+                                    else "full_fetch"
+                                ),
+                            )
+                            panel_patch_count += 1
+                            panel_patch_reason_counts.update(panel_reasons)
+                            panel_patch_field_counts.update(changed_fields)
                             await panel_service.update_user_details_on_panel(
                                 panel_uuid,
-                                _panel_identity_update_payload(existing_user, description_text),
+                                panel_payload,
                             )
                 except Exception as e_desc:
                     logging.warning(
@@ -1158,6 +1402,7 @@ async def _perform_sync_impl(
                                     )
                                     subscriptions_updated += 1
                                     user_was_updated = True
+                                    _append_unique(user_update_reasons, "subscription_updated")
                                 subscriptions_synced_count += 1
                                 logging.debug(
                                     f"Synced existing subscription {existing_sub_by_uuid.subscription_id} "  # noqa: E501
@@ -1193,6 +1438,7 @@ async def _perform_sync_impl(
                                 subscriptions_synced_count += 1
                                 subscriptions_created += 1
                                 user_was_updated = True
+                                _append_unique(user_update_reasons, "subscription_created")
                                 logging.debug(
                                     f"Created subscription {created_sub.subscription_id} "
                                     f"for user {actual_user_id} by panel_sub_uuid {subscription_uuid_from_panel}"  # noqa: E501
@@ -1219,6 +1465,7 @@ async def _perform_sync_impl(
                                     )
                                     subscriptions_updated += 1
                                     user_was_updated = True
+                                    _append_unique(user_update_reasons, "subscription_updated")
                                 subscriptions_synced_count += 1
                                 logging.debug(
                                     f"Updated active subscription {active_sub.subscription_id} "
@@ -1238,6 +1485,16 @@ async def _perform_sync_impl(
 
                 if user_was_updated:
                     users_updated += 1
+                    if not user_update_reasons:
+                        user_update_reasons.append("unspecified")
+                    local_update_reason_counts.update(user_update_reasons)
+                    logging.info(
+                        "Sync local update: user_id=%s telegram_id=%s panel_uuid=%s reasons=%s",
+                        actual_user_id,
+                        existing_user.telegram_id,
+                        panel_uuid,
+                        ",".join(user_update_reasons),
+                    )
 
             except Exception as e_user:
                 sync_errors.append(
@@ -1299,6 +1556,10 @@ async def _perform_sync_impl(
         logging.info(f"  Users created: {users_created}")
         logging.info(f"  Users with UUID updated: {users_uuid_updated}")
         logging.info(f"  Users updated overall: {users_updated}")
+        logging.info("  Local update reasons: %s", _format_counter(local_update_reason_counts))
+        logging.info(f"  Panel PATCHes from sync: {panel_patch_count}")
+        logging.info("  Panel PATCH reasons: %s", _format_counter(panel_patch_reason_counts))
+        logging.info("  Panel PATCH fields: %s", _format_counter(panel_patch_field_counts))
         logging.info(f"  Subscriptions total synced: {subscriptions_synced_count}")
         logging.info(f"  Subscriptions created: {subscriptions_created}")
         logging.info(f"  Subscriptions updated: {subscriptions_updated}")

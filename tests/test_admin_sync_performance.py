@@ -9,12 +9,15 @@ from bot.handlers.admin.sync_admin import (
     _description_contains_email,
     _description_matches,
     _description_without_email,
+    _format_panel_update_changes,
+    _identity_panel_update_reasons,
     _panel_description_for_user,
     _panel_identity_matches_user,
     _panel_identity_needs_full_fetch,
     _panel_identity_needs_legacy_description_cleanup,
     _panel_identity_payload_with_expiry,
     _panel_identity_view_for_comparison,
+    _panel_update_changes,
     _should_update_lifetime_used_traffic,
     _subscription_update_delta,
 )
@@ -53,6 +56,41 @@ def test_panel_description_for_user_excludes_email():
     )
 
     assert _panel_description_for_user(user) == "alice\nAlice\nSmith"
+
+
+def test_panel_update_change_summary_is_compact_and_field_based():
+    changes = _panel_update_changes(
+        {
+            "description": "old@example.com\nalice",
+            "email": "old@example.com",
+            "telegramId": "41",
+        },
+        {
+            "uuid": "panel-user-uuid",
+            "description": "alice",
+            "email": "new@example.com",
+            "telegramId": 42,
+        },
+    )
+
+    assert [field for field, _old, _new in changes] == [
+        "description",
+        "email",
+        "telegramId",
+    ]
+    assert _identity_panel_update_reasons(
+        changes,
+        description_has_email=True,
+    ) == [
+        "remove_email_from_description",
+        "description_mismatch",
+        "email_mismatch",
+        "telegramId_mismatch",
+    ]
+    summary = _format_panel_update_changes(changes)
+    assert "\n" not in summary
+    assert "description:len=21:old@example.com\\nalice->len=5:alice" in summary
+    assert "telegramId:41->42" in summary
 
 
 def test_description_contains_email_detects_legacy_panel_description():
