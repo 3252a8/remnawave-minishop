@@ -35,6 +35,13 @@ class SettingField:
 SETTINGS_MANIFEST: List[SettingField] = [
     # ─── General ────────────────────────────────────────────────────
     SettingField(
+        "WEBAPP_TITLE",
+        "string",
+        "general",
+        "Web App title",
+        placeholder="My subscription",
+    ),
+    SettingField(
         "DEFAULT_LANGUAGE",
         "string",
         "general",
@@ -117,9 +124,6 @@ SETTINGS_MANIFEST: List[SettingField] = [
         subsection="Remnawave",
     ),
     # ─── Web app appearance ────────────────────────────────────────
-    SettingField(
-        "WEBAPP_TITLE", "string", "appearance", "Название Web App", placeholder="Моя подписка"
-    ),
     SettingField(
         "SUBSCRIPTION_MINI_APP_URL",
         "url",

@@ -11,6 +11,7 @@ from bot.app.web.webapp.cache_helpers import (
 
 WEBAPP_APPEARANCE_SETTING_KEYS = frozenset(
     {
+        "WEBAPP_TITLE",
         "WEBAPP_LOGO_URL",
         "WEBAPP_LOGO_USE_EMOJI",
         "WEBAPP_LOGO_EMOJI",

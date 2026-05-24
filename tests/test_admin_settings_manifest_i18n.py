@@ -99,6 +99,16 @@ def _locale(language: str) -> dict[str, str]:
     return json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text(encoding="utf-8"))
 
 
+def test_webapp_title_is_first_general_admin_setting():
+    items = _manifest_items()
+    manifest = {item["key"]: item for item in items}
+    field = manifest["WEBAPP_TITLE"]
+
+    assert field["section"] == "general"
+    assert field["section_order"] == 1
+    assert [item["key"] for item in items if item["section"] == "general"][0] == "WEBAPP_TITLE"
+
+
 def test_support_settings_manifest_uses_admin_i18n_keys():
     manifest = _manifest_by_key()
 

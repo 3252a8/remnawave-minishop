@@ -444,6 +444,9 @@ export async function mockApi(path, options = {}, context = {}) {
     try {
       const body = options?.body ? JSON.parse(String(options.body)) : {};
       const updates = body.updates || {};
+      if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_TITLE")) {
+        DEV_MOCK.config.title = updates.WEBAPP_TITLE || "";
+      }
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_LOGO_URL")) {
         DEV_MOCK.config.logoUrl = updates.WEBAPP_LOGO_URL || "";
       }
@@ -473,6 +476,22 @@ export async function mockApi(path, options = {}, context = {}) {
     return {
       ok: true,
       sections: [
+        {
+          id: "general",
+          order: 1,
+          fields: [
+            {
+              key: "WEBAPP_TITLE",
+              type: "string",
+              section: "general",
+              label: "Web App title",
+              value: DEV_MOCK.config.title || "",
+              i18n_label_key: "admin_settings_field_webapp_title_label",
+              i18n_placeholder_key: "admin_settings_field_webapp_title_placeholder",
+              placeholder: "My subscription",
+            },
+          ],
+        },
         {
           id: "appearance",
           order: 2,

@@ -1424,7 +1424,7 @@
   "admin_settings_field_user_squad_uuids_description": "Comma-separated UUIDs for the legacy mode without a JSON tariff catalog.",
   "admin_settings_field_user_external_squad_uuid_label": "Default External Squad",
   "admin_settings_field_user_external_squad_uuid_description": "Optional External Squad UUID for new users.",
-  "admin_settings_field_webapp_title_label": "WebApp Title",
+  "admin_settings_field_webapp_title_label": "Web App title",
   "admin_settings_field_subscription_mini_app_url_label": "Public Mini App URL",
   "admin_settings_field_subscription_mini_app_url_description": "For example, https://app.example.com/.",
   "admin_settings_field_webapp_primary_color_label": "WebApp Primary Color",

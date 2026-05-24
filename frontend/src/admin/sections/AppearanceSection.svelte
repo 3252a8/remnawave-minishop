@@ -22,7 +22,6 @@
   const settingsStore = getContext("settingsStore");
   const themesStore = getContext("themesStore");
   const APPEARANCE_SETTING_KEYS = new Set([
-    "WEBAPP_TITLE",
     "SUBSCRIPTION_MINI_APP_URL",
     "WEBAPP_PRIMARY_COLOR",
     "WEBAPP_LOGO_URL",
