@@ -80,3 +80,10 @@ export function applyFavicon(brand = {}) {
     favicon.removeAttribute("type");
   }
 }
+
+export function applyDocumentTitle(title) {
+  if (typeof document === "undefined") return;
+  const nextTitle = String(title || "").trim();
+  if (!nextTitle || document.title === nextTitle) return;
+  document.title = nextTitle;
+}

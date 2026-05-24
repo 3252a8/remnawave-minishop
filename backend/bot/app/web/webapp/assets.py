@@ -202,7 +202,7 @@ def _resolve_webapp_logo_url(settings: Settings) -> str:
     if getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
         return ""
 
-    raw_logo_url = (settings.WEBAPP_LOGO_URL or "").strip()
+    raw_logo_url = (getattr(settings, "WEBAPP_LOGO_URL", None) or "").strip()
     if not raw_logo_url:
         return ""
 
@@ -1145,6 +1145,72 @@ async def i18n_route(request: web.Request) -> web.Response:
     return response
 
 
+def _webapp_page_title(settings: Settings, suffix: str = "") -> str:
+    base = str(getattr(settings, "WEBAPP_TITLE", "") or "").strip() or "Subscription"
+    suffix = str(suffix or "").strip()
+    return f"{base} - {suffix}" if suffix else base
+
+
+def _webapp_preview_meta_markup(page_title: str) -> str:
+    escaped_title = html.escape(str(page_title or ""), quote=True)
+    return "\n".join(
+        [
+            f'<meta name="application-name" content="{escaped_title}">',
+            f'<meta name="apple-mobile-web-app-title" content="{escaped_title}">',
+            f'<meta property="og:title" content="{escaped_title}">',
+            '<meta property="og:type" content="website">',
+            f'<meta property="og:site_name" content="{escaped_title}">',
+            '<meta name="twitter:card" content="summary">',
+            f'<meta name="twitter:title" content="{escaped_title}">',
+        ]
+    )
+
+
+def _replace_webapp_title(html_text: str, page_title: str) -> str:
+    escaped_title = html.escape(str(page_title or ""), quote=False)
+    next_title = f"<title>{escaped_title}</title>"
+    replaced = re.sub(
+        r"<title\b[^>]*>.*?</title>",
+        next_title,
+        html_text,
+        count=1,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if replaced != html_text:
+        return replaced
+    return html_text.replace("</head>", f"{next_title}\n</head>", 1)
+
+
+def _replace_webapp_favicon(html_text: str, favicon_markup: str) -> str:
+    markup = str(favicon_markup or "").strip()
+    if not markup:
+        return html_text
+    replaced = re.sub(
+        r"<link\b(?=[^>]*\bid=[\"']app-favicon[\"'])[^>]*>",
+        markup,
+        html_text,
+        count=1,
+        flags=re.IGNORECASE,
+    )
+    if replaced != html_text:
+        return replaced
+    return html_text.replace("</head>", f"{markup}\n</head>", 1)
+
+
+def _apply_webapp_head_metadata(html_text: str, page_title: str, favicon_url: str = "") -> str:
+    html_text = _replace_webapp_title(html_text, page_title)
+    if 'property="og:title"' not in html_text and "property='og:title'" not in html_text:
+        meta_markup = _webapp_preview_meta_markup(page_title)
+        html_text = re.sub(
+            r"(<title\b[^>]*>.*?</title>)",
+            lambda match: f"{match.group(1)}\n{meta_markup}",
+            html_text,
+            count=1,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+    return _replace_webapp_favicon(html_text, _favicon_head_markup(favicon_url))
+
+
 async def index_route(request: web.Request) -> web.Response:
     settings: Settings = request.app["settings"]
     if not settings.WEBAPP_ENABLED:
@@ -1166,6 +1232,7 @@ async def index_route(request: web.Request) -> web.Response:
     initial_theme_markup = _initial_theme_head_markup(request, initial_theme, primary_color)
     if initial_theme_markup:
         html = html.replace("</head>", f"{initial_theme_markup}\n</head>", 1)
+    html = _apply_webapp_head_metadata(html, _webapp_page_title(settings), cached["favicon_url"])
     i18n_payload = bootstrap["i18n"]
     nonce = request.get("csp_nonce", "")
     html = html.replace(
@@ -1188,12 +1255,6 @@ async def index_route(request: web.Request) -> web.Response:
         WEBAPP_JS_PLACEHOLDER,
         f'<script src="/{_resolve_webapp_js_asset_name()}" defer></script>',
     )
-    favicon_markup = _favicon_head_markup(cached["favicon_url"])
-    if favicon_markup:
-        html = html.replace(
-            '<link id="app-favicon" rel="icon" href="data:," sizes="any">',
-            favicon_markup,
-        )
     brand_asset_url = cached["logo_url"]
     if (
         not brand_asset_url
@@ -1224,22 +1285,21 @@ async def app_deeplink_route(request: web.Request) -> web.Response:
     query = getattr(request, "query", {}) or {}
     lang = _normalize_language(query.get("lang") or getattr(settings, "DEFAULT_LANGUAGE", "ru"))
     messages = _app_deeplink_i18n_payload(request, lang)
-    page_title = html.escape(
-        f"{getattr(settings, 'WEBAPP_TITLE', '') or 'Subscription'} - {messages['title']}",
-        quote=False,
-    )
+    page_title = _webapp_page_title(settings, messages["title"])
     messages_json = json.dumps(
         messages,
         ensure_ascii=False,
         separators=(",", ":"),
     ).replace("</", "<\\/")
+    favicon_url = _resolve_webapp_favicon_url(settings, _resolve_webapp_logo_url(settings))
     html_text = (
         _read_template_text_cached(APP_DEEPLINK_TEMPLATE_PATH)
         .replace("__LANG__", html.escape(lang, quote=True))
-        .replace("__PAGE_TITLE__", page_title)
+        .replace("__PAGE_TITLE__", html.escape(page_title, quote=False))
         .replace("__NONCE__", nonce)
         .replace("__MESSAGES_JSON__", messages_json)
     )
+    html_text = _apply_webapp_head_metadata(html_text, page_title, favicon_url)
     response = web.Response(text=html_text, content_type="text/html", charset="utf-8")
     response.headers["Cache-Control"] = "no-store"
     return response

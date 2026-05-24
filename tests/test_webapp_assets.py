@@ -176,6 +176,23 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('rel="apple-touch-icon"', markup)
         self.assertIn("/webapp-favicon/abcdef1234567890/icon-32.png", markup)
 
+    def test_webapp_head_metadata_replaces_static_title_and_favicon(self):
+        html = (
+            '<html><head><link id="app-favicon" rel="icon" href="data:," sizes="any" />'
+            "<title>/minishop</title></head><body></body></html>"
+        )
+
+        rendered = subscription_webapp._apply_webapp_head_metadata(
+            html,
+            "Brand & <VPN>",
+            "/webapp-favicon/abcdef1234567890/icon-180.png",
+        )
+
+        self.assertIn("<title>Brand &amp; &lt;VPN&gt;</title>", rendered)
+        self.assertIn('property="og:title" content="Brand &amp; &lt;VPN&gt;"', rendered)
+        self.assertIn("/webapp-favicon/abcdef1234567890/icon-32.png", rendered)
+        self.assertNotIn('href="data:,"', rendered)
+
     def test_favicon_set_generation_writes_common_icon_sizes(self):
         buffer = io.BytesIO()
         Image.new("RGBA", (2, 2), (0, 254, 122, 255)).save(buffer, format="PNG")

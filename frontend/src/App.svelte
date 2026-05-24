@@ -40,6 +40,7 @@
 
   import {
     applyFavicon,
+    applyDocumentTitle,
     normalizeBrand,
     readJsonScript,
     structuredCloneSafe,
@@ -463,6 +464,7 @@
         ? t("wa_auth_telegram_not_configured")
         : "";
   $: applyFavicon(faviconBrand);
+  $: applyDocumentTitle(brandTitle);
   $: syncBodyScrollLock(
     paymentModalOpen ||
       changeModalOpen ||
