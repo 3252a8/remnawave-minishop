@@ -1,5 +1,6 @@
 import asyncio
 import json
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from bot.payment_providers import wata
@@ -48,27 +49,30 @@ def _payment(**overrides):
         "subscription_duration_months": 1,
         "sale_mode": "subscription",
         "user": None,
+        "created_at": datetime.now(timezone.utc),
     }
     values.update(overrides)
     return SimpleNamespace(**values)
 
 
-def _service(session):
+def _service(session, **config_overrides):
     settings = SimpleNamespace(
         DEFAULT_CURRENCY_SYMBOL="RUB",
         DEFAULT_LANGUAGE="ru",
         traffic_sale_mode=False,
         trusted_proxies=[],
     )
+    config_values = {
+        "ENABLED": True,
+        "API_TOKEN": "token",
+        "WEBHOOK_VERIFY_SIGNATURE": False,
+        "TRUSTED_IPS": "",
+    }
+    config_values.update(config_overrides)
     return WataService(
         bot=SimpleNamespace(),
         settings=settings,
-        config=WataConfig(
-            ENABLED=True,
-            API_TOKEN="token",
-            WEBHOOK_VERIFY_SIGNATURE=False,
-            TRUSTED_IPS="",
-        ),
+        config=WataConfig(**config_values),
         i18n=SimpleNamespace(),
         async_session_factory=session,
         subscription_service=SimpleNamespace(),
@@ -378,3 +382,69 @@ def test_create_payment_link_uses_clean_iso_expiration_without_microseconds(monk
     assert expiration.endswith("Z"), expiration
     assert "." not in expiration, expiration
     assert "+" not in expiration, expiration
+    expiration_dt = wata._parse_wata_datetime(expiration)
+    assert expiration_dt is not None
+    ttl_delta = expiration_dt - datetime.now(timezone.utc)
+    assert timedelta(minutes=14, seconds=30) <= ttl_delta <= timedelta(minutes=15, seconds=30)
+
+
+def test_wata_link_ttl_uses_minutes_with_default_and_minimum():
+    default_config = WataConfig(ENABLED=True, API_TOKEN="token")
+    assert default_config.LINK_TTL_MINUTES == 15
+
+    too_short_config = WataConfig(ENABLED=True, API_TOKEN="token", LINK_TTL_MINUTES=10)
+    assert too_short_config.LINK_TTL_MINUTES == 15
+
+    custom_config = WataConfig(ENABLED=True, API_TOKEN="token", LINK_TTL_MINUTES=45)
+    assert custom_config.LINK_TTL_MINUTES == 45
+
+
+def test_refresh_marks_expired_wata_link_as_canceled(monkeypatch):
+    session = _FakeSession()
+    service = _service(session)
+    payment = _payment(
+        provider="wata",
+        provider_payment_id="link-id",
+        created_at=datetime.now(timezone.utc) - timedelta(minutes=16),
+    )
+    updates = []
+
+    async def find_transaction_for_payment(_payment, *, status):
+        return None
+
+    async def get_payment_link(payment_link_id):
+        assert payment_link_id == "link-id"
+        return True, {
+            "id": "link-id",
+            "status": "Opened",
+            "expirationDateTime": "2000-01-01T00:00:00Z",
+        }
+
+    async def update_provider_payment_and_status(
+        _session,
+        payment_id,
+        provider_payment_id,
+        status,
+    ):
+        updates.append((payment_id, provider_payment_id, status))
+        payment.provider_payment_id = provider_payment_id
+        payment.status = status
+
+    async def get_payment_by_db_id(_session, payment_id):
+        assert payment_id == payment.payment_id
+        return payment
+
+    service._find_transaction_for_payment = find_transaction_for_payment
+    service.get_payment_link = get_payment_link
+    monkeypatch.setattr(
+        wata.payment_dal,
+        "update_provider_payment_and_status",
+        update_provider_payment_and_status,
+    )
+    monkeypatch.setattr(wata.payment_dal, "get_payment_by_db_id", get_payment_by_db_id)
+
+    result = asyncio.run(service.refresh_payment_status(session, payment))
+
+    assert result is payment
+    assert updates == [(465, "link-id", "canceled")]
+    assert session.commits == 1

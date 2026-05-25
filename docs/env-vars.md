@@ -298,7 +298,7 @@ PAYMENT_HELEKET_TELEGRAM_EMOJI
 | `WATA_API_TOKEN` | Bearer token. |
 | `WATA_RETURN_URL` | URL успешного возврата. |
 | `WATA_FAILED_URL` | URL неуспешного возврата. |
-| `WATA_PAYMENT_LINK_TTL_DAYS` | TTL платежной ссылки в днях. |
+| `WATA_LINK_TTL_MINUTES` | TTL платежной ссылки в минутах (по умолчанию 15, минимум 15, максимум 43200). |
 | `WATA_WEBHOOK_VERIFY_SIGNATURE` | Проверять `X-Signature`. |
 | `WATA_PUBLIC_KEY` | Cached public key; если пусто, загружается из API. |
 | `WATA_TRUSTED_IPS` | IP-allowlist webhook-источников. |

@@ -63,6 +63,34 @@ router = Router(name="user_subscription_payments_wata_router")
 _LOG = "wata"
 _WATA_IN_PROGRESS_STATUSES = {"created", "pending"}
 _WATA_LINK_OPENED_STATUSES = {"opened", "open"}
+_WATA_LINK_DEFAULT_TTL_MINUTES = 15
+_WATA_LINK_MIN_TTL_MINUTES = 15
+_WATA_LINK_MAX_TTL_MINUTES = 30 * 24 * 60
+
+
+def _clamp_wata_link_ttl_minutes(value: Any, *, default: int) -> int:
+    if isinstance(value, str):
+        value = value.strip()
+    try:
+        minutes = int(value)
+    except (TypeError, ValueError):
+        return default
+    return min(_WATA_LINK_MAX_TTL_MINUTES, max(_WATA_LINK_MIN_TTL_MINUTES, minutes))
+
+
+def _parse_wata_datetime(raw: Any) -> Optional[datetime]:
+    if not raw:
+        return None
+    try:
+        iso_value = str(raw).strip()
+        if iso_value.endswith("Z"):
+            iso_value = iso_value[:-1] + "+00:00"
+        parsed = datetime.fromisoformat(iso_value)
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+    except (TypeError, ValueError):
+        return None
 
 
 def _wata_success_status(status: int, _body: Any) -> bool:
@@ -105,21 +133,15 @@ class WataConfig(ProviderEnvConfig):
     BASE_URL: str = Field(default="https://api.wata.pro/api/h2h")
     RETURN_URL: Optional[str] = None
     FAILED_URL: Optional[str] = None
-    PAYMENT_LINK_TTL_DAYS: int = Field(default=3)
+    LINK_TTL_MINUTES: int = Field(default=_WATA_LINK_DEFAULT_TTL_MINUTES)
     WEBHOOK_VERIFY_SIGNATURE: bool = Field(default=True)
     PUBLIC_KEY: Optional[str] = None
     TRUSTED_IPS: str = Field(default="62.84.126.140,51.250.106.150")
 
-    @field_validator("PAYMENT_LINK_TTL_DAYS", mode="before")
+    @field_validator("LINK_TTL_MINUTES", mode="before")
     @classmethod
-    def _clamp_ttl(cls, v):
-        if isinstance(v, str):
-            v = v.strip()
-        try:
-            value = int(v)
-        except (TypeError, ValueError):
-            return 3
-        return min(30, max(1, value))
+    def _clamp_link_ttl_minutes(cls, v):
+        return _clamp_wata_link_ttl_minutes(v, default=_WATA_LINK_DEFAULT_TTL_MINUTES)
 
     @field_validator("API_TOKEN", "RETURN_URL", "FAILED_URL", "PUBLIC_KEY", mode="before")
     @classmethod
@@ -201,8 +223,8 @@ class WataService(HttpClientMixin):
         return self.config.FAILED_URL or self.return_url
 
     @property
-    def payment_link_ttl_days(self) -> int:
-        return self.config.PAYMENT_LINK_TTL_DAYS
+    def payment_link_ttl_minutes(self) -> int:
+        return self.config.LINK_TTL_MINUTES
 
     @property
     def verify_webhook_signature(self) -> bool:
@@ -236,7 +258,7 @@ class WataService(HttpClientMixin):
 
         session = await self._get_session()
         expires_at = (
-            datetime.now(timezone.utc) + timedelta(days=self.payment_link_ttl_days)
+            datetime.now(timezone.utc) + timedelta(minutes=self.payment_link_ttl_minutes)
         ).replace(microsecond=0)
         body: Dict[str, Any] = {
             "amount": float(format_decimal_amount(amount)),
@@ -327,20 +349,15 @@ class WataService(HttpClientMixin):
 
         expiration_raw = data.get("expirationDateTime") or data.get("expiration_date_time")
         if expiration_raw:
-            try:
-                iso_value = str(expiration_raw).strip()
-                if iso_value.endswith("Z"):
-                    iso_value = iso_value[:-1] + "+00:00"
-                exp_dt = datetime.fromisoformat(iso_value)
-                if exp_dt.tzinfo is None:
-                    exp_dt = exp_dt.replace(tzinfo=timezone.utc)
-                if exp_dt <= datetime.now(timezone.utc):
-                    return None
-            except (TypeError, ValueError):
+            exp_dt = _parse_wata_datetime(expiration_raw)
+            if exp_dt is None:
                 logging.warning(
                     "Wata try_reuse_pending_link: unparseable expirationDateTime %r",
                     expiration_raw,
                 )
+                return None
+            if exp_dt <= datetime.now(timezone.utc):
+                return None
 
         return first_value(data, "url", "paymentUrl", "payment_url")
 
@@ -579,6 +596,72 @@ class WataService(HttpClientMixin):
             )
         return await payment_dal.get_payment_by_db_id(session, payment.payment_id) or payment
 
+    def _local_payment_link_ttl_expired(self, payment: Any) -> bool:
+        created_at = getattr(payment, "created_at", None)
+        if isinstance(created_at, datetime):
+            created_dt = (
+                created_at.replace(tzinfo=timezone.utc)
+                if created_at.tzinfo is None
+                else created_at.astimezone(timezone.utc)
+            )
+        else:
+            created_dt = _parse_wata_datetime(created_at)
+        if created_dt is None:
+            return False
+        expires_at = created_dt + timedelta(minutes=self.payment_link_ttl_minutes)
+        return expires_at <= datetime.now(timezone.utc)
+
+    async def _expired_link_payload_for_payment(self, payment: Any) -> Optional[Mapping[str, Any]]:
+        provider_payment_id = str(getattr(payment, "provider_payment_id", "") or "").strip()
+        if not provider_payment_id:
+            return None
+
+        success, data = await self.get_payment_link(provider_payment_id)
+        if not success or not isinstance(data, dict):
+            status_code = data.get("status") if isinstance(data, dict) else None
+            if status_code == 404 and self._local_payment_link_ttl_expired(payment):
+                return {"id": provider_payment_id}
+            return None
+
+        expiration_raw = data.get("expirationDateTime") or data.get("expiration_date_time")
+        expiration_dt = _parse_wata_datetime(expiration_raw)
+        if expiration_dt is None:
+            return None
+        if expiration_dt > datetime.now(timezone.utc):
+            return None
+        return data
+
+    async def _mark_expired_link(
+        self,
+        session: AsyncSession,
+        payment: Any,
+        payload: Mapping[str, Any],
+        *,
+        log_prefix: str,
+    ) -> Optional[Any]:
+        provider_payment_id = (
+            first_value(payload, "id", "paymentLinkId", "payment_link_id")
+            or getattr(payment, "provider_payment_id", None)
+            or str(payment.payment_id)
+        )
+        try:
+            await payment_dal.update_provider_payment_and_status(
+                session,
+                payment.payment_id,
+                str(provider_payment_id),
+                "canceled",
+            )
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            logging.exception(
+                "%s: failed to mark expired payment link %s as canceled.",
+                log_prefix,
+                provider_payment_id,
+            )
+            return None
+        return await payment_dal.get_payment_by_db_id(session, payment.payment_id) or payment
+
     async def refresh_payment_status(self, session: AsyncSession, payment: Any) -> Any:
         if str(getattr(payment, "provider", "") or "").lower() != "wata":
             return payment
@@ -612,6 +695,16 @@ class WataService(HttpClientMixin):
                 declined_payload,
                 log_prefix="Wata status refresh",
                 notify_user=False,
+            )
+            return refreshed or payment
+
+        expired_link_payload = await self._expired_link_payload_for_payment(payment)
+        if expired_link_payload:
+            refreshed = await self._mark_expired_link(
+                session,
+                payment,
+                expired_link_payload,
+                log_prefix="Wata status refresh",
             )
             return refreshed or payment
 
@@ -769,9 +862,7 @@ async def pay_wata_callback_handler(
 
     reuse_amounts = payment_record_amounts(months=parts.months, sale_mode=parts.sale_mode)
     months_for_lookup = (
-        reuse_amounts.months
-        if sale_mode_base(parts.sale_mode) == "subscription"
-        else None
+        reuse_amounts.months if sale_mode_base(parts.sale_mode) == "subscription" else None
     )
     reusable_payment = await payment_dal.find_recent_pending_provider_payment(
         session,
@@ -784,7 +875,7 @@ async def pay_wata_callback_handler(
         purchased_gb=reuse_amounts.purchased_gb,
         purchased_hwid_devices=reuse_amounts.purchased_hwid_devices,
         tariff_key=reuse_amounts.tariff_key,
-        since_minutes=wata_service.payment_link_ttl_days * 24 * 60,
+        since_minutes=wata_service.payment_link_ttl_minutes,
     )
     if reusable_payment is not None:
         reusable_url = await wata_service.try_reuse_pending_link(reusable_payment)
@@ -860,9 +951,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
         traffic_gb=ctx.traffic_gb,
     )
     months_for_lookup = (
-        reuse_amounts.months
-        if sale_mode_base(ctx.sale_mode) == "subscription"
-        else None
+        reuse_amounts.months if sale_mode_base(ctx.sale_mode) == "subscription" else None
     )
     try:
         reusable_payment = await payment_dal.find_recent_pending_provider_payment(
@@ -876,7 +965,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
             purchased_gb=reuse_amounts.purchased_gb,
             purchased_hwid_devices=reuse_amounts.purchased_hwid_devices,
             tariff_key=reuse_amounts.tariff_key,
-            since_minutes=service.payment_link_ttl_days * 24 * 60,
+            since_minutes=service.payment_link_ttl_minutes,
         )
     except Exception:
         logging.exception("Wata WebApp: lookup of reusable payment failed")
@@ -1028,14 +1117,17 @@ _CONFIG_MANIFEST = (
         "WATA_FAILED_URL", "url", "Failed URL", subsection="Wata", attr="FAILED_URL"
     ),
     ProviderManifestField(
-        "WATA_PAYMENT_LINK_TTL_DAYS",
+        "WATA_LINK_TTL_MINUTES",
         "int",
-        "Payment link lifetime (days)",
-        description="1..30; Wata defaults to 3 days and allows up to 30 days.",
+        "Payment link lifetime (minutes)",
+        description=(
+            "15..43200; default 15 minutes. Wata requires more than 10 minutes "
+            "and allows up to 30 days."
+        ),
         subsection="Wata",
-        min=1,
-        max=30,
-        attr="PAYMENT_LINK_TTL_DAYS",
+        min=_WATA_LINK_MIN_TTL_MINUTES,
+        max=_WATA_LINK_MAX_TTL_MINUTES,
+        attr="LINK_TTL_MINUTES",
     ),
     ProviderManifestField(
         "WATA_WEBHOOK_VERIFY_SIGNATURE",
