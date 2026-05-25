@@ -1,7 +1,8 @@
 import { writable } from "svelte/store";
 
 export function createSupportStore({ api, t, showToast }) {
-  const ACTIVE_POLL_MS = 15_000;
+  const OPEN_TICKET_POLL_MS = 3_000;
+  const ACTIVE_POLL_MS = 8_000;
   const BACKGROUND_POLL_MS = 45_000;
   const IDLE_POLL_MS = 120_000;
   const PAUSED_POLL_MS = 300_000;
@@ -34,6 +35,7 @@ export function createSupportStore({ api, t, showToast }) {
   let emptyUnreadPolls = 0;
   let lastUnreadCount = 0;
   let visibilityHandler = null;
+  let resumeHandler = null;
   let listRequestSeq = 0;
   let listPromise = null;
   let listPromiseKey = "";
@@ -55,6 +57,19 @@ export function createSupportStore({ api, t, showToast }) {
     return BACKGROUND_POLL_MS;
   }
 
+  function getSnapshot() {
+    let snapshot;
+    const unsubscribe = state.subscribe((s) => {
+      snapshot = s;
+    });
+    unsubscribe();
+    return snapshot;
+  }
+
+  function activePollDelay() {
+    return currentOpenedTicketId() ? OPEN_TICKET_POLL_MS : ACTIVE_POLL_MS;
+  }
+
   function clearPollTimer() {
     if (!pollTimer) return;
     if (typeof window !== "undefined") window.clearTimeout(pollTimer);
@@ -68,12 +83,7 @@ export function createSupportStore({ api, t, showToast }) {
   }
 
   function currentOpenedTicketId() {
-    let opened = null;
-    state.update((s) => {
-      opened = s.openedTicketId;
-      return s;
-    });
-    return opened;
+    return getSnapshot()?.openedTicketId || null;
   }
 
   function hydrateUnread(value) {
@@ -138,12 +148,18 @@ export function createSupportStore({ api, t, showToast }) {
     try {
       const res = await api(`/support/tickets/${id}`);
       if (res?.ok) {
-        state.update((s) => ({
-          ...s,
-          openedTicket: res.ticket,
-          messages: res.messages || [],
-        }));
-        await markRead(id);
+        state.update((s) =>
+          s.openedTicketId === id
+            ? {
+                ...s,
+                openedTicket: res.ticket,
+                messages: res.messages || [],
+              }
+            : s
+        );
+        if (currentOpenedTicketId() === id && Number(res.ticket?.unread_user_count || 0) > 0) {
+          await markRead(id, { silent: true });
+        }
       }
       return res;
     } catch {
@@ -194,17 +210,22 @@ export function createSupportStore({ api, t, showToast }) {
     try {
       const res = await api(`/support/tickets/${id}`);
       if (res?.ok) {
-        state.update((s) => ({
-          ...s,
-          openedTicket: res.ticket,
-          messages: res.messages || [],
-        }));
-        await markRead(id);
+        state.update((s) =>
+          s.openedTicketId === id
+            ? {
+                ...s,
+                openedTicket: res.ticket,
+                messages: res.messages || [],
+              }
+            : s
+        );
+        if (currentOpenedTicketId() === id) await markRead(id);
       } else {
         showToast(res?.message || res?.error || "not_found");
       }
     } finally {
-      state.update((s) => ({ ...s, detailLoading: false }));
+      state.update((s) => (s.openedTicketId === id ? { ...s, detailLoading: false } : s));
+      if (pollingEnabled) schedulePoll(activePollDelay());
     }
   }
 
@@ -227,7 +248,10 @@ export function createSupportStore({ api, t, showToast }) {
       ticketId = s.openedTicketId;
       return { ...s, sending: true };
     });
-    if (!ticketId) return;
+    if (!ticketId) {
+      state.update((s) => ({ ...s, sending: false }));
+      return;
+    }
     try {
       const res = await api(`/support/tickets/${ticketId}/messages`, {
         method: "POST",
@@ -248,20 +272,15 @@ export function createSupportStore({ api, t, showToast }) {
     }
   }
 
-  async function markRead(ticketId = null) {
+  async function markRead(ticketId = null, options = {}) {
     const id =
       ticketId ||
       (() => {
-        let current = null;
-        state.update((s) => {
-          current = s.openedTicketId;
-          return s;
-        });
-        return current;
+        return currentOpenedTicketId();
       })();
     if (!id) return;
     await api(`/support/tickets/${id}/read`, { method: "POST", body: "{}" });
-    await refreshUnread();
+    await refreshUnread({ silent: options.silent === true });
   }
 
   async function refreshUnread(options = {}) {
@@ -318,7 +337,9 @@ export function createSupportStore({ api, t, showToast }) {
       failed = true;
     } finally {
       pollInFlight = false;
-      if (pollingEnabled) schedulePoll(failed ? ERROR_POLL_MS : nextPollDelay());
+      if (pollingEnabled) {
+        schedulePoll(failed ? ERROR_POLL_MS : supportActive ? activePollDelay() : nextPollDelay());
+      }
     }
   }
 
@@ -327,7 +348,7 @@ export function createSupportStore({ api, t, showToast }) {
     if (supportActive === next) return;
     supportActive = next;
     if (supportActive) emptyUnreadPolls = 0;
-    if (pollingEnabled) schedulePoll(supportActive ? ACTIVE_POLL_MS : nextPollDelay());
+    if (pollingEnabled) schedulePoll(supportActive ? 0 : nextPollDelay());
   }
 
   function startPolling(options = {}) {
@@ -348,10 +369,20 @@ export function createSupportStore({ api, t, showToast }) {
       };
       document.addEventListener("visibilitychange", visibilityHandler);
     }
+    if (!resumeHandler) {
+      resumeHandler = () => {
+        if (!pollingEnabled) return;
+        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+        emptyUnreadPolls = 0;
+        schedulePoll(0);
+      };
+      window.addEventListener("focus", resumeHandler);
+      window.addEventListener("pageshow", resumeHandler);
+    }
     if (!pollTimer && !pollInFlight) {
-      schedulePoll(supportActive ? ACTIVE_POLL_MS : nextPollDelay());
+      schedulePoll(supportActive ? 0 : nextPollDelay());
     } else if (supportActive) {
-      schedulePoll(ACTIVE_POLL_MS);
+      schedulePoll(activePollDelay());
     }
   }
 
@@ -361,6 +392,13 @@ export function createSupportStore({ api, t, showToast }) {
     visibilityHandler = null;
   }
 
+  function stopResumeListeners() {
+    if (!resumeHandler || typeof window === "undefined") return;
+    window.removeEventListener("focus", resumeHandler);
+    window.removeEventListener("pageshow", resumeHandler);
+    resumeHandler = null;
+  }
+
   function closePolling() {
     pollingEnabled = false;
     supportActive = false;
@@ -368,6 +406,7 @@ export function createSupportStore({ api, t, showToast }) {
     emptyUnreadPolls = 0;
     clearPollTimer();
     stopVisibilityListener();
+    stopResumeListeners();
     state.update((s) => (s.polling ? { ...s, polling: false } : s));
   }
 
