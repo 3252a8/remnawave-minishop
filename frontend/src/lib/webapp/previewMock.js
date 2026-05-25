@@ -216,6 +216,11 @@ export const DEV_MOCK = {
     userAgreementUrl: "https://example.com/agreement",
     currency: "RUB",
     language: "ru",
+    languages: [
+      { code: "ru", label: "Русский", flag: "🇷🇺", base: true },
+      { code: "en", label: "English", flag: "🇬🇧", base: true },
+      { code: "uk", label: "Українська", flag: "🇺🇦", base: false },
+    ],
     emailAuthEnabled: true,
     telegramLoginBotUsername: "preview_bot",
     telegramLoginBotId: 1234567890,

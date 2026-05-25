@@ -206,8 +206,9 @@ class PanelWebhookService:
                 days_left=days_left,
                 end_date_text=end_date_text,
                 dashboard_url=(self.settings.SUBSCRIPTION_MINI_APP_URL or "").strip() or None,
+                i18n=self.i18n,
             )
-            email_service = EmailAuthService(self.settings)
+            email_service = EmailAuthService(self.settings, self.i18n)
             await email_service.send_rendered_email(email=recipient, content=content)
         except Exception:
             logging.exception("Failed to send subscription-expiring email to %s", recipient)

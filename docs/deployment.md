@@ -187,6 +187,7 @@ distributed lock; код подготовлен к нескольким репл
 
 ```bash
 mkdir -p data/themes data/webapp-logo data/webapp-emoji data/tariffs
+touch data/locales-overrides.json
 chown -R 10001:10001 data
 chmod -R u+rwX data
 docker compose up -d --force-recreate backend worker

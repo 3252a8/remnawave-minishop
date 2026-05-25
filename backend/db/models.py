@@ -489,3 +489,18 @@ class AppSettingOverride(Base):
         nullable=False,
     )
     updated_by = Column(BigInteger, nullable=True)
+
+
+class LocaleOverride(Base):
+    __tablename__ = "locale_overrides"
+
+    lang = Column(String(16), primary_key=True)
+    key = Column(String(255), primary_key=True)
+    value = Column(Text, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+    updated_by = Column(BigInteger, nullable=True)

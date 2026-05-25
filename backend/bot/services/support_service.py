@@ -125,7 +125,7 @@ class SupportService:
         self.settings = settings
         self.bot = bot
         self.i18n = i18n
-        self.email_auth_service = email_auth_service or EmailAuthService(settings)
+        self.email_auth_service = email_auth_service or EmailAuthService(settings, i18n)
         self.notification_service = notification_service or NotificationService(
             bot,
             settings,

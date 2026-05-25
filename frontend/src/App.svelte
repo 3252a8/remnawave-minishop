@@ -35,6 +35,7 @@
     TELEGRAM_SDK_ACTION_TIMEOUT_MS,
     TELEGRAM_SDK_BOOT_TIMEOUT_MS,
     TELEGRAM_WEBAPP_SCRIPT_URL,
+    uniqueLanguageCodes,
     WEBAPP_LANGUAGE_ORDER,
   } from "./lib/webapp/constants.js";
 
@@ -423,11 +424,20 @@
   }
   $: referral = data?.referral || DEV_MOCK.data.referral;
   $: currentLang = normalizeLangCode(user?.language_code || CFG.language || "ru");
-  $: languageOptions = WEBAPP_LANGUAGE_ORDER.map((code) => ({
-    value: code,
-    label: LANGUAGE_LABELS[code] || code.toUpperCase(),
-    flag: LANGUAGE_FLAGS[code] || "🏳️",
-  }));
+  $: languageCodes = uniqueLanguageCodes(
+    WEBAPP_LANGUAGE_ORDER,
+    CFG.languages,
+    Object.keys(I18N || {}),
+    [currentLang]
+  );
+  $: languageOptions = languageCodes.map((code) => {
+    const serverLanguage = (CFG.languages || []).find((language) => language.code === code);
+    return {
+      value: code,
+      label: serverLanguage?.label || LANGUAGE_LABELS[code] || code.toUpperCase(),
+      flag: serverLanguage?.flag || LANGUAGE_FLAGS[code] || "🏳️",
+    };
+  });
   $: currentLanguageOption =
     languageOptions.find((option) => option.value === currentLang) || languageOptions[0];
   $: userLanguage = languageName(currentLang);
@@ -1000,6 +1010,7 @@
     onSettingsSaved: handleAdminPersistedSaved,
     onTariffsSaved: handleAdminPersistedSaved,
     onThemesSaved: handleAdminPersistedSaved,
+    onTranslationsSaved: handleAdminTranslationsSaved,
     brandTitle,
     brand,
     appFaviconUrl: CFG.faviconUrl,
@@ -1668,6 +1679,29 @@
     if (shouldReloadFrontend && typeof window !== "undefined") {
       window.location.reload();
     }
+  }
+
+  async function refreshI18nScope(scope) {
+    if (MOCK) return;
+    const apiBase = String(CFG.apiBase || "/api").replace(/\/+$/, "");
+    try {
+      const response = await fetch(`${apiBase}/i18n?scope=${encodeURIComponent(scope)}`, {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) return;
+      const payload = await response.json();
+      if (payload?.ok && payload.i18n) i18n.mergeMessages(payload.i18n);
+      if (scope === "admin") adminI18nLoaded = true;
+    } catch (_error) {
+      void _error;
+    }
+  }
+
+  async function handleAdminTranslationsSaved(options = {}) {
+    adminI18nLoaded = false;
+    await Promise.all([refreshI18nScope("webapp"), refreshI18nScope("admin")]);
+    await handleAdminPersistedSaved({ ...options, deferFrontendReload: true });
   }
 
   function selectTariff(tariff) {

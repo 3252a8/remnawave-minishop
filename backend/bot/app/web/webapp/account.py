@@ -488,6 +488,11 @@ async def account_language_route(request: web.Request) -> web.Response:
         return validation_error
 
     language = _normalize_language(str(language_payload.language or ""))
+    i18n = request.app.get("i18n")
+    if i18n and hasattr(i18n, "reload_overrides_from_file"):
+        i18n.reload_overrides_from_file()
+    if i18n and language not in getattr(i18n, "locales_data", {}):
+        return _json_error(400, "unsupported_language", "Unsupported language")
     async_session_factory: sessionmaker = request.app["async_session_factory"]
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)

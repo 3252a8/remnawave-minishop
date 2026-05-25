@@ -21,7 +21,7 @@ def create_subscription_webapp_application(
     app["settings"] = settings
     app["async_session_factory"] = async_session_factory
     app["i18n"] = dp.get("i18n_instance")
-    app["email_auth_service"] = EmailAuthService(settings)
+    app["email_auth_service"] = EmailAuthService(settings, app["i18n"])
     app["webapp_logo_cache"] = None
     app["webapp_logo_cache_lock"] = asyncio.Lock()
     app["webapp_settings_cache"] = {"ts": 0.0, "data": {}}

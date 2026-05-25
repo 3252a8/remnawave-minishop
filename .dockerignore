@@ -16,6 +16,7 @@ frontend/node_modules/
 deploy/compose/docker-compose-dev.yml
 data/*
 !data/tariffs.example.json
+!data/locales-overrides.example.json
 
 
 # CI

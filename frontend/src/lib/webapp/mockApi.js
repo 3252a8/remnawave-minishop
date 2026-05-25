@@ -472,6 +472,78 @@ export async function mockApi(path, options = {}, context = {}) {
     }
     return { ok: true, applied: 1, reverted: 0 };
   }
+  if (path === "/admin/translations" && String(options.method || "GET").toUpperCase() === "PATCH") {
+    return { ok: true, applied: 1, reverted: 0, file_written: true };
+  }
+  if (path === "/admin/translations") {
+    return {
+      ok: true,
+      path: "data/locales-overrides.json",
+      override_count: 1,
+      languages: [
+        { code: "en", label: "English", base: true },
+        { code: "ru", label: "Русский", base: true },
+      ],
+      groups: [
+        {
+          id: "webapp",
+          title: "Mini App",
+          description: "User-facing Mini App strings.",
+          audience: "user",
+          items: [
+            {
+              key: "wa_nav_home",
+              audience: "user",
+              values: {
+                ru: {
+                  base: "Главная",
+                  fallback: "Главная",
+                  effective: "Главная",
+                  override: "",
+                  overridden: false,
+                },
+                en: {
+                  base: "Home",
+                  fallback: "Главная",
+                  effective: "Dashboard",
+                  override: "Dashboard",
+                  overridden: true,
+                },
+              },
+            },
+          ],
+        },
+        {
+          id: "admin",
+          title: "Admin panel",
+          description: "Admin navigation and labels.",
+          audience: "internal",
+          items: [
+            {
+              key: "admin_nav_settings",
+              audience: "internal",
+              values: {
+                ru: {
+                  base: "Настройки",
+                  fallback: "Настройки",
+                  effective: "Настройки",
+                  override: "",
+                  overridden: false,
+                },
+                en: {
+                  base: "Settings",
+                  fallback: "Настройки",
+                  effective: "Settings",
+                  override: "",
+                  overridden: false,
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+  }
   if (path === "/admin/settings")
     return {
       ok: true,

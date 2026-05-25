@@ -902,6 +902,23 @@ def _migration_0027_add_subscription_install_share_token(connection: Connection)
     )
 
 
+def _migration_0028_add_locale_overrides(connection: Connection) -> None:
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS locale_overrides (
+                lang VARCHAR(16) NOT NULL,
+                key VARCHAR(255) NOT NULL,
+                value TEXT NOT NULL,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_by BIGINT,
+                PRIMARY KEY (lang, key)
+            )
+            """
+        )
+    )
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -1048,6 +1065,11 @@ MIGRATIONS: List[Migration] = [
         id="0027_add_subscription_install_share_token",
         description="Add stable public share tokens for install instructions",
         upgrade=_migration_0027_add_subscription_install_share_token,
+    ),
+    Migration(
+        id="0028_add_locale_overrides",
+        description="Persist runtime overrides for localization strings",
+        upgrade=_migration_0028_add_locale_overrides,
     ),
 ]
 

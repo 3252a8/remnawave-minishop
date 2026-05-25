@@ -3,6 +3,7 @@ import re
 from pathlib import Path
 
 from bot.app.web.admin_settings_manifest import manifest_payload
+from bot.middlewares.i18n import resolve_locale_key
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -97,6 +98,10 @@ def _manifest_items() -> list[dict]:
 
 def _locale(language: str) -> dict[str, str]:
     return json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text(encoding="utf-8"))
+
+
+def _has_locale_key(messages: dict[str, str], key: str) -> bool:
+    return resolve_locale_key(key) in messages
 
 
 def test_webapp_title_is_first_general_admin_setting():
@@ -219,7 +224,10 @@ def test_platega_settings_share_one_admin_subsection():
 def test_tariff_settings_page_i18n_keys_exist():
     for language in ("ru", "en"):
         messages = _locale(language)
-        assert ADMIN_TARIFF_SETTINGS_PAGE_KEYS <= messages.keys()
+        missing = {
+            key for key in ADMIN_TARIFF_SETTINGS_PAGE_KEYS if not _has_locale_key(messages, key)
+        }
+        assert missing == set()
 
 
 def test_visible_admin_russian_labels_do_not_fall_back_to_english():
@@ -236,7 +244,7 @@ def test_visible_admin_russian_labels_do_not_fall_back_to_english():
         for match in ADMIN_AT_SIMPLE_FALLBACK_RE.finditer(text):
             locale_key = f"admin_{match.group('key')}"
             fallback = match.group("fallback")
-            if locale_key in messages:
+            if _has_locale_key(messages, locale_key):
                 continue
             has_latin = any("A" <= char <= "Z" or "a" <= char <= "z" for char in fallback)
             has_cyrillic = any("А" <= char <= "я" or char in "Ёё" for char in fallback)

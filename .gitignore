@@ -63,3 +63,4 @@ locales/en_backup.json
 db/models_old.py
 data/*
 !data/tariffs.example.json
+!data/locales-overrides.example.json

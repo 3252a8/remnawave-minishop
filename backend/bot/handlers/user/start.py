@@ -17,7 +17,7 @@ from bot.keyboards.inline.user_keyboards import (
     get_language_selection_keyboard,
     get_main_menu_inline_keyboard,
 )
-from bot.middlewares.i18n import JsonI18n
+from bot.middlewares.i18n import JsonI18n, normalize_locale_language_code
 from bot.services.panel_api_service import PanelApiService
 from bot.services.promo_code_service import PromoCodeService
 from bot.services.referral_service import ReferralService
@@ -913,11 +913,23 @@ async def select_language_callback_handler(
 
     try:
         lang_payload = callback.data.split("_", 2)[2]
-        lang_code, _, return_target = lang_payload.partition(":")
+        raw_lang_code, _, return_target = lang_payload.partition(":")
+        lang_code = normalize_locale_language_code(
+            raw_lang_code,
+            set(i18n.locales_data.keys()),
+            prefer_known_base=True,
+        )
     except IndexError:
         await safe_answer_callback(
             callback,
             "Error processing language selection.",
+            show_alert=True,
+        )
+        return
+    if lang_code not in i18n.locales_data:
+        await safe_answer_callback(
+            callback,
+            "Unsupported language.",
             show_alert=True,
         )
         return

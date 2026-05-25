@@ -23,6 +23,7 @@ from bot.payment_providers.yookassa import (
     process_cancelled_payment,
     process_successful_payment,
 )
+from bot.services.locale_override_service import load_locale_overrides
 from bot.services.settings_override_service import load_overrides_from_db
 from bot.services.tariff_worker import TariffTrafficWorker
 from bot.utils.message_queue import init_queue_manager
@@ -37,6 +38,7 @@ async def _build_worker_context(settings):
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     i18n = get_i18n_instance(path="locales", default=settings.DEFAULT_LANGUAGE)
+    await load_locale_overrides(i18n, session_factory)
     bot_username = "your_bot_username"
     try:
         bot_info = await bot.get_me()

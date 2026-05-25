@@ -4,6 +4,10 @@ from ._runtime import *  # noqa: F403,F405
 from bot.app.web.webapp.cache_helpers import (
     invalidate_webapp_user_caches as _invalidate_user_payload_caches,
 )
+from bot.middlewares.i18n import (
+    is_valid_locale_language_code,
+    normalize_locale_language_code,
+)
 
 
 async def _read_json(request: web.Request) -> Dict[str, Any]:
@@ -73,8 +77,8 @@ def _validate_model_payload(
 
 
 def _normalize_language(lang: Optional[str]) -> str:
-    value = (lang or "ru").split("-")[0].lower()
-    return value if value in {"ru", "en"} else "ru"
+    value = normalize_locale_language_code(lang, prefer_known_base=False)
+    return value if is_valid_locale_language_code(value) else "ru"
 
 
 def _format_remaining(seconds: int, lang: str) -> str:

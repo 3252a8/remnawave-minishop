@@ -96,6 +96,7 @@ docker compose logs -f backend worker frontend
 
 ```bash
 mkdir -p data/themes data/webapp-logo data/webapp-emoji
+touch data/locales-overrides.json
 chown -R 10001:10001 data
 chmod -R u+rwX data
 ```

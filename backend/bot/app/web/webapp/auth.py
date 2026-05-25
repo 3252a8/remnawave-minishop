@@ -1202,11 +1202,9 @@ def _apply_telegram_profile_to_user(
     telegram_user: Dict[str, Any],
     settings: Settings,
 ) -> None:
-    language_code = (
+    language_code = _normalize_language(
         telegram_user.get("language_code") or user.language_code or settings.DEFAULT_LANGUAGE
     )
-    if language_code not in {"ru", "en"}:
-        language_code = user.language_code or settings.DEFAULT_LANGUAGE
 
     user.telegram_id = int(telegram_user["id"])
     user.username = sanitize_username(telegram_user.get("username"))
@@ -1252,13 +1250,11 @@ async def _link_telegram_to_user(
         return merged_user
 
     if not existing_telegram_user and int(current_user.user_id) < 0:
-        language_code = (
+        language_code = _normalize_language(
             telegram_user.get("language_code")
             or current_user.language_code
             or settings.DEFAULT_LANGUAGE
         )
-        if language_code not in {"ru", "en"}:
-            language_code = current_user.language_code or settings.DEFAULT_LANGUAGE
         target_user, _ = await user_dal.create_user(
             session,
             {
@@ -1404,9 +1400,9 @@ async def _ensure_user_from_telegram(
     referral_param: Optional[str] = None,
 ) -> User:
     user_id = int(telegram_user["id"])
-    language_code = telegram_user.get("language_code") or settings.DEFAULT_LANGUAGE
-    if language_code not in {"ru", "en"}:
-        language_code = settings.DEFAULT_LANGUAGE
+    language_code = _normalize_language(
+        telegram_user.get("language_code") or settings.DEFAULT_LANGUAGE
+    )
 
     update_data = {
         "telegram_id": user_id,

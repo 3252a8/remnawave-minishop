@@ -9,6 +9,7 @@ from config.webapp_themes_config import (
     public_theme_payload,
     public_themes_catalog_payload,
 )
+from bot.middlewares.i18n import locale_language_options
 
 _TEXT_FILE_CACHE: Dict[tuple[str, bool], tuple[int, int, str]] = {}
 _BINARY_FILE_CACHE: Dict[str, tuple[int, int, bytes]] = {}
@@ -1157,7 +1158,10 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
         preview_key = ""
     i18n_instance: Optional[object] = request.app.get("i18n")
     i18n_scope = _normalize_i18n_scope(request.query.get("i18n_scope") or "webapp")
+    if i18n_instance and hasattr(i18n_instance, "reload_overrides_from_file"):
+        i18n_instance.reload_overrides_from_file()
     locales_data = getattr(i18n_instance, "locales_data", {}) if i18n_instance else {}
+    base_locales_data = getattr(i18n_instance, "base_locales_data", {}) if i18n_instance else {}
     return {
         "config": {
             "title": settings.WEBAPP_TITLE,
@@ -1188,6 +1192,10 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
             "userAgreementUrl": cached["user_agreement_url"],
             "currency": cached["currency"],
             "language": cached["language"],
+            "languages": locale_language_options(
+                locales_data.keys(),
+                base_languages=base_locales_data.keys(),
+            ),
             "emailAuthEnabled": cached["email_auth_enabled"],
             "appVersion": _resolve_app_version(),
             "appRepositoryUrl": APP_REPOSITORY_URL,
@@ -1204,6 +1212,8 @@ async def bootstrap_route(request: web.Request) -> web.Response:
 
 async def i18n_route(request: web.Request) -> web.Response:
     i18n_instance: Optional[object] = request.app.get("i18n")
+    if i18n_instance and hasattr(i18n_instance, "reload_overrides_from_file"):
+        i18n_instance.reload_overrides_from_file()
     scope = _normalize_i18n_scope(request.query.get("scope") or "webapp")
     locales_data = getattr(i18n_instance, "locales_data", {}) if i18n_instance else {}
     response = web.json_response(

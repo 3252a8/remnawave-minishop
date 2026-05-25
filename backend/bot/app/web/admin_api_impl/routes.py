@@ -66,6 +66,8 @@ def setup_admin_routes(app: web.Application) -> None:
 
     router.add_get("/api/admin/settings", admin_settings_get_route)
     router.add_patch("/api/admin/settings", admin_settings_patch_route)
+    router.add_get("/api/admin/translations", admin_translations_get_route)
+    router.add_patch("/api/admin/translations", admin_translations_patch_route)
 
     router.add_get("/api/admin/tariffs", admin_tariffs_get_route)
     router.add_put("/api/admin/tariffs", admin_tariffs_save_route)

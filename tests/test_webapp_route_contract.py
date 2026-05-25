@@ -178,6 +178,8 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("DELETE", "/api/admin/ads/{campaign_id}"): "admin_ad_delete_route",
             ("GET", "/api/admin/settings"): "admin_settings_get_route",
             ("PATCH", "/api/admin/settings"): "admin_settings_patch_route",
+            ("GET", "/api/admin/translations"): "admin_translations_get_route",
+            ("PATCH", "/api/admin/translations"): "admin_translations_patch_route",
             ("GET", "/api/admin/tariffs"): "admin_tariffs_get_route",
             ("PUT", "/api/admin/tariffs"): "admin_tariffs_save_route",
             ("GET", "/api/admin/themes"): "admin_themes_get_route",
@@ -204,6 +206,15 @@ class WebAppRouteContractTests(unittest.TestCase):
         subscription_webapp.setup_subscription_webapp_routes(app)
 
         request = make_mocked_request("GET", "/admin/appearance", app=app)
+        match_info = asyncio.run(app.router.resolve(request))
+
+        self.assertEqual(match_info.handler.__name__, "index_route")
+
+    def test_admin_translations_page_route_is_registered(self):
+        app = web.Application()
+        subscription_webapp.setup_subscription_webapp_routes(app)
+
+        request = make_mocked_request("GET", "/admin/translations", app=app)
         match_info = asyncio.run(app.router.resolve(request))
 
         self.assertEqual(match_info.handler.__name__, "index_route")

@@ -41,6 +41,7 @@ from config.tariffs_config import TariffsConfig
 from db.dal import (
     ad_dal,
     app_settings_dal,
+    locale_overrides_dal,
     message_log_dal,
     panel_sync_dal,
     payment_dal,

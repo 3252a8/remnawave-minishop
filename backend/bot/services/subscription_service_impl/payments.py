@@ -95,6 +95,7 @@ class PaymentContextMixin:
         except Exception:
             provider_label = self._PROVIDER_LABELS.get((provider or "").lower())
         dashboard_url = (self.settings.SUBSCRIPTION_MINI_APP_URL or "").strip() or None
+        i18n = getattr(self, "i18n", None)
 
         try:
             content = render_payment_success(
@@ -108,8 +109,9 @@ class PaymentContextMixin:
                 end_date_text=end_date_text,
                 dashboard_url=dashboard_url,
                 provider_label=provider_label,
+                i18n=i18n,
             )
-            email_service = EmailAuthService(self.settings)
+            email_service = EmailAuthService(self.settings, i18n)
             await email_service.send_rendered_email(email=recipient, content=content)
         except Exception:
             logging.exception("Failed to send payment success email to user %s", db_user.user_id)

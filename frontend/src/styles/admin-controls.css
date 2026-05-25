@@ -60,6 +60,12 @@
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
+.admin-screen-wrap .admin-translations-search .input,
+.admin-screen-wrap .admin-icon-picker-search .input,
+.admin-screen-wrap .support-admin-search .input {
+  padding-left: 38px;
+}
+
 .admin-screen-wrap .input::placeholder,
 .admin-screen-wrap input::placeholder,
 .admin-screen-wrap textarea::placeholder,

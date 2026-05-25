@@ -28,6 +28,7 @@ export {
   Home,
   Info,
   Key,
+  Languages,
   LayoutDashboard,
   LifeBuoy,
   Lock,

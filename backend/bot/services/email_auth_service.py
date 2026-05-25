@@ -15,6 +15,7 @@ from typing import Optional
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.middlewares.i18n import JsonI18n
 from bot.services.email_templates import EmailContent, render_login_code
 from config.settings import Settings
 from db.dal import security_dal
@@ -70,8 +71,9 @@ def _email_throttle_identifier(email: str, purpose: str, target_user_id: Optiona
 
 
 class EmailAuthService:
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, i18n: Optional[JsonI18n] = None):
         self.settings = settings
+        self.i18n = i18n
 
     def _smtp_attempts(self) -> list[SmtpAttempt]:
         attempts: list[SmtpAttempt] = []
@@ -465,6 +467,7 @@ class EmailAuthService:
             language_code=language_code,
             magic_link=magic_link,
             purpose=purpose,
+            i18n=self.i18n,
         )
 
         message = EmailMessage()

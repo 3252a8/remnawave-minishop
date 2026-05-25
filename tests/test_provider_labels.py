@@ -58,8 +58,9 @@ class _FakeUser(SimpleNamespace):
 class _FakeEmailService:
     instances: List["_FakeEmailService"] = []
 
-    def __init__(self, settings):
+    def __init__(self, settings, i18n=None):
         self.settings = settings
+        self.i18n = i18n
         self.sent: List[dict] = []
         _FakeEmailService.instances.append(self)
 

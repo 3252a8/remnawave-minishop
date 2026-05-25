@@ -1,4 +1,4 @@
-import { LANGUAGE_LABELS } from "./constants.js";
+import { LANGUAGE_LABELS, normalizeLanguageCode, resolveLocaleKey } from "./constants.js";
 import { formatTemplate, formatFraction, roundToHalf } from "./formatters.js";
 import { unitPluralBucket } from "./plurals.js";
 
@@ -21,14 +21,13 @@ export function createI18n({
   mergeMessages(initialMessages);
 
   function normalizeLangCode(lang) {
-    const key = String(lang || "")
-      .trim()
-      .toLowerCase();
+    const key = normalizeLanguageCode(lang);
     if (!key) return defaultLang;
     const base = key.split("-")[0];
-    if (LANGUAGE_LABELS[base]) return base;
-    if (messages[base]) return base;
     if (messages[key]) return key;
+    if (messages[base]) return base;
+    if (LANGUAGE_LABELS[key]) return key;
+    if (LANGUAGE_LABELS[base]) return base;
     return defaultLang;
   }
 
@@ -38,10 +37,11 @@ export function createI18n({
 
   function t(key, params = {}, fallback = "") {
     const lang = currentLang();
+    const lookupKey = resolveLocaleKey(key);
     const variants = [
-      messages?.[lang]?.[key],
-      messages?.en?.[key],
-      messages?.ru?.[key],
+      messages?.[lang]?.[lookupKey],
+      messages?.en?.[lookupKey],
+      messages?.ru?.[lookupKey],
       fallback,
       key,
     ];
@@ -50,9 +50,7 @@ export function createI18n({
   }
 
   function languageName(code) {
-    const key = String(code || "")
-      .trim()
-      .toLowerCase();
+    const key = normalizeLanguageCode(code);
     if (!key) return t("wa_language_default");
     return LANGUAGE_LABELS[key] || key.toUpperCase();
   }

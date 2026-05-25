@@ -30,7 +30,7 @@ def build_core_services(
     subscription_service = SubscriptionService(settings, panel_service, bot, i18n)
     referral_service = ReferralService(settings, subscription_service, bot, i18n)
     promo_code_service = PromoCodeService(settings, subscription_service, bot, i18n)
-    email_auth_service = EmailAuthService(settings)
+    email_auth_service = EmailAuthService(settings, i18n)
     notification_service = NotificationService(
         bot,
         settings,

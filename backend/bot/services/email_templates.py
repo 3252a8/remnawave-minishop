@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Optional, Sequence, Tuple
 from urllib.parse import urlsplit
 
-from bot.middlewares.i18n import JsonI18n, get_i18n_instance
+from bot.middlewares.i18n import JsonI18n, get_i18n_instance, normalize_locale_language_code
 from config.settings import Settings
 
 _BG = "#05070a"
@@ -64,7 +64,10 @@ def _brand_title(settings: Settings) -> str:
 
 
 def _normalize_lang(language_code: Optional[str], settings: Settings) -> str:
-    return (language_code or settings.DEFAULT_LANGUAGE or "ru").split("-")[0]
+    return normalize_locale_language_code(
+        language_code or settings.DEFAULT_LANGUAGE or "ru",
+        prefer_known_base=False,
+    )
 
 
 def _resolve_i18n(i18n: Optional[JsonI18n]) -> JsonI18n:

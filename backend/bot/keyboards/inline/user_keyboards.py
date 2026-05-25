@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from aiogram.types import InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
+from bot.middlewares.i18n import locale_language_options
 from bot.utils.install_links import bot_install_guide_url
 from bot.utils.mini_app_url import subscription_mini_app_trial_url
 from config.settings import Settings
@@ -246,14 +247,18 @@ def get_language_selection_keyboard(
     _ = lambda key, **kwargs: i18n_instance.gettext(current_lang, key, **kwargs)
     callback_suffix = ":bot" if back_callback == "main_action:bot_interface" else ""
     builder = InlineKeyboardBuilder()
-    builder.button(
-        text=f"🇬🇧 English {'✅' if current_lang == 'en' else ''}",
-        callback_data=f"set_lang_en{callback_suffix}",
-    )
-    builder.button(
-        text=f"🇷🇺 Русский {'✅' if current_lang == 'ru' else ''}",
-        callback_data=f"set_lang_ru{callback_suffix}",
-    )
+    if hasattr(i18n_instance, "language_options"):
+        languages = i18n_instance.language_options()
+    else:
+        locales_data = getattr(i18n_instance, "locales_data", {}) or {"ru": {}, "en": {}}
+        languages = locale_language_options(locales_data.keys(), base_languages=locales_data.keys())
+    for language in languages:
+        lang_code = language["code"]
+        checked = " ✅" if current_lang == lang_code else ""
+        builder.button(
+            text=f"{language['flag']} {language['label']}{checked}",
+            callback_data=f"set_lang_{lang_code}{callback_suffix}",
+        )
     builder.button(text=_(key="back_to_main_menu_button"), callback_data=back_callback)
     builder.adjust(1)
     return builder.as_markup()
