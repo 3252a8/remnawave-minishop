@@ -209,6 +209,79 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
             sub_update_payload = upd.await_args.args[2]
             self.assertFalse(sub_update_payload["premium_is_limited"])
 
+    async def test_premium_grant_skips_panel_patch_when_squads_already_match(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(premium=True), tmpdir)
+            panel_service = AsyncMock(spec=PanelApiService)
+            panel_service.get_user_by_uuid = AsyncMock(
+                return_value={
+                    "activeInternalSquads": [
+                        {"uuid": "squad-1"},
+                        {"uuid": "premium-squad"},
+                    ]
+                }
+            )
+            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            service = SubscriptionService(settings, panel_service)
+
+            db_user = SimpleNamespace(
+                user_id=77,
+                first_name="Premium",
+                last_name=None,
+                username="premium",
+                language_code="ru",
+                panel_user_uuid="panel-uuid",
+                email=None,
+                telegram_id=77,
+            )
+            sub = SimpleNamespace(
+                subscription_id=9,
+                user_id=77,
+                panel_user_uuid="panel-uuid",
+                tariff_key="standard",
+                premium_baseline_bytes=25 * (1024**3),
+                premium_topup_balance_bytes=0,
+                premium_topup_used_bytes=0,
+                premium_used_bytes=30 * (1024**3),
+                premium_is_limited=True,
+                premium_period_start_at=datetime.now(timezone.utc).replace(
+                    day=1, hour=0, minute=0, second=0, microsecond=0
+                ),
+                premium_unlimited_override=False,
+                premium_bonus_bytes=0,
+            )
+            updated_sub = SimpleNamespace(**vars(sub))
+
+            with (
+                patch(
+                    "bot.services.subscription_service.user_dal.get_user_by_id",
+                    new=AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service.subscription_dal.get_active_subscription_by_user_id",
+                    new=AsyncMock(return_value=sub),
+                ),
+                patch(
+                    "bot.services.subscription_service.subscription_dal.update_subscription",
+                    new=AsyncMock(return_value=updated_sub),
+                ) as upd,
+                patch(
+                    "bot.services.subscription_service.tariff_dal.create_traffic_topup",
+                    new=AsyncMock(),
+                ) as topup_log,
+            ):
+                result = await service.admin_grant_premium_topup(AsyncMock(), 77, 20.0)
+
+            self.assertIsNotNone(result)
+            self.assertFalse(result["premium_is_limited"])
+            upd.assert_awaited_once()
+            topup_log.assert_awaited_once()
+            panel_service.get_user_by_uuid.assert_awaited_once_with(
+                "panel-uuid",
+                log_response=False,
+            )
+            panel_service.update_user_details_on_panel.assert_not_awaited()
+
     async def test_premium_grant_fails_when_tariff_has_no_premium_squads(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(premium=False), tmpdir)

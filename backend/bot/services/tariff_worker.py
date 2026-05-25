@@ -486,11 +486,21 @@ class TariffTrafficWorker:
             return
 
         premium_period_start = month_start(now)
-        same_period = bool(getattr(sub, "premium_period_start_at", None) == premium_period_start)
+        same_period = self._same_premium_period(
+            getattr(sub, "premium_period_start_at", None),
+            premium_period_start,
+        )
         premium_baseline = int(tariff.premium_monthly_bytes or 0)
         premium_topup_balance = int(sub.premium_topup_balance_bytes or 0)
         premium_topup_used = (
             int(getattr(sub, "premium_topup_used_bytes", 0) or 0) if same_period else 0
+        )
+        premium_topup_balance = await self._repair_premium_topup_balance_from_ledger(
+            session,
+            sub,
+            premium_period_start,
+            premium_topup_balance,
+            premium_topup_used,
         )
         # Admin-side overrides for free gifted premium traffic.
         premium_unlimited_override = bool(getattr(sub, "premium_unlimited_override", False))
@@ -645,6 +655,72 @@ class TariffTrafficWorker:
             logging.exception(
                 "TariffTrafficWorker: failed to confirm panel squads for user %s",
                 panel_user_uuid,
+            )
+            return None
+
+    @staticmethod
+    def _same_premium_period(value: Optional[datetime], premium_period_start: datetime) -> bool:
+        if value is None:
+            return False
+        try:
+            return month_start(value) == premium_period_start
+        except Exception:
+            return False
+
+    async def _repair_premium_topup_balance_from_ledger(
+        self,
+        session: AsyncSession,
+        sub: Subscription,
+        premium_period_start: datetime,
+        premium_topup_balance: int,
+        premium_topup_used: int,
+    ) -> int:
+        ledger_total = await self._premium_topup_ledger_total(
+            session,
+            int(getattr(sub, "subscription_id", 0) or 0),
+            premium_period_start,
+        )
+        if ledger_total is None:
+            return premium_topup_balance
+
+        tracked_total = max(0, int(premium_topup_balance or 0)) + max(
+            0,
+            int(premium_topup_used or 0),
+        )
+        if ledger_total <= tracked_total:
+            return premium_topup_balance
+
+        repaired_bytes = ledger_total - tracked_total
+        logging.warning(
+            "Premium top-up balance repaired from ledger for user %s subscription %s: "
+            "tracked=%s ledger=%s repaired=%s",
+            getattr(sub, "user_id", None),
+            getattr(sub, "subscription_id", None),
+            tracked_total,
+            ledger_total,
+            repaired_bytes,
+        )
+        return premium_topup_balance + repaired_bytes
+
+    async def _premium_topup_ledger_total(
+        self,
+        session: AsyncSession,
+        subscription_id: int,
+        premium_period_start: datetime,
+    ) -> Optional[int]:
+        if not subscription_id or not isinstance(session, AsyncSession):
+            return None
+        try:
+            return await tariff_dal.sum_traffic_topups(
+                session,
+                subscription_id=subscription_id,
+                kinds=["premium_topup", "admin_premium_topup"],
+                created_at_gte=premium_period_start,
+            )
+        except Exception:
+            logging.exception(
+                "TariffTrafficWorker: failed to read premium top-up ledger for subscription %s",
+                subscription_id,
             )
             return None
 

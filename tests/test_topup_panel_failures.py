@@ -270,6 +270,67 @@ class ActivatePremiumTopupPanelFailureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["tariff_key"], "standard")
         create_topup.assert_awaited_once()
 
+    async def test_skips_panel_patch_when_premium_squads_already_match(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(tmpdir)
+            service = _make_service(settings)
+            sub = _make_sub(
+                premium_topup_balance_bytes=0,
+                premium_used_bytes=30 * GIB,
+                premium_is_limited=True,
+            )
+            user = _make_user()
+            service.panel_service.get_user_by_uuid = AsyncMock(
+                return_value={
+                    "activeInternalSquads": [
+                        {"uuid": "main-squad"},
+                        {"uuid": "premium-squad"},
+                    ]
+                }
+            )
+            service.panel_service.update_user_details_on_panel = AsyncMock(
+                return_value={"ok": True, "uuid": "panel-uuid"}
+            )
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.payments.payment_dal.get_payment_by_db_id",
+                    AsyncMock(return_value=SimpleNamespace()),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.traffic.user_dal.get_user_by_id",
+                    AsyncMock(return_value=user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.traffic.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.traffic.subscription_dal.update_subscription",
+                    AsyncMock(),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.traffic.tariff_dal.create_traffic_topup",
+                    AsyncMock(),
+                ) as create_topup,
+            ):
+                result = await service.activate_premium_topup(
+                    session=AsyncMock(),
+                    user_id=42,
+                    tariff_key="standard",
+                    traffic_gb=10,
+                    payment_amount=100,
+                    payment_db_id=2,
+                )
+
+            self.assertIsNotNone(result)
+            create_topup.assert_awaited_once()
+            service.panel_service.get_user_by_uuid.assert_awaited_once_with(
+                "panel-uuid",
+                log_response=False,
+            )
+            service.panel_service.update_user_details_on_panel.assert_not_awaited()
+
 
 class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
     """Free tariff switch. The bug was lifecycle.py:121 ignoring panel result — the tariff_key

@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import and_, delete, select
+from sqlalchemy import and_, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import HwidDevicePurchase, TariffChange, TrafficTopup, TrafficWarning
@@ -24,6 +24,26 @@ async def create_traffic_topup(
     await session.flush()
     await session.refresh(record)
     return record
+
+
+async def sum_traffic_topups(
+    session: AsyncSession,
+    *,
+    subscription_id: int,
+    kinds: Optional[List[str]] = None,
+    created_at_gte=None,
+) -> int:
+    conditions = [TrafficTopup.subscription_id == subscription_id]
+    if kinds:
+        conditions.append(TrafficTopup.kind.in_(list(kinds)))
+    if created_at_gte is not None:
+        conditions.append(TrafficTopup.created_at >= created_at_gte)
+    result = await session.execute(
+        select(func.coalesce(func.sum(TrafficTopup.purchased_bytes), 0)).where(
+            and_(*conditions)
+        )
+    )
+    return int(result.scalar() or 0)
 
 
 async def create_hwid_device_purchase(
