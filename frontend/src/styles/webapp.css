@@ -474,9 +474,7 @@ a {
 
 .trial-offer-card {
   border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 11%, transparent), transparent 48%),
-    linear-gradient(135deg, var(--surface-sheen), var(--surface-sheen-soft));
+  background: color-mix(in srgb, var(--accent) 7%, var(--panel));
 }
 
 .trial-card-head {
@@ -700,6 +698,7 @@ a {
   min-height: 82px;
   place-items: center;
   gap: 4px;
+  background: var(--surface-muted);
   padding: 10px 8px;
 }
 
@@ -756,6 +755,12 @@ a {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.method-grid-single .method-card,
+.method-grid-many .method-card:first-child,
+.method-grid-many .method-card:last-child:nth-child(even) {
+  grid-column: 1 / -1;
 }
 
 .option-list {

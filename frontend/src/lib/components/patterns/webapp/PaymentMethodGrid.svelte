@@ -16,7 +16,11 @@
   }
 </script>
 
-<div class="method-grid">
+<div
+  class:method-grid-single={methods.length === 1}
+  class:method-grid-many={methods.length > 2}
+  class="method-grid"
+>
   {#each methods as method}
     {@const icon = methodIcon(method)}
     <button

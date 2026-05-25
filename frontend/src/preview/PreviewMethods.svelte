@@ -13,7 +13,11 @@
   }
 </script>
 
-<div class="method-grid">
+<div
+  class:method-grid-single={methods.length === 1}
+  class:method-grid-many={methods.length > 2}
+  class="method-grid"
+>
   {#each methods as method, index}
     <div class:active={index === 1} class="method-card">
       <svelte:component this={icons[index] || WalletCards} size={18} />

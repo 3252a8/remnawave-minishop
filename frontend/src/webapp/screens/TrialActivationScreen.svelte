@@ -169,10 +169,11 @@
     font-size: 25px;
   }
 
-  :global(.trial-activation-card) {
+  :global(.card.trial-activation-card) {
     display: grid;
     justify-items: center;
     gap: 14px;
+    background: color-mix(in srgb, var(--accent) 6%, var(--panel));
     padding: 20px 16px 18px;
     text-align: center;
   }
