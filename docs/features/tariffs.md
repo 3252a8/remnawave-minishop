@@ -5,7 +5,7 @@
 - JSON-каталог тарифов из `TARIFFS_CONFIG_PATH` (по умолчанию `data/tariffs.json`);
 - конфигурация через переменные `.env`, если JSON-файл отсутствует.
 
-JSON-каталог может содержать несколько тарифов разных моделей: подписки на срок, пакеты трафика без срока действия, разные наборы Internal Squads, лимиты устройств и пакеты докупки. Пример формата: [data/tariffs.example.json](https://gitlab.com/3252a8/remnawave-minishop/-/blob/main/data/tariffs.example.json).
+JSON-каталог может содержать несколько тарифов разных моделей: подписки на срок, пакеты трафика без срока действия, разные наборы Internal Squads, лимиты устройств и пакеты докупки. Пример формата: [data/tariffs.example.json](https://github.com/3252a8/remnawave-minishop/blob/main/data/tariffs.example.json).
 
 Коротко по моделям:
 

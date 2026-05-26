@@ -16,7 +16,7 @@ export default defineConfig({
             { label: 'Главная', href: '/' },
             { label: 'Установка', href: '/getting-started/setup/' },
             { label: 'Платежи', href: '/features/payments/' },
-            { label: 'GitLab', href: 'https://gitlab.com/3252a8/remnawave-minishop' },
+            { label: 'GitHub', href: 'https://github.com/3252a8/remnawave-minishop' },
           ],
         }),
       ],

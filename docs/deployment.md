@@ -33,10 +33,10 @@ docker compose logs -f backend worker frontend
 
 | Папка | Когда использовать |
 | --- | --- |
-| [`deploy/examples/caddy`](https://gitlab.com/3252a8/remnawave-minishop/-/tree/main/deploy/examples/caddy) | Нужен простой публичный HTTPS с автоматическими сертификатами Let's Encrypt. |
-| [`deploy/examples/nginx`](https://gitlab.com/3252a8/remnawave-minishop/-/tree/main/deploy/examples/nginx) | Уже используете Nginx и готовы положить TLS-сертификаты рядом с примером. |
-| [`deploy/examples/newt`](https://gitlab.com/3252a8/remnawave-minishop/-/tree/main/deploy/examples/newt) | Публикуете сервисы через Pangolin/Newt без входящих портов на сервере приложения. |
-| [`deploy/examples/no-proxy`](https://gitlab.com/3252a8/remnawave-minishop/-/tree/main/deploy/examples/no-proxy) | Нужно напрямую открыть HTTP-порты backend/frontend или проверить стек за внешним TLS-терминатором. |
+| [`deploy/examples/caddy`](https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/caddy) | Нужен простой публичный HTTPS с автоматическими сертификатами Let's Encrypt. |
+| [`deploy/examples/nginx`](https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/nginx) | Уже используете Nginx и готовы положить TLS-сертификаты рядом с примером. |
+| [`deploy/examples/newt`](https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/newt) | Публикуете сервисы через Pangolin/Newt без входящих портов на сервере приложения. |
+| [`deploy/examples/no-proxy`](https://github.com/3252a8/remnawave-minishop/tree/main/deploy/examples/no-proxy) | Нужно напрямую открыть HTTP-порты backend/frontend или проверить стек за внешним TLS-терминатором. |
 
 ## Caddy (рекомендуемый вариант)
 
