@@ -467,6 +467,21 @@ export async function mockApi(path, options = {}, context = {}) {
       if (Object.prototype.hasOwnProperty.call(updates, "WEBAPP_FAVICON_USE_CUSTOM")) {
         DEV_MOCK.config.faviconUseCustom = Boolean(updates.WEBAPP_FAVICON_USE_CUSTOM);
       }
+      if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_ENABLED")) {
+        DEV_MOCK.config.trialEnabled = Boolean(updates.TRIAL_ENABLED);
+      }
+      if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_DURATION_DAYS")) {
+        DEV_MOCK.config.trialDurationDays = updates.TRIAL_DURATION_DAYS;
+      }
+      if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_TRAFFIC_LIMIT_GB")) {
+        DEV_MOCK.config.trialTrafficLimitGb = updates.TRIAL_TRAFFIC_LIMIT_GB;
+      }
+      if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_TRAFFIC_STRATEGY")) {
+        DEV_MOCK.config.trialTrafficStrategy = updates.TRIAL_TRAFFIC_STRATEGY || "NO_RESET";
+      }
+      if (Object.prototype.hasOwnProperty.call(updates, "TRIAL_SQUAD_UUIDS")) {
+        DEV_MOCK.config.trialSquadUuids = updates.TRIAL_SQUAD_UUIDS || "";
+      }
     } catch (_e) {
       void _e;
     }
@@ -634,7 +649,7 @@ export async function mockApi(path, options = {}, context = {}) {
               section: "pricing",
               subsection: "trial",
               label: "Триал включён",
-              value: true,
+              value: Boolean(DEV_MOCK.config.trialEnabled),
             },
             {
               key: "TRIAL_DURATION_DAYS",
@@ -642,7 +657,7 @@ export async function mockApi(path, options = {}, context = {}) {
               section: "pricing",
               subsection: "trial",
               label: "Длительность триала (дней)",
-              value: 3,
+              value: DEV_MOCK.config.trialDurationDays ?? 3,
             },
             {
               key: "TRIAL_TRAFFIC_LIMIT_GB",
@@ -650,7 +665,7 @@ export async function mockApi(path, options = {}, context = {}) {
               section: "pricing",
               subsection: "trial",
               label: "Лимит трафика триала (ГБ)",
-              value: 5,
+              value: DEV_MOCK.config.trialTrafficLimitGb ?? 5,
             },
             {
               key: "TRIAL_TRAFFIC_STRATEGY",
@@ -658,7 +673,7 @@ export async function mockApi(path, options = {}, context = {}) {
               section: "pricing",
               subsection: "trial",
               label: "Стратегия сброса трафика триала",
-              value: "NO_RESET",
+              value: DEV_MOCK.config.trialTrafficStrategy || "NO_RESET",
             },
             {
               key: "TRIAL_SQUAD_UUIDS",
@@ -666,7 +681,7 @@ export async function mockApi(path, options = {}, context = {}) {
               section: "pricing",
               subsection: "trial",
               label: "Internal Squads для триала",
-              value: "2f2f6e0a-1f2d-4e80-a33b-0ebf3a409012",
+              value: DEV_MOCK.config.trialSquadUuids || "",
             },
             ...[
               ["MONTH_1_ENABLED", "bool", true],
