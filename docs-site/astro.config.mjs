@@ -59,6 +59,7 @@ export default defineConfig({
           label: 'Начало',
           items: [
             { label: 'Обзор', slug: 'getting-started/overview' },
+            { label: 'Демо', slug: 'demo' },
             { label: 'Установка', slug: 'getting-started/setup' },
             { label: 'Развертывание', slug: 'getting-started/deployment' },
             { label: 'Настройка окружения', slug: 'getting-started/configuration' },
