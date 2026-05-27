@@ -250,7 +250,7 @@ export function createSupportStore({ api, t, showToast }) {
     });
     if (!ticketId) {
       state.update((s) => ({ ...s, sending: false }));
-      return;
+      return false;
     }
     try {
       const res = await api(`/support/tickets/${ticketId}/messages`, {
@@ -265,8 +265,10 @@ export function createSupportStore({ api, t, showToast }) {
       }));
       await refreshUnread();
       await loadList({ silent: true, force: true });
+      return true;
     } catch (error) {
       showToast(error?.message || t("wa_support_send_failed"));
+      return false;
     } finally {
       state.update((s) => ({ ...s, sending: false }));
     }

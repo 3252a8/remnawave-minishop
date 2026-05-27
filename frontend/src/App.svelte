@@ -1933,6 +1933,7 @@
                 <SupportTicketScreen
                   maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
                   {brand}
+                  {user}
                   userAvatarUrl={profileAvatarUrl}
                   userInitials={telegramProfileName
                     ? telegramProfileName.slice(0, 2).toUpperCase()
@@ -1943,6 +1944,7 @@
                 <SupportScreen
                   maxSubjectLength={appSettings?.support_ticket_max_subject_length || 160}
                   maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
+                  {user}
                   {t}
                 />
               {/if}

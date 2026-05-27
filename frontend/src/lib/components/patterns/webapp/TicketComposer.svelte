@@ -14,6 +14,12 @@
     if (disabled || sending || !value.trim()) return;
     onSend(value.trim());
   }
+
+  function handleKeydown(event) {
+    if (!(event.ctrlKey || event.metaKey) || event.key !== "Enter") return;
+    event.preventDefault();
+    submit();
+  }
 </script>
 
 <div class="ticket-composer">
@@ -25,6 +31,7 @@
     {placeholder}
     ariaLabel={placeholder}
     class="ticket-composer-textarea"
+    on:keydown={handleKeydown}
   />
   <div class="ticket-composer-row">
     <small>{value.length}/{maxLength}</small>

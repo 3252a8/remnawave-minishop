@@ -7,10 +7,17 @@
   import { Skeleton } from "$components/ui/index.js";
   import { TicketCard } from "$components/patterns/webapp/index.js";
   import { Select, Tabs } from "$components/ui/primitives.js";
+  import {
+    clearSupportDraft,
+    readSupportDraft,
+    supportDraftScope,
+    writeSupportDraft,
+  } from "$lib/webapp/supportDrafts.js";
 
   export let t = (key) => key;
   export let maxSubjectLength = 160;
   export let maxBodyLength = 4000;
+  export let user = {};
 
   const supportStore = getContext("supportStore");
   let subject = "";
@@ -18,6 +25,7 @@
   let category = "other";
   let priority = "normal";
   let createOpen = false;
+  let loadedCreateDraftScope = "";
 
   $: ({ tickets, loading, creating, statusFilter, counts } = $supportStore);
   $: categoryOptions = [
@@ -56,20 +64,74 @@
     categoryOptions.find((option) => option.value === category) || categoryOptions[0];
   $: selectedPriority =
     priorityOptions.find((option) => option.value === priority) || priorityOptions[0];
+  $: draftScope = supportDraftScope(user);
+  $: if (draftScope && draftScope !== loadedCreateDraftScope) {
+    loadCreateDraft(draftScope);
+  }
+  $: if (draftScope && draftScope === loadedCreateDraftScope) {
+    persistCreateDraft(draftScope, {
+      subject,
+      body,
+      category,
+      priority,
+      open: createOpen,
+      maxSubjectLength,
+      maxBodyLength,
+    });
+  }
 
   onMount(() => {
     supportStore.loadList();
   });
 
   async function createTicket() {
+    const currentDraftScope = draftScope;
     const ticket = await supportStore.createTicket({ subject, body, category, priority });
     if (ticket) {
+      clearSupportDraft("new", currentDraftScope);
       subject = "";
       body = "";
       category = "other";
       priority = "normal";
       createOpen = false;
     }
+  }
+
+  function optionValue(options, value, fallback) {
+    return options.some((option) => option.value === value) ? value : fallback;
+  }
+
+  function loadCreateDraft(scope) {
+    const draft = readSupportDraft("new", scope);
+    subject = typeof draft?.subject === "string" ? draft.subject.slice(0, maxSubjectLength) : "";
+    body = typeof draft?.body === "string" ? draft.body.slice(0, maxBodyLength) : "";
+    category = optionValue(categoryOptions, draft?.category, "other");
+    priority = optionValue(priorityOptions, draft?.priority, "normal");
+    createOpen = Boolean(draft?.open || subject.trim() || body.trim());
+    loadedCreateDraftScope = scope;
+  }
+
+  function persistCreateDraft(scope, draft) {
+    const draftSubject = String(draft.subject || "").slice(0, draft.maxSubjectLength);
+    const draftBody = String(draft.body || "").slice(0, draft.maxBodyLength);
+    const hasDraft =
+      Boolean(draftSubject.trim()) ||
+      Boolean(draftBody.trim()) ||
+      draft.category !== "other" ||
+      draft.priority !== "normal";
+
+    if (!hasDraft) {
+      clearSupportDraft("new", scope);
+      return;
+    }
+
+    writeSupportDraft("new", scope, "new", {
+      subject: draftSubject,
+      body: draftBody,
+      category: draft.category,
+      priority: draft.priority,
+      open: draft.open || Boolean(draftSubject.trim() || draftBody.trim()),
+    });
   }
 </script>
 

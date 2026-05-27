@@ -4,10 +4,17 @@
   import Card from "$components/ui/card.svelte";
   import { ArrowLeft } from "$components/ui/icons.js";
   import { TicketComposer, TicketMessageBubble } from "$components/patterns/webapp/index.js";
+  import {
+    clearSupportDraft,
+    readSupportDraft,
+    supportDraftScope,
+    writeSupportDraft,
+  } from "$lib/webapp/supportDrafts.js";
 
   export let t = (key) => key;
   export let maxBodyLength = 4000;
   export let brand = {};
+  export let user = {};
   export let userAvatarUrl = "";
   export let userInitials = "";
 
@@ -15,12 +22,30 @@
   let reply = "";
   let messagesScrollEl;
   let lastMessageKey = "";
+  let replyDraftKey = "";
 
   $: ({ openedTicket, messages, detailLoading, sending } = $supportStore);
   $: closed = ["resolved", "closed"].includes(openedTicket?.status);
+  $: ticketId = openedTicket?.ticket_id || "";
+  $: draftScope = supportDraftScope(user);
+  $: nextReplyDraftKey = ticketId ? `${draftScope}:${ticketId}` : "";
+  $: if (nextReplyDraftKey && nextReplyDraftKey !== replyDraftKey) {
+    const draft = readSupportDraft("reply", draftScope, ticketId);
+    reply = typeof draft?.body === "string" ? draft.body.slice(0, maxBodyLength) : "";
+    replyDraftKey = nextReplyDraftKey;
+  }
+  $: if (nextReplyDraftKey && replyDraftKey === nextReplyDraftKey && !closed) {
+    const body = String(reply || "").slice(0, maxBodyLength);
+    if (body.trim()) writeSupportDraft("reply", draftScope, ticketId, { body });
+    else clearSupportDraft("reply", draftScope, ticketId);
+  }
 
   async function send(body) {
-    await supportStore.sendReply(body);
+    const currentTicketId = ticketId;
+    const currentDraftScope = draftScope;
+    const sent = await supportStore.sendReply(body);
+    if (!sent) return;
+    if (currentTicketId) clearSupportDraft("reply", currentDraftScope, currentTicketId);
     reply = "";
   }
 
