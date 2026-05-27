@@ -51,6 +51,10 @@ function navIcon(href: string) {
   }
   return undefined
 }
+
+function isDemoHref(href: string) {
+  return href === '/demo/' || href === '/demo'
+}
 ---
 
 <div class="box-border flex h-full items-center gap-2">
@@ -70,12 +74,14 @@ function navIcon(href: string) {
         const href = getI18nText(item.href, route)
         const label = getI18nText(item.label, route)
         const icon = navIcon(href)
+        const demo = isDemoHref(href)
 
         return (
           <a
             class:list={[
               '-m-1.5 rounded-md p-1.5 text-(--sl-color-gray-3) no-underline hover:text-(--sl-color-white) focus-visible:outline-offset-0',
               icon && 'minishop-header-link inline-flex items-center',
+              demo && 'minishop-demo-nav-link',
             ]}
             href={href}
           >

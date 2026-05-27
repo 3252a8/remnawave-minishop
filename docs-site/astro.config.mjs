@@ -13,6 +13,7 @@ export default defineConfig({
       plugins: [
         starlightThemeNova({
           nav: [
+            { label: 'Демо', href: '/demo/' },
             { label: 'Установка', href: '/getting-started/setup/' },
             { label: 'GitHub', href: 'https://github.com/3252a8/remnawave-minishop' },
             { label: 'Telegram', href: 'https://t.me/remnawave_minishop' }
@@ -59,7 +60,7 @@ export default defineConfig({
           label: 'Начало',
           items: [
             { label: 'Обзор', slug: 'getting-started/overview' },
-            { label: 'Демо', slug: 'demo' },
+            { label: 'Демо-режим', slug: 'getting-started/demo' },
             { label: 'Установка', slug: 'getting-started/setup' },
             { label: 'Развертывание', slug: 'getting-started/deployment' },
             { label: 'Настройка окружения', slug: 'getting-started/configuration' },
