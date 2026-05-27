@@ -18,6 +18,13 @@ export function normalizeSection(value) {
   return "home";
 }
 
+export function normalizeAdminSection(value) {
+  const section = String(value || "")
+    .trim()
+    .toLowerCase();
+  return ADMIN_SECTIONS.has(section) ? section : "stats";
+}
+
 export function sectionFromPath(pathname) {
   const normalizedPath = String(pathname || "")
     .trim()
@@ -43,8 +50,7 @@ export function adminSectionFromPath(pathname) {
     .toLowerCase()
     .replace(/\/+$/, "");
   const m = normalized.match(/^\/admin\/([a-z0-9_-]+)(?:\/.*)?$/);
-  if (m && ADMIN_SECTIONS.has(m[1])) return m[1];
-  return "stats";
+  return normalizeAdminSection(m ? m[1] : "");
 }
 
 export function adminUserIdFromPath(pathname) {

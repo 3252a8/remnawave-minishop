@@ -12,7 +12,6 @@
   import BrandMark from "$lib/webapp/BrandMark.svelte";
   import Button from "$components/ui/button.svelte";
   import Dialog from "$components/ui/dialog.svelte";
-  import PreviewBoard from "./PreviewBoard.svelte";
   import WebAppShell from "./webapp/WebAppShell.svelte";
   import AuthScreen from "./webapp/auth/AuthScreen.svelte";
   import PaymentDialogs from "./webapp/PaymentDialogs.svelte";
@@ -91,13 +90,12 @@
     readCookie,
   } from "./lib/webapp/session.js";
   import { createTelegramSdk } from "./lib/webapp/telegramSdk.js";
-  import { mockApi as runMockApi } from "./lib/webapp/mockApi.js";
-  import { DEV_MOCK, applyPreviewMock } from "./lib/webapp/previewMock.js";
   import {
     adminPaymentIdFromPath,
     adminPaymentsUserIdFromPath,
     adminSectionFromPath,
     adminUserIdFromPath,
+    normalizeAdminSection,
     normalizeSection,
     publicInstallTokenFromPath,
     sectionFromPath,
@@ -105,18 +103,41 @@
     syncSectionPath,
   } from "./lib/webapp/routes.js";
 
+  export let mockRuntime = null;
+
+  const EMPTY_MOCK = {
+    config: {
+      title: "/minishop",
+      primaryColor: "#00fe7a",
+      apiBase: "/api",
+      language: "ru",
+      languages: [],
+    },
+    data: {
+      plans: [],
+      payment_methods: [],
+      subscription: {},
+      settings: {},
+      referral: {},
+      themes_catalog: { default_theme: "dark", themes: [] },
+    },
+  };
+  const MOCK_SOURCE = mockRuntime?.source || EMPTY_MOCK;
+  const previewBoardComponent = mockRuntime?.PreviewBoard || null;
+  const isDocsDemo = mockRuntime?.docsDemo === true;
   const query = new URLSearchParams(window.location.search);
   const isAppLaunchRoute = isExternalAppLaunchPath(window.location.pathname);
-  applyPreviewMock(query.get("mock"));
-  const isPreviewBoard = query.get("preview") === "all";
+  mockRuntime?.applyPreviewMock?.(query.get("mock"));
+  const isPreviewBoard = Boolean(previewBoardComponent) && query.get("preview") === "all";
   const injectedConfig = readJsonScript("webapp-config");
   const injectedI18n = readJsonScript("i18n");
   const isLocalShell =
     window.location.protocol === "file:" ||
     ["", "localhost", "127.0.0.1"].includes(window.location.hostname);
-  const MOCK = !injectedConfig && isLocalShell ? DEV_MOCK : null;
+  const MOCK =
+    mockRuntime?.mockApi && !injectedConfig && (isLocalShell || isDocsDemo) ? MOCK_SOURCE : null;
   const CFG = {
-    ...DEV_MOCK.config,
+    ...MOCK_SOURCE.config,
     ...(MOCK ? MOCK.config : {}),
     ...(injectedConfig || {}),
   };
@@ -128,7 +149,7 @@
   let mode = isAppLaunchRoute ? "appLaunch" : isPreviewBoard ? "preview" : "loading";
   let activeTab = "home";
   let screen = "home";
-  let data = isPreviewBoard ? structuredCloneSafe(DEV_MOCK.data) : null;
+  let data = isPreviewBoard ? structuredCloneSafe(MOCK_SOURCE.data) : null;
   let appLaunchTarget = isAppLaunchRoute ? readExternalAppLaunchTarget() : "";
   let publicInstallSubscription = null;
   let publicInstallToken = "";
@@ -196,7 +217,10 @@
       clearToken();
       showLogin();
     },
-    mockApi: MOCK ? (path, options, context) => runMockApi(path, options, context) : null,
+    mockApi:
+      MOCK && mockRuntime?.mockApi
+        ? (path, options, context) => mockRuntime.mockApi(path, options, context)
+        : null,
     getMockContext: () => ({ currentLang, normalizeLangCode, clone: structuredCloneSafe }),
   });
   const billing = createBillingActions({
@@ -333,9 +357,9 @@
     ...brand,
     logoUrl: String(CFG.faviconUrl || "").trim() || brand.logoUrl,
   });
-  $: plans = data?.plans?.length ? data.plans : DEV_MOCK.data.plans;
+  $: plans = data?.plans?.length ? data.plans : MOCK_SOURCE.data.plans;
   $: methods = data?.payment_methods?.length ? data.payment_methods : [];
-  $: appSettings = data?.settings || DEV_MOCK.data.settings;
+  $: appSettings = data?.settings || MOCK_SOURCE.data.settings;
   $: subscriptionPurchaseDescription = String(
     appSettings?.subscription_purchase_description || ""
   ).trim();
@@ -354,7 +378,7 @@
   $: supportEnabled = Boolean(appSettings?.support_tickets_enabled ?? true);
   $: installGuidesEnabled = Boolean(appSettings?.subscription_guides_enabled);
   $: supportStore.setActive(Boolean(mode === "app" && screen === "support" && supportEnabled));
-  $: subscription = data?.subscription || DEV_MOCK.data.subscription;
+  $: subscription = data?.subscription || MOCK_SOURCE.data.subscription;
   $: hasActiveTariffSubscription = Boolean(
     tariffMode && subscription?.active && subscription?.tariff_key
   );
@@ -424,7 +448,7 @@
     screen = "settings";
     activeTab = "settings";
   }
-  $: referral = data?.referral || DEV_MOCK.data.referral;
+  $: referral = data?.referral || MOCK_SOURCE.data.referral;
   $: currentLang = normalizeLangCode(user?.language_code || CFG.language || "ru");
   $: languageCodes = uniqueLanguageCodes(
     WEBAPP_LANGUAGE_ORDER,
@@ -1000,11 +1024,18 @@
     adminMountHandle = null;
   }
 
+  function initialAdminSectionFromLocation() {
+    if (MOCK && query.get("admin_section")) {
+      return normalizeAdminSection(query.get("admin_section"));
+    }
+    return adminSectionFromPath(window.location.pathname);
+  }
+
   $: adminPanelProps = {
     api,
     onClose: closeAdminPanel,
     onToast: (text) => showToast(text),
-    initialSection: adminSectionFromPath(window.location.pathname),
+    initialSection: initialAdminSectionFromLocation(),
     initialPaymentId: adminPaymentIdFromPath(window.location.pathname),
     initialPaymentUserId: adminPaymentsUserIdFromPath(window.location.pathname),
     initialUserId: adminUserIdFromPath(window.location.pathname),
@@ -1155,8 +1186,7 @@
     ) {
       section = "home";
     }
-    const initialAdminSection =
-      section === "admin" ? adminSectionFromPath(window.location.pathname) : null;
+    const initialAdminSection = section === "admin" ? initialAdminSectionFromLocation() : null;
     if (section === "admin" && payload.user?.is_admin) {
       try {
         await ensureI18nScope("admin");
@@ -1186,7 +1216,9 @@
       }
       supportStore.startPolling({ includeList: false });
     }
-    if (section === "support" && initialSupportTicketId) {
+    if (isDocsDemo) {
+      // The docs demo is a static iframe route; keep query params as its navigation contract.
+    } else if (section === "support" && initialSupportTicketId) {
       const targetPath = `/support/${initialSupportTicketId}`;
       if (window.location.protocol !== "file:" && window.location.pathname !== targetPath) {
         window.history.replaceState(
@@ -1640,6 +1672,7 @@
   function handleAdminSectionChange(adminSection, adminUserId = null) {
     if (screen !== "admin") return;
     if (window.location.protocol === "file:") return;
+    if (isDocsDemo) return;
     const targetPath =
       adminSection === "users" && adminUserId
         ? `/admin/users/${adminUserId}`
@@ -1738,7 +1771,7 @@
 <Tooltip.Provider>
   {#key currentLang}
     {#if isPreviewBoard}
-      <PreviewBoard config={CFG} mockData={DEV_MOCK.data} />
+      <svelte:component this={previewBoardComponent} config={CFG} mockData={MOCK_SOURCE.data} />
     {:else}
       <div class="app-shell {shellToneClass} {shellThemeClass}" style={shellStyle}>
         {#if mode === "loading"}
