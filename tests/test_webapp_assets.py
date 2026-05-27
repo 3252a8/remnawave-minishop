@@ -10,7 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 from bot.app.web import subscription_webapp
 from bot.app.web.admin_api_impl import themes as admin_themes
@@ -110,6 +110,14 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             "/webapp-uploaded-logo/logo-abcdef1234567890.png",
         )
 
+    def test_default_webapp_logo_is_used_without_admin_upload(self):
+        settings = SimpleNamespace(WEBAPP_LOGO_USE_EMOJI=False, WEBAPP_LOGO_URL="")
+
+        self.assertEqual(
+            subscription_webapp._resolve_webapp_logo_url(settings),
+            subscription_webapp.WEBAPP_DEFAULT_LOGO_PATH,
+        )
+
     async def test_webapp_logo_route_serves_configured_uploaded_logo(self):
         settings = SimpleNamespace(
             WEBAPP_LOGO_USE_EMOJI=False,
@@ -159,14 +167,17 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             "/webapp-favicon/1111111111111111/icon-180.png",
         )
 
-    def test_logo_generated_favicon_is_not_used_without_logo(self):
+    def test_default_favicon_is_used_without_logo_favicon(self):
         settings = SimpleNamespace(
             WEBAPP_FAVICON_USE_CUSTOM=False,
             WEBAPP_FAVICON_URL="/webapp-favicon/abcdef1234567890/icon-180.png",
             WEBAPP_LOGO_FAVICON_URL="/webapp-favicon/1111111111111111/icon-180.png",
         )
 
-        self.assertEqual(subscription_webapp._resolve_webapp_favicon_url(settings, ""), "")
+        self.assertEqual(
+            subscription_webapp._resolve_webapp_favicon_url(settings, ""),
+            subscription_webapp.WEBAPP_DEFAULT_FAVICON_URL,
+        )
 
     def test_favicon_head_markup_includes_touch_icon(self):
         markup = subscription_webapp._favicon_head_markup(
@@ -236,6 +247,70 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.content_type, "image/png")
         self.assertEqual(response.body, b"touch-icon")
 
+    async def test_current_favicon_alias_serves_default_icon_when_unconfigured(self):
+        settings = SimpleNamespace(
+            WEBAPP_ENABLED=True,
+            WEBAPP_LOGO_URL="",
+            WEBAPP_LOGO_USE_EMOJI=False,
+            WEBAPP_FAVICON_USE_CUSTOM=False,
+            WEBAPP_FAVICON_URL="",
+            WEBAPP_LOGO_FAVICON_URL="",
+        )
+        request = SimpleNamespace(app={"settings": settings}, path="/icon-192.png")
+
+        response = await webapp_assets.webapp_current_favicon_route(request)
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.content_type, "image/png")
+        self.assertGreater(len(response.body), 0)
+
+    async def test_default_logo_route_serves_bundled_logo(self):
+        settings = SimpleNamespace(WEBAPP_ENABLED=True)
+        request = SimpleNamespace(app={"settings": settings})
+
+        response = await webapp_assets.webapp_default_logo_route(request)
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.content_type, "image/webp")
+        self.assertGreater(len(response.body), 0)
+
+    def test_default_favicon_set_uses_middle_animation_frame(self):
+        def visible_bytes(image: Image.Image) -> bytes:
+            rgba = bytearray(image.convert("RGBA").tobytes())
+            for offset in range(0, len(rgba), 4):
+                if rgba[offset + 3] == 0:
+                    rgba[offset : offset + 3] = b"\x00\x00\x00"
+            return bytes(rgba)
+
+        with Image.open(subscription_webapp.WEBAPP_DEFAULT_LOGO_FILE) as source:
+            frame_count = getattr(source, "n_frames", 1)
+            self.assertGreater(frame_count, 1)
+            durations = []
+            for frame_index in range(frame_count):
+                source.seek(frame_index)
+                durations.append(int(source.info.get("duration") or 0))
+            middle_index = frame_count // 2
+            if any(durations):
+                midpoint = sum(durations) / 2
+                elapsed = 0
+                for frame_index, duration in enumerate(durations):
+                    elapsed += duration
+                    if elapsed >= midpoint:
+                        middle_index = frame_index
+                        break
+
+            source.seek(0)
+            first_frame = ImageOps.exif_transpose(source).convert("RGBA")
+            source.seek(middle_index)
+            middle_frame = ImageOps.exif_transpose(source).convert("RGBA")
+
+        with Image.open(subscription_webapp.WEBAPP_DEFAULT_FAVICON_DIR / "icon-512.png") as icon:
+            rendered_icon = icon.convert("RGBA")
+
+        self.assertEqual(rendered_icon.size, (512, 512))
+        self.assertEqual(visible_bytes(rendered_icon), visible_bytes(middle_frame))
+        self.assertNotEqual(visible_bytes(rendered_icon), visible_bytes(first_frame))
+
     def test_static_webapp_template_exposes_ios_icon_aliases(self):
         template = Path("backend/bot/app/web/templates/subscription_webapp.html").read_text(
             encoding="utf-8"
@@ -250,6 +325,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("apple-touch-icon", nginx_conf)
         self.assertIn("favicon\\.ico", nginx_conf)
+        self.assertIn("/webapp-default-logo.webp", nginx_conf)
         self.assertIn("proxy_pass http://backend:8081;", nginx_conf)
 
     def test_prune_unused_appearance_assets_keeps_only_referenced_logo_and_favicons(self):

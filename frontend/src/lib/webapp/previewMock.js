@@ -202,11 +202,11 @@ export const DEV_MOCK = {
   config: {
     title: "/minishop",
     primaryColor: "#00fe7a",
-    logoUrl: "",
+    logoUrl: "/webapp-default-logo.webp",
     logoUseEmoji: false,
     logoEmoji: "🫥",
     logoEmojiFont: "system",
-    faviconUrl: "",
+    faviconUrl: "/webapp-favicon/19b2a242e5b7bc2d/icon-180.png",
     faviconUseCustom: false,
     apiBase: "/api",
     adminJsAsset: "subscription_webapp_admin.js",

@@ -35,6 +35,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/apple-touch-icon-precomposed.png", webapp_current_favicon_route)
     app.router.add_get("/icon-192.png", webapp_current_favicon_route)
     app.router.add_get("/icon-512.png", webapp_current_favicon_route)
+    app.router.add_get(WEBAPP_DEFAULT_LOGO_PATH, webapp_default_logo_route)
     app.router.add_get(WEBAPP_LOGO_PROXY_PATH, webapp_logo_route)
     app.router.add_get(
         rf"{WEBAPP_UPLOADED_LOGO_PATH}/{{filename:[A-Za-z0-9_.-]+}}",

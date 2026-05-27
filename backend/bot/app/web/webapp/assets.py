@@ -205,7 +205,7 @@ def _resolve_webapp_logo_url(settings: Settings) -> str:
 
     raw_logo_url = (getattr(settings, "WEBAPP_LOGO_URL", None) or "").strip()
     if not raw_logo_url:
-        return ""
+        return WEBAPP_DEFAULT_LOGO_PATH
 
     parsed_logo_url = urlsplit(raw_logo_url)
     if parsed_logo_url.scheme == "https":
@@ -215,7 +215,7 @@ def _resolve_webapp_logo_url(settings: Settings) -> str:
         return raw_logo_url
     if raw_logo_url.startswith("/"):
         return raw_logo_url
-    return ""
+    return WEBAPP_DEFAULT_LOGO_PATH
 
 
 def _resolve_webapp_favicon_url(settings: Settings, logo_url: str = "") -> str:
@@ -227,7 +227,9 @@ def _resolve_webapp_favicon_url(settings: Settings, logo_url: str = "") -> str:
         resolved = _resolve_webapp_asset_url(raw_logo_favicon_url)
         if resolved:
             return resolved
-    return logo_url or ""
+    if logo_url and logo_url != WEBAPP_DEFAULT_LOGO_PATH:
+        return logo_url
+    return WEBAPP_DEFAULT_FAVICON_URL
 
 
 def _resolve_webapp_asset_url(raw_url: str) -> str:
@@ -364,6 +366,16 @@ async def webapp_uploaded_logo_route(request: web.Request) -> web.Response:
     return _uploaded_webapp_logo_response(filename)
 
 
+async def webapp_default_logo_route(request: web.Request) -> web.Response:
+    settings: Settings = request.app["settings"]
+    if not settings.WEBAPP_ENABLED:
+        raise web.HTTPNotFound(text="webapp_disabled")
+
+    response = _webapp_default_brand_file_response(WEBAPP_DEFAULT_LOGO_FILE, "image/webp")
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
+
+
 async def webapp_favicon_route(request: web.Request) -> web.Response:
     settings: Settings = request.app["settings"]
     if not settings.WEBAPP_ENABLED:
@@ -451,6 +463,9 @@ def _webapp_favicon_file_response(digest: str, filename: str) -> web.Response:
     ):
         raise web.HTTPNotFound(text="webapp_favicon_not_found")
 
+    if digest == WEBAPP_DEFAULT_FAVICON_DIGEST:
+        return _webapp_default_favicon_file_response(filename)
+
     root = WEBAPP_FAVICON_DIR.expanduser().resolve()
     path = (root / digest / filename).resolve()
     try:
@@ -475,6 +490,29 @@ def _webapp_favicon_file_response(digest: str, filename: str) -> web.Response:
     response = web.Response(body=body, content_type=content_type)
     response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     return response
+
+
+def _webapp_default_favicon_file_response(filename: str) -> web.Response:
+    path = WEBAPP_DEFAULT_FAVICON_DIR / filename
+    content_type = WEBAPP_THEME_ASSET_CONTENT_TYPES.get(path.suffix.lower())
+    if not content_type:
+        raise web.HTTPNotFound(text="webapp_favicon_not_found")
+
+    response = _webapp_default_brand_file_response(path, content_type)
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
+
+
+def _webapp_default_brand_file_response(path: Path, content_type: str) -> web.Response:
+    try:
+        body = _read_template_binary_cached(path)
+    except OSError:
+        raise web.HTTPNotFound(text="webapp_default_brand_not_found") from None
+
+    if not body or len(body) > WEBAPP_LOGO_MAX_BYTES:
+        raise web.HTTPNotFound(text="webapp_default_brand_not_found")
+
+    return web.Response(body=body, content_type=content_type)
 
 
 async def webapp_animated_emoji_route(request: web.Request) -> web.Response:
