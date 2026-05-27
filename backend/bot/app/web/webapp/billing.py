@@ -4,6 +4,29 @@ from ._runtime import *  # noqa: F403,F405
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 
 
+def _billing_iso_datetime(value: Optional[Any]) -> Optional[str]:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return normalized.isoformat()
+    return str(value)
+
+
+def _billing_datetime_text(value: Optional[Any]) -> Optional[str]:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return normalized.strftime("%d.%m.%Y %H:%M")
+    text = str(value)
+    try:
+        normalized = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        return normalized.strftime("%d.%m.%Y %H:%M")
+    except Exception:
+        return text
+
+
 async def apply_promo_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     payload = await _read_json(request)
@@ -619,6 +642,12 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
         lang = db_user.language_code or settings.DEFAULT_LANGUAGE
         active = await subscription_service.get_active_subscription_details(session, user_id)
         renewal_available = bool(active and active.get("device_topup_renewal_available"))
+        extra_hwid_valid_until = (
+            active.get("extra_hwid_devices_valid_until") if active else None
+        )
+        extra_hwid_valid_until_text = (
+            active.get("extra_hwid_devices_valid_until_text") if active else None
+        ) or _billing_datetime_text(extra_hwid_valid_until)
         packages = tariff.hwid_device_packages
         rub_counts = {int(package.count) for package in (packages.rub if packages else [])}
         stars_counts = {int(package.count) for package in (packages.stars if packages else [])}
@@ -687,14 +716,10 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
                 "extra_hwid_devices": int(active.get("extra_hwid_devices") or 0)
                 if active
                 else int(sub.extra_hwid_devices or 0),
-                "extra_hwid_devices_valid_until": active.get("extra_hwid_devices_valid_until")
-                if active
-                else None,
-                "extra_hwid_devices_valid_until_text": active.get(
-                    "extra_hwid_devices_valid_until_text"
-                )
-                if active
-                else None,
+                "extra_hwid_devices_valid_until": _billing_iso_datetime(
+                    extra_hwid_valid_until
+                ),
+                "extra_hwid_devices_valid_until_text": extra_hwid_valid_until_text,
                 "renewal_available": renewal_available,
                 "renewal_recommended_count": int(active.get("extra_hwid_devices") or 0)
                 if active and renewal_available
