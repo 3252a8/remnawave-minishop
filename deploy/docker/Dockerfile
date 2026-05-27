@@ -73,15 +73,15 @@ COPY backend/requirements.txt backend/requirements.txt
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir -r backend/requirements.txt
 
-COPY backend ./backend
 COPY locales ./locales
 COPY data ./data
-COPY --from=version-builder /build-version /app/.build-version
-COPY --from=version-builder /build-tag /app/.build-tag
-COPY --from=version-builder /build-commit /app/.build-commit
+COPY backend ./backend
 RUN mkdir -p /app/logs /app/data \
     && if [ ! -f /app/data/locales-overrides.json ]; then printf '{}\n' > /app/data/locales-overrides.json; fi \
     && chown -R appuser:appuser /app/logs /app/data
+COPY --from=version-builder /build-version /app/.build-version
+COPY --from=version-builder /build-tag /app/.build-tag
+COPY --from=version-builder /build-commit /app/.build-commit
 
 USER appuser
 
@@ -116,7 +116,7 @@ RUN --mount=type=cache,target=/root/.npm \
     if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 COPY frontend ./
-COPY backend/bot/app/web/templates ../backend/bot/app/web/templates
+RUN mkdir -p ../backend/bot/app/web/templates
 
 RUN npm run build:webapp
 
@@ -130,8 +130,6 @@ LABEL org.opencontainers.image.source="https://github.com/3252a8/remnawave-minis
 
 COPY deploy/docker/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY deploy/docker/frontend/00-startup-banner.sh /docker-entrypoint.d/00-startup-banner.sh
-COPY --from=version-builder /build-tag /build-tag
-COPY --from=version-builder /build-commit /build-commit
 COPY backend/bot/app/web/templates/subscription_webapp.html /usr/share/nginx/html/index.html
 COPY --from=frontend-builder /app/backend/bot/app/web/templates/subscription_webapp.css /usr/share/nginx/html/subscription_webapp.css
 COPY --from=frontend-builder /app/backend/bot/app/web/templates/subscription_webapp.*.css /usr/share/nginx/html/
@@ -183,5 +181,7 @@ RUN set -eu; \
       -e '/subscription_webapp.js" defer/d' \
       /usr/share/nginx/html/index.html; \
     chmod +x /docker-entrypoint.d/00-startup-banner.sh
+COPY --from=version-builder /build-tag /build-tag
+COPY --from=version-builder /build-commit /build-commit
 
 EXPOSE 80
