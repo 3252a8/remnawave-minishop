@@ -144,10 +144,12 @@ class YooKassaService:
         bot_username_for_default_return: Optional[str] = None,
         settings_obj: Optional[Settings] = None,
         config: Optional[YooKassaConfig] = None,
+        subscription_service: Optional[SubscriptionService] = None,
     ):
 
         self.settings = settings_obj
         self.config = config or YooKassaConfig()
+        self.subscription_service = subscription_service
         self._bot_username_for_default_return = bot_username_for_default_return
         self._configured_return_url_override = configured_return_url
         self._sdk_configured_for = (
@@ -2680,6 +2682,7 @@ def create_service(ctx: ServiceFactoryContext) -> YooKassaService:
         bot_username_for_default_return=ctx.bot_username_for_default_return,
         settings_obj=ctx.settings,
         config=config,
+        subscription_service=ctx.subscription_service,
     )
 
 

@@ -87,6 +87,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
         return validation_error
     method = str(payment_payload.method or "").strip().lower()
     settings: Settings = request.app["settings"]
+    subscription_service: SubscriptionService = request.app["subscription_service"]
     cached = _get_cached_webapp_settings(request)
     tariffs_config = settings.tariffs_config
     traffic_mode = bool(settings.traffic_sale_mode)

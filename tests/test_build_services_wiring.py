@@ -104,6 +104,7 @@ class BuildServicesWiringTests(unittest.TestCase):
         self.assertIsInstance(yookassa, YooKassaService)
         # Identity check: the wired attribute must be the *same* instance.
         self.assertIs(getattr(subscription, "yookassa_service", None), yookassa)
+        self.assertIs(getattr(yookassa, "subscription_service", None), subscription)
 
     def test_panel_webhook_service_can_reach_subscription_service(self):
         """The 24h pre-expiry handler in panel_webhook_service.handle_event
