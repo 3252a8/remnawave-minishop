@@ -268,12 +268,74 @@ a {
   opacity: 1;
 }
 
+.sub-status-details {
+  min-width: 0;
+}
+
 .status-tariff-action {
   min-height: 34px;
   margin-left: auto;
   padding: 0 12px;
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+@media (max-width: 1023px) {
+  .status-card {
+    padding: 13px;
+  }
+
+  .sub-status {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px 10px;
+  }
+
+  .sub-status-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .sub-status h2 {
+    overflow: hidden;
+    font-size: 14px;
+    line-height: 1.14;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sub-status-details {
+    display: flex;
+    min-width: 0;
+    gap: 4px;
+    align-items: baseline;
+    overflow: hidden;
+  }
+
+  .sub-status-details p {
+    min-width: 0;
+    margin-top: 3px;
+    overflow: hidden;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sub-status-details-with-tariff .current-tariff-line {
+    flex: 0 1 auto;
+  }
+
+  .sub-status-details-with-tariff .subscription-end-line {
+    flex: 0 0 auto;
+  }
+
+  .status-tariff-action {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin-left: 0;
+    justify-content: center;
+  }
 }
 
 .traffic-top,

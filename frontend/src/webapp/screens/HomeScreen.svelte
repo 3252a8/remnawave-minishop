@@ -118,23 +118,30 @@
     <Card class={`status-card${subscription.active ? "" : " status-card-inactive"}`}>
       {#if subscription.active}
         <div class="sub-status">
-          <CheckCircle2 size={23} />
+          <CheckCircle2 class="sub-status-icon" size={23} />
           <div class="sub-status-main">
             <h2>
               {trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")} | {activeSubscriptionTermLabel(
                 subscription
               )}
             </h2>
-            {#if hasActiveTariffSubscription && hasMultipleTariffs && currentTariffName}
-              <p class="current-tariff-line">
-                {t("wa_current_tariff", { tariff: currentTariffName })}
+            <div
+              class:sub-status-details-with-tariff={hasActiveTariffSubscription &&
+                hasMultipleTariffs &&
+                currentTariffName}
+              class="sub-status-details"
+            >
+              {#if hasActiveTariffSubscription && hasMultipleTariffs && currentTariffName}
+                <p class="current-tariff-line">
+                  {t("wa_current_tariff", { tariff: currentTariffName })}
+                </p>
+              {/if}
+              <p class="subscription-end-line">
+                {subscription.end_date_text
+                  ? t("wa_until_date", { date: subscription.end_date_text })
+                  : subscription.remaining_text}
               </p>
-            {/if}
-            <p>
-              {subscription.end_date_text
-                ? t("wa_until_date", { date: subscription.end_date_text })
-                : subscription.remaining_text}
-            </p>
+            </div>
           </div>
           {#if canChangeTariff}
             <Button
@@ -149,7 +156,7 @@
         </div>
       {:else}
         <div class="sub-status sub-status-inactive">
-          <CircleX size={23} />
+          <CircleX class="sub-status-icon" size={23} />
           <h2>{t("wa_home_subscription_inactive")}</h2>
         </div>
       {/if}
