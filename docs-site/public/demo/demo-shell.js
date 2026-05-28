@@ -138,7 +138,7 @@ params.delete("path");
 params.delete("screen");
 params.delete("admin_section");
 params.set("path", initialRoute);
-frame.src = `${runtimeBase}/app.html?${params.toString()}${window.location.hash || ""}`;
+frame.src = `${runtimeBase}/app/?${params.toString()}${window.location.hash || ""}`;
 
 const routeFromRuntimeUrl = (url) => {
   if (url.origin !== window.location.origin) return "";
@@ -162,7 +162,7 @@ const runtimeSrc = (route, searchParams = new URLSearchParams()) => {
   nextParams.delete("screen");
   nextParams.delete("admin_section");
   nextParams.set("path", normalizePath(route));
-  return `${runtimeBase}/app.html?${nextParams.toString()}${window.location.hash || ""}`;
+  return `${runtimeBase}/app/?${nextParams.toString()}${window.location.hash || ""}`;
 };
 const topbar = document.querySelector(".demo-topbar");
 const toggle = document.querySelector(".demo-topbar__toggle");

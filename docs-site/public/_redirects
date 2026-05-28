@@ -1,28 +1,11 @@
-# Cloudflare Pages rewrites for the static docs demo SPA.
-# Keep these scoped to app routes so runtime JS/CSS/assets are served directly.
-/demo /demo/index.html 200
-/demo/ /demo/index.html 200
-/demo/app /demo/index.html 200
-/demo/app/ /demo/index.html 200
-/demo/runtime /demo/runtime/app.html 200
-/demo/runtime/ /demo/runtime/app.html 200
-/demo/runtime/app /demo/runtime/app.html 200
-/demo/runtime/app/ /demo/runtime/app.html 200
-/demo/runtime/home /demo/runtime/app.html 200
-/demo/runtime/home/* /demo/runtime/app.html 200
-/demo/runtime/install /demo/runtime/app.html 200
-/demo/runtime/install/* /demo/runtime/app.html 200
-/demo/runtime/trial /demo/runtime/app.html 200
-/demo/runtime/trial/* /demo/runtime/app.html 200
-/demo/runtime/invite /demo/runtime/app.html 200
-/demo/runtime/invite/* /demo/runtime/app.html 200
-/demo/runtime/devices /demo/runtime/app.html 200
-/demo/runtime/devices/* /demo/runtime/app.html 200
-/demo/runtime/support /demo/runtime/app.html 200
-/demo/runtime/support/* /demo/runtime/app.html 200
-/demo/runtime/settings /demo/runtime/app.html 200
-/demo/runtime/settings/* /demo/runtime/app.html 200
-/demo/runtime/login /demo/runtime/app.html 200
-/demo/runtime/login/* /demo/runtime/app.html 200
-/demo/runtime/admin /demo/runtime/app.html 200
-/demo/runtime/admin/* /demo/runtime/app.html 200
+# Cloudflare Pages rewrites for non-materialized static docs demo runtime routes.
+# Use the directory entrypoint so Pages clean URLs do not loop between app.html and app.
+/demo/runtime/home/* /demo/runtime/app/ 200
+/demo/runtime/install/* /demo/runtime/app/ 200
+/demo/runtime/trial/* /demo/runtime/app/ 200
+/demo/runtime/invite/* /demo/runtime/app/ 200
+/demo/runtime/devices/* /demo/runtime/app/ 200
+/demo/runtime/support/* /demo/runtime/app/ 200
+/demo/runtime/settings/* /demo/runtime/app/ 200
+/demo/runtime/login/* /demo/runtime/app/ 200
+/demo/runtime/admin/* /demo/runtime/app/ 200
