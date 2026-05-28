@@ -143,34 +143,17 @@
     0 0 26px color-mix(in srgb, var(--accent) 42%, transparent);
 }
 
-.link-email-dialog-card {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  height: min(100%, 560px);
-  max-height: 100%;
-  overflow: hidden;
-}
-
-.link-email-dialog-card .dialog-head {
-  position: relative;
-  z-index: 2;
-}
-
-.link-email-dialog-card .payment-dialog-body {
-  min-height: 0;
-}
-
-.password-code-fullscreen {
+.email-code-fullscreen {
   position: fixed;
   inset: 0;
   z-index: 220;
   background: var(--bg);
   overflow-y: auto;
   overscroll-behavior: contain;
-  animation: password-code-fullscreen-enter 0.2s ease-out both;
+  animation: email-code-fullscreen-enter 0.2s ease-out both;
 }
 
-@keyframes password-code-fullscreen-enter {
+@keyframes email-code-fullscreen-enter {
   from {
     opacity: 0;
   }

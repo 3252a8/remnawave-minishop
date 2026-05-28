@@ -2732,8 +2732,7 @@ a {
     width: min(100%, 560px);
   }
 
-  .payment-dialog-card,
-  .link-email-dialog-card {
+  .payment-dialog-card {
     width: min(100%, 640px);
   }
 }

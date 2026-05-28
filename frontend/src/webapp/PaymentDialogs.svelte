@@ -5,13 +5,13 @@
     CheckCircle2,
     CircleX,
     LockKeyhole,
-    RefreshCw,
     TriangleAlert,
   } from "$components/ui/icons.js";
   import { Tooltip } from "$components/ui/primitives.js";
 
   import Button from "$components/ui/button.svelte";
   import Dialog from "$components/ui/dialog.svelte";
+  import EmailCodeScreen from "./auth/EmailCodeScreen.svelte";
   import Input from "$components/ui/input.svelte";
   import {
     EmptyCard,
@@ -391,139 +391,77 @@
 </Dialog>
 
 {#if setPasswordOpen && setPasswordPending}
-  <div class="password-code-fullscreen" role="dialog" aria-modal="true">
-    <div class="phone-screen auth-screen">
-      <header class="screen-head center-title">
-        <Button
-          variant="icon"
-          size="icon"
-          onclick={closeSetPasswordDialog}
-          aria-label={t("wa_back")}
-        >
-          <ArrowLeft size={19} />
-        </Button>
-        <div>
-          <h1>{t("wa_email_verification_title")}</h1>
-          <p>{t("wa_email_sent_to", { email: setPasswordEmail || "" })}</p>
-        </div>
-        <span></span>
-      </header>
-      <div class="otp-wrap">
-        <label class="otp-input-wrap">
-          <input
-            bind:value={setPasswordCode}
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            maxlength="6"
-            aria-label={t("wa_email_code_aria")}
-          />
-          <span class="otp-slots" aria-hidden="true">
-            {#each Array.from({ length: 6 }) as _, index}
-              <span class:filled={setPasswordCode[index]}>{setPasswordCode[index] || ""}</span>
-            {/each}
-          </span>
-        </label>
-        <Button class="wide" onclick={confirmSetPassword} disabled={setPasswordBusy}>
-          {t("wa_confirm")}
-        </Button>
-        {#if setPasswordStatus}
-          <StatusMessage error={setPasswordIsError}>{setPasswordStatus}</StatusMessage>
-        {/if}
-        <button
-          class="link-button"
-          type="button"
-          onclick={requestSetPasswordCode}
-          disabled={setPasswordBusy || setPasswordResendCooldown > 0}
-        >
-          <RefreshCw size={15} />
-          {setPasswordResendCooldown > 0
-            ? t("wa_auth_resend_wait", { seconds: setPasswordResendCooldown })
-            : t("wa_resend_code")}
-        </button>
-      </div>
-    </div>
+  <div class="email-code-fullscreen" role="dialog" aria-modal="true">
+    <EmailCodeScreen
+      bind:code={setPasswordCode}
+      email={setPasswordEmail || ""}
+      busy={setPasswordBusy}
+      resendCooldown={setPasswordResendCooldown}
+      status={setPasswordStatus}
+      isError={setPasswordIsError}
+      {t}
+      onBack={closeSetPasswordDialog}
+      onConfirm={confirmSetPassword}
+      onResend={requestSetPasswordCode}
+    />
+  </div>
+{/if}
+
+{#if linkEmailOpen && linkEmailPending}
+  <div class="email-code-fullscreen" role="dialog" aria-modal="true">
+    <EmailCodeScreen
+      bind:code={linkEmailCode}
+      email={linkEmailPending}
+      busy={linkEmailBusy}
+      resendCooldown={linkEmailResendCooldown}
+      status={linkEmailStatus}
+      isError={linkEmailIsError}
+      {t}
+      onBack={closeLinkEmailDialog}
+      onConfirm={verifyLinkEmailCode}
+      onResend={requestLinkEmailCode}
+    />
   </div>
 {/if}
 
 <Dialog
-  open={linkEmailOpen}
+  open={linkEmailOpen && !linkEmailPending}
   title={t("wa_link_email_modal_title")}
-  description={linkEmailPending
-    ? t("wa_email_sent_to", { email: linkEmailPending })
-    : t("wa_link_email_modal_desc")}
+  description={t("wa_link_email_modal_desc")}
   closeLabel={t("wa_close")}
   onclose={closeLinkEmailDialog}
-  class={`payment-dialog-card${linkEmailPending ? " link-email-dialog-card" : ""}`}
+  class="payment-dialog-card"
 >
   <div class="payment-dialog-body">
-    {#if !linkEmailPending}
-      <div class="field-error-wrap">
-        <Tooltip.Root open={Boolean(linkEmailFieldError)}>
-          <Input
-            bind:value={linkEmailValue}
-            type="email"
-            placeholder={t("wa_email_placeholder")}
-            autocomplete="email"
-            class={linkEmailFieldError ? "input-error" : ""}
-            on:input={() => (linkEmailFieldError = "")}
-          />
-          {#if linkEmailFieldError}
-            <Tooltip.Trigger class="field-error-trigger" aria-label={linkEmailFieldError}>
-              <span class="field-error-icon" aria-hidden="true"><TriangleAlert size={18} /></span>
-            </Tooltip.Trigger>
-          {/if}
-          {#if linkEmailFieldError}
-            <Tooltip.Portal>
-              <Tooltip.Content class="field-error-tooltip">{linkEmailFieldError}</Tooltip.Content>
-            </Tooltip.Portal>
-          {/if}
-        </Tooltip.Root>
-      </div>
-      <Button
-        class="wide bottom-action payment-submit-button"
-        onclick={requestLinkEmailCode}
-        disabled={linkEmailBusy}
-      >
-        {t("wa_send_code_email")}
-      </Button>
-    {:else}
-      <div class="link-email-code-layout">
-        <div class="otp-wrap link-email-code-center">
-          <label class="otp-input-wrap">
-            <input
-              bind:value={linkEmailCode}
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              maxlength="6"
-              aria-label={t("wa_email_code_aria")}
-            />
-            <span class="otp-slots" aria-hidden="true">
-              {#each Array.from({ length: 6 }) as _, index}
-                <span class:filled={linkEmailCode[index]}>{linkEmailCode[index] || ""}</span>
-              {/each}
-            </span>
-          </label>
-          <Button
-            class="wide bottom-action payment-submit-button"
-            onclick={verifyLinkEmailCode}
-            disabled={linkEmailBusy}
-          >
-            {t("wa_confirm")}
-          </Button>
-        </div>
-        <button
-          class="link-button link-email-resend"
-          type="button"
-          onclick={requestLinkEmailCode}
-          disabled={linkEmailBusy || linkEmailResendCooldown > 0}
-        >
-          <RefreshCw size={15} />
-          {linkEmailResendCooldown > 0
-            ? t("wa_auth_resend_wait", { seconds: linkEmailResendCooldown })
-            : t("wa_resend_code")}
-        </button>
-      </div>
-    {/if}
+    <div class="field-error-wrap">
+      <Tooltip.Root open={Boolean(linkEmailFieldError)}>
+        <Input
+          bind:value={linkEmailValue}
+          type="email"
+          placeholder={t("wa_email_placeholder")}
+          autocomplete="email"
+          class={linkEmailFieldError ? "input-error" : ""}
+          on:input={() => (linkEmailFieldError = "")}
+        />
+        {#if linkEmailFieldError}
+          <Tooltip.Trigger class="field-error-trigger" aria-label={linkEmailFieldError}>
+            <span class="field-error-icon" aria-hidden="true"><TriangleAlert size={18} /></span>
+          </Tooltip.Trigger>
+        {/if}
+        {#if linkEmailFieldError}
+          <Tooltip.Portal>
+            <Tooltip.Content class="field-error-tooltip">{linkEmailFieldError}</Tooltip.Content>
+          </Tooltip.Portal>
+        {/if}
+      </Tooltip.Root>
+    </div>
+    <Button
+      class="wide bottom-action payment-submit-button"
+      onclick={requestLinkEmailCode}
+      disabled={linkEmailBusy}
+    >
+      {t("wa_send_code_email")}
+    </Button>
     {#if linkEmailStatus}
       <StatusMessage error={linkEmailIsError}>{linkEmailStatus}</StatusMessage>
     {/if}

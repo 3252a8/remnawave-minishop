@@ -1,16 +1,10 @@
 <script>
-  import {
-    ArrowLeft,
-    LockKeyhole,
-    Mail,
-    RefreshCw,
-    Send,
-    TriangleAlert,
-  } from "$components/ui/icons.js";
+  import { LockKeyhole, Mail, Send, TriangleAlert } from "$components/ui/icons.js";
   import { Tooltip } from "$components/ui/primitives.js";
 
   import Button from "$components/ui/button.svelte";
   import BrandMark from "$lib/webapp/BrandMark.svelte";
+  import EmailCodeScreen from "./EmailCodeScreen.svelte";
   import Input from "$components/ui/input.svelte";
   import Spinner from "$components/ui/spinner.svelte";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
@@ -55,52 +49,21 @@
   $: authCardHeight = authPanelHeight ? `${authPanelHeight}px` : undefined;
 </script>
 
-<div class="phone-screen auth-screen">
-  {#if screen === "code"}
-    <header class="screen-head center-title">
-      <Button variant="icon" size="icon" onclick={onBackToLogin} aria-label={t("wa_back")}>
-        <ArrowLeft size={19} />
-      </Button>
-      <div>
-        <h1>{t("wa_email_verification_title")}</h1>
-        <p>{t("wa_email_sent_to", { email: pendingEmail })}</p>
-      </div>
-      <span></span>
-    </header>
-    <div class="otp-wrap">
-      <label class="otp-input-wrap">
-        <input
-          bind:value={emailCode}
-          inputmode="numeric"
-          autocomplete="one-time-code"
-          maxlength="6"
-          aria-label={t("wa_email_code_aria")}
-        />
-        <span class="otp-slots" aria-hidden="true">
-          {#each Array.from({ length: 6 }) as _, index}
-            <span class:filled={emailCode[index]}>{emailCode[index] || ""}</span>
-          {/each}
-        </span>
-      </label>
-      <Button class="wide" onclick={verifyEmailCode} disabled={authBusy}>
-        {t("wa_confirm")}
-      </Button>
-      {#if authStatus}
-        <StatusMessage error={authIsError}>{authStatus}</StatusMessage>
-      {/if}
-      <button
-        class="link-button"
-        type="button"
-        onclick={requestEmailCode}
-        disabled={authBusy || authResendCooldown > 0}
-      >
-        <RefreshCw size={15} />
-        {authResendCooldown > 0
-          ? t("wa_auth_resend_wait", { seconds: authResendCooldown })
-          : t("wa_resend_code")}
-      </button>
-    </div>
-  {:else}
+{#if screen === "code"}
+  <EmailCodeScreen
+    bind:code={emailCode}
+    email={pendingEmail}
+    busy={authBusy}
+    resendCooldown={authResendCooldown}
+    status={authStatus}
+    isError={authIsError}
+    {t}
+    onBack={onBackToLogin}
+    onConfirm={verifyEmailCode}
+    onResend={requestEmailCode}
+  />
+{:else}
+  <div class="phone-screen auth-screen">
     <div class="auth-card-wrap">
       <div class="login-brand login-brand-auth">
         <BrandMark {brand} size="xl" />
@@ -305,5 +268,5 @@
         </div>
       {/if}
     </div>
-  {/if}
-</div>
+  </div>
+{/if}
