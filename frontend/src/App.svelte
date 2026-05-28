@@ -187,7 +187,9 @@
   let adminBundleError = "";
   let adminMountTarget = null;
   let adminMountHandle = null;
+  let adminMountedTarget = null;
   let adminPanelProps = {};
+  let adminActiveSection = "stats";
   let tg = null;
   const telegramSdk = createTelegramSdk({
     scriptUrl: TELEGRAM_WEBAPP_SCRIPT_URL,
@@ -767,7 +769,11 @@
         void boot();
         return;
       }
-      const section = sectionFromPath(window.location.pathname);
+      const currentQuery = currentSearchParams();
+      const section =
+        isDocsDemo && currentQuery.get("screen")
+          ? normalizeSection(currentQuery.get("screen"))
+          : sectionFromPath(window.location.pathname);
       if (mode === "login") {
         setPasswordLoginMode(isPasswordLoginPath(), true);
         screen = "login";
@@ -775,6 +781,9 @@
       }
       if (mode === "app") {
         if (section === "admin" && isAdmin) {
+          adminActiveSection = isDocsDemo
+            ? initialAdminSectionFromLocation()
+            : adminSectionFromPath(window.location.pathname);
           const pathAtStart = window.location.pathname;
           void Promise.all([ensureI18nScope("admin"), ensureAdminBundle()])
             .then(() => {
@@ -1022,20 +1031,54 @@
     if (!adminMountHandle) return;
     adminMountHandle.destroy?.();
     adminMountHandle = null;
+    adminMountedTarget = null;
+  }
+
+  function currentSearchParams() {
+    return new URLSearchParams(window.location.search);
   }
 
   function initialAdminSectionFromLocation() {
-    if (MOCK && query.get("admin_section")) {
-      return normalizeAdminSection(query.get("admin_section"));
+    const currentQuery = currentSearchParams();
+    if (MOCK && currentQuery.get("admin_section")) {
+      return normalizeAdminSection(currentQuery.get("admin_section"));
     }
     return adminSectionFromPath(window.location.pathname);
+  }
+
+  function syncDocsDemoSection(section, replace = false, adminSection = null) {
+    if (!isDocsDemo || window.location.protocol === "file:") return false;
+    const normalized = normalizeSection(section);
+    const currentQuery = currentSearchParams();
+    currentQuery.set("screen", normalized);
+    if (normalized === "admin") {
+      currentQuery.set(
+        "admin_section",
+        normalizeAdminSection(
+          adminSection || adminActiveSection || initialAdminSectionFromLocation()
+        )
+      );
+    } else {
+      currentQuery.delete("admin_section");
+    }
+    const nextSearch = currentQuery.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`;
+    if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+      window.history[replace ? "replaceState" : "pushState"](null, "", nextUrl);
+    }
+    return true;
+  }
+
+  function syncAppSectionPath(section, replace = false, adminSection = null, adminUserId = null) {
+    if (syncDocsDemoSection(section, replace, adminSection)) return;
+    syncSectionPath(section, replace, adminSection, adminUserId);
   }
 
   $: adminPanelProps = {
     api,
     onClose: closeAdminPanel,
     onToast: (text) => showToast(text),
-    initialSection: initialAdminSectionFromLocation(),
+    initialSection: screen === "admin" ? adminActiveSection : initialAdminSectionFromLocation(),
     initialPaymentId: adminPaymentIdFromPath(window.location.pathname),
     initialPaymentUserId: adminPaymentsUserIdFromPath(window.location.pathname),
     initialUserId: adminUserIdFromPath(window.location.pathname),
@@ -1063,11 +1106,13 @@
 
     if (shouldMountAdmin) {
       try {
-        if (adminMountHandle) {
+        if (adminMountHandle && adminMountedTarget === adminMountTarget) {
           adminMountHandle.update?.(props);
         } else {
+          destroyAdminMount();
           adminMountTarget.replaceChildren();
           adminMountHandle = adminBundleApi.mount(adminMountTarget, props);
+          adminMountedTarget = adminMountTarget;
         }
       } catch (error) {
         adminBundleError = error?.message || "admin_bundle_mount_failed";
@@ -1161,6 +1206,16 @@
   }
 
   async function loadData(options = {}) {
+    const preserveView = options?.preserveView === true;
+    const preservedSection = preserveView
+      ? normalizeSection(options?.section || screen || activeTab)
+      : null;
+    const preservedAdminSection =
+      preserveView && preservedSection === "admin"
+        ? normalizeAdminSection(
+            options?.adminSection || adminActiveSection || initialAdminSectionFromLocation()
+          )
+        : null;
     const payload = await api(options?.fresh ? "/me?fresh=1" : "/me");
     if (!payload.ok) throw new Error(payload.error || "load_failed");
     data = payload;
@@ -1171,9 +1226,11 @@
       paymentStep: "tariff",
       selectedMethod: payload.payment_methods?.[0]?.id || "",
     }));
-    let section =
-      MOCK && query.get("screen")
-        ? normalizeSection(query.get("screen"))
+    const currentQuery = currentSearchParams();
+    let section = preserveView
+      ? preservedSection
+      : MOCK && currentQuery.get("screen")
+        ? normalizeSection(currentQuery.get("screen"))
         : sectionFromPath(window.location.pathname);
     if (section === "admin" && !payload.user?.is_admin) section = "settings";
     if (section === "devices" && !payload.settings?.my_devices_enabled) section = "home";
@@ -1186,11 +1243,13 @@
     ) {
       section = "home";
     }
-    const initialAdminSection = section === "admin" ? initialAdminSectionFromLocation() : null;
+    const initialAdminSection =
+      section === "admin" ? preservedAdminSection || initialAdminSectionFromLocation() : null;
     if (section === "admin" && payload.user?.is_admin) {
       try {
         await ensureI18nScope("admin");
         await ensureAdminBundle();
+        adminActiveSection = initialAdminSection || "stats";
       } catch (_error) {
         void _error;
         section = "settings";
@@ -1228,7 +1287,7 @@
         );
       }
     } else {
-      syncSectionPath(section, true, initialAdminSection);
+      syncAppSectionPath(section, true, initialAdminSection);
     }
     if (section === "devices" && payload.settings?.my_devices_enabled) {
       await devicesStore.loadDevices(true);
@@ -1443,12 +1502,12 @@
     activeTab = "home";
     if (useInstallGuides) {
       screen = "install";
-      syncSectionPath("install", replace);
+      syncAppSectionPath("install", replace);
       installGuidesStore.load(true);
       return;
     }
     screen = "home";
-    syncSectionPath("home", replace);
+    syncAppSectionPath("home", replace);
   }
 
   async function handleSubscriptionActivated(context = {}) {
@@ -1551,7 +1610,7 @@
     billingStore.closePaymentModal();
     activeTab = "home";
     screen = "home";
-    syncSectionPath("home");
+    syncAppSectionPath("home");
   }
 
   function goInstall() {
@@ -1562,7 +1621,7 @@
     billingStore.closePaymentModal();
     activeTab = "home";
     screen = "install";
-    syncSectionPath("install");
+    syncAppSectionPath("install");
     installGuidesStore.load(true);
   }
 
@@ -1570,7 +1629,7 @@
     billingStore.closePaymentModal();
     activeTab = "invite";
     screen = "invite";
-    syncSectionPath("invite");
+    syncAppSectionPath("invite");
   }
 
   function goDevices() {
@@ -1578,7 +1637,7 @@
     billingStore.closePaymentModal();
     activeTab = "devices";
     screen = "devices";
-    syncSectionPath("devices");
+    syncAppSectionPath("devices");
     devicesStore.loadDevices(devicesEnabled);
   }
 
@@ -1587,7 +1646,7 @@
     billingStore.closePaymentModal();
     activeTab = "support";
     screen = "support";
-    syncSectionPath("support");
+    syncAppSectionPath("support");
     supportStore.loadList();
     supportStore.startPolling({ includeList: true });
   }
@@ -1643,13 +1702,16 @@
     billingStore.closePaymentModal();
     activeTab = "settings";
     screen = "settings";
-    syncSectionPath("settings");
+    syncAppSectionPath("settings");
   }
 
   async function openAdminPanel() {
     if (!isAdmin) return;
     clearLanguageClickGuard();
     billingStore.closePaymentModal();
+    const nextAdminSection = normalizeAdminSection(
+      adminActiveSection || adminSectionFromPath(window.location.pathname)
+    );
     try {
       await ensureI18nScope("admin");
       await ensureAdminBundle();
@@ -1660,23 +1722,29 @@
     }
     activeTab = "settings";
     screen = "admin";
-    syncSectionPath("admin", false, adminSectionFromPath(window.location.pathname));
+    adminActiveSection = nextAdminSection;
+    syncAppSectionPath("admin", false, adminActiveSection);
   }
 
   function closeAdminPanel() {
     screen = "settings";
     activeTab = "settings";
-    syncSectionPath("settings");
+    syncAppSectionPath("settings");
   }
 
   function handleAdminSectionChange(adminSection, adminUserId = null) {
     if (screen !== "admin") return;
+    const nextAdminSection = normalizeAdminSection(adminSection);
+    adminActiveSection = nextAdminSection;
     if (window.location.protocol === "file:") return;
-    if (isDocsDemo) return;
+    if (isDocsDemo) {
+      syncDocsDemoSection("admin", false, nextAdminSection);
+      return;
+    }
     const targetPath =
-      adminSection === "users" && adminUserId
+      nextAdminSection === "users" && adminUserId
         ? `/admin/users/${adminUserId}`
-        : `/admin/${adminSection}`;
+        : `/admin/${nextAdminSection}`;
     if (window.location.pathname === targetPath) return;
     window.history.pushState(
       null,

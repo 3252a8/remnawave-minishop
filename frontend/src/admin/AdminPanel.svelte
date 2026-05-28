@@ -211,8 +211,13 @@
   const normalizeSection = (value) => ((VALID_SECTIONS || []).includes(value) ? value : "stats");
 
   let active = normalizeSection(initialSection);
-  $: if (initialSection) {
-    active = normalizeSection(initialSection);
+  let lastInitialSection = active;
+  $: {
+    const nextInitialSection = normalizeSection(initialSection);
+    if (nextInitialSection !== lastInitialSection) {
+      active = nextInitialSection;
+      lastInitialSection = nextInitialSection;
+    }
   }
   let sidebarOpen = false;
   let isCompact = false;
@@ -285,6 +290,10 @@
     paymentsStore.closePayment();
     supportStore.closeTicketView();
     onSectionChange(next);
+  }
+
+  function changeLanguage(value) {
+    onLanguageChange(value, { section: "admin", adminSection: active });
   }
 
   function readSectionFromPath() {
@@ -584,7 +593,7 @@
             items={languageOptions}
             disabled={languageBusy}
             onOpenChange={setAdminLanguageMenuOpen}
-            onValueChange={onLanguageChange}
+            onValueChange={changeLanguage}
           >
             <Select.Trigger
               class="admin-language-trigger"

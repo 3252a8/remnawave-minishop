@@ -346,7 +346,7 @@ export function createAccountStore({
     window.location.assign(buildTelegramOAuthStartUrl("link", getTg()));
   }
 
-  async function updateAccountLanguage(nextValue) {
+  async function updateAccountLanguage(nextValue, options = {}) {
     const s = get(state);
     const normalize = typeof normalizeLangCode === "function" ? normalizeLangCode : (v) => v;
     const language = normalize(nextValue);
@@ -361,7 +361,7 @@ export function createAccountStore({
       if (typeof updateLocalData === "function") {
         updateLocalData(normalize(response.language || language));
       }
-      await loadData({ fresh: true });
+      await loadData({ fresh: true, preserveView: true, ...options });
     } catch {
       showToast(t("wa_settings_language_update_failed"));
     } finally {
