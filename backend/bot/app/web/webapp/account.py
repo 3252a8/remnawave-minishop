@@ -482,6 +482,7 @@ async def account_avatar_route(request: web.Request) -> web.Response:
 
 async def account_language_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
+    settings: Settings = request.app["settings"]
     payload = await _read_json(request)
     language_payload, validation_error = _validate_model_payload(WebAppLanguagePayload, payload)
     if validation_error:
