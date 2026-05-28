@@ -10,7 +10,7 @@
 - [Инструкции подключения](/demo/install?mock=guides)
 - [Админка: пользователи](/demo/admin/users)
 - [Админка: бэкапы](/demo/admin/backups)
-- [Пробный период](/demo/trial?mock=trial)
+- [Пробный период](/demo/home?mock=trial)
 - [Устройства](/demo/devices?mock=devices)
 
 ## Как собирается

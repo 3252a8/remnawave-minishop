@@ -613,7 +613,13 @@
     }
     activationHandoff.acknowledge(subscriptionKey, context, payload, state);
     stopPendingActivationWatch();
-    navigateToActivationTarget({ replace: true });
+    activationSuccessUseInstallGuides = canUseInstallGuides();
+    billingStore.closePaymentModal();
+    activeTab = "home";
+    if (!activationSuccessUseInstallGuides) {
+      screen = "home";
+      syncAppSectionPath("home", true);
+    }
     activationSuccessDialogOpen = true;
     return true;
   }

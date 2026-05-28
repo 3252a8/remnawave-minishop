@@ -7,8 +7,6 @@ const stateMocks = new Set([
   "depleted",
   "no-subscription",
   "trial",
-  "expiring",
-  "traffic",
   "devices",
 ]);
 const routeMocks = new Set([...stateMocks, "guides", "install"]);
@@ -74,8 +72,19 @@ const routeFromParams = () => {
   return "/home";
 };
 
-const initialRoute = routeFromParams();
-params.set("mock", normalizeRouteMock(params.get("mock")));
+const initialMock = normalizeRouteMock(params.get("mock"));
+let initialRoute = routeFromParams();
+if (initialMock === "trial" && initialRoute === "/trial") {
+  initialRoute = "/home";
+  const normalizedUrl = new URL(window.location.href);
+  normalizedUrl.pathname = `${demoBase}/home`;
+  window.history.replaceState(
+    null,
+    "",
+    `${normalizedUrl.pathname}${normalizedUrl.search}${normalizedUrl.hash}`
+  );
+}
+params.set("mock", initialMock);
 params.delete("path");
 params.delete("screen");
 params.delete("admin_section");
@@ -103,6 +112,7 @@ const materializedRouteFromRuntime = (route) => {
 };
 
 const publicPathFromRoute = (route) => `${demoBase}${materializedRouteFromRuntime(route)}`;
+const routeForStateMock = (mock) => (mock === "devices" ? "/devices" : "/home");
 const runtimeSrc = (route, searchParams = new URLSearchParams()) => {
   const nextParams = new URLSearchParams(searchParams);
   nextParams.delete("screen");
@@ -161,7 +171,8 @@ stateSelect?.addEventListener("change", () => {
   else nextParams.set("mock", mock);
 
   const query = nextParams.toString();
-  const publicUrl = `${demoBase}/home${query ? `?${query}` : ""}`;
+  const stateRoute = routeForStateMock(mock);
+  const publicUrl = `${demoBase}${stateRoute}${query ? `?${query}` : ""}`;
   window.history.replaceState(null, "", publicUrl);
-  frame.src = runtimeSrc("/home", nextParams);
+  frame.src = runtimeSrc(stateRoute, nextParams);
 });

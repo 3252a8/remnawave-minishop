@@ -551,57 +551,7 @@ export function applyPreviewMock(kind) {
     return;
   }
 
-  if (mode === "traffic") {
-    DEV_MOCK.data.settings.traffic_mode = true;
-    DEV_MOCK.data.settings.trial_available = false;
-    DEV_MOCK.data.subscription = {
-      ...DEV_MOCK.data.subscription,
-      active: true,
-      status: "ACTIVE",
-      remaining_text: "Навсегда",
-      end_date_text: "01.01.2099 00:00",
-      days_left: 26000,
-      traffic_used: "18.4 GB",
-      traffic_limit: "100 GB",
-      traffic_used_bytes: 19756849561,
-      traffic_limit_bytes: 107374182400,
-      traffic_limit_strategy: "NO_RESET",
-    };
-    DEV_MOCK.data.plans = [
-      {
-        months: 10,
-        traffic_gb: 10,
-        price: 199,
-        currency: "RUB",
-        title: "10 GB",
-        sale_mode: "traffic",
-      },
-      {
-        months: 50,
-        traffic_gb: 50,
-        price: 799,
-        currency: "RUB",
-        title: "50 GB",
-        sale_mode: "traffic",
-      },
-      {
-        months: 100,
-        traffic_gb: 100,
-        price: 1390,
-        currency: "RUB",
-        title: "100 GB",
-        sale_mode: "traffic",
-      },
-      {
-        months: 300,
-        traffic_gb: 300,
-        price: 3490,
-        currency: "RUB",
-        title: "300 GB",
-        sale_mode: "traffic",
-      },
-    ];
-  } else if (mode === "tariffs") {
+  if (mode === "tariffs") {
     DEV_MOCK.data.settings.traffic_mode = false;
     if (DEMO_DATASET.plans?.length) {
       applyDemoTariffScenario();
@@ -782,32 +732,80 @@ export function applyPreviewMock(kind) {
     return;
   } else if (mode === "no-subscription" || mode === "inactive") {
     applyInactiveSubscriptionScenario();
-  } else if (mode === "expiring" || mode === "ending-soon") {
-    DEV_MOCK.data.settings.traffic_mode = false;
-    DEV_MOCK.data.settings.trial_available = false;
-    if (DEMO_DATASET.plans?.length) {
-      applyDemoTariffScenario({
-        remaining_text: "2 д.",
-        end_date_text: "30.05.2026",
-        days_left: 2,
-      });
-      return;
-    }
-    DEV_MOCK.data.subscription = {
-      ...DEV_MOCK.data.subscription,
-      active: true,
-      remaining_text: "2 д.",
-      end_date_text: "30.05.2026",
-      days_left: 2,
-    };
   } else if (mode === "devices") {
+    const baseDevices = DEV_MOCK.data.devices || {};
+    const baseList = Array.isArray(baseDevices.devices) ? baseDevices.devices : [];
+    const devices = [
+      ...baseList,
+      {
+        display_name: "iPad Pro",
+        platform_label: "iPadOS 18.4",
+        user_agent: "Streisand/1.6 CFNetwork",
+        created_at_text: "18.05.2026 12:30",
+        hwid_short: "D3MOIPAD...7712AA",
+        token: "demo-device-ipad",
+        can_disconnect: true,
+      },
+      {
+        display_name: "Windows Laptop",
+        platform_label: "Windows 11",
+        user_agent: "Hiddify/2.5.7",
+        created_at_text: "21.05.2026 19:45",
+        hwid_short: "D3MOWIN...50CC91",
+        token: "demo-device-windows",
+        can_disconnect: true,
+      },
+    ]
+      .slice(0, 5)
+      .map((device, index) => ({ ...device, index: index + 1 }));
     DEV_MOCK.data.settings.my_devices_enabled = true;
+    DEV_MOCK.data.devices = {
+      ...baseDevices,
+      ok: true,
+      enabled: true,
+      current_devices: 5,
+      max_devices: 5,
+      max_devices_label: "5",
+      devices,
+    };
     DEV_MOCK.data.subscription = {
       ...DEV_MOCK.data.subscription,
       active: true,
       max_devices: 5,
-      extra_hwid_devices: 2,
-      extra_hwid_devices_valid_until_text: "01.06.2026 12:00",
+      can_topup_devices: true,
+      extra_hwid_devices: 0,
+      extra_hwid_devices_valid_until_text: "",
+    };
+    DEV_MOCK.data.device_topup_options = {
+      ok: true,
+      current_devices: 5,
+      max_devices: 5,
+      available_extra_devices: 3,
+      extra_hwid_devices: 0,
+      plans: [
+        {
+          id: "standard:hwid:1",
+          tariff_key: "standard",
+          tariff_name: "Стандарт",
+          sale_mode: "hwid_device",
+          purchased_hwid_devices: 1,
+          price: 120,
+          currency: "RUB",
+          title: "+1 устройство",
+          device_count: 1,
+        },
+        {
+          id: "standard:hwid:3",
+          tariff_key: "standard",
+          tariff_name: "Стандарт",
+          sale_mode: "hwid_device",
+          purchased_hwid_devices: 3,
+          price: 290,
+          currency: "RUB",
+          title: "+3 устройства",
+          device_count: 3,
+        },
+      ],
     };
   } else if (mode === "trial") {
     applyInactiveSubscriptionScenario({ trialAvailable: true });
