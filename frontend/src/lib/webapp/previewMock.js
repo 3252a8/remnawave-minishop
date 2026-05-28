@@ -1,3 +1,16 @@
+import { DEMO_DATASET } from "./demoDataset.js";
+
+const DEMO_LANGUAGE_STORAGE_KEY = "rw_minishop_demo_language";
+
+function readStoredDemoLanguage() {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage?.getItem(DEMO_LANGUAGE_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
 const WINDOWS_95_THEME = {
   key: "windows95",
   names: { ru: "Windows 95", en: "Windows 95" },
@@ -426,6 +439,55 @@ export const DEV_MOCK = {
   },
 };
 
+function applyDemoDataset() {
+  const storedLanguage = readStoredDemoLanguage();
+  const demoUser = {
+    ...(DEMO_DATASET.currentUser || {}),
+    id: DEMO_DATASET.currentUser?.id ?? DEMO_DATASET.currentUser?.user_id,
+    language_code: storedLanguage || DEMO_DATASET.currentUser?.language_code || "ru",
+  };
+
+  Object.assign(DEV_MOCK.config, DEMO_DATASET.config || {});
+  DEV_MOCK.config.language = demoUser.language_code || "ru";
+  Object.assign(DEV_MOCK.data, {
+    user: demoUser,
+    subscription: DEMO_DATASET.currentSubscription || DEV_MOCK.data.subscription,
+    devices: DEMO_DATASET.devices || DEV_MOCK.data.devices,
+    plans: DEMO_DATASET.plans || DEV_MOCK.data.plans,
+    payment_methods: DEMO_DATASET.paymentMethods || DEV_MOCK.data.payment_methods,
+    referral: DEMO_DATASET.referral || DEV_MOCK.data.referral,
+    tariff_change_options:
+      DEMO_DATASET.tariff_change_options || DEV_MOCK.data.tariff_change_options,
+    topup_options: DEMO_DATASET.topup_options || DEV_MOCK.data.topup_options,
+    device_topup_options: DEMO_DATASET.device_topup_options || DEV_MOCK.data.device_topup_options,
+    settings: {
+      ...DEV_MOCK.data.settings,
+      ...(DEMO_DATASET.webappSettings || {}),
+    },
+  });
+}
+
+applyDemoDataset();
+
+function applyDemoTariffScenario(subscriptionPatch = {}) {
+  DEV_MOCK.data.subscription = {
+    ...DEV_MOCK.data.subscription,
+    ...(DEMO_DATASET.currentSubscription || {}),
+    ...subscriptionPatch,
+    traffic_limit_strategy:
+      subscriptionPatch.traffic_limit_strategy ||
+      DEMO_DATASET.currentSubscription?.traffic_limit_strategy ||
+      DEV_MOCK.data.subscription.traffic_limit_strategy ||
+      "MONTH",
+  };
+  DEV_MOCK.data.plans = DEMO_DATASET.plans;
+  DEV_MOCK.data.tariff_change_options =
+    DEMO_DATASET.tariff_change_options || DEV_MOCK.data.tariff_change_options;
+  DEV_MOCK.data.topup_options = DEMO_DATASET.topup_options || DEV_MOCK.data.topup_options;
+  DEV_MOCK.data.device_topup_options =
+    DEMO_DATASET.device_topup_options || DEV_MOCK.data.device_topup_options;
+}
+
 export function applyPreviewMock(kind) {
   const mode = String(kind || "")
     .trim()
@@ -506,6 +568,10 @@ export function applyPreviewMock(kind) {
     ];
   } else if (mode === "tariffs") {
     DEV_MOCK.data.settings.traffic_mode = false;
+    if (DEMO_DATASET.plans?.length) {
+      applyDemoTariffScenario();
+      return;
+    }
     DEV_MOCK.data.subscription = {
       ...DEV_MOCK.data.subscription,
       tariff_key: "standard",
@@ -519,57 +585,40 @@ export function applyPreviewMock(kind) {
         id: "standard:period:1",
         tariff_key: "standard",
         tariff_name: "Стандарт",
+        tariff_description: "100 GB каждый месяц",
         billing_model: "period",
-        sale_mode: "subscription",
         months: 1,
         price: 150,
         currency: "RUB",
         title: "Стандарт",
         subtitle: "1 месяц",
-        description: "100 GB каждый месяц",
-        monthly_gb: 100,
+        sale_mode: "subscription",
       },
       {
         id: "standard:period:3",
         tariff_key: "standard",
         tariff_name: "Стандарт",
+        tariff_description: "100 GB каждый месяц",
         billing_model: "period",
-        sale_mode: "subscription",
         months: 3,
         price: 400,
         currency: "RUB",
         title: "Стандарт",
         subtitle: "3 месяца",
-        description: "100 GB каждый месяц",
-        monthly_gb: 100,
+        sale_mode: "subscription",
       },
       {
         id: "business:period:1",
         tariff_key: "business",
-        tariff_name: "Бизнес",
+        tariff_name: "Business",
+        tariff_description: "500 GB и premium-серверы",
         billing_model: "period",
-        sale_mode: "subscription",
         months: 1,
-        price: 350,
+        price: 690,
         currency: "RUB",
-        title: "Бизнес",
+        title: "Business",
         subtitle: "1 месяц",
-        description: "300 GB и приоритетные серверы",
-        monthly_gb: 300,
-      },
-      {
-        id: "traffic:traffic:50",
-        tariff_key: "traffic",
-        tariff_name: "Трафик",
-        billing_model: "traffic",
-        sale_mode: "traffic_package",
-        months: 50,
-        traffic_gb: 50,
-        price: 799,
-        currency: "RUB",
-        title: "Трафик",
-        subtitle: "50 GB",
-        description: "Пакет без срока действия",
+        sale_mode: "subscription",
       },
     ];
     DEV_MOCK.data.tariff_change_options = {
@@ -579,44 +628,31 @@ export function applyPreviewMock(kind) {
         title: "Стандарт",
         description: "100 GB каждый месяц",
         billing_model: "period",
+        monthly_gb: 100,
+        expires_at: "31.05.2026",
       },
       targets: [
         {
           tariff_key: "business",
-          title: "Бизнес",
-          description: "300 GB и приоритетные серверы",
+          title: "Business",
+          description: "500 GB и premium-серверы",
           billing_model: "period",
-          monthly_gb: 300,
+          monthly_gb: 500,
+          price: 690,
+          currency: "RUB",
           actions: [
             {
               mode: "recalc_days",
               kind: "free",
-              title: "recalc_days",
-              days_after: 10,
-              remaining_days: 25,
-            },
-            { mode: "paid_diff", kind: "payment", title: "paid_diff", price: 190, currency: "RUB" },
-          ],
-        },
-        {
-          tariff_key: "traffic",
-          title: "Трафик",
-          description: "Пакеты без срока действия",
-          billing_model: "traffic",
-          actions: [
-            {
-              mode: "convert_days_to_gb",
-              kind: "free",
-              title: "convert_days_to_gb",
-              converted_gb: 18,
-              remaining_days: 25,
+              title: "Пересчитать дни",
+              days_after: 12,
+              remaining_days: 28,
             },
             {
-              mode: "buy_package",
+              mode: "paid_diff",
               kind: "payment",
-              title: "+50 GB",
-              traffic_gb: 50,
-              price: 799,
+              title: "Доплатить разницу",
+              price: 240,
               currency: "RUB",
             },
           ],
@@ -625,10 +661,29 @@ export function applyPreviewMock(kind) {
     };
     DEV_MOCK.data.topup_options = {
       ok: true,
+      topup_kind: "regular",
+      traffic_mode: false,
       tariff_key: "standard",
-      tariff_name: "Стандарт",
-      traffic_percent: 86,
-      warning_levels: [85, 90, 95],
+      regular: {
+        can_topup: true,
+        monthly_limit_gb: 100,
+        used_gb: 86,
+        available_gb: 14,
+        packages: [
+          { gb: 10, price: 99, currency: "RUB" },
+          { gb: 50, price: 399, currency: "RUB" },
+        ],
+      },
+      premium: {
+        can_topup: true,
+        monthly_limit_gb: 25,
+        used_gb: 24,
+        available_gb: 1,
+        packages: [
+          { gb: 10, price: 190, currency: "RUB" },
+          { gb: 25, price: 390, currency: "RUB" },
+        ],
+      },
       plans: [
         {
           id: "standard:topup:10",
@@ -643,67 +698,53 @@ export function applyPreviewMock(kind) {
           subtitle: "Стандарт",
         },
         {
-          id: "standard:topup:50",
+          id: "standard:premium_topup:10",
           tariff_key: "standard",
           tariff_name: "Стандарт",
-          sale_mode: "topup",
-          traffic_gb: 50,
-          months: 50,
-          price: 399,
+          sale_mode: "premium_topup",
+          traffic_gb: 10,
+          months: 10,
+          price: 190,
           currency: "RUB",
-          title: "50 GB",
-          subtitle: "Стандарт",
-        },
-        {
-          id: "standard:topup:200",
-          tariff_key: "standard",
-          tariff_name: "Стандарт",
-          sale_mode: "topup",
-          traffic_gb: 200,
-          months: 200,
-          price: 1299,
-          currency: "RUB",
-          title: "200 GB",
+          title: "Premium 10 GB",
           subtitle: "Стандарт",
         },
       ],
     };
     DEV_MOCK.data.device_topup_options = {
       ok: true,
-      tariff_key: "standard",
-      tariff_name: "Стандарт",
-      current_limit: 5,
-      extra_hwid_devices: 2,
-      extra_hwid_devices_valid_until_text: "01.06.2026 12:00",
-      renewal_available: false,
-      renewal_recommended_count: 0,
+      current_devices: 1,
+      max_devices: 2,
+      available_extra_devices: 3,
+      packages: [
+        { count: 1, price: 120, currency: "RUB" },
+        { count: 3, price: 290, currency: "RUB" },
+      ],
       plans: [
         {
           id: "standard:hwid:1",
           tariff_key: "standard",
           tariff_name: "Стандарт",
-          sale_mode: "hwid_devices",
-          device_count: 1,
-          months: 1,
-          price: 99,
+          sale_mode: "hwid_device",
+          purchased_hwid_devices: 1,
+          price: 120,
           currency: "RUB",
-          title: "+1",
-          subtitle: "Стандарт",
-        },
-        {
-          id: "standard:hwid:3",
-          tariff_key: "standard",
-          tariff_name: "Стандарт",
-          sale_mode: "hwid_devices",
-          device_count: 3,
-          months: 3,
-          price: 249,
-          currency: "RUB",
-          title: "+3",
-          subtitle: "Стандарт",
+          title: "+1 устройство",
         },
       ],
     };
+  } else if (mode === "depleted") {
+    DEV_MOCK.data.settings.traffic_mode = false;
+    DEV_MOCK.data.settings.trial_available = false;
+    if (DEMO_DATASET.plans?.length) {
+      const limitBytes = Number(DEMO_DATASET.currentSubscription?.traffic_limit_bytes || 0);
+      applyDemoTariffScenario({
+        traffic_used: DEMO_DATASET.currentSubscription?.traffic_limit || "150 GB",
+        traffic_used_bytes: limitBytes,
+      });
+      return;
+    }
+    return;
   } else if (mode === "devices") {
     DEV_MOCK.data.settings.my_devices_enabled = true;
     DEV_MOCK.data.subscription = {

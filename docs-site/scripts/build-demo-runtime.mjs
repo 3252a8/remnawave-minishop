@@ -1,37 +1,54 @@
-import { spawn } from 'node:child_process';
-import { access, copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { spawn } from "node:child_process";
+import {
+  access,
+  copyFile,
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const siteRoot = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
-const repoRoot = path.resolve(siteRoot, '..');
-const frontendRoot = path.join(repoRoot, 'frontend');
-const runtimeDir = path.join(siteRoot, 'public', 'demo', 'runtime');
-const templatesDir = path.join(repoRoot, 'backend', 'bot', 'app', 'web', 'templates');
-const themesDir = path.join(repoRoot, 'backend', 'bot', 'app', 'web', 'themes');
-const localesDir = path.join(repoRoot, 'locales');
-const runtimeBase = '/demo/runtime';
+const siteRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
+const repoRoot = path.resolve(siteRoot, "..");
+const frontendRoot = path.join(repoRoot, "frontend");
+const runtimeDir = path.join(siteRoot, "public", "demo", "runtime");
+const templatesDir = path.join(
+  repoRoot,
+  "backend",
+  "bot",
+  "app",
+  "web",
+  "templates",
+);
+const themesDir = path.join(repoRoot, "backend", "bot", "app", "web", "themes");
+const localesDir = path.join(repoRoot, "locales");
+const runtimeBase = "/demo/runtime";
 const installGuidesConfigUrl =
-  'https://raw.githubusercontent.com/legiz-ru/my-remnawave/main/sub-page/subpage-config/multiapp.json';
+  "https://raw.githubusercontent.com/legiz-ru/my-remnawave/main/sub-page/subpage-config/multiapp.json";
 const installGuidesConfigRetries = 3;
-const isWindows = process.platform === 'win32';
-const npmExecPath = process.env.npm_execpath || '';
+const isWindows = process.platform === "win32";
+const npmExecPath = process.env.npm_execpath || "";
 
 function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: repoRoot,
-      stdio: 'inherit',
+      stdio: "inherit",
       shell: false,
       ...options,
     });
-    child.on('error', reject);
-    child.on('exit', (code) => {
+    child.on("error", reject);
+    child.on("exit", (code) => {
       if (code === 0) {
         resolve();
         return;
       }
-      reject(new Error(`${command} ${args.join(' ')} exited with code ${code}`));
+      reject(
+        new Error(`${command} ${args.join(" ")} exited with code ${code}`),
+      );
     });
   });
 }
@@ -40,7 +57,7 @@ function runNpm(args) {
   if (npmExecPath) {
     return run(process.execPath, [npmExecPath, ...args]);
   }
-  return run(isWindows ? 'npm.cmd' : 'npm', args, { shell: isWindows });
+  return run(isWindows ? "npm.cmd" : "npm", args, { shell: isWindows });
 }
 
 async function pathExists(targetPath) {
@@ -54,10 +71,10 @@ async function pathExists(targetPath) {
 
 async function ensureFrontendDependencies() {
   const viteBin = isWindows
-    ? path.join(frontendRoot, 'node_modules', '.bin', 'vite.cmd')
-    : path.join(frontendRoot, 'node_modules', '.bin', 'vite');
+    ? path.join(frontendRoot, "node_modules", ".bin", "vite.cmd")
+    : path.join(frontendRoot, "node_modules", ".bin", "vite");
   if (await pathExists(viteBin)) return;
-  await runNpm(['--prefix', frontendRoot, 'ci']);
+  await runNpm(["--prefix", frontendRoot, "ci"]);
 }
 
 async function copyDirectory(sourceDir, targetDir, transform = null) {
@@ -81,11 +98,14 @@ async function copyDirectory(sourceDir, targetDir, transform = null) {
 }
 
 async function copyThemeFile(sourcePath, targetPath) {
-  if (path.extname(sourcePath).toLowerCase() !== '.css') return false;
-  const css = await readFile(sourcePath, 'utf8');
-  const rewritten = css.replace(/\/webapp-theme-assets\//g, `${runtimeBase}/themes/`);
+  if (path.extname(sourcePath).toLowerCase() !== ".css") return false;
+  const css = await readFile(sourcePath, "utf8");
+  const rewritten = css.replace(
+    /\/webapp-theme-assets\//g,
+    `${runtimeBase}/themes/`,
+  );
   await mkdir(path.dirname(targetPath), { recursive: true });
-  await writeFile(targetPath, rewritten, 'utf8');
+  await writeFile(targetPath, rewritten, "utf8");
   return true;
 }
 
@@ -98,13 +118,13 @@ function wait(ms) {
 }
 
 function jsonScriptPayload(value) {
-  return JSON.stringify(value).replace(/</g, '\\u003c');
+  return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
 async function demoI18nPayload() {
   const [ru, en] = await Promise.all([
-    readFile(path.join(localesDir, 'ru.json'), 'utf8'),
-    readFile(path.join(localesDir, 'en.json'), 'utf8'),
+    readFile(path.join(localesDir, "ru.json"), "utf8"),
+    readFile(path.join(localesDir, "en.json"), "utf8"),
   ]);
   return jsonScriptPayload({ ru: JSON.parse(ru), en: JSON.parse(en) });
 }
@@ -115,7 +135,7 @@ async function installGuidesConfigPayload() {
   for (let attempt = 1; attempt <= installGuidesConfigRetries; attempt += 1) {
     try {
       const response = await fetch(installGuidesConfigUrl, {
-        headers: { accept: 'application/json' },
+        headers: { accept: "application/json" },
       });
       if (!response.ok) {
         throw new Error(
@@ -146,7 +166,13 @@ async function appHtml() {
     />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="theme-color" content="#03070b" />
-    <title>Remnawave Minishop Demo</title>
+    <title>remnawave-minishop demo</title>
+    <link
+      id="app-favicon"
+      rel="icon"
+      href="${runtimeBase}/default-brand/favicons/19b2a242e5b7bc2d/icon-180.png"
+      sizes="180x180"
+    />
     <link rel="stylesheet" href="${runtimeBase}/subscription_webapp_docs_demo.css" />
   </head>
   <body>
@@ -161,7 +187,7 @@ async function appHtml() {
 }
 
 await ensureFrontendDependencies();
-await runNpm(['--prefix', frontendRoot, 'run', 'build:docs-demo']);
+await runNpm(["--prefix", frontendRoot, "run", "build:docs-demo"]);
 
 await rm(runtimeDir, { recursive: true, force: true });
 await mkdir(runtimeDir, { recursive: true });
@@ -169,16 +195,25 @@ await mkdir(runtimeDir, { recursive: true });
 const html = await appHtml();
 
 await Promise.all([
-  copyRuntimeAsset('subscription_webapp_docs_demo.js'),
-  copyRuntimeAsset('subscription_webapp_docs_demo.css'),
-  copyRuntimeAsset('subscription_webapp_admin.js'),
-  copyRuntimeAsset('subscription_webapp_admin.css'),
-  copyDirectory(path.join(templatesDir, 'default-brand'), path.join(runtimeDir, 'default-brand')),
-  copyDirectory(themesDir, path.join(runtimeDir, 'themes'), copyThemeFile),
-  writeFile(path.join(runtimeDir, 'app.html'), html, 'utf8'),
+  copyRuntimeAsset("subscription_webapp_docs_demo.js"),
+  copyRuntimeAsset("subscription_webapp_docs_demo.css"),
+  copyRuntimeAsset("subscription_webapp_admin.js"),
+  copyRuntimeAsset("subscription_webapp_admin.css"),
+  copyDirectory(
+    path.join(templatesDir, "default-brand"),
+    path.join(runtimeDir, "default-brand"),
+  ),
+  copyDirectory(themesDir, path.join(runtimeDir, "themes"), copyThemeFile),
+  writeFile(path.join(runtimeDir, "app.html"), html, "utf8"),
   installGuidesConfigPayload().then((payload) =>
-    writeFile(path.join(runtimeDir, 'subscription-guides-config.json'), payload, 'utf8'),
+    writeFile(
+      path.join(runtimeDir, "subscription-guides-config.json"),
+      payload,
+      "utf8",
+    ),
   ),
 ]);
 
-console.log(`Built static docs demo runtime at ${path.relative(repoRoot, runtimeDir)}`);
+console.log(
+  `Built static docs demo runtime at ${path.relative(repoRoot, runtimeDir)}`,
+);

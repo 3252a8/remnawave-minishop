@@ -1,4 +1,7 @@
 import { DEV_MOCK } from "./previewMock.js";
+import { DEMO_DATASET } from "./demoDataset.js";
+
+const DEMO_LANGUAGE_STORAGE_KEY = "rw_minishop_demo_language";
 
 function defaultClone(value) {
   try {
@@ -6,6 +9,616 @@ function defaultClone(value) {
   } catch {
     return JSON.parse(JSON.stringify(value));
   }
+}
+
+let demoPromosState = null;
+let demoAdsState = null;
+let demoSupportTicketsState = null;
+let demoSupportMessagesState = null;
+let demoTariffsState = null;
+const demoSettingsChanges = new Map();
+
+function demoPromos() {
+  if (!demoPromosState) demoPromosState = defaultClone(DEMO_DATASET.promos || []);
+  return demoPromosState;
+}
+
+function demoAds() {
+  if (!demoAdsState) demoAdsState = defaultClone(DEMO_DATASET.ads || []);
+  return demoAdsState;
+}
+
+function demoSupportTickets() {
+  if (!demoSupportTicketsState) {
+    demoSupportTicketsState = defaultClone(DEMO_DATASET.supportTickets || []);
+  }
+  return demoSupportTicketsState;
+}
+
+function demoSupportMessages() {
+  if (!demoSupportMessagesState) {
+    demoSupportMessagesState = defaultClone(DEMO_DATASET.supportMessages || {});
+  }
+  return demoSupportMessagesState;
+}
+
+function demoTariffs() {
+  if (!demoTariffsState) {
+    demoTariffsState = defaultClone(
+      DEMO_DATASET.tariffsCatalog || {
+        default_tariff: "",
+        topup_packages_default: { rub: [], stars: [] },
+        tariffs: [],
+      }
+    );
+  }
+  return demoTariffsState;
+}
+
+function queryParams(path) {
+  return new URLSearchParams(String(path || "").split("?")[1] || "");
+}
+
+function jsonBody(options) {
+  try {
+    return options?.body ? JSON.parse(String(options.body)) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeDemoLanguage(language) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage?.setItem(DEMO_LANGUAGE_STORAGE_KEY, language);
+  } catch {
+    // Demo storage can be unavailable in private contexts; the in-memory mock still updates.
+  }
+}
+
+function paged(items, params, fallbackSize = 25) {
+  const total = items.length;
+  if (params.has("limit") || params.has("offset")) {
+    const limit = Math.max(1, Number(params.get("limit") || fallbackSize));
+    const offset = Math.max(0, Number(params.get("offset") || 0));
+    return {
+      items: items.slice(offset, offset + limit),
+      total,
+      page: Math.floor(offset / limit),
+      pageSize: limit,
+    };
+  }
+  const page = Math.max(0, Number(params.get("page") || 0));
+  const pageSize = Math.max(1, Number(params.get("page_size") || fallbackSize));
+  const start = page * pageSize;
+  return { items: items.slice(start, start + pageSize), total, page, pageSize };
+}
+
+function stringDate(value) {
+  const time = Date.parse(value || "");
+  return Number.isFinite(time) ? time : 0;
+}
+
+function userName(user) {
+  return (
+    [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim() ||
+    user?.username ||
+    user?.email ||
+    String(user?.user_id || "")
+  );
+}
+
+function filterDemoUsers(params) {
+  let out = [...(DEMO_DATASET.adminUsers || [])];
+  const q = (params.get("q") || params.get("search") || "").trim().toLowerCase();
+  if (q) {
+    out = out.filter((user) =>
+      [
+        user.user_id,
+        user.telegram_id,
+        user.username,
+        user.first_name,
+        user.last_name,
+        user.email,
+        user.panel_user_uuid,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(q))
+    );
+  }
+
+  const filter = params.get("filter") || "all";
+  if (filter === "active") out = out.filter((user) => !user.is_banned);
+  else if (filter === "banned") out = out.filter((user) => user.is_banned);
+  else if (filter === "tg_linked") out = out.filter((user) => user.telegram_linked);
+  else if (filter === "no_tg") out = out.filter((user) => !user.telegram_linked);
+  else if (filter === "email_linked") out = out.filter((user) => Boolean(user.email));
+  else if (filter === "no_email") out = out.filter((user) => !user.email);
+  else if (filter === "panel_linked") out = out.filter((user) => Boolean(user.panel_user_uuid));
+
+  const panelStatus = params.get("panel_status") || "all";
+  if (panelStatus !== "all") out = out.filter((user) => user.panel_status === panelStatus);
+
+  const premiumTraffic = params.get("premium_traffic") || "all";
+  if (premiumTraffic !== "all") {
+    out = out.filter((user) => (user.premium_traffic?.state || "none") === premiumTraffic);
+  }
+
+  const sort = params.get("sort") || "registered_desc";
+  out.sort((a, b) => {
+    if (sort === "registered_asc")
+      return stringDate(a.registration_date) - stringDate(b.registration_date);
+    if (sort === "name_asc") return userName(a).localeCompare(userName(b));
+    if (sort === "name_desc") return userName(b).localeCompare(userName(a));
+    if (sort === "id_asc") return Number(a.user_id || 0) - Number(b.user_id || 0);
+    if (sort === "id_desc") return Number(b.user_id || 0) - Number(a.user_id || 0);
+    if (sort === "premium_ratio_asc")
+      return Number(a.premium_traffic?.percent ?? -1) - Number(b.premium_traffic?.percent ?? -1);
+    if (sort === "premium_ratio_desc")
+      return Number(b.premium_traffic?.percent ?? -1) - Number(a.premium_traffic?.percent ?? -1);
+    return stringDate(b.registration_date) - stringDate(a.registration_date);
+  });
+
+  return out;
+}
+
+function demoSupportCounts(items = demoSupportTickets()) {
+  const byStatus = { open: 0, awaiting_admin: 0, awaiting_user: 0, resolved: 0, closed: 0 };
+  for (const item of items) byStatus[item.status] = (byStatus[item.status] || 0) + 1;
+  const closed = (byStatus.closed || 0) + (byStatus.resolved || 0);
+  return {
+    ...byStatus,
+    active: items.length - closed,
+    closed,
+    total: items.length,
+    total_unread_admin: items.reduce((sum, item) => sum + Number(item.unread_admin_count || 0), 0),
+  };
+}
+
+function filterDemoSupportTickets(items, params) {
+  let out = [...items];
+  const status = params.get("status");
+  if (status === "active")
+    out = out.filter((item) => !["closed", "resolved"].includes(item.status));
+  else if (status === "closed")
+    out = out.filter((item) => ["closed", "resolved"].includes(item.status));
+  else if (status) out = out.filter((item) => item.status === status);
+
+  const priority = params.get("priority");
+  if (priority) out = out.filter((item) => item.priority === priority);
+  const category = params.get("category");
+  if (category) out = out.filter((item) => item.category === category);
+  const search = (params.get("search") || "").trim().toLowerCase();
+  if (search) {
+    out = out.filter((item) =>
+      [item.subject, item.user?.username, item.user?.email, item.ticket_id]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(search))
+    );
+  }
+
+  const priorityRank = { urgent: 4, high: 3, normal: 2, low: 1 };
+  const sort = params.get("sort") || "updated_desc";
+  out.sort((a, b) => {
+    if (sort === "importance_desc") {
+      return (
+        (priorityRank[b.priority] || 0) - (priorityRank[a.priority] || 0) ||
+        stringDate(b.last_message_at || b.created_at) -
+          stringDate(a.last_message_at || a.created_at)
+      );
+    }
+    if (sort === "updated_asc") {
+      return (
+        stringDate(a.last_message_at || a.created_at) -
+        stringDate(b.last_message_at || b.created_at)
+      );
+    }
+    if (sort === "created_desc") return stringDate(b.created_at) - stringDate(a.created_at);
+    if (sort === "created_asc") return stringDate(a.created_at) - stringDate(b.created_at);
+    return (
+      stringDate(b.last_message_at || b.created_at) - stringDate(a.last_message_at || a.created_at)
+    );
+  });
+  return out;
+}
+
+function demoSettingsSections(clone) {
+  const sections = clone(DEMO_DATASET.settingsSections || []);
+  for (const section of sections) {
+    for (const field of section.fields || []) {
+      if (!demoSettingsChanges.has(field.key)) continue;
+      const change = demoSettingsChanges.get(field.key);
+      if (change.deleted) {
+        field.value = field.default ?? "";
+        field.overridden = false;
+      } else {
+        field.value = change.value;
+        field.overridden = true;
+      }
+    }
+  }
+  return sections;
+}
+
+function applyDemoSettingToMock(key, value) {
+  if (key === "WEBAPP_TITLE") DEV_MOCK.config.title = value || "";
+  if (key === "WEBAPP_LOGO_URL") DEV_MOCK.config.logoUrl = value || "";
+  if (key === "WEBAPP_LOGO_USE_EMOJI") DEV_MOCK.config.logoUseEmoji = Boolean(value);
+  if (key === "WEBAPP_LOGO_EMOJI") DEV_MOCK.config.logoEmoji = value || "";
+  if (key === "WEBAPP_LOGO_EMOJI_FONT") DEV_MOCK.config.logoEmojiFont = value || "system";
+  if (key === "WEBAPP_FAVICON_URL" || key === "WEBAPP_LOGO_FAVICON_URL") {
+    DEV_MOCK.config.faviconUrl = value || DEV_MOCK.config.faviconUrl || "";
+  }
+  if (key === "WEBAPP_FAVICON_USE_CUSTOM") DEV_MOCK.config.faviconUseCustom = Boolean(value);
+}
+
+function userSnapshotForTicket(ticket) {
+  const detail = DEMO_DATASET.adminUserDetails?.[String(ticket?.user_id)] || {};
+  const user = detail.user || ticket?.user || {};
+  const sub = detail.active_subscription || {};
+  return {
+    user_id: user.user_id,
+    name: userName(user) || user.username || user.email || String(user.user_id || ""),
+    username: user.username || "",
+    email: user.email || "",
+    tariff: sub.tariff_name || sub.tariff_key || "Demo",
+    panel_status: user.panel_status || sub.status_from_panel || "",
+    remaining: sub.end_date || "",
+    regular_traffic: `${sub.traffic_used_bytes || 0} / ${sub.traffic_limit_bytes || 0}`,
+    premium_traffic: `${sub.premium_used_bytes || 0} / ${sub.premium_limit_bytes || 0}`,
+  };
+}
+
+function demoApiResponse(path, cleanPath, options, context) {
+  const { clone, currentLang = "ru", normalizeLangCode = (value) => value || "ru" } = context;
+  const method = String(options.method || "GET").toUpperCase();
+  const params = queryParams(path);
+
+  if (cleanPath === "/admin/stats") return clone(DEMO_DATASET.stats);
+  if (cleanPath === "/admin/sync") return { ok: true, status: "queued" };
+
+  if (cleanPath === "/admin/payments") {
+    const page = paged(DEMO_DATASET.adminPayments || [], params, 25);
+    return {
+      ok: true,
+      payments: clone(page.items),
+      total: page.total,
+      page: page.page,
+      page_size: page.pageSize,
+    };
+  }
+  if (/^\/admin\/payments\/\d+$/.test(cleanPath)) {
+    const id = Number(cleanPath.split("/").pop());
+    const payment = (DEMO_DATASET.adminPayments || []).find((item) => item.payment_id === id);
+    return payment ? { ok: true, payment: clone(payment) } : { ok: false, error: "not_found" };
+  }
+
+  if (cleanPath === "/admin/users") {
+    const filtered = filterDemoUsers(params);
+    const page = paged(filtered, params, 25);
+    return {
+      ok: true,
+      users: clone(page.items),
+      total: page.total,
+      page: page.page,
+      page_size: page.pageSize,
+    };
+  }
+  if (cleanPath.startsWith("/admin/users/")) {
+    const parts = cleanPath.split("/");
+    const id = Number(parts[3]);
+    const detail = DEMO_DATASET.adminUserDetails?.[String(id)];
+    if (!detail) return { ok: false, error: "not_found" };
+    if (parts[4]) {
+      if (parts[4] === "telegram-profile-link") {
+        return { ok: true, url: `https://t.me/${detail.user?.username || "demo_user"}` };
+      }
+      if (parts[4] === "message" && parts[5] === "preview") {
+        return { ok: true, text: "Demo broadcast preview for the selected account." };
+      }
+      return { ok: true, user: clone(detail.user), detail: clone(detail) };
+    }
+    return clone(detail);
+  }
+
+  if (cleanPath === "/admin/logs") {
+    let logs = [...(DEMO_DATASET.adminLogs || [])];
+    const userId = params.get("user_id");
+    if (userId) {
+      logs = logs.filter(
+        (item) =>
+          String(item.user_id || "") === userId || String(item.target_user_id || "") === userId
+      );
+    }
+    const page = paged(logs, params, 50);
+    return {
+      ok: true,
+      logs: clone(page.items),
+      total: page.total,
+      page: page.page,
+      page_size: page.pageSize,
+    };
+  }
+
+  if (cleanPath === "/admin/promos") {
+    if (method === "POST") {
+      const body = jsonBody(options);
+      demoPromos().unshift({
+        id: 3900 + demoPromos().length + 1,
+        code: body.code || "DEMO",
+        bonus_days: Number(body.bonus_days || 7),
+        max_activations: Number(body.max_activations || 1),
+        current_activations: 0,
+        is_active: true,
+        valid_until: new Date(Date.now() + Number(body.valid_days || 30) * 86400000).toISOString(),
+        created_at: new Date().toISOString(),
+        created_by_admin_id: DEV_MOCK.data.user?.id || DEV_MOCK.data.user?.user_id,
+      });
+      return { ok: true, promo: clone(demoPromos()[0]) };
+    }
+    const page = paged(demoPromos(), params, 25);
+    return {
+      ok: true,
+      promos: clone(page.items),
+      total: page.total,
+      page: page.page,
+      page_size: page.pageSize,
+    };
+  }
+  if (cleanPath.startsWith("/admin/promos/")) {
+    const id = Number(cleanPath.split("/").pop());
+    const promo = demoPromos().find((item) => item.id === id);
+    if (!promo) return { ok: false, error: "not_found" };
+    if (method === "DELETE") {
+      demoPromosState = demoPromos().filter((item) => item.id !== id);
+      return { ok: true };
+    }
+    Object.assign(promo, jsonBody(options));
+    return { ok: true, promo: clone(promo) };
+  }
+
+  if (cleanPath === "/admin/ads") {
+    if (method === "POST") {
+      const body = jsonBody(options);
+      demoAds().unshift({
+        id: 900 + demoAds().length + 1,
+        source: body.source || "demo",
+        start_param: body.start_param || "demo_campaign",
+        cost: Number(body.cost || 0),
+        is_active: true,
+        created_at: new Date().toISOString(),
+        stats: { users: 0, trial_activations: 0, payments: 0, revenue: 0 },
+      });
+      return { ok: true, campaign: clone(demoAds()[0]) };
+    }
+    return { ok: true, campaigns: clone(demoAds()), totals: clone(DEMO_DATASET.adsTotals || {}) };
+  }
+  if (cleanPath.startsWith("/admin/ads/")) {
+    const parts = cleanPath.split("/");
+    const id = Number(parts[3]);
+    const campaign = demoAds().find((item) => item.id === id);
+    if (!campaign) return { ok: false, error: "not_found" };
+    if (parts[4] === "toggle") {
+      campaign.is_active = !campaign.is_active;
+      return { ok: true, campaign: clone(campaign) };
+    }
+    if (method === "DELETE") {
+      demoAdsState = demoAds().filter((item) => item.id !== id);
+      return { ok: true };
+    }
+    return { ok: true, campaign: clone(campaign) };
+  }
+
+  if (cleanPath === "/admin/backups") return clone(DEMO_DATASET.backups);
+  if (cleanPath === "/admin/backups/create") {
+    const archive = clone(DEMO_DATASET.backups?.archives?.[0] || {});
+    archive.name = `minishop-demo-${Date.now()}.zip`;
+    archive.created_at = new Date().toISOString();
+    return {
+      ok: true,
+      archive,
+      result: { archive_name: archive.name, completed_at: archive.created_at, warnings: [] },
+    };
+  }
+  if (cleanPath === "/admin/backups/upload") {
+    return { ok: true, archive: clone(DEMO_DATASET.backups?.archives?.[0] || {}) };
+  }
+  if (cleanPath === "/admin/backups/restore") {
+    return {
+      ok: true,
+      result: {
+        archive_name: DEMO_DATASET.backups?.archives?.[0]?.name || "demo.zip",
+        database_restored: true,
+        warnings: [],
+      },
+    };
+  }
+
+  if (cleanPath === "/admin/settings" && method === "PATCH") {
+    const body = jsonBody(options);
+    for (const key of body.deletes || []) demoSettingsChanges.set(key, { deleted: true });
+    for (const [key, value] of Object.entries(body.updates || {})) {
+      demoSettingsChanges.set(key, { value, deleted: false });
+      applyDemoSettingToMock(key, value);
+    }
+    return {
+      ok: true,
+      applied: Object.keys(body.updates || {}).length,
+      reverted: (body.deletes || []).length,
+    };
+  }
+  if (cleanPath === "/admin/settings") return { ok: true, sections: demoSettingsSections(clone) };
+
+  if (cleanPath === "/admin/tariffs") {
+    if (method === "PUT") {
+      const body = jsonBody(options);
+      const catalog = body.catalog || body;
+      demoTariffsState = defaultClone(catalog);
+    }
+    return {
+      ok: true,
+      path: "data/tariffs.json",
+      catalog: clone(demoTariffs()),
+    };
+  }
+
+  if (cleanPath === "/admin/panel/internal-squads") {
+    return {
+      ok: true,
+      squads: clone(
+        DEMO_DATASET.panelSquads || [
+          { uuid: "db786ee8-816b-4760-80aa-1fc7a3669ff2", name: "Base RU" },
+          { uuid: "5f29045a-5e8b-4b06-a7b1-29abf0ad3a54", name: "Base EU" },
+          { uuid: "2f2f6e0a-1f2d-4e80-a33b-0ebf3a409012", name: "Premium EU" },
+        ]
+      ),
+    };
+  }
+
+  if (cleanPath === "/admin/translations" && method === "PATCH") {
+    return { ok: true, applied: 1, reverted: 0, file_written: false };
+  }
+  if (cleanPath === "/admin/translations") {
+    return { ok: true, ...clone(DEMO_DATASET.translations) };
+  }
+
+  if (cleanPath === "/admin/support/stats") return { ok: true, stats: demoSupportCounts() };
+  if (cleanPath === "/admin/support/tickets") {
+    const tickets = filterDemoSupportTickets(demoSupportTickets(), params);
+    const page = paged(tickets, params, 50);
+    return { ok: true, tickets: clone(page.items), total: page.total };
+  }
+  if (cleanPath.startsWith("/admin/support/tickets/")) {
+    const parts = cleanPath.split("/");
+    const ticketId = Number(parts[4]);
+    const ticket = demoSupportTickets().find((item) => item.ticket_id === ticketId);
+    if (!ticket) return { ok: false, error: "not_found" };
+    const messages = demoSupportMessages()[String(ticketId)] || [];
+    if (parts[5] === "read") {
+      ticket.unread_admin_count = 0;
+      return { ok: true };
+    }
+    if (parts[5] === "messages") {
+      const body = jsonBody(options);
+      const message = {
+        message_id: Date.now(),
+        ticket_id: ticketId,
+        author_role: "admin",
+        author_user_id: DEV_MOCK.data.user?.id || DEV_MOCK.data.user?.user_id,
+        author_name: "Поддержка",
+        body: body.body || "",
+        is_internal_note: Boolean(body.is_internal_note),
+        created_at: new Date().toISOString(),
+      };
+      messages.push(message);
+      demoSupportMessages()[String(ticketId)] = messages;
+      ticket.last_message_at = message.created_at;
+      ticket.last_message_role = "admin";
+      ticket.status = "awaiting_user";
+      return { ok: true, ticket: clone(ticket), message: clone(message) };
+    }
+    if (method === "PATCH") {
+      Object.assign(ticket, jsonBody(options));
+      return { ok: true, ticket: clone(ticket) };
+    }
+    return {
+      ok: true,
+      ticket: clone(ticket),
+      messages: clone(messages),
+      user_snapshot: userSnapshotForTicket(ticket),
+    };
+  }
+
+  if (cleanPath === "/support/tickets" && method === "POST") {
+    const body = jsonBody(options);
+    const user = DEV_MOCK.data.user || {};
+    const ticket = {
+      ticket_id: 4900 + demoSupportTickets().length + 1,
+      user_id: user.user_id || user.id,
+      subject: body.subject || "Новое обращение в поддержку",
+      category: body.category || "other",
+      priority: body.priority || "normal",
+      status: "awaiting_admin",
+      unread_user_count: 0,
+      unread_admin_count: 1,
+      last_message_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      user,
+    };
+    demoSupportTickets().unshift(ticket);
+    demoSupportMessages()[String(ticket.ticket_id)] = [
+      {
+        message_id: Date.now(),
+        ticket_id: ticket.ticket_id,
+        author_role: "user",
+        author_user_id: ticket.user_id,
+        author_name: userName(user) || user.username || "Демо-пользователь",
+        body: body.body || "",
+        created_at: ticket.created_at,
+      },
+    ];
+    return { ok: true, ticket: clone(ticket) };
+  }
+  if (cleanPath === "/support/tickets") {
+    const tickets = filterDemoSupportTickets(demoSupportTickets(), params);
+    const page = paged(tickets, params, 50);
+    return {
+      ok: true,
+      tickets: clone(page.items),
+      total: page.total,
+      counts: demoSupportCounts(demoSupportTickets()),
+    };
+  }
+  if (cleanPath.startsWith("/support/tickets/")) {
+    const parts = cleanPath.split("/");
+    const ticketId = Number(parts[3]);
+    const ticket = demoSupportTickets().find((item) => item.ticket_id === ticketId);
+    if (!ticket) return { ok: false, error: "not_found" };
+    const messages = demoSupportMessages()[String(ticketId)] || [];
+    if (parts[4] === "read") {
+      ticket.unread_user_count = 0;
+      return { ok: true };
+    }
+    if (parts[4] === "messages") {
+      const body = jsonBody(options);
+      const user = DEV_MOCK.data.user || {};
+      const message = {
+        message_id: Date.now(),
+        ticket_id: ticketId,
+        author_role: "user",
+        author_user_id: user.user_id || user.id,
+        author_name: userName(user) || user.username || "Демо-пользователь",
+        body: body.body || "",
+        created_at: new Date().toISOString(),
+      };
+      messages.push(message);
+      demoSupportMessages()[String(ticketId)] = messages;
+      ticket.last_message_at = message.created_at;
+      ticket.last_message_role = "user";
+      ticket.status = "awaiting_admin";
+      return { ok: true, ticket: clone(ticket), message: clone(message) };
+    }
+    return { ok: true, ticket: clone(ticket), messages: clone(messages) };
+  }
+  if (cleanPath === "/support/unread") {
+    return {
+      ok: true,
+      unread: demoSupportTickets().reduce(
+        (sum, item) => sum + Number(item.unread_user_count || 0),
+        0
+      ),
+    };
+  }
+
+  if (cleanPath === "/account/language" && method === "POST") {
+    const language = normalizeLangCode(jsonBody(options).language || currentLang);
+    DEV_MOCK.data.user.language_code = language;
+    DEV_MOCK.config.language = language;
+    writeDemoLanguage(language);
+    return { ok: true, language };
+  }
+
+  return undefined;
 }
 
 export async function mockApi(path, options = {}, context = {}) {
@@ -16,6 +629,12 @@ export async function mockApi(path, options = {}, context = {}) {
   } = context;
   await new Promise((resolve) => window.setTimeout(resolve, 120));
   const cleanPath = String(path || "").split("?")[0];
+  const demoResponse = demoApiResponse(path, cleanPath, options, {
+    clone,
+    currentLang,
+    normalizeLangCode,
+  });
+  if (demoResponse !== undefined) return demoResponse;
   const adminUsers = [
     {
       user_id: 100200300,
