@@ -263,6 +263,12 @@ a {
   opacity: 1;
 }
 
+.status-tariff-action {
+  margin-top: 10px;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
 .traffic-top,
 .total-card {
   display: flex;

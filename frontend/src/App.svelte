@@ -1825,7 +1825,9 @@
       return t("wa_pay_full_subscription", {}, "Оплатить полную подписку");
     }
     if (trafficMode || selectedPlan?.sale_mode === "traffic_package") return t("wa_buy_traffic");
-    return subscription.active ? t("wa_renew") : t("wa_pay_subscription");
+    return subscription.active
+      ? t("wa_renew_subscription", {}, "Продлить подписку")
+      : t("wa_pay_subscription");
   }
 </script>
 

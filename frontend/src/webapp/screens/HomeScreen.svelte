@@ -3,10 +3,11 @@
     CheckCircle2,
     ChevronsUpDown,
     CircleX,
+    CreditCard,
     Database,
     Download,
     Gift,
-    RefreshCw,
+    Repeat2,
   } from "$components/ui/icons.js";
 
   import BrandMark from "$lib/webapp/BrandMark.svelte";
@@ -118,6 +119,16 @@
                 ? t("wa_until_date", { date: subscription.end_date_text })
                 : subscription.remaining_text}
             </p>
+            {#if canChangeTariff}
+              <Button
+                class="wide status-tariff-action"
+                variant="secondary"
+                onclick={openTariffChangeModal}
+              >
+                <Repeat2 size={17} />
+                {t("wa_change_tariff")}
+              </Button>
+            {/if}
           </div>
         </div>
       {:else}
@@ -271,18 +282,12 @@
         onclick={openPaymentModal}
       >
         {#if subscription.active}
-          <RefreshCw size={18} />
+          <CreditCard size={18} />
         {:else if trafficMode}
           <Database size={18} />
         {/if}
         {primaryPayActionLabel()}
       </Button>
-      {#if canChangeTariff}
-        <Button class="wide" variant="secondary" onclick={openTariffChangeModal}>
-          <RefreshCw size={18} />
-          {t("wa_change_tariff")}
-        </Button>
-      {/if}
       {#if regularTrafficTopupUnlocked}
         <Button class="wide" variant="secondary" onclick={openRegularTopupModal}>
           <Database size={18} />
