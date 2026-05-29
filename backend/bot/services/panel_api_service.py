@@ -328,12 +328,112 @@ class PanelApiService:
     async def _get_user_by_uuid_uncached(
         self, user_uuid: str, log_response: bool = False
     ) -> Optional[Dict[str, Any]]:
+        lookup = await self.get_user_by_uuid_lookup(user_uuid, log_response=log_response)
+        if lookup.get("ok") and isinstance(lookup.get("user"), dict):
+            return lookup["user"]
+        return None
+
+    @staticmethod
+    def _panel_response_details(response_data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        if not isinstance(response_data, dict):
+            return {}
+        details = response_data.get("details")
+        return details if isinstance(details, dict) else {}
+
+    @classmethod
+    def _panel_response_error_code(cls, response_data: Optional[Dict[str, Any]]) -> Optional[str]:
+        if not isinstance(response_data, dict):
+            return None
+        details = cls._panel_response_details(response_data)
+        error_code = (
+            response_data.get("errorCode")
+            or response_data.get("code")
+            or details.get("errorCode")
+            or details.get("code")
+        )
+        return str(error_code) if error_code else None
+
+    @classmethod
+    def _panel_response_message(cls, response_data: Optional[Dict[str, Any]]) -> Optional[str]:
+        if not isinstance(response_data, dict):
+            return None
+        details = cls._panel_response_details(response_data)
+        message = (
+            response_data.get("message")
+            or details.get("message")
+            or details.get("error")
+            or details.get("raw_response_text")
+        )
+        if message is None:
+            return None
+        message = str(message).replace("\n", " ").strip()
+        return message[:500] if message else None
+
+    @classmethod
+    def _is_user_not_found_response(cls, response_data: Optional[Dict[str, Any]]) -> bool:
+        if not isinstance(response_data, dict):
+            return False
+        status_code = response_data.get("status_code")
+        error_code = cls._panel_response_error_code(response_data)
+        if error_code in {"A040", "A062", "USER_NOT_FOUND", "NOT_FOUND"}:
+            return True
+        return status_code == 404
+
+    @classmethod
+    def _describe_user_lookup_failure(
+        cls,
+        response_data: Optional[Dict[str, Any]],
+        *,
+        not_found: bool,
+    ) -> str:
+        if not isinstance(response_data, dict):
+            return "classification=panel_lookup_failed response=empty"
+
+        classification = "confirmed_not_found" if not_found else "panel_lookup_failed"
+        parts = [f"classification={classification}"]
+        status_code = response_data.get("status_code")
+        if status_code is not None:
+            parts.append(f"status_code={status_code}")
+        error_code = cls._panel_response_error_code(response_data)
+        if error_code:
+            parts.append(f"error_code={error_code}")
+        message = cls._panel_response_message(response_data)
+        if message:
+            parts.append(f"message={message}")
+        return " ".join(parts)
+
+    async def get_user_by_uuid_lookup(
+        self, user_uuid: str, log_response: bool = False
+    ) -> Dict[str, Any]:
+        """Fetch a panel user and preserve whether a miss was confirmed.
+
+        ``get_user_by_uuid`` historically returned ``None`` both for a real
+        404/not-found and for transient panel/API failures. Callers that may
+        mutate local state need this richer result to avoid treating an outage
+        as a deleted panel user.
+        """
         endpoint = f"/users/{user_uuid}"
         full_response = await self._request("GET", endpoint, log_full_response=log_response)
         if full_response and not full_response.get("error") and "response" in full_response:
-            return full_response.get("response")
+            return {
+                "ok": True,
+                "user": full_response.get("response"),
+                "not_found": False,
+                "failure_reason": None,
+                "response": full_response,
+            }
 
-        return None
+        not_found = self._is_user_not_found_response(full_response)
+        return {
+            "ok": False,
+            "user": None,
+            "not_found": not_found,
+            "failure_reason": self._describe_user_lookup_failure(
+                full_response,
+                not_found=not_found,
+            ),
+            "response": full_response,
+        }
 
     async def get_user(
         self,

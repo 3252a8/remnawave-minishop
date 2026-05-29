@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from aiogram import Bot
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import InlineKeyboardMarkup
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -125,6 +126,35 @@ class SubscriptionLifecycleNotificationService:
             return False
         try:
             await self.bot.send_message(chat_id, message_text, reply_markup=markup)
+        except (TelegramBadRequest, TelegramForbiddenError) as exc:
+            if self._is_terminal_telegram_delivery_error(exc):
+                logging.warning(
+                    "Skipping subscription notification %s for unreachable Telegram user %s: %s",
+                    stage.key,
+                    chat_id,
+                    exc,
+                )
+                try:
+                    await subscription_dal.record_subscription_notification(
+                        session,
+                        sub.subscription_id,
+                        self._channel_key(stage.key, "telegram"),
+                        sent_at=sent_at,
+                    )
+                except Exception:
+                    logging.exception(
+                        "Failed to record skipped subscription notification %s "
+                        "for Telegram user %s",
+                        stage.key,
+                        chat_id,
+                    )
+                return False
+            logging.exception(
+                "Failed to send subscription notification %s to Telegram user %s",
+                stage.key,
+                chat_id,
+            )
+            return False
         except Exception:
             logging.exception(
                 "Failed to send subscription notification %s to Telegram user %s",
@@ -229,6 +259,23 @@ class SubscriptionLifecycleNotificationService:
             if chat_id > 0:
                 return chat_id
         return None
+
+    @staticmethod
+    def _is_terminal_telegram_delivery_error(
+        exc: TelegramBadRequest | TelegramForbiddenError,
+    ) -> bool:
+        if isinstance(exc, TelegramForbiddenError):
+            return True
+        message = str(exc).lower()
+        return any(
+            token in message
+            for token in (
+                "chat not found",
+                "bot was blocked",
+                "bot can't initiate conversation",
+                "user is deactivated",
+            )
+        )
 
     @staticmethod
     def _as_utc(value: Optional[datetime]) -> Optional[datetime]:

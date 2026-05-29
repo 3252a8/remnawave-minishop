@@ -2,6 +2,9 @@ import asyncio
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
+from aiogram.exceptions import TelegramBadRequest
+from aiogram.methods import SendMessage
+
 from bot.services import subscription_lifecycle_notifications as lifecycle
 from bot.services.subscription_lifecycle_notifications import (
     SubscriptionLifecycleNotificationService,
@@ -38,6 +41,18 @@ class FakeBot:
                 "text": text,
                 "reply_markup": reply_markup,
             }
+        )
+
+
+class ChatNotFoundBot:
+    def __init__(self):
+        self.calls = []
+
+    async def send_message(self, chat_id, text, reply_markup=None):
+        self.calls.append((chat_id, text, reply_markup))
+        raise TelegramBadRequest(
+            method=SendMessage(chat_id=chat_id, text=text),
+            message="Bad Request: chat not found",
         )
 
 
@@ -172,3 +187,48 @@ def test_legacy_stage_key_suppresses_only_telegram(monkeypatch):
     assert bot.messages == []
     assert email_service.messages[0]["email"] == "user@example.test"
     assert recorded == ["before_3d", "before_3d:email"]
+
+
+def test_terminal_telegram_failure_is_recorded_to_avoid_retry_spam(monkeypatch):
+    recorded = []
+
+    async def fake_has(session, subscription_id, notification_key):
+        return notification_key in recorded
+
+    async def fake_record(session, subscription_id, notification_key, *, sent_at=None):
+        recorded.append(notification_key)
+
+    monkeypatch.setattr(lifecycle.subscription_dal, "has_subscription_notification", fake_has)
+    monkeypatch.setattr(lifecycle.subscription_dal, "record_subscription_notification", fake_record)
+
+    bot = ChatNotFoundBot()
+    settings = _settings()
+    settings.email_auth_configured = False
+    service = SubscriptionLifecycleNotificationService(
+        settings,
+        bot,
+        FakeI18n(),
+    )
+    user = _user()
+    user.telegram_id = 777
+    user.email = ""
+
+    async def run():
+        return await service.send_stage(
+            object(),
+            _subscription(),
+            SubscriptionNotificationStage(
+                key="before_3d",
+                message_key="subscription_72h_notification",
+                days_left=3,
+            ),
+            user=user,
+            telegram_markup="markup",
+        )
+
+    delivery = asyncio.run(run())
+
+    assert delivery.telegram_sent is False
+    assert delivery.email_sent is False
+    assert bot.calls[0][0] == 777
+    assert recorded == ["before_3d:telegram"]

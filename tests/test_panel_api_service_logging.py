@@ -77,6 +77,59 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(service._request.await_count, 3)
 
+    async def test_get_user_by_uuid_lookup_returns_success_payload(self):
+        service = self._make_service()
+        service._request = AsyncMock(return_value={"response": {"uuid": "user-uuid"}})
+
+        result = await service.get_user_by_uuid_lookup("user-uuid")
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["not_found"])
+        self.assertIsNone(result["failure_reason"])
+        self.assertEqual(result["user"], {"uuid": "user-uuid"})
+        service._request.assert_awaited_once_with(
+            "GET",
+            "/users/user-uuid",
+            log_full_response=False,
+        )
+
+    async def test_get_user_by_uuid_lookup_keeps_transient_errors_separate_from_not_found(self):
+        service = self._make_service()
+        transient_response = {
+            "error": True,
+            "status_code": -1,
+            "message": "Connection error",
+        }
+        service._request = AsyncMock(return_value=transient_response)
+
+        result = await service.get_user_by_uuid_lookup("user-uuid")
+
+        self.assertFalse(result["ok"])
+        self.assertFalse(result["not_found"])
+        self.assertIsNone(result["user"])
+        self.assertIn("classification=panel_lookup_failed", result["failure_reason"])
+        self.assertIn("status_code=-1", result["failure_reason"])
+        self.assertIn("message=Connection error", result["failure_reason"])
+        self.assertEqual(result["response"], transient_response)
+
+    async def test_get_user_by_uuid_lookup_marks_confirmed_not_found(self):
+        service = self._make_service()
+        cases = [
+            {"error": True, "status_code": 404},
+            {"error": True, "status_code": 400, "details": {"errorCode": "A062"}},
+        ]
+
+        for response in cases:
+            with self.subTest(response=response):
+                service._request = AsyncMock(return_value=response)
+
+                result = await service.get_user_by_uuid_lookup("missing-user")
+
+                self.assertFalse(result["ok"])
+                self.assertTrue(result["not_found"])
+                self.assertIsNone(result["user"])
+                self.assertIn("classification=confirmed_not_found", result["failure_reason"])
+
     async def test_get_user_devices_uses_short_ttl_cache_and_disconnect_invalidates(self):
         service = self._make_service()
         service._request = AsyncMock(return_value={"response": [{"hwid": "device-1"}]})
