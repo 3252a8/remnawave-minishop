@@ -79,6 +79,7 @@ export default defineConfig({
             { label: 'Основные', slug: 'features/core' },
             { label: 'Платежи', slug: 'features/payments' },
             { label: 'Подписки', slug: 'features/subscriptions' },
+            { label: 'Уведомления', slug: 'features/notifications' },
             { label: 'Тарифы', slug: 'features/tariffs' },
             { label: 'Веб-приложение / Mini App', slug: 'features/web-app' },
             { label: 'Telegram-авторизация', slug: 'features/telegram-auth' },
