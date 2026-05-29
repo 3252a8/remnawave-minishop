@@ -45,7 +45,8 @@
 
   let authPanelHeight = 0;
 
-  $: passwordModeActive = Boolean(passwordLoginMode && CFG.emailAuthEnabled !== false);
+  $: emailAuthEnabled = CFG.emailAuthEnabled !== false;
+  $: passwordModeActive = Boolean(passwordLoginMode && emailAuthEnabled);
   $: authCardHeight = authPanelHeight ? `${authPanelHeight}px` : undefined;
 </script>
 
@@ -149,46 +150,48 @@
                   {authStatus}
                 </StatusMessage>
               {/if}
-            {:else if CFG.emailAuthEnabled !== false}
-              <div class="auth-pane">
-                <div class="auth-email-stack">
-                  <div class="field-error-wrap">
-                    <Tooltip.Root open={Boolean(loginEmailFieldError) && loginEmailTooltipOpen}>
-                      <Input
-                        bind:value={email}
-                        type="email"
-                        placeholder={t("wa_email_placeholder")}
-                        autocomplete="email"
-                        class={loginEmailFieldError ? "input-error" : ""}
-                        on:keydown={submitEmailOnEnter}
-                        on:input={clearLoginEmailError}
-                      />
-                      {#if loginEmailFieldError}
-                        <Tooltip.Trigger
-                          class="field-error-trigger"
-                          aria-label={loginEmailFieldError}
-                        >
-                          <span class="field-error-icon" aria-hidden="true"
-                            ><TriangleAlert size={18} /></span
+            {:else}
+              {#if emailAuthEnabled}
+                <div class="auth-pane">
+                  <div class="auth-email-stack">
+                    <div class="field-error-wrap">
+                      <Tooltip.Root open={Boolean(loginEmailFieldError) && loginEmailTooltipOpen}>
+                        <Input
+                          bind:value={email}
+                          type="email"
+                          placeholder={t("wa_email_placeholder")}
+                          autocomplete="email"
+                          class={loginEmailFieldError ? "input-error" : ""}
+                          on:keydown={submitEmailOnEnter}
+                          on:input={clearLoginEmailError}
+                        />
+                        {#if loginEmailFieldError}
+                          <Tooltip.Trigger
+                            class="field-error-trigger"
+                            aria-label={loginEmailFieldError}
                           >
-                        </Tooltip.Trigger>
-                      {/if}
-                      {#if loginEmailFieldError}
-                        <Tooltip.Portal>
-                          <Tooltip.Content class="field-error-tooltip"
-                            >{loginEmailFieldError}</Tooltip.Content
-                          >
-                        </Tooltip.Portal>
-                      {/if}
-                    </Tooltip.Root>
+                            <span class="field-error-icon" aria-hidden="true"
+                              ><TriangleAlert size={18} /></span
+                            >
+                          </Tooltip.Trigger>
+                        {/if}
+                        {#if loginEmailFieldError}
+                          <Tooltip.Portal>
+                            <Tooltip.Content class="field-error-tooltip"
+                              >{loginEmailFieldError}</Tooltip.Content
+                            >
+                          </Tooltip.Portal>
+                        {/if}
+                      </Tooltip.Root>
+                    </div>
+                    <Button class="wide" onclick={requestEmailCode} disabled={authBusy}>
+                      <Mail size={18} />
+                      {t("wa_send_code_email")}
+                    </Button>
                   </div>
-                  <Button class="wide" onclick={requestEmailCode} disabled={authBusy}>
-                    <Mail size={18} />
-                    {t("wa_send_code_email")}
-                  </Button>
                 </div>
-              </div>
-              <div class="or-line"><span></span>{t("wa_or")}<span></span></div>
+                <div class="or-line"><span></span>{t("wa_or")}<span></span></div>
+              {/if}
               <div class="auth-pane">
                 <Button
                   variant="telegram"
@@ -207,18 +210,20 @@
                   </span>
                 </Button>
               </div>
-              <div class="password-switch-stack">
-                <div class="password-switch-divider" aria-hidden="true"></div>
-                <button
-                  class="link-button password-switch-button"
-                  type="button"
-                  onclick={() => setPasswordLoginMode(true)}
-                  disabled={authBusy}
-                >
-                  <LockKeyhole size={15} />
-                  {t("wa_login_use_password")}
-                </button>
-              </div>
+              {#if emailAuthEnabled}
+                <div class="password-switch-stack">
+                  <div class="password-switch-divider" aria-hidden="true"></div>
+                  <button
+                    class="link-button password-switch-button"
+                    type="button"
+                    onclick={() => setPasswordLoginMode(true)}
+                    disabled={authBusy}
+                  >
+                    <LockKeyhole size={15} />
+                    {t("wa_login_use_password")}
+                  </button>
+                </div>
+              {/if}
               {#if !telegramLoginChecking && (authStatus || telegramLoginUnavailableMessage)}
                 <StatusMessage
                   error={authIsError || Boolean(telegramLoginUnavailableMessage)}
