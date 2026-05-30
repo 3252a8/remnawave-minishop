@@ -21,9 +21,10 @@ on:
         type: string
         required: true
 
-permissions:
-  contents: read
-  packages: write
+# No permissions block here on purpose: a reusable workflow cannot request more
+# than its caller grants, so the token scope is set by each caller
+# (docker-dev.yml / docker-release.yml grant packages: write to push; ci.yml
+# only needs contents: read for a no-push build).
 
 jobs:
   build:
