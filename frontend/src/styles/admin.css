@@ -348,7 +348,7 @@
   min-height: 0;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  overflow: hidden;
+  overflow-y: auto;
   overflow-x: hidden;
   padding: 24px 28px 36px;
   display: flex;
@@ -359,14 +359,7 @@
 /* Flex children must NOT shrink — otherwise they collapse to fit the
    container and the main never overflows, breaking scroll. */
 
-.admin-main-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  max-height: none;
-}
-
-.admin-main > *,
-.admin-main-scroll > .scroll-area__viewport > * {
+.admin-main > * {
   flex-shrink: 0;
 }
 
