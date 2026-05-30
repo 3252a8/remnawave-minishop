@@ -107,6 +107,33 @@ WEBAPP_CSRF_COOKIE_NAME = "rw_webapp_csrf"
 WEBAPP_TELEGRAM_OAUTH_STATE_COOKIE_NAME = "rw_tg_oauth_state"
 WEBAPP_CSRF_HEADER_NAME = "X-CSRF-Token"
 WEBAPP_STATE_CHANGING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+ROBOTS_TX = """User-agent: *
+Disallow: /
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: OAI-SearchBot
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
+"""
 _APP_VERSION_CACHE: Optional[str] = None
 WEBAPP_CSRF_EXEMPT_PATHS = {
     "/api/auth/telegram/nonce",

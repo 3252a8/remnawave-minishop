@@ -130,6 +130,7 @@ LABEL org.opencontainers.image.source="https://github.com/3252a8/remnawave-minis
 
 COPY deploy/docker/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY deploy/docker/frontend/00-startup-banner.sh /docker-entrypoint.d/00-startup-banner.sh
+COPY deploy/docker/frontend/robots.txt /usr/share/nginx/html/robots.txt
 COPY backend/bot/app/web/templates/subscription_webapp.html /usr/share/nginx/html/index.html
 COPY --from=frontend-builder /app/backend/bot/app/web/templates/subscription_webapp.css /usr/share/nginx/html/subscription_webapp.css
 COPY --from=frontend-builder /app/backend/bot/app/web/templates/subscription_webapp.*.css /usr/share/nginx/html/

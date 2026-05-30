@@ -87,6 +87,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("GET", "/auth/telegram/start"): "telegram_oauth_start_route",
             ("GET", "/auth/telegram/callback"): "telegram_oauth_callback_route",
             ("GET", "/health"): "health_route",
+            ("GET", "/robots.txt"): "robots_txt_route",
             ("GET", "/webapp-logo"): "webapp_logo_route",
             ("GET", "/webapp-uploaded-logo/{filename}"): "webapp_uploaded_logo_route",
             ("GET", "/webapp-emoji/{codepoints}/512.{ext}"): "webapp_animated_emoji_route",
@@ -132,6 +133,17 @@ class WebAppRouteContractTests(unittest.TestCase):
 
         for key, handler_name in expected.items():
             self.assertEqual(routes.get(key), handler_name, key)
+
+    def test_robots_txt_disallows_crawling_webapp(self):
+        response = asyncio.run(subscription_webapp.robots_txt_route(_Request()))
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.content_type, "text/plain")
+        self.assertEqual(response.headers["Cache-Control"], "public, max-age=3600")
+        self.assertIn("User-agent: *", response.text)
+        self.assertIn("User-agent: OAI-SearchBot", response.text)
+        self.assertIn("User-agent: GPTBot", response.text)
+        self.assertIn("Disallow: /", response.text)
 
     def test_admin_api_registers_expected_routes(self):
         app = web.Application()

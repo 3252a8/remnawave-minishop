@@ -3,6 +3,7 @@ from ._runtime import *  # noqa: F403,F405
 
 
 def setup_subscription_webapp_routes(app: web.Application) -> None:
+    app.router.add_get("/robots.txt", robots_txt_route)
     app.router.add_get("/", index_route)
     app.router.add_get("/login/password", index_route)
     app.router.add_get("/home", index_route)

@@ -23,6 +23,12 @@ async def health_route(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
+async def robots_txt_route(request: web.Request) -> web.Response:
+    response = web.Response(text=ROBOTS_TX, content_type="text/plain")
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return response
+
+
 async def css_asset_route(request: web.Request) -> web.Response:
     return await _css_asset_route(request, base_name="subscription_webapp")
 
@@ -869,6 +875,7 @@ async def _security_headers_middleware(request: web.Request, handler):
     )
     response.headers.setdefault("Referrer-Policy", "no-referrer")
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Robots-Tag", "noindex, nofollow, noarchive")
     response.headers.setdefault(
         "Permissions-Policy",
         (
