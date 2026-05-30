@@ -191,6 +191,7 @@ await runNpm(["--prefix", frontendRoot, "run", "build:docs-demo"]);
 
 await rm(runtimeDir, { recursive: true, force: true });
 await mkdir(runtimeDir, { recursive: true });
+await mkdir(path.join(runtimeDir, "app"), { recursive: true });
 
 const html = await appHtml();
 
@@ -204,7 +205,7 @@ await Promise.all([
     path.join(runtimeDir, "default-brand"),
   ),
   copyDirectory(themesDir, path.join(runtimeDir, "themes"), copyThemeFile),
-  writeFile(path.join(runtimeDir, "app.html"), html, "utf8"),
+  writeFile(path.join(runtimeDir, "app", "index.html"), html, "utf8"),
   installGuidesConfigPayload().then((payload) =>
     writeFile(
       path.join(runtimeDir, "subscription-guides-config.json"),

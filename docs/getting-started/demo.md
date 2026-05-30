@@ -23,7 +23,7 @@
 - использует entrypoint `frontend/src/docsDemoEntry.js`, где подключены моковые данные и mock API;
 - дополнительно собирает обычный admin-бандл, чтобы админка работала внутри демо;
 - копирует JS/CSS, темы, default-brand ассеты, локали и конфиг гайдов подключения в `docs-site/public/demo/runtime/`;
-- генерирует `app.html`, который грузит demo runtime и встроенные переводы;
+- генерирует `app/index.html`, который грузит demo runtime и встроенные переводы;
 - после Astro build материализует публичные страницы `/demo/home`, `/demo/install`, `/demo/admin/stats` и другие основные demo routes как статические `index.html`;
 - Cloudflare Pages rewrite-правила остаются только для внутреннего `/demo/runtime/*`, чтобы iframe мог использовать обычный History API без влияния на остальные страницы документации;
 - страницы `/demo/home`, `/demo/install`, `/demo/admin/*` и другие demo routes служат полноэкранной обвязкой с верхней панелью возврата в документацию, а внешняя страница синхронизирует читаемый адрес демо.

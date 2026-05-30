@@ -19,7 +19,13 @@ async function copyHtml(source, route) {
 }
 
 const demoShell = path.join(distRoot, "demo", "index.html");
-const runtimeApp = path.join(distRoot, "demo", "runtime", "app.html");
+const runtimeApp = path.join(
+  distRoot,
+  "demo",
+  "runtime",
+  "app",
+  "index.html",
+);
 
 for (const route of demoRoutes) {
   await copyHtml(demoShell, route);

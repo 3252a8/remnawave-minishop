@@ -1,11 +1,12 @@
 # Cloudflare Pages rewrites for non-materialized static docs demo runtime routes.
-# Use the directory entrypoint so Pages clean URLs do not loop between app.html and app.
-/demo/runtime/home/* /demo/runtime/app/ 200
-/demo/runtime/install/* /demo/runtime/app/ 200
-/demo/runtime/trial/* /demo/runtime/app/ 200
-/demo/runtime/invite/* /demo/runtime/app/ 200
-/demo/runtime/devices/* /demo/runtime/app/ 200
-/demo/runtime/support/* /demo/runtime/app/ 200
-/demo/runtime/settings/* /demo/runtime/app/ 200
-/demo/runtime/login/* /demo/runtime/app/ 200
-/demo/runtime/admin/* /demo/runtime/app/ 200
+# Use the generated directory index instead of app.html so Pages clean URLs do not
+# loop between extensionless and .html variants.
+/demo/runtime/home/* /demo/runtime/app/index.html 200
+/demo/runtime/install/* /demo/runtime/app/index.html 200
+/demo/runtime/trial/* /demo/runtime/app/index.html 200
+/demo/runtime/invite/* /demo/runtime/app/index.html 200
+/demo/runtime/devices/* /demo/runtime/app/index.html 200
+/demo/runtime/support/* /demo/runtime/app/index.html 200
+/demo/runtime/settings/* /demo/runtime/app/index.html 200
+/demo/runtime/login/* /demo/runtime/app/index.html 200
+/demo/runtime/admin/* /demo/runtime/app/index.html 200
