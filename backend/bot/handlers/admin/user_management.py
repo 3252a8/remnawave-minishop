@@ -27,6 +27,7 @@ from bot.utils.text_sanitizer import (
     username_for_display,
 )
 from config.settings import Settings
+from config.tariffs_config import default_payment_currency_code_for_settings
 from db.dal import message_log_dal, subscription_dal, user_dal
 from db.models import User
 
@@ -407,16 +408,18 @@ async def format_user_card(
         try:
             from db.dal import payment_dal
 
+            currency = default_payment_currency_code_for_settings(settings)
+
             # Total amount paid by this user
             total_paid = await payment_dal.get_user_total_paid(session, user.user_id)
             card_parts.append(
-                f"{_('admin_user_total_paid_label')} {hcode(f'{total_paid:.2f} RUB')}"
+                f"{_('admin_user_total_paid_label')} {hcode(f'{total_paid:.2f} {currency}')}"
             )
 
             # Total revenue from referrals
             referral_revenue = await payment_dal.get_referral_revenue(session, user.user_id)
             card_parts.append(
-                f"{_('admin_user_referral_revenue_label')} {hcode(f'{referral_revenue:.2f} RUB')}"
+                f"{_('admin_user_referral_revenue_label')} {hcode(f'{referral_revenue:.2f} {currency}')}"
             )
         except Exception as e_fin:
             logging.error(

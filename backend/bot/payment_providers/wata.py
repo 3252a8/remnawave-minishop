@@ -19,6 +19,10 @@ from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
 from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
+from config.tariffs_config import (
+    default_currency_key_for_settings,
+    default_payment_currency_code_for_settings,
+)
 from db.dal import payment_dal
 
 from .base import (
@@ -27,6 +31,7 @@ from .base import (
     ProviderManifestField,
     ServiceFactoryContext,
     WebAppPaymentContext,
+    normalize_payment_currency_code,
     provider_env_file,
     provider_runtime_enabled,
 )
@@ -63,6 +68,7 @@ from .shared import (
 
 router = Router(name="user_subscription_payments_wata_router")
 _LOG = "wata"
+WATA_SUPPORTED_CURRENCIES = ("RUB", "USD", "EUR")
 _WATA_IN_PROGRESS_STATUSES = {"created", "pending"}
 _WATA_LINK_OPENED_STATUSES = {"opened", "open"}
 _WATA_LINK_DEFAULT_TTL_MINUTES = 15
@@ -258,13 +264,23 @@ class WataService(HttpClientMixin):
             logging.error("WataService is not configured. Cannot create payment link.")
             return False, {"message": "service_not_configured"}
 
+        currency_code = normalize_payment_currency_code(
+            currency or self.settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
+        )
+        if currency_code not in WATA_SUPPORTED_CURRENCIES:
+            return False, {
+                "message": "unsupported_currency",
+                "currency": currency_code,
+                "supported_currencies": list(WATA_SUPPORTED_CURRENCIES),
+            }
+
         session = await self._get_session()
         expires_at = (
             datetime.now(timezone.utc) + timedelta(minutes=self.payment_link_ttl_minutes)
         ).replace(microsecond=0)
         body: Dict[str, Any] = {
             "amount": float(format_decimal_amount(amount)),
-            "currency": (currency or self.settings.DEFAULT_CURRENCY_SYMBOL or "RUB").upper(),
+            "currency": currency_code,
             "description": description,
             "orderId": str(payment_db_id),
             "successRedirectUrl": self.return_url,
@@ -863,13 +879,13 @@ async def pay_wata_callback_handler(
         user_id=callback.from_user.id,
         parts=parts,
         subscription_service=wata_service.subscription_service,
-        currency="rub",
+        currency=default_currency_key_for_settings(settings),
     )
     if not parts:
         await notify_callback_parse_error(callback, translator)
         return
 
-    currency_code = settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
+    currency_code = default_payment_currency_code_for_settings(settings)
     payment_description = describe_payment(translator, parts)
 
     reuse_amounts = payment_record_amounts(months=parts.months, sale_mode=parts.sale_mode)
@@ -956,7 +972,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     if not service or not service.configured:
         return payment_unavailable()
 
-    currency = settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
+    currency = ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
 
     reuse_amounts = payment_record_amounts(
         months=ctx.months,
@@ -1190,4 +1206,7 @@ SPEC = PaymentProviderSpec(
     config_class=WataConfig,
     presentation_class=WataPresentation,
     manifest_fields=_CONFIG_MANIFEST + _PRESENTATION_MANIFEST,
+    supported_currencies=WATA_SUPPORTED_CURRENCIES,
+    currency_support_note="WATA H2H payment links and widget document RUB, USD and EUR as payment currencies.",
+    currency_support_url="https://wata.pro/api",
 )

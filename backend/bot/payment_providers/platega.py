@@ -14,6 +14,10 @@ from bot.middlewares.i18n import JsonI18n
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
 from config.settings import Settings
+from config.tariffs_config import (
+    default_currency_key_for_settings,
+    default_payment_currency_code_for_settings,
+)
 from db.dal import payment_dal
 
 from .base import (
@@ -22,6 +26,8 @@ from .base import (
     ProviderManifestField,
     ServiceFactoryContext,
     WebAppPaymentContext,
+    normalize_payment_currency_code,
+    parse_supported_currency_codes,
     provider_env_file,
     provider_runtime_enabled,
 )
@@ -76,6 +82,7 @@ class PlategaConfig(ProviderEnvConfig):
     CRYPTO_METHOD: int = Field(default=13)
     RETURN_URL: Optional[str] = None
     FAILED_URL: Optional[str] = None
+    SUPPORTED_CURRENCIES: str = Field(default="RUB")
 
     @field_validator("MERCHANT_ID", "SECRET", "RETURN_URL", "FAILED_URL", mode="before")
     @classmethod
@@ -229,9 +236,19 @@ class PlategaService(HttpClientMixin):
             logging.error("PlategaService is not configured. Cannot create transaction.")
             return False, {"message": "service_not_configured"}
 
+        currency_code = normalize_payment_currency_code(
+            currency or self.settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
+        )
+        supported = parse_supported_currency_codes(self.config.SUPPORTED_CURRENCIES)
+        if supported and currency_code not in supported:
+            return False, {
+                "message": "unsupported_currency",
+                "currency": currency_code,
+                "supported_currencies": list(supported),
+            }
+
         session = await self._get_session()
         url = f"{self.base_url}/transaction/process"
-        currency_code = (currency or self.settings.DEFAULT_CURRENCY_SYMBOL or "RUB").upper()
         method_id = int(payment_method if payment_method is not None else self.payment_method)
 
         body: Dict[str, Any] = {
@@ -482,13 +499,13 @@ async def pay_platega_callback_handler(
         user_id=callback.from_user.id,
         parts=parts,
         subscription_service=platega_service.subscription_service,
-        currency="rub",
+        currency=default_currency_key_for_settings(settings),
     )
     if not parts:
         await notify_callback_parse_error(callback, translator)
         return
 
-    currency_code = settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
+    currency_code = default_payment_currency_code_for_settings(settings)
     payment_description = describe_payment(translator, parts)
     record_payload = build_payment_record_payload(
         user_id=callback.from_user.id,
@@ -596,7 +613,7 @@ async def _create_webapp_payment(ctx: WebAppPaymentContext, variant: str) -> web
         payment = await create_webapp_payment_record(
             ctx,
             amount=ctx.price,
-            currency=settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+            currency=ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
             status="pending_platega",
             provider="platega",
         )
@@ -616,7 +633,7 @@ async def _create_webapp_payment(ctx: WebAppPaymentContext, variant: str) -> web
         )
         success, response_data = await service.create_transaction(
             amount=ctx.price,
-            currency=settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+            currency=ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
             description=ctx.description,
             payload=payload,
             payment_method=platega_method_id,
@@ -758,6 +775,18 @@ _CONFIG_MANIFEST = (
         attr="CRYPTO_METHOD",
     ),
     ProviderManifestField(
+        "PLATEGA_SUPPORTED_CURRENCIES",
+        "string",
+        "Supported currencies",
+        description=(
+            "Comma-separated payment currencies enabled for your Platega merchant. "
+            "Public docs expose currency per method/limits but do not publish a fixed global list."
+        ),
+        placeholder="RUB",
+        subsection="Platega",
+        attr="SUPPORTED_CURRENCIES",
+    ),
+    ProviderManifestField(
         "PLATEGA_RETURN_URL", "url", "Return URL", subsection="Platega", attr="RETURN_URL"
     ),
     ProviderManifestField(
@@ -793,6 +822,9 @@ SBP_SPEC = PaymentProviderSpec(
     presentation_class=PlategaSbpPresentation,
     manifest_fields=_CONFIG_MANIFEST
     + _platega_presentation_manifest("Platega", "CreditCard", "PLATEGA_SBP"),
+    supported_currencies_resolver=lambda config: getattr(config, "SUPPORTED_CURRENCIES", "RUB"),
+    currency_support_note="Platega currencies are merchant/method-specific; configure the codes enabled for your account.",
+    currency_support_url="https://docs.platega.io/",
 )
 
 CRYPTO_SPEC = PaymentProviderSpec(
@@ -818,6 +850,9 @@ CRYPTO_SPEC = PaymentProviderSpec(
     config_class=PlategaConfig,
     presentation_class=PlategaCryptoPresentation,
     manifest_fields=_platega_presentation_manifest("Platega", "Bitcoin", "PLATEGA_CRYPTO"),
+    supported_currencies_resolver=lambda config: getattr(config, "SUPPORTED_CURRENCIES", "RUB"),
+    currency_support_note="Platega currencies are merchant/method-specific; configure the codes enabled for your account.",
+    currency_support_url="https://docs.platega.io/",
 )
 
 SPECS = (SBP_SPEC, CRYPTO_SPEC)

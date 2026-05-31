@@ -2,6 +2,7 @@ import { structuredCloneSafe } from "./format.js";
 
 export function emptyTariffDraft() {
   return {
+    defaultCurrency: "rub",
     key: "",
     nameRu: "",
     nameEn: "",
@@ -40,9 +41,20 @@ export function emptyTariffDraft() {
 export function cloneCatalog(catalog) {
   return structuredCloneSafe({
     default_tariff: catalog?.default_tariff || "",
+    default_currency: normalizeCurrencyKey(catalog?.default_currency || "rub"),
     topup_packages_default: catalog?.topup_packages_default || { rub: [], stars: [] },
     tariffs: catalog?.tariffs || [],
   });
+}
+
+export function normalizeCurrencyKey(value, fallback = "rub") {
+  const text = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (!text) return fallback;
+  if (text === "rur") return "rub";
+  if (["xtr", "star", "stars"].includes(text)) return "stars";
+  return text.replace(/[^a-z0-9_-]/g, "") || fallback;
 }
 
 export function rowsFromPackages(packageSet, currency, valueKey) {
@@ -54,10 +66,13 @@ export function rowsFromPackages(packageSet, currency, valueKey) {
   }));
 }
 
-export function draftFromTariff(tariff) {
+export function draftFromTariff(tariff, defaultCurrency = "rub") {
+  const currency = normalizeCurrencyKey(defaultCurrency);
+  const defaultPrices = tariff.prices?.[currency] || {};
   const months = new Set([
     ...(tariff.enabled_periods || []),
-    ...Object.keys(tariff.prices_rub || {}).map(Number),
+    ...Object.keys(defaultPrices).map(Number),
+    ...(currency === "rub" ? Object.keys(tariff.prices_rub || {}).map(Number) : []),
     ...Object.keys(tariff.prices_stars || {}).map(Number),
   ]);
   const periodRows = [...months]
@@ -65,7 +80,10 @@ export function draftFromTariff(tariff) {
     .sort((a, b) => a - b)
     .map((month) => ({
       months: month,
-      rub: tariff.prices_rub?.[String(month)] ?? "",
+      rub:
+        (currency === "rub" ? tariff.prices_rub?.[String(month)] : undefined) ??
+        defaultPrices?.[String(month)] ??
+        "",
       stars: tariff.prices_stars?.[String(month)] ?? "",
       referral_inviter: tariff.referral_bonus_days_inviter?.[String(month)] ?? "",
       referral_referee: tariff.referral_bonus_days_referee?.[String(month)] ?? "",
@@ -73,6 +91,7 @@ export function draftFromTariff(tariff) {
 
   return {
     ...emptyTariffDraft(),
+    defaultCurrency: currency,
     key: tariff.key || "",
     nameRu: tariff.names?.ru || "",
     nameEn: tariff.names?.en || "",
@@ -89,13 +108,13 @@ export function draftFromTariff(tariff) {
     hwid_device_limit: tariff.hwid_device_limit ?? "",
     conversion_rate_rub_per_gb: tariff.conversion_rate_rub_per_gb ?? "",
     periodRows: periodRows.length ? periodRows : emptyTariffDraft().periodRows,
-    topupRubRows: rowsFromPackages(tariff.topup_packages, "rub", "gb"),
+    topupRubRows: rowsFromPackages(tariff.topup_packages, currency, "gb"),
     topupStarsRows: rowsFromPackages(tariff.topup_packages, "stars", "gb"),
-    premiumTopupRubRows: rowsFromPackages(tariff.premium_topup_packages, "rub", "gb"),
+    premiumTopupRubRows: rowsFromPackages(tariff.premium_topup_packages, currency, "gb"),
     premiumTopupStarsRows: rowsFromPackages(tariff.premium_topup_packages, "stars", "gb"),
-    trafficRubRows: rowsFromPackages(tariff.traffic_packages, "rub", "gb"),
+    trafficRubRows: rowsFromPackages(tariff.traffic_packages, currency, "gb"),
     trafficStarsRows: rowsFromPackages(tariff.traffic_packages, "stars", "gb"),
-    hwidRubRows: rowsFromPackages(tariff.hwid_device_packages, "rub", "count"),
+    hwidRubRows: rowsFromPackages(tariff.hwid_device_packages, currency, "count"),
     hwidStarsRows: rowsFromPackages(tariff.hwid_device_packages, "stars", "count"),
   };
 }
@@ -136,10 +155,15 @@ export function packagesFromRows(rows, valueKey) {
     .filter((row) => row[valueKey] > 0 && row.price !== null && row.price >= 0);
 }
 
-export function packageSetFromRows(rubRows, starsRows, valueKey) {
-  const rub = packagesFromRows(rubRows, valueKey);
+export function packageSetFromRows(rubRows, starsRows, valueKey, defaultCurrency = "rub") {
+  const currency = normalizeCurrencyKey(defaultCurrency);
+  const defaultCurrencyPackages = packagesFromRows(rubRows, valueKey);
   const stars = packagesFromRows(starsRows, valueKey);
-  return rub.length || stars.length ? { rub, stars } : null;
+  if (!defaultCurrencyPackages.length && !stars.length) return null;
+  return {
+    ...(defaultCurrencyPackages.length ? { [currency]: defaultCurrencyPackages } : {}),
+    ...(stars.length ? { stars } : {}),
+  };
 }
 
 export function normalizeUuidList(value) {
@@ -150,7 +174,8 @@ export function normalizeUuidList(value) {
     .filter(Boolean);
 }
 
-export function tariffFromDraft(draft) {
+export function tariffFromDraft(draft, fallbackCurrency = "rub") {
+  const defaultCurrency = normalizeCurrencyKey(draft.defaultCurrency || fallbackCurrency);
   const key = draft.key.trim();
   const names = compactMap({ ru: draft.nameRu.trim(), en: draft.nameEn.trim() });
   const descriptions = compactMap({
@@ -174,14 +199,20 @@ export function tariffFromDraft(draft) {
 
   const hwidLimit = parseIntNumber(draft.hwid_device_limit);
   if (hwidLimit !== null) tariff.hwid_device_limit = hwidLimit;
-  const hwidPackages = packageSetFromRows(draft.hwidRubRows, draft.hwidStarsRows, "count");
+  const hwidPackages = packageSetFromRows(
+    draft.hwidRubRows,
+    draft.hwidStarsRows,
+    "count",
+    defaultCurrency
+  );
   if (hwidPackages) tariff.hwid_device_packages = hwidPackages;
   const premiumMonthlyGb = parseNumber(draft.premium_monthly_gb);
   if (premiumMonthlyGb !== null) tariff.premium_monthly_gb = premiumMonthlyGb;
   const premiumTopupPackages = packageSetFromRows(
     draft.premiumTopupRubRows,
     draft.premiumTopupStarsRows,
-    "gb"
+    "gb",
+    defaultCurrency
   );
   if (premiumTopupPackages) tariff.premium_topup_packages = premiumTopupPackages;
 
@@ -204,7 +235,12 @@ export function tariffFromDraft(draft) {
       .sort((a, b) => a.months - b.months);
     tariff.monthly_gb = parseNumber(draft.monthly_gb, 0);
     tariff.enabled_periods = rows.map((row) => row.months);
-    tariff.prices_rub = Object.fromEntries(rows.map((row) => [String(row.months), row.rub || 0]));
+    const defaultPrices = Object.fromEntries(rows.map((row) => [String(row.months), row.rub || 0]));
+    if (defaultCurrency === "rub") {
+      tariff.prices_rub = defaultPrices;
+    } else {
+      tariff.prices = { [defaultCurrency]: defaultPrices };
+    }
     tariff.prices_stars = Object.fromEntries(
       rows.map((row) => [String(row.months), row.stars || 0])
     );
@@ -218,10 +254,20 @@ export function tariffFromDraft(draft) {
         .filter((row) => row.referral_referee !== null)
         .map((row) => [String(row.months), row.referral_referee])
     );
-    const topupPackages = packageSetFromRows(draft.topupRubRows, draft.topupStarsRows, "gb");
+    const topupPackages = packageSetFromRows(
+      draft.topupRubRows,
+      draft.topupStarsRows,
+      "gb",
+      defaultCurrency
+    );
     if (topupPackages) tariff.topup_packages = topupPackages;
   } else {
-    const trafficPackages = packageSetFromRows(draft.trafficRubRows, draft.trafficStarsRows, "gb");
+    const trafficPackages = packageSetFromRows(
+      draft.trafficRubRows,
+      draft.trafficStarsRows,
+      "gb",
+      defaultCurrency
+    );
     if (trafficPackages) tariff.traffic_packages = trafficPackages;
     const conversion = parseNumber(draft.conversion_rate_rub_per_gb);
     if (conversion !== null) tariff.conversion_rate_rub_per_gb = conversion;

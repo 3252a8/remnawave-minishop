@@ -11,7 +11,11 @@ from bot.middlewares.i18n import JsonI18n
 from bot.utils.config_link import prepare_config_links
 from bot.utils.date_utils import add_months, month_start
 from config.settings import Settings
-from config.tariffs_config import Tariff
+from config.tariffs_config import (
+    Tariff,
+    default_currency_key_for_settings,
+    default_payment_currency_code_for_settings,
+)
 from db.dal import (
     payment_dal,
     promo_code_dal,

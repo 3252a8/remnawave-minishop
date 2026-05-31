@@ -41,7 +41,21 @@ class RenewalMixin:
             return False
 
         months = sub.duration_months or 1
-        amount = self.settings.subscription_options.get(months)
+        currency = default_payment_currency_code_for_settings(self.settings)
+        amount = None
+        tariffs_config = self._tariffs_config() if callable(getattr(self, "_tariffs_config", None)) else None
+        if tariffs_config and callable(getattr(self, "_resolve_tariff", None)):
+            try:
+                tariff = self._resolve_tariff(getattr(sub, "tariff_key", None))
+            except Exception:
+                tariff = None
+            if tariff and tariff.billing_model == "period":
+                amount = tariff.period_price(
+                    months,
+                    default_currency_key_for_settings(self.settings),
+                )
+        if amount is None:
+            amount = self.settings.subscription_options.get(months)
         if not amount:
             logging.error(f"Auto-renew price missing for {months} months")
             return False
@@ -53,7 +67,7 @@ class RenewalMixin:
         }
         resp = await yk.create_payment(
             amount=float(amount),
-            currency="RUB",
+            currency=currency,
             description=f"Auto-renewal for {months} months",
             metadata=metadata,
             payment_method_id=default_pm.provider_payment_method_id,

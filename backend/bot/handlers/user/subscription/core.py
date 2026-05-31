@@ -32,6 +32,10 @@ from bot.utils.install_links import (
     ensure_user_install_guide_links,
 )
 from config.settings import Settings
+from config.tariffs_config import (
+    default_currency_key_for_settings,
+    default_payment_currency_code_for_settings,
+)
 from db.dal import subscription_dal, user_billing_dal
 from db.models import Subscription
 
@@ -80,11 +84,13 @@ def _tariff_purchase_markup(
             back_callback=back_callback,
             callback_context=callback_context,
         )
+    default_currency = default_currency_key_for_settings(settings)
     return get_tariff_packages_keyboard(
         tariff,
-        tariff.traffic_packages.rub,
+        tariff.traffic_packages.for_currency(default_currency),
         current_lang,
         i18n,
+        currency_symbol=default_payment_currency_code_for_settings(settings),
         back_callback=back_callback,
         callback_context=callback_context,
     )
@@ -185,6 +191,7 @@ async def display_subscription_options(
                 enabled_tariffs,
                 current_lang,
                 i18n,
+                settings=settings,
                 back_callback=back_callback,
                 callback_context=callback_context,
             )
@@ -329,7 +336,9 @@ async def select_tariff_period_callback(
     callback_context = parts[4] if len(parts) > 4 else None
     tariff = config.require(tariff_key)
     months = int(months_raw)
-    price_rub = tariff.period_price(months, "rub")
+    default_currency = default_currency_key_for_settings(settings)
+    currency_code = default_payment_currency_code_for_settings(settings)
+    price_rub = tariff.period_price(months, default_currency)
     stars_price = tariff.period_price(months, "stars")
     if price_rub is None:
         await callback.answer(get_text("error_try_again"), show_alert=True)
@@ -338,7 +347,7 @@ async def select_tariff_period_callback(
         months,
         price_rub,
         int(stars_price) if stars_price else None,
-        settings.DEFAULT_CURRENCY_SYMBOL,
+        currency_code,
         current_lang,
         i18n,
         settings,
@@ -369,10 +378,16 @@ async def select_tariff_package_callback(
     callback_context = parts[4] if len(parts) > 4 else None
     tariff = config.require(tariff_key)
     gb = float(gb_raw)
+    default_currency = default_currency_key_for_settings(settings)
+    currency_code = default_payment_currency_code_for_settings(settings)
     packages = (
-        tariff.traffic_packages.rub
+        tariff.traffic_packages.for_currency(default_currency)
         if tariff.billing_model == "traffic"
-        else (config.topup_packages_for(tariff).rub if config.topup_packages_for(tariff) else [])
+        else (
+            config.topup_packages_for(tariff).for_currency(default_currency)
+            if config.topup_packages_for(tariff)
+            else []
+        )
     )
     package = next((pkg for pkg in packages if float(pkg.gb) == gb), None)
     if not package:
@@ -391,7 +406,7 @@ async def select_tariff_package_callback(
         gb,
         package.price,
         None,
-        settings.DEFAULT_CURRENCY_SYMBOL,
+        currency_code,
         current_lang,
         i18n,
         settings,
@@ -423,14 +438,19 @@ async def tariff_topup_list_callback(
         return
     tariff = config.require(active["tariff_key"])
     packages = config.topup_packages_for(tariff)
-    rub_packages = packages.rub if packages else []
-    premium_packages = tariff.premium_topup_packages.rub if tariff.premium_topup_packages else []
-    if not rub_packages and not premium_packages:
+    default_currency = default_currency_key_for_settings(settings)
+    currency = default_payment_currency_code_for_settings(settings)
+    currency_packages = packages.for_currency(default_currency) if packages else []
+    premium_packages = (
+        tariff.premium_topup_packages.for_currency(default_currency)
+        if tariff.premium_topup_packages
+        else []
+    )
+    if not currency_packages and not premium_packages:
         await callback.answer(get_text("no_subscription_options_available"), show_alert=True)
         return
     builder = InlineKeyboardBuilder()
-    currency = settings.DEFAULT_CURRENCY_SYMBOL
-    for package in rub_packages:
+    for package in currency_packages:
         builder.row(
             InlineKeyboardButton(
                 text=f"Обычный трафик +{package.gb:g} GB — {package.price:g} {currency}",
@@ -452,7 +472,7 @@ async def tariff_topup_list_callback(
 
     premium_lines = []
     carryover_lines = []
-    if rub_packages or premium_packages:
+    if currency_packages or premium_packages:
         carryover_lines.append(
             "Докупленный трафик не сгорает: сначала расходуется месячный лимит, затем докупленный остаток."  # noqa: E501
         )
@@ -495,7 +515,13 @@ async def select_tariff_premium_package_callback(
     _, _, tariff_key, gb_raw = callback.data.split(":", 3)
     tariff = config.require(tariff_key)
     gb = float(gb_raw)
-    packages = tariff.premium_topup_packages.rub if tariff.premium_topup_packages else []
+    default_currency = default_currency_key_for_settings(settings)
+    currency_code = default_payment_currency_code_for_settings(settings)
+    packages = (
+        tariff.premium_topup_packages.for_currency(default_currency)
+        if tariff.premium_topup_packages
+        else []
+    )
     package = next((pkg for pkg in packages if float(pkg.gb) == gb), None)
     if not package:
         await callback.answer(get_text("error_try_again"), show_alert=True)
@@ -504,7 +530,7 @@ async def select_tariff_premium_package_callback(
         gb,
         package.price,
         None,
-        settings.DEFAULT_CURRENCY_SYMBOL,
+        currency_code,
         current_lang,
         i18n,
         settings,
@@ -542,7 +568,12 @@ async def hwid_devices_list_callback(
     if tariff.billing_model != "period":
         await callback.answer(get_text("no_hwid_device_packages_available"), show_alert=True)
         return
-    packages = tariff.hwid_device_packages.rub if tariff.hwid_device_packages else []
+    default_currency = default_currency_key_for_settings(settings)
+    packages = (
+        tariff.hwid_device_packages.for_currency(default_currency)
+        if tariff.hwid_device_packages
+        else []
+    )
     if not packages:
         await callback.answer(get_text("no_hwid_device_packages_available"), show_alert=True)
         return
@@ -594,7 +625,13 @@ async def hwid_devices_package_callback(
     package = next(
         (
             pkg
-            for pkg in (tariff.hwid_device_packages.rub if tariff.hwid_device_packages else [])
+            for pkg in (
+                tariff.hwid_device_packages.for_currency(
+                    default_currency_key_for_settings(settings)
+                )
+                if tariff.hwid_device_packages
+                else []
+            )
             if int(pkg.count) == count
         ),
         None,
@@ -603,13 +640,15 @@ async def hwid_devices_package_callback(
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
     sale_mode_base = "hwid_devices_renewal" if action == "renewal_package" else "hwid_devices"
-    rub_quote = await subscription_service.quote_hwid_device_topup(
+    default_currency = default_currency_key_for_settings(settings)
+    currency_code = default_payment_currency_code_for_settings(settings)
+    currency_quote = await subscription_service.quote_hwid_device_topup(
         session,
         user_id=callback.from_user.id,
         device_count=count,
         tariff_key=tariff.key,
         renewal=action == "renewal_package",
-        currency="rub",
+        currency=default_currency,
     )
     stars_quote = await subscription_service.quote_hwid_device_topup(
         session,
@@ -619,16 +658,16 @@ async def hwid_devices_package_callback(
         renewal=action == "renewal_package",
         currency="stars",
     )
-    if not rub_quote and not stars_quote:
+    if not currency_quote and not stars_quote:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
     markup = get_payment_method_keyboard(
         count,
-        float(rub_quote.get("price") if rub_quote else 0),
+        float(currency_quote.get("price") if currency_quote else 0),
         int(stars_quote["price"])
         if stars_quote and int(stars_quote.get("price") or 0) > 0
         else None,
-        settings.DEFAULT_CURRENCY_SYMBOL,
+        currency_code,
         current_lang,
         i18n,
         settings,
@@ -715,6 +754,8 @@ async def tariff_change_select_callback(
     options = await subscription_service.calculate_tariff_switch_options_with_hwid(
         session, db_sub, target
     )
+    default_currency = default_currency_key_for_settings(settings)
+    currency_code = default_payment_currency_code_for_settings(settings)
     rows = []
     if options["mode"] == "period_to_period":
         rows.append(
@@ -729,7 +770,7 @@ async def tariff_change_select_callback(
             rows.append(
                 [
                     InlineKeyboardButton(
-                        text=f"Доплатить {options['paid_diff_rub']} RUB",
+                        text=f"Доплатить {options['paid_diff_rub']} {currency_code}",
                         callback_data=f"tariff_change:confirm_pay:{target.key}:{options['paid_diff_rub']}",
                     )
                 ]
@@ -743,23 +784,23 @@ async def tariff_change_select_callback(
                 )
             ]
         )
-        for package in target.traffic_packages.rub:
+        for package in target.traffic_packages.for_currency(default_currency):
             rows.append(
                 [
                     InlineKeyboardButton(
-                        text=f"+ {package.gb:g} GB за {package.price:g} RUB",
+                        text=f"+ {package.gb:g} GB за {package.price:g} {currency_code}",
                         callback_data=f"tariff:package:{target.key}:{package.gb:g}",
                     )
                 ]
             )
     else:
         for months in target.enabled_periods:
-            price = target.period_price(months, "rub")
+            price = target.period_price(months, default_currency)
             if price:
                 rows.append(
                     [
                         InlineKeyboardButton(
-                            text=f"{months} мес. за {price:g} RUB",
+                            text=f"{months} мес. за {price:g} {currency_code}",
                             callback_data=f"tariff:period:{target.key}:{months}",
                         )
                     ]
@@ -842,6 +883,7 @@ async def tariff_change_confirm_pay_callback(
         return
     _, _, tariff_key, amount_raw = callback.data.split(":", 3)
     target = config.require(tariff_key)
+    currency_code = default_payment_currency_code_for_settings(settings)
     rows = [
         [
             InlineKeyboardButton(
@@ -857,7 +899,7 @@ async def tariff_change_confirm_pay_callback(
         ],
     ]
     await callback.message.edit_text(
-        f"Подтвердите смену тарифа\n\nНовый тариф: {target.name(current_lang)}\nБудет создана оплата на {amount_raw} RUB.",  # noqa: E501
+        f"Подтвердите смену тарифа\n\nНовый тариф: {target.name(current_lang)}\nБудет создана оплата на {amount_raw} {currency_code}.",  # noqa: E501
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
     await callback.answer()
@@ -899,11 +941,12 @@ async def tariff_change_pay_callback(
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     _, _, tariff_key, amount_raw = callback.data.split(":", 3)
     amount = float(amount_raw)
+    currency_code = default_payment_currency_code_for_settings(settings)
     markup = get_payment_method_keyboard(
         1,
         amount,
         None,
-        settings.DEFAULT_CURRENCY_SYMBOL,
+        currency_code,
         current_lang,
         i18n,
         settings,
@@ -1226,7 +1269,9 @@ async def my_subscription_command_handler(
                     if (
                         tariff_for_devices.billing_model == "period"
                         and tariff_for_devices.hwid_device_packages
-                        and tariff_for_devices.hwid_device_packages.rub
+                        and tariff_for_devices.hwid_device_packages.for_currency(
+                            default_currency_key_for_settings(settings)
+                        )
                     ):
                         prepend_rows.append(
                             [
@@ -1443,7 +1488,9 @@ async def my_devices_command_handler(
             if (
                 tariff_for_devices.billing_model == "period"
                 and tariff_for_devices.hwid_device_packages
-                and tariff_for_devices.hwid_device_packages.rub
+                and tariff_for_devices.hwid_device_packages.for_currency(
+                    default_currency_key_for_settings(settings)
+                )
             ):
                 devices_kb.append(
                     [

@@ -37,7 +37,7 @@ from bot.services.settings_override_service import (
 from bot.utils import MessageContent, send_message_via_queue
 from bot.utils.message_queue import get_queue_manager
 from config.settings import Settings
-from config.tariffs_config import TariffsConfig
+from config.tariffs_config import TariffsConfig, default_payment_currency_code_for_settings
 from db.dal import (
     ad_dal,
     app_settings_dal,

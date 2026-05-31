@@ -484,4 +484,6 @@ SPEC = PaymentProviderSpec(
     telegram_emoji="⭐",
     presentation_class=StarsPresentation,
     manifest_fields=_PRESENTATION_MANIFEST,
+    supported_currencies=("XTR",),
+    currency_support_note="Telegram Stars use Telegram's XTR currency and separate Stars prices.",
 )

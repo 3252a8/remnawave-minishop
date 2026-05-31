@@ -20,6 +20,10 @@ from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
 from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
+from config.tariffs_config import (
+    default_currency_key_for_settings,
+    default_payment_currency_code_for_settings,
+)
 from db.dal import payment_dal
 
 from .base import (
@@ -28,6 +32,7 @@ from .base import (
     ProviderManifestField,
     ServiceFactoryContext,
     WebAppPaymentContext,
+    normalize_payment_currency_code,
     provider_env_file,
     provider_runtime_enabled,
 )
@@ -56,6 +61,7 @@ from .shared import (
 )
 
 _LOG = "freekassa"
+FREEKASSA_SUPPORTED_CURRENCIES = ("RUB", "USD", "EUR", "UAH", "KZT")
 
 
 class FreeKassaConfig(ProviderEnvConfig):
@@ -144,7 +150,7 @@ class FreeKassaService(HttpClientMixin):
         self.subscription_service = subscription_service
         self.referral_service = referral_service
 
-        self.default_currency: str = (settings.DEFAULT_CURRENCY_SYMBOL or "RUB").upper()
+        self.default_currency: str = default_payment_currency_code_for_settings(settings).upper()
 
         self.api_base_url: str = "https://api.fk.life/v1"
         self._init_http_client(total_timeout=15)
@@ -207,7 +213,13 @@ class FreeKassaService(HttpClientMixin):
             return False, {"message": "missing_ip"}
 
         email = email or f"{user_id}@telegram.org"
-        currency_code = (currency or self.default_currency or "RUB").upper()
+        currency_code = normalize_payment_currency_code(currency or self.default_currency or "RUB")
+        if currency_code not in FREEKASSA_SUPPORTED_CURRENCIES:
+            return False, {
+                "message": "unsupported_currency",
+                "currency": currency_code,
+                "supported_currencies": list(FREEKASSA_SUPPORTED_CURRENCIES),
+            }
 
         payload: Dict[str, Any] = {
             "shopId": int(self.shop_id),
@@ -477,7 +489,7 @@ async def pay_fk_callback_handler(
         user_id=callback.from_user.id,
         parts=parts,
         subscription_service=freekassa_service.subscription_service,
-        currency="rub",
+        currency=default_currency_key_for_settings(settings),
     )
     if not parts:
         await notify_callback_parse_error(callback, translator)
@@ -485,7 +497,7 @@ async def pay_fk_callback_handler(
 
     currency_code = (
         getattr(freekassa_service, "default_currency", None)
-        or settings.DEFAULT_CURRENCY_SYMBOL
+        or default_payment_currency_code_for_settings(settings)
         or "RUB"
     )
     payment_description = describe_payment(translator, parts)
@@ -578,12 +590,13 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     service: FreeKassaService = ctx.request.app["freekassa_service"]
     if not service or not service.configured or not service.payment_method_id:
         return payment_unavailable()
+    currency = ctx.currency or service.default_currency
 
     try:
         payment = await create_webapp_payment_record(
             ctx,
             amount=ctx.price,
-            currency=service.default_currency,
+            currency=currency,
             status="pending_freekassa",
             provider="freekassa",
         )
@@ -592,7 +605,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
             user_id=ctx.user_id,
             months=ctx.months,
             amount=ctx.price,
-            currency=service.default_currency,
+            currency=currency,
             payment_method_id=service.payment_method_id,
             ip_address=service.server_ip,
             extra_params={"us_method": service.payment_method_id},
@@ -762,4 +775,7 @@ SPEC = PaymentProviderSpec(
     config_class=FreeKassaConfig,
     presentation_class=FreeKassaPresentation,
     manifest_fields=_CONFIG_MANIFEST + _PRESENTATION_MANIFEST,
+    supported_currencies=FREEKASSA_SUPPORTED_CURRENCIES,
+    currency_support_note="FreeKassa SCI documents the payment currency parameter as RUB, USD, EUR, UAH or KZT.",
+    currency_support_url="https://docs.freekassa.net/",
 )

@@ -472,6 +472,8 @@ def _serialize_plans(
 ) -> List[Dict[str, Any]]:
     tariffs_config = settings.tariffs_config
     if tariffs_config:
+        default_currency = default_currency_key_for_settings(settings)
+        default_currency_code = payment_currency_code(default_currency)
         plans: List[Dict[str, Any]] = []
         for tariff in tariffs_config.enabled_tariffs:
             common = {
@@ -481,7 +483,7 @@ def _serialize_plans(
                 "billing_model": tariff.billing_model,
                 "description": tariff.description(lang),
                 "squad_uuids": tariff.squad_uuids,
-                "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+                "currency": default_currency_code,
                 "hwid_device_limit": tariff.hwid_device_limit,
                 "hwid_device_packages": _serialize_hwid_device_packages(
                     settings,
@@ -494,7 +496,7 @@ def _serialize_plans(
             }
             if tariff.billing_model == "period":
                 for months in sorted(tariff.enabled_periods):
-                    price = tariff.period_price(int(months), "rub")
+                    price = tariff.period_price(int(months), default_currency)
                     stars_price = tariff.period_price(int(months), "stars")
                     if price is None and (stars_price is None or int(stars_price) <= 0):
                         continue
@@ -512,9 +514,13 @@ def _serialize_plans(
                         plan["stars_price"] = int(stars_price)
                     plans.append(plan)
             else:
-                rub_packages = {
+                currency_packages = {
                     float(package.gb): float(package.price)
-                    for package in (tariff.traffic_packages.rub if tariff.traffic_packages else [])
+                    for package in (
+                        tariff.traffic_packages.for_currency(default_currency)
+                        if tariff.traffic_packages
+                        else []
+                    )
                 }
                 stars_packages = {
                     float(package.gb): int(float(package.price))
@@ -522,8 +528,8 @@ def _serialize_plans(
                         tariff.traffic_packages.stars if tariff.traffic_packages else []
                     )
                 }
-                for traffic_gb in sorted(set(rub_packages) | set(stars_packages)):
-                    price = rub_packages.get(traffic_gb)
+                for traffic_gb in sorted(set(currency_packages) | set(stars_packages)):
+                    price = currency_packages.get(traffic_gb)
                     stars_price = stars_packages.get(traffic_gb)
                     if price is None and (stars_price is None or int(stars_price) <= 0):
                         continue
@@ -609,16 +615,19 @@ def _serialize_topup_packages(
     sale_mode: str = "topup",
     title_prefix: str = "",
 ) -> List[Dict[str, Any]]:
-    rub_packages = {
-        float(package.gb): float(package.price) for package in (packages.rub if packages else [])
+    default_currency = default_currency_key_for_settings(settings)
+    default_currency_code = payment_currency_code(default_currency)
+    currency_packages = {
+        float(package.gb): float(package.price)
+        for package in (packages.for_currency(default_currency) if packages else [])
     }
     stars_packages = {
         float(package.gb): int(float(package.price))
         for package in (packages.stars if packages else [])
     }
     plans: List[Dict[str, Any]] = []
-    for traffic_gb in sorted(set(rub_packages) | set(stars_packages)):
-        price = rub_packages.get(traffic_gb)
+    for traffic_gb in sorted(set(currency_packages) | set(stars_packages)):
+        price = currency_packages.get(traffic_gb)
         stars_price = stars_packages.get(traffic_gb)
         if price is None and (stars_price is None or int(stars_price) <= 0):
             continue
@@ -632,7 +641,7 @@ def _serialize_topup_packages(
             "months": int(traffic_value) if traffic_value.is_integer() else traffic_value,
             "traffic_gb": traffic_value,
             "price": float(price or 0),
-            "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+            "currency": default_currency_code,
             "title": f"{title_prefix}{_format_traffic_title(traffic_value, lang)}",
             "subtitle": tariff.premium_name(lang)
             if sale_mode == "premium_topup"
@@ -650,16 +659,19 @@ def _serialize_hwid_device_packages(
     packages: Optional[Any],
     lang: str,
 ) -> List[Dict[str, Any]]:
-    rub_packages = {
-        int(package.count): float(package.price) for package in (packages.rub if packages else [])
+    default_currency = default_currency_key_for_settings(settings)
+    default_currency_code = payment_currency_code(default_currency)
+    currency_packages = {
+        int(package.count): float(package.price)
+        for package in (packages.for_currency(default_currency) if packages else [])
     }
     stars_packages = {
         int(package.count): int(float(package.price))
         for package in (packages.stars if packages else [])
     }
     plans: List[Dict[str, Any]] = []
-    for count in sorted(set(rub_packages) | set(stars_packages)):
-        price = rub_packages.get(count)
+    for count in sorted(set(currency_packages) | set(stars_packages)):
+        price = currency_packages.get(count)
         stars_price = stars_packages.get(count)
         if price is None and (stars_price is None or int(stars_price) <= 0):
             continue
@@ -672,7 +684,7 @@ def _serialize_hwid_device_packages(
             "months": int(count),
             "device_count": int(count),
             "price": float(price or 0),
-            "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+            "currency": default_currency_code,
             "title": f"+{count}",
             "subtitle": tariff.name(lang),
         }
@@ -689,6 +701,8 @@ def _serialize_tariff_change_target(
     options: Dict[str, Any],
     lang: str,
 ) -> Dict[str, Any]:
+    default_currency = default_currency_key_for_settings(settings)
+    default_currency_code = payment_currency_code(default_currency)
     actions: List[Dict[str, Any]] = []
     mode = str(options.get("mode") or "")
     if mode == "period_to_period":
@@ -711,7 +725,7 @@ def _serialize_tariff_change_target(
                     "kind": "payment",
                     "title": "paid_diff",
                     "price": paid_diff,
-                    "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+                    "currency": default_currency_code,
                 }
             )
     elif mode == "period_to_traffic":
@@ -733,13 +747,17 @@ def _serialize_tariff_change_target(
                 "title": f"+{package.gb:g} GB",
                 "traffic_gb": float(package.gb),
                 "price": float(package.price),
-                "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+                "currency": default_currency_code,
             }
-            for package in (tariff.traffic_packages.rub if tariff.traffic_packages else [])
+            for package in (
+                tariff.traffic_packages.for_currency(default_currency)
+                if tariff.traffic_packages
+                else []
+            )
         )
     else:
         for months in tariff.enabled_periods:
-            price = tariff.period_price(int(months), "rub")
+            price = tariff.period_price(int(months), default_currency)
             if price:
                 actions.append(
                     {
@@ -748,7 +766,7 @@ def _serialize_tariff_change_target(
                         "months": int(months),
                         "title": _format_months_title(int(months), lang),
                         "price": float(price),
-                        "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+                        "currency": default_currency_code,
                     }
                 )
     return {
@@ -772,10 +790,15 @@ def _serialize_payment_methods(
     from bot.payment_providers import get_provider_spec, resolve_provider_presentation
 
     methods: List[Dict[str, Any]] = []
+    payment_currency = default_payment_currency_code_for_settings(settings)
     for method in settings.payment_methods_order:
         method = method.lower()
         spec = get_provider_spec(method)
-        if spec and spec.is_visible_for_user(settings, app, is_admin=is_admin):
+        if (
+            spec
+            and spec.is_visible_for_user(settings, app, is_admin=is_admin)
+            and spec.is_usable_for_payment_currency(settings, payment_currency)
+        ):
             presentation = resolve_provider_presentation(spec, settings, language=lang)
             methods.append(
                 {

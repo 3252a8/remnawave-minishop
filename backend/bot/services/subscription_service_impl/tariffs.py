@@ -331,11 +331,12 @@ class TariffMixin:
         remaining_days = max(0, (sub.end_date - now).days) if sub.end_date else 0
         effective = float(sub.effective_monthly_price_rub or 0)
         current_model = current_tariff.billing_model if current_tariff else "period"
+        default_currency = default_currency_key_for_settings(self.settings)
 
         if current_model == "period" and target_tariff.billing_model == "period":
             target_monthly = (
-                target_tariff.period_price(1, "rub")
-                or target_tariff.min_period_price_rub()
+                target_tariff.period_price(1, default_currency)
+                or target_tariff.min_period_price(default_currency)
                 or effective
                 or 1
             )
@@ -355,11 +356,14 @@ class TariffMixin:
                 "remaining_days": remaining_days,
                 "recalc_days": max(0, days_after),
                 "paid_diff_rub": paid_diff,
+                "paid_diff": paid_diff,
                 "target_monthly_rub": float(target_monthly),
+                "target_monthly_price": float(target_monthly),
+                "currency": default_currency,
             }
 
         if current_model == "period" and target_tariff.billing_model == "traffic":
-            rub_per_gb = target_tariff.rub_per_gb_for_conversion()
+            rub_per_gb = target_tariff.currency_per_gb_for_conversion(default_currency)
             remaining_value = remaining_days * (effective / 30) if effective else 0
             converted_gb = math.floor(remaining_value / rub_per_gb) if rub_per_gb else 0
             return {
@@ -367,9 +371,15 @@ class TariffMixin:
                 "remaining_days": remaining_days,
                 "converted_gb": max(0, converted_gb),
                 "rub_per_gb": rub_per_gb,
+                "currency_per_gb": rub_per_gb,
+                "currency": default_currency,
             }
 
-        return {"mode": "traffic_to_period", "remaining_days": remaining_days}
+        return {
+            "mode": "traffic_to_period",
+            "remaining_days": remaining_days,
+            "currency": default_currency,
+        }
 
     @staticmethod
     def _aware_utc(value: Optional[datetime]) -> Optional[datetime]:
@@ -434,6 +444,7 @@ class TariffMixin:
         credit = await self._hwid_conversion_credit(session, sub, at=now)
         value_rub = float(credit.get("value_rub") or 0)
         options["converted_hwid_value_rub"] = round(value_rub, 2)
+        options["converted_hwid_value"] = round(value_rub, 2)
         options["convertible_hwid_purchase_ids"] = list(credit.get("purchase_ids") or [])
         options["nonconverted_hwid_devices"] = int(credit.get("skipped_devices") or 0)
         if value_rub <= 0:

@@ -55,6 +55,11 @@ from bot.utils.text_sanitizer import (
     sanitize_username,
 )
 from config.settings import Settings
+from config.tariffs_config import (
+    default_currency_key_for_settings,
+    default_payment_currency_code_for_settings,
+    payment_currency_code,
+)
 from db.dal import payment_dal, security_dal, subscription_dal, support_dal, user_dal
 from db.dal.user_dal import UserMergeConflictError
 from db.models import Payment, User, UserTelegramAvatar
