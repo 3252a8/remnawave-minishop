@@ -1,5 +1,7 @@
 import json
 import re
+import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -64,8 +66,14 @@ def _email_locale_keys_from(path: Path) -> set[str]:
 
 
 def _email_preview_locale_keys() -> set[str]:
-    path = REPO_ROOT / "docs-site" / "src" / "lib" / "emailPreviews.mjs"
-    return {match.group("key") for match in EMAIL_KEY_RE.finditer(path.read_text("utf-8"))}
+    paths = (
+        REPO_ROOT / "docs-site" / "src" / "lib" / "emailPreviews.mjs",
+        REPO_ROOT / "docs-site" / "scripts" / "generate-email-previews.py",
+    )
+    keys: set[str] = set()
+    for path in paths:
+        keys.update(match.group("key") for match in EMAIL_KEY_RE.finditer(path.read_text("utf-8")))
+    return keys
 
 
 def _used_email_locale_keys() -> set[str]:
@@ -257,3 +265,23 @@ def test_support_email_templates_use_russian_copy_for_russian_recipients():
         "Новый ответ по тикету #42",
         "Тикет #42 закрыт",
     ]
+
+
+def test_docs_email_preview_generator_renders_real_template_html():
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "docs-site" / "scripts" / "generate-email-previews.py")],
+        cwd=REPO_ROOT,
+        check=True,
+        encoding="utf-8",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    previews = json.loads(result.stdout)
+
+    assert len(previews) >= 20
+    assert all(preview["html"].lstrip().startswith("<!DOCTYPE html>") for preview in previews)
+    assert all('<html lang="ru"' in preview["html"] for preview in previews)
+    assert all('role="presentation"' in preview["html"] for preview in previews)
+    assert all("mail-card" not in preview["html"] for preview in previews)
+    assert all("email_" not in preview["subject"] + preview["html"] for preview in previews)
