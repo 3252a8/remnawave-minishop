@@ -168,6 +168,7 @@ def test_backup_restore_service_runs_pg_restore_for_dump(tmp_path):
         restored_payloads.append(dump_path.read_bytes())
 
     service._run_pg_restore = fake_pg_restore
+    service._run_post_restore_migrations = lambda: []
 
     result = asyncio.run(
         service.restore_archive(
@@ -179,6 +180,44 @@ def test_backup_restore_service_runs_pg_restore_for_dump(tmp_path):
 
     assert result.database_restored is True
     assert restored_payloads == [b"fake dump"]
+    assert result.database_migrations_applied == []
+
+
+def test_backup_restore_service_runs_migrations_after_database_restore(tmp_path):
+    compose_dir = tmp_path / "compose"
+    compose_dir.mkdir()
+    settings = _settings(tmp_path, compose_dir)
+    archive_path = Path(settings.BACKUP_DIR) / f"{BACKUP_FILENAME_PREFIX}20260527-12-00.zip"
+    _write_backup_archive(archive_path, include_compose=False)
+    service = BackupRestoreService(settings)
+    calls = []
+
+    def fake_pg_restore(dump_path: Path) -> None:
+        calls.append(("restore", dump_path.read_bytes()))
+
+    def fake_migrations() -> list[str]:
+        calls.append(("migrate", None))
+        return ["0031_add_subscription_notifications", "0032_add_telegram_notification_status"]
+
+    service._run_pg_restore = fake_pg_restore
+    service._run_post_restore_migrations = fake_migrations
+
+    result = service.restore_archive_sync(
+        archive_path.name,
+        restore_database=True,
+        restore_compose=False,
+    )
+
+    assert calls == [("restore", b"fake dump"), ("migrate", None)]
+    assert result.database_restored is True
+    assert result.database_migrations_applied == [
+        "0031_add_subscription_notifications",
+        "0032_add_telegram_notification_status",
+    ]
+    assert result.to_payload()["database_migrations_applied"] == [
+        "0031_add_subscription_notifications",
+        "0032_add_telegram_notification_status",
+    ]
 
 
 def test_backup_restore_service_accepts_archive_from_another_instance(tmp_path):
@@ -197,6 +236,7 @@ def test_backup_restore_service_accepts_archive_from_another_instance(tmp_path):
         restored_payloads.append(dump_path.read_bytes())
 
     service._run_pg_restore = fake_pg_restore
+    service._run_post_restore_migrations = lambda: []
 
     result = service.restore_archive_sync(
         archive_path.name,

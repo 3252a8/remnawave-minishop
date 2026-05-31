@@ -9,10 +9,15 @@ import shutil
 import subprocess
 import tempfile
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Optional
+
+from sqlalchemy import inspect, text
+from sqlalchemy.engine import Connection
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from bot.services.backup_archive import (
     BACKUP_APP_ID,
@@ -29,6 +34,8 @@ from bot.services.backup_worker import (
     DEFAULT_COMPOSE_EXCLUDED_DIRS,
 )
 from config.settings import Settings
+from db.migrator import MIGRATIONS, run_database_migrations
+from db.models import Base
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +49,23 @@ BACKUP_MAX_COMPRESSION_RATIO = 200
 BACKUP_ZIP_BOMB_MIN_BYTES = 100 * 1024 * 1024
 COMPOSE_PRE_RESTORE_PREFIX = "minishop-pre-restore-"
 SAFE_ARCHIVE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@+-]{0,220}\.zip$")
+DB_RESTORE_MIGRATION_ADVISORY_LOCK_ID = 817512404897421337
+
+
+def _applied_migration_ids(connection: Connection) -> set[str]:
+    inspector = inspect(connection)
+    if "schema_migrations" not in inspector.get_table_names():
+        return set()
+    return {row[0] for row in connection.execute(text("SELECT id FROM schema_migrations"))}
+
+
+def _create_missing_tables_and_migrate(connection: Connection) -> list[str]:
+    before = _applied_migration_ids(connection)
+    Base.metadata.create_all(connection)
+    run_database_migrations(connection)
+    after = _applied_migration_ids(connection)
+    newly_applied = after - before
+    return [migration.id for migration in MIGRATIONS if migration.id in newly_applied]
 
 
 class BackupArchiveError(ValueError):
@@ -92,6 +116,7 @@ class BackupRestoreResult:
     compose_files_restored: int = 0
     compose_target_dir: Optional[str] = None
     compose_pre_restore_archive: Optional[str] = None
+    database_migrations_applied: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
     def to_payload(self) -> dict[str, Any]:
@@ -103,6 +128,7 @@ class BackupRestoreResult:
             "compose_files_restored": self.compose_files_restored,
             "compose_target_dir": self.compose_target_dir,
             "compose_pre_restore_archive": self.compose_pre_restore_archive,
+            "database_migrations_applied": self.database_migrations_applied,
             "warnings": self.warnings,
         }
 
@@ -242,9 +268,11 @@ class BackupRestoreService:
                     compose_pre_restore_archive = self._snapshot_current_compose(compose_target_dir)
 
                 database_restored = False
+                database_migrations_applied: list[str] = []
                 if db_member is not None:
                     dump_path = self._extract_database_dump(archive, db_member, temp_dir)
                     self._run_pg_restore(dump_path)
+                    database_migrations_applied = self._run_post_restore_migrations()
                     database_restored = True
 
                 compose_files_restored = 0
@@ -265,8 +293,49 @@ class BackupRestoreService:
             compose_pre_restore_archive=str(compose_pre_restore_archive)
             if compose_pre_restore_archive
             else None,
+            database_migrations_applied=database_migrations_applied,
             warnings=warnings,
         )
+
+    def _run_post_restore_migrations(self) -> list[str]:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            run_migrations = lambda: asyncio.run(self._run_post_restore_migrations_async())
+        else:
+            run_migrations = self._run_post_restore_migrations_in_thread
+
+        try:
+            return run_migrations()
+        except BackupRestoreError:
+            raise
+        except Exception as exc:
+            raise BackupRestoreError(
+                f"Database restore completed, but post-restore migrations failed: {str(exc)[:500]}"
+            ) from exc
+
+    def _run_post_restore_migrations_in_thread(self) -> list[str]:
+        with ThreadPoolExecutor(max_workers=1, thread_name_prefix="backup-restore-migrate") as pool:
+            return pool.submit(
+                lambda: asyncio.run(self._run_post_restore_migrations_async())
+            ).result()
+
+    async def _run_post_restore_migrations_async(self) -> list[str]:
+        engine = create_async_engine(
+            self.settings.DATABASE_URL,
+            echo=False,
+            pool_pre_ping=True,
+            pool_size=1,
+            max_overflow=0,
+        )
+        try:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text(f"SELECT pg_advisory_xact_lock({DB_RESTORE_MIGRATION_ADVISORY_LOCK_ID})")
+                )
+                return await connection.run_sync(_create_missing_tables_and_migrate)
+        finally:
+            await engine.dispose()
 
     def _run_pg_restore(self, dump_path: Path) -> None:
         pg_restore_path = str(getattr(self.settings, "BACKUP_PG_RESTORE_PATH", "pg_restore") or "")
