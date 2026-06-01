@@ -1,4 +1,6 @@
 ---
+import { emailPreviews } from '../lib/emailPreviews.mjs';
+
 const defaultDemoSrc = '/demo/runtime/app/?path=/home&mock=tariffs';
 const docsHref = '/getting-started/demo/';
 ---
@@ -42,6 +44,10 @@ const docsHref = '/getting-started/demo/';
         grid-template-rows: auto minmax(0, 1fr);
         overflow: hidden;
         background: #05080f;
+      }
+
+      body[data-demo-mode='emails'] {
+        overflow: auto;
       }
 
       .demo-topbar {
@@ -149,6 +155,152 @@ const docsHref = '/getting-started/demo/';
         height: 100%;
         border: 0;
         background: #05080f;
+      }
+
+      .demo-frame[hidden],
+      .email-previews[hidden] {
+        display: none;
+      }
+
+      .email-previews {
+        min-height: 0;
+        overflow: auto;
+        background:
+          linear-gradient(180deg, rgb(15 23 42 / 32%), rgb(5 8 15 / 0) 14rem),
+          #05080f;
+      }
+
+      .email-previews__inner {
+        width: min(72rem, calc(100% - 2rem));
+        margin: 0 auto;
+        padding: 2rem 0 4rem;
+      }
+
+      .email-previews__header {
+        display: grid;
+        gap: 0.45rem;
+        max-width: 44rem;
+        margin-bottom: 1.25rem;
+      }
+
+      .email-previews__eyebrow {
+        color: #00fe7a;
+        font-size: 0.78rem;
+        font-weight: 800;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .email-previews__header h1 {
+        margin: 0;
+        color: #ffffff;
+        font-size: 1.65rem;
+        line-height: 1.15;
+      }
+
+      .email-previews__header p {
+        margin: 0;
+        color: #a7b1c2;
+        font-size: 0.95rem;
+        line-height: 1.55;
+      }
+
+      .email-previews__index {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        margin: 0 0 1.4rem;
+      }
+
+      .email-previews__index a {
+        border: 1px solid rgb(148 163 184 / 24%);
+        border-radius: 7px;
+        padding: 0.42rem 0.6rem;
+        background: rgb(15 23 42 / 62%);
+        color: #dbeafe;
+        font-size: 0.78rem;
+        font-weight: 650;
+        line-height: 1;
+        text-decoration: none;
+      }
+
+      .email-previews__index a:hover {
+        border-color: rgb(0 254 122 / 54%);
+        color: #00fe7a;
+      }
+
+      .email-preview {
+        border-top: 1px solid rgb(148 163 184 / 18%);
+      }
+
+      .email-preview:last-child {
+        border-bottom: 1px solid rgb(148 163 184 / 18%);
+      }
+
+      .email-preview summary {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 1rem;
+        align-items: center;
+        padding: 1rem 0;
+        cursor: pointer;
+        list-style: none;
+      }
+
+      .email-preview summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .email-preview__title {
+        min-width: 0;
+      }
+
+      .email-preview__title strong {
+        display: block;
+        color: #f8fafc;
+        font-size: 0.98rem;
+        line-height: 1.3;
+      }
+
+      .email-preview__title span {
+        display: block;
+        margin-top: 0.22rem;
+        color: #94a3b8;
+        font-size: 0.78rem;
+        line-height: 1.35;
+      }
+
+      .email-preview__meta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgb(14 165 233 / 34%);
+        border-radius: 999px;
+        padding: 0.28rem 0.55rem;
+        color: #bae6fd;
+        font-size: 0.72rem;
+        font-weight: 750;
+        line-height: 1;
+        white-space: nowrap;
+      }
+
+      .email-preview__body {
+        padding: 0.1rem 0 1.6rem;
+      }
+
+      .email-preview__frame-wrap {
+        overflow: hidden;
+        border: 1px solid rgb(148 163 184 / 20%);
+        border-radius: 8px;
+        background: #05070a;
+      }
+
+      .email-preview__frame {
+        display: block;
+        width: 100%;
+        height: 760px;
+        border: 0;
+        background: #05070a;
       }
 
       @media (max-width: 42rem) {
@@ -269,6 +421,28 @@ const docsHref = '/getting-started/demo/';
         .demo-frame {
           height: 100dvh;
         }
+
+        .email-previews {
+          min-height: 100dvh;
+        }
+
+        .email-previews__inner {
+          width: min(calc(100% - 1rem), 72rem);
+          padding-top: 4rem;
+        }
+
+        .email-preview summary {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 0.55rem;
+        }
+
+        .email-preview__meta {
+          width: fit-content;
+        }
+
+        .email-preview__frame {
+          height: 720px;
+        }
       }
     </style>
   </head>
@@ -296,6 +470,7 @@ const docsHref = '/getting-started/demo/';
             <option value="devices">Лимит и докупка устройств</option>
             <option value="notifications">Telegram-уведомления</option>
             <option value="auth">Вход и регистрация</option>
+            <option value="emails">Email-письма</option>
           </select>
         </label>
         <div class="demo-topbar__actions">
@@ -313,6 +488,57 @@ const docsHref = '/getting-started/demo/';
       src={defaultDemoSrc}
       loading="eager"
     ></iframe>
+    <section
+      id="email-previews"
+      class="email-previews"
+      aria-labelledby="email-previews-title"
+      hidden
+    >
+      <div class="email-previews__inner">
+        <header class="email-previews__header">
+          <div class="email-previews__eyebrow">Email preview</div>
+          <h1 id="email-previews-title">Превью email-писем</h1>
+          <p>
+            Все транзакционные письма собраны на одной странице и подписаны по
+            сценарию отправки. HTML-превью генерируются теми же шаблонами,
+            которые отправляются пользователям.
+          </p>
+        </header>
+        <nav class="email-previews__index" aria-label="Навигация по email-письмам">
+          {
+            emailPreviews.map((preview) => (
+              <a href={`#${preview.id}`}>{preview.title}</a>
+            ))
+          }
+        </nav>
+        <div class="email-previews__list">
+          {
+            emailPreviews.map((preview, index) => (
+              <details class="email-preview" id={preview.id} open={index === 0}>
+                <summary>
+                  <span class="email-preview__title">
+                    <strong>{preview.title}</strong>
+                    <span>{preview.subject}</span>
+                  </span>
+                  <span class="email-preview__meta">{preview.category}</span>
+                </summary>
+                <div class="email-preview__body">
+                  <div class="email-preview__frame-wrap">
+                    <iframe
+                      class="email-preview__frame"
+                      title={`Email preview: ${preview.title}`}
+                      srcdoc={preview.html}
+                      loading="lazy"
+                      sandbox=""
+                    ></iframe>
+                  </div>
+                </div>
+              </details>
+            ))
+          }
+        </div>
+      </div>
+    </section>
     <script is:inline src="/demo/demo-shell.js"></script>
   </body>
 </html>

@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.dml import Delete, Update
 
-from db.dal import user_dal
+from db.dal import subscription_dal, user_dal
 
 
 class FakeResult:
@@ -15,6 +15,9 @@ class FakeResult:
         self.rowcount = rowcount
 
     def scalar_one_or_none(self):
+        return self._scalar_value
+
+    def scalar_one(self):
         return self._scalar_value
 
     def scalars(self):
@@ -38,6 +41,7 @@ class UserDalStatisticsTests(unittest.IsolatedAsyncioTestCase):
                 side_effect=[
                     FakeResult((10, 1, 2, 3)),
                     FakeResult((8, 4, 2, 2)),
+                    FakeResult(3),
                 ]
             )
         )
@@ -55,6 +59,7 @@ class UserDalStatisticsTests(unittest.IsolatedAsyncioTestCase):
                 "trial_users": 2,
                 "free_subscription_users": 2,
                 "inactive_users": 2,
+                "expired_subscription_users": 3,
                 "referral_users": 3,
             },
         )
@@ -69,6 +74,91 @@ class UserDalStatisticsTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("GROUP BY SUBSCRIPTIONS.USER_ID", sql)
         self.assertIn("SUBSCRIPTIONS.PROVIDER", sql)
         self.assertIn("TRIAL", sql)
+
+
+class UserDalReferralTests(unittest.IsolatedAsyncioTestCase):
+    async def test_get_users_referred_by_filters_with_pagination(self):
+        invited = [SimpleNamespace(user_id=1001), SimpleNamespace(user_id=1002)]
+        session = SimpleNamespace(execute=AsyncMock(return_value=FakeResult(invited)))
+
+        result = await user_dal.get_users_referred_by(session, 42, limit=2, offset=10)
+
+        self.assertEqual(result, invited)
+        stmt = session.execute.await_args.args[0]
+        sql = str(
+            stmt.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).upper()
+        self.assertIn("REFERRED_BY_ID = 42", sql)
+        self.assertIn("ORDER BY", sql)
+        self.assertIn("LIMIT 2", sql)
+        self.assertIn("OFFSET 10", sql)
+
+    async def test_count_users_referred_by_counts_matching_rows(self):
+        session = SimpleNamespace(execute=AsyncMock(return_value=FakeResult(3)))
+
+        result = await user_dal.count_users_referred_by(session, 42)
+
+        self.assertEqual(result, 3)
+        stmt = session.execute.await_args.args[0]
+        sql = str(
+            stmt.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).upper()
+        self.assertIn("COUNT", sql)
+        self.assertIn("REFERRED_BY_ID = 42", sql)
+
+    async def test_get_referrer_for_user_uses_referred_by_id(self):
+        referrer = SimpleNamespace(user_id=7)
+        session = SimpleNamespace(execute=AsyncMock(return_value=FakeResult(referrer)))
+
+        result = await user_dal.get_referrer_for_user(
+            session, SimpleNamespace(user_id=42, referred_by_id=7)
+        )
+
+        self.assertIs(result, referrer)
+
+    async def test_mark_trial_eligibility_reset_updates_user_marker(self):
+        reset_at = datetime(2026, 6, 1, tzinfo=timezone.utc)
+        session = SimpleNamespace(execute=AsyncMock(return_value=FakeResult(rowcount=1)))
+
+        result = await user_dal.mark_trial_eligibility_reset(session, 42, reset_at=reset_at)
+
+        self.assertEqual(result, reset_at)
+        stmt = session.execute.await_args.args[0]
+        sql = str(
+            stmt.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).upper()
+        self.assertIn("UPDATE USERS", sql)
+        self.assertIn("TRIAL_ELIGIBILITY_RESET_AT", sql)
+        self.assertIn("USER_ID = 42", sql)
+
+
+class SubscriptionDalTrialEligibilityTests(unittest.IsolatedAsyncioTestCase):
+    async def test_trial_blocking_history_honors_user_reset_marker(self):
+        session = SimpleNamespace(execute=AsyncMock(return_value=FakeResult(7)))
+
+        result = await subscription_dal.has_trial_blocking_subscription_for_user(session, 42)
+
+        self.assertTrue(result)
+        stmt = session.execute.await_args.args[0]
+        sql = str(
+            stmt.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).upper()
+        self.assertIn("TRIAL_ELIGIBILITY_RESET_AT", sql)
+        self.assertIn("SUBSCRIPTIONS.IS_ACTIVE = TRUE", sql)
+        self.assertIn("COALESCE(SUBSCRIPTIONS.START_DATE, SUBSCRIPTIONS.END_DATE)", sql)
+        self.assertIn("SUBSCRIPTIONS.USER_ID = 42", sql)
 
 
 class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
@@ -160,6 +250,42 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
         ).upper()
         self.assertIn("LEFT OUTER JOIN", sql)
         self.assertIn("IS NULL", sql)
+
+    async def test_count_users_with_expired_subscription_excludes_currently_active(self):
+        session = SimpleNamespace(execute=AsyncMock(return_value=FakeResult(4)))
+
+        result = await user_dal.count_users_with_expired_subscription(session)
+
+        self.assertEqual(result, 4)
+        stmt = session.execute.await_args.args[0]
+        sql = str(
+            stmt.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).upper()
+        self.assertIn("EXISTS", sql)
+        self.assertIn("EXPIRED", sql)
+        self.assertIn("END_DATE <=", sql)
+        self.assertIn("NOT (EXISTS", sql)
+        self.assertNotIn("USERS.IS_BANNED", sql)
+
+    async def test_get_user_ids_with_expired_subscription_excludes_banned_users(self):
+        session = SimpleNamespace(execute=AsyncMock(return_value=FakeResult([2, 3])))
+
+        result = await user_dal.get_user_ids_with_expired_subscription(session)
+
+        self.assertEqual(result, [2, 3])
+        stmt = session.execute.await_args.args[0]
+        sql = str(
+            stmt.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).upper()
+        self.assertIn("USERS.IS_BANNED = FALSE", sql)
+        self.assertIn("EXPIRED", sql)
+        self.assertIn("NOT (EXISTS", sql)
 
     async def test_merge_users_uses_bulk_updates_for_related_tables(self):
         source = SimpleNamespace(

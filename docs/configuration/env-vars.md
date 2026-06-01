@@ -117,6 +117,10 @@
 | --- | --- |
 | `PANEL_API_URL` | URL API панели, например `https://panel.example.com/api`. |
 | `PANEL_API_KEY` | API-ключ панели. |
+| `APP_RUNTIME_MODE` | Профиль запуска: `production`, `development`, `staging`, `test`. |
+| `PANEL_WRITE_MODE` | `auto`, `live` или `dry_run`. В `dry_run` приложение читает живую Remnawave Panel, но мутации пользователей только валидируются и логируются. `auto` включает dry-run для `development`/`test`, а в production остается live. |
+| `PANEL_DRY_RUN_VALIDATE_REMOTE` | При dry-run проверять ссылки на panel users/internal squads через live `GET`. |
+| `PANEL_DRY_RUN_SYNTHETIC_CREATE` | При dry-run возвращать синтетического panel user на попытку `POST /users`, чтобы dev-цепочки могли завершиться в локальной БД. |
 | `PANEL_WEBHOOK_SECRET` | Секрет проверки Remnawave webhook. Задайте его в Remnawave Panel и вставьте то же значение сюда или в админку. |
 | `USER_SQUAD_UUIDS` | Internal Squads по умолчанию для legacy-режима без JSON-каталога. |
 | `USER_EXTERNAL_SQUAD_UUID` | Необязательный External Squad. |

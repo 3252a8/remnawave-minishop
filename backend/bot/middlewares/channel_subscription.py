@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import get_channel_subscription_keyboard
 from bot.middlewares.i18n import JsonI18n
+from bot.utils.channel_subscription import normalize_required_channel_id
 from config.settings import Settings
 from db.dal import user_dal
 
@@ -32,7 +33,7 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
         event: Update,
         data: Dict[str, Any],
     ) -> Any:
-        required_channel_id = self.settings.REQUIRED_CHANNEL_ID
+        required_channel_id = normalize_required_channel_id(self.settings.REQUIRED_CHANNEL_ID)
         if not required_channel_id:
             return await handler(event, data)
 

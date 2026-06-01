@@ -95,6 +95,39 @@ async def get_user_by_id(session: AsyncSession, user_id: int) -> Optional[User]:
     return result.scalar_one_or_none()
 
 
+async def get_referrer_for_user(session: AsyncSession, user: User) -> Optional[User]:
+    referred_by_id = getattr(user, "referred_by_id", None)
+    if referred_by_id is None:
+        return None
+    return await get_user_by_id(session, int(referred_by_id))
+
+
+async def get_users_referred_by(
+    session: AsyncSession,
+    user_id: int,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+) -> List[User]:
+    safe_limit = max(1, min(500, int(limit or 50)))
+    safe_offset = max(0, int(offset or 0))
+    stmt = (
+        select(User)
+        .where(User.referred_by_id == user_id)
+        .order_by(User.registration_date.desc().nullslast(), User.user_id.desc())
+        .offset(safe_offset)
+        .limit(safe_limit)
+    )
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
+async def count_users_referred_by(session: AsyncSession, user_id: int) -> int:
+    stmt = select(func.count(User.user_id)).where(User.referred_by_id == user_id)
+    result = await session.execute(stmt)
+    return int(result.scalar_one() or 0)
+
+
 async def get_user_by_username(session: AsyncSession, username: str) -> Optional[User]:
     clean_username = username.lstrip("@").lower()
     stmt = select(User).where(func.lower(User.username) == clean_username)
@@ -226,6 +259,20 @@ async def create_email_user(
             "registration_date": datetime.now(timezone.utc),
         },
     )
+
+
+async def mark_trial_eligibility_reset(
+    session: AsyncSession,
+    user_id: int,
+    *,
+    reset_at: Optional[datetime] = None,
+) -> Optional[datetime]:
+    reset_at = reset_at or datetime.now(timezone.utc)
+    stmt = update(User).where(User.user_id == user_id).values(trial_eligibility_reset_at=reset_at)
+    result = await session.execute(stmt)
+    if result.rowcount <= 0:
+        return None
+    return reset_at
 
 
 async def _has_active_panel_subscription(
@@ -744,6 +791,7 @@ async def get_enhanced_user_statistics(session: AsyncSession) -> Dict[str, Any]:
     free_subscription_users = int(subscription_counts[3] or 0)
 
     inactive_users = total_users - active_subscription_users
+    expired_subscription_users = await count_users_with_expired_subscription(session)
 
     return {
         "total_users": total_users,
@@ -754,6 +802,7 @@ async def get_enhanced_user_statistics(session: AsyncSession) -> Dict[str, Any]:
         "trial_users": trial_users,
         "free_subscription_users": free_subscription_users,
         "inactive_users": max(0, inactive_users),
+        "expired_subscription_users": expired_subscription_users,
         "referral_users": referral_users,
     }
 
@@ -803,6 +852,66 @@ async def get_user_ids_without_active_subscription(session: AsyncSession) -> Lis
                 active_subs.user_id.is_(None),
             )
         )
+    )
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
+def _expired_subscription_exists_for_user(now: datetime):
+    expired_subs = aliased(Subscription)
+    normalized_status = func.lower(func.coalesce(expired_subs.status_from_panel, ""))
+    blank_status = or_(
+        expired_subs.status_from_panel.is_(None),
+        expired_subs.status_from_panel == "",
+    )
+    expired_condition = or_(
+        normalized_status == "expired",
+        blank_status & expired_subs.is_active.is_(False),
+        expired_subs.end_date <= now,
+    )
+
+    return (
+        select(expired_subs.subscription_id)
+        .where(expired_subs.user_id == User.user_id, expired_condition)
+        .exists()
+    )
+
+
+def _active_subscription_exists_for_user(now: datetime):
+    active_subs = aliased(Subscription)
+    return (
+        select(active_subs.subscription_id)
+        .where(
+            active_subs.user_id == User.user_id,
+            active_subs.is_active == True,
+            active_subs.end_date > now,
+        )
+        .exists()
+    )
+
+
+async def count_users_with_expired_subscription(session: AsyncSession) -> int:
+    """Count users who have an expired subscription and no currently active subscription."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    stmt = select(func.count(User.user_id)).where(
+        _expired_subscription_exists_for_user(now),
+        ~_active_subscription_exists_for_user(now),
+    )
+    result = await session.execute(stmt)
+    return int(result.scalar_one() or 0)
+
+
+async def get_user_ids_with_expired_subscription(session: AsyncSession) -> List[int]:
+    """Return non-banned user IDs with an expired subscription and no active one."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    stmt = select(User.user_id).where(
+        User.is_banned == False,
+        _expired_subscription_exists_for_user(now),
+        ~_active_subscription_exists_for_user(now),
     )
     result = await session.execute(stmt)
     return result.scalars().all()

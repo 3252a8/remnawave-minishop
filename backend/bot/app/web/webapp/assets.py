@@ -934,87 +934,12 @@ def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
     return cache["data"]
 
 
-def _run_git_command(*args: str) -> str:
-    repo_root = APP_ROOT
-    try:
-        result = subprocess.run(
-            ["git", *args],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=1.5,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return ""
-    return result.stdout.strip()
-
-
-def _normalize_version_branch(raw_branch: str) -> str:
-    branch = str(raw_branch or "").strip()
-    for prefix in ("refs/heads/", "refs/remotes/origin/", "origin/"):
-        if branch.startswith(prefix):
-            branch = branch[len(prefix) :]
-            break
-    if branch == "HEAD":
-        return ""
-    return re.sub(r"[^A-Za-z0-9._-]+", "-", branch).strip("-")[:48]
-
-
-def _resolve_version_branch() -> str:
-    for env_name in (
-        "REMNAWAVE_MINISHOP_BRANCH",
-        "GIT_BRANCH",
-        "BRANCH_NAME",
-        "GITHUB_REF_NAME",
-        "CI_COMMIT_REF_NAME",
-    ):
-        branch = _normalize_version_branch(os.getenv(env_name, ""))
-        if branch:
-            return branch
-    return _normalize_version_branch(
-        _run_git_command("branch", "--show-current")
-        or _run_git_command("symbolic-ref", "--quiet", "--short", "HEAD")
-    )
-
-
-def _format_app_version(tag: str, sha: str, branch: str) -> str:
-    branch_suffix = "" if not branch or branch == "main" else f"-{branch}"
-    if tag and sha:
-        return f"{tag}{branch_suffix}+g{sha}"
-    if sha:
-        return f"dev{branch_suffix}+g{sha}"
-    if tag:
-        return f"{tag}{branch_suffix}"
-    return f"dev{branch_suffix}+unknown"
-
-
 def _resolve_app_version() -> str:
-    global _APP_VERSION_CACHE
-    if _APP_VERSION_CACHE:
-        return _APP_VERSION_CACHE
+    # Single source of truth shared with the telemetry worker so the admin
+    # sidebar and the install beacon always report the same version.
+    from bot.utils.app_version import resolve_app_version
 
-    env_version = os.getenv("REMNAWAVE_MINISHOP_VERSION", "").strip()
-    if env_version:
-        _APP_VERSION_CACHE = env_version
-        return env_version
-
-    build_version_path = APP_ROOT / ".build-version"
-    try:
-        build_version = build_version_path.read_text(encoding="utf-8").strip()
-    except OSError:
-        build_version = ""
-    if build_version:
-        _APP_VERSION_CACHE = build_version
-        return build_version
-
-    tag = _run_git_command("describe", "--tags", "--abbrev=0")
-    sha = _run_git_command("rev-parse", "--short", "HEAD")
-    branch = _resolve_version_branch()
-    version = _format_app_version(tag, sha, branch)
-
-    _APP_VERSION_CACHE = version
-    return version
+    return resolve_app_version()
 
 
 async def _enforce_webapp_rate_limit(

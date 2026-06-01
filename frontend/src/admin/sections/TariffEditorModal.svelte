@@ -5,7 +5,7 @@
   import { Plus, Save, Trash2, X } from "$components/ui/icons.js";
   import { AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
   import { getContext } from "svelte";
-  import { normalizeUuidList } from "../../lib/admin/tariffDraft.js";
+  import { normalizeCurrencyKey, normalizeUuidList } from "../../lib/admin/tariffDraft.js";
 
   export let at;
   const tariffsStore = getContext("tariffsStore");
@@ -19,6 +19,7 @@
     tariffDeleteTarget,
     panelSquadsLoading,
     panelSquads,
+    tariffsCatalog,
   } = $tariffsStore);
 
   $: billingModelOptions = [
@@ -29,6 +30,33 @@
     value: squad.uuid,
     label: squad.name,
   }));
+  $: defaultCurrencyKey = normalizeCurrencyKey(tariffsCatalog?.default_currency || "rub");
+  $: defaultCurrencyCode = defaultCurrencyKey.toUpperCase();
+  $: currencyPackageLabel = at(
+    "tariff_btn_package_currency",
+    { currency: defaultCurrencyCode },
+    `Пакет ${defaultCurrencyCode}`
+  );
+  $: currencyPaymentLabel = at(
+    "payment_default_currency",
+    { currency: defaultCurrencyCode },
+    `Оплата ${defaultCurrencyCode}`
+  );
+  $: currencyPriceColumnLabel = at(
+    "tariff_col_price_currency",
+    { currency: defaultCurrencyCode },
+    `Цена, ${defaultCurrencyCode}`
+  );
+  $: currencyPriceAriaLabel = at(
+    "tariff_label_price_currency",
+    { currency: defaultCurrencyCode },
+    `Цена в ${defaultCurrencyCode}`
+  );
+  $: conversionCurrencyLabel = at(
+    "tariff_label_conversion_currency",
+    { currency: defaultCurrencyCode },
+    `Курс конвертации, ${defaultCurrencyCode} за 1 GB`
+  );
 </script>
 
 <Dialog
@@ -241,7 +269,7 @@
           </Label.Root>
         {:else}
           <Label.Root class="admin-field-label">
-            <span>{at("tariff_label_conversion", {}, "Курс конвертации, ₽ за 1 GB")}</span>
+            <span>{conversionCurrencyLabel}</span>
             <small
               >{at(
                 "tariff_hint_conversion",
@@ -388,7 +416,7 @@
             <AdminButton
               size="sm"
               onclick={() => tariffsStore.addDraftRow("premiumTopupRubRows", { gb: 10, price: "" })}
-              ><Plus size={12} /> {at("tariff_btn_package_rub", {}, "Пакет ₽")}</AdminButton
+              ><Plus size={12} /> {currencyPackageLabel}</AdminButton
             >
             <AdminButton
               size="sm"
@@ -400,11 +428,11 @@
         </header>
         <div class="admin-package-columns">
           <div class="admin-row-editor">
-            <span class="admin-row-editor-caption">{at("payment_rub", {}, "Оплата рублями")}</span>
+            <span class="admin-row-editor-caption">{currencyPaymentLabel}</span>
             {#if tariffDraft.premiumTopupRubRows.length}
               <div class="admin-row-editor-line admin-row-editor-header">
                 <span>{at("tariff_col_volume_gb", {}, "Объём, GB")}</span>
-                <span>{at("tariff_col_price_rub", {}, "Цена, ₽")}</span>
+                <span>{currencyPriceColumnLabel}</span>
                 <span></span>
               </div>
             {/if}
@@ -426,7 +454,7 @@
                   step="0.01"
                   placeholder="199"
                   bind:value={row.price}
-                  aria-label={at("tariff_label_price_rub", {}, "Цена premium-пакета в рублях")}
+                  aria-label={currencyPriceAriaLabel}
                 />
                 <AdminButton
                   size="sm"
@@ -526,7 +554,7 @@
             <div class="admin-row-editor">
               <div class="admin-row-editor-line admin-row-editor-6 admin-row-editor-header">
                 <span>{at("tariff_col_period_months", {}, "Срок, мес.")}</span>
-                <span>{at("tariff_col_price_rub", {}, "Цена, ₽")}</span>
+                <span>{currencyPriceColumnLabel}</span>
                 <span>{at("tariff_col_price_stars_full", {}, "Цена, ⭐ Stars")}</span>
                 <span>{at("tariff_col_ref_inviter", {}, "Бонус приглашающему")}</span>
                 <span>{at("tariff_col_ref_referee", {}, "Бонус приглашённому")}</span>
@@ -549,7 +577,7 @@
                     step="0.01"
                     placeholder="299"
                     bind:value={row.rub}
-                    aria-label={at("tariff_label_price_rub", {}, "Цена в рублях")}
+                    aria-label={currencyPriceAriaLabel}
                   />
                   <Input
                     class="input"
@@ -608,7 +636,7 @@
               <AdminButton
                 size="sm"
                 onclick={() => tariffsStore.addDraftRow("trafficRubRows", { gb: 10, price: "" })}
-                ><Plus size={12} /> {at("tariff_btn_package_rub", {}, "Пакет ₽")}</AdminButton
+                ><Plus size={12} /> {currencyPackageLabel}</AdminButton
               >
               <AdminButton
                 size="sm"
@@ -619,12 +647,11 @@
           </header>
           <div class="admin-package-columns">
             <div class="admin-row-editor">
-              <span class="admin-row-editor-caption">{at("payment_rub", {}, "Оплата рублями")}</span
-              >
+              <span class="admin-row-editor-caption">{currencyPaymentLabel}</span>
               {#if tariffDraft.trafficRubRows.length}
                 <div class="admin-row-editor-line admin-row-editor-header">
                   <span>{at("tariff_col_volume_gb", {}, "Объём, GB")}</span>
-                  <span>{at("tariff_col_price_rub", {}, "Цена, ₽")}</span>
+                  <span>{currencyPriceColumnLabel}</span>
                   <span></span>
                 </div>
               {/if}
@@ -646,7 +673,7 @@
                     step="0.01"
                     placeholder="299"
                     bind:value={row.price}
-                    aria-label={at("tariff_label_price_rub", {}, "Цена пакета в рублях")}
+                    aria-label={currencyPriceAriaLabel}
                   />
                   <AdminButton
                     size="sm"
@@ -722,7 +749,7 @@
               <AdminButton
                 size="sm"
                 onclick={() => tariffsStore.addDraftRow("topupRubRows", { gb: 10, price: "" })}
-                ><Plus size={12} /> {at("tariff_btn_package_rub", {}, "Пакет ₽")}</AdminButton
+                ><Plus size={12} /> {currencyPackageLabel}</AdminButton
               >
               <AdminButton
                 size="sm"
@@ -733,12 +760,11 @@
           </header>
           <div class="admin-package-columns">
             <div class="admin-row-editor">
-              <span class="admin-row-editor-caption">{at("payment_rub", {}, "Оплата рублями")}</span
-              >
+              <span class="admin-row-editor-caption">{currencyPaymentLabel}</span>
               {#if tariffDraft.topupRubRows.length}
                 <div class="admin-row-editor-line admin-row-editor-header">
                   <span>{at("tariff_col_volume_gb", {}, "Объём, GB")}</span>
-                  <span>{at("tariff_col_price_rub", {}, "Цена, ₽")}</span>
+                  <span>{currencyPriceColumnLabel}</span>
                   <span></span>
                 </div>
               {/if}
@@ -760,7 +786,7 @@
                     step="0.01"
                     placeholder="149"
                     bind:value={row.price}
-                    aria-label={at("tariff_label_price_rub", {}, "Цена пакета в рублях")}
+                    aria-label={currencyPriceAriaLabel}
                   />
                   <AdminButton
                     size="sm"
@@ -847,7 +873,7 @@
             <AdminButton
               size="sm"
               onclick={() => tariffsStore.addDraftRow("hwidRubRows", { count: 1, price: "" })}
-              ><Plus size={12} /> {at("tariff_btn_package_rub", {}, "Пакет ₽")}</AdminButton
+              ><Plus size={12} /> {currencyPackageLabel}</AdminButton
             >
             <AdminButton
               size="sm"
@@ -858,11 +884,11 @@
         </header>
         <div class="admin-package-columns">
           <div class="admin-row-editor">
-            <span class="admin-row-editor-caption">{at("payment_rub", {}, "Оплата рублями")}</span>
+            <span class="admin-row-editor-caption">{currencyPaymentLabel}</span>
             {#if tariffDraft.hwidRubRows.length}
               <div class="admin-row-editor-line admin-row-editor-header">
                 <span>{at("tariff_col_hwid_count", {}, "+ устройств")}</span>
-                <span>{at("tariff_col_price_rub", {}, "Цена, ₽")}</span>
+                <span>{currencyPriceColumnLabel}</span>
                 <span></span>
               </div>
             {/if}
@@ -888,7 +914,7 @@
                   step="0.01"
                   placeholder="99"
                   bind:value={row.price}
-                  aria-label={at("tariff_label_price_rub", {}, "Цена пакета в рублях")}
+                  aria-label={currencyPriceAriaLabel}
                 />
                 <AdminButton
                   size="sm"

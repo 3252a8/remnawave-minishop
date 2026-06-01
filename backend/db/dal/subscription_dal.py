@@ -4,12 +4,12 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import delete, func, or_, update
+from sqlalchemy import and_, delete, func, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from db.models import Subscription, SubscriptionNotification
+from db.models import Subscription, SubscriptionNotification, User
 
 INSTALL_SHARE_TOKEN_BYTES = 16
 
@@ -252,7 +252,7 @@ async def deactivate_all_user_subscriptions(session: AsyncSession, user_id: int)
 
 
 async def delete_all_user_subscriptions(session: AsyncSession, user_id: int) -> int:
-    """Completely delete all user subscriptions (for trial reset)"""
+    """Completely delete all user subscriptions."""
     stmt = delete(Subscription).where(Subscription.user_id == user_id)
     result = await session.execute(stmt)
     if result.rowcount > 0:
@@ -280,6 +280,28 @@ async def update_subscription_end_date(
 
 async def has_any_subscription_for_user(session: AsyncSession, user_id: int) -> bool:
     stmt = select(Subscription.subscription_id).where(Subscription.user_id == user_id).limit(1)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none() is not None
+
+
+async def has_trial_blocking_subscription_for_user(session: AsyncSession, user_id: int) -> bool:
+    now_utc = datetime.now(timezone.utc)
+    reset_at = (
+        select(User.trial_eligibility_reset_at).where(User.user_id == user_id).scalar_subquery()
+    )
+    subscription_anchor = func.coalesce(Subscription.start_date, Subscription.end_date)
+    stmt = (
+        select(Subscription.subscription_id)
+        .where(
+            Subscription.user_id == user_id,
+            or_(
+                reset_at.is_(None),
+                and_(Subscription.is_active == True, Subscription.end_date > now_utc),
+                subscription_anchor > reset_at,
+            ),
+        )
+        .limit(1)
+    )
     result = await session.execute(stmt)
     return result.scalar_one_or_none() is not None
 

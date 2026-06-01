@@ -287,6 +287,30 @@ class Settings(BaseSettings):
         description="Allow legacy referral links like ref_<telegram_id> to continue working. Defaults to True when unset.",  # noqa: E501
     )
 
+    APP_RUNTIME_MODE: str = Field(
+        default="production",
+        description="Runtime profile: production, development, staging or test.",
+    )
+    PANEL_WRITE_MODE: str = Field(
+        default="auto",
+        description=(
+            "Panel write behavior: auto uses dry-run in development/test runtimes, "
+            "live always writes to Remnawave, dry_run validates and logs mutations only."
+        ),
+    )
+    PANEL_DRY_RUN_VALIDATE_REMOTE: bool = Field(
+        default=True,
+        description=(
+            "When panel dry-run is enabled, validate referenced users and squads "
+            "via live GET requests."
+        ),
+    )
+    PANEL_DRY_RUN_SYNTHETIC_CREATE: bool = Field(
+        default=True,
+        description=(
+            "When panel dry-run is enabled, return synthetic users for create-user attempts."
+        ),
+    )
     PANEL_API_URL: Optional[str] = None
     PANEL_API_KEY: Optional[str] = None
     USER_TRAFFIC_LIMIT_GB: Optional[float] = Field(default=0.0)
@@ -559,6 +583,17 @@ class Settings(BaseSettings):
     def PRIMARY_ADMIN_ID(self) -> Optional[int]:
         ids = self.ADMIN_IDS
         return ids[0] if ids else None
+
+    @computed_field
+    @property
+    def panel_dry_run_enabled(self) -> bool:
+        mode = str(self.PANEL_WRITE_MODE or "auto").strip().lower().replace("-", "_")
+        if mode == "dry_run":
+            return True
+        if mode == "live":
+            return False
+        runtime = str(self.APP_RUNTIME_MODE or "production").strip().lower()
+        return runtime in {"dev", "development", "local", "test", "testing"}
 
     @computed_field
     @property
@@ -983,6 +1018,7 @@ class Settings(BaseSettings):
         "LOG_SUPPORT_THREAD_ID",
         "BACKUP_CHAT_ID",
         "BACKUP_THREAD_ID",
+        "REQUIRED_CHANNEL_ID",
         mode="before",
     )
     @classmethod
@@ -1025,6 +1061,28 @@ class Settings(BaseSettings):
                 return None
         return v
 
+    @field_validator("APP_RUNTIME_MODE", mode="before")
+    @classmethod
+    def normalize_app_runtime_mode(cls, v):
+        value = str(v or "production").strip().lower().replace("-", "_")
+        if not value:
+            return "production"
+        aliases = {
+            "prod": "production",
+            "dev": "development",
+            "local_dev": "development",
+            "testing": "test",
+        }
+        return aliases.get(value, value)
+
+    @field_validator("PANEL_WRITE_MODE", mode="before")
+    @classmethod
+    def validate_panel_write_mode(cls, v):
+        value = str(v or "auto").strip().lower().replace("-", "_")
+        if value not in {"auto", "live", "dry_run"}:
+            raise ValueError("PANEL_WRITE_MODE must be one of: auto, live, dry_run")
+        return value
+
     # Notification types
     LOG_NEW_USERS: bool = Field(
         default=True, description="Send notifications for new user registrations"
@@ -1042,6 +1100,37 @@ class Settings(BaseSettings):
         default=True, description="Send notifications for suspicious promo attempts"
     )
     LOG_SUPPORT: bool = Field(default=True, description="Send support ticket notifications")
+
+    # Anonymous install telemetry (self-hosted friendly, opt-out).
+    TELEMETRY_ENABLED: bool = Field(
+        default=True,
+        description=(
+            "Send an anonymous daily install heartbeat (version, OS, locale, "
+            "user-count range). No personal data. Opt out here, via the web "
+            "admin, or by clearing TELEMETRY_ENDPOINT/TELEMETRY_API_KEY."
+        ),
+    )
+    TELEMETRY_ENDPOINT: str = Field(
+        default="https://eu.i.posthog.com",
+        description="PostHog ingestion host. Empty disables telemetry.",
+    )
+    TELEMETRY_API_KEY: str = Field(
+        default="phc_sRiAbbrjhyYPfsgBwSZyLvujDXBLaDpmWKt6paGmCCMm",
+        description=(
+            "PostHog project API key (phc_...). Safe to ship in the image: it is "
+            "a write-only ingest key. Empty disables telemetry."
+        ),
+    )
+    TELEMETRY_INTERVAL_HOURS: int = Field(default=24)
+
+    @property
+    def telemetry_configured(self) -> bool:
+        """True when telemetry is enabled and has a delivery target."""
+        return bool(
+            self.TELEMETRY_ENABLED
+            and str(self.TELEMETRY_ENDPOINT or "").strip()
+            and str(self.TELEMETRY_API_KEY or "").strip()
+        )
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore", populate_by_name=True
@@ -1065,6 +1154,11 @@ def get_settings() -> Settings:
             if not _settings_instance.PANEL_API_URL:
                 logging.warning(
                     "CRITICAL: PANEL_API_URL is not set. Panel integration will not work."
+                )
+            if _settings_instance.panel_dry_run_enabled:
+                logging.warning(
+                    "PANEL_WRITE_MODE dry-run is enabled: Remnawave write requests will be "
+                    "validated and logged without changing panel users."
                 )
             if not os.getenv("WEBAPP_SESSION_SECRET"):
                 logging.warning(

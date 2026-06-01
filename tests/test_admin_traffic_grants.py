@@ -133,6 +133,59 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(await service.admin_grant_topup(AsyncMock(), 1, 0))
             self.assertIsNone(await service.admin_grant_topup(AsyncMock(), 1, -10))
 
+    async def test_regular_unlimited_override_syncs_zero_panel_limit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            panel_service = AsyncMock(spec=PanelApiService)
+            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            service = SubscriptionService(settings, panel_service)
+
+            db_user = SimpleNamespace(
+                user_id=42,
+                first_name="Tester",
+                last_name=None,
+                username="tester",
+                language_code="ru",
+                panel_user_uuid="panel-uuid",
+                email=None,
+                telegram_id=42,
+            )
+            sub = SimpleNamespace(
+                subscription_id=7,
+                user_id=42,
+                panel_user_uuid="panel-uuid",
+                end_date=datetime.now(timezone.utc) + timedelta(days=10),
+                tariff_key="standard",
+                tier_baseline_bytes=100 * (1024**3),
+                topup_balance_bytes=0,
+                traffic_limit_bytes=105 * (1024**3),
+                traffic_used_bytes=2 * (1024**5),
+                regular_bonus_bytes=0,
+                regular_unlimited_override=True,
+                is_throttled=True,
+                hwid_device_limit=3,
+                extra_hwid_devices=0,
+                premium_is_limited=False,
+            )
+
+            with (
+                patch(
+                    "bot.services.subscription_service.user_dal.get_user_by_id",
+                    new=AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service.subscription_dal.get_active_subscription_by_user_id",
+                    new=AsyncMock(return_value=sub),
+                ),
+            ):
+                await service.sync_main_traffic_limit_to_panel(AsyncMock(), 42)
+
+            self.assertEqual(sub.traffic_limit_bytes, 0)
+            self.assertFalse(sub.is_throttled)
+            panel_service.update_user_details_on_panel.assert_awaited_once()
+            panel_payload = panel_service.update_user_details_on_panel.await_args.args[1]
+            self.assertEqual(panel_payload["trafficLimitBytes"], 0)
+
     async def test_premium_grant_clears_limited_state_when_balance_covers_overuse(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(premium=True), tmpdir)

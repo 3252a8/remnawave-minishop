@@ -17,8 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
 from bot.services.email_templates import EmailContent, render_login_code
+from bot.services.message_audit import log_user_message_delivery
 from config.settings import Settings
-from db.dal import security_dal
+from db.dal import security_dal, user_dal
 from db.models import EmailVerificationCode
 
 logger = logging.getLogger(__name__)
@@ -221,6 +222,28 @@ class EmailAuthService:
             language_code=language_code,
             magic_link=magic_link,
             purpose=purpose,
+        )
+        resolved_target_user_id = target_user_id
+        if resolved_target_user_id is None:
+            try:
+                existing_user = await user_dal.get_user_by_email(session, normalized_email)
+                resolved_target_user_id = (
+                    int(existing_user.user_id) if existing_user is not None else None
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to resolve email auth target user for audit log: %s",
+                    normalized_email,
+                )
+        await log_user_message_delivery(
+            session,
+            target_user_id=resolved_target_user_id,
+            event_type="email_login_code_sent"
+            if purpose == "login"
+            else "email_verification_code_sent",
+            channel="email",
+            recipient=normalized_email,
+            content=f"purpose={purpose} magic_link={bool(magic_link)}",
         )
         return EmailCodeRequestResult(ok=True)
 

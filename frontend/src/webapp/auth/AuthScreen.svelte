@@ -1,6 +1,14 @@
 <script>
-  import { LockKeyhole, Mail, Send, TriangleAlert } from "$components/ui/icons.js";
-  import { Tooltip } from "$components/ui/primitives.js";
+  import {
+    Check,
+    ChevronsUpDown,
+    Globe2,
+    LockKeyhole,
+    Mail,
+    Send,
+    TriangleAlert,
+  } from "$components/ui/icons.js";
+  import { Select, Tooltip } from "$components/ui/primitives.js";
 
   import Button from "$components/ui/button.svelte";
   import BrandMark from "$lib/webapp/BrandMark.svelte";
@@ -32,7 +40,15 @@
   export let telegramLoginUnavailableMessage;
   export let privacyPolicyUrl;
   export let userAgreementUrl;
+  export let currentLang = "ru";
+  export let currentLanguageOption = null;
+  export let languageOptions = [];
+  export let languageMenuOpen = false;
+  export let languageClickGuard = false;
+  export let languageClickGuardArmed = false;
   export let t;
+  export let setLanguageMenuOpen = () => {};
+  export let updateLoginLanguage = () => {};
   export let requestEmailCode;
   export let loginWithEmailPassword;
   export let verifyEmailCode;
@@ -48,6 +64,13 @@
   $: emailAuthEnabled = CFG.emailAuthEnabled !== false;
   $: passwordModeActive = Boolean(passwordLoginMode && emailAuthEnabled);
   $: authCardHeight = authPanelHeight ? `${authPanelHeight}px` : undefined;
+  $: showLanguageSelect = languageOptions.length > 1;
+
+  function closeLanguageFromGuard(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (languageClickGuardArmed) setLanguageMenuOpen(false);
+  }
 </script>
 
 {#if screen === "code"}
@@ -236,40 +259,93 @@
           </div>
         {/key}
       </section>
-      {#if userAgreementUrl || privacyPolicyUrl}
+      {#if userAgreementUrl || privacyPolicyUrl || showLanguageSelect}
         <div class="auth-legal">
-          <span class="auth-legal-intro">{t("wa_auth_legal_intro")}</span>
-          <div class="auth-legal-links">
-            {#if privacyPolicyUrl}
-              <a
-                href={privacyPolicyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onclick={(e) => {
-                  e.preventDefault();
-                  openExternalLink(privacyPolicyUrl);
-                }}
+          {#if userAgreementUrl || privacyPolicyUrl}
+            <span class="auth-legal-intro">{t("wa_auth_legal_intro")}</span>
+            <div class="auth-legal-links">
+              {#if privacyPolicyUrl}
+                <a
+                  href={privacyPolicyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onclick={(e) => {
+                    e.preventDefault();
+                    openExternalLink(privacyPolicyUrl);
+                  }}
+                >
+                  {t("wa_auth_legal_privacy")}
+                </a>
+              {/if}
+              {#if privacyPolicyUrl && userAgreementUrl}
+                <span>{t("wa_auth_legal_and")}</span>
+              {/if}
+              {#if userAgreementUrl}
+                <a
+                  href={userAgreementUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onclick={(e) => {
+                    e.preventDefault();
+                    openExternalLink(userAgreementUrl);
+                  }}
+                >
+                  {t("wa_auth_legal_agreement")}
+                </a>
+              {/if}
+            </div>
+          {/if}
+          {#if showLanguageSelect}
+            {#if languageMenuOpen || languageClickGuard}
+              <button
+                class="language-select-guard"
+                class:language-select-guard--armed={languageClickGuardArmed}
+                type="button"
+                aria-label={t("wa_close")}
+                onpointerdown={closeLanguageFromGuard}
+                onclick={closeLanguageFromGuard}
+              ></button>
+            {/if}
+            <Select.Root
+              type="single"
+              bind:open={languageMenuOpen}
+              value={currentLang}
+              items={languageOptions}
+              onOpenChange={setLanguageMenuOpen}
+              onValueChange={updateLoginLanguage}
+            >
+              <Select.Trigger class="auth-language-trigger" aria-label={t("wa_settings_language")}>
+                <Globe2 size={13} />
+                <span class="emoji-flag" aria-hidden="true"
+                  >{currentLanguageOption?.flag || "🏳️"}</span
+                >
+                <span>{currentLanguageOption?.label || currentLang}</span>
+                <ChevronsUpDown size={12} />
+              </Select.Trigger>
+              <Select.Content
+                class="language-select-content auth-language-content"
+                side="bottom"
+                align="center"
+                sideOffset={7}
               >
-                {t("wa_auth_legal_privacy")}
-              </a>
-            {/if}
-            {#if privacyPolicyUrl && userAgreementUrl}
-              <span>{t("wa_auth_legal_and")}</span>
-            {/if}
-            {#if userAgreementUrl}
-              <a
-                href={userAgreementUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onclick={(e) => {
-                  e.preventDefault();
-                  openExternalLink(userAgreementUrl);
-                }}
-              >
-                {t("wa_auth_legal_agreement")}
-              </a>
-            {/if}
-          </div>
+                <Select.Viewport class="language-select-viewport">
+                  {#each languageOptions as option (option.value)}
+                    <Select.Item
+                      value={option.value}
+                      label={option.label}
+                      class="language-select-item"
+                    >
+                      <span class="language-select-item-main">
+                        <span class="emoji-flag" aria-hidden="true">{option.flag}</span>
+                        <span>{option.label}</span>
+                      </span>
+                      <Check size={15} class="language-select-item-check" />
+                    </Select.Item>
+                  {/each}
+                </Select.Viewport>
+              </Select.Content>
+            </Select.Root>
+          {/if}
         </div>
       {/if}
     </div>

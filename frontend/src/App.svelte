@@ -183,6 +183,7 @@
   let languageClickGuardArmed = false;
   let languageClickGuardTimer = null;
   let languageClickGuardArmTimer = null;
+  let guestLanguage = "";
   let emailAvatarUrl = "";
   let avatarHashToken = "";
   let token = MOCK ? "local-preview" : "";
@@ -213,12 +214,13 @@
   const i18n = createI18n({
     messages: I18N,
     defaultLang: "ru",
-    getLang: () => user?.language_code || CFG.language || "ru",
+    getLang: () => user?.language_code || guestLanguage || CFG.language || "ru",
   });
   const normalizeLangCode = i18n.normalizeLangCode;
   const t = i18n.t;
   const termUnitLabel = i18n.termUnitLabel;
   const languageName = i18n.languageName;
+  guestLanguage = normalizeLangCode(CFG.language || "ru");
   const apiClient = createApiClient({
     apiBase: CFG.apiBase,
     csrfCookieName: CSRF_COOKIE_NAME,
@@ -460,7 +462,7 @@
     activeTab = "settings";
   }
   $: referral = data?.referral || MOCK_SOURCE.data.referral;
-  $: currentLang = normalizeLangCode(user?.language_code || CFG.language || "ru");
+  $: currentLang = normalizeLangCode(user?.language_code || guestLanguage || CFG.language || "ru");
   $: languageCodes = uniqueLanguageCodes(
     WEBAPP_LANGUAGE_ORDER,
     CFG.languages,
@@ -939,6 +941,13 @@
     }, 260);
   }
 
+  function updateGuestLanguage(nextValue) {
+    const language = normalizeLangCode(nextValue);
+    setLanguageMenuOpen(false);
+    if (!language || language === currentLang) return;
+    guestLanguage = language;
+  }
+
   function readTelegramMiniAppInitDataFromLocation() {
     return telegramSdk.readInitDataFromLocation();
   }
@@ -1219,6 +1228,7 @@
     const emailHint = readEmailCodeLoginDeeplink();
     if (!emailHint) return;
     emailLoginDeeplinkConsumed = true;
+    authStore.clearPendingEmailCode();
     authStore.update((s) => ({
       ...s,
       email: emailHint,
@@ -1670,6 +1680,9 @@
     screen = "login";
     activeTab = "home";
     setPasswordLoginMode(isPasswordLoginPath(), true);
+    authStore.restorePendingEmailCode((nextScreen) => {
+      screen = nextScreen;
+    });
     void startEmailCodeLoginFromDeeplink();
   }
 
@@ -2208,7 +2221,15 @@
             {telegramLoginUnavailableMessage}
             {privacyPolicyUrl}
             {userAgreementUrl}
+            {currentLang}
+            {currentLanguageOption}
+            {languageOptions}
+            {languageMenuOpen}
+            {languageClickGuard}
+            {languageClickGuardArmed}
             {t}
+            {setLanguageMenuOpen}
+            updateLoginLanguage={updateGuestLanguage}
             requestEmailCode={() => authStore.requestEmailCode((s) => (screen = s))}
             loginWithEmailPassword={authStore.loginWithEmailPassword}
             verifyEmailCode={authStore.verifyEmailCode}

@@ -9,7 +9,7 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
     target = str(payload.get("target") or "all").strip().lower()
     if not text:
         return _error(400, "empty_text")
-    if target not in {"all", "active", "inactive"}:
+    if target not in {"all", "active", "inactive", "expired"}:
         target = "all"
 
     queue_manager = get_queue_manager()
@@ -22,6 +22,8 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
             user_ids = await user_dal.get_user_ids_with_active_subscription(session)
         elif target == "inactive":
             user_ids = await user_dal.get_user_ids_without_active_subscription(session)
+        elif target == "expired":
+            user_ids = await user_dal.get_user_ids_with_expired_subscription(session)
         else:
             user_ids = await user_dal.get_all_active_user_ids_for_broadcast(session)
 

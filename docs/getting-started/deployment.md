@@ -409,3 +409,37 @@ app.example.com {
 ```bash
 APP_ENV_FILE=.env.staging docker compose --env-file .env.staging up -d --build
 ```
+
+## Dev dry-run рядом с production
+
+Для проверки фичей на той же Remnawave Panel поднимайте dev-стек с отдельным
+env-файлом, отдельным Telegram-ботом и локальной БД.
+В dev-режиме приложение продолжает читать пользователей, squads, devices и
+статистику из живой панели, но записи в пользователей Remnawave не отправляет:
+payload валидируется, а в логах появляется строка вида
+`[PANEL DRY-RUN OK] would PATCH /users ...`.
+
+Минимальный фрагмент `.env.dev`:
+
+```env
+APP_RUNTIME_MODE=development
+PANEL_WRITE_MODE=dry_run
+PANEL_DRY_RUN_VALIDATE_REMOTE=True
+PANEL_DRY_RUN_SYNTHETIC_CREATE=True
+
+REDIS_KEY_PREFIX=remnawave-tg-shop-dev
+BACKUP_ENABLED=False
+```
+
+Запуск:
+
+```bash
+APP_ENV_FILE=.env.dev docker compose --env-file .env.dev up -d --build
+```
+
+`PANEL_WRITE_MODE=live` можно поставить только для отдельной тестовой Remnawave
+Panel, потому что этот режим реально меняет пользователей панели.
+
+Если второй стек запускается на том же хосте, дополнительно разведите
+`WEB_SERVER_PORT` и `FRONTEND_PORT`. Если production на другом сервере, локальные
+порты можно оставить стандартными.

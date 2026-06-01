@@ -347,6 +347,7 @@
       support: "Поддержка",
       devices: "Устройства",
       subscription_guides: "Connection guides",
+      system: "Система",
     };
     return adminText(`settings_section_${id}`, {}, map[id] || id);
   }

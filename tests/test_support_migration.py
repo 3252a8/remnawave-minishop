@@ -29,3 +29,13 @@ def test_support_models_expose_expected_tables():
 
 def test_user_model_tracks_lifetime_traffic_sync_timestamp():
     assert "lifetime_used_traffic_synced_at" in User.__table__.columns
+
+
+def test_trial_eligibility_reset_migration_and_model_are_registered():
+    ids = [migration.id for migration in MIGRATIONS]
+
+    assert "0033_add_trial_eligibility_reset_marker" in ids
+    assert ids.index("0033_add_trial_eligibility_reset_marker") > ids.index(
+        "0032_add_telegram_notification_status"
+    )
+    assert "trial_eligibility_reset_at" in User.__table__.columns

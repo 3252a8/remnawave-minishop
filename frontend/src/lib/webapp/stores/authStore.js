@@ -6,6 +6,10 @@ import {
   emailError,
 } from "../authHelpers.js";
 
+const EMAIL_CODE_PENDING_STORAGE_KEY = "rw_email_code_login_pending_v1";
+const EMAIL_CODE_PENDING_TTL_MS = 10 * 60 * 1000;
+const EMAIL_CODE_RESEND_MS = 60 * 1000;
+
 export function createAuthStore({
   publicApi,
   setToken,
@@ -34,6 +38,80 @@ export function createAuthStore({
 
   let authResendTimer = null;
   let telegramLoginWatchdogTimer = null;
+
+  function readPendingEmailCodeSession() {
+    if (typeof window === "undefined" || !window.sessionStorage) return null;
+    try {
+      const raw = window.sessionStorage.getItem(EMAIL_CODE_PENDING_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      const email = String(parsed?.email || "")
+        .trim()
+        .toLowerCase();
+      const expiresAt = Number(parsed?.expiresAt || 0);
+      const cooldownUntil = Number(parsed?.cooldownUntil || 0);
+      if (!email || !email.includes("@") || !expiresAt || expiresAt <= Date.now()) {
+        window.sessionStorage.removeItem(EMAIL_CODE_PENDING_STORAGE_KEY);
+        return null;
+      }
+      return { email, expiresAt, cooldownUntil };
+    } catch (_error) {
+      window.sessionStorage.removeItem(EMAIL_CODE_PENDING_STORAGE_KEY);
+      return null;
+    }
+  }
+
+  function writePendingEmailCodeSession(email) {
+    if (typeof window === "undefined" || !window.sessionStorage) return;
+    try {
+      window.sessionStorage.setItem(
+        EMAIL_CODE_PENDING_STORAGE_KEY,
+        JSON.stringify({
+          email,
+          expiresAt: Date.now() + EMAIL_CODE_PENDING_TTL_MS,
+          cooldownUntil: Date.now() + EMAIL_CODE_RESEND_MS,
+        })
+      );
+    } catch (_error) {
+      void _error;
+    }
+  }
+
+  function clearPendingEmailCode() {
+    if (typeof window === "undefined" || !window.sessionStorage) return;
+    try {
+      window.sessionStorage.removeItem(EMAIL_CODE_PENDING_STORAGE_KEY);
+    } catch (_error) {
+      void _error;
+    }
+  }
+
+  function restorePendingEmailCode(changeScreen) {
+    const pending = readPendingEmailCodeSession();
+    if (!pending) return false;
+    state.update((s) => ({
+      ...s,
+      email: pending.email,
+      pendingEmail: pending.email,
+      emailCode: "",
+      authStatus: "",
+      authIsError: false,
+      authBusy: false,
+      passwordLoginMode: false,
+      passwordLoginFallback: false,
+      loginEmailFieldError: "",
+      loginEmailTooltipOpen: false,
+    }));
+    const cooldownSeconds = Math.ceil((pending.cooldownUntil - Date.now()) / 1000);
+    if (cooldownSeconds > 0) {
+      startCooldownTimer(cooldownSeconds);
+    } else {
+      clearCooldownTimer();
+      state.update((s) => ({ ...s, authResendCooldown: 0 }));
+    }
+    if (typeof changeScreen === "function") changeScreen("code");
+    return true;
+  }
 
   function setAuthStatus(message, isError = false) {
     state.update((s) => ({ ...s, authStatus: message, authIsError: isError }));
@@ -101,6 +179,7 @@ export function createAuthStore({
       const response = await publicApi("/auth/email/magic", payload);
       if (response.ok && response.csrf_token) {
         setToken("", response.csrf_token);
+        clearPendingEmailCode();
         clearAuthQuery();
         await loadData();
         return true;
@@ -131,6 +210,7 @@ export function createAuthStore({
       const response = await publicApi("/auth/token", payload, { signal: options.signal });
       if (response.ok && response.csrf_token) {
         setToken("", response.csrf_token);
+        clearPendingEmailCode();
         clearAuthQuery();
         setAuthStatus("");
         await loadData();
@@ -157,8 +237,15 @@ export function createAuthStore({
 
   async function requestEmailCode(changeScreen) {
     const s = get(state);
-    if (s.authResendCooldown > 0 && s.pendingEmail) return;
     const normalized = s.email.trim().toLowerCase();
+    if (
+      s.authResendCooldown > 0 &&
+      s.pendingEmail &&
+      (!normalized || normalized === s.pendingEmail)
+    ) {
+      if (typeof changeScreen === "function") changeScreen("code");
+      return;
+    }
     if (!normalized || !normalized.includes("@")) {
       state.update((s) => ({
         ...s,
@@ -185,6 +272,7 @@ export function createAuthStore({
         .replace(/\D/g, "")
         .slice(0, 6);
       state.update((s) => ({ ...s, pendingEmail: normalized, emailCode: presetCode }));
+      writePendingEmailCodeSession(normalized);
       changeScreen("code");
       setAuthStatus("");
       startCooldownTimer(60);
@@ -226,6 +314,7 @@ export function createAuthStore({
       });
       if (!response.ok || !response.csrf_token) throw response;
       setToken("", response.csrf_token);
+      clearPendingEmailCode();
       await loadData();
       setAuthStatus("");
     } catch (error) {
@@ -258,6 +347,7 @@ export function createAuthStore({
       const response = await publicApi("/auth/email/verify", payload);
       if (!response.ok || !response.csrf_token) throw response;
       setToken("", response.csrf_token);
+      clearPendingEmailCode();
       await loadData();
       setAuthStatus("");
     } catch (error) {
@@ -335,6 +425,8 @@ export function createAuthStore({
     loginWithEmailPassword,
     verifyEmailCode,
     openTelegramLogin,
+    restorePendingEmailCode,
+    clearPendingEmailCode,
     clearCooldownTimer,
     stopTelegramLoginWatchdog,
     setAuthStatus,

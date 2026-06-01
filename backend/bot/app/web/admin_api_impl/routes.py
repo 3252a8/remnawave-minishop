@@ -9,6 +9,7 @@ def setup_admin_routes(app: web.Application) -> None:
 
     router.add_get("/api/admin/users", admin_users_list_route)
     router.add_get("/api/admin/users/{user_id:-?\\d+}", admin_user_detail_route)
+    router.add_get("/api/admin/users/{user_id:-?\\d+}/referrals", admin_user_referrals_route)
     router.add_get("/api/admin/users/{user_id:-?\\d+}/avatar", admin_user_avatar_route)
     router.add_post("/api/admin/users/{user_id:-?\\d+}/ban", admin_user_ban_route)
     router.add_post("/api/admin/users/{user_id:-?\\d+}/message", admin_user_message_route)

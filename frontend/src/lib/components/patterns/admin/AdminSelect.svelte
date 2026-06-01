@@ -7,7 +7,10 @@
   export let ariaLabel = "";
   export let placeholder = "";
   export let disabled = false;
+  export let side = "bottom";
+  export let align = "start";
   export let sideOffset = 6;
+  export let collisionPadding = 12;
   export let onValueChange = () => {};
   let className = "";
   export { className as class };
@@ -29,7 +32,7 @@
     <ChevronDown size={14} class="admin-select-icon" />
   </Select.Trigger>
   <Select.Portal>
-    <Select.Content class="admin-select-content" {sideOffset}>
+    <Select.Content class="admin-select-content" {side} {align} {sideOffset} {collisionPadding}>
       <Select.Viewport class="admin-select-viewport">
         {#each items as item (item.value)}
           <Select.Item value={item.value} label={item.label} class="admin-select-item">

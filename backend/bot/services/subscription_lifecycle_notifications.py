@@ -13,6 +13,7 @@ from bot.keyboards.inline.user_keyboards import get_subscribe_only_markup
 from bot.middlewares.i18n import JsonI18n
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.email_templates import render_subscription_lifecycle_notification
+from bot.services.message_audit import log_user_message_delivery
 from bot.services.telegram_notifications import (
     TELEGRAM_NOTIFICATIONS_BLOCKED,
     TELEGRAM_NOTIFICATIONS_ENABLED,
@@ -188,6 +189,18 @@ class SubscriptionLifecycleNotificationService:
             self._channel_key(stage.key, "telegram"),
             sent_at=sent_at,
         )
+        await log_user_message_delivery(
+            session,
+            target_user_id=getattr(sub, "user_id", None),
+            event_type="telegram_subscription_notification_sent",
+            channel="telegram",
+            recipient=str(chat_id),
+            content=(
+                f"stage={stage.key} message_key={stage.message_key} "
+                f"subscription_id={getattr(sub, 'subscription_id', '')}"
+            ),
+            timestamp=sent_at,
+        )
         if user:
             status = normalize_telegram_notification_status(
                 getattr(user, "telegram_notifications_status", None)
@@ -252,6 +265,18 @@ class SubscriptionLifecycleNotificationService:
             sub.subscription_id,
             self._channel_key(stage.key, "email"),
             sent_at=sent_at,
+        )
+        await log_user_message_delivery(
+            session,
+            target_user_id=getattr(sub, "user_id", None),
+            event_type="email_subscription_notification_sent",
+            channel="email",
+            recipient=recipient,
+            content=(
+                f"stage={stage.key} message_key={stage.message_key} "
+                f"subscription_id={getattr(sub, 'subscription_id', '')}"
+            ),
+            timestamp=sent_at,
         )
         return True
 

@@ -46,6 +46,23 @@ class MiniAppUrlTests(unittest.TestCase):
             subscription_mini_app_topup_url(s, "regular"),
             "https://app.example.com/webapp?topup=regular",
         )
+        self.assertEqual(
+            subscription_mini_app_topup_url(s, "premium"),
+            "https://app.example.com/webapp?topup=premium",
+        )
+
+    def test_subscription_mini_app_topup_url_preserves_existing_query(self):
+        s = Settings(
+            _env_file=None,
+            BOT_TOKEN="x",
+            POSTGRES_USER="u",
+            POSTGRES_PASSWORD="p",
+            SUBSCRIPTION_MINI_APP_URL="https://app.example.com/webapp?lang=ru",
+        )
+        self.assertEqual(
+            subscription_mini_app_topup_url(s, "premium"),
+            "https://app.example.com/webapp?lang=ru&topup=premium",
+        )
 
     def test_subscription_mini_app_path_url(self):
         s = Settings(

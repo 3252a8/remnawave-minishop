@@ -22,7 +22,7 @@ class TrialSubscriptionMixin:
                 "message_key": "user_not_found_for_trial",
             }
 
-        if await self.has_had_any_subscription(session, user_id):
+        if await self.has_trial_blocking_subscription(session, user_id):
             return {
                 "eligible": False,
                 "activated": False,

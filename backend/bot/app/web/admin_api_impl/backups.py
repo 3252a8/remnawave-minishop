@@ -169,12 +169,11 @@ async def admin_backups_restore_route(request: web.Request) -> web.Response:
     except (OSError, subprocess.SubprocessError, TimeoutError) as exc:
         logger.exception("Backup restore failed")
         return _error(500, "backup_restore_failed", str(exc))
-
-    if result.database_restored:
+    finally:
         try:
             from db import database_setup
 
-            if database_setup.async_engine is not None:
+            if restore_database and database_setup.async_engine is not None:
                 await database_setup.async_engine.dispose()
         except Exception:
             logger.exception("Failed to dispose DB engine after backup restore")

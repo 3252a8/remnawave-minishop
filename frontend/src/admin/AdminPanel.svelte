@@ -228,6 +228,7 @@
   let adminLanguageClickGuardArmed = false;
   let adminLanguageClickGuardTimer = null;
   let adminLanguageClickGuardArmTimer = null;
+  $: adminLanguageGuardActive = isCompact && (adminLanguageMenuOpen || adminLanguageClickGuard);
 
   function readReduceMotion() {
     return (
@@ -295,6 +296,8 @@
   }
 
   function changeLanguage(value) {
+    adminLanguageMenuOpen = false;
+    clearAdminLanguageClickGuard();
     onLanguageChange(value, { section: "admin", adminSection: active });
   }
 
@@ -472,8 +475,6 @@
   function setAdminLanguageMenuOpen(open) {
     adminLanguageMenuOpen = Boolean(open);
     clearAdminLanguageClickGuard();
-    // Desktop doesn't need the click-guard overlay and it can block
-    // option clicks in portaled select content.
     if (!isCompact) return;
     if (adminLanguageMenuOpen) {
       adminLanguageClickGuard = true;
@@ -557,7 +558,11 @@
   }
 </script>
 
-<div class="admin-screen-wrap" class:is-sidebar-open={sidebarOpen}>
+<div
+  class="admin-screen-wrap"
+  class:is-sidebar-open={sidebarOpen}
+  class:is-admin-language-open={adminLanguageGuardActive}
+>
   {#if sidebarOpen}
     <button
       type="button"
@@ -568,7 +573,7 @@
       on:click={() => (sidebarOpen = false)}
     ></button>
   {/if}
-  {#if isCompact && (adminLanguageMenuOpen || adminLanguageClickGuard)}
+  {#if adminLanguageGuardActive}
     <button
       class="language-select-guard"
       class:language-select-guard--armed={adminLanguageClickGuardArmed}
@@ -578,7 +583,6 @@
       on:click={closeAdminLanguageFromGuard}
     ></button>
   {/if}
-
   <aside class="admin-sidebar" aria-label={at("sidebar_navigation", {}, "Навигация админки")}>
     <div class="admin-sidebar-brand">
       <BrandMark class="admin-brand-mark" {brand} />
@@ -785,6 +789,7 @@
             <UsersSection
               {at}
               {fmtDateShort}
+              {fmtMoney}
               {panelStatusBadge}
               {resolvedAvatarUrl}
               {userDisplayName}

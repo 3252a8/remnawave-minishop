@@ -248,9 +248,9 @@ class SubscriptionLifecycleMixin:
                 traffic_used_bytes=used_sub,
             )
             update_data["period_start_at"] = None
-            update_data["effective_monthly_price_rub"] = (
-                target.period_price(1, "rub") or target.min_period_price_rub()
-            )
+            update_data["effective_monthly_price_rub"] = target.period_price(
+                1, default_currency_key_for_settings(self.settings)
+            ) or target.min_period_price(default_currency_key_for_settings(self.settings))
             if mode == "recalc_days" and options.get("recalc_days") is not None:
                 update_data["end_date"] = now + timedelta(days=int(options["recalc_days"]))
         else:

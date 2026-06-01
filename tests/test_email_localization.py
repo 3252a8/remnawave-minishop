@@ -1,0 +1,287 @@
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+from types import SimpleNamespace
+
+from bot.middlewares.i18n import JsonI18n
+from bot.services.email_templates import (
+    EmailContent,
+    render_account_merged,
+    render_login_code,
+    render_payment_success,
+    render_subscription_expiring,
+    render_subscription_lifecycle_notification,
+    render_support_admin_reply_user,
+    render_support_new_ticket_admin,
+    render_support_ticket_closed_user,
+    render_support_user_reply_admin,
+    render_user_notification,
+)
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+EMAIL_KEY_RE = re.compile(r"""["'](?P<key>email_[a-z0-9_]+)["']""")
+EMAIL_KEY_ASSIGNMENT_HINTS = (
+    "subject_key",
+    "heading_key",
+    "intro_key",
+    "cta_label_key",
+)
+
+
+def _settings(default_language: str = "ru"):
+    return SimpleNamespace(
+        DEFAULT_LANGUAGE=default_language,
+        EMAIL_CODE_TTL_SECONDS=600,
+        WEBAPP_LOGO_URL="",
+        WEBAPP_LOGO_USE_EMOJI=False,
+        WEBAPP_PRIMARY_COLOR="#00fe7a",
+        WEBAPP_TITLE="Mini Shop",
+    )
+
+
+def _i18n(default_language: str = "ru"):
+    return JsonI18n(str(REPO_ROOT / "locales"), default=default_language)
+
+
+def _locale_keys(language: str) -> set[str]:
+    return set(json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8")))
+
+
+def _email_locale_keys_from(path: Path) -> set[str]:
+    text = path.read_text("utf-8")
+    keys: set[str] = set()
+    for match in EMAIL_KEY_RE.finditer(text):
+        line_start = text.rfind("\n", 0, match.start()) + 1
+        line_end = text.find("\n", match.end())
+        line = text[line_start : line_end if line_end != -1 else len(text)]
+        if "template_prefix" in line:
+            continue
+        if path.name == "email_templates.py" or any(
+            hint in line for hint in EMAIL_KEY_ASSIGNMENT_HINTS
+        ):
+            keys.add(match.group("key"))
+    return keys
+
+
+def _email_preview_locale_keys() -> set[str]:
+    paths = (
+        REPO_ROOT / "docs-site" / "src" / "lib" / "emailPreviews.mjs",
+        REPO_ROOT / "docs-site" / "scripts" / "generate-email-previews.py",
+    )
+    keys: set[str] = set()
+    for path in paths:
+        keys.update(match.group("key") for match in EMAIL_KEY_RE.finditer(path.read_text("utf-8")))
+    return keys
+
+
+def _used_email_locale_keys() -> set[str]:
+    keys = _email_preview_locale_keys()
+    for path in (REPO_ROOT / "backend" / "bot").rglob("*.py"):
+        keys.update(_email_locale_keys_from(path))
+    return keys
+
+
+def _assert_content_is_localized(content: EmailContent, language: str):
+    assert content.subject
+    assert content.text
+    assert content.html
+    assert f'<html lang="{language}"' in content.html
+    assert "email_" not in content.subject
+    assert "email_" not in content.text
+    assert "email_" not in content.html
+
+
+def _all_rendered_email_variants(language: str) -> list[EmailContent]:
+    settings = _settings(default_language=language)
+    i18n = _i18n(default_language=language)
+    dashboard_url = "https://app.example.com/account"
+    ticket_url = "https://app.example.com/support/42"
+
+    contents: list[EmailContent] = [
+        render_login_code(
+            settings,
+            code="123456",
+            language_code=language,
+            magic_link="https://app.example.com/magic",
+            purpose="login",
+            i18n=i18n,
+        ),
+        render_login_code(
+            settings,
+            code="123456",
+            language_code=language,
+            purpose="set_password",
+            i18n=i18n,
+        ),
+        render_account_merged(
+            settings,
+            language_code=language,
+            primary_user_id=100200300,
+            removed_user_id=-42,
+            final_end_date_text="2026-06-21 10:00",
+            i18n=i18n,
+        ),
+        render_user_notification(
+            settings,
+            language_code=language,
+            subject=i18n.gettext(language, "email_payment_failed_subject"),
+            heading=i18n.gettext(language, "email_payment_failed_subject"),
+            intro=i18n.gettext(language, "email_user_notification_intro"),
+            cta_label=i18n.gettext(language, "email_user_notification_cta"),
+            message_text="Payment status changed.",
+            dashboard_url=dashboard_url,
+            i18n=i18n,
+        ),
+    ]
+
+    for sale_mode, months, traffic_gb in (
+        ("subscription", 1, None),
+        ("traffic", 0, 100),
+        ("premium_topup", 0, 25),
+        ("hwid_device", 2, None),
+        ("tariff_upgrade", 0, None),
+    ):
+        contents.append(
+            render_payment_success(
+                settings,
+                language_code=language,
+                sale_mode=sale_mode,
+                months=months,
+                traffic_gb=traffic_gb,
+                amount=390,
+                currency="RUB",
+                end_date_text="2026-06-21 10:00",
+                dashboard_url=dashboard_url,
+                provider_label="YooKassa",
+                i18n=i18n,
+            )
+        )
+
+    for days_left in (0, 1, 3):
+        contents.append(
+            render_subscription_expiring(
+                settings,
+                language_code=language,
+                days_left=days_left,
+                end_date_text="2026-06-21 10:00",
+                dashboard_url=dashboard_url,
+                i18n=i18n,
+            )
+        )
+
+    lifecycle_variants = (
+        {"notification_key": "before_2d_autorenew"},
+        {"notification_key": "expired"},
+        {"notification_key": "expired_24h_after"},
+        {"notification_key": "before_days", "days_left": 3},
+        {"notification_key": "before_hours", "hours_before": 6},
+    )
+    for kwargs in lifecycle_variants:
+        contents.append(
+            render_subscription_lifecycle_notification(
+                settings,
+                language_code=language,
+                message_text="Subscription lifecycle message.",
+                end_date_text="2026-06-21 10:00",
+                dashboard_url=dashboard_url,
+                i18n=i18n,
+                **kwargs,
+            )
+        )
+
+    contents.extend(
+        [
+            render_support_new_ticket_admin(
+                settings,
+                i18n,
+                language,
+                ticket_id=42,
+                user_display="user@example.com",
+                subject="Connection issue",
+                body_preview="Cannot connect.",
+                snapshot_rows=[
+                    ("email_support_row_tariff", "Premium"),
+                    ("email_support_row_remaining", "3 d. 4 h."),
+                ],
+                ticket_url="https://app.example.com/admin/support/42",
+            ),
+            render_support_user_reply_admin(
+                settings,
+                i18n,
+                language,
+                ticket_id=42,
+                user_display="user@example.com",
+                subject="Connection issue",
+                body_preview="Still cannot connect.",
+                snapshot_rows=[
+                    ("email_support_row_tariff", "Premium"),
+                    ("email_support_row_remaining", "3 d. 4 h."),
+                ],
+                ticket_url="https://app.example.com/admin/support/42",
+            ),
+            render_support_admin_reply_user(
+                settings,
+                i18n,
+                language,
+                ticket_id=42,
+                subject="Connection issue",
+                body_preview="Please try again.",
+                ticket_url=ticket_url,
+            ),
+            render_support_ticket_closed_user(
+                settings,
+                i18n,
+                language,
+                ticket_id=42,
+                subject="Connection issue",
+                ticket_url=ticket_url,
+            ),
+        ]
+    )
+    return contents
+
+
+def test_email_locale_keys_used_by_mailers_exist_in_base_locales():
+    used_keys = _used_email_locale_keys()
+
+    assert sorted(used_keys - _locale_keys("en")) == []
+    assert sorted(used_keys - _locale_keys("ru")) == []
+
+
+def test_all_email_template_variants_render_without_raw_locale_keys():
+    for language in ("en", "ru"):
+        for content in _all_rendered_email_variants(language):
+            _assert_content_is_localized(content, language)
+
+
+def test_support_email_templates_use_russian_copy_for_russian_recipients():
+    subjects = [content.subject for content in _all_rendered_email_variants("ru")[-4:]]
+
+    assert subjects == [
+        "Новый тикет поддержки #42",
+        "Новый ответ пользователя в тикете #42",
+        "Новый ответ по тикету #42",
+        "Тикет #42 закрыт",
+    ]
+
+
+def test_docs_email_preview_generator_renders_real_template_html():
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "docs-site" / "scripts" / "generate-email-previews.py")],
+        cwd=REPO_ROOT,
+        check=True,
+        encoding="utf-8",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    previews = json.loads(result.stdout)
+
+    assert len(previews) >= 20
+    assert all(preview["html"].lstrip().startswith("<!DOCTYPE html>") for preview in previews)
+    assert all('<html lang="ru"' in preview["html"] for preview in previews)
+    assert all('role="presentation"' in preview["html"] for preview in previews)
+    assert all("mail-card" not in preview["html"] for preview in previews)
+    assert all("email_" not in preview["subject"] + preview["html"] for preview in previews)

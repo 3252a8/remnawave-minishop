@@ -46,7 +46,7 @@ async def request_trial_confirmation_handler(
         return
 
     if settings.TRIAL_ENABLED:
-        if not await subscription_service.has_had_any_subscription(session, user_id):
+        if not await subscription_service.has_trial_blocking_subscription(session, user_id):
             pass
 
     if not settings.TRIAL_ENABLED:
@@ -60,7 +60,7 @@ async def request_trial_confirmation_handler(
             pass
         return
 
-    if await subscription_service.has_had_any_subscription(session, user_id):
+    if await subscription_service.has_trial_blocking_subscription(session, user_id):
         await callback.message.edit_text(
             _("trial_already_had_subscription_or_trial"),
             reply_markup=get_main_menu_inline_keyboard(current_lang, i18n, settings, False),
@@ -147,8 +147,9 @@ async def request_trial_confirmation_handler(
             await callback.answer(final_message_text_in_chat, show_alert=True)
         except Exception:
             pass
-        if settings.TRIAL_ENABLED and not await subscription_service.has_had_any_subscription(
-            session, user_id
+        if (
+            settings.TRIAL_ENABLED
+            and not await subscription_service.has_trial_blocking_subscription(session, user_id)
         ):
             show_trial_button_after_action = True
 
@@ -218,7 +219,7 @@ async def confirm_activate_trial_handler(
             callback, settings, i18n_data, subscription_service, session, is_edit=True
         )
         return
-    if await subscription_service.has_had_any_subscription(session, user_id):
+    if await subscription_service.has_trial_blocking_subscription(session, user_id):
         try:
             await callback.answer(_("trial_already_had_subscription_or_trial"), show_alert=True)
         except Exception:
@@ -283,8 +284,9 @@ async def confirm_activate_trial_handler(
             await callback.answer(final_message_text_in_chat, show_alert=True)
         except Exception:
             pass
-        if settings.TRIAL_ENABLED and not await subscription_service.has_had_any_subscription(
-            session, user_id
+        if (
+            settings.TRIAL_ENABLED
+            and not await subscription_service.has_trial_blocking_subscription(session, user_id)
         ):
             show_trial_button_after_action = True
 

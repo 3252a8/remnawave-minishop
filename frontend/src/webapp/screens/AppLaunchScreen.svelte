@@ -6,7 +6,7 @@
   const AUTO_OPEN_DELAY_MS = 80;
   const MANUAL_STATE_DELAY_MS = 1600;
   const DONE_STATE_DELAY_MS = 900;
-  const CLOSE_ATTEMPT_DELAY_MS = 120;
+  const CLOSE_ATTEMPT_DELAY_MS = 2500;
 
   export let brand = {};
   export let appLaunchTarget = "";
@@ -54,7 +54,6 @@
     autoOpenTimer = window.setTimeout(openTarget, AUTO_OPEN_DELAY_MS);
 
     window.addEventListener("pagehide", notePageLeft);
-    window.addEventListener("blur", notePageLeft);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
@@ -63,7 +62,6 @@
       clearTimer(doneStateTimer);
       clearTimer(closeAttemptTimer);
       window.removeEventListener("pagehide", notePageLeft);
-      window.removeEventListener("blur", notePageLeft);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   });
@@ -91,7 +89,9 @@
     if (!attempted || state === "done" || !activeTarget) return;
     state = "done";
     clearTimer(closeAttemptTimer);
-    closeAttemptTimer = window.setTimeout(tryCloseWindow, CLOSE_ATTEMPT_DELAY_MS);
+    closeAttemptTimer = window.setTimeout(() => {
+      if (pageLeft || document.hidden) tryCloseWindow();
+    }, CLOSE_ATTEMPT_DELAY_MS);
   }
 
   function notePageLeft() {

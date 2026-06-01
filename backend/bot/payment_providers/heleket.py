@@ -18,6 +18,10 @@ from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
 from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
+from config.tariffs_config import (
+    default_currency_key_for_settings,
+    default_payment_currency_code_for_settings,
+)
 from db.dal import payment_dal
 
 from .base import (
@@ -26,6 +30,8 @@ from .base import (
     ProviderManifestField,
     ServiceFactoryContext,
     WebAppPaymentContext,
+    normalize_payment_currency_code,
+    parse_supported_currency_codes,
     provider_env_file,
     provider_runtime_enabled,
 )
@@ -59,6 +65,10 @@ _LOG = "heleket"
 
 _SUCCESS_STATUSES = {"paid", "paid_over"}
 _FAILED_STATUSES = {"fail", "wrong_amount", "cancel", "system_fail"}
+HELEKET_DEFAULT_SUPPORTED_CURRENCIES = (
+    "RUB,USD,EUR,USDT,USDC,BTC,ETH,LTC,TON,TRX,BNB,BCH,DASH,DAI,DOGE,"
+    "MATIC,SHIB,SOL,XMR,AVAX,BUSD,VERSE"
+)
 
 
 class HeleketConfig(ProviderEnvConfig):
@@ -83,6 +93,7 @@ class HeleketConfig(ProviderEnvConfig):
     LIFETIME_SECONDS: int = Field(default=3600)
     VERIFY_WEBHOOK_SIGNATURE: bool = Field(default=True)
     TRUSTED_IPS: str = Field(default="31.133.220.8")
+    SUPPORTED_CURRENCIES: str = Field(default=HELEKET_DEFAULT_SUPPORTED_CURRENCIES)
 
     @field_validator("LIFETIME_SECONDS", mode="before")
     @classmethod
@@ -299,9 +310,18 @@ class HeleketService(HttpClientMixin):
             logging.error("HeleketService is not configured. Cannot create payment link.")
             return False, {"message": "service_not_configured"}
 
+        currency_code = normalize_payment_currency_code(currency or self.currency)
+        supported = parse_supported_currency_codes(self.config.SUPPORTED_CURRENCIES)
+        if supported and currency_code not in supported:
+            return False, {
+                "message": "unsupported_currency",
+                "currency": currency_code,
+                "supported_currencies": list(supported),
+            }
+
         body: Dict[str, Any] = {
             "amount": str(format_decimal_amount(amount)),
-            "currency": (currency or self.currency).upper(),
+            "currency": currency_code,
             "order_id": str(payment_db_id),
             "url_return": self.return_url,
             "url_success": self.success_url,
@@ -572,13 +592,13 @@ async def pay_heleket_callback_handler(
         user_id=callback.from_user.id,
         parts=parts,
         subscription_service=heleket_service.subscription_service,
-        currency="rub",
+        currency=default_currency_key_for_settings(settings),
     )
     if not parts:
         await notify_callback_parse_error(callback, translator)
         return
 
-    currency_code = (heleket_service.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB").upper()
+    currency_code = default_payment_currency_code_for_settings(settings)
     payment_description = describe_payment(translator, parts)
     record_payload = build_payment_record_payload(
         user_id=callback.from_user.id,
@@ -632,7 +652,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     if not service or not service.configured:
         return payment_unavailable()
 
-    currency = (service.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB").upper()
+    currency = ctx.currency or default_payment_currency_code_for_settings(settings)
     try:
         payment = await create_webapp_payment_record(
             ctx,
@@ -788,6 +808,18 @@ _CONFIG_MANIFEST = (
         attr="CURRENCY",
     ),
     ProviderManifestField(
+        "HELEKET_SUPPORTED_CURRENCIES",
+        "string",
+        "Supported currencies",
+        description=(
+            "Comma-separated invoice currencies allowed for Heleket in this shop. "
+            "Heleket can reject unsupported codes per account/service."
+        ),
+        placeholder=HELEKET_DEFAULT_SUPPORTED_CURRENCIES,
+        subsection="Heleket",
+        attr="SUPPORTED_CURRENCIES",
+    ),
+    ProviderManifestField(
         "HELEKET_TO_CURRENCY",
         "string",
         "Target crypto",
@@ -859,4 +891,12 @@ SPEC = PaymentProviderSpec(
     config_class=HeleketConfig,
     presentation_class=HeleketPresentation,
     manifest_fields=_CONFIG_MANIFEST + _PRESENTATION_MANIFEST,
+    supported_currencies_resolver=lambda config: getattr(
+        config, "SUPPORTED_CURRENCIES", HELEKET_DEFAULT_SUPPORTED_CURRENCIES
+    ),
+    currency_support_note=(
+        "Heleket supports crypto and fiat invoice currencies, but exact availability "
+        "can depend on service/account settings."
+    ),
+    currency_support_url="https://doc.heleket.com/methods/payments/creating-invoice",
 )

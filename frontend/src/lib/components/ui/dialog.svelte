@@ -66,7 +66,7 @@
           <X size={18} />
         </Button>
       </div>
-      <ScrollArea class="dialog-body-scroll" maxHeight="none">
+      <ScrollArea class="dialog-body-scroll scroll-area--dialog" maxHeight="none">
         <slot />
       </ScrollArea>
     </section>

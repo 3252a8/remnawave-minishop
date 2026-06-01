@@ -1061,6 +1061,15 @@ def _migration_0032_add_telegram_notification_status(connection: Connection) -> 
             connection.execute(text(f"ALTER TABLE users ADD COLUMN {column} {ddl_type}"))
 
 
+def _migration_0033_add_trial_eligibility_reset_marker(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    if "trial_eligibility_reset_at" not in columns:
+        connection.execute(
+            text("ALTER TABLE users ADD COLUMN trial_eligibility_reset_at TIMESTAMPTZ")
+        )
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -1232,6 +1241,11 @@ MIGRATIONS: List[Migration] = [
         id="0032_add_telegram_notification_status",
         description="Track whether the bot can message Telegram-linked users",
         upgrade=_migration_0032_add_telegram_notification_status,
+    ),
+    Migration(
+        id="0033_add_trial_eligibility_reset_marker",
+        description="Track admin resets of per-user trial eligibility without deleting history",
+        upgrade=_migration_0033_add_trial_eligibility_reset_marker,
     ),
 ]
 

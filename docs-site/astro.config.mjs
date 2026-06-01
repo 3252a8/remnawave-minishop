@@ -71,6 +71,7 @@ export default defineConfig({
           items: [
             { label: 'Переменные окружения', slug: 'configuration/env-vars' },
             { label: 'Безопасность', slug: 'configuration/security' },
+            { label: 'Телеметрия', slug: 'configuration/telemetry' },
           ],
         },
         {

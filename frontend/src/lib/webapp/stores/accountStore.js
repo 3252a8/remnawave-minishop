@@ -188,10 +188,17 @@ export function createAccountStore({
 
   async function requestLinkEmailCode() {
     const s = get(state);
-    if (s.linkEmailPending && s.linkEmailResendCooldown > 0) return;
     const normalized = String(s.linkEmailValue || "")
       .trim()
       .toLowerCase();
+    if (
+      s.linkEmailPending &&
+      s.linkEmailResendCooldown > 0 &&
+      (!normalized || normalized === s.linkEmailPending)
+    ) {
+      state.update((s) => ({ ...s, linkEmailOpen: true }));
+      return;
+    }
     if (!normalized || !normalized.includes("@")) {
       state.update((s) => ({ ...s, linkEmailFieldError: t("wa_auth_invalid_email") }));
       return;
@@ -251,7 +258,10 @@ export function createAccountStore({
 
   async function requestSetPasswordCode() {
     const s = get(state);
-    if (s.setPasswordPending && s.setPasswordResendCooldown > 0) return;
+    if (s.setPasswordPending && s.setPasswordResendCooldown > 0) {
+      state.update((s) => ({ ...s, setPasswordOpen: true }));
+      return;
+    }
     if (!validatePasswordDraft()) return;
     state.update((s) => ({ ...s, setPasswordBusy: true }));
     setPasswordStatus(t("wa_auth_sending_code"));

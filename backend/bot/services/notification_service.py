@@ -273,10 +273,10 @@ class NotificationService:
             return []
         rows = []
         for key, label in (
-            ("tariff", "Tariff"),
-            ("end_date", "End date"),
-            ("remaining", "Remaining"),
-            ("panel_status", "Panel status"),
+            ("tariff", "email_support_row_tariff"),
+            ("end_date", "email_support_row_end_date"),
+            ("remaining", "email_support_row_remaining"),
+            ("panel_status", "email_support_row_panel_status"),
         ):
             value = snapshot.get(key)
             if value:

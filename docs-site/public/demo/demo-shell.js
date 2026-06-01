@@ -11,6 +11,7 @@ const stateMocks = new Set([
   "devices",
   "notifications",
   "auth",
+  "emails",
 ]);
 const routeMocks = new Set([...stateMocks, "guides", "install"]);
 const params = new URLSearchParams(window.location.search);
@@ -83,6 +84,7 @@ const routeFromParams = () => {
 let initialRoute = routeFromParams();
 const mockForRoute = (route) => {
   const normalized = normalizePath(route);
+  if (normalized === "/emails") return "emails";
   if (normalized === "/devices") return "devices";
   if (normalized === "/login" || normalized.startsWith("/login/"))
     return "auth";
@@ -122,7 +124,10 @@ const canonicalizeInitialPublicUrl = (route) => {
   );
 };
 
-if (initialMock === "trial" && initialRoute === "/trial") {
+if (initialMock === "emails") {
+  initialRoute = "/emails";
+  canonicalizeInitialPublicUrl(initialRoute);
+} else if (initialMock === "trial" && initialRoute === "/trial") {
   initialRoute = "/home";
   const normalizedUrl = new URL(window.location.href);
   normalizedUrl.pathname = publicPathFromRoute(initialRoute);
@@ -134,12 +139,14 @@ if (initialMock === "trial" && initialRoute === "/trial") {
 } else {
   canonicalizeInitialPublicUrl(initialRoute);
 }
-params.set("mock", initialMock);
-params.delete("path");
-params.delete("screen");
-params.delete("admin_section");
-params.set("path", initialRoute);
-frame.src = `${runtimeBase}/app/?${params.toString()}${window.location.hash || ""}`;
+if (initialMock !== "emails") {
+  params.set("mock", initialMock);
+  params.delete("path");
+  params.delete("screen");
+  params.delete("admin_section");
+  params.set("path", initialRoute);
+  frame.src = `${runtimeBase}/app/?${params.toString()}${window.location.hash || ""}`;
+}
 
 const routeFromRuntimeUrl = (url) => {
   if (url.origin !== window.location.origin) return "";
@@ -154,6 +161,7 @@ const routeFromRuntimeUrl = (url) => {
   return runtimePath;
 };
 const routeForStateMock = (mock) => {
+  if (mock === "emails") return "/emails";
   if (mock === "devices") return "/devices";
   if (mock === "auth") return "/login";
   return "/home";
@@ -169,8 +177,18 @@ const topbar = document.querySelector(".demo-topbar");
 const toggle = document.querySelector(".demo-topbar__toggle");
 const hide = document.querySelector(".demo-topbar__hide");
 const stateSelect = document.querySelector(".demo-topbar__state-select");
+const emailPreviews = document.getElementById("email-previews");
+
+const setDemoMode = (mock) => {
+  const emailMode = mock === "emails";
+  frame.hidden = emailMode;
+  if (emailPreviews) emailPreviews.hidden = !emailMode;
+  if (emailMode) document.body.setAttribute("data-demo-mode", "emails");
+  else document.body.removeAttribute("data-demo-mode");
+};
 
 const syncParentUrlFromFrame = () => {
+  if (frame.hidden) return;
   try {
     const frameUrl = new URL(frame.contentWindow.location.href);
     const route = routeFromRuntimeUrl(frameUrl);
@@ -208,19 +226,21 @@ const setCollapsed = (collapsed) => {
 
 toggle?.addEventListener("click", () => setCollapsed(false));
 hide?.addEventListener("click", () => setCollapsed(true));
-if (stateSelect) stateSelect.value = normalizeStateMock(params.get("mock"));
+if (stateSelect) stateSelect.value = normalizeStateMock(params.get("mock") || initialMock);
+setDemoMode(initialMock);
 stateSelect?.addEventListener("change", () => {
   const mock = normalizeStateMock(stateSelect.value);
   const nextParams = new URLSearchParams(window.location.search);
   nextParams.delete("path");
   nextParams.delete("screen");
   nextParams.delete("admin_section");
-  if (mock === defaultMock) nextParams.delete("mock");
+  if (mock === defaultMock || mock === "emails") nextParams.delete("mock");
   else nextParams.set("mock", mock);
 
   const query = nextParams.toString();
   const stateRoute = routeForStateMock(mock);
   const publicUrl = `${demoBase}${stateRoute}${query ? `?${query}` : ""}`;
   window.history.replaceState(null, "", publicUrl);
-  frame.src = runtimeSrc(stateRoute, nextParams);
+  setDemoMode(mock);
+  if (mock !== "emails") frame.src = runtimeSrc(stateRoute, nextParams);
 });

@@ -1,8 +1,16 @@
 import asyncio
+from pathlib import Path
 from types import SimpleNamespace
 
+from bot.middlewares.i18n import JsonI18n
+from bot.services.email_templates import (
+    render_support_new_ticket_admin,
+    render_support_ticket_closed_user,
+)
 from bot.services.notification_service import NotificationService
 from config.settings import Settings
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _settings(**overrides):
@@ -13,6 +21,49 @@ def _settings(**overrides):
     }
     data.update(overrides)
     return Settings(_env_file=None, **data)
+
+
+def _i18n():
+    return JsonI18n(str(REPO_ROOT / "locales"), default="ru")
+
+
+def test_support_ticket_closed_email_uses_user_language():
+    content = render_support_ticket_closed_user(
+        _settings(DEFAULT_LANGUAGE="en"),
+        _i18n(),
+        "ru",
+        ticket_id=7,
+        subject="Проблема с подключением",
+        ticket_url="https://app.example.com/support/7",
+    )
+
+    assert content.subject == "Тикет #7 закрыт"
+    assert '<html lang="ru"' in content.html
+    assert "Ticket #7 was closed" not in content.text
+    assert "Тема: Проблема с подключением" in content.text
+    assert "Открыть обращение" in content.html
+
+
+def test_support_admin_email_localizes_snapshot_rows_for_recipient():
+    content = render_support_new_ticket_admin(
+        _settings(DEFAULT_LANGUAGE="en"),
+        _i18n(),
+        "ru",
+        ticket_id=11,
+        user_display="user@example.com",
+        subject="Не работает сайт",
+        body_preview="Не открывается личный кабинет",
+        snapshot_rows=[
+            ("email_support_row_tariff", "Стандарт"),
+            ("email_support_row_remaining", "3 д. 2 ч."),
+        ],
+        ticket_url="https://app.example.com/admin/support/11",
+    )
+
+    assert content.subject == "Новый тикет поддержки #11"
+    assert "Тариф: Стандарт" in content.text
+    assert "Осталось: 3 д. 2 ч." in content.text
+    assert "Tariff: Standard" not in content.text
 
 
 def test_support_ticket_url_uses_subscription_mini_app_url():

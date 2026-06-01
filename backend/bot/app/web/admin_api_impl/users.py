@@ -16,6 +16,7 @@ import hashlib
 from html import escape as html_escape
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from sqlalchemy.orm import aliased
 
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 from bot.infra.redis import cache_delete_pattern, redis_key
@@ -127,12 +128,15 @@ async def _load_admin_users_list_payload_uncached(
         active_subs = await _bulk_active_subscriptions_for_users(
             session, [u.user_id for u in users]
         )
+        payment_summaries = await _bulk_user_payment_summaries(session, [u.user_id for u in users])
+        referral_counts = await _bulk_user_referral_counts(session, [u.user_id for u in users])
 
     serialized = []
     for user in users:
         payload = _serialize_user(user)
         status_payload = statuses.get(user.user_id) or {"status": "bot_only", "end_date": None}
         payload["panel_status"] = status_payload.get("status")
+        payload["subscription_expires_at"] = status_payload.get("end_date")
         if status_payload.get("status") == "expired" and status_payload.get("end_date"):
             payload["panel_status_expired_at"] = status_payload["end_date"]
         payload["avatar_url"] = (
@@ -141,6 +145,11 @@ async def _load_admin_users_list_payload_uncached(
             else None
         )
         payload["premium_traffic"] = _premium_traffic_list_payload(active_subs.get(user.user_id))
+        payment_summary = payment_summaries.get(user.user_id) or {}
+        payload["payments_total_amount"] = float(payment_summary.get("total_amount") or 0)
+        payload["payments_count"] = int(payment_summary.get("count") or 0)
+        payload["payments_currency"] = payment_summary.get("currency")
+        payload["invited_users_count"] = int(referral_counts.get(user.user_id) or 0)
         serialized.append(payload)
 
     return {
@@ -255,6 +264,17 @@ async def _bulk_user_avatar_keys(session: AsyncSession, user_ids: List[int]) -> 
     return {int(uid): (updated_at.isoformat() if updated_at else "") for uid, updated_at in rows}
 
 
+def _serialize_admin_user_with_avatar(user: User, avatar_keys: Dict[int, str]) -> Dict[str, Any]:
+    payload = _serialize_user(user)
+    user_id = int(user.user_id)
+    payload["avatar_url"] = (
+        f"/api/admin/users/{user_id}/avatar?v={avatar_keys[user_id]}"
+        if user_id in avatar_keys
+        else None
+    )
+    return payload
+
+
 async def admin_user_avatar_route(request: web.Request) -> web.Response:
     """Serve the cached Telegram avatar for any user (admin-only).
 
@@ -353,6 +373,88 @@ async def _bulk_active_subscriptions_for_users(
     return out
 
 
+def _user_payment_summary_sq():
+    return (
+        select(
+            Payment.user_id.label("user_id"),
+            sa_func.coalesce(sa_func.sum(Payment.amount), 0.0).label("payments_total_amount"),
+            sa_func.count(Payment.payment_id).label("payments_count"),
+        )
+        .where(Payment.status == "succeeded")
+        .group_by(Payment.user_id)
+        .subquery(name="user_payment_summary")
+    )
+
+
+def _user_referral_count_sq():
+    referred_user = aliased(User)
+    return (
+        select(
+            referred_user.referred_by_id.label("user_id"),
+            sa_func.count(referred_user.user_id).label("invited_users_count"),
+        )
+        .where(referred_user.referred_by_id.is_not(None))
+        .group_by(referred_user.referred_by_id)
+        .subquery(name="user_referral_count")
+    )
+
+
+def _user_subscription_expiry_sq():
+    return (
+        select(
+            Subscription.user_id.label("user_id"),
+            sa_func.max(Subscription.end_date).label("subscription_expires_at"),
+        )
+        .group_by(Subscription.user_id)
+        .subquery(name="user_subscription_expiry")
+    )
+
+
+async def _bulk_user_payment_summaries(
+    session: AsyncSession,
+    user_ids: List[int],
+) -> Dict[int, Dict[str, Any]]:
+    if not user_ids:
+        return {}
+
+    stmt = (
+        select(
+            Payment.user_id,
+            sa_func.coalesce(sa_func.sum(Payment.amount), 0.0),
+            sa_func.count(Payment.payment_id),
+            sa_func.max(Payment.currency),
+        )
+        .where(Payment.user_id.in_(user_ids), Payment.status == "succeeded")
+        .group_by(Payment.user_id)
+    )
+    rows = (await session.execute(stmt)).all()
+    return {
+        int(user_id): {
+            "total_amount": float(total_amount or 0),
+            "count": int(payments_count or 0),
+            "currency": currency,
+        }
+        for user_id, total_amount, payments_count, currency in rows
+    }
+
+
+async def _bulk_user_referral_counts(
+    session: AsyncSession,
+    user_ids: List[int],
+) -> Dict[int, int]:
+    if not user_ids:
+        return {}
+
+    referred_user = aliased(User)
+    stmt = (
+        select(referred_user.referred_by_id, sa_func.count(referred_user.user_id))
+        .where(referred_user.referred_by_id.in_(user_ids))
+        .group_by(referred_user.referred_by_id)
+    )
+    rows = (await session.execute(stmt)).all()
+    return {int(user_id): int(count or 0) for user_id, count in rows}
+
+
 async def _filter_and_sort_users(
     session: AsyncSession,
     *,
@@ -381,6 +483,13 @@ async def _filter_and_sort_users(
     ratio_expr = None
     plim_expr = None
     pu_expr = None
+    payment_summary_sq = None
+    payment_total_expr = None
+    payment_count_expr = None
+    referral_count_sq = None
+    referral_count_expr = None
+    subscription_expiry_sq = None
+    subscription_expires_expr = None
 
     if needs_premium_sq:
         sq = _ranked_active_subscriptions_sq(now)
@@ -400,6 +509,42 @@ async def _filter_and_sort_users(
             (plim_expr <= 0, None),
             else_=cast(pu_expr, Float) / cast(plim_expr, Float),
         )
+
+    if sort_key in {
+        "payments_total_asc",
+        "payments_total_desc",
+        "payments_count_asc",
+        "payments_count_desc",
+    }:
+        payment_summary_sq = _user_payment_summary_sq()
+        stmt = stmt.outerjoin(payment_summary_sq, User.user_id == payment_summary_sq.c.user_id)
+        count_stmt = count_stmt.outerjoin(
+            payment_summary_sq,
+            User.user_id == payment_summary_sq.c.user_id,
+        )
+        payment_total_expr = sa_func.coalesce(payment_summary_sq.c.payments_total_amount, 0.0)
+        payment_count_expr = sa_func.coalesce(payment_summary_sq.c.payments_count, 0)
+
+    if sort_key in {"invited_users_count_asc", "invited_users_count_desc"}:
+        referral_count_sq = _user_referral_count_sq()
+        stmt = stmt.outerjoin(referral_count_sq, User.user_id == referral_count_sq.c.user_id)
+        count_stmt = count_stmt.outerjoin(
+            referral_count_sq,
+            User.user_id == referral_count_sq.c.user_id,
+        )
+        referral_count_expr = sa_func.coalesce(referral_count_sq.c.invited_users_count, 0)
+
+    if sort_key in {"subscription_expires_at_asc", "subscription_expires_at_desc"}:
+        subscription_expiry_sq = _user_subscription_expiry_sq()
+        stmt = stmt.outerjoin(
+            subscription_expiry_sq,
+            User.user_id == subscription_expiry_sq.c.user_id,
+        )
+        count_stmt = count_stmt.outerjoin(
+            subscription_expiry_sq,
+            User.user_id == subscription_expiry_sq.c.user_id,
+        )
+        subscription_expires_expr = subscription_expiry_sq.c.subscription_expires_at
 
     search_cond = _user_search_condition(query)
     if search_cond is not None:
@@ -499,6 +644,22 @@ async def _filter_and_sort_users(
         stmt = stmt.order_by(ratio_expr.asc().nullslast(), User.user_id.asc())
     elif needs_premium_sq and ratio_expr is not None and sort_key == "premium_ratio_desc":
         stmt = stmt.order_by(ratio_expr.desc().nullslast(), User.user_id.desc())
+    elif payment_total_expr is not None and sort_key == "payments_total_asc":
+        stmt = stmt.order_by(payment_total_expr.asc(), User.user_id.asc())
+    elif payment_total_expr is not None and sort_key == "payments_total_desc":
+        stmt = stmt.order_by(payment_total_expr.desc(), User.user_id.desc())
+    elif payment_count_expr is not None and sort_key == "payments_count_asc":
+        stmt = stmt.order_by(payment_count_expr.asc(), User.user_id.asc())
+    elif payment_count_expr is not None and sort_key == "payments_count_desc":
+        stmt = stmt.order_by(payment_count_expr.desc(), User.user_id.desc())
+    elif referral_count_expr is not None and sort_key == "invited_users_count_asc":
+        stmt = stmt.order_by(referral_count_expr.asc(), User.user_id.asc())
+    elif referral_count_expr is not None and sort_key == "invited_users_count_desc":
+        stmt = stmt.order_by(referral_count_expr.desc(), User.user_id.desc())
+    elif subscription_expires_expr is not None and sort_key == "subscription_expires_at_asc":
+        stmt = stmt.order_by(subscription_expires_expr.asc().nullslast(), User.user_id.asc())
+    elif subscription_expires_expr is not None and sort_key == "subscription_expires_at_desc":
+        stmt = stmt.order_by(subscription_expires_expr.desc().nullslast(), User.user_id.desc())
     else:
         order = sort_map.get(sort_key, sort_map["registered_desc"])
         if isinstance(order, tuple):
@@ -527,9 +688,34 @@ def _user_panel_status_condition(panel_status: str):
             normalized_status == "active", blank_status & Subscription.is_active.is_(True)
         )
     elif status == "expired":
-        status_cond = or_(
-            normalized_status == "expired", blank_status & Subscription.is_active.is_(False)
+        now = datetime.now(timezone.utc)
+        expired_subs = aliased(Subscription)
+        active_subs = aliased(Subscription)
+        expired_status = sa_func.lower(sa_func.coalesce(expired_subs.status_from_panel, ""))
+        expired_blank_status = or_(
+            expired_subs.status_from_panel.is_(None),
+            expired_subs.status_from_panel == "",
         )
+        expired_condition = or_(
+            expired_status == "expired",
+            expired_blank_status & expired_subs.is_active.is_(False),
+            expired_subs.end_date <= now,
+        )
+        expired_exists = (
+            select(expired_subs.subscription_id)
+            .where(expired_subs.user_id == User.user_id, expired_condition)
+            .exists()
+        )
+        active_exists = (
+            select(active_subs.subscription_id)
+            .where(
+                active_subs.user_id == User.user_id,
+                active_subs.is_active.is_(True),
+                active_subs.end_date > now,
+            )
+            .exists()
+        )
+        return and_(expired_exists, ~active_exists)
     else:
         status_cond = normalized_status == "limited"
 
@@ -587,7 +773,12 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
         )
         recent_payments = (await session.execute(recent_payments_stmt)).scalars().all()
         log_count = await message_log_dal.count_user_message_logs(session, target_id)
-        avatar_keys = await _bulk_user_avatar_keys(session, [target_id])
+        inviter = await user_dal.get_referrer_for_user(session, user)
+        invitees_total = await user_dal.count_users_referred_by(session, target_id)
+        avatar_user_ids = [target_id]
+        if inviter is not None:
+            avatar_user_ids.append(int(inviter.user_id))
+        avatar_keys = await _bulk_user_avatar_keys(session, avatar_user_ids)
 
         # Referral links — both the bot deep-link and the webapp deep-link.
         referral_code: Optional[str] = None
@@ -635,11 +826,9 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
                     exc_panel,
                 )
 
-    serialized_user = _serialize_user(user)
-    serialized_user["avatar_url"] = (
-        f"/api/admin/users/{target_id}/avatar?v={avatar_keys[target_id]}"
-        if target_id in avatar_keys
-        else None
+    serialized_user = _serialize_admin_user_with_avatar(user, avatar_keys)
+    serialized_inviter = (
+        _serialize_admin_user_with_avatar(inviter, avatar_keys) if inviter is not None else None
     )
 
     return _ok(
@@ -655,7 +844,50 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
                 "code": referral_code,
                 "bot_link": referral_bot_link,
                 "webapp_link": referral_webapp_link,
+                "inviter": serialized_inviter,
+                "invitees_total": int(invitees_total or 0),
             },
+        }
+    )
+
+
+async def admin_user_referrals_route(request: web.Request) -> web.Response:
+    _require_admin_user_id(request)
+    target_id = int(request.match_info["user_id"])
+    page = max(0, int(request.query.get("page", 0) or 0))
+    page_size = min(100, max(1, int(request.query.get("page_size", 25) or 25)))
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+
+    async with async_session_factory() as session:
+        user = await user_dal.get_user_by_id(session, target_id)
+        if not user:
+            return _error(404, "not_found", "User not found")
+
+        inviter = await user_dal.get_referrer_for_user(session, user)
+        invitees_total = await user_dal.count_users_referred_by(session, target_id)
+        invitees = await user_dal.get_users_referred_by(
+            session,
+            target_id,
+            limit=page_size,
+            offset=page * page_size,
+        )
+        avatar_user_ids = [target_id, *(int(u.user_id) for u in invitees)]
+        if inviter is not None:
+            avatar_user_ids.append(int(inviter.user_id))
+        avatar_keys = await _bulk_user_avatar_keys(session, avatar_user_ids)
+
+    return _ok(
+        {
+            "user": _serialize_admin_user_with_avatar(user, avatar_keys),
+            "inviter": _serialize_admin_user_with_avatar(inviter, avatar_keys)
+            if inviter is not None
+            else None,
+            "invitees": [
+                _serialize_admin_user_with_avatar(invitee, avatar_keys) for invitee in invitees
+            ],
+            "total": int(invitees_total or 0),
+            "page": page,
+            "page_size": page_size,
         }
     )
 
@@ -940,10 +1172,6 @@ async def admin_user_reset_trial_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
     settings: Settings = request.app["settings"]
-    panel_service = request.app.get("panel_service")
-    subscription_service = request.app.get("subscription_service")
-    if panel_service is None or subscription_service is None:
-        return _error(503, "service_unavailable")
 
     async_session_factory: sessionmaker = request.app["async_session_factory"]
     async with async_session_factory() as session:
@@ -951,16 +1179,17 @@ async def admin_user_reset_trial_route(request: web.Request) -> web.Response:
         if not user:
             return _error(404, "not_found")
 
-        active = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
-        if active:
-            await session.delete(active)
+        reset_at = await user_dal.mark_trial_eligibility_reset(session, target_id)
+        if reset_at is None:
+            await session.rollback()
+            return _error(404, "not_found")
 
-        await message_log_dal.create_message_log(
+        await message_log_dal.create_message_log_no_commit(
             session,
             {
                 "user_id": actor_id,
                 "event_type": "admin_reset_trial_webapp",
-                "content": f"Reset trial for user_id={target_id}",
+                "content": f"Reset trial eligibility for user_id={target_id}",
                 "is_admin_event": True,
                 "target_user_id": target_id,
             },
@@ -1031,7 +1260,7 @@ async def admin_user_premium_override_route(request: web.Request) -> web.Respons
 
 
 async def admin_user_regular_traffic_override_route(request: web.Request) -> web.Response:
-    """Main (regular) traffic: unlimited-style ceiling + admin bonus GB."""
+    """Main (regular) traffic: native unlimited panel limit + admin bonus GB."""
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
     settings: Settings = request.app["settings"]

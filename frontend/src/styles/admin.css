@@ -2760,15 +2760,6 @@
   max-height: min(100%, 760px);
 }
 
-.admin-user-dialog .dialog-body-scroll {
-  margin-right: -10px;
-  padding-right: 10px;
-}
-
-.admin-user-dialog .dialog-body-scroll > .scroll-area__viewport {
-  padding-right: 10px;
-}
-
 .admin-user-dialog-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -3134,6 +3125,169 @@
   }
 }
 
+.admin-tariff-management {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-tariff-overview-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-tariff-overview-grid > .admin-card {
+  min-width: 0;
+}
+
+@media (min-width: 980px) {
+  .admin-tariff-overview-grid {
+    grid-template-columns: minmax(260px, 0.82fr) minmax(0, 1.6fr);
+    align-items: stretch;
+  }
+}
+
+.admin-tariff-panel-head > div,
+.admin-tariff-list-head > div {
+  min-width: 0;
+}
+
+.admin-tariff-panel-head small,
+.admin-tariff-list-head small {
+  max-width: 72ch;
+}
+
+.admin-tariff-path {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 6px;
+  overflow: hidden;
+  color: var(--admin-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-tariff-currency-body {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.admin-tariff-currency-current {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface-2);
+}
+
+.admin-tariff-currency-current span {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-tariff-currency-current strong {
+  color: var(--admin-text);
+  font-family: var(--font-mono);
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.admin-tariff-catalog-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.admin-tariff-currency-field {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.admin-tariff-currency-field > span {
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.admin-currency-input {
+  width: 100%;
+  max-width: 160px;
+  text-transform: uppercase;
+}
+
+.admin-provider-summary {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-provider-currency-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.admin-provider-currency {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface-2);
+}
+
+.admin-provider-currency.is-supported {
+  border-color: color-mix(in srgb, var(--success-border) 70%, var(--admin-border));
+}
+
+.admin-provider-currency.is-unavailable {
+  opacity: 0.74;
+}
+
+.admin-provider-currency-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-provider-currency-main strong,
+.admin-provider-currency-main small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-provider-currency-main strong {
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-provider-currency-main small {
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+
+.admin-provider-currency > .admin-badge {
+  flex: 0 0 auto;
+}
+
 .admin-tariff-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -3154,6 +3308,7 @@
 
 .admin-tariff-card {
   display: grid;
+  align-content: start;
   gap: 12px;
   min-width: 0;
   border: 1px solid var(--admin-border);
@@ -3177,6 +3332,11 @@
 
 .admin-tariff-top {
   justify-content: space-between;
+  min-width: 0;
+}
+
+.admin-tariff-top > div {
+  min-width: 0;
 }
 
 .admin-tariff-title {
@@ -3213,9 +3373,7 @@
 
 .admin-tariff-facts span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .admin-tariff-actions {
@@ -3447,6 +3605,15 @@
     transform: translateX(0);
   }
 
+  .admin-screen-wrap.is-admin-language-open .admin-sidebar {
+    z-index: 120;
+    pointer-events: none;
+  }
+
+  .admin-screen-wrap.is-admin-language-open .admin-language-switch {
+    pointer-events: auto;
+  }
+
   .admin-sidebar-backdrop {
     position: fixed;
     inset: 0;
@@ -3559,6 +3726,33 @@
     padding: 14px;
   }
 
+  .admin-tariff-panel-head,
+  .admin-tariff-list-head {
+    gap: 10px;
+  }
+
+  .admin-provider-summary {
+    justify-content: flex-start;
+  }
+
+  .admin-tariff-catalog-bar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-currency-input {
+    max-width: none;
+  }
+
+  .admin-provider-currency {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-provider-currency-main strong,
+  .admin-provider-currency-main small {
+    white-space: normal;
+  }
+
   .admin-tariff-card {
     padding: 12px;
   }
@@ -3571,12 +3765,18 @@
     display: none;
   }
 
+  .admin-tariff-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .admin-tariff-actions .admin-btn {
-    flex: 1 1 calc(50% - 4px);
+    width: 100%;
+    min-width: 0;
   }
 
   .admin-tariff-actions .admin-btn[aria-label] {
-    flex: 0 0 auto;
+    width: 100%;
   }
 
   /* (legacy three-row user-row layout removed in favour of the compact
@@ -3854,6 +4054,7 @@
 .admin-select-content {
   z-index: 90;
   min-width: var(--bits-select-anchor-width);
+  max-width: calc(100vw - 24px);
   max-height: var(--bits-select-content-available-height, 320px);
   overflow: hidden;
   border: 1px solid var(--admin-border);
@@ -3905,6 +4106,13 @@
   cursor: pointer;
   outline: none;
   user-select: none;
+}
+
+.admin-select-item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-select-item[data-highlighted],

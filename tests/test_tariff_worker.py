@@ -34,6 +34,31 @@ def _tariffs_config_payload() -> dict:
 
 
 class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
+    def test_topup_webapp_button_labels_do_not_mention_mini_app(self):
+        class I18n:
+            def gettext(self, _lang, key, **_kwargs):
+                return {
+                    "traffic_warn_btn_topup_webapp_regular": "Top up traffic",
+                    "traffic_warn_btn_topup_webapp_premium": "Top up premium traffic",
+                }.get(key, key)
+
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(SUBSCRIPTION_MINI_APP_URL="https://app.example.com"),
+            session_factory=SimpleNamespace(),
+            panel_service=SimpleNamespace(),
+            subscription_service=SimpleNamespace(),
+            bot=SimpleNamespace(),
+            i18n=I18n(),
+        )
+
+        regular = worker._traffic_topup_markup("en", "regular").inline_keyboard[0][0]
+        premium = worker._traffic_topup_markup("en", "premium").inline_keyboard[0][0]
+
+        self.assertEqual(regular.text, "Top up traffic")
+        self.assertEqual(regular.web_app.url, "https://app.example.com?topup=regular")
+        self.assertEqual(premium.text, "Top up premium traffic")
+        self.assertEqual(premium.web_app.url, "https://app.example.com?topup=premium")
+
     async def test_db_tick_retries_deadlock_once(self):
         class FakeSession:
             def __init__(self):

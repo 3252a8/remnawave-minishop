@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload, sessionmaker
 from bot.infra.redis import redis_lock
 from bot.keyboards.inline.user_keyboards import get_subscribe_only_markup
 from bot.middlewares.i18n import JsonI18n
+from bot.services.message_audit import log_user_message_delivery
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_lifecycle_notifications import (
     SubscriptionLifecycleNotificationService,
@@ -331,6 +332,17 @@ class SubscriptionNotificationWorker:
                     parse_mode="HTML",
                 )
                 telegram_sent = True
+                await log_user_message_delivery(
+                    session,
+                    target_user_id=user_id,
+                    event_type="telegram_traffic_warning_sent",
+                    channel="telegram",
+                    recipient=str(telegram_chat_id),
+                    content=(
+                        "kind=trial warning_key=trial_traffic_depleted "
+                        f"used_bytes={used} limit_bytes={limit}"
+                    ),
+                )
             except Exception as exc:
                 status = telegram_notification_status_from_error(exc)
                 if status and user and user_id:
@@ -355,6 +367,12 @@ class SubscriptionNotificationWorker:
                 subject_key="email_trial_traffic_depleted_subject",
                 message_text=message_text,
                 dashboard_url=(getattr(self.settings, "SUBSCRIPTION_MINI_APP_URL", "") or None),
+                session=session,
+                audit_event_type="email_traffic_warning_sent",
+                audit_content=(
+                    "kind=trial warning_key=trial_traffic_depleted "
+                    f"used_bytes={used} limit_bytes={limit}"
+                ),
             )
         return {"telegram": telegram_sent, "email": email_sent}
 

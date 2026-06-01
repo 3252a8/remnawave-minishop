@@ -1,9 +1,12 @@
 import logging
 from typing import Any, Optional
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from bot.middlewares.i18n import JsonI18n
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.email_templates import render_user_notification
+from bot.services.message_audit import log_user_message_delivery
 from config.settings import Settings
 
 
@@ -34,6 +37,9 @@ async def send_user_notification_email(
     subject_kwargs: Optional[dict[str, Any]] = None,
     heading_key: Optional[str] = None,
     intro_key: Optional[str] = None,
+    session: Optional[AsyncSession] = None,
+    audit_event_type: Optional[str] = None,
+    audit_content: Optional[str] = None,
 ) -> bool:
     if not getattr(settings, "email_auth_configured", False):
         return False
@@ -78,6 +84,15 @@ async def send_user_notification_email(
             email=recipient,
             content=content,
         )
+        if session is not None and audit_event_type:
+            await log_user_message_delivery(
+                session,
+                target_user_id=getattr(user, "user_id", None),
+                event_type=audit_event_type,
+                channel="email",
+                recipient=recipient,
+                content=audit_content or f"subject_key={subject_key}",
+            )
         return True
     except Exception:
         logging.exception("Failed to send user notification email to %s.", recipient)

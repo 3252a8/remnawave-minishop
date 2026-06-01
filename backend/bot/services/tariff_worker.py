@@ -13,6 +13,7 @@ from sqlalchemy.orm import sessionmaker
 
 from bot.infra.redis import redis_lock
 from bot.middlewares.i18n import JsonI18n
+from bot.services.message_audit import log_user_message_delivery
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service import SubscriptionService
 from bot.services.user_email_notifications import send_user_notification_email
@@ -111,6 +112,8 @@ class TariffTrafficWorker:
         subject_key: str,
         message_text: str,
         kind: str,
+        warning_key: str,
+        audit_content: str,
     ) -> None:
         try:
             user = await user_dal.get_user_by_id(session, user_id)
@@ -131,6 +134,9 @@ class TariffTrafficWorker:
                 if kind == "premium"
                 else "email_traffic_warning_regular_cta"
             ),
+            session=session,
+            audit_event_type="email_traffic_warning_sent",
+            audit_content=f"{audit_content} subject_key={subject_key} warning_key={warning_key}",
         )
 
     async def run(self) -> None:
@@ -602,6 +608,15 @@ class TariffTrafficWorker:
                     **usage,
                 )
                 subject_key = "email_traffic_warning_regular_depleted_subject"
+            warning_key = (
+                "traffic_warning_regular_almost"
+                if level < 100
+                else "traffic_warning_regular_depleted"
+            )
+            audit_content = (
+                f"kind=regular warning_key={warning_key} level={level} "
+                f"used_bytes={used_val} limit_bytes={limit_val}"
+            )
             if self.bot:
                 try:
                     markup = self._traffic_topup_markup(user_lang, "regular")
@@ -611,6 +626,14 @@ class TariffTrafficWorker:
                         reply_markup=markup,
                         parse_mode="HTML",
                     )
+                    await log_user_message_delivery(
+                        session,
+                        target_user_id=sub.user_id,
+                        event_type="telegram_traffic_warning_sent",
+                        channel="telegram",
+                        recipient=str(sub.user_id),
+                        content=audit_content,
+                    )
                 except Exception:
                     logging.exception("Failed to send traffic warning to user %s", sub.user_id)
             await self._send_traffic_warning_email(
@@ -619,6 +642,8 @@ class TariffTrafficWorker:
                 subject_key=subject_key,
                 message_text=text,
                 kind="regular",
+                warning_key=warning_key,
+                audit_content=audit_content,
             )
         if ratio >= 1.0 and not sub.is_throttled:
             logging.info(
@@ -1066,6 +1091,11 @@ class TariffTrafficWorker:
                 servers=servers,
                 **usage,
             )
+            warning_key = "traffic_warning_premium_depleted"
+            audit_content = (
+                f"kind=premium warning_key={warning_key} "
+                f"used_bytes={used_val} limit_bytes={limit_val}"
+            )
             if self.bot:
                 try:
                     markup = self._traffic_topup_markup(user_lang, "premium")
@@ -1074,6 +1104,14 @@ class TariffTrafficWorker:
                         text,
                         reply_markup=markup,
                         parse_mode="HTML",
+                    )
+                    await log_user_message_delivery(
+                        session,
+                        target_user_id=sub.user_id,
+                        event_type="telegram_traffic_warning_sent",
+                        channel="telegram",
+                        recipient=str(sub.user_id),
+                        content=audit_content,
                     )
                 except Exception:
                     logging.exception(
@@ -1085,6 +1123,8 @@ class TariffTrafficWorker:
                 subject_key="email_traffic_warning_premium_depleted_subject",
                 message_text=text,
                 kind="premium",
+                warning_key=warning_key,
+                audit_content=audit_content,
             )
             return
 
@@ -1134,6 +1174,11 @@ class TariffTrafficWorker:
                 servers=servers,
                 **usage,
             )
+            warning_key = "traffic_warning_premium_almost"
+            audit_content = (
+                f"kind=premium warning_key={warning_key} level={int(level)} "
+                f"used_bytes={used_val} limit_bytes={limit_val}"
+            )
             if self.bot:
                 try:
                     markup = self._traffic_topup_markup(user_lang, "premium")
@@ -1142,6 +1187,14 @@ class TariffTrafficWorker:
                         text,
                         reply_markup=markup,
                         parse_mode="HTML",
+                    )
+                    await log_user_message_delivery(
+                        session,
+                        target_user_id=sub.user_id,
+                        event_type="telegram_traffic_warning_sent",
+                        channel="telegram",
+                        recipient=str(sub.user_id),
+                        content=audit_content,
                     )
                 except Exception:
                     logging.exception(
@@ -1153,6 +1206,8 @@ class TariffTrafficWorker:
                 subject_key="email_traffic_warning_premium_almost_subject",
                 message_text=text,
                 kind="premium",
+                warning_key=warning_key,
+                audit_content=audit_content,
             )
 
     async def _premium_node_uuids_for_tariff(self, tariff) -> list[str]:

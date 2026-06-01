@@ -23,6 +23,7 @@
     Trash2,
     UserMinus,
     UserPlus,
+    UsersRound,
   } from "$components/ui/icons.js";
   import { getContext } from "svelte";
 
@@ -63,6 +64,12 @@
     userDeleteOpen,
     userBanConfirmOpen,
     userMessageConfirmOpen,
+    userReferralsOpen,
+    userReferralsLoading,
+    userReferrals,
+    userReferralsTotal,
+    userReferralsPage,
+    userReferralsPageSize,
     premiumUnlimitedDraft,
     userDetailTab,
     userLogs,
@@ -75,8 +82,13 @@
 
   $: userLogsHasMore =
     Number(userLogsTotal || 0) > (Number(userLogsPage || 0) + 1) * Number(userLogsPageSize || 20);
+  $: userReferralsHasMore =
+    Number(userReferralsTotal || 0) >
+    (Number(userReferralsPage || 0) + 1) * Number(userReferralsPageSize || 25);
 
   $: openedUserAvatarUrl = openedUser ? resolvedAvatarUrl(openedUser) : "";
+  $: referralInviter = openedUserDetail?.referral?.inviter || null;
+  $: referralInviteesTotal = Number(openedUserDetail?.referral?.invitees_total || 0);
   $: openedUserTelegramProfileLink = openedUser ? userTelegramProfileLink(openedUser) : "";
   $: openedUserTelegramProfileLinkKind = openedUser ? userTelegramProfileLinkKind(openedUser) : "";
   $: openedUserTelegramProfileHint =
@@ -118,6 +130,12 @@
       return;
     }
     openTelegramProfileLink(openedUserTelegramProfileLink);
+  }
+
+  function openRelatedUser(user) {
+    if (!user?.user_id) return;
+    usersStore.closeUserReferrals();
+    usersStore.openUser(user);
   }
 </script>
 
@@ -224,6 +242,41 @@
                   openedUserDetail.user?.referral_code ||
                   "—"}</strong
               >
+            </li>
+            <li class="admin-user-ref-row">
+              <span>{at("user_label_invited_by", {}, "Пригласил")}</span>
+              <strong class="admin-user-ref-value">
+                {#if referralInviter}
+                  <span>{userDisplayName(referralInviter)}</span>
+                  <small>ID {referralInviter.user_id}</small>
+                {:else}
+                  <span>{at("user_invited_by_none", {}, "—")}</span>
+                {/if}
+              </strong>
+              {#if referralInviter}
+                <AdminButton
+                  size="icon"
+                  variant="icon"
+                  title={at("user_open_related", {}, "Открыть карточку")}
+                  aria-label={at("user_open_related", {}, "Открыть карточку")}
+                  onclick={() => openRelatedUser(referralInviter)}
+                >
+                  <ExternalLink size={14} />
+                </AdminButton>
+              {/if}
+            </li>
+            <li class="admin-user-ref-row">
+              <span>{at("user_label_invited_users", {}, "Приглашённые")}</span>
+              <strong>{referralInviteesTotal}</strong>
+              <AdminButton
+                size="sm"
+                variant="ghost"
+                disabled={referralInviteesTotal <= 0}
+                onclick={() => usersStore.openUserReferrals(0)}
+              >
+                <UsersRound size={14} />
+                {at("user_invitees_open", {}, "Показать")}
+              </AdminButton>
             </li>
           </ul>
 
@@ -935,6 +988,101 @@
 </Dialog>
 
 <Dialog
+  open={userReferralsOpen}
+  title={at("user_invitees_title", {}, "Приглашённые пользователи")}
+  description={openedUser
+    ? at(
+        "user_invitees_description",
+        { name: userDisplayName(openedUser), count: userReferralsTotal },
+        `${userDisplayName(openedUser)} · ${userReferralsTotal}`
+      )
+    : ""}
+  closeLabel={at("close", {}, "Закрыть")}
+  onclose={usersStore.closeUserReferrals}
+  class="admin-dialog admin-user-referrals-dialog"
+>
+  <div class="admin-user-referrals-body">
+    {#if userReferralsLoading}
+      <AdminTableSkeleton
+        headers={[
+          at("user_col_user", {}, "Пользователь"),
+          "ID",
+          at("user_label_registration", {}, "Регистрация"),
+          "",
+        ]}
+        rows={5}
+        widths={["42%", "18%", "26%", "14%"]}
+      />
+    {:else if !userReferrals.length}
+      <AdminEmptyState tone="card">
+        <span class="admin-muted"
+          >{at("user_invitees_empty", {}, "Пользователь пока никого не пригласил")}</span
+        >
+      </AdminEmptyState>
+    {:else}
+      <ScrollArea class="admin-user-referrals-table-wrap" maxHeight="min(55vh, 460px)">
+        <AdminTable class="admin-user-referrals-table">
+          <thead>
+            <tr>
+              <th>{at("user_col_user", {}, "Пользователь")}</th>
+              <th>ID</th>
+              <th>{at("user_label_registration", {}, "Регистрация")}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each userReferrals as invitee (invitee.user_id)}
+              <tr>
+                <td data-label={at("user_col_user", {}, "Пользователь")}>
+                  <span class="admin-referral-user-cell">
+                    <strong>{userDisplayName(invitee)}</strong>
+                    <small>{userSecondaryName(invitee)}</small>
+                  </span>
+                </td>
+                <td class="admin-cell-mono" data-label="ID">{invitee.user_id}</td>
+                <td data-label={at("user_label_registration", {}, "Регистрация")}>
+                  {fmtDateShort(invitee.registration_date)}
+                </td>
+                <td class="admin-referral-user-actions">
+                  <AdminButton
+                    size="icon"
+                    variant="icon"
+                    title={at("user_open_related", {}, "Открыть карточку")}
+                    aria-label={at("user_open_related", {}, "Открыть карточку")}
+                    onclick={() => openRelatedUser(invitee)}
+                  >
+                    <ExternalLink size={14} />
+                  </AdminButton>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </AdminTable>
+      </ScrollArea>
+    {/if}
+
+    {#if userReferralsTotal > userReferralsPageSize}
+      <AdminPagination
+        meta={at(
+          "pagination_meta",
+          {
+            current: userReferralsPage + 1,
+            total: Math.max(1, Math.ceil(userReferralsTotal / userReferralsPageSize)),
+          },
+          `${userReferralsPage + 1}/${Math.max(1, Math.ceil(userReferralsTotal / userReferralsPageSize))}`
+        )}
+        prevLabel={at("prev_page", {}, "Назад")}
+        nextLabel={at("next_page", {}, "Вперёд")}
+        prevDisabled={userReferralsLoading || userReferralsPage <= 0}
+        nextDisabled={userReferralsLoading || !userReferralsHasMore}
+        onPrev={() => usersStore.setUserReferralsPage(userReferralsPage - 1)}
+        onNext={() => usersStore.setUserReferralsPage(userReferralsPage + 1)}
+      />
+    {/if}
+  </div>
+</Dialog>
+
+<Dialog
   open={avatarPreviewOpen}
   title={avatarPreviewName || at("user_avatar_title", {}, "Аватар")}
   closeLabel={at("close", {}, "Закрыть")}
@@ -1158,6 +1306,62 @@
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 6px;
+  }
+  .admin-user-ref-row {
+    grid-template-columns: 130px minmax(0, 1fr) auto;
+    align-items: center;
+  }
+  .admin-user-ref-row :global(.admin-btn) {
+    flex: 0 0 auto;
+  }
+  .admin-user-ref-value {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+  .admin-user-ref-value small {
+    color: var(--admin-muted);
+    font-size: 11px;
+    font-weight: 500;
+  }
+  :global(.admin-user-referrals-dialog) {
+    width: min(760px, calc(100vw - 28px));
+    max-height: min(760px, calc(100dvh - 28px));
+  }
+  .admin-user-referrals-body {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+  }
+  :global(.admin-user-referrals-table-wrap) {
+    min-height: 120px;
+  }
+  .admin-referral-user-cell {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+  .admin-referral-user-cell strong {
+    color: var(--admin-text);
+    font-weight: 650;
+    word-break: break-word;
+  }
+  .admin-referral-user-cell small {
+    color: var(--admin-muted);
+    font-size: 12px;
+    word-break: break-word;
+  }
+  .admin-referral-user-actions {
+    text-align: right;
+  }
+  @media (max-width: 560px) {
+    .admin-user-ref-row {
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 4px 8px;
+    }
+    .admin-user-ref-row > span {
+      grid-column: 1 / -1;
+    }
   }
   :global(.admin-avatar-dialog) {
     display: grid;

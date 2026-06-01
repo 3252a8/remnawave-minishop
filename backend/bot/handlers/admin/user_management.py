@@ -27,6 +27,7 @@ from bot.utils.text_sanitizer import (
     username_for_display,
 )
 from config.settings import Settings
+from config.tariffs_config import default_payment_currency_code_for_settings
 from db.dal import message_log_dal, subscription_dal, user_dal
 from db.models import User
 
@@ -86,6 +87,31 @@ async def _find_user_by_admin_input(
     if USERNAME_REGEX.match(input_text):
         return await user_dal.get_user_by_username(session, input_text)
     return None
+
+
+def _admin_user_reference_label(
+    user: Optional[User], fallback_user_id: Optional[int] = None
+) -> str:
+    if user is None:
+        return f"ID {fallback_user_id}" if fallback_user_id is not None else "N/A"
+
+    first_name = sanitize_display_name(user.first_name) if user.first_name else ""
+    last_name = sanitize_display_name(user.last_name) if user.last_name else ""
+    full_name = f"{first_name} {last_name}".strip()
+    if full_name:
+        label = full_name
+    elif user.username:
+        label = username_for_display(user.username, with_at=True)
+    elif user.email:
+        label = user.email
+    else:
+        label = f"ID {user.user_id}"
+    return f"{label} · ID {user.user_id}"
+
+
+def _admin_user_button_label(user: User) -> str:
+    label = _admin_user_reference_label(user)
+    return label[:64]
 
 
 async def users_list_handler(
@@ -195,7 +221,13 @@ def get_user_card_keyboard(
         text=_(key="admin_user_refresh_button"), callback_data=f"user_action:refresh:{user_id}"
     )
 
-    # Row 3b: Premium override + traffic grant
+    # Row 3b: Referral details
+    builder.button(
+        text=_(key="admin_user_invitees_button"),
+        callback_data=f"user_action:invitees:{user_id}:0",
+    )
+
+    # Row 4: Premium override + traffic grant
     builder.button(
         text=_(key="admin_user_premium_override_button"),
         callback_data=f"user_action:premium_override:{user_id}",
@@ -229,9 +261,9 @@ def get_user_card_keyboard(
 
     quick_links_count = (1 if has_self_link else 0) + (1 if has_referrer_link else 0)
     if quick_links_count == 0:
-        builder.adjust(2, 2, 2, 2, 1, 2)
+        builder.adjust(2, 2, 2, 1, 2, 1, 2)
     else:
-        builder.adjust(2, 2, 2, 2, quick_links_count, 1, 2)
+        builder.adjust(2, 2, 2, 1, 2, quick_links_count, 1, 2)
     return builder
 
 
@@ -314,7 +346,11 @@ async def format_user_card(
 
     # Referral info
     if user.referred_by_id:
-        card_parts.append(f"{_('admin_user_referral_label')} {hcode(str(user.referred_by_id))}")
+        referrer = await user_dal.get_referrer_for_user(session, user)
+        card_parts.append(
+            f"{_('admin_user_invited_by_label')} "
+            f"{hcode(_admin_user_reference_label(referrer, user.referred_by_id))}"
+        )
 
     # Panel info
     if user.panel_user_uuid:
@@ -407,17 +443,18 @@ async def format_user_card(
         try:
             from db.dal import payment_dal
 
+            currency = default_payment_currency_code_for_settings(settings)
+
             # Total amount paid by this user
             total_paid = await payment_dal.get_user_total_paid(session, user.user_id)
             card_parts.append(
-                f"{_('admin_user_total_paid_label')} {hcode(f'{total_paid:.2f} RUB')}"
+                f"{_('admin_user_total_paid_label')} {hcode(f'{total_paid:.2f} {currency}')}"
             )
 
             # Total revenue from referrals
             referral_revenue = await payment_dal.get_referral_revenue(session, user.user_id)
-            card_parts.append(
-                f"{_('admin_user_referral_revenue_label')} {hcode(f'{referral_revenue:.2f} RUB')}"
-            )
+            referral_revenue_text = hcode(f"{referral_revenue:.2f} {currency}")
+            card_parts.append(f"{_('admin_user_referral_revenue_label')} {referral_revenue_text}")
         except Exception as e_fin:
             logging.error(
                 f"Failed to build financial analytics for admin card {user.user_id}: {e_fin}"
@@ -619,6 +656,12 @@ async def user_action_handler(
         await handle_send_message_prompt(callback, state, user, i18n, current_lang)
     elif action == "view_logs":
         await handle_view_user_logs(callback, user, session, settings, i18n, current_lang)
+    elif action == "invitees":
+        try:
+            page = max(0, int(parts[3])) if len(parts) > 3 else 0
+        except (TypeError, ValueError):
+            page = 0
+        await handle_view_user_invitees(callback, user, session, i18n, current_lang, page=page)
     elif action == "refresh":
         await handle_refresh_user_card(
             callback, user, subscription_service, session, settings, i18n, current_lang
@@ -889,8 +932,7 @@ async def handle_reset_trial(
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 
     try:
-        # Delete all user subscriptions to reset trial eligibility
-        await subscription_dal.delete_all_user_subscriptions(session, user.user_id)
+        await user_dal.mark_trial_eligibility_reset(session, user.user_id)
         await session.commit()
 
         await callback.answer(_("admin_user_trial_reset_success"), show_alert=True)
@@ -1054,6 +1096,120 @@ async def handle_view_user_logs(
     except Exception as e:
         logging.error(f"Error viewing logs for user {user.user_id}: {e}")
         await callback.answer(_("admin_user_logs_error"), show_alert=True)
+
+
+async def handle_view_user_invitees(
+    callback: types.CallbackQuery,
+    user: User,
+    session: AsyncSession,
+    i18n_instance,
+    lang: str,
+    *,
+    page: int = 0,
+):
+    """Show users invited by the selected account."""
+    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
+    page_size = 10
+    safe_page = max(0, int(page or 0))
+
+    try:
+        total = await user_dal.count_users_referred_by(session, user.user_id)
+        total_pages = max(1, (total + page_size - 1) // page_size)
+        if safe_page >= total_pages:
+            safe_page = total_pages - 1
+        invitees = await user_dal.get_users_referred_by(
+            session,
+            user.user_id,
+            limit=page_size,
+            offset=safe_page * page_size,
+        )
+
+        header = _(
+            "admin_user_invitees_message_title",
+            user=hcode(_admin_user_reference_label(user)),
+            total=total,
+            current=safe_page + 1,
+            total_pages=total_pages,
+        )
+        if total <= 0:
+            invitees_text = f"{header}\n\n{_('admin_user_invitees_empty')}"
+        else:
+            lines = []
+            for index, invitee in enumerate(invitees, start=safe_page * page_size + 1):
+                registered = (
+                    invitee.registration_date.strftime("%Y-%m-%d")
+                    if invitee.registration_date
+                    else ""
+                )
+                suffix = (
+                    _("admin_user_invitee_registered_suffix", date=registered) if registered else ""
+                )
+                lines.append(
+                    _(
+                        "admin_user_invitee_item",
+                        index=index,
+                        user=hcode(_admin_user_reference_label(invitee)),
+                        suffix=suffix,
+                    )
+                )
+            invitees_text = "\n".join([header, "", *lines])
+
+        builder = InlineKeyboardBuilder()
+        for invitee in invitees:
+            builder.row(
+                types.InlineKeyboardButton(
+                    text=_admin_user_button_label(invitee),
+                    callback_data=f"user_action:refresh:{invitee.user_id}",
+                )
+            )
+
+        pagination_buttons = []
+        if safe_page > 0:
+            pagination_buttons.append(
+                types.InlineKeyboardButton(
+                    text=_("prev_page_button"),
+                    callback_data=f"user_action:invitees:{user.user_id}:{safe_page - 1}",
+                )
+            )
+        if safe_page < total_pages - 1:
+            pagination_buttons.append(
+                types.InlineKeyboardButton(
+                    text=_("next_page_button"),
+                    callback_data=f"user_action:invitees:{user.user_id}:{safe_page + 1}",
+                )
+            )
+        if pagination_buttons:
+            builder.row(*pagination_buttons)
+        builder.row(
+            types.InlineKeyboardButton(
+                text=_("admin_user_back_to_card_button"),
+                callback_data=f"user_action:refresh:{user.user_id}",
+            )
+        )
+        builder.row(
+            types.InlineKeyboardButton(
+                text=_("back_to_admin_panel_button"), callback_data="admin_action:main"
+            )
+        )
+
+        try:
+            await callback.message.edit_text(
+                invitees_text, reply_markup=builder.as_markup(), parse_mode="HTML"
+            )
+        except Exception:
+            await callback.message.answer(
+                invitees_text, reply_markup=builder.as_markup(), parse_mode="HTML"
+            )
+
+        await callback.answer()
+    except Exception as exc:
+        logging.error(
+            "Error viewing invitees for user %s: %s",
+            user.user_id,
+            exc,
+            exc_info=True,
+        )
+        await callback.answer(_("admin_user_invitees_error"), show_alert=True)
 
 
 async def handle_refresh_user_card(
@@ -1964,7 +2120,7 @@ async def user_card_from_list_handler(
         text=_("admin_user_back_to_list_button"), callback_data=f"admin_action:users_list:{page}"
     )
     quick_links_width = 2 if user.referred_by_id else 1
-    keyboard.adjust(2, 2, 2, 2, quick_links_width, 1, 2, 1)
+    keyboard.adjust(2, 2, 2, 1, 2, quick_links_width, 1, 2, 1)
 
     # Format user card
     try:

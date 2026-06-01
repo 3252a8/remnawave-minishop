@@ -1,0 +1,57 @@
+import logging
+from datetime import datetime, timezone
+from typing import Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from db.dal import message_log_dal
+
+logger = logging.getLogger(__name__)
+
+
+def _clean_piece(value: Optional[object]) -> str:
+    return str(value or "").strip()
+
+
+async def log_user_message_delivery(
+    session: AsyncSession,
+    *,
+    target_user_id: Optional[int],
+    event_type: str,
+    channel: str,
+    content: str,
+    recipient: Optional[str] = None,
+    timestamp: Optional[datetime] = None,
+) -> None:
+    """Add a best-effort user log entry for important outbound messages."""
+    clean_event = _clean_piece(event_type)
+    clean_channel = _clean_piece(channel)
+    if not clean_event or not clean_channel:
+        return
+
+    parts = [f"channel={clean_channel}"]
+    clean_recipient = _clean_piece(recipient)
+    if clean_recipient:
+        parts.append(f"recipient={clean_recipient}")
+    clean_content = _clean_piece(content)
+    if clean_content:
+        parts.append(clean_content)
+
+    try:
+        await message_log_dal.create_message_log_no_commit(
+            session,
+            {
+                "user_id": None,
+                "event_type": clean_event,
+                "content": " | ".join(parts)[:4000],
+                "is_admin_event": False,
+                "target_user_id": int(target_user_id) if target_user_id is not None else None,
+                "timestamp": timestamp or datetime.now(timezone.utc),
+            },
+        )
+    except Exception:
+        logger.exception(
+            "Failed to add outbound message audit log for user %s event %s",
+            target_user_id,
+            clean_event,
+        )

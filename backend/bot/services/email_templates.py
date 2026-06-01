@@ -12,11 +12,12 @@ from __future__ import annotations
 import html
 import re
 from dataclasses import dataclass
-from typing import Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Optional, Sequence, Tuple
 from urllib.parse import urlsplit
 
-from bot.middlewares.i18n import JsonI18n, get_i18n_instance, normalize_locale_language_code
-from config.settings import Settings
+if TYPE_CHECKING:
+    from bot.middlewares.i18n import JsonI18n
+    from config.settings import Settings
 
 _BG = "#05070a"
 _CARD_BG = "#0e1116"
@@ -64,14 +65,16 @@ def _brand_title(settings: Settings) -> str:
 
 
 def _normalize_lang(language_code: Optional[str], settings: Settings) -> str:
-    return normalize_locale_language_code(
-        language_code or settings.DEFAULT_LANGUAGE or "ru",
-        prefer_known_base=False,
-    )
+    value = str(language_code or settings.DEFAULT_LANGUAGE or "ru").strip().lower()
+    return value.replace("_", "-") or "ru"
 
 
 def _resolve_i18n(i18n: Optional[JsonI18n]) -> JsonI18n:
-    return i18n or get_i18n_instance()
+    if i18n is not None:
+        return i18n
+    from bot.middlewares.i18n import get_i18n_instance
+
+    return get_i18n_instance()
 
 
 def _t_html(i18n: JsonI18n, lang: str, key: str, **kwargs) -> str:
@@ -89,6 +92,7 @@ def _t_text(i18n: JsonI18n, lang: str, key: str, **kwargs) -> str:
 def _layout(
     *,
     settings: Settings,
+    language_code: str,
     preheader: str,
     heading: str,
     intro_html: str,
@@ -98,6 +102,7 @@ def _layout(
     accent = _safe_color(settings.WEBAPP_PRIMARY_COLOR)
     brand_title = html.escape(_brand_title(settings))
     logo_url = _public_logo_url(settings)
+    html_lang = html.escape((language_code or "en").replace("_", "-"), quote=True)
     logo_block = ""
     if logo_url:
         logo_block = (
@@ -107,7 +112,7 @@ def _layout(
         )
 
     return f"""<!DOCTYPE html>
-<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<html lang="{html_lang}" xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -307,6 +312,7 @@ def render_login_code(
 
     rendered = _layout(
         settings=settings,
+        language_code=lang,
         preheader=preheader,
         heading=heading,
         intro_html=html.escape(intro),
@@ -359,6 +365,7 @@ def render_account_merged(
 
     rendered = _layout(
         settings=settings,
+        language_code=lang,
         preheader=preheader,
         heading=heading,
         intro_html=html.escape(intro),
@@ -492,6 +499,7 @@ def render_payment_success(
 
     rendered = _layout(
         settings=settings,
+        language_code=lang,
         preheader=preheader,
         heading=heading,
         intro_html=html.escape(intro),
@@ -542,6 +550,7 @@ def render_user_notification(
 
     rendered = _layout(
         settings=settings,
+        language_code=lang,
         preheader=final_subject,
         heading=final_heading,
         intro_html=html.escape(final_intro),
@@ -615,6 +624,7 @@ def render_subscription_expiring(
 
     rendered = _layout(
         settings=settings,
+        language_code=lang,
         preheader=preheader,
         heading=heading,
         intro_html=html.escape(intro),
@@ -702,6 +712,7 @@ def render_subscription_lifecycle_notification(
 
     rendered = _layout(
         settings=settings,
+        language_code=lang,
         preheader=subject,
         heading=subject,
         intro_html=html.escape(intro),
@@ -738,28 +749,40 @@ def _support_email(
     ticket_url: Optional[str],
     cta_label: str,
 ) -> EmailContent:
+    i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language, settings)
     brand = _brand_title(settings)
     accent = _safe_color(settings.WEBAPP_PRIMARY_COLOR)
     safe_url = (ticket_url or "").strip()
-    footer = _t_html(_resolve_i18n(i18n), lang, "email_footer_auto", brand=brand)
+    footer = _t_html(i18n, lang, "email_footer_auto", brand=brand)
+    localized_rows = [
+        (_t_text(i18n, lang, label) if str(label).startswith("email_") else str(label), value)
+        for label, value in rows
+    ]
     preview_block = (
         f'<div style="margin:0 0 16px 0;background:{_BG};border:1px solid {_BORDER};'
         f"border-radius:14px;padding:14px 16px;font-size:14px;line-height:1.55;color:{_TEXT};"
         f'white-space:pre-wrap;">{html.escape(body_preview or "")}</div>'
     )
-    body_parts = [_info_rows_html(rows), preview_block]
+    body_parts = [_info_rows_html(localized_rows), preview_block]
     if safe_url:
         body_parts.append(_cta_button_html(label=cta_label, url=safe_url, accent=accent))
     rendered = _layout(
         settings=settings,
+        language_code=lang,
         preheader=intro,
         heading=heading,
         intro_html=html.escape(intro),
         body_html="".join(body_parts),
         footer_html=footer,
     )
-    text_lines = [intro, "", *[f"{label}: {value}" for label, value in rows], "", body_preview]
+    text_lines = [
+        intro,
+        "",
+        *[f"{label}: {value}" for label, value in localized_rows],
+        "",
+        body_preview,
+    ]
     if safe_url:
         text_lines.extend(["", safe_url])
     return EmailContent(subject=subject, text="\n".join(text_lines), html=rendered)
@@ -777,23 +800,25 @@ def render_support_new_ticket_admin(
     snapshot_rows: Sequence[Tuple[str, str]],
     ticket_url: Optional[str],
 ) -> EmailContent:
+    i18n = _resolve_i18n(i18n)
+    lang = _normalize_lang(language, settings)
     rows = [
-        ("Ticket", f"#{ticket_id}"),
-        ("User", user_display),
-        ("Subject", subject),
+        ("email_support_row_ticket", f"#{ticket_id}"),
+        ("email_support_row_user", user_display),
+        ("email_support_row_subject", subject),
         *snapshot_rows,
     ]
     return _support_email(
         settings,
         i18n,
-        language,
-        subject=f"New support ticket #{ticket_id}",
-        heading=f"New support ticket #{ticket_id}",
-        intro="A user opened a new support ticket.",
+        lang,
+        subject=_t_text(i18n, lang, "email_support_new_ticket_admin_subject", ticket_id=ticket_id),
+        heading=_t_text(i18n, lang, "email_support_new_ticket_admin_heading", ticket_id=ticket_id),
+        intro=_t_text(i18n, lang, "email_support_new_ticket_admin_intro"),
         rows=rows,
         body_preview=body_preview,
         ticket_url=ticket_url,
-        cta_label="Open ticket",
+        cta_label=_t_text(i18n, lang, "email_support_cta_open_ticket"),
     )
 
 
@@ -809,23 +834,25 @@ def render_support_user_reply_admin(
     snapshot_rows: Sequence[Tuple[str, str]],
     ticket_url: Optional[str],
 ) -> EmailContent:
+    i18n = _resolve_i18n(i18n)
+    lang = _normalize_lang(language, settings)
     rows = [
-        ("Ticket", f"#{ticket_id}"),
-        ("User", user_display),
-        ("Subject", subject),
+        ("email_support_row_ticket", f"#{ticket_id}"),
+        ("email_support_row_user", user_display),
+        ("email_support_row_subject", subject),
         *snapshot_rows,
     ]
     return _support_email(
         settings,
         i18n,
-        language,
-        subject=f"New user reply in ticket #{ticket_id}",
-        heading=f"User replied in ticket #{ticket_id}",
-        intro="A user sent a new support message.",
+        lang,
+        subject=_t_text(i18n, lang, "email_support_user_reply_admin_subject", ticket_id=ticket_id),
+        heading=_t_text(i18n, lang, "email_support_user_reply_admin_heading", ticket_id=ticket_id),
+        intro=_t_text(i18n, lang, "email_support_user_reply_admin_intro"),
         rows=rows,
         body_preview=body_preview,
         ticket_url=ticket_url,
-        cta_label="Open ticket",
+        cta_label=_t_text(i18n, lang, "email_support_cta_open_ticket"),
     )
 
 
@@ -839,17 +866,22 @@ def render_support_admin_reply_user(
     body_preview: str,
     ticket_url: Optional[str],
 ) -> EmailContent:
+    i18n = _resolve_i18n(i18n)
+    lang = _normalize_lang(language, settings)
     return _support_email(
         settings,
         i18n,
-        language,
-        subject=f"New reply for ticket #{ticket_id}",
-        heading=f"New reply for ticket #{ticket_id}",
-        intro="Support has replied to your ticket.",
-        rows=[("Ticket", f"#{ticket_id}"), ("Subject", subject)],
+        lang,
+        subject=_t_text(i18n, lang, "email_support_admin_reply_user_subject", ticket_id=ticket_id),
+        heading=_t_text(i18n, lang, "email_support_admin_reply_user_heading", ticket_id=ticket_id),
+        intro=_t_text(i18n, lang, "email_support_admin_reply_user_intro"),
+        rows=[
+            ("email_support_row_ticket", f"#{ticket_id}"),
+            ("email_support_row_subject", subject),
+        ],
         body_preview=body_preview,
         ticket_url=ticket_url,
-        cta_label="Open in Mini App",
+        cta_label=_t_text(i18n, lang, "email_support_cta_open_mini_app"),
     )
 
 
@@ -863,15 +895,24 @@ def render_support_ticket_closed_user(
     body_preview: str = "",
     ticket_url: Optional[str],
 ) -> EmailContent:
+    i18n = _resolve_i18n(i18n)
+    lang = _normalize_lang(language, settings)
     return _support_email(
         settings,
         i18n,
-        language,
-        subject=f"Ticket #{ticket_id} was closed",
-        heading=f"Ticket #{ticket_id} was closed",
-        intro="Your support ticket has been closed.",
-        rows=[("Ticket", f"#{ticket_id}"), ("Subject", subject)],
-        body_preview=body_preview or "The ticket is closed.",
+        lang,
+        subject=_t_text(
+            i18n, lang, "email_support_ticket_closed_user_subject", ticket_id=ticket_id
+        ),
+        heading=_t_text(
+            i18n, lang, "email_support_ticket_closed_user_heading", ticket_id=ticket_id
+        ),
+        intro=_t_text(i18n, lang, "email_support_ticket_closed_user_intro"),
+        rows=[
+            ("email_support_row_ticket", f"#{ticket_id}"),
+            ("email_support_row_subject", subject),
+        ],
+        body_preview=body_preview or _t_text(i18n, lang, "email_support_ticket_closed_user_body"),
         ticket_url=ticket_url,
-        cta_label="Open in Mini App",
+        cta_label=_t_text(i18n, lang, "email_support_cta_open_mini_app"),
     )

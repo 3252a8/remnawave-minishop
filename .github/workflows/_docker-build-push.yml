@@ -93,7 +93,6 @@ jobs:
             ghcr.io/3252a8/${{ matrix.image }}
           tags: |
             type=raw,value=dev,enable=${{ inputs.tag_mode == 'dev' }}
-            type=sha,prefix=dev-,format=short,enable=${{ inputs.tag_mode == 'dev' }}
             type=raw,value=latest,enable=${{ inputs.tag_mode == 'release' }}
             type=raw,value=${{ steps.version.outputs.version }},enable=${{ inputs.tag_mode == 'release' }}
 

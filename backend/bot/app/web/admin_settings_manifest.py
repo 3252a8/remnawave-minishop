@@ -588,6 +588,17 @@ SETTINGS_MANIFEST: List[SettingField] = [
     ),
     SettingField("USER_TRAFFIC_LIMIT_GB", "float", "devices", "Лимит трафика пользователя (ГБ)"),
     SettingField("USER_TRAFFIC_STRATEGY", "string", "devices", "Стратегия сброса трафика"),
+    # ─── System ────────────────────────────────────────────────────
+    SettingField(
+        "TELEMETRY_ENABLED",
+        "bool",
+        "system",
+        "Анонимная статистика установки",
+        "Раз в сутки отправляет обезличенный сигнал: версия, ОС, локаль и число "
+        "пользователей в виде диапазона. Без персональных данных, токенов и "
+        "доменов. Помогает понять число активных установок и какие версии "
+        "используются. Можно отключить здесь без перезапуска.",
+    ),
 ]
 
 
@@ -722,6 +733,7 @@ def manifest_payload() -> List[dict]:
         "backups": 9,
         "devices": 10,
         "subscription_guides": 10,
+        "system": 12,
     }
     exclusive_map = {
         key: opposite

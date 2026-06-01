@@ -1,7 +1,9 @@
 export {
   Activity,
   ArrowLeft,
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
   Bitcoin,
   CalendarDays,
   Check,
@@ -19,6 +21,7 @@ export {
   CreditCard,
   Crown,
   Database,
+  DollarSign,
   Download,
   ExternalLink,
   Eye,

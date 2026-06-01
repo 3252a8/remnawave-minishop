@@ -24,6 +24,10 @@ from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
 from bot.services.telegram_notifications import TELEGRAM_NOTIFICATIONS_ENABLED
 from bot.utils.callback_answer import safe_answer_callback
+from bot.utils.channel_subscription import (
+    is_required_channel_access_error,
+    normalize_required_channel_id,
+)
 from bot.utils.install_links import (
     append_install_share_link_text,
     ensure_user_install_guide_links,
@@ -45,12 +49,12 @@ async def should_show_trial_button(
     if not settings.TRIAL_ENABLED:
         return False
 
-    if hasattr(subscription_service, "has_had_any_subscription") and callable(
-        getattr(subscription_service, "has_had_any_subscription")
+    if hasattr(subscription_service, "has_trial_blocking_subscription") and callable(
+        getattr(subscription_service, "has_trial_blocking_subscription")
     ):
-        return not await subscription_service.has_had_any_subscription(session, user_id)
+        return not await subscription_service.has_trial_blocking_subscription(session, user_id)
 
-    logging.error("Method has_had_any_subscription is missing in SubscriptionService!")
+    logging.error("Method has_trial_blocking_subscription is missing in SubscriptionService!")
     return False
 
 
@@ -215,7 +219,7 @@ async def ensure_required_channel_subscription(
     Verify that the user is a member of the required channel (if configured).
     Returns True when access can proceed, False when user must subscribe first.
     """
-    required_channel_id = settings.REQUIRED_CHANNEL_ID
+    required_channel_id = normalize_required_channel_id(settings.REQUIRED_CHANNEL_ID)
     if not required_channel_id:
         return True
 
@@ -279,6 +283,29 @@ async def ensure_required_channel_subscription(
         if status_value in allowed_statuses:
             is_member = True
     except TelegramBadRequest as bad_request:
+        if is_required_channel_access_error(bad_request):
+            logging.error(
+                "Required channel check failed due to channel access/configuration error "
+                "(configured=%s, normalized=%s): %s",
+                settings.REQUIRED_CHANNEL_ID,
+                required_channel_id,
+                bad_request,
+            )
+            error_text = translate("channel_subscription_check_failed")
+            if isinstance(event, types.CallbackQuery):
+                try:
+                    await event.answer(error_text, show_alert=True)
+                except Exception:
+                    pass
+                if message_obj:
+                    try:
+                        await message_obj.answer(error_text)
+                    except Exception:
+                        pass
+            else:
+                await event.answer(error_text)
+            return False
+
         logging.info(
             "Required channel check: user %s not subscribed (details: %s)",
             user_id,

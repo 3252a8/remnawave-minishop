@@ -11,6 +11,7 @@ from bot.services.email_auth_service import EmailAuthService
 from bot.services.lknpd_service import LknpdService
 from bot.services.notification_service import NotificationService
 from bot.services.panel_api_service import PanelApiService
+from bot.services.panel_dry_run_api_service import PanelDryRunApiService
 from bot.services.panel_webhook_service import PanelWebhookService
 from bot.services.promo_code_service import PromoCodeService
 from bot.services.referral_service import ReferralService
@@ -26,7 +27,11 @@ def build_core_services(
     i18n: JsonI18n,
     bot_username_for_default_return: str,
 ):
-    panel_service = PanelApiService(settings)
+    panel_service = (
+        PanelDryRunApiService(settings)
+        if bool(getattr(settings, "panel_dry_run_enabled", False))
+        else PanelApiService(settings)
+    )
     subscription_service = SubscriptionService(settings, panel_service, bot, i18n)
     referral_service = ReferralService(settings, subscription_service, bot, i18n)
     promo_code_service = PromoCodeService(settings, subscription_service, bot, i18n)

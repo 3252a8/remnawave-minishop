@@ -36,6 +36,10 @@
     overflow: hidden;
   }
 
+  :global(.scroll-area--dialog) {
+    overflow: visible;
+  }
+
   :global(.scroll-area__viewport) {
     width: 100%;
     height: 100%;
@@ -54,6 +58,10 @@
 
   :global(.scroll-area__scrollbar[data-orientation="vertical"]) {
     width: 10px;
+  }
+
+  :global(.scroll-area--dialog .scroll-area__scrollbar[data-orientation="vertical"]) {
+    transform: translateX(12px);
   }
 
   :global(.scroll-area__scrollbar[data-orientation="horizontal"]) {

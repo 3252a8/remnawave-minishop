@@ -70,7 +70,7 @@ class HwidDeviceMixin:
         package_set = tariff.hwid_device_packages
         if not package_set:
             return None
-        packages = package_set.for_currency("stars" if currency == "stars" else "rub")
+        packages = package_set.for_currency(currency)
         return next((pkg for pkg in packages if int(pkg.count) == int(device_count)), None)
 
     def _quote_hwid_package_price(
@@ -173,7 +173,7 @@ class HwidDeviceMixin:
             valid_from=valid_from,
             valid_until=valid_until,
             now=now,
-            currency="stars" if currency == "stars" else "rub",
+            currency=currency,
         )
         quote.update(
             {
@@ -227,7 +227,11 @@ class HwidDeviceMixin:
                 )
                 return None
             packages = (
-                [*tariff.hwid_device_packages.rub, *tariff.hwid_device_packages.stars]
+                [
+                    package
+                    for currency_packages in tariff.hwid_device_packages.root.values()
+                    for package in currency_packages
+                ]
                 if tariff.hwid_device_packages
                 else []
             )

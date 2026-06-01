@@ -22,6 +22,7 @@ from unittest.mock import MagicMock
 
 from bot.app.factories.build_services import build_core_services
 from bot.payment_providers.yookassa import YooKassaService
+from bot.services.panel_dry_run_api_service import PanelDryRunApiService
 from bot.services.panel_webhook_service import PanelWebhookService
 from bot.services.subscription_service import SubscriptionService
 from config.settings import Settings
@@ -124,6 +125,23 @@ class BuildServicesWiringTests(unittest.TestCase):
         subscription = services["subscription_service"]
         self.assertIsInstance(panel_webhook, PanelWebhookService)
         self.assertIs(getattr(panel_webhook, "subscription_service", None), subscription)
+
+    def test_development_runtime_wires_panel_dry_run_service(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(tmpdir, APP_RUNTIME_MODE="development")
+            services = build_core_services(
+                settings=settings,
+                bot=MagicMock(),
+                async_session_factory=MagicMock(),
+                i18n=MagicMock(),
+                bot_username_for_default_return="testbot",
+            )
+
+        self.assertIsInstance(services["panel_service"], PanelDryRunApiService)
+        self.assertIs(
+            services["subscription_service"].panel_service,
+            services["panel_service"],
+        )
 
     def test_factory_returns_every_documented_service(self):
         """Guards against silently dropping a service from the bundle. The

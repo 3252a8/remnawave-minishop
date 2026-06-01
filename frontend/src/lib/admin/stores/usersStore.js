@@ -13,7 +13,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     usersFilter: "all",
     usersPanelStatus: "all",
     usersPremiumTraffic: "all",
-    usersSort: "registered_desc",
+    usersSort: "",
     usersLoading: false,
 
     openedUser: null,
@@ -25,6 +25,13 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     userDeleteOpen: false,
     userBanConfirmOpen: false,
     userMessageConfirmOpen: false,
+    userReferralsOpen: false,
+    userReferralsLoading: false,
+    userReferrals: [],
+    userReferralsTotal: 0,
+    userReferralsPage: 0,
+    userReferralsPageSize: USERS_PAGE_SIZE,
+    userReferralsInviter: null,
     userDetailTab: "profile",
     premiumUnlimitedDraft: false,
     premiumBonusGbDraft: "",
@@ -96,7 +103,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
       if (s.usersPremiumTraffic && s.usersPremiumTraffic !== "all") {
         params.set("premium_traffic", s.usersPremiumTraffic);
       }
-      if (s.usersSort && s.usersSort !== "registered_desc") params.set("sort", s.usersSort);
+      if (s.usersSort) params.set("sort", s.usersSort);
       const data = await api(`/admin/users?${params.toString()}`);
       if (data?.ok) {
         state.update((st) => ({
@@ -126,6 +133,12 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
       userExtendDays: 30,
       userDetailLoading: true,
       userDetailTab: "subscription",
+      userReferralsOpen: false,
+      userReferralsLoading: false,
+      userReferrals: [],
+      userReferralsTotal: 0,
+      userReferralsPage: 0,
+      userReferralsInviter: null,
       userLogs: [],
       userLogsTotal: 0,
       userLogsPage: 0,
@@ -175,6 +188,12 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
         userDeleteOpen: false,
         userBanConfirmOpen: false,
         userMessageConfirmOpen: false,
+        userReferralsOpen: false,
+        userReferralsLoading: false,
+        userReferrals: [],
+        userReferralsTotal: 0,
+        userReferralsPage: 0,
+        userReferralsInviter: null,
         userLogs: [],
         userLogsTotal: 0,
         userLogsPage: 0,
@@ -229,6 +248,58 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
 
   function setUserLogsPage(page) {
     loadUserLogs(page);
+  }
+
+  async function openUserReferrals(page = 0) {
+    let s;
+    state.update((st) => {
+      s = st;
+      return st;
+    });
+    if (!s.openedUser) return;
+    const userId = s.openedUser.user_id;
+    const targetPage = Number.isFinite(page) ? Math.max(0, Math.floor(page)) : 0;
+    state.update((st) => ({
+      ...st,
+      userReferralsOpen: true,
+      userReferralsLoading: true,
+      userReferralsPage: targetPage,
+    }));
+    try {
+      const params = new URLSearchParams({
+        page: String(targetPage),
+        page_size: String(s.userReferralsPageSize || USERS_PAGE_SIZE),
+      });
+      const data = await api(`/admin/users/${userId}/referrals?${params.toString()}`);
+      if (data?.ok) {
+        state.update((st) => {
+          if (!st.openedUser || st.openedUser.user_id !== userId) return st;
+          return {
+            ...st,
+            userReferrals: data.invitees || [],
+            userReferralsTotal: Number(data.total || 0),
+            userReferralsPage: Number(data.page || 0),
+            userReferralsPageSize: Number(data.page_size || st.userReferralsPageSize),
+            userReferralsInviter: data.inviter || null,
+          };
+        });
+      } else if (data?.error) {
+        onToast(data.error);
+      }
+    } finally {
+      state.update((st) => ({ ...st, userReferralsLoading: false }));
+    }
+  }
+
+  function closeUserReferrals() {
+    state.update((s) => ({
+      ...s,
+      userReferralsOpen: false,
+    }));
+  }
+
+  function setUserReferralsPage(page) {
+    openUserReferrals(page);
   }
 
   function copyToClipboard(text, successMessage = at("link_copied", {}, "Скопировано")) {
@@ -398,8 +469,11 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     state.update((st) => ({ ...st, userActionBusy: true }));
     try {
       const res = await api(`/admin/users/${s.openedUser.user_id}/reset-trial`, { method: "POST" });
-      if (res?.ok) onToast(at("trial_reset", {}, "Триал сброшен"));
-      else onToast(res?.error || at("error", {}, "Ошибка"));
+      if (res?.ok) {
+        onToast(at("trial_reset", {}, "Триал сброшен"));
+        await openUser(s.openedUser.user_id, { skipPush: true, pathContext: _pathContext });
+        if (_activeRef === "users") await loadUsers();
+      } else onToast(res?.error || at("error", {}, "Ошибка"));
     } finally {
       state.update((st) => ({ ...st, userActionBusy: false }));
     }
@@ -564,5 +638,8 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     grantTraffic,
     loadUserLogs,
     setUserLogsPage,
+    openUserReferrals,
+    closeUserReferrals,
+    setUserReferralsPage,
   };
 }

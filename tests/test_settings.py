@@ -42,6 +42,51 @@ class SettingsTests(unittest.TestCase):
 
         self.assertEqual(settings.WEBAPP_TITLE, "/minishop")
 
+    def test_panel_write_mode_defaults_to_live_in_production(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+        )
+
+        self.assertEqual(settings.APP_RUNTIME_MODE, "production")
+        self.assertEqual(settings.PANEL_WRITE_MODE, "auto")
+        self.assertFalse(settings.panel_dry_run_enabled)
+
+    def test_development_runtime_enables_panel_dry_run_in_auto_mode(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            APP_RUNTIME_MODE="development",
+        )
+
+        self.assertTrue(settings.panel_dry_run_enabled)
+
+    def test_panel_write_mode_live_overrides_development_runtime(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            APP_RUNTIME_MODE="development",
+            PANEL_WRITE_MODE="live",
+        )
+
+        self.assertFalse(settings.panel_dry_run_enabled)
+
+    def test_panel_write_mode_rejects_unknown_value(self):
+        with self.assertRaises(ValidationError):
+            Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                PANEL_WRITE_MODE="danger",
+            )
+
     def test_legacy_subscription_prices_have_defaults(self):
         settings = Settings(
             _env_file=None,

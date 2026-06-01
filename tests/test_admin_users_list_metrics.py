@@ -1,0 +1,116 @@
+import unittest
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+from sqlalchemy.dialects import postgresql
+
+from bot.app.web.admin_api_impl import users as users_module
+
+
+class FakeResult:
+    def __init__(self, rows=None, scalar_value=0):
+        self._rows = rows or []
+        self._scalar_value = scalar_value
+
+    def all(self):
+        return self._rows
+
+    def scalars(self):
+        return self
+
+    def scalar_one(self):
+        return self._scalar_value
+
+
+def _compile_sql(stmt) -> str:
+    return str(
+        stmt.compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    ).lower()
+
+
+class AdminUsersListMetricsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_bulk_user_payment_summaries_returns_succeeded_totals(self):
+        session = SimpleNamespace(
+            execute=AsyncMock(return_value=FakeResult([(101, 1234.5, 3, "RUB")]))
+        )
+
+        result = await users_module._bulk_user_payment_summaries(session, [101])
+
+        self.assertEqual(
+            result,
+            {
+                101: {
+                    "total_amount": 1234.5,
+                    "count": 3,
+                    "currency": "RUB",
+                }
+            },
+        )
+        sql = _compile_sql(session.execute.await_args.args[0])
+        self.assertIn("payments.status = 'succeeded'", sql)
+        self.assertIn("sum(payments.amount)", sql)
+        self.assertIn("count(payments.payment_id)", sql)
+
+    async def test_bulk_user_referral_counts_groups_invited_users(self):
+        session = SimpleNamespace(execute=AsyncMock(return_value=FakeResult([(101, 7)])))
+
+        result = await users_module._bulk_user_referral_counts(session, [101])
+
+        self.assertEqual(result, {101: 7})
+        sql = _compile_sql(session.execute.await_args.args[0])
+        self.assertIn("referred_by_id", sql)
+        self.assertIn("group by", sql)
+
+    async def test_filter_sort_users_supports_payment_total_sort(self):
+        session = SimpleNamespace(
+            execute=AsyncMock(side_effect=[FakeResult([]), FakeResult(scalar_value=0)])
+        )
+
+        await users_module._filter_and_sort_users(
+            session,
+            query="",
+            filter_value="all",
+            panel_status="all",
+            premium_traffic="all",
+            sort_value="payments_total_desc",
+            page=0,
+            page_size=25,
+        )
+
+        sql = _compile_sql(session.execute.await_args_list[0].args[0])
+        self.assertIn("user_payment_summary", sql)
+        self.assertIn("payments_total_amount", sql)
+        self.assertIn("order by coalesce", sql)
+        self.assertIn("desc", sql)
+
+    async def test_filter_sort_users_supports_referral_and_subscription_sorts(self):
+        for sort_value, expected_alias in (
+            ("invited_users_count_desc", "user_referral_count"),
+            ("subscription_expires_at_asc", "user_subscription_expiry"),
+        ):
+            with self.subTest(sort_value=sort_value):
+                session = SimpleNamespace(
+                    execute=AsyncMock(side_effect=[FakeResult([]), FakeResult(scalar_value=0)])
+                )
+
+                await users_module._filter_and_sort_users(
+                    session,
+                    query="",
+                    filter_value="all",
+                    panel_status="all",
+                    premium_traffic="all",
+                    sort_value=sort_value,
+                    page=0,
+                    page_size=25,
+                )
+
+                sql = _compile_sql(session.execute.await_args_list[0].args[0])
+                self.assertIn(expected_alias, sql)
+                self.assertIn("order by", sql)
+
+
+if __name__ == "__main__":
+    unittest.main()

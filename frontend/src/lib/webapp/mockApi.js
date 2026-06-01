@@ -401,8 +401,74 @@ function userName(user) {
   );
 }
 
+function demoUserSeed(user) {
+  return Math.abs(Number(user?.user_id || user?.telegram_id || 0)) || 1;
+}
+
+function demoFutureIso(user, offsetDays = 30) {
+  const seed = demoUserSeed(user);
+  const base = Date.parse(user?.registration_date || "") || Date.UTC(2026, 0, 1);
+  return new Date(base + (offsetDays + (seed % 180)) * 86400000).toISOString();
+}
+
+function withDemoAdminUserMetrics(user) {
+  const seed = demoUserSeed(user);
+  const paymentsCount =
+    user.payments_count ?? (user.panel_status === "bot_only" ? 0 : Math.max(1, seed % 9));
+  const paymentsTotal = user.payments_total_amount ?? paymentsCount * (290 + (seed % 11) * 75);
+  const invitedCount = user.invited_users_count ?? (seed % 5 === 0 ? seed % 8 : seed % 3);
+  const subscriptionExpiresAt =
+    user.subscription_expires_at ??
+    user.panel_status_expired_at ??
+    (user.panel_status === "active" ? demoFutureIso(user, 45) : null);
+
+  return {
+    ...user,
+    payments_total_amount: paymentsTotal,
+    payments_count: paymentsCount,
+    payments_currency: user.payments_currency || "RUB",
+    invited_users_count: invitedCount,
+    subscription_expires_at: subscriptionExpiresAt,
+  };
+}
+
+function compareNullableDate(a, b, direction = "asc") {
+  const at = stringDate(a);
+  const bt = stringDate(b);
+  if (!at && !bt) return 0;
+  if (!at) return 1;
+  if (!bt) return -1;
+  return direction === "desc" ? bt - at : at - bt;
+}
+
 function withDemoAvatars(users, size = 96) {
   return (users || []).map((user) => withDemoAvatar(user, size));
+}
+
+function demoAdminUserById(userId) {
+  return (DEMO_DATASET.adminUsers || []).find((user) => Number(user.user_id) === Number(userId));
+}
+
+function demoInviteesForUser(userId) {
+  return (DEMO_DATASET.adminUsers || [])
+    .filter((user) => Number(user.referred_by_id) === Number(userId))
+    .sort((a, b) => stringDate(b.registration_date) - stringDate(a.registration_date));
+}
+
+function withDemoReferralSummary(detail) {
+  if (!detail || typeof detail !== "object") return detail;
+  const decorated = withDemoAvatarDetail(detail);
+  const user = decorated.user || {};
+  const inviter = user.referred_by_id ? demoAdminUserById(user.referred_by_id) : null;
+  const invitees = demoInviteesForUser(user.user_id);
+  return {
+    ...decorated,
+    referral: {
+      ...(decorated.referral || {}),
+      inviter: inviter ? withDemoAvatar(inviter) : null,
+      invitees_total: invitees.length,
+    },
+  };
 }
 
 function withDemoAvatarTickets(tickets, size = 96) {
@@ -410,7 +476,7 @@ function withDemoAvatarTickets(tickets, size = 96) {
 }
 
 function filterDemoUsers(params) {
-  let out = [...(DEMO_DATASET.adminUsers || [])];
+  let out = (DEMO_DATASET.adminUsers || []).map(withDemoAdminUserMetrics);
   const q = (params.get("q") || params.get("search") || "").trim().toLowerCase();
   if (q) {
     out = out.filter((user) =>
@@ -457,6 +523,22 @@ function filterDemoUsers(params) {
       return Number(a.premium_traffic?.percent ?? -1) - Number(b.premium_traffic?.percent ?? -1);
     if (sort === "premium_ratio_desc")
       return Number(b.premium_traffic?.percent ?? -1) - Number(a.premium_traffic?.percent ?? -1);
+    if (sort === "payments_total_asc")
+      return Number(a.payments_total_amount || 0) - Number(b.payments_total_amount || 0);
+    if (sort === "payments_total_desc")
+      return Number(b.payments_total_amount || 0) - Number(a.payments_total_amount || 0);
+    if (sort === "payments_count_asc")
+      return Number(a.payments_count || 0) - Number(b.payments_count || 0);
+    if (sort === "payments_count_desc")
+      return Number(b.payments_count || 0) - Number(a.payments_count || 0);
+    if (sort === "invited_users_count_asc")
+      return Number(a.invited_users_count || 0) - Number(b.invited_users_count || 0);
+    if (sort === "invited_users_count_desc")
+      return Number(b.invited_users_count || 0) - Number(a.invited_users_count || 0);
+    if (sort === "subscription_expires_at_asc")
+      return compareNullableDate(a.subscription_expires_at, b.subscription_expires_at, "asc");
+    if (sort === "subscription_expires_at_desc")
+      return compareNullableDate(a.subscription_expires_at, b.subscription_expires_at, "desc");
     return stringDate(b.registration_date) - stringDate(a.registration_date);
   });
 
@@ -610,8 +692,21 @@ function demoApiResponse(path, cleanPath, options, context) {
     const id = Number(parts[3]);
     const detail = DEMO_DATASET.adminUserDetails?.[String(id)];
     if (!detail) return { ok: false, error: "not_found" };
-    const decoratedDetail = withDemoAvatarDetail(detail);
+    const decoratedDetail = withDemoReferralSummary(detail);
     if (parts[4]) {
+      if (parts[4] === "referrals") {
+        const invitees = demoInviteesForUser(id);
+        const page = paged(invitees, params, 25);
+        return {
+          ok: true,
+          user: clone(decoratedDetail.user),
+          inviter: clone(decoratedDetail.referral?.inviter || null),
+          invitees: clone(withDemoAvatars(page.items)),
+          total: page.total,
+          page: page.page,
+          page_size: page.pageSize,
+        };
+      }
       if (parts[4] === "telegram-profile-link") {
         return { ok: true, url: `https://t.me/${detail.user?.username || "demo_user"}` };
       }
@@ -937,56 +1032,61 @@ export async function mockApi(path, options = {}, context = {}) {
     normalizeLangCode,
   });
   if (demoResponse !== undefined) return demoResponse;
-  const adminUsers = withDemoAvatars([
-    {
-      user_id: 100200300,
-      telegram_id: 100200300,
-      username: "anna_ops",
-      first_name: "Анна",
-      last_name: "Смирнова",
-      email: "anna@example.com",
-      telegram_photo_url: "",
-      registration_date: "2026-04-24T10:20:00Z",
-      is_banned: false,
-      premium_traffic: {
-        state: "good",
-        unlimited: false,
-        used_bytes: 4 * 1073741824,
-        limit_bytes: 25 * 1073741824,
-        percent: 16,
+  const adminUsers = withDemoAvatars(
+    [
+      {
+        user_id: 100200300,
+        telegram_id: 100200300,
+        username: "anna_ops",
+        first_name: "Анна",
+        last_name: "Смирнова",
+        email: "anna@example.com",
+        telegram_photo_url: "",
+        registration_date: "2026-04-24T10:20:00Z",
+        is_banned: false,
+        premium_traffic: {
+          state: "good",
+          unlimited: false,
+          used_bytes: 4 * 1073741824,
+          limit_bytes: 25 * 1073741824,
+          percent: 16,
+        },
+        panel_status: "active",
       },
-    },
-    {
-      user_id: 100200301,
-      telegram_id: 87543123,
-      username: "client_pro",
-      first_name: "Максим",
-      last_name: "Котов",
-      email: "",
-      telegram_photo_url: "",
-      registration_date: "2026-04-26T08:15:00Z",
-      is_banned: false,
-      premium_traffic: {
-        state: "warn",
-        unlimited: false,
-        used_bytes: 22 * 1073741824,
-        limit_bytes: 25 * 1073741824,
-        percent: 88,
+      {
+        user_id: 100200301,
+        telegram_id: 87543123,
+        username: "client_pro",
+        first_name: "Максим",
+        last_name: "Котов",
+        email: "",
+        telegram_photo_url: "",
+        registration_date: "2026-04-26T08:15:00Z",
+        is_banned: false,
+        premium_traffic: {
+          state: "warn",
+          unlimited: false,
+          used_bytes: 22 * 1073741824,
+          limit_bytes: 25 * 1073741824,
+          percent: 88,
+        },
+        panel_status: "active",
       },
-    },
-    {
-      user_id: 100200302,
-      telegram_id: 88440011,
-      username: "",
-      first_name: "Daria",
-      last_name: "",
-      email: "daria@example.com",
-      telegram_photo_url: "",
-      registration_date: "2026-04-29T16:45:00Z",
-      is_banned: true,
-      premium_traffic: { state: "none" },
-    },
-  ]);
+      {
+        user_id: 100200302,
+        telegram_id: 88440011,
+        username: "",
+        first_name: "Daria",
+        last_name: "",
+        email: "daria@example.com",
+        telegram_photo_url: "",
+        registration_date: "2026-04-29T16:45:00Z",
+        is_banned: true,
+        premium_traffic: { state: "none" },
+        panel_status: "bot_only",
+      },
+    ].map(withDemoAdminUserMetrics)
+  );
   const supportTickets = [
     {
       ticket_id: 42,
@@ -1239,6 +1339,7 @@ export async function mockApi(path, options = {}, context = {}) {
         trial_users: 8,
         free_subscription_users: 23,
         inactive_users: 76,
+        expired_subscription_users: 31,
         banned_users: 3,
         referral_users: 34,
       },

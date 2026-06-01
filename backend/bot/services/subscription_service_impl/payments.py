@@ -62,6 +62,9 @@ class PaymentContextMixin:
     async def has_had_any_subscription(self, session: AsyncSession, user_id: int) -> bool:
         return await subscription_dal.has_any_subscription_for_user(session, user_id)
 
+    async def has_trial_blocking_subscription(self, session: AsyncSession, user_id: int) -> bool:
+        return await subscription_dal.has_trial_blocking_subscription_for_user(session, user_id)
+
     async def has_active_subscription(self, session: AsyncSession, user_id: int) -> bool:
         """Return True if user currently has an active subscription (end_date in future)."""
         try:
@@ -120,7 +123,7 @@ class PaymentContextMixin:
                 months=int(months or 0),
                 traffic_gb=traffic_gb,
                 amount=float(payment_amount or 0),
-                currency=self.settings.DEFAULT_CURRENCY_SYMBOL,
+                currency=default_payment_currency_code_for_settings(self.settings),
                 end_date_text=end_date_text,
                 dashboard_url=dashboard_url,
                 provider_label=provider_label,

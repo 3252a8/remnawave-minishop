@@ -96,7 +96,7 @@ class SubscriptionServiceCalculationTests(unittest.TestCase):
                 ["fallback-a", "fallback-b"],
             )
 
-    def test_main_traffic_limit_includes_topup_bonus_and_unlimited_floor(self):
+    def test_main_traffic_limit_includes_topup_bonus_and_unlimited_zero(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             service = _make_service(settings)
@@ -117,7 +117,7 @@ class SubscriptionServiceCalculationTests(unittest.TestCase):
                 regular_unlimited_override=True,
                 traffic_used_bytes=2 * (1024**5),
             )
-            self.assertEqual(unlimited_limit, 2 * (1024**5) + 512 * GIB)
+            self.assertEqual(unlimited_limit, 0)
 
     def test_premium_effective_limit_ignores_negative_balances(self):
         self.assertEqual(
@@ -202,7 +202,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 TRIAL_SQUAD_UUIDS="trial-squad",
             )
             service = _make_service(settings)
-            service.has_had_any_subscription = AsyncMock(return_value=False)
+            service.has_trial_blocking_subscription = AsyncMock(return_value=False)
             service._get_or_create_panel_user_link_details = AsyncMock(
                 return_value=("panel-user", "panel-sub", "short", True)
             )
@@ -255,7 +255,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 TRIAL_SQUAD_UUIDS=" , ",
             )
             service = _make_service(settings)
-            service.has_had_any_subscription = AsyncMock(return_value=False)
+            service.has_trial_blocking_subscription = AsyncMock(return_value=False)
             service._get_or_create_panel_user_link_details = AsyncMock(
                 return_value=("panel-user", "panel-sub", "short", True)
             )
@@ -291,6 +291,47 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             self.assertTrue(result["activated"])
             panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(panel_payload["activeInternalSquads"], ["fallback-a", "fallback-b"])
+
+    async def test_activate_trial_rejects_users_with_blocking_subscription_history(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                _tariffs_config_payload(),
+                tmpdir,
+                TRIAL_ENABLED=True,
+                TRIAL_DURATION_DAYS=3,
+            )
+            service = _make_service(settings)
+            service.has_trial_blocking_subscription = AsyncMock(return_value=True)
+            service._get_or_create_panel_user_link_details = AsyncMock()
+            service.panel_service.update_user_details_on_panel = AsyncMock()
+            session = AsyncMock()
+            db_user = SimpleNamespace(
+                user_id=42,
+                telegram_id=42,
+                email=None,
+                username="trial-user",
+                first_name="Trial",
+                last_name="User",
+            )
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.trial.user_dal.get_user_by_id",
+                    AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.trial.subscription_dal.upsert_subscription",
+                    AsyncMock(),
+                ) as upsert_subscription,
+            ):
+                result = await service.activate_trial_subscription(session, user_id=42)
+
+            self.assertFalse(result["activated"])
+            self.assertFalse(result["eligible"])
+            self.assertEqual(result["message_key"], "trial_already_had_subscription_or_trial")
+            service._get_or_create_panel_user_link_details.assert_not_awaited()
+            service.panel_service.update_user_details_on_panel.assert_not_awaited()
+            upsert_subscription.assert_not_awaited()
 
     async def test_activate_subscription_dispatches_traffic_sale_mode(self):
         with tempfile.TemporaryDirectory() as tmpdir:

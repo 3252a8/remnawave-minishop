@@ -101,6 +101,7 @@ class AdminDbStatsCacheTests(unittest.IsolatedAsyncioTestCase):
                 "trial_users": 1,
                 "free_subscription_users": 0,
                 "inactive_users": 2,
+                "expired_subscription_users": 1,
                 "referral_users": 3,
             }
         )

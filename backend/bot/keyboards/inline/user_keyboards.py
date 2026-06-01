@@ -7,6 +7,10 @@ from bot.middlewares.i18n import locale_language_options
 from bot.utils.install_links import bot_install_guide_url
 from bot.utils.mini_app_url import subscription_mini_app_trial_url
 from config.settings import Settings
+from config.tariffs_config import (
+    default_currency_key_for_settings,
+    default_payment_currency_code_for_settings,
+)
 
 BOT_MENU_CONTEXT = "bot"
 
@@ -328,19 +332,31 @@ def get_tariff_catalog_keyboard(
     tariffs: List[Any],
     lang: str,
     i18n_instance,
+    settings: Optional[Settings] = None,
     back_callback: str = "main_action:back_to_main",
     callback_context: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     callback_context = callback_context or callback_context_from_back_callback(back_callback)
+    default_currency = default_currency_key_for_settings(settings) if settings else "rub"
     for tariff in tariffs:
         label = tariff.name(lang)
         if tariff.billing_model == "period":
-            min_price = tariff.min_period_price_rub()
+            if hasattr(tariff, "min_period_price"):
+                min_price = tariff.min_period_price(default_currency)
+            elif default_currency == "rub" and hasattr(tariff, "min_period_price_rub"):
+                min_price = tariff.min_period_price_rub()
+            else:
+                min_price = None
             if min_price is not None:
                 label = f"{label} от {min_price:g}"
         else:
-            package = tariff.min_traffic_package_rub()
+            if hasattr(tariff, "min_traffic_package"):
+                package = tariff.min_traffic_package(default_currency)
+            elif default_currency == "rub" and hasattr(tariff, "min_traffic_package_rub"):
+                package = tariff.min_traffic_package_rub()
+            else:
+                package = None
             if package:
                 label = f"{label} от {package.price:g} / {package.gb:g} GB"
         builder.row(
@@ -368,8 +384,10 @@ def get_tariff_periods_keyboard(
     builder = InlineKeyboardBuilder()
     callback_context = callback_context or callback_context_from_back_callback(back_callback)
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
+    default_currency = default_currency_key_for_settings(settings)
+    currency_code = default_payment_currency_code_for_settings(settings)
     for months in tariff.enabled_periods:
-        rub_price = tariff.period_price(months, "rub")
+        rub_price = tariff.period_price(months, default_currency)
         if rub_price and rub_price > 0:
             builder.row(
                 InlineKeyboardButton(
@@ -377,7 +395,7 @@ def get_tariff_periods_keyboard(
                         "subscribe_for_months_button",
                         months=months,
                         price=rub_price,
-                        currency_symbol=settings.DEFAULT_CURRENCY_SYMBOL,
+                        currency_symbol=currency_code,
                     ),
                     callback_data=f"tariff:period:{tariff.key}:{months}"
                     f"{callback_suffix_for_context(callback_context)}",
@@ -394,6 +412,7 @@ def get_tariff_packages_keyboard(
     packages: List[Any],
     lang: str,
     i18n_instance,
+    currency_symbol: str = "RUB",
     back_callback: str = "main_action:subscribe",
     callback_context: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
@@ -407,7 +426,7 @@ def get_tariff_packages_keyboard(
                     "buy_traffic_package_button",
                     traffic_gb=f"{package.gb:g}",
                     price=package.price,
-                    currency_symbol="RUB",
+                    currency_symbol=currency_symbol,
                 ),
                 callback_data=f"tariff:package:{tariff.key}:{package.gb:g}"
                 f"{callback_suffix_for_context(callback_context)}",
@@ -430,6 +449,7 @@ def get_hwid_device_packages_keyboard(
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
+    currency_code = default_payment_currency_code_for_settings(settings)
     for package in packages:
         builder.row(
             InlineKeyboardButton(
@@ -437,7 +457,7 @@ def get_hwid_device_packages_keyboard(
                     "buy_hwid_devices_button",
                     count=package.count,
                     price=package.price,
-                    currency_symbol=settings.DEFAULT_CURRENCY_SYMBOL,
+                    currency_symbol=currency_code,
                 ),
                 callback_data=(
                     f"hwid_devices:{'renewal_package' if renewal else 'package'}:"
@@ -484,6 +504,7 @@ def get_payment_method_keyboard(
         if (
             not spec
             or not spec.callback_prefix
+            or not spec.is_usable_for_payment_currency(settings, currency_symbol_val)
             or not spec.is_available_to_user(
                 settings,
                 user_id=user_id,
