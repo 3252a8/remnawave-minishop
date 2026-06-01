@@ -296,6 +296,10 @@ class WebAppRouteContractTests(unittest.TestCase):
         self.assertIn("URLSearchParams", response.text)
         self.assertIn("Settings added", response.text)
         self.assertIn("window.close()", response.text)
+        self.assertNotIn('window.addEventListener("blur", notePageLeft)', response.text)
+        self.assertNotIn("window.setTimeout(tryCloseWindow, 120)", response.text)
+        self.assertIn("const CLOSE_ATTEMPT_DELAY_MS = 2500", response.text)
+        self.assertIn("if (pageLeft || document.hidden) tryCloseWindow();", response.text)
         self.assertIn(r"/^(?:javascript|data|vbscript|https?):/i", response.text)
 
     def test_app_deeplink_gateway_uses_i18n_template(self):

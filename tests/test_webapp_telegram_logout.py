@@ -44,6 +44,9 @@ def test_open_app_route_uses_fallback_screen_without_auth_flow():
     assert "AppLaunchScreen" in app_source
     assert 'mode = isAppLaunchRoute ? "appLaunch"' in app_source
     assert "window.close()" in screen_source
+    assert 'window.addEventListener("blur", notePageLeft)' not in screen_source
+    assert "CLOSE_ATTEMPT_DELAY_MS = 2500" in screen_source
+    assert "if (pageLeft || document.hidden) tryCloseWindow();" in screen_source
 
     launch_guard_pos = app_source.index("if (isAppLaunchRoute) return;")
     boot_pos = app_source.index("boot();", launch_guard_pos)

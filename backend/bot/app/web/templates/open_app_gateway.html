@@ -109,6 +109,8 @@
         let attempted = false;
         let pageLeft = false;
         let state = "opening";
+        let closeAttemptTimer = null;
+        const CLOSE_ATTEMPT_DELAY_MS = 2500;
 
         function hasControlChars(value) {
           return Array.from(String(value || "")).some((char) => {
@@ -167,7 +169,10 @@
         function markDone() {
           if (state === "done" || isUnsafe) return;
           render("done");
-          window.setTimeout(tryCloseWindow, 120);
+          if (closeAttemptTimer) window.clearTimeout(closeAttemptTimer);
+          closeAttemptTimer = window.setTimeout(() => {
+            if (pageLeft || document.hidden) tryCloseWindow();
+          }, CLOSE_ATTEMPT_DELAY_MS);
         }
 
         function notePageLeft() {
@@ -201,7 +206,6 @@
           render("done");
         });
         window.addEventListener("pagehide", notePageLeft);
-        window.addEventListener("blur", notePageLeft);
         document.addEventListener("visibilitychange", () => {
           if (!attempted) return;
           if (document.hidden) {
