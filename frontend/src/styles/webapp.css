@@ -336,6 +336,18 @@ a {
     margin-left: 0;
     justify-content: center;
   }
+
+  .subscription-renew-action {
+    min-height: 54px;
+    padding-block: 12px;
+    font-size: 15px;
+  }
+
+  .subscription-renew-action svg {
+    width: 19px;
+    height: 19px;
+    flex: 0 0 auto;
+  }
 }
 
 .traffic-top,

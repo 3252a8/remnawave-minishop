@@ -343,7 +343,7 @@
         </Button>
       {/if}
       <Button
-        class="wide"
+        class={`wide${subscription.active ? " subscription-renew-action" : ""}`}
         variant={subscription.active ? "secondary" : "default"}
         onclick={openPaymentModal}
       >
