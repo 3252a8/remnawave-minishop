@@ -16,6 +16,7 @@ import hashlib
 from html import escape as html_escape
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from sqlalchemy.orm import aliased
 
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 from bot.infra.redis import cache_delete_pattern, redis_key
@@ -538,9 +539,34 @@ def _user_panel_status_condition(panel_status: str):
             normalized_status == "active", blank_status & Subscription.is_active.is_(True)
         )
     elif status == "expired":
-        status_cond = or_(
-            normalized_status == "expired", blank_status & Subscription.is_active.is_(False)
+        now = datetime.now(timezone.utc)
+        expired_subs = aliased(Subscription)
+        active_subs = aliased(Subscription)
+        expired_status = sa_func.lower(sa_func.coalesce(expired_subs.status_from_panel, ""))
+        expired_blank_status = or_(
+            expired_subs.status_from_panel.is_(None),
+            expired_subs.status_from_panel == "",
         )
+        expired_condition = or_(
+            expired_status == "expired",
+            expired_blank_status & expired_subs.is_active.is_(False),
+            expired_subs.end_date <= now,
+        )
+        expired_exists = (
+            select(expired_subs.subscription_id)
+            .where(expired_subs.user_id == User.user_id, expired_condition)
+            .exists()
+        )
+        active_exists = (
+            select(active_subs.subscription_id)
+            .where(
+                active_subs.user_id == User.user_id,
+                active_subs.is_active.is_(True),
+                active_subs.end_date > now,
+            )
+            .exists()
+        )
+        return and_(expired_exists, ~active_exists)
     else:
         status_cond = normalized_status == "limited"
 

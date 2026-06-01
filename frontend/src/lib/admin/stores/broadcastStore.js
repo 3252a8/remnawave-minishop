@@ -12,6 +12,7 @@ export function createBroadcastStore({ api, onToast, at }) {
     { value: "all", label: at("broadcast_target_all", {}, "Все активные") },
     { value: "active", label: at("broadcast_target_active", {}, "С подпиской") },
     { value: "inactive", label: at("broadcast_target_inactive", {}, "Без подписки") },
+    { value: "expired", label: at("broadcast_target_expired", {}, "Expired subscription") },
   ];
 
   async function runBroadcast() {

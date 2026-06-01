@@ -452,10 +452,11 @@ def get_broadcast_confirmation_keyboard(
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
 
-    # Row: target selection (all / active / inactive)
+    # Row: target selection (all / active / inactive / expired)
     target_all_label = _(key="broadcast_target_all_button")
     target_active_label = _(key="broadcast_target_active_button")
     target_inactive_label = _(key="broadcast_target_inactive_button")
+    target_expired_label = _(key="broadcast_target_expired_button")
 
     # Highlight current selection with a prefix
     def mark_selected(label: str, is_selected: bool) -> str:
@@ -473,7 +474,10 @@ def get_broadcast_confirmation_keyboard(
         text=mark_selected(target_inactive_label, target == "inactive"),
         callback_data="broadcast_target:inactive",
     )
-    builder.adjust(3)
+    builder.button(
+        text=mark_selected(target_expired_label, target == "expired"),
+        callback_data="broadcast_target:expired",
+    )
 
     # Row: confirmation
     builder.button(
@@ -482,7 +486,7 @@ def get_broadcast_confirmation_keyboard(
     builder.button(
         text=_(key="cancel_broadcast_button"), callback_data="broadcast_final_action:cancel"
     )
-    builder.adjust(2)
+    builder.adjust(2, 2, 2)
     return builder.as_markup()
 
 

@@ -41,6 +41,7 @@ class UserDalStatisticsTests(unittest.IsolatedAsyncioTestCase):
                 side_effect=[
                     FakeResult((10, 1, 2, 3)),
                     FakeResult((8, 4, 2, 2)),
+                    FakeResult(3),
                 ]
             )
         )
@@ -58,6 +59,7 @@ class UserDalStatisticsTests(unittest.IsolatedAsyncioTestCase):
                 "trial_users": 2,
                 "free_subscription_users": 2,
                 "inactive_users": 2,
+                "expired_subscription_users": 3,
                 "referral_users": 3,
             },
         )
@@ -210,6 +212,42 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
         ).upper()
         self.assertIn("LEFT OUTER JOIN", sql)
         self.assertIn("IS NULL", sql)
+
+    async def test_count_users_with_expired_subscription_excludes_currently_active(self):
+        session = SimpleNamespace(execute=AsyncMock(return_value=FakeResult(4)))
+
+        result = await user_dal.count_users_with_expired_subscription(session)
+
+        self.assertEqual(result, 4)
+        stmt = session.execute.await_args.args[0]
+        sql = str(
+            stmt.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).upper()
+        self.assertIn("EXISTS", sql)
+        self.assertIn("EXPIRED", sql)
+        self.assertIn("END_DATE <=", sql)
+        self.assertIn("NOT (EXISTS", sql)
+        self.assertNotIn("USERS.IS_BANNED", sql)
+
+    async def test_get_user_ids_with_expired_subscription_excludes_banned_users(self):
+        session = SimpleNamespace(execute=AsyncMock(return_value=FakeResult([2, 3])))
+
+        result = await user_dal.get_user_ids_with_expired_subscription(session)
+
+        self.assertEqual(result, [2, 3])
+        stmt = session.execute.await_args.args[0]
+        sql = str(
+            stmt.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).upper()
+        self.assertIn("USERS.IS_BANNED = FALSE", sql)
+        self.assertIn("EXPIRED", sql)
+        self.assertIn("NOT (EXISTS", sql)
 
     async def test_merge_users_uses_bulk_updates_for_related_tables(self):
         source = SimpleNamespace(

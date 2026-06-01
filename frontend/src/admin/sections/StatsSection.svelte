@@ -728,7 +728,11 @@
         </Card.Header>
         <Card.Footer class="admin-cn-card-footer--stack">
           <div class="admin-cn-card-footer-primary">
-            {at("stats_trend_new_today", { count: users.active_today ?? 0 }, "")}
+            {at(
+              "stats_trend_expired_subscriptions",
+              { count: users.expired_subscription_users ?? 0 },
+              ""
+            )}
           </div>
           <div class="admin-cn-card-footer-muted">{at("stats_card_inactive_caption", {}, "")}</div>
         </Card.Footer>

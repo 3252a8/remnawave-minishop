@@ -1278,6 +1278,7 @@ export async function mockApi(path, options = {}, context = {}) {
         trial_users: 8,
         free_subscription_users: 23,
         inactive_users: 76,
+        expired_subscription_users: 31,
         banned_users: 3,
         referral_users: 34,
       },
