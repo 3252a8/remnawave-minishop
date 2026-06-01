@@ -13,6 +13,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import pending_statuses
 from bot.services.panel_api_service import PanelApiService
 from config.settings import Settings
+from config.tariffs_config import default_payment_currency_code_for_settings
 from db.dal import panel_sync_dal, payment_dal, user_dal
 from db.models import PanelSyncStatus, Payment
 
@@ -195,19 +196,20 @@ async def show_statistics_handler(
 
     # Financial statistics
     financial_stats = await payment_dal.get_financial_statistics(session)
+    currency = default_payment_currency_code_for_settings(settings)
 
     stats_text_parts.append(f"\n<b>💰 {_('admin_financial_stats_header')}</b>")
     stats_text_parts.append(
-        f"📅 {_('admin_financial_today_label')}: <b>{financial_stats['today_revenue']:.2f} RUB</b> ({financial_stats['today_payments_count']} {_('admin_financial_payments_label')})"  # noqa: E501
+        f"📅 {_('admin_financial_today_label')}: <b>{financial_stats['today_revenue']:.2f} {currency}</b> ({financial_stats['today_payments_count']} {_('admin_financial_payments_label')})"  # noqa: E501
     )
     stats_text_parts.append(
-        f"📅 {_('admin_financial_week_label')}: <b>{financial_stats['week_revenue']:.2f} RUB</b>"
+        f"📅 {_('admin_financial_week_label')}: <b>{financial_stats['week_revenue']:.2f} {currency}</b>"  # noqa: E501
     )
     stats_text_parts.append(
-        f"📅 {_('admin_financial_month_label')}: <b>{financial_stats['month_revenue']:.2f} RUB</b>"
+        f"📅 {_('admin_financial_month_label')}: <b>{financial_stats['month_revenue']:.2f} {currency}</b>"  # noqa: E501
     )
     stats_text_parts.append(
-        f"🏆 {_('admin_financial_all_time_label')}: <b>{financial_stats['all_time_revenue']:.2f} RUB</b>"  # noqa: E501
+        f"🏆 {_('admin_financial_all_time_label')}: <b>{financial_stats['all_time_revenue']:.2f} {currency}</b>"  # noqa: E501
     )
 
     last_payments_models: List[Payment] = await payment_dal.get_recent_payment_logs_with_user(

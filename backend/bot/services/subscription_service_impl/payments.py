@@ -120,7 +120,7 @@ class PaymentContextMixin:
                 months=int(months or 0),
                 traffic_gb=traffic_gb,
                 amount=float(payment_amount or 0),
-                currency=self.settings.DEFAULT_CURRENCY_SYMBOL,
+                currency=default_payment_currency_code_for_settings(self.settings),
                 end_date_text=end_date_text,
                 dashboard_url=dashboard_url,
                 provider_label=provider_label,

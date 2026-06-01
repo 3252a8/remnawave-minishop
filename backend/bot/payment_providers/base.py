@@ -112,6 +112,7 @@ class WebAppPaymentContext:
     stars_price: Optional[int]
     description: str
     sale_mode: str
+    currency: str = "RUB"
     traffic_gb: Optional[float] = None
     hwid_valid_from: Optional[Any] = None
     hwid_valid_until: Optional[Any] = None
@@ -125,6 +126,36 @@ ServiceFactory = Callable[[ServiceFactoryContext], Any]
 WebhookPathGetter = Callable[[Any], str]
 WebhookRoute = Callable[[Any], Awaitable[Any]]
 WebAppPaymentFactory = Callable[[WebAppPaymentContext], Awaitable[Any]]
+CurrencySupportResolver = Callable[[Any], Optional[Sequence[str]]]
+
+
+def normalize_payment_currency_code(value: Any, default: str = "RUB") -> str:
+    text = str(value or "").strip().upper()
+    if not text:
+        text = str(default).strip().upper() if default is not None else ""
+    if not text:
+        return ""
+    aliases = {"RUR": "RUB", "STARS": "XTR", "STAR": "XTR"}
+    normalized = aliases.get(text, text)
+    return "".join(ch for ch in normalized if ch.isalnum() or ch in {"_", "-"}).strip("_-")
+
+
+def parse_supported_currency_codes(value: Any) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        raw_items = value.replace(";", ",").split(",")
+    else:
+        raw_items = list(value)
+    currencies: list[str] = []
+    seen: set[str] = set()
+    for item in raw_items:
+        code = normalize_payment_currency_code(item, default="")
+        if not code or code in seen:
+            continue
+        seen.add(code)
+        currencies.append(code)
+    return tuple(currencies)
 
 
 @dataclass(frozen=True)
@@ -158,6 +189,10 @@ class PaymentProviderSpec:
     admin_only_manifest_key: Optional[str] = None
     admin_only_config_attr: str = "ADMIN_ONLY_ENABLED"
     admin_only_enabled: Optional[EnabledPredicate] = None
+    supported_currencies: Optional[Sequence[str]] = ("RUB",)
+    supported_currencies_resolver: Optional[CurrencySupportResolver] = None
+    currency_support_note: str = ""
+    currency_support_url: Optional[str] = None
 
     @property
     def settings_key(self) -> str:
@@ -236,6 +271,39 @@ class PaymentProviderSpec:
             return True
         service = app.get(self.service_key) if hasattr(app, "get") else None
         return bool(service and getattr(service, "configured", False))
+
+    def _currency_source(self, source: Any) -> Any:
+        if self.config_class is not None and self.service_key:
+            from .registry import get_provider_bundle
+
+            bundle = get_provider_bundle(self.service_key)
+            if bundle and bundle.config is not None:
+                return bundle.config
+        return source
+
+    def supported_currency_codes(self, source: Any = None) -> Optional[tuple[str, ...]]:
+        if self.price_source == "stars":
+            return ("XTR",)
+        source_for_currency = self._currency_source(source)
+        if self.supported_currencies_resolver is not None:
+            resolved = self.supported_currencies_resolver(source_for_currency)
+            if resolved is None:
+                return None
+            return parse_supported_currency_codes(resolved)
+        if self.supported_currencies is None:
+            return None
+        return parse_supported_currency_codes(self.supported_currencies)
+
+    def supports_currency(self, source: Any, currency: Any) -> bool:
+        supported = self.supported_currency_codes(source)
+        if supported is None:
+            return True
+        return normalize_payment_currency_code(currency) in supported
+
+    def is_usable_for_payment_currency(self, source: Any, currency: Any) -> bool:
+        if self.price_source == "stars":
+            return True
+        return self.supports_currency(source, currency)
 
     def is_visible(self, source: Any, app: Any) -> bool:
         return self.is_enabled(source) and self.is_service_configured(app)

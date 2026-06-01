@@ -12,11 +12,12 @@ from __future__ import annotations
 import html
 import re
 from dataclasses import dataclass
-from typing import Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Optional, Sequence, Tuple
 from urllib.parse import urlsplit
 
-from bot.middlewares.i18n import JsonI18n, get_i18n_instance, normalize_locale_language_code
-from config.settings import Settings
+if TYPE_CHECKING:
+    from bot.middlewares.i18n import JsonI18n
+    from config.settings import Settings
 
 _BG = "#05070a"
 _CARD_BG = "#0e1116"
@@ -64,14 +65,16 @@ def _brand_title(settings: Settings) -> str:
 
 
 def _normalize_lang(language_code: Optional[str], settings: Settings) -> str:
-    return normalize_locale_language_code(
-        language_code or settings.DEFAULT_LANGUAGE or "ru",
-        prefer_known_base=False,
-    )
+    value = str(language_code or settings.DEFAULT_LANGUAGE or "ru").strip().lower()
+    return value.replace("_", "-") or "ru"
 
 
 def _resolve_i18n(i18n: Optional[JsonI18n]) -> JsonI18n:
-    return i18n or get_i18n_instance()
+    if i18n is not None:
+        return i18n
+    from bot.middlewares.i18n import get_i18n_instance
+
+    return get_i18n_instance()
 
 
 def _t_html(i18n: JsonI18n, lang: str, key: str, **kwargs) -> str:

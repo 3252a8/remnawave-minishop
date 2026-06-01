@@ -103,6 +103,8 @@ async def create_payment_route(request: web.Request) -> web.Response:
     subscription_service: SubscriptionService = request.app["subscription_service"]
     cached = _get_cached_webapp_settings(request)
     tariffs_config = settings.tariffs_config
+    default_currency = default_currency_key_for_settings(settings)
+    default_currency_code = payment_currency_code(default_currency)
     traffic_mode = bool(settings.traffic_sale_mode)
     sale_mode = "subscription"
     traffic_gb_for_payment: Optional[float] = None
@@ -155,17 +157,17 @@ async def create_payment_route(request: web.Request) -> web.Response:
             if requested_sale_mode == "premium_topup"
             else tariffs_config.topup_packages_for(tariff)
         )
-        rub_packages = {
+        currency_packages = {
             float(package.gb): float(package.price)
-            for package in (packages.rub if packages else [])
+            for package in (packages.for_currency(default_currency) if packages else [])
         }
         stars_packages = {
             float(package.gb): int(float(package.price))
             for package in (packages.stars if packages else [])
         }
-        package_key = _resolve_numeric_option_key(rub_packages, traffic_gb)
+        package_key = _resolve_numeric_option_key(currency_packages, traffic_gb)
         stars_package_key = _resolve_numeric_option_key(stars_packages, traffic_gb)
-        price = rub_packages.get(package_key) if package_key is not None else None
+        price = currency_packages.get(package_key) if package_key is not None else None
         stars_price = (
             stars_packages.get(stars_package_key) if stars_package_key is not None else None
         )
@@ -196,17 +198,21 @@ async def create_payment_route(request: web.Request) -> web.Response:
                 return _json_error(400, "invalid_plan", "Invalid traffic package")
             if traffic_gb <= 0:
                 return _json_error(400, "invalid_plan", "Invalid traffic package")
-            rub_packages = {
+            currency_packages = {
                 float(package.gb): float(package.price)
-                for package in (tariff.traffic_packages.rub if tariff.traffic_packages else [])
+                for package in (
+                    tariff.traffic_packages.for_currency(default_currency)
+                    if tariff.traffic_packages
+                    else []
+                )
             }
             stars_packages = {
                 float(package.gb): int(float(package.price))
                 for package in (tariff.traffic_packages.stars if tariff.traffic_packages else [])
             }
-            package_key = _resolve_numeric_option_key(rub_packages, traffic_gb)
+            package_key = _resolve_numeric_option_key(currency_packages, traffic_gb)
             stars_package_key = _resolve_numeric_option_key(stars_packages, traffic_gb)
-            price = rub_packages.get(package_key) if package_key is not None else None
+            price = currency_packages.get(package_key) if package_key is not None else None
             stars_price = (
                 stars_packages.get(stars_package_key) if stars_package_key is not None else None
             )
@@ -224,7 +230,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
                 return _json_error(400, "invalid_plan", "Invalid subscription period")
             if months not in tariff.enabled_periods:
                 return _json_error(400, "invalid_plan", "Subscription period is not available")
-            price = tariff.period_price(months, "rub")
+            price = tariff.period_price(months, default_currency)
             stars_price_raw = tariff.period_price(months, "stars")
             stars_price = int(stars_price_raw) if stars_price_raw and stars_price_raw > 0 else None
             if price is None and method != "stars":
@@ -296,7 +302,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
                 active_tariff = None
             if not active_tariff or active_tariff.billing_model != "period":
                 return _json_error(400, "invalid_plan", "Device top-up is not available")
-            currency = "stars" if method == "stars" else "rub"
+            currency = "stars" if method == "stars" else default_currency
             hwid_quote = await subscription_service.quote_hwid_device_topup(
                 session,
                 user_id=user_id,
@@ -325,6 +331,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
             months=payment_units,
             price=float(price or 0),
             stars_price=stars_price,
+            currency=default_currency_code,
             lang=lang,
             sale_mode=sale_mode,
             traffic_gb=traffic_gb_for_payment,
@@ -583,6 +590,7 @@ async def tariff_change_payment_route(request: web.Request) -> web.Response:
     tariff_key = str(payment_payload.tariff_key or "").strip()
     settings: Settings = request.app["settings"]
     config = settings.tariffs_config
+    default_currency_code = default_payment_currency_code_for_settings(settings)
     if not config:
         return _json_error(404, "tariffs_unavailable", "Tariffs are not configured")
     if not tariff_key:
@@ -618,6 +626,7 @@ async def tariff_change_payment_route(request: web.Request) -> web.Response:
             months=1,
             price=price,
             stars_price=None,
+            currency=default_currency_code,
             lang=db_user.language_code or settings.DEFAULT_LANGUAGE,
             sale_mode=f"tariff_upgrade@{target.key}",
         )
@@ -656,20 +665,26 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
             active.get("extra_hwid_devices_valid_until_text") if active else None
         ) or _billing_datetime_text(extra_hwid_valid_until)
         packages = tariff.hwid_device_packages
-        rub_counts = {int(package.count) for package in (packages.rub if packages else [])}
+        default_currency = default_currency_key_for_settings(settings)
+        default_currency_code = payment_currency_code(default_currency)
+        if packages and hasattr(packages, "for_currency"):
+            default_packages = packages.for_currency(default_currency)
+        else:
+            default_packages = getattr(packages, default_currency, []) if packages else []
+        currency_counts = {int(package.count) for package in default_packages}
         stars_counts = {int(package.count) for package in (packages.stars if packages else [])}
         plans = []
-        for count in sorted(rub_counts | stars_counts):
-            rub_quote = (
+        for count in sorted(currency_counts | stars_counts):
+            currency_quote = (
                 await subscription_service.quote_hwid_device_topup(
                     session,
                     user_id=user_id,
                     device_count=count,
                     tariff_key=tariff.key,
                     renewal=renewal_available,
-                    currency="rub",
+                    currency=default_currency,
                 )
-                if count in rub_counts
+                if count in currency_counts
                 else None
             )
             stars_quote = (
@@ -684,7 +699,7 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
                 if count in stars_counts
                 else None
             )
-            if not rub_quote and not stars_quote:
+            if not currency_quote and not stars_quote:
                 continue
             sale_mode_for_plan = "hwid_devices_renewal" if renewal_available else "hwid_devices"
             plan = {
@@ -695,13 +710,19 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
                 "sale_mode": sale_mode_for_plan,
                 "months": count,
                 "device_count": count,
-                "price": float(rub_quote.get("price") if rub_quote else 0),
-                "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+                "price": float(currency_quote.get("price") if currency_quote else 0),
+                "currency": default_currency_code,
                 "title": f"+{count}",
                 "subtitle": tariff.name(lang),
-                "valid_from": _billing_iso_datetime((rub_quote or stars_quote).get("valid_from")),
-                "valid_until": _billing_iso_datetime((rub_quote or stars_quote).get("valid_until")),
-                "proration_ratio": float((rub_quote or stars_quote).get("proration_ratio") or 0),
+                "valid_from": _billing_iso_datetime(
+                    (currency_quote or stars_quote).get("valid_from")
+                ),
+                "valid_until": _billing_iso_datetime(
+                    (currency_quote or stars_quote).get("valid_until")
+                ),
+                "proration_ratio": float(
+                    (currency_quote or stars_quote).get("proration_ratio") or 0
+                ),
             }
             if stars_quote and int(stars_quote.get("price") or 0) > 0:
                 plan["stars_price"] = int(stars_quote["price"])
@@ -929,12 +950,14 @@ async def _create_subscription_payment(
     price: float,
     stars_price: Optional[int],
     lang: str,
+    currency: Optional[str] = None,
     sale_mode: str = "subscription",
     traffic_gb: Optional[float] = None,
     is_admin: bool = False,
     hwid_quote: Optional[Dict[str, Any]] = None,
 ) -> web.Response:
     settings: Settings = request.app["settings"]
+    payment_currency = (currency or default_payment_currency_code_for_settings(settings)).upper()
     sale_mode = str(sale_mode or "subscription")
     traffic_sale = _sale_mode_is_traffic(sale_mode)
     hwid_devices_sale = _sale_mode_is_hwid_devices(sale_mode)
@@ -958,6 +981,17 @@ async def _create_subscription_payment(
                 provider_spec.is_service_configured(request.app),
             )
             return _json_error(400, "payment_unavailable", "Payment method unavailable")
+        if not provider_spec.is_usable_for_payment_currency(settings, payment_currency):
+            logger.warning(
+                "WebApp payment method does not support currency: method=%s currency=%s",
+                method,
+                payment_currency,
+            )
+            return _json_error(
+                400,
+                "unsupported_currency",
+                "Payment method does not support this currency",
+            )
         return await provider_spec.create_webapp_payment(
             WebAppPaymentContext(
                 request=request,
@@ -967,6 +1001,7 @@ async def _create_subscription_payment(
                 months=months,
                 price=price,
                 stars_price=stars_price,
+                currency=payment_currency,
                 description=description,
                 sale_mode=sale_mode,
                 traffic_gb=traffic_gb,

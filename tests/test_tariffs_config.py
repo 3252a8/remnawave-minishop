@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from config.tariffs_config import TariffsConfig, load_tariffs_config
+from config.tariffs_config import TariffsConfig, load_tariffs_config, normalize_currency_key
 
 
 def _valid_config():
@@ -127,6 +127,27 @@ class TariffsConfigTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             TariffsConfig.model_validate(data)
+
+    def test_default_currency_prices_load_from_generic_map(self):
+        data = _valid_config()
+        data["default_currency"] = "USD"
+        data["tariffs"][0].pop("prices_rub")
+        data["tariffs"][0]["prices"] = {"usd": {"1": 4.99}}
+        data["tariffs"][1]["traffic_packages"] = {"usd": [{"gb": 10, "price": 2.5}]}
+
+        config = TariffsConfig.model_validate(data)
+        period = config.require("standard")
+        traffic = config.require("traffic")
+
+        self.assertEqual(config.default_currency, "usd")
+        self.assertEqual(config.default_payment_currency_code, "USD")
+        self.assertEqual(period.period_price(1, "usd"), 4.99)
+        self.assertIsNone(period.period_price(1, "rub"))
+        self.assertEqual(traffic.traffic_packages.for_currency("usd")[0].price, 2.5)
+        self.assertEqual(traffic.currency_per_gb_for_conversion("usd"), 0.25)
+
+    def test_currency_symbol_falls_back_to_default_key(self):
+        self.assertEqual(normalize_currency_key("₽"), "rub")
 
     def test_hwid_device_limit_and_packages_load(self):
         data = _valid_config()

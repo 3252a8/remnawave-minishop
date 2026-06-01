@@ -3213,6 +3213,70 @@
   flex-wrap: wrap;
 }
 
+.admin-tariff-catalog-bar {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.admin-currency-input {
+  width: 120px;
+  text-transform: uppercase;
+}
+
+.admin-provider-currency-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.admin-provider-currency {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface-2);
+}
+
+.admin-provider-currency.is-supported {
+  border-color: color-mix(in srgb, var(--success-border) 70%, var(--admin-border));
+}
+
+.admin-provider-currency.is-unavailable {
+  opacity: 0.72;
+}
+
+.admin-provider-currency div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-provider-currency strong,
+.admin-provider-currency small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-provider-currency strong {
+  color: var(--admin-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-provider-currency small {
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+
 .admin-tariff-settings-card {
   margin-top: 14px;
 }

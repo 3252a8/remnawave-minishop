@@ -34,7 +34,7 @@ async def admin_stats_route(request: web.Request) -> web.Response:
         except Exception:  # pragma: no cover - defensive
             payload["queue"] = None
 
-    payload["currency_symbol"] = settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
+    payload["currency_symbol"] = default_payment_currency_code_for_settings(settings)
     return _ok(payload)
 
 

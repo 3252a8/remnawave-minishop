@@ -232,6 +232,41 @@ def test_payment_method_keyboard_uses_custom_telegram_text_without_changing_call
     assert button.callback_data == "pay_wata:1:150:subscription"
 
 
+def test_payment_method_keyboard_filters_providers_by_payment_currency(monkeypatch):
+    monkeypatch.setenv("YOOKASSA_ENABLED", "True")
+    monkeypatch.setenv("WATA_ENABLED", "True")
+    build_provider_configs(force=True)
+
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+        TARIFFS_CONFIG_PATH="missing-tariffs.json",
+        PAYMENT_METHODS_ORDER="yookassa,wata",
+    )
+    i18n = SimpleNamespace(gettext=lambda _lang, key, **_kwargs: key)
+
+    markup = get_payment_method_keyboard(
+        months=1,
+        price=10,
+        stars_price=None,
+        currency_symbol_val="USD",
+        lang="en",
+        i18n_instance=i18n,
+        settings=settings,
+    )
+
+    callbacks = [
+        button.callback_data
+        for row in markup.inline_keyboard
+        for button in row
+        if button.callback_data
+    ]
+    assert "pay_wata:1:10:subscription" in callbacks
+    assert all(not callback.startswith("pay_yk:") for callback in callbacks)
+
+
 def test_admin_only_provider_is_visible_only_to_admins(monkeypatch):
     from bot.app.web.webapp.serializers import _serialize_payment_methods
 
@@ -286,6 +321,33 @@ def test_admin_only_provider_is_visible_only_to_admins(monkeypatch):
     assert admin_markup.inline_keyboard[0][0].callback_data == "pay_wata:1:150:subscription"
     assert _serialize_payment_methods(settings, app, "en", is_admin=False) == []
     assert _serialize_payment_methods(settings, app, "en", is_admin=True)[0]["id"] == "wata"
+
+
+def test_webapp_payment_methods_filter_by_default_currency(monkeypatch):
+    from bot.app.web.webapp.serializers import _serialize_payment_methods
+
+    monkeypatch.setenv("YOOKASSA_ENABLED", "True")
+    monkeypatch.setenv("WATA_ENABLED", "True")
+    build_provider_configs(force=True)
+
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+        TARIFFS_CONFIG_PATH="missing-tariffs.json",
+        PAYMENT_METHODS_ORDER="yookassa,wata",
+        DEFAULT_CURRENCY_SYMBOL="USD",
+        STARS_ENABLED=False,
+    )
+    app = {
+        "yookassa_service": SimpleNamespace(configured=True),
+        "wata_service": SimpleNamespace(configured=True),
+    }
+
+    methods = _serialize_payment_methods(settings, app, "en", is_admin=False)
+
+    assert [method["id"] for method in methods] == ["wata"]
 
 
 def test_admin_only_provider_toggle_pairs_are_declared():

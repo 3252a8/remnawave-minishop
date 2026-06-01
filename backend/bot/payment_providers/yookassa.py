@@ -40,6 +40,10 @@ from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import ensure_user_install_guide_links
 from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
+from config.tariffs_config import (
+    default_currency_key_for_settings,
+    default_payment_currency_code_for_settings,
+)
 from db.dal import payment_dal, user_billing_dal, user_dal
 from db.models import Payment
 
@@ -49,6 +53,7 @@ from .base import (
     ProviderManifestField,
     ServiceFactoryContext,
     WebAppPaymentContext,
+    normalize_payment_currency_code,
     provider_env_file,
     provider_runtime_enabled,
 )
@@ -233,6 +238,11 @@ class YooKassaService:
                 "error": True,
                 "internal_message": "Service settings (Settings object) not initialized.",
             }
+
+        currency = normalize_payment_currency_code(currency)
+        if currency != "RUB":
+            logging.error("YooKassa currency %s is not supported by this integration", currency)
+            return None
 
         customer_contact_for_receipt = {}
         if receipt_email:
@@ -885,7 +895,10 @@ async def process_successful_payment(
             i18n=i18n,
             user_id=user_id,
             amount=payment_value,
-            currency=settings.DEFAULT_CURRENCY_SYMBOL,
+            currency=amount_data.get(
+                "currency",
+                default_payment_currency_code_for_settings(settings),
+            ),
             months_for_admin=int(subscription_months) if sale_mode_base == "subscription" else 0,
             traffic_gb_for_admin=(
                 traffic_amount_gb if is_traffic_sale_base(sale_mode_base) else None
@@ -1702,7 +1715,7 @@ async def pay_yk_callback_handler(
             user_id=callback.from_user.id,
             parts=PaymentCallbackParts(months=months, price=price_rub, sale_mode=sale_mode),
             subscription_service=yookassa_service.subscription_service,
-            currency="rub",
+            currency=default_currency_key_for_settings(settings),
         )
         if not quoted_parts:
             try:
@@ -1713,7 +1726,7 @@ async def pay_yk_callback_handler(
         months = quoted_parts.months
         price_rub = quoted_parts.price
     user_id = callback.from_user.id
-    currency_code_for_yk = "RUB"
+    currency_code_for_yk = default_payment_currency_code_for_settings(settings)
     autopay_enabled = bool(
         settings.yookassa_autopayments_active
         and _sale_mode_base(sale_mode) == "subscription"
@@ -1851,7 +1864,7 @@ async def pay_yk_new_card_handler(
 
     months, price_rub, sale_mode = parsed
     user_id = callback.from_user.id
-    currency_code_for_yk = "RUB"
+    currency_code_for_yk = default_payment_currency_code_for_settings(settings)
     autopay_enabled = bool(
         settings.yookassa_autopayments_active
         and _sale_mode_base(sale_mode) == "subscription"
@@ -2154,7 +2167,7 @@ async def pay_yk_use_saved_handler(
             pass
         return
 
-    currency_code_for_yk = "RUB"
+    currency_code_for_yk = default_payment_currency_code_for_settings(settings)
 
     await _initiate_yk_payment(
         callback,
@@ -2260,7 +2273,7 @@ async def payment_method_bind(
     metadata = {"user_id": str(callback.from_user.id), "bind_only": "1"}
     resp = await yookassa_service.create_payment(
         amount=1.00,
-        currency="RUB",
+        currency=default_payment_currency_code_for_settings(settings),
         description="Bind card",
         metadata=metadata,
         receipt_email=yookassa_service.config.DEFAULT_RECEIPT_EMAIL,
@@ -2734,6 +2747,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     service: YooKassaService = ctx.request.app["yookassa_service"]
     if not service or not service.configured:
         return payment_unavailable()
+    currency = (ctx.currency or "RUB").upper()
 
     try:
         amounts = payment_record_amounts(
@@ -2744,7 +2758,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
         payment = await create_webapp_payment_record(
             ctx,
             amount=ctx.price,
-            currency="RUB",
+            currency=currency,
             status="pending_yookassa",
             provider="yookassa",
         )
@@ -2767,7 +2781,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
             metadata["tariff_key"] = amounts.tariff_key
         response = await service.create_payment(
             amount=ctx.price,
-            currency="RUB",
+            currency=currency,
             description=ctx.description,
             metadata=metadata,
             receipt_email=service.config.DEFAULT_RECEIPT_EMAIL,
@@ -2929,4 +2943,10 @@ SPEC = PaymentProviderSpec(
     config_class=YooKassaConfig,
     presentation_class=YooKassaPresentation,
     manifest_fields=_CONFIG_MANIFEST + _PRESENTATION_MANIFEST,
+    supported_currencies=("RUB",),
+    currency_support_note=(
+        "YooKassa public payment API examples and limits are RUB-based; "
+        "treat non-RUB as unsupported unless your YooKassa contract confirms otherwise."
+    ),
+    currency_support_url="https://yookassa.ru/developers/payment-acceptance/integration-scenarios/smart-payment",
 )

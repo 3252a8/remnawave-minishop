@@ -4,6 +4,7 @@ import {
   cloneCatalog,
   draftFromTariff,
   tariffFromDraft as tariffFromDraftFn,
+  normalizeCurrencyKey,
   normalizeUuidList,
 } from "../tariffDraft.js";
 
@@ -11,6 +12,7 @@ export function createTariffsStore({ api, onTariffsSaved, flash, at }) {
   const state = writable({
     tariffsCatalog: {
       default_tariff: "",
+      default_currency: "rub",
       topup_packages_default: { rub: [], stars: [] },
       tariffs: [],
     },
@@ -23,13 +25,15 @@ export function createTariffsStore({ api, onTariffsSaved, flash, at }) {
     tariffDeleteTarget: null,
     tariffDraft: emptyTariffDraft(),
     panelSquads: [],
+    providerCurrencySupport: [],
     panelSquadsLoading: false,
     selectedBaseSquad: "",
     selectedPremiumSquad: "",
     tariffEditorTab: "general",
   });
 
-  const tariffFromDraft = (draft) => tariffFromDraftFn(draft);
+  const tariffFromDraft = (draft, defaultCurrency = "rub") =>
+    tariffFromDraftFn(draft, defaultCurrency);
 
   async function loadTariffs() {
     state.update((s) => ({ ...s, tariffsLoading: true }));
@@ -41,6 +45,7 @@ export function createTariffsStore({ api, onTariffsSaved, flash, at }) {
           ...s,
           tariffsCatalog: cloneCatalog(data.catalog),
           tariffsPath: data.path || "",
+          providerCurrencySupport: data.provider_currency_support || [],
         }));
       } else {
         flash(data?.message || data?.error || at("load_failed", {}, "Не удалось загрузить тарифы"));
@@ -119,6 +124,7 @@ export function createTariffsStore({ api, onTariffsSaved, flash, at }) {
           ...s,
           tariffsCatalog: cloneCatalog(res.catalog),
           tariffsPath: res.path || currentPath,
+          providerCurrencySupport: res.provider_currency_support || s.providerCurrencySupport || [],
           tariffEditorOpen: false,
           tariffDeleteOpen: false,
           tariffDeleteTarget: null,
@@ -139,7 +145,10 @@ export function createTariffsStore({ api, onTariffsSaved, flash, at }) {
     state.update((s) => ({
       ...s,
       tariffEditingKey: "",
-      tariffDraft: emptyTariffDraft(),
+      tariffDraft: {
+        ...emptyTariffDraft(),
+        defaultCurrency: s.tariffsCatalog.default_currency || "rub",
+      },
       tariffEditorTab: "general",
       selectedBaseSquad: "",
       selectedPremiumSquad: "",
@@ -151,7 +160,7 @@ export function createTariffsStore({ api, onTariffsSaved, flash, at }) {
     state.update((s) => ({
       ...s,
       tariffEditingKey: tariff.key,
-      tariffDraft: draftFromTariff(tariff),
+      tariffDraft: draftFromTariff(tariff, s.tariffsCatalog.default_currency || "rub"),
       tariffEditorTab: "general",
       selectedBaseSquad: "",
       selectedPremiumSquad: "",
@@ -165,7 +174,7 @@ export function createTariffsStore({ api, onTariffsSaved, flash, at }) {
       s = st;
       return st;
     });
-    const tariff = tariffFromDraft(s.tariffDraft);
+    const tariff = tariffFromDraft(s.tariffDraft, s.tariffsCatalog.default_currency || "rub");
     if (!tariff.key) {
       flash(at("tariff_error_key_required", {}, "Укажите ключ тарифа"));
       return;
@@ -233,6 +242,24 @@ export function createTariffsStore({ api, onTariffsSaved, flash, at }) {
     );
   }
 
+  async function setDefaultCurrency(value) {
+    const currency = normalizeCurrencyKey(value || "rub");
+    if (!currency || currency === "stars") {
+      flash(at("tariff_currency_invalid", {}, "Укажите фиатную или криптовалюту, но не Stars"));
+      return;
+    }
+    let s;
+    state.update((st) => {
+      s = st;
+      return st;
+    });
+    if (currency === normalizeCurrencyKey(s.tariffsCatalog.default_currency || "rub")) return;
+    await persistTariffs(
+      { ...cloneCatalog(s.tariffsCatalog), default_currency: currency },
+      at("tariff_currency_updated", {}, "Валюта оплаты обновлена")
+    );
+  }
+
   async function deleteTariff() {
     let s;
     state.update((st) => {
@@ -295,6 +322,7 @@ export function createTariffsStore({ api, onTariffsSaved, flash, at }) {
     saveTariffDraft,
     toggleTariffEnabled,
     setDefaultTariff,
+    setDefaultCurrency,
     deleteTariff,
     addDraftRow,
     removeDraftRow,

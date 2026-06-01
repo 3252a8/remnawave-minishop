@@ -9,7 +9,6 @@ sys.path.insert(0, str(BACKEND_ROOT))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-from bot.middlewares.i18n import JsonI18n  # noqa: E402
 from bot.services.email_templates import (  # noqa: E402
     render_account_merged,
     render_login_code,
@@ -26,6 +25,40 @@ from bot.services.email_templates import (  # noqa: E402
 LANGUAGE = "ru"
 
 
+class PreviewI18n:
+    def __init__(self, path: Path, default: str = "ru"):
+        self.default_lang = default
+        self.locales_data = {}
+        for item in path.glob("*.json"):
+            try:
+                data = json.loads(item.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                continue
+            if isinstance(data, dict):
+                self.locales_data[item.stem] = {
+                    str(key): str(value) for key, value in data.items() if isinstance(value, str)
+                }
+
+    def gettext(self, lang_code: str | None, key: str, **kwargs) -> str:
+        requested = str(lang_code or "").strip().lower().replace("_", "-")
+        requested_base = requested.split("-", 1)[0]
+        if requested in self.locales_data:
+            messages = self.locales_data[requested]
+        elif requested_base in self.locales_data:
+            messages = self.locales_data[requested_base]
+        else:
+            messages = self.locales_data.get(self.default_lang) or self.locales_data.get("en", {})
+        template = messages.get(key)
+        if template is None and self.default_lang in self.locales_data:
+            template = self.locales_data[self.default_lang].get(key)
+        if template is None:
+            template = key
+        try:
+            return template.format(**kwargs) if kwargs else template
+        except Exception:
+            return template
+
+
 def settings():
     return SimpleNamespace(
         DEFAULT_LANGUAGE=LANGUAGE,
@@ -37,7 +70,7 @@ def settings():
     )
 
 
-I18N = JsonI18n(str(REPO_ROOT / "locales"), default=LANGUAGE)
+I18N = PreviewI18n(REPO_ROOT / "locales", default=LANGUAGE)
 SETTINGS = settings()
 SAMPLE = {
     "amount": 390,

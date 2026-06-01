@@ -17,6 +17,10 @@ from bot.middlewares.i18n import JsonI18n
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
 from config.settings import Settings
+from config.tariffs_config import (
+    default_currency_key_for_settings,
+    default_payment_currency_code_for_settings,
+)
 from db.dal import payment_dal
 
 from .base import (
@@ -25,6 +29,7 @@ from .base import (
     ProviderManifestField,
     ServiceFactoryContext,
     WebAppPaymentContext,
+    normalize_payment_currency_code,
     provider_env_file,
     provider_runtime_enabled,
 )
@@ -49,6 +54,34 @@ from .shared import (
 
 logger = logging.getLogger(__name__)
 _LOG = "cryptopay"
+CRYPTOPAY_FIAT_CURRENCIES = (
+    "USD",
+    "EUR",
+    "RUB",
+    "BYN",
+    "UAH",
+    "GBP",
+    "CNY",
+    "KZT",
+    "UZS",
+    "GEL",
+    "TRY",
+    "AMD",
+    "THB",
+    "INR",
+    "BRL",
+    "IDR",
+    "AZN",
+    "AED",
+    "PLN",
+    "ILS",
+)
+CRYPTOPAY_CRYPTO_ASSETS = ("USDT", "TON", "BTC", "ETH", "LTC", "BNB", "TRX", "USDC")
+
+
+def _cryptopay_supported_currencies(config) -> tuple[str, ...]:
+    currency_type = str(getattr(config, "CURRENCY_TYPE", "fiat") or "fiat").strip().lower()
+    return CRYPTOPAY_CRYPTO_ASSETS if currency_type == "crypto" else CRYPTOPAY_FIAT_CURRENCIES
 
 
 class CryptoPayConfig(ProviderEnvConfig):
@@ -159,9 +192,21 @@ class CryptoPayService:
         sale_mode: str = "subscription",
         url_kind: str = "bot",
         hwid_quote: Optional[dict] = None,
+        currency: Optional[str] = None,
     ) -> Optional[str]:
         if not self.configured or not self.client:
             logging.error("CryptoPayService not configured")
+            return None
+
+        currency_code = normalize_payment_currency_code(currency or self.config.ASSET)
+        currency_type = str(self.config.CURRENCY_TYPE or "fiat").strip().lower()
+        supported = _cryptopay_supported_currencies(self.config)
+        if currency_code not in supported:
+            logging.error(
+                "CryptoPay currency %s is not supported for currency_type=%s",
+                currency_code,
+                currency_type,
+            )
             return None
 
         sale_base = sale_mode_base(sale_mode)
@@ -172,7 +217,7 @@ class CryptoPayService:
                 {
                     "user_id": user_id,
                     "amount": float(amount),
-                    "currency": self.config.ASSET,
+                    "currency": currency_code,
                     "status": "pending_cryptopay",
                     "description": description,
                     "subscription_duration_months": (
@@ -212,9 +257,9 @@ class CryptoPayService:
         try:
             invoice = await self.client.create_invoice(
                 amount=amount,
-                currency_type=self.config.CURRENCY_TYPE,
-                fiat=self.config.ASSET if self.config.CURRENCY_TYPE == "fiat" else None,
-                asset=self.config.ASSET if self.config.CURRENCY_TYPE == "crypto" else None,
+                currency_type=currency_type,
+                fiat=currency_code if currency_type == "fiat" else None,
+                asset=currency_code if currency_type == "crypto" else None,
                 description=description,
                 payload=payload,
             )
@@ -393,7 +438,7 @@ async def pay_crypto_callback_handler(
         user_id=callback.from_user.id,
         parts=parts,
         subscription_service=cryptopay_service.subscription_service,
-        currency="rub",
+        currency=default_currency_key_for_settings(settings),
     )
     if not parts:
         await notify_callback_parse_error(callback, translator)
@@ -408,6 +453,7 @@ async def pay_crypto_callback_handler(
         description=payment_description,
         sale_mode=parts.sale_mode,
         hwid_quote=hwid_quote,
+        currency=default_payment_currency_code_for_settings(settings),
     )
 
     if invoice_url:
@@ -457,6 +503,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
         description=ctx.description,
         sale_mode=ctx.sale_mode,
         url_kind="web",
+        currency=ctx.currency,
         hwid_quote={
             "valid_from": ctx.hwid_valid_from,
             "valid_until": ctx.hwid_valid_until,
@@ -592,4 +639,10 @@ SPEC = PaymentProviderSpec(
     config_class=CryptoPayConfig,
     presentation_class=CryptoPayPresentation,
     manifest_fields=_CONFIG_MANIFEST + _PRESENTATION_MANIFEST,
+    supported_currencies_resolver=_cryptopay_supported_currencies,
+    currency_support_note=(
+        "Crypto Pay supports different sets for fiat invoices and crypto invoices; "
+        "CURRENCY_TYPE selects which set is active."
+    ),
+    currency_support_url="https://help.crypt.bot/crypto-pay-api/",
 )

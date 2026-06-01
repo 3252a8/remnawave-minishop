@@ -17,6 +17,7 @@
     AdminSelect,
   } from "$components/patterns/admin/index.js";
   import { Accordion, Switch } from "$components/ui/primitives.js";
+  import { normalizeCurrencyKey } from "$lib/admin/tariffDraft.js";
 
   export let at;
   export let fmtMoney;
@@ -88,6 +89,7 @@
     tariffsPath,
     tariffsSaving,
     panelSquads,
+    providerCurrencySupport,
     panelSquadsLoading,
   } = $tariffsStore);
   $: ({ settingsSections, settingsDirty, settingsSaving } = $settingsStore);
@@ -111,25 +113,30 @@
   let selectedTrialSquad = "";
   let trialSquadSelectKey = 0;
   let tariffSettingsOpen = [];
+  let defaultCurrencyDraft = "RUB";
 
   function tariffName(tariff) {
     return tariff?.names?.ru || tariff?.names?.en || tariff?.key || "—";
   }
 
   function tariffPriceSummary(tariff) {
+    const currency = normalizeCurrencyKey(tariffsCatalog.default_currency || "rub");
+    const currencyCode = currency.toUpperCase();
     if (tariff.billing_model === "traffic") {
-      const rub = tariff.traffic_packages?.rub || [];
-      const first = rub[0];
+      const packages = tariff.traffic_packages?.[currency] || [];
+      const first = packages[0];
       return first
-        ? `${first.gb} GB ${at("at", {}, "за")} ${fmtMoney(first.price, "RUB")}`
+        ? `${first.gb} GB ${at("at", {}, "за")} ${fmtMoney(first.price, currencyCode)}`
         : at("tariff_traffic_packages", {}, "Пакеты трафика");
     }
     const months = [...(tariff.enabled_periods || [])].sort((a, b) => a - b);
     return months
       .map((month) => {
-        const rub = tariff.prices_rub?.[String(month)];
+        const rub =
+          (currency === "rub" ? tariff.prices_rub?.[String(month)] : undefined) ??
+          tariff.prices?.[currency]?.[String(month)];
         const stars = tariff.prices_stars?.[String(month)];
-        if (rub) return `${month} ${at("months_short", {}, "мес.")} ${fmtMoney(rub, "RUB")}`;
+        if (rub) return `${month} ${at("months_short", {}, "мес.")} ${fmtMoney(rub, currencyCode)}`;
         if (stars) return `${month} ${at("months_short", {}, "мес.")} ${stars} ⭐`;
         return `${month} ${at("months_short", {}, "мес.")}`;
       })
@@ -201,6 +208,27 @@
     addTrialSquad(uuid);
     selectedTrialSquad = "";
     trialSquadSelectKey += 1;
+  }
+
+  $: catalogCurrencyKey = normalizeCurrencyKey(tariffsCatalog.default_currency || "rub");
+  $: defaultCurrencyDraft = catalogCurrencyKey.toUpperCase();
+  $: defaultCurrencyDraftKey = normalizeCurrencyKey(defaultCurrencyDraft || "rub");
+  $: defaultCurrencyDirty = defaultCurrencyDraftKey !== catalogCurrencyKey;
+
+  async function saveDefaultCurrency() {
+    await tariffsStore.setDefaultCurrency(defaultCurrencyDraft);
+  }
+
+  function providerCurrencyLabel(provider) {
+    if (provider.accepts_any_currency) return at("tariff_provider_any_currency", {}, "Любая");
+    return (
+      (provider.currencies || []).join(", ") || at("tariff_provider_not_declared", {}, "Не задано")
+    );
+  }
+
+  function providerCurrencyVariant(provider) {
+    if (!provider.enabled || !provider.configured) return "muted";
+    return provider.supports_default_currency ? "success" : "warning";
   }
 
   function removeTrialSquad(uuid) {
@@ -653,6 +681,62 @@
       </div>
     </header>
     <div class="admin-card-body">
+      <div class="admin-tariff-catalog-bar">
+        <label class="admin-field-label-compact">
+          <span>{at("tariff_default_currency", {}, "Валюта оплаты")}</span>
+          <Input
+            class="input admin-currency-input"
+            type="text"
+            maxlength="12"
+            value={defaultCurrencyDraft}
+            oninput={(event) => (defaultCurrencyDraft = event.currentTarget.value.toUpperCase())}
+            onkeydown={(event) => {
+              if (event.key === "Enter" && defaultCurrencyDirty) saveDefaultCurrency();
+            }}
+          />
+        </label>
+        <AdminBadge variant="muted">{catalogCurrencyKey.toUpperCase()}</AdminBadge>
+        {#if defaultCurrencyDirty}
+          <AdminButton
+            size="sm"
+            variant="primary"
+            onclick={saveDefaultCurrency}
+            disabled={tariffsSaving}
+          >
+            <Save size={13} />
+            {tariffsSaving
+              ? at("btn_saving", {}, "Сохранение...")
+              : at("btn_save", {}, "Сохранить")}
+          </AdminButton>
+        {/if}
+      </div>
+      {#if providerCurrencySupport?.length}
+        <div class="admin-provider-currency-grid">
+          {#each providerCurrencySupport as provider}
+            <div
+              class="admin-provider-currency"
+              class:is-supported={provider.supports_default_currency && provider.enabled}
+              class:is-unavailable={!provider.supports_default_currency || !provider.enabled}
+            >
+              <div>
+                <strong>{provider.label}</strong>
+                <small>{providerCurrencyLabel(provider)}</small>
+              </div>
+              <AdminBadge variant={providerCurrencyVariant(provider)}>
+                {#if !provider.enabled}
+                  {at("disabled", {}, "Отключен")}
+                {:else if !provider.configured}
+                  {at("status_not_configured", {}, "Не настроен")}
+                {:else if provider.supports_default_currency}
+                  {at("tariff_currency_supported", {}, "Доступен")}
+                {:else}
+                  {at("tariff_currency_unsupported", {}, "Заблокирован")}
+                {/if}
+              </AdminBadge>
+            </div>
+          {/each}
+        </div>
+      {/if}
       {#if !tariffsCatalog.tariffs.length}
         <AdminEmptyState>
           {at(

@@ -1,5 +1,6 @@
 {
   "default_tariff": "standard",
+  "default_currency": "rub",
   "tariffs": [
     {
       "key": "standard",
