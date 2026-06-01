@@ -4323,11 +4323,15 @@
 
   .admin-extend-control .input,
   .admin-extend-control .admin-btn {
-    height: 36px;
+    height: 46px;
   }
 
   .admin-extend-control .admin-btn {
     border-width: 1px 0 0;
+  }
+
+  .admin-reset-trial-btn {
+    height: 46px;
   }
 }
 
