@@ -183,7 +183,10 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("PATCH", "/api/admin/promos/{promo_id}"): "admin_promo_update_route",
             ("DELETE", "/api/admin/promos/{promo_id}"): "admin_promo_delete_route",
             ("GET", "/api/admin/logs"): "admin_logs_route",
-            ("GET", "/api/admin/broadcast/audience-counts"): "admin_broadcast_audience_counts_route",
+            (
+                "GET",
+                "/api/admin/broadcast/audience-counts",
+            ): "admin_broadcast_audience_counts_route",
             ("POST", "/api/admin/broadcast"): "admin_broadcast_route",
             ("POST", "/api/admin/sync"): "admin_sync_route",
             ("GET", "/api/admin/ads"): "admin_ads_list_route",
