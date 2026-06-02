@@ -1,8 +1,10 @@
 import json
 import unittest
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+from bot.app.web.admin_api_impl import common as admin_common
 from bot.app.web.admin_api_impl import users as admin_users
 
 
@@ -71,6 +73,69 @@ class AdminUserResetTrialRouteTests(unittest.IsolatedAsyncioTestCase):
         invalidate.assert_awaited_once()
         self.assertTrue(session.committed)
         self.assertFalse(session.rolled_back)
+
+
+class AdminUserTrialPresentationTests(unittest.TestCase):
+    def test_trial_subscription_serializes_display_label(self):
+        start_at = datetime(2026, 1, 2, 3, 4, tzinfo=timezone.utc)
+        end_at = datetime(2026, 1, 9, 3, 4, tzinfo=timezone.utc)
+        sub = SimpleNamespace(
+            subscription_id=7,
+            panel_user_uuid="panel-user",
+            panel_subscription_uuid=None,
+            start_date=start_at,
+            end_date=end_at,
+            duration_months=None,
+            is_active=False,
+            status_from_panel="EXPIRED",
+            traffic_limit_bytes=10,
+            traffic_used_bytes=2,
+            tier_baseline_bytes=0,
+            topup_balance_bytes=0,
+            premium_used_bytes=0,
+            premium_baseline_bytes=0,
+            premium_topup_balance_bytes=0,
+            premium_topup_used_bytes=0,
+            premium_bonus_bytes=0,
+            regular_bonus_bytes=0,
+            regular_unlimited_override=False,
+            premium_unlimited_override=False,
+            premium_is_limited=False,
+            tariff_key=None,
+            auto_renew_enabled=False,
+            provider="trial",
+            is_throttled=False,
+        )
+
+        payload = admin_common._serialize_subscription(sub)
+
+        self.assertTrue(payload["is_trial"])
+        self.assertEqual(payload["display_label"], "Trial")
+        self.assertIsNone(payload["tariff_key"])
+
+    def test_trial_summary_includes_usage_dates_and_reset_marker(self):
+        first_at = datetime(2026, 1, 2, 3, 4, tzinfo=timezone.utc)
+        latest_at = datetime(2026, 2, 3, 4, 5, tzinfo=timezone.utc)
+        latest_end = datetime(2026, 2, 10, 4, 5, tzinfo=timezone.utc)
+        reset_at = datetime(2026, 3, 1, tzinfo=timezone.utc)
+        user = SimpleNamespace(trial_eligibility_reset_at=reset_at)
+        trial_subs = [
+            SimpleNamespace(
+                start_date=first_at,
+                end_date=datetime(2026, 1, 9, tzinfo=timezone.utc),
+            ),
+            SimpleNamespace(start_date=latest_at, end_date=latest_end, is_active=True),
+        ]
+
+        payload = admin_users._serialize_trial_summary(user, trial_subs)
+
+        self.assertTrue(payload["used"])
+        self.assertTrue(payload["active"])
+        self.assertEqual(payload["count"], 2)
+        self.assertEqual(payload["first_activated_at"], first_at.isoformat())
+        self.assertEqual(payload["latest_activated_at"], latest_at.isoformat())
+        self.assertEqual(payload["latest_end_date"], latest_end.isoformat())
+        self.assertEqual(payload["last_reset_at"], reset_at.isoformat())
 
 
 if __name__ == "__main__":

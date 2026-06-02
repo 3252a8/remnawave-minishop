@@ -2,6 +2,7 @@
 from ._runtime import *  # noqa: F403,F405
 
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
+from db.dal import message_log_dal
 
 
 def _billing_iso_datetime(value: Optional[Any]) -> Optional[str]:
@@ -394,6 +395,28 @@ async def activate_trial_route(request: web.Request) -> web.Response:
                 )
             except Exception:
                 logger.exception("Failed to send WebApp trial activation notification")
+
+        try:
+            await message_log_dal.create_message_log_no_commit(
+                session,
+                {
+                    "user_id": user_id,
+                    "telegram_username": getattr(db_user, "username", None),
+                    "telegram_first_name": getattr(db_user, "first_name", None),
+                    "event_type": "webapp_trial_activate",
+                    "content": (
+                        f"Trial activated via WebApp for user_id={user_id}; "
+                        f"email={getattr(db_user, 'email', None) or 'N/A'}"
+                    ),
+                    "is_admin_event": False,
+                    "target_user_id": user_id,
+                    "timestamp": datetime.now(timezone.utc),
+                },
+            )
+        except Exception:
+            logger.exception("Failed to add WebApp trial activation audit log")
+
+        await session.commit()
 
         try:
             from db.dal import ad_dal as _ad_dal

@@ -745,6 +745,24 @@ def _user_search_condition(query: str):
     return or_(*conditions)
 
 
+def _serialize_trial_summary(user: User, trial_subs: List[Subscription]) -> Dict[str, Any]:
+    first_trial_sub = trial_subs[0] if trial_subs else None
+    latest_trial_sub = trial_subs[-1] if trial_subs else None
+    first_start = getattr(first_trial_sub, "start_date", None)
+    latest_start = getattr(latest_trial_sub, "start_date", None)
+    latest_end = getattr(latest_trial_sub, "end_date", None)
+    reset_at = getattr(user, "trial_eligibility_reset_at", None)
+    return {
+        "used": bool(trial_subs),
+        "count": len(trial_subs),
+        "first_activated_at": first_start.isoformat() if first_start else None,
+        "latest_activated_at": latest_start.isoformat() if latest_start else None,
+        "latest_end_date": latest_end.isoformat() if latest_end else None,
+        "active": bool(latest_trial_sub and getattr(latest_trial_sub, "is_active", False)),
+        "last_reset_at": reset_at.isoformat() if reset_at else None,
+    }
+
+
 async def admin_user_detail_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
@@ -764,6 +782,15 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             .limit(20)
         )
         latest_subs = (await session.execute(latest_subs_stmt)).scalars().all()
+        trial_subs_stmt = (
+            select(Subscription)
+            .where(
+                Subscription.user_id == target_id,
+                sa_func.lower(sa_func.coalesce(Subscription.provider, "")) == "trial",
+            )
+            .order_by(Subscription.start_date.asc().nullslast(), Subscription.end_date.asc())
+        )
+        trial_subs = (await session.execute(trial_subs_stmt)).scalars().all()
         total_paid = await payment_dal.get_user_total_paid(session, target_id)
         recent_payments_stmt = (
             select(Payment)
@@ -830,12 +857,14 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
     serialized_inviter = (
         _serialize_admin_user_with_avatar(inviter, avatar_keys) if inviter is not None else None
     )
+    trial_payload = _serialize_trial_summary(user, trial_subs)
 
     return _ok(
         {
             "user": serialized_user,
             "active_subscription": _serialize_subscription(active_sub) if active_sub else None,
             "subscriptions": [_serialize_subscription(s) for s in (latest_subs or [])],
+            "trial": trial_payload,
             "total_paid": float(total_paid),
             "recent_payments": [_serialize_payment(p) for p in recent_payments],
             "log_count": int(log_count or 0),
