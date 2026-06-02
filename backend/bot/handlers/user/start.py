@@ -473,12 +473,10 @@ async def ensure_required_channel_subscription(
 
 
 @router.message(CommandStart())
+@router.message(CommandStart(magic=F.args.regexp(r"^ref_([A-Za-z0-9_-]{1,64})$").as_("ref_match")))
 @router.message(
-    CommandStart(
-        magic=F.args.regexp(r"^ref_([A-Za-z0-9_-]{1,64})$").as_("ref_match")
-    )
+    CommandStart(magic=F.args.regexp(r"^promo_([A-Za-z0-9_-]{1,100})$").as_("promo_match"))
 )
-@router.message(CommandStart(magic=F.args.regexp(r"^promo_([A-Za-z0-9_-]{1,100})$").as_("promo_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^admin_user_(\d+)$").as_("admin_user_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^ticket_(\d+)$").as_("ticket_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^notifications$").as_("notifications_match")))

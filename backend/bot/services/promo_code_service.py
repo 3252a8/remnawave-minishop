@@ -75,7 +75,7 @@ class PromoCodeService:
                     "promo_code_too_many_attempts",
                     seconds=throttle_result.retry_after
                     or max(1, int(self.settings.BRUTE_FORCE_LOCK_SECONDS)),
-            )
+                )
             return False, _("promo_code_not_found", code=code_display)
 
         applied_code = str(promo_data.code or lookup_code)

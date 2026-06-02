@@ -57,8 +57,8 @@ def test_shell_installer_only_prepares_data_mount_not_runtime_content():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
     assert 'data_dir="$TARGET_DIR/data"' in script
-    assert "mkdir -p \"$data_dir\"" in script
-    assert "chown \"$APP_UID:$APP_GID\" \"$data_dir\"" in script
+    assert 'mkdir -p "$data_dir"' in script
+    assert 'chown "$APP_UID:$APP_GID" "$data_dir"' in script
     assert "data_dir/themes" not in script
     assert "webapp-logo" not in script
     assert "webapp-emoji" not in script

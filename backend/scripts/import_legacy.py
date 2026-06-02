@@ -552,8 +552,7 @@ def remnashop_post_migration_actions(
             "new_url": _target_webhook_url(target_webhook_base_url, "/webhook/panel"),
             "where": "Remnawave Panel -> WEBHOOK_URL",
             "secret": (
-                "Set the Remnawave webhook secret to the value stored in "
-                "PANEL_WEBHOOK_SECRET."
+                "Set the Remnawave webhook secret to the value stored in PANEL_WEBHOOK_SECRET."
             ),
         },
         "payment_providers": payment_actions,

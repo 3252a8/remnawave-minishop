@@ -409,9 +409,7 @@ class LegacyReferralCode(Base):
 
     user = relationship("User")
 
-    __table_args__ = (
-        UniqueConstraint("source", "code", name="uq_legacy_referral_source_code"),
-    )
+    __table_args__ = (UniqueConstraint("source", "code", name="uq_legacy_referral_source_code"),)
 
 
 class LegacyImportMapping(Base):
