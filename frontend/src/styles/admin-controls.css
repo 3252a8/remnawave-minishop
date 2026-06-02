@@ -330,6 +330,23 @@
   background: color-mix(in srgb, var(--accent) 90%, #fff);
 }
 
+@media (max-width: 640px) {
+  .admin-extend-control .input,
+  .admin-extend-control .admin-btn {
+    height: 46px;
+    min-height: 46px;
+  }
+
+  .admin-extend-control .input {
+    line-height: 46px;
+  }
+
+  .admin-extend-control .admin-btn {
+    width: 100%;
+    border-width: 1px 0 0;
+  }
+}
+
 .admin-input-row .input,
 .admin-input-row .admin-btn {
   height: 36px;

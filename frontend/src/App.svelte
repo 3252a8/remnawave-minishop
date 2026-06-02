@@ -78,7 +78,7 @@
     activationPaymentFailed,
     createActivationHandoff,
   } from "./lib/webapp/activationHandoff.js";
-  import { buildGravatarUrl } from "./lib/webapp/gravatar.js";
+  import { buildGravatarUrl, resolveProfileAvatarUrl } from "./lib/webapp/gravatar.js";
   import { createBillingActions } from "./lib/webapp/billingActions.js";
   import { invalidateWebappTariffOptionCaches } from "./lib/webapp/billingOptionCache.js";
   import { runWebappBoot } from "./lib/webapp/webappBoot.js";
@@ -494,7 +494,7 @@
   $: telegramProfileName = telegramName(user);
   $: profileEmail = user?.email || t("wa_settings_email_not_linked");
   $: profileTelegramId = user?.telegram_id ? `TG ID ${user.telegram_id}` : t("wa_tg_id_not_linked");
-  $: profileAvatarUrl = user?.telegram_photo_url || emailAvatarUrl || "";
+  $: profileAvatarUrl = resolveProfileAvatarUrl(user, emailAvatarUrl);
   $: privacyPolicyUrl = String(CFG.privacyPolicyUrl || "").trim();
   $: userAgreementUrl = String(CFG.userAgreementUrl || "").trim();
   $: supportUrl = String(appSettings?.support_url || CFG.supportUrl || "").trim();

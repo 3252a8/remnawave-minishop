@@ -27,6 +27,7 @@ from bot.utils.callback_answer import safe_answer_callback
 from bot.utils.channel_subscription import (
     is_required_channel_access_error,
     normalize_required_channel_id,
+    resolve_required_channel_link,
 )
 from bot.utils.install_links import (
     append_install_share_link_text,
@@ -437,11 +438,12 @@ async def ensure_required_channel_subscription(
         )
         return True
 
-    keyboard = (
-        get_channel_subscription_keyboard(current_lang, i18n, settings.REQUIRED_CHANNEL_LINK)
-        if i18n
-        else None
+    channel_link = await resolve_required_channel_link(
+        bot_instance,
+        required_channel_id,
+        settings.REQUIRED_CHANNEL_LINK,
     )
+    keyboard = get_channel_subscription_keyboard(current_lang, i18n, channel_link) if i18n else None
 
     prompt_text = translate("channel_subscription_required")
 

@@ -264,10 +264,15 @@ def test_remnawave_settings_include_panel_webhook_metadata():
     remnawave_keys = (
         "PANEL_API_URL",
         "PANEL_API_KEY",
+        "PANEL_API_TOTAL_TIMEOUT_SECONDS",
+        "PANEL_API_CONNECT_TIMEOUT_SECONDS",
+        "PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS",
+        "PANEL_API_SOCK_READ_TIMEOUT_SECONDS",
         "PANEL_WEBHOOK_SECRET",
         "USER_SQUAD_UUIDS",
         "USER_EXTERNAL_SQUAD_UUID",
     )
+    timeout_keys = remnawave_keys[2:6]
 
     assert field["webhook_path"] == "/webhook/panel"
     assert field["webhook_requires_base_url"] is True
@@ -278,10 +283,18 @@ def test_remnawave_settings_include_panel_webhook_metadata():
         assert manifest[setting_key]["section_order"] == 3
         assert manifest[setting_key]["subsection"] is None
 
+    for setting_key in timeout_keys:
+        assert manifest[setting_key]["type"] == "float"
+        assert manifest[setting_key]["optional"] is False
+        assert manifest[setting_key]["min"] == 1
+
     for language in ("ru", "en"):
         messages = _locale(language)
         assert "admin_settings_section_remnawave" in messages
         assert field["webhook_hint_i18n_key"] in messages
+        for setting_key in timeout_keys:
+            assert manifest[setting_key]["i18n_label_key"] in messages
+            assert manifest[setting_key]["i18n_description_key"] in messages
 
 
 def test_payment_provider_admin_only_toggles_are_mutually_exclusive():

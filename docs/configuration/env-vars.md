@@ -59,6 +59,10 @@
 | `PANEL_DEVICES_CACHE_TTL_SECONDS` | TTL кеша устройств пользователя Remnawave. |
 | `PANEL_ALL_USERS_CACHE_TTL_SECONDS` | TTL кеша полных сканов пользователей Remnawave. |
 | `PANEL_ALL_USERS_PAGE_SIZE` | Размер страницы Remnawave `/users`. |
+| `PANEL_API_TOTAL_TIMEOUT_SECONDS` | Общий timeout запроса к Remnawave API. |
+| `PANEL_API_CONNECT_TIMEOUT_SECONDS` | Timeout получения соединения с Remnawave API. |
+| `PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS` | Timeout TCP/TLS-подключения к Remnawave API. |
+| `PANEL_API_SOCK_READ_TIMEOUT_SECONDS` | Timeout ожидания данных ответа Remnawave API. |
 | `ADMIN_PANEL_STATS_CACHE_TTL_SECONDS` | TTL статистики Remnawave в админке. |
 | `ADMIN_DB_STATS_CACHE_TTL_SECONDS` | TTL дорогих DB-агрегатов админки. |
 | `ADMIN_USERS_LIST_CACHE_TTL_SECONDS` | TTL списка пользователей админки. |
@@ -104,8 +108,8 @@
 | `TERMS_OF_SERVICE_URL` | Условия использования. |
 | `PRIVACY_POLICY_URL` | Политика конфиденциальности. |
 | `USER_AGREEMENT_URL` | Пользовательское соглашение. |
-| `REQUIRED_CHANNEL_ID` | ID обязательного Telegram-канала. |
-| `REQUIRED_CHANNEL_LINK` | Ссылка на обязательный канал. |
+| `REQUIRED_CHANNEL_ID` | ID обязательного Telegram-канала. Используется для проверки подписки и автоматического получения ссылки кнопки, если бот видит канал. |
+| `REQUIRED_CHANNEL_LINK` | Необязательная запасная ссылка на обязательный канал (`@username` или invite-link), если ссылку нельзя получить по ID. |
 | `START_COMMAND_DESCRIPTION` | Описание `/start` для меню Telegram. |
 | `DISABLE_WELCOME_MESSAGE` | Отключить приветствие на `/start`. |
 

@@ -77,14 +77,20 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "int",
         "general",
         "ID обязательного канала",
-        "Telegram ID канала, в котором нужно состоять.",
+        (
+            "Telegram ID канала для проверки подписки. Если бот видит канал, "
+            "ссылка кнопки будет получена автоматически."
+        ),
     ),
     SettingField(
         "REQUIRED_CHANNEL_LINK",
         "string",
         "general",
         "Ссылка на канал",
-        "Имя пользователя или invite-link.",
+        (
+            "Необязательно: публичный @username или invite-link, "
+            "если ссылку нельзя получить по ID канала."
+        ),
     ),
     SettingField(
         "PANEL_API_URL",
@@ -100,6 +106,42 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "API-ключ Remnawave",
         "Секретный ключ API панели.",
         secret=True,
+    ),
+    SettingField(
+        "PANEL_API_TOTAL_TIMEOUT_SECONDS",
+        "float",
+        "remnawave",
+        "Panel API total timeout",
+        "Maximum total time for one Remnawave API request, in seconds.",
+        optional=False,
+        min=1,
+    ),
+    SettingField(
+        "PANEL_API_CONNECT_TIMEOUT_SECONDS",
+        "float",
+        "remnawave",
+        "Panel API connect timeout",
+        "Maximum time to get or open a Remnawave API connection, in seconds.",
+        optional=False,
+        min=1,
+    ),
+    SettingField(
+        "PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS",
+        "float",
+        "remnawave",
+        "Panel API socket connect timeout",
+        "Maximum TCP/TLS connection time for Remnawave API, in seconds.",
+        optional=False,
+        min=1,
+    ),
+    SettingField(
+        "PANEL_API_SOCK_READ_TIMEOUT_SECONDS",
+        "float",
+        "remnawave",
+        "Panel API socket read timeout",
+        "Maximum time to wait for response data from Remnawave API, in seconds.",
+        optional=False,
+        min=1,
     ),
     SettingField(
         "PANEL_WEBHOOK_SECRET",

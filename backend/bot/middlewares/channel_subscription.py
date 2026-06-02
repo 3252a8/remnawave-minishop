@@ -11,7 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import get_channel_subscription_keyboard
 from bot.middlewares.i18n import JsonI18n
-from bot.utils.channel_subscription import normalize_required_channel_id
+from bot.utils.channel_subscription import (
+    normalize_required_channel_id,
+    resolve_required_channel_link,
+)
 from config.settings import Settings
 from db.dal import user_dal
 
@@ -86,10 +89,14 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
                 return i18n_instance.gettext(current_lang, key)
             return key
 
+        bot_instance = data.get("bot") or data.get("bot_instance")
+        channel_link = await resolve_required_channel_link(
+            bot_instance,
+            required_channel_id,
+            self.settings.REQUIRED_CHANNEL_LINK,
+        )
         keyboard = (
-            get_channel_subscription_keyboard(
-                current_lang, i18n_instance, self.settings.REQUIRED_CHANNEL_LINK
-            )
+            get_channel_subscription_keyboard(current_lang, i18n_instance, channel_link)
             if i18n_instance
             else None
         )

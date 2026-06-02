@@ -4,6 +4,7 @@ from aiogram.types import InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
 from bot.middlewares.i18n import locale_language_options
+from bot.utils.channel_subscription import normalize_required_channel_link
 from bot.utils.install_links import bot_install_guide_url
 from bot.utils.mini_app_url import subscription_mini_app_trial_url
 from config.settings import Settings
@@ -718,10 +719,11 @@ def get_channel_subscription_keyboard(
 
     has_buttons = False
 
-    if channel_link:
+    channel_url = normalize_required_channel_link(channel_link)
+    if channel_url:
         builder.button(
             text=_(key="channel_subscription_join_button"),
-            url=channel_link,
+            url=channel_url,
         )
         has_buttons = True
 

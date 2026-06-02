@@ -53,6 +53,26 @@
     return String(val ?? "—");
   }
 
+  function isTrialSubscription(sub) {
+    return Boolean(sub?.is_trial || String(sub?.provider || "").toLowerCase() === "trial");
+  }
+
+  function subscriptionDisplayLabel(sub) {
+    if (!sub) return "—";
+    if (isTrialSubscription(sub)) return at("user_subscription_trial", {}, "Триал");
+    if (sub.display_label) return sub.display_label;
+    return sub.tariff_name || sub.tariff_key || at("user_history_no_tariff", {}, "Без тарифа");
+  }
+
+  function trialSummaryText(trial) {
+    if (!trial?.used) return at("user_trial_not_used", {}, "Не брал");
+    const date = trial.latest_activated_at || trial.first_activated_at;
+    const base = date
+      ? at("user_trial_used_at", { date: fmtDate(date) }, `Брал ${fmtDate(date)}`)
+      : at("user_trial_used", {}, "Брал");
+    return trial.active ? `${base} · ${at("user_trial_active", {}, "активен")}` : base;
+  }
+
   const usersStore = getContext("usersStore");
 
   $: ({
@@ -404,7 +424,7 @@
                   </li>
                   <li>
                     <span>{at("user_label_tariff", {}, "Тариф")}</span><strong
-                      >{openedUserDetail.active_subscription.tariff_key || "—"}</strong
+                      >{subscriptionDisplayLabel(openedUserDetail.active_subscription)}</strong
                     >
                   </li>
                   <li>
@@ -507,6 +527,37 @@
                 </p>
               {/if}
 
+              {#if openedUserDetail?.trial}
+                <ul class="admin-meta-list">
+                  <li>
+                    <span>{at("user_label_trial", {}, "Пробник / триал")}</span><strong
+                      >{trialSummaryText(openedUserDetail.trial)}</strong
+                    >
+                  </li>
+                  {#if openedUserDetail.trial.used && openedUserDetail.trial.latest_end_date}
+                    <li>
+                      <span>{at("user_label_trial_until", {}, "Триал до")}</span><strong
+                        >{fmtDate(openedUserDetail.trial.latest_end_date)}</strong
+                      >
+                    </li>
+                  {/if}
+                  {#if Number(openedUserDetail.trial.count || 0) > 1}
+                    <li>
+                      <span>{at("user_label_trial_count", {}, "Триалов")}</span><strong
+                        >{openedUserDetail.trial.count}</strong
+                      >
+                    </li>
+                  {/if}
+                  {#if openedUserDetail.trial.last_reset_at}
+                    <li>
+                      <span>{at("user_label_trial_reset_at", {}, "Сброс триала")}</span><strong
+                        >{fmtDate(openedUserDetail.trial.last_reset_at)}</strong
+                      >
+                    </li>
+                  {/if}
+                </ul>
+              {/if}
+
               {#if (openedUserDetail.subscriptions || []).length}
                 <Separator.Root class="admin-separator" />
                 <div class="admin-subsection-title">
@@ -521,8 +572,7 @@
                     <div class="admin-mini-list-row">
                       <div>
                         <strong
-                          >{sub.tariff_key ||
-                            at("user_history_no_tariff", {}, "Без тарифа")}</strong
+                          >{subscriptionDisplayLabel(sub)}</strong
                         >
                         <small
                           >{at(
