@@ -11,6 +11,13 @@ INSTALL_STATE_DIR=".installer"
 IMPORTER_CACHE_PATH="$INSTALL_STATE_DIR/import_legacy.py"
 APP_UID=10001
 APP_GID=10001
+OLD_TGSHOP_DB_VOLUME="remnawave-tg-shop-db-data"
+NEW_MINISHOP_DB_VOLUME="remnawave-minishop-db-data"
+OLD_TGSHOP_CADDY_DATA_VOLUME="remnawave-tg-shop-caddy-data"
+OLD_TGSHOP_CADDY_CONFIG_VOLUME="remnawave-tg-shop-caddy-config"
+NEW_MINISHOP_CADDY_DATA_VOLUME="remnawave-minishop-caddy-data"
+NEW_MINISHOP_CADDY_CONFIG_VOLUME="remnawave-minishop-caddy-config"
+KNOWN_LEGACY_CONTAINERS="remnawave-tg-shop remnawave-tg-shop-db remnawave-tg-shop-caddy remnawave-minishop remnawave-minishop-db remnawave-minishop-caddy remnawave-minishop-backend remnawave-minishop-worker remnawave-minishop-frontend remnawave-minishop-migrate remnawave-minishop-postgres remnawave-minishop-redis"
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
     RESET="$(printf '\033[0m')"
@@ -40,6 +47,7 @@ ENV_PATH=""
 COMPOSE_STYLE=""
 PROMPT_VALUE=""
 CHOICE_VALUE=""
+LEGACY_SOURCE=""
 
 COMPOSE_PROJECT_NAME_VALUE=""
 IMAGE_TAG_VALUE=""
@@ -121,9 +129,11 @@ Environment overrides:
   MINISHOP_INSTALL_REF    default ref ($DEFAULT_REF)
   MINISHOP_IMAGE_TAG      default image tag ($DEFAULT_IMAGE_TAG)
   REMNASHOP_SOURCE_DSN    default source DSN for migration
+  LEGACY_TGSHOP_SOURCE_DSN default remnawave-tg-shop source DSN for dump/restore
 
 The wizard is interactive by design. It never overwrites files without
-confirmation and always runs legacy imports as dry-run first.
+confirmation. Remnashop imports always run dry-run first; legacy
+remnawave-tg-shop can be migrated from Docker volumes or a PostgreSQL DSN.
 EOF
 }
 
@@ -677,9 +687,12 @@ run_compose() {
 }
 
 start_stack() {
+    pull="${1:-1}"
     section "Start Docker stack"
     require_docker || return 1
-    (cd "$TARGET_DIR" && run_compose pull) || return 1
+    if [ "$pull" = "1" ]; then
+        (cd "$TARGET_DIR" && run_compose pull) || return 1
+    fi
     (cd "$TARGET_DIR" && run_compose up -d) || return 1
     (cd "$TARGET_DIR" && run_compose ps) || true
     ok "Stack command completed."
@@ -691,6 +704,95 @@ validate_stack() {
     (cd "$TARGET_DIR" && run_compose ps) || true
     (cd "$TARGET_DIR" && run_compose logs --tail 80 migrate) || true
     ok "Validation commands completed."
+}
+
+volume_exists() {
+    docker volume inspect "$1" >/dev/null 2>&1
+}
+
+volume_is_empty() {
+    docker run --rm -v "$1:/data" alpine sh -c \
+        'test -z "$(find /data -mindepth 1 -print -quit)"' >/dev/null 2>&1
+}
+
+copy_volume_if_safe() {
+    source_volume="$1"
+    target_volume="$2"
+    required="${3:-0}"
+
+    if ! volume_exists "$source_volume"; then
+        if [ "$required" = "1" ]; then
+            fail "Source Docker volume not found: $source_volume"
+            return 1
+        fi
+        warn "Skipping $source_volume: source volume was not found."
+        return 0
+    fi
+
+    if ! volume_exists "$target_volume"; then
+        if [ "$required" = "1" ]; then
+            fail "Target Docker volume not found: $target_volume"
+            return 1
+        fi
+        warn "Skipping $target_volume: target volume was not created by this profile."
+        return 0
+    fi
+
+    if ! volume_is_empty "$target_volume"; then
+        if [ "$required" = "1" ]; then
+            warn "Target volume $target_volume is already not empty."
+            warn "It may already be migrated, or the target stack may have been started with an empty database."
+            if confirm "Continue without copying the legacy database volume?" 0; then
+                return 0
+            fi
+            return 1
+        fi
+        warn "Skipping $target_volume: target volume is already not empty."
+        return 0
+    fi
+
+    run_label="docker run --rm -v $source_volume:/from:ro -v $target_volume:/to alpine sh -c 'cd /from && cp -a . /to/'"
+    color "+ $run_label" "$DIM"
+    printf '\n'
+    docker run --rm \
+        -v "$source_volume:/from:ro" \
+        -v "$target_volume:/to" \
+        alpine sh -c 'cd /from && cp -a . /to/' || return 1
+    ok "Copied $source_volume -> $target_volume"
+}
+
+stop_known_legacy_containers() {
+    section "Stop legacy containers"
+    stopped=0
+    for container in $KNOWN_LEGACY_CONTAINERS; do
+        if docker inspect "$container" >/dev/null 2>&1; then
+            if docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null | grep -q '^true$'; then
+                docker stop "$container" >/dev/null || true
+            fi
+            docker rm "$container" >/dev/null || true
+            info "Stopped/removed $container"
+            stopped=1
+        fi
+    done
+    if [ "$stopped" = "0" ]; then
+        info "No known legacy containers found."
+    fi
+}
+
+wait_target_postgres() {
+    section "Wait for target PostgreSQL"
+    attempt=1
+    while [ "$attempt" -le 30 ]; do
+        if (cd "$TARGET_DIR" && compose exec -T postgres sh -c \
+            'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null 2>&1); then
+            ok "PostgreSQL is ready."
+            return 0
+        fi
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+    fail "Target PostgreSQL did not become ready."
+    return 1
 }
 
 download_importer() {
@@ -742,22 +844,37 @@ run_import_command() {
     (cd "$TARGET_DIR" && run_compose "$@")
 }
 
-run_legacy_migration() {
-    section "Legacy migration"
+choose_legacy_source() {
+    choose "Source bot" "1" "1|2|3" \
+        "1. Remnashop - import users, subscriptions, payments, referrals and promo codes." \
+        "2. Legacy remnawave-tg-shop - upgrade an old compatible database/volume." \
+        "3. Skip migration"
+    case "$CHOICE_VALUE" in
+        1) LEGACY_SOURCE="remnashop" ;;
+        2) LEGACY_SOURCE="remnawave-tg-shop" ;;
+        3) LEGACY_SOURCE="skip" ;;
+    esac
+}
+
+ensure_github_source_for_importer() {
+    if [ -n "$SOURCE_REPO" ] && [ -n "$SOURCE_REF" ]; then
+        return 0
+    fi
+    github_source
+}
+
+run_remnashop_migration() {
+    section "Remnashop migration"
     ENV_PATH="$TARGET_DIR/.env"
     if [ ! -f "$ENV_PATH" ]; then
         fail ".env not found. Install or generate configuration first."
         return 1
     fi
+    ensure_github_source_for_importer || return 1
     require_docker || return 1
     POSTGRES_USER_VALUE="$(env_get POSTGRES_USER '')"
     POSTGRES_PASSWORD_VALUE="$(env_get POSTGRES_PASSWORD '')"
     POSTGRES_DB_VALUE="$(env_get POSTGRES_DB '')"
-
-    choose "Source bot" "1" "1|2" \
-        "1. Remnashop" \
-        "2. Skip migration"
-    [ "$CHOICE_VALUE" = "2" ] && return 0
 
     prompt_value "Source Remnashop PostgreSQL DSN" "${REMNASHOP_SOURCE_DSN:-}" 1 0 ""
     SOURCE_DSN="$PROMPT_VALUE"
@@ -810,6 +927,118 @@ run_legacy_migration() {
     ok "Legacy migration completed."
 }
 
+run_target_schema_migrations() {
+    section "Apply target schema migrations"
+    require_docker || return 1
+    (cd "$TARGET_DIR" && run_compose run --rm migrate) || return 1
+    ok "Schema migrations completed."
+}
+
+prepare_compose_without_starting_apps() {
+    section "Prepare target Compose stack"
+    require_docker || return 1
+    (cd "$TARGET_DIR" && run_compose up --no-start) || return 1
+}
+
+run_tgshop_volume_migration() {
+    section "Legacy remnawave-tg-shop volume migration"
+    warn "This path copies the old PostgreSQL Docker volume into the new Minishop volume."
+    warn "Old volumes are not deleted; keep them until you verify the new stack."
+
+    if confirm "Stop known old/current containers before copying volumes?" 1; then
+        stop_known_legacy_containers || return 1
+        (cd "$TARGET_DIR" && run_compose down) || true
+    fi
+
+    prepare_compose_without_starting_apps || return 1
+    copy_volume_if_safe "$OLD_TGSHOP_DB_VOLUME" "$NEW_MINISHOP_DB_VOLUME" 1 || return 1
+    copy_volume_if_safe "$OLD_TGSHOP_CADDY_DATA_VOLUME" "$NEW_MINISHOP_CADDY_DATA_VOLUME" 0 || return 1
+    copy_volume_if_safe "$OLD_TGSHOP_CADDY_CONFIG_VOLUME" "$NEW_MINISHOP_CADDY_CONFIG_VOLUME" 0 || return 1
+
+    if confirm "Start the new stack and let migrate apply schema changes now?" 1; then
+        start_stack 0 || return 1
+        (cd "$TARGET_DIR" && run_compose logs --tail 120 migrate) || true
+    else
+        warn "Stack was prepared but not started. Run docker compose up -d later."
+    fi
+}
+
+run_tgshop_dsn_migration() {
+    section "Legacy remnawave-tg-shop DSN migration"
+    warn "The old standalone helper did not support direct DSN import."
+    warn "This wizard path dumps the old PostgreSQL database, restores it into target Compose PostgreSQL, then runs Minishop schema migrations."
+    warn "The target database will be dropped and recreated before restore."
+
+    if ! confirm "Replace target database with the legacy dump?" 0; then
+        warn "Migration not applied."
+        return 0
+    fi
+
+    prompt_value "Source remnawave-tg-shop PostgreSQL DSN" "${LEGACY_TGSHOP_SOURCE_DSN:-}" 1 0 ""
+    SOURCE_DSN="$PROMPT_VALUE"
+
+    require_docker || return 1
+    POSTGRES_USER_VALUE="$(env_get POSTGRES_USER '')"
+    POSTGRES_PASSWORD_VALUE="$(env_get POSTGRES_PASSWORD '')"
+    POSTGRES_DB_VALUE="$(env_get POSTGRES_DB '')"
+    TARGET_DSN="$(local_target_dsn)"
+
+    section "Start target PostgreSQL"
+    (cd "$TARGET_DIR" && run_compose stop backend worker frontend migrate) || true
+    (cd "$TARGET_DIR" && run_compose up -d postgres redis) || return 1
+    wait_target_postgres || return 1
+
+    section "Reset target database"
+    (cd "$TARGET_DIR" && run_compose exec -T postgres sh -c \
+        'dropdb -U "$POSTGRES_USER" --if-exists "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"') || return 1
+
+    section "Dump and restore legacy database"
+    (cd "$TARGET_DIR" && run_compose run --rm --no-deps \
+        -e "SOURCE_DSN=$SOURCE_DSN" \
+        -e "TARGET_DSN=$TARGET_DSN" \
+        backend sh -lc \
+        'pg_dump --clean --if-exists --no-owner --no-privileges "$SOURCE_DSN" | psql "$TARGET_DSN"') || return 1
+
+    run_target_schema_migrations || return 1
+    if confirm "Start the full stack now?" 1; then
+        start_stack 0 || return 1
+    fi
+}
+
+run_remnawave_tg_shop_migration() {
+    section "Legacy remnawave-tg-shop migration"
+    ENV_PATH="$TARGET_DIR/.env"
+    if [ ! -f "$ENV_PATH" ]; then
+        fail ".env not found. Install or generate configuration first."
+        return 1
+    fi
+    require_docker || return 1
+
+    choose "Migration method" "1" "1|2|3" \
+        "1. Copy old Docker volumes on this host (recommended for old compose installs)." \
+        "2. Dump from a source PostgreSQL DSN and restore into this compose stack." \
+        "3. Skip migration"
+    case "$CHOICE_VALUE" in
+        1) run_tgshop_volume_migration ;;
+        2) run_tgshop_dsn_migration ;;
+        3) return 0 ;;
+    esac
+}
+
+run_selected_legacy_migration() {
+    case "$LEGACY_SOURCE" in
+        remnashop)
+            run_remnashop_migration
+            ;;
+        remnawave-tg-shop)
+            run_remnawave_tg_shop_migration
+            ;;
+        skip|"")
+            return 0
+            ;;
+    esac
+}
+
 installation_directory() {
     prompt_value "Install directory" "${MINISHOP_INSTALL_DIR:-$(pwd)}" 1 0 ""
     mkdir -p "$(dirname "$PROMPT_VALUE")"
@@ -826,6 +1055,7 @@ github_source() {
 
 install_flow() {
     with_migration="$1"
+    LEGACY_SOURCE=""
     installation_directory || return 1
     github_source || return 1
     choose_profile
@@ -838,20 +1068,43 @@ install_flow() {
     write_env_file || return 1
     mkdir -p "$TARGET_DIR/$INSTALL_STATE_DIR"
     prepare_data_directory || return 1
-    if confirm "Start Docker Compose stack now?" 1; then
-        start_stack || return 1
-    fi
     if [ "$with_migration" = "1" ]; then
-        run_legacy_migration
+        choose_legacy_source
     elif confirm "Run a legacy bot migration now?" 0; then
-        run_legacy_migration
+        choose_legacy_source
     fi
+
+    case "$LEGACY_SOURCE" in
+        remnawave-tg-shop)
+            run_selected_legacy_migration
+            ;;
+        remnashop)
+            if confirm "Start Docker Compose stack before Remnashop import?" 1; then
+                start_stack || return 1
+            else
+                warn "Remnashop import needs the target stack database. Skipping import."
+                return 0
+            fi
+            run_selected_legacy_migration
+            ;;
+        *)
+            if confirm "Start Docker Compose stack now?" 1; then
+                start_stack || return 1
+            fi
+            ;;
+    esac
 }
 
 migration_only_flow() {
+    LEGACY_SOURCE=""
     installation_directory || return 1
-    github_source || return 1
-    run_legacy_migration
+    choose_legacy_source
+    case "$LEGACY_SOURCE" in
+        remnashop)
+            github_source || return 1
+            ;;
+    esac
+    run_selected_legacy_migration
 }
 
 download_only_flow() {

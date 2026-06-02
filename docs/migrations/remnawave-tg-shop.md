@@ -4,6 +4,33 @@
 
 Автоматический скрипт ниже рассчитан именно на родственный стек `remnawave-tg-shop`, где структура БД и Docker volumes известны заранее. Для других ботов нужен отдельный адаптер экспорта/импорта.
 
+## Новый install wizard
+
+Для нового сервера или переноса без клонирования репозитория используйте общий
+`sh` wizard:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/3252a8/remnawave-minishop/main/scripts/install.sh -o install.sh
+sh install.sh
+```
+
+В меню выберите `Install new stack and run legacy migration` или
+`Run legacy migration only`, затем источник `Legacy remnawave-tg-shop`.
+Wizard поддерживает два режима:
+
+- `Copy old Docker volumes` - тот же безопасный сценарий, что и старый
+  `migrate_to_minishop.sh`: старый volume `remnawave-tg-shop-db-data`
+  копируется в `remnawave-minishop-db-data`, затем новый stack запускает
+  сервис `migrate` и накатывает все схемные миграции;
+- `Dump from a source PostgreSQL DSN` - новый режим для случаев, когда старая
+  БД доступна как внешний PostgreSQL DSN. Wizard поднимает целевой `postgres`,
+  сбрасывает целевую БД, делает `pg_dump` из старой БД, восстанавливает дамп в
+  compose-БД и затем запускает `migrate`.
+
+Старый helper `scripts/migrate_to_minishop.sh` ниже всё ещё полезен для
+in-place обновления уже клонированного репозитория: он переключает git-ветку,
+переносит volumes и стартует новый stack. Прямой source DSN он не поддерживал.
+
 ## Короткий путь без смены ветки и сборки
 
 Если вы используете только готовые Docker-образы и не собираете проект
