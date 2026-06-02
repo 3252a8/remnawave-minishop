@@ -233,6 +233,31 @@ a {
   color: var(--danger);
 }
 
+.status-card-warning {
+  border-color: var(--warning-border);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--warning) 14%, var(--surface-sheen-soft)),
+      color-mix(in srgb, var(--warning) 8%, var(--surface-sheen-soft))
+    ),
+    var(--panel);
+  box-shadow:
+    var(--shadow-soft),
+    0 0 0 1px color-mix(in srgb, var(--warning) 20%, transparent),
+    inset 0 1px 0 var(--inset-highlight);
+}
+
+.status-card-warning .sub-status {
+  color: var(--warning-text);
+}
+
+.status-card-warning .subscription-end-line {
+  color: var(--warning-text);
+  font-variant-numeric: tabular-nums;
+  opacity: 1;
+}
+
 .sub-status-inactive {
   min-height: 0;
   justify-content: flex-start;

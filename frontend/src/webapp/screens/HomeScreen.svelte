@@ -1,4 +1,5 @@
 <script>
+  import { onMount } from "svelte";
   import {
     CheckCircle2,
     CircleQuestionMark,
@@ -27,6 +28,8 @@
     activeSubscriptionTermLabel as activeSubscriptionTermLabelFn,
   } from "../../lib/webapp/traffic.js";
 
+  const SUBSCRIPTION_EXPIRY_WARNING_MS = 72 * 60 * 60 * 1000;
+
   export let appSettings = {};
   export let brand = {};
   export let brandTitle = "";
@@ -45,6 +48,8 @@
   export let trafficMode = false;
   export let trialBusy = false;
   export let termUnitLabel = () => ""; // We need this passed from App or context. Actually, App.svelte doesn't pass it yet. We'll pass it.
+
+  let nowMs = Date.now();
 
   function trafficPercent(sub) {
     return trafficPercentFn(sub);
@@ -106,10 +111,64 @@
       unit: termUnitLabel(days, "day"),
     });
   }
+  function parseSubscriptionEndMs(sub) {
+    const raw = String(sub?.end_date || "").trim();
+    if (!raw) return null;
+    const parsed = Date.parse(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  function dateOnlyFromEndText(text) {
+    const value = String(text || "").trim();
+    if (!value) return "";
+    return value.split(/\s+/)[0] || value;
+  }
+  function dateOnlyFromIso(text) {
+    const match = String(text || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return match ? `${match[3]}.${match[2]}.${match[1]}` : "";
+  }
+  function subscriptionEndDateLabel(sub) {
+    return dateOnlyFromEndText(sub?.end_date_text) || dateOnlyFromIso(sub?.end_date);
+  }
+  function formatSubscriptionCountdown(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const pad = (value) => String(value).padStart(2, "0");
+    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+  }
 
   $: trialOfferAvailable = Boolean(
     !subscription?.active && appSettings?.trial_enabled && appSettings?.trial_available
   );
+  $: subscriptionEndMs = subscription?.active ? parseSubscriptionEndMs(subscription) : null;
+  $: subscriptionRemainingMs = Math.max(0, Number(subscriptionEndMs || 0) - nowMs);
+  $: subscriptionExpiryWarning = Boolean(
+    subscription?.active &&
+    subscriptionEndMs &&
+    subscriptionRemainingMs > 0 &&
+    subscriptionRemainingMs <= SUBSCRIPTION_EXPIRY_WARNING_MS
+  );
+  $: subscriptionEndDateText = subscriptionEndDateLabel(subscription);
+  $: subscriptionEndCountdown = formatSubscriptionCountdown(subscriptionRemainingMs);
+  $: subscriptionEndDisplayText = subscriptionExpiryWarning
+    ? `${subscriptionEndDateText || subscription.end_date_text} · ${subscriptionEndCountdown}`
+    : subscriptionEndDateText;
+  $: statusCardClass = [
+    "status-card",
+    subscription.active ? "" : "status-card-inactive",
+    subscriptionExpiryWarning ? "status-card-warning" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  onMount(() => {
+    const countdownTimer = window.setInterval(() => {
+      if (subscription?.active) nowMs = Date.now();
+    }, 1000);
+
+    return () => window.clearInterval(countdownTimer);
+  });
 
   export let activateTrial = () => {};
   export let openConnectLink = () => {};
@@ -138,7 +197,7 @@
   {/if}
 
   <div class="home-bottom">
-    <Card class={`status-card${subscription.active ? "" : " status-card-inactive"}`}>
+    <Card class={statusCardClass}>
       {#if subscription.active}
         <div class="sub-status">
           <CheckCircle2 class="sub-status-icon" size={23} />
@@ -160,8 +219,8 @@
                 </p>
               {/if}
               <p class="subscription-end-line">
-                {subscription.end_date_text
-                  ? t("wa_until_date", { date: subscription.end_date_text })
+                {subscriptionEndDisplayText
+                  ? t("wa_until_date", { date: subscriptionEndDisplayText })
                   : subscription.remaining_text}
               </p>
             </div>
