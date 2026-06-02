@@ -641,6 +641,9 @@ class SubscriptionLifecycleMixin:
             "traffic_limit_bytes": traffic_limit_bytes,
             "provider": provider,
             "skip_notifications": False,
+            # A real payment restores the full reminder spectrum, clearing any
+            # trial/bonus suppression carried over on this panel subscription.
+            "suppress_early_expiry_notifications": False,
             "auto_renew_enabled": auto_renew_should_enable,
             "tariff_key": tariff.key if tariff else None,
             "tier_baseline_bytes": tier_baseline_bytes,
@@ -776,6 +779,9 @@ class SubscriptionLifecycleMixin:
                 "status_from_panel": "ACTIVE_BONUS",
                 "traffic_limit_bytes": traffic_limit,
                 "auto_renew_enabled": False,
+                # Registration/referral bonus grants are short-lived, like a
+                # trial: only warn a few hours before they end, not days ahead.
+                "suppress_early_expiry_notifications": True,
             }
             await subscription_dal.deactivate_other_active_subscriptions(
                 session, panel_uuid, panel_sub_uuid

@@ -1143,6 +1143,18 @@ def _migration_0034_add_legacy_import_compatibility(connection: Connection) -> N
     )
 
 
+def _migration_0035_add_subscription_promo_expiry_flag(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+    if "suppress_early_expiry_notifications" not in columns:
+        connection.execute(
+            text(
+                "ALTER TABLE subscriptions ADD COLUMN suppress_early_expiry_notifications "
+                "BOOLEAN NOT NULL DEFAULT FALSE"
+            )
+        )
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -1324,6 +1336,11 @@ MIGRATIONS: List[Migration] = [
         id="0034_add_legacy_import_compatibility",
         description="Store legacy import mappings and referral codes for source-bot migrations",
         upgrade=_migration_0034_add_legacy_import_compatibility,
+    ),
+    Migration(
+        id="0035_add_subscription_promo_expiry_flag",
+        description="Suppress multi-day expiry reminders for trial and bonus subscriptions",
+        upgrade=_migration_0035_add_subscription_promo_expiry_flag,
     ),
 ]
 

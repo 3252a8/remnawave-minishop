@@ -153,6 +153,15 @@ class SubscriptionNotificationWorker:
                     hours_before=hours_before,
                 )
 
+            # Trial and registration/referral-bonus subscriptions last only a
+            # few days, so a multi-day "ending soon" reminder would fire almost
+            # the moment they are granted and needlessly alarm newcomers. Skip
+            # the day-before stages for them — they still get the hours-before
+            # reminder above and the expiry/after-expiry notices below. Paying
+            # for a real subscription clears the flag and restores all stages.
+            if bool(getattr(sub, "suppress_early_expiry_notifications", False)):
+                return None
+
             days_before_limit = max(
                 0,
                 int(getattr(self.settings, "SUBSCRIPTION_NOTIFY_DAYS_BEFORE", 0) or 0),

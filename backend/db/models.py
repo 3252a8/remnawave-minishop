@@ -122,6 +122,12 @@ class Subscription(Base):
     last_notification_sent = Column(DateTime(timezone=True), nullable=True)
     provider = Column(String, nullable=True)
     skip_notifications = Column(Boolean, default=False)
+    # Trial and registration/referral-bonus subscriptions are only a few days
+    # long, so the multi-day "ending soon" reminders would fire almost as soon
+    # as they are granted. While this is set the worker keeps only the
+    # hours-before reminder plus the expiry/after-expiry notices; a real payment
+    # clears it so the full reminder spectrum resumes.
+    suppress_early_expiry_notifications = Column(Boolean, nullable=False, default=False)
     auto_renew_enabled = Column(Boolean, default=True, index=True)
     tariff_key = Column(String, nullable=True, index=True)
     tier_baseline_bytes = Column(BigInteger, nullable=True)

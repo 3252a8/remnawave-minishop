@@ -63,6 +63,8 @@ class TrialSubscriptionMixin:
             "traffic_limit_bytes": self.settings.trial_traffic_limit_bytes,
             "auto_renew_enabled": False,
             "provider": "trial",
+            # Short trial: only warn a few hours before it ends, not days ahead.
+            "suppress_early_expiry_notifications": True,
         }
         try:
             await subscription_dal.upsert_subscription(session, trial_sub_data)
