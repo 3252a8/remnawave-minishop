@@ -1517,6 +1517,8 @@ _INITIAL_THEME_TOKEN_CSS_MAP = {
     "font_logo": "--font-logo",
     "font_mono": "--font-mono",
     "home_logo_scale": "--home-logo-scale",
+    "home_logo_scale_desktop": "--home-logo-scale-desktop",
+    "home_logo_scale_mobile": "--home-logo-scale-mobile",
     "admin_bg": "--admin-bg",
     "admin_surface": "--admin-surface",
     "admin_surface_2": "--admin-surface-2",
@@ -1526,6 +1528,12 @@ _INITIAL_THEME_TOKEN_CSS_MAP = {
     "admin_text": "--admin-text",
     "admin_muted": "--admin-muted",
     "admin_dim": "--admin-dim",
+}
+
+_INITIAL_THEME_LOGO_SCALE_TOKENS = {
+    "home_logo_scale",
+    "home_logo_scale_desktop",
+    "home_logo_scale_mobile",
 }
 
 
@@ -1571,7 +1579,7 @@ def _initial_theme_head_markup(request: web.Request, theme: Any, primary_color: 
     tokens = tokens if isinstance(tokens, dict) else {}
     declarations = []
     for token_key, css_name in _INITIAL_THEME_TOKEN_CSS_MAP.items():
-        if token_key == "home_logo_scale":
+        if token_key in _INITIAL_THEME_LOGO_SCALE_TOKENS:
             try:
                 scale = float(tokens.get(token_key) or 0)
             except (TypeError, ValueError):

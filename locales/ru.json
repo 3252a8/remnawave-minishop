@@ -1963,6 +1963,8 @@
   "admin_appearance_theme_accent_empty": "Не задан",
   "admin_appearance_theme_accent_placeholder": "Не задан",
   "admin_appearance_theme_home_logo_scale": "Логотип на главной и входе",
+  "admin_appearance_theme_home_logo_scale_desktop": "Логотип на десктопе",
+  "admin_appearance_theme_home_logo_scale_mobile": "Логотип на мобильных",
   "admin_appearance_themes_sub": "Глобальная тема, accent color и предпросмотр",
   "admin_appearance_themes_title": "Темы",
   "admin_appearance_use_custom_favicon": "Использовать отдельную favicon",

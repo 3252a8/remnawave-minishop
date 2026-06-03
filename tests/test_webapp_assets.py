@@ -559,10 +559,14 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
     def test_home_logo_scale_rules_beat_late_loaded_admin_brand_styles(self):
         css = Path("frontend/src/styles/webapp.css").read_text(encoding="utf-8")
+        base_css = Path("frontend/src/styles/base.css").read_text(encoding="utf-8")
 
         self.assertIn(".app-shell .home-brand .brand-mark.brand-mark-xl", css)
         self.assertIn(".app-shell .login-brand-auth .brand-mark.brand-mark-xl", css)
         self.assertIn(".app-shell .loader .brand-mark.brand-mark-lg", css)
+        self.assertIn("--home-logo-scale-effective", css)
+        self.assertIn("--home-logo-scale-mobile", base_css)
+        self.assertIn("--home-logo-scale-desktop", base_css)
 
     def test_prune_unused_appearance_assets_keeps_only_referenced_logo_and_favicons(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -647,6 +651,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         cfg = builtin_webapp_themes_config("#123456")
         theme = cfg.theme_by_key("light")
         theme.tokens.home_logo_scale = 135
+        theme.tokens.home_logo_scale_desktop = 150
+        theme.tokens.home_logo_scale_mobile = 85
         request = SimpleNamespace(get=lambda key, default="": "nonce-value")
 
         markup = subscription_webapp._initial_theme_head_markup(request, theme, "#123456")
@@ -655,6 +661,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('nonce="nonce-value"', markup)
         self.assertIn("--accent:#123456", markup)
         self.assertIn("--home-logo-scale:1.35", markup)
+        self.assertIn("--home-logo-scale-desktop:1.5", markup)
+        self.assertIn("--home-logo-scale-mobile:0.85", markup)
         self.assertIn("color-scheme:light", markup)
 
     def test_theme_asset_version_bumps_for_saved_default_css_theme(self):

@@ -33,6 +33,8 @@ const TOKEN_TO_CSS_VAR = {
   font_logo: "--font-logo",
   font_mono: "--font-mono",
   home_logo_scale: "--home-logo-scale",
+  home_logo_scale_desktop: "--home-logo-scale-desktop",
+  home_logo_scale_mobile: "--home-logo-scale-mobile",
   admin_bg: "--admin-bg",
   admin_surface: "--admin-surface",
   admin_surface_2: "--admin-surface-2",
@@ -44,6 +46,12 @@ const TOKEN_TO_CSS_VAR = {
   admin_dim: "--admin-dim",
 };
 
+const LOGO_SCALE_TOKEN_KEYS = new Set([
+  "home_logo_scale",
+  "home_logo_scale_desktop",
+  "home_logo_scale_mobile",
+]);
+
 export function themeTokensToInlineStyle(tokens, primaryFallback = "#00fe7a", options = {}) {
   const t = tokens && typeof tokens === "object" ? tokens : {};
   const parts = [];
@@ -54,7 +62,7 @@ export function themeTokensToInlineStyle(tokens, primaryFallback = "#00fe7a", op
     if (key === "accent") continue;
     const value = t[key];
     if (value === undefined || value === null || value === "") continue;
-    if (key === "home_logo_scale") {
+    if (LOGO_SCALE_TOKEN_KEYS.has(key)) {
       const scale = Number(value);
       if (!Number.isFinite(scale) || scale <= 0) continue;
       parts.push(`${cssVar}:${scale / 100}`);

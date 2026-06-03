@@ -54,6 +54,8 @@ class ThemeTokens(BaseModel):
     font_logo: Optional[str] = None
     font_mono: Optional[str] = None
     home_logo_scale: Optional[int] = None
+    home_logo_scale_desktop: Optional[int] = None
+    home_logo_scale_mobile: Optional[int] = None
     admin_bg: Optional[str] = None
     admin_surface: Optional[str] = None
     admin_surface_2: Optional[str] = None
@@ -80,14 +82,14 @@ class ThemeTokens(BaseModel):
             hex_value = "".join(char * 2 for char in hex_value)
         return f"#{hex_value}"
 
-    @field_validator("home_logo_scale")
+    @field_validator("home_logo_scale", "home_logo_scale_desktop", "home_logo_scale_mobile")
     @classmethod
     def _normalize_home_logo_scale(cls, value: Optional[int]) -> Optional[int]:
         if value is None:
             return None
         scale = int(value)
         if scale < 50 or scale > 300:
-            raise ValueError("home_logo_scale must be between 50 and 300 percent")
+            raise ValueError("home logo scale must be between 50 and 300 percent")
         return scale
 
 

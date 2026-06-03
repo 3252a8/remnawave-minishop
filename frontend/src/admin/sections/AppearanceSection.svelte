@@ -178,10 +178,8 @@
     return `#${hex}`;
   }
 
-  function homeLogoScale(theme) {
-    const scale = Number(theme.tokens?.home_logo_scale || 100);
-    if (!Number.isFinite(scale)) return 100;
-    return Math.min(300, Math.max(50, Math.round(scale)));
+  function homeLogoScale(theme, mode) {
+    return themesStore.resolveThemeHomeLogoScale(theme, mode);
   }
 
   function openThemeAccentPicker(theme) {
@@ -296,8 +294,8 @@
     themesStore.setThemeAccent(theme.key, value);
   }
 
-  function setThemeHomeLogoScale(theme, value) {
-    themesStore.setThemeHomeLogoScale(theme.key, value);
+  function setThemeHomeLogoScale(theme, mode, value) {
+    themesStore.setThemeHomeLogoScale(theme.key, mode, value);
   }
 
   function isThemeControlTarget(target) {
@@ -586,11 +584,11 @@
                   <span>{at("themes_use_in_admin", {}, "Использовать в админке")}</span>
                 </label>
                 <div class="admin-theme-card-option appearance-logo-scale-row">
-                  <span
+                  <span class="appearance-logo-scale-label"
                     >{at(
-                      "appearance_theme_home_logo_scale",
+                      "appearance_theme_home_logo_scale_desktop",
                       {},
-                      "Логотип на главной и входе"
+                      "Логотип на десктопе"
                     )}</span
                   >
                   <RangeInput
@@ -598,9 +596,13 @@
                     min="50"
                     max="300"
                     step="5"
-                    ariaLabel={at("appearance_theme_home_logo_scale", {}, "Home logo scale")}
-                    value={homeLogoScale(theme)}
-                    onValueChange={(value) => setThemeHomeLogoScale(theme, value)}
+                    ariaLabel={at(
+                      "appearance_theme_home_logo_scale_desktop",
+                      {},
+                      "Desktop logo scale"
+                    )}
+                    value={homeLogoScale(theme, "desktop")}
+                    onValueChange={(value) => setThemeHomeLogoScale(theme, "desktop", value)}
                   />
                   <span class="appearance-logo-scale-value">
                     <Input
@@ -609,8 +611,44 @@
                       min="50"
                       max="300"
                       step="5"
-                      value={homeLogoScale(theme)}
-                      oninput={(event) => setThemeHomeLogoScale(theme, event.currentTarget.value)}
+                      value={homeLogoScale(theme, "desktop")}
+                      oninput={(event) =>
+                        setThemeHomeLogoScale(theme, "desktop", event.currentTarget.value)}
+                    />
+                    %
+                  </span>
+                </div>
+                <div class="admin-theme-card-option appearance-logo-scale-row">
+                  <span class="appearance-logo-scale-label"
+                    >{at(
+                      "appearance_theme_home_logo_scale_mobile",
+                      {},
+                      "Логотип на мобильных"
+                    )}</span
+                  >
+                  <RangeInput
+                    class="appearance-logo-scale-range"
+                    min="50"
+                    max="300"
+                    step="5"
+                    ariaLabel={at(
+                      "appearance_theme_home_logo_scale_mobile",
+                      {},
+                      "Mobile logo scale"
+                    )}
+                    value={homeLogoScale(theme, "mobile")}
+                    onValueChange={(value) => setThemeHomeLogoScale(theme, "mobile", value)}
+                  />
+                  <span class="appearance-logo-scale-value">
+                    <Input
+                      class="input"
+                      type="number"
+                      min="50"
+                      max="300"
+                      step="5"
+                      value={homeLogoScale(theme, "mobile")}
+                      oninput={(event) =>
+                        setThemeHomeLogoScale(theme, "mobile", event.currentTarget.value)}
                     />
                     %
                   </span>
@@ -847,8 +885,13 @@
 
   .appearance-logo-scale-row {
     display: grid;
-    grid-template-columns: auto minmax(96px, 1fr) auto;
+    grid-template-columns: minmax(112px, 0.8fr) minmax(96px, 1fr) auto;
     width: 100%;
+  }
+
+  .appearance-logo-scale-label {
+    min-width: 0;
+    line-height: 1.25;
   }
 
   :global(.appearance-logo-scale-range) {
@@ -909,6 +952,14 @@
 
     .appearance-url-row {
       grid-template-columns: 1fr;
+    }
+
+    .appearance-logo-scale-row {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    :global(.appearance-logo-scale-range) {
+      grid-column: 1 / -1;
     }
   }
 </style>

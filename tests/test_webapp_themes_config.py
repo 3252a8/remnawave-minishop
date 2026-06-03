@@ -296,7 +296,7 @@ class WebappThemesConfigTests(unittest.TestCase):
 
         self.assertEqual(cfg.theme_by_key("custom").tokens.accent, "#00ff88")
 
-    def test_theme_home_logo_scale_is_public_token(self):
+    def test_theme_home_logo_scales_are_public_tokens(self):
         cfg = WebappThemesConfig(
             default_theme="custom",
             themes=[
@@ -304,7 +304,12 @@ class WebappThemesConfigTests(unittest.TestCase):
                     "key": "custom",
                     "enabled": True,
                     "default": True,
-                    "tokens": {"color_scheme": "dark", "home_logo_scale": 135},
+                    "tokens": {
+                        "color_scheme": "dark",
+                        "home_logo_scale": 135,
+                        "home_logo_scale_desktop": 150,
+                        "home_logo_scale_mobile": 85,
+                    },
                 }
             ],
         )
@@ -313,7 +318,11 @@ class WebappThemesConfigTests(unittest.TestCase):
         custom = payload["themes"][0]
 
         self.assertEqual(cfg.theme_by_key("custom").tokens.home_logo_scale, 135)
+        self.assertEqual(cfg.theme_by_key("custom").tokens.home_logo_scale_desktop, 150)
+        self.assertEqual(cfg.theme_by_key("custom").tokens.home_logo_scale_mobile, 85)
         self.assertEqual(custom["tokens"]["home_logo_scale"], 135)
+        self.assertEqual(custom["tokens"]["home_logo_scale_desktop"], 150)
+        self.assertEqual(custom["tokens"]["home_logo_scale_mobile"], 85)
 
     def test_theme_accent_rejects_non_hex_values(self):
         with self.assertRaises(ValueError):

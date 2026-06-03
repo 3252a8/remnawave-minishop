@@ -1963,6 +1963,8 @@
   "admin_appearance_theme_accent_empty": "Not set",
   "admin_appearance_theme_accent_placeholder": "Not set",
   "admin_appearance_theme_home_logo_scale": "Home and login logo",
+  "admin_appearance_theme_home_logo_scale_desktop": "Desktop logo scale",
+  "admin_appearance_theme_home_logo_scale_mobile": "Mobile logo scale",
   "admin_appearance_themes_sub": "Global theme, accent color, and preview",
   "admin_appearance_themes_title": "Themes",
   "admin_appearance_use_custom_favicon": "Use a separate favicon",

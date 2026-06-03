@@ -64,9 +64,9 @@ a {
 }
 
 .app-shell .loader .brand-mark.brand-mark-lg {
-  width: calc(4.125rem * var(--home-logo-scale, 1));
-  height: calc(4.125rem * var(--home-logo-scale, 1));
-  font-size: calc(2.875rem * var(--home-logo-scale, 1));
+  width: calc(4.125rem * var(--home-logo-scale-effective, 1));
+  height: calc(4.125rem * var(--home-logo-scale-effective, 1));
+  font-size: calc(2.875rem * var(--home-logo-scale-effective, 1));
 }
 
 .app-header,
@@ -2207,15 +2207,15 @@ a {
 }
 
 .app-shell .home-brand .brand-mark.brand-mark-xl {
-  width: calc(6rem * var(--home-logo-scale, 1));
-  height: calc(6rem * var(--home-logo-scale, 1));
-  font-size: calc(4.375rem * var(--home-logo-scale, 1));
+  width: calc(6rem * var(--home-logo-scale-effective, 1));
+  height: calc(6rem * var(--home-logo-scale-effective, 1));
+  font-size: calc(4.375rem * var(--home-logo-scale-effective, 1));
 }
 
 .app-shell .login-brand-auth .brand-mark.brand-mark-xl {
-  width: calc(116px * var(--home-logo-scale, 1));
-  height: calc(116px * var(--home-logo-scale, 1));
-  font-size: calc(84px * var(--home-logo-scale, 1));
+  width: calc(116px * var(--home-logo-scale-effective, 1));
+  height: calc(116px * var(--home-logo-scale-effective, 1));
+  font-size: calc(84px * var(--home-logo-scale-effective, 1));
 }
 
 .home-bottom {
@@ -3027,9 +3027,9 @@ a {
   .app-shell .home-brand .brand-mark,
   .app-shell .home-brand .brand-mark.brand-mark-lg,
   .app-shell .home-brand .brand-mark.brand-mark-xl {
-    width: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale, 1));
-    height: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale, 1));
-    font-size: calc(clamp(124px, 13vw, 184px) * var(--home-logo-scale, 1));
+    width: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale-effective, 1));
+    height: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale-effective, 1));
+    font-size: calc(clamp(124px, 13vw, 184px) * var(--home-logo-scale-effective, 1));
   }
 
   .home-bottom {
