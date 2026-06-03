@@ -495,7 +495,10 @@ def _serialize_plans(
                 else [],
             }
             if tariff.billing_model == "period":
-                for months in sorted(tariff.enabled_periods):
+                # Render periods in the configured order (enabled_periods is the
+                # source of truth for purchase-period ordering, matching the bot
+                # keyboards). Do not sort so admins can reorder via drag & drop.
+                for months in tariff.enabled_periods:
                     price = tariff.period_price(int(months), default_currency)
                     stars_price = tariff.period_price(int(months), "stars")
                     if price is None and (stars_price is None or int(stars_price) <= 0):
@@ -528,7 +531,14 @@ def _serialize_plans(
                         tariff.traffic_packages.stars if tariff.traffic_packages else []
                     )
                 }
-                for traffic_gb in sorted(set(currency_packages) | set(stars_packages)):
+                # Preserve the configured package order (default-currency list first,
+                # then any Stars-only volumes) so admins can reorder via drag & drop.
+                # Matches the bot keyboard, which iterates the package list as-is.
+                ordered_gb: List[float] = []
+                for traffic_gb in list(currency_packages) + list(stars_packages):
+                    if traffic_gb not in ordered_gb:
+                        ordered_gb.append(traffic_gb)
+                for traffic_gb in ordered_gb:
                     price = currency_packages.get(traffic_gb)
                     stars_price = stars_packages.get(traffic_gb)
                     if price is None and (stars_price is None or int(stars_price) <= 0):

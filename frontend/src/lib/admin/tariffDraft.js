@@ -69,6 +69,8 @@ export function rowsFromPackages(packageSet, currency, valueKey) {
 export function draftFromTariff(tariff, defaultCurrency = "rub") {
   const currency = normalizeCurrencyKey(defaultCurrency);
   const defaultPrices = tariff.prices?.[currency] || {};
+  // enabled_periods comes first so its order (the configured purchase order)
+  // is preserved; any extra price-only months are appended afterwards.
   const months = new Set([
     ...(tariff.enabled_periods || []),
     ...Object.keys(defaultPrices).map(Number),
@@ -77,7 +79,6 @@ export function draftFromTariff(tariff, defaultCurrency = "rub") {
   ]);
   const periodRows = [...months]
     .filter((month) => Number.isFinite(month) && month > 0)
-    .sort((a, b) => a - b)
     .map((month) => ({
       months: month,
       rub:
@@ -231,8 +232,7 @@ export function tariffFromDraft(draft, fallbackCurrency = "rub") {
         if (seenMonths.has(row.months)) return false;
         seenMonths.add(row.months);
         return true;
-      })
-      .sort((a, b) => a.months - b.months);
+      });
     tariff.monthly_gb = parseNumber(draft.monthly_gb, 0);
     tariff.enabled_periods = rows.map((row) => row.months);
     const defaultPrices = Object.fromEntries(rows.map((row) => [String(row.months), row.rub || 0]));

@@ -85,6 +85,87 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(plans[1]["traffic_gb"], 50.0)
         self.assertEqual(plans[1]["stars_price"], 2500)
 
+    def test_serialize_plans_preserves_enabled_period_order(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "tariffs.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "default_tariff": "standard",
+                        "tariffs": [
+                            {
+                                "key": "standard",
+                                "names": {"en": "Standard"},
+                                "descriptions": {"en": "Custom order"},
+                                "squad_uuids": ["uuid"],
+                                "billing_model": "period",
+                                "monthly_gb": 100,
+                                "prices_rub": {"1": 150, "3": 400, "6": 700, "12": 1200},
+                                "prices_stars": {},
+                                # Deliberately unsorted: the storefront must follow this order.
+                                "enabled_periods": [12, 1, 6, 3],
+                                "enabled": True,
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            settings = Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                TARIFFS_CONFIG_PATH=str(path),
+            )
+
+            plans = subscription_webapp._serialize_plans(settings, "en")
+
+        self.assertEqual([plan["months"] for plan in plans], [12, 1, 6, 3])
+
+    def test_serialize_plans_preserves_traffic_package_order(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "tariffs.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "default_tariff": "traffic",
+                        "tariffs": [
+                            {
+                                "key": "traffic",
+                                "names": {"en": "Traffic"},
+                                "descriptions": {"en": "Pay as you go"},
+                                "squad_uuids": ["uuid"],
+                                "billing_model": "traffic",
+                                "traffic_packages": {
+                                    # Deliberately unsorted by volume.
+                                    "rub": [
+                                        {"gb": 100, "price": 999},
+                                        {"gb": 10, "price": 199},
+                                        {"gb": 50, "price": 599},
+                                    ],
+                                    "stars": [{"gb": 250, "price": 2500}],
+                                },
+                                "enabled": True,
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            settings = Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                TARIFFS_CONFIG_PATH=str(path),
+            )
+
+            plans = subscription_webapp._serialize_plans(settings, "en")
+
+        # default-currency order first, then Stars-only volumes appended.
+        self.assertEqual([plan["traffic_gb"] for plan in plans], [100.0, 10.0, 50.0, 250.0])
+
     def test_referral_bonus_details_use_custom_tariff_periods(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "tariffs.json"

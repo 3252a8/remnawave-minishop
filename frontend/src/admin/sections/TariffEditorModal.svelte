@@ -1,5 +1,5 @@
 <script>
-  import { Input } from "$components/ui/index.js";
+  import { Input, Sortable } from "$components/ui/index.js";
   import { Tabs, Switch, Label } from "$components/ui/primitives.js";
   import Dialog from "$components/ui/dialog.svelte";
   import { Plus, Save, Trash2, X } from "$components/ui/icons.js";
@@ -552,7 +552,8 @@
             </p>
           {:else}
             <div class="admin-row-editor">
-              <div class="admin-row-editor-line admin-row-editor-6 admin-row-editor-header">
+              <div class="admin-row-editor-line admin-row-editor-period admin-row-editor-header">
+                <span></span>
                 <span>{at("tariff_col_period_months", {}, "Срок, мес.")}</span>
                 <span>{currencyPriceColumnLabel}</span>
                 <span>{at("tariff_col_price_stars_full", {}, "Цена, ⭐ Stars")}</span>
@@ -560,62 +561,67 @@
                 <span>{at("tariff_col_ref_referee", {}, "Бонус приглашённому")}</span>
                 <span></span>
               </div>
-              {#each tariffDraft.periodRows as row, index}
-                <div class="admin-row-editor-line admin-row-editor-6">
-                  <Input
-                    class="input"
-                    type="number"
-                    min="1"
-                    placeholder="1"
-                    bind:value={row.months}
-                    aria-label={at("tariff_col_period_months", {}, "Срок (месяцы)")}
-                  />
-                  <Input
-                    class="input"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="299"
-                    bind:value={row.rub}
-                    aria-label={currencyPriceAriaLabel}
-                  />
-                  <Input
-                    class="input"
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="150"
-                    bind:value={row.stars}
-                    aria-label={at("tariff_label_price_stars", {}, "Цена в Telegram Stars")}
-                  />
-                  <Input
-                    class="input"
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="3"
-                    bind:value={row.referral_inviter}
-                    aria-label={at("tariff_label_ref_inviter", {}, "Бонус приглашающему")}
-                  />
-                  <Input
-                    class="input"
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="1"
-                    bind:value={row.referral_referee}
-                    aria-label={at("tariff_label_ref_referee", {}, "Бонус приглашённому")}
-                  />
-                  <AdminButton
-                    size="sm"
-                    variant="danger"
-                    onclick={() => tariffsStore.removeDraftRow("periodRows", index)}
-                    aria-label={at("btn_delete", {}, "Удалить")}
-                  >
-                    <Trash2 size={13} />
-                  </AdminButton>
-                </div>
-              {/each}
+              <Sortable
+                items={tariffDraft.periodRows}
+                class="admin-row-editor-line admin-row-editor-period"
+                handleLabel={at("tariff_period_reorder", {}, "Перетащите, чтобы изменить порядок")}
+                onReorder={(from, to) => tariffsStore.moveDraftRow("periodRows", from, to)}
+                let:item={row}
+                let:index
+              >
+                <Input
+                  class="input"
+                  type="number"
+                  min="1"
+                  placeholder="1"
+                  bind:value={row.months}
+                  aria-label={at("tariff_col_period_months", {}, "Срок (месяцы)")}
+                />
+                <Input
+                  class="input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="299"
+                  bind:value={row.rub}
+                  aria-label={currencyPriceAriaLabel}
+                />
+                <Input
+                  class="input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="150"
+                  bind:value={row.stars}
+                  aria-label={at("tariff_label_price_stars", {}, "Цена в Telegram Stars")}
+                />
+                <Input
+                  class="input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="3"
+                  bind:value={row.referral_inviter}
+                  aria-label={at("tariff_label_ref_inviter", {}, "Бонус приглашающему")}
+                />
+                <Input
+                  class="input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="1"
+                  bind:value={row.referral_referee}
+                  aria-label={at("tariff_label_ref_referee", {}, "Бонус приглашённому")}
+                />
+                <AdminButton
+                  size="sm"
+                  variant="danger"
+                  onclick={() => tariffsStore.removeDraftRow("periodRows", index)}
+                  aria-label={at("btn_delete", {}, "Удалить")}
+                >
+                  <Trash2 size={13} />
+                </AdminButton>
+              </Sortable>
             </div>
           {/if}
         </section>
@@ -649,80 +655,92 @@
             <div class="admin-row-editor">
               <span class="admin-row-editor-caption">{currencyPaymentLabel}</span>
               {#if tariffDraft.trafficRubRows.length}
-                <div class="admin-row-editor-line admin-row-editor-header">
+                <div class="admin-row-editor-line admin-row-editor-drag admin-row-editor-header">
+                  <span></span>
                   <span>{at("tariff_col_volume_gb", {}, "Объём, GB")}</span>
                   <span>{currencyPriceColumnLabel}</span>
                   <span></span>
                 </div>
               {/if}
-              {#each tariffDraft.trafficRubRows as row, index}
-                <div class="admin-row-editor-line">
-                  <Input
-                    class="input"
-                    type="number"
-                    min="0.1"
-                    step="0.1"
-                    placeholder="50"
-                    bind:value={row.gb}
-                    aria-label={at("tariff_col_volume_gb", {}, "Объём пакета в GB")}
-                  />
-                  <Input
-                    class="input"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="299"
-                    bind:value={row.price}
-                    aria-label={currencyPriceAriaLabel}
-                  />
-                  <AdminButton
-                    size="sm"
-                    variant="danger"
-                    onclick={() => tariffsStore.removeDraftRow("trafficRubRows", index)}
-                    aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></AdminButton
-                  >
-                </div>
-              {/each}
+              <Sortable
+                items={tariffDraft.trafficRubRows}
+                class="admin-row-editor-line admin-row-editor-drag"
+                handleLabel={at("tariff_package_reorder", {}, "Перетащите, чтобы изменить порядок")}
+                onReorder={(from, to) => tariffsStore.moveDraftRow("trafficRubRows", from, to)}
+                let:item={row}
+                let:index
+              >
+                <Input
+                  class="input"
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  placeholder="50"
+                  bind:value={row.gb}
+                  aria-label={at("tariff_col_volume_gb", {}, "Объём пакета в GB")}
+                />
+                <Input
+                  class="input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="299"
+                  bind:value={row.price}
+                  aria-label={currencyPriceAriaLabel}
+                />
+                <AdminButton
+                  size="sm"
+                  variant="danger"
+                  onclick={() => tariffsStore.removeDraftRow("trafficRubRows", index)}
+                  aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></AdminButton
+                >
+              </Sortable>
             </div>
             <div class="admin-row-editor">
               <span class="admin-row-editor-caption"
                 >{at("payment_stars", {}, "Оплата Telegram Stars")}</span
               >
               {#if tariffDraft.trafficStarsRows.length}
-                <div class="admin-row-editor-line admin-row-editor-header">
+                <div class="admin-row-editor-line admin-row-editor-drag admin-row-editor-header">
+                  <span></span>
                   <span>{at("tariff_col_volume_gb", {}, "Объём, GB")}</span>
                   <span>{at("tariff_col_price_stars", {}, "Цена, ⭐")}</span>
                   <span></span>
                 </div>
               {/if}
-              {#each tariffDraft.trafficStarsRows as row, index}
-                <div class="admin-row-editor-line">
-                  <Input
-                    class="input"
-                    type="number"
-                    min="0.1"
-                    step="0.1"
-                    placeholder="50"
-                    bind:value={row.gb}
-                    aria-label={at("tariff_col_volume_gb", {}, "Объём пакета в GB")}
-                  />
-                  <Input
-                    class="input"
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="150"
-                    bind:value={row.price}
-                    aria-label={at("tariff_label_price_stars", {}, "Цена пакета в Telegram Stars")}
-                  />
-                  <AdminButton
-                    size="sm"
-                    variant="danger"
-                    onclick={() => tariffsStore.removeDraftRow("trafficStarsRows", index)}
-                    aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></AdminButton
-                  >
-                </div>
-              {/each}
+              <Sortable
+                items={tariffDraft.trafficStarsRows}
+                class="admin-row-editor-line admin-row-editor-drag"
+                handleLabel={at("tariff_package_reorder", {}, "Перетащите, чтобы изменить порядок")}
+                onReorder={(from, to) => tariffsStore.moveDraftRow("trafficStarsRows", from, to)}
+                let:item={row}
+                let:index
+              >
+                <Input
+                  class="input"
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  placeholder="50"
+                  bind:value={row.gb}
+                  aria-label={at("tariff_col_volume_gb", {}, "Объём пакета в GB")}
+                />
+                <Input
+                  class="input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="150"
+                  bind:value={row.price}
+                  aria-label={at("tariff_label_price_stars", {}, "Цена пакета в Telegram Stars")}
+                />
+                <AdminButton
+                  size="sm"
+                  variant="danger"
+                  onclick={() => tariffsStore.removeDraftRow("trafficStarsRows", index)}
+                  aria-label={at("btn_delete", {}, "Удалить")}><Trash2 size={13} /></AdminButton
+                >
+              </Sortable>
             </div>
           </div>
         </section>

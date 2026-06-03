@@ -129,7 +129,7 @@
         ? `${first.gb} GB ${at("at", {}, "за")} ${fmtMoney(first.price, currencyCode)}`
         : at("tariff_traffic_packages", {}, "Пакеты трафика");
     }
-    const months = [...(tariff.enabled_periods || [])].sort((a, b) => a - b);
+    const months = [...(tariff.enabled_periods || [])];
     return months
       .map((month) => {
         const rub =

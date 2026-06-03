@@ -11,6 +11,7 @@ export { default as RadioGroup } from "./radio-group.svelte";
 export { default as RadioGroupItem } from "./radio-group-item.svelte";
 export { default as RangeInput } from "./range-input.svelte";
 export { default as Skeleton } from "./skeleton.svelte";
+export { default as Sortable } from "./sortable.svelte";
 export { default as Spinner } from "./spinner.svelte";
 export { default as ScrollArea } from "./scroll-area.svelte";
 export { default as Textarea } from "./textarea.svelte";
