@@ -4288,6 +4288,37 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
+.admin-extend-hwid-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface-2);
+  color: var(--admin-text);
+  cursor: pointer;
+}
+
+.admin-extend-hwid-option > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-extend-hwid-option strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-extend-hwid-option small {
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .admin-input-row {
   display: grid;
   grid-template-columns: minmax(72px, 1fr) auto;

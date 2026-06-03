@@ -121,10 +121,11 @@ async def create_payment_route(request: web.Request) -> web.Response:
     hwid_quote: Optional[Dict[str, Any]] = None
     requested_sale_mode = _sale_mode_base(str(payment_payload.sale_mode or ""))
 
+    if tariffs_config and requested_sale_mode == "hwid_devices_renewal":
+        return _json_error(400, "invalid_plan", "Device renewal is part of subscription renewal")
     if tariffs_config and requested_sale_mode in {
         "hwid_device",
         "hwid_devices",
-        "hwid_devices_renewal",
     }:
         tariff_key = str(payment_payload.tariff_key or "").strip()
         if not tariff_key:
@@ -318,7 +319,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
                 user_id=user_id,
                 device_count=int(payment_units),
                 tariff_key=sale_tariff_key,
-                renewal=_sale_mode_base(sale_mode) == "hwid_devices_renewal",
+                renewal=False,
                 currency=currency,
             )
             if not hwid_quote:
@@ -331,6 +332,25 @@ async def create_payment_route(request: web.Request) -> web.Response:
             else:
                 price = float(hwid_quote["price"])
                 stars_price = None
+        elif _sale_mode_base(sale_mode) == "subscription" and bool(
+            payment_payload.renew_hwid_devices
+        ):
+            currency = "stars" if method == "stars" else default_currency
+            sale_tariff_key = _sale_mode_tariff_key(sale_mode)
+            if sale_tariff_key:
+                hwid_quote = await subscription_service.quote_hwid_device_renewal_for_subscription(
+                    session,
+                    user_id=user_id,
+                    target_tariff_key=sale_tariff_key,
+                    months=int(payment_units),
+                    currency=currency,
+                )
+            if hwid_quote:
+                if method == "stars":
+                    stars_price = int(stars_price or 0) + int(hwid_quote["price"])
+                else:
+                    price = float(price or 0) + float(hwid_quote["price"])
+                    stars_price = None
         admin_ids = {int(item) for item in (settings.ADMIN_IDS or [])}
         is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
         return await _create_subscription_payment(
@@ -691,7 +711,6 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
             return _json_error(400, "device_topup_unavailable", "Device top-up is not available")
         lang = db_user.language_code or settings.DEFAULT_LANGUAGE
         active = await subscription_service.get_active_subscription_details(session, user_id)
-        renewal_available = bool(active and active.get("device_topup_renewal_available"))
         extra_hwid_valid_until = active.get("extra_hwid_devices_valid_until") if active else None
         extra_hwid_valid_until_text = (
             active.get("extra_hwid_devices_valid_until_text") if active else None
@@ -713,7 +732,7 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
                     user_id=user_id,
                     device_count=count,
                     tariff_key=tariff.key,
-                    renewal=renewal_available,
+                    renewal=False,
                     currency=default_currency,
                 )
                 if count in currency_counts
@@ -725,7 +744,7 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
                     user_id=user_id,
                     device_count=count,
                     tariff_key=tariff.key,
-                    renewal=renewal_available,
+                    renewal=False,
                     currency="stars",
                 )
                 if count in stars_counts
@@ -733,28 +752,27 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
             )
             if not currency_quote and not stars_quote:
                 continue
-            sale_mode_for_plan = "hwid_devices_renewal" if renewal_available else "hwid_devices"
+            quote = currency_quote or stars_quote
+            valid_from = quote.get("valid_from")
+            valid_until = quote.get("valid_until")
             plan = {
-                "id": f"{tariff.key}:hwid:{count}{':renewal' if renewal_available else ''}",
+                "id": f"{tariff.key}:hwid:{count}",
                 "tariff_key": tariff.key,
                 "tariff_name": tariff.name(lang),
                 "billing_model": tariff.billing_model,
-                "sale_mode": sale_mode_for_plan,
+                "sale_mode": "hwid_devices",
+                "renewal": False,
                 "months": count,
                 "device_count": count,
                 "price": float(currency_quote.get("price") if currency_quote else 0),
                 "currency": default_currency_code,
                 "title": f"+{count}",
                 "subtitle": tariff.name(lang),
-                "valid_from": _billing_iso_datetime(
-                    (currency_quote or stars_quote).get("valid_from")
-                ),
-                "valid_until": _billing_iso_datetime(
-                    (currency_quote or stars_quote).get("valid_until")
-                ),
-                "proration_ratio": float(
-                    (currency_quote or stars_quote).get("proration_ratio") or 0
-                ),
+                "valid_from": _billing_iso_datetime(valid_from),
+                "valid_from_text": _billing_datetime_text(valid_from),
+                "valid_until": _billing_iso_datetime(valid_until),
+                "valid_until_text": _billing_datetime_text(valid_until),
+                "proration_ratio": float(quote.get("proration_ratio") or 0),
             }
             if stars_quote and int(stars_quote.get("price") or 0) > 0:
                 plan["stars_price"] = int(stars_quote["price"])
@@ -770,10 +788,8 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
                 else int(sub.extra_hwid_devices or 0),
                 "extra_hwid_devices_valid_until": _billing_iso_datetime(extra_hwid_valid_until),
                 "extra_hwid_devices_valid_until_text": extra_hwid_valid_until_text,
-                "renewal_available": renewal_available,
-                "renewal_recommended_count": int(active.get("extra_hwid_devices") or 0)
-                if active and renewal_available
-                else 0,
+                "renewal_available": False,
+                "renewal_recommended_count": 0,
                 "plans": plans,
             }
         )
@@ -939,7 +955,11 @@ async def payment_status_route(request: web.Request) -> web.Response:
         payment = await _refresh_yookassa_payment_status(request, session, payment)
         payment = await _refresh_wata_payment_status(request, session, payment)
         if payment.status == "succeeded":
-            await invalidate_webapp_user_caches(request.app["settings"], user_id)
+            await invalidate_webapp_user_caches(
+                request.app["settings"],
+                user_id,
+                include_devices=True,
+            )
         return web.json_response(
             {
                 "ok": True,
@@ -1037,6 +1057,7 @@ async def _create_subscription_payment(
                 description=description,
                 sale_mode=sale_mode,
                 traffic_gb=traffic_gb,
+                hwid_device_count=hwid_quote.get("device_count") if hwid_quote else None,
                 hwid_valid_from=hwid_quote.get("valid_from") if hwid_quote else None,
                 hwid_valid_until=hwid_quote.get("valid_until") if hwid_quote else None,
                 hwid_pricing_period_months=hwid_quote.get("pricing_period_months")

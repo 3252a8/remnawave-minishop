@@ -69,13 +69,30 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             and settings.TRIAL_DURATION_DAYS > 0
             and not await subscription_service.has_trial_blocking_subscription(session, user_id)
         )
+        lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
+        plans_payload = _serialize_plans(
+            settings,
+            lang,
+            subscription_options=cached["subscription_options"],
+            stars_subscription_options=cached["stars_subscription_options"],
+            traffic_packages=cached["traffic_packages"],
+            stars_traffic_packages=cached["stars_traffic_packages"],
+        )
+        await _attach_hwid_renewal_quotes_to_plans(
+            session,
+            subscription_service,
+            user_id=user_id,
+            settings=settings,
+            active=active,
+            local_sub=local_sub,
+            plans=plans_payload,
+        )
         avatar = await _ensure_cached_telegram_avatar(request, session, db_user)
         try:
             await session.commit()
         except Exception:
             await session.rollback()
 
-    lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
     admin_ids = {int(x) for x in (settings.ADMIN_IDS or [])}
     is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
     telegram_notifications_status = normalize_telegram_notification_status(
@@ -128,14 +145,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             ),
             "bonus_details": _serialize_referral_bonus_details(settings, lang),
         },
-        "plans": _serialize_plans(
-            settings,
-            lang,
-            subscription_options=cached["subscription_options"],
-            stars_subscription_options=cached["stars_subscription_options"],
-            traffic_packages=cached["traffic_packages"],
-            stars_traffic_packages=cached["stars_traffic_packages"],
-        ),
+        "plans": plans_payload,
         "payment_methods": _serialize_payment_methods(
             settings,
             request.app,
@@ -436,6 +446,102 @@ def _serialize_subscription(
         "auto_renew_enabled": bool(getattr(local_sub, "auto_renew_enabled", False)),
         "provider": getattr(local_sub, "provider", None),
     }
+
+
+def _webapp_iso_datetime(value: Optional[Any]) -> Optional[str]:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return normalized.isoformat()
+    return str(value)
+
+
+def _webapp_datetime_text(value: Optional[Any]) -> Optional[str]:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return normalized.strftime("%d.%m.%Y %H:%M")
+    return str(value)
+
+
+async def _attach_hwid_renewal_quotes_to_plans(
+    session: AsyncSession,
+    subscription_service: SubscriptionService,
+    *,
+    user_id: int,
+    settings: Settings,
+    active: Optional[Dict[str, Any]],
+    local_sub: Optional[Any],
+    plans: List[Dict[str, Any]],
+) -> None:
+    quote_method = getattr(subscription_service, "quote_hwid_device_renewal_for_subscription", None)
+    if not callable(quote_method):
+        return
+    if not active or not local_sub or not settings.tariffs_config:
+        return
+    if not active.get("end_date") or int(active.get("extra_hwid_devices") or 0) <= 0:
+        return
+
+    default_currency = default_currency_key_for_settings(settings)
+    default_currency_code = payment_currency_code(default_currency)
+    for plan in plans:
+        if str(plan.get("sale_mode") or "subscription") != "subscription":
+            continue
+        target_tariff_key = str(plan.get("tariff_key") or "").strip()
+        if not target_tariff_key:
+            continue
+        try:
+            months = int(plan.get("months") or 0)
+        except (TypeError, ValueError):
+            continue
+        if months <= 0:
+            continue
+        try:
+            currency_quote = await quote_method(
+                session,
+                user_id=user_id,
+                target_tariff_key=target_tariff_key,
+                months=months,
+                currency=default_currency,
+            )
+            stars_quote = await quote_method(
+                session,
+                user_id=user_id,
+                target_tariff_key=target_tariff_key,
+                months=months,
+                currency="stars",
+            )
+        except Exception:
+            logger.exception(
+                "Failed to quote HWID renewal for plan %s/%s",
+                target_tariff_key,
+                months,
+            )
+            continue
+        quote = currency_quote or stars_quote
+        if not quote:
+            continue
+        valid_from = quote.get("valid_from")
+        valid_until = quote.get("valid_until")
+        active_until = quote.get("active_until")
+        renewal = {
+            "available": True,
+            "device_count": int(quote.get("device_count") or 0),
+            "price": float(currency_quote.get("price") if currency_quote else 0),
+            "currency": default_currency_code,
+            "valid_from": _webapp_iso_datetime(valid_from),
+            "valid_from_text": _webapp_datetime_text(valid_from),
+            "valid_until": _webapp_iso_datetime(valid_until),
+            "valid_until_text": _webapp_datetime_text(valid_until),
+            "active_until": _webapp_iso_datetime(active_until),
+            "active_until_text": _webapp_datetime_text(active_until),
+            "pricing_period_months": int(quote.get("pricing_period_months") or months),
+        }
+        if stars_quote and int(stars_quote.get("price") or 0) > 0:
+            renewal["stars_price"] = int(stars_quote["price"])
+        plan["hwid_renewal"] = renewal
 
 
 def _build_install_share_link(

@@ -51,6 +51,15 @@ async def ensure_payment_with_provider_id(
     description: str,
     provider: str,
     provider_payment_id: str,
+    sale_mode: Optional[str] = None,
+    tariff_key: Optional[str] = None,
+    purchased_gb: Optional[float] = None,
+    purchased_hwid_devices: Optional[int] = None,
+    hwid_valid_from: Optional[Any] = None,
+    hwid_valid_until: Optional[Any] = None,
+    hwid_pricing_period_months: Optional[int] = None,
+    hwid_proration_ratio: Optional[float] = None,
+    hwid_full_price: Optional[float] = None,
 ) -> Payment:
     """Idempotently create a payment record for a provider event.
 
@@ -72,6 +81,20 @@ async def ensure_payment_with_provider_id(
         "provider_payment_id": provider_payment_id,
         "provider": provider,
     }
+    optional_fields = {
+        "sale_mode": sale_mode,
+        "tariff_key": tariff_key,
+        "purchased_gb": purchased_gb,
+        "purchased_hwid_devices": purchased_hwid_devices,
+        "hwid_valid_from": hwid_valid_from,
+        "hwid_valid_until": hwid_valid_until,
+        "hwid_pricing_period_months": hwid_pricing_period_months,
+        "hwid_proration_ratio": hwid_proration_ratio,
+        "hwid_full_price": hwid_full_price,
+    }
+    payment_payload.update(
+        {field: value for field, value in optional_fields.items() if value is not None}
+    )
     return await create_payment_record(session, payment_payload)
 
 

@@ -759,6 +759,41 @@
                       {at("user_btn_extend", {}, "Продлить")}
                     </AdminButton>
                   </div>
+                  {#if Number(openedUserDetail?.active_subscription?.extra_hwid_devices || 0) > 0}
+                    <label class="admin-extend-hwid-option">
+                      <Checkbox
+                        bind:checked={$usersStore.userExtendHwidDevices}
+                        disabled={userActionBusy}
+                        ariaLabel={at(
+                          "user_extend_hwid_devices_aria",
+                          {},
+                          "Продлить докупленные HWID-устройства"
+                        )}
+                      />
+                      <span>
+                        <strong>
+                          {at(
+                            "user_extend_hwid_devices",
+                            {
+                              count: Number(
+                                openedUserDetail.active_subscription.extra_hwid_devices || 0
+                              ),
+                            },
+                            `Продлить также +${Number(
+                              openedUserDetail.active_subscription.extra_hwid_devices || 0
+                            )} HWID-устройств`
+                          )}
+                        </strong>
+                        <small>
+                          {at(
+                            "user_extend_hwid_devices_hint",
+                            {},
+                            "Срок действующих докупок увеличится на те же дни."
+                          )}
+                        </small>
+                      </span>
+                    </label>
+                  {/if}
                 </Label.Root>
               </div>
 

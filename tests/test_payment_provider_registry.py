@@ -30,7 +30,10 @@ from bot.payment_providers.shared import (
     sale_mode_is_traffic,
     sale_mode_tariff_key,
 )
-from bot.payment_providers.yookassa import _resolve_yookassa_activation_amounts
+from bot.payment_providers.yookassa import (
+    _parse_saved_list_payload,
+    _resolve_yookassa_activation_amounts,
+)
 from config.settings import Settings
 
 _LEGACY_PROVIDER_FILES = [
@@ -199,6 +202,47 @@ def test_provider_presentation_ignores_cross_language_override():
     settings = SimpleNamespace(PAYMENT_YOOKASSA_WEBAPP_LABEL_RU="Карта")
 
     assert resolve_provider_presentation(spec, settings, language="en").webapp_label == "YooKassa"
+
+
+def test_subscription_hwid_renewal_token_adds_quote_to_callback_parts():
+    service = SimpleNamespace(
+        quote_hwid_device_renewal_for_subscription=AsyncMock(
+            return_value={
+                "device_count": 2,
+                "price": 50,
+                "valid_from": "2099-02-01",
+                "valid_until": "2099-03-01",
+            }
+        )
+    )
+    session = AsyncMock()
+
+    parts, quote = asyncio.run(
+        quote_hwid_callback_parts(
+            session=session,
+            user_id=77,
+            parts=PaymentCallbackParts(
+                months=1,
+                price=100,
+                sale_mode="subscription@basic|hwid_renewal",
+            ),
+            subscription_service=service,
+            currency="rub",
+        )
+    )
+
+    assert parts is not None
+    assert quote is not None
+    assert parts.months == 1
+    assert parts.price == 150
+    assert quote["device_count"] == 2
+    service.quote_hwid_device_renewal_for_subscription.assert_awaited_once_with(
+        session,
+        user_id=77,
+        target_tariff_key="basic",
+        months=1,
+        currency="rub",
+    )
 
 
 def test_payment_method_keyboard_uses_custom_telegram_text_without_changing_callback(monkeypatch):
@@ -502,3 +546,19 @@ def test_yookassa_hwid_metadata_rejects_fractional_device_count():
             traffic_gb_raw=None,
             hwid_devices_raw="1.9",
         )
+
+
+def test_yookassa_saved_card_payload_parser_accepts_new_and_legacy_formats():
+    assert _parse_saved_list_payload("1:100:0:subscription@vip|hwid_renewal") == (
+        1,
+        100,
+        0,
+        "subscription@vip|hwid_renewal",
+    )
+    assert _parse_saved_list_payload("1:100:subscription@vip|hwid_renewal") == (
+        1,
+        100,
+        0,
+        "subscription@vip|hwid_renewal",
+    )
+    assert _parse_saved_list_payload("bad:100:subscription") is None

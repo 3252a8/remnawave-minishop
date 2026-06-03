@@ -127,6 +127,19 @@
       : "";
   }
 
+  function deviceTopupPlanTitle(plan) {
+    return t("wa_hwid_devices_package", {
+      count: Number(plan?.device_count || plan?.months || 0),
+    });
+  }
+
+  function deviceTopupPlanHint(plan) {
+    if (plan?.valid_until_text) {
+      return t("wa_hwid_devices_active_until", { date: plan.valid_until_text });
+    }
+    return plan?.subtitle || deviceTopupOptions?.tariff_name || "";
+  }
+
   function tariffChangeModalDescription() {
     if (!changeOptions) return "";
     return changeOptions?.current
@@ -369,16 +382,7 @@
     {#if !deviceTopupOptions}
       <DialogOptionsSkeleton label={t("wa_tariff_options_loading")} rows={3} />
     {:else if deviceTopupOptions?.plans?.length}
-      {#if deviceTopupOptions?.renewal_available}
-        <div class="topup-carryover-note">
-          <p>
-            {t("wa_hwid_devices_renewal_offer", {
-              count: Number(deviceTopupOptions.renewal_recommended_count || 0),
-              date: deviceTopupOptions.extra_hwid_devices_valid_until_text || "",
-            })}
-          </p>
-        </div>
-      {:else if Number(deviceTopupOptions?.extra_hwid_devices || 0) > 0 && deviceTopupOptions?.extra_hwid_devices_valid_until_text}
+      {#if Number(deviceTopupOptions?.extra_hwid_devices || 0) > 0 && deviceTopupOptions?.extra_hwid_devices_valid_until_text}
         <div class="topup-carryover-note">
           <p>
             {t("wa_hwid_devices_valid_until", {
@@ -397,12 +401,8 @@
             onclick={() => (selectedDeviceTopupPlan = plan)}
           >
             <span class="option-row-main">
-              <strong
-                >{t("wa_hwid_devices_package", {
-                  count: Number(plan.device_count || plan.months || 0),
-                })}</strong
-              >
-              <small>{plan.subtitle || deviceTopupOptions.tariff_name}</small>
+              <strong>{deviceTopupPlanTitle(plan)}</strong>
+              <small>{deviceTopupPlanHint(plan)}</small>
             </span>
             <span class="option-row-meta">
               <em>{priceLabel(plan)}</em>

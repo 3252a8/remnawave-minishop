@@ -192,6 +192,7 @@ class CryptoPayService:
         sale_mode: str = "subscription",
         url_kind: str = "bot",
         hwid_quote: Optional[dict] = None,
+        hwid_device_count: Optional[int] = None,
         currency: Optional[str] = None,
     ) -> Optional[str]:
         if not self.configured or not self.client:
@@ -210,7 +211,11 @@ class CryptoPayService:
             return None
 
         sale_base = sale_mode_base(sale_mode)
-        amounts = payment_record_amounts(months=months, sale_mode=sale_mode)
+        amounts = payment_record_amounts(
+            months=months,
+            sale_mode=sale_mode,
+            hwid_device_count=hwid_device_count,
+        )
         try:
             payment_record = await payment_dal.create_payment_record(
                 session,
@@ -252,6 +257,7 @@ class CryptoPayService:
                 "payment_db_id": str(payment_record.payment_id),
                 "sale_mode": sale_mode,
                 "traffic_gb": str(months) if sale_mode_is_traffic(sale_mode) else None,
+                "hwid_devices": amounts.purchased_hwid_devices,
             }
         )
         try:
@@ -513,6 +519,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
         }
         if ctx.hwid_valid_from and ctx.hwid_valid_until
         else None,
+        hwid_device_count=ctx.hwid_device_count,
     )
     if not url:
         return payment_failed()

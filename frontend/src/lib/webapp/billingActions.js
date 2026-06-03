@@ -27,13 +27,14 @@ export function createBillingActions({ api }) {
     return api("/tariffs/change-payment", { method: "POST", body: JSON.stringify(body) });
   }
 
-  function planPaymentBody(plan, method) {
+  function planPaymentBody(plan, method, options = {}) {
     return {
       months: plan.months,
       traffic_gb: plan.traffic_gb,
       device_count: plan.device_count,
       tariff_key: plan.tariff_key,
       sale_mode: plan.sale_mode,
+      renew_hwid_devices: Boolean(options.renewHwidDevices),
       method,
     };
   }

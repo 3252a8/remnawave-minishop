@@ -1520,6 +1520,7 @@
       selectedPlan: null,
       selectedTariffKey: "",
       paymentStep: "tariff",
+      renewHwidDevices: true,
       selectedMethod: payload.payment_methods?.[0]?.id || "",
     }));
     const currentQuery = currentSearchParams();
@@ -2421,6 +2422,7 @@
             bind:paymentStep={$billingStore.paymentStep}
             bind:selectedMethod={$billingStore.selectedMethod}
             bind:selectedPlan={$billingStore.selectedPlan}
+            bind:renewHwidDevices={$billingStore.renewHwidDevices}
             bind:selectedTariffKey={$billingStore.selectedTariffKey}
             bind:setPasswordCode={$accountStore.setPasswordCode}
             bind:setPasswordConfirm={$accountStore.setPasswordConfirm}

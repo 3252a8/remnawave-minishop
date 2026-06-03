@@ -20,9 +20,11 @@ from bot.keyboards.inline.user_keyboards import (
     get_subscription_options_keyboard,
     get_tariff_catalog_keyboard,
     get_tariff_periods_keyboard,
+    get_yk_autopay_choice_keyboard,
     payment_methods_back_callback,
     payment_options_back_callback,
 )
+from bot.middlewares.i18n import LOCALE_KEY_ALIASES
 from config.tariffs_config import TariffsConfig
 
 
@@ -31,6 +33,7 @@ class JsonI18nStub:
         self.translations = json.loads(Path("locales/en.json").read_text(encoding="utf-8"))
 
     def gettext(self, lang, key, **kwargs):
+        key = LOCALE_KEY_ALIASES.get(key, key)
         text = self.translations[key]
         return text.format(**kwargs) if kwargs else text
 
@@ -246,6 +249,63 @@ class UserBotMenuTests(unittest.TestCase):
         self.assertEqual(
             payment_methods_back_callback("1", "subscription|bot"),
             "subscribe_period:1:bot",
+        )
+
+    def test_payment_navigation_context_ignores_hwid_renewal_token(self):
+        self.assertEqual(
+            payment_options_back_callback("subscription@basic|bot|hwid_renewal"),
+            "tariff:select:basic:bot",
+        )
+        self.assertEqual(
+            payment_methods_back_callback("1", "subscription@basic|bot|hwid_renewal"),
+            "tariff:period:basic:1:bot",
+        )
+
+    def test_payment_method_keyboard_adds_hwid_renewal_toggle(self):
+        settings = SimpleNamespace(payment_methods_order=[])
+        quote = {"device_count": 2, "price": 50}
+
+        selected = get_payment_method_keyboard(
+            1,
+            100,
+            None,
+            "RUB",
+            "en",
+            self.i18n,
+            settings,
+            sale_mode="subscription@basic|bot",
+            hwid_renewal_quote=quote,
+            hwid_renewal_selected=True,
+        )
+        disabled = get_payment_method_keyboard(
+            1,
+            100,
+            None,
+            "RUB",
+            "en",
+            self.i18n,
+            settings,
+            sale_mode="subscription@basic|bot",
+            hwid_renewal_quote=quote,
+            hwid_renewal_selected=False,
+        )
+
+        self.assertIn("tariff:period:basic:1:bot:no_hwid", self._callback_data(selected))
+        self.assertIn("tariff:period:basic:1:bot:hwid", self._callback_data(disabled))
+
+    def test_yookassa_saved_card_choice_keeps_sale_mode_after_page_token(self):
+        markup = get_yk_autopay_choice_keyboard(
+            1,
+            100,
+            "en",
+            self.i18n,
+            has_saved_cards=True,
+            sale_mode="subscription@basic|hwid_renewal",
+        )
+
+        self.assertIn(
+            "pay_yk_saved_list:1:100:0:subscription@basic|hwid_renewal",
+            self._callback_data(markup),
         )
 
     def test_tariff_back_buttons_return_to_previous_level(self):

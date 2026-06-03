@@ -49,6 +49,7 @@ class WebAppPaymentCreatePayload(BaseModel):
     device_count: Any = None
     tariff_key: Optional[constr(max_length=128)] = None
     sale_mode: Optional[constr(max_length=64)] = None
+    renew_hwid_devices: Optional[bool] = None
     description: Optional[constr(max_length=4096)] = None
     comment: Optional[constr(max_length=4096)] = None
     note: Optional[constr(max_length=4096)] = None

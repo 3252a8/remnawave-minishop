@@ -156,6 +156,28 @@ def append_hwid_renewal_note(
     return f"{text}\n\n{note}"
 
 
+def append_hwid_renewed_note(
+    text: str,
+    translator: Translator,
+    *,
+    count: Any,
+    valid_until: Optional[datetime],
+) -> str:
+    try:
+        count_int = int(count or 0)
+    except (TypeError, ValueError):
+        count_int = 0
+    if count_int <= 0:
+        return text
+    date_text = valid_until.strftime("%Y-%m-%d") if valid_until else ""
+    note = translator(
+        "payment_successful_hwid_devices_renewed_note",
+        count=format_human_units(count_int),
+        date=date_text,
+    )
+    return f"{text}\n\n{note}"
+
+
 async def send_success_message_to_user(
     *,
     bot: Bot,
@@ -320,7 +342,36 @@ async def finalize_successful_payment(
             req.log_prefix,
             req.payment.payment_id,
         )
+        try:
+            await payment_dal.update_payment_status_by_db_id(
+                req.session,
+                req.payment.payment_id,
+                "activation_failed",
+            )
+            await req.session.commit()
+        except Exception:
+            await req.session.rollback()
+            logging.exception(
+                "%s: failed to mark payment %s activation_failed.",
+                req.log_prefix,
+                req.payment.payment_id,
+            )
         return None
+
+    try:
+        from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
+
+        await invalidate_webapp_user_caches(
+            req.settings,
+            req.user_id,
+            include_devices=True,
+        )
+    except Exception:
+        logging.exception(
+            "%s: failed to invalidate webapp caches for user %s.",
+            req.log_prefix,
+            req.user_id,
+        )
 
     db_user, language = await resolve_user_language(
         req.session,
@@ -363,12 +414,20 @@ async def finalize_successful_payment(
         )
     )
     if is_subscription and activation:
-        success_text = append_hwid_renewal_note(
-            success_text,
-            translator,
-            count=activation.get("hwid_devices_renewal_recommended_count"),
-            valid_until=activation.get("hwid_devices_valid_until"),
-        )
+        if activation.get("hwid_devices_renewed_count"):
+            success_text = append_hwid_renewed_note(
+                success_text,
+                translator,
+                count=activation.get("hwid_devices_renewed_count"),
+                valid_until=final_end_date or activation.get("hwid_devices_renewed_until"),
+            )
+        else:
+            success_text = append_hwid_renewal_note(
+                success_text,
+                translator,
+                count=activation.get("hwid_devices_renewal_recommended_count"),
+                valid_until=activation.get("hwid_devices_valid_until"),
+            )
     if req.text_prefix:
         success_text = f"{req.text_prefix}\n{success_text}"
 

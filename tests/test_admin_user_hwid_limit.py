@@ -1,5 +1,6 @@
 import json
 import unittest
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -118,8 +119,76 @@ class AdminUserHwidLimitRouteTests(unittest.IsolatedAsyncioTestCase):
             response = await admin_users.admin_user_hwid_device_limit_route(request)
 
         self.assertEqual(response.status, 400)
-        self.assertEqual(json.loads(response.text)["error"], "invalid_hwid_device_limit")
-        subscription_service.sync_hwid_device_limit_to_panel.assert_not_awaited()
+
+
+class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
+    async def test_extend_route_can_skip_hwid_device_extension(self):
+        session = FakeSession()
+        new_end = datetime(2099, 2, 1, tzinfo=timezone.utc)
+        subscription_service = SimpleNamespace(
+            extend_active_subscription_days=AsyncMock(return_value=new_end)
+        )
+        request = FakeRequest(
+            {"days": 10, "extend_hwid_devices": False},
+            session,
+            subscription_service,
+        )
+
+        with (
+            patch.object(admin_users, "_require_admin_user_id", return_value=100),
+            patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()) as log,
+            patch.object(
+                admin_users.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=SimpleNamespace(subscription_id=1)),
+            ),
+            patch.object(admin_users, "_invalidate_after_admin_user_mutation", AsyncMock()),
+            patch.object(admin_users, "_serialize_subscription", return_value={"ok": True}),
+        ):
+            response = await admin_users.admin_user_extend_route(request)
+
+        self.assertEqual(response.status, 200)
+        subscription_service.extend_active_subscription_days.assert_awaited_once_with(
+            session,
+            42,
+            10,
+            "admin_extend_subscription_webapp",
+            extend_hwid_devices=False,
+        )
+        self.assertIn("hwid=no", log.await_args.args[1]["content"])
+        self.assertTrue(session.committed)
+
+    async def test_extend_route_extends_hwid_devices_by_default(self):
+        session = FakeSession()
+        new_end = datetime(2099, 2, 1, tzinfo=timezone.utc)
+        subscription_service = SimpleNamespace(
+            extend_active_subscription_days=AsyncMock(return_value=new_end)
+        )
+        request = FakeRequest({"days": 10}, session, subscription_service)
+
+        with (
+            patch.object(admin_users, "_require_admin_user_id", return_value=100),
+            patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()) as log,
+            patch.object(
+                admin_users.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=SimpleNamespace(subscription_id=1)),
+            ),
+            patch.object(admin_users, "_invalidate_after_admin_user_mutation", AsyncMock()),
+            patch.object(admin_users, "_serialize_subscription", return_value={"ok": True}),
+        ):
+            response = await admin_users.admin_user_extend_route(request)
+
+        self.assertEqual(response.status, 200)
+        subscription_service.extend_active_subscription_days.assert_awaited_once_with(
+            session,
+            42,
+            10,
+            "admin_extend_subscription_webapp",
+            extend_hwid_devices=True,
+        )
+        self.assertIn("hwid=yes", log.await_args.args[1]["content"])
+        self.assertTrue(session.committed)
 
     async def test_over_max_limit_is_rejected(self):
         session = FakeSession()

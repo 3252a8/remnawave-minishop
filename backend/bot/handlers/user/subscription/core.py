@@ -319,7 +319,11 @@ async def select_tariff_callback(
 
 @router.callback_query(F.data.startswith("tariff:period:"))
 async def select_tariff_period_callback(
-    callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
+    callback: types.CallbackQuery,
+    i18n_data: dict,
+    settings: Settings,
+    session: AsyncSession,
+    subscription_service: SubscriptionService,
 ):
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
@@ -333,7 +337,9 @@ async def select_tariff_period_callback(
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
     tariff_key, months_raw = parts[2], parts[3]
-    callback_context = parts[4] if len(parts) > 4 else None
+    callback_tokens = [part for part in parts[4:] if part]
+    callback_context = "bot" if "bot" in callback_tokens else None
+    renew_hwid_devices = "no_hwid" not in callback_tokens
     tariff = config.require(tariff_key)
     months = int(months_raw)
     default_currency = default_currency_key_for_settings(settings)
@@ -343,6 +349,22 @@ async def select_tariff_period_callback(
     if price_rub is None:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
+    hwid_renewal_quote = await subscription_service.quote_hwid_device_renewal_for_subscription(
+        session,
+        user_id=callback.from_user.id,
+        target_tariff_key=tariff.key,
+        months=months,
+        currency=default_currency,
+    )
+    hwid_renewal_stars_quote = (
+        await subscription_service.quote_hwid_device_renewal_for_subscription(
+            session,
+            user_id=callback.from_user.id,
+            target_tariff_key=tariff.key,
+            months=months,
+            currency="stars",
+        )
+    )
     markup = get_payment_method_keyboard(
         months,
         price_rub,
@@ -354,6 +376,9 @@ async def select_tariff_period_callback(
         sale_mode=sale_mode_with_callback_context(f"subscription@{tariff.key}", callback_context),
         back_callback=f"tariff:select:{tariff.key}{callback_suffix_for_context(callback_context)}",
         user_id=callback.from_user.id,
+        hwid_renewal_quote=hwid_renewal_quote,
+        hwid_renewal_stars_quote=hwid_renewal_stars_quote,
+        hwid_renewal_selected=bool(renew_hwid_devices),
     )
     await callback.message.edit_text(get_text("choose_payment_method"), reply_markup=markup)
     await callback.answer()
@@ -577,7 +602,6 @@ async def hwid_devices_list_callback(
     if not packages:
         await callback.answer(get_text("no_hwid_device_packages_available"), show_alert=True)
         return
-    renewal_available = bool(active.get("device_topup_renewal_available"))
     markup = get_hwid_device_packages_keyboard(
         tariff,
         packages,
@@ -585,14 +609,11 @@ async def hwid_devices_list_callback(
         i18n,
         settings,
         back_callback="main_action:my_devices",
-        renewal=renewal_available,
-    )
-    text_key = (
-        "select_hwid_device_renewal_package" if renewal_available else "select_hwid_device_package"
+        renewal=False,
     )
     await callback.message.edit_text(
         get_text(
-            text_key,
+            "select_hwid_device_package",
             date=active.get("extra_hwid_devices_valid_until_text") or "",
         ),
         reply_markup=markup,
@@ -640,6 +661,7 @@ async def hwid_devices_package_callback(
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
     sale_mode_base = "hwid_devices_renewal" if action == "renewal_package" else "hwid_devices"
+    renewal = action == "renewal_package"
     default_currency = default_currency_key_for_settings(settings)
     currency_code = default_payment_currency_code_for_settings(settings)
     currency_quote = await subscription_service.quote_hwid_device_topup(
@@ -647,7 +669,7 @@ async def hwid_devices_package_callback(
         user_id=callback.from_user.id,
         device_count=count,
         tariff_key=tariff.key,
-        renewal=action == "renewal_package",
+        renewal=renewal,
         currency=default_currency,
     )
     stars_quote = await subscription_service.quote_hwid_device_topup(
@@ -655,7 +677,7 @@ async def hwid_devices_package_callback(
         user_id=callback.from_user.id,
         device_count=count,
         tariff_key=tariff.key,
-        renewal=action == "renewal_package",
+        renewal=renewal,
         currency="stars",
     )
     if not currency_quote and not stars_quote:

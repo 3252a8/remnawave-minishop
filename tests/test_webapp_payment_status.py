@@ -164,7 +164,7 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
         ):
             response = await billing_module.payment_status_route(request)
 
-        invalidate_cache.assert_awaited_once_with(settings, 1001)
+        invalidate_cache.assert_awaited_once_with(settings, 1001, include_devices=True)
         self.assertEqual(response.status, 200)
 
     async def test_wata_pending_payment_refresh_delegates_to_provider_service(self):

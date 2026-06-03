@@ -116,6 +116,64 @@ class HwidDeviceMixin:
         packages = package_set.for_currency(currency)
         return next((pkg for pkg in packages if int(pkg.count) == int(device_count)), None)
 
+    @staticmethod
+    def _quote_hwid_full_period_package_price(
+        tariff: Tariff,
+        *,
+        device_count: int,
+        period_months: int,
+        currency: str,
+    ) -> Optional[Dict[str, Any]]:
+        package_set = tariff.hwid_device_packages
+        if not package_set:
+            return None
+        try:
+            target_count = int(device_count)
+            months = max(1, int(period_months))
+        except (TypeError, ValueError):
+            return None
+        if target_count <= 0:
+            return None
+
+        packages = [
+            package
+            for package in package_set.for_currency(currency)
+            if int(getattr(package, "count", 0) or 0) > 0
+        ]
+        if not packages:
+            return None
+
+        best: Dict[int, tuple[float, List[Any]]] = {0: (0.0, [])}
+        for count in range(1, target_count + 1):
+            best_for_count: Optional[tuple[float, List[Any]]] = None
+            for package in packages:
+                package_count = int(package.count)
+                previous = best.get(count - package_count)
+                if previous is None:
+                    continue
+                price = previous[0] + float(package.price_for_period(months))
+                selected = [*previous[1], package]
+                if best_for_count is None or price < best_for_count[0]:
+                    best_for_count = (price, selected)
+            if best_for_count is not None:
+                best[count] = best_for_count
+
+        resolved = best.get(target_count)
+        if resolved is None:
+            return None
+        full_price, selected_packages = resolved
+        rounded_price = HwidDeviceMixin._round_hwid_price(full_price, currency=currency)
+        if currency == "stars":
+            rounded_price = float(int(math.ceil(rounded_price)))
+        return {
+            "price": rounded_price,
+            "full_price": float(full_price),
+            "pricing_period_months": months,
+            "proration_ratio": 1.0,
+            "currency": currency,
+            "package_counts": [int(package.count) for package in selected_packages],
+        }
+
     def _quote_hwid_package_price(
         self,
         *,
@@ -128,16 +186,10 @@ class HwidDeviceMixin:
     ) -> Dict[str, Any]:
         period_months = max(1, int(getattr(sub, "duration_months", None) or 1))
         full_price = float(package.price_for_period(period_months))
-        period_start = self._as_aware_utc(getattr(sub, "start_date", None))
-        period_end = self._as_aware_utc(getattr(sub, "end_date", None)) or valid_until
-        inferred_period_start = add_months(period_end, -period_months)
-        if not period_start or period_start >= period_end or period_start < inferred_period_start:
-            period_start = inferred_period_start
-
-        basis_seconds = max(1.0, (period_end - period_start).total_seconds())
+        basis_seconds = max(1.0, float(period_months * 30 * 24 * 60 * 60))
         billable_start = max(now, valid_from)
         billable_seconds = max(0.0, (valid_until - billable_start).total_seconds())
-        ratio = billable_seconds / basis_seconds
+        ratio = min(1.0, billable_seconds / basis_seconds)
         raw_price = full_price * ratio
         price = self._round_hwid_price(raw_price, currency=currency)
         min_price = getattr(package, "min_price", None)
@@ -229,6 +281,80 @@ class HwidDeviceMixin:
             }
         )
         return quote
+
+    async def quote_hwid_device_renewal_for_subscription(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: int,
+        target_tariff_key: str,
+        months: int,
+        currency: str = "rub",
+        now: Optional[datetime] = None,
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            period_months = int(months)
+        except (TypeError, ValueError):
+            return None
+        if period_months <= 0:
+            return None
+
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user or not db_user.panel_user_uuid:
+            return None
+        sub = await subscription_dal.get_active_subscription_by_user_id(
+            session, user_id, db_user.panel_user_uuid
+        )
+        if not sub or not sub.end_date:
+            return None
+
+        now = now or datetime.now(timezone.utc)
+        subscription_end = self._as_aware_utc(sub.end_date)
+        if not subscription_end or subscription_end <= now:
+            return None
+
+        try:
+            tariff = self._resolve_tariff(target_tariff_key)
+        except Exception:
+            return None
+        if not tariff or tariff.billing_model != "period":
+            return None
+        base_hwid_limit = self._base_hwid_limit_for_tariff(tariff)
+        if base_hwid_limit in (None, 0):
+            return None
+
+        entitlement_summary = await tariff_dal.get_hwid_device_entitlement_summary(
+            session,
+            subscription_id=sub.subscription_id,
+            at=now,
+        )
+        active_devices = int(entitlement_summary.get("active_devices") or 0)
+        if active_devices <= 0:
+            return None
+
+        price_quote = self._quote_hwid_full_period_package_price(
+            tariff,
+            device_count=active_devices,
+            period_months=period_months,
+            currency=currency,
+        )
+        if not price_quote:
+            return None
+
+        valid_from = subscription_end
+        valid_until = add_months(valid_from, period_months)
+        price_quote.update(
+            {
+                "subscription_id": sub.subscription_id,
+                "tariff_key": tariff.key,
+                "device_count": active_devices,
+                "renewal": True,
+                "valid_from": valid_from,
+                "valid_until": valid_until,
+                "active_until": entitlement_summary.get("active_until"),
+            }
+        )
+        return price_quote
 
     async def activate_hwid_device_topup(
         self,

@@ -8,8 +8,10 @@ from aiogram import types
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import (
+    HWID_RENEWAL_TOKEN,
     get_payment_url_keyboard,
     payment_methods_back_callback,
+    sale_mode_has_token,
 )
 from bot.middlewares.i18n import JsonI18n
 from db.dal import payment_dal
@@ -123,6 +125,27 @@ async def quote_hwid_callback_parts(
     subscription_service,
     currency: str = "rub",
 ) -> tuple[Optional[PaymentCallbackParts], Optional[dict]]:
+    base = sale_mode_base(parts.sale_mode)
+    if base == "subscription" and sale_mode_has_token(parts.sale_mode, HWID_RENEWAL_TOKEN):
+        try:
+            months = int(parts.months)
+        except (TypeError, ValueError):
+            return None, None
+        quote = await subscription_service.quote_hwid_device_renewal_for_subscription(
+            session,
+            user_id=user_id,
+            target_tariff_key=sale_mode_tariff_key(parts.sale_mode),
+            months=months,
+            currency=currency,
+        )
+        if not quote:
+            return parts, None
+        quoted_parts = PaymentCallbackParts(
+            months=months,
+            price=float(parts.price or 0) + float(quote.get("price") or 0),
+            sale_mode=parts.sale_mode,
+        )
+        return quoted_parts, quote
     if not sale_mode_is_hwid_devices(parts.sale_mode):
         return parts, None
     device_count = parse_positive_int_units(parts.months)

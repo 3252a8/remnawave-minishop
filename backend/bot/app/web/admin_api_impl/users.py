@@ -1515,6 +1515,8 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
         return _error(400, "invalid_days")
     if days <= 0:
         return _error(400, "invalid_days")
+    extend_hwid_devices = payload.get("extend_hwid_devices")
+    extend_hwid_devices = True if extend_hwid_devices is None else bool(extend_hwid_devices)
 
     subscription_service = request.app.get("subscription_service")
     if subscription_service is None:
@@ -1527,6 +1529,7 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
             target_id,
             days,
             "admin_extend_subscription_webapp",
+            extend_hwid_devices=extend_hwid_devices,
         )
         if not new_end:
             await session.rollback()
@@ -1537,7 +1540,10 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
             {
                 "user_id": actor_id,
                 "event_type": "admin_extend_subscription_webapp",
-                "content": f"+{days}d -> {new_end.isoformat()}",
+                "content": (
+                    f"+{days}d -> {new_end.isoformat()} "
+                    f"(hwid={'yes' if extend_hwid_devices else 'no'})"
+                ),
                 "is_admin_event": True,
                 "target_user_id": target_id,
             },

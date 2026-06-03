@@ -21,6 +21,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     userDetailLoading: false,
     userMessageDraft: "",
     userExtendDays: 30,
+    userExtendHwidDevices: true,
     userActionBusy: false,
     userDeleteOpen: false,
     userBanConfirmOpen: false,
@@ -133,6 +134,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
       userMessageDraft: "",
       userMessageConfirmOpen: false,
       userExtendDays: 30,
+      userExtendHwidDevices: true,
       userDetailLoading: true,
       userDetailTab: "subscription",
       userReferralsOpen: false,
@@ -455,7 +457,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     try {
       const res = await api(`/admin/users/${s.openedUser.user_id}/extend`, {
         method: "POST",
-        body: JSON.stringify({ days }),
+        body: JSON.stringify({ days, extend_hwid_devices: Boolean(s.userExtendHwidDevices) }),
       });
       if (res?.ok) {
         onToast(at("subscription_extended", { days }, `Продлено на ${days} д.`));
