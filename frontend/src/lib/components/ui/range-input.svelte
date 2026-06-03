@@ -13,14 +13,25 @@
   let className = "";
   export { className as class };
 
-  $: sliderValue = Number(value ?? min ?? 0);
   $: sliderMin = min === undefined ? undefined : Number(min);
   $: sliderMax = max === undefined ? undefined : Number(max);
   $: sliderStep = step === undefined ? undefined : Number(step);
+  $: sliderValue = normalizeSliderValue(value, sliderMin ?? 0);
+
+  function normalizeSliderValue(next, fallback = 0) {
+    const raw = Array.isArray(next) ? next[0] : next;
+    const numeric = Number(raw);
+    return Number.isFinite(numeric) ? numeric : fallback;
+  }
 
   function handleValueChange(next) {
-    value = next;
-    onValueChange(next);
+    const normalized = normalizeSliderValue(next, sliderMin ?? 0);
+    value = normalized;
+    onValueChange(normalized);
+  }
+
+  function handleValueCommit(next) {
+    onValueCommit(normalizeSliderValue(next, sliderMin ?? 0));
   }
 </script>
 
@@ -33,7 +44,7 @@
   step={sliderStep}
   {disabled}
   onValueChange={handleValueChange}
-  {onValueCommit}
+  onValueCommit={handleValueCommit}
   {...$$restProps}
 >
   <Slider.Range class="ui-range-input__range" />

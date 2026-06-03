@@ -1516,6 +1516,7 @@ _INITIAL_THEME_TOKEN_CSS_MAP = {
     "font_sans": "--font-sans",
     "font_logo": "--font-logo",
     "font_mono": "--font-mono",
+    "home_logo_scale": "--home-logo-scale",
     "admin_bg": "--admin-bg",
     "admin_surface": "--admin-surface",
     "admin_surface_2": "--admin-surface-2",
@@ -1570,6 +1571,14 @@ def _initial_theme_head_markup(request: web.Request, theme: Any, primary_color: 
     tokens = tokens if isinstance(tokens, dict) else {}
     declarations = []
     for token_key, css_name in _INITIAL_THEME_TOKEN_CSS_MAP.items():
+        if token_key == "home_logo_scale":
+            try:
+                scale = float(tokens.get(token_key) or 0)
+            except (TypeError, ValueError):
+                continue
+            if scale > 0:
+                declarations.append(f"{css_name}:{scale / 100:g}")
+            continue
         value = str(tokens.get(token_key) or "").strip()
         if value:
             declarations.append(f"{css_name}:{value}")

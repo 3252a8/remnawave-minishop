@@ -49,7 +49,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
           themesDir: data.themes_dir || s.themesDir,
         }));
         if (!silent) flash(at("themes_saved", {}, "Темы сохранены"));
-        if (typeof onThemesSaved === "function") onThemesSaved();
+        if (typeof onThemesSaved === "function") await onThemesSaved();
       } else {
         flash(data?.message || data?.error || at("themes_save_failed", {}, "Не удалось сохранить"));
       }

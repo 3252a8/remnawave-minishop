@@ -646,6 +646,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
     def test_initial_theme_head_markup_includes_css_and_tokens(self):
         cfg = builtin_webapp_themes_config("#123456")
         theme = cfg.theme_by_key("light")
+        theme.tokens.home_logo_scale = 135
         request = SimpleNamespace(get=lambda key, default="": "nonce-value")
 
         markup = subscription_webapp._initial_theme_head_markup(request, theme, "#123456")
@@ -653,6 +654,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("/webapp-theme-css/light/style.css?v=", markup)
         self.assertIn('nonce="nonce-value"', markup)
         self.assertIn("--accent:#123456", markup)
+        self.assertIn("--home-logo-scale:1.35", markup)
         self.assertIn("color-scheme:light", markup)
 
     def test_theme_asset_version_bumps_for_saved_default_css_theme(self):
