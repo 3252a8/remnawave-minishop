@@ -380,9 +380,6 @@ Webhook настраивается в PayKilla Dashboard: **Settings -> Webhooks
 | `PAYKILLA_PAYMENT_CURRENCIES` | Crypto tickers для оплаты, например `USDTTRC,BTC,ETH`. |
 | `PAYKILLA_SUPPORTED_CURRENCIES` | Валюты инвойса, разрешенные в этом магазине. |
 | `PAYKILLA_INVOICE_TYPE` | Необязательный override: `FIAT_BASED`, `FIXED_AMOUNT` или `OPEN_AMOUNT`. |
-| `PAYKILLA_RETURN_URL` | URL кнопки возврата на checkout-странице. |
-| `PAYKILLA_SUCCESS_URL` | URL после успешной оплаты; используется с auto-redirect. |
-| `PAYKILLA_CANCEL_URL` | URL после отмены оплаты. |
 | `PAYKILLA_LIFETIME_SECONDS` | TTL инвойса, отправляется как `expiredAt`. |
 | `PAYKILLA_RECV_WINDOW_MS` | `recvWindow` для подписанных API-запросов. |
 | `PAYKILLA_USER_PAYS_SERVICE_FEE` | `true`, если пользователь оплачивает service fee. |

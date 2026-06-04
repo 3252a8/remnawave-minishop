@@ -182,9 +182,6 @@ class PaykillaConfig(ProviderEnvConfig):
     INVOICE_TYPE: Optional[str] = None
     PAYMENT_CURRENCIES: str = Field(default=PAYKILLA_DEFAULT_PAYMENT_CURRENCIES)
     SUPPORTED_CURRENCIES: str = Field(default=PAYKILLA_DEFAULT_SUPPORTED_CURRENCIES)
-    RETURN_URL: Optional[str] = None
-    SUCCESS_URL: Optional[str] = None
-    CANCEL_URL: Optional[str] = None
     LIFETIME_SECONDS: int = Field(default=3600)
     RECV_WINDOW_MS: int = Field(default=5000)
     USER_PAYS_SERVICE_FEE: bool = Field(default=True)
@@ -219,9 +216,6 @@ class PaykillaConfig(ProviderEnvConfig):
         "API_KEY",
         "SECRET_KEY",
         "INVOICE_TYPE",
-        "RETURN_URL",
-        "SUCCESS_URL",
-        "CANCEL_URL",
         "WEBHOOK_URL",
         mode="before",
     )
@@ -291,9 +285,10 @@ def _clean_paykilla_text(value: Any, *, fallback: str, max_length: int = 255) ->
     return text[:max_length].strip() or fallback_text[:max_length].strip() or "Payment"
 
 
-def _invoice_text(payment_db_id: int) -> str:
+def _invoice_text(title: Any, payment_db_id: int) -> str:
+    project_title = _clean_paykilla_text(title, fallback="Minishop")
     return _clean_paykilla_text(
-        f"Minishop payment {payment_db_id}",
+        f"{project_title} payment {payment_db_id}",
         fallback=f"Payment {payment_db_id}",
     )
 
@@ -404,18 +399,6 @@ class PaykillaService(HttpClientMixin):
         return (self.config.CURRENCY or "RUB").upper()
 
     @property
-    def return_url(self) -> str:
-        return self.config.RETURN_URL or f"https://t.me/{self._default_return_url}"
-
-    @property
-    def success_url(self) -> str:
-        return self.config.SUCCESS_URL or self.return_url
-
-    @property
-    def cancel_url(self) -> Optional[str]:
-        return self.config.CANCEL_URL
-
-    @property
     def verify_webhook_signature(self) -> bool:
         return self.config.VERIFY_WEBHOOK_SIGNATURE
 
@@ -434,7 +417,7 @@ class PaykillaService(HttpClientMixin):
         description: str,
     ) -> Dict[str, Any]:
         currency_code = normalize_payment_currency_code(currency or self.currency)
-        invoice_text = _invoice_text(payment_db_id)
+        invoice_text = _invoice_text(getattr(self.settings, "WEBAPP_TITLE", None), payment_db_id)
         body: Dict[str, Any] = {
             "type": _invoice_type_for(self.config, currency_code),
             "purpose": invoice_text,
@@ -451,16 +434,6 @@ class PaykillaService(HttpClientMixin):
                 seconds=int(self.config.LIFETIME_SECONDS)
             )
             body["expiredAt"] = expires_at.isoformat().replace("+00:00", "Z")
-
-        urls: List[Dict[str, Any]] = []
-        if self.config.SUCCESS_URL:
-            urls.append({"type": "SUCCESS", "url": self.config.SUCCESS_URL, "autoRedirect": True})
-        if self.config.RETURN_URL:
-            urls.append({"type": "RETURN", "url": self.config.RETURN_URL})
-        if self.config.CANCEL_URL:
-            urls.append({"type": "CANCEL", "url": self.config.CANCEL_URL})
-        if urls:
-            body["urls"] = urls
         return body
 
     async def create_payment_link(
@@ -1052,15 +1025,6 @@ _CONFIG_MANIFEST = (
             ("FIXED_AMOUNT", "FIXED_AMOUNT"),
             ("OPEN_AMOUNT", "OPEN_AMOUNT"),
         ),
-    ),
-    ProviderManifestField(
-        "PAYKILLA_RETURN_URL", "url", "Return URL", subsection="PayKilla", attr="RETURN_URL"
-    ),
-    ProviderManifestField(
-        "PAYKILLA_SUCCESS_URL", "url", "Success URL", subsection="PayKilla", attr="SUCCESS_URL"
-    ),
-    ProviderManifestField(
-        "PAYKILLA_CANCEL_URL", "url", "Cancel URL", subsection="PayKilla", attr="CANCEL_URL"
     ),
     ProviderManifestField(
         "PAYKILLA_LIFETIME_SECONDS",
