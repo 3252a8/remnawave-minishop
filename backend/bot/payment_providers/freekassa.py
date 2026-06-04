@@ -76,7 +76,7 @@ class FreeKassaConfig(ProviderEnvConfig):
     MERCHANT_ID: Optional[str] = None
     FIRST_SECRET: Optional[str] = None
     SECOND_SECRET: Optional[str] = None
-    PAYMENT_URL: str = Field(default="https://pay.freekassa.ru/")
+    PAYMENT_URL: str = Field(default="https://pay.freekassa.net/")
     API_KEY: Optional[str] = None
     PAYMENT_IP: Optional[str] = None
     PAYMENT_METHOD_ID: Optional[int] = None
@@ -723,7 +723,7 @@ _CONFIG_MANIFEST = (
         "FREEKASSA_PAYMENT_URL",
         "url",
         "Payment URL",
-        placeholder="https://pay.freekassa.ru/",
+        placeholder="https://pay.freekassa.net/",
         subsection="FreeKassa",
         attr="PAYMENT_URL",
     ),
