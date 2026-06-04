@@ -81,6 +81,76 @@ _FAILED_EVENTS = {
     "PAYMENT_CANCELLED",
     "COMPLIANCE_FAILED",
 }
+_CYRILLIC_TO_LATIN = str.maketrans(
+    {
+        "А": "A",
+        "Б": "B",
+        "В": "V",
+        "Г": "G",
+        "Д": "D",
+        "Е": "E",
+        "Ё": "E",
+        "Ж": "Zh",
+        "З": "Z",
+        "И": "I",
+        "Й": "Y",
+        "К": "K",
+        "Л": "L",
+        "М": "M",
+        "Н": "N",
+        "О": "O",
+        "П": "P",
+        "Р": "R",
+        "С": "S",
+        "Т": "T",
+        "У": "U",
+        "Ф": "F",
+        "Х": "H",
+        "Ц": "Ts",
+        "Ч": "Ch",
+        "Ш": "Sh",
+        "Щ": "Sch",
+        "Ъ": "",
+        "Ы": "Y",
+        "Ь": "",
+        "Э": "E",
+        "Ю": "Yu",
+        "Я": "Ya",
+        "а": "a",
+        "б": "b",
+        "в": "v",
+        "г": "g",
+        "д": "d",
+        "е": "e",
+        "ё": "e",
+        "ж": "zh",
+        "з": "z",
+        "и": "i",
+        "й": "y",
+        "к": "k",
+        "л": "l",
+        "м": "m",
+        "н": "n",
+        "о": "o",
+        "п": "p",
+        "р": "r",
+        "с": "s",
+        "т": "t",
+        "у": "u",
+        "ф": "f",
+        "х": "h",
+        "ц": "ts",
+        "ч": "ch",
+        "ш": "sh",
+        "щ": "sch",
+        "ъ": "",
+        "ы": "y",
+        "ь": "",
+        "э": "e",
+        "ю": "yu",
+        "я": "ya",
+    }
+)
 
 
 class PaykillaConfig(ProviderEnvConfig):
@@ -203,14 +273,22 @@ class PaykillaPresentation(ProviderEnvConfig):
     TELEGRAM_EMOJI: Optional[str] = None
 
 
-def _clean_paykilla_text(value: Any, *, fallback: str, max_length: int = 255) -> str:
+def _normalize_paykilla_text(value: Any) -> str:
     text = str(value or "")
+    text = text.translate(_CYRILLIC_TO_LATIN)
     text = re.sub(r"[-\u2010-\u2015]", " ", text)
-    text = re.sub(r"[^\w\s.,]", "", text, flags=re.UNICODE)
+    text = text.encode("ascii", "ignore").decode("ascii")
+    text = re.sub(r"[^A-Za-z0-9_\s.,]", "", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _clean_paykilla_text(value: Any, *, fallback: str, max_length: int = 255) -> str:
+    text = _normalize_paykilla_text(value)
+    fallback_text = _normalize_paykilla_text(fallback) or "Payment"
     text = re.sub(r"\s+", " ", text).strip()
     if not text:
-        text = fallback
-    return text[:max_length].strip() or fallback[:max_length]
+        text = fallback_text
+    return text[:max_length].strip() or fallback_text[:max_length].strip() or "Payment"
 
 
 def _payment_currencies(config: PaykillaConfig) -> List[str]:

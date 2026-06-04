@@ -23,6 +23,7 @@ from bot.payment_providers.heleket import HeleketConfig, HeleketService, _comput
 from bot.payment_providers.paykilla import (
     PaykillaConfig,
     PaykillaService,
+    _clean_paykilla_text,
     _sign_query,
     _webhook_signature,
 )
@@ -219,6 +220,7 @@ class PaykillaServiceTests(unittest.TestCase):
             WEBHOOK_BASE_URL="https://shop.example",
             trusted_proxies=["127.0.0.1"],
         )
+        service._default_return_url = "test_bot"
         return service
 
     def test_sign_query_uses_timestamp_and_recv_window_only(self):
@@ -231,6 +233,29 @@ class PaykillaServiceTests(unittest.TestCase):
 
         self.assertEqual(query, "timestamp=1738800000000&recvWindow=5000")
         self.assertEqual(signature, expected)
+
+    def test_clean_text_transliterates_russian_description_for_invoice_fields(self):
+        text = _clean_paykilla_text(
+            "Оплата подписки на 1 мес. - тариф «Базовый» ✅",
+            fallback="Payment 556",
+        )
+
+        self.assertEqual(text, "Oplata podpiski na 1 mes. tarif Bazovyy")
+        self.assertRegex(text, r"^[A-Za-z0-9_\s.,]+$")
+
+    def test_invoice_body_uses_ascii_safe_purpose_and_description(self):
+        service = self._make_service()
+
+        body = service._invoice_body(
+            payment_db_id=556,
+            amount=100,
+            currency="RUB",
+            description="Оплата подписки на 1 мес. - тариф «Базовый» ✅",
+        )
+
+        self.assertEqual(body["purpose"], "Oplata podpiski na 1 mes. tarif Bazovyy")
+        self.assertEqual(body["description"], body["purpose"])
+        self.assertRegex(body["purpose"], r"^[A-Za-z0-9_\s.,]+$")
 
     def test_verify_webhook_signature_accepts_raw_body_signature(self):
         service = self._make_service()
