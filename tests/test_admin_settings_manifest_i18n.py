@@ -44,10 +44,18 @@ BACKUP_SETTINGS = (
     "BACKUP_COMPOSE_ENABLED",
 )
 
+REMNASHOP_MIGRATION_SETTINGS = (
+    "MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED",
+    "MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED",
+    "MIGRATION_REMNASHOP_IMPORTED_AT",
+    "MIGRATION_REMNASHOP_NOTES",
+)
+
 ADMIN_TARIFF_SETTINGS_PAGE_KEYS = {
     "admin_tariffs_trial_title",
     "admin_tariffs_trial_subtitle",
     "admin_tariffs_trial_enabled",
+    "admin_tariffs_trial_without_telegram_enabled",
     "admin_tariffs_trial_days",
     "admin_tariffs_trial_traffic",
     "admin_tariffs_trial_strategy",
@@ -62,6 +70,18 @@ ADMIN_TARIFF_SETTINGS_PAGE_KEYS = {
     "admin_tariffs_trial_group_reset_hint",
     "admin_tariffs_trial_group_squads",
     "admin_tariffs_trial_group_squads_hint",
+    "admin_tariffs_referral_title",
+    "admin_tariffs_referral_subtitle",
+    "admin_tariffs_referral_group_welcome",
+    "admin_tariffs_referral_group_welcome_hint",
+    "admin_tariffs_referral_welcome_bonus_days",
+    "admin_tariffs_referral_without_telegram",
+    "admin_tariffs_referral_group_rules",
+    "admin_tariffs_referral_group_rules_hint",
+    "admin_tariffs_referral_one_bonus_per_referee",
+    "admin_tariffs_referral_legacy_refs",
+    "admin_tariffs_referral_disposable_domains",
+    "admin_tariffs_referral_disposable_domains_hint",
     "admin_tariffs_legacy_title",
     "admin_tariffs_legacy_subtitle",
     "admin_tariffs_legacy_period",
@@ -204,6 +224,27 @@ def test_backup_settings_i18n_keys_exist():
             assert field["i18n_description_key"] in messages
 
 
+def test_remnashop_migration_settings_i18n_keys_exist():
+    manifest = _manifest_by_key()
+
+    for setting_key in REMNASHOP_MIGRATION_SETTINGS:
+        field = manifest[setting_key]
+        assert field["section"] == "migrations"
+        assert field["section_order"] == 13
+        assert field["subsection"] == "Remnashop"
+        assert field["i18n_subsection_key"] == "admin_settings_subsection_remnashop"
+
+    for language in ("ru", "en"):
+        messages = _locale(language)
+
+        assert "admin_settings_section_migrations" in messages
+        assert "admin_settings_subsection_remnashop" in messages
+        for setting_key in REMNASHOP_MIGRATION_SETTINGS:
+            field = manifest[setting_key]
+            assert field["i18n_label_key"] in messages
+            assert field["i18n_description_key"] in messages
+
+
 def test_backup_required_numeric_settings_reject_empty_values():
     with pytest.raises(ValueError):
         coerce_value(get_field_by_key("BACKUP_INTERVAL_SECONDS"), "")
@@ -215,6 +256,7 @@ def test_trial_required_settings_reject_empty_values():
         "TRIAL_DURATION_DAYS",
         "TRIAL_TRAFFIC_LIMIT_GB",
         "TRIAL_TRAFFIC_STRATEGY",
+        "TRIAL_WITHOUT_TELEGRAM_ENABLED",
     ):
         with pytest.raises(ValueError):
             coerce_value(get_field_by_key(key), "")
@@ -236,10 +278,15 @@ def test_remnawave_settings_include_panel_webhook_metadata():
     remnawave_keys = (
         "PANEL_API_URL",
         "PANEL_API_KEY",
+        "PANEL_API_TOTAL_TIMEOUT_SECONDS",
+        "PANEL_API_CONNECT_TIMEOUT_SECONDS",
+        "PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS",
+        "PANEL_API_SOCK_READ_TIMEOUT_SECONDS",
         "PANEL_WEBHOOK_SECRET",
         "USER_SQUAD_UUIDS",
         "USER_EXTERNAL_SQUAD_UUID",
     )
+    timeout_keys = remnawave_keys[2:6]
 
     assert field["webhook_path"] == "/webhook/panel"
     assert field["webhook_requires_base_url"] is True
@@ -250,10 +297,18 @@ def test_remnawave_settings_include_panel_webhook_metadata():
         assert manifest[setting_key]["section_order"] == 3
         assert manifest[setting_key]["subsection"] is None
 
+    for setting_key in timeout_keys:
+        assert manifest[setting_key]["type"] == "float"
+        assert manifest[setting_key]["optional"] is False
+        assert manifest[setting_key]["min"] == 1
+
     for language in ("ru", "en"):
         messages = _locale(language)
         assert "admin_settings_section_remnawave" in messages
         assert field["webhook_hint_i18n_key"] in messages
+        for setting_key in timeout_keys:
+            assert manifest[setting_key]["i18n_label_key"] in messages
+            assert manifest[setting_key]["i18n_description_key"] in messages
 
 
 def test_payment_provider_admin_only_toggles_are_mutually_exclusive():
@@ -280,8 +335,20 @@ def test_legacy_tariff_settings_are_separated_from_payment_settings():
     assert manifest["MONTH_1_ENABLED"]["section_order"] == 11
     assert manifest["TRIAL_ENABLED"]["section"] == "pricing"
     assert manifest["TRIAL_ENABLED"]["subsection"] == "trial"
+    assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["section"] == "pricing"
+    assert manifest["TRIAL_WITHOUT_TELEGRAM_ENABLED"]["subsection"] == "trial"
     assert manifest["TRIAL_SQUAD_UUIDS"]["section"] == "pricing"
     assert manifest["TRIAL_SQUAD_UUIDS"]["subsection"] == "trial"
+    assert manifest["REFERRAL_WELCOME_BONUS_DAYS"]["section"] == "pricing"
+    assert manifest["REFERRAL_WELCOME_BONUS_DAYS"]["subsection"] == "referral"
+    assert manifest["REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED"]["section"] == "pricing"
+    assert manifest["REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED"]["subsection"] == "referral"
+    assert manifest["REFERRAL_ONE_BONUS_PER_REFEREE"]["section"] == "pricing"
+    assert manifest["REFERRAL_ONE_BONUS_PER_REFEREE"]["subsection"] == "referral"
+    assert manifest["LEGACY_REFS"]["section"] == "pricing"
+    assert manifest["LEGACY_REFS"]["subsection"] == "referral"
+    assert manifest["DISPOSABLE_EMAIL_DOMAINS"]["section"] == "pricing"
+    assert manifest["DISPOSABLE_EMAIL_DOMAINS"]["subsection"] == "referral"
 
 
 def test_platega_settings_share_one_admin_subsection():

@@ -4,7 +4,7 @@ import string
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, case, delete, desc, func, or_, update
+from sqlalchemy import String, and_, case, cast, delete, desc, func, or_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -14,6 +14,8 @@ from ..models import (
     AdAttribution,
     EmailVerificationCode,
     HwidDevicePurchase,
+    LegacyImportMapping,
+    LegacyReferralCode,
     MessageLog,
     Payment,
     PromoCodeActivation,
@@ -76,7 +78,7 @@ async def ensure_referral_code(session: AsyncSession, user: User) -> str:
     Returns the existing or newly generated code.
     """
     if user.referral_code:
-        normalized = user.referral_code.strip().upper()
+        normalized = user.referral_code.strip()
         if normalized != user.referral_code:
             user.referral_code = normalized
             await session.flush()
@@ -210,7 +212,7 @@ async def create_user(session: AsyncSession, user_data: Dict[str, Any]) -> Tuple
     if not user_data.get("referral_code"):
         user_data["referral_code"] = await generate_unique_referral_code(session)
     else:
-        user_data["referral_code"] = user_data["referral_code"].strip().upper()
+        user_data["referral_code"] = user_data["referral_code"].strip()
 
     # Use PostgreSQL upsert to avoid IntegrityError on concurrent inserts
     stmt = (
@@ -567,6 +569,19 @@ async def merge_users(
         await session.execute(
             update(model).where(model.user_id == source_user_id).values(user_id=target_user_id)
         )
+    await session.execute(
+        update(LegacyReferralCode)
+        .where(LegacyReferralCode.user_id == source_user_id)
+        .values(user_id=target_user_id)
+    )
+    await session.execute(
+        update(LegacyImportMapping)
+        .where(
+            LegacyImportMapping.target_table == "users",
+            LegacyImportMapping.target_id == str(source_user_id),
+        )
+        .values(target_id=str(target_user_id))
+    )
 
     await session.execute(
         update(MessageLog)
@@ -590,13 +605,60 @@ async def merge_users(
     return target
 
 
-async def get_user_by_referral_code(session: AsyncSession, referral_code: str) -> Optional[User]:
-    normalized = referral_code.strip().upper()
+async def get_user_by_referral_code(
+    session: AsyncSession,
+    referral_code: str,
+    *,
+    include_legacy: bool = False,
+) -> Optional[User]:
+    normalized = referral_code.strip()
     if not normalized:
         return None
+
     stmt = select(User).where(User.referral_code == normalized)
     result = await session.execute(stmt)
-    return result.scalar_one_or_none()
+    user = result.scalar_one_or_none()
+    if user:
+        return user
+
+    upper_normalized = normalized.upper()
+    if upper_normalized != normalized:
+        stmt = select(User).where(User.referral_code == upper_normalized)
+        result = await session.execute(stmt)
+        user = result.scalar_one_or_none()
+        if user:
+            return user
+
+    if not include_legacy:
+        return None
+
+    stmt = (
+        select(User)
+        .join(LegacyReferralCode, LegacyReferralCode.user_id == User.user_id)
+        .where(LegacyReferralCode.code == normalized, LegacyReferralCode.is_active == True)
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    user = result.scalar_one_or_none()
+    if user:
+        return user
+
+    if upper_normalized != normalized:
+        stmt = (
+            select(User)
+            .join(LegacyReferralCode, LegacyReferralCode.user_id == User.user_id)
+            .where(
+                LegacyReferralCode.code == upper_normalized,
+                LegacyReferralCode.is_active == True,
+            )
+            .limit(1)
+        )
+        result = await session.execute(stmt)
+        user = result.scalar_one_or_none()
+        if user:
+            return user
+
+    return None
 
 
 async def update_user(
@@ -857,6 +919,29 @@ async def get_user_ids_without_active_subscription(session: AsyncSession) -> Lis
     return result.scalars().all()
 
 
+async def get_user_ids_without_any_subscription(session: AsyncSession) -> List[int]:
+    """Return non-banned user IDs who never had any subscription or trial.
+
+    These are users who registered but have no ``Subscription`` rows at all —
+    no active, no expired and no trial history. In other words, accounts that
+    signed up and never did anything.
+    """
+    any_sub = aliased(Subscription)
+
+    stmt = (
+        select(User.user_id)
+        .outerjoin(any_sub, any_sub.user_id == User.user_id)
+        .where(
+            and_(
+                User.is_banned == False,
+                any_sub.user_id.is_(None),
+            )
+        )
+    )
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
 def _expired_subscription_exists_for_user(now: datetime):
     expired_subs = aliased(Subscription)
     normalized_status = func.lower(func.coalesce(expired_subs.status_from_panel, ""))
@@ -997,6 +1082,31 @@ async def delete_user_and_relations(session: AsyncSession, user_id: int) -> bool
     await session.execute(delete(UserBilling).where(UserBilling.user_id == user_id))
     await session.execute(delete(AdAttribution).where(AdAttribution.user_id == user_id))
     await session.execute(delete(UserTelegramAvatar).where(UserTelegramAvatar.user_id == user_id))
+    await session.execute(delete(LegacyReferralCode).where(LegacyReferralCode.user_id == user_id))
+    await session.execute(
+        delete(LegacyImportMapping).where(
+            or_(
+                and_(
+                    LegacyImportMapping.target_table == "users",
+                    LegacyImportMapping.target_id == str(user_id),
+                ),
+                and_(
+                    LegacyImportMapping.target_table == "subscriptions",
+                    LegacyImportMapping.target_id.in_(
+                        select(cast(Subscription.subscription_id, String)).where(
+                            Subscription.user_id == user_id
+                        )
+                    ),
+                ),
+                and_(
+                    LegacyImportMapping.target_table == "payments",
+                    LegacyImportMapping.target_id.in_(
+                        select(cast(Payment.payment_id, String)).where(Payment.user_id == user_id)
+                    ),
+                ),
+            )
+        )
+    )
     await session.execute(delete(Payment).where(Payment.user_id == user_id))
     await session.execute(delete(Subscription).where(Subscription.user_id == user_id))
 

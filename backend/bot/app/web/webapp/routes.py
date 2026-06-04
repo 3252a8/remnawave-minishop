@@ -46,10 +46,6 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
         rf"{WEBAPP_FAVICON_PATH}/{{digest:[0-9a-f]{{16}}}}/{{filename:[A-Za-z0-9_.-]+}}",
         webapp_favicon_route,
     )
-    app.router.add_get(
-        r"/webapp-emoji/{codepoints:[0-9a-f_]+}/512.{ext:gif|webp}",
-        webapp_animated_emoji_route,
-    )
     app.router.add_get("/subscription_webapp.{asset_hash:[0-9a-f]{8}}.css", css_asset_route)
     app.router.add_get("/subscription_webapp.css", css_asset_route)
     app.router.add_get(
@@ -89,6 +85,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
         "/api/account/telegram/notifications/probe",
         account_telegram_notifications_probe_route,
     )
+    app.router.add_post("/api/referral/welcome-bonus/claim", referral_welcome_bonus_claim_route)
     app.router.add_post("/api/promo/apply", apply_promo_route)
     app.router.add_post("/api/trial/activate", activate_trial_route)
     app.router.add_get("/api/devices", devices_route)

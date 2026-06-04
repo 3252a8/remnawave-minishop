@@ -65,7 +65,6 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "SUPPORT_LINK", "url", "general", "Ссылка поддержки", "Куда вести пользователей за помощью."
     ),
     SettingField("SERVER_STATUS_URL", "url", "general", "Ссылка на статус серверов"),
-    SettingField("TERMS_OF_SERVICE_URL", "url", "general", "Условия использования"),
     SettingField("PRIVACY_POLICY_URL", "url", "general", "Политика конфиденциальности"),
     SettingField("USER_AGREEMENT_URL", "url", "general", "Пользовательское соглашение"),
     SettingField("DISABLE_WELCOME_MESSAGE", "bool", "general", "Скрыть приветствие /start"),
@@ -77,14 +76,20 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "int",
         "general",
         "ID обязательного канала",
-        "Telegram ID канала, в котором нужно состоять.",
+        (
+            "Telegram ID канала для проверки подписки. Если бот видит канал, "
+            "ссылка кнопки будет получена автоматически."
+        ),
     ),
     SettingField(
         "REQUIRED_CHANNEL_LINK",
         "string",
         "general",
         "Ссылка на канал",
-        "Имя пользователя или invite-link.",
+        (
+            "Необязательно: публичный @username или invite-link, "
+            "если ссылку нельзя получить по ID канала."
+        ),
     ),
     SettingField(
         "PANEL_API_URL",
@@ -100,6 +105,42 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "API-ключ Remnawave",
         "Секретный ключ API панели.",
         secret=True,
+    ),
+    SettingField(
+        "PANEL_API_TOTAL_TIMEOUT_SECONDS",
+        "float",
+        "remnawave",
+        "Panel API total timeout",
+        "Maximum total time for one Remnawave API request, in seconds.",
+        optional=False,
+        min=1,
+    ),
+    SettingField(
+        "PANEL_API_CONNECT_TIMEOUT_SECONDS",
+        "float",
+        "remnawave",
+        "Panel API connect timeout",
+        "Maximum time to get or open a Remnawave API connection, in seconds.",
+        optional=False,
+        min=1,
+    ),
+    SettingField(
+        "PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS",
+        "float",
+        "remnawave",
+        "Panel API socket connect timeout",
+        "Maximum TCP/TLS connection time for Remnawave API, in seconds.",
+        optional=False,
+        min=1,
+    ),
+    SettingField(
+        "PANEL_API_SOCK_READ_TIMEOUT_SECONDS",
+        "float",
+        "remnawave",
+        "Panel API socket read timeout",
+        "Maximum time to wait for response data from Remnawave API, in seconds.",
+        optional=False,
+        min=1,
     ),
     SettingField(
         "PANEL_WEBHOOK_SECRET",
@@ -139,27 +180,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
     SettingField(
         "WEBAPP_PRIMARY_COLOR", "color", "appearance", "Основной цвет", placeholder="#00fe7a"
     ),
-    SettingField("WEBAPP_LOGO_USE_EMOJI", "bool", "appearance", "Использовать эмоджи-логотип"),
     SettingField("WEBAPP_LOGO_URL", "url", "appearance", "URL логотипа"),
-    SettingField("WEBAPP_LOGO_EMOJI", "string", "appearance", "Эмоджи-логотип", placeholder="🫥"),
-    SettingField(
-        "WEBAPP_LOGO_EMOJI_FONT",
-        "string",
-        "appearance",
-        "Шрифт эмоджи-логотипа",
-        "Выберите шрифт для отображения эмодзи-логотипа",
-        choices=(
-            ("system", "Системный (по умолчанию)"),
-            ("noto-color", "Noto Color Emoji"),
-            ("noto-color-animated", "Noto Color Emoji Animated"),
-            ("noto-emoji", "Noto Emoji"),
-            ("twemoji", "Twitter Emoji"),
-            ("openmoji", "OpenMoji"),
-            ("apple", "Apple Color Emoji (local)"),
-            ("segoe", "Segoe UI Emoji (local)"),
-            ("noto-local", "Noto Emoji (local)"),
-        ),
-    ),
     SettingField(
         "WEBAPP_FAVICON_USE_CUSTOM",
         "bool",
@@ -348,7 +369,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "string",
         "payments",
         "Порядок методов оплаты",
-        "Через запятую: severpay,freekassa,yookassa,platega,stars,cryptopay,heleket",
+        "Через запятую: severpay,freekassa,yookassa,platega,stars,cryptopay,heleket,paykilla",
         subsection="common",
     ),
     # ─── Trial ─────────────────────────────────────────────────────
@@ -387,6 +408,18 @@ SETTINGS_MANIFEST: List[SettingField] = [
         subsection="trial",
     ),
     SettingField(
+        "TRIAL_WITHOUT_TELEGRAM_ENABLED",
+        "bool",
+        "pricing",
+        "Триал без Telegram",
+        (
+            "Если выключено, email-only пользователю нужно привязать Telegram для "
+            "активации триала. Disposable email домены всегда требуют Telegram."
+        ),
+        optional=False,
+        subsection="trial",
+    ),
+    SettingField(
         "TRIAL_SQUAD_UUIDS",
         "string",
         "pricing",
@@ -396,12 +429,82 @@ SETTINGS_MANIFEST: List[SettingField] = [
     ),
     # ─── Referral program ──────────────────────────────────────────
     SettingField(
-        "REFERRAL_ONE_BONUS_PER_REFEREE", "bool", "referral", "Один бонус на приглашённого"
+        "REFERRAL_ONE_BONUS_PER_REFEREE",
+        "bool",
+        "pricing",
+        "Один бонус на приглашённого",
+        subsection="referral",
     ),
     SettingField(
-        "REFERRAL_WELCOME_BONUS_DAYS", "int", "referral", "Приветственный бонус (дней)", min=0
+        "REFERRAL_WELCOME_BONUS_DAYS",
+        "int",
+        "pricing",
+        "Приветственный бонус (дней)",
+        min=0,
+        subsection="referral",
     ),
-    SettingField("LEGACY_REFS", "bool", "referral", "Поддержка старых ref-ссылок"),
+    SettingField(
+        "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
+        "bool",
+        "pricing",
+        "Приветственный бонус без Telegram",
+        (
+            "Если выключено, email-only пользователю нужно привязать Telegram для получения "
+            "реферального приветственного бонуса. Disposable email домены всегда требуют Telegram."
+        ),
+        subsection="referral",
+    ),
+    SettingField(
+        "LEGACY_REFS",
+        "bool",
+        "pricing",
+        "Поддержка старых ref-ссылок",
+        subsection="referral",
+    ),
+    SettingField(
+        "DISPOSABLE_EMAIL_DOMAINS",
+        "text",
+        "pricing",
+        "Disposable email домены",
+        (
+            "Домены по одному на строку или через запятую. Пользователи без Telegram с такими "
+            "email не смогут получить trial или реферальный приветственный бонус."
+        ),
+        placeholder="mailinator.com\ntemp-mail.org\nyopmail.com",
+        subsection="referral",
+    ),
+    SettingField(
+        "MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED",
+        "bool",
+        "migrations",
+        "Старые ref-ссылки Remnashop",
+        "Принимать импортированные ref-коды Remnashop вместе с текущими кодами пользователей.",
+        subsection="Remnashop",
+    ),
+    SettingField(
+        "MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED",
+        "bool",
+        "migrations",
+        "Старые промокоды Remnashop",
+        "Пробовать точное совпадение промокода перед обычной uppercase-нормализацией.",
+        subsection="Remnashop",
+    ),
+    SettingField(
+        "MIGRATION_REMNASHOP_IMPORTED_AT",
+        "string",
+        "migrations",
+        "Последний импорт Remnashop",
+        "Заполняется скриптом импорта. Можно очистить, если отметка больше не нужна.",
+        subsection="Remnashop",
+    ),
+    SettingField(
+        "MIGRATION_REMNASHOP_NOTES",
+        "text",
+        "migrations",
+        "Заметки по миграции Remnashop",
+        "Внутренние заметки оператора по перенесенному инстансу.",
+        subsection="Remnashop",
+    ),
     # ─── Notifications ─────────────────────────────────────────────
     SettingField(
         "SUBSCRIPTION_NOTIFICATIONS_ENABLED",
@@ -734,6 +837,7 @@ def manifest_payload() -> List[dict]:
         "devices": 10,
         "subscription_guides": 10,
         "system": 12,
+        "migrations": 13,
     }
     exclusive_map = {
         key: opposite

@@ -96,6 +96,7 @@ export default defineConfig({
           items: [
             { label: 'Обзор миграций', slug: 'migrations' },
             { label: 'remnawave-tg-shop', slug: 'migrations/remnawave-tg-shop' },
+            { label: 'remnashop', slug: 'migrations/remnashop' },
           ],
         },
         {

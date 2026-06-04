@@ -24,17 +24,13 @@ export function emptyTariffDraft() {
       { months: 6, rub: 1200, stars: "", referral_inviter: 15, referral_referee: 7 },
       { months: 12, rub: 2400, stars: "", referral_inviter: 30, referral_referee: 15 },
     ],
-    topupRubRows: [],
-    topupStarsRows: [],
-    premiumTopupRubRows: [],
-    premiumTopupStarsRows: [],
-    trafficRubRows: [
-      { gb: 10, price: 199 },
-      { gb: 50, price: 799 },
+    topupRows: [],
+    premiumTopupRows: [],
+    trafficRows: [
+      { gb: 10, price: 199, stars: "" },
+      { gb: 50, price: 799, stars: "" },
     ],
-    trafficStarsRows: [],
-    hwidRubRows: [],
-    hwidStarsRows: [],
+    hwidRows: [],
   };
 }
 
@@ -66,9 +62,55 @@ export function rowsFromPackages(packageSet, currency, valueKey) {
   }));
 }
 
+function packageValueSignature(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? String(num) : String(value || "");
+}
+
+export function packageRowsFromPackageSet(packageSet, currency, valueKey) {
+  const currencyRows = rowsFromPackages(packageSet, currency, valueKey);
+  const starsRows = rowsFromPackages(packageSet, "stars", valueKey);
+  const usedStars = new Set();
+
+  const rows = currencyRows.map((row) => {
+    const rowSignature = packageValueSignature(row[valueKey]);
+    const starsIndex = starsRows.findIndex(
+      (starsRow, index) =>
+        !usedStars.has(index) && packageValueSignature(starsRow[valueKey]) === rowSignature
+    );
+    const starsRow = starsIndex >= 0 ? starsRows[starsIndex] : null;
+    if (starsIndex >= 0) usedStars.add(starsIndex);
+
+    return {
+      [valueKey]: row[valueKey],
+      price: row.price,
+      stars: starsRow?.price ?? "",
+      prices: row.prices,
+      min_price: row.min_price,
+      stars_prices: starsRow?.prices,
+      stars_min_price: starsRow?.min_price ?? "",
+    };
+  });
+
+  starsRows.forEach((starsRow, index) => {
+    if (usedStars.has(index)) return;
+    rows.push({
+      [valueKey]: starsRow[valueKey],
+      price: "",
+      stars: starsRow.price,
+      stars_prices: starsRow.prices,
+      stars_min_price: starsRow.min_price ?? "",
+    });
+  });
+
+  return rows;
+}
+
 export function draftFromTariff(tariff, defaultCurrency = "rub") {
   const currency = normalizeCurrencyKey(defaultCurrency);
   const defaultPrices = tariff.prices?.[currency] || {};
+  // enabled_periods comes first so its order (the configured purchase order)
+  // is preserved; any extra price-only months are appended afterwards.
   const months = new Set([
     ...(tariff.enabled_periods || []),
     ...Object.keys(defaultPrices).map(Number),
@@ -77,7 +119,6 @@ export function draftFromTariff(tariff, defaultCurrency = "rub") {
   ]);
   const periodRows = [...months]
     .filter((month) => Number.isFinite(month) && month > 0)
-    .sort((a, b) => a - b)
     .map((month) => ({
       months: month,
       rub:
@@ -108,14 +149,10 @@ export function draftFromTariff(tariff, defaultCurrency = "rub") {
     hwid_device_limit: tariff.hwid_device_limit ?? "",
     conversion_rate_rub_per_gb: tariff.conversion_rate_rub_per_gb ?? "",
     periodRows: periodRows.length ? periodRows : emptyTariffDraft().periodRows,
-    topupRubRows: rowsFromPackages(tariff.topup_packages, currency, "gb"),
-    topupStarsRows: rowsFromPackages(tariff.topup_packages, "stars", "gb"),
-    premiumTopupRubRows: rowsFromPackages(tariff.premium_topup_packages, currency, "gb"),
-    premiumTopupStarsRows: rowsFromPackages(tariff.premium_topup_packages, "stars", "gb"),
-    trafficRubRows: rowsFromPackages(tariff.traffic_packages, currency, "gb"),
-    trafficStarsRows: rowsFromPackages(tariff.traffic_packages, "stars", "gb"),
-    hwidRubRows: rowsFromPackages(tariff.hwid_device_packages, currency, "count"),
-    hwidStarsRows: rowsFromPackages(tariff.hwid_device_packages, "stars", "count"),
+    topupRows: packageRowsFromPackageSet(tariff.topup_packages, currency, "gb"),
+    premiumTopupRows: packageRowsFromPackageSet(tariff.premium_topup_packages, currency, "gb"),
+    trafficRows: packageRowsFromPackageSet(tariff.traffic_packages, currency, "gb"),
+    hwidRows: packageRowsFromPackageSet(tariff.hwid_device_packages, currency, "count"),
   };
 }
 
@@ -155,10 +192,34 @@ export function packagesFromRows(rows, valueKey) {
     .filter((row) => row[valueKey] > 0 && row.price !== null && row.price >= 0);
 }
 
-export function packageSetFromRows(rubRows, starsRows, valueKey, defaultCurrency = "rub") {
+export function packagesFromPackageRows(rows, valueKey, priceKey, options = {}) {
+  const pricesKey = options.pricesKey || "prices";
+  const minPriceKey = options.minPriceKey || "min_price";
+  return (rows || [])
+    .map((row) => {
+      const pkg = {
+        [valueKey]: parseNumber(row[valueKey]),
+        price: parseNumber(row[priceKey]),
+      };
+      if (row[pricesKey] && typeof row[pricesKey] === "object") {
+        pkg.prices = structuredCloneSafe(row[pricesKey]);
+      }
+      const minPrice = parseNumber(row[minPriceKey]);
+      if (minPrice !== null) {
+        pkg.min_price = minPrice;
+      }
+      return pkg;
+    })
+    .filter((row) => row[valueKey] > 0 && row.price !== null && row.price >= 0);
+}
+
+export function packageSetFromRows(rows, valueKey, defaultCurrency = "rub") {
   const currency = normalizeCurrencyKey(defaultCurrency);
-  const defaultCurrencyPackages = packagesFromRows(rubRows, valueKey);
-  const stars = packagesFromRows(starsRows, valueKey);
+  const defaultCurrencyPackages = packagesFromPackageRows(rows, valueKey, "price");
+  const stars = packagesFromPackageRows(rows, valueKey, "stars", {
+    pricesKey: "stars_prices",
+    minPriceKey: "stars_min_price",
+  });
   if (!defaultCurrencyPackages.length && !stars.length) return null;
   return {
     ...(defaultCurrencyPackages.length ? { [currency]: defaultCurrencyPackages } : {}),
@@ -199,21 +260,11 @@ export function tariffFromDraft(draft, fallbackCurrency = "rub") {
 
   const hwidLimit = parseIntNumber(draft.hwid_device_limit);
   if (hwidLimit !== null) tariff.hwid_device_limit = hwidLimit;
-  const hwidPackages = packageSetFromRows(
-    draft.hwidRubRows,
-    draft.hwidStarsRows,
-    "count",
-    defaultCurrency
-  );
+  const hwidPackages = packageSetFromRows(draft.hwidRows, "count", defaultCurrency);
   if (hwidPackages) tariff.hwid_device_packages = hwidPackages;
   const premiumMonthlyGb = parseNumber(draft.premium_monthly_gb);
   if (premiumMonthlyGb !== null) tariff.premium_monthly_gb = premiumMonthlyGb;
-  const premiumTopupPackages = packageSetFromRows(
-    draft.premiumTopupRubRows,
-    draft.premiumTopupStarsRows,
-    "gb",
-    defaultCurrency
-  );
+  const premiumTopupPackages = packageSetFromRows(draft.premiumTopupRows, "gb", defaultCurrency);
   if (premiumTopupPackages) tariff.premium_topup_packages = premiumTopupPackages;
 
   if (tariff.billing_model === "period") {
@@ -231,8 +282,7 @@ export function tariffFromDraft(draft, fallbackCurrency = "rub") {
         if (seenMonths.has(row.months)) return false;
         seenMonths.add(row.months);
         return true;
-      })
-      .sort((a, b) => a.months - b.months);
+      });
     tariff.monthly_gb = parseNumber(draft.monthly_gb, 0);
     tariff.enabled_periods = rows.map((row) => row.months);
     const defaultPrices = Object.fromEntries(rows.map((row) => [String(row.months), row.rub || 0]));
@@ -254,20 +304,10 @@ export function tariffFromDraft(draft, fallbackCurrency = "rub") {
         .filter((row) => row.referral_referee !== null)
         .map((row) => [String(row.months), row.referral_referee])
     );
-    const topupPackages = packageSetFromRows(
-      draft.topupRubRows,
-      draft.topupStarsRows,
-      "gb",
-      defaultCurrency
-    );
+    const topupPackages = packageSetFromRows(draft.topupRows, "gb", defaultCurrency);
     if (topupPackages) tariff.topup_packages = topupPackages;
   } else {
-    const trafficPackages = packageSetFromRows(
-      draft.trafficRubRows,
-      draft.trafficStarsRows,
-      "gb",
-      defaultCurrency
-    );
+    const trafficPackages = packageSetFromRows(draft.trafficRows, "gb", defaultCurrency);
     if (trafficPackages) tariff.traffic_packages = trafficPackages;
     const conversion = parseNumber(draft.conversion_rate_rub_per_gb);
     if (conversion !== null) tariff.conversion_rate_rub_per_gb = conversion;

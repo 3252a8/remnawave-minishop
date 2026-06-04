@@ -42,7 +42,7 @@ from bot.app.web.webapp_auth import (
     verify_webapp_session_token,
 )
 from bot.infra.redis import cache_delete, cache_get_json, cache_set_json, get_redis, redis_key
-from bot.services.email_auth_service import EmailAuthService, normalize_email
+from bot.services.email_auth_service import EmailAuthService, is_disposable_email, normalize_email
 from bot.services.email_templates import render_account_merged
 from bot.services.promo_code_service import PromoCodeService
 from bot.services.referral_service import ReferralService
@@ -82,7 +82,6 @@ WEBAPP_DEFAULT_LOGO_PATH = "/webapp-default-logo.webp"
 WEBAPP_DEFAULT_FAVICON_DIGEST = "19b2a242e5b7bc2d"
 WEBAPP_DEFAULT_FAVICON_DIR = WEBAPP_DEFAULT_BRAND_DIR / "favicons" / WEBAPP_DEFAULT_FAVICON_DIGEST
 WEBAPP_DEFAULT_FAVICON_URL = f"{WEBAPP_FAVICON_PATH}/{WEBAPP_DEFAULT_FAVICON_DIGEST}/icon-180.png"
-WEBAPP_EMOJI_CACHE_DIR = APP_ROOT / "data" / "webapp-emoji"
 WEBAPP_CONFIG_PLACEHOLDER = "<!-- WEBAPP_CONFIG_SCRIPT -->"
 WEBAPP_I18N_PLACEHOLDER = "<!-- WEBAPP_I18N_SCRIPT -->"
 WEBAPP_JS_PLACEHOLDER = "<!-- WEBAPP_JS_SCRIPT -->"
@@ -92,7 +91,6 @@ DEV_MOCK_END_MARKER = "<!-- WEBAPP_DEV_MOCK_END -->"
 WEBAPP_RATE_LIMIT_WINDOW_SECONDS = 60
 WEBAPP_RATE_LIMIT_MAX_REQUESTS = 30
 WEBAPP_LOGO_MAX_BYTES = 2 * 1024 * 1024
-WEBAPP_EMOJI_MAX_BYTES = 4 * 1024 * 1024
 WEBAPP_THEME_CSS_MAX_BYTES = 512 * 1024
 WEBAPP_THEME_ASSET_MAX_BYTES = 1024 * 1024
 WEBAPP_THEME_ASSET_CONTENT_TYPES = {

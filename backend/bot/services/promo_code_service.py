@@ -38,8 +38,12 @@ class PromoCodeService:
         user_lang: str,
     ) -> Tuple[bool, datetime | str]:
         _ = lambda k, **kw: self.i18n.gettext(user_lang, k, **kw)
-        code_input_upper = (code_input or "").strip().upper()[:100]
-        code_display = html_escape(code_input_upper[:100], quote=False)
+        preserve_case = bool(
+            getattr(self.settings, "MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED", False)
+        )
+        code_input_clean = (code_input or "").strip()[:100]
+        lookup_code = code_input_clean if preserve_case else code_input_clean.upper()
+        code_display = html_escape(lookup_code[:100], quote=False)
         throttle_identifier = self._throttle_identifier(user_id)
 
         throttle = await security_dal.check_throttle(
@@ -54,7 +58,7 @@ class PromoCodeService:
             )
 
         promo_data = await promo_code_dal.get_active_promo_code_by_code_str(
-            session, code_input_upper
+            session, lookup_code, preserve_case=preserve_case
         )
 
         if not promo_data:
@@ -74,6 +78,8 @@ class PromoCodeService:
                 )
             return False, _("promo_code_not_found", code=code_display)
 
+        applied_code = str(promo_data.code or lookup_code)
+        code_display = html_escape(applied_code[:100], quote=False)
         existing_activation = await promo_code_dal.get_user_activation_for_promo(
             session, promo_data.promo_code_id, user_id
         )
@@ -86,7 +92,7 @@ class PromoCodeService:
             session=session,
             user_id=user_id,
             bonus_days=bonus_days,
-            reason=f"promo code {code_input_upper}",
+            reason=f"promo code {applied_code}",
         )
 
         if new_end_date:
@@ -109,7 +115,7 @@ class PromoCodeService:
                     user = await user_dal.get_user_by_id(session, user_id)
                     await notification_service.notify_promo_activation(
                         user_id=user_id,
-                        promo_code=code_input_upper,
+                        promo_code=applied_code,
                         bonus_days=bonus_days,
                         username=user.username if user else None,
                         email=getattr(user, "email", None) if user else None,

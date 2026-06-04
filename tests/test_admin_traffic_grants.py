@@ -50,6 +50,149 @@ def _make_settings(payload: dict, tmpdir: str) -> Settings:
 
 
 class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
+    async def test_hwid_limit_sync_pushes_effective_device_limit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            panel_service = AsyncMock(spec=PanelApiService)
+            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            service = SubscriptionService(settings, panel_service)
+
+            db_user = SimpleNamespace(
+                user_id=42,
+                first_name="Tester",
+                last_name=None,
+                username="tester",
+                language_code="ru",
+                panel_user_uuid="panel-uuid",
+                email=None,
+                telegram_id=42,
+            )
+            sub = SimpleNamespace(
+                subscription_id=7,
+                user_id=42,
+                panel_user_uuid="panel-uuid",
+                end_date=datetime.now(timezone.utc) + timedelta(days=10),
+                tariff_key="standard",
+                hwid_device_limit=4,
+                extra_hwid_devices=0,
+            )
+
+            with (
+                patch(
+                    "bot.services.subscription_service.user_dal.get_user_by_id",
+                    new=AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service.subscription_dal.get_active_subscription_by_user_id",
+                    new=AsyncMock(return_value=sub),
+                ),
+                patch(
+                    "bot.services.subscription_service.tariff_dal.sum_active_hwid_devices",
+                    new=AsyncMock(return_value=2),
+                ),
+            ):
+                effective_limit = await service.sync_hwid_device_limit_to_panel(AsyncMock(), 42)
+
+            self.assertEqual(effective_limit, 6)
+            self.assertEqual(sub.extra_hwid_devices, 2)
+            panel_service.update_user_details_on_panel.assert_awaited_once()
+            panel_payload = panel_service.update_user_details_on_panel.await_args.args[1]
+            self.assertEqual(panel_payload["hwidDeviceLimit"], 6)
+
+    async def test_hwid_limit_sync_keeps_zero_unlimited(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            panel_service = AsyncMock(spec=PanelApiService)
+            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            service = SubscriptionService(settings, panel_service)
+
+            db_user = SimpleNamespace(
+                user_id=42,
+                first_name="Tester",
+                last_name=None,
+                username="tester",
+                language_code="ru",
+                panel_user_uuid="panel-uuid",
+                email=None,
+                telegram_id=42,
+            )
+            sub = SimpleNamespace(
+                subscription_id=7,
+                user_id=42,
+                panel_user_uuid="panel-uuid",
+                end_date=datetime.now(timezone.utc) + timedelta(days=10),
+                tariff_key="standard",
+                hwid_device_limit=0,
+                extra_hwid_devices=0,
+            )
+
+            with (
+                patch(
+                    "bot.services.subscription_service.user_dal.get_user_by_id",
+                    new=AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service.subscription_dal.get_active_subscription_by_user_id",
+                    new=AsyncMock(return_value=sub),
+                ),
+                patch(
+                    "bot.services.subscription_service.tariff_dal.sum_active_hwid_devices",
+                    new=AsyncMock(return_value=3),
+                ),
+            ):
+                effective_limit = await service.sync_hwid_device_limit_to_panel(AsyncMock(), 42)
+
+            self.assertEqual(effective_limit, 0)
+            panel_payload = panel_service.update_user_details_on_panel.await_args.args[1]
+            self.assertEqual(panel_payload["hwidDeviceLimit"], 0)
+
+    async def test_hwid_limit_sync_treats_missing_default_as_unlimited(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            panel_service = AsyncMock(spec=PanelApiService)
+            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            service = SubscriptionService(settings, panel_service)
+
+            db_user = SimpleNamespace(
+                user_id=42,
+                first_name="Tester",
+                last_name=None,
+                username="tester",
+                language_code="ru",
+                panel_user_uuid="panel-uuid",
+                email=None,
+                telegram_id=42,
+            )
+            sub = SimpleNamespace(
+                subscription_id=7,
+                user_id=42,
+                panel_user_uuid="panel-uuid",
+                end_date=datetime.now(timezone.utc) + timedelta(days=10),
+                tariff_key="standard",
+                hwid_device_limit=None,
+                extra_hwid_devices=0,
+            )
+
+            with (
+                patch(
+                    "bot.services.subscription_service.user_dal.get_user_by_id",
+                    new=AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service.subscription_dal.get_active_subscription_by_user_id",
+                    new=AsyncMock(return_value=sub),
+                ),
+                patch(
+                    "bot.services.subscription_service.tariff_dal.sum_active_hwid_devices",
+                    new=AsyncMock(return_value=2),
+                ),
+            ):
+                effective_limit = await service.sync_hwid_device_limit_to_panel(AsyncMock(), 42)
+
+            self.assertEqual(effective_limit, 0)
+            panel_payload = panel_service.update_user_details_on_panel.await_args.args[1]
+            self.assertEqual(panel_payload["hwidDeviceLimit"], 0)
+
     async def test_regular_grant_increases_balance_and_panel_limit(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)

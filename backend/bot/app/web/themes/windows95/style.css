@@ -127,6 +127,7 @@
 .theme-key-windows95 svg.lucide-file-text,
 .theme-key-windows95 svg.lucide-gift,
 .theme-key-windows95 svg.lucide-globe-2,
+.theme-key-windows95 svg.lucide-grip-vertical,
 .theme-key-windows95 svg.lucide-home,
 .theme-key-windows95 svg.lucide-house,
 .theme-key-windows95 svg.lucide-info,
@@ -230,6 +231,10 @@
 .theme-key-windows95 svg.lucide-external-link,
 .theme-key-windows95 svg.lucide-globe-2 {
   --win95-button-icon: var(--win95-icon-globe);
+}
+
+.theme-key-windows95 svg.lucide-grip-vertical {
+  --win95-button-icon: var(--win95-icon-sliders);
 }
 
 .theme-key-windows95 svg.lucide-file-text {
@@ -375,6 +380,7 @@
   svg.lucide-file-text,
   svg.lucide-gift,
   svg.lucide-globe-2,
+  svg.lucide-grip-vertical,
   svg.lucide-home,
   svg.lucide-house,
   svg.lucide-info,
@@ -1171,6 +1177,96 @@ body:has(.theme-key-windows95) .install-platform-item[data-selected] {
   opacity: 0.52;
 }
 
+/* Admin controls: range sliders and sortable rows */
+
+.theme-key-windows95 .ui-range-input {
+  height: 22px;
+}
+
+.theme-key-windows95 .ui-range-input::before {
+  height: 8px;
+  border: 2px solid;
+  border-color: #404040 #ffffff #ffffff #404040;
+  border-radius: 0 !important;
+  background: #ffffff;
+  box-shadow:
+    inset 1px 1px 0 #808080,
+    inset -1px -1px 0 #dfdfdf;
+}
+
+.theme-key-windows95 .ui-range-input__range {
+  height: 8px;
+  border-radius: 0 !important;
+  background: var(--accent);
+}
+
+.theme-key-windows95 .ui-range-input__thumb {
+  width: 14px;
+  height: 20px;
+  border: 2px solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  border-radius: 0 !important;
+  background: #c0c0c0;
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080;
+  transition: none;
+}
+
+.theme-key-windows95 .ui-range-input__thumb:hover,
+.theme-key-windows95 .ui-range-input__thumb:focus-visible {
+  background: #dfdfdf;
+}
+
+.theme-key-windows95 .ui-range-input__thumb[data-active] {
+  border-color: #404040 #ffffff #ffffff #404040;
+  box-shadow:
+    inset 1px 1px 0 #808080,
+    inset -1px -1px 0 #dfdfdf;
+}
+
+.theme-key-windows95 .ui-sortable-item.is-drop-target {
+  outline: 1px dotted #000000;
+  outline-offset: 3px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--admin-surface));
+}
+
+.theme-key-windows95 .ui-sortable-item.is-drop-target::before {
+  top: -7px;
+  height: 2px;
+  border-radius: 0;
+  background: #000080;
+  box-shadow:
+    0 1px 0 #ffffff,
+    0 -1px 0 #000000;
+}
+
+.theme-key-windows95 .ui-sortable-handle {
+  align-self: center;
+  width: 24px;
+  height: 28px;
+  border: 2px solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  background: #c0c0c0;
+  color: #000000;
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080;
+  transition: none;
+}
+
+.theme-key-windows95 .ui-sortable-handle:hover,
+.theme-key-windows95 .ui-sortable-handle:focus-visible {
+  background: #dfdfdf;
+}
+
+.theme-key-windows95 .ui-sortable-handle:active {
+  border-color: #404040 #ffffff #ffffff #404040;
+  box-shadow:
+    inset 1px 1px 0 #808080,
+    inset -1px -1px 0 #dfdfdf;
+}
+
 .theme-key-windows95 input::placeholder,
 .theme-key-windows95 textarea::placeholder,
 .theme-key-windows95 .input::placeholder,
@@ -1351,4 +1447,65 @@ body:has(.theme-key-windows95) .install-platform-item[data-selected] {
 .theme-key-windows95 .admin-screen-wrap a:not(.admin-btn):not(.admin-nav-item):visited,
 .theme-key-windows95 a:not(.btn):not(.bottom-nav button):not([class*="-trigger"]):visited {
   color: #800080;
+}
+
+/* ---------- Newer webapp surfaces: telegram banner, traffic /
+ * referral dropdowns, login language picker ---------- */
+
+/* Telegram notifications banner: the Card chrome is already beveled by
+ * the shared .card rule; give the icon badge a raised chip look instead
+ * of the rounded, color-tinted default (the Send glyph maps to send.png). */
+.theme-key-windows95 .telegram-notifications-icon {
+  border-width: 2px;
+  border-style: solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080;
+}
+
+/* Standalone referral-tariff dropdown and bonus rows: bevel them like the
+ * rest of the surfaces so they don't read as flat 1px boxes. */
+.theme-key-windows95 .referral-tariff-dropdown,
+.theme-key-windows95 .referral-bonus-row {
+  border-width: 2px;
+  border-style: solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  border-radius: 0;
+  background: var(--panel);
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080;
+}
+
+.theme-key-windows95 .referral-bonus-row-nested {
+  background: #dfdfdf;
+}
+
+/* Premium-server / referral help glyph: drop the rounded accent pill so it
+ * sits inline as a plain stroked question mark. */
+.theme-key-windows95 .premium-server-help-icon,
+.theme-key-windows95 .premium-server-dropdown summary:hover .premium-server-help-icon,
+.theme-key-windows95 .premium-server-dropdown[open] .premium-server-help-icon,
+.theme-key-windows95 .referral-tariff-dropdown summary:hover .premium-server-help-icon,
+.theme-key-windows95 .referral-tariff-dropdown[open] .premium-server-help-icon {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+/* The selected language row turns navy; its check maps to a dark bitmap,
+ * so invert it to white to keep it visible. */
+.theme-key-windows95 .language-select-item[data-highlighted] .language-select-item-check,
+.theme-key-windows95 .language-select-item[data-selected] .language-select-item-check {
+  filter: brightness(0) invert(1);
+}
+
+/* Login-screen language trigger: square the rounded chip. */
+.theme-key-windows95 .auth-language-trigger {
+  border-radius: 0;
 }

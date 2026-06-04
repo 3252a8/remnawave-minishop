@@ -1,8 +1,8 @@
 name: PR checks
 
 # Runs on pull requests into main (typically from dev) and into dev (typically
-# from feature/* branches): lint + format checks and a no-push image build to
-# prove the Docker images still build.
+# from feature/* branches): lint + format checks, a demo settings-manifest
+# drift guard, and a no-push image build to prove the Docker images still build.
 
 on:
   pull_request:
@@ -55,6 +55,30 @@ jobs:
       - name: Prettier check (frontend)
         run: npm run format:check
         working-directory: frontend
+
+  demo-manifest:
+    name: Demo settings manifest in sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend deps + pytest
+        run: pip install -r backend/requirements.txt pytest
+
+      # Fails if admin_settings_manifest.py changed without regenerating the
+      # demo snapshot. Fix: `python scripts/export_settings_manifest.py` then
+      # `npx --prefix frontend prettier --write \
+      #   src/lib/webapp/settingsManifest.generated.json`, and commit the result.
+      - name: Check demo settings manifest is in sync
+        run: python -m pytest tests/test_settings_manifest_demo_sync.py -q
 
   build:
     name: Docker build

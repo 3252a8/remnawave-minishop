@@ -13,6 +13,44 @@ docker compose ps
 docker compose logs -f backend worker frontend
 ```
 
+## Интерактивный install wizard
+
+Для нового сервера скачайте install-скрипт и запустите его:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/3252a8/remnawave-minishop/main/scripts/install.sh -o install.sh
+sh install.sh
+```
+
+Wizard работает через меню с цифрами и подтверждениями `y/n`. Он умеет:
+
+- скачать выбранный compose-профиль (`Caddy`, `Nginx`, `Pangolin/Newt` или `no-proxy`);
+- сгенерировать минимальный `.env`, включая пароли и стабильные secrets;
+- сохранить backup существующих файлов перед перезаписью;
+- подготовить writable `data/` для файлов приложения;
+- запустить `docker compose pull && docker compose up -d`;
+- проверить текущий стек через `docker compose ps` и логи `migrate`;
+- запустить миграцию из поддерживаемых ботов: Remnashop и старый
+  `remnawave-tg-shop`;
+
+Для тестирования другой ветки или форка задайте источник перед запуском:
+
+```bash
+MINISHOP_INSTALL_REPO=3252a8/remnawave-minishop \
+MINISHOP_INSTALL_REF=main \
+sh install.sh
+```
+
+Миграция Remnashop в wizard сначала запускает `dry-run`, показывает JSON-сводку
+и только после отдельного подтверждения применяет изменения в целевую БД. Если
+указать старый Remnashop `.env`, wizard передаст importer-у `APP_CRYPT_KEY`,
+Remnawave API settings и поддерживаемые payment provider settings из таблицы
+`payment_gateways`. После применения wizard печатает новые webhook URL для
+Remnawave Panel и платежных провайдеров.
+Миграция со старого `remnawave-tg-shop` работает как upgrade совместимой БД:
+либо копирует старый Docker volume, либо делает `pg_dump` по source DSN,
+восстанавливает дамп в целевую compose-БД и запускает сервис `migrate`.
+
 Обычный `docker compose up -d --build` поднимает:
 
 - `postgres` и `redis` с проверками здоровья;
@@ -339,7 +377,7 @@ distributed lock; код подготовлен к нескольким репл
 Перед первым запуском на сервере заранее дайте права пользователю контейнера `10001`:
 
 ```bash
-mkdir -p data/themes data/webapp-logo data/webapp-emoji data/tariffs
+mkdir -p data/themes data/webapp-logo data/tariffs
 touch data/locales-overrides.json
 chown -R 10001:10001 data
 chmod -R u+rwX data

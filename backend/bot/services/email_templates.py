@@ -12,6 +12,7 @@ from __future__ import annotations
 import html
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Sequence, Tuple
 from urllib.parse import urlsplit
 
@@ -27,6 +28,27 @@ _TEXT_MUTED = "#9aa3b2"
 _TEXT_DIM = "#5d6573"
 _DEFAULT_ACCENT = "#00fe7a"
 _HEX_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+_EMAIL_LOGO_CONTENT_ID = "webapp-logo"
+_WEBAPP_UPLOADED_LOGO_PATH = "/webapp-uploaded-logo"
+_WEBAPP_UPLOADED_LOGO_DIR = Path(__file__).resolve().parents[3] / "data" / "webapp-logo" / "uploads"
+_WEBAPP_LOGO_MAX_BYTES = 2 * 1024 * 1024
+_UPLOADED_LOGO_RE = re.compile(r"logo-[0-9a-f]{16}\.(?:gif|ico|jpe?g|png|svg|webp)")
+_LOGO_CONTENT_TYPES = {
+    ".gif": "image/gif",
+    ".ico": "image/x-icon",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".svg": "image/svg+xml",
+    ".webp": "image/webp",
+}
+
+
+@dataclass(frozen=True)
+class EmailInlineImage:
+    content_id: str
+    content_type: str
+    data: bytes
 
 
 @dataclass(frozen=True)
@@ -34,6 +56,13 @@ class EmailContent:
     subject: str
     text: str
     html: str
+    inline_images: Tuple[EmailInlineImage, ...] = ()
+
+
+@dataclass(frozen=True)
+class _EmailLayout:
+    html: str
+    inline_images: Tuple[EmailInlineImage, ...] = ()
 
 
 def _safe_color(value: Optional[str]) -> str:
@@ -48,8 +77,6 @@ def _safe_color(value: Optional[str]) -> str:
 def _public_logo_url(settings: Settings) -> Optional[str]:
     """Email recipients can't reach the in-app /webapp-logo proxy, so only a
     stored public https URL can be used directly. Anything else is dropped."""
-    if getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
-        return None
     raw = (settings.WEBAPP_LOGO_URL or "").strip()
     if not raw:
         return None
@@ -57,6 +84,55 @@ def _public_logo_url(settings: Settings) -> Optional[str]:
     if parsed.scheme != "https" or not parsed.hostname:
         return None
     return raw
+
+
+def _uploaded_logo_filename(url: str) -> Optional[str]:
+    parsed = urlsplit(str(url or ""))
+    path = parsed.path if parsed.scheme or parsed.netloc else str(url or "")
+    prefix = f"{_WEBAPP_UPLOADED_LOGO_PATH}/"
+    if not path.startswith(prefix):
+        return None
+    filename = path.removeprefix(prefix)
+    return filename if _UPLOADED_LOGO_RE.fullmatch(filename) else None
+
+
+def _inline_uploaded_logo(settings: Settings) -> Optional[EmailInlineImage]:
+    filename = _uploaded_logo_filename((settings.WEBAPP_LOGO_URL or "").strip())
+    if not filename:
+        return None
+
+    content_type = _LOGO_CONTENT_TYPES.get(Path(filename).suffix.lower())
+    if not content_type:
+        return None
+
+    try:
+        uploads_dir = _WEBAPP_UPLOADED_LOGO_DIR.resolve()
+        logo_path = (uploads_dir / filename).resolve()
+        logo_path.relative_to(uploads_dir)
+        body = logo_path.read_bytes()
+    except (OSError, ValueError):
+        return None
+
+    if not body or len(body) > _WEBAPP_LOGO_MAX_BYTES:
+        return None
+
+    return EmailInlineImage(
+        content_id=_EMAIL_LOGO_CONTENT_ID,
+        content_type=content_type,
+        data=body,
+    )
+
+
+def _email_logo(settings: Settings) -> Tuple[Optional[str], Tuple[EmailInlineImage, ...]]:
+    inline_logo = _inline_uploaded_logo(settings)
+    if inline_logo:
+        return f"cid:{inline_logo.content_id}", (inline_logo,)
+
+    public_url = _public_logo_url(settings)
+    if public_url:
+        return public_url, ()
+
+    return None, ()
 
 
 def _brand_title(settings: Settings) -> str:
@@ -98,10 +174,10 @@ def _layout(
     intro_html: str,
     body_html: str,
     footer_html: str,
-) -> str:
+) -> _EmailLayout:
     accent = _safe_color(settings.WEBAPP_PRIMARY_COLOR)
     brand_title = html.escape(_brand_title(settings))
-    logo_url = _public_logo_url(settings)
+    logo_url, inline_images = _email_logo(settings)
     html_lang = html.escape((language_code or "en").replace("_", "-"), quote=True)
     logo_block = ""
     if logo_url:
@@ -111,7 +187,7 @@ def _layout(
             f'border-radius:16px;">'
         )
 
-    return f"""<!DOCTYPE html>
+    layout_html = f"""<!DOCTYPE html>
 <html lang="{html_lang}" xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <meta charset="utf-8">
@@ -151,6 +227,16 @@ def _layout(
 </body>
 </html>
 """  # noqa: E501
+    return _EmailLayout(html=layout_html, inline_images=inline_images)
+
+
+def _email_content(*, subject: str, text: str, layout: _EmailLayout) -> EmailContent:
+    return EmailContent(
+        subject=subject,
+        text=text,
+        html=layout.html,
+        inline_images=layout.inline_images,
+    )
 
 
 def _info_rows_html(rows: Sequence[Tuple[str, str]]) -> str:
@@ -319,7 +405,7 @@ def render_login_code(
         body_html=body_html,
         footer_html=footer,
     )
-    return EmailContent(subject=subject, text="\n".join(text_lines), html=rendered)
+    return _email_content(subject=subject, text="\n".join(text_lines), layout=rendered)
 
 
 def render_account_merged(
@@ -372,7 +458,7 @@ def render_account_merged(
         body_html=body_html,
         footer_html=footer,
     )
-    return EmailContent(subject=subject, text=text, html=rendered)
+    return _email_content(subject=subject, text=text, layout=rendered)
 
 
 def render_payment_success(
@@ -506,7 +592,7 @@ def render_payment_success(
         body_html="".join(body_parts),
         footer_html=footer,
     )
-    return EmailContent(subject=subject, text="\n".join(text_lines), html=rendered)
+    return _email_content(subject=subject, text="\n".join(text_lines), layout=rendered)
 
 
 def render_user_notification(
@@ -567,7 +653,7 @@ def render_user_notification(
                 ),
             ]
         )
-    return EmailContent(subject=final_subject, text="\n".join(text_lines), html=rendered)
+    return _email_content(subject=final_subject, text="\n".join(text_lines), layout=rendered)
 
 
 def render_subscription_expiring(
@@ -631,7 +717,7 @@ def render_subscription_expiring(
         body_html="".join(body_parts),
         footer_html=footer,
     )
-    return EmailContent(subject=subject, text="\n".join(text_lines), html=rendered)
+    return _email_content(subject=subject, text="\n".join(text_lines), layout=rendered)
 
 
 def _subscription_lifecycle_title(
@@ -733,7 +819,7 @@ def render_subscription_lifecycle_notification(
                 ),
             ]
         )
-    return EmailContent(subject=subject, text="\n".join(text_lines), html=rendered)
+    return _email_content(subject=subject, text="\n".join(text_lines), layout=rendered)
 
 
 def _support_email(
@@ -785,7 +871,7 @@ def _support_email(
     ]
     if safe_url:
         text_lines.extend(["", safe_url])
-    return EmailContent(subject=subject, text="\n".join(text_lines), html=rendered)
+    return _email_content(subject=subject, text="\n".join(text_lines), layout=rendered)
 
 
 def render_support_new_ticket_admin(

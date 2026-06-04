@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from bot.middlewares.i18n import JsonI18n
+from bot.services import email_templates as email_templates_module
 from bot.services.email_templates import (
     EmailContent,
     render_account_merged,
@@ -35,7 +36,6 @@ def _settings(default_language: str = "ru"):
         DEFAULT_LANGUAGE=default_language,
         EMAIL_CODE_TTL_SECONDS=600,
         WEBAPP_LOGO_URL="",
-        WEBAPP_LOGO_USE_EMOJI=False,
         WEBAPP_PRIMARY_COLOR="#00fe7a",
         WEBAPP_TITLE="Mini Shop",
     )
@@ -256,6 +256,49 @@ def test_all_email_template_variants_render_without_raw_locale_keys():
             _assert_content_is_localized(content, language)
 
 
+def test_uploaded_webapp_logo_is_embedded_inline(tmp_path, monkeypatch):
+    uploads_dir = tmp_path / "uploads"
+    uploads_dir.mkdir()
+    filename = "logo-1111111111111111.png"
+    logo_body = b"\x89PNG\r\n\x1a\nlogo"
+    (uploads_dir / filename).write_bytes(logo_body)
+    monkeypatch.setattr(email_templates_module, "_WEBAPP_UPLOADED_LOGO_DIR", uploads_dir)
+
+    settings = _settings()
+    settings.WEBAPP_LOGO_URL = f"/webapp-uploaded-logo/{filename}"
+
+    content = render_login_code(
+        settings,
+        code="123456",
+        language_code="en",
+        purpose="login",
+        i18n=_i18n("en"),
+    )
+
+    assert 'src="cid:webapp-logo"' in content.html
+    assert len(content.inline_images) == 1
+    inline_logo = content.inline_images[0]
+    assert inline_logo.content_id == "webapp-logo"
+    assert inline_logo.content_type == "image/png"
+    assert inline_logo.data == logo_body
+
+
+def test_public_https_webapp_logo_remains_external():
+    settings = _settings()
+    settings.WEBAPP_LOGO_URL = "https://cdn.example.com/logo.png"
+
+    content = render_login_code(
+        settings,
+        code="123456",
+        language_code="en",
+        purpose="login",
+        i18n=_i18n("en"),
+    )
+
+    assert 'src="https://cdn.example.com/logo.png"' in content.html
+    assert content.inline_images == ()
+
+
 def test_support_email_templates_use_russian_copy_for_russian_recipients():
     subjects = [content.subject for content in _all_rendered_email_variants("ru")[-4:]]
 
@@ -283,5 +326,7 @@ def test_docs_email_preview_generator_renders_real_template_html():
     assert all(preview["html"].lstrip().startswith("<!DOCTYPE html>") for preview in previews)
     assert all('<html lang="ru"' in preview["html"] for preview in previews)
     assert all('role="presentation"' in preview["html"] for preview in previews)
+    assert all('src="data:image/png;base64,' in preview["html"] for preview in previews)
+    assert all("cid:webapp-logo" not in preview["html"] for preview in previews)
     assert all("mail-card" not in preview["html"] for preview in previews)
     assert all("email_" not in preview["subject"] + preview["html"] for preview in previews)

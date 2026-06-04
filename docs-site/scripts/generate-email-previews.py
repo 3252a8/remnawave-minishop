@@ -1,5 +1,8 @@
+import base64
+import hashlib
 import json
 import sys
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -9,6 +12,7 @@ sys.path.insert(0, str(BACKEND_ROOT))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
+from bot.services import email_templates as email_templates_module  # noqa: E402
 from bot.services.email_templates import (  # noqa: E402
     render_account_merged,
     render_login_code,
@@ -23,6 +27,34 @@ from bot.services.email_templates import (  # noqa: E402
 )
 
 LANGUAGE = "ru"
+PREVIEW_LOGO_FILE = (
+    REPO_ROOT
+    / "backend"
+    / "bot"
+    / "app"
+    / "web"
+    / "templates"
+    / "default-brand"
+    / "favicons"
+    / "19b2a242e5b7bc2d"
+    / "icon-180.png"
+)
+PREVIEW_LOGO_TEMP_DIR = tempfile.TemporaryDirectory()
+
+
+def prepare_preview_logo_url() -> str:
+    if not PREVIEW_LOGO_FILE.exists():
+        return ""
+    body = PREVIEW_LOGO_FILE.read_bytes()
+    digest = hashlib.sha256(body).hexdigest()[:16]
+    filename = f"logo-{digest}.png"
+    logo_dir = Path(PREVIEW_LOGO_TEMP_DIR.name)
+    (logo_dir / filename).write_bytes(body)
+    email_templates_module._WEBAPP_UPLOADED_LOGO_DIR = logo_dir
+    return f"/webapp-uploaded-logo/{filename}"
+
+
+PREVIEW_LOGO_URL = prepare_preview_logo_url()
 
 
 class PreviewI18n:
@@ -63,8 +95,7 @@ def settings():
     return SimpleNamespace(
         DEFAULT_LANGUAGE=LANGUAGE,
         EMAIL_CODE_TTL_SECONDS=600,
-        WEBAPP_LOGO_URL="",
-        WEBAPP_LOGO_USE_EMOJI=False,
+        WEBAPP_LOGO_URL=PREVIEW_LOGO_URL,
         WEBAPP_PRIMARY_COLOR="#00fe7a",
         WEBAPP_TITLE="remnawave-minishop",
     )
@@ -95,8 +126,18 @@ def preview(item_id: str, category: str, title: str, content):
         "category": category,
         "title": title,
         "subject": content.subject,
-        "html": content.html,
+        "html": preview_html(content),
     }
+
+
+def preview_html(content):
+    rendered = content.html
+    for image in content.inline_images:
+        data_url = (
+            f"data:{image.content_type};base64,{base64.b64encode(image.data).decode('ascii')}"
+        )
+        rendered = rendered.replace(f"cid:{image.content_id}", data_url)
+    return rendered
 
 
 def payment_preview(

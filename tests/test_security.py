@@ -1,7 +1,9 @@
 import hashlib
 import hmac
 import json
+import time
 import unittest
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, urlsplit
@@ -19,6 +21,13 @@ from bot.app.web.webapp_auth import (
 from bot.payment_providers.cryptopay import CryptoPayService
 from bot.payment_providers.freekassa import FreeKassaService
 from bot.payment_providers.heleket import HeleketConfig, HeleketService, _compute_signature
+from bot.payment_providers.paykilla import (
+    PaykillaConfig,
+    PaykillaService,
+    _clean_paykilla_text,
+    _sign_query,
+    _webhook_signature,
+)
 from bot.payment_providers.yookassa import yookassa_webhook_route
 from bot.services.email_templates import render_login_code
 from bot.utils.request_security import request_client_ip
@@ -199,6 +208,210 @@ class HeleketServiceTests(unittest.TestCase):
         self.assertFalse(service._verify_signature({"order_id": "435", "sign": "bad"}))
 
 
+class PaykillaServiceTests(unittest.TestCase):
+    def _make_service(self, *, webhook_url: str = "https://shop.example/webhook/paykilla"):
+        service = PaykillaService.__new__(PaykillaService)
+        service.config = PaykillaConfig(
+            ENABLED=True,
+            API_KEY="public-key",
+            SECRET_KEY="secret-key",
+            WEBHOOK_URL=webhook_url,
+        )
+        service.settings = SimpleNamespace(
+            WEBHOOK_BASE_URL="https://shop.example",
+            WEBAPP_TITLE="/minishop",
+            trusted_proxies=["127.0.0.1"],
+        )
+        service._default_return_url = "test_bot"
+        return service
+
+    def test_sign_query_uses_timestamp_and_recv_window_only(self):
+        query, signature = _sign_query(1738800000000, 5000, "secret-key")
+        expected = hmac.new(
+            b"secret-key",
+            b"timestamp=1738800000000&recvWindow=5000",
+            hashlib.sha256,
+        ).hexdigest()
+
+        self.assertEqual(query, "timestamp=1738800000000&recvWindow=5000")
+        self.assertEqual(signature, expected)
+
+    def test_clean_text_transliterates_russian_description_for_invoice_fields(self):
+        text = _clean_paykilla_text(
+            "Оплата подписки на 1 мес. - тариф «Базовый» ✅",
+            fallback="Payment 556",
+        )
+
+        self.assertEqual(text, "Oplata podpiski na 1 mes. tarif Bazovyy")
+        self.assertRegex(text, r"^[A-Za-z0-9_\s.,]+$")
+
+    def test_invoice_body_uses_english_purpose_and_description(self):
+        service = self._make_service()
+        service.settings.WEBAPP_TITLE = "Tunnel Shop"
+
+        body = service._invoice_body(
+            payment_db_id=556,
+            amount=100,
+            currency="RUB",
+            description="Оплата подписки на 1 мес. - тариф «Базовый» ✅",
+        )
+
+        self.assertEqual(body["purpose"], "Tunnel Shop payment 556")
+        self.assertRegex(body["purpose"], r"^[A-Za-z0-9_\s.,]+$")
+        self.assertEqual(body["paymentCurrencies"], ["USDTTRC"])
+        self.assertEqual(body["description"], body["purpose"])
+        self.assertTrue(body["expiredAt"].endswith("Z"))
+        self.assertTrue(body["userPaysNetworkFee"])
+        self.assertTrue(body["userPaysServiceFee"])
+        self.assertNotIn("urls", body)
+
+    def test_invoice_body_uses_payment_currency_before_configured_fallback(self):
+        service = self._make_service()
+        service.config.CURRENCY = "USD"
+
+        body = service._invoice_body(
+            payment_db_id=556,
+            amount=100,
+            currency="RUB",
+            description="ignored",
+        )
+
+        self.assertEqual(body["currency"], "RUB")
+        self.assertEqual(body["type"], "FIAT_BASED")
+
+    def test_invoice_body_uses_configured_currency_as_fallback(self):
+        service = self._make_service()
+        service.config.CURRENCY = "USD"
+
+        body = service._invoice_body(
+            payment_db_id=556,
+            amount=100,
+            currency=None,
+            description="ignored",
+        )
+
+        self.assertEqual(body["currency"], "USD")
+        self.assertEqual(body["type"], "FIAT_BASED")
+
+    def test_invoice_amount_converts_unsupported_tariff_currency_to_fallback(self):
+        service = self._make_service()
+        service.config.CURRENCY = "USD"
+        service.config.INVOICE_CURRENCIES = "USD,EUR"
+
+        with patch.object(
+            service,
+            "_exchange_rate",
+            AsyncMock(return_value=Decimal("0.013586")),
+        ) as exchange_rate:
+            amount, currency = asyncio_run(
+                service._invoice_amount_and_currency(
+                    amount=190,
+                    payment_currency="RUB",
+                )
+            )
+
+        self.assertEqual(currency, "USD")
+        self.assertEqual(amount, Decimal("2.58"))
+        exchange_rate.assert_awaited_once_with("RUB", "USD")
+
+    def test_invoice_amount_keeps_enabled_paykilla_invoice_currency(self):
+        service = self._make_service()
+        service.config.CURRENCY = "USD"
+        service.config.INVOICE_CURRENCIES = "RUB,USD"
+
+        with patch.object(
+            service,
+            "_exchange_rate",
+            AsyncMock(side_effect=AssertionError("conversion must not run")),
+        ):
+            amount, currency = asyncio_run(
+                service._invoice_amount_and_currency(
+                    amount=190,
+                    payment_currency="RUB",
+                )
+            )
+
+        self.assertEqual(currency, "RUB")
+        self.assertEqual(amount, Decimal("190.00"))
+
+    def test_invoice_amount_bounds_detects_paykilla_minimum(self):
+        service = self._make_service()
+
+        with patch.object(
+            service,
+            "_currency_info_for",
+            AsyncMock(return_value={"invoiceMin": "10", "invoiceMax": "500000"}),
+        ):
+            error = asyncio_run(
+                service._invoice_amount_bounds_error(
+                    amount=Decimal("2.58"),
+                    currency="USD",
+                )
+            )
+
+        self.assertEqual(error["message"], "invoice_amount_below_minimum")
+        self.assertEqual(error["currency"], "USD")
+        self.assertEqual(error["minimum"], "10.00")
+
+    def test_invoice_body_omits_redirect_urls(self):
+        service = self._make_service()
+
+        body = service._invoice_body(
+            payment_db_id=556,
+            amount=100,
+            currency="RUB",
+            description="ignored",
+        )
+
+        self.assertNotIn("urls", body)
+
+    def test_verify_webhook_signature_accepts_raw_body_signature(self):
+        service = self._make_service()
+        raw_body = (
+            b'{"id":"evt_1","priority":"HIGH","eventType":"INVOICE_PAID",'
+            b'"data":{"id":"inv_1","clientOrderId":"42"}}'
+        )
+        timestamp = str(int(time.time() * 1000))
+        signature = _webhook_signature(
+            timestamp=timestamp,
+            method="POST",
+            url="https://shop.example/webhook/paykilla",
+            raw_body=raw_body,
+            secret_key="secret-key",
+        )
+        request = SimpleNamespace(
+            headers={
+                "X-API-KEY": "public-key",
+                "X-API-TIMESTAMP": timestamp,
+                "X-API-RECV-WINDOW": "5000",
+                "X-API-SIGN": signature,
+            },
+            method="POST",
+            scheme="https",
+            host="shop.example",
+            path_qs="/webhook/paykilla",
+        )
+
+        self.assertTrue(service._verify_webhook_signature(request, raw_body))
+
+    def test_verify_webhook_signature_rejects_invalid_signature(self):
+        service = self._make_service()
+        request = SimpleNamespace(
+            headers={
+                "X-API-KEY": "public-key",
+                "X-API-TIMESTAMP": str(int(time.time() * 1000)),
+                "X-API-RECV-WINDOW": "5000",
+                "X-API-SIGN": "bad",
+            },
+            method="POST",
+            scheme="https",
+            host="shop.example",
+            path_qs="/webhook/paykilla",
+        )
+
+        self.assertFalse(service._verify_webhook_signature(request, b"{}"))
+
+
 class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
     class _AsyncSessionFactory:
         def __call__(self):
@@ -342,7 +555,6 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
             DEFAULT_LANGUAGE="ru",
             EMAIL_CODE_TTL_SECONDS=600,
             WEBAPP_LOGO_URL="",
-            WEBAPP_LOGO_USE_EMOJI=False,
             WEBAPP_PRIMARY_COLOR="#00fe7a",
             WEBAPP_TITLE="Remnawave",
         )

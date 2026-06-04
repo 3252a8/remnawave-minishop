@@ -28,10 +28,7 @@ from db.dal import app_settings_dal
 logger = logging.getLogger(__name__)
 
 APPEARANCE_OVERRIDE_KEYS = {
-    "WEBAPP_LOGO_USE_EMOJI",
     "WEBAPP_LOGO_URL",
-    "WEBAPP_LOGO_EMOJI",
-    "WEBAPP_LOGO_EMOJI_FONT",
     "WEBAPP_FAVICON_USE_CUSTOM",
     "WEBAPP_FAVICON_URL",
     "WEBAPP_LOGO_FAVICON_URL",
@@ -167,12 +164,6 @@ def _appearance_snapshot(settings: Settings) -> Dict[str, Any]:
         snapshot["WEBAPP_FAVICON_URL"] = favicon_url
     if getattr(settings, "WEBAPP_FAVICON_USE_CUSTOM", False):
         snapshot["WEBAPP_FAVICON_USE_CUSTOM"] = True
-    if getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
-        snapshot["WEBAPP_LOGO_USE_EMOJI"] = True
-        snapshot["WEBAPP_LOGO_EMOJI"] = getattr(settings, "WEBAPP_LOGO_EMOJI", "")
-        emoji_font = getattr(settings, "WEBAPP_LOGO_EMOJI_FONT", "")
-        if emoji_font and emoji_font != "system":
-            snapshot["WEBAPP_LOGO_EMOJI_FONT"] = emoji_font
     primary_color = getattr(settings, "WEBAPP_PRIMARY_COLOR", None)
     if primary_color and primary_color != "#00fe7a":
         snapshot["WEBAPP_PRIMARY_COLOR"] = primary_color

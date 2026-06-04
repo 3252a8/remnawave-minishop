@@ -20,9 +20,10 @@ return.
 """
 
 import unittest
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from bot.services.subscription_service_impl.renewal import RenewalMixin
 
@@ -275,6 +276,59 @@ class ChargeRenewalHappyPathTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(ok)
         self.assertEqual(yk.calls[0]["metadata"]["subscription_months"], "1")
         self.assertEqual(yk.calls[0]["amount"], 99.0)
+
+    async def test_includes_hwid_device_renewal_in_saved_method_charge(self):
+        yk = _FakeYooKassaService(response={"id": "auto-pay-8", "status": "pending"})
+        mixin = _make_mixin(yk=yk, price_for_months=399.0)
+        valid_from = datetime(2099, 2, 1, tzinfo=timezone.utc)
+        valid_until = datetime(2099, 3, 1, tzinfo=timezone.utc)
+        mixin.quote_hwid_device_renewal_for_subscription = AsyncMock(
+            return_value={
+                "device_count": 2,
+                "price": 50.0,
+                "full_price": 50.0,
+                "valid_from": valid_from,
+                "valid_until": valid_until,
+                "pricing_period_months": 1,
+                "proration_ratio": 1.0,
+            }
+        )
+
+        with patch(
+            "db.dal.user_billing_dal.get_user_default_payment_method",
+            _stub_default_pm,
+        ):
+            ok = await mixin.charge_subscription_renewal(
+                session=None,
+                sub=_FakeSub(
+                    auto_renew_enabled=True,
+                    provider="yookassa",
+                    user_id=77,
+                    subscription_id=555,
+                    tariff_key="standard",
+                    duration_months=1,
+                ),
+            )
+
+        self.assertTrue(ok)
+        self.assertEqual(len(yk.calls), 1)
+        call = yk.calls[0]
+        self.assertEqual(call["amount"], 449.0)
+        meta = call["metadata"]
+        self.assertEqual(meta["sale_mode"], "subscription@standard")
+        self.assertEqual(meta["hwid_devices"], "2")
+        self.assertEqual(meta["hwid_valid_from"], valid_from.isoformat())
+        self.assertEqual(meta["hwid_valid_until"], valid_until.isoformat())
+        self.assertEqual(meta["hwid_pricing_period_months"], "1")
+        self.assertEqual(meta["hwid_proration_ratio"], "1.0")
+        self.assertEqual(meta["hwid_full_price"], "50.0")
+        mixin.quote_hwid_device_renewal_for_subscription.assert_awaited_once_with(
+            None,
+            user_id=77,
+            target_tariff_key="standard",
+            months=1,
+            currency="rub",
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover

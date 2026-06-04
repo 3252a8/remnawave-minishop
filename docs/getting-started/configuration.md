@@ -87,7 +87,7 @@ openssl rand -hex 32
 Перед первым запуском создайте каталоги и отдайте их пользователю контейнера:
 
 ```bash
-mkdir -p data/themes data/webapp-logo data/webapp-emoji data/tariffs
+mkdir -p data/themes data/webapp-logo data/tariffs
 touch data/locales-overrides.json
 chown -R 10001:10001 data
 chmod -R u+rwX data

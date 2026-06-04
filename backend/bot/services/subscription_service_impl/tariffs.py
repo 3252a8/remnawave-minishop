@@ -314,7 +314,7 @@ class TariffMixin:
     @staticmethod
     def _effective_hwid_limit(base_limit: Optional[int], extra_devices: int = 0) -> Optional[int]:
         if base_limit is None:
-            return None
+            return 0
         base_int = max(0, int(base_limit))
         if base_int == 0:
             return 0

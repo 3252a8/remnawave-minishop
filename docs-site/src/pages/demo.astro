@@ -1,7 +1,7 @@
 ---
 import { emailPreviews } from '../lib/emailPreviews.mjs';
 
-const defaultDemoSrc = '/demo/runtime/app/?path=/home&mock=tariffs';
+const defaultDemoSrc = '/demo/runtime/app/index.html?path=/home&mock=tariffs';
 const docsHref = '/getting-started/demo/';
 ---
 
@@ -467,6 +467,8 @@ const docsHref = '/getting-started/demo/';
             <option value="depleted">Трафик закончился</option>
             <option value="no-subscription">Нет подписки</option>
             <option value="trial">Доступна пробная подписка</option>
+            <option value="trial-telegram">Email-only: Telegram для триала</option>
+            <option value="referral-telegram">Email-only: Telegram для рефбонуса</option>
             <option value="devices">Лимит и докупка устройств</option>
             <option value="notifications">Telegram-уведомления</option>
             <option value="auth">Вход и регистрация</option>
@@ -529,7 +531,7 @@ const docsHref = '/getting-started/demo/';
                       title={`Email preview: ${preview.title}`}
                       srcdoc={preview.html}
                       loading="lazy"
-                      sandbox=""
+                      sandbox="allow-scripts"
                     ></iframe>
                   </div>
                 </div>

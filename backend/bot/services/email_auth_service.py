@@ -10,13 +10,13 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from email.utils import formataddr
-from typing import Optional
+from typing import Optional, Sequence
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
-from bot.services.email_templates import EmailContent, render_login_code
+from bot.services.email_templates import EmailContent, EmailInlineImage, render_login_code
 from bot.services.message_audit import log_user_message_delivery
 from config.settings import Settings
 from db.dal import security_dal, user_dal
@@ -61,9 +61,37 @@ def normalize_email(value: str) -> str:
     return (value or "").strip().lower()
 
 
+def email_domain(value: Optional[str]) -> str:
+    email = normalize_email(value or "")
+    if "@" not in email:
+        return ""
+    return email.rsplit("@", 1)[1].strip().lower().rstrip(".")
+
+
 def is_valid_email(value: str) -> bool:
     email = normalize_email(value)
     return bool(email and len(email) <= 254 and EMAIL_RE.match(email))
+
+
+def _split_disposable_domain_values(value: str) -> list[str]:
+    return [item.strip() for item in re.split(r"[,;\s]+", value or "") if item.strip()]
+
+
+def is_disposable_email(value: Optional[str], settings: Settings) -> bool:
+    domain = email_domain(value)
+    if not domain:
+        return False
+    blocked_domains = getattr(settings, "disposable_email_domains", None)
+    if blocked_domains is None:
+        blocked_domains = _split_disposable_domain_values(
+            str(getattr(settings, "DISPOSABLE_EMAIL_DOMAINS", "") or "")
+        )
+    blocked_domains = blocked_domains or []
+    for blocked in blocked_domains:
+        normalized = str(blocked or "").strip().lower().lstrip("@.")
+        if normalized and (domain == normalized or domain.endswith(f".{normalized}")):
+            return True
+    return False
 
 
 def _email_throttle_identifier(email: str, purpose: str, target_user_id: Optional[int]) -> str:
@@ -453,6 +481,7 @@ class EmailAuthService:
         subject: str,
         body: str,
         html_body: Optional[str] = None,
+        inline_images: Sequence[EmailInlineImage] = (),
     ) -> None:
         await asyncio.to_thread(
             self._send_custom_email_sync,
@@ -460,6 +489,7 @@ class EmailAuthService:
             subject=subject,
             body=body,
             html_body=html_body,
+            inline_images=inline_images,
         )
 
     async def send_rendered_email(
@@ -473,6 +503,7 @@ class EmailAuthService:
             subject=content.subject,
             body=content.text,
             html_body=content.html,
+            inline_images=content.inline_images,
         )
 
     def _send_code_email_sync(
@@ -493,17 +524,13 @@ class EmailAuthService:
             i18n=self.i18n,
         )
 
-        message = EmailMessage()
-        message["Subject"] = content.subject
-        message["From"] = formataddr(
-            (
-                self.settings.SMTP_FROM_NAME or self.settings.WEBAPP_TITLE,
-                self.settings.SMTP_FROM_EMAIL or "",
-            )
+        message = self._build_email_message(
+            email=email,
+            subject=content.subject,
+            body=content.text,
+            html_body=content.html,
+            inline_images=content.inline_images,
         )
-        message["To"] = email
-        message.set_content(content.text)
-        message.add_alternative(content.html, subtype="html")
 
         context = ssl.create_default_context()
         smtp_host = self.settings.SMTP_HOST
@@ -554,19 +581,15 @@ class EmailAuthService:
         subject: str,
         body: str,
         html_body: Optional[str] = None,
+        inline_images: Sequence[EmailInlineImage] = (),
     ) -> None:
-        message = EmailMessage()
-        message["Subject"] = subject
-        message["From"] = formataddr(
-            (
-                self.settings.SMTP_FROM_NAME or self.settings.WEBAPP_TITLE,
-                self.settings.SMTP_FROM_EMAIL or "",
-            )
+        message = self._build_email_message(
+            email=email,
+            subject=subject,
+            body=body,
+            html_body=html_body,
+            inline_images=inline_images,
         )
-        message["To"] = email
-        message.set_content(body)
-        if html_body:
-            message.add_alternative(html_body, subtype="html")
 
         context = ssl.create_default_context()
         smtp_host = self.settings.SMTP_HOST
@@ -609,6 +632,64 @@ class EmailAuthService:
 
         if last_error:
             raise last_error
+
+    def _build_email_message(
+        self,
+        *,
+        email: str,
+        subject: str,
+        body: str,
+        html_body: Optional[str] = None,
+        inline_images: Sequence[EmailInlineImage] = (),
+    ) -> EmailMessage:
+        message = EmailMessage()
+        message["Subject"] = subject
+        message["From"] = formataddr(
+            (
+                self.settings.SMTP_FROM_NAME or self.settings.WEBAPP_TITLE,
+                self.settings.SMTP_FROM_EMAIL or "",
+            )
+        )
+        message["To"] = email
+        message.set_content(body)
+        if html_body:
+            message.add_alternative(html_body, subtype="html")
+            self._attach_inline_images(message, inline_images)
+        return message
+
+    @staticmethod
+    def _attach_inline_images(
+        message: EmailMessage,
+        inline_images: Sequence[EmailInlineImage],
+    ) -> None:
+        if not inline_images:
+            return
+        html_part = message.get_body(("html",))
+        if html_part is None:
+            return
+
+        for image in inline_images:
+            content_type = (image.content_type or "").split(";", 1)[0].strip().lower()
+            if "/" not in content_type:
+                continue
+            maintype, subtype = content_type.split("/", 1)
+            if maintype != "image" or not subtype:
+                continue
+
+            body = bytes(image.data or b"")
+            content_id = (image.content_id or "").strip()
+            if not body or not content_id:
+                continue
+
+            cid_header = content_id
+            if not (cid_header.startswith("<") and cid_header.endswith(">")):
+                cid_header = f"<{cid_header}>"
+            html_part.add_related(
+                body,
+                maintype=maintype,
+                subtype=subtype,
+                cid=cid_header,
+            )
 
     def _send_message_via_smtp(
         self,

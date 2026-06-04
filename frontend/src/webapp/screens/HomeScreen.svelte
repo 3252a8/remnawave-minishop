@@ -1,4 +1,5 @@
 <script>
+  import { onMount } from "svelte";
   import {
     CheckCircle2,
     CircleQuestionMark,
@@ -8,9 +9,11 @@
     Download,
     Gift,
     Repeat2,
+    Send,
   } from "$components/ui/icons.js";
 
   import BrandMark from "$lib/webapp/BrandMark.svelte";
+  import { AttentionDot } from "$components/ui/index.js";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
@@ -27,6 +30,9 @@
     activeSubscriptionTermLabel as activeSubscriptionTermLabelFn,
   } from "../../lib/webapp/traffic.js";
 
+  const SUBSCRIPTION_EXPIRY_WARNING_MS = 72 * 60 * 60 * 1000;
+  const SUBSCRIPTION_EXPIRING_SOON_MS = 24 * 60 * 60 * 1000;
+
   export let appSettings = {};
   export let brand = {};
   export let brandTitle = "";
@@ -35,16 +41,20 @@
   export let premiumTrafficTopupUnlocked = false;
   export let regularTrafficTopupBarClickable = false;
   export let regularTrafficTopupUnlocked = false;
+  export let referral = {};
   export let currentTariffName = "";
   export let hasActiveTariffSubscription = false;
   export let hasMultipleTariffs = false;
   export let subscription = {};
+  export let linkTelegramBusy = false;
   export let telegramNotificationsNeedPrompt = false;
   export let telegramNotificationsStartLink = "";
   export let telegramNotificationsStatus = "unknown";
   export let trafficMode = false;
   export let trialBusy = false;
   export let termUnitLabel = () => ""; // We need this passed from App or context. Actually, App.svelte doesn't pass it yet. We'll pass it.
+
+  let nowMs = Date.now();
 
   function trafficPercent(sub) {
     return trafficPercentFn(sub);
@@ -106,12 +116,90 @@
       unit: termUnitLabel(days, "day"),
     });
   }
+  function parseSubscriptionEndMs(sub) {
+    const raw = String(sub?.end_date || "").trim();
+    if (!raw) return null;
+    const parsed = Date.parse(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  function dateOnlyFromEndText(text) {
+    const value = String(text || "").trim();
+    if (!value) return "";
+    return value.split(/\s+/)[0] || value;
+  }
+  function dateOnlyFromIso(text) {
+    const match = String(text || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return match ? `${match[3]}.${match[2]}.${match[1]}` : "";
+  }
+  function subscriptionEndDateLabel(sub) {
+    return dateOnlyFromEndText(sub?.end_date_text) || dateOnlyFromIso(sub?.end_date);
+  }
+  function formatSubscriptionCountdown(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const pad = (value) => String(value).padStart(2, "0");
+    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+  }
 
   $: trialOfferAvailable = Boolean(
     !subscription?.active && appSettings?.trial_enabled && appSettings?.trial_available
   );
+  $: trialRequiresTelegram = Boolean(
+    !subscription?.active && appSettings?.trial_enabled && appSettings?.trial_requires_telegram
+  );
+  $: referralWelcomeRequiresTelegram = Boolean(
+    !subscription?.active &&
+    referral?.welcome_bonus_requires_telegram &&
+    Number(referral?.welcome_bonus_days || 0) > 0
+  );
+  $: subscriptionEndMs = subscription?.active ? parseSubscriptionEndMs(subscription) : null;
+  $: subscriptionRemainingMs = Math.max(0, Number(subscriptionEndMs || 0) - nowMs);
+  $: subscriptionExpiryWarning = Boolean(
+    subscription?.active &&
+    subscriptionEndMs &&
+    subscriptionRemainingMs > 0 &&
+    subscriptionRemainingMs <= SUBSCRIPTION_EXPIRY_WARNING_MS
+  );
+  $: subscriptionEndDateText = subscriptionEndDateLabel(subscription);
+  $: subscriptionEndCountdown = formatSubscriptionCountdown(subscriptionRemainingMs);
+  $: subscriptionEndCountdownLabel = t(
+    "wa_subscription_remaining_countdown",
+    { countdown: subscriptionEndCountdown },
+    `осталось: ${subscriptionEndCountdown}`
+  );
+  $: subscriptionExpiringSoon = Boolean(
+    subscription?.active &&
+    subscriptionEndMs &&
+    subscriptionRemainingMs > 0 &&
+    subscriptionRemainingMs < SUBSCRIPTION_EXPIRING_SOON_MS
+  );
+  $: subscriptionTermDisplayText = subscriptionExpiringSoon
+    ? t("wa_subscription_expiring_soon", {}, "Скоро закончится!")
+    : activeSubscriptionTermLabel(subscription);
+  $: subscriptionEndDisplayText = subscriptionExpiryWarning
+    ? `${subscriptionEndDateText || subscription.end_date_text} \u00b7 ${subscriptionEndCountdownLabel}`
+    : subscriptionEndDateText;
+  $: statusCardClass = [
+    "status-card",
+    subscription.active ? "" : "status-card-inactive",
+    subscriptionExpiryWarning ? "status-card-warning" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  onMount(() => {
+    const countdownTimer = window.setInterval(() => {
+      if (subscription?.active) nowMs = Date.now();
+    }, 1000);
+
+    return () => window.clearInterval(countdownTimer);
+  });
 
   export let activateTrial = () => {};
+  export let linkTelegramAndActivateTrial = () => {};
+  export let linkTelegramAndClaimReferralWelcome = () => {};
   export let openConnectLink = () => {};
   export let openPaymentModal = () => {};
   export let openTelegramNotificationsBot = () => {};
@@ -138,15 +226,13 @@
   {/if}
 
   <div class="home-bottom">
-    <Card class={`status-card${subscription.active ? "" : " status-card-inactive"}`}>
+    <Card class={statusCardClass}>
       {#if subscription.active}
         <div class="sub-status">
           <CheckCircle2 class="sub-status-icon" size={23} />
           <div class="sub-status-main">
             <h2>
-              {trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")} | {activeSubscriptionTermLabel(
-                subscription
-              )}
+              {trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")} | {subscriptionTermDisplayText}
             </h2>
             <div
               class:sub-status-details-with-tariff={hasActiveTariffSubscription &&
@@ -160,8 +246,8 @@
                 </p>
               {/if}
               <p class="subscription-end-line">
-                {subscription.end_date_text
-                  ? t("wa_until_date", { date: subscription.end_date_text })
+                {subscriptionEndDisplayText
+                  ? t("wa_until_date", { date: subscriptionEndDisplayText })
                   : subscription.remaining_text}
               </p>
             </div>
@@ -302,37 +388,113 @@
           />
         </Card>
       {/if}
-    {:else if trialOfferAvailable}
-      <Card class="trial-card trial-offer-card">
-        <div class="trial-card-head">
-          <Gift size={22} />
-          <span>
-            <strong>{t("wa_trial_offer_title", {}, "Можно начать с льготного периода")}</strong>
-            <small>{t("wa_trial_title")}</small>
-          </span>
-        </div>
-        <p class="trial-card-description">
-          {t(
-            "wa_trial_offer_description",
-            { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
-            "Активируйте триал: {duration} доступа и {traffic} для скачивания без оплаты."
-          )}
-        </p>
-        <div class="trial-card-facts">
-          <span>
-            <small>{t("wa_trial_duration_label", {}, "Срок")}</small>
-            <strong>{trialDurationLabel()}</strong>
-          </span>
-          <span>
-            <small>{t("wa_trial_download_traffic_label", {}, "Доступно для скачивания")}</small>
-            <strong>{trialTrafficLabel()}</strong>
-          </span>
-        </div>
-        <Button class="wide trial-card-action" onclick={activateTrial} disabled={trialBusy}>
-          <Gift size={18} />
-          {t("wa_trial_try_free", {}, "Попробовать бесплатно")}
-        </Button>
-      </Card>
+    {:else}
+      {#if referralWelcomeRequiresTelegram}
+        <Card class="trial-card trial-offer-card">
+          <div class="trial-card-head">
+            <Gift size={22} />
+            <span>
+              <strong>
+                {t(
+                  "wa_referral_welcome_telegram_required_title",
+                  {},
+                  "Бонус ждёт привязки Telegram"
+                )}
+              </strong>
+              <small>{t("wa_referral_program_title", {}, "Реферальная программа")}</small>
+            </span>
+          </div>
+          <p class="trial-card-description">
+            {t(
+              "wa_referral_welcome_telegram_required_description",
+              { days: Number(referral?.welcome_bonus_days || 0) },
+              "Привяжите Telegram, чтобы получить {days} бонусных дней за регистрацию по приглашению."
+            )}
+          </p>
+          <Button
+            class="wide trial-card-action settings-telegram-link-btn attention-wrap"
+            variant="telegram"
+            onclick={linkTelegramAndClaimReferralWelcome}
+            disabled={linkTelegramBusy}
+          >
+            <AttentionDot />
+            <Send size={18} />
+            {t("wa_referral_link_telegram_and_claim", {}, "Привязать и получить бонус")}
+          </Button>
+        </Card>
+      {/if}
+
+      {#if trialOfferAvailable}
+        <Card class="trial-card trial-offer-card">
+          <div class="trial-card-head">
+            <Gift size={22} />
+            <span>
+              <strong>{t("wa_trial_offer_title", {}, "Можно начать с льготного периода")}</strong>
+              <small>{t("wa_trial_title")}</small>
+            </span>
+          </div>
+          <p class="trial-card-description">
+            {t(
+              "wa_trial_offer_description",
+              { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
+              "Активируйте триал: {duration} доступа и {traffic} для скачивания без оплаты."
+            )}
+          </p>
+          <div class="trial-card-facts">
+            <span>
+              <small>{t("wa_trial_duration_label", {}, "Срок")}</small>
+              <strong>{trialDurationLabel()}</strong>
+            </span>
+            <span>
+              <small>{t("wa_trial_download_traffic_label", {}, "Доступно для скачивания")}</small>
+              <strong>{trialTrafficLabel()}</strong>
+            </span>
+          </div>
+          <Button class="wide trial-card-action" onclick={activateTrial} disabled={trialBusy}>
+            <Gift size={18} />
+            {t("wa_trial_try_free", {}, "Попробовать бесплатно")}
+          </Button>
+        </Card>
+      {:else if trialRequiresTelegram}
+        <Card class="trial-card trial-offer-card">
+          <div class="trial-card-head">
+            <Gift size={22} />
+            <span>
+              <strong>
+                {t("wa_trial_telegram_required_title", {}, "Привяжите Telegram для триала")}
+              </strong>
+              <small>{t("wa_trial_title")}</small>
+            </span>
+          </div>
+          <p class="trial-card-description">
+            {t(
+              "wa_trial_telegram_required_description",
+              { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
+              "Чтобы активировать триал на {duration} с лимитом {traffic}, сначала привяжите Telegram."
+            )}
+          </p>
+          <div class="trial-card-facts">
+            <span>
+              <small>{t("wa_trial_duration_label", {}, "Срок")}</small>
+              <strong>{trialDurationLabel()}</strong>
+            </span>
+            <span>
+              <small>{t("wa_trial_download_traffic_label", {}, "Доступно для скачивания")}</small>
+              <strong>{trialTrafficLabel()}</strong>
+            </span>
+          </div>
+          <Button
+            class="wide trial-card-action settings-telegram-link-btn attention-wrap"
+            variant="telegram"
+            onclick={linkTelegramAndActivateTrial}
+            disabled={linkTelegramBusy || trialBusy}
+          >
+            <AttentionDot />
+            <Send size={18} />
+            {t("wa_trial_link_telegram_and_activate", {}, "Привязать и активировать")}
+          </Button>
+        </Card>
+      {/if}
     {/if}
 
     <div class="action-stack">

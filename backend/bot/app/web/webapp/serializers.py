@@ -1,6 +1,11 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
 
+from bot.app.web.webapp.auth import (
+    _referral_welcome_telegram_required_reason,
+    _trial_telegram_required_reason,
+    _user_has_linked_telegram,
+)
 from config.subscription_guides_config import subscription_guides_available
 from config.webapp_themes_config import public_themes_catalog_payload
 from bot.services.telegram_notifications import (
@@ -64,10 +69,32 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             if active and local_sub
             else None
         )
-        trial_available = bool(
+        trial_base_available = bool(
             settings.TRIAL_ENABLED
             and settings.TRIAL_DURATION_DAYS > 0
             and not await subscription_service.has_trial_blocking_subscription(session, user_id)
+        )
+        trial_telegram_required_reason = (
+            _trial_telegram_required_reason(settings, db_user) if trial_base_available else None
+        )
+        trial_available = bool(trial_base_available and not trial_telegram_required_reason)
+        lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
+        plans_payload = _serialize_plans(
+            settings,
+            lang,
+            subscription_options=cached["subscription_options"],
+            stars_subscription_options=cached["stars_subscription_options"],
+            traffic_packages=cached["traffic_packages"],
+            stars_traffic_packages=cached["stars_traffic_packages"],
+        )
+        await _attach_hwid_renewal_quotes_to_plans(
+            session,
+            subscription_service,
+            user_id=user_id,
+            settings=settings,
+            active=active,
+            local_sub=local_sub,
+            plans=plans_payload,
         )
         avatar = await _ensure_cached_telegram_avatar(request, session, db_user)
         try:
@@ -75,9 +102,15 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
         except Exception:
             await session.rollback()
 
-    lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
     admin_ids = {int(x) for x in (settings.ADMIN_IDS or [])}
     is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
+    telegram_linked = _user_has_linked_telegram(db_user)
+    referral_welcome_days = max(0, int(getattr(settings, "REFERRAL_WELCOME_BONUS_DAYS", 0) or 0))
+    referral_welcome_telegram_required_reason = (
+        _referral_welcome_telegram_required_reason(settings, db_user)
+        if db_user.referred_by_id and not active and referral_welcome_days > 0
+        else None
+    )
     telegram_notifications_status = normalize_telegram_notification_status(
         getattr(db_user, "telegram_notifications_status", None)
     )
@@ -94,7 +127,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
                 db_user.email and db_user.email_verified_at and db_user.password_hash
             ),
             "telegram_id": db_user.telegram_id,
-            "telegram_linked": bool(_telegram_id_for_user(db_user)),
+            "telegram_linked": telegram_linked,
             "telegram_notifications_status": telegram_notifications_status,
             "telegram_notifications_enabled": (
                 telegram_notifications_status == TELEGRAM_NOTIFICATIONS_ENABLED
@@ -120,22 +153,20 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             "webapp_link": webapp_referral_link,
             "invited_count": referral_stats.get("invited_count", 0),
             "purchased_count": referral_stats.get("purchased_count", 0),
-            "welcome_bonus_days": max(
-                0, int(getattr(settings, "REFERRAL_WELCOME_BONUS_DAYS", 0) or 0)
+            "welcome_bonus_days": referral_welcome_days,
+            "welcome_bonus_without_telegram_enabled": bool(
+                getattr(settings, "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED", True)
             ),
+            "welcome_bonus_requires_telegram": bool(
+                referral_welcome_telegram_required_reason and not telegram_linked
+            ),
+            "welcome_bonus_block_reason": referral_welcome_telegram_required_reason,
             "one_bonus_per_referee": bool(
                 getattr(settings, "REFERRAL_ONE_BONUS_PER_REFEREE", False)
             ),
             "bonus_details": _serialize_referral_bonus_details(settings, lang),
         },
-        "plans": _serialize_plans(
-            settings,
-            lang,
-            subscription_options=cached["subscription_options"],
-            stars_subscription_options=cached["stars_subscription_options"],
-            traffic_packages=cached["traffic_packages"],
-            stars_traffic_packages=cached["stars_traffic_packages"],
-        ),
+        "plans": plans_payload,
         "payment_methods": _serialize_payment_methods(
             settings,
             request.app,
@@ -164,6 +195,11 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             ),
             "trial_enabled": bool(settings.TRIAL_ENABLED),
             "trial_available": trial_available,
+            "trial_without_telegram_enabled": bool(
+                getattr(settings, "TRIAL_WITHOUT_TELEGRAM_ENABLED", True)
+            ),
+            "trial_requires_telegram": bool(trial_telegram_required_reason and not telegram_linked),
+            "trial_block_reason": trial_telegram_required_reason,
             "trial_duration_days": int(settings.TRIAL_DURATION_DAYS or 0),
             "trial_traffic_limit_gb": float(settings.TRIAL_TRAFFIC_LIMIT_GB or 0),
             "trial_traffic_strategy": getattr(settings, "TRIAL_TRAFFIC_STRATEGY", "NO_RESET"),
@@ -342,11 +378,12 @@ def _serialize_subscription(
                 and tariff.premium_topup_packages.has_any()
             )
             can_topup_traffic = bool(can_topup_regular_traffic or can_topup_premium_traffic)
-            # max_devices == 0 means unlimited — top-up is pointless in that case.
+            max_devices = _coerce_int_or_none(active.get("max_devices"))
+            # max_devices == 0 or None means unlimited — top-up is pointless in that case.
             can_topup_devices = bool(
                 tariff.billing_model == "period"
                 and tariff.has_hwid_device_packages()
-                and _coerce_int_or_none(active.get("max_devices")) != 0
+                and max_devices not in (None, 0)
             )
         except Exception:
             can_topup_regular_traffic = False
@@ -437,6 +474,102 @@ def _serialize_subscription(
     }
 
 
+def _webapp_iso_datetime(value: Optional[Any]) -> Optional[str]:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return normalized.isoformat()
+    return str(value)
+
+
+def _webapp_datetime_text(value: Optional[Any]) -> Optional[str]:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return normalized.strftime("%d.%m.%Y %H:%M")
+    return str(value)
+
+
+async def _attach_hwid_renewal_quotes_to_plans(
+    session: AsyncSession,
+    subscription_service: SubscriptionService,
+    *,
+    user_id: int,
+    settings: Settings,
+    active: Optional[Dict[str, Any]],
+    local_sub: Optional[Any],
+    plans: List[Dict[str, Any]],
+) -> None:
+    quote_method = getattr(subscription_service, "quote_hwid_device_renewal_for_subscription", None)
+    if not callable(quote_method):
+        return
+    if not active or not local_sub or not settings.tariffs_config:
+        return
+    if not active.get("end_date") or int(active.get("extra_hwid_devices") or 0) <= 0:
+        return
+
+    default_currency = default_currency_key_for_settings(settings)
+    default_currency_code = payment_currency_code(default_currency)
+    for plan in plans:
+        if str(plan.get("sale_mode") or "subscription") != "subscription":
+            continue
+        target_tariff_key = str(plan.get("tariff_key") or "").strip()
+        if not target_tariff_key:
+            continue
+        try:
+            months = int(plan.get("months") or 0)
+        except (TypeError, ValueError):
+            continue
+        if months <= 0:
+            continue
+        try:
+            currency_quote = await quote_method(
+                session,
+                user_id=user_id,
+                target_tariff_key=target_tariff_key,
+                months=months,
+                currency=default_currency,
+            )
+            stars_quote = await quote_method(
+                session,
+                user_id=user_id,
+                target_tariff_key=target_tariff_key,
+                months=months,
+                currency="stars",
+            )
+        except Exception:
+            logger.exception(
+                "Failed to quote HWID renewal for plan %s/%s",
+                target_tariff_key,
+                months,
+            )
+            continue
+        quote = currency_quote or stars_quote
+        if not quote:
+            continue
+        valid_from = quote.get("valid_from")
+        valid_until = quote.get("valid_until")
+        active_until = quote.get("active_until")
+        renewal = {
+            "available": True,
+            "device_count": int(quote.get("device_count") or 0),
+            "price": float(currency_quote.get("price") if currency_quote else 0),
+            "currency": default_currency_code,
+            "valid_from": _webapp_iso_datetime(valid_from),
+            "valid_from_text": _webapp_datetime_text(valid_from),
+            "valid_until": _webapp_iso_datetime(valid_until),
+            "valid_until_text": _webapp_datetime_text(valid_until),
+            "active_until": _webapp_iso_datetime(active_until),
+            "active_until_text": _webapp_datetime_text(active_until),
+            "pricing_period_months": int(quote.get("pricing_period_months") or months),
+        }
+        if stars_quote and int(stars_quote.get("price") or 0) > 0:
+            renewal["stars_price"] = int(stars_quote["price"])
+        plan["hwid_renewal"] = renewal
+
+
 def _build_install_share_link(
     request: Optional[web.Request],
     settings: Settings,
@@ -495,7 +628,10 @@ def _serialize_plans(
                 else [],
             }
             if tariff.billing_model == "period":
-                for months in sorted(tariff.enabled_periods):
+                # Render periods in the configured order (enabled_periods is the
+                # source of truth for purchase-period ordering, matching the bot
+                # keyboards). Do not sort so admins can reorder via drag & drop.
+                for months in tariff.enabled_periods:
                     price = tariff.period_price(int(months), default_currency)
                     stars_price = tariff.period_price(int(months), "stars")
                     if price is None and (stars_price is None or int(stars_price) <= 0):
@@ -528,7 +664,14 @@ def _serialize_plans(
                         tariff.traffic_packages.stars if tariff.traffic_packages else []
                     )
                 }
-                for traffic_gb in sorted(set(currency_packages) | set(stars_packages)):
+                # Preserve the configured package order (default-currency list first,
+                # then any Stars-only volumes) so admins can reorder via drag & drop.
+                # Matches the bot keyboard, which iterates the package list as-is.
+                ordered_gb: List[float] = []
+                for traffic_gb in list(currency_packages) + list(stars_packages):
+                    if traffic_gb not in ordered_gb:
+                        ordered_gb.append(traffic_gb)
+                for traffic_gb in ordered_gb:
                     price = currency_packages.get(traffic_gb)
                     stars_price = stars_packages.get(traffic_gb)
                     if price is None and (stars_price is None or int(stars_price) <= 0):

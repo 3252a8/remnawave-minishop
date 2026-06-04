@@ -6,6 +6,7 @@ export function createBroadcastStore({ api, onToast, at }) {
     broadcastText: "",
     broadcastBusy: false,
     broadcastResult: null,
+    broadcastCounts: null,
   });
 
   const BROADCAST_TARGET_OPTIONS = [
@@ -13,7 +14,22 @@ export function createBroadcastStore({ api, onToast, at }) {
     { value: "active", label: at("broadcast_target_active", {}, "С подпиской") },
     { value: "inactive", label: at("broadcast_target_inactive", {}, "Без подписки") },
     { value: "expired", label: at("broadcast_target_expired", {}, "Expired subscription") },
+    {
+      value: "never",
+      label: at("broadcast_target_never", {}, "Без подписки и без истории"),
+    },
   ];
+
+  async function loadCounts() {
+    try {
+      const res = await api("/admin/broadcast/audience-counts");
+      if (res?.ok && res.counts) {
+        state.update((s) => ({ ...s, broadcastCounts: res.counts }));
+      }
+    } catch {
+      // Counts are advisory; ignore failures and keep plain labels.
+    }
+  }
 
   async function runBroadcast() {
     let text = "";
@@ -56,6 +72,7 @@ export function createBroadcastStore({ api, onToast, at }) {
     update: state.update,
     runBroadcast,
     updateField,
+    loadCounts,
     BROADCAST_TARGET_OPTIONS,
   };
 }

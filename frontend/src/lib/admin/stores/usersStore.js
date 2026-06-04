@@ -21,6 +21,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     userDetailLoading: false,
     userMessageDraft: "",
     userExtendDays: 30,
+    userExtendHwidDevices: true,
     userActionBusy: false,
     userDeleteOpen: false,
     userBanConfirmOpen: false,
@@ -37,6 +38,8 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     premiumBonusGbDraft: "",
     regularUnlimitedDraft: false,
     regularBonusGbDraft: "",
+    hwidUnlimitedDraft: false,
+    hwidDeviceLimitDraft: "",
     grantTrafficGbDraft: "",
     grantTrafficKindDraft: "regular",
 
@@ -131,6 +134,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
       userMessageDraft: "",
       userMessageConfirmOpen: false,
       userExtendDays: 30,
+      userExtendHwidDevices: true,
       userDetailLoading: true,
       userDetailTab: "subscription",
       userReferralsOpen: false,
@@ -154,6 +158,9 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
         const sub = res.active_subscription || null;
         const bonusBytes = Number(sub?.premium_bonus_bytes || 0);
         const regularBonusBytes = Number(sub?.regular_bonus_bytes || 0);
+        const hasHwidLimit =
+          sub?.hwid_device_limit !== null && sub?.hwid_device_limit !== undefined;
+        const hwidLimit = hasHwidLimit ? Number(sub?.hwid_device_limit) : null;
         state.update((s) => ({
           ...s,
           openedUserDetail: res,
@@ -163,6 +170,8 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
           regularUnlimitedDraft: Boolean(sub?.regular_unlimited_override),
           regularBonusGbDraft:
             regularBonusBytes > 0 ? +(regularBonusBytes / 1024 ** 3).toFixed(2) : "",
+          hwidUnlimitedDraft: hasHwidLimit && hwidLimit === 0,
+          hwidDeviceLimitDraft: hasHwidLimit && hwidLimit > 0 ? String(hwidLimit) : "",
           grantTrafficGbDraft: "",
           grantTrafficKindDraft: "regular",
         }));
@@ -448,7 +457,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     try {
       const res = await api(`/admin/users/${s.openedUser.user_id}/extend`, {
         method: "POST",
-        body: JSON.stringify({ days }),
+        body: JSON.stringify({ days, extend_hwid_devices: Boolean(s.userExtendHwidDevices) }),
       });
       if (res?.ok) {
         onToast(at("subscription_extended", { days }, `Продлено на ${days} д.`));
@@ -551,6 +560,51 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     }
   }
 
+  async function saveHwidDeviceLimit() {
+    let s;
+    state.update((st) => {
+      s = st;
+      return st;
+    });
+    if (!s.openedUser) return;
+    state.update((st) => ({ ...st, userActionBusy: true }));
+    try {
+      const unlimited = Boolean(s.hwidUnlimitedDraft);
+      const raw = s.hwidDeviceLimitDraft;
+      const useDefault = !unlimited && (raw === "" || raw === null || raw === undefined);
+      let limit = null;
+      if (!unlimited && !useDefault) {
+        limit = Number(raw);
+        if (!Number.isInteger(limit) || limit < 0 || limit > 1_000_000) {
+          onToast(
+            at(
+              "hwid_limit_invalid",
+              {},
+              "Введите целое число устройств от 0 до 1 000 000 или включите безлимит"
+            )
+          );
+          return;
+        }
+      }
+      const res = await api(`/admin/users/${s.openedUser.user_id}/hwid-device-limit`, {
+        method: "POST",
+        body: JSON.stringify({
+          unlimited,
+          use_default: useDefault,
+          hwid_device_limit: unlimited ? 0 : limit,
+        }),
+      });
+      if (res?.ok) {
+        onToast(at("hwid_limit_saved", {}, "Лимит устройств сохранён"));
+        await openUser(s.openedUser, { skipPush: true });
+      } else {
+        onToast(res?.error || at("error", {}, "Ошибка"));
+      }
+    } finally {
+      state.update((st) => ({ ...st, userActionBusy: false }));
+    }
+  }
+
   async function grantTraffic() {
     let s;
     state.update((st) => {
@@ -635,6 +689,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     deleteUser,
     savePremiumTrafficOverride,
     saveRegularTrafficOverride,
+    saveHwidDeviceLimit,
     grantTraffic,
     loadUserLogs,
     setUserLogsPage,

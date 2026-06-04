@@ -74,7 +74,6 @@ def _settings(**overrides):
         SUBSCRIPTION_MINI_APP_URL="https://app.example.test/",
         WEBAPP_PRIMARY_COLOR="#00fe7a",
         WEBAPP_TITLE="Minishop",
-        WEBAPP_LOGO_USE_EMOJI=False,
         WEBAPP_LOGO_URL="",
         email_auth_configured=True,
         **overrides,

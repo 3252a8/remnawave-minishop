@@ -3572,10 +3572,17 @@
     minmax(120px, 1fr) 32px;
 }
 
-.admin-package-columns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+/* Rows with a leading drag handle (Sortable) so the purchase order can be
+   reordered. The 24px column lines up with the handle the Sortable renders. */
+.admin-row-editor-line.admin-row-editor-period {
+  grid-template-columns:
+    24px minmax(72px, 0.8fr) minmax(90px, 1fr) minmax(90px, 1fr) minmax(120px, 1fr)
+    minmax(120px, 1fr) 32px;
+}
+
+.admin-row-editor-line.admin-row-editor-drag {
+  grid-template-columns: 24px minmax(90px, 1fr) minmax(110px, 1fr) minmax(110px, 1fr)
+    32px;
 }
 
 .admin-dialog-actions {
@@ -3787,10 +3794,11 @@
   }
 
   .admin-form-row.admin-form-row-3,
-  .admin-package-columns,
   .admin-row-editor-line,
   .admin-row-editor-line.admin-row-editor-4,
-  .admin-row-editor-line.admin-row-editor-6 {
+  .admin-row-editor-line.admin-row-editor-6,
+  .admin-row-editor-line.admin-row-editor-period,
+  .admin-row-editor-line.admin-row-editor-drag {
     grid-template-columns: 1fr;
   }
 
@@ -4280,6 +4288,37 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
+.admin-extend-hwid-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface-2);
+  color: var(--admin-text);
+  cursor: pointer;
+}
+
+.admin-extend-hwid-option > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-extend-hwid-option strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-extend-hwid-option small {
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .admin-input-row {
   display: grid;
   grid-template-columns: minmax(72px, 1fr) auto;
@@ -4323,11 +4362,15 @@
 
   .admin-extend-control .input,
   .admin-extend-control .admin-btn {
-    height: 36px;
+    height: 46px;
   }
 
   .admin-extend-control .admin-btn {
     border-width: 1px 0 0;
+  }
+
+  .admin-reset-trial-btn {
+    height: 46px;
   }
 }
 

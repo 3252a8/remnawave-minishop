@@ -114,6 +114,7 @@ class WebAppPaymentContext:
     sale_mode: str
     currency: str = "RUB"
     traffic_gb: Optional[float] = None
+    hwid_device_count: Optional[int] = None
     hwid_valid_from: Optional[Any] = None
     hwid_valid_until: Optional[Any] = None
     hwid_pricing_period_months: Optional[int] = None

@@ -29,6 +29,7 @@ export {
   FileText,
   Gift,
   Globe2,
+  GripVertical,
   Home,
   Info,
   Key,

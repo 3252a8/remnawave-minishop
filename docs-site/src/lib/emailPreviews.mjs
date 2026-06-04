@@ -31,6 +31,7 @@ for (const command of pythonCommands) {
   const result = spawnSync(command, [generatorPath], {
     cwd: repoRoot,
     encoding: "utf8",
+    maxBuffer: 20 * 1024 * 1024,
     env: {
       ...process.env,
       PYTHONIOENCODING: "utf-8",

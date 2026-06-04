@@ -31,7 +31,7 @@
   export let mockData = {};
 
   const title = config.title || "/minishop";
-  const logoEmoji = config.logoEmoji || "🫥";
+  const logoUrl = config.logoUrl || "/webapp-default-logo.webp";
   const plans = mockData.plans || [];
   const sub = mockData.subscription || {};
   const methods = mockData.payment_methods || [];
@@ -78,7 +78,7 @@
   <PhoneFrame number="1" label="Главный экран">
     <main class="home-layout">
       <div class="login-brand home-brand">
-        <div class="brand-mark brand-mark-xl"><span>{logoEmoji}</span></div>
+        <div class="brand-mark brand-mark-xl"><img class="loaded" src={logoUrl} alt="" /></div>
         <h1>{title}</h1>
       </div>
       <div class="home-bottom">
@@ -113,7 +113,7 @@
   <PhoneFrame number="2" label="Выбор тарифа">
     <div class="preview-header">
       <div class="brand-row">
-        <div class="brand-mark"><span>{logoEmoji}</span></div>
+        <div class="brand-mark"><img class="loaded" src={logoUrl} alt="" /></div>
         <strong>{title}</strong>
       </div>
     </div>
@@ -198,7 +198,7 @@
   <PhoneFrame number="6" label="Пригласить друга">
     <div class="preview-header">
       <div class="brand-row">
-        <div class="brand-mark"><span>{logoEmoji}</span></div>
+        <div class="brand-mark"><img class="loaded" src={logoUrl} alt="" /></div>
         <strong>{title}</strong>
       </div>
     </div>
@@ -221,7 +221,7 @@
   <PhoneFrame number="7" label="Настройки">
     <div class="preview-header">
       <div class="brand-row">
-        <div class="brand-mark"><span>{logoEmoji}</span></div>
+        <div class="brand-mark"><img class="loaded" src={logoUrl} alt="" /></div>
         <strong>{title}</strong>
       </div>
     </div>
@@ -252,7 +252,7 @@
 
   <PhoneFrame number="8" label="Логин" wide>
     <div class="login-brand small">
-      <div class="brand-mark brand-mark-xl"><span>{logoEmoji}</span></div>
+      <div class="brand-mark brand-mark-xl"><img class="loaded" src={logoUrl} alt="" /></div>
       <h1>{title}</h1>
       <p>Войдите в свой аккаунт</p>
     </div>

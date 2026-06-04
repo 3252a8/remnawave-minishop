@@ -4,16 +4,25 @@ function bytesToHex(buffer) {
 
 async function sha256Hex(value) {
   const data = new TextEncoder().encode(value);
-  const hashBuffer = await window.crypto.subtle.digest("SHA-256", data);
+  const hashBuffer = await globalThis.crypto?.subtle?.digest("SHA-256", data);
   return bytesToHex(hashBuffer);
 }
 
 export async function buildGravatarUrl(emailValue) {
-  if (!emailValue || !window.crypto?.subtle) return "";
+  const email = String(emailValue || "")
+    .trim()
+    .toLowerCase();
+  if (!email || !globalThis.crypto?.subtle) return "";
   try {
-    const hash = await sha256Hex(emailValue);
-    return `https://www.gravatar.com/avatar/${hash}?d=mp&s=160`;
+    const hash = await sha256Hex(email);
+    return `https://www.gravatar.com/avatar/${hash}?d=identicon&s=160`;
   } catch {
     return "";
   }
+}
+
+export function resolveProfileAvatarUrl(user, emailAvatarUrl = "") {
+  const telegramAvatar = String(user?.telegram_photo_url || "").trim();
+  if (user?.telegram_linked && telegramAvatar) return telegramAvatar;
+  return String(emailAvatarUrl || "").trim();
 }

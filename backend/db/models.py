@@ -43,7 +43,7 @@ class User(Base):
     registration_date = Column(DateTime(timezone=True), server_default=func.now())
     is_banned = Column(Boolean, default=False)
     panel_user_uuid = Column(String, nullable=True, unique=True, index=True)
-    referral_code = Column(String(16), nullable=True, unique=True, index=True)
+    referral_code = Column(String(64), nullable=True, unique=True, index=True)
     referred_by_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=True)
     lifetime_used_traffic_bytes = Column(BigInteger, nullable=True)
     lifetime_used_traffic_synced_at = Column(DateTime(timezone=True), nullable=True)
@@ -122,6 +122,12 @@ class Subscription(Base):
     last_notification_sent = Column(DateTime(timezone=True), nullable=True)
     provider = Column(String, nullable=True)
     skip_notifications = Column(Boolean, default=False)
+    # Trial and registration/referral-bonus subscriptions are only a few days
+    # long, so the multi-day "ending soon" reminders would fire almost as soon
+    # as they are granted. While this is set the worker keeps only the
+    # hours-before reminder plus the expiry/after-expiry notices; a real payment
+    # clears it so the full reminder spectrum resumes.
+    suppress_early_expiry_notifications = Column(Boolean, nullable=False, default=False)
     auto_renew_enabled = Column(Boolean, default=True, index=True)
     tariff_key = Column(String, nullable=True, index=True)
     tier_baseline_bytes = Column(BigInteger, nullable=True)
@@ -394,6 +400,35 @@ class PromoCodeActivation(Base):
     __table_args__ = (
         UniqueConstraint("promo_code_id", "user_id", name="uq_promo_user_activation"),
     )
+
+
+class LegacyReferralCode(Base):
+    __tablename__ = "legacy_referral_codes"
+
+    legacy_code_id = Column(Integer, primary_key=True, autoincrement=True)
+    source = Column(String(64), nullable=False, default="remnashop", index=True)
+    code = Column(String(128), nullable=False, index=True)
+    user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=False, index=True)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    user = relationship("User")
+
+    __table_args__ = (UniqueConstraint("source", "code", name="uq_legacy_referral_source_code"),)
+
+
+class LegacyImportMapping(Base):
+    __tablename__ = "legacy_import_mappings"
+
+    source = Column(String(64), primary_key=True)
+    entity_type = Column(String(64), primary_key=True)
+    source_id = Column(String(128), primary_key=True)
+    target_table = Column(String(128), nullable=False)
+    target_id = Column(String(128), nullable=False)
+    metadata_json = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
 
 class MessageLog(Base):

@@ -1,6 +1,6 @@
 aiogram==3.28.2
 python-dotenv==1.2.2
-aiohttp==3.13.5
+aiohttp>=3.13.5,<3.14
 pydantic==2.13.4
 yookassa==3.10.1
 httpx>=0.27.0
@@ -9,6 +9,6 @@ email-validator==2.3.0
 sqlalchemy[asyncio]==2.0.49
 asyncpg==0.31.0
 aiocryptopay==0.4.8
-PyJWT[crypto]==2.12.1
+PyJWT[crypto]==2.13.0
 Pillow==12.2.0
 redis==6.4.0

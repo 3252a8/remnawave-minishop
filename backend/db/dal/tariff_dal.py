@@ -1,5 +1,5 @@
 import inspect
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import and_, delete, func, or_, select, update
@@ -187,6 +187,63 @@ async def expire_hwid_device_purchases(
         .values(valid_until=at)
     )
     return result.rowcount or 0
+
+
+def _normalize_aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
+async def extend_hwid_device_purchases_for_subscription_bonus(
+    session: AsyncSession,
+    *,
+    subscription_id: int,
+    at: Optional[datetime] = None,
+    subscription_end_before: Optional[datetime] = None,
+    delta: timedelta,
+) -> int:
+    if delta.total_seconds() <= 0:
+        return 0
+    at = _normalize_aware_utc(at or datetime.now(timezone.utc))
+    end_before = _normalize_aware_utc(subscription_end_before) if subscription_end_before else None
+
+    target_records: List[HwidDevicePurchase] = []
+    if end_before:
+        tail_result = await session.execute(
+            select(HwidDevicePurchase).where(
+                and_(
+                    HwidDevicePurchase.subscription_id == subscription_id,
+                    HwidDevicePurchase.purchased_devices > 0,
+                    HwidDevicePurchase.valid_until.is_not(None),
+                    HwidDevicePurchase.valid_until >= end_before,
+                    HwidDevicePurchase.valid_until > at,
+                    or_(
+                        HwidDevicePurchase.valid_from.is_(None),
+                        HwidDevicePurchase.valid_from < end_before,
+                    ),
+                )
+            )
+        )
+        target_records = list(tail_result.scalars().all())
+
+    if not target_records:
+        active_result = await session.execute(
+            select(HwidDevicePurchase).where(
+                and_(
+                    *_hwid_active_conditions(subscription_id, at),
+                    HwidDevicePurchase.valid_until.is_not(None),
+                )
+            )
+        )
+        target_records = list(active_result.scalars().all())
+
+    for record in target_records:
+        if record.valid_until is not None:
+            record.valid_until = _normalize_aware_utc(record.valid_until) + delta
+    if target_records:
+        await session.flush()
+    return len(target_records)
 
 
 async def create_tariff_change(

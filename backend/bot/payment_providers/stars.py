@@ -344,6 +344,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
             months=ctx.months,
             sale_mode=ctx.sale_mode,
             traffic_gb=ctx.traffic_gb,
+            hwid_device_count=ctx.hwid_device_count,
         )
         payment = await create_webapp_payment_record(
             ctx,

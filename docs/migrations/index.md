@@ -5,3 +5,4 @@
 | Источник | Поддерживаемый случай | Документы |
 | --- | --- | --- |
 | [remnawave-tg-shop](https://github.com/kavore/remnawave-tg-shop/) | Полный перенос всех данных | [Инструкция](remnawave-tg-shop.md) |
+| [Remnashop](https://github.com/snoups/remnashop/) | Автоматический импорт пользователей, подписок, платежей, рефералов, промокодов и поддерживаемых платежных настроек | [Инструкция](remnashop.md) |

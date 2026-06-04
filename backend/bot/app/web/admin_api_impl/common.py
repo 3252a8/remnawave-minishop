@@ -94,6 +94,9 @@ def _serialize_subscription(sub: Subscription) -> Dict[str, Any]:
     regular_unlimited_override = bool(getattr(sub, "regular_unlimited_override", False))
     premium_unlimited_override = bool(getattr(sub, "premium_unlimited_override", False))
     premium_limit_bytes = _premium_limit_bytes_from_subscription(sub)
+    provider = sub.provider
+    is_trial = str(provider or "").strip().lower() == "trial"
+    display_label = "Trial" if is_trial else sub.tariff_key
     return {
         "subscription_id": int(sub.subscription_id),
         "panel_user_uuid": sub.panel_user_uuid,
@@ -117,9 +120,13 @@ def _serialize_subscription(sub: Subscription) -> Dict[str, Any]:
         "regular_unlimited_override": regular_unlimited_override,
         "premium_unlimited_override": premium_unlimited_override,
         "premium_is_limited": bool(sub.premium_is_limited),
+        "hwid_device_limit": getattr(sub, "hwid_device_limit", None),
+        "extra_hwid_devices": int(getattr(sub, "extra_hwid_devices", 0) or 0),
         "tariff_key": sub.tariff_key,
+        "display_label": display_label,
+        "is_trial": is_trial,
         "auto_renew_enabled": bool(sub.auto_renew_enabled),
-        "provider": sub.provider,
+        "provider": provider,
         "is_throttled": bool(sub.is_throttled),
     }
 

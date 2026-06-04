@@ -64,9 +64,9 @@ a {
 }
 
 .app-shell .loader .brand-mark.brand-mark-lg {
-  width: calc(4.125rem * var(--home-logo-scale, 1));
-  height: calc(4.125rem * var(--home-logo-scale, 1));
-  font-size: calc(2.875rem * var(--home-logo-scale, 1));
+  width: calc(4.125rem * var(--home-logo-scale-effective, 1));
+  height: calc(4.125rem * var(--home-logo-scale-effective, 1));
+  font-size: calc(2.875rem * var(--home-logo-scale-effective, 1));
 }
 
 .app-header,
@@ -231,6 +231,31 @@ a {
 
 .status-card-inactive .sub-status {
   color: var(--danger);
+}
+
+.status-card-warning {
+  border-color: var(--warning-border);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--warning) 14%, var(--surface-sheen-soft)),
+      color-mix(in srgb, var(--warning) 8%, var(--surface-sheen-soft))
+    ),
+    var(--panel);
+  box-shadow:
+    var(--shadow-soft),
+    0 0 0 1px color-mix(in srgb, var(--warning) 20%, transparent),
+    inset 0 1px 0 var(--inset-highlight);
+}
+
+.status-card-warning .sub-status {
+  color: var(--warning-text);
+}
+
+.status-card-warning .subscription-end-line {
+  color: var(--warning-text);
+  font-variant-numeric: tabular-nums;
+  opacity: 1;
 }
 
 .sub-status-inactive {
@@ -1164,6 +1189,43 @@ a {
   overflow-wrap: anywhere;
 }
 
+.hwid-renewal-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  padding: 11px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-muted));
+  box-shadow: inset 0 1px 0 var(--inset-highlight);
+  cursor: pointer;
+}
+
+.hwid-renewal-option > span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.hwid-renewal-option strong {
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.hwid-renewal-option small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.hwid-renewal-option .hwid-renewal-warning {
+  color: var(--warning-text, var(--warning));
+}
+
 .skeleton-row,
 .skeleton-method,
 .skeleton-pay-button {
@@ -1966,7 +2028,19 @@ a {
 }
 
 .settings-telegram-link-btn {
+  min-width: 0;
+  height: auto;
+  min-height: 46px;
+  flex-wrap: wrap;
   justify-content: center;
+  padding-block: 10px;
+  line-height: 1.16;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.settings-telegram-link-btn svg {
+  flex: 0 0 auto;
 }
 
 .telegram-notifications-card {
@@ -2182,15 +2256,15 @@ a {
 }
 
 .app-shell .home-brand .brand-mark.brand-mark-xl {
-  width: calc(6rem * var(--home-logo-scale, 1));
-  height: calc(6rem * var(--home-logo-scale, 1));
-  font-size: calc(4.375rem * var(--home-logo-scale, 1));
+  width: calc(6rem * var(--home-logo-scale-effective, 1));
+  height: calc(6rem * var(--home-logo-scale-effective, 1));
+  font-size: calc(4.375rem * var(--home-logo-scale-effective, 1));
 }
 
 .app-shell .login-brand-auth .brand-mark.brand-mark-xl {
-  width: calc(116px * var(--home-logo-scale, 1));
-  height: calc(116px * var(--home-logo-scale, 1));
-  font-size: calc(84px * var(--home-logo-scale, 1));
+  width: calc(116px * var(--home-logo-scale-effective, 1));
+  height: calc(116px * var(--home-logo-scale-effective, 1));
+  font-size: calc(84px * var(--home-logo-scale-effective, 1));
 }
 
 .home-bottom {
@@ -3002,9 +3076,9 @@ a {
   .app-shell .home-brand .brand-mark,
   .app-shell .home-brand .brand-mark.brand-mark-lg,
   .app-shell .home-brand .brand-mark.brand-mark-xl {
-    width: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale, 1));
-    height: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale, 1));
-    font-size: calc(clamp(124px, 13vw, 184px) * var(--home-logo-scale, 1));
+    width: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale-effective, 1));
+    height: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale-effective, 1));
+    font-size: calc(clamp(124px, 13vw, 184px) * var(--home-logo-scale-effective, 1));
   }
 
   .home-bottom {

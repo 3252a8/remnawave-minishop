@@ -9,7 +9,7 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
     target = str(payload.get("target") or "all").strip().lower()
     if not text:
         return _error(400, "empty_text")
-    if target not in {"all", "active", "inactive", "expired"}:
+    if target not in {"all", "active", "inactive", "expired", "never"}:
         target = "all"
 
     queue_manager = get_queue_manager()
@@ -24,6 +24,8 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
             user_ids = await user_dal.get_user_ids_without_active_subscription(session)
         elif target == "expired":
             user_ids = await user_dal.get_user_ids_with_expired_subscription(session)
+        elif target == "never":
+            user_ids = await user_dal.get_user_ids_without_any_subscription(session)
         else:
             user_ids = await user_dal.get_all_active_user_ids_for_broadcast(session)
 
@@ -54,3 +56,20 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
         )
 
     return _ok({"queued": sent, "failed": failed, "target": target})
+
+
+async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Response:
+    """Return how many users each broadcast audience currently resolves to."""
+    _require_admin_user_id(request)
+
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async with async_session_factory() as session:
+        counts = {
+            "all": len(await user_dal.get_all_active_user_ids_for_broadcast(session)),
+            "active": len(await user_dal.get_user_ids_with_active_subscription(session)),
+            "inactive": len(await user_dal.get_user_ids_without_active_subscription(session)),
+            "expired": len(await user_dal.get_user_ids_with_expired_subscription(session)),
+            "never": len(await user_dal.get_user_ids_without_any_subscription(session)),
+        }
+
+    return _ok({"counts": counts})

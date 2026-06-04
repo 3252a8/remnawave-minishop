@@ -50,7 +50,7 @@
     {#if isInternalNote}
       <Lock size={15} />
     {:else if showSupportAvatar}
-      <BrandMark brand={supportBrand} size="sm" fallbackEmoji={true} />
+      <BrandMark brand={supportBrand} size="sm" />
     {:else if showUserAvatar && userAvatarUrl}
       <img src={userAvatarUrl} alt="" loading="lazy" referrerpolicy="no-referrer" />
     {:else if showUserAvatar && userInitials}

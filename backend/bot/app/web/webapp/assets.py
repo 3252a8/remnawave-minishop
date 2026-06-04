@@ -206,9 +206,6 @@ async def theme_asset_route(request: web.Request) -> web.Response:
 
 
 def _resolve_webapp_logo_url(settings: Settings) -> str:
-    if getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
-        return ""
-
     raw_logo_url = (getattr(settings, "WEBAPP_LOGO_URL", None) or "").strip()
     if not raw_logo_url:
         return WEBAPP_DEFAULT_LOGO_PATH
@@ -303,29 +300,8 @@ def _uploaded_webapp_logo_response(filename: str) -> web.Response:
     return response
 
 
-def _emoji_to_codepoints(value: str) -> str:
-    return "_".join(f"{ord(char):x}" for char in str(value or "").strip())
-
-
-def _webapp_emoji_disk_path(codepoints: str, ext: str) -> Path:
-    return WEBAPP_EMOJI_CACHE_DIR / f"{codepoints}.512.{ext}"
-
-
-def _webapp_animated_emoji_source_url(codepoints: str, ext: str) -> str:
-    return f"https://fonts.gstatic.com/s/e/notoemoji/latest/{codepoints}/512.{ext}"
-
-
-def _webapp_animated_emoji_asset_path(emoji: str, ext: str = "gif") -> str:
-    codepoints = _emoji_to_codepoints(emoji)
-    if not codepoints or ext not in {"gif", "webp"}:
-        return ""
-    return f"/webapp-emoji/{codepoints}/512.{ext}"
-
-
 async def webapp_logo_route(request: web.Request) -> web.Response:
     settings: Settings = request.app["settings"]
-    if getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
-        raise web.HTTPNotFound(text="webapp_logo_disabled")
     raw_logo_url = (settings.WEBAPP_LOGO_URL or "").strip()
     if not raw_logo_url:
         raise web.HTTPNotFound(text="webapp_logo_not_configured")
@@ -521,37 +497,8 @@ def _webapp_default_brand_file_response(path: Path, content_type: str) -> web.Re
     return web.Response(body=body, content_type=content_type)
 
 
-async def webapp_animated_emoji_route(request: web.Request) -> web.Response:
-    codepoints = str(request.match_info.get("codepoints") or "").strip().lower()
-    ext = str(request.match_info.get("ext") or "").strip().lower()
-    if not re.fullmatch(r"[0-9a-f]+(?:_[0-9a-f]+)*", codepoints) or ext not in {"gif", "webp"}:
-        raise web.HTTPNotFound(text="webapp_emoji_not_found")
-
-    emoji_cache_key = f"{codepoints}:{ext}"
-    emoji_caches: Dict[str, Tuple[bytes, str]] = request.app.setdefault("webapp_emoji_cache", {})
-    emoji_cache = emoji_caches.get(emoji_cache_key)
-    if emoji_cache is None:
-        cache_lock: asyncio.Lock = request.app.setdefault("webapp_emoji_cache_lock", asyncio.Lock())
-        async with cache_lock:
-            emoji_cache = emoji_caches.get(emoji_cache_key)
-            if emoji_cache is None:
-                emoji_cache = await _load_or_fetch_webapp_animated_emoji(codepoints, ext)
-                if emoji_cache:
-                    emoji_caches[emoji_cache_key] = emoji_cache
-
-    if not emoji_cache:
-        raise web.HTTPNotFound(text="webapp_emoji_unavailable")
-
-    body, content_type = emoji_cache
-    response = web.Response(body=body, content_type=content_type)
-    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-    return response
-
-
 async def _warm_webapp_logo_cache(app: web.Application) -> None:
     settings: Settings = app["settings"]
-    if getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
-        return
     raw_logo_url = (settings.WEBAPP_LOGO_URL or "").strip()
     if not raw_logo_url or not _is_proxyable_webapp_logo_url(raw_logo_url):
         return
@@ -571,111 +518,6 @@ async def _warm_webapp_logo_cache(app: web.Application) -> None:
         app["webapp_logo_cache"] = (
             (raw_logo_url, loaded_logo[0], loaded_logo[1]) if loaded_logo else None
         )
-
-
-async def _warm_webapp_animated_emoji_cache(app: web.Application) -> None:
-    settings: Settings = app["settings"]
-    if not getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
-        return
-    if str(settings.WEBAPP_LOGO_EMOJI_FONT or "").strip() != "noto-color-animated":
-        return
-
-    codepoints = _emoji_to_codepoints(settings.WEBAPP_LOGO_EMOJI)
-    if not codepoints:
-        return
-
-    app.setdefault("webapp_emoji_cache", {})
-    app.setdefault("webapp_emoji_cache_lock", asyncio.Lock())
-    emoji_caches: Dict[str, Tuple[bytes, str]] = app["webapp_emoji_cache"]
-
-    for ext in ("gif", "webp"):
-        emoji_cache_key = f"{codepoints}:{ext}"
-        if emoji_cache_key in emoji_caches:
-            continue
-        loaded_emoji = await _load_or_fetch_webapp_animated_emoji(codepoints, ext)
-        if loaded_emoji:
-            emoji_caches[emoji_cache_key] = loaded_emoji
-            if ext == "gif":
-                return
-
-
-async def _load_or_fetch_webapp_animated_emoji(
-    codepoints: str, ext: str
-) -> Optional[Tuple[bytes, str]]:
-    disk_emoji = await asyncio.to_thread(_read_webapp_animated_emoji_from_disk, codepoints, ext)
-    if disk_emoji:
-        return disk_emoji
-
-    fetched_emoji = await _fetch_webapp_animated_emoji(codepoints, ext)
-    if fetched_emoji:
-        await asyncio.to_thread(
-            _write_webapp_animated_emoji_to_disk, codepoints, ext, fetched_emoji
-        )
-    return fetched_emoji
-
-
-def _read_webapp_animated_emoji_from_disk(codepoints: str, ext: str) -> Optional[Tuple[bytes, str]]:
-    path = _webapp_emoji_disk_path(codepoints, ext)
-    try:
-        body = path.read_bytes()
-    except OSError:
-        return None
-
-    if not body or len(body) > WEBAPP_EMOJI_MAX_BYTES:
-        return None
-    return body, "image/gif" if ext == "gif" else "image/webp"
-
-
-def _write_webapp_animated_emoji_to_disk(
-    codepoints: str, ext: str, emoji: Tuple[bytes, str]
-) -> None:
-    body, _content_type = emoji
-    if not body or len(body) > WEBAPP_EMOJI_MAX_BYTES:
-        return
-
-    path = _webapp_emoji_disk_path(codepoints, ext)
-    try:
-        WEBAPP_EMOJI_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(body)
-    except OSError as exc:
-        logger.warning("Failed to write WEBAPP animated emoji cache: %s", exc)
-
-
-async def _fetch_webapp_animated_emoji(codepoints: str, ext: str) -> Optional[Tuple[bytes, str]]:
-    try:
-        session = await _get_shared_http_session()
-        timeout = ClientTimeout(total=4)
-        source_url = _webapp_animated_emoji_source_url(codepoints, ext)
-        async with session.get(
-            source_url,
-            allow_redirects=False,
-            headers={"Accept": "image/gif,image/webp,image/*,*/*;q=0.8"},
-            timeout=timeout,
-        ) as response:
-            if response.status != 200:
-                return None
-
-            content_type = (
-                (response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
-            )
-            expected_content_type = "image/gif" if ext == "gif" else "image/webp"
-            if content_type and content_type != expected_content_type:
-                return None
-
-            body = bytearray()
-            async for chunk in response.content.iter_chunked(64 * 1024):
-                body.extend(chunk)
-                if len(body) > WEBAPP_EMOJI_MAX_BYTES:
-                    logger.warning("WEBAPP animated emoji exceeded the 4 MiB limit.")
-                    return None
-
-            if not body:
-                return None
-
-            return bytes(body), expected_content_type
-    except Exception as exc:
-        logger.warning("Failed to fetch WEBAPP animated emoji: %s", exc)
-        return None
 
 
 async def _load_or_fetch_webapp_logo(logo_url: str) -> Optional[Tuple[bytes, str]]:
@@ -923,7 +765,6 @@ def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
             "traffic_packages": settings.traffic_packages,
             "stars_traffic_packages": settings.stars_traffic_packages,
             "support_url": settings.SUPPORT_LINK or "",
-            "terms_url": settings.TERMS_OF_SERVICE_URL or "",
             "privacy_policy_url": settings.PRIVACY_POLICY_URL or "",
             "user_agreement_url": settings.USER_AGREEMENT_URL or "",
             "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
@@ -937,9 +778,31 @@ def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
 def _resolve_app_version() -> str:
     # Single source of truth shared with the telemetry worker so the admin
     # sidebar and the install beacon always report the same version.
-    from bot.utils.app_version import resolve_app_version
+    from bot.utils import app_version as app_version_module
 
-    return resolve_app_version()
+    global _APP_VERSION_CACHE
+
+    app_version_module.APP_ROOT = APP_ROOT
+    app_version_module._run_git_command = _run_git_command
+    app_version_module._APP_VERSION_CACHE = _APP_VERSION_CACHE
+    version = app_version_module.resolve_app_version()
+    _APP_VERSION_CACHE = app_version_module._APP_VERSION_CACHE
+    return version
+
+
+def _run_git_command(*args: str) -> str:
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=APP_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=1.5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip()
 
 
 async def _enforce_webapp_rate_limit(
@@ -1144,9 +1007,6 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
             "themesDir": settings.WEBAPP_THEMES_DIR,
             "themePreviewKey": preview_key,
             "logoUrl": cached["logo_url"],
-            "logoUseEmoji": bool(settings.WEBAPP_LOGO_USE_EMOJI),
-            "logoEmoji": settings.WEBAPP_LOGO_EMOJI,
-            "logoEmojiFont": settings.WEBAPP_LOGO_EMOJI_FONT,
             "faviconUrl": cached["favicon_url"],
             "faviconUseCustom": bool(settings.WEBAPP_FAVICON_USE_CUSTOM),
             "apiBase": "/api",
@@ -1157,7 +1017,6 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
             "telegramOAuthClientId": _resolve_telegram_oauth_client_id(settings) or 0,
             "telegramOAuthRequestAccess": _resolve_telegram_oauth_request_access(settings),
             "supportUrl": cached["support_url"],
-            "termsUrl": cached["terms_url"],
             "privacyPolicyUrl": cached["privacy_policy_url"],
             "userAgreementUrl": cached["user_agreement_url"],
             "currency": cached["currency"],
@@ -1308,12 +1167,6 @@ async def index_route(request: web.Request) -> web.Response:
         f'<script src="/{_resolve_webapp_js_asset_name()}" defer></script>',
     )
     brand_asset_url = cached["logo_url"]
-    if (
-        not brand_asset_url
-        and settings.WEBAPP_LOGO_USE_EMOJI
-        and settings.WEBAPP_LOGO_EMOJI_FONT == "noto-color-animated"
-    ):
-        brand_asset_url = _webapp_animated_emoji_asset_path(settings.WEBAPP_LOGO_EMOJI)
     if brand_asset_url:
         html = html.replace(
             "</head>",
@@ -1683,6 +1536,9 @@ _INITIAL_THEME_TOKEN_CSS_MAP = {
     "font_sans": "--font-sans",
     "font_logo": "--font-logo",
     "font_mono": "--font-mono",
+    "home_logo_scale": "--home-logo-scale",
+    "home_logo_scale_desktop": "--home-logo-scale-desktop",
+    "home_logo_scale_mobile": "--home-logo-scale-mobile",
     "admin_bg": "--admin-bg",
     "admin_surface": "--admin-surface",
     "admin_surface_2": "--admin-surface-2",
@@ -1692,6 +1548,12 @@ _INITIAL_THEME_TOKEN_CSS_MAP = {
     "admin_text": "--admin-text",
     "admin_muted": "--admin-muted",
     "admin_dim": "--admin-dim",
+}
+
+_INITIAL_THEME_LOGO_SCALE_TOKENS = {
+    "home_logo_scale",
+    "home_logo_scale_desktop",
+    "home_logo_scale_mobile",
 }
 
 
@@ -1737,6 +1599,14 @@ def _initial_theme_head_markup(request: web.Request, theme: Any, primary_color: 
     tokens = tokens if isinstance(tokens, dict) else {}
     declarations = []
     for token_key, css_name in _INITIAL_THEME_TOKEN_CSS_MAP.items():
+        if token_key in _INITIAL_THEME_LOGO_SCALE_TOKENS:
+            try:
+                scale = float(tokens.get(token_key) or 0)
+            except (TypeError, ValueError):
+                continue
+            if scale > 0:
+                declarations.append(f"{css_name}:{scale / 100:g}")
+            continue
         value = str(tokens.get(token_key) or "").strip()
         if value:
             declarations.append(f"{css_name}:{value}")

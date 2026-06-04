@@ -206,7 +206,6 @@ def test_email_templates_use_override_only_language_without_base_locale_file(tmp
         DEFAULT_LANGUAGE="ru",
         EMAIL_CODE_TTL_SECONDS=600,
         WEBAPP_LOGO_URL="",
-        WEBAPP_LOGO_USE_EMOJI=False,
         WEBAPP_PRIMARY_COLOR="#00fe7a",
         WEBAPP_TITLE="Remnawave",
     )
@@ -307,7 +306,9 @@ def test_admin_locale_keys_are_split_into_smaller_internal_groups():
         "inline_financial_description": "admin_dashboard",
         "inline_system_stats_message": "admin_dashboard",
         "admin_user_card_title": "admin_users",
+        "admin_hwid_limit_title": "admin_users",
         "user_card_open_profile_button": "admin_users",
+        "user_hwid_limit_card_title": "admin_users",
         "user_premium_override_card_title": "admin_users",
         "traffic_grant_regular_done": "admin_users",
         "admin_payment_detail_title": "admin_payments",

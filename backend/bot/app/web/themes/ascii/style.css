@@ -318,6 +318,81 @@
   box-shadow: inset 0 0 0 1px #ffffff;
 }
 
+/* ---------- Admin controls: range sliders and sortable rows ---------- */
+
+.theme-key-ascii .ui-range-input {
+  height: 20px;
+}
+
+.theme-key-ascii .ui-range-input::before {
+  height: 8px;
+  border: 1px solid #ffffff;
+  background: #000000;
+}
+
+.theme-key-ascii .ui-range-input__range {
+  height: 8px;
+  background: #ffffff;
+}
+
+.theme-key-ascii .ui-range-input__thumb {
+  width: 16px;
+  height: 18px;
+  border: 1px solid #ffffff;
+  border-radius: 0;
+  background: #000000;
+  box-shadow: none;
+  transition: none;
+}
+
+.theme-key-ascii .ui-range-input__thumb:hover,
+.theme-key-ascii .ui-range-input__thumb:focus-visible {
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 0 0 0 1px #000000;
+}
+
+.theme-key-ascii .ui-sortable {
+  --sortable-drop-line: #ffffff;
+  --sortable-drop-soft: rgba(255, 255, 255, 0.08);
+  gap: 6px;
+}
+
+.theme-key-ascii .ui-sortable-item.is-dragging {
+  opacity: 0.72;
+}
+
+.theme-key-ascii .ui-sortable-item.is-drop-target {
+  outline: 1px dashed #ffffff;
+  outline-offset: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+.theme-key-ascii .ui-sortable-item.is-drop-target::before {
+  top: -5px;
+  height: 1px;
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.theme-key-ascii .ui-sortable-handle {
+  align-self: center;
+  height: 28px;
+  border: 1px solid #ffffff;
+  background: #000000;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.theme-key-ascii .ui-sortable-handle:hover,
+.theme-key-ascii .ui-sortable-handle:focus-visible,
+.theme-key-ascii .ui-sortable-handle:active {
+  background: #ffffff;
+  color: #000000;
+}
+
 /* ---------- New webapp surfaces: support, purchase info, password login ---------- */
 
 .theme-key-ascii .trial-offer-card,
@@ -1104,6 +1179,7 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
   .admin-cn-card-skeleton--tall,
   .admin-input, .admin-textarea, .admin-btn, .admin-chip,
   .admin-tabs-trigger, .admin-tabs-list,
+  .ui-range-input__thumb, .ui-sortable-item, .ui-sortable-handle,
   .admin-nav-item, .admin-revenue-period-btn, .admin-mobile-toggle,
   .admin-header, .admin-sidebar, .admin-sidebar-brand,
   .admin-dialog,
@@ -1242,4 +1318,52 @@ body:has(.theme-key-ascii) .install-platform-item[data-selected] svg {
 .theme-key-ascii .admin-table tbody tr:hover td,
 .theme-key-ascii table tbody tr:hover td {
   color: #ffffff;
+}
+
+/* ============================================================
+ * Newer webapp surfaces: telegram banner, traffic/referral
+ * dropdowns, login language picker. Flatten the accent pills,
+ * rounded badges and colored gradients these ship with so they
+ * read as plain console boxes.
+ * ============================================================ */
+
+/* Telegram notifications banner: the .card chrome is already
+ * flattened above; only the rounded, color-tinted icon badge needs
+ * squaring off (the Send glyph itself is whitened by the global rule). */
+.theme-key-ascii .telegram-notifications-icon {
+  border: 1px solid #ffffff;
+  border-radius: 0;
+  background: #000000;
+  color: #ffffff;
+}
+
+/* Premium-server / referral-tariff dropdown help glyph: drop the
+ * pill background in every state (the accent maps to white here,
+ * which would otherwise paint a white blob behind the icon). */
+.theme-key-ascii .premium-server-help-icon,
+.theme-key-ascii .premium-server-dropdown summary:hover .premium-server-help-icon,
+.theme-key-ascii .premium-server-dropdown[open] .premium-server-help-icon,
+.theme-key-ascii .referral-tariff-dropdown summary:hover .premium-server-help-icon,
+.theme-key-ascii .referral-tariff-dropdown[open] .premium-server-help-icon {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #ffffff;
+}
+
+/* The check on the selected language sits on a solid white row, so a
+ * white glyph would vanish — invert it to black to keep it readable. */
+.theme-key-ascii .language-select-item[data-selected] .language-select-item-check {
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
+
+/* Login-screen language trigger: square the rounded chip. */
+.theme-key-ascii .auth-language-trigger {
+  border-radius: 0;
+}
+
+/* Render flag emoji as monochrome glyphs to stay in the console palette. */
+.theme-key-ascii .emoji-flag {
+  filter: grayscale(1) contrast(1.05);
 }

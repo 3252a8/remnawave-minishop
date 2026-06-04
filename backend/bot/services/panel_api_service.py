@@ -22,6 +22,11 @@ class PanelApiService:
     _TRANSIENT_STATUS_CODES = (-1, -3)
     _SAFE_METHODS = frozenset({"GET", "HEAD"})
     _RETRY_BACKOFF_SECONDS = 0.5
+    _MIN_TIMEOUT_SECONDS = 0.1
+    _DEFAULT_TOTAL_TIMEOUT_SECONDS = 25.0
+    _DEFAULT_CONNECT_TIMEOUT_SECONDS = 8.0
+    _DEFAULT_SOCK_CONNECT_TIMEOUT_SECONDS = 8.0
+    _DEFAULT_SOCK_READ_TIMEOUT_SECONDS = 15.0
 
     def __init__(self, settings: Settings):
         self.settings = settings
@@ -70,16 +75,45 @@ class PanelApiService:
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
-            # Separate connect/read timeouts so a stuck panel does not hold a
-            # bot worker for the full window; total caps worst-case latency.
-            timeout = aiohttp.ClientTimeout(
-                total=15,
-                connect=3,
-                sock_connect=3,
-                sock_read=10,
-            )
-            self._session = aiohttp.ClientSession(timeout=timeout)
+            self._session = aiohttp.ClientSession(timeout=self._client_timeout())
         return self._session
+
+    @classmethod
+    def _timeout_setting(cls, settings: Settings, name: str, default: float) -> float:
+        raw_value = getattr(settings, name, default)
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            return default
+        if value <= 0:
+            return default
+        return max(cls._MIN_TIMEOUT_SECONDS, value)
+
+    def _client_timeout(self) -> aiohttp.ClientTimeout:
+        # Separate connect/read timeouts so a slow panel route has more room,
+        # while genuinely stuck requests still cannot pin a worker forever.
+        return aiohttp.ClientTimeout(
+            total=self._timeout_setting(
+                self.settings,
+                "PANEL_API_TOTAL_TIMEOUT_SECONDS",
+                self._DEFAULT_TOTAL_TIMEOUT_SECONDS,
+            ),
+            connect=self._timeout_setting(
+                self.settings,
+                "PANEL_API_CONNECT_TIMEOUT_SECONDS",
+                self._DEFAULT_CONNECT_TIMEOUT_SECONDS,
+            ),
+            sock_connect=self._timeout_setting(
+                self.settings,
+                "PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS",
+                self._DEFAULT_SOCK_CONNECT_TIMEOUT_SECONDS,
+            ),
+            sock_read=self._timeout_setting(
+                self.settings,
+                "PANEL_API_SOCK_READ_TIMEOUT_SECONDS",
+                self._DEFAULT_SOCK_READ_TIMEOUT_SECONDS,
+            ),
+        )
 
     async def close_session(self):
         if self._session and not self._session.closed:
@@ -121,6 +155,15 @@ class PanelApiService:
         for attempt in range(max_attempts):
             result = await self._request_once(method, endpoint, log_full_response, **kwargs)
             if attempt + 1 < max_attempts and self._is_transient_error(result):
+                logging.warning(
+                    "Retrying transient Panel API request method=%s endpoint=%s "
+                    "attempt=%s/%s status_code=%s",
+                    method.upper(),
+                    endpoint,
+                    attempt + 1,
+                    max_attempts,
+                    result.get("status_code") if isinstance(result, dict) else None,
+                )
                 await asyncio.sleep(self._RETRY_BACKOFF_SECONDS)
                 continue
             return result
@@ -158,8 +201,8 @@ class PanelApiService:
                 )
             except Exception:
                 log_prefix += f" | Payload: {str(json_payload_for_log)[:300]}..."
+        started = time.monotonic()
         try:
-            started = time.monotonic()
             async with aiohttp_session.request(
                 method.upper(), url_for_request, headers=headers, **kwargs
             ) as response:
@@ -228,15 +271,48 @@ class PanelApiService:
                     return {"error": True, "status_code": response_status, "details": error_details}
 
         except aiohttp.ClientConnectorError as e:
+            logging.info(
+                "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=connect_error",
+                time.monotonic() - started,
+                method.upper(),
+                endpoint,
+            )
             logging.error(f"Panel API ClientConnectorError to {url_for_request}: {e}")
             return {"error": True, "status_code": -1, "message": f"Connection error: {str(e)}"}
+        except aiohttp.ServerTimeoutError as e:
+            logging.info(
+                "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=timeout",
+                time.monotonic() - started,
+                method.upper(),
+                endpoint,
+            )
+            logging.warning("Panel API timeout to %s: %s", url_for_request, e)
+            return {"error": True, "status_code": -3, "message": f"Request timed out: {str(e)}"}
         except aiohttp.ClientError as e:
+            logging.info(
+                "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=client_error",
+                time.monotonic() - started,
+                method.upper(),
+                endpoint,
+            )
             logging.exception("Panel API ClientError to %s.", url_for_request)
             return {"error": True, "status_code": -2, "message": f"Client error: {str(e)}"}
         except asyncio.TimeoutError:
+            logging.info(
+                "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=timeout",
+                time.monotonic() - started,
+                method.upper(),
+                endpoint,
+            )
             logging.error(f"Panel API request to {url_for_request} timed out.")
             return {"error": True, "status_code": -3, "message": "Request timed out"}
         except Exception as e:
+            logging.info(
+                "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=unexpected_error",
+                time.monotonic() - started,
+                method.upper(),
+                endpoint,
+            )
             logging.error(
                 f"Unexpected Panel API request error to {url_for_request}: {e}", exc_info=True
             )
@@ -885,7 +961,14 @@ class PanelApiService:
         await self._devices_cache.invalidate_remote(f"user:{user_uuid}")
 
     async def get_internal_squads(self) -> Optional[List[Dict[str, Any]]]:
-        return await self._squads_cache.get_or_load("list", self._get_internal_squads_uncached)
+        squads = await self._squads_cache.get_or_load("list", self._get_internal_squads_uncached)
+        if squads is not None:
+            return squads
+        stale_squads = self._squads_cache.get_stale("list")
+        if stale_squads is not None:
+            logging.warning("Using stale internal squads cache after panel fetch failed.")
+            return stale_squads
+        return None
 
     async def _get_internal_squads_uncached(self) -> Optional[List[Dict[str, Any]]]:
         response_data = await self._request("GET", "/internal-squads", log_full_response=False)

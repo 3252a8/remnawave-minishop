@@ -22,24 +22,46 @@ async def get_promo_code_by_id(session: AsyncSession, promo_code_id: int) -> Opt
     return await session.get(PromoCode, promo_code_id)
 
 
-async def get_promo_code_by_code(session: AsyncSession, code_str: str) -> Optional[PromoCode]:
+def _promo_lookup_candidates(code_str: str, *, preserve_case: bool) -> List[str]:
+    code = str(code_str or "").strip()
+    if not code:
+        return []
+    candidates = [code] if preserve_case else []
+    upper_code = code.upper()
+    if upper_code not in candidates:
+        candidates.append(upper_code)
+    return candidates
+
+
+async def get_promo_code_by_code(
+    session: AsyncSession, code_str: str, *, preserve_case: bool = False
+) -> Optional[PromoCode]:
     """Get promo code by code string (regardless of active status)"""
-    stmt = select(PromoCode).where(PromoCode.code == code_str.upper())
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none()
+    for candidate in _promo_lookup_candidates(code_str, preserve_case=preserve_case):
+        stmt = select(PromoCode).where(PromoCode.code == candidate)
+        result = await session.execute(stmt)
+        promo = result.scalar_one_or_none()
+        if promo:
+            return promo
+    return None
 
 
 async def get_active_promo_code_by_code_str(
-    session: AsyncSession, code_str: str
+    session: AsyncSession, code_str: str, *, preserve_case: bool = False
 ) -> Optional[PromoCode]:
-    stmt = select(PromoCode).where(
-        PromoCode.code == code_str.upper(),
-        PromoCode.is_active == True,
-        PromoCode.current_activations < PromoCode.max_activations,
-        or_(PromoCode.valid_until == None, PromoCode.valid_until > datetime.now(timezone.utc)),
-    )
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none()
+    now = datetime.now(timezone.utc)
+    for candidate in _promo_lookup_candidates(code_str, preserve_case=preserve_case):
+        stmt = select(PromoCode).where(
+            PromoCode.code == candidate,
+            PromoCode.is_active == True,
+            PromoCode.current_activations < PromoCode.max_activations,
+            or_(PromoCode.valid_until == None, PromoCode.valid_until > now),
+        )
+        result = await session.execute(stmt)
+        promo = result.scalar_one_or_none()
+        if promo:
+            return promo
+    return None
 
 
 async def get_all_active_promo_codes(

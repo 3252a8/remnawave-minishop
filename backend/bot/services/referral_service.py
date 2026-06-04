@@ -197,6 +197,9 @@ class ReferralService:
                                     "status_from_panel": "ACTIVE_BONUS",
                                     "traffic_limit_bytes": self.settings.user_traffic_limit_bytes,
                                     "auto_renew_enabled": False,
+                                    # Short bonus grant: warn only hours before it
+                                    # ends, not days ahead. A real payment clears this.
+                                    "suppress_early_expiry_notifications": True,
                                 }
                                 try:
                                     await subscription_dal.deactivate_other_active_subscriptions(

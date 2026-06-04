@@ -11,6 +11,8 @@
 - [Админка: пользователи](/demo/admin/users)
 - [Админка: бэкапы](/demo/admin/backups)
 - [Пробный период](/demo/home?mock=trial)
+- [Email-only: нужен Telegram для триала](/demo/home?mock=trial-telegram)
+- [Email-only: нужен Telegram для реферального бонуса](/demo/home?mock=referral-telegram)
 - [Докупка устройств](/demo/devices?mock=devices)
 - [Запуск бота для Telegram-уведомлений](/demo/home?mock=notifications)
 - [Вход и регистрация](/demo/login?mock=auth)

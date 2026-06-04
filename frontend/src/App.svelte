@@ -74,11 +74,15 @@
   const ACTIVATION_PENDING_WATCH_MAX_ATTEMPTS = 45;
   const ACTIVATION_RESUME_CHECK_COOLDOWN_MS = 1500;
   const TELEGRAM_NOTIFICATIONS_RESUME_REFRESH_COOLDOWN_MS = 1500;
+  const TELEGRAM_LINK_PENDING_ACTION_STORAGE_KEY = "rw_webapp_telegram_link_pending_action_v1";
+  const TELEGRAM_LINK_PENDING_TTL_MS = 10 * 60 * 1000;
+  const TELEGRAM_LINK_ACTION_TRIAL = "trial";
+  const TELEGRAM_LINK_ACTION_REFERRAL_WELCOME = "referral_welcome";
   import {
     activationPaymentFailed,
     createActivationHandoff,
   } from "./lib/webapp/activationHandoff.js";
-  import { buildGravatarUrl } from "./lib/webapp/gravatar.js";
+  import { buildGravatarUrl, resolveProfileAvatarUrl } from "./lib/webapp/gravatar.js";
   import { createBillingActions } from "./lib/webapp/billingActions.js";
   import { invalidateWebappTariffOptionCaches } from "./lib/webapp/billingOptionCache.js";
   import { runWebappBoot } from "./lib/webapp/webappBoot.js";
@@ -171,6 +175,7 @@
   let telegramNotificationsBotOpenedAt = 0;
   let telegramNotificationsResumeRefreshBusy = false;
   let telegramNotificationsResumeLastCheckAt = 0;
+  let telegramLinkPendingActionBusy = false;
   let promoCode = "";
   let promoBusy = false;
   let promoStatus = "";
@@ -358,13 +363,9 @@
   } = $accountStore);
 
   $: brandTitle = CFG.title || "/minishop";
-  $: brandEmoji = CFG.logoEmoji || "🫥";
-  $: brandEmojiFont = CFG.logoEmojiFont || "system";
   $: brand = normalizeBrand({
     title: brandTitle,
-    logoUrl: CFG.logoUseEmoji ? "" : CFG.logoUrl,
-    emoji: brandEmoji,
-    emojiFont: brandEmojiFont,
+    logoUrl: CFG.logoUrl,
   });
   $: faviconBrand = normalizeBrand({
     ...brand,
@@ -494,7 +495,7 @@
   $: telegramProfileName = telegramName(user);
   $: profileEmail = user?.email || t("wa_settings_email_not_linked");
   $: profileTelegramId = user?.telegram_id ? `TG ID ${user.telegram_id}` : t("wa_tg_id_not_linked");
-  $: profileAvatarUrl = user?.telegram_photo_url || emailAvatarUrl || "";
+  $: profileAvatarUrl = resolveProfileAvatarUrl(user, emailAvatarUrl);
   $: privacyPolicyUrl = String(CFG.privacyPolicyUrl || "").trim();
   $: userAgreementUrl = String(CFG.userAgreementUrl || "").trim();
   $: supportUrl = String(appSettings?.support_url || CFG.supportUrl || "").trim();
@@ -1187,6 +1188,161 @@
     }
   }
 
+  function currentTelegramLinkPendingUserId() {
+    const currentUser = data?.user || user || {};
+    const id = currentUser.user_id ?? currentUser.id;
+    return id == null ? "" : String(id);
+  }
+
+  function isTelegramLinkPendingAction(action) {
+    return [TELEGRAM_LINK_ACTION_TRIAL, TELEGRAM_LINK_ACTION_REFERRAL_WELCOME].includes(action);
+  }
+
+  function rememberTelegramLinkPendingAction(action) {
+    if (typeof window === "undefined" || !isTelegramLinkPendingAction(action)) return;
+    try {
+      window.sessionStorage.setItem(
+        TELEGRAM_LINK_PENDING_ACTION_STORAGE_KEY,
+        JSON.stringify({
+          action,
+          userId: currentTelegramLinkPendingUserId(),
+          createdAt: Date.now(),
+        })
+      );
+    } catch (_error) {
+      void _error;
+    }
+  }
+
+  function clearTelegramLinkPendingAction() {
+    if (typeof window === "undefined") return;
+    try {
+      window.sessionStorage.removeItem(TELEGRAM_LINK_PENDING_ACTION_STORAGE_KEY);
+    } catch (_error) {
+      void _error;
+    }
+  }
+
+  function readTelegramLinkPendingAction() {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = window.sessionStorage.getItem(TELEGRAM_LINK_PENDING_ACTION_STORAGE_KEY);
+      if (!raw) return null;
+      const payload = JSON.parse(raw);
+      const action = String(payload?.action || "");
+      const createdAt = Number(payload?.createdAt || 0);
+      const pendingUserId = String(payload?.userId || "");
+      const currentUserId = currentTelegramLinkPendingUserId();
+      if (
+        !isTelegramLinkPendingAction(action) ||
+        !createdAt ||
+        Date.now() - createdAt > TELEGRAM_LINK_PENDING_TTL_MS ||
+        (pendingUserId && currentUserId && pendingUserId !== currentUserId)
+      ) {
+        clearTelegramLinkPendingAction();
+        return null;
+      }
+      return action;
+    } catch (_error) {
+      clearTelegramLinkPendingAction();
+      return null;
+    }
+  }
+
+  async function runTelegramLinkedAction(action) {
+    if (action === TELEGRAM_LINK_ACTION_TRIAL) {
+      await activateTrial();
+      return true;
+    }
+    if (action === TELEGRAM_LINK_ACTION_REFERRAL_WELCOME) {
+      await claimReferralWelcomeBonus();
+      return true;
+    }
+    return false;
+  }
+
+  async function continueTelegramLinkPendingAction() {
+    if (telegramLinkPendingActionBusy) return false;
+    const currentUser = data?.user || user || {};
+    if (!currentUser?.telegram_linked) return false;
+    const action = readTelegramLinkPendingAction();
+    if (!action) return false;
+    telegramLinkPendingActionBusy = true;
+    clearTelegramLinkPendingAction();
+    try {
+      return await runTelegramLinkedAction(action);
+    } finally {
+      telegramLinkPendingActionBusy = false;
+    }
+  }
+
+  async function linkTelegramWithPayloadForPendingAction(payload) {
+    accountStore.update((s) => ({ ...s, linkTelegramBusy: true }));
+    try {
+      const response = await api("/account/telegram/link", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!response?.ok) throw response;
+      if (response?.csrf_token) setToken("", response.csrf_token);
+      await loadData({ fresh: true, preserveView: true });
+      const handled = await continueTelegramLinkPendingAction();
+      if (!handled) {
+        clearTelegramLinkPendingAction();
+        showToast(t("wa_settings_linked"));
+      }
+    } catch (error) {
+      clearTelegramLinkPendingAction();
+      showToast(error?.message || t("wa_auth_telegram_not_confirmed"));
+    } finally {
+      accountStore.update((s) => ({ ...s, linkTelegramBusy: false }));
+    }
+  }
+
+  async function linkTelegramForPendingAction(action) {
+    if (!isTelegramLinkPendingAction(action) || linkTelegramBusy || telegramLinkPendingActionBusy) {
+      return;
+    }
+    const currentUser = data?.user || user || {};
+    if (currentUser?.telegram_linked) {
+      await runTelegramLinkedAction(action);
+      return;
+    }
+
+    rememberTelegramLinkPendingAction(action);
+    if (demoAuthLogin) {
+      await linkTelegramWithPayloadForPendingAction({ auth_data: demoTelegramAuthPayload() });
+      return;
+    }
+
+    const isTelegramMiniAppAttempt = hasTelegramLaunchParams();
+    if (isTelegramMiniAppAttempt) {
+      await telegramSdk.ensureForAction();
+    }
+    const initData =
+      telegramMiniAppInitData || tg?.initData || readTelegramMiniAppInitDataFromLocation();
+    if (initData) {
+      await linkTelegramWithPayloadForPendingAction({ init_data: initData });
+      return;
+    }
+    if (!telegramOAuthClientId) {
+      clearTelegramLinkPendingAction();
+      showToast(t("wa_auth_telegram_not_configured"));
+      return;
+    }
+    await accountStore.linkTelegramAccount(
+      () => telegramMiniAppInitData || tg?.initData || readTelegramMiniAppInitDataFromLocation()
+    );
+  }
+
+  function linkTelegramAndActivateTrial() {
+    return linkTelegramForPendingAction(TELEGRAM_LINK_ACTION_TRIAL);
+  }
+
+  function linkTelegramAndClaimReferralWelcome() {
+    return linkTelegramForPendingAction(TELEGRAM_LINK_ACTION_REFERRAL_WELCOME);
+  }
+
   function openTelegramNotificationsBot() {
     const link = telegramNotificationsStartLink;
     telegramNotificationsBotOpenedAt = Date.now();
@@ -1453,9 +1609,12 @@
       getCsrfToken: () => csrfToken,
     });
     if (mode === "app" && screen !== "admin") {
-      if (hasPendingActivationHandoff()) await loadData({ fresh: true });
-      const shown = await maybeShowActivationSuccessDialog({ source: "boot" });
-      if (!shown) startPendingActivationWatch();
+      const telegramActionHandled = await continueTelegramLinkPendingAction();
+      if (!telegramActionHandled) {
+        if (hasPendingActivationHandoff()) await loadData({ fresh: true });
+        const shown = await maybeShowActivationSuccessDialog({ source: "boot" });
+        if (!shown) startPendingActivationWatch();
+      }
     }
   }
 
@@ -1524,6 +1683,7 @@
       selectedPlan: null,
       selectedTariffKey: "",
       paymentStep: "tariff",
+      renewHwidDevices: true,
       selectedMethod: payload.payment_methods?.[0]?.id || "",
     }));
     const currentQuery = currentSearchParams();
@@ -1904,6 +2064,55 @@
     }
   }
 
+  function trialActivationFailureMessage(error) {
+    if (
+      error?.error === "trial_telegram_required" ||
+      error?.message === "telegram_required" ||
+      error?.message === "disposable_email"
+    ) {
+      return t(
+        "wa_trial_telegram_required_error",
+        {},
+        "Для активации пробного периода привяжите Telegram."
+      );
+    }
+    return error?.message || t("wa_trial_activation_failed");
+  }
+
+  function referralWelcomeFailureMessage(error) {
+    if (
+      error?.error === "referral_welcome_telegram_required" ||
+      error?.message === "telegram_required" ||
+      error?.message === "disposable_email"
+    ) {
+      return t(
+        "wa_referral_welcome_telegram_required_error",
+        {},
+        "Для получения реферального бонуса привяжите Telegram."
+      );
+    }
+    return error?.message || t("wa_referral_welcome_claim_failed");
+  }
+
+  async function claimReferralWelcomeBonus() {
+    try {
+      const response = await api("/referral/welcome-bonus/claim", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) throw response;
+      showToast(
+        response.end_date_text
+          ? t("wa_referral_welcome_claimed_until", { date: response.end_date_text })
+          : t("wa_referral_welcome_claimed")
+      );
+      await loadData({ fresh: true });
+      await maybeShowActivationSuccessDialog({ source: "referral_welcome", force: true });
+    } catch (error) {
+      showToast(referralWelcomeFailureMessage(error));
+    }
+  }
+
   async function activateTrial() {
     if (trialBusy) return;
     trialBusy = true;
@@ -1920,7 +2129,7 @@
       await loadData({ fresh: true });
       await maybeShowActivationSuccessDialog({ source: "trial", force: true });
     } catch (error) {
-      const message = error?.message || t("wa_trial_activation_failed");
+      const message = trialActivationFailureMessage(error);
       trialActivationError = message;
       showToast(message);
     } finally {
@@ -2077,9 +2286,6 @@
     ]);
     return [
       "WEBAPP_LOGO_URL",
-      "WEBAPP_LOGO_USE_EMOJI",
-      "WEBAPP_LOGO_EMOJI",
-      "WEBAPP_LOGO_EMOJI_FONT",
       "WEBAPP_FAVICON_URL",
       "WEBAPP_FAVICON_USE_CUSTOM",
       "WEBAPP_LOGO_FAVICON_URL",
@@ -2286,7 +2492,9 @@
                 {premiumTrafficTopupUnlocked}
                 {regularTrafficTopupBarClickable}
                 {regularTrafficTopupUnlocked}
+                {referral}
                 {subscription}
+                {linkTelegramBusy}
                 {telegramNotificationsNeedPrompt}
                 {telegramNotificationsStartLink}
                 {telegramNotificationsStatus}
@@ -2294,6 +2502,8 @@
                 {trafficMode}
                 {trialBusy}
                 {activateTrial}
+                {linkTelegramAndActivateTrial}
+                {linkTelegramAndClaimReferralWelcome}
                 {openTelegramNotificationsBot}
                 openConnectLink={openInstallOrConnect}
                 {openPaymentModal}
@@ -2323,9 +2533,11 @@
                 {brandTitle}
                 {subscription}
                 {trialBusy}
+                {linkTelegramBusy}
                 trialResult={trialActivationResult}
                 trialError={trialActivationError}
                 {activateTrial}
+                {linkTelegramAndActivateTrial}
                 openInstallOrConnect={openTrialInstallOrConnect}
                 {goHome}
                 {t}
@@ -2428,6 +2640,7 @@
             bind:paymentStep={$billingStore.paymentStep}
             bind:selectedMethod={$billingStore.selectedMethod}
             bind:selectedPlan={$billingStore.selectedPlan}
+            bind:renewHwidDevices={$billingStore.renewHwidDevices}
             bind:selectedTariffKey={$billingStore.selectedTariffKey}
             bind:setPasswordCode={$accountStore.setPasswordCode}
             bind:setPasswordConfirm={$accountStore.setPasswordConfirm}

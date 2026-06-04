@@ -595,7 +595,7 @@
     min-width: 82px;
   }
 
-  :global(.admin-users-filter-toggle) {
+  :global(.admin-btn.admin-users-filter-toggle) {
     display: none;
     position: relative;
     align-items: center;
@@ -846,7 +846,7 @@
       padding-inline: 10px;
     }
 
-    :global(.admin-users-filter-toggle) {
+    :global(.admin-btn.admin-users-filter-toggle) {
       display: inline-flex;
       min-width: 38px;
       padding-inline: 10px;
