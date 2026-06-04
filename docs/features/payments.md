@@ -160,7 +160,9 @@ PayKilla используется для крипто-инвойсов V2 чер
 
 PayKilla строго валидирует текстовые поля invoice. Поэтому Minishop отправляет в `purpose` и `description` простой английский текст `<WEBAPP_TITLE> payment <id>`, а локализованное описание платежа оставляет только внутри Minishop. Дополнительно эти поля проходят ASCII-safe sanitizer: допускаются ASCII-буквы, цифры, пробелы, `_`, `.`, `,`.
 
-Для `FIAT_BASED` инвойса Minishop отправляет сумму и валюту тарифа как есть, например `190.00 RUB`. PayKilla рассчитывает сумму к оплате в выбранной криптовалюте из `paymentCurrencies`.
+Minishop создает invoice в валюте, которую PayKilla принимает в поле `currency`. Если валюта тарифа входит в `PAYKILLA_INVOICE_CURRENCIES`, сумма отправляется как есть. Если валюта тарифа не входит в этот список, сумма конвертируется в `PAYKILLA_CURRENCY`; по умолчанию рублевые тарифы конвертируются в `USD` через no-key endpoint ExchangeRate-API `https://open.er-api.com/v6/latest/{source}` с кэшем `PAYKILLA_EXCHANGE_RATE_CACHE_SECONDS`. Перед созданием invoice Minishop читает `GET /api/v2/currency` и проверяет `invoiceMin`/`invoiceMax` для валюты инвойса.
+
+Payload создания invoice содержит обязательные поля `type`, `purpose`, `currency`, `totalPrice`, `paymentCurrencies`, служебный `clientOrderId`, а также полезные optional поля `description`, `expiredAt`, `userPaysServiceFee`, `userPaysNetworkFee`. Redirect URLs в PayKilla не отправляются; завершение платежа обрабатывается через webhook.
 
 Какие полномочия нужны API key:
 
@@ -183,9 +185,10 @@ PayKilla строго валидирует текстовые поля invoice. 
 
 1. Включите `PAYKILLA_ENABLED`.
 2. Укажите `PAYKILLA_API_KEY` и `PAYKILLA_SECRET_KEY`.
-3. Проверьте валюту тарифов/`DEFAULT_CURRENCY_SYMBOL` и `PAYKILLA_CURRENCY`, например `RUB`; в `PAYKILLA_PAYMENT_CURRENCIES` укажите crypto tickers, например `USDTTRC,BTC,ETH`.
-4. Убедитесь, что webhook `/webhook/paykilla` настроен в PayKilla: Minishop не отправляет redirect URLs в PayKilla и полагается на webhook для активации платежа.
-5. Добавьте `paykilla` в `PAYMENT_METHODS_ORDER`, если хотите задать явный порядок кнопок.
+3. Оставьте `PAYKILLA_CURRENCY=USD`, если PayKilla не принимает валюту тарифов как invoice currency. В `PAYKILLA_INVOICE_CURRENCIES` укажите валюты, доступные в PayKilla для поля `currency`, например `USD,EUR`.
+4. В `PAYKILLA_PAYMENT_CURRENCIES` начните с `USDTTRC`, а `BTC`, `ETH` и другие тикеры добавляйте только если они доступны в PayKilla Dashboard.
+5. Убедитесь, что webhook `/webhook/paykilla` настроен в PayKilla: Minishop не отправляет redirect URLs в PayKilla и полагается на webhook для активации платежа.
+6. Добавьте `paykilla` в `PAYMENT_METHODS_ORDER`, если хотите задать явный порядок кнопок.
 
 Справочник переменных: [PayKilla](../configuration/env-vars.md#paykilla).
 

@@ -3,6 +3,7 @@ import hmac
 import json
 import time
 import unittest
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, urlsplit
@@ -256,8 +257,12 @@ class PaykillaServiceTests(unittest.TestCase):
         )
 
         self.assertEqual(body["purpose"], "Tunnel Shop payment 556")
-        self.assertEqual(body["description"], body["purpose"])
         self.assertRegex(body["purpose"], r"^[A-Za-z0-9_\s.,]+$")
+        self.assertEqual(body["paymentCurrencies"], ["USDTTRC"])
+        self.assertEqual(body["description"], body["purpose"])
+        self.assertTrue(body["expiredAt"].endswith("Z"))
+        self.assertTrue(body["userPaysNetworkFee"])
+        self.assertTrue(body["userPaysServiceFee"])
         self.assertNotIn("urls", body)
 
     def test_invoice_body_uses_payment_currency_before_configured_fallback(self):
@@ -287,6 +292,66 @@ class PaykillaServiceTests(unittest.TestCase):
 
         self.assertEqual(body["currency"], "USD")
         self.assertEqual(body["type"], "FIAT_BASED")
+
+    def test_invoice_amount_converts_unsupported_tariff_currency_to_fallback(self):
+        service = self._make_service()
+        service.config.CURRENCY = "USD"
+        service.config.INVOICE_CURRENCIES = "USD,EUR"
+
+        with patch.object(
+            service,
+            "_exchange_rate",
+            AsyncMock(return_value=Decimal("0.013586")),
+        ) as exchange_rate:
+            amount, currency = asyncio_run(
+                service._invoice_amount_and_currency(
+                    amount=190,
+                    payment_currency="RUB",
+                )
+            )
+
+        self.assertEqual(currency, "USD")
+        self.assertEqual(amount, Decimal("2.58"))
+        exchange_rate.assert_awaited_once_with("RUB", "USD")
+
+    def test_invoice_amount_keeps_enabled_paykilla_invoice_currency(self):
+        service = self._make_service()
+        service.config.CURRENCY = "USD"
+        service.config.INVOICE_CURRENCIES = "RUB,USD"
+
+        with patch.object(
+            service,
+            "_exchange_rate",
+            AsyncMock(side_effect=AssertionError("conversion must not run")),
+        ):
+            amount, currency = asyncio_run(
+                service._invoice_amount_and_currency(
+                    amount=190,
+                    payment_currency="RUB",
+                )
+            )
+
+        self.assertEqual(currency, "RUB")
+        self.assertEqual(amount, Decimal("190.00"))
+
+    def test_invoice_amount_bounds_detects_paykilla_minimum(self):
+        service = self._make_service()
+
+        with patch.object(
+            service,
+            "_currency_info_for",
+            AsyncMock(return_value={"invoiceMin": "10", "invoiceMax": "500000"}),
+        ):
+            error = asyncio_run(
+                service._invoice_amount_bounds_error(
+                    amount=Decimal("2.58"),
+                    currency="USD",
+                )
+            )
+
+        self.assertEqual(error["message"], "invoice_amount_below_minimum")
+        self.assertEqual(error["currency"], "USD")
+        self.assertEqual(error["minimum"], "10.00")
 
     def test_invoice_body_omits_redirect_urls(self):
         service = self._make_service()

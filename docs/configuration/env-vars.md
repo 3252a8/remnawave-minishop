@@ -376,14 +376,17 @@ Webhook настраивается в PayKilla Dashboard: **Settings -> Webhooks
 | `PAYKILLA_WIDGET_URL` | URL hosted checkout, по умолчанию `https://gopay.paykilla.com`. |
 | `PAYKILLA_API_KEY` / `PAYKILLA_V2_API_KEY` | Public HMAC key с правом `INVOICE`. |
 | `PAYKILLA_SECRET_KEY` / `PAYKILLA_V2_SECRET_KEY` | Secret HMAC key для подписи API-запросов и проверки webhook. |
-| `PAYKILLA_CURRENCY` | Резервная валюта инвойса PayKilla, если платежный поток не передал валюту тарифа. Обычно совпадает с `DEFAULT_CURRENCY_SYMBOL`, например `RUB`. Для RUB/USD/EUR/AED/GBP используется `FIAT_BASED`, для остальных - `FIXED_AMOUNT`. |
-| `PAYKILLA_PAYMENT_CURRENCIES` | Crypto tickers для оплаты, например `USDTTRC,BTC,ETH`. |
-| `PAYKILLA_SUPPORTED_CURRENCIES` | Валюты инвойса, разрешенные в этом магазине. |
+| `PAYKILLA_CURRENCY` | Резервная валюта инвойса PayKilla для платежей, чья валюта тарифа не входит в `PAYKILLA_INVOICE_CURRENCIES`. По умолчанию `USD`. |
+| `PAYKILLA_INVOICE_CURRENCIES` | Валюты, которые PayKilla принимает в поле `currency` при создании invoice. По умолчанию `USD,EUR`. Если тариф в `RUB`, Minishop конвертирует сумму в `PAYKILLA_CURRENCY`. |
+| `PAYKILLA_PAYMENT_CURRENCIES` | Crypto tickers для оплаты. Рекомендуемый стартовый вариант: `USDTTRC`; добавляйте `BTC`, `ETH` и другие тикеры только если они доступны в PayKilla Dashboard для merchant account. |
+| `PAYKILLA_SUPPORTED_CURRENCIES` | Валюты тарифов/платежей, которым разрешено использовать PayKilla в этом магазине. |
 | `PAYKILLA_INVOICE_TYPE` | Необязательный override: `FIAT_BASED`, `FIXED_AMOUNT` или `OPEN_AMOUNT`. |
 | `PAYKILLA_LIFETIME_SECONDS` | TTL инвойса, отправляется как `expiredAt`. |
 | `PAYKILLA_RECV_WINDOW_MS` | `recvWindow` для подписанных API-запросов. |
 | `PAYKILLA_USER_PAYS_SERVICE_FEE` | `true`, если пользователь оплачивает service fee. |
 | `PAYKILLA_USER_PAYS_NETWORK_FEE` | `true`, если пользователь оплачивает network fee. |
+| `PAYKILLA_EXCHANGE_RATE_URL` | Бесплатный no-key endpoint курса для конвертации валюты тарифа в валюту инвойса. По умолчанию `https://open.er-api.com/v6/latest/{source}`. Поддерживает placeholders `{source}` и `{target}`. |
+| `PAYKILLA_EXCHANGE_RATE_CACHE_SECONDS` | Кэш курса и PayKilla currency limits в секундах. По умолчанию `3600`. |
 | `PAYKILLA_VERIFY_WEBHOOK_SIGNATURE` | Проверять `X-API-SIGN` по raw body webhook. |
 | `PAYKILLA_WEBHOOK_URL` | Точный публичный webhook URL для проверки подписи, если он отличается от `WEBHOOK_BASE_URL` + `/webhook/paykilla`. |
 | `PAYKILLA_TRUSTED_IPS` | Необязательный список доверенных IP webhook-источников. |

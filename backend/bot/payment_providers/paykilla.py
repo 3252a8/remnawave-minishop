@@ -5,6 +5,7 @@ import logging
 import re
 import time
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
 
@@ -65,7 +66,9 @@ from .shared import (
 router = Router(name="user_subscription_payments_paykilla_router")
 _LOG = "paykilla"
 
-PAYKILLA_DEFAULT_PAYMENT_CURRENCIES = "USDTTRC,BTC,ETH"
+PAYKILLA_DEFAULT_PAYMENT_CURRENCIES = "USDTTRC"
+PAYKILLA_DEFAULT_INVOICE_CURRENCIES = "USD,EUR"
+PAYKILLA_DEFAULT_EXCHANGE_RATE_URL = "https://open.er-api.com/v6/latest/{source}"
 PAYKILLA_DEFAULT_SUPPORTED_CURRENCIES = (
     "RUB,USD,EUR,AED,GBP,BTC,ETH,TRX,TON,USDTTRC,USDTETH,USDTBSC,"
     "USDCETH,USDCBSC,DAIETH,DAIBSC,BNBBSC,ETHBSC,LINKETH,LINKBSC,"
@@ -178,7 +181,8 @@ class PaykillaConfig(ProviderEnvConfig):
         validation_alias=AliasChoices("PAYKILLA_BASE_URL", "PAYKILLA_V2_BASE_URL"),
     )
     WIDGET_URL: str = Field(default="https://gopay.paykilla.com")
-    CURRENCY: str = Field(default="RUB")
+    CURRENCY: str = Field(default="USD")
+    INVOICE_CURRENCIES: str = Field(default=PAYKILLA_DEFAULT_INVOICE_CURRENCIES)
     INVOICE_TYPE: Optional[str] = None
     PAYMENT_CURRENCIES: str = Field(default=PAYKILLA_DEFAULT_PAYMENT_CURRENCIES)
     SUPPORTED_CURRENCIES: str = Field(default=PAYKILLA_DEFAULT_SUPPORTED_CURRENCIES)
@@ -186,6 +190,8 @@ class PaykillaConfig(ProviderEnvConfig):
     RECV_WINDOW_MS: int = Field(default=5000)
     USER_PAYS_SERVICE_FEE: bool = Field(default=True)
     USER_PAYS_NETWORK_FEE: bool = Field(default=True)
+    EXCHANGE_RATE_URL: str = Field(default=PAYKILLA_DEFAULT_EXCHANGE_RATE_URL)
+    EXCHANGE_RATE_CACHE_SECONDS: int = Field(default=3600)
     VERIFY_WEBHOOK_SIGNATURE: bool = Field(default=True)
     WEBHOOK_URL: Optional[str] = None
     TRUSTED_IPS: str = Field(default="")
@@ -211,6 +217,17 @@ class PaykillaConfig(ProviderEnvConfig):
         except (TypeError, ValueError):
             return 5000
         return min(60_000, max(1000, value))
+
+    @field_validator("EXCHANGE_RATE_CACHE_SECONDS", mode="before")
+    @classmethod
+    def _clamp_exchange_rate_cache(cls, v):
+        if isinstance(v, str):
+            v = v.strip()
+        try:
+            value = int(v)
+        except (TypeError, ValueError):
+            return 3600
+        return min(86_400, max(60, value))
 
     @field_validator(
         "API_KEY",
@@ -298,6 +315,22 @@ def _payment_currencies(config: PaykillaConfig) -> List[str]:
     return currencies or ["USDTTRC"]
 
 
+def _invoice_currencies(config: PaykillaConfig) -> tuple[str, ...]:
+    currencies = parse_supported_currency_codes(config.INVOICE_CURRENCIES)
+    return currencies or parse_supported_currency_codes(PAYKILLA_DEFAULT_INVOICE_CURRENCIES)
+
+
+def _target_invoice_currency(config: PaykillaConfig, payment_currency: str) -> str:
+    payment_currency = normalize_payment_currency_code(payment_currency)
+    invoice_currencies = _invoice_currencies(config)
+    if payment_currency in invoice_currencies:
+        return payment_currency
+    fallback = normalize_payment_currency_code(config.CURRENCY, default="")
+    if fallback and fallback in invoice_currencies:
+        return fallback
+    return invoice_currencies[0] if invoice_currencies else payment_currency
+
+
 def _invoice_type_for(config: PaykillaConfig, currency: str) -> str:
     explicit = (config.INVOICE_TYPE or "").strip().upper()
     if explicit in {"FIAT_BASED", "FIXED_AMOUNT", "OPEN_AMOUNT"}:
@@ -346,6 +379,16 @@ def _debug_invoice_body(body: Dict[str, Any]) -> str:
     return json.dumps(body, ensure_ascii=True, sort_keys=True)
 
 
+def _decimal_from_api(value: Any) -> Optional[Decimal]:
+    try:
+        decimal_value = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    if not decimal_value.is_finite():
+        return None
+    return decimal_value
+
+
 class PaykillaService(HttpClientMixin):
     def __init__(
         self,
@@ -367,6 +410,8 @@ class PaykillaService(HttpClientMixin):
         self.subscription_service = subscription_service
         self.referral_service = referral_service
         self._default_return_url = default_return_url
+        self._exchange_rate_cache: Dict[tuple[str, str], tuple[float, Decimal]] = {}
+        self._currency_cache: tuple[float, List[Dict[str, Any]]] = (0, [])
 
         self._init_http_client(total_timeout=20)
         if not self.configured:
@@ -396,7 +441,7 @@ class PaykillaService(HttpClientMixin):
 
     @property
     def currency(self) -> str:
-        return normalize_payment_currency_code(self.config.CURRENCY or "RUB")
+        return normalize_payment_currency_code(self.config.CURRENCY or "USD")
 
     @property
     def verify_webhook_signature(self) -> bool:
@@ -408,11 +453,154 @@ class PaykillaService(HttpClientMixin):
         query, signature = _sign_query(timestamp_ms, recv_window_ms, self.secret_key)
         return f"{self.base_url}/api/v2/invoice?{query}&signature={signature}"
 
+    def _signed_currency_url(self) -> str:
+        timestamp_ms = int(time.time() * 1000)
+        recv_window_ms = int(self.config.RECV_WINDOW_MS)
+        query, signature = _sign_query(timestamp_ms, recv_window_ms, self.secret_key)
+        return f"{self.base_url}/api/v2/currency?{query}&signature={signature}"
+
+    def _exchange_rate_url(self, source_currency: str, target_currency: str) -> str:
+        template = self.config.EXCHANGE_RATE_URL or PAYKILLA_DEFAULT_EXCHANGE_RATE_URL
+        return template.format(source=source_currency, target=target_currency)
+
+    async def _exchange_rate(self, source_currency: str, target_currency: str) -> Decimal:
+        source_currency = normalize_payment_currency_code(source_currency)
+        target_currency = normalize_payment_currency_code(target_currency)
+        if source_currency == target_currency:
+            return Decimal("1")
+
+        cache_key = (source_currency, target_currency)
+        cache_seconds = int(self.config.EXCHANGE_RATE_CACHE_SECONDS)
+        now = time.time()
+        cache = getattr(self, "_exchange_rate_cache", None)
+        if cache is None:
+            cache = {}
+            self._exchange_rate_cache = cache
+        cached = cache.get(cache_key)
+        if cached and now - cached[0] < cache_seconds:
+            return cached[1]
+
+        session = await self._get_session()
+        url = self._exchange_rate_url(source_currency, target_currency)
+        async with session.get(url) as response:
+            response_text = await response.text()
+            try:
+                response_data = json.loads(response_text) if response_text else {}
+            except json.JSONDecodeError as exc:
+                raise ValueError("exchange_rate_invalid_json") from exc
+            if response.status != 200 or response_data.get("result") != "success":
+                logging.error(
+                    "Paykilla exchange rate request failed "
+                    "(status=%s, body=%s, source=%s, target=%s)",
+                    response.status,
+                    response_data,
+                    source_currency,
+                    target_currency,
+                )
+                raise ValueError("exchange_rate_unavailable")
+            rates = response_data.get("rates") if isinstance(response_data, dict) else None
+            target_rate = rates.get(target_currency) if isinstance(rates, dict) else None
+            rate = _decimal_from_api(target_rate)
+            if rate is None or rate <= 0:
+                raise ValueError("exchange_rate_missing")
+
+        cache[cache_key] = (now, rate)
+        return rate
+
+    async def _paykilla_currencies(self) -> List[Dict[str, Any]]:
+        cache_seconds = int(self.config.EXCHANGE_RATE_CACHE_SECONDS)
+        now = time.time()
+        cached_at, cached_data = getattr(self, "_currency_cache", (0, []))
+        if cached_data and now - cached_at < cache_seconds:
+            return cached_data
+
+        headers = {"X-API-KEY": self.api_key}
+        session = await self._get_session()
+        try:
+            async with session.get(self._signed_currency_url(), headers=headers) as response:
+                response_text = await response.text()
+                try:
+                    response_data = json.loads(response_text) if response_text else []
+                except json.JSONDecodeError:
+                    logging.warning(
+                        "Paykilla currency metadata request returned invalid JSON: %s",
+                        response_text,
+                    )
+                    return cached_data
+                if response.status != 200 or not isinstance(response_data, list):
+                    logging.warning(
+                        "Paykilla currency metadata request failed "
+                        "(status=%s, body=%s)",
+                        response.status,
+                        response_data,
+                    )
+                    return cached_data
+        except Exception:
+            logging.exception("Paykilla currency metadata request failed.")
+            return cached_data
+
+        self._currency_cache = (now, response_data)
+        return response_data
+
+    async def _currency_info_for(self, currency: str) -> Optional[Dict[str, Any]]:
+        currency = normalize_payment_currency_code(currency)
+        for item in await self._paykilla_currencies():
+            if not isinstance(item, dict):
+                continue
+            if normalize_payment_currency_code(item.get("ticker"), default="") == currency:
+                return item
+        return None
+
+    async def _invoice_amount_bounds_error(
+        self, *, amount: Decimal, currency: str
+    ) -> Optional[Dict[str, Any]]:
+        info = await self._currency_info_for(currency)
+        if not info:
+            return None
+        minimum = _decimal_from_api(info.get("invoiceMin"))
+        maximum = _decimal_from_api(info.get("invoiceMax"))
+        if minimum is not None and amount < minimum:
+            return {
+                "message": "invoice_amount_below_minimum",
+                "currency": currency,
+                "amount": str(amount),
+                "minimum": str(format_decimal_amount(minimum)),
+            }
+        if maximum is not None and amount > maximum:
+            return {
+                "message": "invoice_amount_above_maximum",
+                "currency": currency,
+                "amount": str(amount),
+                "maximum": str(format_decimal_amount(maximum)),
+            }
+        return None
+
+    async def _invoice_amount_and_currency(
+        self, *, amount: float, payment_currency: str
+    ) -> tuple[Decimal, str]:
+        payment_currency = normalize_payment_currency_code(payment_currency or self.currency)
+        invoice_currency = _target_invoice_currency(self.config, payment_currency)
+        invoice_amount = format_decimal_amount(amount)
+        if invoice_currency == payment_currency:
+            return invoice_amount, invoice_currency
+
+        rate = await self._exchange_rate(payment_currency, invoice_currency)
+        converted_amount = format_decimal_amount(invoice_amount * rate)
+        logging.info(
+            "Paykilla invoice currency conversion: payment=%s %s, invoice=%s %s, rate=%s",
+            invoice_amount,
+            payment_currency,
+            converted_amount,
+            invoice_currency,
+            rate,
+        )
+        return converted_amount, invoice_currency
+
     def _invoice_body(
         self,
         *,
         payment_db_id: int,
-        amount: float,
+        amount: Any,
         currency: Optional[str],
         description: str,
     ) -> Dict[str, Any]:
@@ -458,10 +646,39 @@ class PaykillaService(HttpClientMixin):
                 "supported_currencies": list(supported),
             }
 
+        try:
+            invoice_amount, invoice_currency = await self._invoice_amount_and_currency(
+                amount=amount,
+                payment_currency=currency_code,
+            )
+        except Exception as exc:
+            logging.exception(
+                "Paykilla create_payment_link: failed to resolve invoice currency "
+                "(amount=%s currency=%s target=%s).",
+                amount,
+                currency_code,
+                _target_invoice_currency(self.config, currency_code),
+            )
+            return False, {"message": str(exc) or "exchange_rate_unavailable"}
+
+        bounds_error = await self._invoice_amount_bounds_error(
+            amount=invoice_amount,
+            currency=invoice_currency,
+        )
+        if bounds_error:
+            logging.error(
+                "Paykilla create_payment_link: invoice amount violates PayKilla limits "
+                "(details=%s, payment_amount=%s, payment_currency=%s)",
+                bounds_error,
+                format_decimal_amount(amount),
+                currency_code,
+            )
+            return False, bounds_error
+
         body = self._invoice_body(
             payment_db_id=payment_db_id,
-            amount=amount,
-            currency=currency_code,
+            amount=invoice_amount,
+            currency=invoice_currency,
             description=description,
         )
         headers = {
@@ -613,7 +830,7 @@ class PaykillaService(HttpClientMixin):
         invoice_id = str(data.get("id") or "").strip()
         client_order_id = data.get("clientOrderId")
         amount_raw = data.get("amount") or data.get("expectedAmount")
-        currency = data.get("currency") or self.currency
+        invoice_currency = normalize_payment_currency_code(data.get("currency") or self.currency)
 
         if not (invoice_id or client_order_id):
             logging.error("Paykilla webhook: missing invoice ids: %s", payload)
@@ -639,7 +856,8 @@ class PaykillaService(HttpClientMixin):
             resolved_id = invoice_id or str(payment.payment_id)
 
             if event_type in _SUCCESS_EVENTS:
-                if amount_raw is not None:
+                payment_currency = normalize_payment_currency_code(payment.currency)
+                if amount_raw is not None and invoice_currency == payment_currency:
                     try:
                         if not decimal_amounts_equal(amount_raw, payment.amount):
                             logging.warning(
@@ -655,6 +873,14 @@ class PaykillaService(HttpClientMixin):
                             payment.payment_id,
                             exc,
                         )
+                elif amount_raw is not None:
+                    logging.info(
+                        "Paykilla webhook: invoice amount is in %s while payment record is in %s; "
+                        "skipping direct amount comparison for payment %s.",
+                        invoice_currency,
+                        payment_currency,
+                        payment.payment_id,
+                    )
 
                 try:
                     await payment_dal.update_provider_payment_and_status(
@@ -688,7 +914,7 @@ class PaykillaService(HttpClientMixin):
                         payment=payment,
                         user_id=payment.user_id,
                         amount=float(payment.amount),
-                        currency=str(currency),
+                        currency=str(payment.currency),
                         sale_mode=sale_mode,
                         months=payment_units,
                         traffic_amount=float(payment_units),
@@ -984,20 +1210,35 @@ _CONFIG_MANIFEST = (
     ProviderManifestField(
         "PAYKILLA_CURRENCY",
         "string",
-        "Invoice currency",
+        "Fallback invoice currency",
         description=(
-            "Fallback invoice currency when the payment flow does not provide one. "
-            "Usually matches the tariff/default currency, e.g. RUB."
+            "Currency used for PayKilla invoice creation when the tariff currency is not "
+            "accepted by PayKilla as an invoice currency. Default: USD."
         ),
-        placeholder="RUB",
+        placeholder="USD",
         subsection="PayKilla",
         attr="CURRENCY",
     ),
     ProviderManifestField(
+        "PAYKILLA_INVOICE_CURRENCIES",
+        "string",
+        "PayKilla invoice currencies",
+        description=(
+            "Comma-separated currencies accepted by PayKilla as invoice currency. "
+            "Payments in other tariff currencies are converted to PAYKILLA_CURRENCY."
+        ),
+        placeholder=PAYKILLA_DEFAULT_INVOICE_CURRENCIES,
+        subsection="PayKilla",
+        attr="INVOICE_CURRENCIES",
+    ),
+    ProviderManifestField(
         "PAYKILLA_SUPPORTED_CURRENCIES",
         "string",
-        "Supported invoice currencies",
-        description="Comma-separated invoice currencies allowed for PayKilla in this shop.",
+        "Supported tariff currencies",
+        description=(
+            "Comma-separated tariff/payment currencies that may use PayKilla. "
+            "Unsupported PayKilla invoice currencies are converted before invoice creation."
+        ),
         placeholder=PAYKILLA_DEFAULT_SUPPORTED_CURRENCIES,
         subsection="PayKilla",
         attr="SUPPORTED_CURRENCIES",
@@ -1007,7 +1248,8 @@ _CONFIG_MANIFEST = (
         "string",
         "Accepted crypto tickers",
         description=(
-            "Comma-separated PayKilla tickers sent as paymentCurrencies, e.g. USDTTRC,BTC,ETH."
+            "Comma-separated PayKilla tickers sent as paymentCurrencies, e.g. USDTTRC. "
+            "Add BTC/ETH only when enabled for the merchant account."
         ),
         placeholder=PAYKILLA_DEFAULT_PAYMENT_CURRENCIES,
         subsection="PayKilla",
@@ -1060,6 +1302,28 @@ _CONFIG_MANIFEST = (
         "User pays network fee",
         subsection="PayKilla",
         attr="USER_PAYS_NETWORK_FEE",
+    ),
+    ProviderManifestField(
+        "PAYKILLA_EXCHANGE_RATE_URL",
+        "url",
+        "Exchange rate URL",
+        description=(
+            "No-key exchange rate endpoint used when tariff currency must be converted. "
+            "Supports {source} and {target} placeholders."
+        ),
+        placeholder=PAYKILLA_DEFAULT_EXCHANGE_RATE_URL,
+        subsection="PayKilla",
+        attr="EXCHANGE_RATE_URL",
+    ),
+    ProviderManifestField(
+        "PAYKILLA_EXCHANGE_RATE_CACHE_SECONDS",
+        "int",
+        "Exchange rate cache (seconds)",
+        description="How long PayKilla currency conversion rates and PayKilla limits are cached.",
+        subsection="PayKilla",
+        min=60,
+        max=86_400,
+        attr="EXCHANGE_RATE_CACHE_SECONDS",
     ),
     ProviderManifestField(
         "PAYKILLA_VERIFY_WEBHOOK_SIGNATURE",
