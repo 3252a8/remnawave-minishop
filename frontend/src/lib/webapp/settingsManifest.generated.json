@@ -3975,7 +3975,7 @@
         "section_order": 4,
         "subsection": "PayKilla",
         "label": "Invoice currency",
-        "description": "Fiat or crypto invoice currency. FIAT_BASED is selected for RUB/USD/EUR/AED/GBP.",
+        "description": "PayKilla invoice currency. Amount is sent unchanged, so keep tariffs priced in this currency or use a PayKilla-enabled fiat such as USD.",
         "i18n_label_key": "admin_settings_field_paykilla_currency_label",
         "i18n_description_key": "admin_settings_field_paykilla_currency_description",
         "i18n_subsection_key": "admin_settings_subsection_paykilla",

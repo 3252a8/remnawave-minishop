@@ -260,6 +260,20 @@ class PaykillaServiceTests(unittest.TestCase):
         self.assertRegex(body["purpose"], r"^[A-Za-z0-9_\s.,]+$")
         self.assertNotIn("urls", body)
 
+    def test_invoice_body_uses_configured_paykilla_currency(self):
+        service = self._make_service()
+        service.config.CURRENCY = "USD"
+
+        body = service._invoice_body(
+            payment_db_id=556,
+            amount=100,
+            currency="RUB",
+            description="ignored",
+        )
+
+        self.assertEqual(body["currency"], "USD")
+        self.assertEqual(body["type"], "FIAT_BASED")
+
     def test_invoice_body_omits_redirect_urls(self):
         service = self._make_service()
 

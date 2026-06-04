@@ -376,7 +376,7 @@ Webhook настраивается в PayKilla Dashboard: **Settings -> Webhooks
 | `PAYKILLA_WIDGET_URL` | URL hosted checkout, по умолчанию `https://gopay.paykilla.com`. |
 | `PAYKILLA_API_KEY` / `PAYKILLA_V2_API_KEY` | Public HMAC key с правом `INVOICE`. |
 | `PAYKILLA_SECRET_KEY` / `PAYKILLA_V2_SECRET_KEY` | Secret HMAC key для подписи API-запросов и проверки webhook. |
-| `PAYKILLA_CURRENCY` | Валюта инвойса. Для RUB/USD/EUR/AED/GBP используется `FIAT_BASED`, для остальных - `FIXED_AMOUNT`. |
+| `PAYKILLA_CURRENCY` | Валюта инвойса PayKilla. Сумма отправляется без FX-конвертации, поэтому цены должны быть в этой валюте или валюта должна быть включена у PayKilla. Для RUB/USD/EUR/AED/GBP используется `FIAT_BASED`, для остальных - `FIXED_AMOUNT`. |
 | `PAYKILLA_PAYMENT_CURRENCIES` | Crypto tickers для оплаты, например `USDTTRC,BTC,ETH`. |
 | `PAYKILLA_SUPPORTED_CURRENCIES` | Валюты инвойса, разрешенные в этом магазине. |
 | `PAYKILLA_INVOICE_TYPE` | Необязательный override: `FIAT_BASED`, `FIXED_AMOUNT` или `OPEN_AMOUNT`. |
