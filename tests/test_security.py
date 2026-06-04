@@ -256,6 +256,31 @@ class PaykillaServiceTests(unittest.TestCase):
         self.assertEqual(body["purpose"], "Minishop payment 556")
         self.assertEqual(body["description"], body["purpose"])
         self.assertRegex(body["purpose"], r"^[A-Za-z0-9_\s.,]+$")
+        self.assertNotIn("urls", body)
+
+    def test_invoice_body_includes_only_explicit_redirect_urls(self):
+        service = self._make_service()
+        service.config.SUCCESS_URL = "https://shop.example/pay/success"
+        service.config.RETURN_URL = "https://shop.example/pay/return"
+
+        body = service._invoice_body(
+            payment_db_id=556,
+            amount=100,
+            currency="RUB",
+            description="ignored",
+        )
+
+        self.assertEqual(
+            body["urls"],
+            [
+                {
+                    "type": "SUCCESS",
+                    "url": "https://shop.example/pay/success",
+                    "autoRedirect": True,
+                },
+                {"type": "RETURN", "url": "https://shop.example/pay/return"},
+            ],
+        )
 
     def test_verify_webhook_signature_accepts_raw_body_signature(self):
         service = self._make_service()

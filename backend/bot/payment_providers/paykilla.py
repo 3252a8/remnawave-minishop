@@ -347,6 +347,10 @@ def _response_invoice_data(response_data: Dict[str, Any]) -> Dict[str, Any]:
     return response_data if isinstance(response_data, dict) else {}
 
 
+def _debug_invoice_body(body: Dict[str, Any]) -> str:
+    return json.dumps(body, ensure_ascii=True, sort_keys=True)
+
+
 class PaykillaService(HttpClientMixin):
     def __init__(
         self,
@@ -449,12 +453,12 @@ class PaykillaService(HttpClientMixin):
             body["expiredAt"] = expires_at.isoformat().replace("+00:00", "Z")
 
         urls: List[Dict[str, Any]] = []
-        if self.success_url:
-            urls.append({"type": "SUCCESS", "url": self.success_url, "autoRedirect": True})
-        if self.return_url:
-            urls.append({"type": "RETURN", "url": self.return_url})
-        if self.cancel_url:
-            urls.append({"type": "CANCEL", "url": self.cancel_url})
+        if self.config.SUCCESS_URL:
+            urls.append({"type": "SUCCESS", "url": self.config.SUCCESS_URL, "autoRedirect": True})
+        if self.config.RETURN_URL:
+            urls.append({"type": "RETURN", "url": self.config.RETURN_URL})
+        if self.config.CANCEL_URL:
+            urls.append({"type": "CANCEL", "url": self.config.CANCEL_URL})
         if urls:
             body["urls"] = urls
         return body
@@ -512,9 +516,11 @@ class PaykillaService(HttpClientMixin):
                 invoice_id = first_value(invoice, "id")
                 if response.status not in {200, 201} or not invoice_id:
                     logging.error(
-                        "Paykilla create_payment_link: API error (status=%s, body=%s)",
+                        "Paykilla create_payment_link: API error "
+                        "(status=%s, body=%s, request_body=%s)",
                         response.status,
                         response_data,
+                        _debug_invoice_body(body),
                     )
                     return False, {"status": response.status, "message": response_data}
                 invoice["payment_url"] = f"{self.widget_url}/{invoice_id}"

@@ -182,7 +182,7 @@ PayKilla строго валидирует текстовые поля invoice. 
 1. Включите `PAYKILLA_ENABLED`.
 2. Укажите `PAYKILLA_API_KEY` и `PAYKILLA_SECRET_KEY`.
 3. Проверьте `PAYKILLA_CURRENCY` и `PAYKILLA_PAYMENT_CURRENCIES`, например `USDTTRC,BTC,ETH`.
-4. При необходимости задайте `PAYKILLA_SUCCESS_URL`, `PAYKILLA_RETURN_URL` и `PAYKILLA_CANCEL_URL`.
+4. При необходимости задайте `PAYKILLA_SUCCESS_URL`, `PAYKILLA_RETURN_URL` и `PAYKILLA_CANCEL_URL`; по умолчанию Minishop не отправляет redirect URLs в PayKilla и полагается на webhook для активации платежа.
 5. Добавьте `paykilla` в `PAYMENT_METHODS_ORDER`, если хотите задать явный порядок кнопок.
 
 Справочник переменных: [PayKilla](../configuration/env-vars.md#paykilla).
