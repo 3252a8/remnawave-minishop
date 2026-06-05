@@ -33,6 +33,7 @@
     hideDevicesSummary &&
     !(devicesBusy && !devicesLoaded) &&
     (!devicesStatus || subscriptionNotActiveError);
+  $: effectiveMaxDevices = devicesData?.max_devices ?? subscription?.max_devices;
 </script>
 
 <main class="content with-nav">
@@ -42,7 +43,7 @@
         <Smartphone size={28} />
         <span>
           <strong>{t("wa_devices_title")}</strong>
-          <small>{devicesCountLabel(devicesData, t)}</small>
+          <small>{devicesCountLabel(devicesData, t, effectiveMaxDevices)}</small>
         </span>
         <Button
           variant="icon"
@@ -56,7 +57,7 @@
       </div>
       <LinearProgress
         class="devices-progress"
-        value={devicesPercent(devicesData)}
+        value={devicesPercent(devicesData, effectiveMaxDevices)}
         label={t("wa_devices_title")}
       />
       {#if Number(subscription?.extra_hwid_devices || 0) > 0 && subscription?.extra_hwid_devices_valid_until_text}
@@ -91,7 +92,11 @@
     <EmptyCard class="devices-empty-card">
       <Smartphone size={28} />
       <span>{t("wa_devices_empty")}</span>
-      <small>{t("wa_devices_empty_hint", { max: devicesLimitLabel(devicesData, t) })}</small>
+      <small>
+        {t("wa_devices_empty_hint", {
+          max: devicesLimitLabel(devicesData, t, effectiveMaxDevices),
+        })}
+      </small>
     </EmptyCard>
   {:else}
     <div class="devices-list">
