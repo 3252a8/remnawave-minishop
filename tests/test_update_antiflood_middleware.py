@@ -13,6 +13,9 @@ def _settings(**overrides):
         "TELEGRAM_ANTIFLOOD_ENABLED": True,
         "TELEGRAM_ANTIFLOOD_WINDOW_SECONDS": 60,
         "TELEGRAM_ANTIFLOOD_MAX_UPDATES_PER_WINDOW": 180,
+        "TELEGRAM_ACTION_COOLDOWN_ENABLED": True,
+        "TELEGRAM_PAYMENT_CALLBACK_COOLDOWN_SECONDS": 20,
+        "TELEGRAM_TRIAL_CALLBACK_COOLDOWN_SECONDS": 30,
     }
     base.update(overrides)
     return SimpleNamespace(**base)
@@ -151,6 +154,40 @@ class UpdateAntiFloodMiddlewareTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result, "ok")
         handler.assert_awaited_once()
+
+    async def test_duplicate_payment_callback_is_cooled_down_by_exact_payload(self):
+        middleware = UpdateAntiFloodMiddleware(
+            _settings(),
+            default_rule=RateLimitRule(window_seconds=60, max_events=100),
+        )
+        handler = AsyncMock(return_value="ok")
+        first = _callback_update(data="pay_fk:1:100:subscription")
+        duplicate = _callback_update(data="pay_fk:1:100:subscription")
+        different_payment = _callback_update(data="pay_fk:3:250:subscription")
+
+        with patch("bot.middlewares.update_antiflood.get_redis", AsyncMock(return_value=None)):
+            self.assertEqual(await middleware(handler, first, {}), "ok")
+            self.assertIsNone(await middleware(handler, duplicate, {}))
+            self.assertEqual(await middleware(handler, different_payment, {}), "ok")
+
+        self.assertEqual(handler.await_count, 2)
+        duplicate.callback_query.answer.assert_awaited_once()
+
+    async def test_duplicate_trial_callback_is_cooled_down(self):
+        middleware = UpdateAntiFloodMiddleware(
+            _settings(),
+            default_rule=RateLimitRule(window_seconds=60, max_events=100),
+        )
+        handler = AsyncMock(return_value="ok")
+        first = _callback_update(data="main_action:request_trial")
+        duplicate = _callback_update(data="main_action:request_trial")
+
+        with patch("bot.middlewares.update_antiflood.get_redis", AsyncMock(return_value=None)):
+            self.assertEqual(await middleware(handler, first, {}), "ok")
+            self.assertIsNone(await middleware(handler, duplicate, {}))
+
+        handler.assert_awaited_once()
+        duplicate.callback_query.answer.assert_awaited_once()
 
 
 if __name__ == "__main__":

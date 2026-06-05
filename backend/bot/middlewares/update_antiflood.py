@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 import time
 from collections import defaultdict, deque
@@ -20,6 +21,8 @@ DEFAULT_CALLBACK_MAX_PER_WINDOW = 240
 DEFAULT_INLINE_MAX_PER_WINDOW = 60
 DEFAULT_START_MAX_PER_WINDOW = 30
 DEFAULT_EXPENSIVE_CALLBACK_MAX_PER_WINDOW = 60
+DEFAULT_PAYMENT_CALLBACK_COOLDOWN_SECONDS = 20
+DEFAULT_TRIAL_CALLBACK_COOLDOWN_SECONDS = 30
 
 EXPENSIVE_CALLBACK_PREFIXES = (
     "pay_",
@@ -32,6 +35,11 @@ EXPENSIVE_CALLBACK_PREFIXES = (
     "tariff_change:pay:",
     "autorenew:confirm:",
     "disconnect_device:",
+)
+
+TRIAL_CALLBACK_PREFIXES = (
+    "trial_action:confirm_activate",
+    "main_action:request_trial",
 )
 
 
@@ -69,6 +77,7 @@ class UpdateAntiFloodMiddleware(BaseMiddleware):
         )
         self.action_rules = action_rules or _default_action_rules(settings)
         self._local_buckets: Dict[str, Deque[float]] = defaultdict(deque)
+        self._local_cooldowns: Dict[str, float] = {}
         self._local_lock = asyncio.Lock()
 
     async def __call__(
@@ -96,6 +105,17 @@ class UpdateAntiFloodMiddleware(BaseMiddleware):
             return await handler(event, data)
 
         action_key = _update_action_key(event)
+        cooldown = _update_action_cooldown(event, self.settings)
+        if cooldown and await self._is_cooldown_active(cooldown[0], cooldown[1]):
+            logger.info(
+                "Telegram callback dropped by action cooldown: actor=%s cooldown=%s",
+                actor_key,
+                cooldown[0],
+            )
+            data["antiflood_dropped"] = True
+            await _quietly_answer_callback(event)
+            return None
+
         if await self._is_limited("updates", actor_key, self.default_rule) or (
             action_key
             and action_key in self.action_rules
@@ -133,6 +153,42 @@ class UpdateAntiFloodMiddleware(BaseMiddleware):
             logger.warning("Redis telegram anti-flood unavailable; using local fallback: %s", exc)
 
         return await self._is_limited_local(f"{bucket_name}:{actor_key}", rule)
+
+    async def _is_cooldown_active(self, cooldown_key: str, ttl_seconds: int) -> bool:
+        if ttl_seconds <= 0:
+            return False
+
+        try:
+            redis = await get_redis(self.settings)
+            if redis is not None:
+                key = redis_key(
+                    self.settings,
+                    "cooldown",
+                    "telegram",
+                    cooldown_key,
+                )
+                acquired = await redis.set(key, "1", nx=True, ex=ttl_seconds)
+                return not bool(acquired)
+        except Exception as exc:
+            logger.warning("Redis telegram cooldown unavailable; using local fallback: %s", exc)
+
+        return await self._is_cooldown_active_local(cooldown_key, ttl_seconds)
+
+    async def _is_cooldown_active_local(self, cooldown_key: str, ttl_seconds: int) -> bool:
+        now = time.monotonic()
+        async with self._local_lock:
+            expired = [
+                key for key, expires_at in self._local_cooldowns.items() if expires_at <= now
+            ]
+            for key in expired:
+                self._local_cooldowns.pop(key, None)
+
+            expires_at = self._local_cooldowns.get(cooldown_key)
+            if expires_at and expires_at > now:
+                return True
+
+            self._local_cooldowns[cooldown_key] = now + ttl_seconds
+        return False
 
     async def _is_limited_local(self, actor_key: str, rule: RateLimitRule) -> bool:
         now = time.monotonic()
@@ -196,6 +252,54 @@ def _update_action_key(update: Update) -> str:
     if update.inline_query:
         return "inline"
     return "updates"
+
+
+def _update_action_cooldown(update: Update, settings: Settings) -> Optional[tuple[str, int]]:
+    if not bool(getattr(settings, "TELEGRAM_ACTION_COOLDOWN_ENABLED", True)):
+        return None
+    if not update.callback_query or not update.callback_query.from_user:
+        return None
+
+    callback_data = update.callback_query.data or ""
+    if not callback_data:
+        return None
+
+    user_id = int(update.callback_query.from_user.id)
+    data_digest = hashlib.sha256(callback_data.encode("utf-8")).hexdigest()[:24]
+
+    if callback_data.startswith("pay_"):
+        ttl = int(
+            getattr(
+                settings,
+                "TELEGRAM_PAYMENT_CALLBACK_COOLDOWN_SECONDS",
+                DEFAULT_PAYMENT_CALLBACK_COOLDOWN_SECONDS,
+            )
+            or DEFAULT_PAYMENT_CALLBACK_COOLDOWN_SECONDS
+        )
+        return f"payment:user:{user_id}:data:{data_digest}", ttl
+
+    if callback_data.startswith(TRIAL_CALLBACK_PREFIXES):
+        ttl = int(
+            getattr(
+                settings,
+                "TELEGRAM_TRIAL_CALLBACK_COOLDOWN_SECONDS",
+                DEFAULT_TRIAL_CALLBACK_COOLDOWN_SECONDS,
+            )
+            or DEFAULT_TRIAL_CALLBACK_COOLDOWN_SECONDS
+        )
+        return f"trial:user:{user_id}:data:{data_digest}", ttl
+
+    return None
+
+
+async def _quietly_answer_callback(update: Update) -> None:
+    callback = update.callback_query
+    if not callback:
+        return
+    try:
+        await callback.answer()
+    except Exception:
+        pass
 
 
 def _default_action_rules(settings: Settings) -> Dict[str, RateLimitRule]:
