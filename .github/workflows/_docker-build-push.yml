@@ -2,7 +2,7 @@ name: Docker build & push (reusable)
 
 # Reusable workflow that builds the three image targets defined in
 # deploy/docker/Dockerfile (backend, worker, frontend) and optionally pushes
-# them to both ghcr.io and Docker Hub under the 3252a8/ namespace.
+# them to both ghcr.io and Docker Hub under the repository owner's namespace.
 #
 # Called by:
 #   - docker-dev.yml      (tag_mode: dev,     push: true)  on pushes to dev
@@ -84,13 +84,19 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Resolve image namespace
+        id: image_namespace
+        run: |
+          owner="${{ github.repository_owner }}"
+          echo "owner=${owner,,}" >> "$GITHUB_OUTPUT"
+
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: |
-            3252a8/${{ matrix.image }}
-            ghcr.io/3252a8/${{ matrix.image }}
+            ${{ steps.image_namespace.outputs.owner }}/${{ matrix.image }}
+            ghcr.io/${{ steps.image_namespace.outputs.owner }}/${{ matrix.image }}
           tags: |
             type=raw,value=dev,enable=${{ inputs.tag_mode == 'dev' }}
             type=raw,value=latest,enable=${{ inputs.tag_mode == 'release' }}
