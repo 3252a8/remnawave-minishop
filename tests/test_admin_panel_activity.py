@@ -72,7 +72,7 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
     def test_panel_activity_detects_connected_and_never_connected_users(self):
         self.assertEqual(
             common_module._panel_user_connection_activity(
-                {"onlineAt": "2026-06-05T12:00:00Z"}
+                {"userTraffic": {"onlineAt": "2026-06-05T12:00:00Z"}}
             ),
             {
                 "status": "connected",
@@ -82,10 +82,12 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             common_module._panel_user_connection_activity(
                 {
-                    "onlineAt": None,
-                    "firstConnectedAt": None,
-                    "lastConnectedNode": None,
-                    "userTraffic": {"lifetimeUsedTrafficBytes": 0},
+                    "userTraffic": {
+                        "onlineAt": None,
+                        "firstConnectedAt": None,
+                        "lastConnectedNodeUuid": None,
+                        "lifetimeUsedTrafficBytes": 0,
+                    },
                 }
             ),
             {"status": "never", "last_connected_at": None},
@@ -115,15 +117,19 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
         async def get_user_by_uuid(panel_uuid):
             return {
                 "never-panel": {
-                    "onlineAt": None,
-                    "firstConnectedAt": None,
-                    "lastConnectedNode": None,
+                    "userTraffic": {
+                        "onlineAt": None,
+                        "firstConnectedAt": None,
+                        "lastConnectedNodeUuid": None,
+                    },
                 },
-                "connected-panel": {"onlineAt": "2026-06-05T12:00:00Z"},
+                "connected-panel": {"userTraffic": {"onlineAt": "2026-06-05T12:00:00Z"}},
                 "also-never-panel": {
-                    "onlineAt": None,
-                    "firstConnectedAt": None,
-                    "lastConnectedNode": None,
+                    "userTraffic": {
+                        "onlineAt": None,
+                        "firstConnectedAt": None,
+                        "lastConnectedNodeUuid": None,
+                    },
                 },
                 "also-connected-panel": {
                     "userTraffic": {"lifetimeUsedTrafficBytes": 1},
@@ -172,7 +178,7 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
             get_user_by_uuid=AsyncMock(
                 return_value={
                     "subscriptionUrl": "https://panel.example/sub/short",
-                    "onlineAt": "2026-06-05T12:00:00Z",
+                    "userTraffic": {"onlineAt": "2026-06-05T12:00:00Z"},
                 }
             )
         )

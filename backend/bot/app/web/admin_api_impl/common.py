@@ -110,15 +110,24 @@ def _panel_nested_dicts(panel_user: Dict[str, Any], keys: Tuple[str, ...]) -> Li
     return out
 
 
+def _panel_user_connection_containers(panel_user: Dict[str, Any]) -> List[Dict[str, Any]]:
+    traffic_containers = _panel_nested_dicts(panel_user, _PANEL_TRAFFIC_OBJECT_KEYS)
+    marker_containers = _panel_nested_dicts(
+        panel_user,
+        _PANEL_CONNECTION_MARKER_OBJECT_KEYS,
+    )
+    for traffic_container in traffic_containers:
+        marker_containers.extend(
+            _panel_nested_dicts(traffic_container, _PANEL_CONNECTION_MARKER_OBJECT_KEYS)
+        )
+    return [panel_user, *traffic_containers, *marker_containers]
+
+
 def _panel_user_last_connected_at(panel_user_data: Any) -> Optional[str]:
     panel_user = _panel_user_payload(panel_user_data)
     if not panel_user:
         return None
-    containers = [
-        panel_user,
-        *_panel_nested_dicts(panel_user, _PANEL_CONNECTION_MARKER_OBJECT_KEYS),
-    ]
-    for container in containers:
+    for container in _panel_user_connection_containers(panel_user):
         for key in _PANEL_LAST_CONNECTED_KEYS:
             connected_at = _coerce_panel_datetime(container.get(key))
             if connected_at:
@@ -137,33 +146,34 @@ def _panel_user_positive_traffic_bytes(panel_user: Dict[str, Any]) -> bool:
 
 
 def _panel_user_has_connection_marker(panel_user: Dict[str, Any]) -> bool:
-    for key in _PANEL_CONNECTION_MARKER_KEYS:
-        if key in panel_user:
-            return True
-    for key in _PANEL_CONNECTION_MARKER_OBJECT_KEYS:
-        if key in panel_user:
-            return True
+    for container in _panel_user_connection_containers(panel_user):
+        for key in _PANEL_CONNECTION_MARKER_KEYS:
+            if key in container:
+                return True
+    for container in [panel_user, *_panel_nested_dicts(panel_user, _PANEL_TRAFFIC_OBJECT_KEYS)]:
+        for key in _PANEL_CONNECTION_MARKER_OBJECT_KEYS:
+            if key in container:
+                return True
     return False
 
 
 def _panel_user_has_connected_marker_value(panel_user: Dict[str, Any]) -> bool:
-    containers = [
-        panel_user,
-        *_panel_nested_dicts(panel_user, _PANEL_CONNECTION_MARKER_OBJECT_KEYS),
-    ]
-    for container in containers:
+    for container in _panel_user_connection_containers(panel_user):
         for key in (*_PANEL_LAST_CONNECTED_KEYS, "firstConnectedAt", "first_connected_at"):
             if _coerce_panel_datetime(container.get(key)):
                 return True
         for key in ("lastConnectedNodeUuid", "last_connected_node_uuid"):
             if str(container.get(key) or "").strip():
                 return True
-    for key in _PANEL_CONNECTION_MARKER_OBJECT_KEYS:
-        marker = panel_user.get(key)
-        if isinstance(marker, dict) and any(str(value or "").strip() for value in marker.values()):
-            return True
-        if marker and not isinstance(marker, dict):
-            return True
+    for container in [panel_user, *_panel_nested_dicts(panel_user, _PANEL_TRAFFIC_OBJECT_KEYS)]:
+        for key in _PANEL_CONNECTION_MARKER_OBJECT_KEYS:
+            marker = container.get(key)
+            if isinstance(marker, dict) and any(
+                str(value or "").strip() for value in marker.values()
+            ):
+                return True
+            if marker and not isinstance(marker, dict):
+                return True
     return False
 
 
