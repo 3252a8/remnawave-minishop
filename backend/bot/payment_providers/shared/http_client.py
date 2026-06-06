@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Any, Callable, Dict, Mapping, Optional, Tuple
 
-from aiohttp import ClientSession, ClientTimeout
+from aiohttp import ClientSession, ClientTimeout, TCPConnector
 
 SuccessCheck = Callable[[int, Any], bool]
 
@@ -76,18 +76,25 @@ class HttpClientMixin:
     Each subclass calls ``self._init_http_client(total_timeout=...)`` from
     ``__init__`` and inherits ``_get_session`` / ``close``. The session is
     created on first use and recreated transparently if it was closed.
+
+    Payment provider calls are infrequent but user-facing, so the default
+    connector does not reuse TCP connections. This avoids intermittent hangs
+    on stale keep-alive sockets after long idle periods.
     """
 
     _timeout: ClientTimeout
     _session: Optional[ClientSession]
+    _connector_force_close: bool
 
     def _init_http_client(self, *, total_timeout: float = 20.0) -> None:
         self._timeout = ClientTimeout(total=total_timeout)
         self._session = None
+        self._connector_force_close = True
 
     async def _get_session(self) -> ClientSession:
         if self._session is None or self._session.closed:
-            self._session = ClientSession(timeout=self._timeout)
+            connector = TCPConnector(force_close=self._connector_force_close)
+            self._session = ClientSession(timeout=self._timeout, connector=connector)
         return self._session
 
     async def close(self) -> None:
