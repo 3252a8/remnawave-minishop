@@ -223,6 +223,8 @@
   }
   let sidebarOpen = false;
   let isCompact = false;
+  let dismissedUserRouteKey = "";
+  let lastUserRouteKey = "";
   let adminLanguageMenuOpen = false;
   let adminLanguageClickGuard = false;
   let adminLanguageClickGuardArmed = false;
@@ -379,6 +381,7 @@
     const uid = Number(userId);
     // Synthetic email-only users use negative user_id; still a valid admin target.
     if (!Number.isFinite(uid) || uid === 0) return;
+    dismissedUserRouteKey = "";
     const next = normalizeSection("payments");
     sidebarOpen = false;
     if (active !== next) {
@@ -395,6 +398,7 @@
   function openLogsUserCard(userId) {
     const uid = Number(userId);
     if (!Number.isFinite(uid) || uid === 0) return;
+    dismissedUserRouteKey = "";
     const next = normalizeSection("logs");
     sidebarOpen = false;
     if (active !== next) {
@@ -410,19 +414,20 @@
   function openUserCard(userId) {
     const uid = Number(userId);
     if (!Number.isFinite(uid) || uid === 0) return;
-    const next = normalizeSection("users");
+    dismissedUserRouteKey = "";
     sidebarOpen = false;
-    usersStore.setActive(next);
-    if (active !== next) {
-      active = next;
-      paymentsStore.closePayment({ skipPush: true });
-      supportStore.closeTicketView({ skipPush: true });
-      onSectionChange(next, uid);
-    }
-    usersStore.openUser(uid);
+    usersStore.setActive(active);
+    usersStore.openUser(uid, { skipPush: true, pathContext: active });
+  }
+
+  function userRouteKey(section = active) {
+    if (section === "users" && initialUserId) return `users:${initialUserId}`;
+    if (section === "payments" && initialPaymentUserId) return `payments:${initialPaymentUserId}`;
+    return "";
   }
 
   function closeUserCard() {
+    dismissedUserRouteKey = userRouteKey();
     usersStore.closeUser({ skipPush: true });
     if (active === "users" || active === "payments") {
       onSectionChange(active, 0);
@@ -540,9 +545,18 @@
   $: sectionFade = reduceMotion ? { duration: 0 } : { duration: 200 };
   $: sidebarBackdropFade = reduceMotion ? { duration: 0 } : { duration: 180 };
 
+  $: {
+    const currentUserRouteKey = userRouteKey();
+    if (currentUserRouteKey !== lastUserRouteKey) {
+      if (currentUserRouteKey !== dismissedUserRouteKey) dismissedUserRouteKey = "";
+      lastUserRouteKey = currentUserRouteKey;
+    }
+  }
+
   $: if (
     active === "users" &&
     initialUserId &&
+    dismissedUserRouteKey !== `users:${initialUserId}` &&
     (!$usersStore.openedUser || $usersStore.openedUser.user_id !== initialUserId)
   ) {
     usersStore.openUser(initialUserId, { skipPush: true });
@@ -559,6 +573,7 @@
   $: if (
     active === "payments" &&
     initialPaymentUserId &&
+    dismissedUserRouteKey !== `payments:${initialPaymentUserId}` &&
     (!$usersStore.openedUser || $usersStore.openedUser.user_id !== initialPaymentUserId)
   ) {
     usersStore.openUser(initialPaymentUserId, { skipPush: true, pathContext: "payments" });

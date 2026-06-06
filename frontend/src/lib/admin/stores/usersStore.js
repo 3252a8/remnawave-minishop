@@ -54,6 +54,58 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
 
   let _activeRef = "stats"; // fallback if active isn't tracked
   let _pathContext = null;
+  let _openUserRequestId = 0;
+
+  function _closedUserModalState() {
+    return {
+      openedUser: null,
+      openedUserDetail: null,
+      userDetailLoading: false,
+      userMessageDraft: "",
+      userExtendDays: 30,
+      userExtendHwidDevices: true,
+      userDeleteOpen: false,
+      userBanConfirmOpen: false,
+      userMessageConfirmOpen: false,
+      userReferralsOpen: false,
+      userReferralsLoading: false,
+      userReferrals: [],
+      userReferralsTotal: 0,
+      userReferralsPage: 0,
+      userReferralsInviter: null,
+      userDetailTab: "profile",
+      premiumUnlimitedDraft: false,
+      premiumBonusGbDraft: "",
+      regularUnlimitedDraft: false,
+      regularBonusGbDraft: "",
+      hwidUnlimitedDraft: false,
+      hwidDeviceLimitDraft: "",
+      grantTrafficGbDraft: "",
+      grantTrafficKindDraft: "regular",
+      userLogs: [],
+      userLogsTotal: 0,
+      userLogsPage: 0,
+      userLogsLoading: false,
+      userLogsLoaded: false,
+      userLogsUserId: null,
+    };
+  }
+
+  function _openingUserModalState(user, userId) {
+    return {
+      ..._closedUserModalState(),
+      openedUser: user,
+      userDetailLoading: true,
+      userDetailTab: "subscription",
+      userLogsUserId: userId,
+    };
+  }
+
+  function _isCurrentUserRequest(s, requestId, userId) {
+    return (
+      requestId === _openUserRequestId && Boolean(s.openedUser) && s.openedUser.user_id === userId
+    );
+  }
 
   function setActive(active) {
     _activeRef = active;
@@ -124,31 +176,15 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     const userId =
       typeof userOrId === "object" && userOrId !== null ? userOrId.user_id : Number(userOrId);
     if (!userId) return;
+    const requestId = ++_openUserRequestId;
     _setPathContext(opts.pathContext);
+    const openedUser =
+      typeof userOrId === "object" && userOrId !== null ? userOrId : { user_id: userId };
 
     state.update((s) => ({
       ...s,
-      openedUser:
-        typeof userOrId === "object" && userOrId !== null ? userOrId : { user_id: userId },
-      openedUserDetail: null,
-      userMessageDraft: "",
-      userMessageConfirmOpen: false,
-      userExtendDays: 30,
-      userExtendHwidDevices: true,
-      userDetailLoading: true,
-      userDetailTab: "subscription",
-      userReferralsOpen: false,
-      userReferralsLoading: false,
-      userReferrals: [],
-      userReferralsTotal: 0,
-      userReferralsPage: 0,
-      userReferralsInviter: null,
-      userLogs: [],
-      userLogsTotal: 0,
-      userLogsPage: 0,
-      userLogsLoading: false,
-      userLogsLoaded: false,
-      userLogsUserId: userId,
+      ..._openingUserModalState(openedUser, userId),
+      userActionBusy: s.userActionBusy,
     }));
 
     if (!opts.skipPush) _pushUserPath(userId);
@@ -161,54 +197,52 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
         const hasHwidLimit =
           sub?.hwid_device_limit !== null && sub?.hwid_device_limit !== undefined;
         const hwidLimit = hasHwidLimit ? Number(sub?.hwid_device_limit) : null;
-        state.update((s) => ({
-          ...s,
-          openedUserDetail: res,
-          openedUser: res.user ? { ...res.user, ...s.openedUser, ...res.user } : s.openedUser,
-          premiumUnlimitedDraft: Boolean(sub?.premium_unlimited_override),
-          premiumBonusGbDraft: bonusBytes > 0 ? +(bonusBytes / 1024 ** 3).toFixed(2) : "",
-          regularUnlimitedDraft: Boolean(sub?.regular_unlimited_override),
-          regularBonusGbDraft:
-            regularBonusBytes > 0 ? +(regularBonusBytes / 1024 ** 3).toFixed(2) : "",
-          hwidUnlimitedDraft: hasHwidLimit && hwidLimit === 0,
-          hwidDeviceLimitDraft: hasHwidLimit && hwidLimit > 0 ? String(hwidLimit) : "",
-          grantTrafficGbDraft: "",
-          grantTrafficKindDraft: "regular",
-        }));
+        state.update((s) => {
+          if (!_isCurrentUserRequest(s, requestId, userId)) return s;
+          return {
+            ...s,
+            openedUserDetail: res,
+            openedUser: res.user ? { ...res.user, ...s.openedUser, ...res.user } : s.openedUser,
+            premiumUnlimitedDraft: Boolean(sub?.premium_unlimited_override),
+            premiumBonusGbDraft: bonusBytes > 0 ? +(bonusBytes / 1024 ** 3).toFixed(2) : "",
+            regularUnlimitedDraft: Boolean(sub?.regular_unlimited_override),
+            regularBonusGbDraft:
+              regularBonusBytes > 0 ? +(regularBonusBytes / 1024 ** 3).toFixed(2) : "",
+            hwidUnlimitedDraft: hasHwidLimit && hwidLimit === 0,
+            hwidDeviceLimitDraft: hasHwidLimit && hwidLimit > 0 ? String(hwidLimit) : "",
+            grantTrafficGbDraft: "",
+            grantTrafficKindDraft: "regular",
+          };
+        });
       } else {
-        onToast(res?.error || "load_failed");
-        state.update((s) => ({ ...s, openedUser: null }));
-        if (!opts.skipPush) _pushUserPath(null);
-        _pathContext = null;
+        let shouldClearPath = false;
+        let shouldShowError = false;
+        state.update((s) => {
+          if (!_isCurrentUserRequest(s, requestId, userId)) return s;
+          shouldShowError = true;
+          shouldClearPath = true;
+          _pathContext = null;
+          return { ...s, ..._closedUserModalState() };
+        });
+        if (shouldShowError) onToast(res?.error || "load_failed");
+        if (shouldClearPath && !opts.skipPush) _pushUserPath(null);
       }
     } finally {
-      state.update((s) => ({ ...s, userDetailLoading: false }));
+      state.update((s) => {
+        if (!_isCurrentUserRequest(s, requestId, userId)) return s;
+        return { ...s, userDetailLoading: false };
+      });
     }
   }
 
   function closeUser(opts = {}) {
     let wasOpen = false;
+    _openUserRequestId += 1;
     state.update((s) => {
       wasOpen = Boolean(s.openedUser);
       return {
         ...s,
-        openedUser: null,
-        openedUserDetail: null,
-        userDeleteOpen: false,
-        userBanConfirmOpen: false,
-        userMessageConfirmOpen: false,
-        userReferralsOpen: false,
-        userReferralsLoading: false,
-        userReferrals: [],
-        userReferralsTotal: 0,
-        userReferralsPage: 0,
-        userReferralsInviter: null,
-        userLogs: [],
-        userLogsTotal: 0,
-        userLogsPage: 0,
-        userLogsLoading: false,
-        userLogsLoaded: false,
-        userLogsUserId: null,
+        ..._closedUserModalState(),
       };
     });
     if (wasOpen && !opts.skipPush) _pushUserPath(null);
