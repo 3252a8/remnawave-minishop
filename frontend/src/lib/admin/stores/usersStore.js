@@ -16,45 +16,68 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     usersSort: "",
     usersLoading: false,
 
-    openedUser: null,
-    openedUserDetail: null,
-    userDetailLoading: false,
-    userMessageDraft: "",
-    userExtendDays: 30,
-    userExtendHwidDevices: true,
-    userActionBusy: false,
-    userDeleteOpen: false,
-    userBanConfirmOpen: false,
-    userMessageConfirmOpen: false,
-    userReferralsOpen: false,
-    userReferralsLoading: false,
-    userReferrals: [],
-    userReferralsTotal: 0,
-    userReferralsPage: 0,
+    ..._closedUserModalState(),
     userReferralsPageSize: USERS_PAGE_SIZE,
-    userReferralsInviter: null,
-    userDetailTab: "profile",
-    premiumUnlimitedDraft: false,
-    premiumBonusGbDraft: "",
-    regularUnlimitedDraft: false,
-    regularBonusGbDraft: "",
-    hwidUnlimitedDraft: false,
-    hwidDeviceLimitDraft: "",
-    grantTrafficGbDraft: "",
-    grantTrafficKindDraft: "regular",
-
-    userLogs: [],
-    userLogsTotal: 0,
-    userLogsPage: 0,
-    userLogsLoading: false,
-    userLogsLoaded: false,
-    userLogsUserId: null,
     userLogsPageSize: USER_LOGS_PAGE_SIZE,
   });
 
   let _activeRef = "stats"; // fallback if active isn't tracked
   let _pathContext = null;
   let _openUserRequestId = 0;
+
+  function _closedUserModalState() {
+    return {
+      openedUser: null,
+      openedUserDetail: null,
+      userDetailLoading: false,
+      userMessageDraft: "",
+      userExtendDays: 30,
+      userExtendHwidDevices: true,
+      userActionBusy: false,
+      userDeleteOpen: false,
+      userBanConfirmOpen: false,
+      userMessageConfirmOpen: false,
+      userReferralsOpen: false,
+      userReferralsLoading: false,
+      userReferrals: [],
+      userReferralsTotal: 0,
+      userReferralsPage: 0,
+      userReferralsInviter: null,
+      userDetailTab: "profile",
+      premiumUnlimitedDraft: false,
+      premiumBonusGbDraft: "",
+      regularUnlimitedDraft: false,
+      regularBonusGbDraft: "",
+      hwidUnlimitedDraft: false,
+      hwidDeviceLimitDraft: "",
+      grantTrafficGbDraft: "",
+      grantTrafficKindDraft: "regular",
+      userLogs: [],
+      userLogsTotal: 0,
+      userLogsPage: 0,
+      userLogsLoading: false,
+      userLogsLoaded: false,
+      userLogsUserId: null,
+    };
+  }
+
+  function _openingUserModalState(user, userId) {
+    return {
+      ..._closedUserModalState(),
+      openedUser: user,
+      userDetailLoading: true,
+      userDetailTab: "subscription",
+      userLogsUserId: userId,
+    };
+  }
+
+  function _isCurrentUserRequest(s, requestId, userId) {
+    return (
+      requestId === _openUserRequestId &&
+      Boolean(s.openedUser) &&
+      s.openedUser.user_id === userId
+    );
+  }
 
   function setActive(active) {
     _activeRef = active;
@@ -127,30 +150,13 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     if (!userId) return;
     const requestId = ++_openUserRequestId;
     _setPathContext(opts.pathContext);
+    const openedUser =
+      typeof userOrId === "object" && userOrId !== null ? userOrId : { user_id: userId };
 
     state.update((s) => ({
       ...s,
-      openedUser:
-        typeof userOrId === "object" && userOrId !== null ? userOrId : { user_id: userId },
-      openedUserDetail: null,
-      userMessageDraft: "",
-      userMessageConfirmOpen: false,
-      userExtendDays: 30,
-      userExtendHwidDevices: true,
-      userDetailLoading: true,
-      userDetailTab: "subscription",
-      userReferralsOpen: false,
-      userReferralsLoading: false,
-      userReferrals: [],
-      userReferralsTotal: 0,
-      userReferralsPage: 0,
-      userReferralsInviter: null,
-      userLogs: [],
-      userLogsTotal: 0,
-      userLogsPage: 0,
-      userLogsLoading: false,
-      userLogsLoaded: false,
-      userLogsUserId: userId,
+      ..._openingUserModalState(openedUser, userId),
+      userActionBusy: s.userActionBusy,
     }));
 
     if (!opts.skipPush) _pushUserPath(userId);
@@ -164,13 +170,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
           sub?.hwid_device_limit !== null && sub?.hwid_device_limit !== undefined;
         const hwidLimit = hasHwidLimit ? Number(sub?.hwid_device_limit) : null;
         state.update((s) => {
-          if (
-            requestId !== _openUserRequestId ||
-            !s.openedUser ||
-            s.openedUser.user_id !== userId
-          ) {
-            return s;
-          }
+          if (!_isCurrentUserRequest(s, requestId, userId)) return s;
           return {
             ...s,
             openedUserDetail: res,
@@ -190,30 +190,18 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
         let shouldClearPath = false;
         let shouldShowError = false;
         state.update((s) => {
-          if (
-            requestId !== _openUserRequestId ||
-            !s.openedUser ||
-            s.openedUser.user_id !== userId
-          ) {
-            return s;
-          }
+          if (!_isCurrentUserRequest(s, requestId, userId)) return s;
           shouldShowError = true;
           shouldClearPath = true;
           _pathContext = null;
-          return { ...s, openedUser: null };
+          return { ...s, ..._closedUserModalState() };
         });
         if (shouldShowError) onToast(res?.error || "load_failed");
         if (shouldClearPath && !opts.skipPush) _pushUserPath(null);
       }
     } finally {
       state.update((s) => {
-        if (
-          requestId !== _openUserRequestId ||
-          !s.openedUser ||
-          s.openedUser.user_id !== userId
-        ) {
-          return s;
-        }
+        if (!_isCurrentUserRequest(s, requestId, userId)) return s;
         return { ...s, userDetailLoading: false };
       });
     }
@@ -226,24 +214,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
       wasOpen = Boolean(s.openedUser);
       return {
         ...s,
-        openedUser: null,
-        openedUserDetail: null,
-        userDetailLoading: false,
-        userDeleteOpen: false,
-        userBanConfirmOpen: false,
-        userMessageConfirmOpen: false,
-        userReferralsOpen: false,
-        userReferralsLoading: false,
-        userReferrals: [],
-        userReferralsTotal: 0,
-        userReferralsPage: 0,
-        userReferralsInviter: null,
-        userLogs: [],
-        userLogsTotal: 0,
-        userLogsPage: 0,
-        userLogsLoading: false,
-        userLogsLoaded: false,
-        userLogsUserId: null,
+        ..._closedUserModalState(),
       };
     });
     if (wasOpen && !opts.skipPush) _pushUserPath(null);
