@@ -592,7 +592,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
     def test_frontend_nginx_proxies_shell_routes_for_dynamic_head(self):
         nginx_conf = Path("deploy/docker/frontend/nginx.conf").read_text(encoding="utf-8")
-        marker = "location ~ ^/(?:$|login/password$|home$|install$|trial$|s/[a-f0-9]{32}$"
+        marker = 'location ~ "^/(?:$|login/password$|home$|install$|trial$|s/[a-f0-9]{32}$'
 
         self.assertIn(marker, nginx_conf)
         start = nginx_conf.index(marker)

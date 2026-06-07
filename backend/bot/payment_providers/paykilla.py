@@ -661,8 +661,7 @@ class PaykillaService(HttpClientMixin):
                     return cached_data
                 if response.status != 200 or not isinstance(response_data, list):
                     logging.warning(
-                        "Paykilla currency metadata request failed "
-                        "(status=%s, body=%s)",
+                        "Paykilla currency metadata request failed (status=%s, body=%s)",
                         response.status,
                         response_data,
                     )

@@ -24,8 +24,7 @@ export function devicesCountLabel(devicesData, t, maxDevicesOverride) {
 
 export function devicesPercent(devicesData, maxDevicesOverride) {
   const current = Number(devicesData?.current_devices ?? devicesData?.devices?.length ?? 0);
-  const maxValue =
-    maxDevicesOverride !== undefined ? maxDevicesOverride : devicesData?.max_devices;
+  const maxValue = maxDevicesOverride !== undefined ? maxDevicesOverride : devicesData?.max_devices;
   if (maxValue === undefined || maxValue === null || maxValue === "") return 0;
   const max = Number(maxValue || 0);
   if (!max || max <= 0) return 100;

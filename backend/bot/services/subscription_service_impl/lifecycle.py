@@ -832,8 +832,7 @@ class SubscriptionLifecycleMixin:
             traffic_limit = (
                 self._traffic_limit_for_period_tariff(bonus_tariff)
                 if bonus_tariff
-                else
-                self.settings.user_traffic_limit_bytes
+                else self.settings.user_traffic_limit_bytes
                 if apply_main_traffic_limit
                 else self.settings.trial_traffic_limit_bytes
             )
@@ -922,8 +921,7 @@ class SubscriptionLifecycleMixin:
                 traffic_limit_bytes=(
                     updated_sub_model.traffic_limit_bytes
                     if bonus_tariff
-                    else
-                    self.settings.user_traffic_limit_bytes
+                    else self.settings.user_traffic_limit_bytes
                     if apply_main_traffic_limit and not preserve_tariff_limits
                     else None
                 ),
