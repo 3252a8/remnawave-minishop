@@ -1474,7 +1474,7 @@ def _resolve_hashed_js_asset_name(*, kind: str, base_name: str) -> str:
     if minified_assets:
         minified_assets.sort(reverse=True)
         return _set_cached_asset_name(kind, minified_assets[0][1])
-    return _set_cached_asset_name(kind, f"{base_name}.js")
+    return _set_cached_asset_name(kind, _stable_asset_name_with_version(f"{base_name}.js"))
 
 
 def _resolve_webapp_css_asset_name() -> str:
@@ -1506,7 +1506,19 @@ def _resolve_hashed_css_asset_name(*, kind: str, base_name: str) -> str:
     if hashed_assets:
         hashed_assets.sort(reverse=True)
         return _set_cached_asset_name(kind, hashed_assets[0][1])
-    return _set_cached_asset_name(kind, f"{base_name}.css")
+    return _set_cached_asset_name(kind, _stable_asset_name_with_version(f"{base_name}.css"))
+
+
+def _stable_asset_name_with_version(filename: str) -> str:
+    path = ASSET_DIR / filename
+    try:
+        stat = path.stat()
+    except OSError:
+        return filename
+
+    raw_version = f"{filename}:{int(stat.st_mtime_ns)}:{int(stat.st_size)}"
+    version = hashlib.sha256(raw_version.encode("utf-8")).hexdigest()[:8]
+    return f"{filename}?v={version}"
 
 
 def _get_cached_asset_name(kind: str) -> Optional[str]:

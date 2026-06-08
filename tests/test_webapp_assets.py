@@ -335,6 +335,15 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("<title>Subscription</title>", html)
         self.assertLess(html.index("/subscription_webapp.css"), html.index("WEBAPP_JS_SCRIPT"))
 
+    def test_mobile_bottom_nav_many_items_uses_compact_phone_layout(self):
+        css_path = Path(__file__).resolve().parents[1] / "frontend/src/styles/webapp.css"
+        css = css_path.read_text(encoding="utf-8")
+
+        self.assertIn("@media (max-width: 460px)", css)
+        self.assertIn(".bottom-nav.bottom-nav-many", css)
+        self.assertIn(".bottom-nav.bottom-nav-many .bottom-nav-label", css)
+        self.assertIn("display: none;", css)
+
     def test_https_webapp_logo_uses_same_origin_proxy(self):
         settings = SimpleNamespace(WEBAPP_LOGO_URL="https://cdn.example.com/logo.png")
 
@@ -979,6 +988,25 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(
                     subscription_webapp._resolve_webapp_js_asset_name(),
                     "subscription_webapp.min.22222222.js",
+                )
+
+    def test_resolve_webapp_asset_names_version_stable_fallbacks(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            asset_dir = Path(tmpdir)
+            (asset_dir / "subscription_webapp.js").write_text(
+                "console.log('fallback');", encoding="utf-8"
+            )
+            (asset_dir / "subscription_webapp.css").write_text(".app{color:red}", encoding="utf-8")
+
+            with patch.object(webapp_assets, "ASSET_DIR", asset_dir):
+                webapp_assets._ASSET_NAME_CACHE.clear()
+                self.assertRegex(
+                    subscription_webapp._resolve_webapp_js_asset_name(),
+                    r"^subscription_webapp\.js\?v=[0-9a-f]{8}$",
+                )
+                self.assertRegex(
+                    subscription_webapp._resolve_webapp_css_asset_name(),
+                    r"^subscription_webapp\.css\?v=[0-9a-f]{8}$",
                 )
 
     def test_resolve_webapp_admin_asset_names_use_stable_runtime_builds(self):
