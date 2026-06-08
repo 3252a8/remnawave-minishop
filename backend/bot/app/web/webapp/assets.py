@@ -18,6 +18,8 @@ _GZIP_BODY_CACHE: Dict[str, bytes] = {}
 _ASSET_NAME_CACHE: Dict[tuple[str, str], tuple[float, str]] = {}
 _I18N_PAYLOAD_CACHE: Dict[tuple[int, str, tuple[tuple[str, int, int], ...]], Dict[str, Any]] = {}
 _ASSET_NAME_CACHE_TTL_SECONDS = 30.0
+WEBAPP_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
+WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 
 
 async def health_route(request: web.Request) -> web.Response:
@@ -48,7 +50,7 @@ async def _css_asset_route(request: web.Request, *, base_name: str) -> web.Respo
         allow_precompressed=bool(asset_hash),
     )
     response.headers["Cache-Control"] = (
-        "public, max-age=31536000, immutable" if asset_hash else "no-cache"
+        "public, max-age=31536000, immutable" if asset_hash else WEBAPP_LEGACY_ASSET_CACHE_CONTROL
     )
     return response
 
@@ -901,7 +903,7 @@ async def _js_asset_route(request: web.Request, *, base_name: str) -> web.Respon
         strip_dev_mock=not asset_hash,
     )
     response.headers["Cache-Control"] = (
-        "public, max-age=31536000, immutable" if asset_hash else "no-cache"
+        "public, max-age=31536000, immutable" if asset_hash else WEBAPP_LEGACY_ASSET_CACHE_CONTROL
     )
     return response
 
@@ -1182,7 +1184,9 @@ async def index_route(request: web.Request) -> web.Response:
             1,
         )
     response = web.Response(text=html, content_type="text/html", charset="utf-8")
-    response.headers["Cache-Control"] = "no-cache"
+    response.headers["Cache-Control"] = WEBAPP_HTML_CACHE_CONTROL
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     return response
 
 
