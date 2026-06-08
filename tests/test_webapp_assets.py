@@ -523,6 +523,52 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(exc.exception.location, "/uploaded-icon.png")
         self.assertEqual(exc.exception.headers["Cache-Control"], "no-cache")
 
+    def test_webapp_cache_reset_version_changes_with_asset_set(self):
+        with patch.object(webapp_assets, "_resolve_app_version", return_value="v1.2.3"):
+            first = webapp_assets._webapp_cache_reset_version(
+                "subscription_webapp.11111111.css",
+                "subscription_webapp.min.22222222.js",
+            )
+            second = webapp_assets._webapp_cache_reset_version(
+                "subscription_webapp.33333333.css",
+                "subscription_webapp.min.22222222.js",
+            )
+
+        self.assertRegex(first, r"^[0-9a-f]{16}$")
+        self.assertNotEqual(first, second)
+
+    def test_webapp_cache_reset_header_is_sent_once_per_version(self):
+        request = SimpleNamespace(cookies={})
+        response = web.Response()
+
+        webapp_assets._apply_webapp_cache_reset_header(request, response, "abc123")
+
+        self.assertEqual(response.headers["Clear-Site-Data"], '"cache"')
+        cookie = response.cookies[webapp_assets.WEBAPP_CACHE_RESET_COOKIE_NAME]
+        self.assertEqual(cookie.value, "abc123")
+        self.assertEqual(cookie["path"], "/")
+        self.assertEqual(
+            cookie["max-age"],
+            str(webapp_assets.WEBAPP_CACHE_RESET_COOKIE_MAX_AGE_SECONDS),
+        )
+        self.assertTrue(cookie["httponly"])
+        self.assertTrue(cookie["secure"])
+        self.assertEqual(cookie["samesite"], "None")
+
+        cached_request = SimpleNamespace(
+            cookies={webapp_assets.WEBAPP_CACHE_RESET_COOKIE_NAME: "abc123"}
+        )
+        cached_response = web.Response()
+
+        webapp_assets._apply_webapp_cache_reset_header(
+            cached_request,
+            cached_response,
+            "abc123",
+        )
+
+        self.assertNotIn("Clear-Site-Data", cached_response.headers)
+        self.assertNotIn(webapp_assets.WEBAPP_CACHE_RESET_COOKIE_NAME, cached_response.cookies)
+
     async def test_default_logo_route_serves_bundled_logo(self):
         settings = SimpleNamespace(WEBAPP_ENABLED=True)
         request = SimpleNamespace(app={"settings": settings})

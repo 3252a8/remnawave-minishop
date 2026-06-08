@@ -20,6 +20,9 @@ _I18N_PAYLOAD_CACHE: Dict[tuple[int, str, tuple[tuple[str, int, int], ...]], Dic
 _ASSET_NAME_CACHE_TTL_SECONDS = 30.0
 WEBAPP_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
+WEBAPP_CACHE_RESET_COOKIE_NAME = "rw_webapp_cache_v"
+WEBAPP_CACHE_RESET_COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60
+WEBAPP_CACHE_RESET_DIGEST_LENGTH = 16
 
 
 async def health_route(request: web.Request) -> web.Response:
@@ -1129,6 +1132,35 @@ def _apply_webapp_head_metadata(html_text: str, page_title: str, favicon_url: st
     return _replace_webapp_favicon(html_text, _favicon_head_markup(favicon_url))
 
 
+def _webapp_cache_reset_version(css_asset_name: str, js_asset_name: str) -> str:
+    version = str(_resolve_app_version() or "dev+unknown").strip() or "dev+unknown"
+    raw = f"{version}|{css_asset_name}|{js_asset_name}"
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    return digest[:WEBAPP_CACHE_RESET_DIGEST_LENGTH]
+
+
+def _apply_webapp_cache_reset_header(
+    request: web.Request,
+    response: web.StreamResponse,
+    cache_version: str,
+) -> None:
+    """Ask capable WebViews to clear stale HTTP cache once per deployed asset set."""
+    if not cache_version:
+        return
+    if request.cookies.get(WEBAPP_CACHE_RESET_COOKIE_NAME) == cache_version:
+        return
+    response.headers["Clear-Site-Data"] = '"cache"'
+    response.set_cookie(
+        WEBAPP_CACHE_RESET_COOKIE_NAME,
+        cache_version,
+        httponly=True,
+        secure=True,
+        samesite="None",
+        path="/",
+        max_age=WEBAPP_CACHE_RESET_COOKIE_MAX_AGE_SECONDS,
+    )
+
+
 async def index_route(request: web.Request) -> web.Response:
     settings: Settings = request.app["settings"]
     if not settings.WEBAPP_ENABLED:
@@ -1142,9 +1174,11 @@ async def index_route(request: web.Request) -> web.Response:
     bootstrap = _build_webapp_bootstrap_payload(request)
     config = bootstrap["config"]
     html = _strip_marked_block(html, DEV_MOCK_START_MARKER, DEV_MOCK_END_MARKER)
+    css_asset_name = _resolve_webapp_css_asset_name()
+    js_asset_name = _resolve_webapp_js_asset_name()
     html = html.replace(
         'href="/subscription_webapp.css"',
-        f'href="/{_resolve_webapp_css_asset_name()}"',
+        f'href="/{css_asset_name}"',
         1,
     )
     initial_theme_markup = _initial_theme_head_markup(request, initial_theme, primary_color)
@@ -1171,7 +1205,7 @@ async def index_route(request: web.Request) -> web.Response:
     )
     html = html.replace(
         WEBAPP_JS_PLACEHOLDER,
-        f'<script src="/{_resolve_webapp_js_asset_name()}" defer></script>',
+        f'<script src="/{js_asset_name}" defer></script>',
     )
     brand_asset_url = cached["logo_url"]
     if brand_asset_url:
@@ -1187,6 +1221,11 @@ async def index_route(request: web.Request) -> web.Response:
     response.headers["Cache-Control"] = WEBAPP_HTML_CACHE_CONTROL
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
+    _apply_webapp_cache_reset_header(
+        request,
+        response,
+        _webapp_cache_reset_version(css_asset_name, js_asset_name),
+    )
     return response
 
 
