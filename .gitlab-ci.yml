@@ -50,8 +50,8 @@ docker-dev:
         --target "$TARGET" \
         --build-arg "CI_COMMIT_REF_NAME=$CI_COMMIT_REF_NAME" \
         --build-arg "BUILDKIT_INLINE_CACHE=1" \
-        --cache-from "type=registry,ref=3252a8/$IMAGE:dev" \
-        --tag "3252a8/$IMAGE:dev" \
+        --cache-from "type=registry,ref=$DOCKERHUB_USERNAME/$IMAGE:dev" \
+        --tag "$DOCKERHUB_USERNAME/$IMAGE:dev" \
         .
     - git fetch origin dev --tags
     - |
@@ -59,4 +59,4 @@ docker-dev:
         echo "A newer dev commit exists; skipping Docker Hub push for $IMAGE."
         exit 0
       fi
-    - docker push "3252a8/$IMAGE:dev"
+    - docker push "$DOCKERHUB_USERNAME/$IMAGE:dev"

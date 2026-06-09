@@ -88,19 +88,30 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Resolve image namespace
-        id: image_namespace
+      - name: Resolve image namespaces
+        id: image_namespaces
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
-          owner="${{ github.repository_owner }}"
-          echo "owner=${owner,,}" >> "$GITHUB_OUTPUT"
+          github_owner="${{ github.repository_owner }}"
+          echo "github_owner=${github_owner,,}" >> "$GITHUB_OUTPUT"
+          dockerhub_owner="${github_owner,,}"
+          if [ "${{ inputs.publish_dockerhub }}" = "true" ]; then
+            if [ -z "$DOCKERHUB_USERNAME" ]; then
+              echo "::error::DOCKERHUB_USERNAME secret is required for Docker Hub publishing"
+              exit 1
+            fi
+            dockerhub_owner="${DOCKERHUB_USERNAME,,}"
+          fi
+          echo "dockerhub_owner=$dockerhub_owner" >> "$GITHUB_OUTPUT"
 
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: |
-            name=${{ steps.image_namespace.outputs.owner }}/${{ matrix.image }},enable=${{ inputs.publish_dockerhub }}
-            name=ghcr.io/${{ steps.image_namespace.outputs.owner }}/${{ matrix.image }},enable=true
+            name=${{ steps.image_namespaces.outputs.dockerhub_owner }}/${{ matrix.image }},enable=${{ inputs.publish_dockerhub }}
+            name=ghcr.io/${{ steps.image_namespaces.outputs.github_owner }}/${{ matrix.image }},enable=true
           tags: |
             type=raw,value=dev,enable=${{ inputs.tag_mode == 'dev' }}
             type=raw,value=latest,enable=${{ inputs.tag_mode == 'release' }}
