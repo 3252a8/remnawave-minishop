@@ -586,6 +586,12 @@ class PaykillaService(HttpClientMixin):
         query, signature = _sign_query(timestamp_ms, recv_window_ms, self.secret_key)
         return f"{self.base_url}/api/v2/invoice?{query}&signature={signature}"
 
+    def _signed_invoice_details_url(self, invoice_id: str) -> str:
+        timestamp_ms = int(time.time() * 1000)
+        recv_window_ms = int(self.config.RECV_WINDOW_MS)
+        query, signature = _sign_query(timestamp_ms, recv_window_ms, self.secret_key)
+        return f"{self.base_url}/api/v2/invoice/{invoice_id}?{query}&signature={signature}"
+
     def _signed_currency_url(self) -> str:
         timestamp_ms = int(time.time() * 1000)
         recv_window_ms = int(self.config.RECV_WINDOW_MS)
@@ -885,6 +891,64 @@ class PaykillaService(HttpClientMixin):
         except Exception as exc:
             logging.exception("Paykilla create_payment_link: request failed.")
             return False, {"message": str(exc)}
+
+    async def get_invoice_details(self, invoice_id: str) -> Tuple[bool, Dict[str, Any]]:
+        if not self.configured:
+            return False, {"message": "service_not_configured"}
+
+        invoice_id = str(invoice_id or "").strip()
+        if not invoice_id:
+            return False, {"message": "missing_invoice_id"}
+
+        headers = {
+            "X-API-KEY": self.api_key,
+            "Content-Type": "application/json",
+        }
+        session = await self._get_session()
+        try:
+            async with session.get(
+                self._signed_invoice_details_url(invoice_id),
+                headers=headers,
+            ) as response:
+                response_text = await response.text()
+                try:
+                    response_data = json.loads(response_text) if response_text else {}
+                except json.JSONDecodeError:
+                    logging.error("Paykilla get_invoice_details: invalid JSON: %s", response_text)
+                    return False, {
+                        "status": response.status,
+                        "message": "invalid_json",
+                        "raw": response_text,
+                    }
+                invoice = _response_invoice_data(response_data)
+                if response.status != 200 or not first_value(invoice, "id"):
+                    logging.warning(
+                        "Paykilla get_invoice_details failed: id=%s status=%s body=%s",
+                        invoice_id,
+                        response.status,
+                        response_data,
+                    )
+                    return False, {"status": response.status, "message": response_data}
+                return True, invoice
+        except Exception as exc:
+            logging.exception("Paykilla get_invoice_details request failed: id=%s", invoice_id)
+            return False, {"message": str(exc)}
+
+    async def try_reuse_pending_invoice(self, payment: Any) -> Optional[str]:
+        invoice_id = str(getattr(payment, "provider_payment_id", None) or "").strip()
+        if not invoice_id:
+            return None
+
+        success, data = await self.get_invoice_details(invoice_id)
+        if not success:
+            return None
+        if str(first_value(data, "id") or "") != invoice_id:
+            return None
+        if str(data.get("clientOrderId") or "") != str(payment.payment_id):
+            return None
+        if str(data.get("status") or "").strip().upper() != "PROCESSING":
+            return None
+        return f"{self.widget_url}/{invoice_id}"
 
     def _webhook_url_for_request(self, request: web.Request) -> Optional[str]:
         configured = self.config.full_webhook_url(getattr(self.settings, "WEBHOOK_BASE_URL", None))
@@ -1259,6 +1323,13 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     )
 
 
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
+    service: PaykillaService = ctx.request.app.get("paykilla_service")
+    if not service or not service.configured:
+        return None
+    return await service.try_reuse_pending_invoice(payment)
+
+
 async def paykilla_webhook_route(request: web.Request) -> web.Response:
     service: PaykillaService = request.app["paykilla_service"]
     return await service.webhook_route(request)
@@ -1570,6 +1641,7 @@ SPEC = PaymentProviderSpec(
     webhook_path=lambda source: "/webhook/paykilla",
     webhook_route=paykilla_webhook_route,
     create_webapp_payment=create_webapp_payment,
+    reuse_webapp_payment=reuse_webapp_payment,
     emoji="",
     config_class=PaykillaConfig,
     presentation_class=PaykillaPresentation,

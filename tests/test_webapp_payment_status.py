@@ -9,6 +9,7 @@ from bot.app.web.webapp import billing as billing_module
 from bot.payment_providers.base import PaymentProviderSpec, WebAppPaymentContext
 from bot.payment_providers.freekassa import FreeKassaService
 from bot.payment_providers.heleket import HeleketService
+from bot.payment_providers.paykilla import PaykillaService
 from bot.payment_providers.platega import PlategaService
 from bot.payment_providers.severpay import SeverPayService
 from bot.payment_providers.shared import reusable_webapp_payment_response
@@ -614,6 +615,55 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
         )
 
         self.assertIsNone(await reuse_webapp_payment(ctx, payment))
+
+    async def test_paykilla_reuses_processing_invoice_by_client_order_id(self):
+        payment = SimpleNamespace(
+            payment_id=77,
+            amount=299.0,
+            currency="RUB",
+            provider_payment_id="pk_77",
+        )
+        service = object.__new__(PaykillaService)
+        service.config = SimpleNamespace(WIDGET_URL="https://gopay.paykilla.com")
+        service.get_invoice_details = AsyncMock(
+            return_value=(
+                True,
+                {
+                    "id": "pk_77",
+                    "clientOrderId": "77",
+                    "status": "PROCESSING",
+                    "totalPrice": "314.00",
+                    "currency": "USD",
+                },
+            )
+        )
+
+        url = await service.try_reuse_pending_invoice(payment)
+
+        self.assertEqual(url, "https://gopay.paykilla.com/pk_77")
+        service.get_invoice_details.assert_awaited_once_with("pk_77")
+
+    async def test_paykilla_does_not_reuse_invoice_with_other_client_order_id(self):
+        payment = SimpleNamespace(
+            payment_id=77,
+            amount=299.0,
+            currency="RUB",
+            provider_payment_id="pk_77",
+        )
+        service = object.__new__(PaykillaService)
+        service.config = SimpleNamespace(WIDGET_URL="https://gopay.paykilla.com")
+        service.get_invoice_details = AsyncMock(
+            return_value=(
+                True,
+                {
+                    "id": "pk_77",
+                    "clientOrderId": "88",
+                    "status": "PROCESSING",
+                },
+            )
+        )
+
+        self.assertIsNone(await service.try_reuse_pending_invoice(payment))
 
     async def test_yookassa_pending_payment_refresh_processes_succeeded_provider_status(self):
         payment = SimpleNamespace(
