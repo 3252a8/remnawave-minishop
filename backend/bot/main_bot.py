@@ -91,12 +91,9 @@ async def register_all_routers(dp: Dispatcher, settings: Settings):
     logging.info("All application routers registered.")
 
 
-async def on_startup_configured(dispatcher: Dispatcher):
+async def configure_telegram_webhook(dispatcher: Dispatcher) -> None:
     bot: Bot = dispatcher["bot_instance"]
     settings: Settings = dispatcher["settings"]
-    i18n_instance: JsonI18n = dispatcher["i18n_instance"]
-
-    logging.info("STARTUP: on_startup_configured executing...")
 
     telegram_webhook_url_to_set = settings.WEBHOOK_BASE_URL
     if telegram_webhook_url_to_set:
@@ -151,6 +148,14 @@ async def on_startup_configured(dispatcher: Dispatcher):
             "STARTUP: WEBHOOK_BASE_URL not set in environment. Webhook mode is required. Exiting."
         )
         raise SystemExit("WEBHOOK_BASE_URL is required. Polling mode is disabled.")
+
+
+async def on_startup_configured(dispatcher: Dispatcher):
+    bot: Bot = dispatcher["bot_instance"]
+    settings: Settings = dispatcher["settings"]
+    i18n_instance: JsonI18n = dispatcher["i18n_instance"]
+
+    logging.info("STARTUP: on_startup_configured executing...")
 
     if settings.SUBSCRIPTION_MINI_APP_URL:
 
@@ -331,8 +336,17 @@ async def run_bot(settings_param: Settings):
         _yk_path,
     )
 
+    async def _after_webhooks_started() -> None:
+        await configure_telegram_webhook(dp)
+
     async def web_server_task():
-        await build_and_start_web_app(dp, bot, settings_param, local_async_session_factory)
+        await build_and_start_web_app(
+            dp,
+            bot,
+            settings_param,
+            local_async_session_factory,
+            after_webhooks_started=_after_webhooks_started,
+        )
 
     main_tasks = [asyncio.create_task(web_server_task(), name="AIOHTTPServerTask")]
 

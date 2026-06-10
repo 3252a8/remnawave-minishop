@@ -45,6 +45,29 @@ def test_worker_starts_backup_task_without_enabled_guard():
     assert guarded_backup_tasks == []
 
 
+def test_telegram_webhook_configuration_is_deferred_until_site_start():
+    main_source = Path("backend/bot/main_bot.py").read_text(encoding="utf-8")
+    web_source = Path("backend/bot/app/web/web_server.py").read_text(encoding="utf-8")
+    tree = ast.parse(main_source)
+    startup_node = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "on_startup_configured"
+    )
+
+    startup_set_webhook_calls = [
+        node
+        for node in ast.walk(startup_node)
+        if isinstance(node, ast.Attribute) and node.attr == "set_webhook"
+    ]
+
+    assert startup_set_webhook_calls == []
+    assert "after_webhooks_started=_after_webhooks_started" in main_source
+    assert web_source.index("await site.start()") < web_source.index(
+        "await after_webhooks_started()"
+    )
+
+
 def test_telegram_startup_network_error_retries_until_success_without_traceback(caplog):
     calls = []
 

@@ -2,6 +2,7 @@ import asyncio
 import functools
 import hmac
 import logging
+from typing import Awaitable, Callable, Optional
 
 from aiogram import Bot, Dispatcher
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
@@ -84,6 +85,8 @@ async def build_and_start_web_app(
     bot: Bot,
     settings: Settings,
     async_session_factory: sessionmaker,
+    *,
+    after_webhooks_started: Optional[Callable[[], Awaitable[None]]] = None,
 ):
     app = web.Application()
     _inject_shared_instances(app, dp, bot, settings, async_session_factory)
@@ -159,6 +162,8 @@ async def build_and_start_web_app(
     logging.info(
         f"AIOHTTP server started on http://{settings.WEB_SERVER_HOST}:{settings.WEB_SERVER_PORT}"
     )
+    if after_webhooks_started is not None:
+        await after_webhooks_started()
 
     if settings.WEBAPP_ENABLED:
         from bot.app.web.subscription_webapp import create_subscription_webapp_application

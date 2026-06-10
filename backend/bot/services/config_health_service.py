@@ -385,6 +385,7 @@ async def telegram_alerts(bot: Any, settings: Any) -> List[ConfigAlert]:
             )
         )
 
+    pending = int(getattr(info, "pending_update_count", 0) or 0)
     last_error_date = getattr(info, "last_error_date", None)
     last_error_ts: Optional[float] = None
     if last_error_date is not None:
@@ -393,7 +394,11 @@ async def telegram_alerts(bot: Any, settings: Any) -> List[ConfigAlert]:
             if hasattr(last_error_date, "timestamp")
             else float(last_error_date)
         )
-    if last_error_ts and (time.time() - last_error_ts) < _WEBHOOK_ERROR_RECENT_SECONDS:
+    if (
+        pending > 0
+        and last_error_ts
+        and (time.time() - last_error_ts) < _WEBHOOK_ERROR_RECENT_SECONDS
+    ):
         alerts.append(
             ConfigAlert(
                 id="telegram_webhook_error",
@@ -403,7 +408,6 @@ async def telegram_alerts(bot: Any, settings: Any) -> List[ConfigAlert]:
             )
         )
 
-    pending = int(getattr(info, "pending_update_count", 0) or 0)
     if pending > _WEBHOOK_PENDING_THRESHOLD:
         alerts.append(
             ConfigAlert(

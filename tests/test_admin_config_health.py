@@ -239,15 +239,25 @@ class TelegramAlertsTests(unittest.IsolatedAsyncioTestCase):
         alerts = await health.telegram_alerts(bot, _settings())
         self.assertEqual(_alert_ids(alerts), ["telegram_webhook_mismatch"])
 
-    async def test_recent_delivery_error_reported(self):
+    async def test_recent_delivery_error_with_pending_update_reported(self):
         info = self._webhook_info(
             last_error_date=datetime.now(timezone.utc),
             last_error_message="SSL error",
+            pending_update_count=1,
         )
         bot = SimpleNamespace(get_webhook_info=AsyncMock(return_value=info))
         alerts = await health.telegram_alerts(bot, _settings())
         self.assertEqual(_alert_ids(alerts), ["telegram_webhook_error"])
         self.assertEqual(alerts[0].params["error"], "SSL error")
+
+    async def test_recent_delivery_error_without_pending_update_not_reported(self):
+        info = self._webhook_info(
+            last_error_date=datetime.now(timezone.utc),
+            last_error_message="Connection refused",
+            pending_update_count=0,
+        )
+        bot = SimpleNamespace(get_webhook_info=AsyncMock(return_value=info))
+        self.assertEqual(await health.telegram_alerts(bot, _settings()), [])
 
     async def test_stale_delivery_error_not_reported(self):
         info = self._webhook_info(last_error_date=time.time() - 7200)
