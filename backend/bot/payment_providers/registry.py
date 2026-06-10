@@ -2,7 +2,18 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
-from . import cryptopay, freekassa, heleket, paykilla, platega, severpay, stars, wata, yookassa
+from . import (
+    cryptopay,
+    freekassa,
+    heleket,
+    lava,
+    paykilla,
+    platega,
+    severpay,
+    stars,
+    wata,
+    yookassa,
+)
 from .base import (
     PaymentProviderPresentation,
     PaymentProviderSpec,
@@ -22,6 +33,7 @@ PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
     cryptopay.SPEC,
     heleket.SPEC,
     paykilla.SPEC,
+    lava.SPEC,
 )
 
 

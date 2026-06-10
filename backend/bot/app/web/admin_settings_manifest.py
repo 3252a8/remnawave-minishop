@@ -379,7 +379,7 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "string",
         "payments",
         "Порядок методов оплаты",
-        "Через запятую: severpay,freekassa,yookassa,platega,stars,cryptopay,heleket,paykilla",
+        "Через запятую: severpay,freekassa,yookassa,platega,stars,cryptopay,heleket,paykilla,lava",
         subsection="common",
     ),
     # ─── Trial ─────────────────────────────────────────────────────
