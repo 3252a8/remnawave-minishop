@@ -96,7 +96,7 @@ jobs:
           github_owner="${{ github.repository_owner }}"
           echo "github_owner=${github_owner,,}" >> "$GITHUB_OUTPUT"
           dockerhub_owner="${github_owner,,}"
-          if [ "${{ inputs.publish_dockerhub }}" = "true" ]; then
+          if [ "${{ inputs.push }}" = "true" ] && [ "${{ inputs.publish_dockerhub }}" = "true" ]; then
             if [ -z "$DOCKERHUB_USERNAME" ]; then
               echo "::error::DOCKERHUB_USERNAME secret is required for Docker Hub publishing"
               exit 1
@@ -110,7 +110,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            name=${{ steps.image_namespaces.outputs.dockerhub_owner }}/${{ matrix.image }},enable=${{ inputs.publish_dockerhub }}
+            name=${{ steps.image_namespaces.outputs.dockerhub_owner }}/${{ matrix.image }},enable=${{ inputs.push && inputs.publish_dockerhub }}
             name=ghcr.io/${{ steps.image_namespaces.outputs.github_owner }}/${{ matrix.image }},enable=true
           tags: |
             type=raw,value=dev,enable=${{ inputs.tag_mode == 'dev' }}
