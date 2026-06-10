@@ -11,6 +11,7 @@ from aiohttp.test_utils import make_mocked_request
 from bot.app.web import admin_api, subscription_webapp
 from bot.app.web.admin_api_impl import auth as admin_auth_routes
 from bot.app.web.webapp_auth import create_webapp_session_token
+from config.webapp_themes_config import WebappThemesConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -90,7 +91,6 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("GET", "/robots.txt"): "robots_txt_route",
             ("GET", "/webapp-logo"): "webapp_logo_route",
             ("GET", "/webapp-uploaded-logo/{filename}"): "webapp_uploaded_logo_route",
-            ("GET", "/webapp-emoji/{codepoints}/512.{ext}"): "webapp_animated_emoji_route",
             ("GET", "/subscription_webapp.css"): "css_asset_route",
             ("GET", "/subscription_webapp_admin.css"): "admin_css_asset_route",
             ("GET", "/webapp-theme-css/{path}"): "theme_css_asset_route",
@@ -174,6 +174,10 @@ class WebAppRouteContractTests(unittest.TestCase):
                 "POST",
                 "/api/admin/users/{user_id}/regular-traffic-override",
             ): "admin_user_regular_traffic_override_route",
+            (
+                "POST",
+                "/api/admin/users/{user_id}/hwid-device-limit",
+            ): "admin_user_hwid_device_limit_route",
             ("POST", "/api/admin/users/{user_id}/traffic-grant"): "admin_user_traffic_grant_route",
             ("DELETE", "/api/admin/users/{user_id}"): "admin_user_delete_route",
             ("GET", "/api/admin/payments"): "admin_payments_list_route",
@@ -183,6 +187,10 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("PATCH", "/api/admin/promos/{promo_id}"): "admin_promo_update_route",
             ("DELETE", "/api/admin/promos/{promo_id}"): "admin_promo_delete_route",
             ("GET", "/api/admin/logs"): "admin_logs_route",
+            (
+                "GET",
+                "/api/admin/broadcast/audience-counts",
+            ): "admin_broadcast_audience_counts_route",
             ("POST", "/api/admin/broadcast"): "admin_broadcast_route",
             ("POST", "/api/admin/sync"): "admin_sync_route",
             ("GET", "/api/admin/ads"): "admin_ads_list_route",
@@ -324,6 +332,39 @@ class WebAppRouteContractTests(unittest.TestCase):
         self.assertTrue(
             (REPO_ROOT / "backend/bot/app/web/templates/open_app_gateway.html").is_file()
         )
+
+    def test_app_deeplink_gateway_uses_webapp_theme_accent(self):
+        catalog = WebappThemesConfig(
+            default_theme="custom",
+            themes=[
+                {
+                    "key": "custom",
+                    "enabled": True,
+                    "default": True,
+                    "tokens": {"color_scheme": "dark", "accent": "#123abc"},
+                }
+            ],
+        )
+        request = _Request(
+            app={
+                "settings": SimpleNamespace(
+                    WEBAPP_ENABLED=True,
+                    WEBAPP_TITLE="/minishop",
+                    DEFAULT_LANGUAGE="en",
+                    WEBAPP_PRIMARY_COLOR="#00fe7a",
+                    webapp_themes_catalog=catalog,
+                )
+            }
+        )
+        request["csp_nonce"] = "nonce-value"
+
+        response = asyncio.run(subscription_webapp.app_deeplink_route(request))
+
+        self.assertEqual(response.status, 200)
+        self.assertIn('id="webapp-initial-theme"', response.text)
+        self.assertIn("--accent:#123abc", response.text)
+        self.assertIn("background: var(--accent)", response.text)
+        self.assertNotIn("background: #14b86f;", response.text)
 
     def test_app_launch_i18n_keys_are_available_to_webapp_bootstrap(self):
         required_keys = {

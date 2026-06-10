@@ -39,13 +39,16 @@ async def finalize_webapp_link_payment(
             log_prefix="Wata",
         )
     """
-    if api_success and provider_payment_id:
+    # Reuse logic needs both a provider id and a redirect URL; persisting only
+    # the id creates orphan records that match find_recent but fail verification.
+    if api_success and provider_payment_id and payment_url:
         try:
             await payment_dal.update_provider_payment_and_status(
                 session,
                 payment.payment_id,
                 str(provider_payment_id),
                 new_status or payment.status,
+                provider_payment_url=payment_url,
             )
             await session.commit()
         except Exception:

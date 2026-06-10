@@ -33,7 +33,6 @@ def create_subscription_webapp_application(
     async def _startup(app_obj: web.Application) -> None:
         await _ensure_shared_http_session()
         await _warm_webapp_logo_cache(app_obj)
-        await _warm_webapp_animated_emoji_cache(app_obj)
         await warm_subscription_guides_config(app_obj)
 
     async def _shutdown(app_obj: web.Application) -> None:

@@ -30,6 +30,7 @@ const descriptions = {
   'features/support.md': 'Пользовательские тикеты, список обращений в админке, уведомления и лимиты поддержки.',
   'migrations/index.md': 'Готовые сценарии миграции в Remnawave Minishop с других ботов.',
   'migrations/remnawave-tg-shop.md': 'Перенос данных со старого remnawave-tg-shop на split-архитектуру Minishop.',
+  'migrations/remnashop.md': 'Импорт данных из Remnashop через install wizard или скрипт import_legacy.py.',
   'troubleshooting/issues.md': 'Короткие чеклисты для частых проблем запуска, вебхуков, Mini App и платежей.',
   'troubleshooting/logs.md': 'Какие логи смотреть при диагностике backend, worker, frontend, миграций и вебхуков.',
   'troubleshooting/maintenance.md': 'Обновления, миграции, резервные копии и проверки продакшен-стека.',

@@ -14,6 +14,7 @@ class PaymentContextMixin:
         "severpay": "SeverPay",
         "wata": "Wata",
         "cryptopay": "Crypto Pay",
+        "paykilla": "PayKilla",
         "telegram_stars": "Telegram Stars",
     }
 
@@ -38,7 +39,8 @@ class PaymentContextMixin:
         payment.sale_mode = sale_mode
         payment.tariff_key = tariff_key
         payment.purchased_gb = purchased_gb
-        payment.purchased_hwid_devices = purchased_hwid_devices
+        if purchased_hwid_devices is not None:
+            payment.purchased_hwid_devices = purchased_hwid_devices
         if hwid_valid_from is not None:
             payment.hwid_valid_from = hwid_valid_from
         if hwid_valid_until is not None:

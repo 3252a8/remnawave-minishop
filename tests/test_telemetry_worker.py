@@ -51,6 +51,8 @@ def test_build_payload_shape(settings):
     for key in (
         "app_version",
         "app_version_tag",
+        "build_provenance",
+        "image_modified",
         "os",
         "arch",
         "python_version",
@@ -63,11 +65,42 @@ def test_build_payload_shape(settings):
         assert key in props, f"missing property: {key}"
 
     assert isinstance(props["payment_providers"], list)
+    assert props["build_provenance"] in {"official", "custom", "unknown"}
+    assert isinstance(props["image_modified"], bool)
     # No DB session -> user count degrades to the smallest bucket.
     assert props["users_bucket"] == "0"
     # Person properties mirror the event properties so PostHog breakdowns work.
     assert props["$set"]["app_version"] == props["app_version"]
+    assert props["$set"]["build_provenance"] == props["build_provenance"]
+    assert props["$set"]["image_modified"] == props["image_modified"]
     assert props["$lib"] == "remnawave-minishop"
+
+
+def test_payload_marks_official_images_not_modified(settings, monkeypatch):
+    monkeypatch.setattr(
+        "bot.services.telemetry_worker.resolve_build_provenance",
+        lambda: "official",
+    )
+    monkeypatch.setattr("bot.services.telemetry_worker.resolve_image_modified", lambda: False)
+
+    worker = TelemetryWorker(settings, None)
+    payload = asyncio.run(worker._build_payload(None, "install-123"))
+    props = payload["properties"]
+
+    assert props["build_provenance"] == "official"
+    assert props["image_modified"] is False
+
+
+def test_payload_marks_custom_images_modified(settings, monkeypatch):
+    monkeypatch.setattr("bot.services.telemetry_worker.resolve_build_provenance", lambda: "custom")
+    monkeypatch.setattr("bot.services.telemetry_worker.resolve_image_modified", lambda: True)
+
+    worker = TelemetryWorker(settings, None)
+    payload = asyncio.run(worker._build_payload(None, "install-123"))
+    props = payload["properties"]
+
+    assert props["build_provenance"] == "custom"
+    assert props["image_modified"] is True
 
 
 def test_payload_contains_no_secrets_or_pii(settings):

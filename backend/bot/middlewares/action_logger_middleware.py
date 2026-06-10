@@ -24,6 +24,9 @@ class ActionLoggerMiddleware(BaseMiddleware):
 
         result = await handler(event, data)
 
+        if data.get("skip_action_log") or data.get("antiflood_dropped"):
+            return result
+
         session: AsyncSession = data["session"]
         event_user: Optional[User] = data.get("event_from_user")
 

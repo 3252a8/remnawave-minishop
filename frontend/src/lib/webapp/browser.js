@@ -26,41 +26,19 @@ export function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+// Default project logo, served by the backend when no custom logo is set.
+export const DEFAULT_BRAND_TITLE = "Subscription";
+export const DEFAULT_LOGO_URL = "/webapp-default-logo.webp";
+
 export function normalizeBrand(brand = {}) {
   return {
-    title: String(brand.title || "/minishop").trim() || "/minishop",
-    logoUrl: String(brand.logoUrl || "").trim(),
-    emoji: String(brand.emoji || brand.logoEmoji || "🫥").trim() || "🫥",
-    emojiFont: String(brand.emojiFont || brand.logoEmojiFont || "system").trim() || "system",
-  };
-}
-
-export function emojiToCodepoints(value) {
-  return Array.from(String(value || "").trim())
-    .map((char) => char.codePointAt(0)?.toString(16))
-    .filter(Boolean)
-    .join("_");
-}
-
-export function animatedEmojiAssetUrls(emoji) {
-  const codepoints = emojiToCodepoints(emoji);
-  if (!codepoints) return { gif: "", webp: "" };
-  return {
-    gif: `/webapp-emoji/${codepoints}/512.gif`,
-    webp: `/webapp-emoji/${codepoints}/512.webp`,
+    title: String(brand.title || DEFAULT_BRAND_TITLE).trim() || DEFAULT_BRAND_TITLE,
+    logoUrl: String(brand.logoUrl || "").trim() || DEFAULT_LOGO_URL,
   };
 }
 
 export function brandFaviconHref(brand = {}) {
-  const normalizedBrand = normalizeBrand(brand);
-  if (normalizedBrand.logoUrl) return normalizedBrand.logoUrl;
-
-  if (normalizedBrand.emojiFont === "noto-color-animated") {
-    return animatedEmojiAssetUrls(normalizedBrand.emoji).gif;
-  }
-
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="52">${escapeHtml(normalizedBrand.emoji)}</text></svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  return normalizeBrand(brand).logoUrl;
 }
 
 export function applyFavicon(brand = {}) {
@@ -70,9 +48,7 @@ export function applyFavicon(brand = {}) {
 
   const href = brandFaviconHref(brand);
   favicon.setAttribute("href", href);
-  if (href.startsWith("data:image/svg+xml")) {
-    favicon.setAttribute("type", "image/svg+xml");
-  } else if (href.endsWith(".gif")) {
+  if (href.endsWith(".gif")) {
     favicon.setAttribute("type", "image/gif");
   } else if (href.endsWith(".webp")) {
     favicon.setAttribute("type", "image/webp");

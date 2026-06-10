@@ -108,6 +108,7 @@ LOCALE_GROUPS = [
         "prefixes": (
             "admin_user_",
             "admin_users_",
+            "admin_hwid_",
             "admin_ban_",
             "admin_unban_",
             "admin_banned_",
@@ -115,6 +116,7 @@ LOCALE_GROUPS = [
             "admin_traffic_grant_",
             "admin_view_banned_",
             "user_card_",
+            "user_hwid_",
             "user_premium_",
             "user_regular_",
             "user_traffic_",
@@ -203,7 +205,6 @@ LOCALE_GROUPS = [
             "admin_settings_field_subscription_mini_app_url",
             "admin_settings_field_support_link",
             "admin_settings_field_server_status_url",
-            "admin_settings_field_terms_",
             "admin_settings_field_privacy_",
             "admin_settings_field_user_agreement_",
             "appearance_",

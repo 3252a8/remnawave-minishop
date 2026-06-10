@@ -230,6 +230,8 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIn("support_ticket_messages", update_tables)
         self.assertIn("email_verification_codes", delete_tables)
+        self.assertIn("legacy_referral_codes", delete_tables)
+        self.assertIn("legacy_import_mappings", delete_tables)
         session.delete.assert_awaited_once_with(user)
         session.flush.assert_awaited_once()
 
@@ -366,6 +368,8 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("payments", update_tables)
         self.assertIn("promo_code_activations", update_tables)
         self.assertIn("user_payment_methods", update_tables)
+        self.assertIn("legacy_referral_codes", update_tables)
+        self.assertIn("legacy_import_mappings", update_tables)
         self.assertIn("message_logs", update_tables)
         self.assertIn("users", update_tables)
         self.assertIn("user_payment_methods", delete_tables)

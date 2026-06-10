@@ -29,7 +29,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.infra.redis import redis_lock
-from bot.utils.app_version import resolve_app_version, resolve_app_version_tag
+from bot.utils.app_version import (
+    resolve_app_version,
+    resolve_app_version_tag,
+    resolve_build_provenance,
+    resolve_image_modified,
+)
 from config.settings import Settings
 from db.dal import app_settings_dal, user_dal
 
@@ -169,11 +174,15 @@ class TelemetryWorker:
 
         version = resolve_app_version()
         version_tag = resolve_app_version_tag()
+        build_provenance = resolve_build_provenance()
+        image_modified = resolve_image_modified()
         # Person properties (``$set``) snapshot the latest state per install, so
         # "version breakdown" in PostHog is a person-property breakdown.
         person_props = {
             "app_version": version,
             "app_version_tag": version_tag,
+            "build_provenance": build_provenance,
+            "image_modified": image_modified,
             "os": platform.system().lower() or "unknown",
             "arch": platform.machine().lower() or "unknown",
             "python_version": platform.python_version(),

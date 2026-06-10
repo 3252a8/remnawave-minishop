@@ -15,6 +15,40 @@ from config.settings import Settings
 from db.dal import panel_sync_dal
 from db.models import PanelSyncStatus
 
+# Static endpoint prefixes used as log/metric labels instead of the raw request
+# path. Endpoints embed user identifiers (telegram id, username, email, uuids),
+# so logging the path verbatim would leak private data into log files; the
+# label keeps only the constant prefix. Longest prefixes first so e.g.
+# "/users/by-email/..." does not collapse into "/users".
+_ENDPOINT_LOG_LABELS = (
+    "/users/by-telegram-id",
+    "/users/by-username",
+    "/users/by-email",
+    "/users",
+    "/subscriptions/subpage-config",
+    "/subscription-page-configs",
+    "/hwid/devices/delete",
+    "/hwid/devices",
+    "/system/stats/bandwidth",
+    "/system/stats/nodes",
+    "/system/stats",
+    "/system/tools/happ/encrypt",
+    "/bandwidth-stats/users",
+    "/bandwidth-stats/nodes",
+    "/internal-squads",
+    "/hosts",
+    "/nodes",
+)
+
+
+def _endpoint_log_label(endpoint: str) -> str:
+    """Map a request endpoint to a constant, identifier-free label for logs."""
+    path = "/" + endpoint.split("?", 1)[0].strip("/")
+    for label in _ENDPOINT_LOG_LABELS:
+        if path == label or path.startswith(label + "/"):
+            return label
+    return "/other"
+
 
 class PanelApiService:
     # Status codes returned by _request_once for failures we consider transient
@@ -22,6 +56,11 @@ class PanelApiService:
     _TRANSIENT_STATUS_CODES = (-1, -3)
     _SAFE_METHODS = frozenset({"GET", "HEAD"})
     _RETRY_BACKOFF_SECONDS = 0.5
+    _MIN_TIMEOUT_SECONDS = 0.1
+    _DEFAULT_TOTAL_TIMEOUT_SECONDS = 25.0
+    _DEFAULT_CONNECT_TIMEOUT_SECONDS = 8.0
+    _DEFAULT_SOCK_CONNECT_TIMEOUT_SECONDS = 8.0
+    _DEFAULT_SOCK_READ_TIMEOUT_SECONDS = 15.0
 
     def __init__(self, settings: Settings):
         self.settings = settings
@@ -70,16 +109,45 @@ class PanelApiService:
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
-            # Separate connect/read timeouts so a stuck panel does not hold a
-            # bot worker for the full window; total caps worst-case latency.
-            timeout = aiohttp.ClientTimeout(
-                total=15,
-                connect=3,
-                sock_connect=3,
-                sock_read=10,
-            )
-            self._session = aiohttp.ClientSession(timeout=timeout)
+            self._session = aiohttp.ClientSession(timeout=self._client_timeout())
         return self._session
+
+    @classmethod
+    def _timeout_setting(cls, settings: Settings, name: str, default: float) -> float:
+        raw_value = getattr(settings, name, default)
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            return default
+        if value <= 0:
+            return default
+        return max(cls._MIN_TIMEOUT_SECONDS, value)
+
+    def _client_timeout(self) -> aiohttp.ClientTimeout:
+        # Separate connect/read timeouts so a slow panel route has more room,
+        # while genuinely stuck requests still cannot pin a worker forever.
+        return aiohttp.ClientTimeout(
+            total=self._timeout_setting(
+                self.settings,
+                "PANEL_API_TOTAL_TIMEOUT_SECONDS",
+                self._DEFAULT_TOTAL_TIMEOUT_SECONDS,
+            ),
+            connect=self._timeout_setting(
+                self.settings,
+                "PANEL_API_CONNECT_TIMEOUT_SECONDS",
+                self._DEFAULT_CONNECT_TIMEOUT_SECONDS,
+            ),
+            sock_connect=self._timeout_setting(
+                self.settings,
+                "PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS",
+                self._DEFAULT_SOCK_CONNECT_TIMEOUT_SECONDS,
+            ),
+            sock_read=self._timeout_setting(
+                self.settings,
+                "PANEL_API_SOCK_READ_TIMEOUT_SECONDS",
+                self._DEFAULT_SOCK_READ_TIMEOUT_SECONDS,
+            ),
+        )
 
     async def close_session(self):
         if self._session and not self._session.closed:
@@ -121,6 +189,15 @@ class PanelApiService:
         for attempt in range(max_attempts):
             result = await self._request_once(method, endpoint, log_full_response, **kwargs)
             if attempt + 1 < max_attempts and self._is_transient_error(result):
+                logging.warning(
+                    "Retrying transient Panel API request method=%s endpoint=%s "
+                    "attempt=%s/%s status_code=%s",
+                    method.upper(),
+                    _endpoint_log_label(endpoint),
+                    attempt + 1,
+                    max_attempts,
+                    result.get("status_code") if isinstance(result, dict) else None,
+                )
                 await asyncio.sleep(self._RETRY_BACKOFF_SECONDS)
                 continue
             return result
@@ -137,6 +214,7 @@ class PanelApiService:
         headers = await self._prepare_headers()
 
         url_for_request = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
+        endpoint_label = _endpoint_log_label(endpoint)
 
         current_params = kwargs.get("params")
         url_with_params_for_log = url_for_request
@@ -158,8 +236,8 @@ class PanelApiService:
                 )
             except Exception:
                 log_prefix += f" | Payload: {str(json_payload_for_log)[:300]}..."
+        started = time.monotonic()
         try:
-            started = time.monotonic()
             async with aiohttp_session.request(
                 method.upper(), url_for_request, headers=headers, **kwargs
             ) as response:
@@ -169,7 +247,7 @@ class PanelApiService:
                     "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=%s",
                     time.monotonic() - started,
                     method.upper(),
-                    endpoint,
+                    endpoint_label,
                     response_status,
                 )
 
@@ -228,17 +306,67 @@ class PanelApiService:
                     return {"error": True, "status_code": response_status, "details": error_details}
 
         except aiohttp.ClientConnectorError as e:
-            logging.error(f"Panel API ClientConnectorError to {url_for_request}: {e}")
+            logging.info(
+                "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=connect_error",
+                time.monotonic() - started,
+                method.upper(),
+                endpoint_label,
+            )
+            logging.error(
+                "Panel API ClientConnectorError method=%s endpoint=%s: %s",
+                method.upper(),
+                endpoint_label,
+                e,
+            )
             return {"error": True, "status_code": -1, "message": f"Connection error: {str(e)}"}
+        except aiohttp.ServerTimeoutError as e:
+            logging.info(
+                "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=timeout",
+                time.monotonic() - started,
+                method.upper(),
+                endpoint_label,
+            )
+            logging.warning(
+                "Panel API timeout method=%s endpoint=%s: %s", method.upper(), endpoint_label, e
+            )
+            return {"error": True, "status_code": -3, "message": f"Request timed out: {str(e)}"}
         except aiohttp.ClientError as e:
-            logging.exception("Panel API ClientError to %s.", url_for_request)
+            logging.info(
+                "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=client_error",
+                time.monotonic() - started,
+                method.upper(),
+                endpoint_label,
+            )
+            logging.exception(
+                "Panel API ClientError method=%s endpoint=%s.", method.upper(), endpoint_label
+            )
             return {"error": True, "status_code": -2, "message": f"Client error: {str(e)}"}
         except asyncio.TimeoutError:
-            logging.error(f"Panel API request to {url_for_request} timed out.")
+            logging.info(
+                "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=timeout",
+                time.monotonic() - started,
+                method.upper(),
+                endpoint_label,
+            )
+            logging.error(
+                "Panel API request timed out method=%s endpoint=%s.",
+                method.upper(),
+                endpoint_label,
+            )
             return {"error": True, "status_code": -3, "message": "Request timed out"}
         except Exception as e:
+            logging.info(
+                "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=unexpected_error",
+                time.monotonic() - started,
+                method.upper(),
+                endpoint_label,
+            )
             logging.error(
-                f"Unexpected Panel API request error to {url_for_request}: {e}", exc_info=True
+                "Unexpected Panel API request error method=%s endpoint=%s: %s",
+                method.upper(),
+                endpoint_label,
+                e,
+                exc_info=True,
             )
             return {"error": True, "status_code": -4, "message": f"Unexpected error: {str(e)}"}
 
@@ -885,7 +1013,14 @@ class PanelApiService:
         await self._devices_cache.invalidate_remote(f"user:{user_uuid}")
 
     async def get_internal_squads(self) -> Optional[List[Dict[str, Any]]]:
-        return await self._squads_cache.get_or_load("list", self._get_internal_squads_uncached)
+        squads = await self._squads_cache.get_or_load("list", self._get_internal_squads_uncached)
+        if squads is not None:
+            return squads
+        stale_squads = self._squads_cache.get_stale("list")
+        if stale_squads is not None:
+            logging.warning("Using stale internal squads cache after panel fetch failed.")
+            return stale_squads
+        return None
 
     async def _get_internal_squads_uncached(self) -> Optional[List[Dict[str, Any]]]:
         response_data = await self._request("GET", "/internal-squads", log_full_response=False)

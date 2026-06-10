@@ -16,7 +16,7 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 - Web App / Mini App с входом через Telegram или email;
 - встроенные инструкции установки в Mini App: личный экран `/install` и публичная ссылка `/s/<token>` для передачи инструкции;
 - пробный период, промокоды и реферальная программа;
-- оплата через YooKassa, FreeKassa, Platega, SeverPay, Wata, CryptoPay, Heleket и Telegram Stars;
+- оплата через YooKassa, FreeKassa, Platega, SeverPay, Wata, CryptoPay, Heleket, PayKilla и Telegram Stars;
 - тикеты поддержки в Web App и внешняя ссылка на поддержку;
 - раздел "Мои устройства" при включенном `MY_DEVICES_SECTION_ENABLED`.
 
@@ -43,8 +43,8 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 - [Telegram-авторизация](docs/features/telegram-auth.md) и [вход по email](docs/features/email-login.md) - настройка BotFather/OAuth и SMTP-логина.
 - [Поддержка пользователей / тикеты](docs/features/support.md) - тикеты в Mini App, входящий список админки, уведомления, лимиты и внешняя ссылка поддержки.
 - [Темы Web App](docs/features/webapp-themes.md) - кастомные темы, настройка внешнего вида, логотипы, CSS/ассеты и пайплайн создания новой темы.
-- [Миграции](docs/migrations/index.md) - готовые сценарии переноса с других ботов; сейчас описан `remnawave-tg-shop`.
-- [Миграция с remnawave-tg-shop](docs/migrations/remnawave-tg-shop.md) - готовый сценарий для legacy-стека.
+- [Миграции](docs/migrations/index.md) - готовые сценарии переноса с `remnawave-tg-shop` и Remnashop.
+- [Миграция с remnawave-tg-shop](docs/migrations/remnawave-tg-shop.md) и [Remnashop](docs/migrations/remnashop.md) - сценарии через общий install wizard.
 
 ## Совместимость
 
@@ -90,6 +90,7 @@ docker compose logs -f backend worker frontend
 - `WEBAPP_SESSION_SECRET`, `WEBHOOK_SECRET_TOKEN` - стабильные секреты;
 - `SUBSCRIPTION_MINI_APP_URL` - публичный HTTPS URL Mini App/frontend, например `https://app.domain.com/`;
 - `PANEL_API_URL`, `PANEL_API_KEY`, `PANEL_WEBHOOK_SECRET` - доступ к Remnawave;
+- `TRUSTED_PROXIES` - оставьте дефолт для Docker/Caddy/Nginx/Newt или укажите IP/CIDR своего reverse proxy, чтобы IP allowlist платежных webhook видел реального провайдера;
 - остальные настройки удобнее задать в Web App админке.
 
 В Remnawave Panel укажите `WEBHOOK_URL` как публичный адрес Minishop с путем `/webhook/panel`, например `https://app.example.com/webhook/panel`. Секрет вебхука задается в самой Remnawave Panel; это же значение вставьте в `PANEL_WEBHOOK_SECRET` в `.env` или в **Система -> Настройки -> Remnawave Panel** в админке.
@@ -98,10 +99,12 @@ docker compose logs -f backend worker frontend
 
 Для каталога тарифов используется `TARIFFS_CONFIG_PATH` со значением по умолчанию `data/tariffs.json`. Пример формата лежит в [data/tariffs.example.json](data/tariffs.example.json), подробности - в [docs/features/tariffs.md](docs/features/tariffs.md).
 
-В compose-примерах `/app/data` монтируется из папки `./data` рядом с `docker-compose.yml`. Заранее создайте каталог и отдайте его пользователю контейнера. Это нужно для сохранения `data/tariffs.json`, каталога тем `data/themes`, кеша логотипа Web App и animated emoji:
+В Docker этот файл должен быть доступен не только `backend` и `worker`, но и одноразовому сервису `migrate`: мигратор читает каталог тарифов при привязке существующих подписок к тарифу по умолчанию. В текущих compose-файлах весь `/app/data` уже смонтирован в `migrate`, `backend` и `worker`; если переносите compose вручную, сохраните одинаковый mount для всех трех сервисов.
+
+В compose-примерах `/app/data` монтируется из папки `./data` рядом с `docker-compose.yml`. Заранее создайте каталог и отдайте его пользователю контейнера. Это нужно для сохранения `data/tariffs.json`, каталога тем `data/themes` и кеша логотипа Web App:
 
 ```bash
-mkdir -p data/themes data/webapp-logo data/webapp-emoji
+mkdir -p data/themes data/webapp-logo data/tariffs
 touch data/locales-overrides.json
 chown -R 10001:10001 data
 chmod -R u+rwX data

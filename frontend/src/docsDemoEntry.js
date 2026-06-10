@@ -29,9 +29,13 @@ function applyDemoThemeTokens(catalog) {
   const themes = catalog?.themes || [];
   for (const theme of themes) {
     theme.tokens = theme.tokens || {};
-    const currentScale = Number(theme.tokens.home_logo_scale);
-    if (!Number.isFinite(currentScale) || currentScale > DEMO_HOME_LOGO_SCALE) {
-      theme.tokens.home_logo_scale = DEMO_HOME_LOGO_SCALE;
+    const logoScaleKeys = ["home_logo_scale_desktop", "home_logo_scale_mobile"];
+    for (const key of ["home_logo_scale", ...logoScaleKeys]) {
+      if (key !== "home_logo_scale" && !(key in theme.tokens)) continue;
+      const currentScale = Number(theme.tokens[key]);
+      if (!Number.isFinite(currentScale) || currentScale > DEMO_HOME_LOGO_SCALE) {
+        theme.tokens[key] = DEMO_HOME_LOGO_SCALE;
+      }
     }
   }
 }

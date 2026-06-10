@@ -7,6 +7,7 @@ IMAGE_TAG="${IMAGE_TAG:?Set IMAGE_TAG to the release tag you want to build and p
 IMAGE_PREFIX="${IMAGE_PREFIX:-remnawave-minishop}"
 DOCKERFILE="${DOCKERFILE:-deploy/docker/Dockerfile}"
 TARGETS="${TARGETS:-backend worker frontend}"
+REMNAWAVE_MINISHOP_BUILD_PROVENANCE="${REMNAWAVE_MINISHOP_BUILD_PROVENANCE:-custom}"
 
 normalize_list() {
   local value="$1"
@@ -34,7 +35,12 @@ build_image() {
   done
 
   echo "Building $target for: ${registries[*]}"
-  docker build -f "$DOCKERFILE" --target "$target" "${tags[@]}" .
+  docker build \
+    -f "$DOCKERFILE" \
+    --target "$target" \
+    --build-arg "REMNAWAVE_MINISHOP_BUILD_PROVENANCE=$REMNAWAVE_MINISHOP_BUILD_PROVENANCE" \
+    "${tags[@]}" \
+    .
 }
 
 push_image() {

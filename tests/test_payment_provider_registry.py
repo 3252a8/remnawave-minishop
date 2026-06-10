@@ -1,5 +1,6 @@
 import asyncio
 import importlib
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -30,7 +31,10 @@ from bot.payment_providers.shared import (
     sale_mode_is_traffic,
     sale_mode_tariff_key,
 )
-from bot.payment_providers.yookassa import _resolve_yookassa_activation_amounts
+from bot.payment_providers.yookassa import (
+    _parse_saved_list_payload,
+    _resolve_yookassa_activation_amounts,
+)
 from config.settings import Settings
 
 _LEGACY_PROVIDER_FILES = [
@@ -61,6 +65,7 @@ _PROVIDER_MODULES = {
     "stars": "StarsService",
     "wata": "WataService",
     "heleket": "HeleketService",
+    "paykilla": "PaykillaService",
 }
 
 
@@ -122,6 +127,7 @@ def test_service_keys_and_statuses_come_from_provider_specs():
         "stars_service",
         "cryptopay_service",
         "heleket_service",
+        "paykilla_service",
     }
     assert set(pending_statuses()) >= {
         "pending",
@@ -133,6 +139,7 @@ def test_service_keys_and_statuses_come_from_provider_specs():
         "pending_cryptopay",
         "pending_stars",
         "pending_heleket",
+        "pending_paykilla",
     }
 
 
@@ -149,6 +156,7 @@ def test_provider_labels_and_emojis_include_storage_keys_and_method_aliases():
     assert emojis["stars"] == get_provider_spec("stars").default_telegram_emoji
     assert emojis["telegram_stars"] == get_provider_spec("stars").default_telegram_emoji
     assert emojis["cryptopay"] == get_provider_spec("cryptopay").default_telegram_emoji
+    assert labels["paykilla"] == "PayKilla"
 
 
 def test_provider_presentation_resolves_defaults_and_overrides():
@@ -199,6 +207,47 @@ def test_provider_presentation_ignores_cross_language_override():
     settings = SimpleNamespace(PAYMENT_YOOKASSA_WEBAPP_LABEL_RU="Карта")
 
     assert resolve_provider_presentation(spec, settings, language="en").webapp_label == "YooKassa"
+
+
+def test_subscription_hwid_renewal_token_adds_quote_to_callback_parts():
+    service = SimpleNamespace(
+        quote_hwid_device_renewal_for_subscription=AsyncMock(
+            return_value={
+                "device_count": 2,
+                "price": 50,
+                "valid_from": "2099-02-01",
+                "valid_until": "2099-03-01",
+            }
+        )
+    )
+    session = AsyncMock()
+
+    parts, quote = asyncio.run(
+        quote_hwid_callback_parts(
+            session=session,
+            user_id=77,
+            parts=PaymentCallbackParts(
+                months=1,
+                price=100,
+                sale_mode="subscription@basic|hwid_renewal",
+            ),
+            subscription_service=service,
+            currency="rub",
+        )
+    )
+
+    assert parts is not None
+    assert quote is not None
+    assert parts.months == 1
+    assert parts.price == 150
+    assert quote["device_count"] == 2
+    service.quote_hwid_device_renewal_for_subscription.assert_awaited_once_with(
+        session,
+        user_id=77,
+        target_tariff_key="basic",
+        months=1,
+        currency="rub",
+    )
 
 
 def test_payment_method_keyboard_uses_custom_telegram_text_without_changing_callback(monkeypatch):
@@ -265,6 +314,67 @@ def test_payment_method_keyboard_filters_providers_by_payment_currency(monkeypat
     ]
     assert "pay_wata:1:10:subscription" in callbacks
     assert all(not callback.startswith("pay_yk:") for callback in callbacks)
+
+
+def test_payment_method_keyboard_filters_paykilla_by_converted_minimum(monkeypatch):
+    from bot.payment_providers import paykilla
+
+    monkeypatch.setenv("PAYKILLA_ENABLED", "True")
+    monkeypatch.setenv("PAYKILLA_API_KEY", "paykilla-public")
+    monkeypatch.setenv("PAYKILLA_SECRET_KEY", "paykilla-secret")
+    monkeypatch.setenv("PAYKILLA_MIN_PAYMENT_AMOUNT", "10")
+    monkeypatch.setenv("PAYKILLA_MIN_PAYMENT_CURRENCY", "USD")
+    build_provider_configs(force=True)
+    monkeypatch.setattr(
+        paykilla,
+        "_exchange_rate_sync",
+        lambda _config, _source, _target: Decimal("0.013586"),
+    )
+
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+        TARIFFS_CONFIG_PATH="missing-tariffs.json",
+        PAYMENT_METHODS_ORDER="paykilla",
+        STARS_ENABLED=False,
+    )
+    i18n = SimpleNamespace(gettext=lambda _lang, key, **_kwargs: key)
+
+    below_minimum = get_payment_method_keyboard(
+        months=1,
+        price=190,
+        stars_price=None,
+        currency_symbol_val="RUB",
+        lang="en",
+        i18n_instance=i18n,
+        settings=settings,
+    )
+    above_minimum = get_payment_method_keyboard(
+        months=1,
+        price=1000,
+        stars_price=None,
+        currency_symbol_val="RUB",
+        lang="en",
+        i18n_instance=i18n,
+        settings=settings,
+    )
+
+    below_callbacks = [
+        button.callback_data
+        for row in below_minimum.inline_keyboard
+        for button in row
+        if button.callback_data
+    ]
+    above_callbacks = [
+        button.callback_data
+        for row in above_minimum.inline_keyboard
+        for button in row
+        if button.callback_data
+    ]
+    assert all(not callback.startswith("pay_paykilla:") for callback in below_callbacks)
+    assert "pay_paykilla:1:1000:subscription" in above_callbacks
 
 
 def test_admin_only_provider_is_visible_only_to_admins(monkeypatch):
@@ -348,6 +458,49 @@ def test_webapp_payment_methods_filter_by_default_currency(monkeypatch):
     methods = _serialize_payment_methods(settings, app, "en", is_admin=False)
 
     assert [method["id"] for method in methods] == ["wata"]
+
+
+def test_webapp_payment_methods_include_paykilla_minimum_metadata(monkeypatch):
+    from bot.app.web.webapp.serializers import _serialize_payment_methods
+    from bot.payment_providers import paykilla
+
+    monkeypatch.setenv("PAYKILLA_ENABLED", "True")
+    monkeypatch.setenv("PAYKILLA_API_KEY", "paykilla-public")
+    monkeypatch.setenv("PAYKILLA_SECRET_KEY", "paykilla-secret")
+    monkeypatch.setenv("PAYKILLA_MIN_PAYMENT_AMOUNT", "10")
+    monkeypatch.setenv("PAYKILLA_MIN_PAYMENT_CURRENCY", "USD")
+    build_provider_configs(force=True)
+    monkeypatch.setattr(
+        paykilla,
+        "_exchange_rate_sync",
+        lambda _config, _source, _target: Decimal("0.013586"),
+    )
+
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+        TARIFFS_CONFIG_PATH="missing-tariffs.json",
+        PAYMENT_METHODS_ORDER="paykilla",
+        DEFAULT_CURRENCY_SYMBOL="RUB",
+        STARS_ENABLED=False,
+    )
+    app = {"paykilla_service": SimpleNamespace(configured=True)}
+
+    methods = _serialize_payment_methods(settings, app, "en", is_admin=False)
+
+    assert methods == [
+        {
+            "id": "paykilla",
+            "name": "PayKilla",
+            "icon": "Bitcoin",
+            "min_amount": "736.06",
+            "min_currency": "RUB",
+            "configured_min_amount": "10.00",
+            "configured_min_currency": "USD",
+        }
+    ]
 
 
 def test_admin_only_provider_toggle_pairs_are_declared():
@@ -502,3 +655,19 @@ def test_yookassa_hwid_metadata_rejects_fractional_device_count():
             traffic_gb_raw=None,
             hwid_devices_raw="1.9",
         )
+
+
+def test_yookassa_saved_card_payload_parser_accepts_new_and_legacy_formats():
+    assert _parse_saved_list_payload("1:100:0:subscription@vip|hwid_renewal") == (
+        1,
+        100,
+        0,
+        "subscription@vip|hwid_renewal",
+    )
+    assert _parse_saved_list_payload("1:100:subscription@vip|hwid_renewal") == (
+        1,
+        100,
+        0,
+        "subscription@vip|hwid_renewal",
+    )
+    assert _parse_saved_list_payload("bad:100:subscription") is None

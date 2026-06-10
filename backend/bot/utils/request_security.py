@@ -34,12 +34,26 @@ def _parse_ip(value: Optional[str]) -> Optional[ipaddress._BaseAddress]:
         return None
 
 
-def _last_forwarded_ip(header_value: str) -> Optional[str]:
+def _forwarded_ips(header_value: str) -> list[ipaddress._BaseAddress]:
     candidates = [item.strip() for item in header_value.split(",") if item.strip()]
-    if not candidates:
-        return None
-    candidate = candidates[-1]
-    return candidate if _parse_ip(candidate) is not None else None
+    parsed: list[ipaddress._BaseAddress] = []
+    for candidate in candidates:
+        parsed_ip = _parse_ip(candidate)
+        if parsed_ip is not None:
+            parsed.append(parsed_ip)
+    return parsed
+
+
+def _forwarded_client_ip(
+    forwarded_ips: Sequence[ipaddress._BaseAddress],
+    trusted_networks: Sequence[ipaddress._BaseNetwork],
+) -> Optional[str]:
+    for forwarded_ip in reversed(forwarded_ips):
+        if not any(forwarded_ip in network for network in trusted_networks):
+            return str(forwarded_ip)
+    if forwarded_ips:
+        return str(forwarded_ips[0])
+    return None
 
 
 def request_client_ip(
@@ -48,20 +62,21 @@ def request_client_ip(
     trusted_proxies: Optional[Sequence[str] | str] = None,
 ) -> Optional[str]:
     remote_ip = _parse_ip(request.remote or "")
-    forwarded_for = request.headers.get("X-Forwarded-For", "")
+    forwarded_ips = _forwarded_ips(request.headers.get("X-Forwarded-For", ""))
 
-    if remote_ip and forwarded_for:
+    if remote_ip and forwarded_ips:
         trusted_networks = parse_ip_entries(trusted_proxies)
         if any(remote_ip in network for network in trusted_networks):
-            forwarded_ip = _last_forwarded_ip(forwarded_for)
+            forwarded_ip = _forwarded_client_ip(forwarded_ips, trusted_networks)
             if forwarded_ip:
                 return forwarded_ip
 
     if remote_ip:
         return str(remote_ip)
 
-    forwarded_ip = _last_forwarded_ip(forwarded_for)
-    return forwarded_ip
+    if forwarded_ips:
+        return str(forwarded_ips[-1])
+    return None
 
 
 def ip_in_allowlist(

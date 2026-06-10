@@ -18,6 +18,7 @@ export function createBillingStore({
     selectedTariffKey: "",
     selectedPlan: null,
     selectedMethod: "",
+    renewHwidDevices: true,
     paymentStartedWithActiveSubscription: false,
     topupModalOpen: false,
     topupKind: "regular",
@@ -73,15 +74,7 @@ export function createBillingStore({
       paymentPollToken += 1;
     }
     showToast(t("wa_payment_success", {}, "Payment successful"));
-    const payload = await loadData({ fresh: true });
-    if (
-      successContext.renewalSubscriptionPayment &&
-      payload?.subscription?.device_topup_renewal_available &&
-      payload?.subscription?.can_topup_devices
-    ) {
-      showToast(t("wa_hwid_devices_renewal_prompt"));
-      openDeviceTopupModal(payload.payment_methods?.[0]?.id || "");
-    }
+    await loadData({ fresh: true });
     if (
       successContext.initialSubscriptionPayment &&
       typeof onSubscriptionActivated === "function"
@@ -163,6 +156,7 @@ export function createBillingStore({
         selectedTariffKey: tariffKey,
         selectedPlan: plan,
         selectedMethod: s.selectedMethod || defaultMethod,
+        renewHwidDevices: true,
         paymentStartedWithActiveSubscription: Boolean(subscription?.active),
       };
     });
@@ -179,6 +173,7 @@ export function createBillingStore({
       ...s,
       selectedTariffKey: key,
       selectedPlan: plans.find((plan) => plan?.tariff_key === key) || null,
+      renewHwidDevices: true,
     }));
   }
 
@@ -189,6 +184,7 @@ export function createBillingStore({
         ...s,
         selectedPlan: s.selectedPlan || selectedTariffPlans[0] || null,
         paymentStep: "checkout",
+        renewHwidDevices: true,
       };
     });
   }
@@ -355,7 +351,9 @@ export function createBillingStore({
     state.update((s) => ({ ...s, payBusy: true }));
     try {
       const response = await billing.postPayment(
-        billing.planPaymentBody(s.selectedPlan, s.selectedMethod)
+        billing.planPaymentBody(s.selectedPlan, s.selectedMethod, {
+          renewHwidDevices: s.renewHwidDevices && Boolean(s.selectedPlan?.hwid_renewal?.available),
+        })
       );
       const successContext = paymentSuccessContext(s, response);
       rememberSubscriptionActivationPending(successContext);

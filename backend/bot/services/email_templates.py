@@ -10,8 +10,10 @@ copy goes through the shared `JsonI18n` instance so translations live in
 from __future__ import annotations
 
 import html
+import io
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Sequence, Tuple
 from urllib.parse import urlsplit
 
@@ -27,6 +29,28 @@ _TEXT_MUTED = "#9aa3b2"
 _TEXT_DIM = "#5d6573"
 _DEFAULT_ACCENT = "#00fe7a"
 _HEX_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+_EMAIL_LOGO_CONTENT_ID = "webapp-logo"
+_WEBAPP_UPLOADED_LOGO_PATH = "/webapp-uploaded-logo"
+_WEBAPP_UPLOADED_LOGO_DIR = Path(__file__).resolve().parents[3] / "data" / "webapp-logo" / "uploads"
+_WEBAPP_LOGO_MAX_BYTES = 2 * 1024 * 1024
+_UPLOADED_LOGO_RE = re.compile(r"logo-[0-9a-f]{16}\.(?:gif|ico|jpe?g|png|svg|webp)")
+_LOGO_CONTENT_TYPES = {
+    ".gif": "image/gif",
+    ".ico": "image/x-icon",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".svg": "image/svg+xml",
+    ".webp": "image/webp",
+}
+_EMAIL_LOGO_PNG_FALLBACK_EXTENSIONS = {".ico", ".webp"}
+
+
+@dataclass(frozen=True)
+class EmailInlineImage:
+    content_id: str
+    content_type: str
+    data: bytes
 
 
 @dataclass(frozen=True)
@@ -34,6 +58,13 @@ class EmailContent:
     subject: str
     text: str
     html: str
+    inline_images: Tuple[EmailInlineImage, ...] = ()
+
+
+@dataclass(frozen=True)
+class _EmailLayout:
+    html: str
+    inline_images: Tuple[EmailInlineImage, ...] = ()
 
 
 def _safe_color(value: Optional[str]) -> str:
@@ -45,11 +76,22 @@ def _safe_color(value: Optional[str]) -> str:
     return _DEFAULT_ACCENT
 
 
+def _theme_accent(settings: Settings) -> str:
+    primary = _safe_color(getattr(settings, "WEBAPP_PRIMARY_COLOR", None))
+    try:
+        catalog = getattr(settings, "webapp_themes_catalog", None)
+        if catalog is None:
+            return primary
+        from config.webapp_themes_config import effective_webapp_theme_accent
+
+        return _safe_color(effective_webapp_theme_accent(catalog, primary))
+    except Exception:
+        return primary
+
+
 def _public_logo_url(settings: Settings) -> Optional[str]:
     """Email recipients can't reach the in-app /webapp-logo proxy, so only a
     stored public https URL can be used directly. Anything else is dropped."""
-    if getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
-        return None
     raw = (settings.WEBAPP_LOGO_URL or "").strip()
     if not raw:
         return None
@@ -57,6 +99,91 @@ def _public_logo_url(settings: Settings) -> Optional[str]:
     if parsed.scheme != "https" or not parsed.hostname:
         return None
     return raw
+
+
+def _uploaded_logo_filename(url: str) -> Optional[str]:
+    parsed = urlsplit(str(url or ""))
+    path = parsed.path if parsed.scheme or parsed.netloc else str(url or "")
+    prefix = f"{_WEBAPP_UPLOADED_LOGO_PATH}/"
+    if not path.startswith(prefix):
+        return None
+    filename = path.removeprefix(prefix)
+    return filename if _UPLOADED_LOGO_RE.fullmatch(filename) else None
+
+
+def _inline_uploaded_logo(settings: Settings) -> Optional[EmailInlineImage]:
+    filename = _uploaded_logo_filename((settings.WEBAPP_LOGO_URL or "").strip())
+    if not filename:
+        return None
+
+    content_type = _LOGO_CONTENT_TYPES.get(Path(filename).suffix.lower())
+    if not content_type:
+        return None
+
+    try:
+        uploads_dir = _WEBAPP_UPLOADED_LOGO_DIR.resolve()
+        logo_path = (uploads_dir / filename).resolve()
+        logo_path.relative_to(uploads_dir)
+        body = logo_path.read_bytes()
+    except (OSError, ValueError):
+        return None
+
+    if not body or len(body) > _WEBAPP_LOGO_MAX_BYTES:
+        return None
+
+    content_type, body = _email_logo_payload(filename, content_type, body)
+
+    return EmailInlineImage(
+        content_id=_EMAIL_LOGO_CONTENT_ID,
+        content_type=content_type,
+        data=body,
+    )
+
+
+def _email_logo_payload(filename: str, content_type: str, body: bytes) -> Tuple[str, bytes]:
+    suffix = Path(filename).suffix.lower()
+    if suffix not in _EMAIL_LOGO_PNG_FALLBACK_EXTENSIONS:
+        return content_type, body
+
+    png_body = _static_raster_logo_to_png(body)
+    if png_body and len(png_body) <= _WEBAPP_LOGO_MAX_BYTES:
+        return "image/png", png_body
+    return content_type, body
+
+
+def _static_raster_logo_to_png(body: bytes) -> Optional[bytes]:
+    try:
+        from PIL import Image, ImageOps, UnidentifiedImageError
+    except ImportError:
+        return None
+
+    try:
+        with Image.open(io.BytesIO(body)) as image:
+            image.seek(0)
+            if getattr(image, "is_animated", False):
+                return None
+            source = ImageOps.exif_transpose(image).convert("RGBA")
+    except (OSError, UnidentifiedImageError, ValueError, EOFError):
+        return None
+
+    if source.width < 1 or source.height < 1 or source.width > 8192 or source.height > 8192:
+        return None
+
+    output = io.BytesIO()
+    source.save(output, format="PNG", optimize=True)
+    return output.getvalue()
+
+
+def _email_logo(settings: Settings) -> Tuple[Optional[str], Tuple[EmailInlineImage, ...]]:
+    inline_logo = _inline_uploaded_logo(settings)
+    if inline_logo:
+        return f"cid:{inline_logo.content_id}", (inline_logo,)
+
+    public_url = _public_logo_url(settings)
+    if public_url:
+        return public_url, ()
+
+    return None, ()
 
 
 def _brand_title(settings: Settings) -> str:
@@ -98,20 +225,21 @@ def _layout(
     intro_html: str,
     body_html: str,
     footer_html: str,
-) -> str:
-    accent = _safe_color(settings.WEBAPP_PRIMARY_COLOR)
+    accent: Optional[str] = None,
+) -> _EmailLayout:
+    accent = _safe_color(accent) if accent else _theme_accent(settings)
     brand_title = html.escape(_brand_title(settings))
-    logo_url = _public_logo_url(settings)
+    logo_url, inline_images = _email_logo(settings)
     html_lang = html.escape((language_code or "en").replace("_", "-"), quote=True)
     logo_block = ""
     if logo_url:
         logo_block = (
             f'<img src="{html.escape(logo_url, quote=True)}" width="64" height="64" '
             f'alt="" style="display:block;border:0;outline:none;text-decoration:none;'
-            f'border-radius:16px;">'
+            f'border-radius:16px;background:transparent;background-color:transparent;">'
         )
 
-    return f"""<!DOCTYPE html>
+    layout_html = f"""<!DOCTYPE html>
 <html lang="{html_lang}" xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <meta charset="utf-8">
@@ -151,6 +279,16 @@ def _layout(
 </body>
 </html>
 """  # noqa: E501
+    return _EmailLayout(html=layout_html, inline_images=inline_images)
+
+
+def _email_content(*, subject: str, text: str, layout: _EmailLayout) -> EmailContent:
+    return EmailContent(
+        subject=subject,
+        text=text,
+        html=layout.html,
+        inline_images=layout.inline_images,
+    )
 
 
 def _info_rows_html(rows: Sequence[Tuple[str, str]]) -> str:
@@ -258,7 +396,7 @@ def render_login_code(
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language_code, settings)
     minutes = _format_minutes(settings.EMAIL_CODE_TTL_SECONDS)
-    accent = _safe_color(settings.WEBAPP_PRIMARY_COLOR)
+    accent = _theme_accent(settings)
     brand = _brand_title(settings)
     template_prefix = "email_set_password_code" if purpose == "set_password" else "email_login_code"
     safe_magic_link = (magic_link or "").strip() if template_prefix == "email_login_code" else ""
@@ -318,8 +456,9 @@ def render_login_code(
         intro_html=html.escape(intro),
         body_html=body_html,
         footer_html=footer,
+        accent=accent,
     )
-    return EmailContent(subject=subject, text="\n".join(text_lines), html=rendered)
+    return _email_content(subject=subject, text="\n".join(text_lines), layout=rendered)
 
 
 def render_account_merged(
@@ -372,7 +511,7 @@ def render_account_merged(
         body_html=body_html,
         footer_html=footer,
     )
-    return EmailContent(subject=subject, text=text, html=rendered)
+    return _email_content(subject=subject, text=text, layout=rendered)
 
 
 def render_payment_success(
@@ -391,7 +530,7 @@ def render_payment_success(
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language_code, settings)
-    accent = _safe_color(settings.WEBAPP_PRIMARY_COLOR)
+    accent = _theme_accent(settings)
     brand = _brand_title(settings)
     sale_base = (sale_mode or "").split("@", 1)[0].split("|", 1)[0]
     is_traffic = sale_base in {
@@ -505,8 +644,9 @@ def render_payment_success(
         intro_html=html.escape(intro),
         body_html="".join(body_parts),
         footer_html=footer,
+        accent=accent,
     )
-    return EmailContent(subject=subject, text="\n".join(text_lines), html=rendered)
+    return _email_content(subject=subject, text="\n".join(text_lines), layout=rendered)
 
 
 def render_user_notification(
@@ -523,7 +663,7 @@ def render_user_notification(
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language_code, settings)
-    accent = _safe_color(settings.WEBAPP_PRIMARY_COLOR)
+    accent = _theme_accent(settings)
     brand = _brand_title(settings)
     safe_dashboard_url = (dashboard_url or "").strip()
     final_subject = (subject or "").strip() or _t_text(
@@ -556,6 +696,7 @@ def render_user_notification(
         intro_html=html.escape(final_intro),
         body_html="".join(body_parts),
         footer_html=footer,
+        accent=accent,
     )
     text_lines = [final_subject, "", _telegram_html_to_text(message_text)]
     if safe_dashboard_url:
@@ -567,7 +708,7 @@ def render_user_notification(
                 ),
             ]
         )
-    return EmailContent(subject=final_subject, text="\n".join(text_lines), html=rendered)
+    return _email_content(subject=final_subject, text="\n".join(text_lines), layout=rendered)
 
 
 def render_subscription_expiring(
@@ -581,7 +722,7 @@ def render_subscription_expiring(
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language_code, settings)
-    accent = _safe_color(settings.WEBAPP_PRIMARY_COLOR)
+    accent = _theme_accent(settings)
     brand = _brand_title(settings)
     safe_dashboard_url = (dashboard_url or "").strip()
     days = max(0, int(days_left))
@@ -630,8 +771,9 @@ def render_subscription_expiring(
         intro_html=html.escape(intro),
         body_html="".join(body_parts),
         footer_html=footer,
+        accent=accent,
     )
-    return EmailContent(subject=subject, text="\n".join(text_lines), html=rendered)
+    return _email_content(subject=subject, text="\n".join(text_lines), layout=rendered)
 
 
 def _subscription_lifecycle_title(
@@ -678,7 +820,7 @@ def render_subscription_lifecycle_notification(
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language_code, settings)
-    accent = _safe_color(settings.WEBAPP_PRIMARY_COLOR)
+    accent = _theme_accent(settings)
     brand = _brand_title(settings)
     safe_dashboard_url = (dashboard_url or "").strip()
     end_date = end_date_text or "—"
@@ -718,6 +860,7 @@ def render_subscription_lifecycle_notification(
         intro_html=html.escape(intro),
         body_html="".join(body_parts),
         footer_html=footer,
+        accent=accent,
     )
 
     text_lines = [subject, "", message_text]
@@ -733,7 +876,7 @@ def render_subscription_lifecycle_notification(
                 ),
             ]
         )
-    return EmailContent(subject=subject, text="\n".join(text_lines), html=rendered)
+    return _email_content(subject=subject, text="\n".join(text_lines), layout=rendered)
 
 
 def _support_email(
@@ -752,7 +895,7 @@ def _support_email(
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language, settings)
     brand = _brand_title(settings)
-    accent = _safe_color(settings.WEBAPP_PRIMARY_COLOR)
+    accent = _theme_accent(settings)
     safe_url = (ticket_url or "").strip()
     footer = _t_html(i18n, lang, "email_footer_auto", brand=brand)
     localized_rows = [
@@ -775,6 +918,7 @@ def _support_email(
         intro_html=html.escape(intro),
         body_html="".join(body_parts),
         footer_html=footer,
+        accent=accent,
     )
     text_lines = [
         intro,
@@ -785,7 +929,7 @@ def _support_email(
     ]
     if safe_url:
         text_lines.extend(["", safe_url])
-    return EmailContent(subject=subject, text="\n".join(text_lines), html=rendered)
+    return _email_content(subject=subject, text="\n".join(text_lines), layout=rendered)
 
 
 def render_support_new_ticket_admin(

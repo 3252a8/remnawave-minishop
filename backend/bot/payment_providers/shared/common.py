@@ -100,6 +100,11 @@ def build_payment_record_payload(
     base = sale_mode_base(sale_mode)
     is_traffic = sale_mode_is_traffic(sale_mode)
     is_hwid = sale_mode_is_hwid_devices(sale_mode)
+    hwid_devices = int(float(months)) if is_hwid else None
+    if hwid_quote:
+        quote_devices = parse_positive_int_units(hwid_quote.get("device_count"))
+        if quote_devices is not None:
+            hwid_devices = quote_devices
     payload = {
         "user_id": user_id,
         "amount": amount,
@@ -111,9 +116,9 @@ def build_payment_record_payload(
         "sale_mode": sale_mode,
         "tariff_key": sale_mode_tariff_key(sale_mode),
         "purchased_gb": float(months) if is_traffic else None,
-        "purchased_hwid_devices": int(float(months)) if is_hwid else None,
+        "purchased_hwid_devices": hwid_devices,
     }
-    if hwid_quote and is_hwid:
+    if hwid_quote and hwid_devices is not None:
         payload.update(
             {
                 "hwid_valid_from": hwid_quote.get("valid_from"),
@@ -164,14 +169,20 @@ def payment_record_amounts(
     months: Any,
     sale_mode: str,
     traffic_gb: Optional[float] = None,
+    hwid_device_count: Optional[int] = None,
 ) -> PaymentRecordAmounts:
     traffic_sale = sale_mode_is_traffic(sale_mode)
     hwid_devices_sale = sale_mode_is_hwid_devices(sale_mode)
     units = traffic_gb if traffic_sale and traffic_gb is not None else months
+    purchased_hwid_devices = int(float(months)) if hwid_devices_sale else None
+    if not hwid_devices_sale and hwid_device_count is not None:
+        parsed_hwid_devices = parse_positive_int_units(hwid_device_count)
+        if parsed_hwid_devices is not None:
+            purchased_hwid_devices = parsed_hwid_devices
     return PaymentRecordAmounts(
         months=int(float(units)) if traffic_sale else int(float(months)),
         purchased_gb=float(units) if traffic_sale else None,
-        purchased_hwid_devices=int(float(months)) if hwid_devices_sale else None,
+        purchased_hwid_devices=purchased_hwid_devices,
         tariff_key=sale_mode_tariff_key(sale_mode),
         traffic_sale=traffic_sale,
         hwid_devices_sale=hwid_devices_sale,
@@ -281,6 +292,7 @@ async def create_webapp_payment_record(
         months=ctx.months,
         sale_mode=ctx.sale_mode,
         traffic_gb=ctx.traffic_gb,
+        hwid_device_count=ctx.hwid_device_count,
     )
     return await create_base_payment_record(
         ctx.session,
@@ -301,6 +313,45 @@ async def create_webapp_payment_record(
         hwid_proration_ratio=ctx.hwid_proration_ratio,
         hwid_full_price=ctx.hwid_full_price,
     )
+
+
+async def reusable_webapp_payment_response(
+    ctx: WebAppPaymentContext,
+    provider_spec: Any,
+    *,
+    since_minutes: Optional[int] = None,
+) -> Optional[web.Response]:
+    resolver = getattr(provider_spec, "reuse_webapp_payment", None)
+    if resolver is None:
+        return None
+
+    amounts = payment_record_amounts(
+        months=ctx.months,
+        sale_mode=ctx.sale_mode,
+        traffic_gb=ctx.traffic_gb,
+        hwid_device_count=ctx.hwid_device_count,
+    )
+    payment = await payment_dal.find_recent_pending_provider_payment(
+        ctx.session,
+        user_id=ctx.user_id,
+        provider=provider_spec.provider_key,
+        pending_status=provider_spec.pending_status,
+        amount=ctx.price,
+        currency=ctx.currency,
+        sale_mode=ctx.sale_mode,
+        months=amounts.months,
+        purchased_gb=amounts.purchased_gb,
+        purchased_hwid_devices=amounts.purchased_hwid_devices,
+        tariff_key=amounts.tariff_key,
+        since_minutes=since_minutes,
+    )
+    if payment is None:
+        return None
+
+    payment_url = await resolver(ctx, payment)
+    if not payment_url:
+        return None
+    return payment_link_response(payment_url=payment_url, payment_id=payment.payment_id)
 
 
 async def mark_payment_failed_creation(session: AsyncSession, payment_id: int) -> None:

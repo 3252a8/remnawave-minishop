@@ -6,6 +6,9 @@ the runtime container agree on the value:
     REMNAWAVE_MINISHOP_VERSION env > .build-version file > live ``git describe``
     > ``dev+unknown``
 
+Build provenance is intentionally separate from the version: official release
+automation stamps official images, while local/fork builds default to custom.
+
 The same value powers the admin sidebar (web process) and the anonymous
 telemetry beacon (worker process), so "active installs" and version
 breakdowns line up across both.
@@ -24,6 +27,16 @@ from typing import Optional
 APP_ROOT = Path(__file__).resolve().parents[3]
 
 _APP_VERSION_CACHE: Optional[str] = None
+_APP_BUILD_PROVENANCE_CACHE: Optional[str] = None
+
+BUILD_PROVENANCE_OFFICIAL = "official"
+BUILD_PROVENANCE_CUSTOM = "custom"
+BUILD_PROVENANCE_UNKNOWN = "unknown"
+_BUILD_PROVENANCE_VALUES = {
+    BUILD_PROVENANCE_OFFICIAL,
+    BUILD_PROVENANCE_CUSTOM,
+    BUILD_PROVENANCE_UNKNOWN,
+}
 
 
 def _run_git_command(*args: str) -> str:
@@ -87,6 +100,29 @@ def _read_build_file(name: str) -> str:
         return ""
 
 
+def _normalize_build_provenance(raw: str) -> str:
+    value = str(raw or "").strip().lower()
+    if not value:
+        return ""
+    aliases = {
+        "true": BUILD_PROVENANCE_OFFICIAL,
+        "1": BUILD_PROVENANCE_OFFICIAL,
+        "yes": BUILD_PROVENANCE_OFFICIAL,
+        "upstream": BUILD_PROVENANCE_OFFICIAL,
+        "release": BUILD_PROVENANCE_OFFICIAL,
+        "false": BUILD_PROVENANCE_CUSTOM,
+        "0": BUILD_PROVENANCE_CUSTOM,
+        "no": BUILD_PROVENANCE_CUSTOM,
+        "fork": BUILD_PROVENANCE_CUSTOM,
+        "modified": BUILD_PROVENANCE_CUSTOM,
+        "local": BUILD_PROVENANCE_CUSTOM,
+    }
+    value = aliases.get(value, value)
+    if value in _BUILD_PROVENANCE_VALUES:
+        return value
+    return BUILD_PROVENANCE_CUSTOM
+
+
 def resolve_app_version() -> str:
     """Full version string (cached), e.g. ``v3.4.6+gabc1234``."""
     global _APP_VERSION_CACHE
@@ -124,3 +160,28 @@ def resolve_app_version_tag() -> str:
     if tag:
         return tag
     return resolve_app_version()
+
+
+def resolve_build_provenance() -> str:
+    """Low-cardinality image provenance: ``official``, ``custom`` or ``unknown``."""
+    global _APP_BUILD_PROVENANCE_CACHE
+    if _APP_BUILD_PROVENANCE_CACHE:
+        return _APP_BUILD_PROVENANCE_CACHE
+
+    env_value = _normalize_build_provenance(os.getenv("REMNAWAVE_MINISHOP_BUILD_PROVENANCE", ""))
+    if env_value:
+        _APP_BUILD_PROVENANCE_CACHE = env_value
+        return env_value
+
+    build_value = _normalize_build_provenance(_read_build_file(".build-provenance"))
+    if build_value:
+        _APP_BUILD_PROVENANCE_CACHE = build_value
+        return build_value
+
+    _APP_BUILD_PROVENANCE_CACHE = BUILD_PROVENANCE_CUSTOM
+    return _APP_BUILD_PROVENANCE_CACHE
+
+
+def resolve_image_modified() -> bool:
+    """True for non-official builds, including forks and local rebuilds."""
+    return resolve_build_provenance() != BUILD_PROVENANCE_OFFICIAL

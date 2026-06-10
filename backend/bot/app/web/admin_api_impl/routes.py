@@ -6,6 +6,7 @@ def setup_admin_routes(app: web.Application) -> None:
     router = app.router
     router.add_get("/api/admin/me", admin_me_route)
     router.add_get("/api/admin/stats", admin_stats_route)
+    router.add_get("/api/admin/health", admin_health_route)
 
     router.add_get("/api/admin/users", admin_users_list_route)
     router.add_get("/api/admin/users/{user_id:-?\\d+}", admin_user_detail_route)
@@ -29,6 +30,10 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_post(
         "/api/admin/users/{user_id:-?\\d+}/regular-traffic-override",
         admin_user_regular_traffic_override_route,
+    )
+    router.add_post(
+        "/api/admin/users/{user_id:-?\\d+}/hwid-device-limit",
+        admin_user_hwid_device_limit_route,
     )
     router.add_post(
         "/api/admin/users/{user_id:-?\\d+}/traffic-grant",
@@ -57,6 +62,7 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_post("/api/admin/support/tickets/{id:\\d+}/read", admin_support_ticket_read_route)
     router.add_get("/api/admin/support/stats", admin_support_stats_route)
 
+    router.add_get("/api/admin/broadcast/audience-counts", admin_broadcast_audience_counts_route)
     router.add_post("/api/admin/broadcast", admin_broadcast_route)
     router.add_post("/api/admin/sync", admin_sync_route)
 

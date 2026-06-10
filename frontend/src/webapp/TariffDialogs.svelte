@@ -7,6 +7,9 @@
     planUnitHint as planUnitHintFn,
     priceLabel as priceLabelFn,
     actionKey as actionKeyFn,
+    firstAvailableMethod,
+    methodSelectable,
+    methodsForPlan,
   } from "../lib/webapp/tariffs.js";
   import { premiumTitle as premiumTitleFn } from "../lib/webapp/traffic.js";
   import { formatCompactNumber } from "../lib/webapp/formatters.js";
@@ -58,6 +61,31 @@
   }
   function actionKey(action) {
     return actionKeyFn(action);
+  }
+
+  $: changePaymentMethods = methodsForPlan(methods, selectedChangeAction);
+  $: topupPaymentMethods = methodsForPlan(methods, selectedTopupPlan);
+  $: devicePaymentMethods = methodsForPlan(methods, selectedDeviceTopupPlan);
+  $: changePaymentMethodSelected = methodSelectable(changePaymentMethods, selectedMethod);
+  $: topupPaymentMethodSelected = methodSelectable(topupPaymentMethods, selectedMethod);
+  $: devicePaymentMethodSelected = methodSelectable(devicePaymentMethods, selectedMethod);
+  $: if (changeModalOpen && selectedChangeAction?.kind === "payment") {
+    const firstMethod = firstAvailableMethod(changePaymentMethods);
+    if (firstMethod && !methodSelectable(changePaymentMethods, selectedMethod)) {
+      selectedMethod = firstMethod;
+    }
+  }
+  $: if (topupModalOpen && selectedTopupPlan) {
+    const firstMethod = firstAvailableMethod(topupPaymentMethods);
+    if (firstMethod && !methodSelectable(topupPaymentMethods, selectedMethod)) {
+      selectedMethod = firstMethod;
+    }
+  }
+  $: if (deviceTopupModalOpen && selectedDeviceTopupPlan) {
+    const firstMethod = firstAvailableMethod(devicePaymentMethods);
+    if (firstMethod && !methodSelectable(devicePaymentMethods, selectedMethod)) {
+      selectedMethod = firstMethod;
+    }
   }
 
   function changeActionTitle(action) {
@@ -125,6 +153,19 @@
     return deviceTopupOptions?.tariff_name
       ? t("wa_device_topup_for_tariff", { tariff: deviceTopupOptions.tariff_name })
       : "";
+  }
+
+  function deviceTopupPlanTitle(plan) {
+    return t("wa_hwid_devices_package", {
+      count: Number(plan?.device_count || plan?.months || 0),
+    });
+  }
+
+  function deviceTopupPlanHint(plan) {
+    if (plan?.valid_until_text) {
+      return t("wa_hwid_devices_active_until", { date: plan.valid_until_text });
+    }
+    return plan?.subtitle || deviceTopupOptions?.tariff_name || "";
   }
 
   function tariffChangeModalDescription() {
@@ -240,7 +281,7 @@
         </div>
         {#if selectedChangeAction?.kind === "payment"}
           <PaymentMethodGrid
-            {methods}
+            methods={changePaymentMethods}
             {selectedMethod}
             {t}
             onSelect={(id) => (selectedMethod = id)}
@@ -249,7 +290,9 @@
         <Button
           class="wide bottom-action payment-submit-button"
           onclick={openTariffChangeConfirm}
-          disabled={tariffActionBusy || payBusy}
+          disabled={tariffActionBusy ||
+            payBusy ||
+            (selectedChangeAction?.kind === "payment" && !changePaymentMethodSelected)}
         >
           {selectedChangeAction?.kind === "payment" ? t("wa_pay") : t("wa_apply")}
           <ArrowRight size={17} />
@@ -280,7 +323,9 @@
     <Button
       class="wide bottom-action payment-submit-button"
       onclick={applyTariffChange}
-      disabled={tariffActionBusy || payBusy}
+      disabled={tariffActionBusy ||
+        payBusy ||
+        (selectedChangeAction?.kind === "payment" && !changePaymentMethodSelected)}
     >
       {selectedChangeAction?.kind === "payment"
         ? t("wa_confirm_and_pay")
@@ -341,11 +386,16 @@
           {/each}
         </div>
       {/if}
-      <PaymentMethodGrid {methods} {selectedMethod} {t} onSelect={(id) => (selectedMethod = id)} />
+      <PaymentMethodGrid
+        methods={topupPaymentMethods}
+        {selectedMethod}
+        {t}
+        onSelect={(id) => (selectedMethod = id)}
+      />
       <Button
         class="wide bottom-action payment-submit-button"
         onclick={createTopupPayment}
-        disabled={!selectedTopupPlan || !methods.length || payBusy}
+        disabled={!selectedTopupPlan || !topupPaymentMethodSelected || payBusy}
       >
         {t("wa_buy_traffic")}
         {selectedTopupPlan ? priceLabel(selectedTopupPlan) : ""}
@@ -369,16 +419,7 @@
     {#if !deviceTopupOptions}
       <DialogOptionsSkeleton label={t("wa_tariff_options_loading")} rows={3} />
     {:else if deviceTopupOptions?.plans?.length}
-      {#if deviceTopupOptions?.renewal_available}
-        <div class="topup-carryover-note">
-          <p>
-            {t("wa_hwid_devices_renewal_offer", {
-              count: Number(deviceTopupOptions.renewal_recommended_count || 0),
-              date: deviceTopupOptions.extra_hwid_devices_valid_until_text || "",
-            })}
-          </p>
-        </div>
-      {:else if Number(deviceTopupOptions?.extra_hwid_devices || 0) > 0 && deviceTopupOptions?.extra_hwid_devices_valid_until_text}
+      {#if Number(deviceTopupOptions?.extra_hwid_devices || 0) > 0 && deviceTopupOptions?.extra_hwid_devices_valid_until_text}
         <div class="topup-carryover-note">
           <p>
             {t("wa_hwid_devices_valid_until", {
@@ -397,12 +438,8 @@
             onclick={() => (selectedDeviceTopupPlan = plan)}
           >
             <span class="option-row-main">
-              <strong
-                >{t("wa_hwid_devices_package", {
-                  count: Number(plan.device_count || plan.months || 0),
-                })}</strong
-              >
-              <small>{plan.subtitle || deviceTopupOptions.tariff_name}</small>
+              <strong>{deviceTopupPlanTitle(plan)}</strong>
+              <small>{deviceTopupPlanHint(plan)}</small>
             </span>
             <span class="option-row-meta">
               <em>{priceLabel(plan)}</em>
@@ -413,11 +450,16 @@
           </button>
         {/each}
       </div>
-      <PaymentMethodGrid {methods} {selectedMethod} {t} onSelect={(id) => (selectedMethod = id)} />
+      <PaymentMethodGrid
+        methods={devicePaymentMethods}
+        {selectedMethod}
+        {t}
+        onSelect={(id) => (selectedMethod = id)}
+      />
       <Button
         class="wide bottom-action payment-submit-button"
         onclick={createDeviceTopupPayment}
-        disabled={!selectedDeviceTopupPlan || !methods.length || payBusy}
+        disabled={!selectedDeviceTopupPlan || !devicePaymentMethodSelected || payBusy}
       >
         {t("wa_pay")}
         {selectedDeviceTopupPlan ? priceLabel(selectedDeviceTopupPlan) : ""}

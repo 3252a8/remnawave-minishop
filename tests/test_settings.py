@@ -42,6 +42,26 @@ class SettingsTests(unittest.TestCase):
 
         self.assertEqual(settings.WEBAPP_TITLE, "/minishop")
 
+    def test_trusted_proxies_default_includes_private_proxy_ranges(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+        )
+
+        self.assertEqual(
+            settings.trusted_proxies,
+            [
+                "127.0.0.1",
+                "::1",
+                "10.0.0.0/8",
+                "172.16.0.0/12",
+                "192.168.0.0/16",
+                "fc00::/7",
+            ],
+        )
+
     def test_panel_write_mode_defaults_to_live_in_production(self):
         settings = Settings(
             _env_file=None,
@@ -127,9 +147,6 @@ class SettingsTests(unittest.TestCase):
             POSTGRES_PASSWORD="app_password",
             WEBAPP_PRIMARY_COLOR="#ff0000",
             WEBAPP_LOGO_URL="https://cdn.example.com/logo.png",
-            WEBAPP_LOGO_USE_EMOJI=True,
-            WEBAPP_LOGO_EMOJI="🔥",
-            WEBAPP_LOGO_EMOJI_FONT="twemoji",
             WEBAPP_FAVICON_USE_CUSTOM=True,
             WEBAPP_FAVICON_URL="https://cdn.example.com/favicon.png",
             WEBAPP_LOGO_FAVICON_URL="/webapp-favicon/abcdef1234567890/icon-180.png",
@@ -137,9 +154,6 @@ class SettingsTests(unittest.TestCase):
 
         self.assertEqual(settings.WEBAPP_PRIMARY_COLOR, "#00fe7a")
         self.assertIsNone(settings.WEBAPP_LOGO_URL)
-        self.assertFalse(settings.WEBAPP_LOGO_USE_EMOJI)
-        self.assertEqual(settings.WEBAPP_LOGO_EMOJI, "🫥")
-        self.assertEqual(settings.WEBAPP_LOGO_EMOJI_FONT, "system")
         self.assertFalse(settings.WEBAPP_FAVICON_USE_CUSTOM)
         self.assertIsNone(settings.WEBAPP_FAVICON_URL)
         self.assertIsNone(settings.WEBAPP_LOGO_FAVICON_URL)
@@ -202,7 +216,6 @@ class SettingsTests(unittest.TestCase):
             POSTGRES_PASSWORD="app_password",
         )
         settings.WEBAPP_LOGO_URL = "/webapp-uploaded-logo/logo-1111111111111111.png"
-        settings.WEBAPP_LOGO_USE_EMOJI = False
         settings.WEBAPP_LOGO_FAVICON_URL = "/webapp-favicon/aaaaaaaaaaaaaaaa/icon-180.png"
         settings.WEBAPP_FAVICON_USE_CUSTOM = True
         settings.WEBAPP_FAVICON_URL = "/webapp-favicon/bbbbbbbbbbbbbbbb/icon-180.png"

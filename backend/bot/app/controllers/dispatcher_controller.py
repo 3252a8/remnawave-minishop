@@ -17,6 +17,7 @@ from bot.middlewares.channel_subscription import ChannelSubscriptionMiddleware
 from bot.middlewares.db_session import DBSessionMiddleware
 from bot.middlewares.i18n import I18nMiddleware, get_i18n_instance
 from bot.middlewares.profile_sync import ProfileSyncMiddleware
+from bot.middlewares.update_antiflood import UpdateAntiFloodMiddleware
 from config.settings import Settings
 
 
@@ -38,6 +39,7 @@ def build_dispatcher(
     dp["i18n_instance"] = i18n_instance
     dp["async_session_factory"] = async_session_factory
 
+    dp.update.outer_middleware(UpdateAntiFloodMiddleware(settings=settings))
     dp.update.outer_middleware(DBSessionMiddleware(async_session_factory))
     dp.update.outer_middleware(I18nMiddleware(i18n=i18n_instance, settings=settings))
     dp.update.outer_middleware(ProfileSyncMiddleware())

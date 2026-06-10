@@ -5,6 +5,7 @@ from .common import (
     _build_admin_webapp_referral_link,
     _error,
     _ok,
+    _panel_user_connection_activity,
     _premium_traffic_list_payload,
     _read_json,
     _serialize_payment,
@@ -745,6 +746,24 @@ def _user_search_condition(query: str):
     return or_(*conditions)
 
 
+def _serialize_trial_summary(user: User, trial_subs: List[Subscription]) -> Dict[str, Any]:
+    first_trial_sub = trial_subs[0] if trial_subs else None
+    latest_trial_sub = trial_subs[-1] if trial_subs else None
+    first_start = getattr(first_trial_sub, "start_date", None)
+    latest_start = getattr(latest_trial_sub, "start_date", None)
+    latest_end = getattr(latest_trial_sub, "end_date", None)
+    reset_at = getattr(user, "trial_eligibility_reset_at", None)
+    return {
+        "used": bool(trial_subs),
+        "count": len(trial_subs),
+        "first_activated_at": first_start.isoformat() if first_start else None,
+        "latest_activated_at": latest_start.isoformat() if latest_start else None,
+        "latest_end_date": latest_end.isoformat() if latest_end else None,
+        "active": bool(latest_trial_sub and getattr(latest_trial_sub, "is_active", False)),
+        "last_reset_at": reset_at.isoformat() if reset_at else None,
+    }
+
+
 async def admin_user_detail_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
@@ -764,6 +783,15 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             .limit(20)
         )
         latest_subs = (await session.execute(latest_subs_stmt)).scalars().all()
+        trial_subs_stmt = (
+            select(Subscription)
+            .where(
+                Subscription.user_id == target_id,
+                sa_func.lower(sa_func.coalesce(Subscription.provider, "")) == "trial",
+            )
+            .order_by(Subscription.start_date.asc().nullslast(), Subscription.end_date.asc())
+        )
+        trial_subs = (await session.execute(trial_subs_stmt)).scalars().all()
         total_paid = await payment_dal.get_user_total_paid(session, target_id)
         recent_payments_stmt = (
             select(Payment)
@@ -809,7 +837,13 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
     # imports into their VPN client. May be missing if the user has never
     # been provisioned on the panel.
     subscription_url: Optional[str] = None
-    panel_uuid = getattr(user, "panel_user_uuid", None)
+    last_vpn_connected_at: Optional[str] = None
+    vpn_connection_status = "unknown"
+    panel_uuid = getattr(user, "panel_user_uuid", None) or getattr(
+        active_sub,
+        "panel_user_uuid",
+        None,
+    )
     if panel_uuid:
         subscription_service = request.app.get("subscription_service")
         panel_service = getattr(subscription_service, "panel_service", None)
@@ -818,9 +852,12 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
                 panel_data = await panel_service.get_user_by_uuid(panel_uuid)
                 if panel_data:
                     subscription_url = panel_data.get("subscriptionUrl") or None
+                    vpn_activity = _panel_user_connection_activity(panel_data)
+                    vpn_connection_status = str(vpn_activity.get("status") or "unknown")
+                    last_vpn_connected_at = vpn_activity.get("last_connected_at")
             except Exception as exc_panel:  # pragma: no cover
                 logger.warning(
-                    "Failed to fetch subscriptionUrl for user %s (uuid=%s): %s",
+                    "Failed to fetch panel details for user %s (uuid=%s): %s",
                     target_id,
                     panel_uuid,
                     exc_panel,
@@ -830,16 +867,20 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
     serialized_inviter = (
         _serialize_admin_user_with_avatar(inviter, avatar_keys) if inviter is not None else None
     )
+    trial_payload = _serialize_trial_summary(user, trial_subs)
 
     return _ok(
         {
             "user": serialized_user,
             "active_subscription": _serialize_subscription(active_sub) if active_sub else None,
             "subscriptions": [_serialize_subscription(s) for s in (latest_subs or [])],
+            "trial": trial_payload,
             "total_paid": float(total_paid),
             "recent_payments": [_serialize_payment(p) for p in recent_payments],
             "log_count": int(log_count or 0),
             "subscription_url": subscription_url,
+            "last_vpn_connected_at": last_vpn_connected_at,
+            "vpn_connection_status": vpn_connection_status,
             "referral": {
                 "code": referral_code,
                 "bot_link": referral_bot_link,
@@ -1318,6 +1359,78 @@ async def admin_user_regular_traffic_override_route(request: web.Request) -> web
     return _ok({"subscription": _serialize_subscription(active)})
 
 
+async def admin_user_hwid_device_limit_route(request: web.Request) -> web.Response:
+    """Override the user's base HWID device limit.
+
+    ``hwid_device_limit == 0`` means unlimited; ``NULL`` means the tariff/.env
+    default is used. Purchased extra devices remain tracked separately and are
+    added when syncing the effective panel limit.
+    """
+    actor_id = _require_admin_user_id(request)
+    target_id = int(request.match_info["user_id"])
+    settings: Settings = request.app["settings"]
+    payload = await _read_json(request)
+
+    unlimited = bool(payload.get("unlimited"))
+    use_default = bool(payload.get("use_default") or payload.get("reset_to_default"))
+    limit_raw = payload.get("hwid_device_limit", payload.get("limit"))
+
+    if unlimited:
+        hwid_device_limit: Optional[int] = 0
+    elif use_default or limit_raw is None or limit_raw == "":
+        hwid_device_limit = None
+    else:
+        try:
+            hwid_device_limit = int(limit_raw)
+        except (TypeError, ValueError):
+            return _error(
+                400,
+                "invalid_hwid_device_limit",
+                "hwid_device_limit must be a non-negative integer",
+            )
+        if hwid_device_limit < 0 or hwid_device_limit > 1_000_000:
+            return _error(
+                400,
+                "invalid_hwid_device_limit",
+                "hwid_device_limit must be an integer from 0 to 1000000",
+            )
+
+    subscription_service = request.app.get("subscription_service")
+
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async with async_session_factory() as session:
+        active = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
+        if not active:
+            return _error(404, "no_active_subscription")
+
+        active.hwid_device_limit = hwid_device_limit
+
+        effective_limit = None
+        if subscription_service is not None:
+            effective_limit = await subscription_service.sync_hwid_device_limit_to_panel(
+                session, target_id
+            )
+
+        await message_log_dal.create_message_log(
+            session,
+            {
+                "user_id": actor_id,
+                "event_type": "admin_hwid_device_limit_webapp",
+                "content": (
+                    f"hwid_device_limit={hwid_device_limit!r} "
+                    f"effective_hwid_device_limit={effective_limit!r}"
+                ),
+                "is_admin_event": True,
+                "target_user_id": target_id,
+            },
+        )
+        await session.commit()
+        await session.refresh(active)
+
+    await _invalidate_after_admin_user_mutation(settings, target_id)
+    return _ok({"subscription": _serialize_subscription(active)})
+
+
 async def admin_user_traffic_grant_route(request: web.Request) -> web.Response:
     """Credit regular or premium traffic to a user without a payment.
 
@@ -1414,6 +1527,8 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
         return _error(400, "invalid_days")
     if days <= 0:
         return _error(400, "invalid_days")
+    extend_hwid_devices = payload.get("extend_hwid_devices")
+    extend_hwid_devices = True if extend_hwid_devices is None else bool(extend_hwid_devices)
 
     subscription_service = request.app.get("subscription_service")
     if subscription_service is None:
@@ -1426,6 +1541,7 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
             target_id,
             days,
             "admin_extend_subscription_webapp",
+            extend_hwid_devices=extend_hwid_devices,
         )
         if not new_end:
             await session.rollback()
@@ -1436,7 +1552,10 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
             {
                 "user_id": actor_id,
                 "event_type": "admin_extend_subscription_webapp",
-                "content": f"+{days}d -> {new_end.isoformat()}",
+                "content": (
+                    f"+{days}d -> {new_end.isoformat()} "
+                    f"(hwid={'yes' if extend_hwid_devices else 'no'})"
+                ),
                 "is_admin_event": True,
                 "target_user_id": target_id,
             },

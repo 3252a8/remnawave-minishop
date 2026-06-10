@@ -105,6 +105,10 @@
     if (index >= 0) backupsPage = Math.floor(index / BACKUPS_PAGE_SIZE);
   }
 
+  function setBackupsPage(page) {
+    backupsPage = Math.min(Math.max(0, Number(page) || 0), backupsPageCount - 1);
+  }
+
   function warningsText(warnings) {
     return (warnings || []).filter(Boolean).join("\n");
   }
@@ -336,12 +340,16 @@
       {#if totalArchives > BACKUPS_PAGE_SIZE}
         <AdminPagination
           meta={paginationMeta()}
+          page={backupsPage}
+          pageCount={backupsPageCount}
+          pageLabel={at("page_short", {}, "Стр.")}
+          ofLabel={at("pagination_of", {}, "из")}
+          jumpLabel={at("page_short", {}, "Стр.")}
+          jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
+          goLabel={at("pagination_go", {}, "Перейти")}
           prevLabel={at("pagination_prev", {}, "Назад")}
           nextLabel={at("pagination_next", {}, "Далее")}
-          prevDisabled={backupsPage <= 0}
-          nextDisabled={backupsPage >= backupsPageCount - 1}
-          onPrev={() => (backupsPage = Math.max(0, backupsPage - 1))}
-          onNext={() => (backupsPage = Math.min(backupsPageCount - 1, backupsPage + 1))}
+          onPageChange={setBackupsPage}
         />
       {/if}
     {/if}

@@ -1,0 +1,72 @@
+stages:
+  - docker
+
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+    - when: never
+
+variables:
+  DOCKER_BUILDKIT: "1"
+  DOCKER_DRIVER: overlay2
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+  GIT_DEPTH: "0"
+
+docker-dev:
+  stage: docker
+  image: docker:27.5.1
+  services:
+    - name: docker:27.5.1-dind
+      alias: docker
+  interruptible: true
+  parallel:
+    matrix:
+      - TARGET: backend
+        IMAGE: remnawave-minishop-backend
+      - TARGET: worker
+        IMAGE: remnawave-minishop-worker
+      - TARGET: frontend
+        IMAGE: remnawave-minishop-frontend
+  before_script:
+    - apk add --no-cache git
+    - test -n "$DOCKERHUB_USERNAME"
+    - test -n "$DOCKERHUB_TOKEN"
+    - echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+    - docker buildx create --name gitlab-builder --driver docker-container --use
+    - docker buildx inspect --bootstrap
+  script:
+    - git fetch origin dev --tags
+    - |
+      if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/dev)" ]; then
+        echo "A newer dev commit exists; skipping Docker Hub build for $IMAGE."
+        exit 0
+      fi
+    - |
+      provenance="${REMNAWAVE_MINISHOP_BUILD_PROVENANCE:-}"
+      if [ -z "$provenance" ]; then
+        dockerhub_owner="$(printf '%s' "${DOCKERHUB_USERNAME:-}" | tr '[:upper:]' '[:lower:]')"
+        if [ "${CI_PROJECT_PATH:-}" = "3252a8/remnawave-minishop" ] || [ "$dockerhub_owner" = "3252a8" ]; then
+          provenance="official"
+        else
+          provenance="custom"
+        fi
+      fi
+      docker buildx build \
+        --load \
+        --platform linux/amd64 \
+        --file deploy/docker/Dockerfile \
+        --target "$TARGET" \
+        --build-arg "CI_COMMIT_REF_NAME=$CI_COMMIT_REF_NAME" \
+        --build-arg "REMNAWAVE_MINISHOP_BUILD_PROVENANCE=$provenance" \
+        --build-arg "BUILDKIT_INLINE_CACHE=1" \
+        --cache-from "type=registry,ref=$DOCKERHUB_USERNAME/$IMAGE:dev" \
+        --tag "$DOCKERHUB_USERNAME/$IMAGE:dev" \
+        .
+    - git fetch origin dev --tags
+    - |
+      if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/dev)" ]; then
+        echo "A newer dev commit exists; skipping Docker Hub push for $IMAGE."
+        exit 0
+      fi
+    - docker push "$DOCKERHUB_USERNAME/$IMAGE:dev"

@@ -1,5 +1,6 @@
 const frame = document.getElementById("demo-frame");
 const runtimeBase = "/demo/runtime";
+const runtimeAppPath = `${runtimeBase}/app/index.html`;
 const demoBase = "/demo";
 const defaultMock = "tariffs";
 const publicRouteAliases = new Map([["/app", "/home"]]);
@@ -8,6 +9,8 @@ const stateMocks = new Set([
   "depleted",
   "no-subscription",
   "trial",
+  "trial-telegram",
+  "referral-telegram",
   "devices",
   "notifications",
   "auth",
@@ -145,7 +148,7 @@ if (initialMock !== "emails") {
   params.delete("screen");
   params.delete("admin_section");
   params.set("path", initialRoute);
-  frame.src = `${runtimeBase}/app/?${params.toString()}${window.location.hash || ""}`;
+  frame.src = `${runtimeAppPath}?${params.toString()}${window.location.hash || ""}`;
 }
 
 const routeFromRuntimeUrl = (url) => {
@@ -155,7 +158,11 @@ const routeFromRuntimeUrl = (url) => {
   const runtimePath = normalizePath(
     url.pathname.slice(runtimeBase.length) || "/home",
   );
-  if (runtimePath === "/app" || runtimePath === "/app.html") {
+  if (
+    runtimePath === "/app" ||
+    runtimePath === "/app/index.html" ||
+    runtimePath === "/app.html"
+  ) {
     return normalizePath(url.searchParams.get("path") || "/home");
   }
   return runtimePath;
@@ -171,7 +178,7 @@ const runtimeSrc = (route, searchParams = new URLSearchParams()) => {
   nextParams.delete("screen");
   nextParams.delete("admin_section");
   nextParams.set("path", normalizePath(route));
-  return `${runtimeBase}/app/?${nextParams.toString()}${window.location.hash || ""}`;
+  return `${runtimeAppPath}?${nextParams.toString()}${window.location.hash || ""}`;
 };
 const topbar = document.querySelector(".demo-topbar");
 const toggle = document.querySelector(".demo-topbar__toggle");
@@ -226,7 +233,8 @@ const setCollapsed = (collapsed) => {
 
 toggle?.addEventListener("click", () => setCollapsed(false));
 hide?.addEventListener("click", () => setCollapsed(true));
-if (stateSelect) stateSelect.value = normalizeStateMock(params.get("mock") || initialMock);
+if (stateSelect)
+  stateSelect.value = normalizeStateMock(params.get("mock") || initialMock);
 setDemoMode(initialMock);
 stateSelect?.addEventListener("change", () => {
   const mock = normalizeStateMock(stateSelect.value);

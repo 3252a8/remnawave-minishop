@@ -348,6 +348,7 @@
       devices: "Устройства",
       subscription_guides: "Connection guides",
       system: "Система",
+      migrations: "Миграции",
     };
     return adminText(`settings_section_${id}`, {}, map[id] || id);
   }

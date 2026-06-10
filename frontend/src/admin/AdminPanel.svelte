@@ -45,9 +45,11 @@
   import AppearanceSection from "./sections/AppearanceSection.svelte";
   import UserDetailModal from "./sections/UserDetailModal.svelte";
   import UsersSection from "./sections/UsersSection.svelte";
+  import ConfigAlertsBanner from "./ConfigAlertsBanner.svelte";
   import { createAdsStore } from "../lib/admin/stores/adsStore.js";
   import { createBackupsStore } from "../lib/admin/stores/backupsStore.js";
   import { createBroadcastStore } from "../lib/admin/stores/broadcastStore.js";
+  import { createHealthStore } from "../lib/admin/stores/healthStore.js";
   import { createLogsStore } from "../lib/admin/stores/logsStore.js";
   import { createPaymentsStore } from "../lib/admin/stores/paymentsStore.js";
   import { createPromosStore } from "../lib/admin/stores/promosStore.js";
@@ -93,7 +95,7 @@
   export let onTranslationsSaved = () => {};
   export let routePrefix = "";
   export let brand = {};
-  export let brandTitle = "/minishop";
+  export let brandTitle = "Subscription";
   export let appFaviconUrl = "";
   export let appFaviconUseCustom = false;
   export let appVersion = "dev+local";
@@ -223,6 +225,8 @@
   }
   let sidebarOpen = false;
   let isCompact = false;
+  let dismissedUserRouteKey = "";
+  let lastUserRouteKey = "";
   let adminLanguageMenuOpen = false;
   let adminLanguageClickGuard = false;
   let adminLanguageClickGuardArmed = false;
@@ -245,6 +249,7 @@
   const adsStore = createAdsStore({ api, onToast: flash, at });
   const backupsStore = createBackupsStore({ api, onToast: flash, at });
   const broadcastStore = createBroadcastStore({ api, onToast: flash, at });
+  const healthStore = createHealthStore({ api });
   const logsStore = createLogsStore({ api, at });
   const paymentsStore = createPaymentsStore({ api, onToast: flash, at, routePrefix });
   const promosStore = createPromosStore({ api, onToast: flash, at });
@@ -258,6 +263,7 @@
 
   setContext("promosStore", promosStore);
   setContext("adsStore", adsStore);
+  setContext("healthStore", healthStore);
   setContext("backupsStore", backupsStore);
   setContext("broadcastStore", broadcastStore);
   setContext("logsStore", logsStore);
@@ -379,6 +385,7 @@
     const uid = Number(userId);
     // Synthetic email-only users use negative user_id; still a valid admin target.
     if (!Number.isFinite(uid) || uid === 0) return;
+    dismissedUserRouteKey = "";
     const next = normalizeSection("payments");
     sidebarOpen = false;
     if (active !== next) {
@@ -395,6 +402,7 @@
   function openLogsUserCard(userId) {
     const uid = Number(userId);
     if (!Number.isFinite(uid) || uid === 0) return;
+    dismissedUserRouteKey = "";
     const next = normalizeSection("logs");
     sidebarOpen = false;
     if (active !== next) {
@@ -410,16 +418,24 @@
   function openUserCard(userId) {
     const uid = Number(userId);
     if (!Number.isFinite(uid) || uid === 0) return;
-    const next = normalizeSection("users");
+    dismissedUserRouteKey = "";
     sidebarOpen = false;
-    if (active !== next) {
-      active = next;
-      paymentsStore.closePayment({ skipPush: true });
-      supportStore.closeTicketView({ skipPush: true });
-      onSectionChange(next, uid);
+    usersStore.setActive(active);
+    usersStore.openUser(uid, { skipPush: true, pathContext: active });
+  }
+
+  function userRouteKey(section = active) {
+    if (section === "users" && initialUserId) return `users:${initialUserId}`;
+    if (section === "payments" && initialPaymentUserId) return `payments:${initialPaymentUserId}`;
+    return "";
+  }
+
+  function closeUserCard() {
+    dismissedUserRouteKey = userRouteKey();
+    usersStore.closeUser({ skipPush: true });
+    if (active === "users" || active === "payments") {
+      onSectionChange(active, 0);
     }
-    usersStore.setActive(next);
-    usersStore.openUser(uid);
   }
 
   function resolvedAvatarUrl(user) {
@@ -518,6 +534,12 @@
     if (typeof window !== "undefined") {
       window.addEventListener("popstate", onPopState);
     }
+    void broadcastStore.loadCounts();
+    void healthStore.loadHealth();
+    const healthTimer =
+      typeof window !== "undefined"
+        ? window.setInterval(() => void healthStore.loadHealth(), 5 * 60 * 1000)
+        : null;
     return () => {
       if (motionMql) motionMql.removeEventListener("change", onMotionChange);
       if (compactMql) {
@@ -526,6 +548,7 @@
         else if (compactMql.removeListener) compactMql.removeListener(onCompactChange);
       }
       if (typeof window !== "undefined") window.removeEventListener("popstate", onPopState);
+      if (healthTimer !== null) window.clearInterval(healthTimer);
       clearAdminLanguageClickGuard();
     };
   });
@@ -533,9 +556,18 @@
   $: sectionFade = reduceMotion ? { duration: 0 } : { duration: 200 };
   $: sidebarBackdropFade = reduceMotion ? { duration: 0 } : { duration: 180 };
 
+  $: {
+    const currentUserRouteKey = userRouteKey();
+    if (currentUserRouteKey !== lastUserRouteKey) {
+      if (currentUserRouteKey !== dismissedUserRouteKey) dismissedUserRouteKey = "";
+      lastUserRouteKey = currentUserRouteKey;
+    }
+  }
+
   $: if (
     active === "users" &&
     initialUserId &&
+    dismissedUserRouteKey !== `users:${initialUserId}` &&
     (!$usersStore.openedUser || $usersStore.openedUser.user_id !== initialUserId)
   ) {
     usersStore.openUser(initialUserId, { skipPush: true });
@@ -552,6 +584,7 @@
   $: if (
     active === "payments" &&
     initialPaymentUserId &&
+    dismissedUserRouteKey !== `payments:${initialPaymentUserId}` &&
     (!$usersStore.openedUser || $usersStore.openedUser.user_id !== initialPaymentUserId)
   ) {
     usersStore.openUser(initialPaymentUserId, { skipPush: true, pathContext: "payments" });
@@ -779,6 +812,7 @@
     </header>
 
     <main class="admin-main">
+      <ConfigAlertsBanner {at} section={active} onNavigate={setActive} />
       {#key active}
         <div class="admin-section-stage" in:fade={sectionFade} out:fade={sectionFade}>
           {#if active === "stats"}
@@ -892,4 +926,5 @@
   {trafficPercentValue}
   {trafficLeftLabel}
   {trafficOfLabel}
+  onClose={closeUserCard}
 />

@@ -8,6 +8,7 @@ from config.webapp_themes_config import (
     apply_webapp_theme_env_overrides,
     builtin_webapp_themes_config,
     default_webapp_theme_descriptors,
+    effective_webapp_theme_accent,
     ensure_webapp_core_themes,
     load_webapp_theme_dir,
     public_themes_catalog_payload,
@@ -33,14 +34,14 @@ class WebappThemesConfigTests(unittest.TestCase):
         self.assertEqual(win95.tokens.style_preset, "win95")
         self.assertFalse(win95.use_primary_accent)
         self.assertTrue(win95.use_in_admin)
-        self.assertEqual(win95.assets_version, 11)
-        self.assertEqual(cfg.theme_by_key("light").assets_version, 3)
+        self.assertEqual(win95.assets_version, 14)
+        self.assertEqual(cfg.theme_by_key("light").assets_version, 6)
         ascii_theme = cfg.theme_by_key("ascii")
         self.assertIsNotNone(ascii_theme)
         self.assertEqual(ascii_theme.css_file, "style.css")
         self.assertFalse(ascii_theme.use_primary_accent)
         self.assertTrue(ascii_theme.use_in_admin)
-        self.assertEqual(ascii_theme.assets_version, 4)
+        self.assertEqual(ascii_theme.assets_version, 7)
 
     def test_env_override_default_theme(self):
         cfg = builtin_webapp_themes_config("#00fe7a")
@@ -281,6 +282,44 @@ class WebappThemesConfigTests(unittest.TestCase):
         self.assertTrue(win95["use_in_admin"])
         self.assertNotIn("accent", win95["tokens"])
 
+    def test_effective_accent_uses_default_theme_token(self):
+        cfg = WebappThemesConfig(
+            default_theme="custom",
+            themes=[
+                {
+                    "key": "custom",
+                    "enabled": True,
+                    "default": True,
+                    "tokens": {"color_scheme": "dark", "accent": "#123abc"},
+                }
+            ],
+        )
+
+        self.assertEqual(effective_webapp_theme_accent(cfg, "#00fe7a"), "#123abc")
+
+    def test_effective_accent_can_use_preview_theme_token(self):
+        cfg = WebappThemesConfig(
+            default_theme="dark",
+            themes=[
+                {
+                    "key": "dark",
+                    "enabled": True,
+                    "default": True,
+                    "tokens": {"color_scheme": "dark", "accent": "#123abc"},
+                },
+                {
+                    "key": "neon",
+                    "enabled": True,
+                    "tokens": {"color_scheme": "dark", "accent": "#ff33aa"},
+                },
+            ],
+        )
+
+        self.assertEqual(
+            effective_webapp_theme_accent(cfg, "#00fe7a", theme_key="neon"),
+            "#ff33aa",
+        )
+
     def test_theme_accent_is_normalized_to_hex(self):
         cfg = WebappThemesConfig(
             default_theme="custom",
@@ -296,7 +335,7 @@ class WebappThemesConfigTests(unittest.TestCase):
 
         self.assertEqual(cfg.theme_by_key("custom").tokens.accent, "#00ff88")
 
-    def test_theme_home_logo_scale_is_public_token(self):
+    def test_theme_home_logo_scales_are_public_tokens(self):
         cfg = WebappThemesConfig(
             default_theme="custom",
             themes=[
@@ -304,7 +343,12 @@ class WebappThemesConfigTests(unittest.TestCase):
                     "key": "custom",
                     "enabled": True,
                     "default": True,
-                    "tokens": {"color_scheme": "dark", "home_logo_scale": 135},
+                    "tokens": {
+                        "color_scheme": "dark",
+                        "home_logo_scale": 135,
+                        "home_logo_scale_desktop": 150,
+                        "home_logo_scale_mobile": 85,
+                    },
                 }
             ],
         )
@@ -313,7 +357,11 @@ class WebappThemesConfigTests(unittest.TestCase):
         custom = payload["themes"][0]
 
         self.assertEqual(cfg.theme_by_key("custom").tokens.home_logo_scale, 135)
+        self.assertEqual(cfg.theme_by_key("custom").tokens.home_logo_scale_desktop, 150)
+        self.assertEqual(cfg.theme_by_key("custom").tokens.home_logo_scale_mobile, 85)
         self.assertEqual(custom["tokens"]["home_logo_scale"], 135)
+        self.assertEqual(custom["tokens"]["home_logo_scale_desktop"], 150)
+        self.assertEqual(custom["tokens"]["home_logo_scale_mobile"], 85)
 
     def test_theme_accent_rejects_non_hex_values(self):
         with self.assertRaises(ValueError):
@@ -382,7 +430,7 @@ class WebappThemesConfigTests(unittest.TestCase):
                 descriptor["assets_version"],
                 cfg.theme_by_key("windows95").assets_version,
             )
-            self.assertEqual(descriptor["assets_version"], 11)
+            self.assertEqual(descriptor["assets_version"], 14)
             self.assertIn("lucide-house", css)
             self.assertIn("lucide-earth", css)
             self.assertIn("lucide-circle-check", css)
@@ -395,6 +443,8 @@ class WebappThemesConfigTests(unittest.TestCase):
             self.assertIn("lucide-qr-code", css)
             self.assertIn("New webapp surfaces: support, purchase info, password login", css)
             self.assertIn("Install guide theme surfaces", css)
+            self.assertIn("Admin controls: range sliders and sortable rows", css)
+            self.assertIn("Admin health config alerts", css)
             self.assertIn(
                 (
                     ".theme-key-windows95 .support-list-card {\n"
@@ -436,6 +486,8 @@ class WebappThemesConfigTests(unittest.TestCase):
             css = (stale_theme_dir / "style.css").read_text(encoding="utf-8")
             self.assertIn(".theme-key-light.app-shell", css)
             self.assertIn("Install guide theme surfaces", css)
+            self.assertIn("Admin controls: range sliders and sortable rows", css)
+            self.assertIn("Admin health config alerts", css)
 
     def test_resolved_refreshes_stale_builtin_ascii_assets(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -468,6 +520,8 @@ class WebappThemesConfigTests(unittest.TestCase):
             descriptor = json.loads((stale_theme_dir / "theme.json").read_text(encoding="utf-8"))
             css = (stale_theme_dir / "style.css").read_text(encoding="utf-8")
             self.assertEqual(descriptor["assets_version"], cfg.theme_by_key("ascii").assets_version)
-            self.assertEqual(descriptor["assets_version"], 4)
+            self.assertEqual(descriptor["assets_version"], 7)
             self.assertIn("Console-style tables", css)
             self.assertIn("Install guide theme surfaces", css)
+            self.assertIn("Admin controls: range sliders and sortable rows", css)
+            self.assertIn("Admin health config alerts", css)

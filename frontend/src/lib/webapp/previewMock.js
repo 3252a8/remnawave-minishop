@@ -2,6 +2,112 @@ import { DEMO_DATASET } from "./demoDataset.js";
 import { withDemoAvatar } from "./demoAvatars.js";
 
 const DEMO_LANGUAGE_STORAGE_KEY = "rw_minishop_demo_language";
+const DEFAULT_DISPOSABLE_EMAIL_DOMAINS = [
+  "10minutemail.com",
+  "10minutemail.net",
+  "10minutemail.org",
+  "20minutemail.com",
+  "33mail.com",
+  "anonbox.net",
+  "anonymbox.com",
+  "armyspy.com",
+  "byom.de",
+  "crazymailing.com",
+  "cuvox.de",
+  "dayrep.com",
+  "deadaddress.com",
+  "dispostable.com",
+  "dodgeit.com",
+  "dodgit.com",
+  "dropmail.me",
+  "easytrashmail.com",
+  "emailfake.com",
+  "emailondeck.com",
+  "emailtemporanea.com",
+  "emailtemporanea.net",
+  "einrot.com",
+  "fakeinbox.com",
+  "filzmail.com",
+  "fleckens.hu",
+  "generator.email",
+  "getairmail.com",
+  "getnada.com",
+  "grr.la",
+  "guerrillamail.biz",
+  "guerrillamail.com",
+  "guerrillamail.de",
+  "guerrillamail.info",
+  "guerrillamail.net",
+  "guerrillamail.org",
+  "guerrillamailblock.com",
+  "gustr.com",
+  "hmamail.com",
+  "incognitomail.org",
+  "inboxbear.com",
+  "jetable.org",
+  "jourrapide.com",
+  "kasmail.com",
+  "mail-temp.com",
+  "mailcatch.com",
+  "maildrop.cc",
+  "mailexpire.com",
+  "mailinator.com",
+  "mailinator.net",
+  "mailinator.org",
+  "mailmetrash.com",
+  "mailnesia.com",
+  "mailnull.com",
+  "mailpoof.com",
+  "mailtothis.com",
+  "mail.tm",
+  "mintemail.com",
+  "mohmal.com",
+  "moakt.com",
+  "mytemp.email",
+  "mytrashmail.com",
+  "nada.email",
+  "no-spam.ws",
+  "pookmail.com",
+  "rhyta.com",
+  "sharklasers.com",
+  "sofort-mail.de",
+  "spam4.me",
+  "spambog.com",
+  "spamdecoy.net",
+  "spamfree24.org",
+  "spamgourmet.com",
+  "spamhole.com",
+  "spam.la",
+  "spammotel.com",
+  "superrito.com",
+  "teleworm.us",
+  "tempail.com",
+  "temp-mail.io",
+  "temp-mail.org",
+  "tempmail.com",
+  "tempmail.dev",
+  "tempmail.net",
+  "tempmailo.com",
+  "temporaryemail.net",
+  "temporary-mail.net",
+  "tempr.email",
+  "throwawaymail.com",
+  "trash-mail.com",
+  "trash-mail.de",
+  "trashmail.com",
+  "trashmail.me",
+  "trashmail.net",
+  "trashmailer.com",
+  "trashymail.com",
+  "weg-werf-email.de",
+  "wegwerfmail.de",
+  "wegwerfmail.net",
+  "wegwerfmail.org",
+  "yomail.info",
+  "yopmail.com",
+  "yopmail.fr",
+  "yopmail.net",
+].join("\n");
 
 function readStoredDemoLanguage() {
   if (typeof window === "undefined") return "";
@@ -217,16 +323,19 @@ export const DEV_MOCK = {
     title: "/minishop",
     primaryColor: "#00fe7a",
     logoUrl: "/webapp-default-logo.webp",
-    logoUseEmoji: false,
-    logoEmoji: "🫥",
-    logoEmojiFont: "system",
     faviconUrl: "/webapp-favicon/19b2a242e5b7bc2d/icon-180.png",
     faviconUseCustom: false,
     trialEnabled: true,
     trialDurationDays: 3,
     trialTrafficLimitGb: 5,
     trialTrafficStrategy: "NO_RESET",
+    trialWithoutTelegramEnabled: true,
     trialSquadUuids: "2f2f6e0a-1f2d-4e80-a33b-0ebf3a409012",
+    referralWelcomeBonusDays: 3,
+    referralWelcomeWithoutTelegramEnabled: true,
+    referralOneBonusPerReferee: false,
+    legacyRefs: true,
+    disposableEmailDomains: DEFAULT_DISPOSABLE_EMAIL_DOMAINS,
     apiBase: "/api",
     adminJsAsset: "subscription_webapp_admin.js",
     adminCssAsset: "subscription_webapp_admin.css",
@@ -399,6 +508,9 @@ export const DEV_MOCK = {
       invited_count: 4,
       purchased_count: 2,
       welcome_bonus_days: 3,
+      welcome_bonus_without_telegram_enabled: true,
+      welcome_bonus_requires_telegram: false,
+      welcome_bonus_block_reason: "",
       one_bonus_per_referee: false,
       bonus_details: [
         { months: 1, title: "1 месяц", inviter_days: 14, friend_days: 7 },
@@ -443,6 +555,9 @@ export const DEV_MOCK = {
       user_hwid_device_limit: 5,
       trial_enabled: true,
       trial_available: true,
+      trial_without_telegram_enabled: true,
+      trial_requires_telegram: false,
+      trial_block_reason: "",
       trial_duration_days: 5,
       trial_traffic_limit_gb: 10,
       trial_traffic_strategy: "NO_RESET",
@@ -519,6 +634,8 @@ function applyInactiveSubscriptionScenario({ trialAvailable = false } = {}) {
   DEV_MOCK.data.settings.traffic_mode = false;
   DEV_MOCK.data.settings.trial_enabled = true;
   DEV_MOCK.data.settings.trial_available = Boolean(trialAvailable);
+  DEV_MOCK.data.settings.trial_requires_telegram = false;
+  DEV_MOCK.data.settings.trial_block_reason = "";
   DEV_MOCK.data.settings.trial_duration_days = 5;
   DEV_MOCK.data.settings.trial_traffic_limit_gb = 10;
   DEV_MOCK.data.subscription = {
@@ -553,6 +670,20 @@ function applyInactiveSubscriptionScenario({ trialAvailable = false } = {}) {
   DEV_MOCK.data.plans = DEMO_DATASET.plans || DEV_MOCK.data.plans;
   DEV_MOCK.data.tariff_change_options =
     DEMO_DATASET.tariff_change_options || DEV_MOCK.data.tariff_change_options;
+}
+
+function applyEmailOnlyAccountPatch({
+  email = "preview-user@mailinator.com",
+  referredById = null,
+} = {}) {
+  DEV_MOCK.data.user = {
+    ...(DEV_MOCK.data.user || {}),
+    telegram_id: null,
+    telegram_linked: false,
+    email,
+    email_verified: true,
+    referred_by_id: referredById,
+  };
 }
 
 export function applyPreviewMock(kind) {
@@ -598,6 +729,46 @@ export function applyPreviewMock(kind) {
     DEV_MOCK.data.settings.email_auth_enabled = true;
     DEV_MOCK.data.settings.trial_enabled = true;
     DEV_MOCK.data.settings.trial_available = true;
+    return;
+  }
+
+  if (mode === "trial-telegram" || mode === "trial_requires_telegram") {
+    applyInactiveSubscriptionScenario();
+    applyEmailOnlyAccountPatch({ email: "trial-user@mailinator.com" });
+    DEV_MOCK.data.settings.trial_enabled = true;
+    DEV_MOCK.data.settings.trial_available = false;
+    DEV_MOCK.data.settings.trial_requires_telegram = true;
+    DEV_MOCK.data.settings.trial_block_reason = "telegram_required";
+    DEV_MOCK.data.referral = {
+      ...(DEV_MOCK.data.referral || {}),
+      welcome_bonus_days: 3,
+      welcome_bonus_requires_telegram: false,
+      welcome_bonus_block_reason: "",
+    };
+    return;
+  }
+
+  if (
+    mode === "referral-telegram" ||
+    mode === "referral_welcome_telegram" ||
+    mode === "referral-welcome-telegram"
+  ) {
+    applyInactiveSubscriptionScenario();
+    applyEmailOnlyAccountPatch({
+      email: "referral-user@mailinator.com",
+      referredById: 910001,
+    });
+    DEV_MOCK.data.settings.trial_enabled = true;
+    DEV_MOCK.data.settings.trial_available = false;
+    DEV_MOCK.data.settings.trial_requires_telegram = false;
+    DEV_MOCK.data.settings.trial_block_reason = "";
+    DEV_MOCK.data.referral = {
+      ...(DEV_MOCK.data.referral || {}),
+      welcome_bonus_days: 3,
+      welcome_bonus_without_telegram_enabled: false,
+      welcome_bonus_requires_telegram: true,
+      welcome_bonus_block_reason: "telegram_required",
+    };
     return;
   }
 

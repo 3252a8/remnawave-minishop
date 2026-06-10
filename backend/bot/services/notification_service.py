@@ -237,11 +237,12 @@ class NotificationService:
         text: str,
         path: str,
         fallback_url: str,
+        web_app_button: bool = True,
     ) -> InlineKeyboardButton:
         webapp_url = self._support_webapp_url(path)
-        if webapp_url:
+        if webapp_url and web_app_button:
             return InlineKeyboardButton(text=text, web_app=WebAppInfo(url=webapp_url))
-        return InlineKeyboardButton(text=text, url=fallback_url)
+        return InlineKeyboardButton(text=text, url=webapp_url or fallback_url)
 
     def _support_text(self, language: Optional[str], key: str, fallback: str) -> str:
         if not self.i18n:
@@ -316,7 +317,14 @@ class NotificationService:
             return enabled
         return self._coerce_bool_setting(raw_value, enabled)
 
-    def _support_keyboard(self, ticket, user, *, admin: bool = True) -> InlineKeyboardMarkup:
+    def _support_keyboard(
+        self,
+        ticket,
+        user,
+        *,
+        admin: bool = True,
+        web_app_buttons: bool = True,
+    ) -> InlineKeyboardMarkup:
         ticket_path = (
             f"/admin/support/{ticket.ticket_id}" if admin else f"/support/{ticket.ticket_id}"
         )
@@ -326,6 +334,7 @@ class NotificationService:
                     text="Открыть тикет",
                     path=ticket_path,
                     fallback_url=self._support_ticket_url(ticket.ticket_id, admin=admin),
+                    web_app_button=web_app_buttons,
                 )
             ]
         ]
@@ -342,11 +351,34 @@ class NotificationService:
                         text="Карточка пользователя",
                         path=user_card_path,
                         fallback_url=self._support_ticket_url(ticket.ticket_id, admin=True),
+                        web_app_button=web_app_buttons,
                     )
                 )
             if profile_row:
                 rows.append(profile_row)
         return InlineKeyboardMarkup(inline_keyboard=rows)
+
+    def _support_log_thread_id(self) -> Optional[int]:
+        return getattr(self.settings, "LOG_SUPPORT_THREAD_ID", None)
+
+    def _support_thread_is_configured(self) -> bool:
+        return bool(getattr(self.settings, "LOG_CHAT_ID", None) and self._support_log_thread_id())
+
+    async def _send_admin_support_telegram(
+        self,
+        message: str,
+        *,
+        admin_markup: InlineKeyboardMarkup,
+        log_markup: InlineKeyboardMarkup,
+    ) -> None:
+        thread_id = self._support_log_thread_id()
+        if not self._support_thread_is_configured():
+            await self._send_to_admins(message, reply_markup=admin_markup)
+        await self._send_to_log_channel(
+            message,
+            thread_id=thread_id,
+            reply_markup=log_markup,
+        )
 
     def _support_user_keyboard(self, ticket, user) -> InlineKeyboardMarkup:
         button_text = self._support_text(
@@ -415,12 +447,12 @@ class NotificationService:
             f"статус: {hd.quote(str(snapshot.get('panel_status') or '—'))}\n\n"
             f"<b>Текст обращения</b>\n{hd.quote(preview)}"
         )
-        keyboard = self._support_keyboard(ticket, user, admin=True)
-        await self._send_to_admins(message, reply_markup=keyboard)
-        await self._send_to_log_channel(
+        admin_keyboard = self._support_keyboard(ticket, user, admin=True)
+        log_keyboard = self._support_keyboard(ticket, user, admin=True, web_app_buttons=False)
+        await self._send_admin_support_telegram(
             message,
-            thread_id=getattr(self.settings, "LOG_SUPPORT_THREAD_ID", None),
-            reply_markup=keyboard,
+            admin_markup=admin_keyboard,
+            log_markup=log_keyboard,
         )
         await self._send_admin_support_email(
             render_support_new_ticket_admin,
@@ -456,13 +488,13 @@ class NotificationService:
             f"💬 <b>Ответ пользователя в тикете #{ticket.ticket_id}</b>\n"
             f"{hd.quote(user_display)}{unread_line}\n\n{hd.quote(preview)}"
         )
-        keyboard = self._support_keyboard(ticket, user, admin=True)
         if send_telegram and getattr(self.settings, "LOG_SUPPORT", True):
-            await self._send_to_admins(text, reply_markup=keyboard)
-            await self._send_to_log_channel(
+            admin_keyboard = self._support_keyboard(ticket, user, admin=True)
+            log_keyboard = self._support_keyboard(ticket, user, admin=True, web_app_buttons=False)
+            await self._send_admin_support_telegram(
                 text,
-                thread_id=getattr(self.settings, "LOG_SUPPORT_THREAD_ID", None),
-                reply_markup=keyboard,
+                admin_markup=admin_keyboard,
+                log_markup=log_keyboard,
             )
         if send_email:
             await self._send_admin_support_email(

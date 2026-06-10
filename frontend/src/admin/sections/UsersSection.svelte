@@ -48,7 +48,7 @@
 
   const USERS_PAGE_SIZE = 25;
   let usersFilterSheetOpen = false;
-  $: usersHasMore = users.length === USERS_PAGE_SIZE;
+  $: usersPageCount = Math.max(1, Math.ceil(Number(usersTotal || 0) / USERS_PAGE_SIZE));
 
   const USERS_FILTER_OPTIONS = [
     { value: "all", label: at("filter_all", {}, "Все") },
@@ -570,17 +570,19 @@
 </div>
 
 <AdminPagination
-  meta={`${at("page", {}, "Страница")} ${usersPage + 1}`}
+  page={usersPage}
+  pageCount={usersPageCount}
+  total={usersTotal}
+  pageLabel={at("page_short", {}, "Стр.")}
+  ofLabel={at("pagination_of", {}, "из")}
+  totalLabel={at("total", {}, "Всего")}
+  jumpLabel={at("page_short", {}, "Стр.")}
+  jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
+  goLabel={at("pagination_go", {}, "Перейти")}
   prevLabel={at("back", {}, "Назад")}
   nextLabel={at("next", {}, "Далее")}
-  prevDisabled={usersPage === 0}
-  nextDisabled={!usersHasMore}
-  onPrev={() => {
-    usersStore.updateState({ usersPage: Math.max(0, usersPage - 1) });
-    usersStore.loadUsers();
-  }}
-  onNext={() => {
-    usersStore.updateState({ usersPage: usersPage + 1 });
+  onPageChange={(page) => {
+    usersStore.updateState({ usersPage: page });
     usersStore.loadUsers();
   }}
 />
@@ -595,7 +597,7 @@
     min-width: 82px;
   }
 
-  :global(.admin-users-filter-toggle) {
+  :global(.admin-btn.admin-users-filter-toggle) {
     display: none;
     position: relative;
     align-items: center;
@@ -846,7 +848,7 @@
       padding-inline: 10px;
     }
 
-    :global(.admin-users-filter-toggle) {
+    :global(.admin-btn.admin-users-filter-toggle) {
       display: inline-flex;
       min-width: 38px;
       padding-inline: 10px;

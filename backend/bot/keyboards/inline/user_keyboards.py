@@ -4,6 +4,7 @@ from aiogram.types import InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
 from bot.middlewares.i18n import locale_language_options
+from bot.utils.channel_subscription import normalize_required_channel_link
 from bot.utils.install_links import bot_install_guide_url
 from bot.utils.mini_app_url import subscription_mini_app_trial_url
 from config.settings import Settings
@@ -13,6 +14,13 @@ from config.tariffs_config import (
 )
 
 BOT_MENU_CONTEXT = "bot"
+HWID_RENEWAL_TOKEN = "hwid_renewal"
+
+
+def sale_mode_tokens(sale_mode: Optional[str]) -> Tuple[str, ...]:
+    if not sale_mode or "|" not in sale_mode:
+        return ()
+    return tuple(token.strip() for token in str(sale_mode).split("|")[1:] if token.strip())
 
 
 def callback_context_from_back_callback(back_callback: Optional[str]) -> Optional[str]:
@@ -23,16 +31,36 @@ def callback_context_from_back_callback(back_callback: Optional[str]) -> Optiona
 
 def sale_mode_with_callback_context(sale_mode: str, context: Optional[str]) -> str:
     sale_mode = sale_mode or "subscription"
-    if not context or "|" in sale_mode:
+    if not context or context in sale_mode_tokens(sale_mode):
         return sale_mode
     return f"{sale_mode}|{context}"
 
 
+def sale_mode_with_token(sale_mode: str, token: str) -> str:
+    sale_mode = sale_mode or "subscription"
+    token = str(token or "").strip()
+    if not token or token in sale_mode_tokens(sale_mode):
+        return sale_mode
+    return f"{sale_mode}|{token}"
+
+
+def sale_mode_without_token(sale_mode: str, token: str) -> str:
+    sale_mode = sale_mode or "subscription"
+    token = str(token or "").strip()
+    if not token or "|" not in sale_mode:
+        return sale_mode
+    base, *tokens = sale_mode.split("|")
+    kept = [item for item in tokens if item.strip() and item.strip() != token]
+    return "|".join([base, *kept])
+
+
+def sale_mode_has_token(sale_mode: Optional[str], token: str) -> bool:
+    return str(token or "").strip() in sale_mode_tokens(sale_mode)
+
+
 def callback_context_from_sale_mode(sale_mode: Optional[str]) -> Optional[str]:
-    if not sale_mode or "|" not in sale_mode:
-        return None
-    context = str(sale_mode).split("|", 1)[1].strip()
-    return context or None
+    tokens = sale_mode_tokens(sale_mode)
+    return BOT_MENU_CONTEXT if BOT_MENU_CONTEXT in tokens else None
 
 
 def callback_suffix_for_context(context: Optional[str]) -> str:
@@ -41,6 +69,12 @@ def callback_suffix_for_context(context: Optional[str]) -> str:
 
 def subscription_options_callback(context: Optional[str]) -> str:
     return "main_action:bot_subscribe" if context == BOT_MENU_CONTEXT else "main_action:subscribe"
+
+
+def tariff_purchase_back_callback(context: Optional[str]) -> str:
+    if context == BOT_MENU_CONTEXT:
+        return "main_action:bot_interface"
+    return subscription_options_callback(context)
 
 
 def payment_methods_back_callback(
@@ -138,8 +172,7 @@ def get_main_menu_inline_keyboard(
             InlineKeyboardButton(text=_(key="menu_support_button"), url=settings.SUPPORT_LINK)
         )
 
-    user_agreement_url = settings.USER_AGREEMENT_URL or settings.TERMS_OF_SERVICE_URL
-    if settings.PRIVACY_POLICY_URL or user_agreement_url:
+    if settings.PRIVACY_POLICY_URL or settings.USER_AGREEMENT_URL:
         builder.row(
             InlineKeyboardButton(text=_(key="menu_info_button"), callback_data="main_action:info")
         )
@@ -206,8 +239,7 @@ def get_bot_interface_inline_keyboard(
             InlineKeyboardButton(text=_(key="menu_support_button"), url=settings.SUPPORT_LINK)
         )
 
-    user_agreement_url = settings.USER_AGREEMENT_URL or settings.TERMS_OF_SERVICE_URL
-    if settings.PRIVACY_POLICY_URL or user_agreement_url:
+    if settings.PRIVACY_POLICY_URL or settings.USER_AGREEMENT_URL:
         builder.row(
             InlineKeyboardButton(
                 text=_(key="menu_info_button"), callback_data="main_action:bot_info"
@@ -483,6 +515,9 @@ def get_payment_method_keyboard(
     back_callback: Optional[str] = None,
     user_id: Optional[int] = None,
     is_admin: Optional[bool] = None,
+    hwid_renewal_quote: Optional[Dict[str, Any]] = None,
+    hwid_renewal_stars_quote: Optional[Dict[str, Any]] = None,
+    hwid_renewal_selected: bool = True,
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -491,12 +526,39 @@ def get_payment_method_keyboard(
         return str(int(val)) if float(val).is_integer() else f"{val:g}"
 
     value_str = _format_value(months)
-    import logging as _kbd_logging
-
-    _kbd_logging.info(
-        "payment_method_keyboard build: order=%s",
-        settings.payment_methods_order,
-    )
+    payment_sale_mode = sale_mode
+    selected_hwid_quote = hwid_renewal_quote or hwid_renewal_stars_quote
+    if selected_hwid_quote:
+        tariff_key = None
+        sale_mode_main = str(sale_mode or "").split("|", 1)[0]
+        if "@" in sale_mode_main:
+            tariff_key = sale_mode_main.split("@", 1)[1]
+        context = callback_context_from_sale_mode(sale_mode)
+        toggle_tokens = [f"tariff:period:{tariff_key}:{value_str}"]
+        if context:
+            toggle_tokens.append(context)
+        toggle_tokens.append("no_hwid" if hwid_renewal_selected else "hwid")
+        builder.row(
+            InlineKeyboardButton(
+                text=_(
+                    "payment_hwid_renewal_toggle_on"
+                    if hwid_renewal_selected
+                    else "payment_hwid_renewal_toggle_off",
+                    count=int(selected_hwid_quote.get("device_count") or 0),
+                    price=(
+                        hwid_renewal_quote.get("price")
+                        if hwid_renewal_quote
+                        else hwid_renewal_stars_quote.get("price")
+                    ),
+                    currency_symbol=currency_symbol_val,
+                ),
+                callback_data=":".join(toggle_tokens),
+            )
+        )
+        if hwid_renewal_selected:
+            payment_sale_mode = sale_mode_with_token(sale_mode, HWID_RENEWAL_TOKEN)
+        else:
+            payment_sale_mode = sale_mode_without_token(sale_mode, HWID_RENEWAL_TOKEN)
     from bot.payment_providers import get_provider_spec, provider_telegram_button_text
 
     for method in settings.payment_methods_order:
@@ -504,7 +566,7 @@ def get_payment_method_keyboard(
         if (
             not spec
             or not spec.callback_prefix
-            or not spec.is_usable_for_payment_currency(settings, currency_symbol_val)
+            or not spec.is_usable_for_payment(settings, currency_symbol_val, price)
             or not spec.is_available_to_user(
                 settings,
                 user_id=user_id,
@@ -517,7 +579,7 @@ def get_payment_method_keyboard(
             value=value_str,
             rub_price=price,
             stars_price=stars_price,
-            sale_mode=sale_mode,
+            sale_mode=payment_sale_mode,
         )
         if not callback_data:
             continue
@@ -576,7 +638,7 @@ def get_yk_autopay_choice_keyboard(
         builder.row(
             InlineKeyboardButton(
                 text=_(key="yookassa_autopay_pay_saved_card_button"),
-                callback_data=f"pay_yk_saved_list:{value_str}:{price_str}{suffix}",
+                callback_data=f"pay_yk_saved_list:{value_str}:{price_str}:0{suffix}",
             )
         )
     builder.row(
@@ -718,10 +780,11 @@ def get_channel_subscription_keyboard(
 
     has_buttons = False
 
-    if channel_link:
+    channel_url = normalize_required_channel_link(channel_link)
+    if channel_url:
         builder.button(
             text=_(key="channel_subscription_join_button"),
-            url=channel_link,
+            url=channel_url,
         )
         has_buttons = True
 

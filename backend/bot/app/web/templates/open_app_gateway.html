@@ -8,11 +8,18 @@
     <style nonce="__NONCE__">
       :root {
         color-scheme: dark light;
+        --accent: #14b86f;
+        --accent-contrast: #03120b;
+        --bg: #0b1017;
+        --panel-3: #344052;
+        --border: #2d3847;
+        --text: #f7fafc;
+        --muted: #aeb8c5;
         font-family:
           Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
           "Segoe UI", sans-serif;
-        background: #0b1017;
-        color: #f7fafc;
+        background: var(--bg);
+        color: var(--text);
       }
 
       body {
@@ -39,7 +46,7 @@
 
       p {
         margin: 0;
-        color: #aeb8c5;
+        color: var(--muted);
         font-size: 15px;
         line-height: 1.55;
       }
@@ -57,8 +64,8 @@
         justify-content: center;
         border: 1px solid transparent;
         border-radius: 8px;
-        background: #14b86f;
-        color: #03120b;
+        background: var(--accent);
+        color: var(--accent-contrast);
         padding: 0 18px;
         box-sizing: border-box;
         font: inherit;
@@ -68,15 +75,15 @@
       }
 
       .button.secondary {
-        border-color: #2d3847;
+        border-color: var(--border);
         background: transparent;
-        color: #f7fafc;
+        color: var(--text);
       }
 
       .button[aria-disabled="true"] {
         pointer-events: none;
-        background: #344052;
-        color: #aeb8c5;
+        background: var(--panel-3);
+        color: var(--muted);
       }
 
       [hidden] {

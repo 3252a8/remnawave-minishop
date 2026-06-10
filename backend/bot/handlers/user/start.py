@@ -27,6 +27,7 @@ from bot.utils.callback_answer import safe_answer_callback
 from bot.utils.channel_subscription import (
     is_required_channel_access_error,
     normalize_required_channel_id,
+    resolve_required_channel_link,
 )
 from bot.utils.install_links import (
     append_install_share_link_text,
@@ -38,6 +39,67 @@ from db.dal import user_dal
 from db.models import User
 
 router = Router(name="user_start_router")
+
+
+def _remnashop_referral_compat_enabled(settings: Settings) -> bool:
+    return bool(getattr(settings, "MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED", False))
+
+
+def _referral_code_lookup_candidates(
+    raw_ref_value: str,
+    *,
+    remnashop_compat: bool,
+) -> list[str]:
+    value = str(raw_ref_value or "").strip()
+    if not value:
+        return []
+
+    candidates = [value]
+    if value and value[0].lower() == "u":
+        stripped_current_prefix = value[1:]
+        if remnashop_compat:
+            candidates.append(stripped_current_prefix)
+        else:
+            candidates = [stripped_current_prefix]
+
+    unique: list[str] = []
+    for candidate in candidates:
+        candidate = candidate.strip()
+        if candidate and candidate not in unique:
+            unique.append(candidate)
+    return unique
+
+
+async def _resolve_referrer_from_start_ref(
+    session: AsyncSession,
+    raw_ref_value: str,
+    *,
+    settings: Settings,
+    current_user_id: int,
+) -> Optional[int]:
+    ref_user: Optional[User] = None
+    if raw_ref_value.isdigit() and settings.LEGACY_REFS:
+        potential_referrer_id = int(raw_ref_value)
+        if potential_referrer_id != current_user_id:
+            ref_user = await user_dal.get_user_by_id(session, potential_referrer_id)
+
+    include_legacy = _remnashop_referral_compat_enabled(settings)
+    if not ref_user:
+        for code in _referral_code_lookup_candidates(
+            raw_ref_value,
+            remnashop_compat=include_legacy,
+        ):
+            ref_user = await user_dal.get_user_by_referral_code(
+                session,
+                code,
+                include_legacy=include_legacy,
+            )
+            if ref_user:
+                break
+
+    if ref_user and ref_user.user_id != current_user_id:
+        return int(ref_user.user_id)
+    return None
 
 
 async def should_show_trial_button(
@@ -376,11 +438,12 @@ async def ensure_required_channel_subscription(
         )
         return True
 
-    keyboard = (
-        get_channel_subscription_keyboard(current_lang, i18n, settings.REQUIRED_CHANNEL_LINK)
-        if i18n
-        else None
+    channel_link = await resolve_required_channel_link(
+        bot_instance,
+        required_channel_id,
+        settings.REQUIRED_CHANNEL_LINK,
     )
+    keyboard = get_channel_subscription_keyboard(current_lang, i18n, channel_link) if i18n else None
 
     prompt_text = translate("channel_subscription_required")
 
@@ -410,14 +473,10 @@ async def ensure_required_channel_subscription(
 
 
 @router.message(CommandStart())
+@router.message(CommandStart(magic=F.args.regexp(r"^ref_([A-Za-z0-9_-]{1,64})$").as_("ref_match")))
 @router.message(
-    CommandStart(
-        magic=F.args.regexp(r"^ref_((?:[uU][A-Za-z0-9]{9})|(?:[A-Za-z0-9]{9})|\d+)$").as_(
-            "ref_match"
-        )
-    )
+    CommandStart(magic=F.args.regexp(r"^promo_([A-Za-z0-9_-]{1,100})$").as_("promo_match"))
 )
-@router.message(CommandStart(magic=F.args.regexp(r"^promo_(\w+)$").as_("promo_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^admin_user_(\d+)$").as_("admin_user_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^ticket_(\d+)$").as_("ticket_match")))
 @router.message(CommandStart(magic=F.args.regexp(r"^notifications$").as_("notifications_match")))
@@ -534,22 +593,12 @@ async def start_command_handler(
 
     if ref_match:
         raw_ref_value = ref_match.group(1)
-        if raw_ref_value.isdigit():
-            if settings.LEGACY_REFS:
-                potential_referrer_id = int(raw_ref_value)
-                if potential_referrer_id != user_id and await user_dal.get_user_by_id(
-                    session, potential_referrer_id
-                ):
-                    referred_by_user_id = potential_referrer_id
-        else:
-            normalized_code = raw_ref_value.strip()
-            if normalized_code and normalized_code[0].lower() == "u":
-                normalized_code = normalized_code[1:]
-            ref_user = None
-            if normalized_code:
-                ref_user = await user_dal.get_user_by_referral_code(session, normalized_code)
-            if ref_user and ref_user.user_id != user_id:
-                referred_by_user_id = ref_user.user_id
+        referred_by_user_id = await _resolve_referrer_from_start_ref(
+            session,
+            raw_ref_value,
+            settings=settings,
+            current_user_id=user_id,
+        )
     elif promo_match:
         promo_code_to_apply = promo_match.group(1)
         logging.info(f"User {user_id} started with promo code: {promo_code_to_apply}")
@@ -609,12 +658,17 @@ async def start_command_handler(
                 )
                 if referred_by_user_id and referral_welcome_days > 0:
                     try:
+                        default_tariff_key = None
+                        tariffs_config = getattr(settings, "tariffs_config", None)
+                        if tariffs_config:
+                            default_tariff_key = getattr(tariffs_config, "default_tariff", None)
                         referral_bonus_end_date = (
                             await subscription_service.extend_active_subscription_days(
                                 session,
                                 user_id,
                                 referral_welcome_days,
                                 reason="referral_welcome_bonus",
+                                tariff_key=default_tariff_key,
                             )
                         )
                         if referral_bonus_end_date:
@@ -1135,7 +1189,7 @@ async def main_action_callback_handler(
         _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
         privacy_url = settings.PRIVACY_POLICY_URL
-        user_agreement_url = settings.USER_AGREEMENT_URL or settings.TERMS_OF_SERVICE_URL
+        user_agreement_url = settings.USER_AGREEMENT_URL
 
         if not privacy_url and not user_agreement_url:
             await safe_answer_callback(

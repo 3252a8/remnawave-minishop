@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import Date, and_, case, cast, func
+from sqlalchemy import Date, and_, case, cast, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload, selectinload
@@ -51,6 +51,15 @@ async def ensure_payment_with_provider_id(
     description: str,
     provider: str,
     provider_payment_id: str,
+    sale_mode: Optional[str] = None,
+    tariff_key: Optional[str] = None,
+    purchased_gb: Optional[float] = None,
+    purchased_hwid_devices: Optional[int] = None,
+    hwid_valid_from: Optional[Any] = None,
+    hwid_valid_until: Optional[Any] = None,
+    hwid_pricing_period_months: Optional[int] = None,
+    hwid_proration_ratio: Optional[float] = None,
+    hwid_full_price: Optional[float] = None,
 ) -> Payment:
     """Idempotently create a payment record for a provider event.
 
@@ -72,6 +81,20 @@ async def ensure_payment_with_provider_id(
         "provider_payment_id": provider_payment_id,
         "provider": provider,
     }
+    optional_fields = {
+        "sale_mode": sale_mode,
+        "tariff_key": tariff_key,
+        "purchased_gb": purchased_gb,
+        "purchased_hwid_devices": purchased_hwid_devices,
+        "hwid_valid_from": hwid_valid_from,
+        "hwid_valid_until": hwid_valid_until,
+        "hwid_pricing_period_months": hwid_pricing_period_months,
+        "hwid_proration_ratio": hwid_proration_ratio,
+        "hwid_full_price": hwid_full_price,
+    }
+    payment_payload.update(
+        {field: value for field, value in optional_fields.items() if value is not None}
+    )
     return await create_payment_record(session, payment_payload)
 
 
@@ -93,31 +116,41 @@ async def find_recent_pending_provider_payment(
     provider: str,
     pending_status: str,
     amount: float,
+    currency: Optional[str],
     sale_mode: Optional[str],
     months: Optional[int],
     purchased_gb: Optional[float],
     purchased_hwid_devices: Optional[int],
     tariff_key: Optional[str] = None,
-    since_minutes: int = 60,
+    since_minutes: Optional[int] = None,
 ) -> Optional[Payment]:
     """Return the most recent pending payment matching the given tariff parameters.
 
     Used to reuse an existing provider payment link instead of creating a new one
-    on repeated user clicks. Only payments with a populated ``provider_payment_id``
-    are returned — without it, there's no link to reuse.
+    on repeated user clicks. A generic or provider-specific payment id must be
+    populated so the caller can verify the remote payment link.
+
+    Status matching is case-insensitive and also accepts the generic ``pending``
+    alias so legacy rows (e.g. Platega ``PENDING`` or YooKassa ``pending``) stay
+    reusable after provider APIs overwrite the internal pending status.
     """
     from datetime import datetime, timedelta, timezone
-
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=max(1, since_minutes))
 
     conditions = [
         Payment.user_id == user_id,
         Payment.provider == provider,
-        Payment.status == pending_status,
-        Payment.provider_payment_id.isnot(None),
-        Payment.created_at >= cutoff,
+        func.lower(Payment.status).in_(tuple({str(pending_status).lower(), "pending"})),
+        or_(
+            Payment.provider_payment_id.isnot(None),
+            Payment.yookassa_payment_id.isnot(None),
+        ),
         func.abs(Payment.amount - float(amount)) < 0.01,
     ]
+    if since_minutes is not None:
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=max(1, since_minutes))
+        conditions.append(Payment.created_at >= cutoff)
+    if currency is not None:
+        conditions.append(func.upper(Payment.currency) == str(currency).strip().upper())
     if sale_mode is not None:
         conditions.append(Payment.sale_mode == sale_mode)
     if tariff_key is not None:
@@ -215,12 +248,18 @@ async def count_user_succeeded_payments(
 
 
 async def update_provider_payment_and_status(
-    session: AsyncSession, payment_db_id: int, provider_payment_id: str, new_status: str
+    session: AsyncSession,
+    payment_db_id: int,
+    provider_payment_id: str,
+    new_status: str,
+    provider_payment_url: Optional[str] = None,
 ) -> Optional[Payment]:
     payment = await get_payment_by_db_id(session, payment_db_id)
     if payment:
         payment.status = new_status
         payment.provider_payment_id = provider_payment_id
+        if provider_payment_url:
+            payment.provider_payment_url = provider_payment_url
         payment.updated_at = func.now()
         await session.flush()
         await session.refresh(payment)

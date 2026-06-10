@@ -16,6 +16,7 @@ export default defineConfig({
             { label: 'Демо', href: '/demo/home' },
             { label: 'Установка', href: '/getting-started/setup/' },
             { label: 'GitHub', href: 'https://github.com/3252a8/remnawave-minishop' },
+            { label: 'GitLab', href: 'https://gitlab.com/3252a8/remnawave-minishop' },
             { label: 'Telegram', href: 'https://t.me/remnawave_minishop' }
           ],
         }),
@@ -96,6 +97,7 @@ export default defineConfig({
           items: [
             { label: 'Обзор миграций', slug: 'migrations' },
             { label: 'remnawave-tg-shop', slug: 'migrations/remnawave-tg-shop' },
+            { label: 'remnashop', slug: 'migrations/remnashop' },
           ],
         },
         {

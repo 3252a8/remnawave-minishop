@@ -13,6 +13,51 @@ docker compose ps
 docker compose logs -f backend worker frontend
 ```
 
+## Интерактивный install wizard
+
+Для нового сервера скачайте install-скрипт и запустите его:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/3252a8/remnawave-minishop/main/scripts/install.sh -o install.sh
+sh install.sh
+```
+
+Та же ссылка на install-скрипт в GitLab:
+
+```bash
+curl -fsSL https://gitlab.com/3252a8/remnawave-minishop/-/raw/main/scripts/install.sh -o install.sh
+sh install.sh
+```
+
+Wizard работает через меню с цифрами и подтверждениями `y/n`. Он умеет:
+
+- скачать выбранный compose-профиль (`Caddy`, `Nginx`, `Pangolin/Newt` или `no-proxy`);
+- сгенерировать минимальный `.env`, включая пароли и стабильные secrets;
+- сохранить backup существующих файлов перед перезаписью;
+- подготовить writable `data/` для файлов приложения;
+- запустить `docker compose pull && docker compose up -d`;
+- проверить текущий стек через `docker compose ps` и логи `migrate`;
+- запустить миграцию из поддерживаемых ботов: Remnashop и старый
+  `remnawave-tg-shop`;
+
+Для тестирования другой ветки или форка задайте источник перед запуском:
+
+```bash
+MINISHOP_INSTALL_REPO=3252a8/remnawave-minishop \
+MINISHOP_INSTALL_REF=main \
+sh install.sh
+```
+
+Миграция Remnashop в wizard сначала запускает `dry-run`, показывает JSON-сводку
+и только после отдельного подтверждения применяет изменения в целевую БД. Если
+указать старый Remnashop `.env`, wizard передаст importer-у `APP_CRYPT_KEY`,
+Remnawave API settings и поддерживаемые payment provider settings из таблицы
+`payment_gateways`. После применения wizard печатает новые webhook URL для
+Remnawave Panel и платежных провайдеров.
+Миграция со старого `remnawave-tg-shop` работает как upgrade совместимой БД:
+либо копирует старый Docker volume, либо делает `pg_dump` по source DSN,
+восстанавливает дамп в целевую compose-БД и запускает сервис `migrate`.
+
 Обычный `docker compose up -d --build` поднимает:
 
 - `postgres` и `redis` с проверками здоровья;
@@ -158,7 +203,7 @@ curl http://127.0.0.1:8082/health
 docker compose logs -f backend worker frontend
 ```
 
-Корневой `docker-compose.yml` оставлен для локальной сборки из исходников. Примеры в `deploy/examples` используют готовые GHCR-образы и не требуют указывать `-f`.
+Корневой `docker-compose.yml` оставлен для локальной сборки из исходников. Примеры в `deploy/examples` используют готовые Docker Hub-образы и не требуют указывать `-f`.
 
 ## Миграции
 
@@ -272,7 +317,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\docker-build-push-images.ps1
 Если нужен только один registry или другой namespace, переопределите переменные:
 
 ```bash
-IMAGE_REGISTRIES=ghcr.io IMAGE_TAG=v3.4.3 bash scripts/docker-build-push-images.sh
+IMAGE_REGISTRIES=docker.io IMAGE_TAG=v3.4.3 bash scripts/docker-build-push-images.sh
 IMAGE_REGISTRIES="ghcr.io docker.io" IMAGE_NAMESPACE=other IMAGE_TAG=v3.4.3 bash scripts/docker-build-push-images.sh
 ```
 
@@ -336,13 +381,16 @@ distributed lock; код подготовлен к нескольким репл
 Файлы приложения монтируются из локальной папки `./data` рядом с выбранным `docker-compose.yml` в
 `/app/data`; внутри нее лежат тарифы, темы, логотипы и прочие файловые данные приложения.
 
+Тот же `/app/data` должен быть смонтирован в `migrate`, `backend` и `worker`. Это важно для `data/tariffs.json`: `docker compose run --rm migrate` читает тот же каталог тарифов, что и приложение. В текущих compose-файлах этот mount уже есть у всех трех сервисов.
+
 Перед первым запуском на сервере заранее дайте права пользователю контейнера `10001`:
 
 ```bash
-mkdir -p data/themes data/webapp-logo data/webapp-emoji data/tariffs
+mkdir -p data/themes data/webapp-logo data/tariffs
 touch data/locales-overrides.json
 chown -R 10001:10001 data
 chmod -R u+rwX data
+docker compose run --rm migrate
 docker compose up -d --force-recreate backend worker
 ```
 
@@ -384,6 +432,16 @@ docker compose up -d backend worker
 - webhook/backend-домен целиком идет в `backend:8080`;
 - Mini App/frontend-домен целиком идет в `frontend:80`;
 - API/auth/theme routes Mini App дальше проксируются frontend nginx в `backend:8081`.
+
+Для платежных провайдеров с IP allowlist важно, чтобы reverse proxy передавал реальный IP
+отправителя в `X-Forwarded-For`, а backend доверял IP последнего proxy-hop через
+`TRUSTED_PROXIES`. Готовые профили `caddy`, `nginx` и `newt` уже доверяют loopback и
+private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`), чтобы
+Docker/LAN/Kubernetes proxy не ломал проверки `YOOKASSA`, `FREEKASSA_TRUSTED_IPS`,
+`WATA_TRUSTED_IPS`, `HELEKET_TRUSTED_IPS` и `PAYKILLA_TRUSTED_IPS`. Если в вашей
+Docker-сети есть недоверенные контейнеры, сузьте `TRUSTED_PROXIES` до конкретного IP
+Caddy/Nginx/Newt. Trust-all режим возможен через `0.0.0.0/0,::/0`, но используйте его
+только когда backend недоступен напрямую, а внешний proxy очищает входящий `X-Forwarded-For`.
 
 Минимальная логика Caddy:
 

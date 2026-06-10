@@ -1,7 +1,7 @@
 name: Dev images
 
 # On every push to the dev branch, build all three images and push them to
-# ghcr.io and Docker Hub tagged `dev` and `dev-<short-sha>`.
+# GHCR tagged `dev`. Docker Hub dev images are published by GitLab CI.
 
 on:
   push:
@@ -22,4 +22,5 @@ jobs:
     with:
       push: true
       tag_mode: dev
+      publish_dockerhub: false
     secrets: inherit

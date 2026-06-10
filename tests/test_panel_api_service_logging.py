@@ -1,9 +1,12 @@
 import asyncio
+import time
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from bot.services.panel_api_service import PanelApiService
+import aiohttp
+
+from bot.services.panel_api_service import PanelApiService, _endpoint_log_label
 
 
 class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
@@ -15,6 +18,99 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
                 USER_HWID_DEVICE_LIMIT=None,
             )
         )
+
+    async def test_client_timeout_uses_panel_settings(self):
+        service = PanelApiService(
+            SimpleNamespace(
+                PANEL_API_URL="https://panel.example.test/api",
+                PANEL_API_KEY="panel-key",
+                PANEL_API_TOTAL_TIMEOUT_SECONDS="30",
+                PANEL_API_CONNECT_TIMEOUT_SECONDS="10",
+                PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS="9",
+                PANEL_API_SOCK_READ_TIMEOUT_SECONDS="20",
+            )
+        )
+
+        timeout = service._client_timeout()
+
+        self.assertEqual(timeout.total, 30)
+        self.assertEqual(timeout.connect, 10)
+        self.assertEqual(timeout.sock_connect, 9)
+        self.assertEqual(timeout.sock_read, 20)
+
+    def test_endpoint_log_label_strips_user_identifiers(self):
+        self.assertEqual(
+            _endpoint_log_label("/users/by-email/user@example.com"),
+            "/users/by-email",
+        )
+        self.assertEqual(_endpoint_log_label("/users/by-telegram-id/42"), "/users/by-telegram-id")
+        self.assertEqual(_endpoint_log_label("/users/some-uuid/actions/enable"), "/users")
+        self.assertEqual(
+            _endpoint_log_label("/internal-squads/squad-uuid/bulk-actions/add-users"),
+            "/internal-squads",
+        )
+        self.assertEqual(_endpoint_log_label("/system/stats"), "/system/stats")
+        self.assertEqual(_endpoint_log_label("/unknown/path"), "/other")
+
+    async def test_request_failure_logs_omit_user_identifiers(self):
+        service = self._make_service()
+
+        def fake_request(*_args, **_kwargs):
+            raise asyncio.TimeoutError()
+
+        service._get_session = AsyncMock(return_value=SimpleNamespace(request=fake_request))
+
+        with patch("bot.services.panel_api_service.asyncio.sleep", new=AsyncMock()):
+            with self.assertLogs(level="INFO") as captured:
+                result = await service._request("GET", "/users/by-email/user@example.com")
+
+        self.assertTrue(result["error"])
+        joined = "\n".join(captured.output)
+        self.assertNotIn("user@example.com", joined)
+        self.assertIn("endpoint=/users/by-email", joined)
+
+    async def test_get_request_retries_connection_timeout(self):
+        service = self._make_service()
+        request_calls = 0
+
+        class OkResponse:
+            status = 200
+            headers = {"Content-Type": "application/json"}
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                return None
+
+            async def text(self):
+                return '{"response": {"ok": true}}'
+
+        def fake_request(*_args, **_kwargs):
+            nonlocal request_calls
+            request_calls += 1
+            if request_calls == 1:
+                raise aiohttp.ConnectionTimeoutError("connect took too long")
+            return OkResponse()
+
+        service._get_session = AsyncMock(return_value=SimpleNamespace(request=fake_request))
+
+        with patch("bot.services.panel_api_service.asyncio.sleep", new=AsyncMock()):
+            result = await service._request("GET", "/internal-squads")
+
+        self.assertEqual(result, {"response": {"ok": True}})
+        self.assertEqual(request_calls, 2)
+
+    async def test_get_internal_squads_uses_stale_cache_after_refresh_failure(self):
+        service = self._make_service()
+        stale_squads = [{"uuid": "squad-1", "name": "Squad 1"}]
+        service._squads_cache._data["list"] = (time.monotonic() - 1, stale_squads)
+        service._get_internal_squads_uncached = AsyncMock(return_value=None)
+
+        squads = await service.get_internal_squads()
+
+        self.assertEqual(squads, stale_squads)
+        service._get_internal_squads_uncached.assert_awaited_once()
 
     async def test_update_user_details_does_not_log_full_response_by_default(self):
         service = self._make_service()

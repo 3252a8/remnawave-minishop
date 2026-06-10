@@ -303,6 +303,24 @@ export function createTariffsStore({ api, onTariffsSaved, flash, at }) {
     }));
   }
 
+  function moveDraftRow(field, fromIndex, toIndex) {
+    state.update((s) => {
+      const rows = [...(s.tariffDraft[field] || [])];
+      if (
+        fromIndex === toIndex ||
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= rows.length ||
+        toIndex >= rows.length
+      ) {
+        return s;
+      }
+      const [moved] = rows.splice(fromIndex, 1);
+      rows.splice(toIndex, 0, moved);
+      return { ...s, tariffDraft: { ...s.tariffDraft, [field]: rows } };
+    });
+  }
+
   function updateState(updates) {
     state.update((s) => ({ ...s, ...updates }));
   }
@@ -326,5 +344,6 @@ export function createTariffsStore({ api, onTariffsSaved, flash, at }) {
     deleteTariff,
     addDraftRow,
     removeDraftRow,
+    moveDraftRow,
   };
 }

@@ -38,7 +38,6 @@ def _settings(**overrides):
         "WEBAPP_PRIMARY_COLOR": "#00fe7a",
         "WEBAPP_TITLE": "Mini Shop",
         "WEBAPP_LOGO_URL": "",
-        "WEBAPP_LOGO_USE_EMOJI": False,
     }
     values.update(overrides)
     return SimpleNamespace(**values)

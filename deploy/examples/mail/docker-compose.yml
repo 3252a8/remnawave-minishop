@@ -1,0 +1,26 @@
+services:
+  mailserver:
+    image: mailserver/docker-mailserver:latest
+    container_name: mailserver
+    hostname: mail.example.com # Замените на ваш реальный домен (оставить поддомен mail)
+    domainname: example.com # Замените на ваш реальный домен
+    ports:
+      - "25:25"
+      - "587:587"
+      - "465:465"
+      - "993:993"
+    volumes:
+      - ./mail-data:/var/mail
+      - ./config:/tmp/docker-mailserver
+    environment:
+      - SSL_TYPE=manual
+      - SSL_CERT_PATH=path/to/your/crt/file/example.com.crt # Путь к файлу сертификата
+      - SSL_KEY_PATH=path/to/your/key/file/example.com.key # Путь к закрытому ключу
+      - OVERRIDE_HOSTNAME=mail.example.com # Замените на ваш реальный домен
+      - PERMIT_DOCKER=network
+      - ENABLE_OPENDKIM=0
+      - ENABLE_OPENDMARC=0
+      - ENABLE_AMAVIS=0
+      - ENABLE_CLAMAV=0
+      - ENABLE_SPAMASSASSIN=0
+    restart: always

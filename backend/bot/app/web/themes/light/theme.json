@@ -9,7 +9,7 @@
   "use_primary_accent": true,
   "use_in_admin": true,
   "css_file": "style.css",
-  "assets_version": 3,
+  "assets_version": 6,
   "tokens": {
     "color_scheme": "light"
   }

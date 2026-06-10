@@ -54,6 +54,8 @@ class ThemeTokens(BaseModel):
     font_logo: Optional[str] = None
     font_mono: Optional[str] = None
     home_logo_scale: Optional[int] = None
+    home_logo_scale_desktop: Optional[int] = None
+    home_logo_scale_mobile: Optional[int] = None
     admin_bg: Optional[str] = None
     admin_surface: Optional[str] = None
     admin_surface_2: Optional[str] = None
@@ -80,14 +82,14 @@ class ThemeTokens(BaseModel):
             hex_value = "".join(char * 2 for char in hex_value)
         return f"#{hex_value}"
 
-    @field_validator("home_logo_scale")
+    @field_validator("home_logo_scale", "home_logo_scale_desktop", "home_logo_scale_mobile")
     @classmethod
     def _normalize_home_logo_scale(cls, value: Optional[int]) -> Optional[int]:
         if value is None:
             return None
         scale = int(value)
         if scale < 50 or scale > 300:
-            raise ValueError("home_logo_scale must be between 50 and 300 percent")
+            raise ValueError("home logo scale must be between 50 and 300 percent")
         return scale
 
 
@@ -369,6 +371,8 @@ def _builtin_theme_assets_need_refresh(key: str, target_dir: Path) -> bool:
             "--success-text" not in style
             or ".theme-key-light.app-shell" not in style
             or "Install guide theme surfaces" not in style
+            or "Admin controls: range sliders and sortable rows" not in style
+            or "Admin health config alerts" not in style
         )
     if key == "ascii":
         return (
@@ -379,6 +383,8 @@ def _builtin_theme_assets_need_refresh(key: str, target_dir: Path) -> bool:
             or "Console-style tables" not in style
             or "New webapp surfaces: support, purchase info, password login" not in style
             or "Install guide theme surfaces" not in style
+            or "Admin controls: range sliders and sortable rows" not in style
+            or "Admin health config alerts" not in style
         )
     if key != "windows95":
         return False
@@ -402,6 +408,8 @@ def _builtin_theme_assets_need_refresh(key: str, target_dir: Path) -> bool:
         or "lucide-qr-code" not in style
         or "New webapp surfaces: support, purchase info, password login" not in style
         or "Install guide theme surfaces" not in style
+        or "Admin controls: range sliders and sortable rows" not in style
+        or "Admin health config alerts" not in style
         or any(not (target_dir / "icons" / icon).exists() for icon in required_icons)
     )
 
@@ -612,6 +620,38 @@ def merge_primary_accent_into_theme_tokens(
         return base
     base.accent = accent
     return base
+
+
+def effective_webapp_theme_accent(
+    config: WebappThemesConfig,
+    primary_accent: str,
+    *,
+    theme_key: Optional[str] = None,
+) -> str:
+    """Return the accent color users see for the selected/default Web App theme."""
+    try:
+        fallback = ThemeTokens(accent=primary_accent or "#00fe7a").accent or "#00fe7a"
+    except ValueError:
+        fallback = "#00fe7a"
+    theme: Optional[WebappTheme] = None
+    if theme_key:
+        theme = config.theme_by_key(theme_key)
+        if theme is not None and not theme.enabled:
+            theme = None
+    if theme is None:
+        theme = config.theme_by_key(config.default_theme)
+    if theme is None:
+        enabled = config.enabled_themes()
+        theme = enabled[0] if enabled else None
+    if theme is None:
+        return fallback
+
+    tokens = (
+        merge_primary_accent_into_theme_tokens(theme, fallback)
+        if theme.use_primary_accent
+        else theme.tokens
+    )
+    return tokens.accent or fallback
 
 
 def public_theme_payload(theme: WebappTheme, primary_accent: str) -> Dict[str, object]:

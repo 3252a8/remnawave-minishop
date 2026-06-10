@@ -120,9 +120,11 @@ export function syncSectionPath(
   if (normalized === "admin") {
     const adm =
       adminSection || adminSectionFromPath(window.location.pathname, routePrefix) || "stats";
-    const uid =
-      adminUserId ??
-      (adm === "users" ? adminUserIdFromPath(window.location.pathname, routePrefix) : null);
+    const clearAdminUser = adminUserId === 0 || adminUserId === false;
+    const uid = clearAdminUser
+      ? null
+      : (adminUserId ??
+        (adm === "users" ? adminUserIdFromPath(window.location.pathname, routePrefix) : null));
     const supportTicketId =
       adm === "support"
         ? adminSupportTicketIdFromPath(window.location.pathname, routePrefix)
@@ -130,7 +132,7 @@ export function syncSectionPath(
     const paymentId =
       adm === "payments" ? adminPaymentIdFromPath(window.location.pathname, routePrefix) : null;
     const paymentUserId =
-      adm === "payments"
+      adm === "payments" && !clearAdminUser
         ? adminPaymentsUserIdFromPath(window.location.pathname, routePrefix)
         : null;
     if (adm === "users" && uid) targetPath = `/admin/users/${uid}`;

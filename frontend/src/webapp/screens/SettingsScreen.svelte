@@ -17,6 +17,7 @@
 
   export let currentLang = "ru";
   export let currentLanguageOption = null;
+  export let emailAuthEnabled = true;
   export let emailLinkStatus = "";
   export let isAdmin = false;
   export let languageBusy = false;
@@ -50,6 +51,8 @@
   export let setLanguageMenuOpen = () => {};
   export let t = (key) => key;
   export let updateAccountLanguage = () => {};
+
+  $: showEmailAccount = emailAuthEnabled || Boolean(user?.email);
 </script>
 
 <main class="content with-nav">
@@ -68,7 +71,9 @@
     </div>
     <div class="settings-profile-meta">
       <strong>{telegramProfileName}</strong>
-      <small>{profileEmail}</small>
+      {#if showEmailAccount}
+        <small>{profileEmail}</small>
+      {/if}
       <small>{profileTelegramId}</small>
     </div>
   </Card>
@@ -122,7 +127,7 @@
           <strong>{t("wa_settings_email_linked_title")}</strong>
           <small>{user?.email}</small>
         </span>
-        {#if user?.email_verified}
+        {#if emailAuthEnabled && user?.email_verified}
           <Button
             variant="secondary"
             size="sm"
@@ -135,7 +140,7 @@
           </Button>
         {/if}
       </div>
-    {:else}
+    {:else if emailAuthEnabled}
       <button
         class="settings-row attention-wrap"
         type="button"

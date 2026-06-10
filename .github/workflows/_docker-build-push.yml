@@ -2,11 +2,11 @@ name: Docker build & push (reusable)
 
 # Reusable workflow that builds the three image targets defined in
 # deploy/docker/Dockerfile (backend, worker, frontend) and optionally pushes
-# them to both ghcr.io and Docker Hub under the 3252a8/ namespace.
+# them to the selected registries under the repository owner's namespace.
 #
 # Called by:
 #   - docker-dev.yml      (tag_mode: dev,     push: true)  on pushes to dev
-#   - docker-release.yml  (tag_mode: release, push: true)  on pushes to main
+#   - docker-release.yml  (tag_mode: release, push: true)  on release tags
 #   - ci.yml              (tag_mode: dev,     push: false) on pull requests
 
 on:
@@ -20,6 +20,10 @@ on:
         description: "Tagging strategy: 'dev' or 'release'"
         type: string
         required: true
+      publish_dockerhub:
+        description: "Include Docker Hub tags and login when pushing"
+        type: boolean
+        default: true
 
 # No permissions block here on purpose: a reusable workflow cannot request more
 # than its caller grants, so the token scope is set by each caller
@@ -78,19 +82,36 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to Docker Hub
-        if: inputs.push
+        if: inputs.push && inputs.publish_dockerhub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Resolve image namespaces
+        id: image_namespaces
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          github_owner="${{ github.repository_owner }}"
+          echo "github_owner=${github_owner,,}" >> "$GITHUB_OUTPUT"
+          dockerhub_owner="${github_owner,,}"
+          if [ "${{ inputs.push }}" = "true" ] && [ "${{ inputs.publish_dockerhub }}" = "true" ]; then
+            if [ -z "$DOCKERHUB_USERNAME" ]; then
+              echo "::error::DOCKERHUB_USERNAME secret is required for Docker Hub publishing"
+              exit 1
+            fi
+            dockerhub_owner="${DOCKERHUB_USERNAME,,}"
+          fi
+          echo "dockerhub_owner=$dockerhub_owner" >> "$GITHUB_OUTPUT"
 
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: |
-            3252a8/${{ matrix.image }}
-            ghcr.io/3252a8/${{ matrix.image }}
+            name=${{ steps.image_namespaces.outputs.dockerhub_owner }}/${{ matrix.image }},enable=${{ inputs.push && inputs.publish_dockerhub }}
+            name=ghcr.io/${{ steps.image_namespaces.outputs.github_owner }}/${{ matrix.image }},enable=true
           tags: |
             type=raw,value=dev,enable=${{ inputs.tag_mode == 'dev' }}
             type=raw,value=latest,enable=${{ inputs.tag_mode == 'release' }}
@@ -111,6 +132,7 @@ jobs:
           # (the ref is the tag, not a branch) so release images stay un-suffixed.
           build-args: |
             GITHUB_REF_NAME=${{ inputs.tag_mode == 'release' && 'main' || github.ref_name }}
+            REMNAWAVE_MINISHOP_BUILD_PROVENANCE=${{ github.repository == '3252a8/remnawave-minishop' && 'official' || 'custom' }}
           cache-from: type=gha,scope=${{ matrix.target }}
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}
           provenance: false

@@ -42,6 +42,7 @@
   export let userTelegramProfileLink = () => "";
   export let userTelegramProfileLinkKind = () => "";
   export let openTelegramProfileLink = () => false;
+  export let onClose = () => usersStore.closeUser();
 
   let avatarPreviewOpen = false;
   let avatarPreviewUrl = "";
@@ -51,6 +52,54 @@
     if (val === true) return at("yes", {}, "Да");
     if (val === false) return at("no", {}, "Нет");
     return String(val ?? "—");
+  }
+
+  function isTrialSubscription(sub) {
+    return Boolean(sub?.is_trial || String(sub?.provider || "").toLowerCase() === "trial");
+  }
+
+  function subscriptionDisplayLabel(sub) {
+    if (!sub) return "—";
+    if (isTrialSubscription(sub)) return at("user_subscription_trial", {}, "Триал");
+    if (sub.display_label) return sub.display_label;
+    return sub.tariff_name || sub.tariff_key || at("user_history_no_tariff", {}, "Без тарифа");
+  }
+
+  function trialSummaryText(trial) {
+    if (!trial?.used) return at("user_trial_not_used", {}, "Не брал");
+    const date = trial.latest_activated_at || trial.first_activated_at;
+    const base = date
+      ? at("user_trial_used_at", { date: fmtDate(date) }, `Брал ${fmtDate(date)}`)
+      : at("user_trial_used", {}, "Брал");
+    return trial.active ? `${base} · ${at("user_trial_active", {}, "активен")}` : base;
+  }
+
+  function hwidLimitLabel(sub) {
+    const rawBase = sub?.hwid_device_limit;
+    const hasBase = rawBase !== null && rawBase !== undefined;
+    const extra = Math.max(0, Number(sub?.extra_hwid_devices || 0));
+    if (!hasBase) return at("user_hwid_limit_default", {}, "Тарифный / default");
+    const base = Number(rawBase);
+    if (base === 0) return at("user_hwid_limit_unlimited", {}, "Безлимит");
+    if (extra > 0) {
+      return at(
+        "user_hwid_limit_with_extra",
+        { base, extra, total: base + extra },
+        `${base + extra} (${base} + ${extra})`
+      );
+    }
+    return at("user_hwid_limit_count", { count: base }, `${base}`);
+  }
+
+  function vpnLastConnectionLabel(detail) {
+    const connectedAt = detail?.last_vpn_connected_at;
+    const status = detail?.vpn_connection_status;
+    if (connectedAt) return fmtDate(connectedAt);
+    if (status === "never") return at("user_vpn_never_connected", {}, "Никогда");
+    if (status === "connected") {
+      return at("user_vpn_connected_no_time", {}, "Подключался, время неизвестно");
+    }
+    return "—";
   }
 
   const usersStore = getContext("usersStore");
@@ -71,6 +120,7 @@
     userReferralsPage,
     userReferralsPageSize,
     premiumUnlimitedDraft,
+    hwidUnlimitedDraft,
     userDetailTab,
     userLogs,
     userLogsTotal,
@@ -80,11 +130,14 @@
     userLogsPageSize,
   } = $usersStore);
 
-  $: userLogsHasMore =
-    Number(userLogsTotal || 0) > (Number(userLogsPage || 0) + 1) * Number(userLogsPageSize || 20);
-  $: userReferralsHasMore =
-    Number(userReferralsTotal || 0) >
-    (Number(userReferralsPage || 0) + 1) * Number(userReferralsPageSize || 25);
+  $: userLogsPageCount = Math.max(
+    1,
+    Math.ceil(Number(userLogsTotal || 0) / Number(userLogsPageSize || 20))
+  );
+  $: userReferralsPageCount = Math.max(
+    1,
+    Math.ceil(Number(userReferralsTotal || 0) / Number(userReferralsPageSize || 25))
+  );
 
   $: openedUserAvatarUrl = openedUser ? resolvedAvatarUrl(openedUser) : "";
   $: referralInviter = openedUserDetail?.referral?.inviter || null;
@@ -146,7 +199,7 @@
     : ""}
   description={openedUser?.username ? "@" + openedUser.username : ""}
   closeLabel={at("close", {}, "Закрыть")}
-  onclose={usersStore.closeUser}
+  onclose={onClose}
   class="admin-dialog admin-user-dialog"
 >
   {#if openedUser}
@@ -235,6 +288,10 @@
               <span>{at("user_label_registration", {}, "Регистрация")}</span><strong
                 >{fmtDate(openedUser.registration_date)}</strong
               >
+            </li>
+            <li>
+              <span>{at("user_label_vpn_last_connected", {}, "Последнее VPN-подключение")}</span
+              ><strong>{vpnLastConnectionLabel(openedUserDetail)}</strong>
             </li>
             <li>
               <span>{at("user_label_ref_code", {}, "Реф. код")}</span><strong
@@ -404,7 +461,7 @@
                   </li>
                   <li>
                     <span>{at("user_label_tariff", {}, "Тариф")}</span><strong
-                      >{openedUserDetail.active_subscription.tariff_key || "—"}</strong
+                      >{subscriptionDisplayLabel(openedUserDetail.active_subscription)}</strong
                     >
                   </li>
                   <li>
@@ -415,6 +472,11 @@
                   <li>
                     <span>{at("user_label_provider", {}, "Провайдер")}</span><strong
                       >{openedUserDetail.active_subscription.provider || "—"}</strong
+                    >
+                  </li>
+                  <li>
+                    <span>{at("user_label_hwid_devices", {}, "HWID-устройства")}</span><strong
+                      >{hwidLimitLabel(openedUserDetail.active_subscription)}</strong
                     >
                   </li>
                 </ul>
@@ -507,6 +569,37 @@
                 </p>
               {/if}
 
+              {#if openedUserDetail?.trial}
+                <ul class="admin-meta-list">
+                  <li>
+                    <span>{at("user_label_trial", {}, "Пробник / триал")}</span><strong
+                      >{trialSummaryText(openedUserDetail.trial)}</strong
+                    >
+                  </li>
+                  {#if openedUserDetail.trial.used && openedUserDetail.trial.latest_end_date}
+                    <li>
+                      <span>{at("user_label_trial_until", {}, "Триал до")}</span><strong
+                        >{fmtDate(openedUserDetail.trial.latest_end_date)}</strong
+                      >
+                    </li>
+                  {/if}
+                  {#if Number(openedUserDetail.trial.count || 0) > 1}
+                    <li>
+                      <span>{at("user_label_trial_count", {}, "Триалов")}</span><strong
+                        >{openedUserDetail.trial.count}</strong
+                      >
+                    </li>
+                  {/if}
+                  {#if openedUserDetail.trial.last_reset_at}
+                    <li>
+                      <span>{at("user_label_trial_reset_at", {}, "Сброс триала")}</span><strong
+                        >{fmtDate(openedUserDetail.trial.last_reset_at)}</strong
+                      >
+                    </li>
+                  {/if}
+                </ul>
+              {/if}
+
               {#if (openedUserDetail.subscriptions || []).length}
                 <Separator.Root class="admin-separator" />
                 <div class="admin-subsection-title">
@@ -520,10 +613,7 @@
                   {#each openedUserDetail.subscriptions.slice(0, 8) as sub}
                     <div class="admin-mini-list-row">
                       <div>
-                        <strong
-                          >{sub.tariff_key ||
-                            at("user_history_no_tariff", {}, "Без тарифа")}</strong
-                        >
+                        <strong>{subscriptionDisplayLabel(sub)}</strong>
                         <small
                           >{at(
                             "user_history_until",
@@ -652,13 +742,19 @@
 
               {#if userLogsLoaded && userLogsTotal > userLogsPageSize}
                 <AdminPagination
-                  meta={`${at("page_short", {}, "Стр.")} ${userLogsPage + 1}`}
+                  page={userLogsPage}
+                  pageCount={userLogsPageCount}
+                  total={userLogsTotal}
+                  pageLabel={at("page_short", {}, "Стр.")}
+                  ofLabel={at("pagination_of", {}, "из")}
+                  totalLabel={at("total", {}, "Всего")}
+                  jumpLabel={at("page_short", {}, "Стр.")}
+                  jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
+                  goLabel={at("pagination_go", {}, "Перейти")}
                   prevLabel={at("back", {}, "Назад")}
                   nextLabel={at("next", {}, "Далее")}
-                  prevDisabled={userLogsPage === 0 || userLogsLoading}
-                  nextDisabled={!userLogsHasMore || userLogsLoading}
-                  onPrev={() => usersStore.setUserLogsPage(Math.max(0, userLogsPage - 1))}
-                  onNext={() => usersStore.setUserLogsPage(userLogsPage + 1)}
+                  disabled={userLogsLoading}
+                  onPageChange={(page) => usersStore.setUserLogsPage(page)}
                 />
               {/if}
             </Tabs.Content>
@@ -688,6 +784,41 @@
                       {at("user_btn_extend", {}, "Продлить")}
                     </AdminButton>
                   </div>
+                  {#if Number(openedUserDetail?.active_subscription?.extra_hwid_devices || 0) > 0}
+                    <label class="admin-extend-hwid-option">
+                      <Checkbox
+                        bind:checked={$usersStore.userExtendHwidDevices}
+                        disabled={userActionBusy}
+                        ariaLabel={at(
+                          "user_extend_hwid_devices_aria",
+                          {},
+                          "Продлить докупленные HWID-устройства"
+                        )}
+                      />
+                      <span>
+                        <strong>
+                          {at(
+                            "user_extend_hwid_devices",
+                            {
+                              count: Number(
+                                openedUserDetail.active_subscription.extra_hwid_devices || 0
+                              ),
+                            },
+                            `Продлить также +${Number(
+                              openedUserDetail.active_subscription.extra_hwid_devices || 0
+                            )} HWID-устройств`
+                          )}
+                        </strong>
+                        <small>
+                          {at(
+                            "user_extend_hwid_devices_hint",
+                            {},
+                            "Срок действующих докупок увеличится на те же дни."
+                          )}
+                        </small>
+                      </span>
+                    </label>
+                  {/if}
                 </Label.Root>
               </div>
 
@@ -845,6 +976,66 @@
                           )}</span
                         >
                       {/if}
+                    </div>
+                  </div>
+                </section>
+
+                <section class="admin-user-action-sheet admin-user-action-sheet--hwid-limit">
+                  <AdminSectionHeader
+                    title={at("user_hwid_limit_card_title", {}, "HWID-устройства")}
+                    description={at(
+                      "user_hwid_limit_card_hint",
+                      {},
+                      "Ручной лимит устройств для пользователя. Пустое поле вернёт тарифный или default-лимит."
+                    )}
+                  />
+                  <div class="admin-user-action-sheet-body admin-user-override-stack">
+                    <Label.Root class="admin-field-label admin-extend-field">
+                      <span>{at("user_hwid_limit_input", {}, "Лимит устройств")}</span>
+                      <small
+                        >{at(
+                          "user_hwid_limit_input_hint",
+                          {},
+                          "Пусто — тариф/default; 0 или галочка — безлимит."
+                        )}</small
+                      >
+                      <Input
+                        class="input"
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder={at("user_hwid_limit_default_placeholder", {}, "Тариф")}
+                        disabled={hwidUnlimitedDraft}
+                        aria-label={at("user_hwid_limit_input", {}, "Лимит устройств")}
+                        bind:value={$usersStore.hwidDeviceLimitDraft}
+                      />
+                    </Label.Root>
+                  </div>
+                  <div class="admin-user-action-sheet-footer admin-override-card-footer">
+                    <div class="admin-override-card-toolbar">
+                      <label class="admin-override-unlimited-label">
+                        <Checkbox
+                          bind:checked={$usersStore.hwidUnlimitedDraft}
+                          aria-label={at("user_override_unlimited_short", {}, "Безлимит")}
+                        />
+                        <span>{at("user_override_unlimited_short", {}, "Безлимит")}</span>
+                      </label>
+                      <AdminButton
+                        variant="primary"
+                        onclick={usersStore.saveHwidDeviceLimit}
+                        disabled={userActionBusy}
+                      >
+                        {at("user_hwid_limit_save", {}, "Сохранить")}
+                      </AdminButton>
+                    </div>
+                    <div class="admin-override-status-lines">
+                      <span class="admin-meta-truncate">
+                        {at(
+                          "user_hwid_limit_status",
+                          { current: hwidLimitLabel(openedUserDetail.active_subscription) },
+                          `Сейчас: ${hwidLimitLabel(openedUserDetail.active_subscription)}`
+                        )}
+                      </span>
                     </div>
                   </div>
                 </section>
@@ -1063,20 +1254,19 @@
 
     {#if userReferralsTotal > userReferralsPageSize}
       <AdminPagination
-        meta={at(
-          "pagination_meta",
-          {
-            current: userReferralsPage + 1,
-            total: Math.max(1, Math.ceil(userReferralsTotal / userReferralsPageSize)),
-          },
-          `${userReferralsPage + 1}/${Math.max(1, Math.ceil(userReferralsTotal / userReferralsPageSize))}`
-        )}
+        page={userReferralsPage}
+        pageCount={userReferralsPageCount}
+        total={userReferralsTotal}
+        pageLabel={at("page_short", {}, "Стр.")}
+        ofLabel={at("pagination_of", {}, "из")}
+        totalLabel={at("total", {}, "Всего")}
+        jumpLabel={at("page_short", {}, "Стр.")}
+        jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
+        goLabel={at("pagination_go", {}, "Перейти")}
         prevLabel={at("prev_page", {}, "Назад")}
         nextLabel={at("next_page", {}, "Вперёд")}
-        prevDisabled={userReferralsLoading || userReferralsPage <= 0}
-        nextDisabled={userReferralsLoading || !userReferralsHasMore}
-        onPrev={() => usersStore.setUserReferralsPage(userReferralsPage - 1)}
-        onNext={() => usersStore.setUserReferralsPage(userReferralsPage + 1)}
+        disabled={userReferralsLoading}
+        onPageChange={(page) => usersStore.setUserReferralsPage(page)}
       />
     {/if}
   </div>

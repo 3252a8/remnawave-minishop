@@ -41,9 +41,18 @@
 | `DB_POOL_RECYCLE_SECONDS` | `.env` | Период recycling DB-соединений. |
 | `REDIS_URL` | Compose | Redis для FSM, кеша, rate-limit, очередей и locks. В Compose задается автоматически. |
 | `REDIS_KEY_PREFIX` | `.env` | Префикс Redis-ключей. |
-| `TRUSTED_PROXIES` | `.env` | IP/CIDR обратных прокси, которым доверяется `X-Forwarded-For`. |
+| `TRUSTED_PROXIES` | `.env` | IP/CIDR обратных прокси, которым доверяется `X-Forwarded-For`. По умолчанию включает loopback и private ranges для Docker/LAN/Kubernetes proxy. |
 | `HTTP_BIND` / `HTTPS_BIND` | Caddy Compose | Адреса публикации Caddy-варианта. |
 | `NEWT_ID` / `NEWT_SECRET` | Dev Compose | Доступы Newt в dev-compose. |
+
+`TRUSTED_PROXIES` нужен не только для логов: платежные webhook-обработчики с IP-фильтром
+сравнивают allowlist провайдера с client IP после обработки `X-Forwarded-For`. Если внешний
+proxy не передает этот заголовок или его IP не входит в `TRUSTED_PROXIES`, backend увидит IP
+proxy/Docker gateway и может отклонить валидный webhook. Для Caddy/Nginx/Newt из
+`deploy/examples` дефолта достаточно; в кастомной инфраструктуре добавьте CIDR своего proxy
+или сузьте значение до конкретных proxy IP. Trust-all вариант записывается как
+`0.0.0.0/0,::/0`, но он безопасен только если backend не доступен напрямую, а внешний proxy
+очищает входящий `X-Forwarded-For`.
 
 ## Кеши, rate limits и worker
 
@@ -59,14 +68,31 @@
 | `PANEL_DEVICES_CACHE_TTL_SECONDS` | TTL кеша устройств пользователя Remnawave. |
 | `PANEL_ALL_USERS_CACHE_TTL_SECONDS` | TTL кеша полных сканов пользователей Remnawave. |
 | `PANEL_ALL_USERS_PAGE_SIZE` | Размер страницы Remnawave `/users`. |
+| `PANEL_API_TOTAL_TIMEOUT_SECONDS` | Общий timeout запроса к Remnawave API. |
+| `PANEL_API_CONNECT_TIMEOUT_SECONDS` | Timeout получения соединения с Remnawave API. |
+| `PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS` | Timeout TCP/TLS-подключения к Remnawave API. |
+| `PANEL_API_SOCK_READ_TIMEOUT_SECONDS` | Timeout ожидания данных ответа Remnawave API. |
 | `ADMIN_PANEL_STATS_CACHE_TTL_SECONDS` | TTL статистики Remnawave в админке. |
 | `ADMIN_DB_STATS_CACHE_TTL_SECONDS` | TTL дорогих DB-агрегатов админки. |
 | `ADMIN_USERS_LIST_CACHE_TTL_SECONDS` | TTL списка пользователей админки. |
+| `ADMIN_BROADCAST_AUDIENCE_COUNTS_CACHE_TTL_SECONDS` | TTL счетчиков целевых групп рассылки в админке. |
 | `PROFILE_SYNC_CACHE_TTL_SECONDS` | Минимальная пауза между sync Telegram-профиля пользователя. |
 | `PANEL_SYNC_LIFETIME_TRAFFIC_MIN_INTERVAL_SECONDS` | Минимальная пауза записи lifetime-трафика. |
 | `PANEL_SYNC_LIFETIME_TRAFFIC_MIN_DELTA_BYTES` | Дельта lifetime-трафика для более ранней записи. |
 | `WEBAPP_RATE_LIMIT_TTL_SECONDS` | Окно Web App rate limit. |
 | `WEBAPP_RATE_LIMIT_MAX_REQUESTS` | Количество запросов в окне rate limit. |
+| `TELEGRAM_DROP_NON_PRIVATE_UPDATES` | Отбрасывать group/channel Telegram-апдейты до DB-backed middleware. По умолчанию `True`. |
+| `TELEGRAM_ANTIFLOOD_ENABLED` | Включает мягкие per-user/per-chat лимиты для экстремального Telegram-флуда. По умолчанию `True`. |
+| `TELEGRAM_ANTIFLOOD_WINDOW_SECONDS` | Окно лимитов Telegram антифлуда. По умолчанию `60`. |
+| `TELEGRAM_ANTIFLOOD_MAX_UPDATES_PER_WINDOW` | Глобальный лимит Telegram-апдейтов на источник за окно. По умолчанию `180`; `0` отключает лимит. |
+| `TELEGRAM_ANTIFLOOD_MESSAGE_MAX_PER_WINDOW` | Лимит Telegram messages на источник за окно. По умолчанию `120`; `0` отключает лимит. |
+| `TELEGRAM_ANTIFLOOD_CALLBACK_MAX_PER_WINDOW` | Лимит callback query на источник за окно. По умолчанию `240`; `0` отключает лимит. |
+| `TELEGRAM_ANTIFLOOD_INLINE_MAX_PER_WINDOW` | Лимит inline query на источник за окно. По умолчанию `60`; `0` отключает лимит. |
+| `TELEGRAM_ANTIFLOOD_START_MAX_PER_WINDOW` | Лимит `/start` на источник за окно. По умолчанию `30`; `0` отключает лимит. |
+| `TELEGRAM_ANTIFLOOD_EXPENSIVE_CALLBACK_MAX_PER_WINDOW` | Лимит платежных, trial, promo и account-changing callback за окно. По умолчанию `60`; `0` отключает лимит. |
+| `TELEGRAM_ACTION_COOLDOWN_ENABLED` | Дедуплицирует точные повторы платежных и trial callback от того же пользователя. По умолчанию `True`. |
+| `TELEGRAM_PAYMENT_CALLBACK_COOLDOWN_SECONDS` | Cooldown точного повтора платежного callback. По умолчанию `20`; `0` отключает cooldown. |
+| `TELEGRAM_TRIAL_CALLBACK_COOLDOWN_SECONDS` | Cooldown точного повтора trial callback. По умолчанию `30`; `0` отключает cooldown. |
 | `WEBHOOK_QUEUE_NAME` | Redis queue для тяжелой обработки webhook. |
 | `WEBHOOK_QUEUE_CONCURRENCY` | Количество worker consumers для webhook queue. |
 | `WORKER_PANEL_SYNC_INTERVAL_SECONDS` | Интервал фоновой синхронизации с панелью. |
@@ -101,11 +127,10 @@
 | `DEFAULT_CURRENCY_SYMBOL` | Символ/код валюты в интерфейсе. |
 | `SUPPORT_LINK` | Внешняя ссылка поддержки. |
 | `SERVER_STATUS_URL` | Страница статуса сервиса. |
-| `TERMS_OF_SERVICE_URL` | Условия использования. |
 | `PRIVACY_POLICY_URL` | Политика конфиденциальности. |
 | `USER_AGREEMENT_URL` | Пользовательское соглашение. |
-| `REQUIRED_CHANNEL_ID` | ID обязательного Telegram-канала. |
-| `REQUIRED_CHANNEL_LINK` | Ссылка на обязательный канал. |
+| `REQUIRED_CHANNEL_ID` | ID обязательного Telegram-канала. Используется для проверки подписки и автоматического получения ссылки кнопки, если бот видит канал. |
+| `REQUIRED_CHANNEL_LINK` | Необязательная запасная ссылка на обязательный канал (`@username` или invite-link), если ссылку нельзя получить по ID. |
 | `START_COMMAND_DESCRIPTION` | Описание `/start` для меню Telegram. |
 | `DISABLE_WELCOME_MESSAGE` | Отключить приветствие на `/start`. |
 
@@ -157,9 +182,6 @@
 | `TELEGRAM_OAUTH_REQUEST_ACCESS` | `.env` | Дополнительные разрешения, например `write`. |
 | `WEBAPP_PRIMARY_COLOR` | Админка | Устаревшее env-поле, игнорируется. |
 | `WEBAPP_LOGO_URL` | Админка | Устаревшее env-поле, игнорируется. |
-| `WEBAPP_LOGO_USE_EMOJI` | Админка | Устаревшее env-поле, игнорируется. |
-| `WEBAPP_LOGO_EMOJI` | Админка | Устаревшее env-поле, игнорируется. |
-| `WEBAPP_LOGO_EMOJI_FONT` | Админка | Устаревшее env-поле, игнорируется. |
 | `WEBAPP_FAVICON_USE_CUSTOM` | Админка | Устаревшее env-поле, игнорируется. |
 | `WEBAPP_FAVICON_URL` | Админка | Устаревшее env-поле, игнорируется. |
 | `WEBAPP_LOGO_FAVICON_URL` | Админка | Устаревшее env-поле, игнорируется. |
@@ -197,9 +219,10 @@
 
 | Переменная | Назначение |
 | --- | --- |
-| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты: `severpay,wata,freekassa,platega,yookassa,stars,cryptopay,heleket`. |
+| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты: `severpay,wata,freekassa,platega,yookassa,stars,cryptopay,heleket,paykilla`. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED` | Показывать описание подписки перед выбором срока. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_RU` / `SUBSCRIPTION_PURCHASE_DESCRIPTION_EN` | Локализованное описание подписки. |
+| `PAYMENT_REQUEST_TIMEOUT_SECONDS` | Общий таймаут одного API-запроса к платёжному провайдеру, в секундах. По умолчанию `20`. |
 | `PAYMENT_<METHOD>_WEBAPP_LABEL_RU` / `PAYMENT_<METHOD>_WEBAPP_LABEL_EN` | Текст кнопки провайдера в Web App. |
 | `PAYMENT_<METHOD>_WEBAPP_ICON` | Lucide-иконка кнопки в Web App. |
 | `PAYMENT_<METHOD>_TELEGRAM_LABEL_RU` / `PAYMENT_<METHOD>_TELEGRAM_LABEL_EN` | Текст кнопки в Telegram. |
@@ -213,6 +236,7 @@
 | `WATA_ENABLED` | Включает Wata. |
 | `CRYPTOPAY_ENABLED` | Включает CryptoPay. |
 | `HELEKET_ENABLED` | Включает Heleket. |
+| `PAYKILLA_ENABLED` | Включает PayKilla. |
 
 Конкретные ключи отображения:
 
@@ -271,6 +295,12 @@ PAYMENT_HELEKET_WEBAPP_ICON
 PAYMENT_HELEKET_TELEGRAM_LABEL_RU
 PAYMENT_HELEKET_TELEGRAM_LABEL_EN
 PAYMENT_HELEKET_TELEGRAM_EMOJI
+PAYMENT_PAYKILLA_WEBAPP_LABEL_RU
+PAYMENT_PAYKILLA_WEBAPP_LABEL_EN
+PAYMENT_PAYKILLA_WEBAPP_ICON
+PAYMENT_PAYKILLA_TELEGRAM_LABEL_RU
+PAYMENT_PAYKILLA_TELEGRAM_LABEL_EN
+PAYMENT_PAYKILLA_TELEGRAM_EMOJI
 ```
 
 ### YooKassa
@@ -357,6 +387,35 @@ PAYMENT_HELEKET_TELEGRAM_EMOJI
 | `HELEKET_VERIFY_WEBHOOK_SIGNATURE` | Проверять подпись webhook. |
 | `HELEKET_TRUSTED_IPS` | Список доверенных IP webhook-источников. |
 
+### PayKilla
+
+Для приема оплат нужен API key типа **HMAC** с правом **INVOICE**. Право **WITHDRAWAL** для оплаты подписок не требуется; включайте его только для отдельной интеграции выплат.
+
+Webhook настраивается в PayKilla Dashboard: **Settings -> Webhooks**. Укажите `WEBHOOK_BASE_URL` + `/webhook/paykilla`, например `https://bot.example.com/webhook/paykilla`. Включите события `INVOICE_PAID` и `INVOICE_EXPIRED` как минимум. Рекомендуемый набор галочек: `INVOICE_PAID`, `PAYMENT_COMPLETED`, `PAYMENT_FAILED`, `PAYMENT_OVERPAID`, `PAYMENT_UNDERPAID`, `PAYMENT_PARTIAL`, `INVOICE_EXPIRED`, `COMPLIANCE_FAILED`. Если хотите видеть промежуточные статусы в логах PayKilla, дополнительно включите `INVOICE_CREATED`, `PAYMENT_PENDING`, `TRANSACTION_CONFIRMED` и `TRANSACTION_FINAL`.
+
+| Переменная | Назначение |
+| --- | --- |
+| `PAYKILLA_BASE_URL` | Базовый URL API, по умолчанию `https://account-api.paykilla.com`. |
+| `PAYKILLA_WIDGET_URL` | URL hosted checkout, по умолчанию `https://gopay.paykilla.com`. |
+| `PAYKILLA_API_KEY` / `PAYKILLA_V2_API_KEY` | Public HMAC key с правом `INVOICE`. |
+| `PAYKILLA_SECRET_KEY` / `PAYKILLA_V2_SECRET_KEY` | Secret HMAC key для подписи API-запросов и проверки webhook. |
+| `PAYKILLA_CURRENCY` | Резервная валюта инвойса PayKilla для платежей, чья валюта тарифа не входит в `PAYKILLA_INVOICE_CURRENCIES`. По умолчанию `USD`. |
+| `PAYKILLA_INVOICE_CURRENCIES` | Валюты, которые PayKilla принимает в поле `currency` при создании invoice. По умолчанию `USD,EUR`. Если тариф в `RUB`, Minishop конвертирует сумму в `PAYKILLA_CURRENCY`. |
+| `PAYKILLA_PAYMENT_CURRENCIES` | Crypto tickers для оплаты. По умолчанию `USDTTRC,BTC,ETH,USDTBSC,USDTTON`; оставляйте в списке только тикеры, доступные в PayKilla Dashboard для merchant account. |
+| `PAYKILLA_SUPPORTED_CURRENCIES` | Валюты тарифов/платежей, которым разрешено использовать PayKilla в этом магазине. |
+| `PAYKILLA_INVOICE_TYPE` | Необязательный override: `FIAT_BASED`, `FIXED_AMOUNT` или `OPEN_AMOUNT`. |
+| `PAYKILLA_LIFETIME_SECONDS` | TTL инвойса, отправляется как `expiredAt`. |
+| `PAYKILLA_RECV_WINDOW_MS` | `recvWindow` для подписанных API-запросов. |
+| `PAYKILLA_USER_PAYS_SERVICE_FEE` | `true`, если пользователь оплачивает service fee. |
+| `PAYKILLA_USER_PAYS_NETWORK_FEE` | `true`, если пользователь оплачивает network fee. |
+| `PAYKILLA_EXCHANGE_RATE_URL` | Бесплатный no-key endpoint курса для конвертации валюты тарифа в валюту инвойса. По умолчанию `https://open.er-api.com/v6/latest/{source}`. Поддерживает placeholders `{source}` и `{target}`. |
+| `PAYKILLA_EXCHANGE_RATE_CACHE_SECONDS` | Кэш курса и PayKilla currency limits в секундах. По умолчанию `3600`. |
+| `PAYKILLA_MIN_PAYMENT_AMOUNT` | Минимальная сумма платежа через PayKilla. По умолчанию `10`. |
+| `PAYKILLA_MIN_PAYMENT_CURRENCY` | Валюта для `PAYKILLA_MIN_PAYMENT_AMOUNT`. По умолчанию `USD`; для рублевых тарифов порог конвертируется по `PAYKILLA_EXCHANGE_RATE_URL`. |
+| `PAYKILLA_VERIFY_WEBHOOK_SIGNATURE` | Проверять `X-API-SIGN` по raw body webhook. |
+| `PAYKILLA_WEBHOOK_URL` | Точный публичный webhook URL для проверки подписи, если он отличается от `WEBHOOK_BASE_URL` + `/webhook/paykilla`. |
+| `PAYKILLA_TRUSTED_IPS` | Необязательный список доверенных IP webhook-источников. |
+
 ## Тарифы и legacy-цены
 
 Рекомендуемый способ настройки тарифов - раздел **Система -> Тарифы** в админке. Он сохраняет JSON в `TARIFFS_CONFIG_PATH`.
@@ -386,10 +445,13 @@ PAYMENT_HELEKET_TELEGRAM_EMOJI
 | `TRIAL_DURATION_DAYS` | Длительность пробного периода. |
 | `TRIAL_TRAFFIC_LIMIT_GB` | Лимит трафика пробного периода. |
 | `TRIAL_TRAFFIC_STRATEGY` | Стратегия лимита пробного периода. |
+| `TRIAL_WITHOUT_TELEGRAM_ENABLED` | Разрешает активацию trial пользователям без привязанного Telegram. Disposable email домены всё равно требуют Telegram. |
 | `TRIAL_SQUAD_UUIDS` | Internal Squads для trial через запятую. Если пусто, используется `USER_SQUAD_UUIDS`. |
 | `REFERRAL_ONE_BONUS_PER_REFEREE` | Ограничить бонусы одним успешным платежом приглашенного. |
 | `REFERRAL_WELCOME_BONUS_DAYS` | Приветственный бонус пришедшему по реферальной ссылке. |
+| `REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED` | Разрешает начислять реферальный приветственный бонус пользователям без привязанного Telegram. Disposable email домены всё равно требуют Telegram. |
 | `LEGACY_REFS` | Разрешить ссылки `ref_<telegram_id>`. |
+| `DISPOSABLE_EMAIL_DOMAINS` | Домены одноразовой почты через запятую. Для таких email trial и реферальный welcome bonus доступны только после привязки Telegram. |
 | `REFERRAL_BONUS_DAYS_1_MONTH`, `REFERRAL_BONUS_DAYS_3_MONTHS`, `REFERRAL_BONUS_DAYS_6_MONTHS`, `REFERRAL_BONUS_DAYS_12_MONTHS` | Legacy-бонусы пригласившему без JSON-каталога. В JSON-тарифах используйте `referral_bonus_days_inviter`. |
 | `REFEREE_BONUS_DAYS_1_MONTH`, `REFEREE_BONUS_DAYS_3_MONTHS`, `REFEREE_BONUS_DAYS_6_MONTHS`, `REFEREE_BONUS_DAYS_12_MONTHS` | Legacy-бонусы приглашенному без JSON-каталога. В JSON-тарифах используйте `referral_bonus_days_referee`. |
 | `SUBSCRIPTION_NOTIFICATIONS_ENABLED` | Включает напоминания о подписке. |

@@ -59,6 +59,43 @@ export function priceLabel(plan, methodId = "") {
   return formatMoney(plan?.price || 0, plan?.currency);
 }
 
+export function methodAmountForPlan(method, plan) {
+  if (!method || !plan) return 0;
+  if (
+    String(method?.id || "")
+      .toLowerCase()
+      .includes("stars") &&
+    Number(plan?.stars_price || 0) > 0
+  ) {
+    return Number(plan.stars_price || 0);
+  }
+  return Number(plan?.price || 0);
+}
+
+export function methodAvailableForPlan(method, plan) {
+  if (!method || !plan) return true;
+  const minimum = Number(method?.min_amount || 0);
+  const minimumCurrency = String(method?.min_currency || "").toUpperCase();
+  const planCurrency = String(plan?.currency || "").toUpperCase();
+  if (!minimum || !minimumCurrency || minimumCurrency !== planCurrency) return true;
+  return methodAmountForPlan(method, plan) >= minimum;
+}
+
+export function methodsForPlan(methods, plan) {
+  return (methods || []).map((method) => ({
+    ...method,
+    disabled: !methodAvailableForPlan(method, plan),
+  }));
+}
+
+export function firstAvailableMethod(methods) {
+  return (methods || []).find((method) => !method?.disabled)?.id || "";
+}
+
+export function methodSelectable(methods, methodId) {
+  return Boolean((methods || []).find((method) => method?.id === methodId && !method?.disabled));
+}
+
 export function tariffLimitLabel(tariff, { t }) {
   if (!tariff) return "";
   if (String(tariff.billing_model || "") === "traffic") {

@@ -42,6 +42,8 @@ class RenewalMixin:
 
         months = sub.duration_months or 1
         currency = default_payment_currency_code_for_settings(self.settings)
+        tariff_key = str(getattr(sub, "tariff_key", "") or "").strip() or None
+        sale_mode = f"subscription@{tariff_key}" if tariff_key else "subscription"
         amount = None
         tariffs_config = (
             self._tariffs_config() if callable(getattr(self, "_tariffs_config", None)) else None
@@ -62,11 +64,55 @@ class RenewalMixin:
             logging.error(f"Auto-renew price missing for {months} months")
             return False
 
+        hwid_quote = None
+        quote_hwid_renewal = getattr(
+            self,
+            "quote_hwid_device_renewal_for_subscription",
+            None,
+        )
+        if tariff_key and callable(quote_hwid_renewal):
+            try:
+                hwid_quote = await quote_hwid_renewal(
+                    session,
+                    user_id=sub.user_id,
+                    target_tariff_key=tariff_key,
+                    months=int(months),
+                    currency=default_currency_key_for_settings(self.settings),
+                )
+            except Exception:
+                logging.exception(
+                    "Failed to quote HWID devices for auto-renew user %s",
+                    sub.user_id,
+                )
+                hwid_quote = None
+        if hwid_quote:
+            amount = float(amount) + float(hwid_quote.get("price") or 0)
+
         metadata = {
             "user_id": str(sub.user_id),
             "auto_renew_for_subscription_id": str(sub.subscription_id),
             "subscription_months": str(months),
+            "sale_mode": sale_mode,
         }
+        if hwid_quote:
+            metadata["hwid_devices"] = str(int(hwid_quote.get("device_count") or 0))
+            for source_key, metadata_key in (
+                ("valid_from", "hwid_valid_from"),
+                ("valid_until", "hwid_valid_until"),
+            ):
+                value = hwid_quote.get(source_key)
+                if value:
+                    metadata[metadata_key] = (
+                        value.isoformat() if hasattr(value, "isoformat") else str(value)
+                    )
+            for key in (
+                "pricing_period_months",
+                "proration_ratio",
+                "full_price",
+            ):
+                value = hwid_quote.get(key)
+                if value is not None:
+                    metadata[f"hwid_{key}"] = str(value)
         resp = await yk.create_payment(
             amount=float(amount),
             currency=currency,

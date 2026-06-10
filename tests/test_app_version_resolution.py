@@ -28,9 +28,11 @@ from unittest.mock import patch
 # Importing the webapp facade populates the runtime helpers we need.
 import bot.app.web.subscription_webapp  # noqa: F401
 from bot.app.web.webapp import assets as assets_module
+from bot.utils import app_version as app_version_module
 
 _VERSION_ENV_NAMES = (
     "REMNAWAVE_MINISHOP_VERSION",
+    "REMNAWAVE_MINISHOP_BUILD_PROVENANCE",
     "REMNAWAVE_MINISHOP_BRANCH",
     "GIT_BRANCH",
     "BRANCH_NAME",
@@ -42,6 +44,8 @@ _VERSION_ENV_NAMES = (
 def _reset_cache() -> None:
     # The resolver memoizes the first result in a module-level global.
     assets_module._APP_VERSION_CACHE = None  # type: ignore[attr-defined]
+    app_version_module._APP_VERSION_CACHE = None  # type: ignore[attr-defined]
+    app_version_module._APP_BUILD_PROVENANCE_CACHE = None  # type: ignore[attr-defined]
     # Some callers reach through the facade re-export; clear that too.
     runtime = importlib.import_module("bot.app.web.webapp._runtime")
     runtime._APP_VERSION_CACHE = None  # type: ignore[attr-defined]
@@ -249,6 +253,56 @@ class CacheBehaviourTests(unittest.TestCase):
         # No additional git invocations after the cache was populated.
         self.assertGreater(first_calls, 0)
         self.assertEqual(first_calls, second_calls)
+
+
+class BuildProvenanceTests(unittest.TestCase):
+    def setUp(self) -> None:
+        _reset_cache()
+        self.addCleanup(_reset_cache)
+
+    def test_env_var_short_circuits_build_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / ".build-provenance").write_text("custom", encoding="utf-8")
+            env = _clean_version_env()
+            env["REMNAWAVE_MINISHOP_BUILD_PROVENANCE"] = "official"
+            with (
+                patch.dict(os.environ, env, clear=True),
+                patch.object(app_version_module, "APP_ROOT", Path(tmp)),
+            ):
+                self.assertEqual(app_version_module.resolve_build_provenance(), "official")
+                self.assertFalse(app_version_module.resolve_image_modified())
+
+    def test_reads_baked_build_provenance_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / ".build-provenance").write_text("custom\n", encoding="utf-8")
+            env = _clean_version_env()
+            with (
+                patch.dict(os.environ, env, clear=True),
+                patch.object(app_version_module, "APP_ROOT", Path(tmp)),
+            ):
+                self.assertEqual(app_version_module.resolve_build_provenance(), "custom")
+                self.assertTrue(app_version_module.resolve_image_modified())
+
+    def test_missing_marker_defaults_to_custom(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = _clean_version_env()
+            with (
+                patch.dict(os.environ, env, clear=True),
+                patch.object(app_version_module, "APP_ROOT", Path(tmp)),
+            ):
+                self.assertEqual(app_version_module.resolve_build_provenance(), "custom")
+                self.assertTrue(app_version_module.resolve_image_modified())
+
+    def test_legacy_boolean_aliases_are_normalized(self):
+        env = _clean_version_env()
+        env["REMNAWAVE_MINISHOP_BUILD_PROVENANCE"] = "true"
+        with patch.dict(os.environ, env, clear=True):
+            self.assertEqual(app_version_module.resolve_build_provenance(), "official")
+
+        _reset_cache()
+        env["REMNAWAVE_MINISHOP_BUILD_PROVENANCE"] = "fork"
+        with patch.dict(os.environ, env, clear=True):
+            self.assertEqual(app_version_module.resolve_build_provenance(), "custom")
 
 
 if __name__ == "__main__":  # pragma: no cover

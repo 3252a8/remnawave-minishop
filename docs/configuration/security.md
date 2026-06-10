@@ -15,6 +15,33 @@
 openssl rand -hex 32
 ```
 
+## Telegram антифлуд
+
+Апдейты Telegram-бота проходят через ранний anti-flood middleware до sync
+профиля, проверки каналов и логирования действий, которые обращаются к базе.
+Профиль по умолчанию специально мягкий: он не должен мешать быстрым обычным
+нажатиям кнопок, но отбрасывает экстремальные всплески сообщений и callback от
+одного источника до того, как они разгонят записи в БД, платежные обработчики
+или Telegram FloodWait.
+
+Настройки доступны в **Админка -> Система -> Настройки -> Система -> Telegram
+антифлуд**. Для обычного приватного продающего бота дефолтов достаточно, поэтому
+они не добавлены в `.env.example`. Меняйте их только если реальный трафик
+показывает, что пороги нужно расширить или сузить.
+
+- `TELEGRAM_DROP_NON_PRIVATE_UPDATES=True` отбрасывает апдейты из групп и
+  каналов до дорогих middleware. Оставляйте включенным, если бот не должен
+  работать вне приватных чатов.
+- `TELEGRAM_ANTIFLOOD_ENABLED=True` включает per-user/per-chat лимиты. Значение
+  `0` у отдельного числового лимита отключает только этот лимит.
+- `TELEGRAM_ANTIFLOOD_WINDOW_SECONDS=60` задает общее скользящее окно. Дефолты
+  рассчитаны на нормальные button-heavy флоу: `180` всех апдейтов, `120`
+  сообщений, `240` callback, `60` inline-запросов, `30` команд `/start` и `60`
+  тяжелых callback за окно.
+- `TELEGRAM_ACTION_COOLDOWN_ENABLED=True` дедуплицирует точные повторные
+  платежные и trial callback от того же пользователя. Разные платежные payload
+  не объединяются, поэтому обычный checkout остается независимым.
+
 ## Доступ администраторов
 
 - `ADMIN_IDS` задает Telegram ID администраторов.
@@ -27,6 +54,14 @@ openssl rand -hex 32
 - В Remnawave Panel `WEBHOOK_URL` должен быть `WEBHOOK_BASE_URL` + `/webhook/panel`, например `https://app.example.com/webhook/panel`.
 - `SUBSCRIPTION_MINI_APP_URL` должен вести на frontend/Mini App-домен.
 - Не добавляйте `/api`, `/auth` или webhook-пути в `SUBSCRIPTION_MINI_APP_URL`.
+
+## IP allowlist вебхуков
+
+- Reverse proxy для `WEBHOOK_BASE_URL` должен передавать `X-Forwarded-For` с реальным IP отправителя.
+- `TRUSTED_PROXIES` должен включать IP/CIDR последнего proxy-hop до backend. Иначе платежные webhook-обработчики будут проверять allowlist по IP proxy или Docker gateway.
+- В Docker Compose профилях Caddy, Nginx и Pangolin/Newt дефолт покрывает loopback и private ranges: `127.0.0.1`, `::1`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`.
+- Если backend находится в общей Docker-сети с недоверенными контейнерами, сузьте `TRUSTED_PROXIES` до конкретных IP ваших reverse proxy.
+- Если вы сознательно хотите доверять любому proxy-hop, используйте `0.0.0.0/0,::/0`, но только когда backend не опубликован напрямую, а внешний proxy очищает входящий `X-Forwarded-For`.
 
 ## Дополнительно
 

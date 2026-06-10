@@ -97,6 +97,11 @@ body,
   overflow-x: clip;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background: var(--bg, #02070b);
   color: var(--text);
@@ -111,6 +116,7 @@ input {
 }
 
 .app-shell {
+  --home-logo-scale-effective: var(--home-logo-scale-mobile, var(--home-logo-scale, 1));
   min-height: 100dvh;
   background: var(--bg, #02070b) !important;
 }
@@ -118,4 +124,10 @@ input {
 :root {
   --desktop-rail-width: 252px;
   --desktop-page-gutter: clamp(28px, 4vw, 72px);
+}
+
+@media (min-width: 1024px) {
+  .app-shell {
+    --home-logo-scale-effective: var(--home-logo-scale-desktop, var(--home-logo-scale, 1));
+  }
 }

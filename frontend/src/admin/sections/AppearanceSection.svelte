@@ -1,16 +1,10 @@
 <script>
   import { Check, ExternalLink, FileText, RefreshCw, Save } from "$components/ui/icons.js";
-  import {
-    AdminBadge,
-    AdminButton,
-    AdminEmptyState,
-    AdminSelect,
-  } from "$components/patterns/admin/index.js";
+  import { AdminBadge, AdminButton, AdminEmptyState } from "$components/patterns/admin/index.js";
   import { Checkbox, ColorInput, FileInput, Input, RangeInput } from "$components/ui/index.js";
   import { Switch } from "$components/ui/primitives.js";
   import { getContext, onDestroy, onMount } from "svelte";
 
-  import BrandMark from "$lib/webapp/BrandMark.svelte";
   import { localizedThemeName } from "$lib/webapp/themeStyle.js";
 
   export let at;
@@ -26,9 +20,6 @@
     "SUBSCRIPTION_MINI_APP_URL",
     "WEBAPP_PRIMARY_COLOR",
     "WEBAPP_LOGO_URL",
-    "WEBAPP_LOGO_USE_EMOJI",
-    "WEBAPP_LOGO_EMOJI",
-    "WEBAPP_LOGO_EMOJI_FONT",
     "WEBAPP_FAVICON_URL",
     "WEBAPP_FAVICON_USE_CUSTOM",
     "WEBAPP_LOGO_FAVICON_URL",
@@ -42,8 +33,7 @@
   $: fieldMap = new Map(appearanceFields.map((field) => [field.key, field]));
   $: activeKey = themesCatalog.default_theme;
   $: logoUrl = valueForKey("WEBAPP_LOGO_URL");
-  $: useEmojiLogo = boolValue(valueForKey("WEBAPP_LOGO_USE_EMOJI"));
-  $: currentLogoUrl = !useEmojiLogo ? pendingLogoPreviewUrl || logoUrl || brand?.logoUrl || "" : "";
+  $: currentLogoUrl = pendingLogoPreviewUrl || logoUrl || brand?.logoUrl || "";
   $: previewLogoUrl =
     logoPreviewNonce && currentLogoUrl ? withLogoCacheBust(currentLogoUrl) : currentLogoUrl;
   $: persistedUseCustomFavicon = boolValue(
@@ -59,28 +49,12 @@
   $: useCustomFavicon = faviconUseCustomDraft;
   $: faviconUrl = valueForKey("WEBAPP_FAVICON_URL", appFaviconUrl);
   $: logoFaviconUrl = valueForKey("WEBAPP_LOGO_FAVICON_URL");
-  $: generatedFaviconUrl = !useEmojiLogo
-    ? logoFaviconUrl || appFaviconUrl || previewLogoUrl || ""
-    : "";
+  $: generatedFaviconUrl = logoFaviconUrl || appFaviconUrl || previewLogoUrl || "";
   $: currentFaviconUrl = useCustomFavicon
     ? pendingFaviconPreviewUrl || faviconUrl || ""
     : generatedFaviconUrl;
   $: previewFaviconUrl =
     faviconPreviewNonce && currentFaviconUrl ? withCacheBust(currentFaviconUrl) : currentFaviconUrl;
-  $: logoEmoji = valueForKey("WEBAPP_LOGO_EMOJI");
-  $: logoEmojiInput = useEmojiLogo ? logoEmoji : "";
-  $: logoEmojiPreview = logoEmoji || "🫥";
-  $: logoEmojiFont = valueForKey("WEBAPP_LOGO_EMOJI_FONT") || "system";
-  $: logoBrand = {
-    title: "",
-    logoUrl: useEmojiLogo ? "" : previewLogoUrl,
-    emoji: logoEmojiPreview,
-    emojiFont: logoEmojiFont,
-  };
-  $: emojiFontItems = (fieldMap.get("WEBAPP_LOGO_EMOJI_FONT")?.choices || []).map((item) => ({
-    value: item.value,
-    label: item.i18n_label_key ? adminText(item.i18n_label_key, {}, item.label) : item.label,
-  }));
   $: dirtyCount = Object.keys(settingsDirty || {}).filter((key) =>
     isAppearanceSettingKey(key)
   ).length;
@@ -136,15 +110,6 @@
       return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
     }
     return Boolean(value);
-  }
-
-  function adminLocaleKey(key) {
-    const raw = String(key || "");
-    return raw.startsWith("admin_") ? raw.slice("admin_".length) : raw;
-  }
-
-  function adminText(key, params = {}, fallback = "") {
-    return key ? at(adminLocaleKey(key), params, fallback) : fallback;
   }
 
   function withLogoCacheBust(url) {
@@ -213,10 +178,8 @@
     return `#${hex}`;
   }
 
-  function homeLogoScale(theme) {
-    const scale = Number(theme.tokens?.home_logo_scale || 100);
-    if (!Number.isFinite(scale)) return 100;
-    return Math.min(300, Math.max(50, Math.round(scale)));
+  function homeLogoScale(theme, mode) {
+    return themesStore.resolveThemeHomeLogoScale(theme, mode);
   }
 
   function openThemeAccentPicker(theme) {
@@ -241,7 +204,6 @@
       if (uploaded?.faviconUrl) {
         settingsStore.setFieldValue("WEBAPP_LOGO_FAVICON_URL", uploaded.faviconUrl);
       }
-      settingsStore.setFieldValue("WEBAPP_LOGO_USE_EMOJI", false);
       if (logoFileInput) logoFileInput.value = "";
     });
   }
@@ -256,7 +218,6 @@
       if (uploaded?.faviconUrl) {
         settingsStore.setFieldValue("WEBAPP_LOGO_FAVICON_URL", uploaded.faviconUrl);
       }
-      settingsStore.setFieldValue("WEBAPP_LOGO_USE_EMOJI", false);
     });
   }
 
@@ -303,32 +264,11 @@
     }
   }
 
-  function setEmojiLogo(enabled) {
-    settingsStore.markDirty("WEBAPP_LOGO_USE_EMOJI", Boolean(enabled));
-    if (!enabled) {
-      settingsStore.markDirty("WEBAPP_LOGO_EMOJI", "");
-    } else {
-      pendingLogoPreviewUrl = "";
-      clearPendingObjectUrl();
-    }
-  }
-
-  function setAppearanceValue(key, value) {
-    settingsStore.markDirty(key, value);
-  }
-
   async function saveAppearance() {
     const keysToSave = new Set(appearanceDirtyKeys);
-    if (!useEmojiLogo && logoEmoji) {
-      settingsStore.markDirty("WEBAPP_LOGO_EMOJI", "");
-      keysToSave.add("WEBAPP_LOGO_EMOJI");
-    }
     const shouldReloadFrontend = Array.from(keysToSave).some((key) =>
       [
         "WEBAPP_LOGO_URL",
-        "WEBAPP_LOGO_USE_EMOJI",
-        "WEBAPP_LOGO_EMOJI",
-        "WEBAPP_LOGO_EMOJI_FONT",
         "WEBAPP_FAVICON_URL",
         "WEBAPP_FAVICON_USE_CUSTOM",
         "WEBAPP_LOGO_FAVICON_URL",
@@ -354,17 +294,21 @@
     themesStore.setThemeAccent(theme.key, value);
   }
 
-  function setThemeHomeLogoScale(theme, value) {
-    themesStore.setThemeHomeLogoScale(theme.key, value);
+  function setThemeHomeLogoScale(theme, mode, value) {
+    themesStore.setThemeHomeLogoScale(theme.key, mode, value);
+  }
+
+  function isThemeControlTarget(target) {
+    return target?.closest?.("button,input,label,.admin-theme-card-option,.ui-range-input");
   }
 
   function selectTheme(theme, event = null) {
-    if (event?.target?.closest?.("button,input,label")) return;
+    if (isThemeControlTarget(event?.target)) return;
     if (!themesSaving) themesStore.setCurrentTheme(theme.key);
   }
 
   function handleThemeKeydown(event, theme) {
-    if (event?.target?.closest?.("button,input,label")) return;
+    if (isThemeControlTarget(event?.target)) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     selectTheme(theme);
@@ -395,13 +339,7 @@
       <header class="admin-card-head">
         <div>
           <h3>{at("appearance_brand_title", {}, "Логотип")}</h3>
-          <small
-            >{at(
-              "appearance_brand_sub",
-              {},
-              "Файл, ссылка или подтвержденный emoji-логотип"
-            )}</small
-          >
+          <small>{at("appearance_brand_sub", {}, "Загрузите логотип файлом или по ссылке")}</small>
         </div>
         <div class="admin-editor-section-actions">
           {#if dirtyCount}
@@ -424,7 +362,7 @@
       </header>
       <div class="admin-card-body appearance-logo-grid">
         <div class="appearance-logo-preview">
-          {#if !useEmojiLogo && previewLogoUrl && !logoPreviewFailed}
+          {#if previewLogoUrl && !logoPreviewFailed}
             <img
               class="appearance-logo-image"
               src={previewLogoUrl}
@@ -435,8 +373,6 @@
                 logoPreviewFailed = true;
               }}
             />
-          {:else if useEmojiLogo}
-            <BrandMark brand={logoBrand} size="lg" />
           {:else}
             <span class="appearance-logo-empty" aria-hidden="true"></span>
           {/if}
@@ -476,39 +412,6 @@
               </AdminButton>
             </div>
           </section>
-
-          <section class="appearance-control-card">
-            <label class="appearance-switch">
-              <Switch.Root
-                checked={useEmojiLogo}
-                onCheckedChange={setEmojiLogo}
-                class="admin-switch-root"
-              >
-                <Switch.Thumb class="admin-switch-thumb" />
-              </Switch.Root>
-              <span>{at("appearance_use_emoji_logo", {}, "Использовать emoji-логотип")}</span>
-            </label>
-            <div class="appearance-emoji-grid">
-              <Input
-                class="input appearance-control"
-                type="text"
-                maxlength="8"
-                value={logoEmojiInput}
-                disabled={!useEmojiLogo}
-                oninput={(event) =>
-                  setAppearanceValue("WEBAPP_LOGO_EMOJI", event.currentTarget.value)}
-              />
-              <AdminSelect
-                class="appearance-control"
-                value={logoEmojiFont}
-                items={emojiFontItems}
-                disabled={!useEmojiLogo}
-                ariaLabel={at("appearance_emoji_font", {}, "Шрифт emoji")}
-                placeholder={at("appearance_emoji_font", {}, "Шрифт emoji")}
-                onValueChange={(value) => setAppearanceValue("WEBAPP_LOGO_EMOJI_FONT", value)}
-              />
-            </div>
-          </section>
         </div>
       </div>
 
@@ -525,8 +428,6 @@
                 faviconPreviewFailed = true;
               }}
             />
-          {:else if !useCustomFavicon && useEmojiLogo}
-            <BrandMark brand={logoBrand} size="lg" />
           {:else}
             <span class="appearance-logo-empty" aria-hidden="true"></span>
           {/if}
@@ -682,12 +583,12 @@
                   />
                   <span>{at("themes_use_in_admin", {}, "Использовать в админке")}</span>
                 </label>
-                <label class="admin-theme-card-option appearance-logo-scale-row">
-                  <span
+                <div class="admin-theme-card-option appearance-logo-scale-row">
+                  <span class="appearance-logo-scale-label"
                     >{at(
-                      "appearance_theme_home_logo_scale",
+                      "appearance_theme_home_logo_scale_desktop",
                       {},
-                      "Логотип на главной и входе"
+                      "Логотип на десктопе"
                     )}</span
                   >
                   <RangeInput
@@ -695,9 +596,13 @@
                     min="50"
                     max="300"
                     step="5"
-                    ariaLabel={at("appearance_theme_home_logo_scale", {}, "Home logo scale")}
-                    value={homeLogoScale(theme)}
-                    onValueChange={(value) => setThemeHomeLogoScale(theme, value)}
+                    ariaLabel={at(
+                      "appearance_theme_home_logo_scale_desktop",
+                      {},
+                      "Desktop logo scale"
+                    )}
+                    value={homeLogoScale(theme, "desktop")}
+                    onValueChange={(value) => setThemeHomeLogoScale(theme, "desktop", value)}
                   />
                   <span class="appearance-logo-scale-value">
                     <Input
@@ -706,12 +611,48 @@
                       min="50"
                       max="300"
                       step="5"
-                      value={homeLogoScale(theme)}
-                      oninput={(event) => setThemeHomeLogoScale(theme, event.currentTarget.value)}
+                      value={homeLogoScale(theme, "desktop")}
+                      oninput={(event) =>
+                        setThemeHomeLogoScale(theme, "desktop", event.currentTarget.value)}
                     />
                     %
                   </span>
-                </label>
+                </div>
+                <div class="admin-theme-card-option appearance-logo-scale-row">
+                  <span class="appearance-logo-scale-label"
+                    >{at(
+                      "appearance_theme_home_logo_scale_mobile",
+                      {},
+                      "Логотип на мобильных"
+                    )}</span
+                  >
+                  <RangeInput
+                    class="appearance-logo-scale-range"
+                    min="50"
+                    max="300"
+                    step="5"
+                    ariaLabel={at(
+                      "appearance_theme_home_logo_scale_mobile",
+                      {},
+                      "Mobile logo scale"
+                    )}
+                    value={homeLogoScale(theme, "mobile")}
+                    onValueChange={(value) => setThemeHomeLogoScale(theme, "mobile", value)}
+                  />
+                  <span class="appearance-logo-scale-value">
+                    <Input
+                      class="input"
+                      type="number"
+                      min="50"
+                      max="300"
+                      step="5"
+                      value={homeLogoScale(theme, "mobile")}
+                      oninput={(event) =>
+                        setThemeHomeLogoScale(theme, "mobile", event.currentTarget.value)}
+                    />
+                    %
+                  </span>
+                </div>
                 <div class="appearance-theme-actions">
                   <AdminButton
                     size="sm"
@@ -815,20 +756,12 @@
     display: none;
   }
 
-  .appearance-url-row,
-  .appearance-emoji-grid {
+  .appearance-url-row {
     display: grid;
     gap: 8px;
     max-width: 520px;
-  }
-
-  .appearance-url-row {
     grid-template-columns: minmax(0, 1fr) max-content;
     width: 100%;
-  }
-
-  .appearance-emoji-grid {
-    grid-template-columns: minmax(0, 360px) max-content;
   }
 
   :global(.appearance-control.input),
@@ -952,8 +885,13 @@
 
   .appearance-logo-scale-row {
     display: grid;
-    grid-template-columns: auto minmax(96px, 1fr) auto;
+    grid-template-columns: minmax(112px, 0.8fr) minmax(96px, 1fr) auto;
     width: 100%;
+  }
+
+  .appearance-logo-scale-label {
+    min-width: 0;
+    line-height: 1.25;
   }
 
   :global(.appearance-logo-scale-range) {
@@ -1012,9 +950,16 @@
       height: auto;
     }
 
-    .appearance-url-row,
-    .appearance-emoji-grid {
+    .appearance-url-row {
       grid-template-columns: 1fr;
+    }
+
+    .appearance-logo-scale-row {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    :global(.appearance-logo-scale-range) {
+      grid-column: 1 / -1;
     }
   }
 </style>

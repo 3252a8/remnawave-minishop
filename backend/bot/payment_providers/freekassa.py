@@ -53,11 +53,14 @@ from .shared import (
     notify_service_unavailable,
     parse_payment_callback,
     payment_failed,
+    payment_record_amounts,
     payment_unavailable,
     payment_units_for_activation,
     post_json_request,
     quote_hwid_callback_parts,
     render_link_or_fail,
+    render_payment_link,
+    safe_callback_answer,
 )
 
 _LOG = "freekassa"
@@ -76,7 +79,7 @@ class FreeKassaConfig(ProviderEnvConfig):
     MERCHANT_ID: Optional[str] = None
     FIRST_SECRET: Optional[str] = None
     SECOND_SECRET: Optional[str] = None
-    PAYMENT_URL: str = Field(default="https://pay.freekassa.ru/")
+    PAYMENT_URL: str = Field(default="https://pay.freekassa.net/")
     API_KEY: Optional[str] = None
     PAYMENT_IP: Optional[str] = None
     PAYMENT_METHOD_ID: Optional[int] = None
@@ -153,7 +156,7 @@ class FreeKassaService(HttpClientMixin):
         self.default_currency: str = default_payment_currency_code_for_settings(settings).upper()
 
         self.api_base_url: str = "https://api.fk.life/v1"
-        self._init_http_client(total_timeout=15)
+        self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
         self._nonce_lock = asyncio.Lock()
         self._last_nonce = int(time.time() * 1000)
 
@@ -252,6 +255,62 @@ class FreeKassaService(HttpClientMixin):
             # FreeKassa returns ``{"type": "success", ...}`` on success.
             is_success=lambda status, data: status == 200 and (data or {}).get("type") == "success",
         )
+
+    async def get_orders(
+        self,
+        *,
+        payment_id: int,
+        order_status: Optional[int] = None,
+    ) -> Tuple[bool, Dict[str, Any]]:
+        if not self.configured:
+            return False, {"message": "service_not_configured"}
+
+        payload: Dict[str, Any] = {
+            "shopId": int(self.shop_id),
+            "nonce": await self._generate_nonce(),
+            "paymentId": str(payment_id),
+        }
+        if order_status is not None:
+            payload["orderStatus"] = int(order_status)
+        payload["signature"] = self._sign_payload(payload)
+
+        session = await self._get_session()
+        return await post_json_request(
+            session,
+            f"{self.api_base_url}/orders",
+            body=payload,
+            log_prefix="FreeKassa get_orders",
+            is_success=lambda status, data: status == 200 and (data or {}).get("type") == "success",
+        )
+
+    async def try_reuse_pending_order(self, payment: Any) -> Optional[str]:
+        order_hash = str(getattr(payment, "provider_payment_id", None) or "").strip()
+        if not order_hash:
+            return None
+
+        success, response_data = await self.get_orders(
+            payment_id=payment.payment_id,
+            order_status=0,
+        )
+        if not success:
+            return None
+
+        for order in response_data.get("orders") or []:
+            if not isinstance(order, dict):
+                continue
+            try:
+                is_new = int(order.get("status", -1)) == 0
+            except (TypeError, ValueError):
+                continue
+            if not is_new:
+                continue
+            if str(order.get("merchant_order_id") or "") != str(payment.payment_id):
+                continue
+            fk_order_id = str(order.get("fk_order_id") or "").strip()
+            if fk_order_id:
+                payment_url = (self.config.PAYMENT_URL or "https://pay.freekassa.net/").rstrip("/")
+                return f"{payment_url}/form/{fk_order_id}/{order_hash}"
+        return None
 
     async def _generate_nonce(self) -> int:
         async with self._nonce_lock:
@@ -513,6 +572,39 @@ async def pay_fk_callback_handler(
         hwid_quote=hwid_quote,
     )
 
+    reuse_amounts = payment_record_amounts(
+        months=parts.months,
+        sale_mode=parts.sale_mode,
+        hwid_device_count=hwid_quote.get("device_count") if hwid_quote else None,
+    )
+    reusable_payment = await payment_dal.find_recent_pending_provider_payment(
+        session,
+        user_id=callback.from_user.id,
+        provider="freekassa",
+        pending_status="pending_freekassa",
+        amount=parts.price,
+        currency=currency_code,
+        sale_mode=parts.sale_mode,
+        months=reuse_amounts.months,
+        purchased_gb=reuse_amounts.purchased_gb,
+        purchased_hwid_devices=reuse_amounts.purchased_hwid_devices,
+        tariff_key=reuse_amounts.tariff_key,
+    )
+    if reusable_payment is not None:
+        reusable_url = await freekassa_service.try_reuse_pending_order(reusable_payment)
+        if reusable_url:
+            await safe_callback_answer(callback)
+            await render_payment_link(
+                callback,
+                translator=translator,
+                current_lang=current_lang,
+                i18n=i18n,
+                parts=parts,
+                payment_url=reusable_url,
+                log_prefix=_LOG,
+            )
+            return
+
     try:
         payment_record = await payment_dal.create_payment_record(session, record_payload)
         await session.commit()
@@ -625,6 +717,14 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     )
 
 
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
+    service: FreeKassaService = ctx.request.app.get("freekassa_service")
+    if not service or not service.configured:
+        return None
+
+    return await service.try_reuse_pending_order(payment)
+
+
 _PRESENTATION_MANIFEST = tuple(
     ProviderManifestField(
         key=key,
@@ -723,7 +823,7 @@ _CONFIG_MANIFEST = (
         "FREEKASSA_PAYMENT_URL",
         "url",
         "Payment URL",
-        placeholder="https://pay.freekassa.ru/",
+        placeholder="https://pay.freekassa.net/",
         subsection="FreeKassa",
         attr="PAYMENT_URL",
     ),
@@ -772,6 +872,7 @@ SPEC = PaymentProviderSpec(
     webhook_path=lambda source: "/webhook/freekassa",
     webhook_route=freekassa_webhook_route,
     create_webapp_payment=create_webapp_payment,
+    reuse_webapp_payment=reuse_webapp_payment,
     config_class=FreeKassaConfig,
     presentation_class=FreeKassaPresentation,
     manifest_fields=_CONFIG_MANIFEST + _PRESENTATION_MANIFEST,

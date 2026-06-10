@@ -114,6 +114,7 @@ class WebAppPaymentContext:
     sale_mode: str
     currency: str = "RUB"
     traffic_gb: Optional[float] = None
+    hwid_device_count: Optional[int] = None
     hwid_valid_from: Optional[Any] = None
     hwid_valid_until: Optional[Any] = None
     hwid_pricing_period_months: Optional[int] = None
@@ -126,7 +127,10 @@ ServiceFactory = Callable[[ServiceFactoryContext], Any]
 WebhookPathGetter = Callable[[Any], str]
 WebhookRoute = Callable[[Any], Awaitable[Any]]
 WebAppPaymentFactory = Callable[[WebAppPaymentContext], Awaitable[Any]]
+ReusableWebAppPaymentResolver = Callable[[WebAppPaymentContext, Any], Awaitable[Optional[str]]]
 CurrencySupportResolver = Callable[[Any], Optional[Sequence[str]]]
+PaymentAmountResolver = Callable[[Any, Any, Any], bool]
+PaymentMinimumResolver = Callable[[Any, Any], Optional[Mapping[str, Any]]]
 
 
 def normalize_payment_currency_code(value: Any, default: str = "RUB") -> str:
@@ -177,6 +181,7 @@ class PaymentProviderSpec:
     webhook_route: Optional[WebhookRoute] = None
     webhook_requires_base_url: bool = False
     create_webapp_payment: Optional[WebAppPaymentFactory] = None
+    reuse_webapp_payment: Optional[ReusableWebAppPaymentResolver] = None
     requires_configured_service: bool = True
     price_source: str = "rub"
     emoji: str = "💳"
@@ -191,6 +196,8 @@ class PaymentProviderSpec:
     admin_only_enabled: Optional[EnabledPredicate] = None
     supported_currencies: Optional[Sequence[str]] = ("RUB",)
     supported_currencies_resolver: Optional[CurrencySupportResolver] = None
+    payment_amount_resolver: Optional[PaymentAmountResolver] = None
+    payment_minimum_resolver: Optional[PaymentMinimumResolver] = None
     currency_support_note: str = ""
     currency_support_url: Optional[str] = None
 
@@ -304,6 +311,30 @@ class PaymentProviderSpec:
         if self.price_source == "stars":
             return True
         return self.supports_currency(source, currency)
+
+    def payment_minimum(self, source: Any, currency: Any) -> Optional[Mapping[str, Any]]:
+        if self.payment_minimum_resolver is None:
+            return None
+        source_for_amount = self._currency_source(source)
+        try:
+            return self.payment_minimum_resolver(source_for_amount, currency)
+        except Exception:
+            return None
+
+    def is_usable_for_payment_amount(self, source: Any, currency: Any, amount: Any) -> bool:
+        if self.price_source == "stars" or self.payment_amount_resolver is None:
+            return True
+        source_for_amount = self._currency_source(source)
+        try:
+            return bool(self.payment_amount_resolver(source_for_amount, currency, amount))
+        except Exception:
+            return True
+
+    def is_usable_for_payment(self, source: Any, currency: Any, amount: Any) -> bool:
+        return self.is_usable_for_payment_currency(
+            source,
+            currency,
+        ) and self.is_usable_for_payment_amount(source, currency, amount)
 
     def is_visible(self, source: Any, app: Any) -> bool:
         return self.is_enabled(source) and self.is_service_configured(app)

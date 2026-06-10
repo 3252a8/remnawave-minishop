@@ -178,6 +178,7 @@ class SubscriptionLifecycleMixin:
         user_id: int,
         target_tariff_key: str,
         mode: str,
+        payment_id: Optional[int] = None,
     ) -> Optional[Dict[str, Any]]:
         config = self._tariffs_config()
         if not config:
@@ -336,7 +337,7 @@ class SubscriptionLifecycleMixin:
                 "from_tariff_key": before_tariff_key,
                 "to_tariff_key": target.key,
                 "mode": mode,
-                "payment_id": None,
+                "payment_id": payment_id,
                 "days_before": options.get("remaining_days"),
                 "days_after": (updated.end_date - now).days
                 if updated.end_date and target.billing_model == "period"
@@ -454,27 +455,11 @@ class SubscriptionLifecycleMixin:
                 user_id,
                 tariff_key,
                 "paid_diff",
+                payment_id=payment_db_id,
             )
             if result:
                 sub = await subscription_dal.get_active_subscription_by_user_id(session, user_id)
                 if sub:
-                    await tariff_dal.create_tariff_change(
-                        session,
-                        {
-                            "subscription_id": sub.subscription_id,
-                            "from_tariff_key": None,
-                            "to_tariff_key": tariff_key,
-                            "mode": "paid_diff",
-                            "payment_id": payment_db_id,
-                            "days_before": None,
-                            "days_after": (sub.end_date - datetime.now(timezone.utc)).days
-                            if sub.end_date
-                            else None,
-                            "converted_bytes": None,
-                            "eff_price_before": None,
-                            "eff_price_after": sub.effective_monthly_price_rub,
-                        },
-                    )
                     result["end_date"] = sub.end_date
                     result["is_active"] = sub.is_active
                     db_user = await user_dal.get_user_by_id(session, user_id)
@@ -494,9 +479,28 @@ class SubscriptionLifecycleMixin:
         await self._record_payment_context(
             session,
             payment_db_id,
-            sale_mode=sale_mode_base,
+            sale_mode=sale_mode,
             tariff_key=tariff.key if tariff else tariff_key,
             purchased_gb=None,
+        )
+        payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
+        try:
+            hwid_renewal_devices = int(getattr(payment, "purchased_hwid_devices", 0) or 0)
+        except (TypeError, ValueError):
+            hwid_renewal_devices = 0
+        try:
+            hwid_renewal_price = (
+                float(getattr(payment, "hwid_full_price", 0) or 0)
+                if hwid_renewal_devices > 0
+                else 0.0
+            )
+        except (TypeError, ValueError):
+            hwid_renewal_price = 0.0
+        hwid_renewal_valid_from = self._as_aware_utc(
+            getattr(payment, "hwid_valid_from", None) if payment else None
+        )
+        hwid_renewal_valid_until = self._as_aware_utc(
+            getattr(payment, "hwid_valid_until", None) if payment else None
         )
 
         db_user = await user_dal.get_user_by_id(session, user_id)
@@ -569,6 +573,26 @@ class SubscriptionLifecycleMixin:
                 promo_code_id_from_payment = None
 
         final_end_date = start_date + timedelta(days=duration_days_total)
+        if hwid_renewal_devices > 0 and hwid_renewal_valid_until and applied_promo_bonus_days:
+            hwid_renewal_valid_until = hwid_renewal_valid_until + timedelta(
+                days=applied_promo_bonus_days
+            )
+            if payment:
+                payment.hwid_valid_until = hwid_renewal_valid_until
+        elif applied_promo_bonus_days > 0 and current_active_sub:
+            try:
+                await tariff_dal.extend_hwid_device_purchases_for_subscription_bonus(
+                    session,
+                    subscription_id=current_active_sub.subscription_id,
+                    at=datetime.now(timezone.utc),
+                    subscription_end_before=start_date,
+                    delta=timedelta(days=applied_promo_bonus_days),
+                )
+            except Exception:
+                logging.exception(
+                    "Failed to extend HWID device purchases for promo payment bonus of user %s",
+                    user_id,
+                )
         await subscription_dal.deactivate_other_active_subscriptions(
             session, panel_user_uuid, panel_sub_link_id
         )
@@ -614,7 +638,8 @@ class SubscriptionLifecycleMixin:
             premium_topup_balance_bytes,
             premium_topup_used_bytes,
         )
-        effective_monthly_price = float(payment_amount) / max(1, months_int)
+        subscription_amount_for_pricing = max(0.0, float(payment_amount) - hwid_renewal_price)
+        effective_monthly_price = subscription_amount_for_pricing / max(1, months_int)
         regular_bonus_carry = int(getattr(current_active_sub, "regular_bonus_bytes", 0) or 0)
         regular_unl_carry = bool(getattr(current_active_sub, "regular_unlimited_override", False))
         traffic_limit_bytes = self._traffic_limit_for_period_tariff(
@@ -641,6 +666,9 @@ class SubscriptionLifecycleMixin:
             "traffic_limit_bytes": traffic_limit_bytes,
             "provider": provider,
             "skip_notifications": False,
+            # A real payment restores the full reminder spectrum, clearing any
+            # trial/bonus suppression carried over on this panel subscription.
+            "suppress_early_expiry_notifications": False,
             "auto_renew_enabled": auto_renew_should_enable,
             "tariff_key": tariff.key if tariff else None,
             "tier_baseline_bytes": tier_baseline_bytes,
@@ -695,6 +723,31 @@ class SubscriptionLifecycleMixin:
 
         final_subscription_url = updated_panel_user.get("subscriptionUrl")
         final_panel_short_uuid = updated_panel_user.get("shortUuid", panel_short_uuid)
+        hwid_devices_renewed_count = 0
+        hwid_devices_renewed_until = None
+        if hwid_renewal_devices > 0:
+            if (
+                hwid_renewal_valid_from
+                and hwid_renewal_valid_until
+                and hwid_renewal_valid_from < hwid_renewal_valid_until
+            ):
+                await tariff_dal.create_hwid_device_purchase(
+                    session,
+                    subscription_id=new_or_updated_sub.subscription_id,
+                    payment_id=payment_db_id,
+                    purchased_devices=hwid_renewal_devices,
+                    valid_from=hwid_renewal_valid_from,
+                    valid_until=hwid_renewal_valid_until,
+                )
+                hwid_devices_renewed_count = hwid_renewal_devices
+                hwid_devices_renewed_until = hwid_renewal_valid_until
+            else:
+                logging.warning(
+                    "Skipping HWID renewal purchase for payment %s: invalid window %s -> %s",
+                    payment_db_id,
+                    hwid_renewal_valid_from,
+                    hwid_renewal_valid_until,
+                )
 
         await self._send_payment_success_email(
             db_user=db_user,
@@ -715,8 +768,12 @@ class SubscriptionLifecycleMixin:
             "subscription_url": final_subscription_url,
             "applied_promo_bonus_days": applied_promo_bonus_days,
             "tariff_key": tariff.key if tariff else None,
-            "hwid_devices_renewal_recommended_count": extra_hwid_devices,
-            "hwid_devices_valid_until": hwid_devices_valid_until,
+            "hwid_devices_renewal_recommended_count": 0
+            if hwid_devices_renewed_count
+            else extra_hwid_devices,
+            "hwid_devices_valid_until": hwid_devices_renewed_until or hwid_devices_valid_until,
+            "hwid_devices_renewed_count": hwid_devices_renewed_count,
+            "hwid_devices_renewed_until": hwid_devices_renewed_until,
         }
 
     async def extend_active_subscription_days(
@@ -725,6 +782,8 @@ class SubscriptionLifecycleMixin:
         user_id: int,
         bonus_days: int,
         reason: str = "bonus",
+        extend_hwid_devices: bool = True,
+        tariff_key: Optional[str] = None,
     ) -> Optional[datetime]:
         reason_lower = (reason or "").lower()
         apply_main_traffic_limit = any(
@@ -751,6 +810,17 @@ class SubscriptionLifecycleMixin:
         preserve_tariff_limits = bool(
             active_sub and active_sub.tariff_key and self._tariffs_config()
         )
+        bonus_tariff = None
+        if not active_sub and tariff_key and self._tariffs_config():
+            try:
+                bonus_tariff = self._resolve_tariff(tariff_key)
+            except Exception:
+                logging.warning(
+                    "Unable to resolve bonus tariff %s for user %s.",
+                    tariff_key,
+                    user_id,
+                    exc_info=True,
+                )
         if not active_sub or not active_sub.end_date:
             logging.info(
                 f"No active subscription found for user {user_id}. Creating new one for {bonus_days} days."  # noqa: E501
@@ -760,9 +830,15 @@ class SubscriptionLifecycleMixin:
 
             # Apply main traffic limit for admin/referral/promo bonuses, fallback to trial limit otherwise  # noqa: E501
             traffic_limit = (
-                self.settings.user_traffic_limit_bytes
+                self._traffic_limit_for_period_tariff(bonus_tariff)
+                if bonus_tariff
+                else self.settings.user_traffic_limit_bytes
                 if apply_main_traffic_limit
                 else self.settings.trial_traffic_limit_bytes
+            )
+            premium_baseline_bytes = bonus_tariff.premium_monthly_bytes if bonus_tariff else 0
+            base_hwid_limit = (
+                self._base_hwid_limit_for_tariff(bonus_tariff) if bonus_tariff else None
             )
 
             bonus_sub_payload = {
@@ -776,6 +852,24 @@ class SubscriptionLifecycleMixin:
                 "status_from_panel": "ACTIVE_BONUS",
                 "traffic_limit_bytes": traffic_limit,
                 "auto_renew_enabled": False,
+                "tariff_key": bonus_tariff.key if bonus_tariff else None,
+                "tier_baseline_bytes": bonus_tariff.monthly_bytes if bonus_tariff else None,
+                "topup_balance_bytes": 0,
+                "regular_bonus_bytes": 0,
+                "regular_unlimited_override": False,
+                "premium_baseline_bytes": premium_baseline_bytes,
+                "premium_topup_balance_bytes": 0,
+                "premium_topup_used_bytes": 0,
+                "premium_used_bytes": 0,
+                "premium_is_limited": False,
+                "premium_period_start_at": None,
+                "period_start_at": None,
+                "is_throttled": False,
+                "hwid_device_limit": base_hwid_limit,
+                "extra_hwid_devices": 0,
+                # Registration/referral bonus grants are short-lived, like a
+                # trial: only warn a few hours before they end, not days ahead.
+                "suppress_early_expiry_notifications": True,
             }
             await subscription_dal.deactivate_other_active_subscriptions(
                 session, panel_uuid, panel_sub_uuid
@@ -792,6 +886,21 @@ class SubscriptionLifecycleMixin:
             updated_sub_model = await subscription_dal.update_subscription_end_date(
                 session, active_sub.subscription_id, new_end_date_obj
             )
+            if updated_sub_model and extend_hwid_devices:
+                try:
+                    await tariff_dal.extend_hwid_device_purchases_for_subscription_bonus(
+                        session,
+                        subscription_id=active_sub.subscription_id,
+                        at=now_utc,
+                        subscription_end_before=current_end_date,
+                        delta=timedelta(days=bonus_days),
+                    )
+                except Exception:
+                    logging.exception(
+                        "Failed to extend HWID device purchases for %s bonus of user %s",
+                        reason,
+                        user_id,
+                    )
 
             if (
                 apply_main_traffic_limit
@@ -810,13 +919,35 @@ class SubscriptionLifecycleMixin:
             panel_update_payload = self._build_panel_update_payload(
                 expire_at=new_end_date_obj,
                 traffic_limit_bytes=(
-                    self.settings.user_traffic_limit_bytes
+                    updated_sub_model.traffic_limit_bytes
+                    if bonus_tariff
+                    else self.settings.user_traffic_limit_bytes
                     if apply_main_traffic_limit and not preserve_tariff_limits
+                    else None
+                ),
+                traffic_limit_strategy=(
+                    "MONTH"
+                    if bonus_tariff and bonus_tariff.billing_model == "period"
+                    else self.settings.USER_TRAFFIC_STRATEGY
+                    if bonus_tariff
+                    else None
+                ),
+                hwid_device_limit=(
+                    self._effective_hwid_limit(updated_sub_model.hwid_device_limit, 0)
+                    if bonus_tariff
                     else None
                 ),
                 include_uuid=False,
                 include_default_squads=False,
             )
+            if bonus_tariff:
+                panel_update_payload["activeInternalSquads"] = self._panel_squads_for_tariff(
+                    bonus_tariff
+                )
+                if self.settings.parsed_user_external_squad_uuid:
+                    panel_update_payload["externalSquadUuid"] = (
+                        self.settings.parsed_user_external_squad_uuid
+                    )
 
             panel_update_success = await self.panel_service.update_user_details_on_panel(
                 panel_uuid,

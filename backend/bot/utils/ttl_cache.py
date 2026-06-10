@@ -29,6 +29,15 @@ class AsyncTTLCache:
             return None
         return value
 
+    def get_stale(self, key: str) -> Optional[Any]:
+        entry = self._data.get(key)
+        if entry is None:
+            return None
+        _, value = entry
+        if not self._is_cacheable(value):
+            return None
+        return value
+
     @staticmethod
     def _is_cacheable(value: Any) -> bool:
         if value is None:

@@ -60,6 +60,7 @@ def _service(session, **config_overrides):
     settings = SimpleNamespace(
         DEFAULT_CURRENCY_SYMBOL="RUB",
         DEFAULT_LANGUAGE="ru",
+        PAYMENT_REQUEST_TIMEOUT_SECONDS=15,
         traffic_sale_mode=False,
         trusted_proxies=[],
     )
@@ -352,6 +353,45 @@ def test_try_reuse_pending_link_returns_url_for_opened_link():
 
     url = asyncio.run(service.try_reuse_pending_link(payment))
     assert url == "https://wata.pro/p/link-id"
+
+
+def test_try_reuse_pending_link_returns_none_for_other_link_id():
+    service = _service(_FakeSession())
+    payment = _payment(provider_payment_id="link-id")
+
+    async def fake_get_payment_link(payment_link_id):
+        assert payment_link_id == "link-id"
+        return True, {
+            "id": "other-link-id",
+            "status": "Opened",
+            "url": "https://wata.pro/p/other-link-id",
+            "expirationDateTime": "2099-01-01T00:00:00Z",
+        }
+
+    service.get_payment_link = fake_get_payment_link
+
+    url = asyncio.run(service.try_reuse_pending_link(payment))
+    assert url is None
+
+
+def test_try_reuse_pending_link_returns_none_for_other_order_id():
+    service = _service(_FakeSession())
+    payment = _payment(provider_payment_id="link-id")
+
+    async def fake_get_payment_link(payment_link_id):
+        assert payment_link_id == "link-id"
+        return True, {
+            "id": "link-id",
+            "orderId": "999",
+            "status": "Opened",
+            "url": "https://wata.pro/p/link-id",
+            "expirationDateTime": "2099-01-01T00:00:00Z",
+        }
+
+    service.get_payment_link = fake_get_payment_link
+
+    url = asyncio.run(service.try_reuse_pending_link(payment))
+    assert url is None
 
 
 def test_try_reuse_pending_link_returns_none_for_closed_link():

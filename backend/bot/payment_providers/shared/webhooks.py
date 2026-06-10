@@ -51,7 +51,7 @@ async def notify_user_payment_failed(
     message_key: str = "payment_failed",
 ) -> None:
     """Send the localized ``payment_failed`` text to the user; never raises."""
-    db_user = payment.user or await user_dal.get_user_by_id(session, payment.user_id)
+    db_user = await user_dal.get_user_by_id(session, payment.user_id)
     language = (
         db_user.language_code if db_user and db_user.language_code else settings.DEFAULT_LANGUAGE
     )

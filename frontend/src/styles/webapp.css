@@ -64,9 +64,9 @@ a {
 }
 
 .app-shell .loader .brand-mark.brand-mark-lg {
-  width: calc(4.125rem * var(--home-logo-scale, 1));
-  height: calc(4.125rem * var(--home-logo-scale, 1));
-  font-size: calc(2.875rem * var(--home-logo-scale, 1));
+  width: calc(4.125rem * var(--home-logo-scale-effective, 1));
+  height: calc(4.125rem * var(--home-logo-scale-effective, 1));
+  font-size: calc(2.875rem * var(--home-logo-scale-effective, 1));
 }
 
 .app-header,
@@ -231,6 +231,31 @@ a {
 
 .status-card-inactive .sub-status {
   color: var(--danger);
+}
+
+.status-card-warning {
+  border-color: var(--warning-border);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--warning) 14%, var(--surface-sheen-soft)),
+      color-mix(in srgb, var(--warning) 8%, var(--surface-sheen-soft))
+    ),
+    var(--panel);
+  box-shadow:
+    var(--shadow-soft),
+    0 0 0 1px color-mix(in srgb, var(--warning) 20%, transparent),
+    inset 0 1px 0 var(--inset-highlight);
+}
+
+.status-card-warning .sub-status {
+  color: var(--warning-text);
+}
+
+.status-card-warning .subscription-end-line {
+  color: var(--warning-text);
+  font-variant-numeric: tabular-nums;
+  opacity: 1;
 }
 
 .sub-status-inactive {
@@ -1012,6 +1037,19 @@ a {
     inset 0 1px 0 var(--inset-highlight);
 }
 
+.method-card:disabled,
+.method-card.disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.method-card:disabled.active,
+.method-card.disabled.active {
+  border-color: var(--border);
+  background: var(--surface-muted);
+  box-shadow: inset 0 1px 0 var(--inset-highlight);
+}
+
 .total-card {
   padding: 12px 14px;
 }
@@ -1162,6 +1200,43 @@ a {
   font-size: 12px;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.hwid-renewal-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  padding: 11px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-muted));
+  box-shadow: inset 0 1px 0 var(--inset-highlight);
+  cursor: pointer;
+}
+
+.hwid-renewal-option > span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.hwid-renewal-option strong {
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.hwid-renewal-option small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.hwid-renewal-option .hwid-renewal-warning {
+  color: var(--warning-text, var(--warning));
 }
 
 .skeleton-row,
@@ -1966,7 +2041,19 @@ a {
 }
 
 .settings-telegram-link-btn {
+  min-width: 0;
+  height: auto;
+  min-height: 46px;
+  flex-wrap: wrap;
   justify-content: center;
+  padding-block: 10px;
+  line-height: 1.16;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.settings-telegram-link-btn svg {
+  flex: 0 0 auto;
 }
 
 .telegram-notifications-card {
@@ -2067,8 +2154,11 @@ a {
   display: grid;
   grid-template-columns: repeat(var(--bottom-nav-visible-items, 3), minmax(0, 1fr));
   grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-rows: 1fr;
+  height: var(--bottom-nav-height);
   gap: 2px;
-  min-height: 64px;
+  min-height: var(--bottom-nav-height);
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -2087,7 +2177,11 @@ a {
 
 .bottom-nav button {
   display: grid;
+  grid-template-rows: 22px minmax(0, 12px);
+  width: 100%;
+  height: 100%;
   min-width: 0;
+  min-height: 0;
   place-items: center;
   align-content: center;
   gap: 4px;
@@ -2098,6 +2192,13 @@ a {
   font-weight: 800;
   overflow: hidden;
   padding: 6px 2px;
+  line-height: 1;
+}
+
+.bottom-nav button > svg {
+  width: 21px;
+  height: 21px;
+  min-width: 0;
 }
 
 .bottom-nav button.active {
@@ -2106,15 +2207,44 @@ a {
 
 .bottom-nav .bottom-nav-label {
   display: block;
+  width: 100%;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 10px;
   line-height: 1.1;
 }
 
 .rail-admin-entry {
   display: none !important;
+}
+
+@media (max-width: 460px) {
+  .bottom-nav.bottom-nav-many {
+    height: 58px;
+    min-height: 58px;
+  }
+
+  .bottom-nav.bottom-nav-many button {
+    grid-template-rows: 1fr;
+    gap: 0;
+    padding: 0 2px;
+  }
+
+  .bottom-nav.bottom-nav-many .bottom-nav-label {
+    display: none;
+  }
+
+  .bottom-nav.bottom-nav-many .nav-attention-dot {
+    top: 8px;
+    right: calc(50% - 18px);
+  }
+
+  .bottom-nav.bottom-nav-many .nav-badge-floating {
+    top: 6px;
+    right: calc(50% - 24px);
+  }
 }
 
 @media (max-width: 380px) {
@@ -2123,6 +2253,7 @@ a {
   }
 
   .bottom-nav.bottom-nav-many button {
+    grid-template-rows: 1fr;
     gap: 0;
     padding: 0 2px;
   }
@@ -2144,10 +2275,12 @@ a {
 
 @media (max-width: 360px) {
   .bottom-nav {
+    height: 56px;
     min-height: 56px;
   }
 
   .bottom-nav button {
+    grid-template-rows: 1fr;
     gap: 0;
     padding: 0 2px;
   }
@@ -2182,15 +2315,15 @@ a {
 }
 
 .app-shell .home-brand .brand-mark.brand-mark-xl {
-  width: calc(6rem * var(--home-logo-scale, 1));
-  height: calc(6rem * var(--home-logo-scale, 1));
-  font-size: calc(4.375rem * var(--home-logo-scale, 1));
+  width: calc(6rem * var(--home-logo-scale-effective, 1));
+  height: calc(6rem * var(--home-logo-scale-effective, 1));
+  font-size: calc(4.375rem * var(--home-logo-scale-effective, 1));
 }
 
 .app-shell .login-brand-auth .brand-mark.brand-mark-xl {
-  width: calc(116px * var(--home-logo-scale, 1));
-  height: calc(116px * var(--home-logo-scale, 1));
-  font-size: calc(84px * var(--home-logo-scale, 1));
+  width: calc(116px * var(--home-logo-scale-effective, 1));
+  height: calc(116px * var(--home-logo-scale-effective, 1));
+  font-size: calc(84px * var(--home-logo-scale-effective, 1));
 }
 
 .home-bottom {
@@ -3002,9 +3135,9 @@ a {
   .app-shell .home-brand .brand-mark,
   .app-shell .home-brand .brand-mark.brand-mark-lg,
   .app-shell .home-brand .brand-mark.brand-mark-xl {
-    width: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale, 1));
-    height: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale, 1));
-    font-size: calc(clamp(124px, 13vw, 184px) * var(--home-logo-scale, 1));
+    width: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale-effective, 1));
+    height: calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale-effective, 1));
+    font-size: calc(clamp(124px, 13vw, 184px) * var(--home-logo-scale-effective, 1));
   }
 
   .home-bottom {
@@ -3062,6 +3195,7 @@ a {
     display: grid !important;
     grid-template-columns: 22px 1fr !important;
     grid-template-rows: auto !important;
+    height: auto !important;
     align-items: center !important;
     justify-items: start !important;
     gap: 12px !important;

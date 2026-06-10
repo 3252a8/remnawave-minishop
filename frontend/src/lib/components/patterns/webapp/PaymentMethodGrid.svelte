@@ -14,6 +14,11 @@
     const iconName = String(method?.icon || "").trim();
     return iconName ? Icons[iconName] || null : null;
   }
+
+  function disabledTitle(method) {
+    if (!method?.disabled || !method?.min_amount || !method?.min_currency) return "";
+    return `Minimum ${method.min_amount} ${method.min_currency}`;
+  }
 </script>
 
 <div
@@ -25,9 +30,12 @@
     {@const icon = methodIcon(method)}
     <button
       class:active={selectedMethod === method.id}
+      class:disabled={method.disabled}
       class="method-card"
+      disabled={method.disabled}
+      title={disabledTitle(method)}
       type="button"
-      onclick={() => onSelect(method.id)}
+      onclick={() => !method.disabled && onSelect(method.id)}
     >
       <span class="method-card-main">
         {#if icon}

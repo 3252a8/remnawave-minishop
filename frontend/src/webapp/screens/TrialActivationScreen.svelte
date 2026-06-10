@@ -7,9 +7,11 @@
     Download,
     Gift,
     RefreshCw,
+    Send,
   } from "$components/ui/icons.js";
 
   import BrandMark from "$lib/webapp/BrandMark.svelte";
+  import { AttentionDot } from "$components/ui/index.js";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { formatTrafficGb } from "../../lib/webapp/formatters.js";
@@ -19,9 +21,11 @@
   export let brandTitle = "";
   export let subscription = {};
   export let trialBusy = false;
+  export let linkTelegramBusy = false;
   export let trialResult = null;
   export let trialError = "";
   export let activateTrial = () => {};
+  export let linkTelegramAndActivateTrial = () => {};
   export let openInstallOrConnect = () => {};
   export let goHome = () => {};
   export let t = (key, _params = {}, fallback = "") => fallback || key;
@@ -30,6 +34,9 @@
 
   $: trialEnabled = Boolean(appSettings?.trial_enabled);
   $: trialAvailable = Boolean(appSettings?.trial_available);
+  $: trialRequiresTelegram = Boolean(
+    trialEnabled && appSettings?.trial_requires_telegram && !subscription?.active
+  );
   $: canRequestTrial = Boolean(trialEnabled && trialAvailable && !subscription?.active);
   $: isTrialStatus =
     Boolean(trialResult?.activated) ||
@@ -78,6 +85,8 @@
         <RefreshCw size={27} />
       {:else if hasActiveAccess}
         <CheckCircle2 size={30} />
+      {:else if trialRequiresTelegram}
+        <Gift size={30} />
       {:else if trialError || !canRequestTrial}
         <CircleX size={30} />
       {:else}
@@ -116,6 +125,31 @@
             <dd>{trafficLabel}</dd>
           </div>
         </dl>
+      {:else if trialRequiresTelegram}
+        <h2>{t("wa_trial_telegram_required_title", {}, "Привяжите Telegram для триала")}</h2>
+        <p>
+          {t(
+            "wa_trial_telegram_required_description",
+            {
+              duration:
+                daysLeft > 0 ? t("wa_trial_days_left", { days: daysLeft }, "{days} days") : "",
+              traffic: trafficLabel,
+            },
+            "Чтобы активировать пробный период, сначала привяжите Telegram."
+          )}
+        </p>
+        <dl class="trial-activation-facts">
+          {#if daysLeft > 0}
+            <div>
+              <dt>{t("wa_trial_duration_label", {}, "Срок")}</dt>
+              <dd>{t("wa_trial_days_left", { days: daysLeft }, "{days} days")}</dd>
+            </div>
+          {/if}
+          <div>
+            <dt>{t("wa_trial_traffic_label", {}, "Traffic")}</dt>
+            <dd>{trafficLabel}</dd>
+          </div>
+        </dl>
       {:else if trialError}
         <h2>{t("wa_trial_activation_failed")}</h2>
         <p>{trialError}</p>
@@ -137,6 +171,17 @@
       <Button class="wide" onclick={openInstallOrConnect}>
         <Download size={18} />
         {t("wa_install_and_configure")}
+      </Button>
+    {:else if trialRequiresTelegram}
+      <Button
+        class="wide settings-telegram-link-btn attention-wrap"
+        variant="telegram"
+        onclick={linkTelegramAndActivateTrial}
+        disabled={linkTelegramBusy || trialBusy}
+      >
+        <AttentionDot />
+        <Send size={18} />
+        {t("wa_trial_link_telegram_and_activate", {}, "Привязать и активировать")}
       </Button>
     {:else if trialError && canRequestTrial}
       <Button class="wide" onclick={activateTrial} disabled={trialBusy}>

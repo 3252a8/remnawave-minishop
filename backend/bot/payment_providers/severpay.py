@@ -51,11 +51,13 @@ from .shared import (
     notify_user_payment_failed,
     parse_payment_callback,
     payment_failed,
+    payment_record_amounts,
     payment_unavailable,
     payment_units_for_activation,
     post_json_request,
     quote_hwid_callback_parts,
     render_link_or_fail,
+    render_payment_link,
 )
 
 _LOG = "severpay"
@@ -136,7 +138,7 @@ class SeverPayService(HttpClientMixin):
         self.referral_service = referral_service
         self._default_return_url = default_return_url
 
-        self._init_http_client(total_timeout=15)
+        self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
 
         if not self.configured:
             logging.warning(
@@ -247,6 +249,48 @@ class SeverPayService(HttpClientMixin):
             # don't have to know that detail.
             return True, response_data.get("data") or response_data
         return False, response_data
+
+    async def get_payment(self, provider_payment_id: str) -> Tuple[bool, Dict[str, Any]]:
+        if not self.configured:
+            return False, {"message": "service_not_configured"}
+
+        provider_payment_id = str(provider_payment_id or "").strip()
+        if not provider_payment_id:
+            return False, {"message": "missing_payment_id"}
+
+        identifier: Dict[str, Any]
+        if provider_payment_id.isdigit():
+            identifier = {"id": int(provider_payment_id)}
+        else:
+            identifier = {"uid": provider_payment_id}
+
+        session = await self._get_session()
+        success, response_data = await post_json_request(
+            session,
+            f"{self.base_url}/payin/get",
+            body=self._build_signed_body(identifier),
+            log_prefix="SeverPay get_payment",
+            is_success=lambda status, data: status == 200 and bool((data or {}).get("status")),
+        )
+        if success:
+            return True, response_data.get("data") or response_data
+        return False, response_data
+
+    async def try_reuse_pending_payment(self, payment: Any) -> Optional[str]:
+        provider_payment_id = str(getattr(payment, "provider_payment_id", None) or "").strip()
+        payment_url = str(getattr(payment, "provider_payment_url", None) or "").strip()
+        if not provider_payment_id or not payment_url:
+            return None
+
+        success, data = await self.get_payment(provider_payment_id)
+        if not success or str(data.get("status") or "").lower() not in {"new", "process"}:
+            return None
+        returned_ids = {str(data.get("id") or ""), str(data.get("uid") or "")}
+        if provider_payment_id not in returned_ids:
+            return None
+        if str(data.get("order_id") or "") != str(payment.payment_id):
+            return None
+        return payment_url
 
     async def webhook_route(self, request: web.Request) -> web.Response:
         if not self.configured:
@@ -465,6 +509,38 @@ async def pay_severpay_callback_handler(
         hwid_quote=hwid_quote,
     )
 
+    reuse_amounts = payment_record_amounts(
+        months=parts.months,
+        sale_mode=parts.sale_mode,
+        hwid_device_count=hwid_quote.get("device_count") if hwid_quote else None,
+    )
+    reusable_payment = await payment_dal.find_recent_pending_provider_payment(
+        session,
+        user_id=callback.from_user.id,
+        provider="severpay",
+        pending_status="pending_severpay",
+        amount=parts.price,
+        currency=currency_code,
+        sale_mode=parts.sale_mode,
+        months=reuse_amounts.months,
+        purchased_gb=reuse_amounts.purchased_gb,
+        purchased_hwid_devices=reuse_amounts.purchased_hwid_devices,
+        tariff_key=reuse_amounts.tariff_key,
+    )
+    if reusable_payment is not None:
+        reusable_url = await severpay_service.try_reuse_pending_payment(reusable_payment)
+        if reusable_url:
+            await render_payment_link(
+                callback,
+                translator=translator,
+                current_lang=current_lang,
+                i18n=i18n,
+                parts=parts,
+                payment_url=reusable_url,
+                log_prefix=_LOG,
+            )
+            return
+
     try:
         payment_record = await payment_dal.create_payment_record(session, record_payload)
         await session.commit()
@@ -550,6 +626,13 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
         provider_payment_id=first_value(response_data, "id", "uid"),
         log_prefix="SeverPay",
     )
+
+
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
+    service: SeverPayService = ctx.request.app.get("severpay_service")
+    if not service or not service.configured:
+        return None
+    return await service.try_reuse_pending_payment(payment)
 
 
 _PRESENTATION_MANIFEST = tuple(
@@ -677,6 +760,7 @@ SPEC = PaymentProviderSpec(
     webhook_path=lambda source: "/webhook/severpay",
     webhook_route=severpay_webhook_route,
     create_webapp_payment=create_webapp_payment,
+    reuse_webapp_payment=reuse_webapp_payment,
     config_class=SeverPayConfig,
     presentation_class=SeverPayPresentation,
     manifest_fields=_CONFIG_MANIFEST + _PRESENTATION_MANIFEST,

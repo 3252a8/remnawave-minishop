@@ -25,7 +25,6 @@ WEBAPP_UPLOADED_LOGO_DIR = Path(__file__).resolve().parents[5] / "data" / "webap
 WEBAPP_UPLOADED_LOGO_PATH = "/webapp-uploaded-logo"
 WEBAPP_FAVICON_DIR = Path(__file__).resolve().parents[5] / "data" / "webapp-logo" / "favicons"
 WEBAPP_FAVICON_PATH = "/webapp-favicon"
-WEBAPP_EMOJI_CACHE_DIR = Path(__file__).resolve().parents[5] / "data" / "webapp-emoji"
 WEBAPP_FAVICON_SIZES = (16, 32, 48, 180, 192, 512)
 WEBAPP_LOGO_UPLOAD_CONTENT_TYPES = {
     ".gif": "image/gif",
@@ -136,10 +135,6 @@ def _favicon_digest(url: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
-def _emoji_to_codepoints(value: str) -> str:
-    return "_".join(f"{ord(char):x}" for char in str(value or "").strip())
-
-
 def prune_unused_appearance_assets(settings: Settings) -> None:
     keep_logos = {
         filename
@@ -156,15 +151,6 @@ def prune_unused_appearance_assets(settings: Settings) -> None:
         ]
         if digest
     }
-    keep_emoji_prefixes = set()
-    if (
-        getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False)
-        and str(getattr(settings, "WEBAPP_LOGO_EMOJI_FONT", "") or "").strip()
-        == "noto-color-animated"
-    ):
-        codepoints = _emoji_to_codepoints(getattr(settings, "WEBAPP_LOGO_EMOJI", ""))
-        if codepoints:
-            keep_emoji_prefixes.add(f"{codepoints}.512.")
 
     for path in WEBAPP_UPLOADED_LOGO_DIR.glob("logo-*"):
         if path.is_file() and path.name not in keep_logos:
@@ -183,15 +169,6 @@ def prune_unused_appearance_assets(settings: Settings) -> None:
                 shutil.rmtree(path)
             except OSError:
                 logger.warning("Failed to remove unused webapp favicon set %s", path, exc_info=True)
-
-    for path in WEBAPP_EMOJI_CACHE_DIR.glob("*.512.*"):
-        if path.is_file() and not any(
-            path.name.startswith(prefix) for prefix in keep_emoji_prefixes
-        ):
-            try:
-                path.unlink()
-            except OSError:
-                logger.warning("Failed to remove unused webapp emoji asset %s", path, exc_info=True)
 
 
 async def _persist_appearance_upload(
@@ -389,7 +366,6 @@ async def admin_appearance_logo_upload_route(request: web.Request) -> web.Respon
         request,
         {
             "WEBAPP_LOGO_URL": logo_url,
-            "WEBAPP_LOGO_USE_EMOJI": False,
             **(
                 {"WEBAPP_LOGO_FAVICON_URL": favicon_payload["favicon_url"]}
                 if favicon_payload.get("favicon_url")

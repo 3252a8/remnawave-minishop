@@ -17,10 +17,11 @@
   export let onOpenUserCard = () => {};
 
   const paymentsStore = getContext("paymentsStore");
+  const PAYMENTS_PAGE_SIZE = 25;
 
   $: ({ payments, paymentsTotal, paymentsPage, paymentsLoading } = $paymentsStore);
 
-  $: paymentsHasMore = payments.length > 0 && paymentsTotal > (paymentsPage + 1) * 25; // 25 is PAYMENTS_PAGE_SIZE
+  $: paymentsPageCount = Math.max(1, Math.ceil(Number(paymentsTotal || 0) / PAYMENTS_PAGE_SIZE));
 
   /** @param {number|null|undefined} v */
   function formatTrafficGbCell(v) {
@@ -177,17 +178,18 @@
 </div>
 
 <AdminPagination
-  meta={`${at("page_short", {}, "Стр.")} ${paymentsPage + 1} · ${at("total", {}, "Всего")} ${paymentsTotal}`}
+  page={paymentsPage}
+  pageCount={paymentsPageCount}
+  total={paymentsTotal}
+  pageLabel={at("page_short", {}, "Стр.")}
+  ofLabel={at("pagination_of", {}, "из")}
+  totalLabel={at("total", {}, "Всего")}
+  jumpLabel={at("page_short", {}, "Стр.")}
+  jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
+  goLabel={at("pagination_go", {}, "Перейти")}
   prevLabel={at("back", {}, "Назад")}
   nextLabel={at("next", {}, "Далее")}
-  prevDisabled={paymentsPage === 0}
-  nextDisabled={!paymentsHasMore}
-  onPrev={() => {
-    paymentsStore.setPage(Math.max(0, paymentsPage - 1));
-  }}
-  onNext={() => {
-    paymentsStore.setPage(paymentsPage + 1);
-  }}
+  onPageChange={(page) => paymentsStore.setPage(page)}
 />
 
 <style>

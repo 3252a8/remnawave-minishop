@@ -236,6 +236,10 @@ def get_user_card_keyboard(
         text=_(key="admin_user_traffic_grant_button"),
         callback_data=f"user_action:traffic_grant:{user_id}",
     )
+    builder.button(
+        text=_(key="admin_user_hwid_limit_button"),
+        callback_data=f"user_action:hwid_limit:{user_id}",
+    )
 
     # Row 4: Quick links — only for users with a real Telegram profile
     # (synthetic email-only users have a negative user_id with no tg profile).
@@ -261,9 +265,9 @@ def get_user_card_keyboard(
 
     quick_links_count = (1 if has_self_link else 0) + (1 if has_referrer_link else 0)
     if quick_links_count == 0:
-        builder.adjust(2, 2, 2, 1, 2, 1, 2)
+        builder.adjust(2, 2, 2, 1, 3, 1, 2)
     else:
-        builder.adjust(2, 2, 2, 1, 2, quick_links_count, 1, 2)
+        builder.adjust(2, 2, 2, 1, 3, quick_links_count, 1, 2)
     return builder
 
 
@@ -402,6 +406,26 @@ async def format_user_card(
                 card_parts.append(
                     f"{_('admin_user_traffic_label')} {hcode(f'{used_display} / {limit_display}')}"
                 )
+
+            max_devices = subscription_details.get("max_devices")
+            extra_hwid_devices = int(subscription_details.get("extra_hwid_devices") or 0)
+            if max_devices is not None:
+                if int(max_devices) == 0:
+                    devices_display = _("admin_hwid_limit_state_unlimited")
+                elif extra_hwid_devices > 0:
+                    base_hwid_limit = subscription_details.get("base_hwid_device_limit")
+                    if base_hwid_limit is None:
+                        devices_display = _("admin_hwid_limit_state_count", count=int(max_devices))
+                    else:
+                        devices_display = _(
+                            "admin_hwid_limit_state_with_extra",
+                            total=int(max_devices),
+                            base=int(base_hwid_limit),
+                            extra=extra_hwid_devices,
+                        )
+                else:
+                    devices_display = _("admin_hwid_limit_state_count", count=int(max_devices))
+                card_parts.append(f"{_('admin_user_hwid_limit_label')} {hcode(devices_display)}")
 
             premium_unlimited = bool(subscription_details.get("premium_unlimited_override"))
             premium_bonus_bytes = int(subscription_details.get("premium_bonus_bytes") or 0)
@@ -706,6 +730,32 @@ async def user_action_handler(
         await handle_traffic_grant_prompt(callback, state, user, "regular", i18n, current_lang)
     elif action == "traffic_grant_premium":
         await handle_traffic_grant_prompt(callback, state, user, "premium", i18n, current_lang)
+    elif action == "hwid_limit":
+        await handle_hwid_limit_menu(callback, state, user, session, i18n, current_lang)
+    elif action == "hwid_limit_set_unlimited":
+        await handle_hwid_limit_apply(
+            callback,
+            user,
+            subscription_service,
+            session,
+            settings,
+            i18n,
+            current_lang,
+            hwid_device_limit=0,
+        )
+    elif action == "hwid_limit_reset":
+        await handle_hwid_limit_apply(
+            callback,
+            user,
+            subscription_service,
+            session,
+            settings,
+            i18n,
+            current_lang,
+            hwid_device_limit=None,
+        )
+    elif action == "hwid_limit_set_number":
+        await handle_hwid_limit_prompt(callback, state, user, i18n, current_lang)
     else:
         await callback.answer(_("admin_unknown_action"), show_alert=True)
 
@@ -843,6 +893,162 @@ async def handle_premium_override_bonus_prompt(
     await state.update_data(target_user_id=user.user_id)
     await state.set_state(AdminStates.waiting_for_premium_override_bonus_gb)
     prompt = _("admin_premium_override_bonus_prompt", user_id=user.user_id)
+    try:
+        await callback.message.edit_text(prompt)
+    except Exception:
+        await callback.message.answer(prompt)
+    await callback.answer()
+
+
+def _admin_hwid_limit_state_text(
+    get_text: Callable[..., str],
+    hwid_device_limit: Optional[int],
+    extra_hwid_devices: int = 0,
+) -> str:
+    if hwid_device_limit is None:
+        return get_text("admin_hwid_limit_state_default")
+    base_limit = int(hwid_device_limit)
+    if base_limit == 0:
+        return get_text("admin_hwid_limit_state_unlimited")
+    extra = max(0, int(extra_hwid_devices or 0))
+    if extra > 0:
+        return get_text(
+            "admin_hwid_limit_state_with_extra",
+            total=base_limit + extra,
+            base=base_limit,
+            extra=extra,
+        )
+    return get_text("admin_hwid_limit_state_count", count=base_limit)
+
+
+async def handle_hwid_limit_menu(
+    callback: types.CallbackQuery,
+    state: FSMContext,
+    user: User,
+    session: AsyncSession,
+    i18n_instance,
+    lang: str,
+) -> None:
+    """Show HWID device limit override controls."""
+    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
+
+    active_sub = await subscription_dal.get_active_subscription_by_user_id(session, user.user_id)
+    if not active_sub:
+        await callback.answer(_("admin_hwid_limit_no_subscription"), show_alert=True)
+        return
+
+    current_text = _admin_hwid_limit_state_text(
+        _,
+        getattr(active_sub, "hwid_device_limit", None),
+        int(getattr(active_sub, "extra_hwid_devices", 0) or 0),
+    )
+    text = "\n".join(
+        [
+            f"<b>{_('admin_hwid_limit_title')}</b>",
+            "",
+            _("admin_hwid_limit_hint"),
+            "",
+            _("admin_hwid_limit_current", current=current_text),
+        ]
+    )
+
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=_("admin_hwid_limit_btn_set_number"),
+        callback_data=f"user_action:hwid_limit_set_number:{user.user_id}",
+    )
+    builder.button(
+        text=_("admin_hwid_limit_btn_unlimited"),
+        callback_data=f"user_action:hwid_limit_set_unlimited:{user.user_id}",
+    )
+    builder.button(
+        text=_("admin_hwid_limit_btn_reset"),
+        callback_data=f"user_action:hwid_limit_reset:{user.user_id}",
+    )
+    builder.button(
+        text=_("admin_user_back_to_card_button"),
+        callback_data=f"user_action:refresh:{user.user_id}",
+    )
+    builder.adjust(1, 1, 1, 1)
+
+    try:
+        await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="HTML")
+    except Exception:
+        await callback.message.answer(text, reply_markup=builder.as_markup(), parse_mode="HTML")
+    await state.update_data(target_user_id=user.user_id)
+    await callback.answer()
+
+
+async def handle_hwid_limit_apply(
+    callback: types.CallbackQuery,
+    user: User,
+    subscription_service: SubscriptionService,
+    session: AsyncSession,
+    settings: Settings,
+    i18n_instance,
+    lang: str,
+    *,
+    hwid_device_limit: Optional[int],
+) -> None:
+    """Persist a HWID device base limit override and push it to the panel."""
+    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
+
+    try:
+        active_sub = await subscription_dal.get_active_subscription_by_user_id(
+            session, user.user_id
+        )
+        if not active_sub:
+            await callback.answer(_("admin_hwid_limit_no_subscription"), show_alert=True)
+            return
+
+        active_sub.hwid_device_limit = hwid_device_limit
+
+        effective_limit = await subscription_service.sync_hwid_device_limit_to_panel(
+            session, user.user_id
+        )
+        await message_log_dal.create_message_log_no_commit(
+            session,
+            {
+                "user_id": callback.from_user.id if callback.from_user else user.user_id,
+                "event_type": "admin:hwid_device_limit",
+                "content": (
+                    f"hwid_device_limit={hwid_device_limit!r} "
+                    f"effective_hwid_device_limit={effective_limit!r}"
+                ),
+                "is_admin_event": True,
+                "target_user_id": user.user_id,
+                "timestamp": datetime.now(timezone.utc),
+            },
+        )
+        await session.commit()
+
+        await callback.answer(_("admin_hwid_limit_saved"), show_alert=False)
+        await handle_refresh_user_card(
+            callback, user, subscription_service, session, settings, i18n_instance, lang
+        )
+    except Exception as exc:
+        logging.error(
+            "Failed to apply HWID device limit for user %s: %s",
+            user.user_id,
+            exc,
+            exc_info=True,
+        )
+        await session.rollback()
+        await callback.answer(_("admin_hwid_limit_save_error"), show_alert=True)
+
+
+async def handle_hwid_limit_prompt(
+    callback: types.CallbackQuery,
+    state: FSMContext,
+    user: User,
+    i18n_instance,
+    lang: str,
+) -> None:
+    """Ask admin for an explicit HWID device limit."""
+    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
+    await state.update_data(target_user_id=user.user_id)
+    await state.set_state(AdminStates.waiting_for_hwid_device_limit)
+    prompt = _("admin_hwid_limit_prompt", user_id=user.user_id)
     try:
         await callback.message.edit_text(prompt)
     except Exception:
@@ -1967,6 +2173,114 @@ async def process_premium_override_bonus_handler(
         )
         await session.rollback()
         await message.answer(_("admin_premium_override_save_error"))
+    finally:
+        await state.clear()
+
+
+@router.message(AdminStates.waiting_for_hwid_device_limit, F.text)
+async def process_hwid_device_limit_handler(
+    message: types.Message,
+    state: FSMContext,
+    settings: Settings,
+    i18n_data: dict,
+    subscription_service: SubscriptionService,
+    session: AsyncSession,
+):
+    """Read explicit HWID device limit and apply it."""
+    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
+    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    if not i18n:
+        await message.reply("Language service error.")
+        return
+    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
+
+    data = await state.get_data()
+    target_user_id = data.get("target_user_id")
+    if not target_user_id:
+        await message.answer(_("admin_hwid_limit_state_missing"))
+        await state.clear()
+        return
+
+    raw = (message.text or "").strip()
+    try:
+        hwid_device_limit = int(raw)
+        if hwid_device_limit < 0 or hwid_device_limit > 1_000_000:
+            raise ValueError("out_of_range")
+    except (TypeError, ValueError):
+        await message.answer(_("admin_hwid_limit_invalid"))
+        return
+
+    target_user = await user_dal.get_user_by_id(session, target_user_id)
+    if not target_user:
+        await message.answer(_("admin_user_not_found_action"))
+        await state.clear()
+        return
+
+    try:
+        active_sub = await subscription_dal.get_active_subscription_by_user_id(
+            session, target_user_id
+        )
+        if not active_sub:
+            await message.answer(_("admin_hwid_limit_no_subscription"))
+            await state.clear()
+            return
+
+        active_sub.hwid_device_limit = hwid_device_limit
+        effective_limit = await subscription_service.sync_hwid_device_limit_to_panel(
+            session, target_user_id
+        )
+        await message_log_dal.create_message_log_no_commit(
+            session,
+            {
+                "user_id": message.from_user.id if message.from_user else target_user_id,
+                "event_type": "admin:hwid_device_limit",
+                "content": (
+                    f"hwid_device_limit={hwid_device_limit!r} "
+                    f"effective_hwid_device_limit={effective_limit!r}"
+                ),
+                "is_admin_event": True,
+                "target_user_id": target_user_id,
+                "timestamp": datetime.now(timezone.utc),
+            },
+        )
+        await session.commit()
+
+        current_text = _admin_hwid_limit_state_text(_, hwid_device_limit)
+        await message.answer(
+            _("admin_hwid_limit_set", current=current_text, user_id=target_user_id)
+        )
+
+        referral_service = ReferralService(settings, subscription_service, message.bot, i18n)
+        bot_username = await _resolve_bot_username(message.bot)
+        user_card_text = await format_user_card(
+            target_user,
+            session,
+            subscription_service,
+            i18n,
+            current_lang,
+            referral_service,
+            settings=settings,
+            bot_username=bot_username,
+        )
+        keyboard = get_user_card_keyboard(
+            target_user.user_id, i18n, current_lang, target_user.referred_by_id
+        )
+        await _send_with_profile_link_fallback(
+            message.answer,
+            text=user_card_text,
+            markup=keyboard.as_markup(),
+            user_id=target_user.user_id,
+            parse_mode="HTML",
+        )
+    except Exception as exc:
+        logging.error(
+            "Error setting HWID device limit for user %s: %s",
+            target_user_id,
+            exc,
+            exc_info=True,
+        )
+        await session.rollback()
+        await message.answer(_("admin_hwid_limit_save_error"))
     finally:
         await state.clear()
 

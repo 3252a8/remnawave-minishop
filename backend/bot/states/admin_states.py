@@ -30,6 +30,7 @@ class AdminStates(StatesGroup):
     waiting_for_user_delete_confirmation = State()
     waiting_for_premium_override_bonus_gb = State()
     waiting_for_traffic_grant_gb = State()
+    waiting_for_hwid_device_limit = State()
 
     # Ads campaigns
     waiting_for_ad_source = State()

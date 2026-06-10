@@ -12,6 +12,7 @@ $imagePrefix = if ($env:IMAGE_PREFIX) { $env:IMAGE_PREFIX } else { "remnawave-mi
 $dockerfile = if ($env:DOCKERFILE) { $env:DOCKERFILE } else { "deploy/docker/Dockerfile" }
 $targetsRaw = if ($env:TARGETS) { $env:TARGETS } else { "backend,worker,frontend" }
 $targets = @($targetsRaw -split "[,;\s]+" | Where-Object { $_ })
+$buildProvenance = if ($env:REMNAWAVE_MINISHOP_BUILD_PROVENANCE) { $env:REMNAWAVE_MINISHOP_BUILD_PROVENANCE } else { "custom" }
 
 function Get-ImageName {
     param(
@@ -31,7 +32,12 @@ function Build-Image {
     }
 
     Write-Host "Building $Target for: $($imageRegistries -join ', ')" -ForegroundColor Cyan
-    docker build -f $dockerfile --target $Target @tagArgs .
+    docker build `
+        -f $dockerfile `
+        --target $Target `
+        --build-arg "REMNAWAVE_MINISHOP_BUILD_PROVENANCE=$buildProvenance" `
+        @tagArgs `
+        .
 }
 
 function Push-Image {

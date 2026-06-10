@@ -157,6 +157,16 @@ class CanTopupDevicesFlagTests(unittest.TestCase):
             payload = _serialize_subscription(settings, _active(max_devices=0), None, "en")
         self.assertFalse(payload["can_topup_devices"])
 
+    def test_flag_is_false_when_max_devices_is_missing(self):
+        # Missing device limit is unlimited for Remnawave HWID limits.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                tmpdir,
+                _tariffs_payload(hwid_rub=[{"count": 1, "price": 50}]),
+            )
+            payload = _serialize_subscription(settings, _active(max_devices=None), None, "en")
+        self.assertFalse(payload["can_topup_devices"])
+
     def test_flag_is_false_when_tariff_has_no_hwid_packages(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(tmpdir, _tariffs_payload())

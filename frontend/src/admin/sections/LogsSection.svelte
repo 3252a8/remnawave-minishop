@@ -15,10 +15,11 @@
   export let onOpenUserCard = () => {};
 
   const logsStore = getContext("logsStore");
+  const LOGS_PAGE_SIZE = 50;
 
   $: ({ logs, logsTotal, logsPage, logsUserFilter, logsLoading } = $logsStore);
 
-  $: logsHasMore = logs.length > 0 && logsTotal > (logsPage + 1) * 50; // 50 is LOGS_PAGE_SIZE
+  $: logsPageCount = Math.max(1, Math.ceil(Number(logsTotal || 0) / LOGS_PAGE_SIZE));
   $: logHeaders = [
     at("date", {}, "Дата"),
     at("event", {}, "Событие"),
@@ -165,17 +166,18 @@
 </div>
 
 <AdminPagination
-  meta={`${at("page_short", {}, "Стр.")} ${logsPage + 1}`}
+  page={logsPage}
+  pageCount={logsPageCount}
+  total={logsTotal}
+  pageLabel={at("page_short", {}, "Стр.")}
+  ofLabel={at("pagination_of", {}, "из")}
+  totalLabel={at("total", {}, "Всего")}
+  jumpLabel={at("page_short", {}, "Стр.")}
+  jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
+  goLabel={at("pagination_go", {}, "Перейти")}
   prevLabel={at("back", {}, "Назад")}
   nextLabel={at("next", {}, "Далее")}
-  prevDisabled={logsPage === 0}
-  nextDisabled={!logsHasMore}
-  onPrev={() => {
-    logsStore.setPage(Math.max(0, logsPage - 1));
-  }}
-  onNext={() => {
-    logsStore.setPage(logsPage + 1);
-  }}
+  onPageChange={(page) => logsStore.setPage(page)}
 />
 
 <style>

@@ -11,9 +11,20 @@ from .common import _invalidate_webapp_user_caches
 from .telegram_notifications import _probe_telegram_notifications_for_user_id
 
 
+def _email_auth_enabled(settings: Settings) -> bool:
+    return bool(getattr(settings, "email_auth_configured", True))
+
+
+def _email_auth_not_configured_response() -> web.Response:
+    return _json_error(503, "email_auth_not_configured", "Email auth is not configured")
+
+
 async def account_email_request_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     settings: Settings = request.app["settings"]
+    if not _email_auth_enabled(settings):
+        return _email_auth_not_configured_response()
+
     payload = await _read_json(request)
     email_payload, validation_error = _validate_model_payload(WebAppEmailPayload, payload)
     if validation_error:
@@ -40,6 +51,10 @@ async def account_email_request_route(request: web.Request) -> web.Response:
 
 async def account_email_verify_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
+    settings: Settings = request.app["settings"]
+    if not _email_auth_enabled(settings):
+        return _email_auth_not_configured_response()
+
     rate_limit_response = await _enforce_webapp_rate_limit(
         request,
         user_id=user_id,
@@ -55,7 +70,6 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
     email = email_payload.email
     code = str(email_payload.code or "")
     email_service: EmailAuthService = request.app["email_auth_service"]
-    settings: Settings = request.app["settings"]
     async_session_factory: sessionmaker = request.app["async_session_factory"]
     merge_notice: Optional[Dict[str, Any]] = None
     source_panel_uuid: Optional[str] = None
@@ -210,6 +224,9 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
 async def account_password_request_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     settings: Settings = request.app["settings"]
+    if not _email_auth_enabled(settings):
+        return _email_auth_not_configured_response()
+
     async_session_factory: sessionmaker = request.app["async_session_factory"]
 
     async with async_session_factory() as session:
@@ -232,6 +249,10 @@ async def account_password_request_route(request: web.Request) -> web.Response:
 
 async def account_password_confirm_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
+    settings = request.app.get("settings")
+    if not _email_auth_enabled(settings):
+        return _email_auth_not_configured_response()
+
     payload = await _read_json(request)
     password_payload, validation_error = _validate_model_payload(WebAppSetPasswordPayload, payload)
     if validation_error:

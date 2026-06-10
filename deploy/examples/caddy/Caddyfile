@@ -8,12 +8,15 @@
 {$WEBHOOK_HOST} {
 	encode zstd gzip
 
+	# Caddy sets X-Forwarded-For/Host/Proto for reverse_proxy by default.
+	# The backend uses X-Forwarded-For for payment provider IP allowlists.
 	reverse_proxy backend:8080
 }
 
 {$MINIAPP_HOST} {
 	encode zstd gzip
 
+	# Keep forwarded headers for Web App URL generation and request logging.
 	reverse_proxy frontend:80
 }
 

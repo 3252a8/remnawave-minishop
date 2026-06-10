@@ -2,10 +2,14 @@ import json
 import re
 import subprocess
 import sys
+from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 
+from PIL import Image
+
 from bot.middlewares.i18n import JsonI18n
+from bot.services import email_templates as email_templates_module
 from bot.services.email_templates import (
     EmailContent,
     render_account_merged,
@@ -19,6 +23,7 @@ from bot.services.email_templates import (
     render_support_user_reply_admin,
     render_user_notification,
 )
+from config.webapp_themes_config import WebappThemesConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EMAIL_KEY_RE = re.compile(r"""["'](?P<key>email_[a-z0-9_]+)["']""")
@@ -30,14 +35,19 @@ EMAIL_KEY_ASSIGNMENT_HINTS = (
 )
 
 
-def _settings(default_language: str = "ru"):
+def _settings(
+    default_language: str = "ru",
+    *,
+    webapp_themes_catalog: WebappThemesConfig | None = None,
+    primary_color: str = "#00fe7a",
+):
     return SimpleNamespace(
         DEFAULT_LANGUAGE=default_language,
         EMAIL_CODE_TTL_SECONDS=600,
         WEBAPP_LOGO_URL="",
-        WEBAPP_LOGO_USE_EMOJI=False,
-        WEBAPP_PRIMARY_COLOR="#00fe7a",
+        WEBAPP_PRIMARY_COLOR=primary_color,
         WEBAPP_TITLE="Mini Shop",
+        webapp_themes_catalog=webapp_themes_catalog,
     )
 
 
@@ -256,6 +266,110 @@ def test_all_email_template_variants_render_without_raw_locale_keys():
             _assert_content_is_localized(content, language)
 
 
+def test_email_templates_use_default_webapp_theme_accent():
+    catalog = WebappThemesConfig(
+        default_theme="custom",
+        themes=[
+            {
+                "key": "custom",
+                "enabled": True,
+                "default": True,
+                "tokens": {"color_scheme": "dark", "accent": "#123abc"},
+            }
+        ],
+    )
+    settings = _settings("en", webapp_themes_catalog=catalog, primary_color="#00fe7a")
+
+    content = render_login_code(
+        settings,
+        code="123456",
+        language_code="en",
+        magic_link="https://app.example.com/magic",
+        purpose="login",
+        i18n=_i18n("en"),
+    )
+
+    assert "color:#123abc" in content.html
+    assert 'bgcolor="#123abc"' in content.html
+    assert "#00fe7a" not in content.html
+
+
+def test_uploaded_webapp_logo_is_embedded_inline(tmp_path, monkeypatch):
+    uploads_dir = tmp_path / "uploads"
+    uploads_dir.mkdir()
+    filename = "logo-1111111111111111.png"
+    logo_body = b"\x89PNG\r\n\x1a\nlogo"
+    (uploads_dir / filename).write_bytes(logo_body)
+    monkeypatch.setattr(email_templates_module, "_WEBAPP_UPLOADED_LOGO_DIR", uploads_dir)
+
+    settings = _settings()
+    settings.WEBAPP_LOGO_URL = f"/webapp-uploaded-logo/{filename}"
+
+    content = render_login_code(
+        settings,
+        code="123456",
+        language_code="en",
+        purpose="login",
+        i18n=_i18n("en"),
+    )
+
+    assert 'src="cid:webapp-logo"' in content.html
+    assert len(content.inline_images) == 1
+    inline_logo = content.inline_images[0]
+    assert inline_logo.content_id == "webapp-logo"
+    assert inline_logo.content_type == "image/png"
+    assert inline_logo.data == logo_body
+
+
+def test_uploaded_webp_logo_is_embedded_as_transparent_png(tmp_path, monkeypatch):
+    uploads_dir = tmp_path / "uploads"
+    uploads_dir.mkdir()
+    filename = "logo-2222222222222222.webp"
+    source = Image.new("RGBA", (3, 3), (0, 0, 0, 0))
+    source.putpixel((1, 1), (255, 0, 0, 255))
+    raw = BytesIO()
+    source.save(raw, format="WEBP", lossless=True)
+    (uploads_dir / filename).write_bytes(raw.getvalue())
+    monkeypatch.setattr(email_templates_module, "_WEBAPP_UPLOADED_LOGO_DIR", uploads_dir)
+
+    settings = _settings()
+    settings.WEBAPP_LOGO_URL = f"/webapp-uploaded-logo/{filename}"
+
+    content = render_login_code(
+        settings,
+        code="123456",
+        language_code="en",
+        purpose="login",
+        i18n=_i18n("en"),
+    )
+
+    assert 'src="cid:webapp-logo"' in content.html
+    assert len(content.inline_images) == 1
+    inline_logo = content.inline_images[0]
+    assert inline_logo.content_type == "image/png"
+
+    with Image.open(BytesIO(inline_logo.data)) as converted:
+        assert converted.mode == "RGBA"
+        assert converted.getpixel((0, 0))[3] == 0
+        assert converted.getpixel((1, 1))[3] == 255
+
+
+def test_public_https_webapp_logo_remains_external():
+    settings = _settings()
+    settings.WEBAPP_LOGO_URL = "https://cdn.example.com/logo.png"
+
+    content = render_login_code(
+        settings,
+        code="123456",
+        language_code="en",
+        purpose="login",
+        i18n=_i18n("en"),
+    )
+
+    assert 'src="https://cdn.example.com/logo.png"' in content.html
+    assert content.inline_images == ()
+
+
 def test_support_email_templates_use_russian_copy_for_russian_recipients():
     subjects = [content.subject for content in _all_rendered_email_variants("ru")[-4:]]
 
@@ -283,5 +397,7 @@ def test_docs_email_preview_generator_renders_real_template_html():
     assert all(preview["html"].lstrip().startswith("<!DOCTYPE html>") for preview in previews)
     assert all('<html lang="ru"' in preview["html"] for preview in previews)
     assert all('role="presentation"' in preview["html"] for preview in previews)
+    assert all('src="data:image/png;base64,' in preview["html"] for preview in previews)
+    assert all("cid:webapp-logo" not in preview["html"] for preview in previews)
     assert all("mail-card" not in preview["html"] for preview in previews)
     assert all("email_" not in preview["subject"] + preview["html"] for preview in previews)

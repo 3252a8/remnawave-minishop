@@ -713,6 +713,7 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
                     session,
                     referral_param,
                     current_user_id=None,
+                    settings=settings,
                 )
                 db_user, _ = await user_dal.create_email_user(
                     session,
@@ -821,6 +822,7 @@ async def email_auth_magic_route(request: web.Request) -> web.Response:
                     session,
                     referral_param,
                     current_user_id=None,
+                    settings=settings,
                 )
                 db_user, _ = await user_dal.create_email_user(
                     session,
@@ -1010,11 +1012,51 @@ async def _request_email_code(
 
 
 def _telegram_id_for_user(user: User) -> Optional[int]:
-    if user.telegram_id:
-        return int(user.telegram_id)
-    if user.user_id and int(user.user_id) > 0:
-        return int(user.user_id)
+    telegram_id = getattr(user, "telegram_id", None)
+    if telegram_id:
+        return int(telegram_id)
+    user_id = getattr(user, "user_id", None)
+    if user_id and int(user_id) > 0:
+        return int(user_id)
     return None
+
+
+def _user_has_linked_telegram(user: User) -> bool:
+    return bool(getattr(user, "telegram_id", None))
+
+
+def _email_only_telegram_required_reason(
+    settings: Settings,
+    user: User,
+    *,
+    without_telegram_enabled_attr: str,
+) -> Optional[str]:
+    if _user_has_linked_telegram(user):
+        return None
+    if is_disposable_email(getattr(user, "email", None), settings):
+        return "disposable_email"
+    if not bool(getattr(settings, without_telegram_enabled_attr, True)):
+        return "telegram_required"
+    return None
+
+
+def _trial_telegram_required_reason(settings: Settings, user: User) -> Optional[str]:
+    return _email_only_telegram_required_reason(
+        settings,
+        user,
+        without_telegram_enabled_attr="TRIAL_WITHOUT_TELEGRAM_ENABLED",
+    )
+
+
+def _referral_welcome_telegram_required_reason(
+    settings: Settings,
+    user: User,
+) -> Optional[str]:
+    return _email_only_telegram_required_reason(
+        settings,
+        user,
+        without_telegram_enabled_attr="REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
+    )
 
 
 def _panel_description_for_user(user: User) -> str:
@@ -1292,17 +1334,35 @@ async def _link_telegram_to_user(
     return current_user
 
 
-def _normalize_referral_param(raw: Optional[str]) -> Optional[str]:
+def _remnashop_referral_compat_enabled(settings: Optional[Settings]) -> bool:
+    if settings is None:
+        return False
+    return bool(getattr(settings, "MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED", False))
+
+
+def _strip_referral_param_prefix(
+    raw: Optional[str],
+    *,
+    preserve_current_u_prefix: bool,
+) -> str:
     value = (raw or "").strip()
     if not value:
-        return None
+        return ""
 
     value_lower = value.lower()
-    if value_lower.startswith("ref_u"):
+    if value_lower.startswith("ref_u") and not preserve_current_u_prefix:
         value = value[5:]
     elif value_lower.startswith("ref_"):
         value = value[4:]
-    elif value and value[0].lower() == "u" and len(value) == 10:
+    return value
+
+
+def _normalize_referral_param(raw: Optional[str]) -> Optional[str]:
+    value = _strip_referral_param_prefix(raw, preserve_current_u_prefix=False)
+    if not value:
+        return None
+
+    if value and value[0].lower() == "u" and len(value) == 10:
         value = value[1:]
 
     if not re.fullmatch(r"[A-Za-z0-9]{1,32}", value):
@@ -1310,26 +1370,64 @@ def _normalize_referral_param(raw: Optional[str]) -> Optional[str]:
     return value.upper()
 
 
+def _referral_param_lookup_candidates(
+    raw: Optional[str],
+    *,
+    remnashop_compat: bool,
+) -> List[str]:
+    if not remnashop_compat:
+        normalized = _normalize_referral_param(raw)
+        return [normalized] if normalized else []
+
+    value = _strip_referral_param_prefix(raw, preserve_current_u_prefix=True)
+    if not value or not re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", value):
+        return []
+
+    candidates = [value]
+    if value and value[0].lower() == "u":
+        candidates.append(value[1:])
+
+    unique: List[str] = []
+    for candidate in candidates:
+        if candidate and candidate not in unique:
+            unique.append(candidate)
+    return unique
+
+
 async def _resolve_referrer_id(
     session: AsyncSession,
     raw_referral_param: Optional[str],
     *,
     current_user_id: Optional[int],
+    settings: Optional[Settings] = None,
 ) -> Optional[int]:
-    normalized = _normalize_referral_param(raw_referral_param)
-    if not normalized:
+    remnashop_compat = _remnashop_referral_compat_enabled(settings)
+    candidates = _referral_param_lookup_candidates(
+        raw_referral_param,
+        remnashop_compat=remnashop_compat,
+    )
+    if not candidates:
         return None
 
-    ref_user = None
-    if normalized.isdigit():
-        ref_user = await user_dal.get_user_by_id(session, int(normalized))
-    if not ref_user:
-        ref_user = await user_dal.get_user_by_referral_code(session, normalized)
-    if not ref_user:
-        return None
-    if current_user_id is not None and int(ref_user.user_id) == int(current_user_id):
-        return None
-    return int(ref_user.user_id)
+    for normalized in candidates:
+        ref_user = None
+        if normalized.isdigit() and not remnashop_compat:
+            ref_user = await user_dal.get_user_by_id(session, int(normalized))
+        if not ref_user:
+            ref_user = await user_dal.get_user_by_referral_code(
+                session,
+                normalized,
+                include_legacy=remnashop_compat,
+            )
+        if not ref_user and normalized.isdigit() and remnashop_compat:
+            ref_user = await user_dal.get_user_by_id(session, int(normalized))
+        if not ref_user:
+            continue
+        if current_user_id is not None and int(ref_user.user_id) == int(current_user_id):
+            continue
+        return int(ref_user.user_id)
+
+    return None
 
 
 async def _apply_referral_to_existing_user(
@@ -1345,6 +1443,7 @@ async def _apply_referral_to_existing_user(
         session,
         raw_referral_param,
         current_user_id=int(user.user_id),
+        settings=request.app["settings"],
     )
     if not referred_by_id:
         return False
@@ -1375,6 +1474,21 @@ async def _apply_referral_welcome_bonus_if_needed(
         return None
 
     settings: Settings = request.app["settings"]
+    if _referral_welcome_telegram_required_reason(settings, user):
+        return None
+
+    return await _grant_referral_welcome_bonus_if_eligible(request, session, user)
+
+
+async def _grant_referral_welcome_bonus_if_eligible(
+    request: web.Request,
+    session: AsyncSession,
+    user: User,
+) -> Optional[datetime]:
+    if not user.referred_by_id:
+        return None
+
+    settings: Settings = request.app["settings"]
     referral_welcome_days = max(
         0,
         int(getattr(settings, "REFERRAL_WELCOME_BONUS_DAYS", 0) or 0),
@@ -1383,6 +1497,10 @@ async def _apply_referral_welcome_bonus_if_needed(
         return None
 
     subscription_service: SubscriptionService = request.app["subscription_service"]
+    default_tariff_key = None
+    tariffs_config = getattr(settings, "tariffs_config", None)
+    if tariffs_config:
+        default_tariff_key = getattr(tariffs_config, "default_tariff", None)
     try:
         if await subscription_service.has_active_subscription(session, int(user.user_id)):
             return None
@@ -1394,6 +1512,68 @@ async def _apply_referral_welcome_bonus_if_needed(
         int(user.user_id),
         referral_welcome_days,
         reason="referral_welcome_bonus",
+        tariff_key=default_tariff_key,
+    )
+
+
+def _webapp_datetime_text(value: Optional[datetime]) -> Optional[str]:
+    if not value:
+        return None
+    normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return normalized.strftime("%d.%m.%Y %H:%M")
+
+
+async def referral_welcome_bonus_claim_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    rate_limit_response = await _enforce_webapp_rate_limit(
+        request,
+        user_id=user_id,
+        action="referral_welcome_claim",
+    )
+    if rate_limit_response:
+        return rate_limit_response
+
+    settings: Settings = request.app["settings"]
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async with async_session_factory() as session:
+        try:
+            db_user = await user_dal.get_user_by_id(session, user_id)
+            if not db_user or db_user.is_banned:
+                await session.rollback()
+                return _json_error(403, "access_denied", "Access denied")
+
+            reason = _referral_welcome_telegram_required_reason(settings, db_user)
+            if reason:
+                await session.rollback()
+                return _json_error(400, "referral_welcome_telegram_required", reason)
+
+            end_date = await _grant_referral_welcome_bonus_if_eligible(
+                request,
+                session,
+                db_user,
+            )
+            if not end_date:
+                await session.rollback()
+                return _json_error(
+                    400,
+                    "referral_welcome_unavailable",
+                    "Referral welcome bonus is not available",
+                )
+
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            logger.exception("Referral welcome bonus claim failed")
+            return _json_error(500, "referral_welcome_failed", "Referral welcome bonus failed")
+
+    await _invalidate_webapp_user_caches(settings, user_id, include_devices=True)
+    return web.json_response(
+        {
+            "ok": True,
+            "claimed": True,
+            "end_date": end_date.isoformat() if isinstance(end_date, datetime) else None,
+            "end_date_text": _webapp_datetime_text(end_date),
+        }
     )
 
 
@@ -1427,6 +1607,7 @@ async def _ensure_user_from_telegram(
             session,
             referral_param or telegram_user.get("start_param"),
             current_user_id=user_id,
+            settings=settings,
         )
         db_user, created = await user_dal.create_user(
             session,

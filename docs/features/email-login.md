@@ -44,6 +44,12 @@ BRUTE_FORCE_WINDOW_SECONDS=900
 BRUTE_FORCE_LOCK_SECONDS=900
 ```
 
+## Брендинг писем
+
+HTML-письма используют тот же бренд, что и Mini App: название из `WEBAPP_TITLE`, accent из внешнего вида и логотип из раздела **Внешний вид**. Если логотип загружен через админку файлом, backend прикладывает его к письму как inline image (`cid:webapp-logo`), поэтому получателю не нужен доступ к внутреннему `/webapp-uploaded-logo/...`.
+
+Если в качестве логотипа задан публичный `https://` URL, письмо использует его как обычный внешний `<img>`. В этом режиме некоторые почтовые клиенты могут скрыть картинку, пока получатель не разрешит загрузку внешних изображений.
+
 Для Brevo обычно подходит порт `587` с STARTTLS. Если основной порт недоступен, приложение пробует порты из `SMTP_FALLBACK_PORTS`; порт `465` используется через SSL wrapper автоматически.
 
 `SMTP_FROM_EMAIL` должен быть подтвержден у SMTP-провайдера, иначе письмо часто отклоняется или попадает в спам. `SMTP_FROM_NAME` можно оставить пустым, тогда используется название Web App.
@@ -106,3 +112,56 @@ docker compose logs -f backend
 - Пользователь получает `rate_limited`: подождите `EMAIL_CODE_RESEND_SECONDS` или проверьте brute-force настройки.
 
 Email-уведомления поддержки, платежей и жизненного цикла подписки используют тот же SMTP-контур. Сценарий поддержки описан в [разделе тикетов](support.md), сводка по каналам - в разделе [уведомления](notifications.md).
+
+## Настройка локального SMTP-сервера
+
+### Требования
+
+Перед запуском локального SMTP-сервера вам потребуется настроить DNS-записи вашего домена:
+
+* A — mail.example.com (указать IP вашего сервера)
+* MX — mail.example.com (приоритет 10)
+* PTR — mail.example.com (настраивается у вашего хостера VPS)
+* TXT — `v=spf1 ip4:1.2.3.4 ~all` (поддомен @, замените `1.2.3.4` на реальный ipv4 вашего сервера)
+
+После изменения DNS-записей подождите некоторое время (иногда требуется от 3 часов до суток) для применения изменений.
+
+Для использования STARTTLS необходимо получить TLS/SSL-сертификат для домена mail.example.com. Самый простой способ это сделать — прописать следующую директиву в Caddyfile (если вы используете Caddy):
+
+```Caddyfile
+https://mail.example.com {
+    respond "Mail server"
+}
+```
+
+### Установка
+
+1. Настройка docker-compose.yml:
+
+```bash
+mkdir -p /opt/mailserver
+cd /opt/mailserver
+curl -O https://raw.githubusercontent.com/3252a8/remnawave-minishop/refs/heads/main/deploy/examples/mail/docker-compose.yml
+nano docker-compose.yml
+```
+
+2. Запуск:
+
+```bash
+docker compose up -d
+```
+
+3. Создание пользователя:
+
+```bash
+# Скрипт попросит придумать пароль и потвердить его
+docker exec -it mailserver setup email add no-reply@example.com
+
+# Проверка создания пользователя
+docker exec -it mailserver setup email list
+
+# Должны увидеть:
+# no-reply@example.com
+```
+
+После всех настроек вы можете использовать свой почтовый клиент (Microsoft Outlook, Mozilla Thunderbird) для отправки и получения писем. В окне добавления нового аккаунта достаточно ввести созданную почту no-reply@example.com и пароль.

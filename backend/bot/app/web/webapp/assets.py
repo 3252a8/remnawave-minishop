@@ -5,6 +5,7 @@ import gzip
 from config.webapp_themes_config import (
     default_webapp_theme_asset_file,
     default_webapp_theme_css_files,
+    effective_webapp_theme_accent,
     ensure_default_webapp_theme_descriptor_files,
     public_theme_payload,
     public_themes_catalog_payload,
@@ -17,6 +18,8 @@ _GZIP_BODY_CACHE: Dict[str, bytes] = {}
 _ASSET_NAME_CACHE: Dict[tuple[str, str], tuple[float, str]] = {}
 _I18N_PAYLOAD_CACHE: Dict[tuple[int, str, tuple[tuple[str, int, int], ...]], Dict[str, Any]] = {}
 _ASSET_NAME_CACHE_TTL_SECONDS = 30.0
+WEBAPP_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
+WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 
 
 async def health_route(request: web.Request) -> web.Response:
@@ -47,7 +50,7 @@ async def _css_asset_route(request: web.Request, *, base_name: str) -> web.Respo
         allow_precompressed=bool(asset_hash),
     )
     response.headers["Cache-Control"] = (
-        "public, max-age=31536000, immutable" if asset_hash else "no-cache"
+        "public, max-age=31536000, immutable" if asset_hash else WEBAPP_LEGACY_ASSET_CACHE_CONTROL
     )
     return response
 
@@ -206,9 +209,6 @@ async def theme_asset_route(request: web.Request) -> web.Response:
 
 
 def _resolve_webapp_logo_url(settings: Settings) -> str:
-    if getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
-        return ""
-
     raw_logo_url = (getattr(settings, "WEBAPP_LOGO_URL", None) or "").strip()
     if not raw_logo_url:
         return WEBAPP_DEFAULT_LOGO_PATH
@@ -303,29 +303,8 @@ def _uploaded_webapp_logo_response(filename: str) -> web.Response:
     return response
 
 
-def _emoji_to_codepoints(value: str) -> str:
-    return "_".join(f"{ord(char):x}" for char in str(value or "").strip())
-
-
-def _webapp_emoji_disk_path(codepoints: str, ext: str) -> Path:
-    return WEBAPP_EMOJI_CACHE_DIR / f"{codepoints}.512.{ext}"
-
-
-def _webapp_animated_emoji_source_url(codepoints: str, ext: str) -> str:
-    return f"https://fonts.gstatic.com/s/e/notoemoji/latest/{codepoints}/512.{ext}"
-
-
-def _webapp_animated_emoji_asset_path(emoji: str, ext: str = "gif") -> str:
-    codepoints = _emoji_to_codepoints(emoji)
-    if not codepoints or ext not in {"gif", "webp"}:
-        return ""
-    return f"/webapp-emoji/{codepoints}/512.{ext}"
-
-
 async def webapp_logo_route(request: web.Request) -> web.Response:
     settings: Settings = request.app["settings"]
-    if getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
-        raise web.HTTPNotFound(text="webapp_logo_disabled")
     raw_logo_url = (settings.WEBAPP_LOGO_URL or "").strip()
     if not raw_logo_url:
         raise web.HTTPNotFound(text="webapp_logo_not_configured")
@@ -405,11 +384,15 @@ async def webapp_current_favicon_route(request: web.Request) -> web.Response:
     favicon_url = _resolve_webapp_favicon_url(settings, _resolve_webapp_logo_url(settings))
     digest = _webapp_generated_favicon_digest(favicon_url)
     if digest:
-        return _webapp_favicon_file_response(digest, target_filename)
+        response = _webapp_favicon_file_response(digest, target_filename)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
     redirect_url = _webapp_redirectable_favicon_url(favicon_url, target_filename)
     if redirect_url:
-        raise web.HTTPFound(location=redirect_url)
+        redirect = web.HTTPFound(location=redirect_url)
+        redirect.headers["Cache-Control"] = "no-cache"
+        raise redirect
 
     raise web.HTTPNotFound(text="webapp_favicon_not_found")
 
@@ -521,37 +504,8 @@ def _webapp_default_brand_file_response(path: Path, content_type: str) -> web.Re
     return web.Response(body=body, content_type=content_type)
 
 
-async def webapp_animated_emoji_route(request: web.Request) -> web.Response:
-    codepoints = str(request.match_info.get("codepoints") or "").strip().lower()
-    ext = str(request.match_info.get("ext") or "").strip().lower()
-    if not re.fullmatch(r"[0-9a-f]+(?:_[0-9a-f]+)*", codepoints) or ext not in {"gif", "webp"}:
-        raise web.HTTPNotFound(text="webapp_emoji_not_found")
-
-    emoji_cache_key = f"{codepoints}:{ext}"
-    emoji_caches: Dict[str, Tuple[bytes, str]] = request.app.setdefault("webapp_emoji_cache", {})
-    emoji_cache = emoji_caches.get(emoji_cache_key)
-    if emoji_cache is None:
-        cache_lock: asyncio.Lock = request.app.setdefault("webapp_emoji_cache_lock", asyncio.Lock())
-        async with cache_lock:
-            emoji_cache = emoji_caches.get(emoji_cache_key)
-            if emoji_cache is None:
-                emoji_cache = await _load_or_fetch_webapp_animated_emoji(codepoints, ext)
-                if emoji_cache:
-                    emoji_caches[emoji_cache_key] = emoji_cache
-
-    if not emoji_cache:
-        raise web.HTTPNotFound(text="webapp_emoji_unavailable")
-
-    body, content_type = emoji_cache
-    response = web.Response(body=body, content_type=content_type)
-    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-    return response
-
-
 async def _warm_webapp_logo_cache(app: web.Application) -> None:
     settings: Settings = app["settings"]
-    if getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
-        return
     raw_logo_url = (settings.WEBAPP_LOGO_URL or "").strip()
     if not raw_logo_url or not _is_proxyable_webapp_logo_url(raw_logo_url):
         return
@@ -571,111 +525,6 @@ async def _warm_webapp_logo_cache(app: web.Application) -> None:
         app["webapp_logo_cache"] = (
             (raw_logo_url, loaded_logo[0], loaded_logo[1]) if loaded_logo else None
         )
-
-
-async def _warm_webapp_animated_emoji_cache(app: web.Application) -> None:
-    settings: Settings = app["settings"]
-    if not getattr(settings, "WEBAPP_LOGO_USE_EMOJI", False):
-        return
-    if str(settings.WEBAPP_LOGO_EMOJI_FONT or "").strip() != "noto-color-animated":
-        return
-
-    codepoints = _emoji_to_codepoints(settings.WEBAPP_LOGO_EMOJI)
-    if not codepoints:
-        return
-
-    app.setdefault("webapp_emoji_cache", {})
-    app.setdefault("webapp_emoji_cache_lock", asyncio.Lock())
-    emoji_caches: Dict[str, Tuple[bytes, str]] = app["webapp_emoji_cache"]
-
-    for ext in ("gif", "webp"):
-        emoji_cache_key = f"{codepoints}:{ext}"
-        if emoji_cache_key in emoji_caches:
-            continue
-        loaded_emoji = await _load_or_fetch_webapp_animated_emoji(codepoints, ext)
-        if loaded_emoji:
-            emoji_caches[emoji_cache_key] = loaded_emoji
-            if ext == "gif":
-                return
-
-
-async def _load_or_fetch_webapp_animated_emoji(
-    codepoints: str, ext: str
-) -> Optional[Tuple[bytes, str]]:
-    disk_emoji = await asyncio.to_thread(_read_webapp_animated_emoji_from_disk, codepoints, ext)
-    if disk_emoji:
-        return disk_emoji
-
-    fetched_emoji = await _fetch_webapp_animated_emoji(codepoints, ext)
-    if fetched_emoji:
-        await asyncio.to_thread(
-            _write_webapp_animated_emoji_to_disk, codepoints, ext, fetched_emoji
-        )
-    return fetched_emoji
-
-
-def _read_webapp_animated_emoji_from_disk(codepoints: str, ext: str) -> Optional[Tuple[bytes, str]]:
-    path = _webapp_emoji_disk_path(codepoints, ext)
-    try:
-        body = path.read_bytes()
-    except OSError:
-        return None
-
-    if not body or len(body) > WEBAPP_EMOJI_MAX_BYTES:
-        return None
-    return body, "image/gif" if ext == "gif" else "image/webp"
-
-
-def _write_webapp_animated_emoji_to_disk(
-    codepoints: str, ext: str, emoji: Tuple[bytes, str]
-) -> None:
-    body, _content_type = emoji
-    if not body or len(body) > WEBAPP_EMOJI_MAX_BYTES:
-        return
-
-    path = _webapp_emoji_disk_path(codepoints, ext)
-    try:
-        WEBAPP_EMOJI_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(body)
-    except OSError as exc:
-        logger.warning("Failed to write WEBAPP animated emoji cache: %s", exc)
-
-
-async def _fetch_webapp_animated_emoji(codepoints: str, ext: str) -> Optional[Tuple[bytes, str]]:
-    try:
-        session = await _get_shared_http_session()
-        timeout = ClientTimeout(total=4)
-        source_url = _webapp_animated_emoji_source_url(codepoints, ext)
-        async with session.get(
-            source_url,
-            allow_redirects=False,
-            headers={"Accept": "image/gif,image/webp,image/*,*/*;q=0.8"},
-            timeout=timeout,
-        ) as response:
-            if response.status != 200:
-                return None
-
-            content_type = (
-                (response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
-            )
-            expected_content_type = "image/gif" if ext == "gif" else "image/webp"
-            if content_type and content_type != expected_content_type:
-                return None
-
-            body = bytearray()
-            async for chunk in response.content.iter_chunked(64 * 1024):
-                body.extend(chunk)
-                if len(body) > WEBAPP_EMOJI_MAX_BYTES:
-                    logger.warning("WEBAPP animated emoji exceeded the 4 MiB limit.")
-                    return None
-
-            if not body:
-                return None
-
-            return bytes(body), expected_content_type
-    except Exception as exc:
-        logger.warning("Failed to fetch WEBAPP animated emoji: %s", exc)
-        return None
 
 
 async def _load_or_fetch_webapp_logo(logo_url: str) -> Optional[Tuple[bytes, str]]:
@@ -923,7 +772,6 @@ def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
             "traffic_packages": settings.traffic_packages,
             "stars_traffic_packages": settings.stars_traffic_packages,
             "support_url": settings.SUPPORT_LINK or "",
-            "terms_url": settings.TERMS_OF_SERVICE_URL or "",
             "privacy_policy_url": settings.PRIVACY_POLICY_URL or "",
             "user_agreement_url": settings.USER_AGREEMENT_URL or "",
             "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
@@ -937,9 +785,31 @@ def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
 def _resolve_app_version() -> str:
     # Single source of truth shared with the telemetry worker so the admin
     # sidebar and the install beacon always report the same version.
-    from bot.utils.app_version import resolve_app_version
+    from bot.utils import app_version as app_version_module
 
-    return resolve_app_version()
+    global _APP_VERSION_CACHE
+
+    app_version_module.APP_ROOT = APP_ROOT
+    app_version_module._run_git_command = _run_git_command
+    app_version_module._APP_VERSION_CACHE = _APP_VERSION_CACHE
+    version = app_version_module.resolve_app_version()
+    _APP_VERSION_CACHE = app_version_module._APP_VERSION_CACHE
+    return version
+
+
+def _run_git_command(*args: str) -> str:
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=APP_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=1.5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip()
 
 
 async def _enforce_webapp_rate_limit(
@@ -1033,7 +903,7 @@ async def _js_asset_route(request: web.Request, *, base_name: str) -> web.Respon
         strip_dev_mock=not asset_hash,
     )
     response.headers["Cache-Control"] = (
-        "public, max-age=31536000, immutable" if asset_hash else "no-cache"
+        "public, max-age=31536000, immutable" if asset_hash else WEBAPP_LEGACY_ASSET_CACHE_CONTROL
     )
     return response
 
@@ -1144,9 +1014,6 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
             "themesDir": settings.WEBAPP_THEMES_DIR,
             "themePreviewKey": preview_key,
             "logoUrl": cached["logo_url"],
-            "logoUseEmoji": bool(settings.WEBAPP_LOGO_USE_EMOJI),
-            "logoEmoji": settings.WEBAPP_LOGO_EMOJI,
-            "logoEmojiFont": settings.WEBAPP_LOGO_EMOJI_FONT,
             "faviconUrl": cached["favicon_url"],
             "faviconUseCustom": bool(settings.WEBAPP_FAVICON_USE_CUSTOM),
             "apiBase": "/api",
@@ -1157,7 +1024,6 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
             "telegramOAuthClientId": _resolve_telegram_oauth_client_id(settings) or 0,
             "telegramOAuthRequestAccess": _resolve_telegram_oauth_request_access(settings),
             "supportUrl": cached["support_url"],
-            "termsUrl": cached["terms_url"],
             "privacyPolicyUrl": cached["privacy_policy_url"],
             "userAgreementUrl": cached["user_agreement_url"],
             "currency": cached["currency"],
@@ -1276,9 +1142,11 @@ async def index_route(request: web.Request) -> web.Response:
     bootstrap = _build_webapp_bootstrap_payload(request)
     config = bootstrap["config"]
     html = _strip_marked_block(html, DEV_MOCK_START_MARKER, DEV_MOCK_END_MARKER)
+    css_asset_name = _resolve_webapp_css_asset_name()
+    js_asset_name = _resolve_webapp_js_asset_name()
     html = html.replace(
         'href="/subscription_webapp.css"',
-        f'href="/{_resolve_webapp_css_asset_name()}"',
+        f'href="/{css_asset_name}"',
         1,
     )
     initial_theme_markup = _initial_theme_head_markup(request, initial_theme, primary_color)
@@ -1305,15 +1173,9 @@ async def index_route(request: web.Request) -> web.Response:
     )
     html = html.replace(
         WEBAPP_JS_PLACEHOLDER,
-        f'<script src="/{_resolve_webapp_js_asset_name()}" defer></script>',
+        f'<script src="/{js_asset_name}" defer></script>',
     )
     brand_asset_url = cached["logo_url"]
-    if (
-        not brand_asset_url
-        and settings.WEBAPP_LOGO_USE_EMOJI
-        and settings.WEBAPP_LOGO_EMOJI_FONT == "noto-color-animated"
-    ):
-        brand_asset_url = _webapp_animated_emoji_asset_path(settings.WEBAPP_LOGO_EMOJI)
     if brand_asset_url:
         html = html.replace(
             "</head>",
@@ -1324,7 +1186,9 @@ async def index_route(request: web.Request) -> web.Response:
             1,
         )
     response = web.Response(text=html, content_type="text/html", charset="utf-8")
-    response.headers["Cache-Control"] = "no-cache"
+    response.headers["Cache-Control"] = WEBAPP_HTML_CACHE_CONTROL
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     return response
 
 
@@ -1335,6 +1199,11 @@ async def app_deeplink_route(request: web.Request) -> web.Response:
 
     nonce = html.escape(str(request.get("csp_nonce", "")), quote=True)
     query = getattr(request, "query", {}) or {}
+    themes_catalog = getattr(settings, "webapp_themes_catalog", None)
+    primary_color = getattr(settings, "WEBAPP_PRIMARY_COLOR", None) or "#00fe7a"
+    initial_theme = (
+        _initial_theme_for_request(request, themes_catalog) if themes_catalog is not None else None
+    )
     lang = _normalize_language(query.get("lang") or getattr(settings, "DEFAULT_LANGUAGE", "ru"))
     messages = _app_deeplink_i18n_payload(request, lang)
     page_title = _webapp_page_title(settings, messages["title"])
@@ -1351,6 +1220,14 @@ async def app_deeplink_route(request: web.Request) -> web.Response:
         .replace("__NONCE__", nonce)
         .replace("__MESSAGES_JSON__", messages_json)
     )
+    initial_theme_markup = _app_deeplink_theme_head_markup(
+        request,
+        initial_theme,
+        themes_catalog,
+        primary_color,
+    )
+    if initial_theme_markup:
+        html_text = html_text.replace("</head>", f"{initial_theme_markup}\n</head>", 1)
     html_text = _apply_webapp_head_metadata(html_text, page_title, favicon_url)
     response = web.Response(text=html_text, content_type="text/html", charset="utf-8")
     response.headers["Cache-Control"] = "no-store"
@@ -1577,10 +1454,15 @@ def _resolve_webapp_js_asset_name() -> str:
 
 
 def _resolve_webapp_admin_js_asset_name() -> str:
-    # The admin bundle is lazy-loaded from the already running Mini App. In
-    # deployments where nginx serves static files in front of aiohttp, stale
-    # hashed admin filenames can 404 even though the runtime build asset exists.
-    return _set_cached_asset_name("admin-js", "subscription_webapp_admin.js")
+    # The admin bundle is lazy-loaded from the already running Mini App. It now
+    # ships content-hashed alongside the main bundle (same build, deterministic
+    # hashes, served immutable), so iOS WebViews fetch fresh admin assets on every
+    # deploy. The App.svelte loader falls back to the bare runtime build name if a
+    # hashed asset ever 404s.
+    return _resolve_hashed_js_asset_name(
+        kind="admin-js",
+        base_name="subscription_webapp_admin",
+    )
 
 
 def _resolve_hashed_js_asset_name(*, kind: str, base_name: str) -> str:
@@ -1599,7 +1481,7 @@ def _resolve_hashed_js_asset_name(*, kind: str, base_name: str) -> str:
     if minified_assets:
         minified_assets.sort(reverse=True)
         return _set_cached_asset_name(kind, minified_assets[0][1])
-    return _set_cached_asset_name(kind, f"{base_name}.js")
+    return _set_cached_asset_name(kind, _stable_asset_name_with_version(f"{base_name}.js"))
 
 
 def _resolve_webapp_css_asset_name() -> str:
@@ -1610,9 +1492,11 @@ def _resolve_webapp_css_asset_name() -> str:
 
 
 def _resolve_webapp_admin_css_asset_name() -> str:
-    # Keep the lazy-loaded admin stylesheet on the stable build filename for
-    # the same reason as the JS bundle above.
-    return _set_cached_asset_name("admin-css", "subscription_webapp_admin.css")
+    # Content-hashed and immutable, same rationale as the admin JS bundle above.
+    return _resolve_hashed_css_asset_name(
+        kind="admin-css",
+        base_name="subscription_webapp_admin",
+    )
 
 
 def _resolve_hashed_css_asset_name(*, kind: str, base_name: str) -> str:
@@ -1631,7 +1515,19 @@ def _resolve_hashed_css_asset_name(*, kind: str, base_name: str) -> str:
     if hashed_assets:
         hashed_assets.sort(reverse=True)
         return _set_cached_asset_name(kind, hashed_assets[0][1])
-    return _set_cached_asset_name(kind, f"{base_name}.css")
+    return _set_cached_asset_name(kind, _stable_asset_name_with_version(f"{base_name}.css"))
+
+
+def _stable_asset_name_with_version(filename: str) -> str:
+    path = ASSET_DIR / filename
+    try:
+        stat = path.stat()
+    except OSError:
+        return filename
+
+    raw_version = f"{filename}:{int(stat.st_mtime_ns)}:{int(stat.st_size)}"
+    version = hashlib.sha256(raw_version.encode("utf-8")).hexdigest()[:8]
+    return f"{filename}?v={version}"
 
 
 def _get_cached_asset_name(kind: str) -> Optional[str]:
@@ -1683,6 +1579,9 @@ _INITIAL_THEME_TOKEN_CSS_MAP = {
     "font_sans": "--font-sans",
     "font_logo": "--font-logo",
     "font_mono": "--font-mono",
+    "home_logo_scale": "--home-logo-scale",
+    "home_logo_scale_desktop": "--home-logo-scale-desktop",
+    "home_logo_scale_mobile": "--home-logo-scale-mobile",
     "admin_bg": "--admin-bg",
     "admin_surface": "--admin-surface",
     "admin_surface_2": "--admin-surface-2",
@@ -1692,6 +1591,12 @@ _INITIAL_THEME_TOKEN_CSS_MAP = {
     "admin_text": "--admin-text",
     "admin_muted": "--admin-muted",
     "admin_dim": "--admin-dim",
+}
+
+_INITIAL_THEME_LOGO_SCALE_TOKENS = {
+    "home_logo_scale",
+    "home_logo_scale_desktop",
+    "home_logo_scale_mobile",
 }
 
 
@@ -1716,7 +1621,8 @@ def _theme_css_href_for_html(theme: Any) -> str:
 
 
 def _initial_theme_for_request(request: web.Request, catalog: Any) -> Any:
-    preview_key = str(request.query.get("theme_preview") or "").strip()
+    query = getattr(request, "query", {}) or {}
+    preview_key = str(query.get("theme_preview") or "").strip()
     if preview_key:
         preview_theme = catalog.theme_by_key(preview_key)
         if preview_theme is not None and preview_theme.enabled:
@@ -1728,18 +1634,38 @@ def _initial_theme_for_request(request: web.Request, catalog: Any) -> Any:
     return catalog.enabled_themes()[0] if catalog.enabled_themes() else None
 
 
+def _initial_theme_tokens(theme: Any, primary_color: str) -> Dict[str, Any]:
+    if theme is None:
+        return {}
+
+    payload = public_theme_payload(theme, primary_color)
+    tokens = payload.get("tokens") if isinstance(payload, dict) else {}
+    return tokens if isinstance(tokens, dict) else {}
+
+
+def _initial_theme_declarations(tokens: Dict[str, Any]) -> List[str]:
+    declarations = []
+    for token_key, css_name in _INITIAL_THEME_TOKEN_CSS_MAP.items():
+        if token_key in _INITIAL_THEME_LOGO_SCALE_TOKENS:
+            try:
+                scale = float(tokens.get(token_key) or 0)
+            except (TypeError, ValueError):
+                continue
+            if scale > 0:
+                declarations.append(f"{css_name}:{scale / 100:g}")
+            continue
+        value = str(tokens.get(token_key) or "").strip()
+        if value:
+            declarations.append(f"{css_name}:{value}")
+    return declarations
+
+
 def _initial_theme_head_markup(request: web.Request, theme: Any, primary_color: str) -> str:
     if theme is None:
         return ""
 
-    payload = public_theme_payload(theme, primary_color)
-    tokens = payload.get("tokens") if isinstance(payload, dict) else {}
-    tokens = tokens if isinstance(tokens, dict) else {}
-    declarations = []
-    for token_key, css_name in _INITIAL_THEME_TOKEN_CSS_MAP.items():
-        value = str(tokens.get(token_key) or "").strip()
-        if value:
-            declarations.append(f"{css_name}:{value}")
+    tokens = _initial_theme_tokens(theme, primary_color)
+    declarations = _initial_theme_declarations(tokens)
 
     scheme = "light" if tokens.get("color_scheme") == "light" else "dark"
     bg = str(tokens.get("bg") or "").strip()
@@ -1761,6 +1687,37 @@ def _initial_theme_head_markup(request: web.Request, theme: Any, primary_color: 
         f'data-initial-theme-css="{html.escape(str(theme.key), quote=True)}">'
     )
     return stylesheet + "\n" + style_tag
+
+
+def _app_deeplink_theme_head_markup(
+    request: web.Request,
+    theme: Any,
+    catalog: Any,
+    primary_color: str,
+) -> str:
+    tokens = _initial_theme_tokens(theme, primary_color)
+    declarations = _initial_theme_declarations(tokens)
+    try:
+        accent = effective_webapp_theme_accent(
+            catalog,
+            primary_color,
+            theme_key=str(getattr(theme, "key", "") or "") or None,
+        )
+    except Exception:
+        accent = str(primary_color or "#00fe7a").strip() or "#00fe7a"
+    if accent and not any(item.startswith("--accent:") for item in declarations):
+        declarations.insert(0, f"--accent:{accent}")
+    if not declarations:
+        return ""
+
+    scheme = "light" if tokens.get("color_scheme") == "light" else "dark"
+    nonce = html.escape(str(request.get("csp_nonce", "")), quote=True)
+    return (
+        f'<style id="webapp-initial-theme" nonce="{nonce}">'
+        f"html{{color-scheme:{scheme};}}"
+        f":root{{{';'.join(declarations)}}}"
+        "</style>"
+    )
 
 
 def _favicon_head_markup(favicon_url: str) -> str:

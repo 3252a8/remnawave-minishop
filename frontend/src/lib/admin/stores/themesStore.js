@@ -4,6 +4,23 @@ function cloneCatalog(catalog) {
 
 import { writable } from "svelte/store";
 
+const HOME_LOGO_SCALE_TOKEN = {
+  desktop: "home_logo_scale_desktop",
+  mobile: "home_logo_scale_mobile",
+};
+
+function normalizeHomeLogoScale(scale) {
+  if (String(scale ?? "").trim() === "") scale = 100;
+  const numeric = Number(scale);
+  return Number.isFinite(numeric) ? Math.min(300, Math.max(50, Math.round(numeric))) : 100;
+}
+
+function resolveThemeHomeLogoScale(theme, mode = "desktop") {
+  const tokens = theme?.tokens || {};
+  const modeKey = HOME_LOGO_SCALE_TOKEN[mode] || HOME_LOGO_SCALE_TOKEN.desktop;
+  return normalizeHomeLogoScale(tokens[modeKey] ?? tokens.home_logo_scale ?? 100);
+}
+
 export function createThemesStore({ api, onThemesSaved, flash, at }) {
   const state = writable({
     themesCatalog: { default_theme: "dark", themes: [] },
@@ -49,7 +66,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
           themesDir: data.themes_dir || s.themesDir,
         }));
         if (!silent) flash(at("themes_saved", {}, "Темы сохранены"));
-        if (typeof onThemesSaved === "function") onThemesSaved();
+        if (typeof onThemesSaved === "function") await onThemesSaved();
       } else {
         flash(data?.message || data?.error || at("themes_save_failed", {}, "Не удалось сохранить"));
       }
@@ -214,27 +231,29 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     }));
   }
 
-  function setThemeHomeLogoScale(key, scale) {
-    if (String(scale ?? "").trim() === "") scale = 100;
-    const numeric = Number(scale);
-    const nextScale = Number.isFinite(numeric)
-      ? Math.min(300, Math.max(50, Math.round(numeric)))
-      : 100;
+  function setThemeHomeLogoScale(key, mode, scale) {
+    const normalizedMode = mode === "mobile" ? "mobile" : "desktop";
+    const nextScale = normalizeHomeLogoScale(scale);
     state.update((s) => ({
       ...s,
       themesCatalog: {
         ...s.themesCatalog,
-        themes: (s.themesCatalog.themes || []).map((theme) =>
-          theme.key === key
-            ? {
-                ...theme,
-                tokens: {
-                  ...(theme.tokens || {}),
-                  home_logo_scale: nextScale === 100 ? null : nextScale,
-                },
-              }
-            : theme
-        ),
+        themes: (s.themesCatalog.themes || []).map((theme) => {
+          if (theme.key !== key) return theme;
+          const desktopScale =
+            normalizedMode === "desktop" ? nextScale : resolveThemeHomeLogoScale(theme, "desktop");
+          const mobileScale =
+            normalizedMode === "mobile" ? nextScale : resolveThemeHomeLogoScale(theme, "mobile");
+          return {
+            ...theme,
+            tokens: {
+              ...(theme.tokens || {}),
+              home_logo_scale: null,
+              home_logo_scale_desktop: desktopScale === 100 ? null : desktopScale,
+              home_logo_scale_mobile: mobileScale === 100 ? null : mobileScale,
+            },
+          };
+        }),
       },
     }));
   }
@@ -246,6 +265,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     setCurrentTheme,
     setThemeAccent,
     setThemeHomeLogoScale,
+    resolveThemeHomeLogoScale,
     togglePrimaryAccent,
     toggleAdminUse,
     uploadLogoFile,

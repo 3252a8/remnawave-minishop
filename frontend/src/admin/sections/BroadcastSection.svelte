@@ -1,16 +1,35 @@
 <script>
   import { Textarea } from "$components/ui/index.js";
   import { Send } from "$components/ui/icons.js";
-  import { getContext } from "svelte";
+  import { getContext, onMount } from "svelte";
   import { Label } from "$components/ui/primitives.js";
   import { AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
 
   export let at;
   const broadcastStore = getContext("broadcastStore");
 
-  $: ({ broadcastTarget, broadcastText, broadcastBusy, broadcastResult } = $broadcastStore);
+  $: ({
+    broadcastTarget,
+    broadcastText,
+    broadcastBusy,
+    broadcastResult,
+    broadcastCounts,
+    broadcastCountsLoading,
+  } = $broadcastStore);
 
   const BROADCAST_TARGET_OPTIONS = broadcastStore.BROADCAST_TARGET_OPTIONS;
+
+  // Append the resolved audience size to each option once counts are loaded.
+  $: targetOptions = BROADCAST_TARGET_OPTIONS.map((option) => {
+    const count = broadcastCounts?.[option.value];
+    if (count != null) return { ...option, label: `${option.label} (${count})` };
+    if (broadcastCountsLoading) return { ...option, label: `${option.label} (...)` };
+    return option;
+  });
+
+  onMount(() => {
+    broadcastStore.loadCounts();
+  });
 </script>
 
 <div class="admin-card">
@@ -24,7 +43,7 @@
         <span>{at("broadcast_label_audience", {}, "Аудитория")}</span>
         <AdminSelect
           value={broadcastTarget}
-          items={BROADCAST_TARGET_OPTIONS}
+          items={targetOptions}
           ariaLabel={at("broadcast_label_audience", {}, "Аудитория")}
           onValueChange={(value) => broadcastStore.updateField({ broadcastTarget: value })}
         />

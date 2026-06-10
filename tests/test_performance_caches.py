@@ -42,6 +42,14 @@ class AsyncTTLCacheSingleflightTests(unittest.IsolatedAsyncioTestCase):
 
 
 class AsyncTTLCacheInvalidationTests(unittest.IsolatedAsyncioTestCase):
+    def test_get_stale_returns_expired_cacheable_value(self):
+        cache = AsyncTTLCache(ttl_seconds=60)
+        value = {"ok": True}
+        cache._data["same"] = (time.monotonic() - 1, value)
+
+        self.assertIsNone(cache.get_fresh("same"))
+        self.assertEqual(cache.get_stale("same"), value)
+
     async def test_invalidate_remote_deletes_single_redis_key(self):
         settings = SimpleNamespace(REDIS_URL="redis://example", REDIS_KEY_PREFIX="test")
         cache = AsyncTTLCache(ttl_seconds=60, settings=settings, namespace="bench")

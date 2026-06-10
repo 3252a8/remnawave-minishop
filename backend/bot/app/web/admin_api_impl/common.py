@@ -22,6 +22,175 @@ async def _read_json(request: web.Request) -> Dict[str, Any]:
         return {}
 
 
+_PANEL_LAST_CONNECTED_KEYS = (
+    "onlineAt",
+    "online_at",
+    "lastSeenAt",
+    "last_seen_at",
+    "lastConnectedAt",
+    "last_connected_at",
+    "lastConnectionAt",
+    "last_connection_at",
+)
+_PANEL_CONNECTION_MARKER_KEYS = (
+    *_PANEL_LAST_CONNECTED_KEYS,
+    "firstConnectedAt",
+    "first_connected_at",
+    "lastConnectedNodeUuid",
+    "last_connected_node_uuid",
+)
+_PANEL_CONNECTION_MARKER_OBJECT_KEYS = ("lastConnectedNode", "last_connected_node")
+_PANEL_TRAFFIC_OBJECT_KEYS = ("userTraffic", "user_traffic", "traffic", "trafficStats")
+_PANEL_TRAFFIC_USED_KEYS = (
+    "lifetimeUsedTrafficBytes",
+    "lifetime_used_traffic_bytes",
+    "usedTrafficBytes",
+    "used_traffic_bytes",
+    "trafficUsedBytes",
+    "traffic_used_bytes",
+    "downloadBytes",
+    "download_bytes",
+    "uploadBytes",
+    "upload_bytes",
+)
+
+
+def _panel_user_payload(panel_user_data: Any) -> Dict[str, Any]:
+    if not isinstance(panel_user_data, dict):
+        return {}
+    response = panel_user_data.get("response")
+    if isinstance(response, dict) and not any(
+        key in panel_user_data
+        for key in ("uuid", "shortUuid", "subscriptionUrl", "userTraffic", "status")
+    ):
+        return response
+    return panel_user_data
+
+
+def _coerce_panel_datetime(value: Any) -> Optional[str]:
+    if value is None or value is False:
+        return None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, (int, float)):
+        if value <= 0:
+            return None
+        seconds = float(value) / 1000.0 if value > 10_000_000_000 else float(value)
+        try:
+            return datetime.fromtimestamp(seconds, tz=timezone.utc).isoformat()
+        except (OSError, OverflowError, ValueError):
+            return None
+    text = str(value).strip()
+    if not text or text.lower() in {"0", "null", "none", "never"}:
+        return None
+    if text.isdigit():
+        return _coerce_panel_datetime(int(text))
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed.isoformat()
+
+
+def _coerce_panel_int(value: Any) -> Optional[int]:
+    try:
+        if value is None or value == "":
+            return None
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _panel_nested_dicts(panel_user: Dict[str, Any], keys: Tuple[str, ...]) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    for key in keys:
+        value = panel_user.get(key)
+        if isinstance(value, dict):
+            out.append(value)
+    return out
+
+
+def _panel_user_connection_containers(panel_user: Dict[str, Any]) -> List[Dict[str, Any]]:
+    traffic_containers = _panel_nested_dicts(panel_user, _PANEL_TRAFFIC_OBJECT_KEYS)
+    marker_containers = _panel_nested_dicts(
+        panel_user,
+        _PANEL_CONNECTION_MARKER_OBJECT_KEYS,
+    )
+    for traffic_container in traffic_containers:
+        marker_containers.extend(
+            _panel_nested_dicts(traffic_container, _PANEL_CONNECTION_MARKER_OBJECT_KEYS)
+        )
+    return [panel_user, *traffic_containers, *marker_containers]
+
+
+def _panel_user_last_connected_at(panel_user_data: Any) -> Optional[str]:
+    panel_user = _panel_user_payload(panel_user_data)
+    if not panel_user:
+        return None
+    for container in _panel_user_connection_containers(panel_user):
+        for key in _PANEL_LAST_CONNECTED_KEYS:
+            connected_at = _coerce_panel_datetime(container.get(key))
+            if connected_at:
+                return connected_at
+    return None
+
+
+def _panel_user_positive_traffic_bytes(panel_user: Dict[str, Any]) -> bool:
+    containers = [panel_user, *_panel_nested_dicts(panel_user, _PANEL_TRAFFIC_OBJECT_KEYS)]
+    for container in containers:
+        for key in _PANEL_TRAFFIC_USED_KEYS:
+            value = _coerce_panel_int(container.get(key))
+            if value is not None and value > 0:
+                return True
+    return False
+
+
+def _panel_user_has_connection_marker(panel_user: Dict[str, Any]) -> bool:
+    for container in _panel_user_connection_containers(panel_user):
+        for key in _PANEL_CONNECTION_MARKER_KEYS:
+            if key in container:
+                return True
+    for container in [panel_user, *_panel_nested_dicts(panel_user, _PANEL_TRAFFIC_OBJECT_KEYS)]:
+        for key in _PANEL_CONNECTION_MARKER_OBJECT_KEYS:
+            if key in container:
+                return True
+    return False
+
+
+def _panel_user_has_connected_marker_value(panel_user: Dict[str, Any]) -> bool:
+    for container in _panel_user_connection_containers(panel_user):
+        for key in (*_PANEL_LAST_CONNECTED_KEYS, "firstConnectedAt", "first_connected_at"):
+            if _coerce_panel_datetime(container.get(key)):
+                return True
+        for key in ("lastConnectedNodeUuid", "last_connected_node_uuid"):
+            if str(container.get(key) or "").strip():
+                return True
+    for container in [panel_user, *_panel_nested_dicts(panel_user, _PANEL_TRAFFIC_OBJECT_KEYS)]:
+        for key in _PANEL_CONNECTION_MARKER_OBJECT_KEYS:
+            marker = container.get(key)
+            if isinstance(marker, dict) and any(
+                str(value or "").strip() for value in marker.values()
+            ):
+                return True
+            if marker and not isinstance(marker, dict):
+                return True
+    return False
+
+
+def _panel_user_connection_activity(panel_user_data: Any) -> Dict[str, Any]:
+    panel_user = _panel_user_payload(panel_user_data)
+    last_connected_at = _panel_user_last_connected_at(panel_user)
+    if not panel_user:
+        return {"status": "unknown", "last_connected_at": None}
+    if last_connected_at or _panel_user_positive_traffic_bytes(panel_user):
+        return {"status": "connected", "last_connected_at": last_connected_at}
+    if _panel_user_has_connected_marker_value(panel_user):
+        return {"status": "connected", "last_connected_at": last_connected_at}
+    if _panel_user_has_connection_marker(panel_user):
+        return {"status": "never", "last_connected_at": None}
+    return {"status": "unknown", "last_connected_at": None}
+
+
 def _serialize_user(user: User) -> Dict[str, Any]:
     return {
         "user_id": int(user.user_id),
@@ -94,6 +263,9 @@ def _serialize_subscription(sub: Subscription) -> Dict[str, Any]:
     regular_unlimited_override = bool(getattr(sub, "regular_unlimited_override", False))
     premium_unlimited_override = bool(getattr(sub, "premium_unlimited_override", False))
     premium_limit_bytes = _premium_limit_bytes_from_subscription(sub)
+    provider = sub.provider
+    is_trial = str(provider or "").strip().lower() == "trial"
+    display_label = "Trial" if is_trial else sub.tariff_key
     return {
         "subscription_id": int(sub.subscription_id),
         "panel_user_uuid": sub.panel_user_uuid,
@@ -117,9 +289,13 @@ def _serialize_subscription(sub: Subscription) -> Dict[str, Any]:
         "regular_unlimited_override": regular_unlimited_override,
         "premium_unlimited_override": premium_unlimited_override,
         "premium_is_limited": bool(sub.premium_is_limited),
+        "hwid_device_limit": getattr(sub, "hwid_device_limit", None),
+        "extra_hwid_devices": int(getattr(sub, "extra_hwid_devices", 0) or 0),
         "tariff_key": sub.tariff_key,
+        "display_label": display_label,
+        "is_trial": is_trial,
         "auto_renew_enabled": bool(sub.auto_renew_enabled),
-        "provider": sub.provider,
+        "provider": provider,
         "is_throttled": bool(sub.is_throttled),
     }
 

@@ -204,3 +204,77 @@ body:has(.theme-key-light) .install-platform-item[data-selected] {
 .theme-key-light .install-loading .ui-spinner {
   color: color-mix(in srgb, var(--accent) 55%, #000000);
 }
+
+/* Admin controls: range sliders and sortable rows */
+
+.theme-key-light .ui-range-input::before {
+  background: rgba(15, 23, 42, 0.12);
+}
+
+.theme-key-light .ui-range-input__range {
+  background: color-mix(in srgb, var(--accent) 70%, #0f172a);
+}
+
+.theme-key-light .ui-range-input__thumb {
+  border-color: color-mix(in srgb, var(--accent) 68%, #0f172a);
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+}
+
+.theme-key-light .ui-range-input__thumb:focus-visible {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.theme-key-light .ui-sortable-handle {
+  border-radius: 6px;
+  color: color-mix(in srgb, var(--admin-muted) 82%, var(--admin-text));
+}
+
+.theme-key-light .ui-sortable-handle:hover,
+.theme-key-light .ui-sortable-handle:focus-visible {
+  background: rgba(15, 23, 42, 0.055);
+  color: color-mix(in srgb, var(--accent) 58%, #0f172a);
+}
+
+.theme-key-light .ui-sortable {
+  --sortable-drop-line: color-mix(in srgb, var(--accent) 64%, #0f172a);
+}
+
+.theme-key-light .ui-sortable-item.is-drop-target {
+  background: color-mix(in srgb, var(--accent) 8%, #ffffff);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent),
+    0 10px 22px color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.theme-key-light .ui-sortable-item.is-drop-target::before {
+  background: var(--sortable-drop-line);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* Admin health config alerts */
+
+.theme-key-light .admin-config-alerts {
+  border-color: color-mix(in srgb, var(--warning) 38%, var(--admin-border));
+  background: color-mix(in srgb, var(--warning) 9%, #ffffff);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+}
+
+.theme-key-light .admin-config-alerts-error {
+  border-color: color-mix(in srgb, var(--danger) 38%, var(--admin-border));
+  background: color-mix(in srgb, var(--danger) 8%, #ffffff);
+}
+
+.theme-key-light .admin-config-alert-link {
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.theme-key-light .admin-config-alert-link:hover {
+  background: #ffffff;
+}
+
+/* Telegram notifications banner: keep the warm warning tint but swap the
+ * dark-theme inset bevel for the soft drop shadow the other light cards use. */
+.theme-key-light .telegram-notifications-card {
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.07);
+}

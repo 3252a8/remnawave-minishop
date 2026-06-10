@@ -1,5 +1,11 @@
 from db.migrator import MIGRATIONS
-from db.models import SupportTicket, SupportTicketMessage, User
+from db.models import (
+    LegacyImportMapping,
+    LegacyReferralCode,
+    SupportTicket,
+    SupportTicketMessage,
+    User,
+)
 
 
 def test_support_migration_is_registered_after_existing_revisions():
@@ -39,3 +45,18 @@ def test_trial_eligibility_reset_migration_and_model_are_registered():
         "0032_add_telegram_notification_status"
     )
     assert "trial_eligibility_reset_at" in User.__table__.columns
+
+
+def test_legacy_import_compatibility_migration_and_models_are_registered():
+    ids = [migration.id for migration in MIGRATIONS]
+
+    assert "0034_add_legacy_import_compatibility" in ids
+    assert ids.index("0034_add_legacy_import_compatibility") > ids.index(
+        "0033_add_trial_eligibility_reset_marker"
+    )
+    assert User.__table__.columns["referral_code"].type.length == 64
+    assert LegacyReferralCode.__tablename__ == "legacy_referral_codes"
+    assert LegacyImportMapping.__tablename__ == "legacy_import_mappings"
+    assert "uq_legacy_referral_source_code" in {
+        constraint.name for constraint in LegacyReferralCode.__table__.constraints
+    }

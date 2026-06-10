@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import secrets
 from typing import Any, Dict, List, Optional
 
@@ -25,7 +26,128 @@ DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_EN = (
 def _split_csv(value: Optional[str]) -> List[str]:
     if not value:
         return []
-    return [item.strip() for item in value.split(",") if item.strip()]
+    return [item.strip() for item in re.split(r"[,;\r\n]+", value) if item.strip()]
+
+
+DEFAULT_DISPOSABLE_EMAIL_DOMAINS = "\n".join(
+    [
+        "10minutemail.com",
+        "10minutemail.net",
+        "10minutemail.org",
+        "20minutemail.com",
+        "33mail.com",
+        "anonbox.net",
+        "anonymbox.com",
+        "armyspy.com",
+        "byom.de",
+        "crazymailing.com",
+        "cuvox.de",
+        "dayrep.com",
+        "deadaddress.com",
+        "dispostable.com",
+        "dodgeit.com",
+        "dodgit.com",
+        "dropmail.me",
+        "easytrashmail.com",
+        "emailfake.com",
+        "emailondeck.com",
+        "emailtemporanea.com",
+        "emailtemporanea.net",
+        "einrot.com",
+        "fakeinbox.com",
+        "filzmail.com",
+        "fleckens.hu",
+        "generator.email",
+        "getairmail.com",
+        "getnada.com",
+        "grr.la",
+        "guerrillamail.biz",
+        "guerrillamail.com",
+        "guerrillamail.de",
+        "guerrillamail.info",
+        "guerrillamail.net",
+        "guerrillamail.org",
+        "guerrillamailblock.com",
+        "gustr.com",
+        "hmamail.com",
+        "incognitomail.org",
+        "inboxbear.com",
+        "jetable.org",
+        "jourrapide.com",
+        "kasmail.com",
+        "mail-temp.com",
+        "mailcatch.com",
+        "maildrop.cc",
+        "mailexpire.com",
+        "mailinator.com",
+        "mailinator.net",
+        "mailinator.org",
+        "mailmetrash.com",
+        "mailnesia.com",
+        "mailnull.com",
+        "mailpoof.com",
+        "mailtothis.com",
+        "mail.tm",
+        "mintemail.com",
+        "mohmal.com",
+        "moakt.com",
+        "mytemp.email",
+        "mytrashmail.com",
+        "nada.email",
+        "no-spam.ws",
+        "pookmail.com",
+        "rhyta.com",
+        "sharklasers.com",
+        "sofort-mail.de",
+        "spam4.me",
+        "spambog.com",
+        "spamdecoy.net",
+        "spamfree24.org",
+        "spamgourmet.com",
+        "spamhole.com",
+        "spam.la",
+        "spammotel.com",
+        "superrito.com",
+        "teleworm.us",
+        "tempail.com",
+        "temp-mail.io",
+        "temp-mail.org",
+        "tempmail.com",
+        "tempmail.dev",
+        "tempmail.net",
+        "tempmailo.com",
+        "temporaryemail.net",
+        "temporary-mail.net",
+        "tempr.email",
+        "throwawaymail.com",
+        "trash-mail.com",
+        "trash-mail.de",
+        "trashmail.com",
+        "trashmail.me",
+        "trashmail.net",
+        "trashmailer.com",
+        "trashymail.com",
+        "weg-werf-email.de",
+        "wegwerfmail.de",
+        "wegwerfmail.net",
+        "wegwerfmail.org",
+        "yomail.info",
+        "yopmail.com",
+        "yopmail.fr",
+        "yopmail.net",
+    ]
+)
+
+DEFAULT_TRUSTED_PROXIES = ",".join(
+    [
+        "127.0.0.1",
+        "::1",
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "fc00::/7",
+    ]
+)
 
 
 class DBSettings(BaseModel):
@@ -59,9 +181,6 @@ class WebAppSettings(BaseModel):
     title: str
     primary_color: str
     logo_url: Optional[str]
-    logo_use_emoji: bool
-    logo_emoji: str
-    logo_emoji_font: str
     favicon_use_custom: bool
     favicon_url: Optional[str]
     logo_favicon_url: Optional[str]
@@ -100,14 +219,31 @@ class Settings(BaseSettings):
     PANEL_DEVICES_CACHE_TTL_SECONDS: int = Field(default=5)
     PANEL_ALL_USERS_CACHE_TTL_SECONDS: int = Field(default=5)
     PANEL_ALL_USERS_PAGE_SIZE: int = Field(default=1000)
+    PANEL_API_TOTAL_TIMEOUT_SECONDS: float = Field(default=25)
+    PANEL_API_CONNECT_TIMEOUT_SECONDS: float = Field(default=8)
+    PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS: float = Field(default=8)
+    PANEL_API_SOCK_READ_TIMEOUT_SECONDS: float = Field(default=15)
     ADMIN_PANEL_STATS_CACHE_TTL_SECONDS: int = Field(default=15)
     ADMIN_DB_STATS_CACHE_TTL_SECONDS: int = Field(default=5)
     ADMIN_USERS_LIST_CACHE_TTL_SECONDS: int = Field(default=3)
+    ADMIN_BROADCAST_AUDIENCE_COUNTS_CACHE_TTL_SECONDS: int = Field(default=30)
     PROFILE_SYNC_CACHE_TTL_SECONDS: int = Field(default=900)
     PANEL_SYNC_LIFETIME_TRAFFIC_MIN_INTERVAL_SECONDS: int = Field(default=3600)
     PANEL_SYNC_LIFETIME_TRAFFIC_MIN_DELTA_BYTES: int = Field(default=104857600)
     WEBAPP_RATE_LIMIT_TTL_SECONDS: int = Field(default=60)
     WEBAPP_RATE_LIMIT_MAX_REQUESTS: int = Field(default=30)
+    TELEGRAM_DROP_NON_PRIVATE_UPDATES: bool = Field(default=True)
+    TELEGRAM_ANTIFLOOD_ENABLED: bool = Field(default=True)
+    TELEGRAM_ANTIFLOOD_WINDOW_SECONDS: int = Field(default=60)
+    TELEGRAM_ANTIFLOOD_MAX_UPDATES_PER_WINDOW: int = Field(default=180)
+    TELEGRAM_ANTIFLOOD_MESSAGE_MAX_PER_WINDOW: int = Field(default=120)
+    TELEGRAM_ANTIFLOOD_CALLBACK_MAX_PER_WINDOW: int = Field(default=240)
+    TELEGRAM_ANTIFLOOD_INLINE_MAX_PER_WINDOW: int = Field(default=60)
+    TELEGRAM_ANTIFLOOD_START_MAX_PER_WINDOW: int = Field(default=30)
+    TELEGRAM_ANTIFLOOD_EXPENSIVE_CALLBACK_MAX_PER_WINDOW: int = Field(default=60)
+    TELEGRAM_ACTION_COOLDOWN_ENABLED: bool = Field(default=True)
+    TELEGRAM_PAYMENT_CALLBACK_COOLDOWN_SECONDS: int = Field(default=20)
+    TELEGRAM_TRIAL_CALLBACK_COOLDOWN_SECONDS: int = Field(default=30)
     WEBHOOK_QUEUE_NAME: str = Field(default="webhook-events")
     WEBHOOK_QUEUE_CONCURRENCY: int = Field(default=4)
     WORKER_PANEL_SYNC_INTERVAL_SECONDS: int = Field(default=900)
@@ -147,7 +283,6 @@ class Settings(BaseSettings):
 
     SUPPORT_LINK: Optional[str] = Field(default=None)
     SERVER_STATUS_URL: Optional[str] = Field(default=None)
-    TERMS_OF_SERVICE_URL: Optional[str] = Field(default=None)
     PRIVACY_POLICY_URL: Optional[str] = Field(default=None)
     USER_AGREEMENT_URL: Optional[str] = Field(default=None)
     REQUIRED_CHANNEL_ID: Optional[int] = Field(
@@ -186,7 +321,7 @@ class Settings(BaseSettings):
 
     WEBHOOK_BASE_URL: Optional[str] = None
     TRUSTED_PROXIES: Optional[str] = Field(
-        default="127.0.0.1,::1",
+        default=DEFAULT_TRUSTED_PROXIES,
         description="Comma-separated list of reverse proxy IPs or CIDRs trusted to forward X-Forwarded-For.",  # noqa: E501
     )
 
@@ -194,7 +329,7 @@ class Settings(BaseSettings):
     STARS_ADMIN_ONLY_ENABLED: bool = Field(default=False)
     PAYMENT_METHODS_ORDER: Optional[str] = Field(
         default=None,
-        description="Comma-separated list of payment methods to show (e.g., severpay,wata,freekassa,yookassa,platega,stars,cryptopay)",  # noqa: E501
+        description="Comma-separated list of payment methods to show (e.g., severpay,wata,freekassa,yookassa,platega,stars,cryptopay,heleket,paykilla)",  # noqa: E501
     )
     SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED: bool = Field(
         default=True,
@@ -207,6 +342,11 @@ class Settings(BaseSettings):
     SUBSCRIPTION_PURCHASE_DESCRIPTION_EN: str = Field(
         default=DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_EN,
         description="English subscription description shown before purchase/renewal options.",
+    )
+    PAYMENT_REQUEST_TIMEOUT_SECONDS: float = Field(
+        default=20,
+        ge=1,
+        description="Maximum total time for one payment provider API request, in seconds.",
     )
 
     MONTH_1_ENABLED: bool = Field(default=True, alias="1_MONTH_ENABLED")
@@ -282,9 +422,34 @@ class Settings(BaseSettings):
         default=3,
         description="Welcome bonus days granted to a newly registered user who joined via referral link.",  # noqa: E501
     )
+    REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED: bool = Field(
+        default=True,
+        description=(
+            "Allow referral welcome bonus grants for users who have not linked Telegram. "
+            "Disposable email domains are still blocked until Telegram is linked."
+        ),
+    )
     LEGACY_REFS: bool = Field(
         default=True,
         description="Allow legacy referral links like ref_<telegram_id> to continue working. Defaults to True when unset.",  # noqa: E501
+    )
+    MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED: bool = Field(
+        default=False,
+        description=(
+            "Accept referral links imported from snoups/remnashop via legacy_referral_codes."
+        ),
+    )
+    MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED: bool = Field(
+        default=False,
+        description="Try exact legacy Remnashop promo codes before uppercase normalization.",
+    )
+    MIGRATION_REMNASHOP_IMPORTED_AT: Optional[str] = Field(
+        default=None,
+        description="Timestamp of the latest Remnashop import run, managed by the import script.",
+    )
+    MIGRATION_REMNASHOP_NOTES: Optional[str] = Field(
+        default=None,
+        description="Operator notes for instances migrated from Remnashop.",
     )
 
     APP_RUNTIME_MODE: str = Field(
@@ -328,6 +493,13 @@ class Settings(BaseSettings):
     TRIAL_DURATION_DAYS: int = Field(default=3)
     TRIAL_TRAFFIC_LIMIT_GB: Optional[float] = Field(default=5.0)
     TRIAL_TRAFFIC_STRATEGY: str = Field(default="NO_RESET")
+    TRIAL_WITHOUT_TELEGRAM_ENABLED: bool = Field(
+        default=True,
+        description=(
+            "Allow trial activation for users who have not linked Telegram. "
+            "Disposable email domains are still blocked until Telegram is linked."
+        ),
+    )
     TRIAL_SQUAD_UUIDS: Optional[str] = Field(
         default=None,
         description=(
@@ -373,15 +545,6 @@ class Settings(BaseSettings):
         ),
     )
     WEBAPP_LOGO_URL: Optional[str] = Field(default=None)
-    WEBAPP_LOGO_USE_EMOJI: bool = Field(default=False)
-    WEBAPP_LOGO_EMOJI: str = Field(default="🫥")
-    WEBAPP_LOGO_EMOJI_FONT: str = Field(
-        default="system",
-        description=(
-            "Emoji font for logo fallback: system, noto-color, noto-color-animated, "
-            "noto-emoji, twemoji, openmoji, apple, segoe, noto-local"
-        ),
-    )
     WEBAPP_FAVICON_USE_CUSTOM: bool = Field(default=False)
     WEBAPP_FAVICON_URL: Optional[str] = Field(default=None)
     WEBAPP_LOGO_FAVICON_URL: Optional[str] = Field(default=None)
@@ -440,6 +603,13 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: Optional[str] = Field(default=None)
     SMTP_FROM_EMAIL: Optional[str] = Field(default=None)
     SMTP_FROM_NAME: Optional[str] = Field(default=None)
+    DISPOSABLE_EMAIL_DOMAINS: str = Field(
+        default=DEFAULT_DISPOSABLE_EMAIL_DOMAINS,
+        description=(
+            "Disposable email domains treated as requiring Telegram for trial and "
+            "referral welcome bonus abuse protection. Accepts commas or one domain per line."
+        ),
+    )
     SMTP_STARTTLS: bool = Field(default=True)
     SMTP_USE_SSL: bool = Field(default=False)
     EMAIL_CODE_TTL_SECONDS: int = Field(default=10 * 60)
@@ -544,9 +714,6 @@ class Settings(BaseSettings):
             title=self.WEBAPP_TITLE,
             primary_color=self.WEBAPP_PRIMARY_COLOR,
             logo_url=self.WEBAPP_LOGO_URL,
-            logo_use_emoji=self.WEBAPP_LOGO_USE_EMOJI,
-            logo_emoji=self.WEBAPP_LOGO_EMOJI,
-            logo_emoji_font=self.WEBAPP_LOGO_EMOJI_FONT,
             favicon_use_custom=self.WEBAPP_FAVICON_USE_CUSTOM,
             favicon_url=self.WEBAPP_FAVICON_URL,
             logo_favicon_url=self.WEBAPP_LOGO_FAVICON_URL,
@@ -626,6 +793,16 @@ class Settings(BaseSettings):
             if trial_squads:
                 return trial_squads
         return self.parsed_user_squad_uuids
+
+    @computed_field
+    @property
+    def disposable_email_domains(self) -> List[str]:
+        domains: List[str] = []
+        for domain in _split_csv(self.DISPOSABLE_EMAIL_DOMAINS):
+            normalized = domain.strip().lower().lstrip("@.")
+            if normalized and normalized not in domains:
+                domains.append(normalized)
+        return domains
 
     @computed_field
     @property
@@ -788,21 +965,6 @@ class Settings(BaseSettings):
     def ignore_deprecated_webapp_logo_url_env(cls, _value):
         return None
 
-    @field_validator("WEBAPP_LOGO_USE_EMOJI", mode="before")
-    @classmethod
-    def ignore_deprecated_webapp_logo_use_emoji_env(cls, _value):
-        return False
-
-    @field_validator("WEBAPP_LOGO_EMOJI", mode="before")
-    @classmethod
-    def ignore_deprecated_webapp_logo_emoji_env(cls, _value):
-        return "🫥"
-
-    @field_validator("WEBAPP_LOGO_EMOJI_FONT", mode="before")
-    @classmethod
-    def ignore_deprecated_webapp_logo_emoji_font_env(cls, _value):
-        return "system"
-
     @field_validator("WEBAPP_FAVICON_USE_CUSTOM", mode="before")
     @classmethod
     def ignore_deprecated_webapp_favicon_use_custom_env(cls, _value):
@@ -893,6 +1055,7 @@ class Settings(BaseSettings):
             "stars",
             "cryptopay",
             "heleket",
+            "paykilla",
         ]
         # Make sure default_order itself includes every registered spec.
         for sid in spec_ids:
@@ -1105,9 +1268,10 @@ class Settings(BaseSettings):
     TELEMETRY_ENABLED: bool = Field(
         default=True,
         description=(
-            "Send an anonymous daily install heartbeat (version, OS, locale, "
-            "user-count range). No personal data. Opt out here, via the web "
-            "admin, or by clearing TELEMETRY_ENDPOINT/TELEMETRY_API_KEY."
+            "Send an anonymous daily install heartbeat (version, official/custom "
+            "image provenance, OS, locale, user-count range). No personal data. "
+            "Opt out here, via the web admin, or by clearing "
+            "TELEMETRY_ENDPOINT/TELEMETRY_API_KEY."
         ),
     )
     TELEMETRY_ENDPOINT: str = Field(
