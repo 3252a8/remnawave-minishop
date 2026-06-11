@@ -6,6 +6,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 USER_DETAIL = REPO_ROOT / "frontend/src/admin/sections/UserDetailModal.svelte"
 ADMIN_CSS = REPO_ROOT / "frontend/src/styles/admin.css"
+USERS_STORE = REPO_ROOT / "frontend/src/lib/admin/stores/usersStore.js"
 
 
 def _source() -> str:
@@ -75,3 +76,56 @@ def test_extend_tariff_current_badge_is_localized():
     for language in ("ru", "en"):
         messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
         assert messages["admin_user_tariff_current_badge"]
+
+
+def test_action_save_buttons_require_dirty_valid_state():
+    source = _source()
+
+    assert "tariffActionDirty" in source
+    assert "premiumOverrideDirty" in source
+    assert "regularOverrideDirty" in source
+    assert "hwidLimitDirty" in source
+    assert "premiumOverrideDraftValid" in source
+    assert "regularOverrideDraftValid" in source
+    assert "hwidLimitDraftValid" in source
+    assert "grantTrafficGbValid" in source
+    assert "class:is-dirty={tariffActionDirty}" in source
+    assert "class:is-dirty={premiumOverrideDirty}" in source
+    assert "class:is-dirty={regularOverrideDirty}" in source
+    assert "class:is-dirty={hwidLimitDirty}" in source
+    assert "!tariffActionDirty" in source
+    assert "!premiumOverrideDirty" in source
+    assert "!regularOverrideDirty" in source
+    assert "!hwidLimitDirty" in source
+    assert "!grantTrafficGbValid" in source
+
+
+def test_action_cards_surface_unsaved_state():
+    source = _source()
+
+    assert "admin-action-save-controls" in source
+    assert "admin-unsaved-hint" in source
+    assert "user_action_unsaved_hint" in source
+    assert 'at("settings_badge_dirty"' in source
+
+    for language in ("ru", "en"):
+        messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
+        assert messages["admin_user_action_unsaved_hint"]
+
+
+def test_user_action_saves_refresh_details_without_reopening_modal():
+    store = USERS_STORE.read_text(encoding="utf-8")
+    action_start = store.index("async function extendUser()")
+    action_end = store.index("async function deleteUser()", action_start)
+    action_block = store[action_start:action_end]
+
+    assert "async function refreshOpenedUserDetail" in store
+    assert "userTariffActionBaselineKey" in store
+    assert "premiumBonusGbBaseline" in store
+    assert "regularBonusGbBaseline" in store
+    assert "hwidDeviceLimitBaseline" in store
+    assert "await openUser(" not in action_block
+    assert action_block.count("await refreshOpenedUserDetail(") >= 7
+    assert "resetPremium: false" in action_block
+    assert "resetRegular: false" in action_block
+    assert "resetHwid: false" in action_block

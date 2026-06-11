@@ -138,6 +138,32 @@
     };
   }
 
+  function gbDraftNumber(value) {
+    if (value === "" || value === null || value === undefined) return 0;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : NaN;
+  }
+
+  function sameGbDraft(left, right) {
+    const leftNum = gbDraftNumber(left);
+    const rightNum = gbDraftNumber(right);
+    if (!Number.isFinite(leftNum) || !Number.isFinite(rightNum)) return false;
+    return Math.abs(leftNum - rightNum) < 0.000001;
+  }
+
+  function hwidDraftState(unlimited, value) {
+    if (unlimited) return { key: "unlimited", valid: true };
+    if (value === "" || value === null || value === undefined) {
+      return { key: "default", valid: true };
+    }
+    const limit = Number(value);
+    if (!Number.isInteger(limit) || limit < 0 || limit > 1_000_000) {
+      return { key: "invalid", valid: false };
+    }
+    if (limit === 0) return { key: "unlimited", valid: true };
+    return { key: `limit:${limit}`, valid: true };
+  }
+
   $: ({
     openedUser,
     openedUserDetail,
@@ -154,8 +180,21 @@
     userReferralsPage,
     userReferralsPageSize,
     premiumUnlimitedDraft,
+    premiumUnlimitedBaseline,
+    premiumBonusGbDraft,
+    premiumBonusGbBaseline,
+    regularUnlimitedDraft,
+    regularUnlimitedBaseline,
+    regularBonusGbDraft,
+    regularBonusGbBaseline,
     hwidUnlimitedDraft,
+    hwidUnlimitedBaseline,
+    hwidDeviceLimitDraft,
+    hwidDeviceLimitBaseline,
     userDetailTab,
+    userTariffActionKey,
+    userTariffActionBaselineKey,
+    grantTrafficGbDraft,
     userLogs,
     userLogsTotal,
     userLogsPage,
@@ -208,6 +247,25 @@
   $: extendTariffsLoading = Boolean(
     openedUser && $tariffsStore.tariffsLoading && !extendTariffItems.length
   );
+  $: tariffActionDirty =
+    Boolean(userTariffActionKey) && userTariffActionKey !== userTariffActionBaselineKey;
+  $: premiumOverrideDraftValid = gbDraftNumber(premiumBonusGbDraft) >= 0;
+  $: premiumOverrideDirty =
+    Boolean(premiumUnlimitedDraft) !== Boolean(premiumUnlimitedBaseline) ||
+    !sameGbDraft(premiumBonusGbDraft, premiumBonusGbBaseline);
+  $: regularOverrideDraftValid = gbDraftNumber(regularBonusGbDraft) >= 0;
+  $: regularOverrideDirty =
+    Boolean(regularUnlimitedDraft) !== Boolean(regularUnlimitedBaseline) ||
+    !sameGbDraft(regularBonusGbDraft, regularBonusGbBaseline);
+  $: hwidDraft = hwidDraftState(hwidUnlimitedDraft, hwidDeviceLimitDraft);
+  $: hwidBaseline = hwidDraftState(hwidUnlimitedBaseline, hwidDeviceLimitBaseline);
+  $: hwidLimitDraftValid = hwidDraft.valid;
+  $: hwidLimitDirty = hwidDraft.key !== hwidBaseline.key;
+  $: grantTrafficGbValid =
+    grantTrafficGbDraft !== "" &&
+    grantTrafficGbDraft !== null &&
+    grantTrafficGbDraft !== undefined &&
+    gbDraftNumber(grantTrafficGbDraft) > 0;
   $: currentSubscriptionTariffLabel =
     (currentSubscriptionTariff ? tariffLabel(currentSubscriptionTariff) : "") ||
     periodTariffItems.find((item) => item.value === currentSubscriptionTariffKey)?.label ||
@@ -969,7 +1027,10 @@
 
               {#if openedUserDetail?.active_subscription}
                 {#if periodTariffItems.length}
-                  <section class="admin-user-action-sheet admin-user-action-sheet--tariff">
+                  <section
+                    class="admin-user-action-sheet admin-user-action-sheet--tariff"
+                    class:is-dirty={tariffActionDirty}
+                  >
                     <AdminSectionHeader
                       title={at("user_tariff_card_title", {}, "Tariff")}
                       description={at(
@@ -1002,19 +1063,36 @@
                             `Current: ${currentSubscriptionTariffLabel}`
                           )}
                         </span>
-                        <AdminButton
-                          variant="primary"
-                          onclick={usersStore.changeUserTariff}
-                          disabled={userActionBusy || !$usersStore.userTariffActionKey}
-                        >
-                          <RefreshCw size={14} />
-                          {at("user_tariff_save", {}, "Save tariff")}
-                        </AdminButton>
+                        <div class="admin-action-save-controls">
+                          {#if tariffActionDirty}
+                            <AdminBadge variant="warning"
+                              >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                            >
+                          {/if}
+                          <AdminButton
+                            variant="primary"
+                            onclick={usersStore.changeUserTariff}
+                            disabled={userActionBusy || !userTariffActionKey || !tariffActionDirty}
+                          >
+                            <RefreshCw size={14} />
+                            {at("user_tariff_save", {}, "Save tariff")}
+                          </AdminButton>
+                        </div>
                       </div>
+                      {#if tariffActionDirty}
+                        <div class="admin-override-status-lines">
+                          <span class="admin-unsaved-hint">
+                            {at("user_action_unsaved_hint", {}, "Есть несохранённые изменения")}
+                          </span>
+                        </div>
+                      {/if}
                     </div>
                   </section>
                 {/if}
-                <section class="admin-user-action-sheet admin-user-action-sheet--premium-override">
+                <section
+                  class="admin-user-action-sheet admin-user-action-sheet--premium-override"
+                  class:is-dirty={premiumOverrideDirty}
+                >
                   <AdminSectionHeader
                     title={at("user_premium_override_card_title", {}, "Премиум-трафик")}
                     description={at(
@@ -1053,15 +1131,34 @@
                         />
                         <span>{at("user_override_unlimited_short", {}, "Безлимит")}</span>
                       </label>
-                      <AdminButton
-                        variant="primary"
-                        onclick={usersStore.savePremiumTrafficOverride}
-                        disabled={userActionBusy}
-                      >
-                        {at("user_premium_override_save", {}, "Сохранить")}
-                      </AdminButton>
+                      <div class="admin-action-save-controls">
+                        {#if premiumOverrideDirty}
+                          <AdminBadge variant="warning"
+                            >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                          >
+                        {/if}
+                        <AdminButton
+                          variant="primary"
+                          onclick={usersStore.savePremiumTrafficOverride}
+                          disabled={userActionBusy ||
+                            !premiumOverrideDirty ||
+                            !premiumOverrideDraftValid}
+                        >
+                          {at("user_premium_override_save", {}, "Сохранить")}
+                        </AdminButton>
+                      </div>
                     </div>
                     <div class="admin-override-status-lines">
+                      {#if premiumOverrideDirty}
+                        <span class="admin-unsaved-hint">
+                          {at("user_action_unsaved_hint", {}, "Есть несохранённые изменения")}
+                        </span>
+                      {/if}
+                      {#if !premiumOverrideDraftValid}
+                        <span class="admin-invalid-hint">
+                          {at("premium_override_invalid_bonus", {}, "Некорректное значение GB")}
+                        </span>
+                      {/if}
                       {#if openedUserDetail.active_subscription.premium_unlimited_override}
                         <span class="admin-meta-truncate">
                           {at("user_premium_override_status_unlimited", {}, "Сейчас: безлимит")}
@@ -1092,7 +1189,10 @@
                   </div>
                 </section>
 
-                <section class="admin-user-action-sheet admin-user-action-sheet--regular-override">
+                <section
+                  class="admin-user-action-sheet admin-user-action-sheet--regular-override"
+                  class:is-dirty={regularOverrideDirty}
+                >
                   <AdminSectionHeader
                     title={at("user_regular_override_card_title", {}, "Основной трафик")}
                     description={at(
@@ -1113,7 +1213,7 @@
                         min="0"
                         step="1"
                         placeholder="0"
-                        disabled={$usersStore.regularUnlimitedDraft}
+                        disabled={regularUnlimitedDraft}
                         aria-label={at(
                           "user_regular_override_bonus",
                           {},
@@ -1132,15 +1232,38 @@
                         />
                         <span>{at("user_override_unlimited_short", {}, "Безлимит")}</span>
                       </label>
-                      <AdminButton
-                        variant="primary"
-                        onclick={usersStore.saveRegularTrafficOverride}
-                        disabled={userActionBusy}
-                      >
-                        {at("user_regular_override_save", {}, "Сохранить")}
-                      </AdminButton>
+                      <div class="admin-action-save-controls">
+                        {#if regularOverrideDirty}
+                          <AdminBadge variant="warning"
+                            >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                          >
+                        {/if}
+                        <AdminButton
+                          variant="primary"
+                          onclick={usersStore.saveRegularTrafficOverride}
+                          disabled={userActionBusy ||
+                            !regularOverrideDirty ||
+                            !regularOverrideDraftValid}
+                        >
+                          {at("user_regular_override_save", {}, "Сохранить")}
+                        </AdminButton>
+                      </div>
                     </div>
                     <div class="admin-override-status-lines">
+                      {#if regularOverrideDirty}
+                        <span class="admin-unsaved-hint">
+                          {at("user_action_unsaved_hint", {}, "Есть несохранённые изменения")}
+                        </span>
+                      {/if}
+                      {#if !regularOverrideDraftValid}
+                        <span class="admin-invalid-hint">
+                          {at(
+                            "regular_override_invalid_bonus",
+                            {},
+                            "Некорректное значение GB для основного трафика"
+                          )}
+                        </span>
+                      {/if}
                       {#if openedUserDetail.active_subscription.regular_unlimited_override}
                         <span class="admin-meta-truncate">
                           {at("user_regular_override_status_unlimited", {}, "Сейчас: безлимит")}
@@ -1171,7 +1294,10 @@
                   </div>
                 </section>
 
-                <section class="admin-user-action-sheet admin-user-action-sheet--hwid-limit">
+                <section
+                  class="admin-user-action-sheet admin-user-action-sheet--hwid-limit"
+                  class:is-dirty={hwidLimitDirty}
+                >
                   <AdminSectionHeader
                     title={at("user_hwid_limit_card_title", {}, "HWID-устройства")}
                     description={at(
@@ -1211,15 +1337,36 @@
                         />
                         <span>{at("user_override_unlimited_short", {}, "Безлимит")}</span>
                       </label>
-                      <AdminButton
-                        variant="primary"
-                        onclick={usersStore.saveHwidDeviceLimit}
-                        disabled={userActionBusy}
-                      >
-                        {at("user_hwid_limit_save", {}, "Сохранить")}
-                      </AdminButton>
+                      <div class="admin-action-save-controls">
+                        {#if hwidLimitDirty}
+                          <AdminBadge variant="warning"
+                            >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                          >
+                        {/if}
+                        <AdminButton
+                          variant="primary"
+                          onclick={usersStore.saveHwidDeviceLimit}
+                          disabled={userActionBusy || !hwidLimitDirty || !hwidLimitDraftValid}
+                        >
+                          {at("user_hwid_limit_save", {}, "Сохранить")}
+                        </AdminButton>
+                      </div>
                     </div>
                     <div class="admin-override-status-lines">
+                      {#if hwidLimitDirty}
+                        <span class="admin-unsaved-hint">
+                          {at("user_action_unsaved_hint", {}, "Есть несохранённые изменения")}
+                        </span>
+                      {/if}
+                      {#if !hwidLimitDraftValid}
+                        <span class="admin-invalid-hint">
+                          {at(
+                            "hwid_limit_invalid",
+                            {},
+                            "Введите целое число устройств от 0 до 1 000 000 или включите безлимит"
+                          )}
+                        </span>
+                      {/if}
                       <span class="admin-meta-truncate">
                         {at(
                           "user_hwid_limit_status",
@@ -1275,7 +1422,7 @@
                         <AdminButton
                           variant="primary"
                           onclick={usersStore.grantTraffic}
-                          disabled={userActionBusy}
+                          disabled={userActionBusy || !grantTrafficGbValid}
                         >
                           <Plus size={14} />
                           {at("user_traffic_grant_submit", {}, "Выдать")}
@@ -1574,6 +1721,10 @@
     overflow: hidden;
     background: var(--admin-surface-1, rgba(255, 255, 255, 0.02));
   }
+  .admin-user-action-sheet.is-dirty {
+    border-color: color-mix(in srgb, var(--warning, #f5b84b) 46%, var(--admin-border-muted));
+    background: color-mix(in srgb, var(--warning, #f5b84b) 7%, var(--admin-surface-1));
+  }
   .admin-user-action-sheet :global(.admin-dashboard-section-head) {
     padding: 12px 14px 10px;
     margin: 0;
@@ -1626,6 +1777,21 @@
     padding-left: 16px;
     padding-right: 16px;
   }
+  .admin-action-save-controls {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex: 0 0 auto;
+  }
+  .admin-unsaved-hint {
+    color: var(--warning, #f5b84b);
+    font-weight: 600;
+  }
+  .admin-invalid-hint {
+    color: var(--danger, #ef4444);
+    font-weight: 600;
+  }
   .admin-override-unlimited-label {
     display: inline-flex;
     align-items: center;
@@ -1643,6 +1809,15 @@
     }
     .admin-override-card-toolbar :global(.admin-btn) {
       width: 100%;
+    }
+    .admin-action-save-controls {
+      width: 100%;
+      align-items: stretch;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .admin-action-save-controls :global(.admin-btn) {
+      flex: 1 1 180px;
     }
   }
   .admin-override-status-lines {
