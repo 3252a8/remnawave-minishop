@@ -48,6 +48,7 @@ class User(Base):
     lifetime_used_traffic_bytes = Column(BigInteger, nullable=True)
     lifetime_used_traffic_synced_at = Column(DateTime(timezone=True), nullable=True)
     trial_eligibility_reset_at = Column(DateTime(timezone=True), nullable=True)
+    referral_welcome_bonus_claimed_at = Column(DateTime(timezone=True), nullable=True)
     channel_subscription_verified = Column(Boolean, nullable=True)
     channel_subscription_checked_at = Column(DateTime(timezone=True), nullable=True)
     channel_subscription_verified_for = Column(BigInteger, nullable=True)

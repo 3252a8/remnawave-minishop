@@ -1488,6 +1488,12 @@ async def _grant_referral_welcome_bonus_if_eligible(
     if not user.referred_by_id:
         return None
 
+    # One-time grant: once a user has claimed the welcome bonus, never grant it
+    # again. Without this marker the bonus could be re-claimed every time the
+    # previous grant expired (has_active_subscription alone is not enough).
+    if getattr(user, "referral_welcome_bonus_claimed_at", None) is not None:
+        return None
+
     settings: Settings = request.app["settings"]
     referral_welcome_days = max(
         0,
@@ -1507,13 +1513,19 @@ async def _grant_referral_welcome_bonus_if_eligible(
     except Exception:
         pass
 
-    return await subscription_service.extend_active_subscription_days(
+    end_date = await subscription_service.extend_active_subscription_days(
         session,
         int(user.user_id),
         referral_welcome_days,
         reason="referral_welcome_bonus",
         tariff_key=default_tariff_key,
     )
+    if end_date:
+        # Persisted together with the grant on the caller's commit (the extend
+        # call does not commit on its own), so the bonus and its claimed-marker
+        # stay atomic.
+        user.referral_welcome_bonus_claimed_at = datetime.now(timezone.utc)
+    return end_date
 
 
 def _webapp_datetime_text(value: Optional[datetime]) -> Optional[str]:

@@ -1162,6 +1162,15 @@ def _migration_0036_add_provider_payment_url(connection: Connection) -> None:
         connection.execute(text("ALTER TABLE payments ADD COLUMN provider_payment_url VARCHAR"))
 
 
+def _migration_0037_add_referral_welcome_bonus_marker(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    if "referral_welcome_bonus_claimed_at" not in columns:
+        connection.execute(
+            text("ALTER TABLE users ADD COLUMN referral_welcome_bonus_claimed_at TIMESTAMPTZ")
+        )
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -1353,6 +1362,11 @@ MIGRATIONS: List[Migration] = [
         id="0036_add_provider_payment_url",
         description="Persist provider payment links for reusable pending payments",
         upgrade=_migration_0036_add_provider_payment_url,
+    ),
+    Migration(
+        id="0037_add_referral_welcome_bonus_marker",
+        description="Track when a user claimed the referral welcome bonus to prevent repeat grants",
+        upgrade=_migration_0037_add_referral_welcome_bonus_marker,
     ),
 ]
 

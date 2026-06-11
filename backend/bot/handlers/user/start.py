@@ -672,6 +672,10 @@ async def start_command_handler(
                             )
                         )
                         if referral_bonus_end_date:
+                            # Mark the welcome bonus as claimed so it cannot be
+                            # re-granted later (e.g. via the WebApp claim route
+                            # once this grant expires).
+                            db_user.referral_welcome_bonus_claimed_at = datetime.now(timezone.utc)
                             await session.commit()
                             logging.info(
                                 "Referral welcome bonus applied: user %s got %s days, new end date %s.",  # noqa: E501

@@ -52,6 +52,7 @@ class WebAppReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
             referred_by_id=7,
             telegram_id=123456,
             email="person@mailinator.com",
+            referral_welcome_bonus_claimed_at=None,
         )
         session = SimpleNamespace()
         subscription_service = SimpleNamespace(
@@ -78,3 +79,40 @@ class WebAppReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
             reason="referral_welcome_bonus",
             tariff_key="standard",
         )
+        # A successful grant must mark the bonus as claimed so it cannot be
+        # granted again after this one expires.
+        self.assertIsNotNone(user.referral_welcome_bonus_claimed_at)
+
+    async def test_already_claimed_referral_welcome_bonus_is_not_granted_again(self):
+        settings = SimpleNamespace(
+            REFERRAL_WELCOME_BONUS_DAYS=3,
+            REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED=True,
+            DISPOSABLE_EMAIL_DOMAINS="",
+            tariffs_config=SimpleNamespace(default_tariff="standard"),
+        )
+        user = SimpleNamespace(
+            user_id=42,
+            referred_by_id=7,
+            telegram_id=123456,
+            email="person@example.com",
+            referral_welcome_bonus_claimed_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        )
+        session = SimpleNamespace()
+        subscription_service = SimpleNamespace(
+            has_active_subscription=AsyncMock(return_value=False),
+            extend_active_subscription_days=AsyncMock(),
+        )
+        request = SimpleNamespace(
+            app={"settings": settings, "subscription_service": subscription_service}
+        )
+
+        result = await auth_module._apply_referral_welcome_bonus_if_needed(
+            request,
+            session,
+            user,
+            "ABC123",
+        )
+
+        self.assertIsNone(result)
+        subscription_service.has_active_subscription.assert_not_awaited()
+        subscription_service.extend_active_subscription_days.assert_not_awaited()

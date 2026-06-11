@@ -486,6 +486,15 @@ async def merge_users(
         target_synced_at = getattr(target, "lifetime_used_traffic_synced_at", None)
         if source_synced_at and (not target_synced_at or source_synced_at > target_synced_at):
             target.lifetime_used_traffic_synced_at = source_synced_at
+    source_welcome_claimed_at = getattr(source, "referral_welcome_bonus_claimed_at", None)
+    target_welcome_claimed_at = getattr(target, "referral_welcome_bonus_claimed_at", None)
+    if source_welcome_claimed_at and (
+        not target_welcome_claimed_at or source_welcome_claimed_at < target_welcome_claimed_at
+    ):
+        # The welcome bonus is once-per-person: if either account already
+        # claimed it, the merged account must keep that mark so the bonus
+        # cannot be re-granted after the merge.
+        target.referral_welcome_bonus_claimed_at = source_welcome_claimed_at
     if not target.referred_by_id and source.referred_by_id != target_user_id:
         target.referred_by_id = source.referred_by_id
     if target.referred_by_id == source_user_id:
