@@ -207,6 +207,50 @@ async def _invalidate_after_admin_user_mutation(
         )
 
 
+def _enabled_admin_tariffs(settings: Settings) -> List[Any]:
+    config = getattr(settings, "tariffs_config", None)
+    if not config:
+        return []
+    return list(getattr(config, "enabled_tariffs", []) or [])
+
+
+def _enabled_admin_period_tariffs(settings: Settings) -> List[Any]:
+    return [
+        tariff
+        for tariff in _enabled_admin_tariffs(settings)
+        if getattr(tariff, "billing_model", None) == "period"
+    ]
+
+
+def _resolve_admin_period_tariff_key(
+    settings: Settings,
+    explicit_tariff_key: Any,
+    *,
+    allow_legacy_without_tariffs: bool = False,
+) -> Tuple[Optional[str], Optional[str]]:
+    config = getattr(settings, "tariffs_config", None)
+    if not config:
+        return (None, None) if allow_legacy_without_tariffs else (None, "tariffs_not_configured")
+
+    explicit = str(explicit_tariff_key or "").strip()
+    if explicit:
+        try:
+            tariff = config.require(explicit)
+        except Exception:
+            return None, "invalid_tariff"
+        if getattr(tariff, "billing_model", None) != "period":
+            return None, "invalid_tariff"
+        return str(tariff.key), None
+
+    enabled_tariffs = _enabled_admin_tariffs(settings)
+    period_tariffs = _enabled_admin_period_tariffs(settings)
+    if len(enabled_tariffs) == 1 and period_tariffs:
+        return str(period_tariffs[0].key), None
+    if not period_tariffs:
+        return None, "no_period_tariffs"
+    return None, "tariff_required"
+
+
 async def _bulk_user_statuses(
     session: AsyncSession, user_ids: List[int]
 ) -> Dict[int, Dict[str, Optional[str]]]:
@@ -1529,6 +1573,13 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
         return _error(400, "invalid_days")
     extend_hwid_devices = payload.get("extend_hwid_devices")
     extend_hwid_devices = True if extend_hwid_devices is None else bool(extend_hwid_devices)
+    tariff_key, tariff_error = _resolve_admin_period_tariff_key(
+        settings,
+        payload.get("tariff_key"),
+        allow_legacy_without_tariffs=True,
+    )
+    if tariff_error:
+        return _error(400, tariff_error)
 
     subscription_service = request.app.get("subscription_service")
     if subscription_service is None:
@@ -1542,6 +1593,7 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
             days,
             "admin_extend_subscription_webapp",
             extend_hwid_devices=extend_hwid_devices,
+            **({"tariff_key": tariff_key} if tariff_key else {}),
         )
         if not new_end:
             await session.rollback()
@@ -1554,8 +1606,65 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
                 "event_type": "admin_extend_subscription_webapp",
                 "content": (
                     f"+{days}d -> {new_end.isoformat()} "
-                    f"(hwid={'yes' if extend_hwid_devices else 'no'})"
+                    f"(hwid={'yes' if extend_hwid_devices else 'no'} "
+                    f"tariff={tariff_key or 'legacy'})"
                 ),
+                "is_admin_event": True,
+                "target_user_id": target_id,
+            },
+        )
+        await session.commit()
+
+        refreshed = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
+
+    await _invalidate_after_admin_user_mutation(settings, target_id)
+    return _ok(
+        {
+            "subscription": _serialize_subscription(refreshed) if refreshed else None,
+        }
+    )
+
+
+async def admin_user_tariff_route(request: web.Request) -> web.Response:
+    actor_id = _require_admin_user_id(request)
+    target_id = int(request.match_info["user_id"])
+    settings: Settings = request.app["settings"]
+    payload = await _read_json(request)
+    tariff_key, tariff_error = _resolve_admin_period_tariff_key(
+        settings,
+        payload.get("tariff_key"),
+    )
+    if tariff_error:
+        return _error(400, tariff_error)
+    if not tariff_key:
+        return _error(400, "tariff_required")
+
+    subscription_service = request.app.get("subscription_service")
+    if subscription_service is None:
+        return _error(503, "subscription_service_unavailable")
+
+    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async with async_session_factory() as session:
+        active = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
+        if not active:
+            return _error(404, "no_active_subscription")
+
+        result = await subscription_service.switch_tariff_without_payment(
+            session,
+            target_id,
+            tariff_key,
+            "admin_assign",
+        )
+        if not result:
+            await session.rollback()
+            return _error(500, "tariff_change_failed")
+
+        await message_log_dal.create_message_log(
+            session,
+            {
+                "user_id": actor_id,
+                "event_type": "admin_change_tariff_webapp",
+                "content": f"tariff={tariff_key}",
                 "is_admin_event": True,
                 "target_user_id": target_id,
             },

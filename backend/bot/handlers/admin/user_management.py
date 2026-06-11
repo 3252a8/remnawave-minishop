@@ -114,6 +114,55 @@ def _admin_user_button_label(user: User) -> str:
     return label[:64]
 
 
+def _enabled_admin_tariffs(settings: Settings) -> list:
+    config = getattr(settings, "tariffs_config", None)
+    if not config:
+        return []
+    return list(getattr(config, "enabled_tariffs", []) or [])
+
+
+def _enabled_admin_period_tariffs(settings: Settings) -> list:
+    return [
+        tariff
+        for tariff in _enabled_admin_tariffs(settings)
+        if getattr(tariff, "billing_model", None) == "period"
+    ]
+
+
+def _resolve_admin_period_tariff_key(
+    settings: Settings,
+    explicit_tariff_key: Optional[str] = None,
+) -> tuple[Optional[str], Optional[str]]:
+    config = getattr(settings, "tariffs_config", None)
+    if not config:
+        return None, None
+
+    explicit = str(explicit_tariff_key or "").strip()
+    if explicit:
+        try:
+            tariff = config.require(explicit)
+        except Exception:
+            return None, "admin_user_tariff_invalid"
+        if getattr(tariff, "billing_model", None) != "period":
+            return None, "admin_user_tariff_invalid"
+        return str(tariff.key), None
+
+    enabled_tariffs = _enabled_admin_tariffs(settings)
+    period_tariffs = _enabled_admin_period_tariffs(settings)
+    if len(enabled_tariffs) == 1 and period_tariffs:
+        return str(period_tariffs[0].key), None
+    if not period_tariffs:
+        return None, "admin_user_tariff_no_period_tariffs"
+    return None, "admin_user_tariff_required"
+
+
+def _admin_tariff_label(tariff: Any, lang: str) -> str:
+    try:
+        return tariff.name(lang)
+    except Exception:
+        return str(getattr(tariff, "key", "") or tariff)
+
+
 async def users_list_handler(
     callback: types.CallbackQuery,
     i18n_data: dict,
@@ -202,6 +251,10 @@ def get_user_card_keyboard(
         text=_(key="admin_user_add_subscription_button"),
         callback_data=f"user_action:add_subscription:{user_id}",
     )
+    builder.button(
+        text=_(key="admin_user_change_tariff_button"),
+        callback_data=f"user_action:change_tariff:{user_id}",
+    )
 
     # Row 2: Block/Unblock and Message
     builder.button(
@@ -265,9 +318,9 @@ def get_user_card_keyboard(
 
     quick_links_count = (1 if has_self_link else 0) + (1 if has_referrer_link else 0)
     if quick_links_count == 0:
-        builder.adjust(2, 2, 2, 1, 3, 1, 2)
+        builder.adjust(2, 1, 2, 2, 1, 3, 1, 2)
     else:
-        builder.adjust(2, 2, 2, 1, 3, quick_links_count, 1, 2)
+        builder.adjust(2, 1, 2, 2, 1, 3, quick_links_count, 1, 2)
     return builder
 
 
@@ -664,7 +717,40 @@ async def user_action_handler(
             callback, user, subscription_service, session, settings, i18n, current_lang
         )
     elif action == "add_subscription":
-        await handle_add_subscription_prompt(callback, state, user, i18n, current_lang)
+        await handle_add_subscription_prompt(callback, state, user, settings, i18n, current_lang)
+    elif action == "add_subscription_tariff":
+        tariff_key = parts[3] if len(parts) > 3 else ""
+        await handle_add_subscription_days_prompt(
+            callback,
+            state,
+            user,
+            settings,
+            i18n,
+            current_lang,
+            tariff_key=tariff_key,
+        )
+    elif action == "change_tariff":
+        await handle_change_tariff_menu(
+            callback,
+            user,
+            settings,
+            subscription_service,
+            session,
+            i18n,
+            current_lang,
+        )
+    elif action == "set_tariff":
+        tariff_key = parts[3] if len(parts) > 3 else ""
+        await handle_change_tariff_apply(
+            callback,
+            user,
+            settings,
+            subscription_service,
+            session,
+            i18n,
+            current_lang,
+            tariff_key=tariff_key,
+        )
     elif action == "toggle_ban":
         await handle_toggle_ban(
             callback,
@@ -1155,15 +1241,83 @@ async def handle_reset_trial(
 
 
 async def handle_add_subscription_prompt(
-    callback: types.CallbackQuery, state: FSMContext, user: User, i18n_instance, lang: str
+    callback: types.CallbackQuery,
+    state: FSMContext,
+    user: User,
+    settings: Settings,
+    i18n_instance,
+    lang: str,
 ):
-    """Prompt admin to enter subscription days to add"""
+    """Prompt admin to choose tariff when required, then enter subscription days."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 
+    tariff_key, tariff_error = _resolve_admin_period_tariff_key(settings)
+    if tariff_error == "admin_user_tariff_required":
+        period_tariffs = _enabled_admin_period_tariffs(settings)
+        builder = InlineKeyboardBuilder()
+        for tariff in period_tariffs:
+            builder.button(
+                text=_admin_tariff_label(tariff, lang),
+                callback_data=f"user_action:add_subscription_tariff:{user.user_id}:{tariff.key}",
+            )
+        builder.button(
+            text=_("admin_user_back_to_card_button"),
+            callback_data=f"user_action:refresh:{user.user_id}",
+        )
+        builder.adjust(1)
+        prompt_text = _("admin_user_add_subscription_tariff_prompt", user_id=user.user_id)
+        try:
+            await callback.message.edit_text(prompt_text, reply_markup=builder.as_markup())
+        except Exception:
+            await callback.message.answer(prompt_text, reply_markup=builder.as_markup())
+        await callback.answer()
+        return
+    if tariff_error:
+        await callback.answer(_(tariff_error), show_alert=True)
+        return
+
+    await handle_add_subscription_days_prompt(
+        callback,
+        state,
+        user,
+        settings,
+        i18n_instance,
+        lang,
+        tariff_key=tariff_key,
+    )
+
+
+async def handle_add_subscription_days_prompt(
+    callback: types.CallbackQuery,
+    state: FSMContext,
+    user: User,
+    settings: Settings,
+    i18n_instance,
+    lang: str,
+    *,
+    tariff_key: Optional[str],
+):
+    """Prompt admin to enter subscription days to add after tariff resolution."""
+    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
+    tariff_key, tariff_error = _resolve_admin_period_tariff_key(settings, tariff_key)
+    if tariff_error:
+        await callback.answer(_(tariff_error), show_alert=True)
+        return
+
     await state.update_data(target_user_id=user.user_id)
+    await state.update_data(subscription_tariff_key=tariff_key)
     await state.set_state(AdminStates.waiting_for_subscription_days_to_add)
 
-    prompt_text = _("admin_user_add_subscription_prompt", user_id=user.user_id)
+    prompt_key = (
+        "admin_user_add_subscription_prompt_with_tariff"
+        if tariff_key
+        else "admin_user_add_subscription_prompt"
+    )
+    prompt_text = _(
+        prompt_key,
+        user_id=user.user_id,
+        tariff=tariff_key or "",
+    )
 
     try:
         await callback.message.edit_text(prompt_text)
@@ -1171,6 +1325,127 @@ async def handle_add_subscription_prompt(
         await callback.message.answer(prompt_text)
 
     await callback.answer()
+
+
+async def handle_change_tariff_menu(
+    callback: types.CallbackQuery,
+    user: User,
+    settings: Settings,
+    subscription_service: SubscriptionService,
+    session: AsyncSession,
+    i18n_instance,
+    lang: str,
+) -> None:
+    """Show period tariff choices for an active subscription."""
+    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
+
+    active_sub = await subscription_dal.get_active_subscription_by_user_id(session, user.user_id)
+    if not active_sub:
+        await callback.answer(_("admin_user_tariff_no_subscription"), show_alert=True)
+        return
+
+    period_tariffs = _enabled_admin_period_tariffs(settings)
+    if not period_tariffs:
+        await callback.answer(_("admin_user_tariff_no_period_tariffs"), show_alert=True)
+        return
+
+    current_key = str(getattr(active_sub, "tariff_key", "") or "")
+    builder = InlineKeyboardBuilder()
+    for tariff in period_tariffs:
+        marker = "✓ " if str(tariff.key) == current_key else ""
+        builder.button(
+            text=f"{marker}{_admin_tariff_label(tariff, lang)}",
+            callback_data=f"user_action:set_tariff:{user.user_id}:{tariff.key}",
+        )
+    builder.button(
+        text=_("admin_user_back_to_card_button"),
+        callback_data=f"user_action:refresh:{user.user_id}",
+    )
+    builder.adjust(1)
+    text = "\n".join(
+        [
+            f"<b>{_('admin_user_tariff_change_title')}</b>",
+            "",
+            _("admin_user_tariff_change_hint"),
+            _("admin_user_tariff_current", tariff=current_key or _("admin_user_tariff_none")),
+        ]
+    )
+    try:
+        await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="HTML")
+    except Exception:
+        await callback.message.answer(text, reply_markup=builder.as_markup(), parse_mode="HTML")
+    await callback.answer()
+
+
+async def handle_change_tariff_apply(
+    callback: types.CallbackQuery,
+    user: User,
+    settings: Settings,
+    subscription_service: SubscriptionService,
+    session: AsyncSession,
+    i18n_instance,
+    lang: str,
+    *,
+    tariff_key: str,
+) -> None:
+    """Apply an admin-selected tariff to the current active subscription."""
+    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
+    resolved_tariff_key, tariff_error = _resolve_admin_period_tariff_key(settings, tariff_key)
+    if tariff_error or not resolved_tariff_key:
+        await callback.answer(_(tariff_error or "admin_user_tariff_required"), show_alert=True)
+        return
+
+    active_sub = await subscription_dal.get_active_subscription_by_user_id(session, user.user_id)
+    if not active_sub:
+        await callback.answer(_("admin_user_tariff_no_subscription"), show_alert=True)
+        return
+
+    try:
+        result = await subscription_service.switch_tariff_without_payment(
+            session,
+            user.user_id,
+            resolved_tariff_key,
+            "admin_assign",
+        )
+        if not result:
+            await session.rollback()
+            await callback.answer(_("admin_user_tariff_change_error"), show_alert=True)
+            return
+        await message_log_dal.create_message_log_no_commit(
+            session,
+            {
+                "user_id": callback.from_user.id if callback.from_user else user.user_id,
+                "event_type": "admin:change_tariff",
+                "content": f"tariff={resolved_tariff_key}",
+                "is_admin_event": True,
+                "target_user_id": user.user_id,
+                "timestamp": datetime.now(timezone.utc),
+            },
+        )
+        await session.commit()
+        await callback.answer(
+            _("admin_user_tariff_change_success", tariff=resolved_tariff_key),
+            show_alert=False,
+        )
+        await handle_refresh_user_card(
+            callback,
+            user,
+            subscription_service,
+            session,
+            settings,
+            i18n_instance,
+            lang,
+        )
+    except Exception as exc:
+        logging.error(
+            "Error changing tariff for user %s to %s: %s",
+            user.user_id,
+            resolved_tariff_key,
+            exc,
+            exc_info=True,
+        )
+        await session.rollback()
+        await callback.answer(_("admin_user_tariff_change_error"), show_alert=True)
 
 
 async def handle_toggle_ban(
@@ -1694,9 +1969,14 @@ async def process_subscription_days_handler(
 
     data = await state.get_data()
     target_user_id = data.get("target_user_id")
+    tariff_key = data.get("subscription_tariff_key")
     if not target_user_id:
         await message.answer("Error: target user not found in state")
         await state.clear()
+        return
+    tariff_key, tariff_error = _resolve_admin_period_tariff_key(settings, tariff_key)
+    if tariff_error:
+        await message.answer(_(tariff_error))
         return
 
     try:
@@ -1710,13 +1990,21 @@ async def process_subscription_days_handler(
     try:
         # Extend subscription
         result = await subscription_service.extend_active_subscription_days(
-            session, target_user_id, days_to_add, "admin_manual_extension"
+            session,
+            target_user_id,
+            days_to_add,
+            "admin_manual_extension",
+            tariff_key=tariff_key,
         )
 
         if result:
             await session.commit()
             await message.answer(
-                _("admin_user_subscription_added_success", days=days_to_add, user_id=target_user_id)
+                _(
+                    "admin_user_subscription_added_success",
+                    days=days_to_add,
+                    user_id=target_user_id,
+                )
             )
 
             # Show updated user card

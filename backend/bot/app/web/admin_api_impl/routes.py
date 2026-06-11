@@ -23,6 +23,7 @@ def setup_admin_routes(app: web.Application) -> None:
     )
     router.add_post("/api/admin/users/{user_id:-?\\d+}/reset-trial", admin_user_reset_trial_route)
     router.add_post("/api/admin/users/{user_id:-?\\d+}/extend", admin_user_extend_route)
+    router.add_post("/api/admin/users/{user_id:-?\\d+}/tariff", admin_user_tariff_route)
     router.add_post(
         "/api/admin/users/{user_id:-?\\d+}/premium-override",
         admin_user_premium_override_route,

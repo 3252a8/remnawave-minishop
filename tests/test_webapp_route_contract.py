@@ -167,6 +167,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ): "admin_user_message_preview_route",
             ("POST", "/api/admin/users/{user_id}/reset-trial"): "admin_user_reset_trial_route",
             ("POST", "/api/admin/users/{user_id}/extend"): "admin_user_extend_route",
+            ("POST", "/api/admin/users/{user_id}/tariff"): "admin_user_tariff_route",
             (
                 "POST",
                 "/api/admin/users/{user_id}/premium-override",

@@ -22,6 +22,8 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     userMessageDraft: "",
     userExtendDays: 30,
     userExtendHwidDevices: true,
+    userExtendTariffKey: "",
+    userTariffActionKey: "",
     userActionBusy: false,
     userDeleteOpen: false,
     userBanConfirmOpen: false,
@@ -64,6 +66,8 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
       userMessageDraft: "",
       userExtendDays: 30,
       userExtendHwidDevices: true,
+      userExtendTariffKey: "",
+      userTariffActionKey: "",
       userDeleteOpen: false,
       userBanConfirmOpen: false,
       userMessageConfirmOpen: false,
@@ -199,10 +203,13 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
         const hwidLimit = hasHwidLimit ? Number(sub?.hwid_device_limit) : null;
         state.update((s) => {
           if (!_isCurrentUserRequest(s, requestId, userId)) return s;
+          const activeTariffKey = String(sub?.tariff_key || "");
           return {
             ...s,
             openedUserDetail: res,
             openedUser: res.user ? { ...res.user, ...s.openedUser, ...res.user } : s.openedUser,
+            userExtendTariffKey: activeTariffKey || s.userExtendTariffKey || "",
+            userTariffActionKey: activeTariffKey || s.userTariffActionKey || "",
             premiumUnlimitedDraft: Boolean(sub?.premium_unlimited_override),
             premiumBonusGbDraft: bonusBytes > 0 ? +(bonusBytes / 1024 ** 3).toFixed(2) : "",
             regularUnlimitedDraft: Boolean(sub?.regular_unlimited_override),
@@ -489,14 +496,41 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     if (!days || days <= 0) return;
     state.update((st) => ({ ...st, userActionBusy: true }));
     try {
+      const body = { days, extend_hwid_devices: Boolean(s.userExtendHwidDevices) };
+      if (s.userExtendTariffKey) body.tariff_key = s.userExtendTariffKey;
       const res = await api(`/admin/users/${s.openedUser.user_id}/extend`, {
         method: "POST",
-        body: JSON.stringify({ days, extend_hwid_devices: Boolean(s.userExtendHwidDevices) }),
+        body: JSON.stringify(body),
       });
       if (res?.ok) {
         onToast(at("subscription_extended", { days }, `Продлено на ${days} д.`));
         await openUser(s.openedUser, { skipPush: true });
       } else onToast(res?.error || at("error", {}, "Ошибка"));
+    } finally {
+      state.update((st) => ({ ...st, userActionBusy: false }));
+    }
+  }
+
+  async function changeUserTariff() {
+    let s;
+    state.update((st) => {
+      s = st;
+      return st;
+    });
+    if (!s.openedUser || !s.userTariffActionKey) return;
+    state.update((st) => ({ ...st, userActionBusy: true }));
+    try {
+      const res = await api(`/admin/users/${s.openedUser.user_id}/tariff`, {
+        method: "POST",
+        body: JSON.stringify({ tariff_key: s.userTariffActionKey }),
+      });
+      if (res?.ok) {
+        onToast(at("user_tariff_saved", {}, "Tariff saved"));
+        await openUser(s.openedUser, { skipPush: true });
+        if (_activeRef === "users") await loadUsers();
+      } else {
+        onToast(res?.message || res?.error || at("error", {}, "РћС€РёР±РєР°"));
+      }
     } finally {
       state.update((st) => ({ ...st, userActionBusy: false }));
     }
@@ -719,6 +753,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }) {
     previewUserMessage,
     sendTelegramProfileLink,
     extendUser,
+    changeUserTariff,
     resetTrialUser,
     deleteUser,
     savePremiumTrafficOverride,

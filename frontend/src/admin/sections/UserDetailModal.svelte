@@ -47,6 +47,7 @@
   let avatarPreviewOpen = false;
   let avatarPreviewUrl = "";
   let avatarPreviewName = "";
+  let tariffsLoadRequested = false;
 
   function pretty(val) {
     if (val === true) return at("yes", {}, "Да");
@@ -103,6 +104,17 @@
   }
 
   const usersStore = getContext("usersStore");
+  const tariffsStore = getContext("tariffsStore");
+
+  function tariffLabel(tariff) {
+    return (
+      tariff?.names?.ru ||
+      tariff?.names?.en ||
+      tariff?.name ||
+      tariff?.key ||
+      at("user_history_no_tariff", {}, "No tariff")
+    );
+  }
 
   $: ({
     openedUser,
@@ -149,6 +161,39 @@
       ? at("user_open_tg_profile_id_hint", {}, "Бот отправит кнопку профиля в Telegram")
       : at("user_open_tg_profile_hint", {}, "Открыть профиль Telegram");
 
+  $: enabledTariffs = ($tariffsStore.tariffsCatalog?.tariffs || []).filter(
+    (tariff) => tariff?.enabled !== false
+  );
+  $: periodTariffs = enabledTariffs.filter((tariff) => tariff?.billing_model === "period");
+  $: periodTariffItems = periodTariffs.map((tariff) => ({
+    value: String(tariff.key || ""),
+    label: tariffLabel(tariff),
+  }));
+  $: extendTariffRequired = enabledTariffs.length > 1 && periodTariffItems.length > 0;
+  $: currentSubscriptionTariffKey = String(openedUserDetail?.active_subscription?.tariff_key || "");
+  $: currentSubscriptionTariffLabel =
+    periodTariffItems.find((item) => item.value === currentSubscriptionTariffKey)?.label ||
+    currentSubscriptionTariffKey ||
+    at("user_tariff_none", {}, "No tariff");
+
+  $: if (
+    openedUser &&
+    !tariffsLoadRequested &&
+    !$tariffsStore.tariffsLoading &&
+    enabledTariffs.length === 0
+  ) {
+    tariffsLoadRequested = true;
+    tariffsStore.loadTariffs();
+  }
+
+  $: if (openedUser && periodTariffItems.length === 1 && !$usersStore.userExtendTariffKey) {
+    usersStore.updateState({ userExtendTariffKey: periodTariffItems[0].value });
+  }
+
+  $: if (openedUser && currentSubscriptionTariffKey && !$usersStore.userTariffActionKey) {
+    usersStore.updateState({ userTariffActionKey: currentSubscriptionTariffKey });
+  }
+
   $: if (openedUser && userDetailTab === "logs" && !userLogsLoading && !userLogsLoaded) {
     usersStore.loadUserLogs(0);
   }
@@ -157,6 +202,7 @@
     avatarPreviewOpen = false;
     avatarPreviewUrl = "";
     avatarPreviewName = "";
+    tariffsLoadRequested = false;
   }
 
   function openAvatarPreview() {
@@ -779,11 +825,36 @@
                       bind:value={$usersStore.userExtendDays}
                       aria-label={at("user_label_extend_days", {}, "Дней")}
                     />
-                    <AdminButton onclick={usersStore.extendUser} disabled={userActionBusy}>
+                    <AdminButton
+                      onclick={usersStore.extendUser}
+                      disabled={userActionBusy ||
+                        (extendTariffRequired && !$usersStore.userExtendTariffKey)}
+                    >
                       <Plus size={14} />
                       {at("user_btn_extend", {}, "Продлить")}
                     </AdminButton>
                   </div>
+                  {#if periodTariffItems.length}
+                    <AdminSelect
+                      class="admin-user-tariff-select"
+                      value={$usersStore.userExtendTariffKey}
+                      items={periodTariffItems}
+                      placeholder={at("user_tariff_select_placeholder", {}, "Select tariff")}
+                      ariaLabel={at("user_tariff_select_label", {}, "Tariff")}
+                      disabled={userActionBusy || periodTariffItems.length === 1}
+                      onValueChange={(value) =>
+                        usersStore.updateState({ userExtendTariffKey: value })}
+                    />
+                    {#if extendTariffRequired && !$usersStore.userExtendTariffKey}
+                      <small class="admin-muted"
+                        >{at(
+                          "user_extend_tariff_required",
+                          {},
+                          "Select a tariff before adding days"
+                        )}</small
+                      >
+                    {/if}
+                  {/if}
                   {#if Number(openedUserDetail?.active_subscription?.extra_hwid_devices || 0) > 0}
                     <label class="admin-extend-hwid-option">
                       <Checkbox
@@ -823,6 +894,52 @@
               </div>
 
               {#if openedUserDetail?.active_subscription}
+                {#if periodTariffItems.length}
+                  <section class="admin-user-action-sheet admin-user-action-sheet--tariff">
+                    <AdminSectionHeader
+                      title={at("user_tariff_card_title", {}, "Tariff")}
+                      description={at(
+                        "user_tariff_card_hint",
+                        {},
+                        "Change the user's tariff and sync panel squads immediately."
+                      )}
+                    />
+                    <div class="admin-user-action-sheet-body admin-user-tariff-stack">
+                      <Label.Root class="admin-field-label admin-extend-field">
+                        <span>{at("user_tariff_select_label", {}, "Tariff")}</span>
+                        <AdminSelect
+                          class="admin-user-tariff-select"
+                          value={$usersStore.userTariffActionKey}
+                          items={periodTariffItems}
+                          placeholder={at("user_tariff_select_placeholder", {}, "Select tariff")}
+                          ariaLabel={at("user_tariff_select_label", {}, "Tariff")}
+                          disabled={userActionBusy}
+                          onValueChange={(value) =>
+                            usersStore.updateState({ userTariffActionKey: value })}
+                        />
+                      </Label.Root>
+                    </div>
+                    <div class="admin-user-action-sheet-footer admin-override-card-footer">
+                      <div class="admin-override-card-toolbar">
+                        <span class="admin-meta-truncate">
+                          {at(
+                            "user_tariff_current",
+                            { tariff: currentSubscriptionTariffLabel },
+                            `Current: ${currentSubscriptionTariffLabel}`
+                          )}
+                        </span>
+                        <AdminButton
+                          variant="primary"
+                          onclick={usersStore.changeUserTariff}
+                          disabled={userActionBusy || !$usersStore.userTariffActionKey}
+                        >
+                          <RefreshCw size={14} />
+                          {at("user_tariff_save", {}, "Save tariff")}
+                        </AdminButton>
+                      </div>
+                    </div>
+                  </section>
+                {/if}
                 <section class="admin-user-action-sheet admin-user-action-sheet--premium-override">
                   <AdminSectionHeader
                     title={at("user_premium_override_card_title", {}, "Премиум-трафик")}
@@ -1404,6 +1521,11 @@
     flex-direction: column;
     gap: 14px;
   }
+  .admin-user-tariff-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
   .admin-user-action-sheet-footer {
     display: flex;
     flex-wrap: wrap;
@@ -1464,8 +1586,15 @@
   .admin-user-action-sheet--regular-override {
     margin-top: 10px;
   }
+  .admin-user-action-sheet--tariff {
+    margin-top: 10px;
+  }
   .admin-user-action-sheet--traffic-grant {
     margin-top: 10px;
+  }
+  .admin-user-action-sheet :global(.admin-user-tariff-select) {
+    width: 100%;
+    max-width: 100%;
   }
   .admin-user-action-sheet :global(.admin-grant-kind-select) {
     width: 100%;
