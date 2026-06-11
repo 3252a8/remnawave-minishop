@@ -66,6 +66,7 @@ _PROVIDER_MODULES = {
     "wata": "WataService",
     "heleket": "HeleketService",
     "paykilla": "PaykillaService",
+    "lava": "LavaService",
 }
 
 
@@ -128,6 +129,7 @@ def test_service_keys_and_statuses_come_from_provider_specs():
         "cryptopay_service",
         "heleket_service",
         "paykilla_service",
+        "lava_service",
     }
     assert set(pending_statuses()) >= {
         "pending",
@@ -140,6 +142,7 @@ def test_service_keys_and_statuses_come_from_provider_specs():
         "pending_stars",
         "pending_heleket",
         "pending_paykilla",
+        "pending_lava",
     }
 
 

@@ -35,6 +35,7 @@ _PROVIDER_ENV_PREFIXES = (
     "SEVERPAY_",
     "WATA_",
     "HELEKET_",
+    "LAVA_",
     "CRYPTOPAY_",
     "YOOKASSA_",
     "STARS_",
@@ -176,6 +177,7 @@ class BuildServicesWiringTests(unittest.TestCase):
             "wata_service",
             "heleket_service",
             "paykilla_service",
+            "lava_service",
         }
         self.assertEqual(set(services), expected_keys)
 

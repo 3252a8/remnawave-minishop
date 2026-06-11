@@ -219,7 +219,7 @@ proxy/Docker gateway и может отклонить валидный webhook. 
 
 | Переменная | Назначение |
 | --- | --- |
-| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты: `severpay,wata,freekassa,platega,yookassa,stars,cryptopay,heleket,paykilla`. |
+| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты: `severpay,wata,freekassa,platega,yookassa,stars,cryptopay,heleket,paykilla,lava`. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED` | Показывать описание подписки перед выбором срока. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_RU` / `SUBSCRIPTION_PURCHASE_DESCRIPTION_EN` | Локализованное описание подписки. |
 | `PAYMENT_REQUEST_TIMEOUT_SECONDS` | Общий таймаут одного API-запроса к платёжному провайдеру, в секундах. По умолчанию `20`. |
@@ -237,6 +237,7 @@ proxy/Docker gateway и может отклонить валидный webhook. 
 | `CRYPTOPAY_ENABLED` | Включает CryptoPay. |
 | `HELEKET_ENABLED` | Включает Heleket. |
 | `PAYKILLA_ENABLED` | Включает PayKilla. |
+| `LAVA_ENABLED` | Включает LAVA. |
 
 Конкретные ключи отображения:
 
@@ -301,6 +302,12 @@ PAYMENT_PAYKILLA_WEBAPP_ICON
 PAYMENT_PAYKILLA_TELEGRAM_LABEL_RU
 PAYMENT_PAYKILLA_TELEGRAM_LABEL_EN
 PAYMENT_PAYKILLA_TELEGRAM_EMOJI
+PAYMENT_LAVA_WEBAPP_LABEL_RU
+PAYMENT_LAVA_WEBAPP_LABEL_EN
+PAYMENT_LAVA_WEBAPP_ICON
+PAYMENT_LAVA_TELEGRAM_LABEL_RU
+PAYMENT_LAVA_TELEGRAM_LABEL_EN
+PAYMENT_LAVA_TELEGRAM_EMOJI
 ```
 
 ### YooKassa
@@ -415,6 +422,20 @@ Webhook настраивается в PayKilla Dashboard: **Settings -> Webhooks
 | `PAYKILLA_VERIFY_WEBHOOK_SIGNATURE` | Проверять `X-API-SIGN` по raw body webhook. |
 | `PAYKILLA_WEBHOOK_URL` | Точный публичный webhook URL для проверки подписи, если он отличается от `WEBHOOK_BASE_URL` + `/webhook/paykilla`. |
 | `PAYKILLA_TRUSTED_IPS` | Необязательный список доверенных IP webhook-источников. |
+
+### LAVA
+
+Счета LAVA Business выставляются только в рублях. Исходящие запросы подписываются HMAC-SHA256 от raw body (заголовок `Signature`), webhook проверяется по заголовку `Authorization`.
+
+| Переменная | Назначение |
+| --- | --- |
+| `LAVA_BASE_URL` | Базовый URL API, по умолчанию `https://api.lava.ru`. |
+| `LAVA_SHOP_ID` | ID магазина в LAVA Business. |
+| `LAVA_SECRET_KEY` | Секретный ключ магазина для подписи исходящих API-запросов. |
+| `LAVA_WEBHOOK_SECRET` | Дополнительный ключ магазина для проверки подписи webhook; если пусто, используется `LAVA_SECRET_KEY`. |
+| `LAVA_RETURN_URL` | URL возврата после оплаты (`successUrl`/`failUrl`). |
+| `LAVA_LIFETIME_MINUTES` | Время жизни счета в минутах: 1..7200. |
+| `LAVA_INCLUDE_SERVICES` | Способы оплаты на странице счета через запятую, например `card,sbp`. |
 
 ## Тарифы и legacy-цены
 

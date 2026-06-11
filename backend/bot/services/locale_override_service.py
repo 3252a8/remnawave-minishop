@@ -232,6 +232,7 @@ LOCALE_GROUPS = [
             "admin_settings_field_cryptopay_",
             "admin_settings_field_wata_",
             "admin_settings_field_heleket_",
+            "admin_settings_field_lava_",
         ),
     },
     {
