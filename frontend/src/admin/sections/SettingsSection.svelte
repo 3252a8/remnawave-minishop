@@ -48,7 +48,6 @@
   let copiedWebhookTimer = null;
   let lastAppliedSettingsPathKey = "";
   let settingsPathSyncing = false;
-  let settingsFocusedAnchorKey = "";
 
   const PLATEGA_SBP_KEYS = new Set([
     "PLATEGA_SBP_ENABLED",
@@ -85,7 +84,6 @@
     }
   } else if (!currentSettingsPathKey) {
     lastAppliedSettingsPathKey = "";
-    settingsFocusedAnchorKey = "";
   }
 
   onMount(() => {
@@ -317,7 +315,6 @@
           };
         }
       }
-      settingsFocusedAnchorKey = target.anchorKey;
       await tick();
       scrollToSettingsAnchor(target.anchorKey);
     } finally {
@@ -706,10 +703,7 @@
     <div class="admin-settings-field-groups">
       {#each fieldGroups as fieldGroup}
         <section
-          class={settingsFocusedAnchorKey ===
-          settingsFieldGroupAnchorKey(section.id, group.id, fieldGroup.id)
-            ? "admin-settings-field-group is-route-focused"
-            : "admin-settings-field-group"}
+          class="admin-settings-field-group"
           data-settings-anchor={fieldGroup.titleKey
             ? settingsFieldGroupAnchorKey(section.id, group.id, fieldGroup.id)
             : undefined}
@@ -948,9 +942,7 @@
       <Accordion.Item value={section.id} class="admin-accordion-item admin-card">
         <Accordion.Header class="admin-accordion-header">
           <Accordion.Trigger
-            class={settingsFocusedAnchorKey === settingsSectionAnchorKey(section.id)
-              ? "admin-accordion-trigger is-route-focused"
-              : "admin-accordion-trigger"}
+            class="admin-accordion-trigger"
             data-settings-anchor={settingsSectionAnchorKey(section.id)}
           >
             <span class="admin-accordion-title">{sectionTitle(section.id)}</span>
@@ -1000,10 +992,7 @@
                   <Accordion.Item value={group.id} class="admin-settings-subsection">
                     <Accordion.Header class="admin-accordion-header">
                       <Accordion.Trigger
-                        class={settingsFocusedAnchorKey ===
-                        settingsSubsectionAnchorKey(section.id, group.id)
-                          ? "admin-settings-subsection-trigger is-route-focused"
-                          : "admin-settings-subsection-trigger"}
+                        class="admin-settings-subsection-trigger"
                         data-settings-anchor={settingsSubsectionAnchorKey(section.id, group.id)}
                       >
                         <strong>{subsectionTitle(group)}</strong>

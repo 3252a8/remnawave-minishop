@@ -2028,16 +2028,6 @@
   scroll-margin-top: 18px;
 }
 
-.admin-accordion-trigger.is-route-focused,
-.admin-settings-subsection-trigger.is-route-focused,
-.admin-settings-field-group.is-route-focused {
-  box-shadow: inset 0 0 0 2px var(--admin-ring);
-}
-
-.admin-settings-field-group.is-route-focused {
-  border-color: color-mix(in srgb, var(--admin-ring) 74%, var(--admin-border));
-}
-
 .admin-accordion-trigger[data-state="open"] {
   border-bottom: 1px solid var(--admin-border);
 }
