@@ -4565,14 +4565,46 @@
 
 .admin-user-quick-actions {
   display: grid;
-  grid-template-columns: minmax(180px, 0.75fr) minmax(260px, 1.25fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
-  align-items: end;
+  align-items: stretch;
 }
 
 .admin-reset-trial-btn {
   width: 100%;
   height: 36px;
+}
+
+.admin-user-extend-stack {
+  gap: 10px;
+}
+
+.admin-user-extend-grid {
+  display: grid;
+  grid-template-columns: minmax(112px, 0.72fr) minmax(220px, 1.28fr) minmax(136px, auto);
+  gap: 10px;
+  align-items: end;
+  min-width: 0;
+}
+
+.admin-user-extend-grid .admin-field-label {
+  align-self: stretch;
+}
+
+.admin-user-extend-grid .input,
+.admin-user-extend-grid .admin-select-trigger,
+.admin-user-extend-submit {
+  width: 100%;
+  height: 36px;
+  min-height: 36px;
+}
+
+.admin-user-extend-submit {
+  align-self: end;
+  justify-content: center;
+  padding-left: 16px;
+  padding-right: 16px;
+  white-space: nowrap;
 }
 
 .admin-extend-field {
@@ -4684,6 +4716,17 @@
 
   .admin-reset-trial-btn {
     height: 46px;
+  }
+
+  .admin-user-extend-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-user-extend-grid .input,
+  .admin-user-extend-grid .admin-select-trigger,
+  .admin-user-extend-submit {
+    height: 46px;
+    min-height: 46px;
   }
 }
 

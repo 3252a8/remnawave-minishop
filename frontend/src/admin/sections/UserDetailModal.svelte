@@ -116,6 +116,28 @@
     );
   }
 
+  function uniqueTariffsByKey(tariffs) {
+    const seen = new Set();
+    return tariffs.filter((tariff) => {
+      const key = String(tariff?.key || "");
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function tariffSelectItem(tariff, { currentKey = "", markCurrent = false } = {}) {
+    const value = String(tariff?.key || "");
+    const label = tariffLabel(tariff);
+    return {
+      value,
+      label:
+        markCurrent && value && value === currentKey
+          ? `${label} (${at("user_tariff_current_badge", {}, "current")})`
+          : label,
+    };
+  }
+
   $: ({
     openedUser,
     openedUserDetail,
@@ -161,17 +183,33 @@
       ? at("user_open_tg_profile_id_hint", {}, "Бот отправит кнопку профиля в Telegram")
       : at("user_open_tg_profile_hint", {}, "Открыть профиль Telegram");
 
-  $: enabledTariffs = ($tariffsStore.tariffsCatalog?.tariffs || []).filter(
-    (tariff) => tariff?.enabled !== false
-  );
-  $: periodTariffs = enabledTariffs.filter((tariff) => tariff?.billing_model === "period");
-  $: periodTariffItems = periodTariffs.map((tariff) => ({
-    value: String(tariff.key || ""),
-    label: tariffLabel(tariff),
-  }));
-  $: extendTariffRequired = enabledTariffs.length > 1 && periodTariffItems.length > 0;
+  $: tariffCatalogItems = $tariffsStore.tariffsCatalog?.tariffs || [];
+  $: enabledTariffs = tariffCatalogItems.filter((tariff) => tariff?.enabled !== false);
   $: currentSubscriptionTariffKey = String(openedUserDetail?.active_subscription?.tariff_key || "");
+  $: currentSubscriptionTariff =
+    tariffCatalogItems.find(
+      (tariff) => String(tariff?.key || "") === currentSubscriptionTariffKey
+    ) || null;
+  $: periodTariffs = enabledTariffs.filter((tariff) => tariff?.billing_model === "period");
+  $: periodTariffItems = periodTariffs.map((tariff) => tariffSelectItem(tariff));
+  $: extendPeriodTariffs = uniqueTariffsByKey([
+    ...periodTariffs,
+    ...(currentSubscriptionTariff?.billing_model === "period" ? [currentSubscriptionTariff] : []),
+  ]);
+  $: extendTariffItems = extendPeriodTariffs.map((tariff) =>
+    tariffSelectItem(tariff, { currentKey: currentSubscriptionTariffKey, markCurrent: true })
+  );
+  $: extendTariffRequired = extendTariffItems.length > 1;
+  $: userExtendTariffValid =
+    !$usersStore.userExtendTariffKey ||
+    !extendTariffItems.length ||
+    extendTariffItems.some((item) => item.value === $usersStore.userExtendTariffKey);
+  $: userExtendDaysValid = Number($usersStore.userExtendDays) > 0;
+  $: extendTariffsLoading = Boolean(
+    openedUser && $tariffsStore.tariffsLoading && !extendTariffItems.length
+  );
   $: currentSubscriptionTariffLabel =
+    (currentSubscriptionTariff ? tariffLabel(currentSubscriptionTariff) : "") ||
     periodTariffItems.find((item) => item.value === currentSubscriptionTariffKey)?.label ||
     currentSubscriptionTariffKey ||
     at("user_tariff_none", {}, "No tariff");
@@ -186,8 +224,17 @@
     tariffsStore.loadTariffs();
   }
 
-  $: if (openedUser && periodTariffItems.length === 1 && !$usersStore.userExtendTariffKey) {
-    usersStore.updateState({ userExtendTariffKey: periodTariffItems[0].value });
+  $: if (openedUser && extendTariffItems.length === 1 && !$usersStore.userExtendTariffKey) {
+    usersStore.updateState({ userExtendTariffKey: extendTariffItems[0].value });
+  }
+
+  $: if (
+    openedUser &&
+    extendTariffItems.length > 0 &&
+    $usersStore.userExtendTariffKey &&
+    !userExtendTariffValid
+  ) {
+    usersStore.updateState({ userExtendTariffKey: "" });
   }
 
   $: if (openedUser && currentSubscriptionTariffKey && !$usersStore.userTariffActionKey) {
@@ -807,45 +854,64 @@
 
             <Tabs.Content value="actions" class="admin-tabs-content admin-actions-tab">
               <div class="admin-user-quick-actions">
-                <AdminButton
-                  class="admin-reset-trial-btn"
-                  onclick={usersStore.resetTrialUser}
-                  disabled={userActionBusy}
-                >
-                  <RefreshCw size={14} />
-                  {at("user_btn_reset_trial", {}, "Сбросить триал")}
-                </AdminButton>
-                <Label.Root class="admin-field-label admin-extend-field">
-                  <span>{at("user_label_extend", {}, "Продлить подписку")}</span>
-                  <div class="admin-extend-control">
-                    <Input
-                      class="input"
-                      type="number"
-                      min="1"
-                      bind:value={$usersStore.userExtendDays}
-                      aria-label={at("user_label_extend_days", {}, "Дней")}
-                    />
-                    <AdminButton
-                      onclick={usersStore.extendUser}
-                      disabled={userActionBusy ||
-                        (extendTariffRequired && !$usersStore.userExtendTariffKey)}
-                    >
-                      <Plus size={14} />
-                      {at("user_btn_extend", {}, "Продлить")}
-                    </AdminButton>
-                  </div>
-                  {#if periodTariffItems.length}
-                    <AdminSelect
-                      class="admin-user-tariff-select"
-                      value={$usersStore.userExtendTariffKey}
-                      items={periodTariffItems}
-                      placeholder={at("user_tariff_select_placeholder", {}, "Select tariff")}
-                      ariaLabel={at("user_tariff_select_label", {}, "Tariff")}
-                      disabled={userActionBusy || periodTariffItems.length === 1}
-                      onValueChange={(value) =>
-                        usersStore.updateState({ userExtendTariffKey: value })}
-                    />
-                    {#if extendTariffRequired && !$usersStore.userExtendTariffKey}
+                <section class="admin-user-action-sheet admin-user-action-sheet--extend">
+                  <AdminSectionHeader title={at("user_label_extend", {}, "Продлить подписку")} />
+                  <div class="admin-user-action-sheet-body admin-user-extend-stack">
+                    <div class="admin-user-extend-grid">
+                      <Label.Root
+                        class="admin-field-label admin-extend-field admin-user-extend-days-field"
+                      >
+                        <span>{at("user_label_extend_days", {}, "Дней")}</span>
+                        <Input
+                          class="input"
+                          type="number"
+                          min="1"
+                          max="3650"
+                          step="1"
+                          bind:value={$usersStore.userExtendDays}
+                          aria-label={at("user_label_extend_days", {}, "Дней")}
+                        />
+                      </Label.Root>
+                      {#if extendTariffItems.length}
+                        <Label.Root
+                          class="admin-field-label admin-extend-field admin-user-extend-tariff-field"
+                        >
+                          <span>{at("user_tariff_select_label", {}, "Tariff")}</span>
+                          <AdminSelect
+                            class="admin-user-tariff-select admin-user-extend-tariff-select"
+                            value={$usersStore.userExtendTariffKey}
+                            items={extendTariffItems}
+                            placeholder={at("user_tariff_select_placeholder", {}, "Select tariff")}
+                            ariaLabel={at("user_tariff_select_label", {}, "Tariff")}
+                            disabled={userActionBusy || extendTariffItems.length === 1}
+                            onValueChange={(value) =>
+                              usersStore.updateState({ userExtendTariffKey: value })}
+                          />
+                        </Label.Root>
+                      {/if}
+                      <AdminButton
+                        class="admin-user-extend-submit"
+                        variant="primary"
+                        onclick={usersStore.extendUser}
+                        disabled={userActionBusy ||
+                          extendTariffsLoading ||
+                          !userExtendDaysValid ||
+                          !userExtendTariffValid ||
+                          (extendTariffRequired && !$usersStore.userExtendTariffKey)}
+                      >
+                        <Plus size={14} />
+                        {at("user_btn_extend", {}, "Продлить")}
+                      </AdminButton>
+                    </div>
+                    {#if extendTariffItems.length && !userExtendTariffValid}
+                      <small class="admin-muted"
+                        >{at(
+                          "user_extend_tariff_required",
+                          {},
+                          "Select a tariff before adding days"
+                        )}</small
+                      >
+                    {:else if extendTariffRequired && !$usersStore.userExtendTariffKey}
                       <small class="admin-muted"
                         >{at(
                           "user_extend_tariff_required",
@@ -854,43 +920,51 @@
                         )}</small
                       >
                     {/if}
-                  {/if}
-                  {#if Number(openedUserDetail?.active_subscription?.extra_hwid_devices || 0) > 0}
-                    <label class="admin-extend-hwid-option">
-                      <Checkbox
-                        bind:checked={$usersStore.userExtendHwidDevices}
-                        disabled={userActionBusy}
-                        ariaLabel={at(
-                          "user_extend_hwid_devices_aria",
-                          {},
-                          "Продлить докупленные HWID-устройства"
-                        )}
-                      />
-                      <span>
-                        <strong>
-                          {at(
-                            "user_extend_hwid_devices",
-                            {
-                              count: Number(
-                                openedUserDetail.active_subscription.extra_hwid_devices || 0
-                              ),
-                            },
-                            `Продлить также +${Number(
-                              openedUserDetail.active_subscription.extra_hwid_devices || 0
-                            )} HWID-устройств`
-                          )}
-                        </strong>
-                        <small>
-                          {at(
-                            "user_extend_hwid_devices_hint",
+                    {#if Number(openedUserDetail?.active_subscription?.extra_hwid_devices || 0) > 0}
+                      <label class="admin-extend-hwid-option">
+                        <Checkbox
+                          bind:checked={$usersStore.userExtendHwidDevices}
+                          disabled={userActionBusy}
+                          ariaLabel={at(
+                            "user_extend_hwid_devices_aria",
                             {},
-                            "Срок действующих докупок увеличится на те же дни."
+                            "Продлить докупленные HWID-устройства"
                           )}
-                        </small>
-                      </span>
-                    </label>
-                  {/if}
-                </Label.Root>
+                        />
+                        <span>
+                          <strong>
+                            {at(
+                              "user_extend_hwid_devices",
+                              {
+                                count: Number(
+                                  openedUserDetail.active_subscription.extra_hwid_devices || 0
+                                ),
+                              },
+                              `Продлить также +${Number(
+                                openedUserDetail.active_subscription.extra_hwid_devices || 0
+                              )} HWID-устройств`
+                            )}
+                          </strong>
+                          <small>
+                            {at(
+                              "user_extend_hwid_devices_hint",
+                              {},
+                              "Срок действующих докупок увеличится на те же дни."
+                            )}
+                          </small>
+                        </span>
+                      </label>
+                    {/if}
+                  </div>
+                </section>
+                <AdminButton
+                  class="admin-reset-trial-btn"
+                  onclick={usersStore.resetTrialUser}
+                  disabled={userActionBusy}
+                >
+                  <RefreshCw size={14} />
+                  {at("user_btn_reset_trial", {}, "Сбросить триал")}
+                </AdminButton>
               </div>
 
               {#if openedUserDetail?.active_subscription}
@@ -1585,6 +1659,9 @@
   }
   .admin-user-action-sheet--regular-override {
     margin-top: 10px;
+  }
+  .admin-user-action-sheet--extend {
+    margin-bottom: 0;
   }
   .admin-user-action-sheet--tariff {
     margin-top: 10px;
