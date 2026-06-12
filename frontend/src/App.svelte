@@ -865,17 +865,16 @@
           activeTab = "settings";
           screen = "admin";
           const pathAtStart = window.location.pathname;
-          void Promise.all([ensureI18nScope("admin"), ensureAdminBundle()])
-            .catch(() => {
-              if (sectionFromPath(routePathnameFromLocation(), routePrefix) !== "admin") return;
-              if (window.location.pathname !== pathAtStart) return;
-              if (screen === "admin") {
-                activeTab = "settings";
-                screen = "settings";
-                syncAppSectionPath("settings", true);
-              }
-              showToast(t("wa_unavailable"));
-            });
+          void Promise.all([ensureI18nScope("admin"), ensureAdminBundle()]).catch(() => {
+            if (sectionFromPath(routePathnameFromLocation(), routePrefix) !== "admin") return;
+            if (window.location.pathname !== pathAtStart) return;
+            if (screen === "admin") {
+              activeTab = "settings";
+              screen = "settings";
+              syncAppSectionPath("settings", true);
+            }
+            showToast(t("wa_unavailable"));
+          });
           return;
         }
         const nextSection =

@@ -48,6 +48,9 @@
   let copiedWebhookTimer = null;
   let lastAppliedSettingsPathKey = "";
   let settingsPathSyncing = false;
+  let settingsAnchorScrollTimers = [];
+  let settingsAnchorScrollFrames = [];
+  let settingsAnchorScrollCleanup = null;
 
   const PLATEGA_SBP_KEYS = new Set([
     "PLATEGA_SBP_ENABLED",
@@ -94,6 +97,7 @@
     if (copiedWebhookTimer && typeof window !== "undefined") {
       window.clearTimeout(copiedWebhookTimer);
     }
+    cancelPendingSettingsAnchorScroll();
   });
 
   function toggleAllSections() {
@@ -282,6 +286,8 @@
     if (settingsPathSyncing || typeof window === "undefined") return;
     if (window.location.protocol === "file:") return;
     const pathSegments = arrayValue(segments).filter(Boolean);
+    lastAppliedSettingsPathKey = settingsPathKey(pathSegments);
+    cancelPendingSettingsAnchorScroll();
     const pathSuffix = pathSegments.length ? `/${pathSegments.join("/")}` : "";
     const targetPath = withRoutePrefix(`/admin/settings${pathSuffix}`, routePrefix);
     const nextUrl = `${targetPath}${window.location.search}${window.location.hash}`;
@@ -324,7 +330,7 @@
     );
   }
 
-  function scrollSettingsAnchorIntoView(anchorKey, behavior) {
+  function scrollSettingsAnchorIntoView(anchorKey, behavior, options = {}) {
     const element = findSettingsAnchor(anchorKey);
     if (!element) return;
     const scrollParent = scrollContainerFor(element);
@@ -336,7 +342,7 @@
     } else {
       element.scrollIntoView({ block: "start", behavior });
     }
-    if (typeof element.focus === "function") {
+    if (options.focus && typeof element.focus === "function") {
       try {
         element.focus({ preventScroll: true });
       } catch {
@@ -359,13 +365,76 @@
     return null;
   }
 
+  function clearSettingsAnchorScrollListeners() {
+    if (!settingsAnchorScrollCleanup) return;
+    settingsAnchorScrollCleanup();
+    settingsAnchorScrollCleanup = null;
+  }
+
+  function cancelPendingSettingsAnchorScroll() {
+    if (typeof window !== "undefined") {
+      for (const timer of settingsAnchorScrollTimers) window.clearTimeout(timer);
+      for (const frame of settingsAnchorScrollFrames) window.cancelAnimationFrame(frame);
+    }
+    settingsAnchorScrollTimers = [];
+    settingsAnchorScrollFrames = [];
+    clearSettingsAnchorScrollListeners();
+  }
+
+  function scheduleSettingsAnchorScrollTimeout(callback, delay) {
+    const timer = window.setTimeout(() => {
+      settingsAnchorScrollTimers = settingsAnchorScrollTimers.filter((id) => id !== timer);
+      callback();
+    }, delay);
+    settingsAnchorScrollTimers = [...settingsAnchorScrollTimers, timer];
+    return timer;
+  }
+
+  function scheduleSettingsAnchorScrollFrame(callback) {
+    const frame = window.requestAnimationFrame(() => {
+      settingsAnchorScrollFrames = settingsAnchorScrollFrames.filter((id) => id !== frame);
+      callback();
+    });
+    settingsAnchorScrollFrames = [...settingsAnchorScrollFrames, frame];
+    return frame;
+  }
+
+  function armSettingsAnchorScrollCancel() {
+    clearSettingsAnchorScrollListeners();
+    const cancel = () => cancelPendingSettingsAnchorScroll();
+    const listeners = [
+      ["wheel", cancel, { passive: true }],
+      ["touchstart", cancel, { passive: true }],
+      ["pointerdown", cancel, false],
+      ["keydown", cancel, false],
+    ];
+    for (const [type, handler, options] of listeners) {
+      window.addEventListener(type, handler, options);
+    }
+    settingsAnchorScrollCleanup = () => {
+      for (const [type, handler, options] of listeners) {
+        window.removeEventListener(type, handler, options);
+      }
+    };
+    scheduleSettingsAnchorScrollTimeout(() => {
+      clearSettingsAnchorScrollListeners();
+    }, 700);
+  }
+
   function scrollToSettingsAnchor(anchorKey) {
     if (typeof window === "undefined") return;
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        scrollSettingsAnchorIntoView(anchorKey, prefersReducedMotion() ? "auto" : "smooth");
-        for (const delay of [220, 650, 1100, 1800, 2600]) {
-          window.setTimeout(() => scrollSettingsAnchorIntoView(anchorKey, "auto"), delay);
+    cancelPendingSettingsAnchorScroll();
+    armSettingsAnchorScrollCancel();
+    scheduleSettingsAnchorScrollFrame(() => {
+      scheduleSettingsAnchorScrollFrame(() => {
+        scrollSettingsAnchorIntoView(anchorKey, prefersReducedMotion() ? "auto" : "smooth", {
+          focus: true,
+        });
+        for (const delay of [180, 360]) {
+          scheduleSettingsAnchorScrollTimeout(
+            () => scrollSettingsAnchorIntoView(anchorKey, "auto"),
+            delay
+          );
         }
       });
     });
