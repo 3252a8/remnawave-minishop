@@ -1,5 +1,8 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
+
+from bot.infra import events
+
 from .common import _invalidate_webapp_user_caches
 from .telegram_notifications import _probe_telegram_notifications_for_user_id
 
@@ -1302,6 +1305,8 @@ async def _link_telegram_to_user(
             or telegram_user.get("language_code")
             or settings.DEFAULT_LANGUAGE
         )
+        # Technical intermediate row for the link+merge below — the person is
+        # an existing user, so this must not look like a new registration.
         target_user, _ = await user_dal.create_user(
             session,
             {
@@ -1313,6 +1318,7 @@ async def _link_telegram_to_user(
                 "language_code": language_code,
                 "registration_date": current_user.registration_date or datetime.now(timezone.utc),
             },
+            registered_via=None,
         )
         target_user.referral_code = None
         await session.flush()
@@ -1525,6 +1531,17 @@ async def _grant_referral_welcome_bonus_if_eligible(
         # call does not commit on its own), so the bonus and its claimed-marker
         # stay atomic.
         user.referral_welcome_bonus_claimed_at = datetime.now(timezone.utc)
+        await events.emit(
+            events.REFERRAL_BONUS_GRANTED,
+            {
+                "referee_user_id": int(user.user_id),
+                "referee_bonus_days": referral_welcome_days,
+                "referee_new_end_date": events.iso(end_date),
+                "inviter_bonus_applied": False,
+                "payment_db_id": None,
+                "reason": "welcome",
+            },
+        )
     return end_date
 
 

@@ -140,6 +140,160 @@ def test_panel_webhook_service_emits_received_event():
     assert received == [{"event": "user.expired", "panel_user_uuid": "abc", "telegram_id": 42}]
 
 
+def test_create_user_emits_user_registered(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from db.dal import user_dal
+
+    received = []
+
+    async def handler(event_name, payload):
+        received.append(payload)
+
+    events.subscribe(events.USER_REGISTERED, handler)
+
+    fake_user = SimpleNamespace(user_id=123, referred_by_id=77)
+
+    async def fake_get_user(session, user_id):
+        return fake_user
+
+    monkeypatch.setattr(user_dal, "get_user_by_id", fake_get_user)
+
+    insert_result = MagicMock()
+    insert_result.first.return_value = (123,)  # row returned => created
+    session = MagicMock()
+    session.execute = AsyncMock(return_value=insert_result)
+
+    user, created = asyncio.run(
+        user_dal.create_user(
+            session,
+            {
+                "user_id": 123,
+                "telegram_id": 123,
+                "language_code": "ru",
+                "referred_by_id": 77,
+                "referral_code": "ABCDEF123",
+            },
+        )
+    )
+
+    assert created is True
+    assert received == [
+        {
+            "user_id": 123,
+            "language": "ru",
+            "referred_by_id": 77,
+            "registered_via": "telegram",
+        }
+    ]
+
+
+def test_create_user_suppresses_event_for_technical_rows(monkeypatch):
+    """registered_via=None marks technical row creation (account-linking
+    intermediates, bulk imports) that must not look like a registration."""
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from db.dal import user_dal
+
+    received = []
+
+    async def handler(event_name, payload):
+        received.append(payload)
+
+    events.subscribe(events.USER_REGISTERED, handler)
+
+    async def fake_get_user(session, user_id):
+        return SimpleNamespace(user_id=123, referred_by_id=None)
+
+    monkeypatch.setattr(user_dal, "get_user_by_id", fake_get_user)
+
+    insert_result = MagicMock()
+    insert_result.first.return_value = (123,)
+    session = MagicMock()
+    session.execute = AsyncMock(return_value=insert_result)
+
+    _, created = asyncio.run(
+        user_dal.create_user(
+            session,
+            {"user_id": 123, "telegram_id": 123, "referral_code": "ABCDEF123"},
+            registered_via=None,
+        )
+    )
+
+    assert created is True
+    assert received == []
+
+
+def test_create_user_uses_explicit_registration_source(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from db.dal import user_dal
+
+    received = []
+
+    async def handler(event_name, payload):
+        received.append(payload)
+
+    events.subscribe(events.USER_REGISTERED, handler)
+
+    async def fake_get_user(session, user_id):
+        return SimpleNamespace(user_id=321, referred_by_id=None)
+
+    monkeypatch.setattr(user_dal, "get_user_by_id", fake_get_user)
+
+    insert_result = MagicMock()
+    insert_result.first.return_value = (321,)
+    session = MagicMock()
+    session.execute = AsyncMock(return_value=insert_result)
+
+    asyncio.run(
+        user_dal.create_user(
+            session,
+            {"user_id": 321, "telegram_id": 321, "referral_code": "ABCDEF321"},
+            registered_via="panel_sync",
+        )
+    )
+
+    assert [p["registered_via"] for p in received] == ["panel_sync"]
+
+
+def test_create_user_existing_user_does_not_emit(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from db.dal import user_dal
+
+    received = []
+
+    async def handler(event_name, payload):
+        received.append(payload)
+
+    events.subscribe(events.USER_REGISTERED, handler)
+
+    async def fake_get_user(session, user_id):
+        return SimpleNamespace(user_id=123, referred_by_id=None)
+
+    monkeypatch.setattr(user_dal, "get_user_by_id", fake_get_user)
+
+    insert_result = MagicMock()
+    insert_result.first.return_value = None  # conflict => already exists
+    session = MagicMock()
+    session.execute = AsyncMock(return_value=insert_result)
+
+    _, created = asyncio.run(
+        user_dal.create_user(
+            session,
+            {"user_id": 123, "telegram_id": 123, "referral_code": "ABCDEF123"},
+        )
+    )
+
+    assert created is False
+    assert received == []
+
+
 # --- Wiring guard ---------------------------------------------------------------
 
 # Every module that must publish a given event. The test fails when an emit
@@ -157,9 +311,21 @@ EXPECTED_EVENT_WIRING = {
         "SUBSCRIPTION_EXTENDED",
     ],
     "backend/bot/services/subscription_service_impl/trial.py": ["TRIAL_ACTIVATED"],
-    "backend/bot/handlers/user/start.py": ["USER_REGISTERED"],
+    # user.registered is emitted in the DAL so every registration path is
+    # covered: bot /start, Mini App Telegram login and email signup all go
+    # through create_user. account.merged likewise covers all merge paths.
+    "backend/db/dal/user_dal.py": ["USER_REGISTERED", "ACCOUNT_MERGED"],
+    "backend/bot/app/web/webapp/account.py": [
+        "ACCOUNT_EMAIL_LINKED",
+        "ACCOUNT_TELEGRAM_LINKED",
+    ],
     "backend/bot/services/promo_code_service.py": ["PROMO_CODE_APPLIED"],
+    # Payment-triggered accruals live in the service; the one-time welcome
+    # grant has two entry points (bot /start and the webapp helper used by
+    # the claim route and login flows).
     "backend/bot/services/referral_service.py": ["REFERRAL_BONUS_GRANTED"],
+    "backend/bot/handlers/user/start.py": ["REFERRAL_BONUS_GRANTED"],
+    "backend/bot/app/web/webapp/auth.py": ["REFERRAL_BONUS_GRANTED"],
     "backend/bot/services/support_service.py": ["SUPPORT_TICKET_CREATED"],
     "backend/bot/services/panel_webhook_service.py": ["PANEL_WEBHOOK_RECEIVED"],
 }

@@ -23,10 +23,21 @@ Event payload conventions (keys may be ``None`` when unknown):
 - ``SUBSCRIPTION_CREATED`` / ``SUBSCRIPTION_EXTENDED``: user_id,
   subscription_id, tariff_key, end_date, provider, months, payment_db_id.
 - ``TRIAL_ACTIVATED``: user_id, end_date, days, traffic_gb.
-- ``USER_REGISTERED``: user_id, language, referred_by_id.
+- ``USER_REGISTERED``: user_id, language, referred_by_id, registered_via
+  (``telegram`` | ``email`` | ``panel_sync`` | ``unknown``); emitted for
+  every registration path (bot /start, Mini App Telegram login, email
+  signup, users imported by panel sync). Technical row creation (account
+  linking intermediates, bulk migration imports) does not emit.
+- ``ACCOUNT_EMAIL_LINKED``: user_id, email.
+- ``ACCOUNT_TELEGRAM_LINKED``: user_id, telegram_id.
+- ``ACCOUNT_MERGED``: source_user_id, target_user_id (the source row is
+  removed; emitted for every merge path — email/Telegram linking, login
+  flows and admin panel sync).
 - ``PROMO_CODE_APPLIED``: user_id, code, bonus_days, new_end_date.
 - ``REFERRAL_BONUS_GRANTED``: referee_user_id, referee_bonus_days,
-  referee_new_end_date, inviter_bonus_applied, payment_db_id.
+  referee_new_end_date, inviter_bonus_applied, payment_db_id, reason
+  (``payment`` for accruals triggered by a referee payment, ``welcome``
+  for the one-time welcome grant of a newly invited user).
 - ``SUPPORT_TICKET_CREATED``: user_id, ticket_id, category, priority.
 - ``PANEL_WEBHOOK_RECEIVED``: event, panel_user_uuid, telegram_id.
 """
@@ -45,6 +56,9 @@ SUBSCRIPTION_CREATED = "subscription.created"
 SUBSCRIPTION_EXTENDED = "subscription.extended"
 TRIAL_ACTIVATED = "trial.activated"
 USER_REGISTERED = "user.registered"
+ACCOUNT_EMAIL_LINKED = "account.email_linked"
+ACCOUNT_TELEGRAM_LINKED = "account.telegram_linked"
+ACCOUNT_MERGED = "account.merged"
 PROMO_CODE_APPLIED = "promo_code.applied"
 REFERRAL_BONUS_GRANTED = "referral.bonus_granted"
 SUPPORT_TICKET_CREATED = "support.ticket_created"

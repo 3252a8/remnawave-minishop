@@ -1233,6 +1233,8 @@ class RemnashopImporter:
                         if bool(row.get("is_bot_blocked"))
                         else None,
                     },
+                    # Bulk migration import, not a live registration.
+                    registered_via=None,
                 )
                 self.summary["users"]["created" if created else "updated"] += 1
 

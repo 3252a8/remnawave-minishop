@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import aliased
 
+from bot.infra import events
+
 from ..models import (
     AdAttribution,
     EmailVerificationCode,
@@ -200,10 +202,23 @@ async def get_user_by_panel_uuid(session: AsyncSession, panel_uuid: str) -> Opti
 ## Removed unused generic get_user helper to keep DAL explicit and simple
 
 
-async def create_user(session: AsyncSession, user_data: Dict[str, Any]) -> Tuple[User, bool]:
+async def create_user(
+    session: AsyncSession,
+    user_data: Dict[str, Any],
+    *,
+    registered_via: Optional[str] = "auto",
+) -> Tuple[User, bool]:
     """Create a user if not exists in a race-safe way.
 
     Returns a tuple of (user, created_flag).
+
+    When a new row is created, a ``user.registered`` domain event is emitted.
+    ``registered_via`` labels the registration source in the event payload:
+    ``"auto"`` (default) derives ``telegram``/``email``/``unknown`` from the
+    payload, an explicit string (e.g. ``"panel_sync"``) is used as-is, and
+    ``None`` suppresses the event for technical row creation that is not a
+    real registration (e.g. the intermediate row built during account
+    linking, or bulk migration imports).
     """
 
     if "registration_date" not in user_data:
@@ -234,6 +249,23 @@ async def create_user(session: AsyncSession, user_data: Dict[str, Any]) -> Tuple
         logging.info(
             f"New user {user.user_id} created in DAL. Referred by: {user.referred_by_id or 'N/A'}."
         )
+        if registered_via == "auto":
+            if user_data.get("telegram_id"):
+                registered_via = "telegram"
+            elif user_data.get("email"):
+                registered_via = "email"
+            else:
+                registered_via = "unknown"
+        if registered_via:
+            await events.emit(
+                events.USER_REGISTERED,
+                {
+                    "user_id": int(user.user_id),
+                    "language": user_data.get("language_code"),
+                    "referred_by_id": user_data.get("referred_by_id"),
+                    "registered_via": registered_via,
+                },
+            )
     elif user is not None:
         logging.info(f"User {user.user_id} already exists in DAL. Proceeding without creation.")
 
@@ -247,6 +279,7 @@ async def create_email_user(
     language_code: str,
     email_verified_at: Optional[datetime] = None,
     referred_by_id: Optional[int] = None,
+    registered_via: Optional[str] = "email",
 ) -> Tuple[User, bool]:
     normalized_email = (email or "").strip().lower()
     user_id = await generate_unique_email_user_id(session)
@@ -260,6 +293,7 @@ async def create_email_user(
             "referred_by_id": referred_by_id,
             "registration_date": datetime.now(timezone.utc),
         },
+        registered_via=registered_via,
     )
 
 
@@ -611,6 +645,14 @@ async def merge_users(
     await session.delete(source)
     await session.flush()
     await session.refresh(target)
+
+    await events.emit(
+        events.ACCOUNT_MERGED,
+        {
+            "source_user_id": int(source_user_id),
+            "target_user_id": int(target_user_id),
+        },
+    )
     return target
 
 

@@ -2,6 +2,7 @@
 from ._runtime import *  # noqa: F403,F405
 
 from bot.app.web.webapp.cache_helpers import webapp_cached_user_payload
+from bot.infra import events
 from .auth import (
     _hash_email_password,
     _notify_account_merged,
@@ -136,6 +137,11 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
             final_username = current_user.username
             final_first_name = current_user.first_name
             final_panel_uuid = current_user.panel_user_uuid
+
+            await events.emit(
+                events.ACCOUNT_EMAIL_LINKED,
+                {"user_id": final_user_id, "email": email},
+            )
 
             if merge_notice:
                 merge_end_date_raw = merge_notice.get("final_end_date")
@@ -361,6 +367,11 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
                     settings=settings,
                 )
             await session.commit()
+
+            await events.emit(
+                events.ACCOUNT_TELEGRAM_LINKED,
+                {"user_id": final_user_id, "telegram_id": final_telegram_id},
+            )
 
             if merge_notice:
                 merge_end_date_raw = merge_notice.get("final_end_date")

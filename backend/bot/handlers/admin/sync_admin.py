@@ -1019,7 +1019,9 @@ async def _perform_sync_impl(
                                 "referred_by_id": None,
                             }
 
-                            new_user, was_created = await user_dal.create_user(session, user_data)
+                            new_user, was_created = await user_dal.create_user(
+                                session, user_data, registered_via="panel_sync"
+                            )
                             if was_created:
                                 users_created += 1
                                 logging.info(
@@ -1048,6 +1050,7 @@ async def _perform_sync_impl(
                                 session,
                                 email=email_from_panel,
                                 language_code="ru",
+                                registered_via="panel_sync",
                             )
                             new_user.panel_user_uuid = panel_uuid
                             if was_created:

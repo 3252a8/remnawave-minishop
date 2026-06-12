@@ -302,6 +302,7 @@ class ReferralService:
                         "referee_new_end_date": events.iso(referee_final_end_date),
                         "inviter_bonus_applied": inviter_bonus_successfully_applied,
                         "payment_db_id": current_payment_db_id,
+                        "reason": "payment",
                     },
                 )
 

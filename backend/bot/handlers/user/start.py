@@ -653,15 +653,6 @@ async def start_command_handler(
                     f"New user {user_id} added to session. Referred by: {referred_by_user_id or 'N/A'}."  # noqa: E501
                 )
 
-                await events.emit(
-                    events.USER_REGISTERED,
-                    {
-                        "user_id": user_id,
-                        "language": current_lang,
-                        "referred_by_id": referred_by_user_id,
-                    },
-                )
-
                 # Auto-grant referral welcome bonus to newly registered referred users.
                 referral_welcome_days = max(
                     0, int(getattr(settings, "REFERRAL_WELCOME_BONUS_DAYS", 0) or 0)
@@ -687,6 +678,17 @@ async def start_command_handler(
                             # once this grant expires).
                             db_user.referral_welcome_bonus_claimed_at = datetime.now(timezone.utc)
                             await session.commit()
+                            await events.emit(
+                                events.REFERRAL_BONUS_GRANTED,
+                                {
+                                    "referee_user_id": user_id,
+                                    "referee_bonus_days": referral_welcome_days,
+                                    "referee_new_end_date": events.iso(referral_bonus_end_date),
+                                    "inviter_bonus_applied": False,
+                                    "payment_db_id": None,
+                                    "reason": "welcome",
+                                },
+                            )
                             logging.info(
                                 "Referral welcome bonus applied: user %s got %s days, new end date %s.",  # noqa: E501
                                 user_id,
