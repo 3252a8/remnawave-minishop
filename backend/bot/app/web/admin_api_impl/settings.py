@@ -6,6 +6,7 @@ from config.subscription_guides_config import (
     SubscriptionGuidesConfigError,
     subscription_guides_admin_config_json,
 )
+from bot.services.entitlements import features as entitlement_features
 
 
 async def admin_settings_get_route(request: web.Request) -> web.Response:
@@ -65,7 +66,7 @@ async def admin_settings_get_route(request: web.Request) -> web.Response:
         sections[section_id]["fields"].append(response_field)
 
     ordered_sections = sorted(sections.values(), key=lambda s: s["order"])
-    return _ok({"sections": ordered_sections})
+    return _ok({"sections": ordered_sections, "features": sorted(entitlement_features())})
 
 
 async def admin_settings_patch_route(request: web.Request) -> web.Response:

@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import sessionmaker
 
     from bot.middlewares.i18n import JsonI18n
+    from bot.services.entitlements import EntitlementsProvider
     from config.settings import Settings
     from db.migrator import Migration
 
@@ -133,4 +134,12 @@ class Plugin:
         """Return a directory with extra locale JSON files (same layout as
         the core ``locales/`` directory). Plugin keys never override keys
         already defined by the core locales."""
+        return None
+
+    def entitlements_provider(self) -> Optional["EntitlementsProvider"]:
+        """Return a feature entitlement provider for this process.
+
+        When several plugins return providers, the last active plugin wins.
+        The default core provider exposes an empty feature set.
+        """
         return None

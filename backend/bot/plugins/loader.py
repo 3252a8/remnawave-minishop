@@ -44,6 +44,9 @@ def reset_plugins() -> None:
     _builtin_plugins = None
     _discovered_plugins = None
     _registered_plugins.clear()
+    from bot.services.entitlements import reset_entitlements
+
+    reset_entitlements()
 
 
 def _coerce_plugin(loaded: object, entry_point_name: str) -> Plugin:
@@ -119,6 +122,31 @@ def run_setup(ctx: PluginContext) -> None:
     """Invoke the general ``setup`` hook of every plugin."""
     for plugin in get_plugins(ctx.settings):
         _run_hook(ctx.settings, plugin, "setup", ctx)
+    configure_entitlements(ctx)
+
+
+def configure_entitlements(ctx: PluginContext) -> None:
+    """Activate the last plugin-provided entitlements provider, if any."""
+    from bot.services.entitlements import DefaultEntitlements, set_entitlements_provider
+
+    provider = DefaultEntitlements()
+    source = "core"
+    for plugin in get_plugins(ctx.settings):
+        try:
+            contributed = plugin.entitlements_provider()
+        except Exception:
+            logger.exception(
+                "Plugin %r failed in entitlements_provider; skipping it",
+                plugin.name,
+            )
+            if ctx.settings.PLUGINS_STRICT:
+                raise
+            continue
+        if contributed is None:
+            continue
+        provider = contributed
+        source = plugin.name
+    set_entitlements_provider(provider, source=source)
 
 
 def setup_bot_plugins(ctx: PluginContext, *, user_root: "Router", admin_root: "Router") -> None:
