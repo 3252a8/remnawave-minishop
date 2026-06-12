@@ -3,25 +3,12 @@
     ArrowLeft,
     Check,
     ChevronsUpDown,
-    Coins,
-    CreditCard,
-    Database,
     Download,
-    FileText,
     Globe2,
-    Languages,
-    LayoutDashboard,
-    LifeBuoy,
-    Megaphone,
     Menu,
-    Paintbrush,
     Plus,
     RefreshCw,
     Save,
-    Sliders,
-    Sparkles,
-    Tag,
-    UsersRound,
   } from "$components/ui/icons.js";
   import { onMount, setContext } from "svelte";
   import { fade } from "svelte/transition";
@@ -29,22 +16,10 @@
   import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
 
   import BrandMark from "$lib/webapp/BrandMark.svelte";
-  import AdsSection from "./sections/AdsSection.svelte";
-  import BackupsSection from "./sections/BackupsSection.svelte";
-  import BroadcastSection from "./sections/BroadcastSection.svelte";
-  import LogsSection from "./sections/LogsSection.svelte";
   import PaymentDetailModal from "./sections/PaymentDetailModal.svelte";
-  import PaymentsSection from "./sections/PaymentsSection.svelte";
-  import PromosSection from "./sections/PromosSection.svelte";
-  import SettingsSection from "./sections/SettingsSection.svelte";
-  import StatsSection from "./sections/StatsSection.svelte";
-  import SupportSection from "./sections/SupportSection.svelte";
   import TariffEditorModal from "./sections/TariffEditorModal.svelte";
-  import TariffsSection from "./sections/TariffsSection.svelte";
-  import TranslationsSection from "./sections/TranslationsSection.svelte";
-  import AppearanceSection from "./sections/AppearanceSection.svelte";
   import UserDetailModal from "./sections/UserDetailModal.svelte";
-  import UsersSection from "./sections/UsersSection.svelte";
+  import { ADMIN_SECTION_GROUPS, ADMIN_SECTIONS } from "./sections/registry.ts";
   import ConfigAlertsBanner from "./ConfigAlertsBanner.svelte";
   import { createAdsStore } from "../lib/admin/stores/adsStore.js";
   import { createBackupsStore } from "../lib/admin/stores/backupsStore.js";
@@ -113,106 +88,32 @@
 
   const at = (key, params = {}, fallback = "") => t(`admin_${key}`, params, fallback || key);
 
-  $: NAV_GROUPS = [
-    {
-      id: "overview",
-      label: at("nav_overview", {}, "Обзор"),
-      items: [{ id: "stats", label: at("nav_dashboard", {}, "Дашборд"), icon: LayoutDashboard }],
-    },
-    {
-      id: "operations",
-      label: at("nav_operations", {}, "Управление"),
-      items: [
-        { id: "users", label: at("nav_users", {}, "Пользователи"), icon: UsersRound },
-        { id: "payments", label: at("nav_payments", {}, "Платежи"), icon: CreditCard },
-        { id: "promos", label: at("nav_promos", {}, "Промокоды"), icon: Tag },
-        { id: "ads", label: at("nav_ads", {}, "Реклама"), icon: Sparkles },
-      ],
-    },
-    {
-      id: "communication",
-      label: at("nav_communication", {}, "Коммуникации"),
-      items: [
-        { id: "broadcast", label: at("nav_broadcast", {}, "Рассылка"), icon: Megaphone },
-        { id: "logs", label: at("nav_logs", {}, "Логи"), icon: FileText },
-        { id: "support", label: at("nav_support", {}, "Поддержка"), icon: LifeBuoy },
-      ],
-    },
-    {
-      id: "system",
-      label: at("nav_system", {}, "Система"),
-      items: [
-        { id: "tariffs", label: at("nav_tariffs", {}, "Тарифы"), icon: Coins },
-        { id: "appearance", label: at("nav_appearance", {}, "Внешний вид"), icon: Paintbrush },
-        { id: "translations", label: at("nav_translations", {}, "Переводы"), icon: Languages },
-        { id: "backups", label: at("nav_backups", {}, "Бэкапы"), icon: Database },
-        { id: "settings", label: at("nav_settings", {}, "Настройки"), icon: Sliders },
-      ],
-    },
-  ];
-
-  $: SECTION_META = {
-    stats: {
-      title: at("section_stats_title", {}, "Дашборд"),
-      subtitle: at(
-        "section_stats_subtitle",
-        {},
-        "Аудитория, доходы, панель Remnawave и последние платежи"
-      ),
-    },
-    users: {
-      title: at("section_users_title", {}, "Пользователи"),
-      subtitle: at("section_users_subtitle", {}, "Поиск, баны и действия над аккаунтами"),
-    },
-    payments: {
-      title: at("section_payments_title", {}, "Платежи"),
-      subtitle: at("section_payments_subtitle", {}, "История транзакций и экспорт"),
-    },
-    promos: {
-      title: at("section_promos_title", {}, "Промокоды"),
-      subtitle: at("section_promos_subtitle", {}, "Создание и управление кодами"),
-    },
-    ads: {
-      title: at("section_ads_title", {}, "Рекламные кампании"),
-      subtitle: at("section_ads_subtitle", {}, "UTM-источники и атрибуция"),
-    },
-    broadcast: {
-      title: at("section_broadcast_title", {}, "Рассылка"),
-      subtitle: at("section_broadcast_subtitle", {}, "Массовая отправка сообщений в Telegram"),
-    },
-    logs: {
-      title: at("section_logs_title", {}, "Логи активности"),
-      subtitle: at("section_logs_subtitle", {}, "События пользователей и админ-действия"),
-    },
-    support: {
-      title: at("section_support_title", {}, "Поддержка"),
-      subtitle: at("section_support_subtitle", {}, "Инбокс тикетов и ответы пользователям"),
-    },
-    tariffs: {
-      title: at("section_tariffs_title", {}, "Тарифы"),
-      subtitle: at("section_tariffs_subtitle", {}, "Каталог продаж, периоды, пакеты и лимиты"),
-    },
-    appearance: {
-      title: at("section_appearance_title", {}, "Внешний вид"),
-      subtitle: at("section_appearance_subtitle", {}, "Логотип, темы и акцентные цвета Mini App"),
-    },
-    translations: {
-      title: at("section_translations_title", {}, "Переводы"),
-      subtitle: at(
-        "section_translations_subtitle",
-        {},
-        "Оверрайды строк локализации из базы данных и data/locales-overrides.json"
-      ),
-    },
-    backups: {
-      title: at("section_backups_title", {}, "Бэкапы"),
-      subtitle: at("section_backups_subtitle", {}, "Архивы, загрузка и восстановление БД/compose"),
-    },
-    settings: {
-      title: at("section_settings_title", {}, "Настройки приложения"),
-      subtitle: at("section_settings_subtitle", {}, "Оверрайды над .env, применяются мгновенно"),
-    },
-  };
+  $: featureSet = new Set($settingsStore?.features || []);
+  $: visibleSections = ADMIN_SECTIONS.filter(
+    (section) => !section.feature || featureSet.has(section.feature)
+  );
+  $: NAV_GROUPS = ADMIN_SECTION_GROUPS.map((group) => ({
+    id: group.id,
+    order: group.order,
+    label: at(group.i18nKey, {}, group.fallbackLabel),
+    items: visibleSections
+      .filter((section) => section.group === group.id)
+      .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))
+      .map((section) => ({
+        ...section,
+        label: at(section.i18nKey, {}, section.fallbackLabel),
+      })),
+  })).filter((group) => group.items.length);
+  $: SECTION_META = Object.fromEntries(
+    visibleSections.map((section) => [
+      section.id,
+      {
+        title: at(section.titleI18nKey, {}, section.fallbackTitle),
+        subtitle: at(section.subtitleI18nKey, {}, section.fallbackSubtitle),
+      },
+    ])
+  );
+  $: SECTION_BY_ID = new Map(visibleSections.map((section) => [section.id, section]));
 
   $: VALID_SECTIONS = (NAV_GROUPS || []).flatMap((group) =>
     (group.items || []).map((item) => item.id)
@@ -222,6 +123,9 @@
 
   let active = normalizeSection(initialSection);
   let lastInitialSection = active;
+  $: if (VALID_SECTIONS.length && !VALID_SECTIONS.includes(active)) {
+    active = normalizeSection(active);
+  }
   let settingsPath = Array.isArray(initialSettingsPath) ? initialSettingsPath : [];
   let lastInitialSettingsPathKey = settingsPathKey(settingsPath);
   $: {
@@ -300,6 +204,13 @@
   $: settingsSaving = $settingsStore.settingsSaving;
   $: translationsSaving = $translationsStore.translationsSaving;
   $: meta = SECTION_META[active] || { title: active, subtitle: "" };
+  $: activeSection = SECTION_BY_ID.get(active);
+  $: openSectionUserCard =
+    active === "logs"
+      ? openLogsUserCard
+      : active === "support"
+        ? openUserCard
+        : openPaymentUserCard;
   $: currentLanguageOption =
     languageOptions.find((option) => option.value === currentLang) || languageOptions[0];
 
@@ -862,96 +773,32 @@
       <ConfigAlertsBanner {at} section={active} onNavigate={setActive} />
       {#key active}
         <div class="admin-section-stage" in:fade={sectionFade} out:fade={sectionFade}>
-          {#if active === "stats"}
-            <StatsSection {at} {fmtDate} {fmtDateShort} {fmtMoney} {paymentStatusVariant} />
-          {/if}
-
-          {#if active === "users"}
-            <UsersSection
+          {#if activeSection}
+            <svelte:component
+              this={activeSection.component}
               {at}
+              {brand}
+              {currentLang}
+              {fmtDate}
               {fmtDateShort}
               {fmtMoney}
+              {onSettingsSaved}
+              {onTranslationsSaved}
+              {paymentStatusVariant}
               {panelStatusBadge}
               {resolvedAvatarUrl}
+              {routePrefix}
+              {settingsPath}
               {userDisplayName}
               {userInitials}
               {userSecondaryName}
-            />
-          {/if}
-
-          {#if active === "payments"}
-            <PaymentsSection
-              {at}
-              {fmtDate}
-              {fmtMoney}
-              {paymentStatusVariant}
-              onOpenUserCard={openPaymentUserCard}
-            />
-          {/if}
-
-          {#if active === "promos"}
-            <PromosSection {at} {fmtDateShort} />
-          {/if}
-
-          {#if active === "ads"}
-            <AdsSection {at} {fmtMoney} />
-          {/if}
-
-          {#if active === "broadcast"}
-            <BroadcastSection {at} />
-          {/if}
-
-          {#if active === "logs"}
-            <LogsSection {at} {fmtDate} onOpenUserCard={openLogsUserCard} />
-          {/if}
-
-          {#if active === "support"}
-            <SupportSection
-              {at}
-              {brand}
-              {resolvedAvatarUrl}
-              onOpenUserCard={openUserCard}
-              initialTicketId={readSupportTicketIdFromPath()}
-            />
-          {/if}
-
-          {#if active === "tariffs"}
-            <TariffsSection
-              {at}
-              {fmtMoney}
-              {onSettingsSaved}
-              onOpenSettingsPath={openSettingsPath}
-            />
-          {/if}
-
-          {#if active === "appearance"}
-            <AppearanceSection
-              {at}
-              {currentLang}
-              {onSettingsSaved}
-              {brand}
               {appFaviconUrl}
               {appFaviconUseCustom}
-            />
-          {/if}
-
-          {#if active === "settings"}
-            <SettingsSection
-              {at}
-              {onSettingsSaved}
-              {currentLang}
-              {settingsPath}
-              {routePrefix}
+              onOpenUserCard={openSectionUserCard}
+              onOpenSettingsPath={openSettingsPath}
               onSettingsPathChange={(path) => (settingsPath = path)}
+              initialTicketId={readSupportTicketIdFromPath()}
             />
-          {/if}
-
-          {#if active === "backups"}
-            <BackupsSection {at} {fmtDate} />
-          {/if}
-
-          {#if active === "translations"}
-            <TranslationsSection {at} {onTranslationsSaved} />
           {/if}
         </div>
       {/key}

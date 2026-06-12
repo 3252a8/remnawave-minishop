@@ -3,6 +3,7 @@ import { writable } from "svelte/store";
 export function createSettingsStore({ api, onToast, at }) {
   const state = writable({
     settingsSections: [],
+    features: [],
     settingsLoading: false,
     settingsDirty: {},
     settingsSaving: false,
@@ -16,6 +17,7 @@ export function createSettingsStore({ api, onToast, at }) {
         state.update((s) => ({
           ...s,
           settingsSections: data.sections || [],
+          features: Array.isArray(data.features) ? data.features : [],
         }));
       }
     } finally {

@@ -1150,7 +1150,8 @@ function demoApiResponse(path, cleanPath, options, context) {
       reverted: (body.deletes || []).length,
     };
   }
-  if (cleanPath === "/admin/settings") return { ok: true, sections: demoSettingsSections(clone) };
+  if (cleanPath === "/admin/settings")
+    return { ok: true, sections: demoSettingsSections(clone), features: [] };
 
   if (cleanPath === "/admin/tariffs") {
     if (method === "PUT") {
@@ -2033,6 +2034,7 @@ export async function mockApi(path, options = {}, context = {}) {
   if (path === "/admin/settings")
     return {
       ok: true,
+      features: [],
       sections: [
         {
           id: "general",
