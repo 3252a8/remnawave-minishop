@@ -13,6 +13,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, sessionmaker
 
+from bot.infra import events
 from bot.infra.webhook_queue import enqueue_webhook_event
 from bot.keyboards.inline.user_keyboards import (
     get_autorenew_cancel_keyboard,
@@ -132,6 +133,15 @@ class PanelWebhookService:
         )
 
     async def handle_event(self, event_name: str, user_payload: dict):
+        await events.emit(
+            events.PANEL_WEBHOOK_RECEIVED,
+            {
+                "event": event_name,
+                "panel_user_uuid": user_payload.get("uuid"),
+                "telegram_id": user_payload.get("telegramId"),
+            },
+        )
+
         if not self.settings.SUBSCRIPTION_NOTIFICATIONS_ENABLED:
             return
 

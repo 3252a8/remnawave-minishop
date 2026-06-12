@@ -10,6 +10,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.text_decorations import html_decoration as hd
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra import events
 from bot.keyboards.inline.user_keyboards import (
     get_bot_interface_inline_keyboard,
     get_channel_subscription_keyboard,
@@ -650,6 +651,15 @@ async def start_command_handler(
 
                 logging.info(
                     f"New user {user_id} added to session. Referred by: {referred_by_user_id or 'N/A'}."  # noqa: E501
+                )
+
+                await events.emit(
+                    events.USER_REGISTERED,
+                    {
+                        "user_id": user_id,
+                        "language": current_lang,
+                        "referred_by_id": referred_by_user_id,
+                    },
                 )
 
                 # Auto-grant referral welcome bonus to newly registered referred users.

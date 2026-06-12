@@ -6,6 +6,7 @@ from aiogram import Bot
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra import events
 from bot.middlewares.i18n import JsonI18n
 from bot.services.user_email_notifications import send_user_notification_email
 from config.settings import Settings
@@ -291,6 +292,18 @@ class ReferralService:
                     logging.warning(
                         f"Failed to apply referee bonus for {referee_user_id} (could not extend their new subscription)."  # noqa: E501
                     )
+
+            if referee_bonus_applied_days or inviter_bonus_successfully_applied:
+                await events.emit(
+                    events.REFERRAL_BONUS_GRANTED,
+                    {
+                        "referee_user_id": referee_user_id,
+                        "referee_bonus_days": referee_bonus_applied_days,
+                        "referee_new_end_date": events.iso(referee_final_end_date),
+                        "inviter_bonus_applied": inviter_bonus_successfully_applied,
+                        "payment_db_id": current_payment_db_id,
+                    },
+                )
 
             return {
                 "referee_bonus_applied_days": referee_bonus_applied_days,

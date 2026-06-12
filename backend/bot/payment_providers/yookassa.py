@@ -18,6 +18,7 @@ from yookassa.domain.common.confirmation_type import ConfirmationType
 from yookassa.domain.notification import WebhookNotification
 from yookassa.domain.request.payment_request_builder import PaymentRequestBuilder
 
+from bot.infra import events
 from bot.infra.webhook_queue import enqueue_webhook_event
 from bot.keyboards.inline.user_keyboards import (
     get_back_to_main_menu_markup,
@@ -814,6 +815,37 @@ async def process_successful_payment(
             )
             raise Exception(f"DB Error: Could not update payment record {payment_db_id}")
 
+        await events.emit(
+            events.PAYMENT_SUCCEEDED,
+            {
+                "user_id": user_id,
+                "payment_db_id": payment_db_id,
+                "provider": "yookassa",
+                "amount": payment_value,
+                "currency": str(amount_data.get("currency") or "RUB"),
+                "sale_mode": sale_mode,
+                "months": months_for_activation if sale_mode_base == "subscription" else None,
+                "traffic_gb": traffic_gb_for_activation,
+                "end_date": events.iso(activation_details.get("end_date")),
+                "is_auto_renew": is_auto_renew,
+            },
+        )
+        if sale_mode_base == "subscription":
+            await events.emit(
+                events.SUBSCRIPTION_EXTENDED
+                if activation_details.get("was_extension")
+                else events.SUBSCRIPTION_CREATED,
+                {
+                    "user_id": user_id,
+                    "subscription_id": activation_details.get("subscription_id"),
+                    "tariff_key": activation_details.get("tariff_key"),
+                    "end_date": events.iso(activation_details.get("end_date")),
+                    "provider": "yookassa",
+                    "months": months_for_activation,
+                    "payment_db_id": payment_db_id,
+                },
+            )
+
         base_subscription_end_date = activation_details.get("end_date")
         final_end_date_for_user = base_subscription_end_date
         applied_promo_bonus_days = activation_details.get("applied_promo_bonus_days", 0)
@@ -1018,6 +1050,16 @@ async def process_cancelled_payment(
         if updated_payment:
             logging.info(
                 f"Payment {payment_db_id} (YK: {payment_info_from_webhook.get('id')}) status updated to cancelled for user {user_id}."  # noqa: E501
+            )
+            await events.emit(
+                events.PAYMENT_CANCELED,
+                {
+                    "user_id": user_id,
+                    "payment_db_id": payment_db_id,
+                    "provider": "yookassa",
+                    "provider_payment_id": payment_info_from_webhook.get("id"),
+                    "status": payment_info_from_webhook.get("status", "canceled"),
+                },
             )
         else:
             logging.warning(

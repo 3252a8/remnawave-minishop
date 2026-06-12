@@ -80,7 +80,11 @@ class Plugin:
     version: str = "0.0.0"
 
     def setup(self, ctx: PluginContext) -> None:
-        """General initialization; called first, once per process."""
+        """General initialization; called first, once per process.
+
+        This is the right place to contribute services to ``ctx.services``
+        and to subscribe to domain events (:mod:`bot.infra.events`).
+        """
 
     def setup_bot(
         self,

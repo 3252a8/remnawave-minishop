@@ -771,6 +771,7 @@ class SubscriptionLifecycleMixin:
             "subscription_url": final_subscription_url,
             "applied_promo_bonus_days": applied_promo_bonus_days,
             "tariff_key": tariff.key if tariff else None,
+            "was_extension": current_active_sub is not None,
             "hwid_devices_renewal_recommended_count": 0
             if hwid_devices_renewed_count
             else extra_hwid_devices,

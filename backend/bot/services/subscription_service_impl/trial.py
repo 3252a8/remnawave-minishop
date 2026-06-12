@@ -1,6 +1,8 @@
 # ruff: noqa: F401,F403,F405,I001
 from ._runtime import *  # noqa: F403,F405
 
+from bot.infra import events
+
 
 class TrialSubscriptionMixin:
     async def activate_trial_subscription(
@@ -113,6 +115,16 @@ class TrialSubscriptionMixin:
             }
 
         await session.commit()
+
+        await events.emit(
+            events.TRIAL_ACTIVATED,
+            {
+                "user_id": user_id,
+                "end_date": events.iso(end_date),
+                "days": self.settings.TRIAL_DURATION_DAYS,
+                "traffic_gb": self.settings.TRIAL_TRAFFIC_LIMIT_GB,
+            },
+        )
 
         final_subscription_url = updated_panel_user.get("subscriptionUrl")
         final_panel_short_uuid = updated_panel_user.get("shortUuid", panel_short_uuid)

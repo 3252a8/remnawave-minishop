@@ -9,6 +9,7 @@ from typing import Any, Optional
 from aiogram import Bot
 from sqlalchemy.orm import sessionmaker
 
+from bot.infra import events
 from bot.middlewares.i18n import JsonI18n
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.notification_service import NotificationService
@@ -176,6 +177,16 @@ class SupportService:
             )
             snapshot = await self.build_user_snapshot(user, session=session)
             await session.commit()
+
+        await events.emit(
+            events.SUPPORT_TICKET_CREATED,
+            {
+                "user_id": user_id,
+                "ticket_id": ticket.ticket_id,
+                "category": category,
+                "priority": priority,
+            },
+        )
 
         try:
             await self.notification_service.notify_new_support_ticket(

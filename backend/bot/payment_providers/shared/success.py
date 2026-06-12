@@ -8,6 +8,7 @@ from typing import Any, Optional
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra import events
 from bot.keyboards.inline.user_keyboards import get_connect_and_main_keyboard
 from bot.services.notification_service import NotificationService
 from bot.utils.config_link import prepare_config_links
@@ -357,6 +358,37 @@ async def finalize_successful_payment(
                 req.payment.payment_id,
             )
         return None
+
+    await events.emit(
+        events.PAYMENT_SUCCEEDED,
+        {
+            "user_id": req.user_id,
+            "payment_db_id": req.payment.payment_id,
+            "provider": req.provider_subscription,
+            "amount": req.amount,
+            "currency": req.currency,
+            "sale_mode": req.sale_mode,
+            "months": activation_months if is_subscription else None,
+            "traffic_gb": traffic_gb_for_activation,
+            "end_date": events.iso(activation.get("end_date") if activation else None),
+            "is_auto_renew": False,
+        },
+    )
+    if is_subscription and activation:
+        await events.emit(
+            events.SUBSCRIPTION_EXTENDED
+            if activation.get("was_extension")
+            else events.SUBSCRIPTION_CREATED,
+            {
+                "user_id": req.user_id,
+                "subscription_id": activation.get("subscription_id"),
+                "tariff_key": activation.get("tariff_key"),
+                "end_date": events.iso(activation.get("end_date")),
+                "provider": req.provider_subscription,
+                "months": activation_months,
+                "payment_db_id": req.payment.payment_id,
+            },
+        )
 
     try:
         from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
