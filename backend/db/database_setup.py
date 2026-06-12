@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from config.settings import Settings
 from db.models import Base
 
-from .migrator import run_database_migrations
+from .migrator import run_all_migration_chains
 
 async_engine = None
 DB_INIT_ADVISORY_LOCK_ID = 817512404897421337
@@ -75,7 +75,7 @@ async def init_db(settings: Settings, session_factory: sessionmaker):
     async with async_engine.begin() as conn:
         await conn.execute(text(f"SELECT pg_advisory_xact_lock({DB_INIT_ADVISORY_LOCK_ID})"))
         await conn.run_sync(Base.metadata.create_all)
-        await conn.run_sync(run_database_migrations)
+        await conn.run_sync(lambda sync_conn: run_all_migration_chains(sync_conn, settings))
     logging.info("PostgreSQL database initialized/checked successfully using SQLAlchemy.")
 
     try:

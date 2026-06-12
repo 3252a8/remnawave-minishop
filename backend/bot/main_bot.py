@@ -11,7 +11,7 @@ from bot.app.factories.build_services import build_core_services
 from bot.app.web.web_server import build_and_start_web_app
 from bot.infra.redis import close_redis
 from bot.middlewares.i18n import JsonI18n
-from bot.plugins import PluginContext, run_setup
+from bot.plugins import PluginContext, apply_plugin_locales, run_setup
 from bot.routers import build_root_router
 from bot.services.locale_override_service import load_locale_overrides
 from bot.utils.message_queue import init_queue_manager
@@ -279,6 +279,7 @@ async def run_bot(settings_param: Settings):
     await init_db(settings_param, local_async_session_factory)
     dp, bot, extra = build_dispatcher(settings_param, local_async_session_factory)
     i18n_instance = extra["i18n_instance"]
+    apply_plugin_locales(settings_param, i18n_instance)
     await load_locale_overrides(i18n_instance, local_async_session_factory)
 
     # Get bot username for YooKassa default return URL if needed
@@ -309,11 +310,6 @@ async def run_bot(settings_param: Settings):
         i18n_instance,
         actual_bot_username,
     )
-    for key, service in services.items():
-        dp[key] = service
-    dp["panel_service"] = services["panel_service"]
-    dp["async_session_factory"] = local_async_session_factory
-
     plugin_context = PluginContext(
         settings=settings_param,
         session_factory=local_async_session_factory,
@@ -322,7 +318,13 @@ async def run_bot(settings_param: Settings):
         dispatcher=dp,
         services=services,
     )
+    # Plugins may contribute services, so run setup before the dispatcher copy.
     run_setup(plugin_context)
+
+    for key, service in services.items():
+        dp[key] = service
+    dp["panel_service"] = services["panel_service"]
+    dp["async_session_factory"] = local_async_session_factory
 
     # Wrap startup/shutdown handlers to satisfy aiogram event signature (no args passed)
     async def _on_startup_wrapper():

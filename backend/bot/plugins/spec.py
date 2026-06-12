@@ -15,7 +15,8 @@ The plugin API is experimental and may change between minor versions.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Coroutine, Dict, List, Optional
 
 if TYPE_CHECKING:
     from aiogram import Bot, Dispatcher, Router
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
 
     from bot.middlewares.i18n import JsonI18n
     from config.settings import Settings
+    from db.migrator import Migration
 
 ENTRY_POINT_GROUP = "minishop.plugins"
 
@@ -31,6 +33,25 @@ ENTRY_POINT_GROUP = "minishop.plugins"
 # and payment/panel webhooks, the webapp app serves the Mini App and admin API.
 WEB_SCOPE_WEBHOOKS = "webhooks"
 WEB_SCOPE_WEBAPP = "webapp"
+
+
+@dataclass(frozen=True)
+class WorkerTaskSpec:
+    """A long-running background task contributed to the worker process.
+
+    ``factory`` is called once at worker startup and must return the coroutine
+    to run (typically ``SomeWorker(...).run()``). ``enabled`` is an optional
+    settings predicate checked before the task is started.
+    """
+
+    name: str
+    factory: Callable[["PluginContext"], Coroutine[Any, Any, None]]
+    enabled: Optional[Callable[["Settings"], bool]] = None
+
+
+#: Handler for one webhook-queue event; receives the context and the raw
+#: event payload dict popped from the queue.
+QueueHandler = Callable[["PluginContext", Dict[str, Any]], Awaitable[None]]
 
 
 @dataclass
@@ -81,3 +102,31 @@ class Plugin:
         Called once per web application after the core routes are registered.
         ``scope`` is :data:`WEB_SCOPE_WEBHOOKS` or :data:`WEB_SCOPE_WEBAPP`.
         """
+
+    def worker_tasks(self, ctx: PluginContext) -> List[WorkerTaskSpec]:
+        """Return background tasks to run in the worker process."""
+        return []
+
+    def queue_handlers(self, ctx: PluginContext) -> Dict[str, QueueHandler]:
+        """Return webhook-queue handlers keyed by event provider name.
+
+        Provider names already handled by the core (or another plugin) are
+        rejected; pick names unique to the plugin.
+        """
+        return {}
+
+    def migrations(self) -> List["Migration"]:
+        """Return the plugin's database migration chain.
+
+        Every migration id must be prefixed with ``"<plugin name>."`` (e.g.
+        ``"myplugin.0001_initial"``); all chains share the core
+        ``schema_migrations`` table. By convention plugin tables are named
+        with an ``ext_<plugin>_`` prefix to avoid clashes with core tables.
+        """
+        return []
+
+    def locales_dir(self) -> Optional[Path]:
+        """Return a directory with extra locale JSON files (same layout as
+        the core ``locales/`` directory). Plugin keys never override keys
+        already defined by the core locales."""
+        return None

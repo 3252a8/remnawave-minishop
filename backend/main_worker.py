@@ -2,6 +2,7 @@ import asyncio
 import logging
 import sys
 import time
+from typing import Any, Dict, List
 
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
@@ -23,16 +24,24 @@ from bot.payment_providers.yookassa import (
     process_cancelled_payment,
     process_successful_payment,
 )
+from bot.plugins import (
+    PluginContext,
+    QueueHandler,
+    WorkerTaskSpec,
+    apply_plugin_locales,
+    collect_queue_handlers,
+    collect_worker_tasks,
+    run_setup,
+)
 from bot.services.backup_worker import BackupWorker
 from bot.services.locale_override_service import load_locale_overrides
 from bot.services.subscription_notification_worker import SubscriptionNotificationWorker
 from bot.services.tariff_worker import TariffTrafficWorker
-from bot.services.telemetry_worker import TelemetryWorker
 from bot.utils.message_queue import init_queue_manager
 from config.settings import get_settings
 
 
-async def _build_worker_context(settings):
+async def _build_worker_context(settings) -> PluginContext:
     session_factory = database_setup.init_db_connection(settings)
     await database_setup.init_db(settings, session_factory)
     bot = Bot(
@@ -40,6 +49,7 @@ async def _build_worker_context(settings):
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     i18n = get_i18n_instance(path="locales", default=settings.DEFAULT_LANGUAGE)
+    apply_plugin_locales(settings, i18n)
     await load_locale_overrides(i18n, session_factory)
     bot_username = "your_bot_username"
     try:
@@ -49,10 +59,89 @@ async def _build_worker_context(settings):
         logging.exception("Worker failed to resolve bot username")
     services = build_core_services(settings, bot, session_factory, i18n, bot_username)
     init_queue_manager(bot)
-    return session_factory, bot, i18n, services
+    ctx = PluginContext(
+        settings=settings,
+        session_factory=session_factory,
+        bot=bot,
+        i18n=i18n,
+        services=services,
+    )
+    run_setup(ctx)
+    return ctx
 
 
-async def _webhook_consumer(settings, session_factory, bot, i18n, services):
+async def _handle_yookassa_event(ctx: PluginContext, payload: Dict[str, Any]) -> None:
+    payment_payload = payload.get("payment") or {}
+    async with payment_processing_lock:
+        async with ctx.session_factory() as session:
+            if payload.get("event") == YOOKASSA_EVENT_PAYMENT_SUCCEEDED:
+                await process_successful_payment(
+                    session,
+                    ctx.bot,
+                    payment_payload,
+                    ctx.i18n,
+                    ctx.settings,
+                    ctx.services["panel_service"],
+                    ctx.services["subscription_service"],
+                    ctx.services["referral_service"],
+                    ctx.services.get("lknpd_service"),
+                )
+            elif payload.get("event") == YOOKASSA_EVENT_PAYMENT_CANCELED:
+                await process_cancelled_payment(
+                    session,
+                    ctx.bot,
+                    payment_payload,
+                    ctx.i18n,
+                    ctx.settings,
+                )
+            await session.commit()
+
+
+async def _handle_panel_event(ctx: PluginContext, payload: Dict[str, Any]) -> None:
+    await ctx.services["panel_webhook_service"].handle_event(
+        str(payload.get("event") or ""),
+        payload.get("user") or {},
+    )
+
+
+async def _handle_panel_sync_event(ctx: PluginContext, payload: Dict[str, Any]) -> None:
+    settings = ctx.settings
+    sync_result = None
+    async with redis_lock(
+        settings,
+        "panel-sync",
+        ttl_seconds=max(60, settings.WORKER_PANEL_SYNC_INTERVAL_SECONDS - 10),
+    ) as acquired:
+        if acquired:
+            async with ctx.session_factory() as session:
+                sync_result = await perform_sync(
+                    panel_service=ctx.services["panel_service"],
+                    session=session,
+                    settings=settings,
+                    i18n_instance=ctx.i18n,
+                )
+        else:
+            logging.info("Queued panel sync skipped because another sync holds the lock")
+    if sync_result is not None:
+        await _notify_queued_panel_sync_result(
+            ctx.bot,
+            settings,
+            ctx.i18n,
+            payload,
+            sync_result,
+        )
+
+
+def _core_queue_handlers() -> Dict[str, QueueHandler]:
+    return {
+        "yookassa": _handle_yookassa_event,
+        "panel": _handle_panel_event,
+        "panel_sync": _handle_panel_sync_event,
+    }
+
+
+async def _webhook_consumer(ctx: PluginContext, handlers: Dict[str, QueueHandler]) -> None:
+    settings = ctx.settings
     while True:
         event = await pop_webhook_event(settings)
         if not event:
@@ -61,65 +150,11 @@ async def _webhook_consumer(settings, session_factory, bot, i18n, services):
         payload = event.get("payload") or {}
         started = time.monotonic()
         try:
-            if provider == "yookassa":
-                payment_payload = payload.get("payment") or {}
-                async with payment_processing_lock:
-                    async with session_factory() as session:
-                        if payload.get("event") == YOOKASSA_EVENT_PAYMENT_SUCCEEDED:
-                            await process_successful_payment(
-                                session,
-                                bot,
-                                payment_payload,
-                                i18n,
-                                settings,
-                                services["panel_service"],
-                                services["subscription_service"],
-                                services["referral_service"],
-                                services.get("lknpd_service"),
-                            )
-                        elif payload.get("event") == YOOKASSA_EVENT_PAYMENT_CANCELED:
-                            await process_cancelled_payment(
-                                session,
-                                bot,
-                                payment_payload,
-                                i18n,
-                                settings,
-                            )
-                        await session.commit()
-            elif provider == "panel":
-                await services["panel_webhook_service"].handle_event(
-                    str(payload.get("event") or ""),
-                    payload.get("user") or {},
-                )
-            elif provider == "panel_sync":
-                sync_result = None
-                async with redis_lock(
-                    settings,
-                    "panel-sync",
-                    ttl_seconds=max(60, settings.WORKER_PANEL_SYNC_INTERVAL_SECONDS - 10),
-                ) as acquired:
-                    if acquired:
-                        async with session_factory() as session:
-                            sync_result = await perform_sync(
-                                panel_service=services["panel_service"],
-                                session=session,
-                                settings=settings,
-                                i18n_instance=i18n,
-                            )
-                    else:
-                        logging.info(
-                            "Queued panel sync skipped because another sync holds the lock"
-                        )
-                if sync_result is not None:
-                    await _notify_queued_panel_sync_result(
-                        bot,
-                        settings,
-                        i18n,
-                        payload,
-                        sync_result,
-                    )
-            else:
+            handler = handlers.get(str(provider))
+            if handler is None:
                 logging.warning("Unknown webhook event provider: %s", provider)
+            else:
+                await handler(ctx, payload)
         except Exception:
             logging.exception("Webhook queue event failed: %s", event.get("event_id"))
         finally:
@@ -154,7 +189,8 @@ async def _notify_queued_panel_sync_result(bot, settings, i18n, payload, sync_re
             logging.exception("Failed to send queued panel sync result to admin")
 
 
-async def _panel_sync_loop(settings, session_factory, i18n, services):
+async def _panel_sync_loop(ctx: PluginContext) -> None:
+    settings = ctx.settings
     while True:
         try:
             async with redis_lock(
@@ -164,12 +200,12 @@ async def _panel_sync_loop(settings, session_factory, i18n, services):
             ) as acquired:
                 if acquired:
                     started = time.monotonic()
-                    async with session_factory() as session:
+                    async with ctx.session_factory() as session:
                         await perform_sync(
-                            panel_service=services["panel_service"],
+                            panel_service=ctx.services["panel_service"],
                             session=session,
                             settings=settings,
-                            i18n_instance=i18n,
+                            i18n_instance=ctx.i18n,
                         )
                     logging.info(
                         "metric worker_tick_duration_seconds=%.3f worker=panel_sync",
@@ -180,54 +216,76 @@ async def _panel_sync_loop(settings, session_factory, i18n, services):
         await asyncio.sleep(settings.WORKER_PANEL_SYNC_INTERVAL_SECONDS)
 
 
+def _tariff_worker_task(ctx: PluginContext):
+    return TariffTrafficWorker(
+        ctx.settings,
+        ctx.session_factory,
+        ctx.services["panel_service"],
+        ctx.services["subscription_service"],
+        ctx.bot,
+        ctx.i18n,
+    ).run()
+
+
+def _subscription_notification_task(ctx: PluginContext):
+    return SubscriptionNotificationWorker(
+        ctx.settings,
+        ctx.session_factory,
+        ctx.bot,
+        ctx.i18n,
+        ctx.services["panel_service"],
+        ctx.services["subscription_service"],
+    ).run()
+
+
+def _backup_worker_task(ctx: PluginContext):
+    return BackupWorker(ctx.settings, ctx.bot, session_factory=ctx.session_factory).run()
+
+
+def _core_worker_tasks() -> List[WorkerTaskSpec]:
+    return [
+        WorkerTaskSpec(
+            name="TariffTrafficWorker",
+            factory=_tariff_worker_task,
+            enabled=lambda settings: bool(settings.tariffs_config),
+        ),
+        WorkerTaskSpec(
+            name="SubscriptionNotificationWorker",
+            factory=_subscription_notification_task,
+        ),
+        WorkerTaskSpec(name="BackupWorker", factory=_backup_worker_task),
+        WorkerTaskSpec(name="PanelSyncLoop", factory=_panel_sync_loop),
+    ]
+
+
 async def main() -> None:
     settings = get_settings()
-    session_factory, bot, i18n, services = await _build_worker_context(settings)
-    tariff_worker = TariffTrafficWorker(
-        settings,
-        session_factory,
-        services["panel_service"],
-        services["subscription_service"],
-        bot,
-        i18n,
-    )
+    ctx = await _build_worker_context(settings)
+
+    handlers = _core_queue_handlers()
+    handlers.update(collect_queue_handlers(ctx, reserved=set(handlers)))
+
+    task_specs = [*_core_worker_tasks(), *collect_worker_tasks(ctx)]
     tasks = []
-    if settings.tariffs_config:
-        tasks.append(asyncio.create_task(tariff_worker.run(), name="TariffTrafficWorker"))
-    subscription_notification_worker = SubscriptionNotificationWorker(
-        settings,
-        session_factory,
-        bot,
-        i18n,
-        services["panel_service"],
-        services["subscription_service"],
-    )
-    tasks.append(
-        asyncio.create_task(
-            subscription_notification_worker.run(),
-            name="SubscriptionNotificationWorker",
-        )
-    )
-    backup_worker = BackupWorker(settings, bot, session_factory=session_factory)
-    tasks.append(asyncio.create_task(backup_worker.run(), name="BackupWorker"))
-    telemetry_worker = TelemetryWorker(settings, session_factory)
-    tasks.append(asyncio.create_task(telemetry_worker.run(), name="TelemetryWorker"))
-    tasks.append(asyncio.create_task(_panel_sync_loop(settings, session_factory, i18n, services)))
+    for spec in task_specs:
+        if spec.enabled is not None and not spec.enabled(settings):
+            continue
+        tasks.append(asyncio.create_task(spec.factory(ctx), name=spec.name))
     for idx in range(max(1, settings.WEBHOOK_QUEUE_CONCURRENCY)):
         tasks.append(
             asyncio.create_task(
-                _webhook_consumer(settings, session_factory, bot, i18n, services),
+                _webhook_consumer(ctx, handlers),
                 name=f"WebhookConsumer{idx + 1}",
             )
         )
     try:
         await asyncio.gather(*tasks)
     finally:
-        for service in services.values():
+        for service in ctx.services.values():
             close = getattr(service, "close", None) or getattr(service, "close_session", None)
             if callable(close):
                 await close()
-        await bot.session.close()
+        await ctx.bot.session.close()
         await close_redis()
         if database_setup.async_engine:
             await database_setup.async_engine.dispose()

@@ -1,4 +1,8 @@
 from .loader import (
+    apply_plugin_locales,
+    collect_migrations,
+    collect_queue_handlers,
+    collect_worker_tasks,
     get_plugins,
     register,
     reset_plugins,
@@ -12,6 +16,8 @@ from .spec import (
     WEB_SCOPE_WEBHOOKS,
     Plugin,
     PluginContext,
+    QueueHandler,
+    WorkerTaskSpec,
 )
 
 __all__ = [
@@ -20,6 +26,12 @@ __all__ = [
     "WEB_SCOPE_WEBHOOKS",
     "Plugin",
     "PluginContext",
+    "QueueHandler",
+    "WorkerTaskSpec",
+    "apply_plugin_locales",
+    "collect_migrations",
+    "collect_queue_handlers",
+    "collect_worker_tasks",
     "get_plugins",
     "register",
     "reset_plugins",

@@ -383,6 +383,43 @@ class JsonI18n:
             base_languages=self.base_locales_data.keys(),
         )
 
+    def merge_base_locales(
+        self,
+        additions: Dict[str, Dict[str, str]],
+        *,
+        source: str = "plugin",
+    ) -> List[str]:
+        """Merge extra locale keys into the base catalog without overriding
+        existing core keys. Returns the list of skipped ``lang.key`` entries.
+        Runtime overrides stay layered on top via the usual rebuild."""
+        added = 0
+        skipped: List[str] = []
+        for lang, messages in additions.items():
+            if not isinstance(messages, dict):
+                continue
+            lang_code = normalize_locale_language_code(lang, prefer_known_base=False)
+            if not lang_code or not is_valid_locale_language_code(lang_code):
+                logging.warning("Locale language %r from %s is invalid; skipped", lang, source)
+                continue
+            bucket = self.base_locales_data.setdefault(lang_code, {})
+            for key, value in messages.items():
+                if not isinstance(value, str):
+                    continue
+                if key in bucket:
+                    skipped.append(f"{lang_code}.{key}")
+                    continue
+                bucket[key] = value
+                added += 1
+        if skipped:
+            logging.warning(
+                "Locale keys from %s already defined by the core and were skipped: %s",
+                source,
+                ", ".join(sorted(skipped)),
+            )
+        if added:
+            self._rebuild_effective_locales()
+        return skipped
+
     def set_locale_overrides(self, overrides: object) -> Dict[str, str]:
         normalized, errors = normalize_locale_overrides_payload(
             overrides,

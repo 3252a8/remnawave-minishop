@@ -8,7 +8,6 @@ from bot.payment_providers import (
     build_provider_services,
 )
 from bot.services.email_auth_service import EmailAuthService
-from bot.services.lknpd_service import LknpdService
 from bot.services.notification_service import NotificationService
 from bot.services.panel_api_service import PanelApiService
 from bot.services.panel_dry_run_api_service import PanelDryRunApiService
@@ -68,12 +67,6 @@ def build_core_services(
             provider_configs=provider_configs,
         )
     )
-    lknpd_service = LknpdService(
-        settings.LKNPD_INN,
-        settings.LKNPD_PASSWORD,
-        api_url=settings.LKNPD_API_URL,
-    )
-
     # These attachments are critical for auto-renew and panel pre-expiry hooks.
     subscription_service.yookassa_service = payment_services.get("yookassa_service")
     panel_webhook_service.subscription_service = subscription_service
@@ -87,7 +80,6 @@ def build_core_services(
         "email_auth_service": email_auth_service,
         "support_service": support_service,
         "panel_webhook_service": panel_webhook_service,
-        "lknpd_service": lknpd_service,
     }
     services.update(payment_services)
     return services

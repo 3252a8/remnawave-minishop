@@ -11,20 +11,24 @@ re-raised so a deployment that requires the plugin fails fast.
 
 from __future__ import annotations
 
+import json
 import logging
 from importlib import metadata
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Set
 
-from .spec import ENTRY_POINT_GROUP, Plugin, PluginContext
+from .spec import ENTRY_POINT_GROUP, Plugin, PluginContext, QueueHandler, WorkerTaskSpec
 
 if TYPE_CHECKING:
     from aiogram import Router
     from aiohttp import web
 
+    from bot.middlewares.i18n import JsonI18n
     from config.settings import Settings
+    from db.migrator import Migration
 
 logger = logging.getLogger(__name__)
 
+_builtin_plugins: Optional[List[Plugin]] = None
 _discovered_plugins: Optional[List[Plugin]] = None
 _registered_plugins: List[Plugin] = []
 
@@ -36,7 +40,8 @@ def register(plugin: Plugin) -> None:
 
 def reset_plugins() -> None:
     """Drop the discovery cache and programmatic registrations (for tests)."""
-    global _discovered_plugins
+    global _builtin_plugins, _discovered_plugins
+    _builtin_plugins = None
     _discovered_plugins = None
     _registered_plugins.clear()
 
@@ -71,24 +76,34 @@ def _discover(settings: "Settings") -> List[Plugin]:
     return plugins
 
 
+def _get_builtin_plugins() -> List[Plugin]:
+    """Built-in plugins ship with the application and are always active;
+    PLUGINS_ENABLED only gates externally installed plugins."""
+    global _builtin_plugins
+    if _builtin_plugins is None:
+        from .builtin import BUILTIN_PLUGINS
+
+        _builtin_plugins = [plugin_cls() for plugin_cls in BUILTIN_PLUGINS]
+    return _builtin_plugins
+
+
 def get_plugins(settings: "Settings") -> List[Plugin]:
-    """Return active plugins: discovered via entry points plus registered ones."""
+    """Return active plugins: built-ins, then entry-point and registered ones."""
     global _discovered_plugins
+    builtin = _get_builtin_plugins()
     if not settings.PLUGINS_ENABLED:
-        return []
+        return list(builtin)
     if _discovered_plugins is None:
         _discovered_plugins = _discover(settings)
-        if _discovered_plugins or _registered_plugins:
-            logger.info(
-                "Plugins discovered: %s",
-                ", ".join(
-                    f"{plugin.name}=={plugin.version}"
-                    for plugin in (*_discovered_plugins, *_registered_plugins)
-                ),
+        logger.info(
+            "Plugins active: %s",
+            ", ".join(
+                f"{plugin.name}=={plugin.version}"
+                for plugin in (*builtin, *_discovered_plugins, *_registered_plugins)
             )
-        else:
-            logger.info("Plugins: none")
-    return [*_discovered_plugins, *_registered_plugins]
+            or "none",
+        )
+    return [*builtin, *_discovered_plugins, *_registered_plugins]
 
 
 def _run_hook(settings: "Settings", plugin: Plugin, hook_name: str, *args, **kwargs) -> None:
@@ -123,3 +138,108 @@ def setup_web_plugins(ctx: PluginContext, app: "web.Application", *, scope: str)
     """Let every plugin register its aiohttp routes on ``app``."""
     for plugin in get_plugins(ctx.settings):
         _run_hook(ctx.settings, plugin, "setup_web", ctx, app, scope=scope)
+
+
+def collect_worker_tasks(ctx: PluginContext) -> List[WorkerTaskSpec]:
+    """Gather background task specs from every plugin."""
+    specs: List[WorkerTaskSpec] = []
+    for plugin in get_plugins(ctx.settings):
+        try:
+            specs.extend(plugin.worker_tasks(ctx) or [])
+        except Exception:
+            logger.exception("Plugin %r failed in worker_tasks; skipping it", plugin.name)
+            if ctx.settings.PLUGINS_STRICT:
+                raise
+    return specs
+
+
+def collect_queue_handlers(
+    ctx: PluginContext,
+    *,
+    reserved: Set[str],
+) -> Dict[str, QueueHandler]:
+    """Gather webhook-queue handlers from plugins.
+
+    ``reserved`` holds provider names already taken by the core; a plugin
+    handler that clashes with a reserved or previously collected name is
+    rejected (fatal in strict mode).
+    """
+    handlers: Dict[str, QueueHandler] = {}
+    for plugin in get_plugins(ctx.settings):
+        try:
+            contributed = plugin.queue_handlers(ctx) or {}
+        except Exception:
+            logger.exception("Plugin %r failed in queue_handlers; skipping it", plugin.name)
+            if ctx.settings.PLUGINS_STRICT:
+                raise
+            continue
+        for provider, handler in contributed.items():
+            if provider in reserved or provider in handlers:
+                message = (
+                    f"Plugin {plugin.name!r} tried to register queue handler for "
+                    f"provider {provider!r}, which is already taken"
+                )
+                logger.error(message)
+                if ctx.settings.PLUGINS_STRICT:
+                    raise ValueError(message)
+                continue
+            handlers[provider] = handler
+    return handlers
+
+
+def collect_migrations(settings: "Settings") -> Dict[str, List["Migration"]]:
+    """Gather migration chains from plugins keyed by plugin name."""
+    chains: Dict[str, List["Migration"]] = {}
+    for plugin in get_plugins(settings):
+        try:
+            migrations = list(plugin.migrations() or [])
+        except Exception:
+            logger.exception("Plugin %r failed in migrations; skipping it", plugin.name)
+            if settings.PLUGINS_STRICT:
+                raise
+            continue
+        if not migrations:
+            continue
+        if plugin.name in chains:
+            message = f"Duplicate plugin name {plugin.name!r} in migration chains"
+            logger.error(message)
+            if settings.PLUGINS_STRICT:
+                raise ValueError(message)
+            continue
+        chains[plugin.name] = migrations
+    return chains
+
+
+def _read_locales_dir(path) -> Dict[str, Dict[str, str]]:
+    locales: Dict[str, Dict[str, str]] = {}
+    for file in sorted(path.glob("*.json")):
+        try:
+            data = json.loads(file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            logger.exception("Failed to read plugin locale file %s", file)
+            continue
+        if isinstance(data, dict):
+            locales[file.stem] = {
+                str(key): str(value) for key, value in data.items() if isinstance(value, str)
+            }
+    return locales
+
+
+def apply_plugin_locales(settings: "Settings", i18n: "JsonI18n") -> None:
+    """Merge plugin locale files into the i18n catalog.
+
+    Plugin keys never override core keys; runtime overrides (DB/file) are
+    layered on top by the existing override mechanism regardless of order.
+    """
+    for plugin in get_plugins(settings):
+        try:
+            locales_dir = plugin.locales_dir()
+            if locales_dir is None:
+                continue
+            additions = _read_locales_dir(locales_dir)
+            if additions:
+                i18n.merge_base_locales(additions, source=plugin.name)
+        except Exception:
+            logger.exception("Plugin %r failed in locales_dir; skipping it", plugin.name)
+            if settings.PLUGINS_STRICT:
+                raise
