@@ -3356,6 +3356,7 @@ a {
   }
 
   .settings-row-language,
+  .settings-row-status,
   .settings-row-support,
   .settings-row-logout {
     grid-column: 1 / -1;
