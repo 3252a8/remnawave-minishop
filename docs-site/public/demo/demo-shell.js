@@ -12,6 +12,7 @@ const stateMocks = new Set([
   "trial-telegram",
   "referral-telegram",
   "devices",
+  "auto-renew",
   "notifications",
   "auth",
   "emails",

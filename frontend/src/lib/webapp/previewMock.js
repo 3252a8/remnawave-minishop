@@ -443,9 +443,9 @@ export const DEV_MOCK = {
       premium_node_labels: ["Premium NL-1", "Premium DE-1"],
       can_topup_regular_traffic: true,
       can_topup_premium_traffic: true,
-      auto_renew_enabled: true,
-      auto_renew_available: true,
-      auto_renew_can_enable: true,
+      auto_renew_enabled: false,
+      auto_renew_available: false,
+      auto_renew_can_enable: false,
       auto_renew_provider_label: "CloudPayments",
       provider: "cloudpayments",
       max_devices: 5,
@@ -970,6 +970,20 @@ export function applyPreviewMock(kind) {
         },
       ],
     };
+  } else if (
+    mode === "auto-renew" ||
+    mode === "autorenew" ||
+    mode === "recurring" ||
+    mode === "subscription-auto-renew"
+  ) {
+    DEV_MOCK.data.settings.traffic_mode = false;
+    applyDemoTariffScenario({
+      auto_renew_enabled: true,
+      auto_renew_available: true,
+      auto_renew_can_enable: true,
+      auto_renew_provider_label: "CloudPayments",
+      provider: "cloudpayments",
+    });
   } else if (mode === "depleted") {
     DEV_MOCK.data.settings.traffic_mode = false;
     DEV_MOCK.data.settings.trial_available = false;

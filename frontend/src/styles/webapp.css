@@ -309,24 +309,33 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-top: 13px;
-  padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  gap: 8px;
+  margin-top: 8px;
+  padding: 5px 6px 5px 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-muted) 62%, transparent);
 }
 
 .auto-renew-state {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 9px;
+  gap: 6px;
   color: var(--text);
 }
 
+.auto-renew-state > svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
 .auto-renew-state > span {
-  display: grid;
+  display: flex;
   min-width: 0;
-  gap: 2px;
+  align-items: baseline;
+  gap: 5px;
 }
 
 .auto-renew-state strong,
@@ -337,20 +346,26 @@ a {
 }
 
 .auto-renew-state strong {
-  font-size: 13px;
-  line-height: 1.2;
+  font-size: 12px;
+  line-height: 1.1;
 }
 
 .auto-renew-state small {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .auto-renew-action {
-  min-height: 34px;
-  padding: 0 12px;
+  min-height: 28px;
+  padding: 0 9px;
   flex: 0 0 auto;
+  font-size: 11px;
   white-space: nowrap;
+}
+
+.auto-renew-action svg {
+  width: 14px;
+  height: 14px;
 }
 
 @media (max-width: 1023px) {
@@ -407,17 +422,6 @@ a {
     grid-column: 1 / -1;
     width: 100%;
     margin-left: 0;
-    justify-content: center;
-  }
-
-  .auto-renew-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
-  }
-
-  .auto-renew-action {
-    width: 100%;
     justify-content: center;
   }
 
