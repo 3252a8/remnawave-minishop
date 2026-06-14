@@ -16,6 +16,7 @@ class PaymentContextMixin:
         "lava": "LAVA",
         "cryptopay": "Crypto Pay",
         "paykilla": "PayKilla",
+        "cloudpayments": "CloudPayments",
         "telegram_stars": "Telegram Stars",
     }
 

@@ -601,10 +601,23 @@ class SubscriptionLifecycleMixin:
         )
 
         auto_renew_should_enable = False
-        if provider == "yookassa" and self.settings.yookassa_autopayments_active:
-            auto_renew_should_enable = await user_billing_dal.user_has_saved_payment_method(
-                session, user_id
+        try:
+            from bot.payment_providers import provider_supports_recurring
+            from bot.payment_providers.shared import service_supports_recurring
+
+            provider_key = str(provider or "").strip().lower()
+            recurring_service_for = getattr(self, "recurring_service_for", None)
+            recurring_service = (
+                recurring_service_for(provider_key) if callable(recurring_service_for) else None
             )
+            if provider_supports_recurring(provider_key) and service_supports_recurring(
+                recurring_service
+            ):
+                auto_renew_should_enable = await user_billing_dal.user_has_saved_payment_method(
+                    session, user_id, provider=provider_key
+                )
+        except Exception:
+            logging.exception("Failed to evaluate auto-renew availability for user %s", user_id)
 
         topup_balance_bytes = int(getattr(current_active_sub, "topup_balance_bytes", 0) or 0)
         extra_hwid_devices = 0

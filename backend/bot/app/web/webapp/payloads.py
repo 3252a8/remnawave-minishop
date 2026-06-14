@@ -55,6 +55,12 @@ class WebAppPaymentCreatePayload(BaseModel):
     note: Optional[constr(max_length=4096)] = None
 
 
+class WebAppAutoRenewPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    enabled: bool
+
+
 class WebAppTariffChangePayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

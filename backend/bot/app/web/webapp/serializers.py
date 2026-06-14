@@ -409,6 +409,31 @@ def _serialize_subscription(
         and end_date
         and extra_hwid_valid_until < end_date
     )
+    provider = str(getattr(local_sub, "provider", "") or "").strip().lower()
+    auto_renew_enabled = bool(getattr(local_sub, "auto_renew_enabled", False))
+    auto_renew_supported = False
+    auto_renew_service_active = False
+    auto_renew_provider_label = provider or None
+    if provider:
+        try:
+            from bot.payment_providers import provider_label_map, provider_supports_recurring
+            from bot.payment_providers.shared import service_supports_recurring
+
+            auto_renew_supported = provider_supports_recurring(provider)
+            if request is not None:
+                subscription_service = request.app.get("subscription_service")
+                recurring_service_for = getattr(subscription_service, "recurring_service_for", None)
+                service = (
+                    recurring_service_for(provider) if callable(recurring_service_for) else None
+                )
+                auto_renew_service_active = service_supports_recurring(service)
+            auto_renew_provider_label = provider_label_map(settings, language=lang).get(
+                provider,
+                provider,
+            )
+        except Exception:
+            auto_renew_supported = False
+            auto_renew_service_active = False
     return {
         "active": seconds_left > 0,
         "status": active.get("status_from_panel") or "UNKNOWN",
@@ -470,7 +495,12 @@ def _serialize_subscription(
         if extra_hwid_next_valid_from
         else None,
         "device_topup_renewal_available": device_topup_renewal_available,
-        "auto_renew_enabled": bool(getattr(local_sub, "auto_renew_enabled", False)),
+        "auto_renew_enabled": auto_renew_enabled,
+        "auto_renew_available": bool(
+            auto_renew_supported and (auto_renew_enabled or auto_renew_service_active)
+        ),
+        "auto_renew_can_enable": bool(auto_renew_supported and auto_renew_service_active),
+        "auto_renew_provider_label": auto_renew_provider_label,
         "provider": getattr(local_sub, "provider", None),
     }
 

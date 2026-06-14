@@ -220,7 +220,7 @@ proxy/Docker gateway и может отклонить валидный webhook. 
 
 | Переменная | Назначение |
 | --- | --- |
-| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты: `severpay,wata,freekassa,platega,yookassa,stars,cryptopay,heleket,paykilla,lava`. |
+| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты: `severpay,wata,freekassa,platega,yookassa,stars,cryptopay,heleket,paykilla,lava,cloudpayments`. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED` | Показывать описание подписки перед выбором срока. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_RU` / `SUBSCRIPTION_PURCHASE_DESCRIPTION_EN` | Локализованное описание подписки. |
 | `PAYMENT_REQUEST_TIMEOUT_SECONDS` | Общий таймаут одного API-запроса к платёжному провайдеру, в секундах. По умолчанию `20`. |
@@ -239,6 +239,7 @@ proxy/Docker gateway и может отклонить валидный webhook. 
 | `HELEKET_ENABLED` | Включает Heleket. |
 | `PAYKILLA_ENABLED` | Включает PayKilla. |
 | `LAVA_ENABLED` | Включает LAVA. |
+| `CLOUDPAYMENTS_ENABLED` | Включает CloudPayments. |
 
 Конкретные ключи отображения:
 
@@ -309,6 +310,12 @@ PAYMENT_LAVA_WEBAPP_ICON
 PAYMENT_LAVA_TELEGRAM_LABEL_RU
 PAYMENT_LAVA_TELEGRAM_LABEL_EN
 PAYMENT_LAVA_TELEGRAM_EMOJI
+PAYMENT_CLOUDPAYMENTS_WEBAPP_LABEL_RU
+PAYMENT_CLOUDPAYMENTS_WEBAPP_LABEL_EN
+PAYMENT_CLOUDPAYMENTS_WEBAPP_ICON
+PAYMENT_CLOUDPAYMENTS_TELEGRAM_LABEL_RU
+PAYMENT_CLOUDPAYMENTS_TELEGRAM_LABEL_EN
+PAYMENT_CLOUDPAYMENTS_TELEGRAM_EMOJI
 ```
 
 ### YooKassa
@@ -437,6 +444,21 @@ Webhook настраивается в PayKilla Dashboard: **Settings -> Webhooks
 | `LAVA_RETURN_URL` | URL возврата после оплаты (`successUrl`/`failUrl`). |
 | `LAVA_LIFETIME_MINUTES` | Время жизни счета в минутах: 1..7200. |
 | `LAVA_INCLUDE_SERVICES` | Способы оплаты на странице счета через запятую, например `card,sbp`. |
+
+### CloudPayments
+
+CloudPayments принимает оплату картами через Orders API. Исходящие запросы авторизуются HTTP Basic auth (`CLOUDPAYMENTS_PUBLIC_ID`/`CLOUDPAYMENTS_API_SECRET`); уведомления Pay/Fail подписываются HMAC-SHA256 (base64) в заголовке `Content-HMAC`.
+
+| Переменная | Назначение |
+| --- | --- |
+| `CLOUDPAYMENTS_BASE_URL` | Базовый URL API, по умолчанию `https://api.cloudpayments.ru`. |
+| `CLOUDPAYMENTS_PUBLIC_ID` | Public ID из кабинета CloudPayments (логин HTTP Basic auth). |
+| `CLOUDPAYMENTS_API_SECRET` | API Secret из кабинета CloudPayments (пароль HTTP Basic auth и ключ проверки подписи). |
+| `CLOUDPAYMENTS_RETURN_URL` | URL успешного возврата после оплаты. |
+| `CLOUDPAYMENTS_FAILED_URL` | URL возврата при ошибке оплаты; если пусто, используется `CLOUDPAYMENTS_RETURN_URL`. |
+| `CLOUDPAYMENTS_RECURRING_ENABLED` | Включает списания по сохранённому CloudPayments `Token` для автопродления подписок. |
+| `CLOUDPAYMENTS_VERIFY_WEBHOOK_SIGNATURE` | Проверять заголовок `Content-HMAC` у уведомлений. |
+| `CLOUDPAYMENTS_TRUSTED_IPS` | Необязательный список доверенных IP webhook-источников. |
 
 ## Тарифы и legacy-цены
 

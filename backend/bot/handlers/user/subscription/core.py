@@ -25,6 +25,8 @@ from bot.keyboards.inline.user_keyboards import (
     tariff_purchase_back_callback,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.payment_providers import provider_supports_recurring
+from bot.payment_providers.shared import service_supports_recurring
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service import SubscriptionService
 from bot.utils.install_links import (
@@ -65,6 +67,30 @@ def _enabled_tariffs(settings: Settings) -> list:
 
 def _has_multiple_enabled_tariffs(settings: Settings) -> bool:
     return len(_enabled_tariffs(settings)) > 1
+
+
+def _recurring_service_for_subscription(
+    subscription_service: SubscriptionService,
+    sub: Optional[Subscription],
+) -> object:
+    provider = str(getattr(sub, "provider", "") or "").strip().lower()
+    if not provider:
+        return None
+    resolver = getattr(subscription_service, "recurring_service_for", None)
+    if callable(resolver):
+        return resolver(provider)
+    services = getattr(subscription_service, "recurring_provider_services", {}) or {}
+    return services.get(provider)
+
+
+def _auto_renew_control_visible(
+    subscription_service: SubscriptionService,
+    sub: Optional[Subscription],
+) -> bool:
+    if not sub or not provider_supports_recurring(getattr(sub, "provider", None)):
+        return False
+    service = _recurring_service_for_subscription(subscription_service, sub)
+    return bool(getattr(sub, "auto_renew_enabled", False) or service_supports_recurring(service))
 
 
 def _tariff_purchase_markup(
@@ -1306,12 +1332,11 @@ async def my_subscription_command_handler(
                 except Exception:
                     pass
 
-        # 2) Auto-renew toggle (YooKassa only)
+        # 2) Auto-renew toggle
         if (
             not traffic_mode
             and local_sub
-            and local_sub.provider == "yookassa"
-            and settings.yookassa_autopayments_active
+            and _auto_renew_control_visible(subscription_service, local_sub)
         ):
             toggle_text = (
                 get_text("autorenew_disable_button")
@@ -1659,12 +1684,17 @@ async def toggle_autorenew_handler(
     if not sub or sub.user_id != callback.from_user.id:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
-    if sub.provider != "yookassa":
+    provider = str(getattr(sub, "provider", "") or "").strip().lower()
+    if not provider_supports_recurring(provider):
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
     if enable:
+        service = _recurring_service_for_subscription(subscription_service, sub)
+        if not service_supports_recurring(service):
+            await callback.answer(get_text("autorenew_unavailable"), show_alert=True)
+            return
         has_saved_card = await user_billing_dal.user_has_saved_payment_method(
-            session, callback.from_user.id
+            session, callback.from_user.id, provider=provider
         )
         if not has_saved_card:
             try:
@@ -1721,12 +1751,23 @@ async def confirm_autorenew_handler(
     if not sub or sub.user_id != callback.from_user.id:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
-    if sub.provider != "yookassa":
+    provider = str(getattr(sub, "provider", "") or "").strip().lower()
+    if not provider_supports_recurring(provider):
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
     if enable:
+        service = _recurring_service_for_subscription(subscription_service, sub)
+        if not service_supports_recurring(service):
+            await callback.answer(get_text("autorenew_unavailable"), show_alert=True)
+            try:
+                await my_subscription_command_handler(
+                    callback, i18n_data, settings, panel_service, subscription_service, session, bot
+                )
+            except Exception:
+                pass
+            return
         has_saved_card = await user_billing_dal.user_has_saved_payment_method(
-            session, callback.from_user.id
+            session, callback.from_user.id, provider=provider
         )
         if not has_saved_card:
             try:
@@ -1778,7 +1819,7 @@ async def autorenew_cancel_from_webhook_button(
         except Exception:
             pass
         return
-    if sub.provider != "yookassa":
+    if not provider_supports_recurring(getattr(sub, "provider", None)):
         try:
             await callback.answer(get_text("error_try_again"), show_alert=True)
         except Exception:

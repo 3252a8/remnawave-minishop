@@ -25,8 +25,10 @@ from .registry import (
     provider_admin_only_pairs,
     provider_emoji_map,
     provider_label_map,
+    provider_supports_recurring,
     provider_telegram_button_text,
     provider_webhook_metadata,
+    recurring_provider_services,
     resolve_provider_presentation,
 )
 
@@ -56,6 +58,8 @@ __all__ = [
     "provider_emoji_map",
     "provider_admin_only_pairs",
     "provider_label_map",
+    "provider_supports_recurring",
     "provider_webhook_metadata",
+    "recurring_provider_services",
     "resolve_provider_presentation",
 ]

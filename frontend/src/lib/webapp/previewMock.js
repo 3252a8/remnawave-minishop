@@ -443,6 +443,11 @@ export const DEV_MOCK = {
       premium_node_labels: ["Premium NL-1", "Premium DE-1"],
       can_topup_regular_traffic: true,
       can_topup_premium_traffic: true,
+      auto_renew_enabled: true,
+      auto_renew_available: true,
+      auto_renew_can_enable: true,
+      auto_renew_provider_label: "CloudPayments",
+      provider: "cloudpayments",
       max_devices: 5,
     },
     subscription_guides: {
@@ -497,6 +502,7 @@ export const DEV_MOCK = {
       { months: 12, price: 2690, currency: "RUB", title: "12 месяцев" },
     ],
     payment_methods: [
+      { id: "cloudpayments", name: "CloudPayments", icon: "CreditCard" },
       { id: "yookassa", name: "Карта", icon: "CreditCard" },
       { id: "platega_sbp", name: "Telegram Pay", icon: "CreditCard" },
       { id: "cryptopay", name: "Криптовалюта", icon: "Bitcoin" },

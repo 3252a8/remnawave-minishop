@@ -245,6 +245,22 @@ function demoProviderCurrencySupport() {
       directly_supports_default_currency: true,
       default_currency: "rub",
     },
+    {
+      id: "cloudpayments",
+      provider_key: "cloudpayments",
+      provider_label: "CloudPayments",
+      settings_path: ["payments", "cloudpayments"],
+      label: "CloudPayments",
+      enabled: true,
+      configured: true,
+      admin_only: false,
+      price_source: "rub",
+      currencies: ["RUB", "USD", "EUR", "GBP", "KZT", "UAH", "BYN", "AZN", "AMD", "KGS"],
+      accepts_any_currency: false,
+      supports_default_currency: true,
+      directly_supports_default_currency: true,
+      default_currency: "rub",
+    },
   ];
 }
 
@@ -1334,6 +1350,7 @@ export async function mockApi(path, options = {}, context = {}) {
   } = context;
   await new Promise((resolve) => window.setTimeout(resolve, 120));
   const cleanPath = String(path || "").split("?")[0];
+  const method = String(options.method || "GET").toUpperCase();
   const demoResponse = demoApiResponse(path, cleanPath, options, {
     clone,
     currentLang,
@@ -2341,6 +2358,25 @@ export async function mockApi(path, options = {}, context = {}) {
     return { ok: true, ticket, messages: clone(supportMessages[ticket.ticket_id] || []) };
   }
   if (cleanPath === "/support/unread") return { ok: true, unread: 1 };
+  if (cleanPath === "/subscription/auto-renew" && method === "POST") {
+    const body = jsonBody(options);
+    const enabled = Boolean(body.enabled);
+    DEV_MOCK.data.subscription = {
+      ...(DEV_MOCK.data.subscription || {}),
+      auto_renew_enabled: enabled,
+      auto_renew_available: true,
+      auto_renew_can_enable: true,
+      auto_renew_provider_label:
+        DEV_MOCK.data.subscription?.auto_renew_provider_label || "CloudPayments",
+      provider: DEV_MOCK.data.subscription?.provider || "cloudpayments",
+    };
+    return {
+      ok: true,
+      auto_renew_enabled: enabled,
+      provider: DEV_MOCK.data.subscription.provider,
+      provider_label: DEV_MOCK.data.subscription.auto_renew_provider_label,
+    };
+  }
   if (cleanPath === "/me") return clone(DEV_MOCK.data);
   if (path === "/subscription-guides") return clone(DEV_MOCK.data.subscription_guides);
   if (cleanPath.startsWith("/subscription-guides/public/")) {

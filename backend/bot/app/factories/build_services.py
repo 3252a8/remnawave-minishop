@@ -6,6 +6,7 @@ from bot.payment_providers import (
     ServiceFactoryContext,
     build_provider_configs,
     build_provider_services,
+    recurring_provider_services,
 )
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.notification_service import NotificationService
@@ -69,6 +70,7 @@ def build_core_services(
     )
     # These attachments are critical for auto-renew and panel pre-expiry hooks.
     subscription_service.yookassa_service = payment_services.get("yookassa_service")
+    subscription_service.recurring_provider_services = recurring_provider_services(payment_services)
     panel_webhook_service.subscription_service = subscription_service
 
     services = {

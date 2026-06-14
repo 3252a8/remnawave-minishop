@@ -66,8 +66,10 @@ async def upsert_user_payment_method(
     card_network: Optional[str] = None,
     set_default: bool = False,
 ) -> UserPaymentMethod:
+    provider = str(provider or "yookassa").strip().lower() or "yookassa"
     existing_stmt = select(UserPaymentMethod).where(
-        UserPaymentMethod.provider_payment_method_id == provider_payment_method_id
+        UserPaymentMethod.provider == provider,
+        UserPaymentMethod.provider_payment_method_id == provider_payment_method_id,
     )
     result = await session.execute(existing_stmt)
     existing: Optional[UserPaymentMethod] = result.scalar_one_or_none()
@@ -78,7 +80,10 @@ async def upsert_user_payment_method(
             # unset previous defaults
             await session.execute(
                 update(UserPaymentMethod)
-                .where(UserPaymentMethod.user_id == user_id)
+                .where(
+                    UserPaymentMethod.user_id == user_id,
+                    UserPaymentMethod.provider == provider,
+                )
                 .values(is_default=False)
             )
             existing.is_default = True
@@ -89,7 +94,10 @@ async def upsert_user_payment_method(
     if set_default:
         await session.execute(
             update(UserPaymentMethod)
-            .where(UserPaymentMethod.user_id == user_id)
+            .where(
+                UserPaymentMethod.user_id == user_id,
+                UserPaymentMethod.provider == provider,
+            )
             .values(is_default=False)
         )
     record = UserPaymentMethod(
@@ -120,6 +128,7 @@ async def list_user_payment_methods(
 async def get_user_default_payment_method(
     session: AsyncSession, user_id: int, provider: str = "yookassa"
 ) -> Optional[UserPaymentMethod]:
+    provider = str(provider or "yookassa").strip().lower() or "yookassa"
     stmt = select(UserPaymentMethod).where(
         UserPaymentMethod.user_id == user_id,
         UserPaymentMethod.provider == provider,
@@ -133,11 +142,15 @@ async def set_user_default_payment_method(
     session: AsyncSession, user_id: int, method_id: int
 ) -> bool:
     methods = await list_user_payment_methods(session, user_id)
-    if not any(m.method_id == method_id for m in methods):
+    selected = next((m for m in methods if m.method_id == method_id), None)
+    if not selected:
         return False
     await session.execute(
         update(UserPaymentMethod)
-        .where(UserPaymentMethod.user_id == user_id)
+        .where(
+            UserPaymentMethod.user_id == user_id,
+            UserPaymentMethod.provider == selected.provider,
+        )
         .values(is_default=False)
     )
     await session.execute(
@@ -190,9 +203,12 @@ async def user_has_saved_payment_method(
 ) -> bool:
     """Return True if the user has at least one saved payment method."""
     try:
+        provider = str(provider or "yookassa").strip().lower() or "yookassa"
         methods = await list_user_payment_methods(session, user_id, provider)
         if methods:
             return True
+        if provider != "yookassa":
+            return False
         billing = await get_user_billing(session, user_id)
         return bool(billing and billing.yookassa_payment_method_id)
     except Exception:

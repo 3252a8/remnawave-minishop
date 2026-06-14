@@ -194,6 +194,7 @@ class PaymentProviderSpec:
     admin_only_manifest_key: Optional[str] = None
     admin_only_config_attr: str = "ADMIN_ONLY_ENABLED"
     admin_only_enabled: Optional[EnabledPredicate] = None
+    supports_recurring: bool = False
     supported_currencies: Optional[Sequence[str]] = ("RUB",)
     supported_currencies_resolver: Optional[CurrencySupportResolver] = None
     payment_amount_resolver: Optional[PaymentAmountResolver] = None

@@ -48,6 +48,7 @@
   export let hasActiveTariffSubscription = false;
   export let hasMultipleTariffs = false;
   export let subscription = {};
+  export let autoRenewBusy = false;
   export let linkTelegramBusy = false;
   export let telegramNotificationsNeedPrompt = false;
   export let telegramNotificationsStartLink = "";
@@ -196,6 +197,9 @@
   ]
     .filter(Boolean)
     .join(" ");
+  $: autoRenewVisible = Boolean(subscription?.active && subscription?.auto_renew_available);
+  $: autoRenewEnabled = Boolean(subscription?.auto_renew_enabled);
+  $: autoRenewProviderLabel = String(subscription?.auto_renew_provider_label || "").trim();
 
   onMount(() => {
     const countdownTimer = window.setInterval(() => {
@@ -206,6 +210,7 @@
   });
 
   export let activateTrial = () => {};
+  export let toggleAutoRenew = () => {};
   export let linkTelegramAndActivateTrial = () => {};
   export let linkTelegramAndClaimReferralWelcome = () => {};
   export let openConnectLink = () => {};
@@ -271,6 +276,36 @@
             </Button>
           {/if}
         </div>
+        {#if autoRenewVisible}
+          <div class="auto-renew-row">
+            <div class="auto-renew-state">
+              <Repeat2 size={17} />
+              <span>
+                <strong>
+                  {autoRenewEnabled ? t("wa_auto_renew_enabled") : t("wa_auto_renew_disabled")}
+                </strong>
+                {#if autoRenewProviderLabel}
+                  <small>{autoRenewProviderLabel}</small>
+                {/if}
+              </span>
+            </div>
+            <Button
+              class="auto-renew-action"
+              variant="secondary"
+              onclick={() => toggleAutoRenew(!autoRenewEnabled)}
+              disabled={autoRenewBusy ||
+                (!autoRenewEnabled && !subscription?.auto_renew_can_enable)}
+            >
+              {#if autoRenewEnabled}
+                <CircleX size={17} />
+                {t("wa_auto_renew_disable")}
+              {:else}
+                <Repeat2 size={17} />
+                {t("wa_auto_renew_enable")}
+              {/if}
+            </Button>
+          </div>
+        {/if}
       {:else}
         <div class="sub-status sub-status-inactive">
           <CircleX class="sub-status-icon" size={23} />

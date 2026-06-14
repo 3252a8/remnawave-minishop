@@ -60,6 +60,8 @@ from .base import (
 )
 from .shared import (
     PaymentCallbackParts,
+    RecurringChargeContext,
+    RecurringChargeResult,
     SuccessMessage,
     append_hwid_renewal_note,
     build_success_message,
@@ -212,6 +214,39 @@ class YooKassaService:
         if self._bot_username_for_default_return:
             return f"https://t.me/{self._bot_username_for_default_return}"
         return "https://example.com/payment_error_no_return_url_configured"
+
+    @property
+    def recurring_active(self) -> bool:
+        """Auto-renew is available only when YooKassa autopayments are switched on."""
+        return bool(self.configured and self.config.autopayments_active)
+
+    async def charge_saved_payment_method(
+        self, context: RecurringChargeContext
+    ) -> RecurringChargeResult:
+        """Charge a saved YooKassa ``payment_method_id`` for auto-renew.
+
+        Initiates a charge with the YooKassa-style metadata bag; the YooKassa
+        webhook reconstructs and activates the renewal from that metadata, so
+        this method only reports whether the charge was accepted.
+        """
+        if not self.recurring_active:
+            return RecurringChargeResult.failed("recurring_inactive")
+        saved_method_id = getattr(context.saved_method, "provider_payment_method_id", None)
+        if not saved_method_id:
+            return RecurringChargeResult.failed("missing_saved_method")
+        resp = await self.create_payment(
+            amount=float(context.amount),
+            currency=context.currency,
+            description=context.description,
+            metadata=dict(context.metadata),
+            payment_method_id=saved_method_id,
+            save_payment_method=False,
+            capture=True,
+        )
+        status = (resp or {}).get("status")
+        if not resp or status not in {"pending", "waiting_for_capture", "succeeded"}:
+            return RecurringChargeResult.failed(f"unexpected_status:{status}")
+        return RecurringChargeResult.ok(provider_payment_id=resp.get("id"), status=status)
 
     async def create_payment(
         self,
@@ -3111,6 +3146,7 @@ SPEC = PaymentProviderSpec(
     config_class=YooKassaConfig,
     presentation_class=YooKassaPresentation,
     manifest_fields=_CONFIG_MANIFEST + _PRESENTATION_MANIFEST,
+    supports_recurring=True,
     supported_currencies=("RUB",),
     currency_support_note=(
         "YooKassa public payment API examples and limits are RUB-based; "
