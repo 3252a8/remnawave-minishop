@@ -60,6 +60,9 @@ services:
   backend:
     image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    # Real init (tini) as PID 1 so the healthcheck process is reaped instead of
+    # leaking a zombie every interval (python PID 1 does not reap orphans).
+    init: true
     env_file: *app_env_file
     environment:
       <<: *app_environment
@@ -80,7 +83,7 @@ services:
       migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3).read()\""]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -89,6 +92,7 @@ services:
   worker:
     image: 3252a8/remnawave-minishop-worker:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    init: true
     env_file: *app_env_file
     environment:
       <<: *app_environment
@@ -108,6 +112,9 @@ services:
   frontend:
     image: 3252a8/remnawave-minishop-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    # Real init (tini) reaps wget healthcheck children (nginx master only waits
+    # on its own workers, not adopted orphans).
+    init: true
     environment:
       IMAGE_TAG: ${IMAGE_TAG:-latest}
       FRONTEND_PUBLIC: ${MINIAPP_PUBLIC_URL:?set MINIAPP_PUBLIC_URL in .env}

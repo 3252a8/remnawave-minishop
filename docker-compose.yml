@@ -7,6 +7,10 @@ services:
       target: frontend
     image: 3252a8/remnawave-minishop-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    # Run with a real init (tini) as PID 1 so healthcheck child processes are
+    # reaped. nginx's master only waits on its own workers, not adopted
+    # orphans, so wget healthchecks would otherwise pile up as zombies.
+    init: true
     environment:
       IMAGE_TAG: ${IMAGE_TAG:-latest}
       FRONTEND_PORT: ${FRONTEND_PORT:-8082}
@@ -32,6 +36,10 @@ services:
       target: backend
     image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    # Run with a real init (tini) as PID 1 so the healthcheck process is reaped.
+    # The app's PID 1 (python) does not reap orphans, so each healthcheck run
+    # leaked a zombie every interval until the container was recreated.
+    init: true
     env_file:
       - ${APP_ENV_FILE:-.env}
     environment:
@@ -54,7 +62,7 @@ services:
     ports:
       - "127.0.0.1:${WEB_SERVER_PORT:-8080}:8080"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3).read()\""]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -68,6 +76,8 @@ services:
       target: worker
     image: 3252a8/remnawave-minishop-worker:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    # Real init (tini) as PID 1 for proper signal forwarding / zombie reaping.
+    init: true
     env_file:
       - ${APP_ENV_FILE:-.env}
     environment:
