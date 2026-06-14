@@ -305,6 +305,54 @@ a {
   white-space: nowrap;
 }
 
+.auto-renew-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 13px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.auto-renew-state {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  color: var(--text);
+}
+
+.auto-renew-state > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.auto-renew-state strong,
+.auto-renew-state small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auto-renew-state strong {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.auto-renew-state small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.auto-renew-action {
+  min-height: 34px;
+  padding: 0 12px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 @media (max-width: 1023px) {
   .status-card {
     padding: 13px;
@@ -359,6 +407,17 @@ a {
     grid-column: 1 / -1;
     width: 100%;
     margin-left: 0;
+    justify-content: center;
+  }
+
+  .auto-renew-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .auto-renew-action {
+    width: 100%;
     justify-content: center;
   }
 

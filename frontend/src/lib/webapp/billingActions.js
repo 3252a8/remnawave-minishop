@@ -27,6 +27,13 @@ export function createBillingActions({ api }) {
     return api("/tariffs/change-payment", { method: "POST", body: JSON.stringify(body) });
   }
 
+  async function postAutoRenew(enabled) {
+    return api("/subscription/auto-renew", {
+      method: "POST",
+      body: JSON.stringify({ enabled: Boolean(enabled) }),
+    });
+  }
+
   function planPaymentBody(plan, method, options = {}) {
     return {
       months: plan.months,
@@ -87,6 +94,7 @@ export function createBillingActions({ api }) {
     fetchPaymentStatus,
     postTariffChange,
     postTariffChangePayment,
+    postAutoRenew,
     planPaymentBody,
     topupPaymentBody,
     deviceTopupPaymentBody,

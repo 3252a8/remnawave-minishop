@@ -37,6 +37,7 @@ _PROVIDER_ENV_PREFIXES = (
     "HELEKET_",
     "LAVA_",
     "CRYPTOPAY_",
+    "CLOUDPAYMENTS_",
     "YOOKASSA_",
     "STARS_",
 )
@@ -107,6 +108,14 @@ class BuildServicesWiringTests(unittest.TestCase):
         # Identity check: the wired attribute must be the *same* instance.
         self.assertIs(getattr(subscription, "yookassa_service", None), yookassa)
         self.assertIs(getattr(yookassa, "subscription_service", None), subscription)
+        self.assertIs(
+            getattr(subscription, "recurring_provider_services", {}).get("yookassa"),
+            yookassa,
+        )
+        self.assertIs(
+            getattr(subscription, "recurring_provider_services", {}).get("cloudpayments"),
+            services["cloudpayments_service"],
+        )
 
     def test_panel_webhook_service_can_reach_subscription_service(self):
         """The 24h pre-expiry handler in panel_webhook_service.handle_event

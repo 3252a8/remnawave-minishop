@@ -3,41 +3,61 @@ from ._runtime import *  # noqa: F403,F405
 
 
 class RenewalMixin:
+    def recurring_service_for(self, provider: Optional[str]) -> Any:
+        """Resolve a provider service that can charge a saved payment method."""
+        provider_key = str(provider or "").strip().lower()
+        if not provider_key:
+            return None
+        services = getattr(self, "recurring_provider_services", {}) or {}
+        return services.get(provider_key)
+
     async def charge_subscription_renewal(
         self,
         session: AsyncSession,
         sub: Subscription,
     ) -> bool:
-        """Attempt to charge user using saved payment method. Return True on initiated/handled, False on failure."""  # noqa: E501
+        """Attempt to charge user using saved payment method.
+
+        Returns True when the renewal is skipped intentionally or the charge was
+        accepted by the provider, and False when the renewal needs attention.
+        """
         if getattr(self.settings, "traffic_sale_mode", False):
             logging.info("Auto-renew skipped: traffic sale mode enabled")
             return True
         if not sub.auto_renew_enabled:
             return True
-        # If autopayments are disabled globally, skip charging attempts
-        if not self.settings.yookassa_autopayments_active:
-            return True
-        if sub.provider != "yookassa":
+
+        from bot.payment_providers import provider_supports_recurring
+        from bot.payment_providers.shared import RecurringChargeContext, service_supports_recurring
+
+        provider = str(getattr(sub, "provider", "") or "").strip().lower()
+        if not provider_supports_recurring(provider):
             logging.info(
-                "Auto-renew skipped: provider %s does not support auto-renew", sub.provider
+                "Auto-renew skipped: provider %s does not support auto-renew",
+                getattr(sub, "provider", None),
             )
+            return True
+
+        recurring_service = self.recurring_service_for(provider)
+        if not recurring_service:
+            logging.warning("%s unavailable for auto-renew", provider)
+            return False
+        if not getattr(recurring_service, "configured", False):
+            logging.warning("%s is not configured for auto-renew", provider)
+            return False
+        if not service_supports_recurring(recurring_service):
+            logging.info("Auto-renew skipped: %s recurring charges are disabled", provider)
             return True
 
         from db.dal.user_billing_dal import get_user_default_payment_method
 
-        default_pm = await get_user_default_payment_method(session, sub.user_id)
+        default_pm = await get_user_default_payment_method(session, sub.user_id, provider=provider)
         if not default_pm:
-            logging.info(f"Auto-renew skipped: no saved payment method for user {sub.user_id}")
-            return False
-
-        # ``yookassa_service`` is wired onto the subscription service via
-        # ``build_core_services`` (setattr). Read it directly — the previous
-        # ``from .yookassa_service import …`` pointed at a non-existent module
-        # inside this package, the ImportError got swallowed, and every
-        # auto-renew silently returned False.
-        yk = getattr(self, "yookassa_service", None)
-        if not yk or not getattr(yk, "configured", False):
-            logging.warning("YooKassa unavailable for auto-renew")
+            logging.info(
+                "Auto-renew skipped: no saved %s payment method for user %s",
+                provider,
+                sub.user_id,
+            )
             return False
 
         months = sub.duration_months or 1
@@ -61,7 +81,7 @@ class RenewalMixin:
         if amount is None:
             amount = self.settings.subscription_options.get(months)
         if not amount:
-            logging.error(f"Auto-renew price missing for {months} months")
+            logging.error("Auto-renew price missing for %s months", months)
             return False
 
         hwid_quote = None
@@ -113,17 +133,34 @@ class RenewalMixin:
                 value = hwid_quote.get(key)
                 if value is not None:
                     metadata[f"hwid_{key}"] = str(value)
-        resp = await yk.create_payment(
-            amount=float(amount),
-            currency=currency,
-            description=f"Auto-renewal for {months} months",
-            metadata=metadata,
-            payment_method_id=default_pm.provider_payment_method_id,
-            save_payment_method=False,
-            capture=True,
+
+        result = await recurring_service.charge_saved_payment_method(
+            RecurringChargeContext(
+                session=session,
+                user_id=sub.user_id,
+                subscription_id=sub.subscription_id,
+                saved_method=default_pm,
+                amount=float(amount),
+                currency=currency,
+                months=int(months),
+                sale_mode=sale_mode,
+                description=f"Auto-renewal for {months} months",
+                metadata=metadata,
+                hwid_quote=hwid_quote,
+            )
         )
-        if not resp or resp.get("status") not in {"pending", "waiting_for_capture", "succeeded"}:
-            logging.error(f"Auto-renew create_payment failed: {resp}")
+        if not result.initiated:
+            logging.error(
+                "Auto-renew saved-method charge failed for provider %s: %s",
+                provider,
+                result.message,
+            )
             return False
-        logging.info(f"Auto-renew initiated for user {sub.user_id} payment_id={resp.get('id')}")
+        logging.info(
+            "Auto-renew initiated for user %s provider=%s payment_id=%s status=%s",
+            sub.user_id,
+            provider,
+            result.provider_payment_id,
+            result.status,
+        )
         return True

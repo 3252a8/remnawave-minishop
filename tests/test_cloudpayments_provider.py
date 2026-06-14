@@ -14,10 +14,11 @@ import hmac
 import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
-from urllib.parse import urlencode
+from urllib.parse import unquote_plus, urlencode
 
 from bot.payment_providers import cloudpayments
 from bot.payment_providers.cloudpayments import CloudPaymentsConfig, CloudPaymentsService
+from bot.payment_providers.shared import RecurringChargeContext
 
 
 def _hmac_b64(message: bytes, key: str) -> str:
@@ -148,6 +149,39 @@ def test_create_order_uses_basic_auth_and_orders_endpoint(monkeypatch):
     assert body["RequireConfirmation"] is False
 
 
+def test_cloudpayments_spec_supports_recurring():
+    assert cloudpayments.SPEC.supports_recurring
+
+
+def test_token_charge_marks_merchant_initiated_scheduled_payment(monkeypatch):
+    service = _make_service(RECURRING_ENABLED=True)
+    captured = {}
+    monkeypatch.setattr(service, "_get_session", AsyncMock(return_value=_capture_session(captured)))
+
+    success, data = asyncio.run(
+        service.charge_token(
+            payment_db_id=99,
+            user_id=555,
+            token="cp-token",
+            amount=150.0,
+            currency="RUB",
+            description="Auto-renewal",
+            metadata={"subscription_id": "10"},
+        )
+    )
+
+    assert success
+    assert data == {"Id": "ord-1", "Number": 42, "Url": "https://orders.cloudpayments.ru/d/x"}
+    assert captured["url"] == "https://api.cloudpayments.ru/payments/tokens/charge"
+    body = captured["json"]
+    assert body["Token"] == "cp-token"
+    assert body["InvoiceId"] == "99"
+    assert body["AccountId"] == "555"
+    assert body["TrInitiatorCode"] == 0
+    assert body["PaymentScheduled"] == 1
+    assert body["JsonData"] == {"cloudpayments": {"subscription_id": "10"}}
+
+
 def test_create_order_rejects_unsupported_currency(monkeypatch):
     service = _make_service()
     monkeypatch.setattr(
@@ -205,6 +239,14 @@ def test_signature_accepts_valid_base64_hmac():
     assert service.verify_signature(body, _hmac_b64(body, "api-secret"))
 
 
+def test_signature_accepts_url_decoded_hmac_variant():
+    service = _make_service()
+    body = "InvoiceId=1&Description=Auto+renewal+%D1%82%D0%B5%D1%81%D1%82".encode("utf-8")
+    decoded = unquote_plus(body.decode("utf-8")).encode("utf-8")
+
+    assert service.verify_signature(body, _hmac_b64(decoded, "api-secret"))
+
+
 def test_signature_rejects_wrong_or_empty_signature():
     service = _make_service()
     body = b"TransactionId=1&Status=Completed"
@@ -242,6 +284,13 @@ def _webhook_service(session, payment, monkeypatch, **overrides):
         i18n=SimpleNamespace(),
         subscription_service=SimpleNamespace(),
         referral_service=SimpleNamespace(),
+        recurring_active=False,
+    )
+    service._persist_recurring_payment_method = (
+        CloudPaymentsService._persist_recurring_payment_method.__get__(
+            service,
+            CloudPaymentsService,
+        )
     )
     for key, value in overrides.items():
         setattr(service, key, value)
@@ -329,6 +378,47 @@ def test_webhook_success_finalizes_payment(monkeypatch):
     assert json.loads(response.body) == {"code": 0}
     update_mock.assert_awaited_once_with(session, 88, "tx-1", "succeeded")
     finalize_mock.assert_awaited_once()
+
+
+def test_webhook_success_saves_token_when_recurring_enabled(monkeypatch):
+    session = _FakeDbSession()
+    service = _webhook_service(session, _payment(), monkeypatch, recurring_active=True)
+    update_mock = AsyncMock()
+    finalize_mock = AsyncMock(return_value=SimpleNamespace())
+    upsert_mock = AsyncMock()
+    monkeypatch.setattr(
+        cloudpayments.payment_dal, "update_provider_payment_and_status", update_mock
+    )
+    monkeypatch.setattr(cloudpayments, "finalize_successful_payment", finalize_mock)
+    monkeypatch.setattr(cloudpayments.user_billing_dal, "upsert_user_payment_method", upsert_mock)
+
+    response = asyncio.run(
+        CloudPaymentsService.webhook_route(
+            service,
+            _FakeWebhookRequest(
+                {
+                    "InvoiceId": "88",
+                    "TransactionId": "tx-1",
+                    "Status": "Completed",
+                    "Amount": "150.00",
+                    "Token": "cp-token-1",
+                    "CardLastFour": "4242",
+                    "CardType": "Visa",
+                }
+            ),
+        )
+    )
+
+    assert response.status == 200
+    upsert_mock.assert_awaited_once_with(
+        session,
+        user_id=42,
+        provider_payment_method_id="cp-token-1",
+        provider="cloudpayments",
+        card_last4="4242",
+        card_network="Visa",
+        set_default=True,
+    )
 
 
 def test_webhook_amount_mismatch_is_rejected(monkeypatch):
@@ -435,3 +525,59 @@ def test_reuse_requires_stored_url():
         )
         is None
     )
+
+
+def test_charge_saved_payment_method_creates_local_record_before_token_charge(monkeypatch):
+    service = _make_service(RECURRING_ENABLED=True)
+    session = SimpleNamespace()
+    payment = SimpleNamespace(payment_id=123)
+    create_mock = AsyncMock(return_value=payment)
+    update_mock = AsyncMock()
+    monkeypatch.setattr(cloudpayments.payment_dal, "create_payment_record", create_mock)
+    monkeypatch.setattr(
+        cloudpayments.payment_dal,
+        "update_provider_payment_and_status",
+        update_mock,
+    )
+    monkeypatch.setattr(
+        service,
+        "charge_token",
+        AsyncMock(return_value=(True, {"TransactionId": "tx-auto", "Status": "Completed"})),
+    )
+
+    result = asyncio.run(
+        service.charge_saved_payment_method(
+            RecurringChargeContext(
+                session=session,
+                user_id=42,
+                subscription_id=7,
+                saved_method=SimpleNamespace(provider_payment_method_id="cp-token"),
+                amount=199.0,
+                currency="RUB",
+                months=1,
+                sale_mode="subscription@standard",
+                description="Auto-renewal for 1 months",
+                metadata={"auto_renew_for_subscription_id": "7"},
+            )
+        )
+    )
+
+    assert result.initiated
+    assert result.provider_payment_id == "tx-auto"
+    create_mock.assert_awaited_once()
+    payload = create_mock.await_args.args[1]
+    assert payload["status"] == "pending_cloudpayments"
+    assert payload["provider"] == "cloudpayments"
+    assert payload["user_id"] == 42
+    assert payload["subscription_duration_months"] == 1
+    assert payload["tariff_key"] == "standard"
+    service.charge_token.assert_awaited_once_with(
+        payment_db_id=123,
+        user_id=42,
+        token="cp-token",
+        amount=199.0,
+        currency="RUB",
+        description="Auto-renewal for 1 months",
+        metadata={"auto_renew_for_subscription_id": "7"},
+    )
+    update_mock.assert_awaited_once_with(session, 123, "tx-auto", "pending_cloudpayments")

@@ -55,6 +55,11 @@ from .http_client import (
     http_ok,
     post_json_request,
 )
+from .recurring import (
+    RecurringChargeContext,
+    RecurringChargeResult,
+    service_supports_recurring,
+)
 from .success import (
     PaymentSuccessOutcome,
     PaymentSuccessRequest,
@@ -80,6 +85,9 @@ __all__ = [
     "PaymentRecordAmounts",
     "PaymentSuccessOutcome",
     "PaymentSuccessRequest",
+    "RecurringChargeContext",
+    "RecurringChargeResult",
+    "service_supports_recurring",
     "SuccessCheck",
     "SuccessMessage",
     "Translator",

@@ -17,7 +17,9 @@ from bot.payment_providers import (
     provider_admin_only_pairs,
     provider_emoji_map,
     provider_label_map,
+    provider_supports_recurring,
     provider_telegram_button_text,
+    recurring_provider_services,
     resolve_provider_presentation,
 )
 from bot.payment_providers.shared import (
@@ -111,6 +113,25 @@ def test_yookassa_provider_keeps_autorenew_entrypoints_local():
     assert callable(yookassa.process_successful_payment)
     assert callable(yookassa.process_cancelled_payment)
     assert callable(yookassa.yookassa_webhook_route)
+    assert spec.supports_recurring
+    assert provider_supports_recurring("yookassa")
+
+
+def test_recurring_provider_registry_includes_saved_method_providers():
+    yookassa_service = SimpleNamespace()
+    cloudpayments_service = SimpleNamespace()
+    services = {
+        "yookassa_service": yookassa_service,
+        "cloudpayments_service": cloudpayments_service,
+        "wata_service": SimpleNamespace(),
+    }
+
+    recurring = recurring_provider_services(services)
+
+    assert recurring["yookassa"] is yookassa_service
+    assert recurring["cloudpayments"] is cloudpayments_service
+    assert "wata" not in recurring
+    assert provider_supports_recurring("cloudpayments")
 
 
 def test_every_payment_method_has_registry_driven_webapp_creator():

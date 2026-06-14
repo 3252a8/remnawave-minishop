@@ -456,6 +456,7 @@ CloudPayments принимает оплату картами через Orders A
 | `CLOUDPAYMENTS_API_SECRET` | API Secret из кабинета CloudPayments (пароль HTTP Basic auth и ключ проверки подписи). |
 | `CLOUDPAYMENTS_RETURN_URL` | URL успешного возврата после оплаты. |
 | `CLOUDPAYMENTS_FAILED_URL` | URL возврата при ошибке оплаты; если пусто, используется `CLOUDPAYMENTS_RETURN_URL`. |
+| `CLOUDPAYMENTS_RECURRING_ENABLED` | Включает списания по сохранённому CloudPayments `Token` для автопродления подписок. |
 | `CLOUDPAYMENTS_VERIFY_WEBHOOK_SIGNATURE` | Проверять заголовок `Content-HMAC` у уведомлений. |
 | `CLOUDPAYMENTS_TRUSTED_IPS` | Необязательный список доверенных IP webhook-источников. |
 

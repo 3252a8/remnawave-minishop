@@ -3,7 +3,7 @@ import hashlib
 import hmac
 import logging
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, unquote_plus
 
 from aiogram import Bot, F, Router, types
 from aiohttp import web
@@ -21,7 +21,7 @@ from config.tariffs_config import (
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
 )
-from db.dal import payment_dal
+from db.dal import payment_dal, user_billing_dal
 
 from .base import (
     PaymentProviderSpec,
@@ -36,6 +36,8 @@ from .base import (
 from .shared import (
     HttpClientMixin,
     PaymentSuccessRequest,
+    RecurringChargeContext,
+    RecurringChargeResult,
     build_payment_record_payload,
     create_webapp_payment_record,
     decimal_amounts_equal,
@@ -104,6 +106,7 @@ class CloudPaymentsConfig(ProviderEnvConfig):
     BASE_URL: str = Field(default="https://api.cloudpayments.ru")
     RETURN_URL: Optional[str] = None
     FAILED_URL: Optional[str] = None
+    RECURRING_ENABLED: bool = Field(default=False)
     VERIFY_WEBHOOK_SIGNATURE: bool = Field(default=True)
     TRUSTED_IPS: str = Field(default="")
 
@@ -217,6 +220,11 @@ class CloudPaymentsService(HttpClientMixin):
     def verify_webhook_signature(self) -> bool:
         return bool(self.config.VERIFY_WEBHOOK_SIGNATURE)
 
+    @property
+    def recurring_active(self) -> bool:
+        """Token charges are available only when explicitly enabled."""
+        return bool(self.configured and self.config.RECURRING_ENABLED)
+
     def _auth_headers(self) -> Dict[str, str]:
         token = base64.b64encode(f"{self.public_id}:{self.api_secret}".encode("utf-8")).decode(
             "ascii"
@@ -278,6 +286,151 @@ class CloudPaymentsService(HttpClientMixin):
         model = data.get("Model")
         return True, model if isinstance(model, dict) else data
 
+    async def charge_token(
+        self,
+        *,
+        payment_db_id: int,
+        user_id: int,
+        token: str,
+        amount: float,
+        currency: Optional[str],
+        description: str,
+        metadata: Optional[Dict[str, str]] = None,
+    ) -> Tuple[bool, Dict[str, Any]]:
+        if not self.configured:
+            logging.error("CloudPaymentsService is not configured. Cannot charge token.")
+            return False, {"message": "service_not_configured"}
+
+        currency_code = normalize_payment_currency_code(
+            currency or self.settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
+        )
+        if currency_code not in CLOUDPAYMENTS_SUPPORTED_CURRENCIES:
+            return False, {
+                "message": "unsupported_currency",
+                "currency": currency_code,
+                "supported_currencies": list(CLOUDPAYMENTS_SUPPORTED_CURRENCIES),
+            }
+
+        body: Dict[str, Any] = {
+            "Amount": float(format_decimal_amount(amount)),
+            "Currency": currency_code,
+            "Description": description[:248] if description else "Payment",
+            "AccountId": str(user_id),
+            "InvoiceId": str(payment_db_id),
+            "Token": token,
+            # Merchant-initiated scheduled charge of saved credentials.
+            "TrInitiatorCode": 0,
+            "PaymentScheduled": 1,
+        }
+        if metadata:
+            body["JsonData"] = {"cloudpayments": dict(metadata)}
+
+        session = await self._get_session()
+        success, data = await post_json_request(
+            session,
+            f"{self.base_url}/payments/tokens/charge",
+            body=body,
+            headers=self._auth_headers(),
+            log_prefix="CloudPayments token charge",
+            is_success=_cloudpayments_order_success,
+        )
+        if not success:
+            return False, data
+        model = data.get("Model")
+        return True, model if isinstance(model, dict) else data
+
+    async def charge_saved_payment_method(
+        self, context: RecurringChargeContext
+    ) -> RecurringChargeResult:
+        """Charge a stored CloudPayments ``Token`` for auto-renew."""
+        if not self.recurring_active:
+            return RecurringChargeResult.failed("recurring_inactive")
+        token = str(getattr(context.saved_method, "provider_payment_method_id", "") or "").strip()
+        if not token:
+            return RecurringChargeResult.failed("missing_saved_method")
+
+        payment_payload = build_payment_record_payload(
+            user_id=context.user_id,
+            amount=float(context.amount),
+            currency=context.currency,
+            status="pending_cloudpayments",
+            description=context.description,
+            months=context.months,
+            provider="cloudpayments",
+            sale_mode=context.sale_mode,
+            hwid_quote=dict(context.hwid_quote or {}) or None,
+        )
+        try:
+            payment = await payment_dal.create_payment_record(context.session, payment_payload)
+        except Exception as exc:
+            logging.exception("CloudPayments auto-renew failed to create local payment record")
+            return RecurringChargeResult.failed(str(exc))
+
+        try:
+            success, response_data = await self.charge_token(
+                payment_db_id=payment.payment_id,
+                user_id=context.user_id,
+                token=token,
+                amount=float(context.amount),
+                currency=context.currency,
+                description=context.description,
+                metadata=dict(context.metadata),
+            )
+        except Exception as exc:
+            logging.exception("CloudPayments auto-renew token charge failed before API response")
+            try:
+                await payment_dal.update_payment_status_by_db_id(
+                    context.session,
+                    payment.payment_id,
+                    "failed_creation",
+                )
+            except Exception:
+                logging.exception(
+                    "CloudPayments auto-renew failed to mark payment %s as failed_creation",
+                    payment.payment_id,
+                )
+            return RecurringChargeResult.failed(str(exc))
+
+        provider_payment_id = first_value(
+            response_data,
+            "TransactionId",
+            "transactionId",
+            "Id",
+            "id",
+        )
+        status = str(first_value(response_data, "Status", "status") or "").lower() or None
+        charge_declined = status in _FAILED_STATUSES
+        if provider_payment_id:
+            try:
+                await payment_dal.update_provider_payment_and_status(
+                    context.session,
+                    payment.payment_id,
+                    str(provider_payment_id),
+                    "pending_cloudpayments",
+                )
+            except Exception:
+                logging.exception(
+                    "CloudPayments auto-renew failed to store provider payment id %s",
+                    provider_payment_id,
+                )
+        if not success or charge_declined:
+            try:
+                await payment_dal.update_payment_status_by_db_id(
+                    context.session,
+                    payment.payment_id,
+                    "failed_creation",
+                )
+            except Exception:
+                logging.exception(
+                    "CloudPayments auto-renew failed to mark payment %s as failed_creation",
+                    payment.payment_id,
+                )
+            return RecurringChargeResult.failed(str(response_data.get("Message") or response_data))
+        return RecurringChargeResult.ok(
+            provider_payment_id=str(provider_payment_id) if provider_payment_id else None,
+            status=status,
+        )
+
     async def try_reuse_pending_payment(self, payment: Any) -> Optional[str]:
         """Return the existing order URL when the local payment is still pending.
 
@@ -299,9 +452,54 @@ class CloudPaymentsService(HttpClientMixin):
         if not secret:
             logging.error("CloudPayments webhook: no API secret configured.")
             return False
-        digest = hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).digest()
-        expected = base64.b64encode(digest).decode("ascii")
-        return hmac.compare_digest(expected, received)
+
+        candidates = [raw_body]
+        try:
+            decoded = unquote_plus(raw_body.decode("utf-8")).encode("utf-8")
+            if decoded != raw_body:
+                candidates.append(decoded)
+        except Exception:
+            pass
+
+        for body in candidates:
+            digest = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).digest()
+            expected = base64.b64encode(digest).decode("ascii")
+            if hmac.compare_digest(expected, received):
+                return True
+        return False
+
+    async def _persist_recurring_payment_method(
+        self,
+        session: AsyncSession,
+        *,
+        payment: Any,
+        payload_getter: Any,
+    ) -> None:
+        if not self.recurring_active:
+            return
+        token = str(payload_getter("Token") or "").strip()
+        if not token:
+            return
+        user_id = getattr(payment, "user_id", None)
+        if user_id is None:
+            return
+        card_last4 = payload_getter("CardLastFour")
+        card_network = payload_getter("CardType") or "Card"
+        try:
+            await user_billing_dal.upsert_user_payment_method(
+                session,
+                user_id=int(user_id),
+                provider_payment_method_id=token,
+                provider="cloudpayments",
+                card_last4=card_last4,
+                card_network=card_network,
+                set_default=True,
+            )
+        except Exception:
+            logging.exception(
+                "CloudPayments webhook: failed to persist saved payment token for user %s",
+                user_id,
+            )
 
     async def webhook_route(self, request: web.Request) -> web.Response:
         if not self.configured:
@@ -323,8 +521,13 @@ class CloudPaymentsService(HttpClientMixin):
 
         raw_body = await request.read()
         if self.verify_webhook_signature:
-            signature = request.headers.get("Content-HMAC") or request.headers.get("X-Content-HMAC")
-            if not self.verify_signature(raw_body, signature or ""):
+            signatures = (
+                request.headers.get("Content-HMAC"),
+                request.headers.get("X-Content-HMAC"),
+            )
+            if not any(
+                signature and self.verify_signature(raw_body, signature) for signature in signatures
+            ):
                 logging.error("CloudPayments webhook: invalid signature.")
                 return web.json_response({"code": 13}, status=403)
 
@@ -368,7 +571,7 @@ class CloudPaymentsService(HttpClientMixin):
             )
             payment_months = payment_units_for_activation(payment, sale_mode)
 
-            is_success = status in _SUCCESS_STATUSES or (not status and order_id_raw)
+            is_success = status in _SUCCESS_STATUSES
             if is_success:
                 if payment.status == "succeeded":
                     logging.info(
@@ -390,6 +593,11 @@ class CloudPaymentsService(HttpClientMixin):
                     return web.json_response({"code": 12}, status=200)
 
                 try:
+                    await self._persist_recurring_payment_method(
+                        session,
+                        payment=payment,
+                        payload_getter=_get,
+                    )
                     await payment_dal.update_provider_payment_and_status(
                         session,
                         payment.payment_id,
@@ -772,6 +980,17 @@ _CONFIG_MANIFEST = (
         attr="FAILED_URL",
     ),
     ProviderManifestField(
+        "CLOUDPAYMENTS_RECURRING_ENABLED",
+        "bool",
+        "Recurring payments",
+        description=(
+            "Allows CloudPayments token charges for subscription auto-renew. "
+            "Requires Pay notifications with Token enabled in CloudPayments."
+        ),
+        subsection="CloudPayments",
+        attr="RECURRING_ENABLED",
+    ),
+    ProviderManifestField(
         "CLOUDPAYMENTS_VERIFY_WEBHOOK_SIGNATURE",
         "bool",
         "Verify webhook signature",
@@ -812,6 +1031,7 @@ SPEC = PaymentProviderSpec(
     config_class=CloudPaymentsConfig,
     presentation_class=CloudPaymentsPresentation,
     manifest_fields=_CONFIG_MANIFEST + _PRESENTATION_MANIFEST,
+    supports_recurring=True,
     supported_currencies=CLOUDPAYMENTS_SUPPORTED_CURRENCIES,
     currency_support_note=(
         "CloudPayments orders accept RUB, USD, EUR, GBP and CIS currencies as the payment currency."
