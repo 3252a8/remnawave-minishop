@@ -19,10 +19,10 @@ def test_build_email_message_attaches_inline_images_to_html_part():
         email="user@example.com",
         subject="Login code",
         body="Your code: 123456",
-        html_body='<img src="cid:webapp-logo" alt="">',
+        html_body='<img src="cid:webapp-logo@remnawave-minishop" alt="">',
         inline_images=(
             EmailInlineImage(
-                content_id="webapp-logo",
+                content_id="webapp-logo@remnawave-minishop",
                 content_type="image/png",
                 data=b"\x89PNG\r\n\x1a\nlogo",
             ),
@@ -37,5 +37,6 @@ def test_build_email_message_attaches_inline_images_to_html_part():
 
     assert len(related_images) == 1
     assert related_images[0].get_content_type() == "image/png"
-    assert related_images[0]["Content-ID"] == "<webapp-logo>"
+    assert related_images[0]["Content-ID"] == "<webapp-logo@remnawave-minishop>"
     assert related_images[0].get_content_disposition() == "inline"
+    assert related_images[0].get_filename() == "webapp-logo-remnawave-minishop.png"

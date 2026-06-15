@@ -55,6 +55,12 @@ def _i18n(default_language: str = "ru"):
     return JsonI18n(str(REPO_ROOT / "locales"), default=default_language)
 
 
+def _image_bytes(image: Image.Image, image_format: str, **kwargs) -> bytes:
+    raw = BytesIO()
+    image.save(raw, format=image_format, **kwargs)
+    return raw.getvalue()
+
+
 def _locale_keys(language: str) -> set[str]:
     return set(json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8")))
 
@@ -298,7 +304,11 @@ def test_uploaded_webapp_logo_is_embedded_inline(tmp_path, monkeypatch):
     uploads_dir = tmp_path / "uploads"
     uploads_dir.mkdir()
     filename = "logo-1111111111111111.png"
-    logo_body = b"\x89PNG\r\n\x1a\nlogo"
+    source = Image.new("RGBA", (24, 16), (0, 0, 0, 0))
+    for x in range(6, 18):
+        for y in range(4, 12):
+            source.putpixel((x, y), (255, 0, 0, 255))
+    logo_body = _image_bytes(source, "PNG")
     (uploads_dir / filename).write_bytes(logo_body)
     monkeypatch.setattr(email_templates_module, "_WEBAPP_UPLOADED_LOGO_DIR", uploads_dir)
 
@@ -313,23 +323,38 @@ def test_uploaded_webapp_logo_is_embedded_inline(tmp_path, monkeypatch):
         i18n=_i18n("en"),
     )
 
-    assert 'src="cid:webapp-logo"' in content.html
+    assert 'src="cid:webapp-logo@remnawave-minishop"' in content.html
     assert len(content.inline_images) == 1
     inline_logo = content.inline_images[0]
-    assert inline_logo.content_id == "webapp-logo"
+    assert inline_logo.content_id == "webapp-logo@remnawave-minishop"
     assert inline_logo.content_type == "image/png"
-    assert inline_logo.data == logo_body
+    assert inline_logo.data != logo_body
+
+    with Image.open(BytesIO(inline_logo.data)) as converted:
+        assert converted.mode == "RGB"
+        assert converted.size == (128, 128)
+        assert converted.getpixel((0, 0)) == (14, 17, 22)
+        assert converted.getpixel((64, 64)) == (255, 0, 0)
 
 
-def test_uploaded_webp_logo_is_embedded_as_transparent_png(tmp_path, monkeypatch):
+def test_uploaded_webp_logo_is_embedded_as_email_safe_png(tmp_path, monkeypatch):
     uploads_dir = tmp_path / "uploads"
     uploads_dir.mkdir()
     filename = "logo-2222222222222222.webp"
     source = Image.new("RGBA", (3, 3), (0, 0, 0, 0))
     source.putpixel((1, 1), (255, 0, 0, 255))
-    raw = BytesIO()
-    source.save(raw, format="WEBP", lossless=True)
-    (uploads_dir / filename).write_bytes(raw.getvalue())
+    second_frame = Image.new("RGBA", (3, 3), (0, 0, 255, 255))
+    (uploads_dir / filename).write_bytes(
+        _image_bytes(
+            source,
+            "WEBP",
+            save_all=True,
+            append_images=[second_frame],
+            duration=100,
+            loop=0,
+            lossless=True,
+        )
+    )
     monkeypatch.setattr(email_templates_module, "_WEBAPP_UPLOADED_LOGO_DIR", uploads_dir)
 
     settings = _settings()
@@ -343,15 +368,42 @@ def test_uploaded_webp_logo_is_embedded_as_transparent_png(tmp_path, monkeypatch
         i18n=_i18n("en"),
     )
 
-    assert 'src="cid:webapp-logo"' in content.html
+    assert 'src="cid:webapp-logo@remnawave-minishop"' in content.html
     assert len(content.inline_images) == 1
     inline_logo = content.inline_images[0]
     assert inline_logo.content_type == "image/png"
 
     with Image.open(BytesIO(inline_logo.data)) as converted:
-        assert converted.mode == "RGBA"
-        assert converted.getpixel((0, 0))[3] == 0
-        assert converted.getpixel((1, 1))[3] == 255
+        assert converted.mode == "RGB"
+        assert converted.size == (128, 128)
+        assert converted.getpixel((0, 0)) == (14, 17, 22)
+        assert converted.getpixel((64, 64))[:2] == (255, 0)
+
+
+def test_uploaded_svg_logo_is_not_embedded_as_email_image(tmp_path, monkeypatch):
+    uploads_dir = tmp_path / "uploads"
+    uploads_dir.mkdir()
+    filename = "logo-3333333333333333.svg"
+    (uploads_dir / filename).write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">'
+        '<rect width="24" height="24" fill="#00fe7a"/></svg>',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(email_templates_module, "_WEBAPP_UPLOADED_LOGO_DIR", uploads_dir)
+
+    settings = _settings()
+    settings.WEBAPP_LOGO_URL = f"/webapp-uploaded-logo/{filename}"
+
+    content = render_login_code(
+        settings,
+        code="123456",
+        language_code="en",
+        purpose="login",
+        i18n=_i18n("en"),
+    )
+
+    assert "cid:webapp-logo" not in content.html
+    assert content.inline_images == ()
 
 
 def test_public_https_webapp_logo_remains_external():

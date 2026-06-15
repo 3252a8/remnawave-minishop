@@ -689,7 +689,21 @@ class EmailAuthService:
                 maintype=maintype,
                 subtype=subtype,
                 cid=cid_header,
+                disposition="inline",
+                filename=EmailAuthService._inline_image_filename(content_id, subtype),
             )
+
+    @staticmethod
+    def _inline_image_filename(content_id: str, subtype: str) -> str:
+        safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "-", content_id).strip(".-") or "image"
+        safe_subtype = str(subtype or "").split("+", 1)[0].strip().lower()
+        extension = {
+            "jpeg": "jpg",
+            "x-icon": "ico",
+        }.get(safe_subtype, safe_subtype)
+        if not re.fullmatch(r"[A-Za-z0-9]{1,12}", extension):
+            extension = "bin"
+        return f"{safe_name}.{extension}"
 
     def _send_message_via_smtp(
         self,

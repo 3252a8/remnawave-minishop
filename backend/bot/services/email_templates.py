@@ -29,7 +29,11 @@ _TEXT_MUTED = "#9aa3b2"
 _TEXT_DIM = "#5d6573"
 _DEFAULT_ACCENT = "#00fe7a"
 _HEX_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
-_EMAIL_LOGO_CONTENT_ID = "webapp-logo"
+_EMAIL_LOGO_CONTENT_ID = "webapp-logo@remnawave-minishop"
+_EMAIL_LOGO_DISPLAY_SIZE = 64
+_EMAIL_LOGO_RASTER_SIZE = 128
+_EMAIL_LOGO_RASTER_PADDING = 14
+_EMAIL_LOGO_BACKGROUND = _CARD_BG
 _WEBAPP_UPLOADED_LOGO_PATH = "/webapp-uploaded-logo"
 _WEBAPP_UPLOADED_LOGO_DIR = Path(__file__).resolve().parents[3] / "data" / "webapp-logo" / "uploads"
 _WEBAPP_LOGO_MAX_BYTES = 2 * 1024 * 1024
@@ -43,7 +47,7 @@ _LOGO_CONTENT_TYPES = {
     ".svg": "image/svg+xml",
     ".webp": "image/webp",
 }
-_EMAIL_LOGO_PNG_FALLBACK_EXTENSIONS = {".ico", ".webp"}
+_EMAIL_LOGO_SAFE_RASTER_EXTENSIONS = {".gif", ".ico", ".jpg", ".jpeg", ".png", ".webp"}
 
 
 @dataclass(frozen=True)
@@ -131,7 +135,10 @@ def _inline_uploaded_logo(settings: Settings) -> Optional[EmailInlineImage]:
     if not body or len(body) > _WEBAPP_LOGO_MAX_BYTES:
         return None
 
-    content_type, body = _email_logo_payload(filename, content_type, body)
+    payload = _email_logo_payload(filename, content_type, body)
+    if not payload:
+        return None
+    content_type, body = payload
 
     return EmailInlineImage(
         content_id=_EMAIL_LOGO_CONTENT_ID,
@@ -140,18 +147,23 @@ def _inline_uploaded_logo(settings: Settings) -> Optional[EmailInlineImage]:
     )
 
 
-def _email_logo_payload(filename: str, content_type: str, body: bytes) -> Tuple[str, bytes]:
+def _email_logo_payload(
+    filename: str,
+    content_type: str,
+    body: bytes,
+) -> Optional[Tuple[str, bytes]]:
     suffix = Path(filename).suffix.lower()
-    if suffix not in _EMAIL_LOGO_PNG_FALLBACK_EXTENSIONS:
-        return content_type, body
+    if suffix == ".svg":
+        return None
 
-    png_body = _static_raster_logo_to_png(body)
-    if png_body and len(png_body) <= _WEBAPP_LOGO_MAX_BYTES:
-        return "image/png", png_body
+    if suffix in _EMAIL_LOGO_SAFE_RASTER_EXTENSIONS:
+        png_body = _email_safe_raster_logo_to_png(body)
+        if png_body and len(png_body) <= _WEBAPP_LOGO_MAX_BYTES:
+            return "image/png", png_body
     return content_type, body
 
 
-def _static_raster_logo_to_png(body: bytes) -> Optional[bytes]:
+def _email_safe_raster_logo_to_png(body: bytes) -> Optional[bytes]:
     try:
         from PIL import Image, ImageOps, UnidentifiedImageError
     except ImportError:
@@ -160,8 +172,6 @@ def _static_raster_logo_to_png(body: bytes) -> Optional[bytes]:
     try:
         with Image.open(io.BytesIO(body)) as image:
             image.seek(0)
-            if getattr(image, "is_animated", False):
-                return None
             source = ImageOps.exif_transpose(image).convert("RGBA")
     except (OSError, UnidentifiedImageError, ValueError, EOFError):
         return None
@@ -169,9 +179,46 @@ def _static_raster_logo_to_png(body: bytes) -> Optional[bytes]:
     if source.width < 1 or source.height < 1 or source.width > 8192 or source.height > 8192:
         return None
 
+    source = _crop_transparent_logo_padding(source)
+    content_size = _EMAIL_LOGO_RASTER_SIZE - (_EMAIL_LOGO_RASTER_PADDING * 2)
+    scale = min(content_size / source.width, content_size / source.height)
+    target_size = (
+        max(1, int(round(source.width * scale))),
+        max(1, int(round(source.height * scale))),
+    )
+    source = source.resize(target_size, Image.Resampling.LANCZOS)
+
+    canvas = Image.new(
+        "RGBA",
+        (_EMAIL_LOGO_RASTER_SIZE, _EMAIL_LOGO_RASTER_SIZE),
+        _hex_to_rgba(_EMAIL_LOGO_BACKGROUND),
+    )
+    left = (_EMAIL_LOGO_RASTER_SIZE - source.width) // 2
+    top = (_EMAIL_LOGO_RASTER_SIZE - source.height) // 2
+    canvas.alpha_composite(source, (left, top))
+
     output = io.BytesIO()
-    source.save(output, format="PNG", optimize=True)
+    canvas.convert("RGB").save(output, format="PNG", optimize=True)
     return output.getvalue()
+
+
+def _crop_transparent_logo_padding(image):
+    bbox = image.getchannel("A").getbbox()
+    return image.crop(bbox) if bbox else image
+
+
+def _hex_to_rgba(value: str) -> Tuple[int, int, int, int]:
+    normalized = str(value or "#000000").strip().lstrip("#")
+    if len(normalized) == 3:
+        normalized = "".join(ch * 2 for ch in normalized)
+    if len(normalized) != 6:
+        normalized = "000000"
+    return (
+        int(normalized[0:2], 16),
+        int(normalized[2:4], 16),
+        int(normalized[4:6], 16),
+        255,
+    )
 
 
 def _email_logo(settings: Settings) -> Tuple[Optional[str], Tuple[EmailInlineImage, ...]]:
@@ -233,10 +280,22 @@ def _layout(
     html_lang = html.escape((language_code or "en").replace("_", "-"), quote=True)
     logo_block = ""
     if logo_url:
+        logo_size = _EMAIL_LOGO_DISPLAY_SIZE
         logo_block = (
-            f'<img src="{html.escape(logo_url, quote=True)}" width="64" height="64" '
-            f'alt="" style="display:block;border:0;outline:none;text-decoration:none;'
-            f'border-radius:16px;background:transparent;background-color:transparent;">'
+            f'<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
+            f'align="center" style="border-collapse:separate;margin:0 auto;">'
+            f"<tr>"
+            f'<td align="center" valign="middle" width="{logo_size}" height="{logo_size}" '
+            f'bgcolor="{_EMAIL_LOGO_BACKGROUND}" style="width:{logo_size}px;'
+            f"height:{logo_size}px;background:{_EMAIL_LOGO_BACKGROUND};"
+            f"background-color:{_EMAIL_LOGO_BACKGROUND};border-radius:16px;overflow:hidden;"
+            f'line-height:0;font-size:0;">'
+            f'<img src="{html.escape(logo_url, quote=True)}" width="{logo_size}" '
+            f'height="{logo_size}" alt="" style="display:block;width:{logo_size}px;'
+            f"height:{logo_size}px;border:0;outline:none;text-decoration:none;"
+            f"border-radius:16px;background:{_EMAIL_LOGO_BACKGROUND};"
+            f'background-color:{_EMAIL_LOGO_BACKGROUND};line-height:0;">'
+            f"</td></tr></table>"
         )
 
     layout_html = f"""<!DOCTYPE html>
