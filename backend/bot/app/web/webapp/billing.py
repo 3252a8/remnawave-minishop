@@ -948,6 +948,7 @@ async def _refresh_yookassa_payment_status(
     provider_status = str(provider_payload.get("status") or "").lower()
     if provider_status == "succeeded" and provider_payload.get("paid") is True:
         from bot.payment_providers.yookassa import (
+            emit_yookassa_success_events,
             payment_processing_lock,
             process_successful_payment,
         )
@@ -972,7 +973,7 @@ async def _refresh_yookassa_payment_status(
                 )
                 await session.commit()
                 if event_payload:
-                    await events.emit(events.PAYMENT_SUCCEEDED, event_payload)
+                    await emit_yookassa_success_events(event_payload)
             except Exception:
                 await session.rollback()
                 logger.exception(

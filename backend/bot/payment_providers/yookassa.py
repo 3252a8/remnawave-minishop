@@ -478,10 +478,26 @@ YOOKASSA_WEBHOOK_ALLOWED_IPS = [
     "2a02:5180::/32",
 ]
 HWID_DEVICE_SALE_BASES = {"hwid_device", "hwid_devices", "hwid_devices_renewal"}
+DEFERRED_EVENTS_KEY = "_deferred_events"
+DEFERRED_SUCCESS_MESSAGE_KEY = "_deferred_success_message"
 
 
 def _is_hwid_device_sale_base(sale_mode_base: str) -> bool:
     return sale_mode_base in HWID_DEVICE_SALE_BASES
+
+
+async def emit_yookassa_success_events(event_payload: dict) -> None:
+    deferred_events = []
+    deferred_success_message = None
+    if isinstance(event_payload, dict):
+        deferred_events = list(event_payload.pop(DEFERRED_EVENTS_KEY, []) or [])
+        deferred_success_message = event_payload.pop(DEFERRED_SUCCESS_MESSAGE_KEY, None)
+    await events.emit(events.PAYMENT_SUCCEEDED, event_payload)
+    for item in deferred_events:
+        if isinstance(item, dict) and item.get("event") and isinstance(item.get("payload"), dict):
+            await events.emit(item["event"], item["payload"])
+    if isinstance(deferred_success_message, dict):
+        await send_success_message_to_user(**deferred_success_message)
 
 
 def _metadata_value_present(value: Optional[Any]) -> bool:
@@ -755,6 +771,11 @@ async def process_successful_payment(
                 session,
                 payment_db_id,
             )
+        effective_tariff_key = (
+            str(getattr(payment_before_update, "tariff_key", "") or "").strip()
+            or str(getattr(payment_record, "tariff_key", "") or "").strip()
+            or _sale_mode_tariff_key(sale_mode)
+        )
         should_send_lknpd_receipt = bool(
             lknpd_service
             and lknpd_service.configured
@@ -827,6 +848,7 @@ async def process_successful_payment(
             provider="yookassa",
             sale_mode=sale_mode,
             traffic_gb=traffic_gb_for_activation,
+            tariff_key=effective_tariff_key,
         )
 
         if not activation_details or (
@@ -850,10 +872,8 @@ async def process_successful_payment(
             raise Exception(f"DB Error: Could not update payment record {payment_db_id}")
 
         tariff_key_for_event = (
-            getattr(updated_payment_record, "tariff_key", None)
-            or getattr(payment_before_update, "tariff_key", None)
-            or getattr(payment_record, "tariff_key", None)
-            or _sale_mode_tariff_key(sale_mode)
+            str(getattr(updated_payment_record, "tariff_key", "") or "").strip()
+            or effective_tariff_key
         )
         payment_succeeded_payload = {
             "user_id": user_id,
@@ -869,20 +889,23 @@ async def process_successful_payment(
             "end_date": events.iso(activation_details.get("end_date")),
             "is_auto_renew": is_auto_renew,
         }
+        deferred_events = []
         if sale_mode_base == "subscription":
-            await events.emit(
-                events.SUBSCRIPTION_EXTENDED
-                if activation_details.get("was_extension")
-                else events.SUBSCRIPTION_CREATED,
+            deferred_events.append(
                 {
-                    "user_id": user_id,
-                    "subscription_id": activation_details.get("subscription_id"),
-                    "tariff_key": activation_details.get("tariff_key"),
-                    "end_date": events.iso(activation_details.get("end_date")),
-                    "provider": "yookassa",
-                    "months": months_for_activation,
-                    "payment_db_id": payment_db_id,
-                },
+                    "event": events.SUBSCRIPTION_EXTENDED
+                    if activation_details.get("was_extension")
+                    else events.SUBSCRIPTION_CREATED,
+                    "payload": {
+                        "user_id": user_id,
+                        "subscription_id": activation_details.get("subscription_id"),
+                        "tariff_key": activation_details.get("tariff_key"),
+                        "end_date": events.iso(activation_details.get("end_date")),
+                        "provider": "yookassa",
+                        "months": months_for_activation,
+                        "payment_db_id": payment_db_id,
+                    },
+                }
             )
 
         base_subscription_end_date = activation_details.get("end_date")
@@ -897,8 +920,17 @@ async def process_successful_payment(
                 months_for_activation or int(subscription_months) or 1,
                 current_payment_db_id=payment_db_id,
                 skip_if_active_before_payment=False,
-                tariff_key=_sale_mode_tariff_key(sale_mode),
+                tariff_key=effective_tariff_key,
             )
+        if isinstance(referral_bonus_info, dict) and referral_bonus_info.get("event_payload"):
+            deferred_events.append(
+                {
+                    "event": events.REFERRAL_BONUS_GRANTED,
+                    "payload": referral_bonus_info["event_payload"],
+                }
+            )
+        if deferred_events:
+            payment_succeeded_payload[DEFERRED_EVENTS_KEY] = deferred_events
         applied_referee_bonus_days_from_referral: Optional[int] = None
         if referral_bonus_info and referral_bonus_info.get("referee_new_end_date"):
             final_end_date_for_user = referral_bonus_info["referee_new_end_date"]
@@ -1003,19 +1035,19 @@ async def process_successful_payment(
         if include_keyboard:
             install_links = await ensure_user_install_guide_links(session, settings, user_id)
             install_share_url = install_links.public_share_url
-        await send_success_message_to_user(
-            bot=bot,
-            user_id=user_id,
-            text=details_message,
-            language=user_lang,
-            i18n=i18n,
-            settings=settings,
-            config_link_display=config_link_display,
-            connect_button_url=connect_button_url,
-            install_share_url=install_share_url,
-            include_keyboard=include_keyboard,
-            log_prefix="YooKassa webhook",
-        )
+        payment_succeeded_payload[DEFERRED_SUCCESS_MESSAGE_KEY] = {
+            "bot": bot,
+            "user_id": user_id,
+            "text": details_message,
+            "language": user_lang,
+            "i18n": i18n,
+            "settings": settings,
+            "config_link_display": config_link_display,
+            "connect_button_url": connect_button_url,
+            "install_share_url": install_share_url,
+            "include_keyboard": include_keyboard,
+            "log_prefix": "YooKassa webhook",
+        }
 
         return payment_succeeded_payload
 
@@ -1221,7 +1253,7 @@ async def yookassa_webhook_route(request: web.Request):
                             )
                             await session.commit()
                             if event_payload:
-                                await events.emit(events.PAYMENT_SUCCEEDED, event_payload)
+                                await emit_yookassa_success_events(event_payload)
                         else:
                             logging.warning(
                                 f"Payment Succeeded event for {payment_dict_for_processing.get('id')} "  # noqa: E501

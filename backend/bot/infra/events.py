@@ -43,8 +43,9 @@ Event payload conventions (keys may be ``None`` when unknown):
 - ``REFERRAL_BONUS_GRANTED``: referee_user_id, referee_bonus_days,
   referee_new_end_date, inviter_bonus_applied, inviter_user_id,
   inviter_bonus_days, inviter_bonus_end_date, inviter_bonus_kind,
-  referee_name, payment_db_id, reason (``payment`` for accruals triggered by
-  a referee payment, ``welcome`` for the one-time welcome grant of a newly
+  referee_name, payment_db_id, purchased_subscription_months, tariff_key,
+  one_bonus_per_referee, reason (``payment`` for accruals triggered by a
+  referee payment, ``welcome`` for the one-time welcome grant of a newly
   invited user).
 - ``SUPPORT_TICKET_CREATED``: user_id, ticket_id, category, priority.
 - ``PANEL_WEBHOOK_RECEIVED``: event, panel_user_uuid, telegram_id.

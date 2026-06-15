@@ -275,6 +275,13 @@ async def finalize_successful_payment(
         int(float(req.months)) if is_subscription else int(float(req.traffic_amount or req.months))
     )
     traffic_gb_for_activation = float(req.traffic_amount or req.months) if is_traffic else None
+    effective_tariff_key = (
+        str(getattr(req.payment, "tariff_key", "") or "").strip()
+        or sale_mode_tariff_key(req.sale_mode)
+    )
+    activation_extra_kwargs = dict(req.activation_extra_kwargs or {})
+    if effective_tariff_key and "tariff_key" not in activation_extra_kwargs:
+        activation_extra_kwargs["tariff_key"] = effective_tariff_key
 
     try:
         activation = await req.subscription_service.activate_subscription(
@@ -286,7 +293,7 @@ async def finalize_successful_payment(
             provider=req.provider_subscription,
             sale_mode=req.sale_mode,
             traffic_gb=traffic_gb_for_activation,
-            **req.activation_extra_kwargs,
+            **activation_extra_kwargs,
         )
         referral_bonus = None
         if is_subscription:
@@ -296,7 +303,7 @@ async def finalize_successful_payment(
                 activation_months or 1,
                 current_payment_db_id=req.payment.payment_id,
                 skip_if_active_before_payment=False,
-                tariff_key=sale_mode_tariff_key(req.sale_mode),
+                tariff_key=effective_tariff_key,
             )
         await req.session.commit()
     except Exception:
@@ -332,8 +339,7 @@ async def finalize_successful_payment(
             "amount": req.amount,
             "currency": req.currency,
             "sale_mode": req.sale_mode,
-            "tariff_key": getattr(req.payment, "tariff_key", None)
-            or sale_mode_tariff_key(req.sale_mode),
+            "tariff_key": effective_tariff_key,
             "months": activation_months if is_subscription else None,
             "traffic_gb": traffic_gb_for_activation,
             "end_date": events.iso(activation.get("end_date") if activation else None),
@@ -355,6 +361,11 @@ async def finalize_successful_payment(
                 "payment_db_id": req.payment.payment_id,
             },
         )
+    referral_event_payload = (
+        referral_bonus.get("event_payload") if isinstance(referral_bonus, dict) else None
+    )
+    if referral_event_payload:
+        await events.emit(events.REFERRAL_BONUS_GRANTED, referral_event_payload)
 
     db_user, language = await resolve_user_language(
         req.session,

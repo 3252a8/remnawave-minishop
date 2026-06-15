@@ -21,6 +21,7 @@ from bot.middlewares.i18n import get_i18n_instance
 from bot.payment_providers.yookassa import (
     YOOKASSA_EVENT_PAYMENT_CANCELED,
     YOOKASSA_EVENT_PAYMENT_SUCCEEDED,
+    emit_yookassa_success_events,
     payment_processing_lock,
     process_cancelled_payment,
     process_successful_payment,
@@ -91,7 +92,7 @@ async def _handle_yookassa_event(ctx: PluginContext, payload: Dict[str, Any]) ->
                 )
                 await session.commit()
                 if event_payload:
-                    await events.emit(events.PAYMENT_SUCCEEDED, event_payload)
+                    await emit_yookassa_success_events(event_payload)
             elif payload.get("event") == YOOKASSA_EVENT_PAYMENT_CANCELED:
                 event_payload = await process_cancelled_payment(
                     session,

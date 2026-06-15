@@ -173,12 +173,132 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
         assert activation_kwargs["sale_mode"] == "hwid_devices@standard"
         assert activation_kwargs["traffic_gb"] is None
         update_status.assert_awaited_once()
-        send_success.assert_awaited_once()
+        send_success.assert_not_awaited()
+        assert yookassa.DEFERRED_SUCCESS_MESSAGE_KEY in event_payload
         assert event_payload["user_id"] == 42
         assert event_payload["payment_db_id"] == 5
         assert event_payload["notification_provider"] == "yookassa"
         assert event_payload["sale_mode"] == "hwid_devices@standard"
         assert event_payload["tariff_key"] == "standard"
+
+    async def test_subscription_uses_payment_tariff_for_activation_and_referral(self):
+        end_date = datetime(2099, 2, 1, tzinfo=timezone.utc)
+        payment = SimpleNamespace(payment_id=5, status="pending_yookassa", tariff_key="premium")
+        updated_payment = SimpleNamespace(payment_id=5, status="succeeded", tariff_key="premium")
+        db_user = SimpleNamespace(
+            user_id=42,
+            username="alice",
+            language_code="en",
+            referred_by_id=None,
+        )
+        subscription_service = SimpleNamespace(
+            activate_subscription=AsyncMock(
+                return_value={
+                    "subscription_id": 11,
+                    "end_date": end_date,
+                    "tariff_key": "premium",
+                    "was_extension": True,
+                }
+            )
+        )
+        referral_service = SimpleNamespace(
+            apply_referral_bonuses_for_payment=AsyncMock(
+                return_value={
+                    "referee_bonus_applied_days": 3,
+                    "referee_new_end_date": end_date,
+                    "event_payload": {
+                        "referee_user_id": 42,
+                        "inviter_bonus_applied": True,
+                        "inviter_user_id": 1,
+                    },
+                }
+            )
+        )
+        settings = SimpleNamespace(
+            traffic_sale_mode=False,
+            yookassa_autopayments_active=False,
+            DEFAULT_LANGUAGE="en",
+            DEFAULT_CURRENCY_SYMBOL="RUB",
+            LKNPD_RECEIPT_NAME_TRAFFIC="{gb} GB",
+            LKNPD_RECEIPT_NAME_SUBSCRIPTION="{months} months",
+            SUBSCRIPTION_MINI_APP_URL="",
+        )
+        payment_info = {
+            "id": "yk-sub-1",
+            "status": "succeeded",
+            "paid": True,
+            "amount": {"value": "120.00", "currency": "RUB"},
+            "metadata": {
+                "user_id": "42",
+                "subscription_months": "1",
+                "payment_db_id": "5",
+                "sale_mode": "subscription",
+            },
+            "description": "Subscription",
+        }
+
+        with (
+            patch.object(
+                yookassa.payment_dal,
+                "get_payment_by_db_id",
+                AsyncMock(side_effect=[payment, payment]),
+            ),
+            patch.object(
+                yookassa.payment_dal,
+                "update_payment_status_by_db_id",
+                AsyncMock(return_value=updated_payment),
+            ),
+            patch.object(yookassa.user_dal, "get_user_by_id", AsyncMock(return_value=db_user)),
+            patch.object(
+                yookassa,
+                "prepare_config_links",
+                AsyncMock(return_value=("link", "https://example.test/sub")),
+            ),
+            patch.object(
+                yookassa,
+                "ensure_user_install_guide_links",
+                AsyncMock(return_value=SimpleNamespace(public_share_url=None)),
+            ),
+            patch.object(yookassa, "send_success_message_to_user", AsyncMock()) as send_success,
+        ):
+            event_payload = await yookassa.process_successful_payment(
+                AsyncMock(),
+                AsyncMock(),
+                payment_info,
+                _I18n(),
+                settings,
+                AsyncMock(),
+                subscription_service,
+                referral_service,
+            )
+
+        activation_kwargs = subscription_service.activate_subscription.await_args.kwargs
+        assert activation_kwargs["tariff_key"] == "premium"
+        referral_kwargs = referral_service.apply_referral_bonuses_for_payment.await_args.kwargs
+        assert referral_kwargs["tariff_key"] == "premium"
+        assert event_payload["tariff_key"] == "premium"
+        deferred = event_payload[yookassa.DEFERRED_EVENTS_KEY]
+        assert [item["event"] for item in deferred] == [
+            "subscription.extended",
+            "referral.bonus_granted",
+        ]
+        send_success.assert_not_awaited()
+
+        with (
+            patch.object(yookassa.events, "emit", AsyncMock()) as emit_event,
+            patch.object(yookassa, "send_success_message_to_user", send_success),
+        ):
+            await yookassa.emit_yookassa_success_events(event_payload)
+
+        emitted_events = [await_args.args[0] for await_args in emit_event.await_args_list]
+        assert emitted_events == [
+            yookassa.events.PAYMENT_SUCCEEDED,
+            yookassa.events.SUBSCRIPTION_EXTENDED,
+            yookassa.events.REFERRAL_BONUS_GRANTED,
+        ]
+        send_success.assert_awaited_once()
+        assert yookassa.DEFERRED_EVENTS_KEY not in event_payload
+        assert yookassa.DEFERRED_SUCCESS_MESSAGE_KEY not in event_payload
 
     async def test_auto_renew_hwid_metadata_is_persisted_for_activation(self):
         valid_from = datetime(2099, 2, 1, tzinfo=timezone.utc)
@@ -284,7 +404,8 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
         assert ensure_kwargs["hwid_full_price"] == 50.0
         activation_kwargs = subscription_service.activate_subscription.await_args.kwargs
         assert activation_kwargs["sale_mode"] == "subscription@standard"
-        send_success.assert_awaited_once()
+        send_success.assert_not_awaited()
+        assert yookassa.DEFERRED_SUCCESS_MESSAGE_KEY in event_payload
         assert event_payload["user_id"] == 42
         assert event_payload["payment_db_id"] == 5
         assert event_payload["notification_provider"] == "yookassa"
