@@ -64,19 +64,9 @@ class SubscriptionLifecycleMixin:
         return str(value)
 
     @staticmethod
-    def _panel_update_confirms_expiry(
-        panel_update_result: Optional[Dict[str, Any]],
-        expected_expire_at: datetime,
-    ) -> bool:
-        if not panel_update_result:
-            return False
-        if not isinstance(panel_update_result, dict):
-            return True
-        if panel_update_result.get("error"):
-            return False
-        raw_expire_at = panel_update_result.get("expireAt")
+    def _panel_expiry_matches(raw_expire_at: Optional[Any], expected_expire_at: datetime) -> bool:
         if not raw_expire_at:
-            return True
+            return False
         try:
             panel_expire_at = datetime.fromisoformat(
                 str(raw_expire_at).replace("Z", "+00:00")
@@ -99,6 +89,67 @@ class SubscriptionLifecycleMixin:
             else panel_expire_at.replace(tzinfo=timezone.utc)
         )
         return abs((actual - expected).total_seconds()) <= 1
+
+    async def _panel_update_confirms_expiry(
+        self,
+        panel_user_uuid: str,
+        panel_update_result: Optional[Dict[str, Any]],
+        expected_expire_at: datetime,
+    ) -> bool:
+        if not panel_update_result:
+            return False
+        if isinstance(panel_update_result, dict):
+            if panel_update_result.get("error"):
+                return False
+            raw_expire_at = panel_update_result.get("expireAt")
+            if raw_expire_at and self._panel_expiry_matches(raw_expire_at, expected_expire_at):
+                return True
+
+            if raw_expire_at:
+                logging.warning(
+                    "Panel update response expiry mismatch for user %s: expireAt=%r "
+                    "expected=%s. Fetching panel user to verify persisted state.",
+                    panel_user_uuid,
+                    raw_expire_at,
+                    expected_expire_at.isoformat(),
+                )
+            else:
+                logging.info(
+                    "Panel update response for user %s did not include expireAt. "
+                    "Fetching panel user to verify persisted state.",
+                    panel_user_uuid,
+                )
+        else:
+            logging.warning(
+                "Panel update response for user %s had unexpected type %s. "
+                "Fetching panel user to verify persisted state.",
+                panel_user_uuid,
+                type(panel_update_result).__name__,
+            )
+
+        try:
+            try:
+                panel_user = await self.panel_service.get_user_by_uuid(
+                    panel_user_uuid,
+                    log_response=False,
+                )
+            except TypeError:
+                panel_user = await self.panel_service.get_user_by_uuid(panel_user_uuid)
+        except Exception:
+            logging.exception(
+                "Failed to verify panel expiry for user %s after update.",
+                panel_user_uuid,
+            )
+            return False
+
+        if not isinstance(panel_user, dict):
+            logging.warning(
+                "Panel expiry verification for user %s returned unexpected payload: %r",
+                panel_user_uuid,
+                panel_user,
+            )
+            return False
+        return self._panel_expiry_matches(panel_user.get("expireAt"), expected_expire_at)
 
     @staticmethod
     def _device_topup_renewal_available(
@@ -863,6 +914,7 @@ class SubscriptionLifecycleMixin:
         )
         rollback_payload: Optional[Dict[str, Any]] = None
         hwid_extension_context: Optional[Tuple[int, datetime, datetime]] = None
+        pending_tariff_change_payload: Optional[Dict[str, Any]] = None
         requested_tariff = None
         if tariff_key and self._tariffs_config():
             try:
@@ -957,6 +1009,28 @@ class SubscriptionLifecycleMixin:
                 "is_active": getattr(active_sub, "is_active", True),
                 "status_from_panel": getattr(active_sub, "status_from_panel", None),
             }
+            for attr in (
+                "tariff_key",
+                "tier_baseline_bytes",
+                "topup_balance_bytes",
+                "regular_bonus_bytes",
+                "regular_unlimited_override",
+                "traffic_limit_bytes",
+                "premium_baseline_bytes",
+                "premium_topup_balance_bytes",
+                "premium_topup_used_bytes",
+                "premium_used_bytes",
+                "premium_bonus_bytes",
+                "premium_is_limited",
+                "premium_period_start_at",
+                "period_start_at",
+                "is_throttled",
+                "effective_monthly_price_rub",
+                "hwid_device_limit",
+                "extra_hwid_devices",
+            ):
+                if hasattr(active_sub, attr):
+                    rollback_payload[attr] = getattr(active_sub, attr)
 
             updated_sub_model = await subscription_dal.update_subscription_end_date(
                 session, active_sub.subscription_id, new_end_date_obj
@@ -1029,27 +1103,24 @@ class SubscriptionLifecycleMixin:
                     admin_update_data,
                 )
                 if updated_sub_model and active_sub.tariff_key != admin_tariff.key:
-                    await tariff_dal.create_tariff_change(
-                        session,
-                        {
-                            "subscription_id": updated_sub_model.subscription_id,
-                            "from_tariff_key": active_sub.tariff_key,
-                            "to_tariff_key": admin_tariff.key,
-                            "mode": "admin_assign",
-                            "payment_id": None,
-                            "days_before": max(0, (current_end_date - now_utc).days)
-                            if current_end_date
-                            else None,
-                            "days_after": max(0, (new_end_date_obj - now_utc).days)
-                            if new_end_date_obj
-                            else None,
-                            "converted_bytes": None,
-                            "converted_hwid_value_rub": None,
-                            "converted_hwid_days": None,
-                            "eff_price_before": active_sub.effective_monthly_price_rub,
-                            "eff_price_after": target_monthly_price,
-                        },
-                    )
+                    pending_tariff_change_payload = {
+                        "subscription_id": updated_sub_model.subscription_id,
+                        "from_tariff_key": active_sub.tariff_key,
+                        "to_tariff_key": admin_tariff.key,
+                        "mode": "admin_assign",
+                        "payment_id": None,
+                        "days_before": max(0, (current_end_date - now_utc).days)
+                        if current_end_date
+                        else None,
+                        "days_after": max(0, (new_end_date_obj - now_utc).days)
+                        if new_end_date_obj
+                        else None,
+                        "converted_bytes": None,
+                        "converted_hwid_value_rub": None,
+                        "converted_hwid_days": None,
+                        "eff_price_before": active_sub.effective_monthly_price_rub,
+                        "eff_price_after": target_monthly_price,
+                    }
 
             if (
                 apply_main_traffic_limit
@@ -1110,7 +1181,11 @@ class SubscriptionLifecycleMixin:
                 panel_uuid,
                 panel_update_payload,
             )
-            if not self._panel_update_confirms_expiry(panel_update_success, new_end_date_obj):
+            if not await self._panel_update_confirms_expiry(
+                panel_uuid,
+                panel_update_success,
+                new_end_date_obj,
+            ):
                 logging.warning(
                     "Panel expiry update failed for user %s panel_uuid=%s after %s bonus. "
                     "requested_expire_at=%s panel_response=%s. Reverting local bonus update.",
@@ -1136,6 +1211,9 @@ class SubscriptionLifecycleMixin:
                 if panel_tariff and "admin" in reason_lower:
                     return None
                 return None
+
+            if pending_tariff_change_payload:
+                await tariff_dal.create_tariff_change(session, pending_tariff_change_payload)
 
             if hwid_extension_context:
                 try:
