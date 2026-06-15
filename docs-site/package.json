@@ -14,6 +14,9 @@
     "starlight-theme-nova": "^0.11.11",
     "typescript": "^6.0.3"
   },
+  "overrides": {
+    "esbuild": "0.28.1"
+  },
   "engines": {
     "node": ">=22.0.0"
   }

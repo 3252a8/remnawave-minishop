@@ -1,8 +1,6 @@
-import re
 import shutil
 import subprocess
 from pathlib import Path
-from urllib.parse import urlsplit
 
 import pytest
 
@@ -35,9 +33,10 @@ def test_shell_installer_downloads_raw_files_and_runs_import_in_container():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
     assert script.startswith("#!/bin/sh")
-    raw_url_template = re.search(r"printf '(https://[^']+)' \"\$repo\"", script)
-    assert raw_url_template is not None
-    assert urlsplit(raw_url_template.group(1)).hostname == "raw.githubusercontent.com"
+    raw_github_template = (
+        "printf 'https://raw.githubusercontent.com/%s/%s/%s' \"$repo\" \"$ref\" \"$path\""
+    )
+    assert raw_github_template in script
     assert "git clone" not in script
     assert "backend python backend/scripts/import_legacy.py" in script
     assert "Optional source Remnashop .env path" in script
