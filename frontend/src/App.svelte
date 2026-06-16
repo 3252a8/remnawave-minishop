@@ -381,10 +381,10 @@
     title: brandTitle,
     logoUrl: CFG.logoUrl,
   });
-  $: faviconBrand = normalizeBrand({
+  $: faviconBrand = {
     ...brand,
-    logoUrl: String(CFG.faviconUrl || "").trim() || brand.logoUrl,
-  });
+    faviconUrl: String(CFG.faviconUrl || "").trim() || brand.logoUrl,
+  };
   $: plans = data?.plans?.length ? data.plans : MOCK_SOURCE.data.plans;
   $: methods = data?.payment_methods?.length ? data.payment_methods : [];
   $: appSettings = data?.settings || MOCK_SOURCE.data.settings;

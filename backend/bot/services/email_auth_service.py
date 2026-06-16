@@ -9,7 +9,7 @@ import ssl
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
-from email.utils import formataddr
+from email.utils import formataddr, formatdate, make_msgid
 from typing import Optional, Sequence
 
 from sqlalchemy import select, update
@@ -644,6 +644,7 @@ class EmailAuthService:
     ) -> EmailMessage:
         message = EmailMessage()
         message["Subject"] = subject
+        message["Date"] = formatdate(localtime=False, usegmt=True)
         message["From"] = formataddr(
             (
                 self.settings.SMTP_FROM_NAME or self.settings.WEBAPP_TITLE,
@@ -651,6 +652,9 @@ class EmailAuthService:
             )
         )
         message["To"] = email
+        from_email = self.settings.SMTP_FROM_EMAIL or ""
+        from_domain = from_email.rsplit("@", 1)[-1].strip() if "@" in from_email else None
+        message["Message-ID"] = make_msgid(domain=from_domain or None)
         message.set_content(body)
         if html_body:
             message.add_alternative(html_body, subtype="html")

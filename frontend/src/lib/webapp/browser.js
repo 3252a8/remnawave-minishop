@@ -38,22 +38,32 @@ export function normalizeBrand(brand = {}) {
 }
 
 export function brandFaviconHref(brand = {}) {
-  return normalizeBrand(brand).logoUrl;
+  return String(brand.faviconUrl || "").trim() || normalizeBrand(brand).logoUrl;
 }
 
 export function applyFavicon(brand = {}) {
   if (typeof document === "undefined") return;
-  const favicon = document.getElementById("app-favicon");
-  if (!favicon) return;
 
   const href = brandFaviconHref(brand);
-  favicon.setAttribute("href", href);
-  if (href.endsWith(".gif")) {
-    favicon.setAttribute("type", "image/gif");
-  } else if (href.endsWith(".webp")) {
-    favicon.setAttribute("type", "image/webp");
-  } else {
-    favicon.removeAttribute("type");
+  const links = [
+    document.getElementById("app-favicon"),
+    document.getElementById("app-apple-touch-icon"),
+    ...document.querySelectorAll(
+      'link[rel="icon"], link[rel="apple-touch-icon"], link[rel="apple-touch-icon-precomposed"]'
+    ),
+  ].filter(Boolean);
+
+  for (const favicon of new Set(links)) {
+    favicon.setAttribute("href", href);
+    if (href.endsWith(".gif")) {
+      favicon.setAttribute("type", "image/gif");
+    } else if (href.endsWith(".png")) {
+      favicon.setAttribute("type", "image/png");
+    } else if (href.endsWith(".webp")) {
+      favicon.setAttribute("type", "image/webp");
+    } else {
+      favicon.removeAttribute("type");
+    }
   }
 }
 

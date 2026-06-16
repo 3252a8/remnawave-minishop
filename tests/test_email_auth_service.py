@@ -1,3 +1,4 @@
+from email.utils import parsedate_to_datetime
 from types import SimpleNamespace
 
 from bot.services.email_auth_service import EmailAuthService
@@ -40,3 +41,18 @@ def test_build_email_message_attaches_inline_images_to_html_part():
     assert related_images[0]["Content-ID"] == "<webapp-logo@remnawave-minishop>"
     assert related_images[0].get_content_disposition() == "inline"
     assert related_images[0].get_filename() == "webapp-logo-remnawave-minishop.png"
+
+
+def test_build_email_message_adds_rfc_delivery_headers():
+    service = EmailAuthService(_settings())
+
+    message = service._build_email_message(
+        email="user@example.com",
+        subject="Login code",
+        body="Your code: 123456",
+    )
+
+    assert message["Message-ID"]
+    assert message["Message-ID"].startswith("<")
+    assert message["Message-ID"].endswith("@example.com>")
+    assert parsedate_to_datetime(message["Date"]) is not None
