@@ -8,8 +8,10 @@
   "default": false,
   "use_primary_accent": true,
   "use_in_admin": true,
-  "css_file": "style.css",
-  "assets_version": 6,
+  "assets_version": 7,
+  "active_variant": "light",
+  "variant_alias_for": "dark",
+  "hidden": true,
   "tokens": {
     "color_scheme": "light"
   }

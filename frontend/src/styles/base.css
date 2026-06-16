@@ -85,6 +85,214 @@
   color-scheme: light;
 }
 
+.theme-light .ui-spinner,
+.theme-light .brand-mark-spinner {
+  color: inherit;
+}
+
+.theme-light .telegram-button-spinner {
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+}
+
+.theme-light .btn-primary,
+.theme-light .admin-btn.admin-btn-primary,
+.theme-light .admin-extend-control .admin-btn.admin-btn-primary {
+  background: color-mix(in srgb, var(--accent) 50%, #000000);
+  border-color: color-mix(in srgb, var(--accent) 42%, #000000);
+  color: #ffffff;
+}
+
+.theme-light .btn-primary:hover:not(:disabled),
+.theme-light .admin-btn.admin-btn-primary:hover:not(:disabled),
+.theme-light .admin-extend-control .admin-btn.admin-btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 52%, #000000);
+}
+
+.theme-light.app-shell {
+  background: var(--bg) !important;
+}
+
+.theme-light .phone-screen {
+  background: var(--bg);
+}
+
+.theme-light .settings-row {
+  background: var(--panel);
+  box-shadow: none;
+}
+
+.theme-light .settings-row-linked {
+  background: var(--success-soft);
+}
+
+.theme-light .settings-profile {
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 var(--inset-highlight);
+}
+
+.theme-light .settings-links-block {
+  position: relative;
+  z-index: 1;
+}
+
+.theme-light .trial-offer-card,
+.theme-light .trial-activation-card,
+.theme-light .activation-success-dialog {
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+  background: var(--panel);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.theme-light .trial-card-head > svg,
+.theme-light .dialog-title-icon {
+  color: color-mix(in srgb, var(--accent) 54%, #000000);
+}
+
+.theme-light .trial-card-facts span,
+.theme-light .trial-activation-facts div {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: rgba(15, 23, 42, 0.025);
+}
+
+.theme-light .admin-revenue-svg-frame {
+  background: var(--panel);
+}
+
+.theme-light .bonus-card strong {
+  color: var(--text);
+}
+
+.theme-light .bonus-card-head strong,
+.theme-light .card-heading-accent {
+  color: color-mix(in srgb, var(--accent) 50%, #000000);
+}
+
+.theme-light .bonus-card-head > svg {
+  color: color-mix(in srgb, var(--accent) 50%, #000000);
+}
+
+.theme-light .install-platform-trigger,
+.theme-light .install-app-button,
+.theme-light .install-step,
+.theme-light .install-subscription-card,
+.theme-light .install-qr-wrap {
+  background: var(--panel);
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.055);
+}
+
+.theme-light .install-app-button.active {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.theme-light .install-platform-trigger:focus-visible,
+.theme-light .install-platform-trigger[data-state="open"],
+.theme-light .install-app-button:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+body:has(.theme-light) .install-platform-content {
+  background: var(--panel);
+  border-color: rgba(15, 23, 42, 0.14);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+}
+
+body:has(.theme-light) .install-platform-item[data-highlighted],
+body:has(.theme-light) .install-platform-item[data-selected] {
+  background: color-mix(in srgb, var(--accent) 9%, var(--panel));
+}
+
+.theme-light .install-step-icon,
+.theme-light .install-subscription-header-icon {
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+  color: color-mix(in srgb, var(--accent) 55%, #000000);
+}
+
+.theme-light .install-qr-divider {
+  color: rgba(15, 23, 42, 0.24);
+}
+
+.theme-light .install-feature-star.attention-dot {
+  background: #f59e0b;
+}
+
+.theme-light .install-loading .ui-spinner {
+  color: color-mix(in srgb, var(--accent) 55%, #000000);
+}
+
+.theme-light .ui-range-input::before {
+  background: rgba(15, 23, 42, 0.12);
+}
+
+.theme-light .ui-range-input__range {
+  background: color-mix(in srgb, var(--accent) 70%, #0f172a);
+}
+
+.theme-light .ui-range-input__thumb {
+  border-color: color-mix(in srgb, var(--accent) 68%, #0f172a);
+  background: var(--panel);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+}
+
+.theme-light .ui-range-input__thumb:focus-visible {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.theme-light .ui-sortable-handle {
+  border-radius: 6px;
+  color: color-mix(in srgb, var(--admin-muted) 82%, var(--admin-text));
+}
+
+.theme-light .ui-sortable-handle:hover,
+.theme-light .ui-sortable-handle:focus-visible {
+  background: rgba(15, 23, 42, 0.055);
+  color: color-mix(in srgb, var(--accent) 58%, #0f172a);
+}
+
+.theme-light .ui-sortable {
+  --sortable-drop-line: color-mix(in srgb, var(--accent) 64%, #0f172a);
+}
+
+.theme-light .ui-sortable-item.is-drop-target {
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent),
+    0 10px 22px color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.theme-light .ui-sortable-item.is-drop-target::before {
+  background: var(--sortable-drop-line);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.theme-light .admin-config-alerts {
+  border-color: color-mix(in srgb, var(--warning) 38%, var(--admin-border));
+  background: color-mix(in srgb, var(--warning) 9%, var(--admin-surface));
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+}
+
+.theme-light .admin-config-alerts-error {
+  border-color: color-mix(in srgb, var(--danger) 38%, var(--admin-border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--admin-surface));
+}
+
+.theme-light .admin-config-alert-link {
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.theme-light .admin-config-alert-link:hover {
+  background: var(--admin-surface);
+}
+
+.theme-light .telegram-notifications-card {
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.07);
+}
+
 * {
   box-sizing: border-box;
 }

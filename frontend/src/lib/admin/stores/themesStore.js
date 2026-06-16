@@ -8,6 +8,8 @@ const HOME_LOGO_SCALE_TOKEN = {
   desktop: "home_logo_scale_desktop",
   mobile: "home_logo_scale_mobile",
 };
+const DEFAULT_THEME_KEY = "dark";
+const THEME_VARIANTS = new Set(["dark", "light"]);
 
 function normalizeHomeLogoScale(scale) {
   if (String(scale ?? "").trim() === "") scale = 100;
@@ -15,10 +17,83 @@ function normalizeHomeLogoScale(scale) {
   return Number.isFinite(numeric) ? Math.min(300, Math.max(50, Math.round(numeric))) : 100;
 }
 
-function resolveThemeHomeLogoScale(theme, mode = "desktop") {
-  const tokens = theme?.tokens || {};
+function normalizeThemeVariant(variant) {
+  const value = String(variant || "")
+    .trim()
+    .toLowerCase();
+  return THEME_VARIANTS.has(value) ? value : "dark";
+}
+
+function resolveThemeTokens(theme, variant = null) {
+  const base = theme?.tokens && typeof theme.tokens === "object" ? theme.tokens : {};
+  const activeVariant = normalizeThemeVariant(
+    variant || theme?.active_variant || base.color_scheme
+  );
+  const variantTokens =
+    theme?.variants?.[activeVariant] && typeof theme.variants[activeVariant] === "object"
+      ? theme.variants[activeVariant]
+      : {};
+  return { ...base, ...variantTokens };
+}
+
+function resolveThemeHomeLogoScale(theme, mode = "desktop", variant = null) {
+  const tokens = resolveThemeTokens(theme, variant);
   const modeKey = HOME_LOGO_SCALE_TOKEN[mode] || HOME_LOGO_SCALE_TOKEN.desktop;
   return normalizeHomeLogoScale(tokens[modeKey] ?? tokens.home_logo_scale ?? 100);
+}
+
+function normalizeTokenValue(value) {
+  const text = String(value ?? "").trim();
+  return text || null;
+}
+
+function setTokenOnTheme(theme, tokenKey, value, options = {}) {
+  const variant = options.variant ? normalizeThemeVariant(options.variant) : "";
+  const nextValue = options.raw === true ? value : normalizeTokenValue(value);
+  if (variant && theme.key === DEFAULT_THEME_KEY) {
+    return {
+      ...theme,
+      variants: {
+        ...(theme.variants || {}),
+        [variant]: {
+          ...((theme.variants || {})[variant] || {}),
+          [tokenKey]: nextValue,
+        },
+      },
+    };
+  }
+  return {
+    ...theme,
+    tokens: {
+      ...(theme.tokens || {}),
+      [tokenKey]: nextValue,
+    },
+  };
+}
+
+function resetTokenOnTheme(theme, tokenKey, options = {}) {
+  const variant = options.variant ? normalizeThemeVariant(options.variant) : "";
+  if (variant && theme.key === DEFAULT_THEME_KEY) {
+    const nextVariant = { ...((theme.variants || {})[variant] || {}) };
+    delete nextVariant[tokenKey];
+    return {
+      ...theme,
+      variants: {
+        ...(theme.variants || {}),
+        [variant]: nextVariant,
+      },
+    };
+  }
+  const nextTokens = { ...(theme.tokens || {}) };
+  delete nextTokens[tokenKey];
+  return { ...theme, tokens: nextTokens };
+}
+
+function updateThemeInCatalog(catalog, key, updater) {
+  return {
+    ...catalog,
+    themes: (catalog.themes || []).map((theme) => (theme.key === key ? updater(theme) : theme)),
+  };
 }
 
 export function createThemesStore({ api, onThemesSaved, flash, at }) {
@@ -187,6 +262,23 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     }));
   }
 
+  function setDefaultThemeVariant(variant) {
+    const nextVariant = normalizeThemeVariant(variant);
+    state.update((s) => ({
+      ...s,
+      themesCatalog: {
+        ...s.themesCatalog,
+        default_theme: DEFAULT_THEME_KEY,
+        themes: (s.themesCatalog.themes || []).map((theme) => {
+          if (theme.key === DEFAULT_THEME_KEY) {
+            return { ...theme, default: true, active_variant: nextVariant };
+          }
+          return { ...theme, default: false };
+        }),
+      },
+    }));
+  }
+
   function togglePrimaryAccent(key, enabled) {
     state.update((s) => ({
       ...s,
@@ -212,22 +304,54 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
   }
 
   function setThemeAccent(key, accent) {
+    setThemeToken(key, "accent", accent);
+  }
+
+  function setThemeToken(key, tokenKey, value, options = {}) {
     state.update((s) => ({
       ...s,
-      themesCatalog: {
-        ...s.themesCatalog,
-        themes: (s.themesCatalog.themes || []).map((theme) =>
-          theme.key === key
-            ? {
-                ...theme,
-                tokens: {
-                  ...(theme.tokens || {}),
-                  accent: String(accent || "").trim() || null,
-                },
-              }
-            : theme
-        ),
-      },
+      themesCatalog: updateThemeInCatalog(s.themesCatalog, key, (theme) =>
+        setTokenOnTheme(theme, tokenKey, value, options)
+      ),
+    }));
+  }
+
+  function resetThemeToken(key, tokenKey, options = {}) {
+    state.update((s) => ({
+      ...s,
+      themesCatalog: updateThemeInCatalog(s.themesCatalog, key, (theme) =>
+        resetTokenOnTheme(theme, tokenKey, options)
+      ),
+    }));
+  }
+
+  function applyThemePreset(key, variant, tokens) {
+    const normalizedVariant = normalizeThemeVariant(variant);
+    const nextTokens = tokens && typeof tokens === "object" ? tokens : {};
+    state.update((s) => ({
+      ...s,
+      themesCatalog: updateThemeInCatalog(s.themesCatalog, key, (theme) => {
+        if (theme.key === DEFAULT_THEME_KEY) {
+          return {
+            ...theme,
+            active_variant: normalizedVariant,
+            variants: {
+              ...(theme.variants || {}),
+              [normalizedVariant]: {
+                ...((theme.variants || {})[normalizedVariant] || {}),
+                ...nextTokens,
+              },
+            },
+          };
+        }
+        return {
+          ...theme,
+          tokens: {
+            ...(theme.tokens || {}),
+            ...nextTokens,
+          },
+        };
+      }),
     }));
   }
 
@@ -245,13 +369,23 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
           const mobileScale =
             normalizedMode === "mobile" ? nextScale : resolveThemeHomeLogoScale(theme, "mobile");
           return {
-            ...theme,
-            tokens: {
-              ...(theme.tokens || {}),
-              home_logo_scale: null,
-              home_logo_scale_desktop: desktopScale === 100 ? null : desktopScale,
-              home_logo_scale_mobile: mobileScale === 100 ? null : mobileScale,
-            },
+            ...setTokenOnTheme(
+              setTokenOnTheme(
+                setTokenOnTheme(theme, "home_logo_scale", null, {
+                  raw: true,
+                  variant: theme.key === DEFAULT_THEME_KEY ? theme.active_variant : null,
+                }),
+                "home_logo_scale_desktop",
+                desktopScale === 100 ? null : desktopScale,
+                {
+                  raw: true,
+                  variant: theme.key === DEFAULT_THEME_KEY ? theme.active_variant : null,
+                }
+              ),
+              "home_logo_scale_mobile",
+              mobileScale === 100 ? null : mobileScale,
+              { raw: true, variant: theme.key === DEFAULT_THEME_KEY ? theme.active_variant : null }
+            ),
           };
         }),
       },
@@ -263,9 +397,14 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     loadThemes,
     saveThemes,
     setCurrentTheme,
+    setDefaultThemeVariant,
     setThemeAccent,
+    setThemeToken,
+    resetThemeToken,
+    applyThemePreset,
     setThemeHomeLogoScale,
     resolveThemeHomeLogoScale,
+    resolveThemeTokens,
     togglePrimaryAccent,
     toggleAdminUse,
     uploadLogoFile,

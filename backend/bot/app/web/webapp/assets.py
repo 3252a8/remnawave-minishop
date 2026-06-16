@@ -6,9 +6,11 @@ from config.webapp_themes_config import (
     default_webapp_theme_asset_file,
     default_webapp_theme_css_files,
     effective_webapp_theme_accent,
+    effective_webapp_theme_tokens,
     ensure_default_webapp_theme_descriptor_files,
     public_theme_payload,
     public_themes_catalog_payload,
+    resolve_webapp_theme_selection,
 )
 from bot.middlewares.i18n import locale_language_options
 
@@ -994,9 +996,33 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
     themes_catalog = settings.webapp_themes_catalog
     primary_color = settings.WEBAPP_PRIMARY_COLOR or "#00fe7a"
     preview_key = str(request.query.get("theme_preview") or "").strip()
-    preview_theme = themes_catalog.theme_by_key(preview_key) if preview_key else None
+    preview_theme = (
+        resolve_webapp_theme_selection(themes_catalog, preview_key) if preview_key else None
+    )
     if preview_theme is None or not preview_theme.enabled:
         preview_key = ""
+    elif preview_key == "light":
+        preview_key = preview_theme.key
+    themes_payload = public_themes_catalog_payload(
+        themes_catalog,
+        primary_color,
+        enabled_only=True,
+    )
+    if preview_theme is not None and preview_key:
+        preview_payload = public_theme_payload(preview_theme, primary_color)
+        payload_themes = themes_payload.get("themes")
+        if isinstance(payload_themes, list):
+            replaced = False
+            for idx, theme_payload in enumerate(payload_themes):
+                if (
+                    isinstance(theme_payload, dict)
+                    and theme_payload.get("key") == preview_theme.key
+                ):
+                    payload_themes[idx] = preview_payload
+                    replaced = True
+                    break
+            if not replaced:
+                payload_themes.insert(0, preview_payload)
     i18n_instance: Optional[object] = request.app.get("i18n")
     i18n_scope = _normalize_i18n_scope(request.query.get("i18n_scope") or "webapp")
     if i18n_instance and hasattr(i18n_instance, "reload_overrides_from_file"):
@@ -1007,11 +1033,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
         "config": {
             "title": settings.WEBAPP_TITLE,
             "primaryColor": settings.WEBAPP_PRIMARY_COLOR,
-            "themesCatalog": public_themes_catalog_payload(
-                themes_catalog,
-                primary_color,
-                enabled_only=True,
-            ),
+            "themesCatalog": themes_payload,
             "themesDir": settings.WEBAPP_THEMES_DIR,
             "themePreviewKey": preview_key,
             "logoUrl": cached["logo_url"],
@@ -1578,6 +1600,20 @@ _INITIAL_THEME_TOKEN_CSS_MAP = {
     "info_border": "--info-border",
     "blue": "--blue",
     "radius": "--radius",
+    "accent_contrast": "--accent-contrast",
+    "surface_sheen": "--surface-sheen",
+    "surface_sheen_soft": "--surface-sheen-soft",
+    "surface_hover": "--surface-hover",
+    "surface_muted": "--surface-muted",
+    "surface_subtle": "--surface-subtle",
+    "surface_subtle_border": "--surface-subtle-border",
+    "overlay_scrim": "--overlay-scrim",
+    "nav_bg": "--nav-bg",
+    "rail_bg": "--rail-bg",
+    "shadow_soft": "--shadow-soft",
+    "shadow_strong": "--shadow-strong",
+    "shadow_popover": "--shadow-popover",
+    "inset_highlight": "--inset-highlight",
     "font_sans": "--font-sans",
     "font_logo": "--font-logo",
     "font_mono": "--font-mono",
@@ -1593,6 +1629,8 @@ _INITIAL_THEME_TOKEN_CSS_MAP = {
     "admin_text": "--admin-text",
     "admin_muted": "--admin-muted",
     "admin_dim": "--admin-dim",
+    "admin_chart_stroke": "--admin-chart-stroke",
+    "admin_chart_fill": "--admin-chart-fill",
 }
 
 _INITIAL_THEME_LOGO_SCALE_TOKENS = {
@@ -1625,24 +1663,21 @@ def _theme_css_href_for_html(theme: Any) -> str:
 def _initial_theme_for_request(request: web.Request, catalog: Any) -> Any:
     query = getattr(request, "query", {}) or {}
     preview_key = str(query.get("theme_preview") or "").strip()
-    if preview_key:
-        preview_theme = catalog.theme_by_key(preview_key)
-        if preview_theme is not None and preview_theme.enabled:
-            return preview_theme
-
-    theme = catalog.theme_by_key(catalog.default_theme)
-    if theme is not None:
-        return theme
-    return catalog.enabled_themes()[0] if catalog.enabled_themes() else None
+    theme = resolve_webapp_theme_selection(catalog, preview_key or None)
+    return theme
 
 
 def _initial_theme_tokens(theme: Any, primary_color: str) -> Dict[str, Any]:
     if theme is None:
         return {}
 
-    payload = public_theme_payload(theme, primary_color)
-    tokens = payload.get("tokens") if isinstance(payload, dict) else {}
-    return tokens if isinstance(tokens, dict) else {}
+    try:
+        tokens = effective_webapp_theme_tokens(theme, primary_color)
+        return tokens.model_dump(mode="json", exclude_none=True)
+    except Exception:
+        payload = public_theme_payload(theme, primary_color)
+        tokens_payload = payload.get("tokens") if isinstance(payload, dict) else {}
+        return tokens_payload if isinstance(tokens_payload, dict) else {}
 
 
 def _initial_theme_declarations(tokens: Dict[str, Any]) -> List[str]:

@@ -29,6 +29,20 @@ const TOKEN_TO_CSS_VAR = {
   info_border: "--info-border",
   blue: "--blue",
   radius: "--radius",
+  accent_contrast: "--accent-contrast",
+  surface_sheen: "--surface-sheen",
+  surface_sheen_soft: "--surface-sheen-soft",
+  surface_hover: "--surface-hover",
+  surface_muted: "--surface-muted",
+  surface_subtle: "--surface-subtle",
+  surface_subtle_border: "--surface-subtle-border",
+  overlay_scrim: "--overlay-scrim",
+  nav_bg: "--nav-bg",
+  rail_bg: "--rail-bg",
+  shadow_soft: "--shadow-soft",
+  shadow_strong: "--shadow-strong",
+  shadow_popover: "--shadow-popover",
+  inset_highlight: "--inset-highlight",
   font_sans: "--font-sans",
   font_logo: "--font-logo",
   font_mono: "--font-mono",
@@ -44,6 +58,8 @@ const TOKEN_TO_CSS_VAR = {
   admin_text: "--admin-text",
   admin_muted: "--admin-muted",
   admin_dim: "--admin-dim",
+  admin_chart_stroke: "--admin-chart-stroke",
+  admin_chart_fill: "--admin-chart-fill",
 };
 
 const LOGO_SCALE_TOKEN_KEYS = new Set([
@@ -94,6 +110,13 @@ export function themePresetClass(tokens) {
   return "";
 }
 
+export function themeVariantClass(theme) {
+  const variant = String(theme?.active_variant || theme?.tokens?.color_scheme || "")
+    .trim()
+    .toLowerCase();
+  return variant === "light" || variant === "dark" ? `theme-variant-${variant}` : "";
+}
+
 export function themeKeyClass(key) {
   const safe = String(key || "")
     .trim()
@@ -121,6 +144,7 @@ export function themeCssClass(cssFile) {
 export function themeRootClass(theme) {
   return [
     themeKeyClass(theme?.key),
+    themeVariantClass(theme),
     themeCssClass(theme?.css_file),
     themePresetClass(theme?.tokens),
   ]

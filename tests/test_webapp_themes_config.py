@@ -9,6 +9,7 @@ from config.webapp_themes_config import (
     builtin_webapp_themes_config,
     default_webapp_theme_descriptors,
     effective_webapp_theme_accent,
+    effective_webapp_theme_tokens,
     ensure_webapp_core_themes,
     load_webapp_theme_dir,
     public_themes_catalog_payload,
@@ -27,15 +28,23 @@ class WebappThemesConfigTests(unittest.TestCase):
         self.assertIsNotNone(dark)
         self.assertTrue(dark.default)
         self.assertEqual(dark.tokens.accent, "#abcdef")
+        self.assertEqual(dark.active_variant, "dark")
+        self.assertIn("dark", dark.variants)
+        self.assertIn("light", dark.variants)
+        self.assertEqual(dark.variants["light"].color_scheme, "light")
         win95 = cfg.theme_by_key("windows95")
         self.assertIsNotNone(win95)
-        self.assertEqual(cfg.theme_by_key("light").css_file, "style.css")
+        light = cfg.theme_by_key("light")
+        self.assertIsNone(light.css_file)
+        self.assertTrue(light.hidden)
+        self.assertEqual(light.variant_alias_for, "dark")
+        self.assertEqual(light.active_variant, "light")
         self.assertEqual(win95.css_file, "style.css")
         self.assertEqual(win95.tokens.style_preset, "win95")
         self.assertFalse(win95.use_primary_accent)
         self.assertTrue(win95.use_in_admin)
         self.assertEqual(win95.assets_version, 14)
-        self.assertEqual(cfg.theme_by_key("light").assets_version, 6)
+        self.assertEqual(cfg.theme_by_key("light").assets_version, 7)
         ascii_theme = cfg.theme_by_key("ascii")
         self.assertIsNotNone(ascii_theme)
         self.assertEqual(ascii_theme.css_file, "style.css")
@@ -46,9 +55,10 @@ class WebappThemesConfigTests(unittest.TestCase):
     def test_env_override_default_theme(self):
         cfg = builtin_webapp_themes_config("#00fe7a")
         out = apply_webapp_theme_env_overrides(cfg, "light")
-        self.assertEqual(out.default_theme, "light")
-        self.assertTrue(out.theme_by_key("light").default)
-        self.assertFalse(out.theme_by_key("dark").default)
+        self.assertEqual(out.default_theme, "dark")
+        self.assertTrue(out.theme_by_key("dark").default)
+        self.assertEqual(out.theme_by_key("dark").active_variant, "light")
+        self.assertFalse(out.theme_by_key("light").default)
 
     def test_core_themes_are_merged_when_missing(self):
         cfg = WebappThemesConfig(
@@ -73,7 +83,9 @@ class WebappThemesConfigTests(unittest.TestCase):
         )
         self.assertEqual(merged.default_theme, "custom")
         self.assertTrue(merged.theme_by_key("custom").default)
-        self.assertEqual(merged.theme_by_key("light").css_file, "style.css")
+        self.assertTrue(merged.theme_by_key("light").hidden)
+        self.assertEqual(merged.theme_by_key("light").variant_alias_for, "dark")
+        self.assertIn("light", merged.theme_by_key("dark").variants)
         self.assertTrue(merged.theme_by_key("custom").use_in_admin)
         self.assertFalse(merged.theme_by_key("custom").use_primary_accent)
 
@@ -82,6 +94,8 @@ class WebappThemesConfigTests(unittest.TestCase):
 
         self.assertEqual(set(descriptors), {"dark", "light", "windows95", "ascii"})
         self.assertTrue(descriptors["dark"]["default"])
+        self.assertIn("variants", descriptors["dark"])
+        self.assertTrue(descriptors["light"]["hidden"])
         self.assertEqual(descriptors["windows95"]["css_file"], "style.css")
         self.assertEqual(descriptors["ascii"]["css_file"], "style.css")
 
@@ -96,7 +110,6 @@ class WebappThemesConfigTests(unittest.TestCase):
 
             self.assertTrue((themes_dir / "dark" / "theme.json").exists())
             self.assertTrue((themes_dir / "light" / "theme.json").exists())
-            self.assertTrue((themes_dir / "light" / "style.css").exists())
             self.assertTrue((themes_dir / "windows95" / "theme.json").exists())
             self.assertTrue((themes_dir / "windows95" / "style.css").exists())
             self.assertTrue((themes_dir / "windows95" / "icons" / "save.png").exists())
@@ -270,17 +283,32 @@ class WebappThemesConfigTests(unittest.TestCase):
         cfg = builtin_webapp_themes_config("#abc123")
 
         payload = public_themes_catalog_payload(cfg, "#abc123")
-        light = next(theme for theme in payload["themes"] if theme["key"] == "light")
         dark = next(theme for theme in payload["themes"] if theme["key"] == "dark")
         win95 = next(theme for theme in payload["themes"] if theme["key"] == "windows95")
 
-        self.assertEqual(light["css_file"], "style.css")
-        self.assertEqual(light["assets_version"], cfg.theme_by_key("light").assets_version)
-        self.assertEqual(light["tokens"]["accent"], "#abc123")
         self.assertEqual(dark["tokens"]["accent"], "#abc123")
+        self.assertEqual(dark["active_variant"], "dark")
+        self.assertEqual(dark["tokens"]["color_scheme"], "dark")
         self.assertFalse(win95["use_primary_accent"])
         self.assertTrue(win95["use_in_admin"])
         self.assertNotIn("accent", win95["tokens"])
+
+    def test_public_enabled_payload_hides_legacy_light_alias(self):
+        cfg = builtin_webapp_themes_config("#abc123")
+
+        payload = public_themes_catalog_payload(cfg, "#abc123", enabled_only=True)
+
+        self.assertNotIn("light", {theme["key"] for theme in payload["themes"]})
+
+    def test_effective_tokens_use_default_light_variant(self):
+        cfg = apply_webapp_theme_env_overrides(builtin_webapp_themes_config("#abc123"), "light")
+        dark = cfg.theme_by_key("dark")
+
+        tokens = effective_webapp_theme_tokens(dark, "#abc123")
+
+        self.assertEqual(tokens.color_scheme, "light")
+        self.assertEqual(tokens.bg, "#f7f8fb")
+        self.assertEqual(tokens.accent, "#abc123")
 
     def test_effective_accent_uses_default_theme_token(self):
         cfg = WebappThemesConfig(
@@ -455,7 +483,7 @@ class WebappThemesConfigTests(unittest.TestCase):
             self.assertIn(".theme-key-windows95 .traffic-top strong", css)
             self.assertTrue((stale_theme_dir / "icons" / "dashboard.png").exists())
 
-    def test_resolved_refreshes_stale_builtin_light_assets(self):
+    def test_resolved_converts_stale_builtin_light_to_hidden_alias(self):
         with tempfile.TemporaryDirectory() as tmp:
             themes_dir = Path(tmp) / "themes"
             stale_theme_dir = themes_dir / "light"
@@ -477,17 +505,19 @@ class WebappThemesConfigTests(unittest.TestCase):
             )
             (stale_theme_dir / "style.css").write_text("/* stale */", encoding="utf-8")
 
-            resolved_webapp_themes_catalog(
+            cfg = resolved_webapp_themes_catalog(
                 theme_dir=themes_dir,
                 primary_accent="#00fe7a",
                 env_default_theme=None,
             )
 
-            css = (stale_theme_dir / "style.css").read_text(encoding="utf-8")
-            self.assertIn(".theme-key-light.app-shell", css)
-            self.assertIn("Install guide theme surfaces", css)
-            self.assertIn("Admin controls: range sliders and sortable rows", css)
-            self.assertIn("Admin health config alerts", css)
+            descriptor = json.loads((stale_theme_dir / "theme.json").read_text(encoding="utf-8"))
+            light = cfg.theme_by_key("light")
+            self.assertTrue(light.hidden)
+            self.assertEqual(light.variant_alias_for, "dark")
+            self.assertIsNone(light.css_file)
+            self.assertNotIn("css_file", descriptor)
+            self.assertEqual(descriptor["active_variant"], "light")
 
     def test_resolved_refreshes_stale_builtin_ascii_assets(self):
         with tempfile.TemporaryDirectory() as tmp:

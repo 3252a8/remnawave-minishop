@@ -723,7 +723,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             "ui-sortable-item.is-drop-target::before",
         )
 
-        for key in ("light", "ascii", "windows95"):
+        for key in ("ascii", "windows95"):
             css = (theme_root / key / "style.css").read_text(encoding="utf-8")
             for selector in required_selectors:
                 self.assertIn(selector, css, f"{key} theme must style {selector}")
@@ -802,17 +802,19 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
     def test_initial_theme_head_markup_includes_css_and_tokens(self):
         cfg = builtin_webapp_themes_config("#123456")
-        theme = cfg.theme_by_key("light")
-        theme.tokens.home_logo_scale = 135
-        theme.tokens.home_logo_scale_desktop = 150
-        theme.tokens.home_logo_scale_mobile = 85
+        theme = cfg.theme_by_key("dark")
+        theme.active_variant = "light"
+        theme.variants["light"].home_logo_scale = 135
+        theme.variants["light"].home_logo_scale_desktop = 150
+        theme.variants["light"].home_logo_scale_mobile = 85
         request = SimpleNamespace(get=lambda key, default="": "nonce-value")
 
         markup = subscription_webapp._initial_theme_head_markup(request, theme, "#123456")
 
-        self.assertIn("/webapp-theme-css/light/style.css?v=", markup)
+        self.assertNotIn("/webapp-theme-css/light/style.css", markup)
         self.assertIn('nonce="nonce-value"', markup)
         self.assertIn("--accent:#123456", markup)
+        self.assertIn("--bg:#f7f8fb", markup)
         self.assertIn("--home-logo-scale:1.35", markup)
         self.assertIn("--home-logo-scale-desktop:1.5", markup)
         self.assertIn("--home-logo-scale-mobile:0.85", markup)
@@ -1342,15 +1344,15 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                         WEBAPP_THEMES_DIR=tmpdir,
                     )
                 },
-                match_info={"path": "light/style.css"},
+                match_info={"path": "windows95/style.css"},
             )
 
             response = await subscription_webapp.theme_css_asset_route(request)
 
             self.assertEqual(response.content_type, "text/css")
-            self.assertIn(".theme-key-light", response.text)
-            self.assertTrue((Path(tmpdir) / "light" / "theme.json").exists())
-            self.assertTrue((Path(tmpdir) / "light" / "style.css").exists())
+            self.assertIn(".theme-key-windows95", response.text)
+            self.assertTrue((Path(tmpdir) / "windows95" / "theme.json").exists())
+            self.assertTrue((Path(tmpdir) / "windows95" / "style.css").exists())
 
     async def test_theme_css_asset_route_rejects_path_traversal(self):
         with tempfile.TemporaryDirectory() as tmpdir:

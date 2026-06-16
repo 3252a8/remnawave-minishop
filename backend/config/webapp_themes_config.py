@@ -13,6 +13,8 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 logger = logging.getLogger(__name__)
 
 ColorScheme = Literal["light", "dark"]
+DEFAULT_WEBAPP_THEME_KEY = "dark"
+LEGACY_LIGHT_THEME_KEY = "light"
 
 
 class ThemeTokens(BaseModel):
@@ -50,6 +52,20 @@ class ThemeTokens(BaseModel):
     info_border: Optional[str] = None
     blue: Optional[str] = None
     radius: Optional[str] = None
+    accent_contrast: Optional[str] = None
+    surface_sheen: Optional[str] = None
+    surface_sheen_soft: Optional[str] = None
+    surface_hover: Optional[str] = None
+    surface_muted: Optional[str] = None
+    surface_subtle: Optional[str] = None
+    surface_subtle_border: Optional[str] = None
+    overlay_scrim: Optional[str] = None
+    nav_bg: Optional[str] = None
+    rail_bg: Optional[str] = None
+    shadow_soft: Optional[str] = None
+    shadow_strong: Optional[str] = None
+    shadow_popover: Optional[str] = None
+    inset_highlight: Optional[str] = None
     font_sans: Optional[str] = None
     font_logo: Optional[str] = None
     font_mono: Optional[str] = None
@@ -65,6 +81,8 @@ class ThemeTokens(BaseModel):
     admin_text: Optional[str] = None
     admin_muted: Optional[str] = None
     admin_dim: Optional[str] = None
+    admin_chart_stroke: Optional[str] = None
+    admin_chart_fill: Optional[str] = None
 
     @field_validator("accent")
     @classmethod
@@ -106,7 +124,29 @@ class WebappTheme(BaseModel):
     use_in_admin: bool = True
     css_file: Optional[str] = None
     assets_version: int = 1
+    active_variant: Optional[ColorScheme] = None
+    variants: Dict[str, ThemeTokens] = Field(default_factory=dict)
+    variant_alias_for: Optional[str] = None
+    hidden: bool = False
     tokens: ThemeTokens = Field(default_factory=ThemeTokens)
+
+    @field_validator("variant_alias_for")
+    @classmethod
+    def _normalize_variant_alias_for(cls, value: Optional[str]) -> Optional[str]:
+        safe_key = _safe_theme_key(value or "")
+        return safe_key
+
+    @field_validator("variants", mode="before")
+    @classmethod
+    def _normalize_variants(cls, value: Any) -> Dict[str, Any]:
+        if not isinstance(value, dict):
+            return {}
+        out: Dict[str, Any] = {}
+        for raw_key, raw_tokens in value.items():
+            key = str(raw_key or "").strip().lower()
+            if key in {"dark", "light"}:
+                out[key] = raw_tokens
+        return out
 
 
 class WebappThemesConfig(BaseModel):
@@ -266,8 +306,85 @@ def load_webapp_theme_dir(theme_dir: str | Path) -> List[WebappTheme]:
     return list(themes_by_key.values())
 
 
+def _tokens_to_json(tokens: ThemeTokens | Dict[str, Any] | None) -> Dict[str, Any]:
+    if tokens is None:
+        return {}
+    if isinstance(tokens, ThemeTokens):
+        return tokens.model_dump(mode="json", exclude_none=True)
+    if isinstance(tokens, dict):
+        return {k: v for k, v in tokens.items() if v is not None}
+    return {}
+
+
+def _variant_key(value: Any) -> Optional[ColorScheme]:
+    raw = str(value or "").strip().lower()
+    if raw in {"dark", "light"}:
+        return raw  # type: ignore[return-value]
+    return None
+
+
+def _theme_active_variant(theme: WebappTheme, variant: Any = None) -> Optional[ColorScheme]:
+    requested = _variant_key(variant)
+    if requested and requested in theme.variants:
+        return requested
+    active = _variant_key(theme.active_variant)
+    if active and active in theme.variants:
+        return active
+    scheme = _variant_key(theme.tokens.color_scheme)
+    if scheme and scheme in theme.variants:
+        return scheme
+    if theme.variants:
+        if "dark" in theme.variants:
+            return "dark"
+        if "light" in theme.variants:
+            return "light"
+    return active
+
+
+def resolve_webapp_theme_tokens(theme: WebappTheme, variant: Any = None) -> ThemeTokens:
+    """Return the effective token set for a theme, merging active variant overrides."""
+    data = _tokens_to_json(theme.tokens)
+    active = _theme_active_variant(theme, variant)
+    if active and active in theme.variants:
+        data.update(_tokens_to_json(theme.variants.get(active)))
+    return ThemeTokens.model_validate(data)
+
+
+def _theme_with_variant(theme: WebappTheme, variant: ColorScheme) -> WebappTheme:
+    data = theme.model_dump(mode="json", exclude_none=True)
+    data["active_variant"] = variant
+    return WebappTheme.model_validate(data)
+
+
+def _find_theme_data(themes: List[Any], key: str) -> Optional[Dict[str, Any]]:
+    for theme in themes:
+        if isinstance(theme, dict) and str(theme.get("key") or "") == key:
+            return theme
+    return None
+
+
+def _normalize_legacy_light_alias_data(data: Dict[str, Any]) -> Dict[str, Any]:
+    themes = data.get("themes", [])
+    if not isinstance(themes, list):
+        return data
+    dark = _find_theme_data(themes, DEFAULT_WEBAPP_THEME_KEY)
+    light = _find_theme_data(themes, LEGACY_LIGHT_THEME_KEY)
+    if light is not None:
+        light.setdefault("variant_alias_for", DEFAULT_WEBAPP_THEME_KEY)
+        light.setdefault("active_variant", "light")
+        light.setdefault("hidden", True)
+
+    if str(data.get("default_theme") or "") == LEGACY_LIGHT_THEME_KEY and dark is not None:
+        data["default_theme"] = DEFAULT_WEBAPP_THEME_KEY
+        dark["active_variant"] = "light"
+        if light is not None:
+            light["default"] = False
+    return data
+
+
 def _config_with_synced_default_flags(config: WebappThemesConfig) -> WebappThemesConfig:
     data = config.model_dump(mode="json", exclude_none=True)
+    data = _normalize_legacy_light_alias_data(data)
     default_theme = str(data.get("default_theme") or "dark")
     themes = data.get("themes", [])
     for theme in themes:
@@ -361,19 +478,14 @@ def _copy_default_theme_assets(key: str, target_dir: Path, *, overwrite: bool = 
 
 
 def _builtin_theme_assets_need_refresh(key: str, target_dir: Path) -> bool:
+    if key == LEGACY_LIGHT_THEME_KEY:
+        return False
+
     style_path = target_dir / "style.css"
     try:
         style = style_path.read_text(encoding="utf-8")
     except OSError:
         return True
-    if key == "light":
-        return (
-            "--success-text" not in style
-            or ".theme-key-light.app-shell" not in style
-            or "Install guide theme surfaces" not in style
-            or "Admin controls: range sliders and sortable rows" not in style
-            or "Admin health config alerts" not in style
-        )
     if key == "ascii":
         return (
             ".theme-key-ascii" not in style
@@ -499,18 +611,22 @@ def write_webapp_theme_dir(
 def ensure_webapp_core_themes(
     config: WebappThemesConfig, primary_accent: str
 ) -> tuple[WebappThemesConfig, bool]:
-    """Keep dark, light and Windows 95 themes available without clobbering custom edits."""
+    """Keep the built-in themes available without clobbering custom edits."""
     data = config.model_dump(mode="json", exclude_none=True)
     themes = data.setdefault("themes", [])
     by_key = {str(theme.get("key")): theme for theme in themes if isinstance(theme, dict)}
     changed = False
+    builtin_by_key = {
+        theme.key: theme.model_dump(mode="json", exclude_none=True)
+        for theme in builtin_webapp_themes_config(primary_accent).themes
+    }
 
-    for builtin in builtin_webapp_themes_config(primary_accent).themes:
-        builtin_data = builtin.model_dump(mode="json", exclude_none=True)
-        existing = by_key.get(builtin.key)
+    for builtin_data in builtin_by_key.values():
+        builtin_key = str(builtin_data.get("key") or "")
+        existing = by_key.get(builtin_key)
         if existing is None:
             themes.append(builtin_data)
-            by_key[builtin.key] = builtin_data
+            by_key[builtin_key] = builtin_data
             changed = True
             continue
 
@@ -530,15 +646,45 @@ def ensure_webapp_core_themes(
             existing["assets_version"] = builtin_data.get("assets_version", 1)
             changed = True
 
-        if builtin.key in {"light", "windows95", "ascii"} and not existing.get("css_file"):
+        if builtin_key in {"windows95", "ascii"} and not existing.get("css_file"):
             existing["css_file"] = builtin_data.get("css_file")
             changed = True
+
+        if builtin_key == LEGACY_LIGHT_THEME_KEY:
+            for key, value in {
+                "variant_alias_for": DEFAULT_WEBAPP_THEME_KEY,
+                "active_variant": "light",
+                "hidden": True,
+            }.items():
+                if existing.get(key) != value:
+                    existing[key] = value
+                    changed = True
+            if existing.get("css_file"):
+                existing.pop("css_file", None)
+                changed = True
 
         tokens = existing.setdefault("tokens", {})
         builtin_tokens = builtin_data.get("tokens", {})
         for token_key in ("color_scheme", "style_preset"):
             if token_key in builtin_tokens and not tokens.get(token_key):
                 tokens[token_key] = builtin_tokens[token_key]
+                changed = True
+
+        if builtin_key == DEFAULT_WEBAPP_THEME_KEY:
+            variants = existing.setdefault("variants", {})
+            if not isinstance(variants, dict):
+                existing["variants"] = variants = {}
+                changed = True
+            builtin_variants = builtin_data.get("variants", {})
+            existing_tokens_snapshot = dict(tokens)
+            if "dark" not in variants:
+                variants["dark"] = existing_tokens_snapshot or builtin_variants.get("dark", {})
+                changed = True
+            if "light" not in variants and isinstance(builtin_variants, dict):
+                variants["light"] = builtin_variants.get("light", {})
+                changed = True
+            if not existing.get("active_variant"):
+                existing["active_variant"] = _variant_key(tokens.get("color_scheme")) or "dark"
                 changed = True
 
     keys = {str(theme.get("key")) for theme in themes if isinstance(theme, dict)}
@@ -580,10 +726,18 @@ def apply_webapp_theme_env_overrides(
     raw = (env_default_theme or "").strip()
     if not raw:
         return config
+    data = config.model_dump(mode="json", exclude_none=True)
+    if raw == LEGACY_LIGHT_THEME_KEY:
+        dark = _find_theme_data(data.get("themes", []), DEFAULT_WEBAPP_THEME_KEY)
+        if dark is None:
+            logger.warning("WEBAPP_DEFAULT_THEME=%r ignored: default theme is missing", raw)
+            return config
+        data["default_theme"] = DEFAULT_WEBAPP_THEME_KEY
+        dark["active_variant"] = "light"
+        return _config_with_synced_default_flags(WebappThemesConfig.model_validate(data))
     if config.theme_by_key(raw) is None:
         logger.warning("WEBAPP_DEFAULT_THEME=%r ignored: no such theme in catalog", raw)
         return config
-    data = config.model_dump(mode="json", exclude_none=True)
     data["default_theme"] = raw
     return _config_with_synced_default_flags(WebappThemesConfig.model_validate(data))
 
@@ -608,11 +762,11 @@ def resolved_webapp_themes_catalog(
     return apply_webapp_theme_env_overrides(config, env_default_theme)
 
 
-def merge_primary_accent_into_theme_tokens(
-    theme: WebappTheme, primary_accent: str, *, only_if_token_missing: bool = True
+def merge_primary_accent_into_tokens(
+    tokens: ThemeTokens, primary_accent: str, *, only_if_token_missing: bool = True
 ) -> ThemeTokens:
-    """Fill accent from WEBAPP_PRIMARY_COLOR when theme tokens omit accent."""
-    base = theme.tokens.model_copy(deep=True)
+    """Fill accent from WEBAPP_PRIMARY_COLOR when a token set omits accent."""
+    base = tokens.model_copy(deep=True)
     accent = (primary_accent or "").strip()
     if not accent:
         return base
@@ -620,6 +774,66 @@ def merge_primary_accent_into_theme_tokens(
         return base
     base.accent = accent
     return base
+
+
+def merge_primary_accent_into_theme_tokens(
+    theme: WebappTheme, primary_accent: str, *, only_if_token_missing: bool = True
+) -> ThemeTokens:
+    """Fill accent from WEBAPP_PRIMARY_COLOR when theme tokens omit accent."""
+    return merge_primary_accent_into_tokens(
+        resolve_webapp_theme_tokens(theme),
+        primary_accent,
+        only_if_token_missing=only_if_token_missing,
+    )
+
+
+def effective_webapp_theme_tokens(theme: WebappTheme, primary_accent: str) -> ThemeTokens:
+    tokens = resolve_webapp_theme_tokens(theme)
+    return (
+        merge_primary_accent_into_tokens(tokens, primary_accent)
+        if theme.use_primary_accent
+        else tokens
+    )
+
+
+def resolve_webapp_theme_selection(
+    config: WebappThemesConfig,
+    theme_key: Optional[str] = None,
+) -> Optional[WebappTheme]:
+    """Resolve a requested/default theme, including legacy variant aliases."""
+    raw_key = str(theme_key or "").strip()
+    if raw_key == LEGACY_LIGHT_THEME_KEY:
+        dark = config.theme_by_key(DEFAULT_WEBAPP_THEME_KEY)
+        if dark is not None and dark.enabled:
+            return _theme_with_variant(dark, "light")
+
+    theme: Optional[WebappTheme] = None
+    if raw_key:
+        theme = config.theme_by_key(raw_key)
+        if theme is not None and not theme.enabled:
+            theme = None
+
+    if theme is None:
+        default_key = config.default_theme
+        if default_key == LEGACY_LIGHT_THEME_KEY:
+            dark = config.theme_by_key(DEFAULT_WEBAPP_THEME_KEY)
+            if dark is not None and dark.enabled:
+                return _theme_with_variant(dark, "light")
+        theme = config.theme_by_key(default_key)
+
+    if theme is None:
+        enabled = config.enabled_themes()
+        theme = enabled[0] if enabled else None
+
+    if theme is None:
+        return None
+
+    if theme.variant_alias_for:
+        target = config.theme_by_key(theme.variant_alias_for)
+        variant = _variant_key(theme.active_variant) or _variant_key(theme.tokens.color_scheme)
+        if target is not None and target.enabled and variant is not None:
+            return _theme_with_variant(target, variant)
+    return theme
 
 
 def effective_webapp_theme_accent(
@@ -633,33 +847,16 @@ def effective_webapp_theme_accent(
         fallback = ThemeTokens(accent=primary_accent or "#00fe7a").accent or "#00fe7a"
     except ValueError:
         fallback = "#00fe7a"
-    theme: Optional[WebappTheme] = None
-    if theme_key:
-        theme = config.theme_by_key(theme_key)
-        if theme is not None and not theme.enabled:
-            theme = None
-    if theme is None:
-        theme = config.theme_by_key(config.default_theme)
-    if theme is None:
-        enabled = config.enabled_themes()
-        theme = enabled[0] if enabled else None
+    theme = resolve_webapp_theme_selection(config, theme_key)
     if theme is None:
         return fallback
 
-    tokens = (
-        merge_primary_accent_into_theme_tokens(theme, fallback)
-        if theme.use_primary_accent
-        else theme.tokens
-    )
+    tokens = effective_webapp_theme_tokens(theme, fallback)
     return tokens.accent or fallback
 
 
 def public_theme_payload(theme: WebappTheme, primary_accent: str) -> Dict[str, object]:
-    tokens = (
-        merge_primary_accent_into_theme_tokens(theme, primary_accent)
-        if theme.use_primary_accent
-        else theme.tokens
-    )
+    tokens = effective_webapp_theme_tokens(theme, primary_accent)
     payload: Dict[str, object] = {
         "key": theme.key,
         "names": dict(theme.names),
@@ -667,17 +864,26 @@ def public_theme_payload(theme: WebappTheme, primary_accent: str) -> Dict[str, o
         "use_primary_accent": bool(theme.use_primary_accent),
         "use_in_admin": bool(theme.use_in_admin),
         "assets_version": int(theme.assets_version or 1),
+        "active_variant": _theme_active_variant(theme) or tokens.color_scheme,
         "tokens": tokens.model_dump(mode="json", exclude_none=True),
     }
     if theme.css_file:
         payload["css_file"] = theme.css_file
+    if theme.variant_alias_for:
+        payload["variant_alias_for"] = theme.variant_alias_for
+    if theme.hidden:
+        payload["hidden"] = True
     return payload
 
 
 def public_themes_catalog_payload(
     config: WebappThemesConfig, primary_accent: str, *, enabled_only: bool = False
 ) -> Dict[str, object]:
-    themes = [theme for theme in config.themes if not enabled_only or theme.enabled]
+    themes = [
+        theme
+        for theme in config.themes
+        if not enabled_only or (theme.enabled and not theme.hidden and not theme.variant_alias_for)
+    ]
     return {
         "default_theme": config.default_theme,
         "themes": [public_theme_payload(theme, primary_accent) for theme in themes],

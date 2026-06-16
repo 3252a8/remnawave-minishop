@@ -118,6 +118,76 @@ function readStoredDemoLanguage() {
   }
 }
 
+const DEFAULT_THEME_VARIANTS = {
+  dark: {
+    color_scheme: "dark",
+    accent: "#00fe7a",
+    accent_contrast: "#001f10",
+    bg: "#03070b",
+    panel: "#111820",
+    panel_2: "#0b1118",
+    panel_3: "#17212b",
+    text: "#f2f7f4",
+    muted: "#a9b4b0",
+    dim: "#68736f",
+    border: "rgba(255,255,255,0.08)",
+    border_strong: "rgba(255,255,255,0.16)",
+    surface_hover: "rgba(255,255,255,0.07)",
+    surface_muted: "rgba(255,255,255,0.04)",
+    nav_bg: "rgba(3,7,11,0.9)",
+    rail_bg: "rgba(7,11,18,0.92)",
+    radius: "8px",
+    font_family: "Inter, Arial, sans-serif",
+    mono_font_family: '"JetBrains Mono", Consolas, monospace',
+    admin_chart_stroke: "#00fe7a",
+    admin_chart_fill: "rgba(0,254,122,0.16)",
+  },
+  light: {
+    color_scheme: "light",
+    accent: "#10b981",
+    accent_contrast: "#ffffff",
+    bg: "#f7f8fb",
+    panel: "#ffffff",
+    panel_2: "#f1f5f9",
+    panel_3: "#e8edf3",
+    text: "#0f172a",
+    muted: "#475569",
+    dim: "#64748b",
+    border: "rgba(15,23,42,0.1)",
+    border_strong: "rgba(15,23,42,0.18)",
+    surface_hover: "rgba(15,23,42,0.06)",
+    surface_muted: "rgba(15,23,42,0.04)",
+    nav_bg: "rgba(255,255,255,0.92)",
+    rail_bg: "rgba(255,255,255,0.94)",
+    radius: "8px",
+    font_family: "Inter, Arial, sans-serif",
+    mono_font_family: '"JetBrains Mono", Consolas, monospace',
+    admin_chart_stroke: "#10b981",
+    admin_chart_fill: "rgba(16,185,129,0.14)",
+  },
+};
+
+const DEFAULT_DARK_THEME = {
+  key: "dark",
+  names: { ru: "Тёмная", en: "Dark" },
+  enabled: true,
+  default: true,
+  active_variant: "dark",
+  tokens: DEFAULT_THEME_VARIANTS.dark,
+  variants: DEFAULT_THEME_VARIANTS,
+};
+
+const LEGACY_LIGHT_THEME = {
+  key: "light",
+  names: { ru: "Светлая", en: "Light" },
+  enabled: true,
+  default: false,
+  hidden: true,
+  active_variant: "light",
+  variant_alias_for: "dark",
+  tokens: DEFAULT_THEME_VARIANTS.light,
+};
+
 const WINDOWS_95_THEME = {
   key: "windows95",
   names: { ru: "Windows 95", en: "Windows 95" },
@@ -358,34 +428,7 @@ export const DEV_MOCK = {
     appRepositoryUrl: "https://minishop.minidoc.cc/",
     themesCatalog: {
       default_theme: "dark",
-      themes: [
-        {
-          key: "dark",
-          names: { ru: "Тёмная", en: "Dark" },
-          enabled: true,
-          default: true,
-          tokens: {
-            color_scheme: "dark",
-            accent: "#00fe7a",
-            bg: "#03070b",
-            panel: "#111820",
-            text: "#f2f7f4",
-            muted: "#a9b4b0",
-          },
-        },
-        {
-          key: "light",
-          names: { ru: "Светлая", en: "Light" },
-          enabled: true,
-          default: false,
-          css_file: "style.css",
-          tokens: {
-            color_scheme: "light",
-          },
-        },
-        WINDOWS_95_THEME,
-        ASCII_THEME,
-      ],
+      themes: [DEFAULT_DARK_THEME, LEGACY_LIGHT_THEME, WINDOWS_95_THEME, ASCII_THEME],
     },
   },
   data: {
@@ -528,32 +571,7 @@ export const DEV_MOCK = {
     },
     themes_catalog: {
       default_theme: "dark",
-      themes: [
-        {
-          key: "dark",
-          names: { ru: "Тёмная", en: "Dark" },
-          enabled: true,
-          tokens: {
-            color_scheme: "dark",
-            accent: "#00fe7a",
-            bg: "#03070b",
-            panel: "#111820",
-            text: "#f2f7f4",
-            muted: "#a9b4b0",
-          },
-        },
-        {
-          key: "light",
-          names: { ru: "Светлая", en: "Light" },
-          enabled: true,
-          css_file: "style.css",
-          tokens: {
-            color_scheme: "light",
-          },
-        },
-        WINDOWS_95_THEME,
-        ASCII_THEME,
-      ],
+      themes: [DEFAULT_DARK_THEME, LEGACY_LIGHT_THEME, WINDOWS_95_THEME, ASCII_THEME],
     },
     settings: {
       support_url: "https://t.me/support",
@@ -693,21 +711,37 @@ function applyEmailOnlyAccountPatch({
   };
 }
 
+function applyPreviewThemeToCatalog(catalog, themeKey, variant) {
+  if (!catalog) return;
+  catalog.default_theme = themeKey;
+  for (const theme of catalog.themes || []) {
+    const isDefaultTheme = theme.key === themeKey;
+    theme.default = isDefaultTheme;
+    if (isDefaultTheme && variant && theme.variants?.[variant]) {
+      theme.active_variant = variant;
+      theme.tokens = {
+        ...(theme.tokens || {}),
+        ...(theme.variants[variant] || {}),
+      };
+    }
+  }
+}
+
 export function applyPreviewMock(kind) {
   const mode = String(kind || "")
     .trim()
     .toLowerCase();
 
-  const themeKeys = new Set((DEV_MOCK.config.themesCatalog.themes || []).map((theme) => theme.key));
-  if (themeKeys.has(mode)) {
-    DEV_MOCK.config.themesCatalog.default_theme = mode;
-    DEV_MOCK.data.themes_catalog.default_theme = mode;
-    for (const theme of DEV_MOCK.config.themesCatalog.themes || []) {
-      theme.default = theme.key === mode;
-    }
-    for (const theme of DEV_MOCK.data.themes_catalog.themes || []) {
-      theme.default = theme.key === mode;
-    }
+  const previewTheme = (DEV_MOCK.config.themesCatalog.themes || []).find(
+    (theme) => theme.key === mode
+  );
+  if (previewTheme) {
+    const themeKey = previewTheme.variant_alias_for || previewTheme.key;
+    const variant = previewTheme.variant_alias_for
+      ? previewTheme.active_variant || previewTheme.tokens?.color_scheme || mode
+      : previewTheme.active_variant || previewTheme.tokens?.color_scheme || null;
+    applyPreviewThemeToCatalog(DEV_MOCK.config.themesCatalog, themeKey, variant);
+    applyPreviewThemeToCatalog(DEV_MOCK.data.themes_catalog, themeKey, variant);
     return;
   }
 
