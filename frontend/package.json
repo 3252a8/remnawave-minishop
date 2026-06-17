@@ -39,7 +39,7 @@
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "4.3.0",
     "uplot": "^1.6.32",
-    "vite": "^8.0.12"
+    "vite": "^8.0.16"
   },
   "dependencies": {
     "qrcode": "^1.5.4"
