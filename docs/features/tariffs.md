@@ -70,7 +70,7 @@ Legacy-поля остаются алиасами: `prices_rub`, `conversion_rat
 | Platega        | настраиваемый список `PLATEGA_SUPPORTED_CURRENCIES`                                                                                                                                                                |
 | SeverPay       | настраиваемый список `SEVERPAY_SUPPORTED_CURRENCIES`                                                                                                                                                               |
 | LAVA           | `RUB`                                                                                                                                                                                                              |
-| Stripe         | по умолчанию без локального фильтра; ограничьте через `STRIPE_SUPPORTED_CURRENCIES` под ваш аккаунт Stripe                                                                                                                                 |
+| Stripe         | по умолчанию без локального фильтра; ограничьте через `STRIPE_SUPPORTED_CURRENCIES` под ваш аккаунт Stripe                                                                                                         |
 | Telegram Stars | `XTR`, отдельные Stars-цены                                                                                                                                                                                        |
 
 В админке раздел **Система → Тарифы** показывает текущую платежную валюту и матрицу провайдеров: включен ли метод, настроен ли сервис и будет ли он доступен при выбранной валюте. Для Platega, SeverPay и Heleket список валют нужно держать в соответствии с условиями вашего мерчанта.
