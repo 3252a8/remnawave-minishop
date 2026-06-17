@@ -1,12 +1,12 @@
 ![Remnawave Minishop Web App Themes](webapp-themes.webp)
 
-> **Default theme update.** Built-in `dark` is now the canonical default theme and contains
-> two variants: `dark` and `light`. The old `light` key is kept as a hidden compatibility
-> alias, so existing `WEBAPP_DEFAULT_THEME=light` and `/home?theme_preview=light` links still
-> open the light variant, but admins customize it through the single Default theme card.
-> The card supports useful no-code customization: presets, dark/light switch, palette tokens,
-> radius, desktop/mobile logo scale, separate admin palette, and font dropdowns for UI,
-> brand, and mono text.
+> **Обновление темы по умолчанию.** Встроенная `dark` теперь является канонической темой по умолчанию и содержит
+> два варианта: `dark` и `light`. Старый ключ `light` сохранён как скрытый
+> alias совместимости, поэтому существующие ссылки `WEBAPP_DEFAULT_THEME=light` и `/home?theme_preview=light`
+> по-прежнему открывают светлый вариант, но админы настраивают его через единую карточку Default theme.
+> Карточка поддерживает удобную no-code настройку: пресеты, переключатель dark/light, токены палитры,
+> радиус, масштаб логотипа для десктопа/мобильного, отдельную палитру админки и выпадающие списки шрифтов для UI,
+> бренда и моноширинного текста.
 
 # Темы и внешний вид Web App
 

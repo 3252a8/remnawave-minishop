@@ -468,27 +468,23 @@ CloudPayments принимает оплату картами через Orders A
 
 ### Stripe
 
-Stripe creates hosted Checkout Sessions and confirms app-managed auto-renewal
-with off-session PaymentIntents. Configure webhook endpoint:
-`WEBHOOK_BASE_URL` + `/webhook/stripe`.
+Stripe создает hosted Checkout Sessions и подтверждает автопродление, управляемое приложением, через off-session PaymentIntents. Настройте webhook-эндпоинт: `WEBHOOK_BASE_URL` + `/webhook/stripe`.
 
-Recommended Stripe events: `checkout.session.completed`,
-`checkout.session.expired`, `payment_intent.succeeded`,
-`payment_intent.payment_failed`, `payment_intent.canceled`.
+Рекомендуемые события Stripe: `checkout.session.completed`, `checkout.session.expired`, `payment_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.canceled`.
 
 | Переменная | Назначение |
 | --- | --- |
 | `STRIPE_ENABLED` | Включает Stripe. |
-| `STRIPE_SECRET_KEY` | Secret API key from Stripe Dashboard. |
-| `STRIPE_WEBHOOK_SECRET` | Endpoint signing secret (`whsec_...`) for `Stripe-Signature` verification. |
-| `STRIPE_BASE_URL` | Stripe API base URL, default `https://api.stripe.com`. |
-| `STRIPE_RETURN_URL` | Success return URL after Checkout. If empty, the bot link is used. |
-| `STRIPE_CANCEL_URL` | Cancel return URL after Checkout. If empty, `STRIPE_RETURN_URL` is used. |
-| `STRIPE_PAYMENT_METHOD_TYPES` | Comma-separated Checkout payment method types, default `card`. |
-| `STRIPE_SUPPORTED_CURRENCIES` | Optional comma-separated presentment currencies allowed in UI. Empty means no local filter. |
-| `STRIPE_RECURRING_ENABLED` | Saves Checkout payment methods for off-session auto-renewal. |
-| `STRIPE_VERIFY_WEBHOOK_SIGNATURE` | Verify `Stripe-Signature` with `STRIPE_WEBHOOK_SECRET`. |
-| `STRIPE_WEBHOOK_TOLERANCE_SECONDS` | Allowed clock skew for webhook signatures, default `300`. |
+| `STRIPE_SECRET_KEY` | Secret API key из Stripe Dashboard. |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret эндпоинта (`whsec_...`) для проверки `Stripe-Signature`. |
+| `STRIPE_BASE_URL` | Базовый URL API Stripe, по умолчанию `https://api.stripe.com`. |
+| `STRIPE_RETURN_URL` | URL успешного возврата после Checkout; если пусто, используется ссылка на бота. |
+| `STRIPE_CANCEL_URL` | URL возврата при отмене Checkout; если пусто, используется `STRIPE_RETURN_URL`. |
+| `STRIPE_PAYMENT_METHOD_TYPES` | Типы способов оплаты Checkout через запятую, по умолчанию `card`. |
+| `STRIPE_SUPPORTED_CURRENCIES` | Необязательный список валют отображения через запятую, разрешенных в UI. Пусто — без локального фильтра. |
+| `STRIPE_RECURRING_ENABLED` | Сохраняет способы оплаты из Checkout для off-session автопродления. |
+| `STRIPE_VERIFY_WEBHOOK_SIGNATURE` | Проверять `Stripe-Signature` с помощью `STRIPE_WEBHOOK_SECRET`. |
+| `STRIPE_WEBHOOK_TOLERANCE_SECONDS` | Допустимое расхождение часов для подписей webhook, по умолчанию `300`. |
 
 ## Тарифы и legacy-цены
 
