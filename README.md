@@ -16,7 +16,7 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 - Web App / Mini App с входом через Telegram или email;
 - встроенные инструкции установки в Mini App: личный экран `/install` и публичная ссылка `/s/<token>` для передачи инструкции;
 - пробный период, промокоды и реферальная программа;
-- оплата через YooKassa, FreeKassa, Platega, SeverPay, Wata, CryptoPay, Heleket, PayKilla, LAVA, CloudPayments и Telegram Stars;
+- оплата через YooKassa, FreeKassa, Platega, SeverPay, Wata, CryptoPay, Heleket, PayKilla, LAVA, CloudPayments, Stripe и Telegram Stars;
 - тикеты поддержки в Web App и внешняя ссылка на поддержку;
 - раздел "Мои устройства" при включенном `MY_DEVICES_SECTION_ENABLED`.
 
