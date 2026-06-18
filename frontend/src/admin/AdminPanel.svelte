@@ -180,7 +180,7 @@
   const backupsStore = createBackupsStore({ api, onToast: flash, at });
   const broadcastStore = createBroadcastStore({ api, onToast: flash, at });
   const healthStore = createHealthStore({ api, at, queryClient: adminQueryClient });
-  const logsStore = createLogsStore({ api, queryClient: adminQueryClient });
+  const logsStore = createLogsStore({ api, onToast: flash, at, queryClient: adminQueryClient });
   const paymentsStore = createPaymentsStore({ api, onToast: flash, at, routePrefix });
   const promosStore = createPromosStore({ api, onToast: flash, at });
   const settingsStore = createSettingsStore({ api, onToast: flash, at });

@@ -8,7 +8,7 @@
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
-  import { User } from "$components/ui/icons.js";
+  import { RefreshCw, TriangleAlert, User } from "$components/ui/icons.js";
 
   export let at;
   export let fmtDate;
@@ -17,7 +17,7 @@
   const logsStore = getContext("logsStore");
   const LOGS_PAGE_SIZE = 50;
 
-  $: ({ logs, logsTotal, logsPage, logsUserFilter, logsLoading } = $logsStore);
+  $: ({ logs, logsTotal, logsPage, logsUserFilter, logsLoading, logsError } = $logsStore);
 
   $: logsPageCount = Math.max(1, Math.ceil(Number(logsTotal || 0) / LOGS_PAGE_SIZE));
   $: logHeaders = [
@@ -48,7 +48,7 @@
   }
 
   onMount(() => {
-    logsStore.loadLogs();
+    logsStore.loadLogs({ refresh: true });
   });
 </script>
 
@@ -68,6 +68,10 @@
         logsStore.setPage(0);
       }}>{at("apply", {}, "Применить")}</AdminButton
     >
+    <AdminButton variant="ghost" onclick={() => logsStore.loadLogs({ refresh: true })}>
+      <RefreshCw size={14} />
+      {at("btn_refresh", {}, "Обновить")}
+    </AdminButton>
     <AdminButton
       variant="ghost"
       onclick={() => {
@@ -89,6 +93,15 @@
       rows={10}
       widths={["120px", "120px", "160px", "160px", "220px"]}
     />
+  {:else if logsError}
+    <AdminEmptyState tone="card" class="admin-logs-error-state">
+      <TriangleAlert size={18} />
+      <span>{logsError}</span>
+      <AdminButton variant="ghost" onclick={() => logsStore.loadLogs({ refresh: true })}>
+        <RefreshCw size={14} />
+        {at("btn_refresh", {}, "Обновить")}
+      </AdminButton>
+    </AdminEmptyState>
   {:else if !logs.length}
     <AdminEmptyState tone="card"
       ><span class="admin-muted">{at("logs_empty", {}, "Записей нет")}</span></AdminEmptyState
@@ -227,5 +240,17 @@
   .admin-logs-user-cell :global(.admin-logs-user-btn svg) {
     width: 14px;
     height: 14px;
+  }
+
+  :global(.admin-logs-error-state) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--admin-text);
+  }
+
+  :global(.admin-logs-error-state svg) {
+    flex-shrink: 0;
+    color: var(--admin-warning);
   }
 </style>

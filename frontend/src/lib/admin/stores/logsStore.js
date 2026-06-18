@@ -1,15 +1,22 @@
 import { writable } from "svelte/store";
+import { adminErrorMessage } from "../errors.js";
 
 const LOGS_QUERY_KEY = ["admin", "logs"];
 const LOGS_STALE_MS = 30 * 1000;
 
-export function createLogsStore({ api, queryClient = null }) {
+export function createLogsStore({
+  api,
+  at = (key, _params, fallback) => fallback || key,
+  onToast = () => {},
+  queryClient = null,
+}) {
   const state = writable({
     logs: [],
     logsTotal: 0,
     logsPage: 0,
     logsUserFilter: "",
     logsLoading: false,
+    logsError: "",
   });
 
   const LOGS_PAGE_SIZE = 50;
@@ -30,11 +37,16 @@ export function createLogsStore({ api, queryClient = null }) {
   async function requestLogs(page, filter) {
     const data = await api(logsPath(page, filter));
     if (!data?.ok) {
-      const error = new Error("load_failed");
+      const error = new Error(adminErrorMessage(data, at, "load_failed"));
       error.payload = data;
       throw error;
     }
     return data;
+  }
+
+  function loadErrorMessage(error) {
+    if (error?.payload) return adminErrorMessage(error.payload, at, "load_failed");
+    return error?.message || String(error || "load_failed");
   }
 
   async function queryLogs(page, filter, refresh) {
@@ -68,11 +80,15 @@ export function createLogsStore({ api, queryClient = null }) {
           ...s,
           logs: data.logs || [],
           logsTotal: data.total || 0,
+          logsError: "",
         }));
       }
-    } catch {
-      // Logs had no visible error state before the query pilot; keep that UI
-      // contract and leave the previous page data in place on failures.
+    } catch (error) {
+      const message = loadErrorMessage(error);
+      if (seq === requestSeq) {
+        state.update((s) => ({ ...s, logsError: message }));
+      }
+      if (message) onToast(message);
     } finally {
       if (seq === requestSeq) {
         state.update((s) => ({ ...s, logsLoading: false }));

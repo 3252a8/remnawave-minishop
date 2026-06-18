@@ -8,9 +8,10 @@ import { defineConfig } from "vite";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const templateDir = path.resolve(__dirname, "../backend/bot/app/web/templates");
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   const isAdminBuild = mode === "admin";
   const isDocsDemoBuild = mode === "docs-demo";
+  const nodeEnv = command === "build" ? "production" : "development";
   const outputBase = isAdminBuild
     ? "subscription_webapp_admin"
     : isDocsDemoBuild
@@ -23,6 +24,9 @@ export default defineConfig(({ mode }) => {
       : "src/main.js";
 
   return {
+    define: {
+      "process.env.NODE_ENV": JSON.stringify(nodeEnv),
+    },
     resolve: {
       alias: {
         $lib: path.resolve(__dirname, "src/lib"),
