@@ -11,6 +11,7 @@
     AdminDashboardStack,
     AdminBadge,
     AdminEmptyState,
+    AdminPagination,
     AdminRevenueChart,
     AdminRevenueCustomRangePopover,
     AdminSectionHeader,
@@ -53,7 +54,10 @@
   const REVENUE_CHART_MAX_CSS_HEIGHT = 204;
 
   const REVENUE_PRESET_DAYS = [7, 14, 30, 90, 180, 365];
-  const recentPaymentsTable = createAdminDatatable();
+  const RECENT_PAYMENTS_PAGE_SIZE = 5;
+  const recentPaymentsTable = createAdminDatatable([], {
+    rowsPerPage: RECENT_PAYMENTS_PAGE_SIZE,
+  });
 
   /** @type {"preset" | "custom"} */
   let revenueRangeMode = "preset";
@@ -127,6 +131,9 @@
     at("date", {}, ""),
   ];
   $: syncAdminDatatable(recentPaymentsTable, stats?.recent_payments || []);
+  $: recentPaymentsTotal = (stats?.recent_payments || []).length;
+  $: if (recentPaymentsTable.currentPage > recentPaymentsTable.pageCount)
+    recentPaymentsTable.setPage(recentPaymentsTable.pageCount || 1);
 
   function parsePanelSystem(panel) {
     const system = panel?.system;
@@ -1153,6 +1160,19 @@
                 {/each}
               </tbody>
             </AdminTable>
+            {#if recentPaymentsTotal > RECENT_PAYMENTS_PAGE_SIZE}
+              <AdminPagination
+                table={recentPaymentsTable}
+                pageLabel={at("page_short", {}, "Стр.")}
+                ofLabel={at("pagination_of", {}, "из")}
+                totalLabel={at("total", {}, "Всего")}
+                jumpLabel={at("page_short", {}, "Стр.")}
+                jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
+                goLabel={at("pagination_go", {}, "Перейти")}
+                prevLabel={at("back", {}, "Назад")}
+                nextLabel={at("next", {}, "Далее")}
+              />
+            {/if}
           {:else}
             <AdminEmptyState tone="card"
               ><span class="admin-muted">{at("no_data", {}, "")}</span></AdminEmptyState

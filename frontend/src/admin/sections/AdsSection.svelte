@@ -8,6 +8,7 @@
     AdminButton,
     AdminEmptyState,
     AdminField,
+    AdminPagination,
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
@@ -16,11 +17,13 @@
   export let at;
   export let fmtMoney;
 
+  const ADS_PAGE_SIZE = 10;
   const adsStore = getContext("adsStore");
-  const adsTable = createAdminDatatable();
+  const adsTable = createAdminDatatable([], { rowsPerPage: ADS_PAGE_SIZE });
 
   $: ({ ads, adsLoading, adCreateOpen, adDraft } = $adsStore);
   $: syncAdminDatatable(adsTable, ads);
+  $: if (adsTable.currentPage > adsTable.pageCount) adsTable.setPage(adsTable.pageCount || 1);
   $: adHeaders = [
     at("id", {}, "ID"),
     at("ads_col_source", {}, "Источник"),
@@ -97,6 +100,19 @@
         {/each}
       </tbody>
     </AdminTable>
+    {#if ads.length > ADS_PAGE_SIZE}
+      <AdminPagination
+        table={adsTable}
+        pageLabel={at("page_short", {}, "Стр.")}
+        ofLabel={at("pagination_of", {}, "из")}
+        totalLabel={at("total", {}, "Всего")}
+        jumpLabel={at("page_short", {}, "Стр.")}
+        jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
+        goLabel={at("pagination_go", {}, "Перейти")}
+        prevLabel={at("back", {}, "Назад")}
+        nextLabel={at("next", {}, "Далее")}
+      />
+    {/if}
   {/if}
 </div>
 
