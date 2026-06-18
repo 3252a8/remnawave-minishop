@@ -2,7 +2,6 @@ import json
 import re
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ERRORS_JS = REPO_ROOT / "frontend" / "src" / "lib" / "admin" / "errors.js"
 
