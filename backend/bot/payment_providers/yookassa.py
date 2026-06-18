@@ -650,6 +650,43 @@ async def process_successful_payment(
         hwid_pricing_period_months = _metadata_int(metadata.get("hwid_pricing_period_months"))
         hwid_proration_ratio = _metadata_float(metadata.get("hwid_proration_ratio"))
         hwid_full_price = _metadata_float(metadata.get("hwid_full_price"))
+        payment_record = None
+        if payment_db_id is not None:
+            payment_record = await payment_dal.get_payment_by_db_id(session, payment_db_id)
+            if not payment_record:
+                logging.error(
+                    f"Payment record {payment_db_id} not found for YK ID {yk_payment_id_from_hook}."
+                )
+                return
+
+        if payment_record and sale_mode_base == "subscription":
+            if hwid_devices_count <= 0:
+                record_hwid_devices = parse_positive_int_units(
+                    getattr(payment_record, "purchased_hwid_devices", None)
+                )
+                if record_hwid_devices is not None:
+                    hwid_devices_count = record_hwid_devices
+            if hwid_devices_count > 0:
+                if not hwid_valid_from:
+                    hwid_valid_from = _metadata_datetime(
+                        getattr(payment_record, "hwid_valid_from", None)
+                    )
+                if not hwid_valid_until:
+                    hwid_valid_until = _metadata_datetime(
+                        getattr(payment_record, "hwid_valid_until", None)
+                    )
+                if hwid_pricing_period_months is None:
+                    hwid_pricing_period_months = _metadata_int(
+                        getattr(payment_record, "hwid_pricing_period_months", None)
+                    )
+                if hwid_proration_ratio is None:
+                    hwid_proration_ratio = _metadata_float(
+                        getattr(payment_record, "hwid_proration_ratio", None)
+                    )
+                if hwid_full_price is None:
+                    hwid_full_price = _metadata_float(
+                        getattr(payment_record, "hwid_full_price", None)
+                    )
 
         if _is_hwid_device_sale_base(sale_mode_base) and hwid_devices_count <= 0:
             logging.error(
@@ -679,7 +716,6 @@ async def process_successful_payment(
                 )
                 return
 
-        payment_record = None
         # If this is an auto-renewal (no payment_db_id in metadata), ensure a payment record exists
         if payment_db_id is None and auto_renew_subscription_id_str:
             try:
@@ -720,13 +756,6 @@ async def process_successful_payment(
                 logging.error(
                     f"Failed to ensure payment record for auto-renew webhook (YK {payment_info_from_webhook.get('id')}): {e_ensure}",  # noqa: E501
                     exc_info=True,
-                )
-                return
-        elif payment_db_id is not None:
-            payment_record = await payment_dal.get_payment_by_db_id(session, payment_db_id)
-            if not payment_record:
-                logging.error(
-                    f"Payment record {payment_db_id} not found for YK ID {yk_payment_id_from_hook}."
                 )
                 return
 
@@ -2986,6 +3015,16 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
             metadata["traffic_gb"] = format_number_for_payload(ctx.traffic_gb or ctx.months)
         if amounts.purchased_hwid_devices:
             metadata["hwid_devices"] = str(int(amounts.purchased_hwid_devices))
+            hwid_metadata = {
+                "hwid_valid_from": _metadata_iso(ctx.hwid_valid_from),
+                "hwid_valid_until": _metadata_iso(ctx.hwid_valid_until),
+                "hwid_pricing_period_months": ctx.hwid_pricing_period_months,
+                "hwid_proration_ratio": ctx.hwid_proration_ratio,
+                "hwid_full_price": ctx.hwid_full_price,
+            }
+            metadata.update(
+                {key: str(value) for key, value in hwid_metadata.items() if value is not None}
+            )
         if amounts.tariff_key:
             metadata["tariff_key"] = amounts.tariff_key
         response = await service.create_payment(
