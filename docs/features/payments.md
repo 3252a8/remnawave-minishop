@@ -45,6 +45,7 @@ reverse proxy должен прокидывать `X-Forwarded-For`, а его I
 | Heleket | `WEBHOOK_BASE_URL` + `/webhook/heleket` | При необходимости включите `HELEKET_VERIFY_WEBHOOK_SIGNATURE` и `HELEKET_TRUSTED_IPS`. |
 | PayKilla | `WEBHOOK_BASE_URL` + `/webhook/paykilla` | Указывается в PayKilla Dashboard -> Settings -> Webhooks; включите события оплаты инвойсов. |
 | LAVA | `WEBHOOK_BASE_URL` + `/webhook/lava` | Передается автоматически как `hookUrl` при создании счета; можно также указать в кабинете LAVA Business. |
+| Pally | `WEBHOOK_BASE_URL` + `/webhook/pally` | Укажите как Result URL в настройках магазина Pally / PayPalych. Postback приходит в формате `application/x-www-form-urlencoded`. |
 | CloudPayments | `WEBHOOK_BASE_URL` + `/webhook/cloudpayments` | Укажите как адрес уведомлений Pay и Fail в кабинете CloudPayments. При IP-фильтрации заполните `CLOUDPAYMENTS_TRUSTED_IPS`. |
 | Stripe | `WEBHOOK_BASE_URL` + `/webhook/stripe` | Укажите этот адрес в Stripe Dashboard и включите события `checkout.session.completed`, `checkout.session.expired`, `payment_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.canceled`. |
 | Telegram Stars | Отдельный платежный webhook не нужен | Stars-события приходят через webhook Telegram-бота: `WEBHOOK_BASE_URL` + `/tg/webhook`. |
@@ -270,6 +271,30 @@ LAVA Business используется для рублевых оплат кар
 ### Справочник
 
 - [LAVA](../configuration/env-vars.md#lava)
+
+## Pally
+
+Pally / PayPalych используется для оплат через hosted-страницу счета `https://pally.info`. Minishop создает счет через `POST /api/v1/bill/create`, сохраняет `bill_id`, а завершение платежа обрабатывает через Result URL `/webhook/pally`.
+
+### Особенности
+
+- Поддерживаемые валюты счета: `RUB`, `USD`, `EUR`.
+- API-запросы отправляются как form-urlencoded поля с `Authorization: Bearer <PALLY_API_TOKEN>`.
+- Подпись postback проверяется по формуле `strtoupper(md5(OutSum:InvId:token))`; `token` берется из `PALLY_SIGNATURE_TOKEN`, а если он пустой - из `PALLY_API_TOKEN`.
+- Если включен `PALLY_PAYER_PAYS_COMMISSION`, Pally может прислать `OutSum` вместе с комиссией. Backend принимает платеж, когда сумма счета совпадает с `BalanceAmount`, `OutSum` или `OutSum - Commission`.
+- Статусы `SUCCESS` и `OVERPAID` активируют покупку, `FAIL` помечает платеж неуспешным, `NEW`, `PROCESS` и `UNDERPAID` остаются pending.
+
+### Настройка
+
+1. Включите `PALLY_ENABLED`.
+2. Укажите `PALLY_API_TOKEN`, `PALLY_SHOP_ID` и при необходимости отдельный `PALLY_SIGNATURE_TOKEN`.
+3. В кабинете Pally укажите Result URL: `WEBHOOK_BASE_URL` + `/webhook/pally`.
+4. При необходимости задайте `PALLY_RETURN_URL`, `PALLY_SUCCESS_URL`, `PALLY_FAIL_URL`, `PALLY_TTL_SECONDS` и `PALLY_PAYER_PAYS_COMMISSION`.
+5. Если нужна жесткая кнопка конкретного метода на стороне Pally, задайте `PALLY_PAYMENT_METHOD=BANK_CARD` или `PALLY_PAYMENT_METHOD=SBP`.
+
+### Справочник
+
+- [Pally](../configuration/env-vars.md#pally)
 
 ## CloudPayments
 

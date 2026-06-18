@@ -8,6 +8,7 @@ from . import (
     freekassa,
     heleket,
     lava,
+    pally,
     paykilla,
     platega,
     severpay,
@@ -36,6 +37,7 @@ PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
     heleket.SPEC,
     paykilla.SPEC,
     lava.SPEC,
+    pally.SPEC,
     cloudpayments.SPEC,
     stripe.SPEC,
 )

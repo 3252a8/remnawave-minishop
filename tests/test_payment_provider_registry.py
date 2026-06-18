@@ -69,6 +69,7 @@ _PROVIDER_MODULES = {
     "heleket": "HeleketService",
     "paykilla": "PaykillaService",
     "lava": "LavaService",
+    "pally": "PallyService",
     "cloudpayments": "CloudPaymentsService",
     "stripe": "StripeService",
 }
@@ -157,6 +158,7 @@ def test_service_keys_and_statuses_come_from_provider_specs():
         "heleket_service",
         "paykilla_service",
         "lava_service",
+        "pally_service",
         "cloudpayments_service",
         "stripe_service",
     }
@@ -172,6 +174,7 @@ def test_service_keys_and_statuses_come_from_provider_specs():
         "pending_heleket",
         "pending_paykilla",
         "pending_lava",
+        "pending_pally",
         "pending_cloudpayments",
         "pending_stripe",
     }
@@ -191,6 +194,7 @@ def test_provider_labels_and_emojis_include_storage_keys_and_method_aliases():
     assert emojis["telegram_stars"] == get_provider_spec("stars").default_telegram_emoji
     assert emojis["cryptopay"] == get_provider_spec("cryptopay").default_telegram_emoji
     assert labels["paykilla"] == "PayKilla"
+    assert labels["pally"] == "Pally"
 
 
 def test_provider_presentation_resolves_defaults_and_overrides():

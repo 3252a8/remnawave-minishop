@@ -70,6 +70,7 @@ Legacy-поля остаются алиасами: `prices_rub`, `conversion_rat
 | Platega        | настраиваемый список `PLATEGA_SUPPORTED_CURRENCIES`                                                                                                                                                                |
 | SeverPay       | настраиваемый список `SEVERPAY_SUPPORTED_CURRENCIES`                                                                                                                                                               |
 | LAVA           | `RUB`                                                                                                                                                                                                              |
+| Pally          | `RUB`, `USD`, `EUR` |
 | Stripe         | по умолчанию без локального фильтра; ограничьте через `STRIPE_SUPPORTED_CURRENCIES` под ваш аккаунт Stripe                                                                                                         |
 | Telegram Stars | `XTR`, отдельные Stars-цены                                                                                                                                                                                        |
 

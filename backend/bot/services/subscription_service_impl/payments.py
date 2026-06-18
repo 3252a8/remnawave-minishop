@@ -14,6 +14,7 @@ class PaymentContextMixin:
         "severpay": "SeverPay",
         "wata": "Wata",
         "lava": "LAVA",
+        "pally": "Pally",
         "cryptopay": "Crypto Pay",
         "paykilla": "PayKilla",
         "cloudpayments": "CloudPayments",

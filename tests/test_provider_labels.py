@@ -30,6 +30,7 @@ _PROVIDERS_FROM_CALLERS = {
     "cryptopay",
     "paykilla",
     "cloudpayments",
+    "pally",
     "telegram_stars",
 }
 

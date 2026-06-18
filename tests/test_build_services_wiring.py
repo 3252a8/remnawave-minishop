@@ -36,6 +36,7 @@ _PROVIDER_ENV_PREFIXES = (
     "WATA_",
     "HELEKET_",
     "LAVA_",
+    "PALLY_",
     "CRYPTOPAY_",
     "CLOUDPAYMENTS_",
     "STRIPE_",
@@ -191,6 +192,7 @@ class BuildServicesWiringTests(unittest.TestCase):
             "heleket_service",
             "paykilla_service",
             "lava_service",
+            "pally_service",
             "cloudpayments_service",
             "stripe_service",
         }

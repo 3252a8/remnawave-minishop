@@ -335,7 +335,7 @@ class Settings(BaseSettings):
     STARS_ADMIN_ONLY_ENABLED: bool = Field(default=False)
     PAYMENT_METHODS_ORDER: Optional[str] = Field(
         default=None,
-        description="Comma-separated list of payment methods to show (e.g., severpay,wata,freekassa,yookassa,platega,stars,cryptopay,heleket,paykilla,lava,cloudpayments,stripe)",  # noqa: E501
+        description="Comma-separated list of payment methods to show (e.g., severpay,wata,freekassa,yookassa,platega,stars,cryptopay,heleket,paykilla,lava,pally,cloudpayments,stripe)",  # noqa: E501
     )
     SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED: bool = Field(
         default=True,
@@ -1063,6 +1063,7 @@ class Settings(BaseSettings):
             "heleket",
             "paykilla",
             "lava",
+            "pally",
             "cloudpayments",
             "stripe",
         ]

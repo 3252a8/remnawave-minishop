@@ -220,7 +220,7 @@ proxy/Docker gateway и может отклонить валидный webhook. 
 
 | Переменная | Назначение |
 | --- | --- |
-| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты: `severpay,wata,freekassa,platega,yookassa,stars,cryptopay,heleket,paykilla,lava,cloudpayments,stripe`. |
+| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты: `severpay,wata,freekassa,platega,yookassa,stars,cryptopay,heleket,paykilla,lava,pally,cloudpayments,stripe`. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED` | Показывать описание подписки перед выбором срока. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_RU` / `SUBSCRIPTION_PURCHASE_DESCRIPTION_EN` | Локализованное описание подписки. |
 | `PAYMENT_REQUEST_TIMEOUT_SECONDS` | Общий таймаут одного API-запроса к платёжному провайдеру, в секундах. По умолчанию `20`. |
@@ -239,6 +239,7 @@ proxy/Docker gateway и может отклонить валидный webhook. 
 | `HELEKET_ENABLED` | Включает Heleket. |
 | `PAYKILLA_ENABLED` | Включает PayKilla. |
 | `LAVA_ENABLED` | Включает LAVA. |
+| `PALLY_ENABLED` | Включает Pally / PayPalych. |
 | `CLOUDPAYMENTS_ENABLED` | Включает CloudPayments. |
 
 Конкретные ключи отображения:
@@ -310,6 +311,12 @@ PAYMENT_LAVA_WEBAPP_ICON
 PAYMENT_LAVA_TELEGRAM_LABEL_RU
 PAYMENT_LAVA_TELEGRAM_LABEL_EN
 PAYMENT_LAVA_TELEGRAM_EMOJI
+PAYMENT_PALLY_WEBAPP_LABEL_RU
+PAYMENT_PALLY_WEBAPP_LABEL_EN
+PAYMENT_PALLY_WEBAPP_ICON
+PAYMENT_PALLY_TELEGRAM_LABEL_RU
+PAYMENT_PALLY_TELEGRAM_LABEL_EN
+PAYMENT_PALLY_TELEGRAM_EMOJI
 PAYMENT_CLOUDPAYMENTS_WEBAPP_LABEL_RU
 PAYMENT_CLOUDPAYMENTS_WEBAPP_LABEL_EN
 PAYMENT_CLOUDPAYMENTS_WEBAPP_ICON
@@ -450,6 +457,25 @@ Webhook настраивается в PayKilla Dashboard: **Settings -> Webhooks
 | `LAVA_RETURN_URL` | URL возврата после оплаты (`successUrl`/`failUrl`). |
 | `LAVA_LIFETIME_MINUTES` | Время жизни счета в минутах: 1..7200. |
 | `LAVA_INCLUDE_SERVICES` | Способы оплаты на странице счета через запятую, например `card,sbp`. |
+
+### Pally
+
+Pally / PayPalych создает счета через `POST /api/v1/bill/create`. Запросы авторизуются Bearer-токеном, postback приходит как `application/x-www-form-urlencoded` и проверяется по `SignatureValue = strtoupper(md5(OutSum:InvId:token))`.
+
+| Переменная | Назначение |
+| --- | --- |
+| `PALLY_BASE_URL` | Базовый URL API, по умолчанию `https://pally.info/api/v1`. Старый домен `https://pal24.pro/api/v1` можно указать вручную, если он используется в кабинете. |
+| `PALLY_API_TOKEN` | Bearer-токен из раздела API-интеграций Pally. |
+| `PALLY_SIGNATURE_TOKEN` | Токен для проверки подписи postback; если пусто, используется `PALLY_API_TOKEN`. |
+| `PALLY_SHOP_ID` | ID магазина Pally. Без него Result URL, Success URL и Fail URL у счета не работают. |
+| `PALLY_RETURN_URL` | URL ссылки "Вернуться в магазин" на платежной странице. |
+| `PALLY_SUCCESS_URL` | URL успешного возврата после оплаты. |
+| `PALLY_FAIL_URL` | URL возврата после неуспешной оплаты. |
+| `PALLY_TTL_SECONDS` | Время жизни счета в секундах. |
+| `PALLY_PAYER_PAYS_COMMISSION` | Передает `payer_pays_commission=1`, если комиссию должен платить покупатель. |
+| `PALLY_PAYMENT_METHOD` | Необязательный предвыбор способа оплаты: `BANK_CARD` или `SBP`. |
+| `PALLY_LOCALE` | Локаль платежной формы: `ru` или `en`; если пусто, бот пробует передать язык пользователя. |
+| `PALLY_NAME` | Название ссылки на платежной форме. |
 
 ### CloudPayments
 
