@@ -1,5 +1,6 @@
 <script>
   import { onMount, setContext, tick } from "svelte";
+  import { Toaster, toast as sonnerToast } from "svelte-sonner";
   import { createAuthStore } from "./lib/webapp/stores/authStore.js";
   import { createBillingStore } from "./lib/webapp/stores/billingStore.js";
   import { createDevicesStore } from "./lib/webapp/stores/devicesStore.js";
@@ -193,8 +194,6 @@
   let promoStatus = "";
   let promoIsError = false;
   let promoFieldError = "";
-  let toastText = "";
-  let toastTimer = null;
   let languageMenuOpen = false;
   let languageClickGuard = false;
   let languageClickGuardArmed = false;
@@ -2250,11 +2249,9 @@
   }
 
   function showToast(message) {
-    toastText = message;
-    if (toastTimer) window.clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => {
-      toastText = "";
-    }, 2400);
+    const text = String(message ?? "").trim();
+    if (!text) return;
+    sonnerToast(text, { duration: 2400 });
   }
 
   function goHome() {
@@ -2479,6 +2476,14 @@
 </svelte:head>
 
 <Tooltip.Provider>
+  <Toaster
+    position="bottom-right"
+    duration={2400}
+    visibleToasts={3}
+    gap={10}
+    offset="16px"
+    toastOptions={{ class: "app-toast" }}
+  />
   {#key currentLang}
     {#if isPreviewBoard}
       <svelte:component this={previewBoardComponent} config={CFG} mockData={MOCK_SOURCE.data} />
@@ -2866,10 +2871,6 @@
               </Button>
             </div>
           </Dialog>
-        {/if}
-
-        {#if toastText}
-          <div class="toast" role="status">{toastText}</div>
         {/if}
       </div>
     {/if}

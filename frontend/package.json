@@ -38,6 +38,7 @@
     "svelte": "^5.56.0",
     "svelte-check": "^4.6.0",
     "svelte-eslint-parser": "^1.4.1",
+    "svelte-sonner": "^1.1.1",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "4.3.0",
     "typescript": "^6.0.3",

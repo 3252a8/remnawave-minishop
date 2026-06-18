@@ -2707,11 +2707,8 @@ a {
   font-size: 13px;
 }
 
-.toast {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 120;
+.app-toast {
+  width: var(--width);
   max-width: min(420px, calc(100vw - 32px));
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
@@ -2721,7 +2718,16 @@ a {
   padding: 12px 14px;
   font-size: 13px;
   font-weight: 800;
-  animation: toast-enter 0.22s ease-out both;
+}
+
+.app-toast [data-content] {
+  gap: 0;
+}
+
+.app-toast [data-title] {
+  color: inherit;
+  font: inherit;
+  line-height: 1.35;
 }
 
 .motion-height-stage {
@@ -2832,18 +2838,6 @@ a {
 
   100% {
     background-position: -120% 0;
-  }
-}
-
-@keyframes toast-enter {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -3045,7 +3039,7 @@ a {
   .motion-fade-up,
   .motion-scale-in,
   .motion-shimmer,
-  .toast {
+  .app-toast {
     animation: none !important;
   }
 
