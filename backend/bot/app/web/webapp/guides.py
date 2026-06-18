@@ -52,9 +52,11 @@ async def public_subscription_guides_route(request: web.Request) -> web.Response
             status=404,
         )
 
+    panel_user_uuid = str(subscription.pop("_panel_user_uuid", "") or "").strip()
     status = await _subscription_guides_status_for_request(
         request,
         panel_short_uuid=subscription.get("panel_short_uuid"),
+        panel_user_uuid=panel_user_uuid,
     )
     payload = {
         "enabled": bool(status.get("enabled")),
@@ -101,20 +103,25 @@ async def _subscription_guides_status_for_request(
     *,
     user_id: Optional[int] = None,
     panel_short_uuid: Optional[str] = None,
+    panel_user_uuid: Optional[str] = None,
 ) -> Dict[str, Any]:
     settings: Settings = request.app["settings"]
     if not _subscription_guides_should_try_resolved_panel_config(settings):
         return await _subscription_guides_status_shared(request.app)
 
     short_uuid = str(panel_short_uuid or "").strip()
+    resolved_panel_user_uuid = str(panel_user_uuid or "").strip()
     if not short_uuid and user_id is not None:
-        short_uuid = await _active_panel_short_uuid_for_user(request, int(user_id))
+        context = await _active_panel_subscription_context_for_user(request, int(user_id))
+        short_uuid = str(context.get("panel_short_uuid") or "").strip()
+        resolved_panel_user_uuid = str(context.get("panel_user_uuid") or "").strip()
 
     if short_uuid:
         panel_status = await _subscription_guides_status_from_panel_short_uuid(
             request.app,
             settings,
             short_uuid,
+            panel_user_uuid=resolved_panel_user_uuid,
             request_headers=_subscription_page_request_headers(request),
         )
         if panel_status.get("enabled"):
@@ -181,6 +188,7 @@ async def _subscription_guides_status_from_panel_short_uuid(
     settings: Settings,
     short_uuid: str,
     *,
+    panel_user_uuid: Optional[str] = None,
     request_headers: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     panel_service = _panel_service_from_app(app)
@@ -200,6 +208,11 @@ async def _subscription_guides_status_from_panel_short_uuid(
                 f"Panel subscription page config for subscription {short_uuid} is unavailable"
             )
         config_uuid = _panel_subpage_config_uuid(detail)
+        if not config_uuid:
+            config_uuid = await _external_squad_subpage_config_uuid_for_panel_user(
+                panel_service,
+                panel_user_uuid,
+            )
         if config_uuid:
             get_config_by_uuid = getattr(
                 panel_service, "get_subscription_page_config_by_uuid", None
@@ -232,13 +245,39 @@ async def _subscription_guides_status_from_panel_short_uuid(
 def _panel_subpage_config_uuid(payload: Any) -> str:
     if not isinstance(payload, dict):
         return ""
-    value = str(payload.get("subpageConfigUuid") or "").strip()
-    if value:
-        return value
-    for key in ("response", "data", "result"):
+    for key in (
+        "subpageConfigUuid",
+        "subscriptionPageConfigUuid",
+        "subPageConfigUuid",
+        "subpage_config_uuid",
+    ):
+        value = str(payload.get(key) or "").strip()
+        if value:
+            return value
+    for key in (
+        "response",
+        "data",
+        "result",
+    ):
         nested = _panel_subpage_config_uuid(payload.get(key))
         if nested:
             return nested
+    for key in (
+        "subscriptionPageConfig",
+        "subpageConfig",
+        "subPageConfig",
+    ):
+        nested_payload = payload.get(key)
+        nested = _panel_subpage_config_uuid(nested_payload)
+        if nested:
+            return nested
+        if isinstance(nested_payload, dict):
+            nested_uuid = str(nested_payload.get("uuid") or "").strip()
+            if nested_uuid:
+                return nested_uuid
+    nested_uuid = str(payload.get("uuid") or "").strip()
+    if nested_uuid and not _looks_like_panel_subscription_page_config(payload):
+        return nested_uuid
     return ""
 
 
@@ -265,25 +304,31 @@ async def _default_panel_subscription_page_config_uuid(panel_service: Any) -> st
     return ""
 
 
-async def _active_panel_short_uuid_for_user(request: web.Request, user_id: int) -> str:
+async def _active_panel_subscription_context_for_user(
+    request: web.Request,
+    user_id: int,
+) -> Dict[str, str]:
     panel_service = _panel_service_from_app(request.app)
     get_user = getattr(panel_service, "get_user_by_uuid", None)
     if not callable(get_user):
-        return ""
+        return {}
 
     async_session_factory: sessionmaker = request.app["async_session_factory"]
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         panel_user_uuid = str(getattr(db_user, "panel_user_uuid", "") or "").strip()
         if not panel_user_uuid:
-            return ""
+            return {}
         local_sub = await subscription_dal.get_active_subscription_by_user_id(
             session,
             user_id,
             panel_user_uuid,
         )
         if not local_sub:
-            return ""
+            return {}
+        panel_short_uuid = str(getattr(local_sub, "panel_subscription_uuid", "") or "").strip()
+        if panel_short_uuid:
+            return {"panel_short_uuid": panel_short_uuid, "panel_user_uuid": panel_user_uuid}
 
     try:
         panel_user = await get_user(panel_user_uuid)
@@ -293,8 +338,11 @@ async def _active_panel_short_uuid_for_user(request: web.Request, user_id: int) 
             user_id,
             exc_info=True,
         )
-        return ""
-    return _panel_short_uuid_from_user(panel_user)
+        return {"panel_user_uuid": panel_user_uuid}
+    return {
+        "panel_short_uuid": _panel_short_uuid_from_user(panel_user),
+        "panel_user_uuid": panel_user_uuid,
+    }
 
 
 async def _public_subscription_payload(
@@ -335,6 +383,9 @@ async def _public_subscription_payload(
         "install_share_token": share_token,
         "username": username,
         "share_url": _public_install_url(request, share_token),
+        "_panel_user_uuid": str(getattr(local_sub, "panel_user_uuid", "") or "").strip()
+        if local_sub
+        else "",
     }
 
 
@@ -354,6 +405,59 @@ def _panel_short_uuid_from_user(panel_user: Any) -> str:
         if value:
             return value
     return ""
+
+
+async def _external_squad_subpage_config_uuid_for_panel_user(
+    panel_service: Any,
+    panel_user_uuid: Optional[str],
+) -> str:
+    user_uuid = str(panel_user_uuid or "").strip()
+    if not user_uuid:
+        return ""
+    get_user = getattr(panel_service, "get_user_by_uuid", None)
+    if not callable(get_user):
+        return ""
+    try:
+        panel_user = await get_user(user_uuid)
+    except Exception:
+        logger.warning(
+            "Failed to resolve external squad for install guides panel user %s",
+            user_uuid,
+            exc_info=True,
+        )
+        return ""
+
+    external_squad_uuid = _panel_external_squad_uuid_from_user(panel_user)
+    if not external_squad_uuid:
+        return ""
+
+    get_external_squad = getattr(panel_service, "get_external_squad", None)
+    if not callable(get_external_squad):
+        return ""
+    try:
+        external_squad = await get_external_squad(external_squad_uuid)
+    except Exception:
+        logger.warning(
+            "Failed to resolve external squad %s for install guides",
+            external_squad_uuid,
+            exc_info=True,
+        )
+        return ""
+    return _panel_subpage_config_uuid(external_squad)
+
+
+def _panel_external_squad_uuid_from_user(panel_user: Any) -> str:
+    if not isinstance(panel_user, dict):
+        return ""
+    for key in ("externalSquadUuid", "external_squad_uuid", "externalSquadUUID"):
+        value = str(panel_user.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _looks_like_panel_subscription_page_config(payload: Dict[str, Any]) -> bool:
+    return "config" in payload or "viewPosition" in payload or "webpageAllowed" in payload
 
 
 def _subscription_guides_admin_json_override_enabled(settings: Settings) -> bool:

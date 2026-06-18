@@ -26,6 +26,7 @@ _ENDPOINT_LOG_LABELS = (
     "/users/by-username",
     "/users/by-email",
     "/users",
+    "/external-squads",
     "/subscriptions/subpage-config",
     "/subscription-page-configs",
     "/hwid/devices/delete",
@@ -90,6 +91,14 @@ class PanelApiService:
             ttl_seconds=max(0, int(getattr(settings, "PANEL_DEVICES_CACHE_TTL_SECONDS", 5) or 0)),
             settings=settings,
             namespace="panel:devices",
+        )
+        self._external_squads_cache: AsyncTTLCache = AsyncTTLCache(
+            ttl_seconds=max(
+                0,
+                int(getattr(settings, "PANEL_EXTERNAL_SQUADS_CACHE_TTL_SECONDS", 300) or 0),
+            ),
+            settings=settings,
+            namespace="panel:external_squads",
         )
         self._all_users_cache: AsyncTTLCache = AsyncTTLCache(
             ttl_seconds=max(
@@ -888,6 +897,30 @@ class PanelApiService:
         logging.error(
             f"Failed to get subscription page config {config_uuid} from panel. Response: {response_data}"  # noqa: E501
         )
+        return None
+
+    async def get_external_squad(self, squad_uuid: str) -> Optional[Dict[str, Any]]:
+        squad_uuid = str(squad_uuid or "").strip()
+        if not squad_uuid:
+            return None
+        if self._external_squads_cache.ttl_seconds <= 0:
+            return await self._get_external_squad_uncached(squad_uuid)
+        return await self._external_squads_cache.get_or_load(
+            f"detail:{squad_uuid}",
+            lambda: self._get_external_squad_uncached(squad_uuid),
+        )
+
+    async def _get_external_squad_uncached(self, squad_uuid: str) -> Optional[Dict[str, Any]]:
+        response_data = await self._request(
+            "GET",
+            f"/external-squads/{squad_uuid}",
+            log_full_response=False,
+        )
+        if response_data and not response_data.get("error") and "response" in response_data:
+            response = response_data.get("response")
+            if isinstance(response, dict):
+                return response
+        logging.error("Failed to get external squad %s. Response: %s", squad_uuid, response_data)
         return None
 
     async def get_user_devices(self, user_uuid: str) -> Optional[List[Dict[str, Any]]]:

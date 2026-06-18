@@ -107,7 +107,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
         )
         request = self._request(self._settings(), panel_service)
         db_user = SimpleNamespace(panel_user_uuid="panel-user")
-        local_sub = SimpleNamespace(panel_subscription_uuid="not-the-short-uuid")
+        local_sub = SimpleNamespace(panel_subscription_uuid="user-short")
 
         with (
             self._auth_patch(),
@@ -125,11 +125,58 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(body["source"], "panel")
         windows_apps = [app["name"] for app in body["config"]["platforms"]["windows"]["apps"]]
         self.assertIn("External Squad App", windows_apps)
-        panel_service.get_user_by_uuid.assert_awaited_once_with("panel-user")
+        panel_service.get_user_by_uuid.assert_not_called()
         panel_service.get_subscription_page_config_by_short_uuid.assert_awaited_once()
         call = panel_service.get_subscription_page_config_by_short_uuid.await_args
         self.assertEqual(call.args, ("user-short",))
         self.assertEqual(call.kwargs["request_headers"]["host"], "app.example.test")
+        panel_service.get_subscription_page_config_by_uuid.assert_awaited_once_with(custom_uuid)
+        panel_service.get_subscription_page_config_list.assert_not_called()
+
+    async def test_uses_external_squad_config_when_short_uuid_response_has_no_uuid(self):
+        custom_uuid = "11111111-1111-1111-1111-111111111111"
+        resolved_config = json.loads(default_subscription_guides_config_text())
+        resolved_config["platforms"]["windows"]["apps"][0]["name"] = "External Squad App"
+        panel_service = SimpleNamespace(
+            get_user_by_uuid=AsyncMock(
+                return_value={
+                    "shortUuid": "user-short",
+                    "externalSquadUuid": "external-squad",
+                }
+            ),
+            get_external_squad=AsyncMock(
+                return_value={"uuid": "external-squad", "subpageConfigUuid": custom_uuid}
+            ),
+            get_subscription_page_config_by_short_uuid=AsyncMock(
+                return_value={"subpageConfigUuid": None, "webpageAllowed": True}
+            ),
+            get_subscription_page_config_by_uuid=AsyncMock(
+                return_value={"uuid": custom_uuid, "config": resolved_config}
+            ),
+            get_subscription_page_config_list=AsyncMock(),
+        )
+        request = self._request(self._settings(), panel_service)
+        db_user = SimpleNamespace(panel_user_uuid="panel-user")
+        local_sub = SimpleNamespace(panel_subscription_uuid="user-short")
+
+        with (
+            self._auth_patch(),
+            patch.object(guides.user_dal, "get_user_by_id", AsyncMock(return_value=db_user)),
+            patch.object(
+                guides.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=local_sub),
+            ),
+        ):
+            response = await guides.subscription_guides_route(request)
+
+        body = json.loads(response.text)
+        self.assertTrue(body["enabled"])
+        windows_apps = [app["name"] for app in body["config"]["platforms"]["windows"]["apps"]]
+        self.assertIn("External Squad App", windows_apps)
+        panel_service.get_subscription_page_config_by_short_uuid.assert_awaited_once()
+        panel_service.get_user_by_uuid.assert_awaited_once_with("panel-user")
+        panel_service.get_external_squad.assert_awaited_once_with("external-squad")
         panel_service.get_subscription_page_config_by_uuid.assert_awaited_once_with(custom_uuid)
         panel_service.get_subscription_page_config_list.assert_not_called()
 
@@ -200,7 +247,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
         )
         request = self._request(self._settings(), panel_service)
         db_user = SimpleNamespace(panel_user_uuid="panel-user")
-        local_sub = SimpleNamespace(panel_subscription_uuid="not-the-short-uuid")
+        local_sub = SimpleNamespace(panel_subscription_uuid=None)
 
         with (
             self._auth_patch(),
