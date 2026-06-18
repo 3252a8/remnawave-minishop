@@ -11,6 +11,7 @@ from config.settings import Settings
 from config.tariffs_config import (
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
+    payment_currency_code,
 )
 
 BOT_MENU_CONTEXT = "bot"
@@ -506,6 +507,16 @@ def get_hwid_device_packages_keyboard(
     return builder.as_markup()
 
 
+def _provider_filter_currency_code(settings: Settings, display_currency: str) -> str:
+    text = str(display_currency or "").strip()
+    if text in {"⭐", "★"}:
+        return "XTR"
+    return payment_currency_code(
+        text,
+        default=default_payment_currency_code_for_settings(settings),
+    )
+
+
 def get_payment_method_keyboard(
     months: int,
     price: float,
@@ -530,6 +541,7 @@ def get_payment_method_keyboard(
 
     value_str = _format_value(months)
     payment_sale_mode = sale_mode
+    provider_currency_code = _provider_filter_currency_code(settings, currency_symbol_val)
     selected_hwid_quote = hwid_renewal_quote or hwid_renewal_stars_quote
     if selected_hwid_quote:
         tariff_key = None
@@ -569,7 +581,7 @@ def get_payment_method_keyboard(
         if (
             not spec
             or not spec.callback_prefix
-            or not spec.is_usable_for_payment(settings, currency_symbol_val, price)
+            or not spec.is_usable_for_payment(settings, provider_currency_code, price)
             or not spec.is_available_to_user(
                 settings,
                 user_id=user_id,

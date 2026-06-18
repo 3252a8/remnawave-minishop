@@ -363,6 +363,51 @@ def test_payment_method_keyboard_filters_providers_by_payment_currency(monkeypat
     assert all(not callback.startswith("pay_yk:") for callback in callbacks)
 
 
+def test_payment_method_keyboard_uses_payment_currency_for_symbol_labels(monkeypatch):
+    monkeypatch.setenv("PLATEGA_ENABLED", "True")
+    monkeypatch.setenv("PLATEGA_SBP_ENABLED", "True")
+    monkeypatch.setenv("PLATEGA_MERCHANT_ID", "merchant")
+    monkeypatch.setenv("PLATEGA_SECRET", "secret")
+    monkeypatch.setenv("YOOKASSA_ENABLED", "True")
+    monkeypatch.setenv("YOOKASSA_SHOP_ID", "shop")
+    monkeypatch.setenv("YOOKASSA_SECRET_KEY", "secret")
+    monkeypatch.setenv("WATA_ENABLED", "True")
+    monkeypatch.setenv("WATA_API_TOKEN", "wata-token")
+    build_provider_configs(force=True)
+
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+        TARIFFS_CONFIG_PATH="missing-tariffs.json",
+        DEFAULT_CURRENCY_SYMBOL="\u20bd",
+        PAYMENT_METHODS_ORDER="platega_sbp,yookassa,wata",
+        STARS_ENABLED=False,
+    )
+    i18n = SimpleNamespace(gettext=lambda _lang, key, **_kwargs: key)
+
+    markup = get_payment_method_keyboard(
+        months=1,
+        price=150,
+        stars_price=None,
+        currency_symbol_val="\u20bd",
+        lang="en",
+        i18n_instance=i18n,
+        settings=settings,
+    )
+
+    callbacks = [
+        button.callback_data
+        for row in markup.inline_keyboard
+        for button in row
+        if button.callback_data
+    ]
+    assert "pay_platega_sbp:1:150:subscription" in callbacks
+    assert "pay_yk:1:150:subscription" in callbacks
+    assert "pay_wata:1:150:subscription" in callbacks
+
+
 def test_payment_method_keyboard_filters_paykilla_by_converted_minimum(monkeypatch):
     from bot.payment_providers import paykilla
 
