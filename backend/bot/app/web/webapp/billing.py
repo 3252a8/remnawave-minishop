@@ -20,12 +20,31 @@ from db.dal import message_log_dal
 
 
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
+_TRIAL_ACTIVATION_FAILURE_STATUSES = {
+    "trial_activation_failed_panel_link": 502,
+    "trial_activation_failed_panel_update": 502,
+    "trial_activation_failed_db": 500,
+    "user_not_found_for_trial": 404,
+}
 
 
 def _plain_text_message(value: Any) -> str:
     """Strip Telegram-style HTML markup from a localized message for the web app."""
     text = _HTML_TAG_RE.sub("", str(value))
     return html.unescape(text).strip()
+
+
+def _localized_webapp_message(request: web.Request, lang: str, key: str) -> str:
+    i18n = request.app.get("i18n")
+    if i18n and hasattr(i18n, "gettext"):
+        try:
+            message = str(i18n.gettext(lang, key) or "")
+        except Exception:
+            logger.debug("Failed to localize WebApp message key %s", key, exc_info=True)
+        else:
+            if message and message != key:
+                return _plain_text_message(message)
+    return key
 
 
 def _billing_iso_datetime(value: Optional[Any]) -> Optional[str]:
@@ -500,6 +519,10 @@ async def activate_trial_route(request: web.Request) -> web.Response:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
             return _json_error(403, "access_denied", "Access denied")
+        lang = _normalize_language(
+            getattr(db_user, "language_code", None)
+            or getattr(settings, "DEFAULT_LANGUAGE", "ru")
+        )
         telegram_required_reason = _trial_telegram_required_reason(settings, db_user)
         if telegram_required_reason:
             return _json_error(
@@ -516,8 +539,9 @@ async def activate_trial_route(request: web.Request) -> web.Response:
                 if activation_result
                 else "trial_activation_failed"
             )
-            status = 400 if message_key != "trial_activation_failed_panel_update" else 502
-            return _json_error(status, message_key, message_key)
+            status = _TRIAL_ACTIVATION_FAILURE_STATUSES.get(message_key, 400)
+            message = _localized_webapp_message(request, lang, message_key)
+            return _json_error(status, message_key, message)
 
         end_date = activation_result.get("end_date")
         config_link, connect_url = await prepare_config_links(

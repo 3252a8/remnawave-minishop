@@ -202,3 +202,71 @@ class WebAppTrialActivationTests(IsolatedAsyncioTestCase):
         self.assertEqual(payload["error"], "trial_telegram_required")
         self.assertEqual(payload["message"], "disposable_email")
         subscription_service.activate_trial_subscription.assert_not_awaited()
+
+    async def test_trial_activation_failure_returns_localized_panel_hint(self):
+        session = _Session()
+        settings = SimpleNamespace(
+            DEFAULT_LANGUAGE="ru",
+            TRIAL_ENABLED=True,
+            TRIAL_DURATION_DAYS=7,
+            TRIAL_TRAFFIC_LIMIT_GB=10,
+            TRIAL_WITHOUT_TELEGRAM_ENABLED=True,
+            DISPOSABLE_EMAIL_DOMAINS="",
+            LOG_TRIAL_ACTIVATIONS=False,
+        )
+        db_user = SimpleNamespace(
+            user_id=42,
+            telegram_id=None,
+            is_banned=False,
+            email="email-only@example.com",
+            language_code="ru",
+        )
+        subscription_service = SimpleNamespace(
+            activate_trial_subscription=AsyncMock(
+                return_value={
+                    "activated": False,
+                    "message_key": "trial_activation_failed_panel_link",
+                }
+            )
+        )
+        i18n = SimpleNamespace(
+            gettext=lambda lang, key: (
+                "<b>Не удалось активировать пробный период.</b>\n"
+                "Проверьте PANEL_API_URL и PANEL_API_KEY."
+                if lang == "ru" and key == "trial_activation_failed_panel_link"
+                else key
+            )
+        )
+        request = SimpleNamespace(
+            app={
+                "settings": settings,
+                "async_session_factory": _SessionFactory(session),
+                "subscription_service": subscription_service,
+                "i18n": i18n,
+            }
+        )
+
+        with (
+            patch.object(billing_module, "_require_user_id", return_value=42),
+            patch.object(
+                billing_module,
+                "_enforce_webapp_rate_limit",
+                AsyncMock(return_value=None),
+            ),
+            patch.object(
+                billing_module.user_dal,
+                "get_user_by_id",
+                AsyncMock(return_value=db_user),
+            ),
+        ):
+            response = await billing_module.activate_trial_route(request)
+
+        payload = json.loads(response.text)
+        self.assertEqual(response.status, 502)
+        self.assertEqual(payload["error"], "trial_activation_failed_panel_link")
+        self.assertEqual(
+            payload["message"],
+            "Не удалось активировать пробный период.\nПроверьте PANEL_API_URL и PANEL_API_KEY.",
+        )
+        subscription_service.activate_trial_subscription.assert_awaited_once_with(session, 42)
+        self.assertEqual(session.rollback_count, 1)
