@@ -5,6 +5,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 USER_DETAIL = REPO_ROOT / "frontend/src/admin/sections/UserDetailModal.svelte"
 STATS_SECTION = REPO_ROOT / "frontend/src/admin/sections/StatsSection.svelte"
+ADMIN_PANEL = REPO_ROOT / "frontend/src/admin/AdminPanel.svelte"
 ADMIN_CSS = REPO_ROOT / "frontend/src/styles/admin.css"
 USERS_STORE = REPO_ROOT / "frontend/src/lib/admin/stores/usersStore.js"
 
@@ -143,3 +144,15 @@ def test_stats_recent_payments_open_payment_and_user_cards():
     assert "payments_open_user" in table_block
     assert "admin-payment-id-btn" in source
     assert "admin-payments-user-btn" in source
+
+
+def test_stats_recent_payment_user_button_stays_in_current_section():
+    source = ADMIN_PANEL.read_text(encoding="utf-8")
+
+    assert "onOpenUserCard={openSectionUserCard}" in source
+    assert re.search(
+        r'\$: openSectionUserCard\s*=\s*active === "payments"\s*\?\s*openPaymentUserCard'
+        r'\s*:\s*active === "logs"\s*\?\s*openLogsUserCard\s*:\s*openUserCard;',
+        source,
+        re.S,
+    )

@@ -217,11 +217,11 @@
   $: meta = SECTION_META[active] || { title: active, subtitle: "" };
   $: activeSection = SECTION_BY_ID.get(active);
   $: openSectionUserCard =
-    active === "logs"
-      ? openLogsUserCard
-      : active === "support"
-        ? openUserCard
-        : openPaymentUserCard;
+    active === "payments"
+      ? openPaymentUserCard
+      : active === "logs"
+        ? openLogsUserCard
+        : openUserCard;
   $: currentLanguageOption =
     languageOptions.find((option) => option.value === currentLang) || languageOptions[0];
 
