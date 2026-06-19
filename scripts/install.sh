@@ -1211,10 +1211,6 @@ wait_target_postgres() {
 download_importer() {
     importer="$TARGET_DIR/$IMPORTER_CACHE_PATH"
     mkdir -p "$(dirname "$importer")"
-    if [ -f "$importer" ] && confirm "Use cached importer at $importer instead of downloading $SOURCE_REF?" 0 >&2; then
-        printf '%s' "$importer"
-        return 0
-    fi
     url=$(raw_url "$SOURCE_REPO" "$SOURCE_REF" "backend/scripts/import_legacy.py")
     tmp="$TARGET_DIR/.import_legacy.$$"
     download_to "$url" "$tmp" || {

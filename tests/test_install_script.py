@@ -109,14 +109,12 @@ def test_shell_installer_can_reset_target_database_before_remnashop_import():
     assert "dropdb -U \"$POSTGRES_USER\" --if-exists \"$POSTGRES_DB\"" in script
 
 
-def test_shell_installer_refreshes_importer_by_default():
+def test_shell_installer_refreshes_importer_without_prompting_inside_command_substitution():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
-    assert "Use cached importer at $importer instead of downloading $SOURCE_REF?" in script
-    assert (
-        'confirm "Use cached importer at $importer instead of downloading $SOURCE_REF?" 0'
-        in script
-    )
+    assert "Use cached importer" not in script
+    assert 'download_to "$url" "$tmp"' in script
+    assert 'Backed up $importer' in script
 
 
 def test_shell_installer_connects_local_remnashop_db_container_for_import():
