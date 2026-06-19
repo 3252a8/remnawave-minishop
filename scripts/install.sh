@@ -1013,7 +1013,11 @@ server {
 # END remnawave-minishop managed by install.sh
 EOF
 
-    mv "$tmp" "$nginx_conf" || return 1
+    if ! cat "$tmp" > "$nginx_conf"; then
+        rm -f "$tmp"
+        return 1
+    fi
+    rm -f "$tmp"
     if docker inspect "$nginx_container" >/dev/null 2>&1; then
         if docker exec "$nginx_container" nginx -t; then
             docker exec "$nginx_container" nginx -s reload || docker restart "$nginx_container" >/dev/null
