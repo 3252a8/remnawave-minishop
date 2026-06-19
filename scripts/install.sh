@@ -758,11 +758,16 @@ compose() {
     fi
 }
 
+mask_compose_log_args() {
+    printf '%s' "$*" | sed -E 's#((postgres|postgresql)://[^:/[:space:]@]+:)[^@[:space:]]+@#\1***@#g'
+}
+
 run_compose() {
+    log_args=$(mask_compose_log_args "$@")
     if [ "$COMPOSE_STYLE" = "docker" ]; then
-        color "+ docker compose $*" "$DIM"
+        color "+ docker compose $log_args" "$DIM"
     else
-        color "+ docker-compose $*" "$DIM"
+        color "+ docker-compose $log_args" "$DIM"
     fi
     printf '\n'
     compose "$@"
