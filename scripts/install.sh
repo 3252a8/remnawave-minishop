@@ -1298,7 +1298,7 @@ remnashop_webhook_checklist() {
 
 run_import_command() {
     dry="$1"
-    set -- run --rm \
+    set -- run --rm -T \
         --user 0:0 \
         -v "$IMPORTER_PATH:/app/backend/scripts/import_legacy.py:ro"
     if [ -n "$SOURCE_ENV_PATH" ]; then
@@ -1321,7 +1321,7 @@ run_import_command() {
     if [ "$dry" = "1" ]; then
         set -- "$@" --dry-run
     fi
-    (cd "$TARGET_DIR" && run_compose "$@")
+    (cd "$TARGET_DIR" && run_compose "$@" < /dev/null)
 }
 
 choose_legacy_source() {

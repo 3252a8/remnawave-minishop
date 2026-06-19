@@ -56,6 +56,7 @@ def test_shell_installer_downloads_raw_files_and_runs_import_in_container():
     assert raw_github_template in script
     assert "git clone" not in script
     assert "backend python backend/scripts/import_legacy.py" in script
+    assert "run --rm -T" in script
     assert "--user 0:0" in script
     assert "Optional source Remnashop .env path" in script
     assert "--source-env-file /tmp/remnashop.env" in script
