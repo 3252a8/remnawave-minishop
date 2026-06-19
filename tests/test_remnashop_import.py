@@ -74,6 +74,21 @@ def test_remnashop_existing_user_profile_can_be_overwritten_explicitly():
     assert user.language_code == "en"
 
 
+def test_remnashop_promocode_subscription_reward_reads_plan_snapshot():
+    importer = RemnashopImporter.__new__(RemnashopImporter)
+
+    assert (
+        importer._promo_bonus_days(
+            {
+                "reward_type": "SUBSCRIPTION",
+                "reward": None,
+                "plan_snapshot": {"duration_days": 45},
+            }
+        )
+        == 45
+    )
+
+
 def test_remnashop_pricing_helpers_read_final_amount_and_currency():
     pricing = {"final_amount": "199.50", "currency": "rub"}
 

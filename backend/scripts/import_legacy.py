@@ -2140,9 +2140,9 @@ class RemnashopImporter:
                 await self.target.execute(select(PromoCode).where(PromoCode.code == code))
             ).scalar_one_or_none()
             activations = activation_rows_by_code.get(code, [])
-            valid_until = None
+            valid_until = _as_utc(row.get("expires_at"))
             lifetime_days = _to_int(row.get("lifetime"))
-            if lifetime_days and _as_utc(row.get("created_at")):
+            if valid_until is None and lifetime_days and _as_utc(row.get("created_at")):
                 valid_until = _as_utc(row.get("created_at"))
                 if valid_until:
                     valid_until = valid_until + timedelta(days=lifetime_days)
@@ -2181,7 +2181,8 @@ class RemnashopImporter:
                 metadata={
                     "reward_type": str(row.get("reward_type") or ""),
                     "reward": row.get("reward"),
-                    "plan": _jsonish(row.get("plan")),
+                    "plan": _jsonish(row.get("plan") or row.get("plan_snapshot")),
+                    "expires_at": row.get("expires_at"),
                     "lifetime": row.get("lifetime"),
                 },
             )
@@ -2216,7 +2217,7 @@ class RemnashopImporter:
         if reward_type == "DURATION":
             return _to_int(row.get("reward"))
         if reward_type == "SUBSCRIPTION":
-            plan = _jsonish(row.get("plan"))
+            plan = _jsonish(row.get("plan") or row.get("plan_snapshot"))
             return (
                 _to_int(plan.get("duration_days"))
                 or _to_int(plan.get("days"))
