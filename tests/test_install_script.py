@@ -17,6 +17,7 @@ def test_shell_installer_help_does_not_require_python():
         ["sh", str(INSTALL_SCRIPT), "--help"],
         check=True,
         text=True,
+        encoding="utf-8",
         capture_output=True,
     )
 
@@ -33,12 +34,13 @@ def test_shell_installer_exits_on_stdin_eof():
         ["sh", str(INSTALL_SCRIPT)],
         input="",
         text=True,
+        encoding="utf-8",
         capture_output=True,
         timeout=5,
     )
 
     assert result.returncode != 0
-    assert "Input ended while reading choice" in result.stderr
+    assert "Ввод завершился во время выбора пункта" in result.stderr
 
 
 def test_shell_installer_is_the_only_install_entrypoint():
@@ -60,11 +62,11 @@ def test_shell_installer_downloads_raw_files_and_runs_import_in_container():
     assert "--user 0:0" in script
     assert "mask_compose_log_args" in script
     assert "postgresql)://[^:/[:space:]@]+:" in script
-    assert "Optional source Remnashop .env path" in script
+    assert "Путь к .env Remnashop для переноса настроек" in script
     assert "--source-env-file /tmp/remnashop.env" in script
     assert "--dry-run" in script
-    assert "Install new stack and run migration" in script
-    assert "Run migration only" in script
+    assert "Установить новый remnawave-minishop и мигрировать данные из другого бота" in script
+    assert "Мигрировать данные в уже установленный remnawave-minishop" in script
 
 
 def test_shell_installer_download_helper_does_not_clobber_target_name():
@@ -78,9 +80,11 @@ def test_shell_installer_download_helper_does_not_clobber_target_name():
 def test_shell_installer_supports_egames_reverse_proxy_profile():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
-    assert "Existing eGames Remnawave reverse proxy" in script
+    assert "Уже установленная Remnawave через eGames" in script
     assert 'PROFILE_KEY="egames"' in script
     assert "DEPLOYMENT_PROFILE" in script
+    assert "detect_egames_nginx_conf" in script
+    assert "detect_egames_nginx_container" in script
     assert "configure_egames_reverse_proxy" in script
     assert "configure_egames_panel_webhook" in script
     assert "PANEL_API_COOKIE" in script
@@ -95,10 +99,10 @@ def test_shell_installer_checks_dns_and_can_prepare_nginx_certificates():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
     assert "check_public_dns_records" in script
-    assert "Check DNS A records for WEBHOOK_HOST and MINIAPP_HOST now?" in script
+    assert "Проверить A-records для WEBHOOK_HOST и MINIAPP_HOST сейчас?" in script
     assert "configure_nginx_certificates" in script
-    assert "Nginx certificate setup" in script
-    assert "Certbot Cloudflare DNS-01 wildcard certificate" in script
+    assert "Настройка сертификатов Nginx" in script
+    assert "Certbot Cloudflare DNS-01" in script
     assert "--dns-cloudflare" in script
     assert "python3-certbot-dns-cloudflare" in script
     assert "--preferred-challenges http" in script
@@ -128,7 +132,10 @@ def test_shell_installer_can_reset_target_database_before_remnashop_import():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
     assert "reset_target_compose_database" in script
-    assert "Reset target Minishop database before Remnashop import" in script
+    assert "Сбросить целевую базу Minishop перед импортом" in script
+    assert "create_pre_migration_backup" in script
+    assert "backups/pre-${label}-migration" in script
+    assert "restore.sh" in script
     assert "run_compose stop backend worker migrate" in script
     assert "dropdb -U \"$POSTGRES_USER\" --if-exists \"$POSTGRES_DB\"" in script
 
@@ -149,7 +156,7 @@ def test_shell_installer_refreshes_importer_without_prompting_inside_command_sub
 
     assert "Use cached importer" not in script
     assert 'download_to "$url" "$tmp"' in script
-    assert 'Backed up $importer' in script
+    assert 'Backup importer сохранен' in script
 
 
 def test_shell_installer_connects_local_remnashop_db_container_for_import():
@@ -164,7 +171,7 @@ def test_shell_installer_connects_local_remnashop_db_container_for_import():
 def test_shell_installer_supports_legacy_tgshop_volume_and_dsn_paths():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
-    assert "Old remnawave-tg-shop" in script
+    assert "Старый remnawave-tg-shop" in script or "старого remnawave-tg-shop" in script
     assert "remnawave-tg-shop-db-data" in script
     assert "remnawave-minishop-db-data" in script
     assert "pg_dump --clean --if-exists" in script
@@ -187,6 +194,7 @@ def test_shell_installer_prints_remnashop_webhook_checklist():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
     assert "remnashop_webhook_checklist" in script
+    assert "Обновление внешних webhook" in script
     assert "Remnawave Panel -> WEBHOOK_URL" in script
     assert "PANEL_WEBHOOK_SECRET" in script
     assert "/webhook/panel" in script
@@ -198,3 +206,16 @@ def test_shell_installer_prints_remnashop_webhook_checklist():
     assert "/webhook/freekassa" in script
     assert "/webhook/platega" in script
     assert "/tg/webhook" in script
+
+
+def test_shell_installer_uses_russian_defaults_and_autodetects_sources():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert 'DEFAULT_INSTALL_DIR="${MINISHOP_INSTALL_DIR:-/opt/remnawave-minishop}"' in script
+    assert "Мастер установки remnawave-minishop" in script
+    assert "https://minishop.minidoc.cc/getting-started/setup/" in script
+    assert "https://minishop.minidoc.cc/migrations/remnashop/" in script
+    assert "detect_remnashop_source_dsn" in script
+    assert "detect_remnashop_env_file" in script
+    assert "Нашел Remnashop PostgreSQL" in script
+    assert "Найден Remnashop" in script
