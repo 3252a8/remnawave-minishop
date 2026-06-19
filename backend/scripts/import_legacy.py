@@ -442,8 +442,8 @@ def remnashop_payment_gateway_overrides(
     overrides: dict[str, Any] = {}
     warnings = [
         (
-            f"Skipped encrypted Remnashop {gateway_type} setting '{path}': "
-            "APP_CRYPT_KEY is missing or invalid"
+            f"Пропущена зашифрованная настройка Remnashop {gateway_type} '{path}': "
+            "APP_CRYPT_KEY не задан или некорректен"
         )
         for path in skipped_secret_paths
     ]
@@ -460,7 +460,7 @@ def remnashop_payment_gateway_overrides(
         _add_override(overrides, "YOOKASSA_VAT_CODE", settings.get("vat_code"))
         if currency and currency != "RUB":
             warnings.append(
-                f"YooKassa supports RUB only in this shop; source currency was {currency}"
+                f"YooKassa в Minishop поддерживает только RUB; в источнике указана валюта {currency}."
             )
         return _provider_mapping_result(gateway_type, ["yookassa"], overrides, warnings)
 
@@ -474,9 +474,9 @@ def remnashop_payment_gateway_overrides(
         _add_override(overrides, "CRYPTOPAY_TOKEN", settings.get("api_key"))
         if currency and currency != "RUB":
             warnings.append(
-                f"CryptoPay source currency was {currency}; Minishop keeps payment currency "
-                "controlled by tariffs/default currency. Configure CRYPTOPAY_ASSET manually "
-                "if this instance needs a different default."
+                f"В Remnashop для CryptoPay указана валюта {currency}; Minishop управляет "
+                "валютой платежей через тарифы/default currency. Если нужен другой default, "
+                "настройте CRYPTOPAY_ASSET вручную."
             )
         return _provider_mapping_result(gateway_type, ["cryptopay"], overrides, warnings)
 
@@ -486,9 +486,9 @@ def remnashop_payment_gateway_overrides(
         _add_override(overrides, "HELEKET_API_KEY", settings.get("api_key"))
         if currency and currency != "RUB":
             warnings.append(
-                f"Heleket source currency was {currency}; Minishop keeps payment currency "
-                "controlled by tariffs/default currency. Configure HELEKET_CURRENCY manually "
-                "if this instance needs a different default."
+                f"В Remnashop для Heleket указана валюта {currency}; Minishop управляет "
+                "валютой платежей через тарифы/default currency. Если нужен другой default, "
+                "настройте HELEKET_CURRENCY вручную."
             )
         return _provider_mapping_result(gateway_type, ["heleket"], overrides, warnings)
 
@@ -506,9 +506,9 @@ def remnashop_payment_gateway_overrides(
         )
         if currency and currency != "RUB":
             warnings.append(
-                f"PayKilla source currency was {currency}; Minishop keeps payment currency "
-                "controlled by tariffs/default currency. Configure PAYKILLA_CURRENCY and "
-                "PAYKILLA_PAYMENT_CURRENCIES manually if this instance needs a different default."
+                f"В Remnashop для PayKilla указана валюта {currency}; Minishop управляет "
+                "валютой платежей через тарифы/default currency. Если нужен другой default, "
+                "настройте PAYKILLA_CURRENCY и PAYKILLA_PAYMENT_CURRENCIES вручную."
             )
         return _provider_mapping_result(gateway_type, ["paykilla"], overrides, warnings)
 
@@ -521,8 +521,8 @@ def remnashop_payment_gateway_overrides(
         _add_override(overrides, "FREEKASSA_PAYMENT_IP", settings.get("customer_ip"))
         if settings.get("customer_email"):
             warnings.append(
-                "FreeKassa customer_email was captured by Remnashop but is not a "
-                "Minishop provider setting"
+                "Remnashop сохранил FreeKassa customer_email, но в Minishop это не "
+                "настройка платежного провайдера."
             )
         return _provider_mapping_result(gateway_type, ["freekassa"], overrides, warnings)
 
@@ -535,9 +535,9 @@ def remnashop_payment_gateway_overrides(
         _add_override(overrides, "PLATEGA_SBP_METHOD", settings.get("payment_method"))
         if currency and currency != "RUB":
             warnings.append(
-                f"Platega source currency was {currency}; Minishop keeps payment currency "
-                "controlled by tariffs/default currency. Configure PLATEGA_SUPPORTED_CURRENCIES "
-                "manually if this instance needs a different currency."
+                f"В Remnashop для Platega указана валюта {currency}; Minishop управляет "
+                "валютой платежей через тарифы/default currency. Если нужна другая валюта, "
+                "настройте PLATEGA_SUPPORTED_CURRENCIES вручную."
             )
         return _provider_mapping_result(gateway_type, ["platega_sbp"], overrides, warnings)
 
@@ -888,14 +888,15 @@ def remnashop_build_tariff_catalog(
             continue
         if plan_type == "DEVICES":
             warnings.append(
-                f"Skipped Remnashop device-only plan {plan_id or plan.get('name')}: "
-                "Minishop imports device limits inside tariffs, not standalone device plans."
+                f"Пропущен тариф Remnashop только для устройств {plan_id or plan.get('name')}: "
+                "Minishop переносит лимиты устройств внутри тарифов, а не отдельными "
+                "тарифами устройств."
             )
             continue
         if plan_type not in {"BOTH", "TRAFFIC", "UNLIMITED", "DURATION", "SUBSCRIPTION"}:
             warnings.append(
-                f"Skipped unsupported Remnashop plan {plan_id or plan.get('name')} "
-                f"with type {plan_type or 'unknown'}."
+                f"Пропущен неподдерживаемый тариф Remnashop {plan_id or plan.get('name')} "
+                f"с типом {plan_type or 'unknown'}."
             )
             continue
 
@@ -905,8 +906,8 @@ def remnashop_build_tariff_catalog(
         enabled = _remnashop_plan_enabled(plan)
         if not enabled and _truthy(plan.get("is_active")):
             warnings.append(
-                f"Imported Remnashop restricted plan {plan_id or name} as disabled tariff; "
-                "review its availability rules manually."
+                f"Тариф Remnashop {plan_id or name} импортирован выключенным: у него есть "
+                "ограничения доступности, проверьте правила вручную."
             )
 
         tariff: dict[str, Any] = {
@@ -919,17 +920,19 @@ def remnashop_build_tariff_catalog(
         }
         if plan.get("external_squad"):
             warnings.append(
-                f"Remnashop plan {plan_id or name} has "
+                f"У тарифа Remnashop {plan_id or name} задан "
                 f"external_squad={plan.get('external_squad')}; "
-                "Minishop tariffs keep internal squads only, configure external routing manually "
-                "if needed."
+                "Minishop переносит только internal squads. Если нужна внешняя маршрутизация, "
+                "настройте ее вручную."
             )
 
         plan_durations = duration_rows_by_plan.get(plan_id or -1, [])
         if plan_type == "TRAFFIC":
             traffic_gb = _to_float(plan.get("traffic_limit"))
             if traffic_gb is None or traffic_gb <= 0:
-                warnings.append(f"Skipped traffic plan {plan_id or name}: traffic_limit is empty.")
+                warnings.append(
+                    f"Пропущен traffic-тариф {plan_id or name}: traffic_limit пустой."
+                )
                 continue
             packages: dict[str, list[dict[str, float]]] = defaultdict(list)
             seen_packages: set[tuple[str, float, float]] = set()
@@ -945,7 +948,7 @@ def remnashop_build_tariff_catalog(
                     packages[currency].append({"gb": traffic_gb, "price": price})
             if not any(packages.values()):
                 warnings.append(
-                    f"Skipped traffic plan {plan_id or name}: no positive prices found."
+                    f"Пропущен traffic-тариф {plan_id or name}: не найдены положительные цены."
                 )
                 continue
             tariff.update(
@@ -971,7 +974,9 @@ def remnashop_build_tariff_catalog(
                 for currency, price in duration_prices.items():
                     period_prices[currency][str(months)] = price
             if not enabled_periods:
-                warnings.append(f"Skipped period plan {plan_id or name}: no paid durations found.")
+                warnings.append(
+                    f"Пропущен периодический тариф {plan_id or name}: не найдены оплачиваемые сроки."
+                )
                 continue
             tariff.update(
                 {
@@ -997,7 +1002,9 @@ def remnashop_build_tariff_catalog(
         None,
     )
     if default_tariff is None:
-        warnings.append("No enabled Remnashop tariffs were generated; tariff catalog was skipped.")
+        warnings.append(
+            "Не удалось сгенерировать ни одного включенного тарифа Remnashop; каталог тарифов пропущен."
+        )
         return {"catalog": None, "tariff_map": tariff_map, "warnings": warnings}
 
     catalog = {
@@ -1008,7 +1015,7 @@ def remnashop_build_tariff_catalog(
     try:
         TariffsConfig.model_validate(catalog)
     except Exception as exc:
-        warnings.append(f"Generated Remnashop tariff catalog is invalid: {exc}")
+        warnings.append(f"Сгенерированный каталог тарифов Remnashop некорректен: {exc}")
         return {"catalog": None, "tariff_map": tariff_map, "warnings": warnings}
 
     return {"catalog": catalog, "tariff_map": tariff_map, "warnings": warnings}
@@ -1067,8 +1074,9 @@ def remnashop_notification_overrides(notifications: Any) -> dict[str, Any]:
     }
     if len(distinct_targets) > 1:
         warnings.append(
-            "Remnashop has multiple notification targets; Minishop uses one LOG_CHAT_ID. "
-            f"Imported route {selected['route']} and stored all routes in migration notes."
+            "В Remnashop найдено несколько целей для уведомлений; Minishop использует один "
+            f"LOG_CHAT_ID. Импортирован route {selected['route']}, все routes сохранены "
+            "в заметках миграции."
         )
 
     return {"overrides": overrides, "route": selected, "warnings": warnings}
@@ -1245,7 +1253,9 @@ class RemnashopImporter:
         required = {"users", "subscriptions", "transactions", "referrals", "settings"}
         missing = sorted(required - self.tables)
         if missing:
-            self.summary["warnings"].append(f"Missing source tables: {', '.join(missing)}")
+            self.summary["warnings"].append(
+                f"В источнике отсутствуют таблицы: {', '.join(missing)}"
+            )
 
     async def _fetch_rows(self, table: str, *, order_by: str = "id") -> list[dict[str, Any]]:
         if table not in self.tables:
@@ -1433,12 +1443,16 @@ class RemnashopImporter:
 
         field = get_field_by_key(key)
         if field is None:
-            self.summary["warnings"].append(f"Skipped unknown admin setting override: {key}")
+            self.summary["warnings"].append(
+                f"Пропущена неизвестная админ-настройка: {key}"
+            )
             return False
         try:
             value = coerce_value(field, value)
         except ValueError as exc:
-            self.summary["warnings"].append(f"Skipped invalid admin setting override {key}: {exc}")
+            self.summary["warnings"].append(
+                f"Пропущено некорректное значение админ-настройки {key}: {exc}"
+            )
             return False
 
         now = datetime.now(timezone.utc)
@@ -1547,8 +1561,8 @@ class RemnashopImporter:
                 self.summary["payment_provider_settings"]["unsupported"] += 1
                 display_type = gateway_type or str(row.get("type") or "unknown")
                 self.summary["warnings"].append(
-                    f"Remnashop payment provider {display_type} is not supported by "
-                    "Minishop; configure it manually if it is still needed."
+                    f"Платежный провайдер Remnashop {display_type} не поддерживается "
+                    "Minishop; настройте его вручную, если он еще нужен."
                 )
                 await self._upsert_mapping(
                     entity_type="payment_provider_settings",
@@ -1696,19 +1710,19 @@ class RemnashopImporter:
             except (OSError, json.JSONDecodeError) as exc:
                 if self.on_conflict == "skip":
                     self.summary["warnings"].append(
-                        f"Skipped tariff catalog write because {catalog_path} exists "
-                        f"and cannot be read: {exc}"
+                        f"Запись каталога тарифов пропущена: {catalog_path} уже существует "
+                        f"и не читается: {exc}"
                     )
                     self.summary["tariffs"]["catalog_write_skipped"] += 1
                     return None
                 self.summary["warnings"].append(
-                    f"Overwriting unreadable tariff catalog {catalog_path}: {exc}"
+                    f"Перезаписываем нечитаемый каталог тарифов {catalog_path}: {exc}"
                 )
 
         if catalog_path.exists() and self.on_conflict == "skip":
             self.summary["tariffs"]["catalog_write_skipped"] += 1
             self.summary["warnings"].append(
-                f"Skipped tariff catalog write because {catalog_path} already exists."
+                f"Запись каталога тарифов пропущена: {catalog_path} уже существует."
             )
             return None
 
@@ -1716,7 +1730,9 @@ class RemnashopImporter:
         try:
             TariffsConfig.model_validate(catalog)
         except Exception as exc:
-            self.summary["warnings"].append(f"Skipped invalid merged tariff catalog: {exc}")
+            self.summary["warnings"].append(
+                f"Пропущен некорректный объединенный каталог тарифов: {exc}"
+            )
             self.summary["tariffs"]["catalog_write_skipped"] += 1
             return None
 
@@ -1739,7 +1755,8 @@ class RemnashopImporter:
     async def _upsert_legacy_referral_code(self, *, code: str, user_id: int) -> None:
         if len(code) > 128:
             self.summary["warnings"].append(
-                f"Skipped overlong legacy referral code for user {user_id}: {len(code)} chars"
+                f"Пропущен слишком длинный legacy referral code пользователя {user_id}: "
+                f"{len(code)} символов"
             )
             return
         now = datetime.now(timezone.utc)

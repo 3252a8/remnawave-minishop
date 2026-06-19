@@ -101,6 +101,10 @@ def test_shell_installer_does_not_rename_bot_and_reports_migration_success():
     assert "remnashop-apply-summary.json" in script
     assert "remnashop-post-migration-message.txt" in script
     assert '("providers_mapped", "перенесено")' in script
+    assert "for warning in warnings:" in script
+    assert "warnings[:5]" not in script
+    assert "Сообщение обрезано" not in script
+    assert "split_telegram_messages" in script
 
 
 def test_shell_installer_can_reset_target_database_before_remnashop_import():

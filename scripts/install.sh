@@ -1469,10 +1469,8 @@ lines = [
 
 if warnings:
     lines.extend(["", f"Предупреждения: {len(warnings)}"])
-    for warning in warnings[:5]:
+    for warning in warnings:
         lines.append(f"- {warning}")
-    if len(warnings) > 5:
-        lines.append(f"- ... еще {len(warnings) - 5}")
 
 lines.extend(
     [
@@ -1506,10 +1504,36 @@ if payment_actions:
             lines.append(f"  {provider}: {new_url}")
 
 text = "\n".join(lines)
-if len(text) > 3900:
-    text = text[:3800].rstrip() + "\n\nСообщение обрезано; полный summary лежит на сервере."
 message_path.write_text(text + "\n", encoding="utf-8")
 print(text)
+
+
+def split_telegram_messages(value, limit=3900):
+    chunks = []
+    current = []
+    current_len = 0
+    for line in value.splitlines():
+        if len(line) > limit:
+            if current:
+                chunks.append("\n".join(current))
+                current = []
+                current_len = 0
+            for start in range(0, len(line), limit):
+                chunks.append(line[start : start + limit])
+            continue
+
+        extra = len(line) + (1 if current else 0)
+        if current and current_len + extra > limit:
+            chunks.append("\n".join(current))
+            current = [line]
+            current_len = len(line)
+        else:
+            current.append(line)
+            current_len += extra
+
+    if current:
+        chunks.append("\n".join(current))
+    return chunks or [""]
 
 
 def parse_int(value):
@@ -1549,22 +1573,27 @@ if not unique_targets:
     raise SystemExit(0)
 
 for target in unique_targets:
-    payload = {
-        "chat_id": str(target["chat_id"]),
-        "text": text,
-        "disable_web_page_preview": "true",
-    }
-    if target.get("thread_id") is not None:
-        payload["message_thread_id"] = str(target["thread_id"])
-    data = urllib.parse.urlencode(payload).encode("utf-8")
-    request = urllib.request.Request(
-        f"https://api.telegram.org/bot{bot_token}/sendMessage",
-        data=data,
-    )
+    chunks = split_telegram_messages(text)
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
-            response.read()
-        print(f"Sent migration success notification to {target['label']} {target['chat_id']}.")
+        for chunk in chunks:
+            payload = {
+                "chat_id": str(target["chat_id"]),
+                "text": chunk,
+                "disable_web_page_preview": "true",
+            }
+            if target.get("thread_id") is not None:
+                payload["message_thread_id"] = str(target["thread_id"])
+            data = urllib.parse.urlencode(payload).encode("utf-8")
+            request = urllib.request.Request(
+                f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                data=data,
+            )
+            with urllib.request.urlopen(request, timeout=20) as response:
+                response.read()
+        suffix = f" ({len(chunks)} messages)" if len(chunks) > 1 else ""
+        print(
+            f"Sent migration success notification to {target['label']} {target['chat_id']}{suffix}."
+        )
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         print(
             f"Warning: could not send migration success notification to {target['label']} {target['chat_id']}: {exc}",

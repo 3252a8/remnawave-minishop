@@ -204,14 +204,11 @@ async def on_startup_configured(dispatcher: Dispatcher):
         )
 
     async def _configure_bot_commands() -> None:
+        start_description = settings.START_COMMAND_DESCRIPTION or "Главное меню"
         bot_commands = [
+            BotCommand(command="start", description=start_description),
             BotCommand(command="tg", description="Интерфейс в боте"),
         ]
-        if settings.START_COMMAND_DESCRIPTION:
-            bot_commands.insert(
-                0,
-                BotCommand(command="start", description=settings.START_COMMAND_DESCRIPTION),
-            )
         command_scopes_to_clear = [
             BotCommandScopeDefault(),
             BotCommandScopeAllPrivateChats(),
