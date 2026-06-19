@@ -136,6 +136,6 @@ networks:
 
 volumes:
   postgres-data:
-    name: remnawave-minishop-db-data
+    name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-db-data
   redis-data:
-    name: remnawave-minishop-redis-data
+    name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-redis-data

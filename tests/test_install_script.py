@@ -116,6 +116,17 @@ def test_shell_installer_can_reset_target_database_before_remnashop_import():
     assert "dropdb -U \"$POSTGRES_USER\" --if-exists \"$POSTGRES_DB\"" in script
 
 
+def test_deployment_examples_scope_named_volumes_to_compose_project():
+    for profile in ("caddy", "nginx", "newt", "no-proxy"):
+        compose = (
+            REPO_ROOT / "deploy" / "examples" / profile / "docker-compose.yml"
+        ).read_text(encoding="utf-8")
+        assert "name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-db-data" in compose
+        assert "name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-redis-data" in compose
+        assert "name: remnawave-minishop-db-data" not in compose
+        assert "name: remnawave-minishop-redis-data" not in compose
+
+
 def test_shell_installer_refreshes_importer_without_prompting_inside_command_substitution():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
