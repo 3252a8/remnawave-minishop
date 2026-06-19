@@ -237,3 +237,29 @@ def test_shell_installer_autodetects_egames_panel_credentials():
     assert "select token from api_tokens" in script
     assert "Нашел API key Remnawave Panel" in script
     assert "Нашел Cookie header eGames reverse proxy" in script
+
+
+def test_shell_installer_prefills_remnashop_telegram_settings():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "detect_bot_token" in script
+    assert "detect_admin_ids" in script
+    assert "detect_webhook_secret_token" in script
+    assert "BOT_TOKEN" in script
+    assert "BOT_OWNER_ID" in script
+    assert "BOT_SECRET_TOKEN" in script
+    assert "Нашел BOT_TOKEN в .env Remnashop" in script
+    assert "Нашел BOT_OWNER_ID/ADMIN_IDS в .env Remnashop" in script
+    assert "Нашел BOT_SECRET_TOKEN в .env Remnashop" in script
+    assert "Новое значение (Enter = оставить)" in script
+
+
+def test_shell_installer_uses_default_source_without_prompting_for_repo_ref():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert 'SOURCE_REPO="$DEFAULT_REPO"' in script
+    assert 'SOURCE_REF="$DEFAULT_REF"' in script
+    assert "install_source" in script
+    assert "MINISHOP_INSTALL_REPO и MINISHOP_INSTALL_REF" in script
+    assert "GitHub репозиторий\"" not in script
+    assert "Git ref/ветка/тег для raw-файлов" not in script

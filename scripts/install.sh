@@ -42,8 +42,8 @@ else
 fi
 
 TARGET_DIR=""
-SOURCE_REPO=""
-SOURCE_REF=""
+SOURCE_REPO="$DEFAULT_REPO"
+SOURCE_REF="$DEFAULT_REF"
 PROFILE_KEY=""
 DEPLOYMENT_PROFILE_VALUE=""
 ENV_PATH=""
@@ -203,8 +203,17 @@ prompt_value() {
     required="${3:-0}"
     secret="${4:-0}"
     validator="${5:-}"
+    prefilled="${6:-0}"
     while :; do
-        if [ -n "$default_value" ]; then
+        if [ "$prefilled" = "1" ] && [ -n "$default_value" ]; then
+            if [ "$secret" = "1" ]; then
+                shown=$(mask_secret "$default_value")
+            else
+                shown="$default_value"
+            fi
+            printf '%s: %s\n' "$label" "$shown"
+            printf 'Новое значение (Enter = оставить): '
+        elif [ -n "$default_value" ]; then
             if [ "$secret" = "1" ]; then
                 shown=$(mask_secret "$default_value")
             else
@@ -508,6 +517,21 @@ detect_remnashop_env_value() {
     env_file_get "$key" "$env_file"
 }
 
+detect_bot_token() {
+    detect_remnashop_env_value BOT_TOKEN
+}
+
+detect_admin_ids() {
+    value=$(detect_remnashop_env_value BOT_OWNER_ID || true)
+    [ -n "$value" ] || value=$(detect_remnashop_env_value ADMIN_IDS || true)
+    [ -n "$value" ] || return 1
+    printf '%s' "$value" | tr ';' ','
+}
+
+detect_webhook_secret_token() {
+    detect_remnashop_env_value BOT_SECRET_TOKEN
+}
+
 normalize_panel_api_url() {
     value="$1"
     [ -n "$value" ] || return 1
@@ -690,9 +714,31 @@ prompt_common_env() {
     COMPOSE_PROJECT_NAME_VALUE="$PROMPT_VALUE"
     prompt_value "Тег Docker image" "$(env_get IMAGE_TAG "$DEFAULT_IMAGE_TAG")" 0 0 ""
     IMAGE_TAG_VALUE="$PROMPT_VALUE"
-    prompt_value "Токен Telegram бота" "$(env_get BOT_TOKEN '')" 1 1 ""
+    detected_bot_token=$(env_get BOT_TOKEN "")
+    detected_bot_token_prefilled=0
+    if [ -n "$detected_bot_token" ]; then
+        detected_bot_token_prefilled=1
+    else
+        detected_bot_token=$(detect_bot_token || true)
+        if [ -n "$detected_bot_token" ]; then
+            detected_bot_token_prefilled=1
+            info "Нашел BOT_TOKEN в .env Remnashop и подставил его по умолчанию."
+        fi
+    fi
+    prompt_value "Токен Telegram бота" "$detected_bot_token" 1 1 "" "$detected_bot_token_prefilled"
     BOT_TOKEN_VALUE="$PROMPT_VALUE"
-    prompt_value "Telegram ID администраторов через запятую" "$(env_get ADMIN_IDS '')" 1 0 ""
+    detected_admin_ids=$(env_get ADMIN_IDS "")
+    detected_admin_ids_prefilled=0
+    if [ -n "$detected_admin_ids" ]; then
+        detected_admin_ids_prefilled=1
+    else
+        detected_admin_ids=$(detect_admin_ids || true)
+        if [ -n "$detected_admin_ids" ]; then
+            detected_admin_ids_prefilled=1
+            info "Нашел BOT_OWNER_ID/ADMIN_IDS в .env Remnashop и подставил администраторов по умолчанию."
+        fi
+    fi
+    prompt_value "Telegram ID администраторов через запятую" "$detected_admin_ids" 1 0 "" "$detected_admin_ids_prefilled"
     ADMIN_IDS_VALUE="$PROMPT_VALUE"
     prompt_value "Пользователь PostgreSQL" "$(env_get POSTGRES_USER remnawave_minishop)" 1 0 ""
     POSTGRES_USER_VALUE="$PROMPT_VALUE"
@@ -714,41 +760,71 @@ prompt_common_env() {
     fi
     WEBHOOK_SECRET_TOKEN_VALUE="$(env_get WEBHOOK_SECRET_TOKEN "")"
     if [ -z "$WEBHOOK_SECRET_TOKEN_VALUE" ]; then
+        WEBHOOK_SECRET_TOKEN_VALUE="$(detect_webhook_secret_token || true)"
+        if [ -n "$WEBHOOK_SECRET_TOKEN_VALUE" ]; then
+            info "Нашел BOT_SECRET_TOKEN в .env Remnashop и использую его для WEBHOOK_SECRET_TOKEN."
+        fi
+    fi
+    if [ -z "$WEBHOOK_SECRET_TOKEN_VALUE" ]; then
         WEBHOOK_SECRET_TOKEN_VALUE="$(secret_hex 32)"
     fi
 
     detected_panel_api_url=$(env_get PANEL_API_URL "")
-    [ -n "$detected_panel_api_url" ] || detected_panel_api_url=$(detect_panel_api_url || true)
+    detected_panel_api_url_prefilled=0
+    if [ -n "$detected_panel_api_url" ]; then
+        detected_panel_api_url_prefilled=1
+    else
+        detected_panel_api_url=$(detect_panel_api_url || true)
+        [ -n "$detected_panel_api_url" ] && detected_panel_api_url_prefilled=1
+    fi
     [ -n "$detected_panel_api_url" ] || detected_panel_api_url="https://panel.example.com/api"
     if [ "$detected_panel_api_url" != "https://panel.example.com/api" ]; then
         info "Нашел URL API Remnawave Panel и подставил его по умолчанию."
     fi
-    prompt_value "URL API Remnawave Panel" "$detected_panel_api_url" 0 0 "url"
+    prompt_value "URL API Remnawave Panel" "$detected_panel_api_url" 0 0 "url" "$detected_panel_api_url_prefilled"
     PANEL_API_URL_VALUE="$PROMPT_VALUE"
     detected_panel_api_key=$(env_get PANEL_API_KEY "")
-    [ -n "$detected_panel_api_key" ] || detected_panel_api_key=$(detect_panel_api_key || true)
+    detected_panel_api_key_prefilled=0
+    if [ -n "$detected_panel_api_key" ]; then
+        detected_panel_api_key_prefilled=1
+    else
+        detected_panel_api_key=$(detect_panel_api_key || true)
+        [ -n "$detected_panel_api_key" ] && detected_panel_api_key_prefilled=1
+    fi
     [ -n "$detected_panel_api_key" ] || detected_panel_api_key="change_me"
     if [ "$detected_panel_api_key" != "change_me" ]; then
         info "Нашел API key Remnawave Panel и подставил его по умолчанию."
     fi
-    prompt_value "API key Remnawave Panel" "$detected_panel_api_key" 0 1 ""
+    prompt_value "API key Remnawave Panel" "$detected_panel_api_key" 0 1 "" "$detected_panel_api_key_prefilled"
     PANEL_API_KEY_VALUE="$PROMPT_VALUE"
     detected_panel_api_cookie=$(env_get PANEL_API_COOKIE "")
-    [ -n "$detected_panel_api_cookie" ] || detected_panel_api_cookie=$(detect_panel_api_cookie || true)
+    detected_panel_api_cookie_prefilled=0
+    if [ -n "$detected_panel_api_cookie" ]; then
+        detected_panel_api_cookie_prefilled=1
+    else
+        detected_panel_api_cookie=$(detect_panel_api_cookie || true)
+        [ -n "$detected_panel_api_cookie" ] && detected_panel_api_cookie_prefilled=1
+    fi
     if [ -n "$detected_panel_api_cookie" ]; then
         info "Нашел Cookie header eGames reverse proxy и подставил его по умолчанию."
     fi
-    prompt_value "Cookie header reverse proxy Remnawave (если нужен)" "$detected_panel_api_cookie" 0 1 ""
+    prompt_value "Cookie header reverse proxy Remnawave (если нужен)" "$detected_panel_api_cookie" 0 1 "" "$detected_panel_api_cookie_prefilled"
     PANEL_API_COOKIE_VALUE="$PROMPT_VALUE"
     existing_panel_webhook_secret=$(env_get PANEL_WEBHOOK_SECRET "")
-    [ -n "$existing_panel_webhook_secret" ] || existing_panel_webhook_secret=$(detect_panel_webhook_secret || true)
+    existing_panel_webhook_secret_prefilled=0
+    if [ -n "$existing_panel_webhook_secret" ]; then
+        existing_panel_webhook_secret_prefilled=1
+    else
+        existing_panel_webhook_secret=$(detect_panel_webhook_secret || true)
+        [ -n "$existing_panel_webhook_secret" ] && existing_panel_webhook_secret_prefilled=1
+    fi
     if [ -n "$existing_panel_webhook_secret" ]; then
         info "Нашел webhook secret Remnawave Panel и подставил его по умолчанию."
     fi
     if [ -z "$existing_panel_webhook_secret" ]; then
         existing_panel_webhook_secret=$(secret_hex 24)
     fi
-    prompt_value "Webhook secret Remnawave Panel" "$existing_panel_webhook_secret" 0 1 ""
+    prompt_value "Webhook secret Remnawave Panel" "$existing_panel_webhook_secret" 0 1 "" "$existing_panel_webhook_secret_prefilled"
     PANEL_WEBHOOK_SECRET_VALUE="$PROMPT_VALUE"
 
     prompt_value "Telegram OAuth client ID (пусто = ID бота)" "$(env_get TELEGRAM_OAUTH_CLIENT_ID '')" 0 0 ""
@@ -2343,7 +2419,7 @@ ensure_github_source_for_importer() {
     if [ -n "$SOURCE_REPO" ] && [ -n "$SOURCE_REF" ]; then
         return 0
     fi
-    github_source
+    install_source
 }
 
 run_remnashop_migration() {
@@ -2564,18 +2640,18 @@ installation_directory() {
     mkdir -p "$TARGET_DIR"
 }
 
-github_source() {
-    prompt_value "GitHub репозиторий" "$DEFAULT_REPO" 1 0 ""
-    SOURCE_REPO="$PROMPT_VALUE"
-    prompt_value "Git ref/ветка/тег для raw-файлов" "$DEFAULT_REF" 1 0 ""
-    SOURCE_REF="$PROMPT_VALUE"
+install_source() {
+    [ -n "$SOURCE_REPO" ] || SOURCE_REPO="$DEFAULT_REPO"
+    [ -n "$SOURCE_REF" ] || SOURCE_REF="$DEFAULT_REF"
+    info "Файлы установки будут скачаны из GitHub: $SOURCE_REPO@$SOURCE_REF."
+    info "Для fork, dev-ветки или тега задайте MINISHOP_INSTALL_REPO и MINISHOP_INSTALL_REF перед запуском."
 }
 
 install_flow() {
     with_migration="$1"
     LEGACY_SOURCE=""
     installation_directory || return 1
-    github_source || return 1
+    install_source || return 1
     choose_profile || return 1
     if [ "$with_migration" = "1" ]; then
         choose_legacy_source || return 1
@@ -2624,16 +2700,14 @@ migration_only_flow() {
     [ "$LEGACY_SOURCE" = "skip" ] && return 0
     prepare_data_mount || return 1
     case "$LEGACY_SOURCE" in
-        remnashop)
-            github_source || return 1
-            ;;
+        remnashop) install_source || return 1 ;;
     esac
     run_selected_legacy_migration
 }
 
 download_only_flow() {
     installation_directory || return 1
-    github_source || return 1
+    install_source || return 1
     choose_profile || return 1
     download_profile_files
 }
