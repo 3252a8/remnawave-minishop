@@ -88,12 +88,14 @@ def test_shell_installer_supports_egames_reverse_proxy_profile():
     assert "detect_egames_nginx_container" in script
     assert "configure_egames_reverse_proxy" in script
     assert "configure_egames_panel_webhook" in script
+    assert "refresh_egames_nginx_after_migration" in script
     assert "PANEL_API_COOKIE" in script
     assert "TELEGRAM_OAUTH_CLIENT_SECRET" in script
     assert 'cat "$tmp" > "$nginx_conf"' in script
     assert 'mv "$tmp" "$nginx_conf"' not in script
     assert "egames_container_has_routes" in script
     assert 'docker restart "$nginx_container" >/dev/null' in script
+    assert 'docker exec "$nginx_container" nginx -s reload' in script
 
 
 def test_shell_installer_checks_dns_and_can_prepare_nginx_certificates():
@@ -120,6 +122,7 @@ def test_shell_installer_does_not_rename_bot_and_reports_migration_success():
     assert "setMyShortDescription" not in script
     assert "telegram_bot_profile_checklist" in script
     assert "notify_remnashop_migration_success" in script
+    assert "remnashop_post_migration_next_steps" in script
     assert "remnashop-apply-summary.json" in script
     assert "remnashop-post-migration-message.txt" in script
     assert '("providers_mapped", "перенесено")' in script
@@ -127,6 +130,16 @@ def test_shell_installer_does_not_rename_bot_and_reports_migration_success():
     assert "warnings[:5]" not in script
     assert "Сообщение обрезано" not in script
     assert "split_telegram_messages" in script
+    assert "Новые URL webhook:" in script
+    assert 'for action in payment_actions:' in script
+    assert "payment_actions[:8]" not in script
+    assert "run_compose restart backend worker frontend" in script
+    assert (
+        'refresh_egames_nginx_after_migration\n'
+        '    notify_remnashop_migration_success "$APPLY_SUMMARY_PATH"\n'
+        '    ok "Миграция завершена."\n'
+        "    remnashop_post_migration_next_steps"
+    ) in script
 
 
 def test_shell_installer_can_reset_target_database_before_remnashop_import():

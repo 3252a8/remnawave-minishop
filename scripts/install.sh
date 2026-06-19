@@ -1718,6 +1718,40 @@ EOF
     fi
 }
 
+refresh_egames_nginx_after_migration() {
+    is_egames_profile || return 0
+    section "Перезапуск eGames Nginx"
+    require_docker || {
+        warn "Docker недоступен; пропускаю перезапуск eGames Nginx."
+        return 0
+    }
+
+    nginx_container=$(detect_egames_nginx_container || true)
+    if [ -z "$nginx_container" ]; then
+        warn "Nginx контейнер eGames не найден; если Mini App отвечает 502, перезапустите Nginx вручную."
+        return 0
+    fi
+    if ! docker inspect "$nginx_container" >/dev/null 2>&1; then
+        warn "Nginx контейнер $nginx_container не найден; если Mini App отвечает 502, перезапустите Nginx вручную."
+        return 0
+    fi
+
+    if ! docker exec "$nginx_container" nginx -t; then
+        warn "Проверка конфига Nginx не прошла; оставляю $nginx_container без перезапуска."
+        return 0
+    fi
+    if docker exec "$nginx_container" nginx -s reload; then
+        ok "Nginx контейнер $nginx_container перечитал конфиг."
+        return 0
+    fi
+    warn "Reload Nginx не прошел; пробую перезапустить контейнер $nginx_container."
+    if docker restart "$nginx_container" >/dev/null; then
+        ok "Nginx контейнер $nginx_container перезапущен."
+    else
+        warn "Не удалось перезапустить $nginx_container. Проверьте его вручную, если Mini App отвечает 502."
+    fi
+}
+
 configure_egames_panel_webhook() {
     is_egames_profile || return 0
     section "Настройка webhook Remnawave Panel"
@@ -1980,6 +2014,49 @@ remnashop_webhook_checklist() {
     printf '  Telegram webhook: %s/tg/webhook (backend ставит его автоматически при старте)\n' "$base_url"
 }
 
+remnashop_post_migration_next_steps() {
+    section "Дальнейшие шаги"
+    title=$(env_get WEBAPP_TITLE "remnawave-minishop")
+    info "Мастер установки не меняет отображаемое имя и короткое описание Telegram-бота."
+    if [ -n "$title" ]; then
+        info "Можно оставить текущие имя/описание в BotFather или вручную упомянуть там: $title"
+    fi
+
+    miniapp_url="${MINIAPP_PUBLIC_URL_VALUE:-$(env_get MINIAPP_PUBLIC_URL '')}"
+    [ -n "$miniapp_url" ] || miniapp_url="https://${MINIAPP_HOST_VALUE:-$(env_get MINIAPP_HOST app.example.com)}/"
+    oauth_secret=$(env_get TELEGRAM_OAUTH_CLIENT_SECRET "")
+    info "В BotFather укажите Mini App URL/domain: $miniapp_url"
+    info "Для Web Login / OpenID Connect разрешите:"
+    printf '  %s\n' "$miniapp_url"
+    printf '  %sauth/telegram/callback\n' "$(printf '%s' "$miniapp_url" | sed 's:/*$:/:' )"
+    if [ -z "$oauth_secret" ]; then
+        warn "TELEGRAM_OAUTH_CLIENT_SECRET пустой. Если нужен OAuth в браузере, создайте Web Login/OIDC клиент в BotFather и заполните секрет."
+    fi
+
+    base_url=$(target_webhook_base_url)
+    if [ -z "$base_url" ]; then
+        warn "Не удалось определить webhook base URL из .env. Укажите WEBHOOK_HOST или WEBHOOK_PUBLIC_URL и используйте WEBHOOK_BASE_URL + пути ниже."
+        base_url="WEBHOOK_BASE_URL"
+    fi
+
+    info "Новые URL webhook после миграции:"
+    printf '  Telegram: %s/tg/webhook (backend ставит автоматически при старте)\n' "$base_url"
+    printf '  Remnawave Panel -> WEBHOOK_URL: %s/webhook/panel\n' "$base_url"
+    panel_secret=$(env_get PANEL_WEBHOOK_SECRET "")
+    if [ -n "$panel_secret" ]; then
+        printf '  Remnawave Panel -> webhook-секрет: %s\n' "$(mask_secret "$panel_secret")"
+    else
+        warn "PANEL_WEBHOOK_SECRET пустой; задайте его в Minishop и Remnawave Panel."
+    fi
+    printf '  YooKassa: %s/webhook/yookassa\n' "$base_url"
+    printf '  WATA: %s/webhook/wata\n' "$base_url"
+    printf '  Crypto Pay: %s/webhook/cryptopay\n' "$base_url"
+    printf '  Heleket: %s/webhook/heleket\n' "$base_url"
+    printf '  PayKilla: %s/webhook/paykilla\n' "$base_url"
+    printf '  FreeKassa: %s/webhook/freekassa\n' "$base_url"
+    printf '  Platega: %s/webhook/platega\n' "$base_url"
+}
+
 extract_import_summary() {
     output_path="$1"
     summary_path="$2"
@@ -2238,15 +2315,25 @@ else:
         "- TELEGRAM_OAUTH_CLIENT_SECRET пустой: если нужен OAuth в браузере, создайте Web Login/OIDC клиент в BotFather, заполните секрет и перезапустите backend."
     )
 if webhook_base_url:
-    lines.append(f"- Telegram webhook: {webhook_base_url.rstrip('/')}/tg/webhook, сервис backend ставит его автоматически.")
-    lines.append(f"- Webhook Remnawave Panel: {webhook_base_url.rstrip('/')}/webhook/panel.")
+    base = webhook_base_url.rstrip("/")
+    lines.extend(
+        [
+            "",
+            "Новые URL webhook:",
+            f"- Telegram: {base}/tg/webhook, сервис backend ставит его автоматически.",
+            f"- Remnawave Panel -> WEBHOOK_URL: {base}/webhook/panel.",
+        ]
+    )
 if payment_actions:
-    lines.append("- Проверьте URL webhook у платежных провайдеров:")
-    for action in payment_actions[:8]:
+    if not webhook_base_url:
+        lines.extend(["", "Новые URL webhook:"])
+    for action in payment_actions:
         provider = action.get("provider") or "provider"
         new_url = action.get("new_url") or ""
+        where = action.get("where") or ""
         if new_url:
-            lines.append(f"  {provider}: {new_url}")
+            suffix = f" ({where})" if where else ""
+            lines.append(f"- {provider}: {new_url}{suffix}")
 
 text = "\n".join(lines)
 message_path.write_text(text + "\n", encoding="utf-8")
@@ -2610,14 +2697,13 @@ run_remnashop_migration() {
     run_import_command 0 "$APPLY_SUMMARY_PATH" 0 || return 1
     print_remnashop_import_summary "$APPLY_SUMMARY_PATH" "apply"
     configure_egames_panel_webhook || return 1
-    telegram_bot_profile_checklist
-    telegram_oauth_checklist
-    remnashop_webhook_checklist
-    if confirm "Перезапустить backend и worker, чтобы они перечитали настройки?" 1; then
-        (cd "$TARGET_DIR" && run_compose restart backend worker) || true
+    if confirm "Перезапустить backend, worker и frontend, чтобы они перечитали настройки?" 1; then
+        (cd "$TARGET_DIR" && run_compose restart backend worker frontend) || true
     fi
+    refresh_egames_nginx_after_migration
     notify_remnashop_migration_success "$APPLY_SUMMARY_PATH"
     ok "Миграция завершена."
+    remnashop_post_migration_next_steps
 }
 
 run_target_schema_migrations() {
