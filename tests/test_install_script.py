@@ -91,6 +91,23 @@ def test_shell_installer_supports_egames_reverse_proxy_profile():
     assert 'docker restart "$nginx_container" >/dev/null' in script
 
 
+def test_shell_installer_checks_dns_and_can_prepare_nginx_certificates():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "check_public_dns_records" in script
+    assert "Check DNS A records for WEBHOOK_HOST and MINIAPP_HOST now?" in script
+    assert "configure_nginx_certificates" in script
+    assert "Nginx certificate setup" in script
+    assert "Certbot Cloudflare DNS-01 wildcard certificate" in script
+    assert "--dns-cloudflare" in script
+    assert "python3-certbot-dns-cloudflare" in script
+    assert "--preferred-challenges http" in script
+    assert "remember_nginx_cert_mapping" in script
+    assert "docker-compose exec -T nginx nginx -s reload" in script
+    assert "configure_nginx_certificates || return 1" in script
+    assert "check_public_dns_records || return 1" in script
+
+
 def test_shell_installer_does_not_rename_bot_and_reports_migration_success():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 

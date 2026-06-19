@@ -422,7 +422,7 @@ download_raw_file() {
 choose_profile() {
     choose "Deployment profile" "1" "1|2|3|4|5" \
         "1. Caddy HTTPS - recommended for a separate server, with automatic certificates." \
-        "2. Nginx HTTPS - TLS certificates are managed manually." \
+        "2. Nginx HTTPS - manual certificates or Certbot helper." \
         "3. Pangolin / Newt - no inbound ports; public routes are configured in Pangolin." \
         "4. No proxy / external TLS - direct HTTP ports or an external TLS terminator." \
         "5. Existing eGames Remnawave reverse proxy on this host - reuse its Nginx/TLS." || return 1
@@ -733,6 +733,335 @@ prepare_data_mount() {
         fi
         chmod u+rwx "$data_dir" 2>/dev/null || true
     fi
+}
+
+is_ipv4_address() {
+    printf '%s' "$1" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}$'
+}
+
+is_local_hostname() {
+    case "$1" in
+        ""|localhost|127.*|0.0.0.0|::1)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+unique_public_hosts() {
+    first=""
+    for host in "$WEBHOOK_HOST_VALUE" "$MINIAPP_HOST_VALUE"; do
+        [ -n "$host" ] || continue
+        is_local_hostname "$host" && continue
+        if [ "$host" = "$first" ]; then
+            continue
+        fi
+        printf '%s\n' "$host"
+        [ -z "$first" ] && first="$host"
+    done
+}
+
+public_ipv4() {
+    for url in https://api.ipify.org https://ifconfig.me https://ipv4.icanhazip.com; do
+        if command -v curl >/dev/null 2>&1; then
+            ip=$(curl -fsS --max-time 10 "$url" 2>/dev/null | tr -d '[:space:]')
+        elif command -v wget >/dev/null 2>&1; then
+            ip=$(wget -qO- --timeout=10 "$url" 2>/dev/null | tr -d '[:space:]')
+        else
+            return 1
+        fi
+        if is_ipv4_address "$ip"; then
+            printf '%s\n' "$ip"
+            return 0
+        fi
+    done
+    return 1
+}
+
+resolve_ipv4_records() {
+    host="$1"
+    if is_ipv4_address "$host"; then
+        printf '%s\n' "$host"
+        return 0
+    fi
+    if command -v dig >/dev/null 2>&1; then
+        dig +short A "$host" 2>/dev/null | grep -E '^[0-9]{1,3}(\.[0-9]{1,3}){3}$' | sort -u
+        return 0
+    fi
+    if command -v getent >/dev/null 2>&1; then
+        getent ahostsv4 "$host" 2>/dev/null | awk '{print $1}' | grep -E '^[0-9]{1,3}(\.[0-9]{1,3}){3}$' | sort -u
+        return 0
+    fi
+    if command -v host >/dev/null 2>&1; then
+        host -t A "$host" 2>/dev/null | awk '/has address/ {print $4}' | grep -E '^[0-9]{1,3}(\.[0-9]{1,3}){3}$' | sort -u
+        return 0
+    fi
+    if command -v nslookup >/dev/null 2>&1; then
+        nslookup -type=A "$host" 2>/dev/null | awk '/^Address: / {print $2}' | grep -E '^[0-9]{1,3}(\.[0-9]{1,3}){3}$' | sort -u
+        return 0
+    fi
+    return 1
+}
+
+check_public_dns_records() {
+    case "$PROFILE_KEY" in
+        caddy|nginx|egames)
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+
+    hosts=$(unique_public_hosts)
+    [ -n "$hosts" ] || return 0
+
+    section "DNS preflight"
+    if ! confirm "Check DNS A records for WEBHOOK_HOST and MINIAPP_HOST now?" 1; then
+        warn "DNS check skipped."
+        return 0
+    fi
+
+    server_ip=$(public_ipv4 || true)
+    if [ -z "$server_ip" ]; then
+        warn "Could not determine this server public IPv4 address; DNS check is informational only."
+    else
+        info "Server public IPv4: $server_ip"
+    fi
+
+    dns_ok=1
+    printf '%s\n' "$hosts" | while IFS= read -r host; do
+        records=$(resolve_ipv4_records "$host" || true)
+        if [ -z "$records" ]; then
+            warn "$host has no visible A record."
+            printf '%s\n' "$host" >> "$TARGET_DIR/$INSTALL_STATE_DIR/dns-preflight-warnings.tmp"
+            continue
+        fi
+        one_line=$(printf '%s' "$records" | tr '\n' ' ' | sed 's/[[:space:]]*$//')
+        if [ -n "$server_ip" ] && printf '%s\n' "$records" | grep -Fxq "$server_ip"; then
+            ok "$host resolves to this server ($one_line)."
+        elif [ -n "$server_ip" ]; then
+            warn "$host resolves to $one_line, not this server ($server_ip)."
+            printf '%s\n' "$host" >> "$TARGET_DIR/$INSTALL_STATE_DIR/dns-preflight-warnings.tmp"
+        else
+            info "$host resolves to $one_line."
+        fi
+    done
+
+    if [ -f "$TARGET_DIR/$INSTALL_STATE_DIR/dns-preflight-warnings.tmp" ]; then
+        rm -f "$TARGET_DIR/$INSTALL_STATE_DIR/dns-preflight-warnings.tmp"
+        dns_ok=0
+    fi
+    if [ "$dns_ok" = "0" ]; then
+        warn "Certificates and public webhooks may fail until DNS points at this server or a proxy that routes here."
+        if ! confirm "Continue anyway?" 0; then
+            return 1
+        fi
+    fi
+}
+
+base_domain_guess() {
+    printf '%s\n' "$1" | awk -F. '{ if (NF > 2) print $(NF-1)"."$NF; else print $0 }'
+}
+
+shell_quote() {
+    printf '%s' "$1" | sed "s/'/'\\\\''/g; s/^/'/; s/$/'/"
+}
+
+nginx_cert_files_exist() {
+    host="$1"
+    [ -f "$TARGET_DIR/ssl/$host/fullchain.pem" ] && [ -f "$TARGET_DIR/ssl/$host/privkey.pem" ]
+}
+
+ensure_certbot_available() {
+    method="$1"
+    if command -v certbot >/dev/null 2>&1; then
+        if [ "$method" != "cloudflare" ] || certbot plugins 2>/dev/null | grep -q 'dns-cloudflare'; then
+            return 0
+        fi
+    fi
+
+    if ! command -v apt-get >/dev/null 2>&1; then
+        fail "certbot is not available. Install certbot before using automatic certificate setup."
+        return 1
+    fi
+    if ! confirm "Install certbot packages with apt-get now?" 1; then
+        fail "certbot is required for this certificate method."
+        return 1
+    fi
+    packages="certbot"
+    if [ "$method" = "cloudflare" ]; then
+        packages="$packages python3-certbot-dns-cloudflare"
+    fi
+    apt-get update && apt-get install -y $packages
+}
+
+copy_letsencrypt_cert_to_nginx_ssl() {
+    cert_name="$1"
+    host="$2"
+    live_dir="/etc/letsencrypt/live/$cert_name"
+    if [ ! -f "$live_dir/fullchain.pem" ] || [ ! -f "$live_dir/privkey.pem" ]; then
+        fail "Certificate files not found in $live_dir."
+        return 1
+    fi
+    mkdir -p "$TARGET_DIR/ssl/$host"
+    cp "$live_dir/fullchain.pem" "$TARGET_DIR/ssl/$host/fullchain.pem"
+    cp "$live_dir/privkey.pem" "$TARGET_DIR/ssl/$host/privkey.pem"
+    chmod 600 "$TARGET_DIR/ssl/$host/privkey.pem" 2>/dev/null || true
+    ok "Installed certificate files for $host."
+}
+
+remember_nginx_cert_mapping() {
+    cert_name="$1"
+    host="$2"
+    printf '%s %s\n' "$cert_name" "$host" >> "$TARGET_DIR/$INSTALL_STATE_DIR/nginx-cert-map.tmp"
+}
+
+install_nginx_certbot_deploy_hook() {
+    hook="/etc/letsencrypt/renewal-hooks/deploy/remnawave-minishop-${COMPOSE_PROJECT_NAME_VALUE:-default}-nginx.sh"
+    mkdir -p "$(dirname "$hook")" || return 0
+    tmp="$hook.tmp.$$"
+    map_file="$TARGET_DIR/$INSTALL_STATE_DIR/nginx-cert-map.tmp"
+    {
+        printf '#!/bin/sh\nset -eu\n'
+        printf 'TARGET_DIR=%s\n' "$(shell_quote "$TARGET_DIR")"
+        printf 'copy_cert() {\n'
+        printf '  cert_name="$1"; host="$2"; live_dir="/etc/letsencrypt/live/$cert_name"\n'
+        printf '  [ -f "$live_dir/fullchain.pem" ] && [ -f "$live_dir/privkey.pem" ] || return 0\n'
+        printf '  mkdir -p "$TARGET_DIR/ssl/$host"\n'
+        printf '  cp "$live_dir/fullchain.pem" "$TARGET_DIR/ssl/$host/fullchain.pem"\n'
+        printf '  cp "$live_dir/privkey.pem" "$TARGET_DIR/ssl/$host/privkey.pem"\n'
+        printf '}\n'
+        if [ -f "$map_file" ]; then
+            while IFS=' ' read -r cert_name host; do
+                [ -n "$cert_name" ] && [ -n "$host" ] || continue
+                printf 'copy_cert %s %s\n' "$(shell_quote "$cert_name")" "$(shell_quote "$host")"
+            done < "$map_file"
+        else
+            unique_public_hosts | while IFS= read -r host; do
+                cert_name=$(base_domain_guess "$host")
+                printf 'copy_cert %s %s\n' "$(shell_quote "$cert_name")" "$(shell_quote "$host")"
+            done
+        fi
+        printf 'cd "$TARGET_DIR" || exit 0\n'
+        printf 'if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then\n'
+        printf '  docker compose exec -T nginx nginx -s reload >/dev/null 2>&1 || true\n'
+        printf 'elif command -v docker-compose >/dev/null 2>&1; then\n'
+        printf '  docker-compose exec -T nginx nginx -s reload >/dev/null 2>&1 || true\n'
+        printf 'fi\n'
+    } > "$tmp"
+    mv "$tmp" "$hook"
+    chmod 700 "$hook" 2>/dev/null || true
+    ok "Installed certbot deploy hook: $hook"
+}
+
+configure_nginx_certificates() {
+    [ "$PROFILE_KEY" = "nginx" ] || return 0
+    hosts=$(unique_public_hosts)
+    [ -n "$hosts" ] || return 0
+
+    section "Nginx TLS certificates"
+    missing=0
+    printf '%s\n' "$hosts" | while IFS= read -r host; do
+        if nginx_cert_files_exist "$host"; then
+            ok "Found ssl/$host/fullchain.pem and privkey.pem."
+        else
+            warn "Missing ssl/$host/fullchain.pem or privkey.pem."
+            printf '%s\n' "$host" >> "$TARGET_DIR/$INSTALL_STATE_DIR/nginx-cert-missing.tmp"
+        fi
+    done
+    if [ -f "$TARGET_DIR/$INSTALL_STATE_DIR/nginx-cert-missing.tmp" ]; then
+        rm -f "$TARGET_DIR/$INSTALL_STATE_DIR/nginx-cert-missing.tmp"
+        missing=1
+    fi
+    [ "$missing" = "0" ] && return 0
+
+    rm -f "$TARGET_DIR/$INSTALL_STATE_DIR/nginx-cert-map.tmp"
+
+    choose "Nginx certificate setup" "1" "1|2|3|4" \
+        "1. Certbot Cloudflare DNS-01 wildcard certificate." \
+        "2. Certbot standalone HTTP-01 certificates for each hostname." \
+        "3. I placed certificate files under ssl/<hostname>/ manually." \
+        "4. Skip for now (Nginx may fail until certificates exist)." || return 1
+
+    case "$CHOICE_VALUE" in
+        1)
+            ensure_certbot_available cloudflare || return 1
+            prompt_value "Let's Encrypt account email" "$(env_get LETSENCRYPT_EMAIL '')" 1 0 ""
+            le_email="$PROMPT_VALUE"
+            prompt_value "Cloudflare DNS API token" "$(env_get CLOUDFLARE_DNS_API_TOKEN '')" 1 1 ""
+            cf_token="$PROMPT_VALUE"
+            mkdir -p "$HOME/.secrets/certbot"
+            credentials="$HOME/.secrets/certbot/remnawave-minishop-cloudflare.ini"
+            {
+                printf 'dns_cloudflare_api_token = %s\n' "$cf_token"
+            } > "$credentials"
+            chmod 600 "$credentials"
+            bases=""
+            printf '%s\n' "$hosts" | while IFS= read -r host; do
+                base=$(base_domain_guess "$host")
+                if ! printf '%s\n' "$bases" | grep -Fxq "$base"; then
+                    printf '%s\n' "$base" >> "$TARGET_DIR/$INSTALL_STATE_DIR/nginx-cert-bases.tmp"
+                fi
+            done
+            sort -u "$TARGET_DIR/$INSTALL_STATE_DIR/nginx-cert-bases.tmp" > "$TARGET_DIR/$INSTALL_STATE_DIR/nginx-cert-bases.sorted"
+            rm -f "$TARGET_DIR/$INSTALL_STATE_DIR/nginx-cert-bases.tmp"
+            while IFS= read -r base; do
+                [ -n "$base" ] || continue
+                info "Requesting wildcard certificate for $base via Cloudflare DNS-01."
+                certbot certonly \
+                    --dns-cloudflare \
+                    --dns-cloudflare-credentials "$credentials" \
+                    --dns-cloudflare-propagation-seconds 60 \
+                    -d "$base" \
+                    -d "*.$base" \
+                    --email "$le_email" \
+                    --agree-tos \
+                    --non-interactive \
+                    --key-type ecdsa \
+                    --elliptic-curve secp384r1 || return 1
+            done < "$TARGET_DIR/$INSTALL_STATE_DIR/nginx-cert-bases.sorted"
+            rm -f "$TARGET_DIR/$INSTALL_STATE_DIR/nginx-cert-bases.sorted"
+            printf '%s\n' "$hosts" | while IFS= read -r host; do
+                cert_name=$(base_domain_guess "$host")
+                copy_letsencrypt_cert_to_nginx_ssl "$cert_name" "$host" || exit 1
+                remember_nginx_cert_mapping "$cert_name" "$host"
+            done || return 1
+            install_nginx_certbot_deploy_hook
+            ;;
+        2)
+            ensure_certbot_available http || return 1
+            prompt_value "Let's Encrypt account email" "$(env_get LETSENCRYPT_EMAIL '')" 1 0 ""
+            le_email="$PROMPT_VALUE"
+            printf '%s\n' "$hosts" | while IFS= read -r host; do
+                info "Requesting certificate for $host via standalone HTTP-01."
+                certbot certonly \
+                    --standalone \
+                    --preferred-challenges http \
+                    -d "$host" \
+                    --email "$le_email" \
+                    --agree-tos \
+                    --non-interactive \
+                    --key-type ecdsa \
+                    --elliptic-curve secp384r1 || exit 1
+                copy_letsencrypt_cert_to_nginx_ssl "$host" "$host" || exit 1
+                remember_nginx_cert_mapping "$host" "$host"
+            done || return 1
+            install_nginx_certbot_deploy_hook
+            ;;
+        3)
+            printf '%s\n' "$hosts" | while IFS= read -r host; do
+                if ! nginx_cert_files_exist "$host"; then
+                    fail "Still missing ssl/$host/fullchain.pem or privkey.pem."
+                    exit 1
+                fi
+            done || return 1
+            ;;
+        4)
+            warn "Skipping certificate setup. Nginx will not start until ssl/<hostname>/fullchain.pem and privkey.pem exist."
+            ;;
+    esac
 }
 
 require_docker() {
@@ -1898,10 +2227,12 @@ install_flow() {
         warn "Existing .env found at $ENV_PATH; wizard will preserve unknown values."
     fi
     prompt_common_env || return 1
+    mkdir -p "$TARGET_DIR/$INSTALL_STATE_DIR"
+    check_public_dns_records || return 1
     download_profile_files || return 1
     write_env_file || return 1
+    configure_nginx_certificates || return 1
     configure_egames_reverse_proxy || return 1
-    mkdir -p "$TARGET_DIR/$INSTALL_STATE_DIR"
     prepare_data_mount || return 1
     if [ "$with_migration" = "1" ]; then
         choose_legacy_source || return 1
