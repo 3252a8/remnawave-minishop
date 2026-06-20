@@ -280,6 +280,86 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             payload = panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(payload["activeInternalSquads"], ["squad-1"])
 
+    async def test_trial_premium_limit_uses_trial_traffic_limit(self):
+        payload = _tariffs_config_payload()
+        payload["tariffs"][0]["premium_squad_uuids"] = ["premium-squad"]
+        payload["tariffs"][0]["premium_monthly_gb"] = 25
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "tariffs.json"
+            config_path.write_text(json.dumps(payload), encoding="utf-8")
+
+            settings = Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                TARIFFS_CONFIG_PATH=str(config_path),
+                TRIAL_TRAFFIC_LIMIT_GB=3,
+                TRIAL_SQUAD_UUIDS="squad-1,premium-squad",
+                TARIFF_TRAFFIC_WARNING_LEVELS="101",
+            )
+            panel_service = AsyncMock(spec=PanelApiService)
+            panel_service.get_internal_squad_accessible_nodes = AsyncMock(
+                return_value=[{"uuid": "node-1", "name": "Premium"}]
+            )
+            panel_service.get_node_users_bandwidth_stats = AsyncMock(
+                return_value={
+                    "topUsers": [
+                        {
+                            "username": "tg_123",
+                            "total": 4 * (1024**3),
+                        }
+                    ]
+                }
+            )
+            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            subscription_service = SubscriptionService(settings, panel_service)
+            worker = TariffTrafficWorker(
+                settings=settings,
+                session_factory=SimpleNamespace(),
+                panel_service=panel_service,
+                subscription_service=subscription_service,
+            )
+            sub = SimpleNamespace(
+                subscription_id=1,
+                user_id=123,
+                panel_user_uuid="panel-uuid",
+                provider="trial",
+                status_from_panel="TRIAL",
+                tariff_key=None,
+                premium_baseline_bytes=3 * (1024**3),
+                premium_topup_balance_bytes=0,
+                premium_topup_used_bytes=0,
+                premium_used_bytes=0,
+                premium_is_limited=False,
+                premium_period_start_at=None,
+                premium_unlimited_override=False,
+                premium_bonus_bytes=0,
+            )
+            trial_tariff = worker._trial_premium_tariff()
+
+            self.assertIsNotNone(trial_tariff)
+            await worker._sync_premium_squad_limit(
+                AsyncMock(),
+                sub,
+                trial_tariff,
+                datetime.now(timezone.utc),
+                panel_username="tg_123",
+                panel_user_dict={
+                    "activeInternalSquads": [
+                        {"uuid": "squad-1"},
+                        {"uuid": "premium-squad"},
+                    ]
+                },
+            )
+
+            self.assertEqual(sub.premium_baseline_bytes, 3 * (1024**3))
+            self.assertEqual(sub.premium_used_bytes, 4 * (1024**3))
+            self.assertTrue(sub.premium_is_limited)
+            panel_service.update_user_details_on_panel.assert_awaited_once()
+            payload = panel_service.update_user_details_on_panel.await_args.args[1]
+            self.assertEqual(payload["activeInternalSquads"], ["squad-1"])
+
     async def test_premium_topup_balance_carries_over_and_is_spent_only_above_monthly_limit(self):
         payload = _tariffs_config_payload()
         payload["tariffs"][0]["premium_squad_uuids"] = ["premium-squad"]

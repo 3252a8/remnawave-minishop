@@ -7,7 +7,7 @@ from typing import Any, Awaitable, Callable, Optional
 from aiogram import Bot
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.text_decorations import html_decoration as hd
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
@@ -38,6 +38,37 @@ TARIFF_WORKER_DB_RETRY_ATTEMPTS = 3
 TARIFF_WORKER_DB_RETRY_BASE_SLEEP_SECONDS = 0.5
 POSTGRES_RETRYABLE_SQLSTATES = {"40001", "40P01"}
 POSTGRES_RETRYABLE_ERROR_NAMES = {"DeadlockDetectedError", "SerializationError"}
+
+
+class _TrialPremiumTariff:
+    key = "trial"
+    billing_model = "trial"
+    premium_topup_packages = None
+    hwid_device_limit = None
+
+    def __init__(
+        self,
+        *,
+        squad_uuids: list[str],
+        premium_squad_uuids: list[str],
+        premium_monthly_bytes: int,
+    ) -> None:
+        self.squad_uuids = list(squad_uuids)
+        self.premium_squad_uuids = list(premium_squad_uuids)
+        self._premium_monthly_bytes = int(premium_monthly_bytes or 0)
+
+    @property
+    def premium_monthly_bytes(self) -> int:
+        return self._premium_monthly_bytes
+
+    def name(self, _lang: str, _fallback: str = "ru") -> str:
+        return "Trial"
+
+    def description(self, _lang: str, _fallback: str = "ru") -> str:
+        return ""
+
+    def premium_name(self, _lang: str, _fallback: str = "ru") -> str:
+        return "Premium servers"
 
 
 class TariffTrafficWorker:
@@ -240,16 +271,48 @@ class TariffTrafficWorker:
 
         return False
 
+    @staticmethod
+    def _is_trial_subscription(sub: Subscription) -> bool:
+        provider = str(getattr(sub, "provider", "") or "").strip().lower()
+        status = str(getattr(sub, "status_from_panel", "") or "").strip().upper()
+        return provider == "trial" or status == "TRIAL"
+
+    def _trial_premium_tariff(self) -> Optional[_TrialPremiumTariff]:
+        premium_squads = self.subscription_service._trial_premium_squad_uuids()
+        premium_baseline = self.subscription_service._trial_premium_baseline_bytes()
+        if not premium_squads or premium_baseline <= 0:
+            return None
+        all_squads = self.subscription_service._trial_panel_squad_uuids()
+        premium_set = set(premium_squads)
+        regular_squads = [uuid for uuid in all_squads if uuid not in premium_set]
+        return _TrialPremiumTariff(
+            squad_uuids=regular_squads,
+            premium_squad_uuids=premium_squads,
+            premium_monthly_bytes=premium_baseline,
+        )
+
     async def traffic_period_tick(self, session: AsyncSession) -> None:
         now = datetime.now(timezone.utc)
         self._premium_node_usage_tick_cache = {}
         warning_period_start = month_start(now)
+        tracked_subscriptions_filter = Subscription.tariff_key.is_not(None)
+        if self._trial_premium_tariff() is not None:
+            tracked_subscriptions_filter = or_(
+                tracked_subscriptions_filter,
+                and_(
+                    Subscription.tariff_key.is_(None),
+                    or_(
+                        Subscription.provider == "trial",
+                        Subscription.status_from_panel == "TRIAL",
+                    ),
+                ),
+            )
         result = await session.execute(
             select(Subscription)
             .where(
                 Subscription.is_active == True,
                 Subscription.end_date > now,
-                Subscription.tariff_key.is_not(None),
+                tracked_subscriptions_filter,
             )
             .order_by(Subscription.subscription_id.asc())
         )
@@ -301,10 +364,18 @@ class TariffTrafficWorker:
             for sub, panel_data in zip(chunk, panel_payloads):
                 if not panel_data:
                     continue
-                try:
-                    tariff = self.settings.tariffs_config.require(sub.tariff_key)
-                except Exception:
-                    continue
+                trial_premium_subscription = bool(
+                    not getattr(sub, "tariff_key", None) and self._is_trial_subscription(sub)
+                )
+                if trial_premium_subscription:
+                    tariff = self._trial_premium_tariff()
+                    if tariff is None:
+                        continue
+                else:
+                    try:
+                        tariff = self.settings.tariffs_config.require(sub.tariff_key)
+                    except Exception:
+                        continue
                 (
                     used,
                     limit,
@@ -321,19 +392,20 @@ class TariffTrafficWorker:
                 if panel_status and panel_status != (sub.status_from_panel or "").upper():
                     sub.status_from_panel = panel_status
 
-                if tariff.billing_model == "period":
+                if not trial_premium_subscription and tariff.billing_model == "period":
                     await self._ensure_period_reset_strategy(sub, tariff, limit, panel_strategy)
-                await self._sync_hwid_device_limit(session, sub, tariff, panel_data)
-                await self._maybe_warn_or_throttle(
-                    session,
-                    sub,
-                    tariff,
-                    used,
-                    limit,
-                    warning_period_start=warning_period_start
-                    if tariff.billing_model == "period"
-                    else None,
-                )
+                if not trial_premium_subscription:
+                    await self._sync_hwid_device_limit(session, sub, tariff, panel_data)
+                    await self._maybe_warn_or_throttle(
+                        session,
+                        sub,
+                        tariff,
+                        used,
+                        limit,
+                        warning_period_start=warning_period_start
+                        if tariff.billing_model == "period"
+                        else None,
+                    )
 
                 await self._sync_premium_squad_limit(
                     session,
@@ -683,6 +755,7 @@ class TariffTrafficWorker:
             return
 
         premium_period_start = month_start(now)
+        is_trial_premium_tariff = bool(getattr(tariff, "key", "") == "trial")
         same_period = self._same_premium_period(
             getattr(sub, "premium_period_start_at", None),
             premium_period_start,
@@ -802,7 +875,7 @@ class TariffTrafficWorker:
         sub.premium_used_bytes = int(premium_used)
         sub.premium_is_limited = bool(should_limit)
         sub.premium_period_start_at = premium_period_start
-        if not premium_unlimited_override:
+        if not premium_unlimited_override and not is_trial_premium_tariff:
             await self._maybe_warn_premium_squad_limit(
                 session,
                 sub,

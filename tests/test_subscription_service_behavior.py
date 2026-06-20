@@ -10,6 +10,7 @@ from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service import SubscriptionService
 from config.settings import Settings
 from db.dal.subscription_dal import _subscription_model_payload
+from db.database_setup import _trial_premium_baseline_bytes
 
 GIB = 1024**3
 
@@ -99,6 +100,33 @@ class SubscriptionServiceCalculationTests(unittest.TestCase):
                 service._panel_squads_for_tariff(None),
                 ["fallback-a", "fallback-b"],
             )
+
+    def test_trial_premium_baseline_uses_trial_limit_for_catalog_premium_squads(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                _tariffs_config_payload(),
+                tmpdir,
+                TRIAL_TRAFFIC_LIMIT_GB=7,
+                TRIAL_SQUAD_UUIDS="main-squad,premium-squad",
+            )
+            service = _make_service(settings)
+
+            self.assertEqual(service._trial_premium_squad_uuids(), ["premium-squad"])
+            self.assertEqual(service._trial_premium_baseline_bytes(), 7 * GIB)
+            self.assertEqual(_trial_premium_baseline_bytes(settings), 7 * GIB)
+
+    def test_trial_premium_baseline_is_zero_without_trial_premium_squad(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                _tariffs_config_payload(),
+                tmpdir,
+                TRIAL_TRAFFIC_LIMIT_GB=7,
+                TRIAL_SQUAD_UUIDS="main-squad",
+            )
+            service = _make_service(settings)
+
+            self.assertEqual(service._trial_premium_squad_uuids(), [])
+            self.assertEqual(service._trial_premium_baseline_bytes(), 0)
 
     def test_main_traffic_limit_includes_topup_bonus_and_unlimited_zero(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -247,6 +275,61 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(panel_payload["trafficLimitStrategy"], "MONTH")
             self.assertEqual(panel_payload["activeInternalSquads"], ["trial-squad"])
+
+    async def test_activate_trial_records_premium_baseline_from_trial_limit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                _tariffs_config_payload(),
+                tmpdir,
+                TRIAL_ENABLED=True,
+                TRIAL_DURATION_DAYS=3,
+                TRIAL_TRAFFIC_LIMIT_GB=7,
+                TRIAL_SQUAD_UUIDS="main-squad,premium-squad",
+            )
+            service = _make_service(settings)
+            service.has_trial_blocking_subscription = AsyncMock(return_value=False)
+            service._get_or_create_panel_user_link_details = AsyncMock(
+                return_value=("panel-user", "panel-sub", "short", True)
+            )
+            service.panel_service.update_user_details_on_panel = AsyncMock(
+                return_value={"subscriptionUrl": "https://example.test/sub", "shortUuid": "short"}
+            )
+            session = AsyncMock()
+            db_user = SimpleNamespace(
+                user_id=42,
+                telegram_id=42,
+                email=None,
+                username="trial-user",
+                first_name="Trial",
+                last_name="User",
+            )
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.trial.user_dal.get_user_by_id",
+                    AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.trial.subscription_dal.deactivate_other_active_subscriptions",
+                    AsyncMock(),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.trial.subscription_dal.upsert_subscription",
+                    AsyncMock(),
+                ) as upsert_subscription,
+            ):
+                result = await service.activate_trial_subscription(session, user_id=42)
+
+            self.assertTrue(result["activated"])
+            sub_payload = upsert_subscription.await_args.args[1]
+            self.assertIsNone(sub_payload.get("tariff_key"))
+            self.assertEqual(sub_payload["traffic_limit_bytes"], 7 * GIB)
+            self.assertEqual(sub_payload["premium_baseline_bytes"], 7 * GIB)
+            self.assertEqual(sub_payload["premium_topup_balance_bytes"], 0)
+            self.assertEqual(sub_payload["premium_used_bytes"], 0)
+
+            panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
+            self.assertEqual(panel_payload["activeInternalSquads"], ["main-squad", "premium-squad"])
 
     async def test_activate_trial_falls_back_to_default_user_squads(self):
         with tempfile.TemporaryDirectory() as tmpdir:

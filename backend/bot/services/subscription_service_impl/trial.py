@@ -53,6 +53,7 @@ class TrialSubscriptionMixin:
             session, panel_user_uuid, panel_sub_link_id
         )
 
+        trial_premium_baseline_bytes = self._trial_premium_baseline_bytes()
         trial_sub_data = {
             "user_id": user_id,
             "panel_user_uuid": panel_user_uuid,
@@ -63,6 +64,11 @@ class TrialSubscriptionMixin:
             "is_active": True,
             "status_from_panel": "TRIAL",
             "traffic_limit_bytes": self.settings.trial_traffic_limit_bytes,
+            "premium_baseline_bytes": trial_premium_baseline_bytes,
+            "premium_topup_balance_bytes": 0,
+            "premium_topup_used_bytes": 0,
+            "premium_used_bytes": 0,
+            "premium_is_limited": False,
             "auto_renew_enabled": False,
             "provider": "trial",
             # Short trial: only warn a few hours before it ends, not days ahead.
@@ -90,7 +96,7 @@ class TrialSubscriptionMixin:
             traffic_limit_strategy=self.settings.TRIAL_TRAFFIC_STRATEGY,
             include_default_squads=False,
         )
-        trial_squads = self.settings.parsed_trial_squad_uuids
+        trial_squads = self._trial_panel_squad_uuids()
         if trial_squads:
             panel_update_payload["activeInternalSquads"] = trial_squads
         if self.settings.parsed_user_external_squad_uuid:

@@ -62,6 +62,32 @@ class TariffMixin:
             return list(dict.fromkeys(squads))
         return self.settings.parsed_user_squad_uuids
 
+    def _catalog_premium_squad_uuid_set(self) -> set[str]:
+        config = self._tariffs_config()
+        if not config:
+            return set()
+        premium_squads: set[str] = set()
+        for tariff in getattr(config, "tariffs", []) or []:
+            premium_squads.update(str(uuid) for uuid in (tariff.premium_squad_uuids or []))
+        return premium_squads
+
+    def _trial_panel_squad_uuids(self) -> List[str]:
+        squads = self.settings.parsed_trial_squad_uuids
+        if not squads:
+            squads = self.settings.parsed_user_squad_uuids or []
+        return list(dict.fromkeys(str(uuid) for uuid in squads if str(uuid or "").strip()))
+
+    def _trial_premium_squad_uuids(self) -> List[str]:
+        premium_squads = self._catalog_premium_squad_uuid_set()
+        if not premium_squads:
+            return []
+        return [uuid for uuid in self._trial_panel_squad_uuids() if uuid in premium_squads]
+
+    def _trial_premium_baseline_bytes(self) -> int:
+        if not self._trial_premium_squad_uuids():
+            return 0
+        return int(self.settings.trial_traffic_limit_bytes or 0)
+
     def _traffic_limit_for_period_tariff(
         self,
         tariff: Optional[Tariff],

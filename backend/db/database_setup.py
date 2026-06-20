@@ -14,6 +14,22 @@ async_engine = None
 DB_INIT_ADVISORY_LOCK_ID = 817512404897421337
 
 
+def _trial_premium_baseline_bytes(settings: Settings) -> int:
+    if not settings.tariffs_config:
+        return 0
+    premium_squads = {
+        str(uuid)
+        for tariff in settings.tariffs_config.tariffs
+        for uuid in (tariff.premium_squad_uuids or [])
+    }
+    if not premium_squads:
+        return 0
+    trial_squads = settings.parsed_trial_squad_uuids or settings.parsed_user_squad_uuids or []
+    if not any(str(uuid) in premium_squads for uuid in trial_squads):
+        return 0
+    return int(settings.trial_traffic_limit_bytes or 0)
+
+
 def redacted_database_url(database_url: str) -> str:
     try:
         return make_url(database_url).render_as_string(hide_password=True)
@@ -110,6 +126,32 @@ async def init_db(settings: Settings, session_factory: sessionmaker):
                 default_price = (
                     default_tariff.period_price(1, "rub") or default_tariff.min_period_price_rub()
                 )
+                trial_premium_baseline = _trial_premium_baseline_bytes(settings)
+                await session.execute(
+                    text(
+                        """
+                        UPDATE subscriptions AS s
+                        SET
+                            tariff_key = NULL,
+                            tier_baseline_bytes = COALESCE(s.traffic_limit_bytes, :trial_baseline),
+                            premium_baseline_bytes = :trial_premium_baseline,
+                            premium_topup_balance_bytes = 0,
+                            premium_topup_used_bytes = 0,
+                            premium_used_bytes = COALESCE(s.premium_used_bytes, 0),
+                            premium_is_limited = FALSE,
+                            effective_monthly_price_rub = NULL
+                        WHERE s.is_active = TRUE
+                          AND (
+                            COALESCE(LOWER(s.provider), '') = 'trial'
+                            OR COALESCE(UPPER(s.status_from_panel), '') = 'TRIAL'
+                          )
+                        """
+                    ),
+                    {
+                        "trial_baseline": settings.trial_traffic_limit_bytes,
+                        "trial_premium_baseline": trial_premium_baseline,
+                    },
+                )
                 await session.execute(
                     text(
                         """
@@ -139,6 +181,8 @@ async def init_db(settings: Settings, session_factory: sessionmaker):
                             )
                         WHERE s.is_active = TRUE
                           AND s.tariff_key IS NULL
+                          AND COALESCE(LOWER(s.provider), '') <> 'trial'
+                          AND COALESCE(UPPER(s.status_from_panel), '') <> 'TRIAL'
                         """  # noqa: E501
                     ),
                     {
