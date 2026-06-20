@@ -8,6 +8,19 @@ from sqlalchemy.orm import joinedload, selectinload
 
 from db.models import Payment, User
 
+_PAYMENT_STATUS_SUCCEEDED = "succeeded"
+
+
+def _normalize_payment_status(status: Any) -> str:
+    return str(status or "").strip().lower()
+
+
+def _would_overwrite_succeeded_payment(current_status: Any, new_status: Any) -> bool:
+    return (
+        _normalize_payment_status(current_status) == _PAYMENT_STATUS_SUCCEEDED
+        and _normalize_payment_status(new_status) != _PAYMENT_STATUS_SUCCEEDED
+    )
+
 
 async def create_payment_record(session: AsyncSession, payment_data: Dict[str, Any]) -> Payment:
 
@@ -184,13 +197,22 @@ async def update_payment_status_by_db_id(
 ) -> Optional[Payment]:
     payment = await get_payment_by_db_id(session, payment_db_id)
     if payment:
-        payment.status = new_status
-        payment.updated_at = func.now()
+        preserve_succeeded = _would_overwrite_succeeded_payment(payment.status, new_status)
+        if preserve_succeeded:
+            logging.info(
+                "Payment record %s already succeeded; ignoring status update to %s.",
+                payment.payment_id,
+                new_status,
+            )
+        else:
+            payment.status = new_status
+            payment.updated_at = func.now()
         if yk_payment_id and payment.yookassa_payment_id is None:
             payment.yookassa_payment_id = yk_payment_id
         await session.flush()
         await session.refresh(payment)
-        logging.info(f"Payment record {payment.payment_id} status updated to {new_status}.")
+        if not preserve_succeeded:
+            logging.info(f"Payment record {payment.payment_id} status updated to {new_status}.")
     else:
         logging.warning(f"Payment record with DB ID {payment_db_id} not found for status update.")
     return payment
@@ -283,16 +305,25 @@ async def update_provider_payment_and_status(
 ) -> Optional[Payment]:
     payment = await get_payment_by_db_id(session, payment_db_id)
     if payment:
-        payment.status = new_status
+        preserve_succeeded = _would_overwrite_succeeded_payment(payment.status, new_status)
+        if preserve_succeeded:
+            logging.info(
+                "Payment record %s already succeeded; ignoring provider status update to %s.",
+                payment.payment_id,
+                new_status,
+            )
+        else:
+            payment.status = new_status
+            payment.updated_at = func.now()
         payment.provider_payment_id = provider_payment_id
         if provider_payment_url:
             payment.provider_payment_url = provider_payment_url
-        payment.updated_at = func.now()
         await session.flush()
         await session.refresh(payment)
-        logging.info(
-            f"Payment record {payment.payment_id} updated with provider id {provider_payment_id} and status {new_status}."  # noqa: E501
-        )
+        if not preserve_succeeded:
+            logging.info(
+                f"Payment record {payment.payment_id} updated with provider id {provider_payment_id} and status {new_status}."  # noqa: E501
+            )
     else:
         logging.warning(f"Payment record with DB ID {payment_db_id} not found for provider update.")
     return payment
