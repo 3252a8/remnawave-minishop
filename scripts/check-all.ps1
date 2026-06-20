@@ -3,8 +3,8 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
-Write-Host "Python: pip install -r requirements-dev.txt" -ForegroundColor Cyan
-python -m pip install -q -r requirements-dev.txt
+Write-Host "Python: pip install runtime and dev requirements" -ForegroundColor Cyan
+python -m pip install -q -r backend/requirements.txt -r requirements-dev.txt
 
 if (-not (Test-Path (Join-Path $root "frontend/node_modules"))) {
   Write-Host "npm install --prefix frontend" -ForegroundColor Cyan

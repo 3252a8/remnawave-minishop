@@ -3,8 +3,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-echo "Python: pip install -r requirements-dev.txt"
-python -m pip install -q -r requirements-dev.txt
+echo "Python: pip install runtime and dev requirements"
+python -m pip install -q -r backend/requirements.txt -r requirements-dev.txt
 
 if [[ ! -d frontend/node_modules ]]; then
   echo "npm install --prefix frontend"
