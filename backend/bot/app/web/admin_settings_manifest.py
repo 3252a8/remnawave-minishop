@@ -81,6 +81,13 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "START_COMMAND_DESCRIPTION", "string", "general", "Описание /start", placeholder=""
     ),
     SettingField(
+        "TELEGRAM_BOT_MENU_DISABLED",
+        "bool",
+        "general",
+        "Disable bot menu",
+        ("Hide the in-bot user interface and /tg command. Renewal prompts open the Mini App."),
+    ),
+    SettingField(
         "REQUIRED_CHANNEL_ID",
         "int",
         "general",
@@ -223,13 +230,6 @@ SETTINGS_MANIFEST: List[SettingField] = [
             "Use the Telegram Mini App install screen for bot connect buttons and show "
             "public install guide links."
         ),
-    ),
-    SettingField(
-        "TELEGRAM_BOT_MENU_DISABLED",
-        "bool",
-        "subscription_guides",
-        "Disable bot menu",
-        ("Hide the in-bot user interface and /tg command. Renewal prompts open the Mini App."),
     ),
     SettingField(
         "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED",

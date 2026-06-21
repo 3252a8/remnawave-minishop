@@ -30,7 +30,6 @@ SUBSCRIPTION_PURCHASE_DESCRIPTION_SETTINGS = (
 SUBSCRIPTION_GUIDE_SETTINGS = (
     "SUBSCRIPTION_GUIDES_ENABLED",
     "SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED",
-    "TELEGRAM_BOT_MENU_DISABLED",
     "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED",
     "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED",
     "SUBSCRIPTION_PAGE_CONFIG_PATH",
@@ -177,6 +176,20 @@ def test_server_status_url_is_admin_editable():
     assert field["i18n_label_key"] == "admin_settings_field_server_status_url_label"
     for language in ("ru", "en"):
         assert field["i18n_label_key"] in _locale(language)
+
+
+def test_telegram_bot_menu_toggle_is_general_admin_setting():
+    manifest = _manifest_by_key()
+    field = manifest["TELEGRAM_BOT_MENU_DISABLED"]
+
+    assert field["type"] == "bool"
+    assert field["section"] == "general"
+    assert field["section_order"] == 1
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert "admin_settings_section_general" in messages
+        assert field["i18n_label_key"] in messages
+        assert field["i18n_description_key"] in messages
 
 
 def test_support_settings_manifest_uses_admin_i18n_keys():
