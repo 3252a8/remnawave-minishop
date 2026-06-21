@@ -109,7 +109,13 @@ class SubscriptionLifecycleNotificationService:
             resolved_user,
             lang=lang,
             message_text=message_text,
-            markup=telegram_markup or get_subscribe_only_markup(lang, self.i18n),
+            markup=telegram_markup
+            or get_subscribe_only_markup(
+                lang,
+                self.i18n,
+                self.settings,
+                tariff_key=self._renewal_tariff_key(sub),
+            ),
             sent_at=sent_at,
         )
         email_sent = await self._send_email(

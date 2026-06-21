@@ -34,6 +34,20 @@ def subscription_mini_app_topup_url(settings: Settings, kind: str) -> Optional[s
     return append_query_params(base, {"topup": normalized})
 
 
+def subscription_mini_app_renew_url(
+    settings: Settings, tariff_key: Optional[str] = None
+) -> Optional[str]:
+    """Return Mini App URL that opens the subscription renewal checkout."""
+    base = str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", None) or "").strip()
+    if not base:
+        return None
+    params = {"renew": "1"}
+    normalized_tariff = str(tariff_key or "").strip()
+    if normalized_tariff:
+        params["renew_tariff"] = normalized_tariff
+    return append_query_params(base, params)
+
+
 def subscription_mini_app_path_url(settings: Settings, path: str) -> Optional[str]:
     """Return a Mini App URL with ``path`` appended to the configured app base."""
     base = str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", None) or "").strip()

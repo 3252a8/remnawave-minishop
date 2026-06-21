@@ -667,6 +667,13 @@ class Settings(BaseSettings):
     SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS: int = Field(default=5 * 60)
     SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS: int = Field(default=30 * 60)
     SUBSCRIPTION_MINI_APP_URL: Optional[str] = Field(default=None)
+    TELEGRAM_BOT_MENU_DISABLED: bool = Field(
+        default=False,
+        description=(
+            "Hide the in-bot user interface and /tg command for regular users. "
+            "Admins keep access; user renewal prompts should open the Mini App."
+        ),
+    )
 
     START_COMMAND_DESCRIPTION: Optional[str] = Field(default=None)
     DISABLE_WELCOME_MESSAGE: bool = Field(
@@ -797,10 +804,7 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def trial_premium_traffic_limit_bytes(self) -> int:
-        if (
-            self.TRIAL_PREMIUM_TRAFFIC_LIMIT_GB is None
-            or self.TRIAL_PREMIUM_TRAFFIC_LIMIT_GB <= 0
-        ):
+        if self.TRIAL_PREMIUM_TRAFFIC_LIMIT_GB is None or self.TRIAL_PREMIUM_TRAFFIC_LIMIT_GB <= 0:
             return 0
         return int(self.TRIAL_PREMIUM_TRAFFIC_LIMIT_GB * (1024**3))
 
@@ -834,9 +838,7 @@ class Settings(BaseSettings):
     def parsed_trial_premium_squad_uuids(self) -> Optional[List[str]]:
         if self.TRIAL_PREMIUM_SQUAD_UUIDS:
             premium_squads = [
-                uuid.strip()
-                for uuid in self.TRIAL_PREMIUM_SQUAD_UUIDS.split(",")
-                if uuid.strip()
+                uuid.strip() for uuid in self.TRIAL_PREMIUM_SQUAD_UUIDS.split(",") if uuid.strip()
             ]
             if premium_squads:
                 return premium_squads

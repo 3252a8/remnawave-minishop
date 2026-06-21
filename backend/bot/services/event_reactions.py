@@ -77,9 +77,10 @@ def _has_superseding_success(
         return False
     canceled_payment_id = _int_or_none(getattr(canceled_payment, "payment_id", None))
     for payment in successful_payments:
-        if canceled_payment_id is not None and _int_or_none(
-            getattr(payment, "payment_id", None)
-        ) == canceled_payment_id:
+        if (
+            canceled_payment_id is not None
+            and _int_or_none(getattr(payment, "payment_id", None)) == canceled_payment_id
+        ):
             continue
         success_at = _payment_status_timestamp(payment)
         if success_at is not None and success_at >= canceled_created_at:
@@ -215,11 +216,7 @@ def _format_failed_payment_details(
         if description:
             lines.append(description)
 
-    details = [
-        translate("payment_failed_detail_item", item=line)
-        for line in lines
-        if line
-    ]
+    details = [translate("payment_failed_detail_item", item=line) for line in lines if line]
     details.append(
         translate(
             "payment_failed_detail_amount",

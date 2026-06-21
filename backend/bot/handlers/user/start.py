@@ -17,6 +17,7 @@ from bot.keyboards.inline.user_keyboards import (
     get_information_links_keyboard,
     get_language_selection_keyboard,
     get_main_menu_inline_keyboard,
+    telegram_bot_menu_enabled_for_user,
 )
 from bot.middlewares.i18n import JsonI18n, normalize_locale_language_code
 from bot.services.panel_api_service import PanelApiService
@@ -158,7 +159,11 @@ async def send_main_menu(
 
     text = _(key="main_menu_greeting", user_name=user_full_name)
     reply_markup = get_main_menu_inline_keyboard(
-        current_lang, i18n, settings, show_trial_button_in_menu
+        current_lang,
+        i18n,
+        settings,
+        show_trial_button_in_menu,
+        user_id=user_id,
     )
 
     target_message_obj: Optional[types.Message] = None
@@ -908,6 +913,12 @@ async def tg_interface_command_handler(
     ):
         return
 
+    if not telegram_bot_menu_enabled_for_user(settings, user_id=message.from_user.id):
+        await send_main_menu(
+            message, settings, i18n_data, subscription_service, session, is_edit=False
+        )
+        return
+
     await send_bot_interface_menu(
         message, settings, i18n_data, subscription_service, session, is_edit=False
     )
@@ -1063,7 +1074,9 @@ async def select_language_callback_handler(
         logging.error(f"Error updating lang for user {user_id}: {e_lang_update}", exc_info=True)
         await safe_answer_callback(callback, "Error setting language.", show_alert=True)
         return
-    if return_target == "bot":
+    if return_target == "bot" and telegram_bot_menu_enabled_for_user(
+        settings, user_id=callback.from_user.id
+    ):
         await send_bot_interface_menu(
             callback, settings, i18n_data, subscription_service, session, is_edit=True
         )
@@ -1101,6 +1114,23 @@ async def main_action_callback_handler(
             callback,
             "Error: message context lost.",
             show_alert=True,
+        )
+        return
+
+    bot_interface_actions = {
+        "bot_interface",
+        "bot_subscribe",
+        "bot_my_subscription",
+        "bot_referral",
+        "bot_apply_promo",
+        "bot_language",
+        "bot_info",
+    }
+    if action in bot_interface_actions and not telegram_bot_menu_enabled_for_user(
+        settings, user_id=callback.from_user.id
+    ):
+        await send_main_menu(
+            callback, settings, i18n_data, subscription_service, session, is_edit=True
         )
         return
 

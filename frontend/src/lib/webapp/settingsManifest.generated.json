@@ -7542,6 +7542,25 @@
         "updated_at": null
       },
       {
+        "key": "TELEGRAM_BOT_MENU_DISABLED",
+        "type": "bool",
+        "section": "subscription_guides",
+        "section_order": 10,
+        "subsection": null,
+        "label": "Disable bot menu for users",
+        "description": "Hide the in-bot user interface and /tg command from regular users. Admins keep access; renewal prompts open the Mini App.",
+        "i18n_label_key": "admin_settings_field_telegram_bot_menu_disabled_label",
+        "i18n_description_key": "admin_settings_field_telegram_bot_menu_disabled_description",
+        "i18n_subsection_key": null,
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": true,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED",
         "type": "bool",
         "section": "subscription_guides",

@@ -17,6 +17,7 @@ from bot.keyboards.inline.user_keyboards import (
     get_main_menu_inline_keyboard,
     get_payment_method_keyboard,
     get_referral_link_keyboard,
+    get_subscribe_only_markup,
     get_subscription_options_keyboard,
     get_tariff_catalog_keyboard,
     get_tariff_periods_keyboard,
@@ -51,11 +52,13 @@ class UserBotMenuTests(unittest.TestCase):
             SERVER_STATUS_URL="",
             SUBSCRIPTION_GUIDES_ENABLED=True,
             SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED=False,
+            TELEGRAM_BOT_MENU_DISABLED=False,
             SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED=True,
             SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED=False,
             SUBSCRIPTION_PAGE_CONFIG_JSON="",
             PANEL_API_URL="https://panel.example.com",
             PANEL_API_KEY="token",
+            ADMIN_IDS=[42],
         )
 
     def _callback_data(self, markup):
@@ -81,6 +84,57 @@ class UserBotMenuTests(unittest.TestCase):
 
         self.assertIn("main_action:bot_interface", callbacks)
         self.assertIn("main_action:info", callbacks)
+
+    def test_main_menu_hides_bot_menu_when_user_menu_disabled(self):
+        self.settings.TELEGRAM_BOT_MENU_DISABLED = True
+        markup = get_main_menu_inline_keyboard(
+            "en",
+            self.i18n,
+            self.settings,
+            user_id=100,
+        )
+
+        callbacks = self._callback_data(markup)
+
+        self.assertNotIn("main_action:bot_interface", callbacks)
+        self.assertIn("main_action:info", callbacks)
+
+    def test_main_menu_keeps_bot_menu_for_admin_when_user_menu_disabled(self):
+        self.settings.TELEGRAM_BOT_MENU_DISABLED = True
+        markup = get_main_menu_inline_keyboard(
+            "en",
+            self.i18n,
+            self.settings,
+            user_id=42,
+        )
+
+        self.assertIn("main_action:bot_interface", self._callback_data(markup))
+
+    def test_subscribe_only_markup_uses_mini_app_renewal_deeplink_when_bot_menu_disabled(self):
+        self.settings.TELEGRAM_BOT_MENU_DISABLED = True
+        markup = get_subscribe_only_markup(
+            "en",
+            self.i18n,
+            self.settings,
+            tariff_key="premium",
+        )
+
+        button = markup.inline_keyboard[0][0]
+
+        self.assertIsNone(button.callback_data)
+        self.assertEqual(
+            button.web_app.url, "https://app.example.com/?renew=1&renew_tariff=premium"
+        )
+
+    def test_subscribe_only_markup_falls_back_to_bot_callback_without_mini_app(self):
+        self.settings.TELEGRAM_BOT_MENU_DISABLED = True
+        self.settings.SUBSCRIPTION_MINI_APP_URL = ""
+        markup = get_subscribe_only_markup("en", self.i18n, self.settings)
+
+        button = markup.inline_keyboard[0][0]
+
+        self.assertEqual(button.callback_data, "main_action:subscribe")
+        self.assertIsNone(button.web_app)
 
     def test_server_status_link_appears_in_bot_menus_when_configured(self):
         self.settings.SERVER_STATUS_URL = "https://status.example.com"

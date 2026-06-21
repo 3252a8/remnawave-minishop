@@ -191,7 +191,12 @@ class PanelWebhookService:
                 )
                 return
 
-            markup = get_subscribe_only_markup(lang, self.i18n)
+            markup = get_subscribe_only_markup(
+                lang,
+                self.i18n,
+                self.settings,
+                tariff_key=self.lifecycle_notifications._renewal_tariff_key(sub),
+            )
             end_date_text = self._payload_expire_date(user_payload)
 
             # The panel may target a stale, expired subscription row while the
@@ -331,7 +336,7 @@ class PanelWebhookService:
         db_user: Optional[User],
     ) -> None:
         first_name = getattr(db_user, "first_name", None) or f"User {user_id}"
-        markup = get_subscribe_only_markup(lang, self.i18n)
+        markup = get_subscribe_only_markup(lang, self.i18n, self.settings)
         if event_name in EVENT_MAP:
             stage = EVENT_MAP[event_name]
             await self._send_message(

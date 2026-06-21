@@ -2156,6 +2156,8 @@
   "admin_settings_field_subscription_guides_enabled_description": "Open install instructions inside the Web App instead of an external connect page.",
   "admin_settings_field_subscription_guides_bot_menu_enabled_label": "Open install guides from bot",
   "admin_settings_field_subscription_guides_bot_menu_enabled_description": "Use the Telegram Mini App install screen for bot connect buttons and show public install guide links.",
+  "admin_settings_field_telegram_bot_menu_disabled_label": "Disable bot menu for users",
+  "admin_settings_field_telegram_bot_menu_disabled_description": "Hide the in-bot user interface and /tg command from regular users. Admins keep access; renewal prompts open the Mini App.",
   "admin_settings_field_subscription_page_config_panel_enabled_label": "Use Remnawave Panel config",
   "admin_settings_field_subscription_page_config_panel_enabled_description": "Fetch Subscription Page config from Remnawave Panel by the user's subscription short UUID.",
   "admin_settings_field_subscription_page_config_json_override_enabled_label": "Enable admin JSON override",

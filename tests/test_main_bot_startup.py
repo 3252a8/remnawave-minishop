@@ -2,10 +2,12 @@ import ast
 import asyncio
 import logging
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from aiogram.exceptions import TelegramNetworkError
 
-from bot.main_bot import _run_telegram_startup_step
+from bot.main_bot import _run_telegram_startup_step, on_startup_configured
 
 
 def test_backend_startup_does_not_run_panel_sync_inline():
@@ -79,11 +81,59 @@ def test_telegram_startup_clears_legacy_command_scopes_before_setting_commands()
     assert "BotCommandScopeAllPrivateChats" in source
     assert "BotCommandScopeAllGroupChats" in source
     assert "BotCommandScopeAllChatAdministrators" in source
+    assert "BotCommandScopeChat" in source
     assert "await bot.delete_my_commands(scope=scope, language_code=language_code)" in source
-    assert "await bot.set_my_commands(bot_commands, scope=BotCommandScopeDefault())" in source
     assert (
-        "await bot.set_my_commands(bot_commands, scope=BotCommandScopeAllPrivateChats())" in source
+        "await bot.set_my_commands(public_bot_commands, scope=BotCommandScopeDefault())" in source
     )
+    assert (
+        "await bot.set_my_commands(public_bot_commands, scope=BotCommandScopeAllPrivateChats())"
+        in source
+    )
+    assert "scope=BotCommandScopeChat(chat_id=admin_id)" in source
+
+
+def test_telegram_startup_hides_tg_command_from_public_scopes_when_bot_menu_disabled():
+    class FakeBot:
+        def __init__(self):
+            self.deleted = []
+            self.set_calls = []
+
+        async def delete_my_commands(self, *, scope, language_code=None):
+            self.deleted.append((type(scope).__name__, language_code))
+
+        async def set_my_commands(self, commands, *, scope):
+            self.set_calls.append((type(scope).__name__, list(commands), scope))
+
+    settings = SimpleNamespace(
+        SUBSCRIPTION_MINI_APP_URL="",
+        DEFAULT_LANGUAGE="ru",
+        START_COMMAND_DESCRIPTION=None,
+        TELEGRAM_BOT_MENU_DISABLED=True,
+        ADMIN_IDS=[42],
+    )
+    dispatcher = {
+        "bot_instance": FakeBot(),
+        "settings": settings,
+        "i18n_instance": SimpleNamespace(gettext=lambda *_args, **_kwargs: "Account"),
+    }
+
+    with patch("bot.main_bot.init_queue_manager", return_value=object()):
+        asyncio.run(on_startup_configured(dispatcher))
+
+    public_calls = dispatcher["bot_instance"].set_calls[:2]
+    admin_calls = dispatcher["bot_instance"].set_calls[2:]
+
+    assert [
+        (scope_name, [cmd.command for cmd in commands]) for scope_name, commands, _ in public_calls
+    ] == [
+        ("BotCommandScopeDefault", ["start"]),
+        ("BotCommandScopeAllPrivateChats", ["start"]),
+    ]
+    assert [
+        (scope_name, scope.chat_id, [cmd.command for cmd in commands])
+        for scope_name, commands, scope in admin_calls
+    ] == [("BotCommandScopeChat", 42, ["start", "tg"])]
 
 
 def test_telegram_startup_network_error_retries_until_success_without_traceback(caplog):

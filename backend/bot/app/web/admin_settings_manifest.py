@@ -225,6 +225,16 @@ SETTINGS_MANIFEST: List[SettingField] = [
         ),
     ),
     SettingField(
+        "TELEGRAM_BOT_MENU_DISABLED",
+        "bool",
+        "subscription_guides",
+        "Disable bot menu for users",
+        (
+            "Hide the in-bot user interface and /tg command from regular users. "
+            "Admins keep access; renewal prompts open the Mini App."
+        ),
+    ),
+    SettingField(
         "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED",
         "bool",
         "subscription_guides",

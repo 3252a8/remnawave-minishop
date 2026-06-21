@@ -6,7 +6,10 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 from bot.middlewares.i18n import locale_language_options
 from bot.utils.channel_subscription import normalize_required_channel_link
 from bot.utils.install_links import bot_install_guide_url
-from bot.utils.mini_app_url import subscription_mini_app_trial_url
+from bot.utils.mini_app_url import (
+    subscription_mini_app_renew_url,
+    subscription_mini_app_trial_url,
+)
 from config.settings import Settings
 from config.tariffs_config import (
     default_currency_key_for_settings,
@@ -16,6 +19,26 @@ from config.tariffs_config import (
 
 BOT_MENU_CONTEXT = "bot"
 HWID_RENEWAL_TOKEN = "hwid_renewal"
+
+
+def telegram_bot_menu_enabled_for_user(
+    settings: Settings,
+    *,
+    user_id: Optional[int] = None,
+    is_admin: bool = False,
+) -> bool:
+    """Return whether the legacy in-bot interface should be available."""
+    if not bool(getattr(settings, "TELEGRAM_BOT_MENU_DISABLED", False)):
+        return True
+    if is_admin:
+        return True
+    if user_id is None:
+        return False
+    try:
+        normalized_user_id = int(user_id)
+    except (TypeError, ValueError):
+        return False
+    return normalized_user_id in set(getattr(settings, "ADMIN_IDS", []) or [])
 
 
 def sale_mode_tokens(sale_mode: Optional[str]) -> Tuple[str, ...]:
@@ -139,7 +162,13 @@ def _trial_activation_button(lang: str, i18n_instance, settings: Settings) -> In
 
 
 def get_main_menu_inline_keyboard(
-    lang: str, i18n_instance, settings: Settings, show_trial_button: bool = False
+    lang: str,
+    i18n_instance,
+    settings: Settings,
+    show_trial_button: bool = False,
+    *,
+    user_id: Optional[int] = None,
+    is_admin: bool = False,
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -162,11 +191,12 @@ def get_main_menu_inline_keyboard(
             )
         )
 
-    builder.row(
-        InlineKeyboardButton(
-            text=_(key="menu_bot_interface_button"), callback_data="main_action:bot_interface"
+    if telegram_bot_menu_enabled_for_user(settings, user_id=user_id, is_admin=is_admin):
+        builder.row(
+            InlineKeyboardButton(
+                text=_(key="menu_bot_interface_button"), callback_data="main_action:bot_interface"
+            )
         )
-    )
 
     if settings.SERVER_STATUS_URL:
         builder.row(
@@ -763,10 +793,27 @@ def get_back_to_main_menu_markup(
     return builder.as_markup()
 
 
-def get_subscribe_only_markup(lang: str, i18n_instance) -> InlineKeyboardMarkup:
+def get_subscribe_only_markup(
+    lang: str,
+    i18n_instance,
+    settings: Optional[Settings] = None,
+    *,
+    tariff_key: Optional[str] = None,
+) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
-    builder.button(text=_(key="menu_subscribe_inline"), callback_data="main_action:subscribe")
+    renew_url = (
+        subscription_mini_app_renew_url(settings, tariff_key)
+        if settings and bool(getattr(settings, "TELEGRAM_BOT_MENU_DISABLED", False))
+        else None
+    )
+    if renew_url:
+        builder.button(
+            text=_(key="menu_subscribe_inline"),
+            web_app=WebAppInfo(url=renew_url),
+        )
+    else:
+        builder.button(text=_(key="menu_subscribe_inline"), callback_data="main_action:subscribe")
     return builder.as_markup()
 
 

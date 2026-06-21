@@ -374,7 +374,7 @@ class SubscriptionNotificationWorker:
                 await self.bot.send_message(
                     telegram_chat_id,
                     message_text,
-                    reply_markup=get_subscribe_only_markup(lang, self.i18n),
+                    reply_markup=get_subscribe_only_markup(lang, self.i18n, self.settings),
                     parse_mode="HTML",
                 )
                 telegram_sent = True

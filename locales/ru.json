@@ -2156,6 +2156,8 @@
   "admin_settings_field_subscription_guides_enabled_description": "Открывать инструкции прямо внутри Web App вместо внешней страницы подключения.",
   "admin_settings_field_subscription_guides_bot_menu_enabled_label": "Открывать инструкции из бота",
   "admin_settings_field_subscription_guides_bot_menu_enabled_description": "Открывать экран установки в Telegram Mini App для кнопок подключения в боте и показывать публичные ссылки на инструкцию.",
+  "admin_settings_field_telegram_bot_menu_disabled_label": "Отключить бот-меню для пользователей",
+  "admin_settings_field_telegram_bot_menu_disabled_description": "Скрывает пользовательский интерфейс внутри бота и команду /tg для обычных пользователей. Админам доступ сохраняется; предложения продления открывают Mini App.",
   "admin_settings_field_subscription_page_config_panel_enabled_label": "Использовать конфиг Remnawave Panel",
   "admin_settings_field_subscription_page_config_panel_enabled_description": "Брать Subscription Page config из Remnawave Panel по short UUID подписки пользователя.",
   "admin_settings_field_subscription_page_config_json_override_enabled_label": "Включить JSON-override из админки",

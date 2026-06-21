@@ -4,6 +4,7 @@ from bot.utils.mini_app_url import (
     append_query_params,
     subscription_mini_app_install_url,
     subscription_mini_app_path_url,
+    subscription_mini_app_renew_url,
     subscription_mini_app_topup_url,
     subscription_mini_app_trial_url,
     subscription_public_install_url,
@@ -62,6 +63,19 @@ class MiniAppUrlTests(unittest.TestCase):
         self.assertEqual(
             subscription_mini_app_topup_url(s, "premium"),
             "https://app.example.com/webapp?lang=ru&topup=premium",
+        )
+
+    def test_subscription_mini_app_renew_url(self):
+        s = Settings(
+            _env_file=None,
+            BOT_TOKEN="x",
+            POSTGRES_USER="u",
+            POSTGRES_PASSWORD="p",
+            SUBSCRIPTION_MINI_APP_URL="https://app.example.com/webapp?lang=ru",
+        )
+        self.assertEqual(
+            subscription_mini_app_renew_url(s, "premium"),
+            "https://app.example.com/webapp?lang=ru&renew=1&renew_tariff=premium",
         )
 
     def test_subscription_mini_app_path_url(self):

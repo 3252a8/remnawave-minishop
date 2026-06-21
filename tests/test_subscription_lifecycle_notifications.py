@@ -185,8 +185,12 @@ def test_legacy_stage_key_suppresses_only_telegram(monkeypatch):
     async def fake_record(session, subscription_id, notification_key, *, sent_at=None):
         recorded.append(notification_key)
 
+    async def fake_log(*_args, **_kwargs):
+        return None
+
     monkeypatch.setattr(lifecycle.subscription_dal, "has_subscription_notification", fake_has)
     monkeypatch.setattr(lifecycle.subscription_dal, "record_subscription_notification", fake_record)
+    monkeypatch.setattr(lifecycle, "log_user_message_delivery", fake_log)
 
     bot = FakeBot()
     email_service = FakeEmailService()
@@ -217,6 +221,49 @@ def test_legacy_stage_key_suppresses_only_telegram(monkeypatch):
     assert bot.messages == []
     assert email_service.messages[0]["email"] == "user@example.test"
     assert recorded == ["before_3d", "before_3d:email"]
+
+
+def test_default_telegram_markup_uses_mini_app_renewal_when_bot_menu_disabled(monkeypatch):
+    recorded = []
+
+    async def fake_has(session, subscription_id, notification_key):
+        return notification_key in recorded
+
+    async def fake_record(session, subscription_id, notification_key, *, sent_at=None):
+        recorded.append(notification_key)
+
+    monkeypatch.setattr(lifecycle.subscription_dal, "has_subscription_notification", fake_has)
+    monkeypatch.setattr(lifecycle.subscription_dal, "record_subscription_notification", fake_record)
+
+    bot = FakeBot()
+    settings = _settings(TELEGRAM_BOT_MENU_DISABLED=True)
+    service = SubscriptionLifecycleNotificationService(
+        settings,
+        bot,
+        FakeI18n(),
+    )
+
+    async def run():
+        return await service.send_stage(
+            object(),
+            _subscription(tariff_key="premium"),
+            SubscriptionNotificationStage(
+                key="before_3d",
+                message_key="subscription_72h_notification",
+                days_left=3,
+            ),
+            user=_user(
+                email="",
+                telegram_notifications_status=lifecycle.TELEGRAM_NOTIFICATIONS_ENABLED,
+            ),
+        )
+
+    delivery = asyncio.run(run())
+
+    button = bot.messages[0]["reply_markup"].inline_keyboard[0][0]
+    assert delivery.telegram_sent is True
+    assert button.callback_data is None
+    assert button.web_app.url == "https://app.example.test/?renew=1&renew_tariff=premium"
 
 
 def test_unstarted_telegram_failure_marks_status_without_recording_delivery(monkeypatch):

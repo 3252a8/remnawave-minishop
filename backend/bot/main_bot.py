@@ -3,12 +3,13 @@ import logging
 from typing import Awaitable, Callable, Optional
 
 from aiogram import Bot, Dispatcher
-from aiogram.exceptions import TelegramNetworkError
+from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
 from aiogram.types import (
     BotCommand,
     BotCommandScopeAllChatAdministrators,
     BotCommandScopeAllGroupChats,
     BotCommandScopeAllPrivateChats,
+    BotCommandScopeChat,
     BotCommandScopeDefault,
     MenuButtonDefault,
     MenuButtonWebApp,
@@ -209,6 +210,8 @@ async def on_startup_configured(dispatcher: Dispatcher):
             BotCommand(command="start", description=start_description),
             BotCommand(command="tg", description="Интерфейс в боте"),
         ]
+        bot_menu_disabled = bool(getattr(settings, "TELEGRAM_BOT_MENU_DISABLED", False))
+        public_bot_commands = [bot_commands[0]] if bot_menu_disabled else bot_commands
         command_scopes_to_clear = [
             BotCommandScopeDefault(),
             BotCommandScopeAllPrivateChats(),
@@ -218,8 +221,21 @@ async def on_startup_configured(dispatcher: Dispatcher):
         for scope in command_scopes_to_clear:
             for language_code in _telegram_command_language_codes(settings):
                 await bot.delete_my_commands(scope=scope, language_code=language_code)
-        await bot.set_my_commands(bot_commands, scope=BotCommandScopeDefault())
-        await bot.set_my_commands(bot_commands, scope=BotCommandScopeAllPrivateChats())
+        await bot.set_my_commands(public_bot_commands, scope=BotCommandScopeDefault())
+        await bot.set_my_commands(public_bot_commands, scope=BotCommandScopeAllPrivateChats())
+        if bot_menu_disabled:
+            for admin_id in getattr(settings, "ADMIN_IDS", []) or []:
+                try:
+                    await bot.set_my_commands(
+                        bot_commands,
+                        scope=BotCommandScopeChat(chat_id=admin_id),
+                    )
+                except TelegramBadRequest as exc:
+                    logging.warning(
+                        "STARTUP: Could not set admin bot commands for chat %s: %s",
+                        admin_id,
+                        exc,
+                    )
         logging.info("STARTUP: bot command descriptions set.")
 
     await _run_telegram_startup_step(
