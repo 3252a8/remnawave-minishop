@@ -14,7 +14,7 @@ import json
 import unittest
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[1]
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 _GENERATOR_PATH = _REPO_ROOT / "scripts" / "export_settings_manifest.py"
 
 _spec = importlib.util.spec_from_file_location("export_settings_manifest", _GENERATOR_PATH)

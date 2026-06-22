@@ -88,7 +88,7 @@ jobs:
       # `npx --prefix frontend prettier --write \
       #   src/lib/webapp/settingsManifest.generated.json`, and commit the result.
       - name: Check demo settings manifest is in sync
-        run: python -m pytest tests/test_settings_manifest_demo_sync.py -q
+        run: python -m pytest tests/contracts/test_settings_manifest_demo_sync.py -q
 
   test:
     name: Python tests

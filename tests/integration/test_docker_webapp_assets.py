@@ -16,7 +16,7 @@ import re
 import unittest
 from pathlib import Path
 
-DOCKERFILE_PATH = Path(__file__).resolve().parents[1] / "deploy" / "docker" / "Dockerfile"
+DOCKERFILE_PATH = Path(__file__).resolve().parents[2] / "deploy" / "docker" / "Dockerfile"
 
 
 class DockerWebappAssetTests(unittest.TestCase):

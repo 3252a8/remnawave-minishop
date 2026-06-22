@@ -10,7 +10,7 @@ from bot.services.email_templates import (
 from bot.services.notification_service import NotificationService
 from config.settings import Settings
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _settings(**overrides):

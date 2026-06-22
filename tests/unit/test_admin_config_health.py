@@ -336,7 +336,7 @@ class CollectAlertsTests(unittest.IsolatedAsyncioTestCase):
 
 class HealthLocaleKeysTests(unittest.TestCase):
     def test_every_message_key_has_locale_entries(self):
-        root = Path(__file__).resolve().parents[1]
+        root = Path(__file__).resolve().parents[2]
         for language in ("ru", "en"):
             messages = json.loads(
                 (root / "locales" / f"{language}.json").read_text(encoding="utf-8")

@@ -6,7 +6,7 @@ import subprocess
 import unittest
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 DOC_PATH = REPO_ROOT / "docs" / "migrations" / "remnawave-tg-shop.md"
 REMNASHOP_DOC_PATH = REPO_ROOT / "docs" / "migrations" / "remnashop.md"
 DEPLOYMENT_DOC_PATH = REPO_ROOT / "docs" / "getting-started" / "deployment.md"

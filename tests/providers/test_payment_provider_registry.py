@@ -76,7 +76,7 @@ _PROVIDER_MODULES = {
 
 
 def test_legacy_provider_integration_files_are_removed():
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
 
     for relative_path in _LEGACY_PROVIDER_FILES:
         assert not (repo_root / relative_path).exists()

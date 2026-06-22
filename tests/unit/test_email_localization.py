@@ -25,7 +25,7 @@ from bot.services.email_templates import (
 )
 from config.webapp_themes_config import WebappThemesConfig
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 EMAIL_KEY_RE = re.compile(r"""["'](?P<key>email_[a-z0-9_]+)["']""")
 EMAIL_KEY_ASSIGNMENT_HINTS = (
     "subject_key",

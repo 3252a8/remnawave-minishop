@@ -7,7 +7,7 @@ import pytest
 from bot.app.web.admin_settings_manifest import coerce_value, get_field_by_key, manifest_payload
 from bot.middlewares.i18n import resolve_locale_key
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 SUPPORT_RELATED_SETTINGS = (
     "LOG_SUPPORT_THREAD_ID",

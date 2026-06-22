@@ -17,7 +17,7 @@ from bot.services import locale_override_service
 from bot.services.email_templates import render_login_code
 from bot.services.locale_override_service import audience_for_locale_key, group_id_for_locale_key
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 LOCALE_CALL_RE = re.compile(
     r"""(?P<fn>\bat\b|\bt\b|\bgettext\b|\bget_text\b|\btranslator\b|(?<![\w.])_)"""
     r"""\(\s*(?:key\s*=\s*)?["'](?P<key>[^"']+)["']"""

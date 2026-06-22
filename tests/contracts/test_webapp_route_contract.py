@@ -13,7 +13,7 @@ from bot.app.web.admin_api_impl import auth as admin_auth_routes
 from bot.app.web.webapp_auth import create_webapp_session_token
 from config.webapp_themes_config import WebappThemesConfig
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class _Request(dict):

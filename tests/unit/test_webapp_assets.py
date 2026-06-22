@@ -336,7 +336,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertLess(html.index("/subscription_webapp.css"), html.index("WEBAPP_JS_SCRIPT"))
 
     def test_mobile_bottom_nav_many_items_uses_compact_phone_layout(self):
-        css_path = Path(__file__).resolve().parents[1] / "frontend/src/styles/webapp.css"
+        css_path = Path(__file__).resolve().parents[2] / "frontend/src/styles/webapp.css"
         css = css_path.read_text(encoding="utf-8")
 
         self.assertIn("@media (max-width: 460px)", css)
@@ -345,11 +345,11 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("display: none;", css)
 
     def test_settings_screen_places_server_status_between_legal_and_support_links(self):
-        source = (Path(__file__).resolve().parents[1] / "frontend/src/App.svelte").read_text(
+        source = (Path(__file__).resolve().parents[2] / "frontend/src/App.svelte").read_text(
             encoding="utf-8"
         )
         settings_source = (
-            Path(__file__).resolve().parents[1]
+            Path(__file__).resolve().parents[2]
             / "frontend/src/webapp/screens/SettingsScreen.svelte"
         ).read_text(encoding="utf-8")
 
@@ -441,7 +441,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("hydrate,", store_source)
 
     def test_home_screen_hides_unlimited_traffic_limit_cards(self):
-        root = Path(__file__).resolve().parents[1]
+        root = Path(__file__).resolve().parents[2]
         app_source = (root / "frontend/src/App.svelte").read_text(encoding="utf-8")
         home_source = (root / "frontend/src/webapp/screens/HomeScreen.svelte").read_text(
             encoding="utf-8"
