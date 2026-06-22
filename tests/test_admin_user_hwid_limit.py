@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from bot.app.web.admin_api_impl import users as admin_users
+from bot.app.web.admin_api_impl import users_actions
 
 
 class FakeSession:
@@ -68,16 +69,16 @@ class AdminUserHwidLimitRouteTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
-            patch.object(admin_users, "_require_admin_user_id", return_value=100),
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
             patch.object(
                 admin_users.subscription_dal,
                 "get_active_subscription_by_user_id",
                 AsyncMock(return_value=active),
             ),
             patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()),
-            patch.object(admin_users, "_invalidate_after_admin_user_mutation", AsyncMock()),
+            patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
             patch.object(
-                admin_users,
+                users_actions,
                 "_serialize_subscription",
                 return_value={"hwid_device_limit": 0},
             ),
@@ -100,16 +101,16 @@ class AdminUserHwidLimitRouteTests(unittest.IsolatedAsyncioTestCase):
         request = FakeRequest({"use_default": True}, session, subscription_service)
 
         with (
-            patch.object(admin_users, "_require_admin_user_id", return_value=100),
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
             patch.object(
                 admin_users.subscription_dal,
                 "get_active_subscription_by_user_id",
                 AsyncMock(return_value=active),
             ),
             patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()),
-            patch.object(admin_users, "_invalidate_after_admin_user_mutation", AsyncMock()),
+            patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
             patch.object(
-                admin_users,
+                users_actions,
                 "_serialize_subscription",
                 return_value={"hwid_device_limit": None},
             ),
@@ -128,7 +129,7 @@ class AdminUserHwidLimitRouteTests(unittest.IsolatedAsyncioTestCase):
         )
         request = FakeRequest({"hwid_device_limit": -1}, session, subscription_service)
 
-        with patch.object(admin_users, "_require_admin_user_id", return_value=100):
+        with patch.object(users_actions, "_require_admin_user_id", return_value=100):
             response = await admin_users.admin_user_hwid_device_limit_route(request)
 
         self.assertEqual(response.status, 400)
@@ -148,15 +149,15 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
-            patch.object(admin_users, "_require_admin_user_id", return_value=100),
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
             patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()) as log,
             patch.object(
                 admin_users.subscription_dal,
                 "get_active_subscription_by_user_id",
                 AsyncMock(return_value=SimpleNamespace(subscription_id=1)),
             ),
-            patch.object(admin_users, "_invalidate_after_admin_user_mutation", AsyncMock()),
-            patch.object(admin_users, "_serialize_subscription", return_value={"ok": True}),
+            patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
+            patch.object(users_actions, "_serialize_subscription", return_value={"ok": True}),
         ):
             response = await admin_users.admin_user_extend_route(request)
 
@@ -180,15 +181,15 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
         request = FakeRequest({"days": 10}, session, subscription_service)
 
         with (
-            patch.object(admin_users, "_require_admin_user_id", return_value=100),
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
             patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()) as log,
             patch.object(
                 admin_users.subscription_dal,
                 "get_active_subscription_by_user_id",
                 AsyncMock(return_value=SimpleNamespace(subscription_id=1)),
             ),
-            patch.object(admin_users, "_invalidate_after_admin_user_mutation", AsyncMock()),
-            patch.object(admin_users, "_serialize_subscription", return_value={"ok": True}),
+            patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
+            patch.object(users_actions, "_serialize_subscription", return_value={"ok": True}),
         ):
             response = await admin_users.admin_user_extend_route(request)
 
@@ -217,15 +218,15 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
         request = FakeRequest({"days": 10}, session, subscription_service, settings=settings)
 
         with (
-            patch.object(admin_users, "_require_admin_user_id", return_value=100),
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
             patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()),
             patch.object(
                 admin_users.subscription_dal,
                 "get_active_subscription_by_user_id",
                 AsyncMock(return_value=SimpleNamespace(subscription_id=1)),
             ),
-            patch.object(admin_users, "_invalidate_after_admin_user_mutation", AsyncMock()),
-            patch.object(admin_users, "_serialize_subscription", return_value={"ok": True}),
+            patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
+            patch.object(users_actions, "_serialize_subscription", return_value={"ok": True}),
         ):
             response = await admin_users.admin_user_extend_route(request)
 
@@ -254,7 +255,7 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
         )
         request = FakeRequest({"days": 10}, session, subscription_service, settings=settings)
 
-        with patch.object(admin_users, "_require_admin_user_id", return_value=100):
+        with patch.object(users_actions, "_require_admin_user_id", return_value=100):
             response = await admin_users.admin_user_extend_route(request)
 
         self.assertEqual(response.status, 400)
@@ -277,16 +278,16 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
         request = FakeRequest({"tariff_key": "plus"}, session, subscription_service, settings)
 
         with (
-            patch.object(admin_users, "_require_admin_user_id", return_value=100),
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
             patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()),
             patch.object(
                 admin_users.subscription_dal,
                 "get_active_subscription_by_user_id",
                 AsyncMock(return_value=SimpleNamespace(subscription_id=1)),
             ),
-            patch.object(admin_users, "_invalidate_after_admin_user_mutation", AsyncMock()),
+            patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
             patch.object(
-                admin_users,
+                users_actions,
                 "_serialize_subscription",
                 return_value={"tariff_key": "plus"},
             ),
@@ -309,7 +310,7 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
         )
         request = FakeRequest({"hwid_device_limit": 1_000_001}, session, subscription_service)
 
-        with patch.object(admin_users, "_require_admin_user_id", return_value=100):
+        with patch.object(users_actions, "_require_admin_user_id", return_value=100):
             response = await admin_users.admin_user_hwid_device_limit_route(request)
 
         self.assertEqual(response.status, 400)

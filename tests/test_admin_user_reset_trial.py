@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 from bot.app.web.admin_api_impl import common as admin_common
 from bot.app.web.admin_api_impl import users as admin_users
+from bot.app.web.admin_api_impl import users_actions
 
 
 class FakeSession:
@@ -42,7 +43,7 @@ class AdminUserResetTrialRouteTests(unittest.IsolatedAsyncioTestCase):
         user = SimpleNamespace(user_id=42)
 
         with (
-            patch.object(admin_users, "_require_admin_user_id", return_value=100),
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
             patch.object(admin_users.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
             patch.object(
                 admin_users.user_dal,
@@ -58,7 +59,7 @@ class AdminUserResetTrialRouteTests(unittest.IsolatedAsyncioTestCase):
                 admin_users.message_log_dal, "create_message_log_no_commit", AsyncMock()
             ) as log,
             patch.object(
-                admin_users, "_invalidate_after_admin_user_mutation", AsyncMock()
+                users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()
             ) as invalidate,
         ):
             response = await admin_users.admin_user_reset_trial_route(request)

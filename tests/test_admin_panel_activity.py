@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 from bot.app.web.admin_api_impl import broadcast as broadcast_module
 from bot.app.web.admin_api_impl import common as common_module
 from bot.app.web.admin_api_impl import users as users_module
+from bot.app.web.admin_api_impl import users_detail
 
 
 class FakeResult:
@@ -192,7 +193,7 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
-            patch.object(users_module, "_require_admin_user_id", return_value=100),
+            patch.object(users_detail, "_require_admin_user_id", return_value=100),
             patch.object(users_module.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
             patch.object(
                 users_module.subscription_dal,
@@ -219,7 +220,7 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
                 "count_users_referred_by",
                 AsyncMock(return_value=0),
             ),
-            patch.object(users_module, "_bulk_user_avatar_keys", AsyncMock(return_value={})),
+            patch.object(users_detail, "_bulk_user_avatar_keys", AsyncMock(return_value={})),
             patch.object(
                 users_module.user_dal,
                 "ensure_referral_code",

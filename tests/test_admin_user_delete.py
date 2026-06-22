@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from bot.app.web.admin_api_impl import users as admin_users
+from bot.app.web.admin_api_impl import users_actions
 
 
 class FakeSession:
@@ -55,7 +56,7 @@ class AdminUserDeleteRouteTests(unittest.IsolatedAsyncioTestCase):
         user = SimpleNamespace(user_id=42, panel_user_uuid="panel-main")
 
         with (
-            patch.object(admin_users, "_require_admin_user_id", return_value=100),
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
             patch.object(admin_users.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
             patch.object(
                 admin_users.user_dal,
@@ -72,7 +73,7 @@ class AdminUserDeleteRouteTests(unittest.IsolatedAsyncioTestCase):
                 "create_message_log_no_commit",
                 AsyncMock(),
             ) as log_mock,
-            patch.object(admin_users, "_invalidate_after_admin_user_mutation", AsyncMock()),
+            patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
         ):
             response = await admin_users.admin_user_delete_route(request)
 
@@ -99,7 +100,7 @@ class AdminUserDeleteRouteTests(unittest.IsolatedAsyncioTestCase):
         user = SimpleNamespace(user_id=42, panel_user_uuid="panel-main")
 
         with (
-            patch.object(admin_users, "_require_admin_user_id", return_value=100),
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
             patch.object(admin_users.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
             patch.object(
                 admin_users.user_dal,
@@ -129,7 +130,7 @@ class AdminUserDeleteRouteTests(unittest.IsolatedAsyncioTestCase):
         user = SimpleNamespace(user_id=42, panel_user_uuid="panel-main")
 
         with (
-            patch.object(admin_users, "_require_admin_user_id", return_value=100),
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
             patch.object(admin_users.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
             patch.object(
                 admin_users.user_dal,
