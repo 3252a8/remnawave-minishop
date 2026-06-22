@@ -4,7 +4,7 @@ import hmac
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
@@ -30,6 +30,9 @@ from db.dal import subscription_dal, tariff_dal, user_dal
 from db.models import Subscription, User
 
 from .panel_api_service import PanelApiService
+
+if TYPE_CHECKING:
+    from bot.services.subscription_service import SubscriptionService
 
 EVENT_MAP = {
     "user.expires_in_72_hours": SubscriptionNotificationStage(
@@ -80,6 +83,7 @@ class PanelWebhookService:
             bot,
             i18n,
         )
+        self.subscription_service: SubscriptionService | None = None
         self._event_semaphore = asyncio.Semaphore(self._MAX_CONCURRENT_EVENTS)
         if not self.settings.PANEL_WEBHOOK_SECRET:
             logging.error(

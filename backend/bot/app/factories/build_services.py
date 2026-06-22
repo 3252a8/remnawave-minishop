@@ -1,6 +1,7 @@
 from aiogram import Bot
 from sqlalchemy.orm import sessionmaker
 
+from bot.app.factories.core_services import CoreServices
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import (
     ServiceFactoryContext,
@@ -26,7 +27,7 @@ def build_core_services(
     async_session_factory: sessionmaker,
     i18n: JsonI18n,
     bot_username_for_default_return: str,
-):
+) -> CoreServices:
     panel_service = (
         PanelDryRunApiService(settings)
         if bool(getattr(settings, "panel_dry_run_enabled", False))
@@ -73,15 +74,14 @@ def build_core_services(
     subscription_service.recurring_provider_services = recurring_provider_services(payment_services)
     panel_webhook_service.subscription_service = subscription_service
 
-    services = {
-        "panel_service": panel_service,
-        "subscription_service": subscription_service,
-        "referral_service": referral_service,
-        "promo_code_service": promo_code_service,
-        "notification_service": notification_service,
-        "email_auth_service": email_auth_service,
-        "support_service": support_service,
-        "panel_webhook_service": panel_webhook_service,
-    }
-    services.update(payment_services)
-    return services
+    return CoreServices(
+        panel_service=panel_service,
+        subscription_service=subscription_service,
+        referral_service=referral_service,
+        promo_code_service=promo_code_service,
+        notification_service=notification_service,
+        email_auth_service=email_auth_service,
+        support_service=support_service,
+        panel_webhook_service=panel_webhook_service,
+        payment_services=payment_services,
+    )

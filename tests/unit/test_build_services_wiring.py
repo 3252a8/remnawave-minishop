@@ -21,6 +21,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from bot.app.factories.build_services import build_core_services
+from bot.app.factories.core_services import CoreServices
 from bot.payment_providers.yookassa import YooKassaService
 from bot.services.panel_dry_run_api_service import PanelDryRunApiService
 from bot.services.panel_webhook_service import PanelWebhookService
@@ -89,21 +90,25 @@ def _make_settings(tmpdir: str, **overrides: Any) -> Settings:
 
 
 class BuildServicesWiringTests(unittest.TestCase):
+    def _build_services(self, settings: Settings) -> CoreServices:
+        return build_core_services(
+            settings=settings,
+            bot=MagicMock(),
+            async_session_factory=MagicMock(),
+            i18n=MagicMock(),
+            bot_username_for_default_return="testbot",
+        )
+
     def test_subscription_service_receives_yookassa_handle(self):
         """Auto-renew reads ``self.yookassa_service`` directly. If this
         attachment ever disappears, every YooKassa auto-renew will silently
         return False without anyone noticing until a charge is missed."""
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(tmpdir)
-            services = build_core_services(
-                settings=settings,
-                bot=MagicMock(),
-                async_session_factory=MagicMock(),
-                i18n=MagicMock(),
-                bot_username_for_default_return="testbot",
-            )
+            core_services = self._build_services(settings)
+            services = core_services.as_dict()
 
-        subscription = services["subscription_service"]
+        subscription = core_services.subscription_service
         yookassa = services["yookassa_service"]
         self.assertIsInstance(subscription, SubscriptionService)
         self.assertIsInstance(yookassa, YooKassaService)
@@ -129,33 +134,22 @@ class BuildServicesWiringTests(unittest.TestCase):
         auto-renew nudge if it returns None. Pin the back-reference."""
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(tmpdir)
-            services = build_core_services(
-                settings=settings,
-                bot=MagicMock(),
-                async_session_factory=MagicMock(),
-                i18n=MagicMock(),
-                bot_username_for_default_return="testbot",
-            )
+            core_services = self._build_services(settings)
 
-        panel_webhook = services["panel_webhook_service"]
-        subscription = services["subscription_service"]
+        panel_webhook = core_services.panel_webhook_service
+        subscription = core_services.subscription_service
         self.assertIsInstance(panel_webhook, PanelWebhookService)
         self.assertIs(getattr(panel_webhook, "subscription_service", None), subscription)
 
     def test_development_runtime_wires_panel_dry_run_service(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(tmpdir, APP_RUNTIME_MODE="development")
-            services = build_core_services(
-                settings=settings,
-                bot=MagicMock(),
-                async_session_factory=MagicMock(),
-                i18n=MagicMock(),
-                bot_username_for_default_return="testbot",
-            )
+            core_services = self._build_services(settings)
+            services = core_services.as_dict()
 
-        self.assertIsInstance(services["panel_service"], PanelDryRunApiService)
+        self.assertIsInstance(core_services.panel_service, PanelDryRunApiService)
         self.assertIs(
-            services["subscription_service"].panel_service,
+            core_services.subscription_service.panel_service,
             services["panel_service"],
         )
 
@@ -165,13 +159,8 @@ class BuildServicesWiringTests(unittest.TestCase):
         key turns into a runtime KeyError at request time."""
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(tmpdir)
-            services = build_core_services(
-                settings=settings,
-                bot=MagicMock(),
-                async_session_factory=MagicMock(),
-                i18n=MagicMock(),
-                bot_username_for_default_return="testbot",
-            )
+            core_services = self._build_services(settings)
+            services = core_services.as_dict()
 
         expected_keys = {
             "panel_service",
@@ -197,6 +186,7 @@ class BuildServicesWiringTests(unittest.TestCase):
             "stripe_service",
         }
         self.assertEqual(set(services), expected_keys)
+        self.assertIsInstance(services, dict)
 
 
 if __name__ == "__main__":  # pragma: no cover

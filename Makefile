@@ -7,6 +7,8 @@ MYPY_PATHS := \
 	backend/bot/payment_providers \
 	backend/bot/services \
 	backend/bot/handlers \
+	backend/bot/app/factories \
+	backend/bot/app/controllers \
 	backend/bot/app/web
 
 .PHONY: test lint types front check cov

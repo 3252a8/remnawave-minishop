@@ -173,6 +173,8 @@ jobs:
           backend/bot/payment_providers
           backend/bot/services
           backend/bot/handlers
+          backend/bot/app/factories
+          backend/bot/app/controllers
           backend/bot/app/web
 
   build:
