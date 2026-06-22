@@ -1,14 +1,55 @@
-function cloneCatalog(catalog) {
-  return JSON.parse(JSON.stringify(catalog || { default_theme: "dark", themes: [] }));
+import { writable, type Writable } from "svelte/store";
+import { adminErrorMessage } from "../errors.js";
+
+type ThemeVariant = "dark" | "light";
+type ThemeTokens = Record<string, unknown>;
+type ThemeEntry = Record<string, unknown> & {
+  active_variant?: string | null;
+  default?: boolean;
+  key?: string;
+  tokens?: ThemeTokens | null;
+  use_in_admin?: boolean;
+  use_primary_accent?: boolean;
+  variants?: Record<string, ThemeTokens | null> | null;
+};
+type ThemeCatalog = {
+  default_theme: string;
+  themes: ThemeEntry[];
+};
+type ThemesState = {
+  themesCatalog: ThemeCatalog;
+  savedThemesCatalog: ThemeCatalog;
+  themesDirty: boolean;
+  themesDir: string;
+  themesLoading: boolean;
+  themesSaving: boolean;
+};
+type AdminApi = (path: string, options?: RequestInit) => Promise<Record<string, unknown>>;
+type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+type ThemesStoreOptions = {
+  api: AdminApi;
+  onThemesSaved?: () => Promise<void> | void;
+  flash: (message: string) => void;
+  at: TranslateFn;
+};
+type SaveThemesOptions = { silent?: boolean };
+type TokenOptions = { raw?: boolean; variant?: string | null };
+type LogoMode = "desktop" | "mobile";
+type LogoUploadResult = { logoUrl: string; faviconUrl: string };
+type FaviconUploadResult = { faviconUrl: string; variants: Record<string, unknown> };
+
+function asTokenMap(value: unknown): ThemeTokens {
+  return value && typeof value === "object" ? { ...(value as ThemeTokens) } : {};
 }
 
-import { writable } from "svelte/store";
-import { adminErrorMessage } from "../errors.js";
+function cloneCatalog(catalog: unknown): ThemeCatalog {
+  return JSON.parse(JSON.stringify(catalog || { default_theme: "dark", themes: [] }));
+}
 
 const HOME_LOGO_SCALE_TOKEN = {
   desktop: "home_logo_scale_desktop",
   mobile: "home_logo_scale_mobile",
-};
+} as const;
 const HOME_LOGO_SCALE_STEP = 5;
 const DEFAULT_THEME_KEY = "dark";
 const THEME_VARIANTS = new Set(["dark", "light"]);
@@ -26,7 +67,7 @@ const DEFAULT_ADMIN_TOKEN_KEYS = new Set([
   "admin_chart_fill",
 ]);
 
-function normalizeHomeLogoScale(scale) {
+function normalizeHomeLogoScale(scale: unknown) {
   if (String(scale ?? "").trim() === "") scale = 100;
   const numeric = Number(scale);
   if (!Number.isFinite(numeric)) return 100;
@@ -34,39 +75,43 @@ function normalizeHomeLogoScale(scale) {
   return Math.min(300, Math.max(50, rounded));
 }
 
-function normalizeThemeVariant(variant) {
+function normalizeThemeVariant(variant: unknown): ThemeVariant {
   const value = String(variant || "")
     .trim()
     .toLowerCase();
-  return THEME_VARIANTS.has(value) ? value : "dark";
+  return THEME_VARIANTS.has(value) ? (value as ThemeVariant) : "dark";
 }
 
-function resolveThemeTokens(theme, variant = null) {
-  const base = theme?.tokens && typeof theme.tokens === "object" ? theme.tokens : {};
+function resolveThemeTokens(theme: ThemeEntry | null | undefined, variant: string | null = null) {
+  const base = asTokenMap(theme?.tokens);
   const activeVariant = normalizeThemeVariant(
     variant || theme?.active_variant || base.color_scheme
   );
   const variantTokens =
     theme?.variants?.[activeVariant] && typeof theme.variants[activeVariant] === "object"
-      ? theme.variants[activeVariant]
+      ? asTokenMap(theme.variants[activeVariant])
       : {};
   return { ...base, ...variantTokens };
 }
 
-function resolveThemeHomeLogoScale(theme, mode = "desktop", variant = null) {
+function resolveThemeHomeLogoScale(
+  theme: ThemeEntry | null | undefined,
+  mode: LogoMode = "desktop",
+  variant: string | null = null
+) {
   const tokens = resolveThemeTokens(theme, variant);
   const modeKey = HOME_LOGO_SCALE_TOKEN[mode] || HOME_LOGO_SCALE_TOKEN.desktop;
   return normalizeHomeLogoScale(tokens[modeKey] ?? tokens.home_logo_scale ?? 100);
 }
 
-function normalizeTokenValue(value) {
+function normalizeTokenValue(value: unknown) {
   const text = String(value ?? "").trim();
   return text || null;
 }
 
-function normalizeLogoScaleTokens(tokens) {
-  if (!tokens || typeof tokens !== "object") return tokens;
-  const nextTokens = { ...tokens };
+function normalizeLogoScaleTokens(tokens: unknown): ThemeTokens {
+  if (!tokens || typeof tokens !== "object") return {};
+  const nextTokens = { ...(tokens as ThemeTokens) };
   const desktopScale = normalizeHomeLogoScale(
     nextTokens.home_logo_scale_desktop ?? nextTokens.home_logo_scale ?? 100
   );
@@ -81,11 +126,11 @@ function normalizeLogoScaleTokens(tokens) {
   return nextTokens;
 }
 
-function normalizeThemeCatalogEntry(theme) {
+function normalizeThemeCatalogEntry(theme: ThemeEntry): ThemeEntry {
   if (!theme) return theme;
-  const stripTokens = (tokens) => {
-    if (!tokens || typeof tokens !== "object") return tokens;
-    const nextTokens = { ...tokens };
+  const stripTokens = (tokens: unknown): ThemeTokens => {
+    if (!tokens || typeof tokens !== "object") return {};
+    const nextTokens = { ...(tokens as ThemeTokens) };
     if (theme.key === DEFAULT_THEME_KEY) {
       for (const key of DEFAULT_ADMIN_TOKEN_KEYS) {
         delete nextTokens[key];
@@ -99,22 +144,22 @@ function normalizeThemeCatalogEntry(theme) {
     tokens: stripTokens(theme.tokens || {}),
     variants: Object.fromEntries(
       Object.entries(variants).map(([variant, tokens]) => [variant, stripTokens(tokens)])
-    ),
+    ) as Record<string, ThemeTokens>,
   };
 }
 
-function normalizeThemeCatalog(catalog) {
+function normalizeThemeCatalog(catalog: unknown): ThemeCatalog {
   const nextCatalog = cloneCatalog(catalog);
   nextCatalog.default_theme = nextCatalog.default_theme || DEFAULT_THEME_KEY;
   nextCatalog.themes = (nextCatalog.themes || []).map(normalizeThemeCatalogEntry);
   return nextCatalog;
 }
 
-function catalogFingerprint(catalog) {
+function catalogFingerprint(catalog: unknown) {
   return JSON.stringify(normalizeThemeCatalog(catalog));
 }
 
-function withCatalogState(state, nextCatalog) {
+function withCatalogState(state: ThemesState, nextCatalog: ThemeCatalog): ThemesState {
   const themesCatalog = normalizeThemeCatalog(nextCatalog);
   const savedThemesCatalog = normalizeThemeCatalog(state.savedThemesCatalog);
   return {
@@ -124,7 +169,12 @@ function withCatalogState(state, nextCatalog) {
   };
 }
 
-function setTokenOnTheme(theme, tokenKey, value, options = {}) {
+function setTokenOnTheme(
+  theme: ThemeEntry,
+  tokenKey: string,
+  value: unknown,
+  options: TokenOptions = {}
+): ThemeEntry {
   const variant = options.variant ? normalizeThemeVariant(options.variant) : "";
   const nextValue = options.raw === true ? value : normalizeTokenValue(value);
   if (variant && theme.key === DEFAULT_THEME_KEY) {
@@ -133,7 +183,7 @@ function setTokenOnTheme(theme, tokenKey, value, options = {}) {
       variants: {
         ...(theme.variants || {}),
         [variant]: {
-          ...((theme.variants || {})[variant] || {}),
+          ...asTokenMap((theme.variants || {})[variant]),
           [tokenKey]: nextValue,
         },
       },
@@ -142,16 +192,20 @@ function setTokenOnTheme(theme, tokenKey, value, options = {}) {
   return {
     ...theme,
     tokens: {
-      ...(theme.tokens || {}),
+      ...asTokenMap(theme.tokens),
       [tokenKey]: nextValue,
     },
   };
 }
 
-function resetTokenOnTheme(theme, tokenKey, options = {}) {
+function resetTokenOnTheme(
+  theme: ThemeEntry,
+  tokenKey: string,
+  options: TokenOptions = {}
+): ThemeEntry {
   const variant = options.variant ? normalizeThemeVariant(options.variant) : "";
   if (variant && theme.key === DEFAULT_THEME_KEY) {
-    const nextVariant = { ...((theme.variants || {})[variant] || {}) };
+    const nextVariant = { ...asTokenMap((theme.variants || {})[variant]) };
     delete nextVariant[tokenKey];
     return {
       ...theme,
@@ -161,20 +215,24 @@ function resetTokenOnTheme(theme, tokenKey, options = {}) {
       },
     };
   }
-  const nextTokens = { ...(theme.tokens || {}) };
+  const nextTokens = { ...asTokenMap(theme.tokens) };
   delete nextTokens[tokenKey];
   return { ...theme, tokens: nextTokens };
 }
 
-function updateThemeInCatalog(catalog, key, updater) {
+function updateThemeInCatalog(
+  catalog: ThemeCatalog,
+  key: string,
+  updater: (theme: ThemeEntry) => ThemeEntry
+): ThemeCatalog {
   return {
     ...catalog,
     themes: (catalog.themes || []).map((theme) => (theme.key === key ? updater(theme) : theme)),
   };
 }
 
-export function createThemesStore({ api, onThemesSaved, flash, at }) {
-  const state = writable({
+export function createThemesStore({ api, onThemesSaved, flash, at }: ThemesStoreOptions) {
+  const state: Writable<ThemesState> = writable({
     themesCatalog: { default_theme: "dark", themes: [] },
     savedThemesCatalog: { default_theme: "dark", themes: [] },
     themesDirty: false,
@@ -194,7 +252,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
           themesCatalog: catalog,
           savedThemesCatalog: cloneCatalog(catalog),
           themesDirty: false,
-          themesDir: data.themes_dir || "",
+          themesDir: String(data.themes_dir || ""),
         }));
       } else {
         flash(adminErrorMessage(data, at, at("load_failed", {}, "Не удалось загрузить темы")));
@@ -204,9 +262,9 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     }
   }
 
-  async function saveThemes(options = {}) {
+  async function saveThemes(options: SaveThemesOptions = {}) {
     const silent = Boolean(options.silent);
-    let catalog = null;
+    let catalog: ThemeCatalog = { default_theme: DEFAULT_THEME_KEY, themes: [] };
     state.update((s) => {
       catalog = normalizeThemeCatalog(s.themesCatalog);
       return { ...s, themesCatalog: catalog, themesSaving: true };
@@ -223,7 +281,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
           themesCatalog: savedCatalog,
           savedThemesCatalog: cloneCatalog(savedCatalog),
           themesDirty: false,
-          themesDir: data.themes_dir || s.themesDir,
+          themesDir: String(data.themes_dir || s.themesDir),
         }));
         if (!silent) flash(at("themes_saved", {}, "Темы сохранены"));
         if (typeof onThemesSaved === "function") await onThemesSaved();
@@ -235,7 +293,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     }
   }
 
-  async function uploadLogoFile(file) {
+  async function uploadLogoFile(file: File | null): Promise<LogoUploadResult | null> {
     if (!file) return null;
     state.update((s) => ({ ...s, themesSaving: true }));
     try {
@@ -247,7 +305,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
       });
       if (data?.ok) {
         flash(at("appearance_logo_uploaded_pending", {}, "Логотип загружен и применен."));
-        return { logoUrl: data.logo_url || "", faviconUrl: data.favicon_url || "" };
+        return { logoUrl: String(data.logo_url || ""), faviconUrl: String(data.favicon_url || "") };
       }
       flash(
         adminErrorMessage(
@@ -262,7 +320,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     }
   }
 
-  async function uploadLogoUrl(url) {
+  async function uploadLogoUrl(url: string): Promise<LogoUploadResult | null> {
     const sourceUrl = String(url || "").trim();
     if (!sourceUrl) return null;
     state.update((s) => ({ ...s, themesSaving: true }));
@@ -273,7 +331,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
       });
       if (data?.ok) {
         flash(at("appearance_logo_uploaded_pending", {}, "Логотип загружен и применен."));
-        return { logoUrl: data.logo_url || "", faviconUrl: data.favicon_url || "" };
+        return { logoUrl: String(data.logo_url || ""), faviconUrl: String(data.favicon_url || "") };
       }
       flash(
         adminErrorMessage(
@@ -288,7 +346,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     }
   }
 
-  async function uploadFaviconFile(file) {
+  async function uploadFaviconFile(file: File | null): Promise<FaviconUploadResult | null> {
     if (!file) return null;
     state.update((s) => ({ ...s, themesSaving: true }));
     try {
@@ -300,7 +358,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
       });
       if (data?.ok) {
         flash(at("appearance_favicon_uploaded_pending", {}, "Favicon загружена и применена."));
-        return { faviconUrl: data.favicon_url || "", variants: data.variants || {} };
+        return { faviconUrl: String(data.favicon_url || ""), variants: asTokenMap(data.variants) };
       }
       flash(
         adminErrorMessage(
@@ -315,7 +373,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     }
   }
 
-  async function uploadFaviconUrl(url) {
+  async function uploadFaviconUrl(url: string): Promise<FaviconUploadResult | null> {
     const sourceUrl = String(url || "").trim();
     if (!sourceUrl) return null;
     state.update((s) => ({ ...s, themesSaving: true }));
@@ -326,7 +384,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
       });
       if (data?.ok) {
         flash(at("appearance_favicon_uploaded_pending", {}, "Favicon загружена и применена."));
-        return { faviconUrl: data.favicon_url || "", variants: data.variants || {} };
+        return { faviconUrl: String(data.favicon_url || ""), variants: asTokenMap(data.variants) };
       }
       flash(
         adminErrorMessage(
@@ -341,7 +399,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     }
   }
 
-  function setCurrentTheme(key) {
+  function setCurrentTheme(key: string) {
     state.update((s) =>
       withCatalogState(s, {
         ...s.themesCatalog,
@@ -354,7 +412,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     );
   }
 
-  function setDefaultThemeVariant(variant) {
+  function setDefaultThemeVariant(variant: string) {
     const nextVariant = normalizeThemeVariant(variant);
     state.update((s) =>
       withCatalogState(s, {
@@ -370,7 +428,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     );
   }
 
-  function togglePrimaryAccent(key, enabled) {
+  function togglePrimaryAccent(key: string, enabled: boolean) {
     state.update((s) =>
       withCatalogState(s, {
         ...s.themesCatalog,
@@ -381,7 +439,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     );
   }
 
-  function toggleAdminUse(key, enabled) {
+  function toggleAdminUse(key: string, enabled: boolean) {
     state.update((s) =>
       withCatalogState(s, {
         ...s.themesCatalog,
@@ -392,11 +450,16 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     );
   }
 
-  function setThemeAccent(key, accent) {
+  function setThemeAccent(key: string, accent: unknown) {
     setThemeToken(key, "accent", accent);
   }
 
-  function setThemeToken(key, tokenKey, value, options = {}) {
+  function setThemeToken(
+    key: string,
+    tokenKey: string,
+    value: unknown,
+    options: TokenOptions = {}
+  ) {
     state.update((s) =>
       withCatalogState(
         s,
@@ -407,7 +470,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     );
   }
 
-  function resetThemeToken(key, tokenKey, options = {}) {
+  function resetThemeToken(key: string, tokenKey: string, options: TokenOptions = {}) {
     state.update((s) =>
       withCatalogState(
         s,
@@ -418,9 +481,9 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     );
   }
 
-  function applyThemePreset(key, variant, tokens) {
+  function applyThemePreset(key: string, variant: string, tokens: unknown) {
     const normalizedVariant = normalizeThemeVariant(variant);
-    const nextTokens = tokens && typeof tokens === "object" ? tokens : {};
+    const nextTokens = asTokenMap(tokens);
     state.update((s) =>
       withCatalogState(
         s,
@@ -432,7 +495,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
               variants: {
                 ...(theme.variants || {}),
                 [normalizedVariant]: {
-                  ...((theme.variants || {})[normalizedVariant] || {}),
+                  ...asTokenMap((theme.variants || {})[normalizedVariant]),
                   ...nextTokens,
                 },
               },
@@ -441,7 +504,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
           return {
             ...theme,
             tokens: {
-              ...(theme.tokens || {}),
+              ...asTokenMap(theme.tokens),
               ...nextTokens,
             },
           };
@@ -450,7 +513,7 @@ export function createThemesStore({ api, onThemesSaved, flash, at }) {
     );
   }
 
-  function setThemeHomeLogoScale(key, mode, scale) {
+  function setThemeHomeLogoScale(key: string, mode: LogoMode, scale: unknown) {
     const normalizedMode = mode === "mobile" ? "mobile" : "desktop";
     const nextScale = normalizeHomeLogoScale(scale);
     state.update((s) =>
