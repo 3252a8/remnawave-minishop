@@ -1,15 +1,18 @@
-<script>
+<script lang="ts">
   import { getContext } from "svelte";
   import { RefreshCw, TriangleAlert } from "$components/ui/icons.js";
   import { AdminButton } from "$components/patterns/admin/index.js";
+  import type { HealthAlert, HealthStore } from "../lib/admin/stores/healthStore";
 
-  export let at = (key, _params = {}, fallback = "") => fallback || key;
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+
+  export let at: TranslateFn = (key, _params = {}, fallback = "") => fallback || key;
   export let section = "stats";
-  export let onNavigate = () => {};
+  export let onNavigate: (section: string) => void = () => {};
 
-  const healthStore = getContext("healthStore");
+  const healthStore = getContext<HealthStore>("healthStore");
 
-  const MESSAGE_FALLBACKS = {
+  const MESSAGE_FALLBACKS: Record<string, string> = {
     data_dir_missing:
       "Каталог data ({path}) не найден. Проверьте, что том data смонтирован в контейнер.",
     data_dir_not_writable:
@@ -43,7 +46,7 @@
     panel_api_unreachable: "Панель Remnawave недоступна по адресу {url}.",
   };
 
-  const SECTION_FALLBACK_LABELS = {
+  const SECTION_FALLBACK_LABELS: Record<string, string> = {
     settings: "Настройки",
     payments: "Платежи",
     backups: "Бэкапы",
@@ -53,13 +56,13 @@
     users: "Пользователи",
   };
 
-  function interpolate(template, params = {}) {
+  function interpolate(template: string, params: Record<string, unknown> = {}): string {
     return String(template || "").replace(/\{(\w+)\}/g, (match, key) =>
       params[key] !== undefined && params[key] !== null ? String(params[key]) : match
     );
   }
 
-  function alertText(alert) {
+  function alertText(alert: HealthAlert): string {
     const fallback = interpolate(
       MESSAGE_FALLBACKS[alert.message_key] || alert.message_key,
       alert.params
@@ -67,16 +70,16 @@
     return at(`health_${alert.message_key}`, alert.params || {}, fallback);
   }
 
-  function sectionLabel(id) {
+  function sectionLabel(id: string): string {
     return at(`nav_${id}`, {}, SECTION_FALLBACK_LABELS[id] || id);
   }
 
-  $: alerts = $healthStore?.alerts || [];
-  $: healthLoading = $healthStore?.healthLoading;
+  $: alerts = $healthStore.alerts;
+  $: healthLoading = $healthStore.healthLoading;
   $: isDashboard = section === "stats";
-  $: visibleAlerts = isDashboard
-    ? alerts
-    : alerts.filter((alert) => (alert.sections || []).includes(section));
+  $: visibleAlerts = (
+    isDashboard ? alerts : alerts.filter((alert) => alert.sections.includes(section))
+  ) as HealthAlert[];
   $: errorCount = visibleAlerts.filter((alert) => alert.severity === "error").length;
 </script>
 
