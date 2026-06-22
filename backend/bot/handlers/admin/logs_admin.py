@@ -4,7 +4,7 @@ import logging
 import math
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
@@ -225,7 +225,7 @@ async def view_all_logs_handler(
     total_logs_count = await message_log_dal.count_all_message_logs(session)
 
     await _display_formatted_logs(
-        target_message=callback_message(callback),
+        target_message=cast(types.Message, callback.message),
         logs=logs_models,
         total_logs=total_logs_count,
         current_page_idx=page_idx,
@@ -361,7 +361,7 @@ async def view_user_logs_paginated_handler(
     total_user_logs_count = await message_log_dal.count_user_message_logs(session, target_user_id)
 
     await _display_formatted_logs(
-        target_message=callback_message(callback),
+        target_message=cast(types.Message, callback.message),
         logs=logs_models,
         total_logs=total_user_logs_count,
         current_page_idx=page_idx,
