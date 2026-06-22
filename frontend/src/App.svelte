@@ -5,7 +5,7 @@
   import { createBillingStore } from "./lib/webapp/stores/billingStore.js";
   import { createDevicesStore } from "./lib/webapp/stores/devicesStore";
   import { createInstallGuidesStore } from "./lib/webapp/stores/installGuidesStore.js";
-  import { createSupportStore } from "./lib/webapp/stores/supportStore.js";
+  import { createSupportStore } from "./lib/webapp/stores/supportStore";
   import { createAccountStore } from "./lib/webapp/stores/accountStore";
   import { Tooltip } from "$components/ui/primitives.js";
   import { CheckCircle2 } from "$components/ui/icons.js";

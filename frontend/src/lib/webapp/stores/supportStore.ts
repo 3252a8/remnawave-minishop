@@ -1,7 +1,93 @@
-import { writable } from "svelte/store";
+import { get, writable } from "svelte/store";
 import { withRoutePrefix } from "../routes.js";
+import type {
+  ApiClient,
+  PostPayload,
+  SupportTicketDetailResponse,
+  SupportTicketReadResponse,
+  SupportTicketReplyResponse,
+  SupportTicketsResponse,
+} from "../publicApi";
+import { unwrap } from "../publicApi";
 
-export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
+type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+type TicketRecord = Record<string, unknown> & { ticket_id?: number; unread_user_count?: number };
+type MessageRecord = Record<string, unknown>;
+type CountsRecord = {
+  active: number;
+  closed: number;
+  awaiting_admin: number;
+  awaiting_user: number;
+  open: number;
+  total: number;
+};
+type SupportState = {
+  tickets: TicketRecord[];
+  openedTicketId: number | null;
+  openedTicket: TicketRecord | null;
+  messages: MessageRecord[];
+  unreadCount: number;
+  unreadLoaded: boolean;
+  unreadLoading: boolean;
+  counts: CountsRecord;
+  loading: boolean;
+  detailLoading: boolean;
+  sending: boolean;
+  creating: boolean;
+  statusFilter: string;
+  polling: boolean;
+};
+type LoadListOptions = {
+  force?: boolean;
+  silent?: boolean;
+  showLoading?: boolean;
+};
+type TicketViewOptions = {
+  skipPush?: boolean;
+};
+type RefreshUnreadOptions = {
+  silent?: boolean;
+  countEmpty?: boolean;
+};
+type StartPollingOptions = {
+  includeList?: boolean;
+};
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function arrayRecords(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.filter((item) => item && typeof item === "object") : [];
+}
+
+function countsRecord(value: unknown, fallback: CountsRecord): CountsRecord {
+  const record = asRecord(value);
+  return {
+    active: Number(record.active ?? fallback.active ?? 0),
+    closed: Number(record.closed ?? fallback.closed ?? 0),
+    awaiting_admin: Number(record.awaiting_admin ?? fallback.awaiting_admin ?? 0),
+    awaiting_user: Number(record.awaiting_user ?? fallback.awaiting_user ?? 0),
+    open: Number(record.open ?? fallback.open ?? 0),
+    total: Number(record.total ?? fallback.total ?? 0),
+  };
+}
+
+function stringField(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+export function createSupportStore({
+  api,
+  t,
+  showToast,
+  routePrefix = "",
+}: {
+  api: ApiClient["api"];
+  t: Translate;
+  showToast: (message: string) => void;
+  routePrefix?: string;
+}) {
   const OPEN_TICKET_POLL_MS = 3_000;
   const ACTIVE_POLL_MS = 8_000;
   const BACKGROUND_POLL_MS = 45_000;
@@ -12,7 +98,7 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
   const IDLE_AFTER_EMPTY_POLLS = 3;
   const PAUSE_AFTER_EMPTY_POLLS = 6;
 
-  const state = writable({
+  const state = writable<SupportState>({
     tickets: [],
     openedTicketId: null,
     openedTicket: null,
@@ -29,20 +115,45 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
     polling: false,
   });
 
-  let pollTimer = null;
+  let pollTimer: number | null = null;
   let pollingEnabled = false;
   let pollInFlight = false;
   let supportActive = false;
   let emptyUnreadPolls = 0;
   let lastUnreadCount = 0;
-  let visibilityHandler = null;
-  let resumeHandler = null;
+  let visibilityHandler: (() => void) | null = null;
+  let resumeHandler: (() => void) | null = null;
   let listRequestSeq = 0;
-  let listPromise = null;
+  let listPromise: Promise<SupportTicketsResponse> | null = null;
   let listPromiseKey = "";
-  let unreadPromise = null;
+  let unreadPromise: Promise<unknown> | null = null;
 
-  function updateUnreadBackoff(value, countEmptyPoll = false) {
+  function fetchTicketList(path: string): Promise<SupportTicketsResponse> {
+    return api(path as "/support/tickets");
+  }
+
+  function fetchTicketDetail(id: number): Promise<SupportTicketDetailResponse> {
+    return api(`/support/tickets/${id}` as "/support/tickets/{id}");
+  }
+
+  function postTicketReply(
+    id: number,
+    payload: PostPayload<"/api/support/tickets/{id}/messages">
+  ): Promise<SupportTicketReplyResponse> {
+    return api(`/support/tickets/${id}/messages` as "/support/tickets/{id}/messages", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  function postTicketRead(id: number): Promise<SupportTicketReadResponse> {
+    return api(`/support/tickets/${id}/read` as "/support/tickets/{id}/read", {
+      method: "POST",
+      body: "{}",
+    });
+  }
+
+  function updateUnreadBackoff(value: unknown, countEmptyPoll = false) {
     const next = Math.max(0, Number(value || 0));
     if (countEmptyPoll && next === 0 && next === lastUnreadCount) emptyUnreadPolls += 1;
     else if (next > 0 || next !== lastUnreadCount) emptyUnreadPolls = 0;
@@ -58,13 +169,8 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
     return BACKGROUND_POLL_MS;
   }
 
-  function getSnapshot() {
-    let snapshot;
-    const unsubscribe = state.subscribe((s) => {
-      snapshot = s;
-    });
-    unsubscribe();
-    return snapshot;
+  function getSnapshot(): SupportState {
+    return get(state);
   }
 
   function activePollDelay() {
@@ -87,7 +193,7 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
     return getSnapshot()?.openedTicketId || null;
   }
 
-  function hydrateUnread(value) {
+  function hydrateUnread(value: unknown) {
     const next = updateUnreadBackoff(value);
     state.update((s) => ({
       ...s,
@@ -97,7 +203,7 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
     }));
   }
 
-  async function loadList(options = {}) {
+  async function loadList(options: LoadListOptions = {}) {
     let filter = "all";
     let hasTickets = false;
     state.update((s) => {
@@ -112,26 +218,29 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
     const showLoading = !options.silent && (options.showLoading || !hasTickets);
     if (showLoading) state.update((s) => ({ ...s, loading: true }));
 
-    let promise;
+    let promise: Promise<SupportTicketsResponse>;
     promise = (async () => {
       try {
         const params = new URLSearchParams({ limit: "50", offset: "0" });
         if (filter && filter !== "all") params.set("status", filter);
-        const res = await api(`/support/tickets?${params.toString()}`);
+        const res = await fetchTicketList(`/support/tickets?${params.toString()}`);
         if (requestId !== listRequestSeq) return res;
-        if (res?.ok)
+        if (res?.ok) {
+          const payload = unwrap(res);
           state.update((s) => ({
             ...s,
-            tickets: res.tickets || [],
-            counts: res.counts || s.counts,
+            tickets: arrayRecords(payload.tickets) as TicketRecord[],
+            counts: countsRecord(payload.counts, s.counts),
           }));
-        else if (res?.error) showToast(res.message || res.error);
+        } else if (asRecord(res).error) {
+          showToast(stringField(asRecord(res).message) || stringField(asRecord(res).error));
+        }
         return res;
       } finally {
         if (requestId === listRequestSeq) {
           state.update((s) => (s.loading ? { ...s, loading: false } : s));
         }
-        if (listPromise === promise) {
+        if (requestId === listRequestSeq && listPromiseKey === requestKey) {
           listPromise = null;
           listPromiseKey = "";
         }
@@ -143,22 +252,24 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
     return promise;
   }
 
-  async function refreshCurrentTicket(ticketId) {
+  async function refreshCurrentTicket(ticketId: number | string | null) {
     const id = Number(ticketId);
     if (!id) return;
     try {
-      const res = await api(`/support/tickets/${id}`);
+      const res = await fetchTicketDetail(id);
       if (res?.ok) {
+        const payload = unwrap(res);
+        const ticket = asRecord(payload.ticket) as TicketRecord;
         state.update((s) =>
           s.openedTicketId === id
             ? {
                 ...s,
-                openedTicket: res.ticket,
-                messages: res.messages || [],
+                openedTicket: ticket,
+                messages: arrayRecords(payload.messages) as MessageRecord[],
               }
             : s
         );
-        if (currentOpenedTicketId() === id && Number(res.ticket?.unread_user_count || 0) > 0) {
+        if (currentOpenedTicketId() === id && Number(ticket.unread_user_count || 0) > 0) {
           await markRead(id, { silent: true });
         }
       }
@@ -168,7 +279,7 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
     }
   }
 
-  async function createTicket(payload) {
+  async function createTicket(payload: PostPayload<"/api/support/tickets">) {
     state.update((s) => ({ ...s, creating: true }));
     try {
       const res = await api("/support/tickets", {
@@ -176,19 +287,21 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
         body: JSON.stringify(payload),
       });
       if (!res?.ok) throw res;
+      const responsePayload = unwrap(res);
+      const ticket = asRecord(responsePayload.ticket) as TicketRecord;
       state.update((s) => ({ ...s, statusFilter: "active" }));
       await loadList({ silent: true, force: true });
-      await openTicket(res.ticket.ticket_id);
-      return res.ticket;
-    } catch (error) {
-      showToast(error?.message || t("wa_support_create_failed"));
+      await openTicket(ticket.ticket_id || 0);
+      return ticket;
+    } catch (error: unknown) {
+      showToast(stringField(asRecord(error).message) || t("wa_support_create_failed"));
       return null;
     } finally {
       state.update((s) => ({ ...s, creating: false }));
     }
   }
 
-  async function openTicket(ticketId, opts = {}) {
+  async function openTicket(ticketId: number | string, opts: TicketViewOptions = {}) {
     const id = Number(ticketId);
     if (!id) return;
     state.update((s) => ({
@@ -209,20 +322,24 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
       }
     }
     try {
-      const res = await api(`/support/tickets/${id}`);
+      const res = await fetchTicketDetail(id);
       if (res?.ok) {
+        const payload = unwrap(res);
+        const ticket = asRecord(payload.ticket) as TicketRecord;
         state.update((s) =>
           s.openedTicketId === id
             ? {
                 ...s,
-                openedTicket: res.ticket,
-                messages: res.messages || [],
+                openedTicket: ticket,
+                messages: arrayRecords(payload.messages) as MessageRecord[],
               }
             : s
         );
         if (currentOpenedTicketId() === id) await markRead(id);
       } else {
-        showToast(res?.message || res?.error || "not_found");
+        showToast(
+          stringField(asRecord(res).message) || stringField(asRecord(res).error) || "not_found"
+        );
       }
     } finally {
       state.update((s) => (s.openedTicketId === id ? { ...s, detailLoading: false } : s));
@@ -230,7 +347,7 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
     }
   }
 
-  function closeTicketView(opts = {}) {
+  function closeTicketView(opts: TicketViewOptions = {}) {
     state.update((s) => ({ ...s, openedTicketId: null, openedTicket: null, messages: [] }));
     if (!opts.skipPush && typeof window !== "undefined" && window.location.protocol !== "file:") {
       const supportPath = withRoutePrefix("/support", routePrefix);
@@ -244,8 +361,8 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
     }
   }
 
-  async function sendReply(body) {
-    let ticketId = null;
+  async function sendReply(body: string) {
+    let ticketId: number | null = null;
     state.update((s) => {
       ticketId = s.openedTicketId;
       return { ...s, sending: true };
@@ -255,17 +372,19 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
       return false;
     }
     try {
-      const res = await api(`/support/tickets/${ticketId}/messages`, {
-        method: "POST",
-        body: JSON.stringify({ body }),
-      });
+      const res = await postTicketReply(ticketId, { body });
       if (!res?.ok) throw res;
+      const payload = unwrap(res);
       state.update((s) =>
         s.openedTicketId === ticketId
           ? {
               ...s,
-              openedTicket: res.ticket || s.openedTicket,
-              messages: res.message ? [...s.messages, res.message] : s.messages,
+              openedTicket: payload.ticket
+                ? (asRecord(payload.ticket) as TicketRecord)
+                : s.openedTicket,
+              messages: payload.message
+                ? [...s.messages, asRecord(payload.message) as MessageRecord]
+                : s.messages,
             }
           : s
       );
@@ -274,26 +393,27 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
         loadList({ silent: true, force: true }),
       ]);
       return true;
-    } catch (error) {
-      showToast(error?.message || t("wa_support_send_failed"));
+    } catch (error: unknown) {
+      showToast(stringField(asRecord(error).message) || t("wa_support_send_failed"));
       return false;
     } finally {
       state.update((s) => ({ ...s, sending: false }));
     }
   }
 
-  async function markRead(ticketId = null, options = {}) {
+  async function markRead(ticketId: number | null = null, options: RefreshUnreadOptions = {}) {
     const id =
       ticketId ||
       (() => {
         return currentOpenedTicketId();
       })();
     if (!id) return;
-    await api(`/support/tickets/${id}/read`, { method: "POST", body: "{}" });
+    const response = await postTicketRead(id);
+    if (response?.ok) unwrap(response);
     await refreshUnread({ silent: options.silent === true });
   }
 
-  async function refreshUnread(options = {}) {
+  async function refreshUnread(options: RefreshUnreadOptions = {}) {
     if (unreadPromise) return unreadPromise;
     const silent = options.silent === true;
     if (!silent) state.update((s) => ({ ...s, unreadLoading: true }));
@@ -301,7 +421,8 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
       try {
         const res = await api("/support/unread");
         if (res?.ok) {
-          const unreadCount = updateUnreadBackoff(res.unread, options.countEmpty === true);
+          const payload = unwrap(res);
+          const unreadCount = updateUnreadBackoff(payload.unread, options.countEmpty === true);
           state.update((s) => ({
             ...s,
             unreadCount,
@@ -317,7 +438,7 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
     return unreadPromise;
   }
 
-  function setStatusFilter(status) {
+  function setStatusFilter(status: string) {
     state.update((s) => ({ ...s, statusFilter: status || "all" }));
     loadList({ force: true, showLoading: true });
   }
@@ -353,7 +474,7 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
     }
   }
 
-  function setActive(active) {
+  function setActive(active: boolean) {
     const next = Boolean(active);
     if (supportActive === next) return;
     supportActive = next;
@@ -361,7 +482,7 @@ export function createSupportStore({ api, t, showToast, routePrefix = "" }) {
     if (pollingEnabled) schedulePoll(supportActive ? 0 : nextPollDelay());
   }
 
-  function startPolling(options = {}) {
+  function startPolling(options: StartPollingOptions = {}) {
     const includeList = options.includeList !== false;
     if (typeof window === "undefined") return;
     pollingEnabled = true;
