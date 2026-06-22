@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock
 
 from bot.payment_providers import lava
 from bot.payment_providers.lava import LavaConfig, LavaService
+from bot.payment_providers.lava import service as lava_service
 
 
 def _hmac_hex(message: bytes, key: str) -> str:
@@ -255,7 +256,7 @@ def test_webhook_signature_fails_closed_without_any_secret():
 
 def _webhook_service(session, payment, monkeypatch, **overrides):
     monkeypatch.setattr(
-        lava,
+        lava_service,
         "lookup_payment_by_order_or_provider_id",
         AsyncMock(return_value=payment),
     )
@@ -304,7 +305,7 @@ def test_webhook_duplicate_success_does_not_finalize_again(monkeypatch):
         AsyncMock(side_effect=AssertionError("duplicate webhook must not update payment")),
     )
     monkeypatch.setattr(
-        lava,
+        lava_service,
         "finalize_successful_payment",
         AsyncMock(side_effect=AssertionError("duplicate webhook must not finalize")),
     )
@@ -337,7 +338,7 @@ def test_webhook_success_finalizes_payment(monkeypatch):
     update_mock = AsyncMock()
     finalize_mock = AsyncMock(return_value=SimpleNamespace())
     monkeypatch.setattr(lava.payment_dal, "update_provider_payment_and_status", update_mock)
-    monkeypatch.setattr(lava, "finalize_successful_payment", finalize_mock)
+    monkeypatch.setattr(lava_service, "finalize_successful_payment", finalize_mock)
 
     response = asyncio.run(
         LavaService.webhook_route(
@@ -379,7 +380,7 @@ def test_webhook_success_with_amount_mismatch_is_rejected(monkeypatch):
         AsyncMock(side_effect=AssertionError("mismatched amount must not update payment")),
     )
     monkeypatch.setattr(
-        lava,
+        lava_service,
         "finalize_successful_payment",
         AsyncMock(side_effect=AssertionError("mismatched amount must not finalize")),
     )
@@ -414,9 +415,9 @@ def test_webhook_failed_status_marks_payment_failed(monkeypatch):
     update_mock = AsyncMock()
     notify_mock = AsyncMock()
     monkeypatch.setattr(lava.payment_dal, "update_provider_payment_and_status", update_mock)
-    monkeypatch.setattr(lava, "notify_user_payment_failed", notify_mock)
+    monkeypatch.setattr(lava_service, "notify_user_payment_failed", notify_mock)
     monkeypatch.setattr(
-        lava,
+        lava_service,
         "finalize_successful_payment",
         AsyncMock(side_effect=AssertionError("failed webhook must not finalize")),
     )
