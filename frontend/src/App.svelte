@@ -57,6 +57,7 @@
   } from "./lib/webapp/appLinks.js";
   import { createWebappDataClient } from "./lib/webapp/dataClient";
   import { createI18n } from "./lib/webapp/i18n.js";
+  import { createActivationWatcher } from "./lib/webapp/activationWatcher";
   import { normalizedEmail, telegramName } from "./lib/webapp/formatters.js";
   import { activeTariffName, buildTariffCatalog } from "./lib/webapp/tariffs.js";
   import {
@@ -80,15 +81,9 @@
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
   const ACTIVATION_HANDOFF_STORAGE_KEY = "rw_webapp_activation_handoff_v1";
   const ACTIVATION_HANDOFF_TTL_MS = 48 * 60 * 60 * 1000;
-  const ACTIVATION_PENDING_WATCH_INTERVAL_MS = 2000;
-  const ACTIVATION_PENDING_WATCH_MAX_ATTEMPTS = 45;
-  const ACTIVATION_RESUME_CHECK_COOLDOWN_MS = 1500;
   const TELEGRAM_NOTIFICATIONS_RESUME_REFRESH_COOLDOWN_MS = 1500;
   const PUBLIC_INSTALL_PRELOAD_KEY = "__RW_PUBLIC_INSTALL_PRELOAD__";
-  import {
-    activationPaymentFailed,
-    createActivationHandoff,
-  } from "./lib/webapp/activationHandoff.js";
+  import { createActivationHandoff } from "./lib/webapp/activationHandoff.js";
   import { buildGravatarUrl, resolveProfileAvatarUrl } from "./lib/webapp/gravatar.js";
   import { createBillingActions } from "./lib/webapp/billingActions";
   import { invalidateWebappTariffOptionCaches } from "./lib/webapp/billingOptionCache.js";
@@ -175,11 +170,6 @@
   let autoRenewBusy = false;
   let activationSuccessDialogOpen = false;
   let activationSuccessUseInstallGuides = false;
-  let activationPendingWatchTimer = null;
-  let activationPendingWatchAttempts = 0;
-  let activationPendingWatchBusy = false;
-  let activationResumeRefreshBusy = false;
-  let activationResumeLastCheckAt = 0;
   let telegramNotificationsBotOpenedAt = 0;
   let telegramNotificationsResumeRefreshBusy = false;
   let telegramNotificationsResumeLastCheckAt = 0;
@@ -250,6 +240,28 @@
   const activationHandoff = createActivationHandoff({
     storageKey: ACTIVATION_HANDOFF_STORAGE_KEY,
     ttlMs: ACTIVATION_HANDOFF_TTL_MS,
+  });
+  const activationWatcher = createActivationWatcher({
+    activationHandoff,
+    billing,
+    getData: () => data,
+    loadData,
+    maybeShowActivationSuccessDialog,
+    shouldWatch: () =>
+      mode === "app" &&
+      activationHandoff.hasPending(data) &&
+      !activationSuccessDialogOpen &&
+      screen !== "admin",
+    canRefreshOnResume: () =>
+      mode === "app" &&
+      screen !== "admin" &&
+      !activationSuccessDialogOpen &&
+      !paymentModalOpen &&
+      !topupModalOpen &&
+      !deviceTopupModalOpen &&
+      !changeModalOpen &&
+      !changeConfirmOpen &&
+      activationHandoff.hasPending(data),
   });
 
   const authStore = createAuthStore({
@@ -646,10 +658,6 @@
     activationHandoff.rememberPending(context, data);
   }
 
-  function clearPendingActivationHandoff() {
-    activationHandoff.clearPending();
-  }
-
   async function maybeShowActivationSuccessDialog(context = {}) {
     if (activationSuccessDialogOpen) return false;
     await tick();
@@ -686,121 +694,15 @@
   }
 
   function stopPendingActivationWatch() {
-    if (activationPendingWatchTimer) {
-      window.clearTimeout(activationPendingWatchTimer);
-      activationPendingWatchTimer = null;
-    }
-    activationPendingWatchAttempts = 0;
-    activationPendingWatchBusy = false;
-  }
-
-  function schedulePendingActivationWatch() {
-    if (activationPendingWatchTimer || !hasPendingActivationHandoff()) return;
-    activationPendingWatchTimer = window.setTimeout(() => {
-      activationPendingWatchTimer = null;
-      void checkPendingActivationWatch();
-    }, ACTIVATION_PENDING_WATCH_INTERVAL_MS);
+    activationWatcher.stop();
   }
 
   function startPendingActivationWatch() {
-    if (
-      mode !== "app" ||
-      !hasPendingActivationHandoff() ||
-      activationSuccessDialogOpen ||
-      screen === "admin"
-    ) {
-      stopPendingActivationWatch();
-      return;
-    }
-    if (activationPendingWatchTimer || activationPendingWatchBusy) return;
-    schedulePendingActivationWatch();
-  }
-
-  async function checkPendingActivationWatch() {
-    if (activationPendingWatchBusy) return;
-    if (
-      mode !== "app" ||
-      !hasPendingActivationHandoff() ||
-      activationSuccessDialogOpen ||
-      screen === "admin"
-    ) {
-      stopPendingActivationWatch();
-      return;
-    }
-    if (activationPendingWatchAttempts >= ACTIVATION_PENDING_WATCH_MAX_ATTEMPTS) {
-      stopPendingActivationWatch();
-      return;
-    }
-
-    const state = activationHandoff.read();
-    const pending = state.pending;
-    activationPendingWatchAttempts += 1;
-    activationPendingWatchBusy = true;
-    try {
-      let shouldRefreshProfile = !pending?.paymentId;
-      if (pending?.paymentId && billing.fetchPaymentStatus) {
-        const paymentStatus = await billing.fetchPaymentStatus(pending.paymentId);
-        if (paymentStatus?.paid || paymentStatus?.status === "succeeded") {
-          shouldRefreshProfile = true;
-        } else if (activationPaymentFailed(paymentStatus)) {
-          clearPendingActivationHandoff();
-          stopPendingActivationWatch();
-          return;
-        }
-      }
-      if (shouldRefreshProfile) {
-        await loadData({ fresh: true });
-        const shown = await maybeShowActivationSuccessDialog({
-          source: "watch",
-          paymentId: pending?.paymentId,
-        });
-        if (shown || !hasPendingActivationHandoff()) {
-          stopPendingActivationWatch();
-          return;
-        }
-      }
-    } catch (_error) {
-      void _error;
-    } finally {
-      activationPendingWatchBusy = false;
-    }
-    schedulePendingActivationWatch();
-  }
-
-  function canRefreshPendingActivationOnResume() {
-    return Boolean(
-      mode === "app" &&
-      screen !== "admin" &&
-      !activationSuccessDialogOpen &&
-      !paymentModalOpen &&
-      !topupModalOpen &&
-      !deviceTopupModalOpen &&
-      !changeModalOpen &&
-      !changeConfirmOpen &&
-      hasPendingActivationHandoff()
-    );
+    activationWatcher.start();
   }
 
   async function refreshPendingActivationOnResume() {
-    if (!canRefreshPendingActivationOnResume()) return;
-    const now = Date.now();
-    if (
-      activationResumeRefreshBusy ||
-      now - activationResumeLastCheckAt < ACTIVATION_RESUME_CHECK_COOLDOWN_MS
-    ) {
-      return;
-    }
-    activationResumeLastCheckAt = now;
-    activationResumeRefreshBusy = true;
-    try {
-      await loadData({ fresh: true });
-      const shown = await maybeShowActivationSuccessDialog({ source: "resume" });
-      if (!shown) startPendingActivationWatch();
-    } catch (_error) {
-      void _error;
-    } finally {
-      activationResumeRefreshBusy = false;
-    }
+    await activationWatcher.refreshOnResume();
   }
 
   async function refreshTelegramNotificationsOnResume() {
