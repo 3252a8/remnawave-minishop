@@ -1,8 +1,18 @@
-# ruff: noqa: F401,F403,F405,I001
-from ._runtime import *  # noqa: F403,F405
-
 from bot.infra import events
 from bot.infra.event_payloads import TrialActivatedPayload
+
+from ._runtime import (
+    Any,
+    AsyncSession,
+    Dict,
+    Optional,
+    datetime,
+    logging,
+    subscription_dal,
+    timedelta,
+    timezone,
+    user_dal,
+)
 
 
 class TrialSubscriptionMixin:
