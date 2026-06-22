@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 from bot.payment_providers import cryptopay, severpay, stars
+from bot.payment_providers.severpay import service as severpay_service
 
 
 class _FakeSession:
@@ -99,7 +100,7 @@ def test_severpay_duplicate_success_webhook_does_not_finalize_again(monkeypatch)
         assert provider_payment_id == "sev-1"
         return payment
 
-    monkeypatch.setattr(severpay, "lookup_payment_by_order_or_provider_id", lookup_payment)
+    monkeypatch.setattr(severpay_service, "lookup_payment_by_order_or_provider_id", lookup_payment)
     monkeypatch.setattr(
         severpay.payment_dal,
         "update_provider_payment_and_status",
