@@ -2,7 +2,12 @@ import logging
 from typing import List, Optional
 
 from aiogram import Bot, Router
-from aiogram.types import InlineQuery, InlineQueryResultArticle, InputTextMessageContent
+from aiogram.types import (
+    InlineQuery,
+    InlineQueryResultArticle,
+    InlineQueryResultUnion,
+    InputTextMessageContent,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
@@ -31,7 +36,7 @@ async def inline_query_handler(
     user_id = inline_query.from_user.id
     query = inline_query.query.lower().strip()
 
-    results: List[InlineQueryResultArticle] = []
+    results: List[InlineQueryResultUnion] = []
 
     # Check if user is admin
     is_admin = user_id in settings.ADMIN_IDS if settings.ADMIN_IDS else False
@@ -120,10 +125,10 @@ async def create_referral_result(
 
 async def create_admin_stats_results(
     session: AsyncSession, i18n_instance, lang: str, settings: Settings
-) -> List[InlineQueryResultArticle]:
+) -> List[InlineQueryResultUnion]:
     """Create admin statistics results for inline query"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
-    results = []
+    results: List[InlineQueryResultUnion] = []
 
     try:
         # Quick user stats

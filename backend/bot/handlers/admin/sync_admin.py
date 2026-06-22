@@ -2,7 +2,7 @@ import asyncio
 import logging
 from collections import Counter
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, cast
 
 from aiogram import Bot, Router, types
 from aiogram.filters import Command
@@ -569,10 +569,10 @@ def _extract_lifetime_used_traffic_bytes(panel_user_data: dict) -> Optional[int]
 async def _bind_panel_email_to_user(
     session: AsyncSession,
     *,
-    existing_user,
+    existing_user: User,
     email_from_panel: Optional[str],
     panel_uuid: str,
-) -> tuple[object, bool]:
+) -> tuple[User, bool]:
     """Bind panel email to a local user without violating the unique email index.
 
     Panel email is treated as verified because it comes from the operator-managed
@@ -933,13 +933,22 @@ async def _perform_sync_impl(
         logging.info(f"Starting sync for {total_panel_users} panel users.")
         await acquire_subscription_background_sync_lock(session)
         sync_indexes = await _prefetch_sync_indexes(session, panel_users_data)
-        users_by_telegram_id = sync_indexes["users_by_telegram_id"]
-        users_by_user_id = sync_indexes["users_by_user_id"]
-        users_by_panel_uuid = sync_indexes["users_by_panel_uuid"]
-        users_by_email = sync_indexes["users_by_email"]
-        subscriptions_by_panel_uuid = sync_indexes["subscriptions_by_panel_uuid"]
-        active_subscriptions_by_user_panel = sync_indexes["active_subscriptions_by_user_panel"]
-        panel_uuids_by_telegram_id = sync_indexes["panel_uuids_by_telegram_id"]
+        users_by_telegram_id = cast(dict[int, User], sync_indexes["users_by_telegram_id"])
+        users_by_user_id = cast(dict[int, User], sync_indexes["users_by_user_id"])
+        users_by_panel_uuid = cast(dict[str, User], sync_indexes["users_by_panel_uuid"])
+        users_by_email = cast(dict[str, User], sync_indexes["users_by_email"])
+        subscriptions_by_panel_uuid = cast(
+            dict[str, Subscription],
+            sync_indexes["subscriptions_by_panel_uuid"],
+        )
+        active_subscriptions_by_user_panel = cast(
+            dict[tuple[int, str], Subscription],
+            sync_indexes["active_subscriptions_by_user_panel"],
+        )
+        panel_uuids_by_telegram_id = cast(
+            dict[int, set[str]],
+            sync_indexes["panel_uuids_by_telegram_id"],
+        )
         panel_users_by_uuid = {
             str(panel_user["uuid"]): panel_user
             for panel_user in panel_users_data
@@ -1217,9 +1226,11 @@ async def _perform_sync_impl(
                             users_updated += 1
                             users_uuid_updated += 1
                             local_update_reason_counts.update(["duplicate_panel_identity_resolved"])
-                            panel_uuids_by_telegram_id.get(telegram_id_from_panel, set()).discard(
-                                str(panel_uuid)
-                            )
+                            if telegram_id_from_panel is not None:
+                                panel_uuids_by_telegram_id.get(
+                                    telegram_id_from_panel,
+                                    set(),
+                                ).discard(str(panel_uuid))
                             users_by_panel_uuid.pop(str(panel_uuid), None)
                             logging.info(
                                 "Sync local update: user_id=%s telegram_id=%s panel_uuid=%s "

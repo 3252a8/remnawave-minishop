@@ -18,6 +18,7 @@ from bot.keyboards.inline.admin_keyboards import (
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.states.admin_states import AdminStates
+from bot.utils.callback_answer import callback_message
 from config.settings import Settings
 from db.dal import promo_code_dal
 
@@ -42,14 +43,14 @@ async def create_bulk_promo_prompt_handler(
     prompt_text = _("admin_bulk_promo_step1_quantity")
 
     try:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             prompt_text,
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
             parse_mode="HTML",
         )
     except Exception as e:
         logging.warning(f"Could not edit message for bulk promo prompt: {e}. Sending new.")
-        await callback.message.answer(
+        await callback_message(callback).answer(
             prompt_text,
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
             parse_mode="HTML",
@@ -77,7 +78,7 @@ async def process_bulk_promo_quantity_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        quantity = int(message.text.strip())
+        quantity = int((message.text or "").strip())
         if not (1 <= quantity <= 100):
             await message.answer(_("admin_bulk_promo_invalid_quantity"))
             return
@@ -114,7 +115,7 @@ async def process_bulk_promo_bonus_days_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        bonus_days = int(message.text.strip())
+        bonus_days = int((message.text or "").strip())
         if not (1 <= bonus_days <= 365):
             await message.answer(_("admin_promo_invalid_bonus_days"))
             return
@@ -156,7 +157,7 @@ async def process_bulk_promo_max_activations_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        max_activations = int(message.text.strip())
+        max_activations = int((message.text or "").strip())
         if not (1 <= max_activations <= 10000):
             await message.answer(_("admin_promo_invalid_max_activations"))
             return
@@ -239,13 +240,13 @@ async def process_bulk_promo_set_validity(
     )
 
     try:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             prompt_text,
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
             parse_mode="HTML",
         )
     except Exception:
-        await callback.message.answer(
+        await callback_message(callback).answer(
             prompt_text,
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
             parse_mode="HTML",
@@ -270,7 +271,7 @@ async def process_bulk_promo_validity_days_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        validity_days = int(message.text.strip())
+        validity_days = int((message.text or "").strip())
         if not (1 <= validity_days <= 365):
             await message.answer(_("admin_promo_invalid_validity_days"))
             return
@@ -318,6 +319,8 @@ async def create_bulk_promo_codes_final(
         # Generate and create promo codes
         created_codes = []
         failed_codes = []
+        actor = getattr(callback_or_message, "from_user", None)
+        created_by_admin_id = int(getattr(actor, "id", 0) or 0)
 
         for i in range(quantity):
             try:
@@ -343,7 +346,7 @@ async def create_bulk_promo_codes_final(
                     "max_activations": data["max_activations"],
                     "current_activations": 0,
                     "is_active": True,
-                    "created_by_admin_id": callback_or_message.from_user.id,
+                    "created_by_admin_id": created_by_admin_id,
                     "created_at": datetime.now(timezone.utc),
                 }
 
@@ -414,7 +417,6 @@ async def create_bulk_promo_codes_final(
                     bot = callback_or_message.message.bot
                 else:
                     bot = callback_or_message.bot
-
                 bot_info = await bot.get_me()
                 bot_username = bot_info.username or "your_bot"
             except Exception as e:
@@ -528,12 +530,12 @@ async def cancel_bulk_promo_creation_state_to_menu(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             _(key="admin_panel_title"),
             reply_markup=get_admin_panel_keyboard(i18n, current_lang, settings),
         )
     except Exception:
-        await callback.message.answer(
+        await callback_message(callback).answer(
             _(key="admin_panel_title"),
             reply_markup=get_admin_panel_keyboard(i18n, current_lang, settings),
         )

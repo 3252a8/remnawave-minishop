@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
 from bot.services.referral_service import ReferralService
+from bot.utils.callback_answer import callback_data, callback_message, message_from_user
 from config.settings import Settings
 from db.dal import user_dal
 
@@ -61,7 +62,11 @@ async def referral_command_handler(
             await event.answer()
         return
 
-    inviter_user_id = event.from_user.id
+    inviter_user_id = (
+        event.from_user.id
+        if isinstance(event, types.CallbackQuery)
+        else message_from_user(event).id
+    )
     referral_link = await referral_service.generate_referral_link(
         session, bot_username, inviter_user_id
     )
@@ -118,12 +123,12 @@ async def referral_command_handler(
         await event.answer(text, reply_markup=reply_markup_val, disable_web_page_preview=True)
     elif isinstance(event, types.CallbackQuery) and event.message:
         try:
-            await event.message.edit_text(
+            await callback_message(event).edit_text(
                 text, reply_markup=reply_markup_val, disable_web_page_preview=True
             )
         except Exception as e_edit:
             logging.warning(f"Failed to edit message for referral info: {e_edit}. Sending new one.")
-            await event.message.answer(
+            await callback_message(event).answer(
                 text, reply_markup=reply_markup_val, disable_web_page_preview=True
             )
         await event.answer()
@@ -138,9 +143,12 @@ async def referral_action_handler(
     bot: Bot,
     session: AsyncSession,
 ):
-    action = callback.data.split(":")[1]
+    action = callback_data(callback).split(":")[1]
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n = i18n_data.get("i18n_instance")
+    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    if not i18n:
+        await callback.answer("Language service error.", show_alert=True)
+        return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     if action == "share_message":
@@ -178,7 +186,7 @@ async def referral_action_handler(
             else:
                 friend_message = _("referral_friend_message", referral_link=referral_link)
 
-            await callback.message.answer(friend_message, disable_web_page_preview=True)
+            await callback_message(callback).answer(friend_message, disable_web_page_preview=True)
 
         except Exception as e:
             logging.error(f"Error in referral share message: {e}")

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
 from bot.states.admin_states import AdminStates
+from bot.utils.callback_answer import callback_data, callback_message
 from config.settings import Settings
 from db.dal import ad_dal
 
@@ -52,7 +53,7 @@ async def show_ads_menu(
         reply_markup = get_ads_list_keyboard(
             i18n, current_lang, campaigns, current_page, total_pages
         )
-    await callback.message.edit_text(text, reply_markup=reply_markup)
+    await callback_message(callback).edit_text(text, reply_markup=reply_markup)
     try:
         await callback.answer()
     except Exception:
@@ -71,7 +72,7 @@ async def ads_list_pagination(
         return
 
     try:
-        page = int(callback.data.split(":")[2])
+        page = int(callback_data(callback).split(":")[2])
     except Exception:
         page = 0
 
@@ -91,7 +92,7 @@ async def ads_list_pagination(
 
     reply_markup = get_ads_list_keyboard(i18n, current_lang, campaigns, page, total_pages)
     try:
-        await callback.message.edit_text(text, reply_markup=reply_markup)
+        await callback_message(callback).edit_text(text, reply_markup=reply_markup)
         await callback.answer()
     except Exception as e:
         logging.error(f"Failed to paginate ads list: {e}")
@@ -109,7 +110,7 @@ async def show_ad_card(
         await callback.answer("Language error.", show_alert=True)
         return
 
-    parts = callback.data.split(":")
+    parts = callback_data(callback).split(":")
     camp_id = int(parts[2])
     back_page = int(parts[3]) if len(parts) > 3 else 0
 
@@ -139,7 +140,9 @@ async def show_ad_card(
 
     reply_markup = get_ad_card_keyboard(i18n, current_lang, camp.ad_campaign_id, back_page)
     try:
-        await callback.message.edit_text(text, reply_markup=reply_markup, parse_mode="HTML")
+        await callback_message(callback).edit_text(
+            text, reply_markup=reply_markup, parse_mode="HTML"
+        )
         await callback.answer()
     except Exception as e:
         logging.error(f"Failed to show ad card: {e}")
@@ -155,7 +158,7 @@ async def ads_delete_prompt(callback: types.CallbackQuery, settings: Settings, i
         return
 
     try:
-        _, _, camp_id_str, back_page_str = callback.data.split(":", 3)
+        _, _, camp_id_str, back_page_str = callback_data(callback).split(":", 3)
         camp_id = int(camp_id_str)
         back_page = int(back_page_str)
     except Exception:
@@ -172,7 +175,7 @@ async def ads_delete_prompt(callback: types.CallbackQuery, settings: Settings, i
         lang=current_lang,
     )
     try:
-        await callback.message.edit_text(confirm_text, reply_markup=kb)
+        await callback_message(callback).edit_text(confirm_text, reply_markup=kb)
         await callback.answer()
     except Exception:
         await callback.answer()
@@ -191,7 +194,7 @@ async def ads_delete_cancel(
         return
 
     try:
-        parts = callback.data.split(":", 3)
+        parts = callback_data(callback).split(":", 3)
         camp_id = int(parts[2])
         back_page = int(parts[3])
     except Exception:
@@ -222,7 +225,9 @@ async def ads_delete_cancel(
 
     reply_markup = get_ad_card_keyboard(i18n, current_lang, camp.ad_campaign_id, back_page)
     try:
-        await callback.message.edit_text(text, reply_markup=reply_markup, parse_mode="HTML")
+        await callback_message(callback).edit_text(
+            text, reply_markup=reply_markup, parse_mode="HTML"
+        )
         await callback.answer()
     except Exception:
         await callback.answer()
@@ -240,7 +245,7 @@ async def ads_delete_confirm(
         return
 
     try:
-        parts = callback.data.split(":", 3)
+        parts = callback_data(callback).split(":", 3)
         camp_id = int(parts[2])
         back_page = int(parts[3])
     except Exception:
@@ -269,7 +274,7 @@ async def ads_delete_confirm(
 
     reply_markup = get_ads_list_keyboard(i18n, current_lang, campaigns, page, total_pages)
     try:
-        await callback.message.edit_text(text, reply_markup=reply_markup)
+        await callback_message(callback).edit_text(text, reply_markup=reply_markup)
         await callback.answer(_("admin_ads_deleted_success"), show_alert=True)
     except Exception:
         await callback.answer(_("admin_ads_deleted_success"), show_alert=True)
@@ -290,7 +295,7 @@ async def ads_create_start(
         return
 
     await state.set_state(AdminStates.waiting_for_ad_source)
-    await callback.message.edit_text(_("admin_ads_create_source_prompt"))
+    await callback_message(callback).edit_text(_("admin_ads_create_source_prompt"))
     try:
         await callback.answer()
     except Exception:
@@ -325,7 +330,7 @@ async def ads_create_flow(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     if current_state == AdminStates.waiting_for_ad_source.state:
-        source = message.text.strip()
+        source = (message.text or "").strip()
         if not source or len(source) > 64:
             await message.answer(_("admin_ads_invalid_source"))
             return
@@ -335,7 +340,7 @@ async def ads_create_flow(
         return
 
     if current_state == AdminStates.waiting_for_ad_start_param.state:
-        start_param = message.text.strip()
+        start_param = (message.text or "").strip()
         # Allow alnum underscore dash only
         import re as _re
 
@@ -348,7 +353,7 @@ async def ads_create_flow(
         return
 
     if current_state == AdminStates.waiting_for_ad_cost.state:
-        text = message.text.replace(",", ".").strip()
+        text = (message.text or "").replace(",", ".").strip()
         try:
             cost = float(text)
             if cost < 0 or cost > 1e8:

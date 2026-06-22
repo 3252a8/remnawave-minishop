@@ -2,7 +2,7 @@ import hashlib
 import html
 import logging
 from datetime import datetime
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from aiogram import Bot, F, Router, types
 from aiogram.filters import Command
@@ -29,6 +29,12 @@ from bot.payment_providers import provider_supports_recurring
 from bot.payment_providers.shared import service_supports_recurring
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service import SubscriptionService
+from bot.utils.callback_answer import (
+    callback_bot,
+    callback_data,
+    callback_message,
+    message_from_user,
+)
 from bot.utils.install_links import (
     append_install_share_link_text,
     ensure_user_install_guide_links,
@@ -148,10 +154,16 @@ def _with_subscription_purchase_description(
 
 def _format_premium_bytes(value: object) -> str:
     try:
-        bytes_value = max(0, int(value or 0))
+        bytes_value = max(0, int(str(value or 0)))
     except (TypeError, ValueError):
         bytes_value = 0
     return f"{bytes_value / 2**30:.2f} GB"
+
+
+def _event_user_id(event: types.Message | types.CallbackQuery) -> int:
+    if isinstance(event, types.CallbackQuery):
+        return event.from_user.id
+    return message_from_user(event).id
 
 
 def _format_premium_usage_limit(active: dict[str, object]) -> str:
@@ -221,15 +233,15 @@ async def display_subscription_options(
                 back_callback=back_callback,
                 callback_context=callback_context,
             )
-        target_message_obj = event.message if isinstance(event, types.CallbackQuery) else event
         if isinstance(event, types.CallbackQuery):
+            target_message_obj = callback_message(event)
             try:
                 await target_message_obj.edit_text(text_content, reply_markup=reply_markup)
             except Exception:
                 await target_message_obj.answer(text_content, reply_markup=reply_markup)
             await event.answer()
         else:
-            await target_message_obj.answer(text_content, reply_markup=reply_markup)
+            await event.answer(text_content, reply_markup=reply_markup)
         return
 
     traffic_packages = getattr(settings, "traffic_packages", {}) or {}
@@ -276,16 +288,8 @@ async def display_subscription_options(
             callback_data=back_callback,
         )
 
-    target_message_obj = event.message if isinstance(event, types.CallbackQuery) else event
-    if not target_message_obj:
-        if isinstance(event, types.CallbackQuery):
-            try:
-                await event.answer(get_text("error_occurred_try_again"), show_alert=True)
-            except Exception:
-                pass
-        return
-
     if isinstance(event, types.CallbackQuery):
+        target_message_obj = callback_message(event)
         try:
             await target_message_obj.edit_text(text_content, reply_markup=reply_markup)
         except Exception:
@@ -295,7 +299,7 @@ async def display_subscription_options(
         except Exception:
             pass
     else:
-        await target_message_obj.answer(text_content, reply_markup=reply_markup)
+        await event.answer(text_content, reply_markup=reply_markup)
 
 
 @router.callback_query(F.data == "main_action:subscribe")
@@ -316,7 +320,7 @@ async def select_tariff_callback(
     if not config or not callback.message:
         await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         return
-    parts = callback.data.split(":")
+    parts = callback_data(callback).split(":")
     tariff_key = parts[2] if len(parts) > 2 else ""
     callback_context = parts[3] if len(parts) > 3 else None
     try:
@@ -339,7 +343,7 @@ async def select_tariff_callback(
         current_lang,
         include=tariff.billing_model == "period",
     )
-    await callback.message.edit_text(text, reply_markup=markup)
+    await callback_message(callback).edit_text(text, reply_markup=markup)
     await callback.answer()
 
 
@@ -358,7 +362,7 @@ async def select_tariff_period_callback(
     if not config or not callback.message:
         await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         return
-    parts = callback.data.split(":")
+    parts = callback_data(callback).split(":")
     if len(parts) < 4:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -406,7 +410,9 @@ async def select_tariff_period_callback(
         hwid_renewal_stars_quote=hwid_renewal_stars_quote,
         hwid_renewal_selected=bool(renew_hwid_devices),
     )
-    await callback.message.edit_text(get_text("choose_payment_method"), reply_markup=markup)
+    await callback_message(callback).edit_text(
+        get_text("choose_payment_method"), reply_markup=markup
+    )
     await callback.answer()
 
 
@@ -421,7 +427,7 @@ async def select_tariff_package_callback(
     if not config or not callback.message:
         await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         return
-    parts = callback.data.split(":")
+    parts = callback_data(callback).split(":")
     if len(parts) < 4:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -465,7 +471,9 @@ async def select_tariff_package_callback(
         back_callback=back_callback,
         user_id=callback.from_user.id,
     )
-    await callback.message.edit_text(get_text("choose_payment_method_traffic"), reply_markup=markup)
+    await callback_message(callback).edit_text(
+        get_text("choose_payment_method_traffic"), reply_markup=markup
+    )
     await callback.answer()
 
 
@@ -548,7 +556,7 @@ async def tariff_topup_list_callback(
         text = text + "\n\n" + "\n".join(carryover_lines)
     if premium_lines:
         text = text + "\n\n" + "\n".join(premium_lines)
-    await callback.message.edit_text(text, reply_markup=builder.as_markup())
+    await callback_message(callback).edit_text(text, reply_markup=builder.as_markup())
     await callback.answer()
 
 
@@ -563,7 +571,7 @@ async def select_tariff_premium_package_callback(
     if not config or not callback.message:
         await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         return
-    _, _, tariff_key, gb_raw = callback.data.split(":", 3)
+    _, _, tariff_key, gb_raw = callback_data(callback).split(":", 3)
     tariff = config.require(tariff_key)
     gb = float(gb_raw)
     default_currency = default_currency_key_for_settings(settings)
@@ -589,7 +597,9 @@ async def select_tariff_premium_package_callback(
         back_callback="tariff_topup:list",
         user_id=callback.from_user.id,
     )
-    await callback.message.edit_text(get_text("choose_payment_method_traffic"), reply_markup=markup)
+    await callback_message(callback).edit_text(
+        get_text("choose_payment_method_traffic"), reply_markup=markup
+    )
     await callback.answer()
 
 
@@ -637,7 +647,7 @@ async def hwid_devices_list_callback(
         back_callback="main_action:my_devices",
         renewal=False,
     )
-    await callback.message.edit_text(
+    await callback_message(callback).edit_text(
         get_text(
             "select_hwid_device_package",
             date=active.get("extra_hwid_devices_valid_until_text") or "",
@@ -663,7 +673,7 @@ async def hwid_devices_package_callback(
     if not config or not callback.message:
         await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         return
-    _, action, tariff_key, count_raw = callback.data.split(":", 3)
+    _, action, tariff_key, count_raw = callback_data(callback).split(":", 3)
     tariff = config.require(tariff_key)
     if tariff.billing_model != "period":
         await callback.answer(get_text("no_hwid_device_packages_available"), show_alert=True)
@@ -723,7 +733,7 @@ async def hwid_devices_package_callback(
         back_callback="hwid_devices:list",
         user_id=callback.from_user.id,
     )
-    await callback.message.edit_text(
+    await callback_message(callback).edit_text(
         get_text("choose_payment_method_hwid_devices"), reply_markup=markup
     )
     await callback.answer()
@@ -771,7 +781,7 @@ async def tariff_change_list_callback(
             )
         ]
     )
-    await callback.message.edit_text(
+    await callback_message(callback).edit_text(
         "Выберите тариф", reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
     )
     await callback.answer()
@@ -791,7 +801,7 @@ async def tariff_change_select_callback(
     if not config or not callback.message:
         await callback.answer("Error", show_alert=True)
         return
-    tariff_key = callback.data.split(":", 2)[2]
+    tariff_key = callback_data(callback).split(":", 2)[2]
     target = config.require(tariff_key)
     db_sub = await subscription_dal.get_active_subscription_by_user_id(
         session, callback.from_user.id
@@ -861,7 +871,7 @@ async def tariff_change_select_callback(
             )
         ]
     )
-    await callback.message.edit_text(
+    await callback_message(callback).edit_text(
         f"{target.name(current_lang)}\n{target.description(current_lang)}".strip(),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
@@ -882,7 +892,7 @@ async def tariff_change_confirm_apply_callback(
     if not config or not callback.message:
         await callback.answer("Error", show_alert=True)
         return
-    _, _, tariff_key, mode = callback.data.split(":", 3)
+    _, _, tariff_key, mode = callback_data(callback).split(":", 3)
     target = config.require(tariff_key)
     db_sub = await subscription_dal.get_active_subscription_by_user_id(
         session, callback.from_user.id
@@ -912,7 +922,7 @@ async def tariff_change_confirm_apply_callback(
             )
         ],
     ]
-    await callback.message.edit_text(
+    await callback_message(callback).edit_text(
         f"Подтвердите смену тарифа\n\nНовый тариф: {target.name(current_lang)}\nИзменение: {action_text}",  # noqa: E501
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
@@ -929,7 +939,7 @@ async def tariff_change_confirm_pay_callback(
     if not config or not callback.message:
         await callback.answer("Error", show_alert=True)
         return
-    _, _, tariff_key, amount_raw = callback.data.split(":", 3)
+    _, _, tariff_key, amount_raw = callback_data(callback).split(":", 3)
     target = config.require(tariff_key)
     currency_code = default_payment_currency_code_for_settings(settings)
     rows = [
@@ -946,7 +956,7 @@ async def tariff_change_confirm_pay_callback(
             )
         ],
     ]
-    await callback.message.edit_text(
+    await callback_message(callback).edit_text(
         f"Подтвердите смену тарифа\n\nНовый тариф: {target.name(current_lang)}\nБудет создана оплата на {amount_raw} {currency_code}.",  # noqa: E501
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
@@ -961,7 +971,7 @@ async def tariff_change_apply_callback(
     subscription_service: SubscriptionService,
     session: AsyncSession,
 ):
-    _, _, tariff_key, mode = callback.data.split(":", 3)
+    _, _, tariff_key, mode = callback_data(callback).split(":", 3)
     result = await subscription_service.switch_tariff_without_payment(
         session, callback.from_user.id, tariff_key, mode
     )
@@ -975,7 +985,7 @@ async def tariff_change_apply_callback(
             subscription_service.panel_service,
             subscription_service,
             session,
-            callback.bot,
+            callback_bot(callback),
         )
     else:
         await callback.answer("Error", show_alert=True)
@@ -987,7 +997,7 @@ async def tariff_change_pay_callback(
 ):
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
-    _, _, tariff_key, amount_raw = callback.data.split(":", 3)
+    _, _, tariff_key, amount_raw = callback_data(callback).split(":", 3)
     amount = float(amount_raw)
     currency_code = default_payment_currency_code_for_settings(settings)
     markup = get_payment_method_keyboard(
@@ -1002,7 +1012,7 @@ async def tariff_change_pay_callback(
         back_callback=f"tariff_change:confirm_pay:{tariff_key}:{amount_raw}",
         user_id=callback.from_user.id,
     )
-    await callback.message.edit_text("Выберите способ оплаты", reply_markup=markup)
+    await callback_message(callback).edit_text("Выберите способ оплаты", reply_markup=markup)
     await callback.answer()
 
 
@@ -1030,7 +1040,9 @@ async def my_subscription_command_handler(
         await target.answer(get_text("error_service_unavailable"))
         return
 
-    active = await subscription_service.get_active_subscription_details(session, event.from_user.id)
+    active = await subscription_service.get_active_subscription_details(
+        session, _event_user_id(event)
+    )
 
     if not active:
         text = get_text("subscription_not_active")
@@ -1052,9 +1064,9 @@ async def my_subscription_command_handler(
             except Exception:
                 pass
             try:
-                await event.message.edit_text(text, reply_markup=kb)
+                await callback_message(event).edit_text(text, reply_markup=kb)
             except Exception:
-                await event.message.answer(text, reply_markup=kb)
+                await callback_message(event).answer(text, reply_markup=kb)
         else:
             await event.answer(text, reply_markup=kb)
         return
@@ -1186,12 +1198,12 @@ async def my_subscription_command_handler(
     kb = base_markup.inline_keyboard
     try:
         local_sub = await subscription_dal.get_active_subscription_by_user_id(
-            session, event.from_user.id
+            session, _event_user_id(event)
         )
         install_links = await ensure_user_install_guide_links(
             session,
             settings,
-            event.from_user.id,
+            _event_user_id(event),
             local_subscription=local_sub,
         )
         install_url = install_links.personal_url
@@ -1204,7 +1216,7 @@ async def my_subscription_command_handler(
                 await session.rollback()
                 logging.exception(
                     "Failed to persist install guide share token for user %s.",
-                    event.from_user.id,
+                    _event_user_id(event),
                 )
                 install_share_url = None
 
@@ -1396,7 +1408,7 @@ async def my_subscription_command_handler(
         except Exception:
             pass
         try:
-            await event.message.edit_text(
+            await callback_message(event).edit_text(
                 text, reply_markup=markup, parse_mode="HTML", disable_web_page_preview=True
             )
         except Exception:
@@ -1444,7 +1456,9 @@ async def my_devices_command_handler(
         return
 
     # TODO: context?
-    active = await subscription_service.get_active_subscription_details(session, event.from_user.id)
+    active = await subscription_service.get_active_subscription_details(
+        session, _event_user_id(event)
+    )
     if not active or not active.get("user_id"):
         message = get_text("subscription_not_active")
         if isinstance(event, types.CallbackQuery):
@@ -1467,7 +1481,7 @@ async def my_devices_command_handler(
             await target.answer(get_text("no_devices_found"))
         return
 
-    devices_list_raw = []
+    devices_list_raw: list[Any] = []
     if isinstance(devices, dict):
         devices_list_raw = devices.get("devices") or []
     elif isinstance(devices, list):
@@ -1574,9 +1588,9 @@ async def my_devices_command_handler(
         except Exception:
             pass
         try:
-            await event.message.edit_text(text, reply_markup=markup)
+            await callback_message(event).edit_text(text, reply_markup=markup)
         except Exception:
-            await event.message.answer(text, reply_markup=markup)
+            await callback_message(event).answer(text, reply_markup=markup)
     else:
         await target.answer(text, reply_markup=markup)
 
@@ -1603,7 +1617,7 @@ async def disconnect_device_handler(
         return
 
     try:
-        _, hwid_token = callback.data.split(":", 1)
+        _, hwid_token = callback_data(callback).split(":", 1)
     except Exception:
         try:
             await callback.answer(get_text("error_try_again"), show_alert=True)
@@ -1623,7 +1637,7 @@ async def disconnect_device_handler(
         await callback.answer(get_text("no_devices_found"), show_alert=True)
         return
 
-    devices_list_raw = []
+    devices_list_raw: list[Any] = []
     if isinstance(devices, dict):
         devices_list_raw = devices.get("devices") or []
     elif isinstance(devices, list):
@@ -1669,7 +1683,7 @@ async def toggle_autorenew_handler(
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     try:
-        _, payload = callback.data.split(":", 1)
+        _, payload = callback_data(callback).split(":", 1)
         sub_id_str, enable_str = payload.split(":")
         sub_id = int(sub_id_str)
         enable = bool(int(enable_str))
@@ -1709,10 +1723,10 @@ async def toggle_autorenew_handler(
     )
     kb = get_autorenew_confirm_keyboard(enable, sub.subscription_id, current_lang, i18n)
     try:
-        await callback.message.edit_text(confirm_text, reply_markup=kb)
+        await callback_message(callback).edit_text(confirm_text, reply_markup=kb)
     except Exception:
         try:
-            await callback.message.answer(confirm_text, reply_markup=kb)
+            await callback_message(callback).answer(confirm_text, reply_markup=kb)
         except Exception:
             pass
     try:
@@ -1737,7 +1751,7 @@ async def confirm_autorenew_handler(
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     try:
-        _, _, sub_id_str, enable_str = callback.data.split(":", 3)
+        _, _, sub_id_str, enable_str = callback_data(callback).split(":", 3)
         sub_id = int(sub_id_str)
         enable = bool(int(enable_str))
     except Exception:
@@ -1848,7 +1862,7 @@ async def connect_command_handler(
     session: AsyncSession,
     bot: Bot,
 ):
-    logging.info(f"User {message.from_user.id} used /connect command.")
+    logging.info(f"User {message_from_user(message).id} used /connect command.")
     await my_subscription_command_handler(
         message, i18n_data, settings, panel_service, subscription_service, session, bot
     )

@@ -15,7 +15,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.services.promo_code_service import PromoCodeService
 from bot.services.subscription_service import SubscriptionService
 from bot.states.user_states import UserPromoStates
-from bot.utils.callback_answer import safe_answer_callback
+from bot.utils.callback_answer import callback_message, message_from_user, safe_answer_callback
 from bot.utils.install_links import (
     append_install_share_link_text,
     ensure_user_install_guide_links,
@@ -61,7 +61,7 @@ async def prompt_promo_code_input(
         return
 
     try:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             text=_(key="promo_code_prompt"),
             reply_markup=get_back_to_main_menu_markup(
                 current_lang,
@@ -71,7 +71,7 @@ async def prompt_promo_code_input(
         )
     except Exception as e_edit:
         logging.warning(f"Failed to edit message for promo prompt: {e_edit}. Sending new one.")
-        await callback.message.answer(
+        await callback_message(callback).answer(
             text=_(key="promo_code_prompt"),
             reply_markup=get_back_to_main_menu_markup(
                 current_lang,
@@ -100,7 +100,7 @@ async def process_promo_code_input(
     session: AsyncSession,
 ):
     logging.info(
-        f"Processing promo code input from user {message.from_user.id} in state {await state.get_state()}: '{message.text}'"  # noqa: E501
+        f"Processing promo code input from user {message_from_user(message).id} in state {await state.get_state()}: '{message.text}'"  # noqa: E501
     )
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -113,8 +113,8 @@ async def process_promo_code_input(
         return
 
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
-    code_input = message.text.strip() if message.text else ""
-    user = message.from_user
+    code_input = (message.text or "").strip() if message.text else ""
+    user = message_from_user(message)
 
     is_suspicious = False
     if not code_input:
@@ -207,7 +207,7 @@ async def process_promo_code_input(
     )
     await state.clear()
     logging.info(
-        f"Promo code input '{code_input}' processing finished for user {message.from_user.id}. State cleared."  # noqa: E501
+        f"Promo code input '{code_input}' processing finished for user {message_from_user(message).id}. State cleared."  # noqa: E501
     )
 
 

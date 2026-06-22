@@ -26,7 +26,13 @@ from bot.services.promo_code_service import PromoCodeService
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
 from bot.services.telegram_notifications import TELEGRAM_NOTIFICATIONS_ENABLED
-from bot.utils.callback_answer import safe_answer_callback
+from bot.utils.callback_answer import (
+    callback_data,
+    callback_message,
+    message_bot,
+    message_from_user,
+    safe_answer_callback,
+)
 from bot.utils.channel_subscription import (
     is_required_channel_access_error,
     normalize_required_channel_id,
@@ -134,8 +140,13 @@ async def send_main_menu(
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
 
-    user_id = target_event.from_user.id
-    user_full_name = hd.quote(target_event.from_user.full_name)
+    event_user = (
+        target_event.from_user
+        if isinstance(target_event, types.CallbackQuery)
+        else message_from_user(target_event)
+    )
+    user_id = event_user.id
+    user_full_name = hd.quote(event_user.full_name)
 
     if not i18n:
         logging.error(f"i18n_instance missing in send_main_menu for user {user_id}")
@@ -171,7 +182,7 @@ async def send_main_menu(
     if isinstance(target_event, types.Message):
         target_message_obj = target_event
     elif isinstance(target_event, types.CallbackQuery) and target_event.message:
-        target_message_obj = target_event.message
+        target_message_obj = callback_message(target_event)
 
     if not target_message_obj:
         logging.error(f"send_main_menu: target_message_obj is None for event from user {user_id}.")
@@ -224,7 +235,12 @@ async def send_bot_interface_menu(
         logging.error("i18n_instance missing in send_bot_interface_menu.")
         return
 
-    user_id = target_event.from_user.id
+    event_user = (
+        target_event.from_user
+        if isinstance(target_event, types.CallbackQuery)
+        else message_from_user(target_event)
+    )
+    user_id = event_user.id
     show_trial_button_in_menu = await should_show_trial_button(
         settings, subscription_service, session, user_id
     )
@@ -240,7 +256,7 @@ async def send_bot_interface_menu(
     if isinstance(target_event, types.Message):
         target_message_obj = target_event
     elif isinstance(target_event, types.CallbackQuery) and target_event.message:
-        target_message_obj = target_event.message
+        target_message_obj = callback_message(target_event)
 
     if not target_message_obj:
         logging.error(
@@ -296,10 +312,10 @@ async def ensure_required_channel_subscription(
         user_id = event.from_user.id
         bot_instance: Optional[Bot] = getattr(event, "bot", None)
         if bot_instance is None and event.message:
-            bot_instance = event.message.bot
-        message_obj: Optional[types.Message] = event.message
+            bot_instance = message_bot(callback_message(event))
+        message_obj: Optional[types.Message] = callback_message(event) if event.message else None
     else:
-        user_id = event.from_user.id
+        user_id = message_from_user(event).id
         bot_instance = event.bot if hasattr(event, "bot") else None
         message_obj = event
 
@@ -457,7 +473,7 @@ async def ensure_required_channel_subscription(
     if isinstance(event, types.CallbackQuery):
         if keyboard and event.message:
             try:
-                await event.message.edit_text(prompt_text, reply_markup=keyboard)
+                await callback_message(event).edit_text(prompt_text, reply_markup=keyboard)
             except Exception as edit_error:
                 logging.debug(
                     "Failed to edit prompt message for user %s: %s",
@@ -516,7 +532,7 @@ async def start_command_handler(
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
-    user = message.from_user
+    user = message_from_user(message)
     user_id = user.id
 
     if admin_user_match and user_id in settings.ADMIN_IDS:
@@ -533,7 +549,9 @@ async def start_command_handler(
                 get_user_card_keyboard,
             )
 
-            referral_service = ReferralService(settings, subscription_service, message.bot, i18n)
+            referral_service = ReferralService(
+                settings, subscription_service, message_bot(message), i18n
+            )
             user_card_text = await format_user_card(
                 target_user,
                 session,
@@ -808,7 +826,9 @@ async def start_command_handler(
         try:
             from bot.services.promo_code_service import PromoCodeService
 
-            promo_code_service = PromoCodeService(settings, subscription_service, message.bot, i18n)
+            promo_code_service = PromoCodeService(
+                settings, subscription_service, message_bot(message), i18n
+            )
 
             success, result = await promo_code_service.apply_promo_code(
                 session, user_id, promo_code_to_apply, current_lang
@@ -888,7 +908,7 @@ async def start_command_handler(
         from . import referral as user_referral_handlers
 
         await user_referral_handlers.referral_command_handler(
-            message, settings, i18n_data, referral_service, message.bot, session
+            message, settings, i18n_data, referral_service, message_bot(message), session
         )
         return
 
@@ -908,13 +928,13 @@ async def tg_interface_command_handler(
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
-    db_user = await user_dal.get_user_by_id(session, message.from_user.id)
+    db_user = await user_dal.get_user_by_id(session, message_from_user(message).id)
     if not await ensure_required_channel_subscription(
         message, settings, i18n, current_lang, session, db_user
     ):
         return
 
-    if not telegram_bot_menu_enabled_for_user(settings, user_id=message.from_user.id):
+    if not telegram_bot_menu_enabled_for_user(settings, user_id=message_from_user(message).id):
         await send_main_menu(
             message, settings, i18n_data, subscription_service, session, is_edit=False
         )
@@ -956,7 +976,7 @@ async def verify_channel_subscription_callback(
     if not settings.DISABLE_WELCOME_MESSAGE:
         welcome_text = _(key="welcome", user_name=hd.quote(callback.from_user.full_name))
         if callback.message:
-            await callback.message.answer(welcome_text)
+            await callback_message(callback).answer(welcome_text)
         else:
             fallback_bot: Optional[Bot] = getattr(callback, "bot", None)
             if fallback_bot:
@@ -1008,7 +1028,7 @@ async def language_command_handler(
     if isinstance(event, types.CallbackQuery):
         if event.message:
             try:
-                await event.message.edit_text(text_to_send, reply_markup=reply_markup)
+                await callback_message(event).edit_text(text_to_send, reply_markup=reply_markup)
             except Exception:
                 await target_message_obj.answer(text_to_send, reply_markup=reply_markup)
         await safe_answer_callback(event)
@@ -1034,7 +1054,7 @@ async def select_language_callback_handler(
         return
 
     try:
-        lang_payload = callback.data.split("_", 2)[2]
+        lang_payload = callback_data(callback).split("_", 2)[2]
         raw_lang_code, _, return_target = lang_payload.partition(":")
         lang_code = normalize_locale_language_code(
             raw_lang_code,
@@ -1100,7 +1120,7 @@ async def main_action_callback_handler(
     promo_code_service: PromoCodeService,
     session: AsyncSession,
 ):
-    action = callback.data.split(":")[1]
+    action = callback_data(callback).split(":")[1]
 
     if action in {"back_to_main", "back_to_main_keep", "bot_interface"}:
         await state.clear()
@@ -1245,9 +1265,13 @@ async def main_action_callback_handler(
             ),
         )
         try:
-            await callback.message.edit_text(_(key="info_links_message"), reply_markup=reply_markup)
+            await callback_message(callback).edit_text(
+                _(key="info_links_message"), reply_markup=reply_markup
+            )
         except Exception:
-            await callback.message.answer(_(key="info_links_message"), reply_markup=reply_markup)
+            await callback_message(callback).answer(
+                _(key="info_links_message"), reply_markup=reply_markup
+            )
         await safe_answer_callback(callback)
     elif action == "back_to_main":
         await send_main_menu(
@@ -1258,9 +1282,11 @@ async def main_action_callback_handler(
             callback, settings, i18n_data, subscription_service, session, is_edit=False
         )
     else:
-        i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+        fallback_i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
         _ = lambda key, **kwargs: (
-            i18n.gettext(i18n_data.get("current_language"), key, **kwargs) if i18n else key
+            fallback_i18n.gettext(i18n_data.get("current_language"), key, **kwargs)
+            if fallback_i18n
+            else key
         )
         await safe_answer_callback(
             callback,

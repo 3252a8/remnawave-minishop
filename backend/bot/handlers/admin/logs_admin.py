@@ -17,6 +17,7 @@ from bot.keyboards.inline.admin_keyboards import (
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.states.admin_states import AdminStates
+from bot.utils.callback_answer import callback_data, callback_message
 from config.settings import Settings
 from db.dal import message_log_dal, user_dal
 from db.models import MessageLog, User
@@ -76,13 +77,13 @@ async def display_logs_menu(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             text=_(key="admin_logs_menu_title"),
             reply_markup=get_logs_menu_keyboard(i18n, current_lang),
         )
     except Exception as e:
         logging.warning(f"Failed to edit message for logs menu: {e}. Sending new.")
-        await callback.message.answer(
+        await callback_message(callback).answer(
             text=_(key="admin_logs_menu_title"),
             reply_markup=get_logs_menu_keyboard(i18n, current_lang),
         )
@@ -205,7 +206,7 @@ async def view_all_logs_handler(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
 ):
     page_idx = 0
-    parts = callback.data.split(":")
+    parts = callback_data(callback).split(":")
     if len(parts) == 3:
         try:
             page_idx = int(parts[2])
@@ -224,7 +225,7 @@ async def view_all_logs_handler(
     total_logs_count = await message_log_dal.count_all_message_logs(session)
 
     await _display_formatted_logs(
-        target_message=callback.message,
+        target_message=callback_message(callback),
         logs=logs_models,
         total_logs=total_logs_count,
         current_page_idx=page_idx,
@@ -252,7 +253,7 @@ async def prompt_user_for_logs_handler(
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
-    await callback.message.edit_text(
+    await callback_message(callback).edit_text(
         text=_("admin_prompt_for_user_id_or_username_logs"),
         reply_markup=get_logs_menu_keyboard(i18n, current_lang),
     )
@@ -277,7 +278,7 @@ async def process_user_id_for_logs_handler(
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
-    input_text = message.text.strip() if message.text else ""
+    input_text = (message.text or "").strip() if message.text else ""
     user_model_for_logs: Optional[User] = None
 
     if input_text.isdigit() or (input_text.startswith("-") and input_text[1:].isdigit()):
@@ -328,7 +329,7 @@ async def view_user_logs_paginated_handler(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
 ):
     try:
-        parts = callback.data.split(":")
+        parts = callback_data(callback).split(":")
         target_user_id = int(parts[2])
         page_idx = int(parts[3])
     except (IndexError, ValueError):
@@ -343,7 +344,7 @@ async def view_user_logs_paginated_handler(
 
     user_model_for_logs = await user_dal.get_user_by_id(session, target_user_id)
     if not user_model_for_logs:
-        await callback.message.edit_text("User not found for logs.")
+        await callback_message(callback).edit_text("User not found for logs.")
         await callback.answer()
         return
 
@@ -360,7 +361,7 @@ async def view_user_logs_paginated_handler(
     total_user_logs_count = await message_log_dal.count_user_message_logs(session, target_user_id)
 
     await _display_formatted_logs(
-        target_message=callback.message,
+        target_message=callback_message(callback),
         logs=logs_models,
         total_logs=total_user_logs_count,
         current_page_idx=page_idx,
@@ -407,7 +408,7 @@ async def export_logs_csv_handler(
         logs_models = await message_log_dal.get_all_message_logs(session, limit=10000, offset=0)
 
         if not logs_models:
-            await callback.message.answer(_("admin_logs_csv_no_data"))
+            await callback_message(callback).answer(_("admin_logs_csv_no_data"))
             return
 
         # Create CSV content
@@ -470,7 +471,7 @@ async def export_logs_csv_handler(
             filename=filename,
         )
 
-        await callback.message.answer_document(
+        await callback_message(callback).answer_document(
             csv_file,
             caption=_(
                 "admin_logs_csv_export_success",
@@ -481,4 +482,4 @@ async def export_logs_csv_handler(
 
     except Exception as e:
         logging.error(f"Error exporting logs to CSV: {e}", exc_info=True)
-        await callback.message.answer(_("admin_logs_csv_export_failed", error=str(e)))
+        await callback_message(callback).answer(_("admin_logs_csv_export_failed", error=str(e)))

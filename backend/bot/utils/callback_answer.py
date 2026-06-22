@@ -1,8 +1,9 @@
 import logging
 from typing import Any, cast
 
+from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, User
 
 _EXPIRED_CALLBACK_MARKERS = (
     "query is too old",
@@ -18,6 +19,41 @@ def callback_message_or_none(callback: CallbackQuery) -> Message | None:
     if message is not None and callable(getattr(message, "edit_text", None)):
         return cast(Message, message)
     return None
+
+
+def callback_message(callback: CallbackQuery) -> Message:
+    message = callback_message_or_none(callback)
+    if message is None:
+        raise ValueError("Callback query has no accessible message")
+    return message
+
+
+def callback_data(callback: CallbackQuery) -> str:
+    data = callback.data
+    if data is None:
+        raise ValueError("Callback query has no data")
+    return data
+
+
+def callback_bot(callback: CallbackQuery) -> Bot:
+    bot = callback.bot
+    if bot is None:
+        raise ValueError("Callback query is not bound to a bot")
+    return bot
+
+
+def message_from_user(message: Message) -> User:
+    user = message.from_user
+    if user is None:
+        raise ValueError("Message has no sender")
+    return user
+
+
+def message_bot(message: Message) -> Bot:
+    bot = message.bot
+    if bot is None:
+        raise ValueError("Message is not bound to a bot")
+    return bot
 
 
 def is_expired_callback_answer_error(error: BaseException) -> bool:

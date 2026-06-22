@@ -12,6 +12,7 @@ from bot.keyboards.inline.admin_keyboards import (
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import pending_statuses
 from bot.services.panel_api_service import PanelApiService
+from bot.utils.callback_answer import callback_bot, callback_message
 from config.settings import Settings
 from config.tariffs_config import default_payment_currency_code_for_settings
 from db.dal import panel_sync_dal, payment_dal, user_dal
@@ -23,7 +24,7 @@ router = Router(name="admin_statistics_router")
 def _format_rating_user_label(
     user_row: Dict[str, object], bot_username: Optional[str] = None
 ) -> str:
-    user_id = int(user_row.get("user_id", 0) or 0)
+    user_id = int(str(user_row.get("user_id", 0) or 0))
     username = user_row.get("username")
     first_name = user_row.get("first_name")
     user_id_text = str(user_id)
@@ -277,7 +278,7 @@ async def show_statistics_handler(
     final_text = "\n".join(stats_text_parts)
 
     try:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             final_text,
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
             parse_mode="HTML",
@@ -290,7 +291,7 @@ async def show_statistics_handler(
             chunk = final_text[i : i + max_chunk_size]
             is_last_chunk = (i + max_chunk_size) >= len(final_text)
             try:
-                await callback.message.answer(
+                await callback_message(callback).answer(
                     chunk,
                     reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
                     if is_last_chunk
@@ -300,7 +301,7 @@ async def show_statistics_handler(
             except Exception as e_chunk:
                 logging.error(f"Failed to send statistics chunk: {e_chunk}")
                 if i == 0:
-                    await callback.message.answer(
+                    await callback_message(callback).answer(
                         _("error_displaying_statistics"),
                         reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
                     )
@@ -325,7 +326,7 @@ async def show_user_ratings_handler(
     top_limit = 10
     bot_username: Optional[str] = None
     try:
-        me = await callback.bot.get_me()
+        me = await callback_bot(callback).get_me()
         bot_username = me.username
     except Exception as e_get_me:
         logging.warning("Failed to resolve bot username for ratings links: %s", e_get_me)
@@ -400,7 +401,7 @@ async def show_user_ratings_handler(
     else:
         text_parts.append(_("admin_user_ratings_empty"))
 
-    await callback.message.edit_text(
+    await callback_message(callback).edit_text(
         "\n".join(text_parts),
         reply_markup=get_back_to_user_management_keyboard(current_lang, i18n),
         parse_mode="HTML",

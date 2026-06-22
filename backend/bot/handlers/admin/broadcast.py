@@ -20,6 +20,7 @@ from bot.utils import (
     send_message_by_type,
     send_message_via_queue,
 )
+from bot.utils.callback_answer import callback_data, callback_message
 from bot.utils.message_queue import get_queue_manager
 from config.settings import Settings
 from db.dal import message_log_dal, user_dal
@@ -46,13 +47,13 @@ async def broadcast_message_prompt_handler(
 
     if callback.message:
         try:
-            await callback.message.edit_text(
+            await callback_message(callback).edit_text(
                 prompt_text,
                 reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
             )
         except Exception as e:
             logging.warning(f"Could not edit message for broadcast prompt: {e}. Sending new.")
-            await callback.message.answer(
+            await callback_message(callback).answer(
                 prompt_text,
                 reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
             )
@@ -154,7 +155,7 @@ async def change_broadcast_target_handler(
         await callback.answer("Error updating selection.", show_alert=True)
         return
 
-    new_target = callback.data.split(":")[1]
+    new_target = callback_data(callback).split(":")[1]
     if new_target not in {"all", "active", "inactive", "expired"}:
         await callback.answer("Unknown target.", show_alert=True)
         return
@@ -164,7 +165,7 @@ async def change_broadcast_target_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     confirmation_prompt = _("admin_broadcast_confirm_prompt_short")
     try:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             confirmation_prompt,
             reply_markup=get_broadcast_confirmation_keyboard(current_lang, i18n, target=new_target),
         )
@@ -189,14 +190,16 @@ async def cancel_broadcast_at_prompt_stage(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        await callback.message.edit_text(_("admin_broadcast_cancelled_nav_back"), reply_markup=None)
+        await callback_message(callback).edit_text(
+            _("admin_broadcast_cancelled_nav_back"), reply_markup=None
+        )
     except Exception:
-        await callback.message.answer(_("admin_broadcast_cancelled_nav_back"))
+        await callback_message(callback).answer(_("admin_broadcast_cancelled_nav_back"))
 
     await callback.answer(_("admin_broadcast_cancelled_alert"))
     await state.clear()
 
-    await callback.message.answer(
+    await callback_message(callback).answer(
         _(key="admin_panel_title"),
         reply_markup=get_admin_panel_keyboard(i18n, current_lang, settings),
     )
@@ -221,7 +224,7 @@ async def confirm_broadcast_callback_handler(
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
-    action = callback.data.split(":")[1]
+    action = callback_data(callback).split(":")[1]
     user_fsm_data = await state.get_data()
 
     if action == "send":
@@ -234,12 +237,14 @@ async def confirm_broadcast_callback_handler(
         entities = user_fsm_data.get("broadcast_entities", [])
 
         if not content.text and content.content_type == "text":
-            await callback.message.edit_text(_("admin_broadcast_error_no_message"))
+            await callback_message(callback).edit_text(_("admin_broadcast_error_no_message"))
             await state.clear()
             await callback.answer(_("admin_broadcast_error_no_message_alert"), show_alert=True)
             return
 
-        await callback.message.edit_text(_("admin_broadcast_sending_started"), reply_markup=None)
+        await callback_message(callback).edit_text(
+            _("admin_broadcast_sending_started"), reply_markup=None
+        )
         await callback.answer()
 
         target = user_fsm_data.get("broadcast_target", "all")
@@ -262,7 +267,7 @@ async def confirm_broadcast_callback_handler(
         # Get message queue manager
         queue_manager = get_queue_manager()
         if not queue_manager:
-            await callback.message.edit_text(
+            await callback_message(callback).edit_text(
                 "❌ Ошибка: система очередей не инициализирована", reply_markup=None
             )
             return
@@ -347,7 +352,7 @@ async def confirm_broadcast_callback_handler(
 
         result_message = build_queue_status(queue_stats)
 
-        status_message = await callback.message.answer(
+        status_message = await callback_message(callback).answer(
             result_message,
             reply_markup=back_keyboard,
         )
@@ -395,7 +400,7 @@ async def confirm_broadcast_callback_handler(
         asyncio.create_task(auto_update_queue_status())
 
     elif action == "cancel":
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             _("admin_broadcast_cancelled"),
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
         )

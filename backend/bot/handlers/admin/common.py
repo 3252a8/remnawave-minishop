@@ -17,6 +17,7 @@ from bot.keyboards.inline.admin_keyboards import (
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service import SubscriptionService
+from bot.utils.callback_answer import callback_data, callback_message
 from bot.utils.message_queue import get_queue_manager
 from config.settings import Settings
 
@@ -65,7 +66,7 @@ async def admin_panel_actions_callback_handler(
     subscription_service: SubscriptionService,
     session: AsyncSession,
 ):
-    action_parts = callback.data.split(":")
+    action_parts = callback_data(callback).split(":")
     action = action_parts[1]
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -174,12 +175,12 @@ async def admin_panel_actions_callback_handler(
         await admin_ads_handlers.ads_create_start(callback, state, settings, i18n_data)
     elif action == "main":
         try:
-            await callback.message.edit_text(
+            await callback_message(callback).edit_text(
                 _(key="admin_panel_title"),
                 reply_markup=get_admin_panel_keyboard(i18n, current_lang, settings),
             )
         except Exception:
-            await callback.message.answer(
+            await callback_message(callback).answer(
                 _(key="admin_panel_title"),
                 reply_markup=get_admin_panel_keyboard(i18n, current_lang, settings),
             )
@@ -197,7 +198,7 @@ async def admin_section_handler(
     i18n_data: dict,
     session: AsyncSession,
 ):
-    section = callback.data.split(":")[1]
+    section = callback_data(callback).split(":")[1]
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:
@@ -211,27 +212,27 @@ async def admin_section_handler(
 
     try:
         if section == "stats_monitoring":
-            await callback.message.edit_text(
+            await callback_message(callback).edit_text(
                 _("admin_stats_and_monitoring_section"),
                 reply_markup=get_stats_monitoring_keyboard(i18n, current_lang),
             )
         elif section == "user_management":
-            await callback.message.edit_text(
+            await callback_message(callback).edit_text(
                 _("admin_user_management_section"),
                 reply_markup=get_user_management_keyboard(i18n, current_lang),
             )
         elif section == "ban_management":
-            await callback.message.edit_text(
+            await callback_message(callback).edit_text(
                 _("admin_ban_management_section"),
                 reply_markup=get_ban_management_keyboard(i18n, current_lang),
             )
         elif section == "promo_marketing":
-            await callback.message.edit_text(
+            await callback_message(callback).edit_text(
                 _("admin_promo_marketing_section"),
                 reply_markup=get_promo_marketing_keyboard(i18n, current_lang),
             )
         elif section == "system_functions":
-            await callback.message.edit_text(
+            await callback_message(callback).edit_text(
                 _("admin_system_functions_section"),
                 reply_markup=get_system_functions_keyboard(i18n, current_lang),
             )
@@ -242,7 +243,7 @@ async def admin_section_handler(
         await callback.answer()
     except Exception as e:
         logging.error(f"Error handling admin section {section}: {e}")
-        await callback.message.answer(
+        await callback_message(callback).answer(
             _("error_occurred_try_again"),
             reply_markup=get_admin_panel_keyboard(i18n, current_lang, settings),
         )
@@ -262,7 +263,7 @@ async def show_queue_status_handler(callback: types.CallbackQuery, i18n_data: di
     if not queue_manager:
         from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             "❌ Система очередей не инициализирована",
             reply_markup=InlineKeyboardBuilder()
             .button(text=_("back_to_admin_panel_button"), callback_data="admin_action:main")
@@ -286,7 +287,7 @@ async def show_queue_status_handler(callback: types.CallbackQuery, i18n_data: di
 
         from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
 
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             message_text,
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
             parse_mode="HTML",

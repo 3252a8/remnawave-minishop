@@ -17,6 +17,12 @@ from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
 from bot.states.admin_states import AdminStates
 from bot.utils import get_message_content, send_direct_message
+from bot.utils.callback_answer import (
+    callback_data,
+    callback_message,
+    message_bot,
+    message_from_user,
+)
 from bot.utils.telegram_markup import (
     is_profile_link_error,
     remove_profile_link_buttons,
@@ -196,7 +202,9 @@ async def users_list_handler(
             users, page, total_users, i18n, current_lang, page_size=15
         )
 
-        await callback.message.edit_text(header_text, reply_markup=keyboard, parse_mode="HTML")
+        await callback_message(callback).edit_text(
+            header_text, reply_markup=keyboard, parse_mode="HTML"
+        )
         await callback.answer()
 
     except Exception as e:
@@ -222,12 +230,12 @@ async def user_search_prompt_handler(
     prompt_text = _("admin_user_management_prompt")
 
     try:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
         )
     except Exception as e:
         logging.warning(f"Could not edit message for user management: {e}. Sending new.")
-        await callback.message.answer(
+        await callback_message(callback).answer(
             prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
         )
 
@@ -297,7 +305,7 @@ def get_user_card_keyboard(
     # Row 4: Quick links — only for users with a real Telegram profile
     # (synthetic email-only users have a negative user_id with no tg profile).
     has_self_link = user_id > 0
-    has_referrer_link = bool(referrer_id) and referrer_id > 0
+    has_referrer_link = referrer_id is not None and referrer_id > 0
     if has_self_link:
         builder.button(text=_(key="user_card_open_profile_button"), url=f"tg://user?id={user_id}")
     if has_referrer_link:
@@ -638,7 +646,7 @@ async def process_user_search_handler(
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
-    input_text = message.text.strip() if message.text else ""
+    input_text = (message.text or "").strip() if message.text else ""
     user_model = await _find_user_by_admin_input(session, input_text)
 
     if not user_model:
@@ -651,8 +659,10 @@ async def process_user_search_handler(
 
     # Format and send user card
     try:
-        referral_service = ReferralService(settings, subscription_service, message.bot, i18n)
-        bot_username = await _resolve_bot_username(message.bot)
+        referral_service = ReferralService(
+            settings, subscription_service, message_bot(message), i18n
+        )
+        bot_username = await _resolve_bot_username(message_bot(message))
         user_card_text = await format_user_card(
             user_model,
             session,
@@ -692,7 +702,7 @@ async def user_action_handler(
 ):
     """Handle user management actions"""
     try:
-        parts = callback.data.split(":")
+        parts = callback_data(callback).split(":")
         action = parts[1]
         user_id = int(parts[2])
     except (IndexError, ValueError):
@@ -904,9 +914,13 @@ async def handle_premium_override_menu(
     builder.adjust(1, 1, 1, 1)
 
     try:
-        await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="HTML")
+        await callback_message(callback).edit_text(
+            text, reply_markup=builder.as_markup(), parse_mode="HTML"
+        )
     except Exception:
-        await callback.message.answer(text, reply_markup=builder.as_markup(), parse_mode="HTML")
+        await callback_message(callback).answer(
+            text, reply_markup=builder.as_markup(), parse_mode="HTML"
+        )
     await state.update_data(target_user_id=user.user_id)
     await callback.answer()
 
@@ -980,9 +994,9 @@ async def handle_premium_override_bonus_prompt(
     await state.set_state(AdminStates.waiting_for_premium_override_bonus_gb)
     prompt = _("admin_premium_override_bonus_prompt", user_id=user.user_id)
     try:
-        await callback.message.edit_text(prompt)
+        await callback_message(callback).edit_text(prompt)
     except Exception:
-        await callback.message.answer(prompt)
+        await callback_message(callback).answer(prompt)
     await callback.answer()
 
 
@@ -1058,9 +1072,13 @@ async def handle_hwid_limit_menu(
     builder.adjust(1, 1, 1, 1)
 
     try:
-        await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="HTML")
+        await callback_message(callback).edit_text(
+            text, reply_markup=builder.as_markup(), parse_mode="HTML"
+        )
     except Exception:
-        await callback.message.answer(text, reply_markup=builder.as_markup(), parse_mode="HTML")
+        await callback_message(callback).answer(
+            text, reply_markup=builder.as_markup(), parse_mode="HTML"
+        )
     await state.update_data(target_user_id=user.user_id)
     await callback.answer()
 
@@ -1136,9 +1154,9 @@ async def handle_hwid_limit_prompt(
     await state.set_state(AdminStates.waiting_for_hwid_device_limit)
     prompt = _("admin_hwid_limit_prompt", user_id=user.user_id)
     try:
-        await callback.message.edit_text(prompt)
+        await callback_message(callback).edit_text(prompt)
     except Exception:
-        await callback.message.answer(prompt)
+        await callback_message(callback).answer(prompt)
     await callback.answer()
 
 
@@ -1174,9 +1192,13 @@ async def handle_traffic_grant_menu(
     builder.adjust(1, 1, 1)
 
     try:
-        await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="HTML")
+        await callback_message(callback).edit_text(
+            text, reply_markup=builder.as_markup(), parse_mode="HTML"
+        )
     except Exception:
-        await callback.message.answer(text, reply_markup=builder.as_markup(), parse_mode="HTML")
+        await callback_message(callback).answer(
+            text, reply_markup=builder.as_markup(), parse_mode="HTML"
+        )
     await callback.answer()
 
 
@@ -1200,9 +1222,9 @@ async def handle_traffic_grant_prompt(
     )
     prompt = _(prompt_key, user_id=user.user_id)
     try:
-        await callback.message.edit_text(prompt)
+        await callback_message(callback).edit_text(prompt)
     except Exception:
-        await callback.message.answer(prompt)
+        await callback_message(callback).answer(prompt)
     await callback.answer()
 
 
@@ -1267,9 +1289,11 @@ async def handle_add_subscription_prompt(
         builder.adjust(1)
         prompt_text = _("admin_user_add_subscription_tariff_prompt", user_id=user.user_id)
         try:
-            await callback.message.edit_text(prompt_text, reply_markup=builder.as_markup())
+            await callback_message(callback).edit_text(
+                prompt_text, reply_markup=builder.as_markup()
+            )
         except Exception:
-            await callback.message.answer(prompt_text, reply_markup=builder.as_markup())
+            await callback_message(callback).answer(prompt_text, reply_markup=builder.as_markup())
         await callback.answer()
         return
     if tariff_error:
@@ -1320,9 +1344,9 @@ async def handle_add_subscription_days_prompt(
     )
 
     try:
-        await callback.message.edit_text(prompt_text)
+        await callback_message(callback).edit_text(prompt_text)
     except Exception:
-        await callback.message.answer(prompt_text)
+        await callback_message(callback).answer(prompt_text)
 
     await callback.answer()
 
@@ -1371,9 +1395,13 @@ async def handle_change_tariff_menu(
         ]
     )
     try:
-        await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="HTML")
+        await callback_message(callback).edit_text(
+            text, reply_markup=builder.as_markup(), parse_mode="HTML"
+        )
     except Exception:
-        await callback.message.answer(text, reply_markup=builder.as_markup(), parse_mode="HTML")
+        await callback_message(callback).answer(
+            text, reply_markup=builder.as_markup(), parse_mode="HTML"
+        )
     await callback.answer()
 
 
@@ -1508,9 +1536,9 @@ async def handle_send_message_prompt(
     prompt_text = _("admin_user_send_message_prompt", user_id=user.user_id)
 
     try:
-        await callback.message.edit_text(prompt_text)
+        await callback_message(callback).edit_text(prompt_text)
     except Exception:
-        await callback.message.answer(prompt_text)
+        await callback_message(callback).answer(prompt_text)
 
     await callback.answer()
 
@@ -1564,11 +1592,11 @@ async def handle_view_user_logs(
         builder.adjust(1)
 
         try:
-            await callback.message.edit_text(
+            await callback_message(callback).edit_text(
                 logs_text, reply_markup=builder.as_markup(), parse_mode="HTML"
             )
         except Exception:
-            await callback.message.answer(
+            await callback_message(callback).answer(
                 logs_text, reply_markup=builder.as_markup(), parse_mode="HTML"
             )
 
@@ -1674,11 +1702,11 @@ async def handle_view_user_invitees(
         )
 
         try:
-            await callback.message.edit_text(
+            await callback_message(callback).edit_text(
                 invitees_text, reply_markup=builder.as_markup(), parse_mode="HTML"
             )
         except Exception:
-            await callback.message.answer(
+            await callback_message(callback).answer(
                 invitees_text, reply_markup=builder.as_markup(), parse_mode="HTML"
             )
 
@@ -1711,9 +1739,9 @@ async def handle_refresh_user_card(
             return
 
         referral_service = ReferralService(
-            settings, subscription_service, callback.message.bot, i18n_instance
+            settings, subscription_service, callback_message(callback).bot, i18n_instance
         )
-        bot_username = await _resolve_bot_username(callback.message.bot)
+        bot_username = await _resolve_bot_username(callback_message(callback).bot)
         user_card_text = await format_user_card(
             fresh_user,
             session,
@@ -1731,7 +1759,7 @@ async def handle_refresh_user_card(
 
         try:
             await _send_with_profile_link_fallback(
-                callback.message.edit_text,
+                callback_message(callback).edit_text,
                 text=user_card_text,
                 markup=markup,
                 user_id=fresh_user.user_id,
@@ -1739,7 +1767,7 @@ async def handle_refresh_user_card(
             )
         except Exception:
             await _send_with_profile_link_fallback(
-                callback.message.answer,
+                callback_message(callback).answer,
                 text=user_card_text,
                 markup=markup,
                 user_id=fresh_user.user_id,
@@ -1790,10 +1818,10 @@ async def handle_delete_user_prompt(
     )
 
     try:
-        await callback.message.answer(prompt_text, parse_mode="HTML")
+        await callback_message(callback).answer(prompt_text, parse_mode="HTML")
     except Exception as e:
         logging.error(f"Failed to send delete confirmation prompt for user {user.user_id}: {e}")
-        await callback.message.reply(prompt_text, parse_mode="HTML")
+        await callback_message(callback).reply(prompt_text, parse_mode="HTML")
 
     await callback.answer()
 
@@ -1871,7 +1899,7 @@ async def process_delete_user_confirmation_handler(
         await state.clear()
         return
 
-    confirmation_input = message.text.strip() if message.text else ""
+    confirmation_input = (message.text or "").strip() if message.text else ""
     if confirmation_input.lower() in {"/cancel", "cancel", "отмена"}:
         await message.answer(
             _(
@@ -1980,7 +2008,7 @@ async def process_subscription_days_handler(
         return
 
     try:
-        days_to_add = int(message.text.strip())
+        days_to_add = int((message.text or "").strip())
         if days_to_add <= 0 or days_to_add > 3650:  # Max 10 years
             raise ValueError("Invalid days count")
     except ValueError:
@@ -2011,9 +2039,9 @@ async def process_subscription_days_handler(
             user = await user_dal.get_user_by_id(session, target_user_id)
             if user:
                 referral_service = ReferralService(
-                    settings, subscription_service, message.bot, i18n
+                    settings, subscription_service, message_bot(message), i18n
                 )
-                bot_username = await _resolve_bot_username(message.bot)
+                bot_username = await _resolve_bot_username(message_bot(message))
                 user_card_text = await format_user_card(
                     user,
                     session,
@@ -2172,12 +2200,12 @@ async def ban_user_prompt_handler(
     prompt_text = _("admin_ban_user_prompt")
 
     try:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
         )
     except Exception as e:
         logging.warning(f"Could not edit message for ban prompt: {e}. Sending new.")
-        await callback.message.answer(
+        await callback_message(callback).answer(
             prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
         )
 
@@ -2203,12 +2231,12 @@ async def unban_user_prompt_handler(
     prompt_text = _("admin_unban_user_prompt")
 
     try:
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
         )
     except Exception as e:
         logging.warning(f"Could not edit message for unban prompt: {e}. Sending new.")
-        await callback.message.answer(
+        await callback_message(callback).answer(
             prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
         )
 
@@ -2249,7 +2277,7 @@ async def view_banned_users_handler(
                 "admin_banned_users_list", count=len(banned_users), users="\n".join(user_list)
             )
 
-        await callback.message.edit_text(
+        await callback_message(callback).edit_text(
             message_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
         )
 
@@ -2275,7 +2303,7 @@ async def process_ban_user_handler(
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
-    input_text = message.text.strip() if message.text else ""
+    input_text = (message.text or "").strip() if message.text else ""
     user_model = await _find_user_by_admin_input(session, input_text)
 
     if not user_model:
@@ -2325,7 +2353,7 @@ async def process_unban_user_handler(
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
-    input_text = message.text.strip() if message.text else ""
+    input_text = (message.text or "").strip() if message.text else ""
     user_model = await _find_user_by_admin_input(session, input_text)
 
     if not user_model:
@@ -2413,7 +2441,7 @@ async def process_premium_override_bonus_handler(
         await message_log_dal.create_message_log_no_commit(
             session,
             {
-                "user_id": message.from_user.id if message.from_user else target_user_id,
+                "user_id": message_from_user(message).id if message.from_user else target_user_id,
                 "event_type": "admin:premium_override",
                 "content": f"unlimited=False bonus_bytes={int(bonus_bytes)}",
                 "is_admin_event": True,
@@ -2430,8 +2458,10 @@ async def process_premium_override_bonus_handler(
             _("admin_premium_override_bonus_set", gb=f"{gb:.2f}", user_id=target_user_id)
         )
 
-        referral_service = ReferralService(settings, subscription_service, message.bot, i18n)
-        bot_username = await _resolve_bot_username(message.bot)
+        referral_service = ReferralService(
+            settings, subscription_service, message_bot(message), i18n
+        )
+        bot_username = await _resolve_bot_username(message_bot(message))
         user_card_text = await format_user_card(
             target_user,
             session,
@@ -2520,7 +2550,7 @@ async def process_hwid_device_limit_handler(
         await message_log_dal.create_message_log_no_commit(
             session,
             {
-                "user_id": message.from_user.id if message.from_user else target_user_id,
+                "user_id": message_from_user(message).id if message.from_user else target_user_id,
                 "event_type": "admin:hwid_device_limit",
                 "content": (
                     f"hwid_device_limit={hwid_device_limit!r} "
@@ -2538,8 +2568,10 @@ async def process_hwid_device_limit_handler(
             _("admin_hwid_limit_set", current=current_text, user_id=target_user_id)
         )
 
-        referral_service = ReferralService(settings, subscription_service, message.bot, i18n)
-        bot_username = await _resolve_bot_username(message.bot)
+        referral_service = ReferralService(
+            settings, subscription_service, message_bot(message), i18n
+        )
+        bot_username = await _resolve_bot_username(message_bot(message))
         user_card_text = await format_user_card(
             target_user,
             session,
@@ -2628,7 +2660,7 @@ async def process_traffic_grant_gb_handler(
         await message_log_dal.create_message_log_no_commit(
             session,
             {
-                "user_id": message.from_user.id if message.from_user else target_user_id,
+                "user_id": message_from_user(message).id if message.from_user else target_user_id,
                 "event_type": "admin:traffic_grant",
                 "content": f"kind={kind} gb={gb_value:g}",
                 "is_admin_event": True,
@@ -2646,8 +2678,10 @@ async def process_traffic_grant_gb_handler(
         )
         await message.answer(_(success_key, gb=gb_text, user_id=target_user_id))
 
-        referral_service = ReferralService(settings, subscription_service, message.bot, i18n)
-        bot_username = await _resolve_bot_username(message.bot)
+        referral_service = ReferralService(
+            settings, subscription_service, message_bot(message), i18n
+        )
+        bot_username = await _resolve_bot_username(message_bot(message))
         user_card_text = await format_user_card(
             target_user,
             session,
@@ -2696,7 +2730,7 @@ async def user_card_from_list_handler(
 ):
     """Display user card when clicked from user list"""
     try:
-        parts = callback.data.split(":")
+        parts = callback_data(callback).split(":")
         user_id = int(parts[1])
         page = int(parts[2])
     except (IndexError, ValueError):
@@ -2743,7 +2777,7 @@ async def user_card_from_list_handler(
         markup = keyboard.as_markup()
 
         await _send_with_profile_link_fallback(
-            callback.message.edit_text,
+            callback_message(callback).edit_text,
             text=user_card_text,
             markup=markup,
             user_id=user.user_id,
