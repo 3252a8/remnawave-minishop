@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 from bot.handlers.admin import common as admin_common
 from bot.handlers.admin import sync_admin as sync_module
+from bot.handlers.admin import sync_admin_commands
 
 
 class _I18n:
@@ -33,8 +34,8 @@ class AdminBotSyncQueueTests(unittest.IsolatedAsyncioTestCase):
         i18n_data = {"current_language": "ru", "i18n_instance": _I18n()}
 
         with (
-            patch.object(sync_module, "enqueue_webhook_event", fake_enqueue),
-            patch.object(sync_module, "perform_sync", AsyncMock()) as perform_sync,
+            patch.object(sync_admin_commands, "enqueue_webhook_event", fake_enqueue),
+            patch.object(sync_admin_commands, "perform_sync", AsyncMock()) as perform_sync,
         ):
             await sync_module.sync_command_handler(
                 message_event=message,
