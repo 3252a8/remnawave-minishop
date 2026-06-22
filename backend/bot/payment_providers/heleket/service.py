@@ -25,7 +25,7 @@ from config.tariffs_config import (
 )
 from db.dal import payment_dal
 
-from .base import (
+from ..base import (
     PaymentProviderSpec,
     ProviderEnvConfig,
     ProviderManifestField,
@@ -36,7 +36,7 @@ from .base import (
     provider_env_file,
     provider_runtime_enabled,
 )
-from .shared import (
+from ..shared import (
     PAYMENT_STATUS_PENDING_FINALIZATION,
     HttpClientMixin,
     PaymentSuccessRequest,
