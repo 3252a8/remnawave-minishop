@@ -3,7 +3,9 @@ from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
-from bot.payment_providers import yookassa, yookassa_payments, yookassa_success
+from bot.payment_providers import yookassa
+from bot.payment_providers.yookassa import payments as yookassa_payments
+from bot.payment_providers.yookassa import success as yookassa_success
 
 
 class _I18n:

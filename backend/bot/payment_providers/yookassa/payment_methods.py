@@ -20,9 +20,9 @@ from config.tariffs_config import (
 from db.dal import payment_dal, user_billing_dal
 from db.models import Payment
 
-from .yookassa_common import _format_saved_payment_method_title
-from .yookassa_router import router
-from .yookassa_service import YooKassaService
+from .router import router
+from .service import YooKassaService
+from .shared import _format_saved_payment_method_title
 
 
 @router.callback_query(F.data == "pm:manage")

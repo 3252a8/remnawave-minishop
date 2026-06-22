@@ -22,8 +22,8 @@ from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
 from db.dal import user_billing_dal
 
-from .yookassa_service import YooKassaService
-from .yookassa_success import (
+from .service import YooKassaService
+from .success import (
     YOOKASSA_EVENT_PAYMENT_CANCELED,
     YOOKASSA_EVENT_PAYMENT_SUCCEEDED,
     YOOKASSA_EVENT_PAYMENT_WAITING_FOR_CAPTURE,

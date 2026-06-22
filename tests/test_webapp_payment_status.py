@@ -830,11 +830,11 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
 
         with (
             patch(
-                "bot.payment_providers.yookassa_payments.create_webapp_payment_record",
+                "bot.payment_providers.yookassa.payments.create_webapp_payment_record",
                 AsyncMock(return_value=payment_record),
             ),
             patch(
-                "bot.payment_providers.yookassa_payments.payment_dal.update_payment_status_by_db_id",
+                "bot.payment_providers.yookassa.payments.payment_dal.update_payment_status_by_db_id",
                 AsyncMock(),
             ),
         ):

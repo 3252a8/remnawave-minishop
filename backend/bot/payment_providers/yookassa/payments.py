@@ -5,10 +5,10 @@ from aiohttp import web
 
 from db.dal import payment_dal
 
-from .base import (
+from ..base import (
     WebAppPaymentContext,
 )
-from .shared import (
+from ..shared import (
     create_webapp_payment_record,
     format_number_for_payload,
     mark_payment_failed_creation,
@@ -17,8 +17,8 @@ from .shared import (
     payment_record_amounts,
     payment_unavailable,
 )
-from .yookassa_common import _metadata_iso
-from .yookassa_service import YooKassaService
+from .service import YooKassaService
+from .shared import _metadata_iso
 
 logger = logging.getLogger(__name__)
 

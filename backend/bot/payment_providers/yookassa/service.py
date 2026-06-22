@@ -11,15 +11,15 @@ from yookassa.domain.request.payment_request_builder import PaymentRequestBuilde
 from bot.services.subscription_service import SubscriptionService
 from config.settings import Settings
 
-from .base import (
+from ..base import (
     normalize_payment_currency_code,
     provider_runtime_enabled,
 )
-from .shared import (
+from ..shared import (
     RecurringChargeContext,
     RecurringChargeResult,
 )
-from .yookassa_config import YooKassaConfig
+from .config import YooKassaConfig
 
 
 class YooKassaService:

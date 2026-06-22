@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import Field, field_validator
 from pydantic_settings import SettingsConfigDict
 
-from .base import (
+from ..base import (
     ProviderEnvConfig,
     provider_env_file,
 )

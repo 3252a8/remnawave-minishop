@@ -17,11 +17,11 @@ _CANONICAL_EMITTER_PATHS = {
     "backend/bot/app/web/webapp/auth_referral.py": "backend/bot/app/web/webapp/auth.py",
     "backend/bot/app/web/webapp/billing_status.py": "backend/bot/app/web/webapp/billing.py",
     "backend/bot/handlers/user/start_flow.py": "backend/bot/handlers/user/start.py",
-    "backend/bot/payment_providers/yookassa_success.py": (
-        "backend/bot/payment_providers/yookassa.py"
+    "backend/bot/payment_providers/yookassa/success.py": (
+        "backend/bot/payment_providers/yookassa/__init__.py"
     ),
-    "backend/bot/payment_providers/yookassa_webhook.py": (
-        "backend/bot/payment_providers/yookassa.py"
+    "backend/bot/payment_providers/yookassa/webhook.py": (
+        "backend/bot/payment_providers/yookassa/__init__.py"
     ),
 }
 

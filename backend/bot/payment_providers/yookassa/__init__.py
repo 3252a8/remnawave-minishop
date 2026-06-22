@@ -3,13 +3,13 @@ import logging
 from bot.infra import events
 from db.dal import payment_dal, user_billing_dal, user_dal
 
-from .base import (
+from ..base import (
     PaymentProviderSpec,
     ProviderManifestField,
     ServiceFactoryContext,
     WebAppPaymentContext,
 )
-from .yookassa_callbacks import (
+from .callbacks import (
     _initiate_yk_payment,
     _yookassa_available_to_callback_user,
     pay_yk_callback_handler,
@@ -17,15 +17,8 @@ from .yookassa_callbacks import (
     pay_yk_saved_list_handler,
     pay_yk_use_saved_handler,
 )
-from .yookassa_common import (
-    _format_saved_payment_method_title,
-    _format_value,
-    _metadata_iso,
-    _parse_offer_payload,
-    _parse_saved_list_payload,
-)
-from .yookassa_config import YooKassaConfig, YooKassaPresentation
-from .yookassa_payment_methods import (
+from .config import YooKassaConfig, YooKassaPresentation
+from .payment_methods import (
     payment_method_bind,
     payment_method_delete,
     payment_method_delete_confirm,
@@ -34,10 +27,17 @@ from .yookassa_payment_methods import (
     payment_methods_list,
     payment_methods_manage,
 )
-from .yookassa_payments import create_webapp_payment, reuse_webapp_payment
-from .yookassa_router import router
-from .yookassa_service import YooKassaService
-from .yookassa_success import (
+from .payments import create_webapp_payment, reuse_webapp_payment
+from .router import router
+from .service import YooKassaService
+from .shared import (
+    _format_saved_payment_method_title,
+    _format_value,
+    _metadata_iso,
+    _parse_offer_payload,
+    _parse_saved_list_payload,
+)
+from .success import (
     DEFERRED_EVENTS_KEY,
     DEFERRED_SUCCESS_MESSAGE_KEY,
     HWID_DEVICE_SALE_BASES,
@@ -56,7 +56,7 @@ from .yookassa_success import (
     process_cancelled_payment,
     process_successful_payment,
 )
-from .yookassa_webhook import yookassa_webhook_route
+from .webhook import yookassa_webhook_route
 
 logger = logging.getLogger(__name__)
 

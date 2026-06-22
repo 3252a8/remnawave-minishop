@@ -309,12 +309,12 @@ EXPECTED_EVENT_WIRING = {
         ("SUBSCRIPTION_EXTENDED", "SubscriptionExtendedPayload"),
         ("REFERRAL_BONUS_GRANTED", "ReferralBonusGrantedPayload"),
     ],
-    "backend/bot/payment_providers/yookassa_success.py": [
+    "backend/bot/payment_providers/yookassa/success.py": [
         ("PAYMENT_SUCCEEDED", "PaymentSucceededPayload"),
         ("SUBSCRIPTION_CREATED", "SubscriptionCreatedPayload"),
         ("SUBSCRIPTION_EXTENDED", "SubscriptionExtendedPayload"),
     ],
-    "backend/bot/payment_providers/yookassa_webhook.py": [
+    "backend/bot/payment_providers/yookassa/webhook.py": [
         ("PAYMENT_CANCELED", "PaymentCanceledPayload"),
     ],
     "backend/bot/services/subscription_service_impl/trial.py": [

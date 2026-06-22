@@ -20,27 +20,27 @@ from config.tariffs_config import (
 )
 from db.dal import payment_dal, user_billing_dal
 
-from .base import (
+from ..base import (
     PaymentProviderSpec,
 )
-from .shared import (
+from ..shared import (
     PaymentCallbackParts,
     parse_positive_int_units,
     quote_hwid_callback_parts,
 )
-from .shared import (
+from ..shared import (
     sale_mode_base as _sale_mode_base,
 )
-from .yookassa_common import (
+from .router import router
+from .service import YooKassaService
+from .shared import (
     _format_saved_payment_method_title,
     _format_value,
     _metadata_iso,
     _parse_offer_payload,
     _parse_saved_list_payload,
 )
-from .yookassa_router import router
-from .yookassa_service import YooKassaService
-from .yookassa_success import HWID_DEVICE_SALE_BASES
+from .success import HWID_DEVICE_SALE_BASES
 
 
 def _provider_spec() -> PaymentProviderSpec:

@@ -25,7 +25,7 @@ from bot.utils.install_links import ensure_user_install_guide_links
 from config.settings import Settings
 from db.dal import payment_dal, user_billing_dal, user_dal
 
-from .shared import (
+from ..shared import (
     SuccessMessage,
     append_hwid_renewal_note,
     build_success_message,
@@ -36,7 +36,7 @@ from .shared import (
     resolve_inviter_name,
     send_success_message_to_user,
 )
-from .shared import (
+from ..shared import (
     sale_mode_tariff_key as _sale_mode_tariff_key,
 )
 
