@@ -58,6 +58,7 @@
   import { createWebappDataClient } from "./lib/webapp/dataClient";
   import { createI18n } from "./lib/webapp/i18n.js";
   import { createActivationWatcher } from "./lib/webapp/activationWatcher";
+  import { createAdminBundle } from "./lib/webapp/adminBundle";
   import { normalizedEmail, telegramName } from "./lib/webapp/formatters.js";
   import { activeTariffName, buildTariffCatalog } from "./lib/webapp/tariffs.js";
   import {
@@ -187,13 +188,8 @@
   let adminI18nLoaded = false;
   let adminI18nPromise = null;
   let adminBundleApi = null;
-  let adminBundlePromise = null;
   let adminBundleError = "";
-  let adminAssetsPrefetched = false;
-  let adminAssetsPrefetchHandle = null;
   let adminMountTarget = null;
-  let adminMountHandle = null;
-  let adminMountedTarget = null;
   let adminPanelProps = {};
   let adminActiveSection = "stats";
   let tg = null;
@@ -262,6 +258,14 @@
       !changeModalOpen &&
       !changeConfirmOpen &&
       activationHandoff.hasPending(data),
+  });
+  const adminBundle = createAdminBundle({
+    ensureI18nScope: () => ensureI18nScope("admin"),
+    getAssets: () => ({
+      adminCssAsset: CFG.adminCssAsset,
+      adminJsAsset: CFG.adminJsAsset,
+    }),
+    shouldPrefetch: () => isAdmin && screen !== "admin",
   });
 
   const authStore = createAuthStore({
@@ -935,160 +939,29 @@
     return adminI18nPromise;
   }
 
-  function resolveWebappAssetPath(configValue, fallbackName) {
-    const raw = String(configValue || "").trim() || fallbackName;
-    if (/^(?:https?:)?\/\//i.test(raw) || raw.startsWith("data:")) return fallbackName;
-    if (window.location.protocol === "file:" && raw.startsWith("/")) return raw.slice(1);
-    return raw.startsWith("/") ? raw : `/${raw}`;
-  }
-
-  function appendStylesheetOnce(id, href) {
-    if (!href || document.getElementById(id)) return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      const link = document.createElement("link");
-      link.id = id;
-      link.rel = "stylesheet";
-      link.href = href;
-      link.onload = () => resolve();
-      link.onerror = () => {
-        link.remove();
-        reject(new Error(`stylesheet_load_failed:${href}`));
-      };
-      document.head.appendChild(link);
-    });
-  }
-
-  function appendScriptOnce(id, src) {
-    if (!src || document.getElementById(id)) return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.id = id;
-      script.src = src;
-      script.async = true;
-      script.onload = () => resolve();
-      script.onerror = () => {
-        script.remove();
-        reject(new Error(`script_load_failed:${src}`));
-      };
-      document.head.appendChild(script);
-    });
-  }
-
-  async function appendStylesheetWithFallback(id, href, fallbackName) {
-    const fallbackHref = resolveWebappAssetPath("", fallbackName);
-    try {
-      await appendStylesheetOnce(id, href);
-    } catch (error) {
-      if (!fallbackHref || href === fallbackHref) throw error;
-      await appendStylesheetOnce(id, fallbackHref);
-    }
-  }
-
-  async function appendScriptWithFallback(id, src, fallbackName) {
-    const fallbackSrc = resolveWebappAssetPath("", fallbackName);
-    try {
-      await appendScriptOnce(id, src);
-    } catch (error) {
-      if (!fallbackSrc || src === fallbackSrc) throw error;
-      await appendScriptOnce(id, fallbackSrc);
-    }
-  }
-
-  function appendPrefetchOnce(id, href, asType) {
-    if (typeof document === "undefined" || !href || document.getElementById(id)) return;
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "prefetch";
-    link.href = href;
-    if (asType) link.as = asType;
-    document.head.appendChild(link);
-  }
-
-  function prefetchAdminAssets() {
-    if (adminAssetsPrefetched || adminBundleApi || adminBundlePromise) return;
-    adminAssetsPrefetched = true;
-    const cssHref = resolveWebappAssetPath(CFG.adminCssAsset, "subscription_webapp_admin.css");
-    const jsSrc = resolveWebappAssetPath(CFG.adminJsAsset, "subscription_webapp_admin.js");
-    appendPrefetchOnce("subscription-webapp-admin-css-prefetch", cssHref, "style");
-    appendPrefetchOnce("subscription-webapp-admin-js-prefetch", jsSrc, "script");
-    void ensureI18nScope("admin");
-  }
-
   function scheduleAdminAssetsPrefetch(adminAllowed = isAdmin) {
-    if (!adminAllowed || adminAssetsPrefetched || adminBundleApi || adminBundlePromise) return;
-    if (typeof window === "undefined") return;
-    const run = () => {
-      adminAssetsPrefetchHandle = null;
-      if (!isAdmin || screen === "admin") return;
-      prefetchAdminAssets();
-    };
-    if ("requestIdleCallback" in window) {
-      adminAssetsPrefetchHandle = window.requestIdleCallback(run, { timeout: 3000 });
-    } else {
-      adminAssetsPrefetchHandle = window.setTimeout(run, 1200);
-    }
+    adminBundle.schedulePrefetch(adminAllowed);
   }
 
   function cancelAdminAssetsPrefetch() {
-    if (adminAssetsPrefetchHandle === null || typeof window === "undefined") return;
-    if ("cancelIdleCallback" in window && typeof adminAssetsPrefetchHandle === "number") {
-      window.cancelIdleCallback(adminAssetsPrefetchHandle);
-    } else {
-      window.clearTimeout(adminAssetsPrefetchHandle);
-    }
-    adminAssetsPrefetchHandle = null;
-  }
-
-  function readAdminBundleApi() {
-    const bundle = window.SubscriptionWebAppAdmin;
-    return bundle?.mount ? bundle : null;
+    adminBundle.cancelPrefetch();
   }
 
   async function ensureAdminBundle() {
-    if (adminBundleApi) return true;
-    if (adminBundlePromise) return adminBundlePromise;
-
-    const existing = readAdminBundleApi();
-    if (existing) {
-      adminBundleApi = existing;
-      return true;
+    try {
+      return await adminBundle.ensure();
+    } finally {
+      syncAdminBundleState();
     }
+  }
 
-    adminBundleError = "";
-    adminBundlePromise = (async () => {
-      const cssHref = resolveWebappAssetPath(CFG.adminCssAsset, "subscription_webapp_admin.css");
-      const jsSrc = resolveWebappAssetPath(CFG.adminJsAsset, "subscription_webapp_admin.js");
-      await appendStylesheetWithFallback(
-        "subscription-webapp-admin-css",
-        cssHref,
-        "subscription_webapp_admin.css"
-      );
-      await appendScriptWithFallback(
-        "subscription-webapp-admin-js",
-        jsSrc,
-        "subscription_webapp_admin.js"
-      );
-      const loaded = readAdminBundleApi();
-      if (!loaded) throw new Error("admin_bundle_missing_mount");
-      adminBundleApi = loaded;
-      return true;
-    })()
-      .catch((error) => {
-        adminBundleError = error?.message || "admin_bundle_load_failed";
-        throw error;
-      })
-      .finally(() => {
-        adminBundlePromise = null;
-      });
-
-    return adminBundlePromise;
+  function syncAdminBundleState() {
+    adminBundleApi = adminBundle.getApi();
+    adminBundleError = adminBundle.getError();
   }
 
   function destroyAdminMount() {
-    if (!adminMountHandle) return;
-    adminMountHandle.destroy?.();
-    adminMountHandle = null;
-    adminMountedTarget = null;
+    adminBundle.destroyMount();
   }
 
   function currentMockMode() {
@@ -1385,20 +1258,8 @@
     const props = adminPanelProps;
 
     if (shouldMountAdmin) {
-      try {
-        if (adminMountHandle && adminMountedTarget === adminMountTarget) {
-          adminMountHandle.update?.(props);
-        } else {
-          destroyAdminMount();
-          adminMountTarget.replaceChildren();
-          adminMountHandle = adminBundleApi.mount(adminMountTarget, props);
-          adminMountedTarget = adminMountTarget;
-        }
-      } catch (error) {
-        adminBundleError = error?.message || "admin_bundle_mount_failed";
-        adminBundleApi = null;
-        destroyAdminMount();
-      }
+      adminBundle.mount(adminMountTarget, props);
+      syncAdminBundleState();
     } else {
       destroyAdminMount();
     }
