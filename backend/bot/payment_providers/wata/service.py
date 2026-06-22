@@ -19,10 +19,10 @@ from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
 from db.dal import payment_dal
 
-from .base import (
+from ..base import (
     normalize_payment_currency_code,
 )
-from .shared import (
+from ..shared import (
     PAYMENT_STATUS_PENDING_FINALIZATION,
     HttpClientMixin,
     PaymentSuccessRequest,
@@ -35,7 +35,7 @@ from .shared import (
     payment_units_for_activation,
     post_json_request,
 )
-from .wata_config import (
+from .config import (
     _WATA_IN_PROGRESS_STATUSES,
     _WATA_LINK_OPENED_STATUSES,
     WATA_CRYPTO_PROVIDER,

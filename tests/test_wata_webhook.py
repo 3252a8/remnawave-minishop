@@ -3,8 +3,9 @@ import json
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
-from bot.payment_providers import wata, wata_service
+from bot.payment_providers import wata
 from bot.payment_providers.wata import WataConfig, WataService
+from bot.payment_providers.wata import service as wata_service
 
 
 class _FakeRequest:

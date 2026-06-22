@@ -5,13 +5,13 @@ from typing import Any, List, Mapping, Optional, Tuple
 from pydantic import Field, field_validator
 from pydantic_settings import SettingsConfigDict
 
-from .base import (
+from ..base import (
     ProviderEnvConfig,
     parse_supported_currency_codes,
     provider_env_file,
     provider_runtime_enabled,
 )
-from .shared import first_value
+from ..shared import first_value
 
 WATA_PROVIDER = "wata"
 WATA_CRYPTO_PROVIDER = "wata_crypto"

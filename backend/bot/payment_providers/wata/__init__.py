@@ -13,13 +13,13 @@ from config.tariffs_config import (
 )
 from db.dal import payment_dal
 
-from .base import (
+from ..base import (
     PaymentProviderSpec,
     ProviderManifestField,
     ServiceFactoryContext,
     WebAppPaymentContext,
 )
-from .shared import (
+from ..shared import (
     PAYMENT_STATUS_PENDING_FINALIZATION,
     build_payment_record_payload,
     create_webapp_payment_record,
@@ -39,7 +39,7 @@ from .shared import (
     render_payment_link,
     safe_callback_answer,
 )
-from .wata_config import (
+from .config import (
     _WATA_LINK_MAX_TTL_MINUTES,
     _WATA_LINK_MIN_TTL_MINUTES,
     _WATA_SUPPORTED_CURRENCIES_DEFAULT,
@@ -51,8 +51,8 @@ from .wata_config import (
     WataPresentation,
     _parse_wata_datetime,
 )
-from .wata_service import WataService
-from .wata_webhook import wata_webhook_route
+from .service import WataService
+from .webhook import wata_webhook_route
 
 router = Router(name="user_subscription_payments_wata_router")
 _LOG = "wata"
