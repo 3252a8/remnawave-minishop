@@ -1,101 +1,14 @@
-import asyncio
-import json
 import logging
-import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
-
-from aiogram import Bot, F, Router, types
-from aiohttp import web
-from pydantic import Field, field_validator
-from pydantic_settings import SettingsConfigDict
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy.orm import sessionmaker
-from yookassa import Configuration
-from yookassa import Payment as YooKassaPayment
-from yookassa.domain.common.confirmation_type import ConfirmationType
-from yookassa.domain.notification import WebhookNotification
-from yookassa.domain.request.payment_request_builder import PaymentRequestBuilder
 
 from bot.infra import events
-from bot.infra.event_payloads import (
-    PaymentCanceledPayload,
-    PaymentSucceededPayload,
-    ReferralBonusGrantedPayload,
-    SubscriptionCreatedPayload,
-    SubscriptionExtendedPayload,
-)
-from bot.infra.payment_events import build_payment_succeeded_payload
-from bot.infra.webhook_queue import enqueue_webhook_event
-from bot.keyboards.inline.user_keyboards import (
-    get_back_to_main_menu_markup,
-    get_bind_url_keyboard,
-    get_payment_method_delete_confirm_keyboard,
-    get_payment_method_details_keyboard,
-    get_payment_methods_list_keyboard,
-    get_payment_url_keyboard,
-    get_yk_autopay_choice_keyboard,
-    get_yk_saved_cards_keyboard,
-    payment_methods_back_callback,
-)
-from bot.middlewares.i18n import JsonI18n
-from bot.services.lknpd_service import LknpdService
-from bot.services.panel_api_service import PanelApiService
-from bot.services.referral_service import ReferralService
-from bot.services.subscription_service import SubscriptionService
-from bot.services.user_email_notifications import send_user_notification_email
-from bot.utils.callback_answer import callback_message_or_none
-from bot.utils.config_link import prepare_config_links
-from bot.utils.install_links import ensure_user_install_guide_links
-from bot.utils.request_security import ip_in_allowlist, request_client_ip
-from config.settings import Settings
-from config.tariffs_config import (
-    default_currency_key_for_settings,
-    default_payment_currency_code_for_settings,
-)
 from db.dal import payment_dal, user_billing_dal, user_dal
-from db.models import Payment
 
 from .base import (
     PaymentProviderSpec,
-    ProviderEnvConfig,
     ProviderManifestField,
     ServiceFactoryContext,
     WebAppPaymentContext,
-    normalize_payment_currency_code,
-    provider_env_file,
-    provider_runtime_enabled,
 )
-from .shared import (
-    PaymentCallbackParts,
-    RecurringChargeContext,
-    RecurringChargeResult,
-    SuccessMessage,
-    append_hwid_renewal_note,
-    build_success_message,
-    create_webapp_payment_record,
-    format_human_units,
-    format_number_for_payload,
-    is_traffic_sale_base,
-    make_translator,
-    mark_payment_failed_creation,
-    parse_positive_int_units,
-    payment_failed,
-    payment_link_response,
-    payment_record_amounts,
-    payment_unavailable,
-    quote_hwid_callback_parts,
-    resolve_inviter_name,
-    send_success_message_to_user,
-)
-from .shared import (
-    sale_mode_base as _sale_mode_base,
-)
-from .shared import (
-    sale_mode_tariff_key as _sale_mode_tariff_key,
-)
-
 from .yookassa_callbacks import (
     _initiate_yk_payment,
     _yookassa_available_to_callback_user,
@@ -144,7 +57,6 @@ from .yookassa_success import (
     process_successful_payment,
 )
 from .yookassa_webhook import yookassa_webhook_route
-
 
 logger = logging.getLogger(__name__)
 
@@ -311,3 +223,56 @@ SPEC = PaymentProviderSpec(
     ),
     currency_support_url="https://yookassa.ru/developers/payment-acceptance/integration-scenarios/smart-payment",
 )
+
+__all__ = [
+    "DEFERRED_EVENTS_KEY",
+    "DEFERRED_SUCCESS_MESSAGE_KEY",
+    "HWID_DEVICE_SALE_BASES",
+    "SPEC",
+    "WebAppPaymentContext",
+    "YOOKASSA_EVENT_PAYMENT_CANCELED",
+    "YOOKASSA_EVENT_PAYMENT_SUCCEEDED",
+    "YOOKASSA_EVENT_PAYMENT_WAITING_FOR_CAPTURE",
+    "YOOKASSA_WEBHOOK_ALLOWED_IPS",
+    "YooKassaConfig",
+    "YooKassaPresentation",
+    "YooKassaService",
+    "_format_saved_payment_method_title",
+    "_format_value",
+    "_initiate_yk_payment",
+    "_is_hwid_device_sale_base",
+    "_metadata_datetime",
+    "_metadata_float",
+    "_metadata_int",
+    "_metadata_iso",
+    "_metadata_value_present",
+    "_parse_offer_payload",
+    "_parse_saved_list_payload",
+    "_resolve_yookassa_activation_amounts",
+    "_yookassa_available_to_callback_user",
+    "create_service",
+    "create_webapp_payment",
+    "emit_yookassa_success_events",
+    "events",
+    "logger",
+    "pay_yk_callback_handler",
+    "pay_yk_new_card_handler",
+    "pay_yk_saved_list_handler",
+    "pay_yk_use_saved_handler",
+    "payment_dal",
+    "payment_method_bind",
+    "payment_method_delete",
+    "payment_method_delete_confirm",
+    "payment_method_history",
+    "payment_method_view",
+    "payment_methods_list",
+    "payment_methods_manage",
+    "payment_processing_lock",
+    "process_cancelled_payment",
+    "process_successful_payment",
+    "reuse_webapp_payment",
+    "router",
+    "user_billing_dal",
+    "user_dal",
+    "yookassa_webhook_route",
+]

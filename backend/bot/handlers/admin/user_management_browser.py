@@ -1,12 +1,8 @@
 import logging
-import re
-from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Optional
 
-from aiogram import Bot, F, Router, types
-from aiogram.exceptions import TelegramBadRequest
+from aiogram import Bot, F, types
 from aiogram.fsm.context import FSMContext
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.utils.markdown import hcode
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,47 +12,23 @@ from bot.services.panel_api_service import PanelApiService
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
 from bot.states.admin_states import AdminStates
-from bot.utils import get_message_content, send_direct_message
 from bot.utils.callback_answer import (
     callback_data,
     callback_message,
     message_bot,
-    message_from_user,
-)
-from bot.utils.telegram_markup import (
-    is_profile_link_error,
-    remove_profile_link_buttons,
-)
-from bot.utils.text_sanitizer import (
-    sanitize_display_name,
-    sanitize_username,
-    username_for_display,
 )
 from config.settings import Settings
-from config.tariffs_config import default_payment_currency_code_for_settings
-from db.dal import message_log_dal, subscription_dal, user_dal
-from db.models import User
-
-from .user_management_common import (
-    EMAIL_REGEX,
-    USERNAME_REGEX,
-    _admin_tariff_label,
-    _admin_user_button_label,
-    _admin_user_reference_label,
-    _enabled_admin_period_tariffs,
-    _enabled_admin_tariffs,
-    _find_user_by_admin_input,
-    _format_traffic_period,
-    _format_used_with_period,
-    _resolve_admin_period_tariff_key,
-    _resolve_bot_username,
-    router,
-)
+from db.dal import user_dal
 
 from .user_management_cards import (
     _send_with_profile_link_fallback,
     format_user_card,
     get_user_card_keyboard,
+)
+from .user_management_common import (
+    _find_user_by_admin_input,
+    _resolve_bot_username,
+    router,
 )
 from .user_management_info import (
     handle_delete_user_prompt,
@@ -83,6 +55,7 @@ from .user_management_subscription import (
     handle_traffic_grant_menu,
     handle_traffic_grant_prompt,
 )
+
 
 async def users_list_handler(
     callback: types.CallbackQuery,
@@ -156,6 +129,7 @@ async def user_search_prompt_handler(
 
     await callback.answer()
     await state.set_state(AdminStates.waiting_for_user_search)
+
 
 @router.message(AdminStates.waiting_for_user_search, F.text)
 async def process_user_search_handler(

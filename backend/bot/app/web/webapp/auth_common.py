@@ -1,75 +1,27 @@
-from bot.infra import events
-from bot.infra.event_payloads import ReferralBonusGrantedPayload
-
 from ._runtime import (
     WEBAPP_CSRF_COOKIE_NAME,
     WEBAPP_SESSION_COOKIE_NAME,
     WEBAPP_TELEGRAM_OAUTH_STATE_COOKIE_NAME,
     Any,
-    AsyncSession,
-    ClientTimeout,
     Dict,
-    EmailAuthService,
     List,
     Optional,
     Settings,
-    SubscriptionService,
     User,
-    UserMergeConflictError,
     base64,
     create_signed_telegram_oauth_state,
-    create_telegram_oauth_nonce,
-    create_webapp_session_token,
-    datetime,
     hashlib,
     hmac,
     ipaddress,
     is_disposable_email,
-    logger,
     panel_description_from_profile,
     parse_ip_entries,
     re,
-    sanitize_display_name,
-    sanitize_username,
     secrets,
-    security_dal,
-    sessionmaker,
-    subscription_dal,
-    timezone,
-    urlencode,
     urlsplit,
-    user_dal,
-    validate_telegram_login_widget_data,
-    validate_telegram_oauth_id_token,
-    validate_telegram_webapp_init_data,
     verify_signed_telegram_oauth_state,
-    verify_telegram_oauth_nonce,
     web,
 )
-from .assets import (
-    _enforce_webapp_rate_limit,
-    _get_shared_http_session,
-)
-from .common import (
-    _extract_authenticated_user_id,
-    _format_webapp_datetime,
-    _invalidate_webapp_user_caches,
-    _json_error,
-    _normalize_language,
-    _parse_model_payload,
-    _require_user_id,
-    _resolve_telegram_oauth_client_id,
-    _resolve_telegram_oauth_request_access,
-    _telegram_id_for_user,
-)
-from .payloads import (
-    WebAppEmailCodeAuthPayload,
-    WebAppEmailMagicAuthPayload,
-    WebAppEmailPasswordPayload,
-    WebAppEmailRequestPayload,
-    WebAppTelegramAuthPayload,
-)
-from .telegram_notifications import _probe_telegram_notifications_for_user_id
 
 
 def _public_webapp_base_url(settings: Settings, request: web.Request) -> str:
@@ -222,6 +174,7 @@ def _verify_email_password(password: str, stored_hash: Optional[str]) -> bool:
         return False
     return hmac.compare_digest(actual_digest, expected_digest)
 
+
 def _set_webapp_auth_cookies(
     response: web.StreamResponse,
     settings: Settings,
@@ -285,6 +238,7 @@ def _build_webapp_auth_response(
     _set_webapp_auth_cookies(response, settings, token, csrf_value)
     return response
 
+
 def _user_has_linked_telegram(user: User) -> bool:
     return bool(getattr(user, "telegram_id", None))
 
@@ -337,6 +291,7 @@ def _telegram_photo_url_value(telegram_user: Dict[str, Any]) -> Optional[str]:
         return None
     value = str(raw_value).strip()
     return value or None
+
 
 def _remnashop_referral_compat_enabled(settings: Optional[Settings]) -> bool:
     if settings is None:

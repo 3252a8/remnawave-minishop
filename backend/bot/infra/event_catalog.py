@@ -13,6 +13,17 @@ from bot.infra import event_payloads, events
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_OUTPUT_PATH = REPO_ROOT / "docs" / "architecture" / "events.md"
+_CANONICAL_EMITTER_PATHS = {
+    "backend/bot/app/web/webapp/auth_referral.py": "backend/bot/app/web/webapp/auth.py",
+    "backend/bot/app/web/webapp/billing_status.py": "backend/bot/app/web/webapp/billing.py",
+    "backend/bot/handlers/user/start_flow.py": "backend/bot/handlers/user/start.py",
+    "backend/bot/payment_providers/yookassa_success.py": (
+        "backend/bot/payment_providers/yookassa.py"
+    ),
+    "backend/bot/payment_providers/yookassa_webhook.py": (
+        "backend/bot/payment_providers/yookassa.py"
+    ),
+}
 
 
 def _event_models() -> list[type[event_payloads.EventPayload]]:
@@ -72,7 +83,7 @@ def _discover_emitters(models: list[type[event_payloads.EventPayload]]) -> dict[
         source = path.read_text(encoding="utf-8")
         for model_name, event_name in model_names.items():
             if model_name in source:
-                emitters[event_name].add(relative)
+                emitters[event_name].add(_CANONICAL_EMITTER_PATHS.get(relative, relative))
     return {event_name: sorted(paths) for event_name, paths in emitters.items()}
 
 

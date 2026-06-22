@@ -1,69 +1,15 @@
 from __future__ import annotations
 
-import hashlib
-import hmac
-import json
-import logging
-import time
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
+from typing import Any, List, Mapping, Optional
 
-from aiogram import F, Router, types
-from aiohttp import ClientError, web
 from pydantic import Field, field_validator
 from pydantic_settings import SettingsConfigDict
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import sessionmaker
-
-from bot.middlewares.i18n import JsonI18n
-from bot.services.referral_service import ReferralService
-from bot.services.subscription_service import SubscriptionService
-from config.settings import Settings
-from config.tariffs_config import (
-    default_currency_key_for_settings,
-    default_payment_currency_code_for_settings,
-)
-from db.dal import payment_dal, user_billing_dal
 
 from .base import (
-    PaymentProviderSpec,
     ProviderEnvConfig,
-    ProviderManifestField,
-    ServiceFactoryContext,
-    WebAppPaymentContext,
     normalize_payment_currency_code,
-    parse_supported_currency_codes,
     provider_env_file,
-    provider_runtime_enabled,
-)
-from .shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
-    HttpClientMixin,
-    PaymentSuccessRequest,
-    RecurringChargeContext,
-    RecurringChargeResult,
-    build_payment_record_payload,
-    create_webapp_payment_record,
-    describe_payment,
-    finalize_successful_payment,
-    finalize_webapp_link_payment,
-    first_value,
-    lookup_payment_by_order_or_provider_id,
-    make_translator,
-    notify_callback_parse_error,
-    notify_payment_record_failure,
-    notify_service_unavailable,
-    notify_user_payment_failed,
-    parse_payment_callback,
-    payment_failed,
-    payment_record_amounts,
-    payment_unavailable,
-    payment_units_for_activation,
-    quote_hwid_callback_parts,
-    render_link_or_fail,
-    render_payment_link,
-    safe_callback_answer,
-    sale_mode_base,
 )
 
 _SUCCESS_EVENT_TYPES = {"checkout.session.completed", "payment_intent.succeeded"}

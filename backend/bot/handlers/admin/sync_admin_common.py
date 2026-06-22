@@ -1,21 +1,14 @@
 import asyncio
 import logging
 from collections import Counter
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Union, cast
+from datetime import datetime, timezone
+from typing import Any, Optional
 
-from aiogram import Bot, Router, types
-from aiogram.filters import Command
-from sqlalchemy import func, or_, select, update
-from sqlalchemy.ext.asyncio import AsyncSession
+from aiogram import Router
 
-from bot.infra.webhook_queue import enqueue_webhook_event
-from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
 from bot.utils.text_sanitizer import panel_description_from_profile
 from config.settings import Settings
-from db.advisory_locks import acquire_subscription_background_sync_lock
-from db.dal import panel_sync_dal, subscription_dal, user_dal
 from db.models import Subscription, User
 
 router = Router(name="admin_sync_router")

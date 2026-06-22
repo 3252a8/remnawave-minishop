@@ -1,18 +1,10 @@
-import asyncio
-import json
 import logging
-import re
-import time
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
-from urllib.parse import urlencode
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-import aiohttp
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
-from config.traffic_strategy import normalize_traffic_limit_strategy
 from db.dal import panel_sync_dal
 from db.models import PanelSyncStatus
 
@@ -21,9 +13,22 @@ from db.models import PanelSyncStatus
 # so logging the path verbatim would leak private data into log files; the
 # label keeps only the constant prefix. Longest prefixes first so e.g.
 
-from .panel_api_core import _endpoint_log_label
 
 class PanelApiResourcesMixin:
+    settings: Settings
+    _all_users_cache: AsyncTTLCache
+    _devices_cache: AsyncTTLCache
+    _external_squads_cache: AsyncTTLCache
+    _hosts_cache: AsyncTTLCache
+    _squads_cache: AsyncTTLCache
+    _users_cache: AsyncTTLCache
+
+    if TYPE_CHECKING:
+
+        async def _request(
+            self, method: str, endpoint: str, log_full_response: bool = False, **kwargs
+        ) -> Optional[Dict[str, Any]]: ...
+
     async def get_subscription_link(
         self, short_uuid_or_sub_uuid: str, client_type: Optional[str] = None
     ) -> Optional[str]:

@@ -1,27 +1,21 @@
 import asyncio
 import logging
-import time
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aiogram import Bot
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.text_decorations import html_decoration as hd
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import sessionmaker
 
-from bot.infra.redis import redis_lock
 from bot.middlewares.i18n import JsonI18n
 from bot.services.message_audit import log_user_message_delivery
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service import SubscriptionService
-from bot.services.user_email_notifications import send_user_notification_email
 from bot.utils.date_utils import month_start
-from bot.utils.mini_app_url import subscription_mini_app_topup_url
 from config.settings import Settings
-from db.advisory_locks import acquire_subscription_background_sync_lock
-from db.dal import subscription_dal, tariff_dal, user_dal
+from db.dal import tariff_dal, user_dal
 from db.models import Subscription
 
 PREMIUM_WARNING_LEVEL_OFFSET = 1000
@@ -41,6 +35,48 @@ POSTGRES_RETRYABLE_ERROR_NAMES = {"DeadlockDetectedError", "SerializationError"}
 
 
 class TariffWorkerRegularMixin:
+    settings: Settings
+    panel_service: PanelApiService
+    subscription_service: SubscriptionService
+    bot: Optional[Bot]
+    i18n: Optional[JsonI18n]
+    _premium_node_usage_tick_cache: dict[
+        tuple[str, str, str],
+        Optional[dict[str, dict[Any, int]]],
+    ]
+
+    if TYPE_CHECKING:
+
+        def _is_trial_subscription(self, sub: Subscription) -> bool: ...
+        def _trial_premium_tariff(self) -> Optional[Any]: ...
+        async def _sync_premium_squad_limit(
+            self,
+            session: AsyncSession,
+            sub: Subscription,
+            tariff: Any,
+            now: datetime,
+            *,
+            panel_username: Optional[str] = None,
+            panel_user_dict: Optional[dict] = None,
+            panel_view: str = "unknown",
+        ) -> None: ...
+        async def _user_lang(self, session: AsyncSession, user_id: int) -> str: ...
+        def _usage_placeholders(self, used_bytes: int, limit_bytes: int) -> dict: ...
+        def _traffic_topup_markup(
+            self, user_lang: str, kind: str
+        ) -> Optional[InlineKeyboardMarkup]: ...
+        async def _send_traffic_warning_email(
+            self,
+            session: AsyncSession,
+            *,
+            user_id: int,
+            subject_key: str,
+            message_text: str,
+            kind: str,
+            warning_key: str,
+            audit_content: str,
+        ) -> None: ...
+
     async def traffic_period_tick(self, session: AsyncSession) -> None:
         now = datetime.now(timezone.utc)
         self._premium_node_usage_tick_cache = {}

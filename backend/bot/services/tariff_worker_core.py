@@ -1,27 +1,23 @@
 import asyncio
 import logging
 import time
-from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Optional
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.text_decorations import html_decoration as hd
-from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.infra.redis import redis_lock
 from bot.middlewares.i18n import JsonI18n
-from bot.services.message_audit import log_user_message_delivery
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service import SubscriptionService
 from bot.services.user_email_notifications import send_user_notification_email
-from bot.utils.date_utils import month_start
 from bot.utils.mini_app_url import subscription_mini_app_topup_url
 from config.settings import Settings
 from db.advisory_locks import acquire_subscription_background_sync_lock
-from db.dal import subscription_dal, tariff_dal, user_dal
+from db.dal import user_dal
 from db.models import Subscription
 
 PREMIUM_WARNING_LEVEL_OFFSET = 1000
@@ -72,6 +68,12 @@ class _TrialPremiumTariff:
 
 
 class TariffWorkerCoreMixin:
+    if TYPE_CHECKING:
+
+        def _fmt_bytes(self, value: int) -> str: ...
+        async def traffic_period_tick(self, session: AsyncSession) -> None: ...
+        async def legacy_throttle_recovery_tick(self, session: AsyncSession) -> None: ...
+
     def __init__(
         self,
         settings: Settings,

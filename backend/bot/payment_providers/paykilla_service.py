@@ -1,20 +1,13 @@
-import hashlib
 import hmac
 import json
 import logging
-import re
 import time
 from datetime import datetime, timedelta, timezone
-from decimal import ROUND_CEILING, Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import urlencode
-from urllib.request import urlopen
 
-from aiogram import Bot, F, Router, types
+from aiogram import Bot
 from aiohttp import web
-from pydantic import AliasChoices, Field, field_validator
-from pydantic_settings import SettingsConfigDict
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
@@ -22,71 +15,44 @@ from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
 from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
-from config.tariffs_config import (
-    default_currency_key_for_settings,
-    default_payment_currency_code_for_settings,
-)
 from db.dal import payment_dal
 
 from .base import (
-    PaymentProviderSpec,
-    ProviderEnvConfig,
-    ProviderManifestField,
-    ServiceFactoryContext,
-    WebAppPaymentContext,
     normalize_payment_currency_code,
     parse_supported_currency_codes,
-    provider_env_file,
     provider_runtime_enabled,
+)
+from .paykilla_core import (
+    _FAILED_EVENTS,
+    _SUCCESS_EVENTS,
+    PaykillaConfig,
+    _config_min_payment_amount,
+    _config_min_payment_currency,
+    _debug_invoice_body,
+    _decimal_from_api,
+    _exchange_rate_url_for,
+    _invoice_text,
+    _invoice_type_for,
+    _payment_currencies,
+    _response_invoice_data,
+    _sign_query,
+    _signature_preview,
+    _target_invoice_currency,
+    _webhook_signature,
 )
 from .shared import (
     PAYMENT_STATUS_PENDING_FINALIZATION,
     HttpClientMixin,
     PaymentSuccessRequest,
-    build_payment_record_payload,
-    create_webapp_payment_record,
     decimal_amounts_equal,
-    describe_payment,
     finalize_successful_payment,
-    finalize_webapp_link_payment,
     first_value,
     format_decimal_amount,
     lookup_payment_by_order_or_provider_id,
-    make_translator,
-    notify_callback_parse_error,
-    notify_payment_record_failure,
-    notify_service_unavailable,
     notify_user_payment_failed,
-    parse_payment_callback,
-    payment_failed,
-    payment_unavailable,
     payment_units_for_activation,
-    quote_hwid_callback_parts,
-    render_link_or_fail,
 )
 
-from .paykilla_core import (
-    _FAILED_EVENTS,
-    _SUCCESS_EVENTS,
-    PaykillaConfig,
-    _clean_paykilla_text,
-    _config_min_payment_amount,
-    _config_min_payment_currency,
-    _debug_invoice_body,
-    _decimal_from_api,
-    _exchange_rate_sync,
-    _exchange_rate_url_for,
-    _invoice_currencies,
-    _invoice_text,
-    _invoice_type_for,
-    _min_payment_threshold_for_currency,
-    _payment_currencies,
-    _response_invoice_data,
-    _signature_preview,
-    _sign_query,
-    _target_invoice_currency,
-    _webhook_signature,
-)
 
 class PaykillaService(HttpClientMixin):
     def __init__(

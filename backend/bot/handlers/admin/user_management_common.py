@@ -1,40 +1,15 @@
-import logging
 import re
-from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Callable, Optional
 
-from aiogram import Bot, F, Router, types
-from aiogram.exceptions import TelegramBadRequest
-from aiogram.fsm.context import FSMContext
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.utils.markdown import hcode
+from aiogram import Bot, Router
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
-from bot.middlewares.i18n import JsonI18n
-from bot.services.panel_api_service import PanelApiService
-from bot.services.referral_service import ReferralService
-from bot.services.subscription_service import SubscriptionService
-from bot.states.admin_states import AdminStates
-from bot.utils import get_message_content, send_direct_message
-from bot.utils.callback_answer import (
-    callback_data,
-    callback_message,
-    message_bot,
-    message_from_user,
-)
-from bot.utils.telegram_markup import (
-    is_profile_link_error,
-    remove_profile_link_buttons,
-)
 from bot.utils.text_sanitizer import (
     sanitize_display_name,
-    sanitize_username,
     username_for_display,
 )
 from config.settings import Settings
-from config.tariffs_config import default_payment_currency_code_for_settings
-from db.dal import message_log_dal, subscription_dal, user_dal
+from db.dal import user_dal
 from db.models import User
 
 router = Router(name="admin_user_management_router")

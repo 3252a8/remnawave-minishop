@@ -1,19 +1,9 @@
-import hashlib
-from html import escape as html_escape
-
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from sqlalchemy.orm import aliased
-
-from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
-from bot.infra.redis import cache_delete_pattern, redis_key
-from bot.utils.ttl_cache import AsyncTTLCache
+from db.dal import message_log_dal, payment_dal, subscription_dal, user_dal
 
 from ._runtime import (
     BINARY_RESPONSE_SCHEMA,
     BOOLEAN_SCHEMA,
     INTEGER_SCHEMA,
-    NULLABLE_INTEGER_SCHEMA,
-    NULLABLE_NUMBER_SCHEMA,
     NULLABLE_STRING_SCHEMA,
     NUMBER_SCHEMA,
     STRING_SCHEMA,
@@ -25,57 +15,12 @@ from ._runtime import (
     AdminUserRegularTrafficOverrideBody,
     AdminUserTariffBody,
     AdminUserTrafficGrantBody,
-    Any,
-    AsyncSession,
-    Dict,
-    Float,
-    List,
-    MessageContent,
-    Optional,
-    Payment,
-    ReferralService,
     RouteContract,
-    Settings,
-    Subscription,
-    Tuple,
-    User,
-    UserTelegramAvatar,
-    and_,
-    case,
-    cast,
-    datetime,
-    get_queue_manager,
-    json,
-    logger,
     loose_array_schema,
     loose_object_schema,
-    message_log_dal,
     ok_envelope_with,
-    or_,
-    parse_body_or_400,
-    payment_dal,
     register_contract,
-    sa_func,
-    select,
-    send_message_via_queue,
-    sessionmaker,
-    subscription_dal,
-    timezone,
-    user_dal,
-    web,
 )
-from .auth import _require_admin_user_id
-from .common import (
-    _build_admin_webapp_referral_link,
-    _error,
-    _ok,
-    _panel_user_connection_activity,
-    _premium_traffic_list_payload,
-    _serialize_payment,
-    _serialize_subscription,
-    _serialize_user,
-)
-
 from .users_actions import (
     admin_user_ban_route,
     admin_user_delete_route,
@@ -93,8 +38,11 @@ from .users_actions import (
 from .users_common import (
     _ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
     _ADMIN_USER_RESPONSE_SCHEMA,
+    _bulk_user_avatar_keys,
+    _serialize_admin_user_with_avatar,
 )
 from .users_detail import (
+    _bulk_active_subscriptions_for_users,
     _bulk_user_payment_summaries,
     _bulk_user_referral_counts,
     _filter_and_sort_users,
@@ -104,11 +52,12 @@ from .users_detail import (
     admin_user_referrals_route,
 )
 from .users_listing import (
-    _bulk_user_avatar_keys,
+    _bulk_user_statuses,
     _invalidate_after_admin_user_mutation,
+    _load_admin_users_list_payload,
+    _load_admin_users_list_payload_uncached,
     admin_users_list_route,
 )
-
 
 register_contract(
     "admin_users_list_route",
@@ -235,3 +184,36 @@ register_contract(
     ),
 )
 
+__all__ = [
+    "_bulk_active_subscriptions_for_users",
+    "_bulk_user_avatar_keys",
+    "_bulk_user_payment_summaries",
+    "_bulk_user_referral_counts",
+    "_bulk_user_statuses",
+    "_filter_and_sort_users",
+    "_invalidate_after_admin_user_mutation",
+    "_load_admin_users_list_payload",
+    "_load_admin_users_list_payload_uncached",
+    "_serialize_admin_user_with_avatar",
+    "_serialize_trial_summary",
+    "admin_user_avatar_route",
+    "admin_user_ban_route",
+    "admin_user_delete_route",
+    "admin_user_detail_route",
+    "admin_user_extend_route",
+    "admin_user_hwid_device_limit_route",
+    "admin_user_message_preview_route",
+    "admin_user_message_route",
+    "admin_user_premium_override_route",
+    "admin_user_referrals_route",
+    "admin_user_regular_traffic_override_route",
+    "admin_user_reset_trial_route",
+    "admin_user_tariff_route",
+    "admin_user_telegram_profile_link_route",
+    "admin_user_traffic_grant_route",
+    "admin_users_list_route",
+    "message_log_dal",
+    "payment_dal",
+    "subscription_dal",
+    "user_dal",
+]

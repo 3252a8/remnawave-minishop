@@ -1,48 +1,23 @@
-from bot.infra import events
-from bot.infra.event_payloads import ReferralBonusGrantedPayload
-
 from ._runtime import (
-    WEBAPP_CSRF_COOKIE_NAME,
-    WEBAPP_SESSION_COOKIE_NAME,
-    WEBAPP_TELEGRAM_OAUTH_STATE_COOKIE_NAME,
     Any,
-    AsyncSession,
     ClientTimeout,
     Dict,
-    EmailAuthService,
-    List,
     Optional,
     Settings,
-    SubscriptionService,
     User,
     UserMergeConflictError,
     base64,
-    create_signed_telegram_oauth_state,
     create_telegram_oauth_nonce,
     create_webapp_session_token,
     datetime,
-    hashlib,
-    hmac,
-    ipaddress,
-    is_disposable_email,
     logger,
-    panel_description_from_profile,
-    parse_ip_entries,
-    re,
-    sanitize_display_name,
-    sanitize_username,
     secrets,
-    security_dal,
     sessionmaker,
-    subscription_dal,
-    timezone,
     urlencode,
-    urlsplit,
     user_dal,
     validate_telegram_login_widget_data,
     validate_telegram_oauth_id_token,
     validate_telegram_webapp_init_data,
-    verify_signed_telegram_oauth_state,
     verify_telegram_oauth_nonce,
     web,
 )
@@ -50,32 +25,10 @@ from .assets import (
     _enforce_webapp_rate_limit,
     _get_shared_http_session,
 )
-from .common import (
-    _extract_authenticated_user_id,
-    _format_webapp_datetime,
-    _invalidate_webapp_user_caches,
-    _json_error,
-    _normalize_language,
-    _parse_model_payload,
-    _require_user_id,
-    _resolve_telegram_oauth_client_id,
-    _resolve_telegram_oauth_request_access,
-    _telegram_id_for_user,
-)
-from .payloads import (
-    WebAppEmailCodeAuthPayload,
-    WebAppEmailMagicAuthPayload,
-    WebAppEmailPasswordPayload,
-    WebAppEmailRequestPayload,
-    WebAppTelegramAuthPayload,
-)
-from .telegram_notifications import _probe_telegram_notifications_for_user_id
-
-
 from .auth_common import (
     _build_webapp_auth_response,
     _clear_telegram_oauth_state_cookie,
-    _public_webapp_base_url,
+    _clear_webapp_auth_cookies,
     _read_telegram_oauth_state_payload,
     _set_telegram_oauth_state_cookie,
     _set_webapp_auth_cookies,
@@ -83,12 +36,29 @@ from .auth_common import (
     _telegram_oauth_redirect_url,
     _urlsafe_sha256,
 )
-from .auth_panel import _link_telegram_to_user
+from .auth_panel import (
+    _build_account_merge_notice,
+    _link_telegram_to_user,
+    _sync_merged_panel_identity_for_user,
+)
 from .auth_referral import (
     _apply_referral_to_existing_user,
     _apply_referral_welcome_bonus_if_needed,
     _ensure_user_from_telegram,
 )
+from .common import (
+    _extract_authenticated_user_id,
+    _invalidate_webapp_user_caches,
+    _json_error,
+    _parse_model_payload,
+    _resolve_telegram_oauth_client_id,
+    _resolve_telegram_oauth_request_access,
+)
+from .payloads import (
+    WebAppTelegramAuthPayload,
+)
+from .telegram_notifications import _probe_telegram_notifications_for_user_id
+
 
 async def _exchange_telegram_oauth_code(
     request: web.Request,

@@ -409,7 +409,7 @@ def test_payment_method_keyboard_uses_payment_currency_for_symbol_labels(monkeyp
 
 
 def test_payment_method_keyboard_filters_paykilla_by_converted_minimum(monkeypatch):
-    from bot.payment_providers import paykilla, paykilla_core
+    from bot.payment_providers import paykilla_core
 
     monkeypatch.setenv("PAYKILLA_ENABLED", "True")
     monkeypatch.setenv("PAYKILLA_API_KEY", "paykilla-public")
@@ -556,7 +556,7 @@ def test_webapp_payment_methods_filter_by_default_currency(monkeypatch):
 
 def test_webapp_payment_methods_include_paykilla_minimum_metadata(monkeypatch):
     from bot.app.web.webapp.serializers import _serialize_payment_methods
-    from bot.payment_providers import paykilla, paykilla_core
+    from bot.payment_providers import paykilla_core
 
     monkeypatch.setenv("PAYKILLA_ENABLED", "True")
     monkeypatch.setenv("PAYKILLA_API_KEY", "paykilla-public")

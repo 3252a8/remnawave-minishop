@@ -1,93 +1,17 @@
 import gzip
 
-from bot.middlewares.i18n import locale_language_options
-from config.webapp_themes_config import (
-    default_webapp_theme_asset_file,
-    default_webapp_theme_css_files,
-    effective_webapp_theme_accent,
-    effective_webapp_theme_tokens,
-    ensure_default_webapp_theme_descriptor_files,
-    public_theme_payload,
-    public_themes_catalog_payload,
-    resolve_webapp_theme_selection,
-)
-
 from ._runtime import (
-    _APP_VERSION_CACHE,
-    _SHARED_HTTP_SESSION,
-    _SHARED_HTTP_SESSION_LOCK,
-    APP_DEEPLINK_TEMPLATE_PATH,
-    APP_REPOSITORY_URL,
-    APP_ROOT,
     ASSET_DIR,
-    DEV_MOCK_END_MARKER,
-    DEV_MOCK_START_MARKER,
     ROBOTS_TX,
-    TEMPLATE_PATH,
-    WEBAPP_CONFIG_PLACEHOLDER,
-    WEBAPP_CSRF_COOKIE_NAME,
-    WEBAPP_CSRF_EXEMPT_PATHS,
-    WEBAPP_CSRF_HEADER_NAME,
-    WEBAPP_DEFAULT_FAVICON_DIGEST,
-    WEBAPP_DEFAULT_FAVICON_DIR,
-    WEBAPP_DEFAULT_FAVICON_URL,
-    WEBAPP_DEFAULT_LOGO_FILE,
-    WEBAPP_DEFAULT_LOGO_PATH,
-    WEBAPP_FAVICON_DIR,
-    WEBAPP_FAVICON_PATH,
-    WEBAPP_I18N_PLACEHOLDER,
-    WEBAPP_JS_PLACEHOLDER,
-    WEBAPP_LOGO_CACHE_DIR,
-    WEBAPP_LOGO_MAX_BYTES,
-    WEBAPP_LOGO_PROXY_PATH,
-    WEBAPP_RATE_LIMIT_MAX_REQUESTS,
-    WEBAPP_RATE_LIMIT_WINDOW_SECONDS,
-    WEBAPP_SESSION_COOKIE_NAME,
-    WEBAPP_STATE_CHANGING_METHODS,
-    WEBAPP_THEME_ASSET_CONTENT_TYPES,
-    WEBAPP_THEME_ASSET_MAX_BYTES,
-    WEBAPP_THEME_CSS_MAX_BYTES,
-    WEBAPP_UPLOADED_LOGO_DIR,
-    WEBAPP_UPLOADED_LOGO_PATH,
     Any,
-    ClientSession,
-    ClientTimeout,
     Dict,
-    List,
     Optional,
     Path,
     Settings,
-    Tuple,
-    asyncio,
-    datetime,
-    deque,
-    get_redis,
     hashlib,
-    hmac,
-    html,
-    ipaddress,
-    json,
-    logger,
-    quote,
     re,
-    redis_key,
-    request_client_ip,
-    secrets,
-    socket,
-    subprocess,
-    subscription_dal,
     time,
-    timezone,
-    urlsplit,
-    verify_webapp_session_token,
     web,
-)
-from .common import (
-    _json_error,
-    _normalize_language,
-    _resolve_telegram_bot_id,
-    _resolve_telegram_oauth_client_id,
-    _resolve_telegram_oauth_request_access,
 )
 
 _TEXT_FILE_CACHE: Dict[tuple[str, bool], tuple[int, int, str]] = {}
@@ -98,6 +22,7 @@ _I18N_PAYLOAD_CACHE: Dict[tuple[int, str, tuple[tuple[str, int, int], ...]], Dic
 _ASSET_NAME_CACHE_TTL_SECONDS = 30.0
 WEBAPP_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
+
 
 async def health_route(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
@@ -130,6 +55,7 @@ async def _css_asset_route(request: web.Request, *, base_name: str) -> web.Respo
         "public, max-age=31536000, immutable" if asset_hash else WEBAPP_LEGACY_ASSET_CACHE_CONTROL
     )
     return response
+
 
 async def js_asset_route(request: web.Request) -> web.Response:
     return await _js_asset_route(request, base_name="subscription_webapp")
@@ -182,6 +108,7 @@ APP_DEEPLINK_I18N_FALLBACKS = {
     "wa_app_launch_unavailable_title": "App link unavailable",
     "wa_app_launch_unavailable_hint": "Return to Telegram and try again.",
 }
+
 
 async def _serve_template_asset(
     request: web.Request,
@@ -248,6 +175,7 @@ def _request_accepts_encoding(request: web.Request, encoding: str) -> bool:
                 return False
         return True
     return False
+
 
 def _gzip_body_cached(cache_key: str, body: bytes) -> bytes:
     cached = _GZIP_BODY_CACHE.get(cache_key)
@@ -397,6 +325,7 @@ def _set_cached_asset_name(kind: str, filename: str) -> str:
     key = (str(ASSET_DIR.resolve()), kind)
     _ASSET_NAME_CACHE[key] = (time.monotonic(), filename)
     return filename
+
 
 def _strip_marked_block(html: str, start_marker: str, end_marker: str) -> str:
     start = html.find(start_marker)

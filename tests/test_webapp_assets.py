@@ -16,8 +16,7 @@ from PIL import Image, ImageOps
 from bot.app.web import subscription_webapp
 from bot.app.web.admin_api_impl import themes as admin_themes
 from bot.app.web.webapp import assets as webapp_assets
-from bot.app.web.webapp import assets_branding, assets_static
-from bot.app.web.webapp import cache_helpers
+from bot.app.web.webapp import assets_branding, assets_static, cache_helpers
 from config.settings import Settings
 from config.webapp_themes_config import WebappThemesConfig, builtin_webapp_themes_config
 

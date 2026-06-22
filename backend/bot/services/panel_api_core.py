@@ -1,20 +1,14 @@
 import asyncio
 import json
 import logging
-import re
 import time
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from urllib.parse import urlencode
 
 import aiohttp
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
-from config.traffic_strategy import normalize_traffic_limit_strategy
-from db.dal import panel_sync_dal
-from db.models import PanelSyncStatus
 
 # Static endpoint prefixes used as log/metric labels instead of the raw request
 # path. Endpoints embed user identifiers (telegram id, username, email, uuids),
@@ -50,6 +44,7 @@ def _endpoint_log_label(endpoint: str) -> str:
         if path == label or path.startswith(label + "/"):
             return label
     return "/other"
+
 
 class PanelApiCoreMixin:
     # Status codes returned by _request_once for failures we consider transient

@@ -309,11 +309,13 @@ EXPECTED_EVENT_WIRING = {
         ("SUBSCRIPTION_EXTENDED", "SubscriptionExtendedPayload"),
         ("REFERRAL_BONUS_GRANTED", "ReferralBonusGrantedPayload"),
     ],
-    "backend/bot/payment_providers/yookassa.py": [
+    "backend/bot/payment_providers/yookassa_success.py": [
         ("PAYMENT_SUCCEEDED", "PaymentSucceededPayload"),
-        ("PAYMENT_CANCELED", "PaymentCanceledPayload"),
         ("SUBSCRIPTION_CREATED", "SubscriptionCreatedPayload"),
         ("SUBSCRIPTION_EXTENDED", "SubscriptionExtendedPayload"),
+    ],
+    "backend/bot/payment_providers/yookassa_webhook.py": [
+        ("PAYMENT_CANCELED", "PaymentCanceledPayload"),
     ],
     "backend/bot/services/subscription_service_impl/trial.py": [
         ("TRIAL_ACTIVATED", "TrialActivatedPayload")
@@ -335,10 +337,10 @@ EXPECTED_EVENT_WIRING = {
     # Payment-triggered accrual payloads are calculated by the service and
     # emitted by the provider success layer. The one-time welcome grant has two
     # entry points (bot /start and the webapp helper used by claim/login flows).
-    "backend/bot/handlers/user/start.py": [
+    "backend/bot/handlers/user/start_flow.py": [
         ("REFERRAL_BONUS_GRANTED", "ReferralBonusGrantedPayload")
     ],
-    "backend/bot/app/web/webapp/auth.py": [
+    "backend/bot/app/web/webapp/auth_referral.py": [
         ("REFERRAL_BONUS_GRANTED", "ReferralBonusGrantedPayload")
     ],
     "backend/bot/services/support_service.py": [

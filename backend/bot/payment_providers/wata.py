@@ -1,24 +1,11 @@
-import base64
-import json
 import logging
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Optional, Tuple
 
-from aiogram import Bot, F, Router, types
+from aiogram import F, Router, types
 from aiohttp import web
-from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from pydantic import Field, field_validator
-from pydantic_settings import SettingsConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
-from bot.services.referral_service import ReferralService
-from bot.services.subscription_service import SubscriptionService
-from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
 from config.tariffs_config import (
     default_currency_key_for_settings,
@@ -28,56 +15,40 @@ from db.dal import payment_dal
 
 from .base import (
     PaymentProviderSpec,
-    ProviderEnvConfig,
     ProviderManifestField,
     ServiceFactoryContext,
     WebAppPaymentContext,
-    normalize_payment_currency_code,
-    parse_supported_currency_codes,
-    provider_env_file,
-    provider_runtime_enabled,
 )
 from .shared import (
     PAYMENT_STATUS_PENDING_FINALIZATION,
-    HttpClientMixin,
-    PaymentSuccessRequest,
     build_payment_record_payload,
     create_webapp_payment_record,
-    decimal_amounts_equal,
     describe_payment,
-    finalize_successful_payment,
     finalize_webapp_link_payment,
     first_value,
-    format_decimal_amount,
-    lookup_payment_by_order_or_provider_id,
     make_translator,
     notify_callback_parse_error,
     notify_payment_record_failure,
     notify_service_unavailable,
-    notify_user_payment_failed,
     parse_payment_callback,
     payment_failed,
     payment_record_amounts,
     payment_unavailable,
-    payment_units_for_activation,
-    post_json_request,
     quote_hwid_callback_parts,
     render_link_or_fail,
     render_payment_link,
     safe_callback_answer,
 )
-
 from .wata_config import (
+    _WATA_LINK_MAX_TTL_MINUTES,
+    _WATA_LINK_MIN_TTL_MINUTES,
+    _WATA_SUPPORTED_CURRENCIES_DEFAULT,
     WATA_CRYPTO_PROVIDER,
     WATA_PROVIDER,
     WATA_SUPPORTED_CURRENCIES,
     WataConfig,
     WataCryptoPresentation,
     WataPresentation,
-    WataTerminalProfile,
-    _WATA_LINK_MAX_TTL_MINUTES,
-    _WATA_LINK_MIN_TTL_MINUTES,
-    _WATA_SUPPORTED_CURRENCIES_DEFAULT,
     _parse_wata_datetime,
 )
 from .wata_service import WataService
@@ -85,8 +56,6 @@ from .wata_webhook import wata_webhook_route
 
 router = Router(name="user_subscription_payments_wata_router")
 _LOG = "wata"
-
-
 
 
 def _wata_spec_for_callback_prefix(callback_prefix: str) -> PaymentProviderSpec:
@@ -279,8 +248,6 @@ async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optio
     if str(getattr(payment, "provider", "") or "").strip().lower() != profile.provider:
         return None
     return await service.try_reuse_pending_link(payment)
-
-
 
 
 def create_service(ctx: ServiceFactoryContext) -> WataService:
@@ -656,3 +623,25 @@ CRYPTO_SPEC = PaymentProviderSpec(
 )
 
 SPECS = (SPEC, CRYPTO_SPEC)
+
+__all__ = [
+    "CRYPTO_SPEC",
+    "PAYMENT_STATUS_PENDING_FINALIZATION",
+    "SPEC",
+    "SPECS",
+    "WATA_CRYPTO_PROVIDER",
+    "WATA_PROVIDER",
+    "WATA_SUPPORTED_CURRENCIES",
+    "WataConfig",
+    "WataCryptoPresentation",
+    "WataPresentation",
+    "WataService",
+    "_parse_wata_datetime",
+    "create_service",
+    "create_webapp_payment",
+    "payment_dal",
+    "pay_wata_callback_handler",
+    "reuse_webapp_payment",
+    "router",
+    "wata_webhook_route",
+]

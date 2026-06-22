@@ -1,33 +1,6 @@
-import gzip
-
-from bot.middlewares.i18n import locale_language_options
-from config.webapp_themes_config import (
-    default_webapp_theme_asset_file,
-    default_webapp_theme_css_files,
-    effective_webapp_theme_accent,
-    effective_webapp_theme_tokens,
-    ensure_default_webapp_theme_descriptor_files,
-    public_theme_payload,
-    public_themes_catalog_payload,
-    resolve_webapp_theme_selection,
-)
-
 from ._runtime import (
-    _APP_VERSION_CACHE,
     _SHARED_HTTP_SESSION,
     _SHARED_HTTP_SESSION_LOCK,
-    APP_DEEPLINK_TEMPLATE_PATH,
-    APP_REPOSITORY_URL,
-    APP_ROOT,
-    ASSET_DIR,
-    DEV_MOCK_END_MARKER,
-    DEV_MOCK_START_MARKER,
-    ROBOTS_TX,
-    TEMPLATE_PATH,
-    WEBAPP_CONFIG_PLACEHOLDER,
-    WEBAPP_CSRF_COOKIE_NAME,
-    WEBAPP_CSRF_EXEMPT_PATHS,
-    WEBAPP_CSRF_HEADER_NAME,
     WEBAPP_DEFAULT_FAVICON_DIGEST,
     WEBAPP_DEFAULT_FAVICON_DIR,
     WEBAPP_DEFAULT_FAVICON_URL,
@@ -35,60 +8,33 @@ from ._runtime import (
     WEBAPP_DEFAULT_LOGO_PATH,
     WEBAPP_FAVICON_DIR,
     WEBAPP_FAVICON_PATH,
-    WEBAPP_I18N_PLACEHOLDER,
-    WEBAPP_JS_PLACEHOLDER,
     WEBAPP_LOGO_CACHE_DIR,
     WEBAPP_LOGO_MAX_BYTES,
     WEBAPP_LOGO_PROXY_PATH,
-    WEBAPP_RATE_LIMIT_MAX_REQUESTS,
-    WEBAPP_RATE_LIMIT_WINDOW_SECONDS,
-    WEBAPP_SESSION_COOKIE_NAME,
-    WEBAPP_STATE_CHANGING_METHODS,
     WEBAPP_THEME_ASSET_CONTENT_TYPES,
-    WEBAPP_THEME_ASSET_MAX_BYTES,
-    WEBAPP_THEME_CSS_MAX_BYTES,
     WEBAPP_UPLOADED_LOGO_DIR,
     WEBAPP_UPLOADED_LOGO_PATH,
     Any,
     ClientSession,
     ClientTimeout,
     Dict,
-    List,
     Optional,
     Path,
     Settings,
     Tuple,
     asyncio,
     datetime,
-    deque,
-    get_redis,
     hashlib,
-    hmac,
-    html,
     ipaddress,
     json,
     logger,
-    quote,
     re,
-    redis_key,
-    request_client_ip,
-    secrets,
     socket,
-    subprocess,
-    subscription_dal,
-    time,
     timezone,
     urlsplit,
-    verify_webapp_session_token,
     web,
 )
-from .common import (
-    _json_error,
-    _normalize_language,
-    _resolve_telegram_bot_id,
-    _resolve_telegram_oauth_client_id,
-    _resolve_telegram_oauth_request_access,
-)
+from .assets_static import _read_template_binary_cached
 
 _TEXT_FILE_CACHE: Dict[tuple[str, bool], tuple[int, int, str]] = {}
 _BINARY_FILE_CACHE: Dict[str, tuple[int, int, bytes]] = {}
@@ -99,7 +45,6 @@ _ASSET_NAME_CACHE_TTL_SECONDS = 30.0
 WEBAPP_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 
-from .assets_static import _read_template_binary_cached
 
 def _resolve_webapp_logo_url(settings: Settings) -> str:
     raw_logo_url = (getattr(settings, "WEBAPP_LOGO_URL", None) or "").strip()

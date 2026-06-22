@@ -1,27 +1,20 @@
-import asyncio
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aiogram import Bot
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.text_decorations import html_decoration as hd
-from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import sessionmaker
 
-from bot.infra.redis import redis_lock
 from bot.middlewares.i18n import JsonI18n
 from bot.services.message_audit import log_user_message_delivery
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service import SubscriptionService
-from bot.services.user_email_notifications import send_user_notification_email
 from bot.utils.date_utils import month_start
-from bot.utils.mini_app_url import subscription_mini_app_topup_url
 from config.settings import Settings
-from db.advisory_locks import acquire_subscription_background_sync_lock
-from db.dal import subscription_dal, tariff_dal, user_dal
+from db.dal import tariff_dal
 from db.models import Subscription
 
 PREMIUM_WARNING_LEVEL_OFFSET = 1000
@@ -41,6 +34,37 @@ POSTGRES_RETRYABLE_ERROR_NAMES = {"DeadlockDetectedError", "SerializationError"}
 
 
 class TariffWorkerPremiumMixin:
+    settings: Settings
+    panel_service: PanelApiService
+    subscription_service: SubscriptionService
+    bot: Optional[Bot]
+    i18n: Optional[JsonI18n]
+    _premium_nodes_cache: dict[tuple[str, ...], dict[str, Any]]
+    _premium_node_usage_tick_cache: dict[
+        tuple[str, str, str],
+        Optional[dict[str, dict[Any, int]]],
+    ]
+    _premium_squad_match_cache: dict[tuple[str, tuple[str, ...]], float]
+
+    if TYPE_CHECKING:
+
+        async def _user_lang(self, session: AsyncSession, user_id: int) -> str: ...
+        def _usage_placeholders(self, used_bytes: int, limit_bytes: int) -> dict: ...
+        def _traffic_topup_markup(
+            self, user_lang: str, kind: str
+        ) -> Optional[InlineKeyboardMarkup]: ...
+        async def _send_traffic_warning_email(
+            self,
+            session: AsyncSession,
+            *,
+            user_id: int,
+            subject_key: str,
+            message_text: str,
+            kind: str,
+            warning_key: str,
+            audit_content: str,
+        ) -> None: ...
+
     async def _sync_premium_squad_limit(
         self,
         session: AsyncSession,

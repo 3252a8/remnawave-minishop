@@ -1,12 +1,5 @@
-import gzip
-
 from bot.middlewares.i18n import locale_language_options
 from config.webapp_themes_config import (
-    default_webapp_theme_asset_file,
-    default_webapp_theme_css_files,
-    effective_webapp_theme_accent,
-    effective_webapp_theme_tokens,
-    ensure_default_webapp_theme_descriptor_files,
     public_theme_payload,
     public_themes_catalog_payload,
     resolve_webapp_theme_selection,
@@ -14,58 +7,31 @@ from config.webapp_themes_config import (
 
 from ._runtime import (
     _APP_VERSION_CACHE,
-    _SHARED_HTTP_SESSION,
-    _SHARED_HTTP_SESSION_LOCK,
     APP_DEEPLINK_TEMPLATE_PATH,
     APP_REPOSITORY_URL,
     APP_ROOT,
-    ASSET_DIR,
     DEV_MOCK_END_MARKER,
     DEV_MOCK_START_MARKER,
-    ROBOTS_TX,
     TEMPLATE_PATH,
     WEBAPP_CONFIG_PLACEHOLDER,
     WEBAPP_CSRF_COOKIE_NAME,
     WEBAPP_CSRF_EXEMPT_PATHS,
     WEBAPP_CSRF_HEADER_NAME,
-    WEBAPP_DEFAULT_FAVICON_DIGEST,
-    WEBAPP_DEFAULT_FAVICON_DIR,
-    WEBAPP_DEFAULT_FAVICON_URL,
-    WEBAPP_DEFAULT_LOGO_FILE,
-    WEBAPP_DEFAULT_LOGO_PATH,
-    WEBAPP_FAVICON_DIR,
-    WEBAPP_FAVICON_PATH,
     WEBAPP_I18N_PLACEHOLDER,
     WEBAPP_JS_PLACEHOLDER,
-    WEBAPP_LOGO_CACHE_DIR,
-    WEBAPP_LOGO_MAX_BYTES,
-    WEBAPP_LOGO_PROXY_PATH,
     WEBAPP_RATE_LIMIT_MAX_REQUESTS,
     WEBAPP_RATE_LIMIT_WINDOW_SECONDS,
     WEBAPP_SESSION_COOKIE_NAME,
     WEBAPP_STATE_CHANGING_METHODS,
-    WEBAPP_THEME_ASSET_CONTENT_TYPES,
-    WEBAPP_THEME_ASSET_MAX_BYTES,
-    WEBAPP_THEME_CSS_MAX_BYTES,
-    WEBAPP_UPLOADED_LOGO_DIR,
-    WEBAPP_UPLOADED_LOGO_PATH,
     Any,
-    ClientSession,
-    ClientTimeout,
     Dict,
-    List,
     Optional,
-    Path,
     Settings,
-    Tuple,
     asyncio,
-    datetime,
     deque,
     get_redis,
-    hashlib,
     hmac,
     html,
-    ipaddress,
     json,
     logger,
     quote,
@@ -73,25 +39,12 @@ from ._runtime import (
     redis_key,
     request_client_ip,
     secrets,
-    socket,
     subprocess,
     subscription_dal,
     time,
-    timezone,
-    urlsplit,
     verify_webapp_session_token,
     web,
 )
-from .common import (
-    _json_error,
-    _normalize_language,
-    _resolve_telegram_bot_id,
-    _resolve_telegram_oauth_client_id,
-    _resolve_telegram_oauth_request_access,
-)
-
-_TEXT_FILE_CACHE: Dict[tuple[str, bool], tuple[int, int, str]] = {}
-
 from .assets_branding import (
     _close_shared_http_session,
     _ensure_shared_http_session,
@@ -124,9 +77,8 @@ from .assets_branding import (
 )
 from .assets_static import (
     _ASSET_NAME_CACHE,
-    _BINARY_FILE_CACHE,
-    _GZIP_BODY_CACHE,
-    _TEXT_FILE_CACHE,
+    APP_DEEPLINK_I18N_FALLBACKS,
+    APP_DEEPLINK_I18N_KEYS,
     WEBAPP_BOOTSTRAP_I18N_KEYS,
     WEBAPP_BOOTSTRAP_I18N_PREFIXES,
     WEBAPP_I18N_SCOPES,
@@ -136,8 +88,6 @@ from .assets_static import (
     _read_template_binary_cached,
     _read_template_text_cached,
     _request_accepts_encoding,
-    _resolve_hashed_css_asset_name,
-    _resolve_hashed_js_asset_name,
     _resolve_webapp_admin_css_asset_name,
     _resolve_webapp_admin_js_asset_name,
     _resolve_webapp_css_asset_name,
@@ -174,14 +124,19 @@ from .assets_theme import (
     theme_asset_route,
     theme_css_asset_route,
 )
-_BINARY_FILE_CACHE: Dict[str, tuple[int, int, bytes]] = {}
-_GZIP_BODY_CACHE: Dict[str, bytes] = {}
-_ASSET_NAME_CACHE: Dict[tuple[str, str], tuple[float, str]] = {}
+from .common import (
+    _json_error,
+    _normalize_language,
+    _resolve_telegram_bot_id,
+    _resolve_telegram_oauth_client_id,
+    _resolve_telegram_oauth_request_access,
+)
+
+_TEXT_FILE_CACHE: Dict[tuple[str, bool], tuple[int, int, str]] = {}
 _I18N_PAYLOAD_CACHE: Dict[tuple[int, str, tuple[tuple[str, int, int], ...]], Dict[str, Any]] = {}
 _ASSET_NAME_CACHE_TTL_SECONDS = 30.0
 WEBAPP_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
-
 
 
 @web.middleware
@@ -369,7 +324,6 @@ async def _enforce_webapp_rate_limit(
         bucket.append(now)
 
     return None
-
 
 
 def _is_webapp_bootstrap_i18n_key(key: str) -> bool:
@@ -723,3 +677,85 @@ def _app_deeplink_i18n_payload(request: web.Request, lang: str) -> Dict[str, str
                 logger.debug("Failed to resolve open-app i18n key %s: %s", i18n_key, exc)
         payload[payload_key] = value if value and value != i18n_key else fallback
     return payload
+
+
+__all__ = [
+    "_ASSET_NAME_CACHE",
+    "_INITIAL_THEME_LOGO_SCALE_TOKENS",
+    "_INITIAL_THEME_TOKEN_CSS_MAP",
+    "_app_deeplink_theme_head_markup",
+    "_close_shared_http_session",
+    "_csrf_protection_middleware",
+    "_enforce_webapp_rate_limit",
+    "_ensure_shared_http_session",
+    "_favicon_head_markup",
+    "_fetch_webapp_logo",
+    "_get_cached_asset_name",
+    "_get_cached_webapp_settings",
+    "_get_shared_http_session",
+    "_gzip_body_cached",
+    "_hostname_resolves_to_public_address",
+    "_initial_theme_declarations",
+    "_initial_theme_for_request",
+    "_initial_theme_head_markup",
+    "_initial_theme_tokens",
+    "_is_proxyable_webapp_logo_url",
+    "_load_or_fetch_webapp_logo",
+    "_normalize_etag_for_compare",
+    "_not_modified_response",
+    "_precompressed_template_asset_response",
+    "_read_template_binary_cached",
+    "_read_template_text_cached",
+    "_read_webapp_logo_from_disk",
+    "_request_accepts_encoding",
+    "_request_etag_matches",
+    "_resolve_app_version",
+    "_resolve_webapp_admin_css_asset_name",
+    "_resolve_webapp_admin_js_asset_name",
+    "_resolve_webapp_asset_url",
+    "_resolve_webapp_css_asset_name",
+    "_resolve_webapp_favicon_url",
+    "_resolve_webapp_js_asset_name",
+    "_resolve_webapp_logo_url",
+    "_safe_theme_asset_relative_path",
+    "_safe_theme_css_relative_path",
+    "_safe_theme_relative_path",
+    "_security_headers_middleware",
+    "_serve_template_asset",
+    "_set_cached_asset_name",
+    "_stable_asset_name_with_version",
+    "_strip_marked_block",
+    "_theme_asset_etag",
+    "_theme_css_href_for_html",
+    "_theme_text_response",
+    "_uploaded_webapp_logo_filename",
+    "_uploaded_webapp_logo_response",
+    "_warm_webapp_logo_cache",
+    "_webapp_default_brand_file_response",
+    "_webapp_default_favicon_file_response",
+    "_webapp_favicon_file_response",
+    "_webapp_generated_favicon_digest",
+    "_webapp_logo_cache_key",
+    "_webapp_logo_disk_paths",
+    "_webapp_redirectable_favicon_url",
+    "_webapp_root_favicon_target_filename",
+    "_webapp_shell_preload_markup",
+    "_write_webapp_logo_to_disk",
+    "admin_css_asset_route",
+    "admin_js_asset_route",
+    "app_deeplink_route",
+    "bootstrap_route",
+    "css_asset_route",
+    "health_route",
+    "i18n_route",
+    "index_route",
+    "js_asset_route",
+    "robots_txt_route",
+    "theme_asset_route",
+    "theme_css_asset_route",
+    "webapp_current_favicon_route",
+    "webapp_default_logo_route",
+    "webapp_favicon_route",
+    "webapp_logo_route",
+    "webapp_uploaded_logo_route",
+]

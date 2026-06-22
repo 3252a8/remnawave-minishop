@@ -1,26 +1,11 @@
-import hashlib
-import hmac
-import json
 import logging
-import re
-import time
-from datetime import datetime, timedelta, timezone
-from decimal import ROUND_CEILING, Decimal, InvalidOperation
-from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import urlencode
-from urllib.request import urlopen
+from typing import Any, Optional
 
-from aiogram import Bot, F, Router, types
+from aiogram import F, Router, types
 from aiohttp import web
-from pydantic import AliasChoices, Field, field_validator
-from pydantic_settings import SettingsConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
-from bot.services.referral_service import ReferralService
-from bot.services.subscription_service import SubscriptionService
-from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
 from config.tariffs_config import (
     default_currency_key_for_settings,
@@ -30,41 +15,10 @@ from db.dal import payment_dal
 
 from .base import (
     PaymentProviderSpec,
-    ProviderEnvConfig,
     ProviderManifestField,
     ServiceFactoryContext,
     WebAppPaymentContext,
-    normalize_payment_currency_code,
-    parse_supported_currency_codes,
-    provider_env_file,
-    provider_runtime_enabled,
 )
-from .shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
-    HttpClientMixin,
-    PaymentSuccessRequest,
-    build_payment_record_payload,
-    create_webapp_payment_record,
-    decimal_amounts_equal,
-    describe_payment,
-    finalize_successful_payment,
-    finalize_webapp_link_payment,
-    first_value,
-    format_decimal_amount,
-    lookup_payment_by_order_or_provider_id,
-    make_translator,
-    notify_callback_parse_error,
-    notify_payment_record_failure,
-    notify_service_unavailable,
-    notify_user_payment_failed,
-    parse_payment_callback,
-    payment_failed,
-    payment_unavailable,
-    payment_units_for_activation,
-    quote_hwid_callback_parts,
-    render_link_or_fail,
-)
-
 from .paykilla_core import (
     PAYKILLA_DEFAULT_EXCHANGE_RATE_URL,
     PAYKILLA_DEFAULT_INVOICE_CURRENCIES,
@@ -75,9 +29,6 @@ from .paykilla_core import (
     PaykillaConfig,
     PaykillaPresentation,
     _clean_paykilla_text,
-    _config_min_payment_amount,
-    _config_min_payment_currency,
-    _invoice_currencies,
     _paykilla_payment_amount_supported,
     _paykilla_payment_minimum_metadata,
     _sign_query,
@@ -85,12 +36,25 @@ from .paykilla_core import (
 )
 from .paykilla_service import PaykillaService
 from .paykilla_webhook import paykilla_webhook_route
+from .shared import (
+    build_payment_record_payload,
+    create_webapp_payment_record,
+    describe_payment,
+    finalize_webapp_link_payment,
+    first_value,
+    make_translator,
+    notify_callback_parse_error,
+    notify_payment_record_failure,
+    notify_service_unavailable,
+    parse_payment_callback,
+    payment_failed,
+    payment_unavailable,
+    quote_hwid_callback_parts,
+    render_link_or_fail,
+)
 
 router = Router(name="user_subscription_payments_paykilla_router")
 _LOG = "paykilla"
-
-
-
 
 
 @router.callback_query(F.data.startswith("pay_paykilla:"))
@@ -238,8 +202,6 @@ async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optio
     if not service or not service.configured:
         return None
     return await service.try_reuse_pending_invoice(payment)
-
-
 
 
 def create_service(ctx: ServiceFactoryContext) -> PaykillaService:
@@ -564,3 +526,27 @@ SPEC = PaymentProviderSpec(
     ),
     currency_support_url="https://paykilla.gitbook.io/paykilla-docs/api-integration/supported-currencies",
 )
+
+__all__ = [
+    "PAYKILLA_DEFAULT_EXCHANGE_RATE_URL",
+    "PAYKILLA_DEFAULT_INVOICE_CURRENCIES",
+    "PAYKILLA_DEFAULT_MIN_PAYMENT_AMOUNT",
+    "PAYKILLA_DEFAULT_MIN_PAYMENT_CURRENCY",
+    "PAYKILLA_DEFAULT_PAYMENT_CURRENCIES",
+    "PAYKILLA_DEFAULT_SUPPORTED_CURRENCIES",
+    "PaykillaConfig",
+    "PaykillaPresentation",
+    "PaykillaService",
+    "SPEC",
+    "_clean_paykilla_text",
+    "_paykilla_payment_amount_supported",
+    "_paykilla_payment_minimum_metadata",
+    "_sign_query",
+    "_webhook_signature",
+    "create_service",
+    "create_webapp_payment",
+    "pay_paykilla_callback_handler",
+    "paykilla_webhook_route",
+    "reuse_webapp_payment",
+    "router",
+]

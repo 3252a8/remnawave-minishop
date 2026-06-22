@@ -1,60 +1,37 @@
 from bot.app.web.webapp.assets import _enforce_webapp_rate_limit, _get_cached_webapp_settings
-from bot.app.web.webapp.auth import _require_user_id, _trial_telegram_required_reason
+from bot.app.web.webapp.auth import _require_user_id
 from bot.app.web.webapp.common import (
-    _invalidate_webapp_user_caches,
     _json_error,
-    _normalize_language,
     _parse_model_payload,
 )
 from bot.app.web.webapp.payloads import (
-    WebAppAutoRenewPayload,
     WebAppPaymentCreatePayload,
-    WebAppPromoApplyPayload,
-    WebAppTariffChangePayload,
 )
-from bot.infra import events
-from bot.infra.event_payloads import PaymentCanceledPayload
-from db.dal import message_log_dal
 
 from ._runtime import (
     Any,
     AsyncSession,
     Dict,
     Optional,
-    Payment,
-    PromoCodeService,
     Settings,
     SubscriptionService,
-    datetime,
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
-    html,
     logger,
     payment_currency_code,
-    payment_dal,
-    prepare_config_links,
-    re,
     sessionmaker,
     subscription_dal,
-    timezone,
     user_dal,
     web,
 )
+from .billing_common import _parse_positive_int_units
 from .common import (
-    _coerce_int_or_none,
-    _format_webapp_datetime,
     _hwid_devices_payment_description,
     _payment_description,
     _resolve_numeric_option_key,
     _traffic_payment_description,
 )
-from .serializers import (
-    _serialize_tariff_change_target,
-    _serialize_topup_packages,
-    _traffic_percent,
-)
 
-from .billing_common import _parse_positive_int_units
 
 async def create_payment_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
@@ -328,6 +305,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
             is_admin=is_admin,
             hwid_quote=hwid_quote,
         )
+
 
 def _sale_mode_base(sale_mode: str) -> str:
     return str(sale_mode or "subscription").split("@", 1)[0].split("|", 1)[0]

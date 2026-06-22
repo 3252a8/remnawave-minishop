@@ -1,29 +1,23 @@
 import asyncio
-import json
 import logging
-import re
-import time
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
-from urllib.parse import urlencode
-
-import aiohttp
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from bot.utils.ttl_cache import AsyncTTLCache
-from config.settings import Settings
-from config.traffic_strategy import normalize_traffic_limit_strategy
-from db.dal import panel_sync_dal
-from db.models import PanelSyncStatus
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 # Static endpoint prefixes used as log/metric labels instead of the raw request
 # path. Endpoints embed user identifiers (telegram id, username, email, uuids),
 # so logging the path verbatim would leak private data into log files; the
 # label keeps only the constant prefix. Longest prefixes first so e.g.
 
-from .panel_api_core import _endpoint_log_label
 
 class PanelApiSquadMutationMixin:
+    if TYPE_CHECKING:
+
+        async def _request(
+            self, method: str, endpoint: str, log_full_response: bool = False, **kwargs
+        ) -> Optional[Dict[str, Any]]: ...
+        async def _invalidate_squad_caches(self) -> None: ...
+        async def _invalidate_user_cache(self, user_uuid: str) -> None: ...
+        async def _invalidate_all_users_cache(self) -> None: ...
+
     async def add_users_to_internal_squad(self, squad_uuid: str, user_uuids: List[str]) -> bool:
         endpoint = f"/internal-squads/{squad_uuid}/bulk-actions/add-users"
         response_data = await self._request(
