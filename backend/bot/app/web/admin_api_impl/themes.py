@@ -4,6 +4,7 @@ import ipaddress
 import re
 import shutil
 import socket
+from typing import cast
 
 from aiohttp import ClientSession, ClientTimeout
 from aiohttp.multipart import BodyPartReader
@@ -132,7 +133,7 @@ WEBAPP_LOGO_UPLOAD_CONTENT_TYPES = {
 
 def _theme_payload_for_version_compare(theme: Any) -> Dict[str, Any]:
     if hasattr(theme, "model_dump"):
-        data = theme.model_dump(mode="json", exclude_none=True)
+        data = cast(Dict[str, Any], theme.model_dump(mode="json", exclude_none=True))
     elif isinstance(theme, dict):
         data = dict(theme)
     else:

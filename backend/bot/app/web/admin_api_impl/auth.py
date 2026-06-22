@@ -1,3 +1,5 @@
+from collections.abc import Awaitable, Callable
+
 from bot.app.web.context import (
     get_session_factory,
     get_settings,
@@ -42,7 +44,10 @@ def _require_admin_user_id(request: web.Request) -> int:
 
 
 @web.middleware
-async def admin_auth_middleware(request: web.Request, handler):
+async def admin_auth_middleware(
+    request: web.Request,
+    handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
+) -> web.StreamResponse:
     """Resolve the Telegram id of the current user and stash it on the request.
 
     Doing this once per request lets every admin route call

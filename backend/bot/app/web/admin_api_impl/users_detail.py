@@ -1,4 +1,6 @@
 from sqlalchemy.orm import aliased
+from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.selectable import Subquery
 
 from bot.app.web.context import (
     get_bot_username,
@@ -86,7 +88,7 @@ async def admin_user_avatar_route(request: web.Request) -> web.Response:
     return response
 
 
-def _ranked_active_subscriptions_sq(now: datetime):
+def _ranked_active_subscriptions_sq(now: datetime) -> Subquery:
     """Latest active subscription per user (same ordering as subscription_dal)."""
 
     rn = sa_func.row_number().over(
@@ -147,7 +149,7 @@ async def _bulk_active_subscriptions_for_users(
     return out
 
 
-def _user_payment_summary_sq():
+def _user_payment_summary_sq() -> Subquery:
     return (
         select(
             Payment.user_id.label("user_id"),
@@ -160,7 +162,7 @@ def _user_payment_summary_sq():
     )
 
 
-def _user_referral_count_sq():
+def _user_referral_count_sq() -> Subquery:
     referred_user = aliased(User)
     return (
         select(
@@ -173,7 +175,7 @@ def _user_referral_count_sq():
     )
 
 
-def _user_subscription_expiry_sq():
+def _user_subscription_expiry_sq() -> Subquery:
     return (
         select(
             Subscription.user_id.label("user_id"),
@@ -448,7 +450,7 @@ async def _filter_and_sort_users(
     return list(users), int(total)
 
 
-def _user_panel_status_condition(panel_status: str):
+def _user_panel_status_condition(panel_status: str) -> ColumnElement[bool] | None:
     status = (panel_status or "all").lower()
     if status not in {"active", "expired", "limited"}:
         return None
@@ -500,7 +502,7 @@ def _user_panel_status_condition(panel_status: str):
     )
 
 
-def _user_search_condition(query: str):
+def _user_search_condition(query: str) -> ColumnElement[bool] | None:
     raw = (query or "").strip().lstrip("@")
     if not raw:
         return None

@@ -1,3 +1,5 @@
+from typing import cast
+
 from ._runtime import (
     AdCampaign,
     AdOut,
@@ -26,7 +28,7 @@ from ._runtime import (
 )
 
 
-def _ok(payload: Dict[str, Any], **extra) -> web.Response:
+def _ok(payload: Dict[str, Any], **extra: Any) -> web.Response:
     body = {"ok": True, **payload, **extra}
     return web.json_response(body)
 
@@ -383,7 +385,7 @@ def _payment_user_display_label(loaded_user: Any, payment_user_id: int) -> str:
 
 
 def _serialize_payment(payment: Payment) -> Dict[str, Any]:
-    return PaymentOut.from_orm_payment(payment).model_dump(mode="json")
+    return cast(Dict[str, Any], PaymentOut.from_orm_payment(payment).model_dump(mode="json"))
 
 
 def _serialize_promo(promo: PromoCode) -> Dict[str, Any]:
@@ -403,11 +405,11 @@ def _serialize_promo(promo: PromoCode) -> Dict[str, Any]:
 
 
 def _serialize_ad(campaign: AdCampaign, totals: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    return AdOut.from_orm_ad(campaign, totals).model_dump(mode="json")
+    return cast(Dict[str, Any], AdOut.from_orm_ad(campaign, totals).model_dump(mode="json"))
 
 
 def _serialize_log(entry: MessageLog) -> Dict[str, Any]:
-    return LogOut.from_orm_log(entry).model_dump(mode="json")
+    return cast(Dict[str, Any], LogOut.from_orm_log(entry).model_dump(mode="json"))
 
 
 def _tariffs_config_path(settings: Settings) -> Path:
@@ -415,7 +417,7 @@ def _tariffs_config_path(settings: Settings) -> Path:
 
 
 def _tariffs_config_payload(config: TariffsConfig) -> Dict[str, Any]:
-    return config.model_dump(mode="json", exclude_none=True)
+    return cast(Dict[str, Any], config.model_dump(mode="json", exclude_none=True))
 
 
 def _write_tariffs_config_file(path: Path, config: TariffsConfig) -> None:
@@ -439,7 +441,7 @@ def _write_tariffs_config_file(path: Path, config: TariffsConfig) -> None:
 
 
 def _webapp_themes_catalog_payload(config: Any) -> Dict[str, Any]:
-    return config.model_dump(mode="json", exclude_none=True)
+    return cast(Dict[str, Any], config.model_dump(mode="json", exclude_none=True))
 
 
 def _panel_node_uuid_key(node: Dict[str, Any]) -> str:

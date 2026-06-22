@@ -1,4 +1,5 @@
 import hashlib
+from typing import cast
 
 from bot.app.web.context import (
     get_session_factory,
@@ -100,17 +101,20 @@ async def _load_admin_users_list_payload(
             premium_traffic=premium_traffic,
             sort_value=sort_value,
         )
-    return await cache.get_or_load(
-        cache_key,
-        lambda: _load_admin_users_list_payload_uncached(
-            async_session_factory,
-            page=page,
-            page_size=page_size,
-            query=query,
-            filter_value=filter_value,
-            panel_status=panel_status,
-            premium_traffic=premium_traffic,
-            sort_value=sort_value,
+    return cast(
+        Dict[str, Any],
+        await cache.get_or_load(
+            cache_key,
+            lambda: _load_admin_users_list_payload_uncached(
+                async_session_factory,
+                page=page,
+                page_size=page_size,
+                query=query,
+                filter_value=filter_value,
+                panel_status=panel_status,
+                premium_traffic=premium_traffic,
+                sort_value=sort_value,
+            ),
         ),
     )
 

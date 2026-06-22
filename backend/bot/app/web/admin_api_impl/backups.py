@@ -1,5 +1,6 @@
 import secrets
 import subprocess
+from typing import cast
 
 from aiohttp.multipart import BodyPartReader
 
@@ -81,8 +82,8 @@ register_contract(
 )
 
 
-def _backup_archive_payload(archive) -> Dict[str, Any]:
-    return archive.to_payload()
+def _backup_archive_payload(archive: BackupArchiveInfo) -> Dict[str, Any]:
+    return cast(Dict[str, Any], archive.to_payload())
 
 
 async def _read_uploaded_backup_file(request: web.Request) -> BackupArchiveInfo:

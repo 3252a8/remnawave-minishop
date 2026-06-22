@@ -8,7 +8,7 @@ from bot.app.web.context import (
 )
 from bot.services.support_service import TicketNotFound
 from db.dal import support_dal, user_dal
-from db.models import SupportTicket, SupportTicketMessage
+from db.models import SupportTicket, SupportTicketMessage, User
 
 from ._runtime import (
     Any,
@@ -100,7 +100,7 @@ register_contract(
 )
 
 
-def _invalid_request_payload_response(_exc) -> web.Response:
+def _invalid_request_payload_response(_exc: Exception) -> web.Response:
     return _error(400, "invalid_request", "Invalid request")
 
 
@@ -123,7 +123,7 @@ def _support_ticket_payload(ticket: SupportTicket) -> Dict[str, Any]:
     }
 
 
-def _user_display_name(user) -> Optional[str]:
+def _user_display_name(user: Optional[User]) -> Optional[str]:
     if not user:
         return None
     name = " ".join(
@@ -154,7 +154,7 @@ def _support_message_payload(
     }
 
 
-def _admin_support_user_payload(user) -> Dict[str, Any]:
+def _admin_support_user_payload(user: Optional[User]) -> Dict[str, Any]:
     if not user:
         return {}
     return {

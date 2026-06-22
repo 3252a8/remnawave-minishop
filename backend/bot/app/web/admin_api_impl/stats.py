@@ -1,4 +1,7 @@
 # ruff: noqa: F401,F403,F405,I001
+from collections.abc import Awaitable
+from typing import cast
+
 from bot.app.web.context import (
     get_panel_service,
     get_session_factory,
@@ -94,9 +97,12 @@ async def _load_admin_db_stats(
     cache = _admin_db_stats_cache(settings)
     if cache is None:
         return await _load_admin_db_stats_uncached(async_session_factory)
-    return await cache.get_or_load(
-        "db",
-        lambda: _load_admin_db_stats_uncached(async_session_factory),
+    return cast(
+        Dict[str, Any],
+        await cache.get_or_load(
+            "db",
+            lambda: _load_admin_db_stats_uncached(async_session_factory),
+        ),
     )
 
 
@@ -134,12 +140,15 @@ def _admin_db_stats_cache(settings: Settings) -> Optional[AsyncTTLCache]:
 async def _load_admin_panel_stats(
     request: web.Request,
     settings: Settings,
-    panel_service,
+    panel_service: Any,
 ) -> Dict[str, Any]:
     cache = _admin_panel_stats_cache(settings)
     if cache is None:
         return await _load_admin_panel_stats_uncached(panel_service)
-    return await cache.get_or_load("panel", lambda: _load_admin_panel_stats_uncached(panel_service))
+    return cast(
+        Dict[str, Any],
+        await cache.get_or_load("panel", lambda: _load_admin_panel_stats_uncached(panel_service)),
+    )
 
 
 def _admin_panel_stats_cache(settings: Settings) -> Optional[AsyncTTLCache]:
@@ -158,7 +167,7 @@ def _admin_panel_stats_cache(settings: Settings) -> Optional[AsyncTTLCache]:
     return cache
 
 
-async def _load_admin_panel_stats_uncached(panel_service) -> Dict[str, Any]:
+async def _load_admin_panel_stats_uncached(panel_service: Any) -> Dict[str, Any]:
     try:
         today = datetime.now(timezone.utc).date()
         start_d = today - timedelta(days=7)
@@ -201,7 +210,7 @@ async def _load_admin_panel_stats_uncached(panel_service) -> Dict[str, Any]:
         return {"error": "unavailable"}
 
 
-async def _safe_panel_call(awaitable, label: str) -> Any:
+async def _safe_panel_call(awaitable: Awaitable[Any], label: str) -> Any:
     try:
         return await awaitable
     except Exception as exc:  # pragma: no cover - optional panel endpoints

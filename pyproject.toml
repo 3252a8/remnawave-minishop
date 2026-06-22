@@ -59,6 +59,7 @@ module = [
     "bot.middlewares.*",
     "bot.utils.*",
     "bot.infra.*",
+    "bot.app.web.admin_api_impl.*",
     "bot.app.web.http_contracts",
     "bot.app.web.route_contracts",
     "web.http_contracts",

@@ -1,3 +1,5 @@
+from typing import cast
+
 from bot.app.web.context import (
     get_i18n,
     get_session_factory,
@@ -74,9 +76,12 @@ def _locale_languages(
     base_languages = set((i18n.base_locales_data or {}).keys())
     override_languages = {str(entry.get("lang") or "") for entry in overrides or []}
     override_languages.update((i18n.locale_overrides or {}).keys())
-    return locale_language_options(
-        base_languages | override_languages,
-        base_languages=base_languages,
+    return cast(
+        List[Dict[str, Any]],
+        locale_language_options(
+            base_languages | override_languages,
+            base_languages=base_languages,
+        ),
     )
 
 

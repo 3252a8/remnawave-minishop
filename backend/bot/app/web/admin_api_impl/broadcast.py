@@ -1,5 +1,6 @@
 import asyncio
 from collections import defaultdict
+from typing import cast
 
 from bot.app.web.context import (
     get_optional_subscription_service,
@@ -180,11 +181,14 @@ async def _load_broadcast_audience_counts(
             panel_service,
         )
     cache_key = "with-panel" if panel_service is not None else "without-panel"
-    return await cache.get_or_load(
-        cache_key,
-        lambda: _load_broadcast_audience_counts_uncached(
-            async_session_factory,
-            panel_service,
+    return cast(
+        Dict[str, Optional[int]],
+        await cache.get_or_load(
+            cache_key,
+            lambda: _load_broadcast_audience_counts_uncached(
+                async_session_factory,
+                panel_service,
+            ),
         ),
     )
 
