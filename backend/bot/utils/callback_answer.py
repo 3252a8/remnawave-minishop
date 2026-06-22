@@ -2,13 +2,18 @@ import logging
 from typing import Any
 
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, Message
 
 _EXPIRED_CALLBACK_MARKERS = (
     "query is too old",
     "response timeout expired",
     "query id is invalid",
 )
+
+
+def callback_message_or_none(callback: CallbackQuery) -> Message | None:
+    message = callback.message
+    return message if isinstance(message, Message) else None
 
 
 def is_expired_callback_answer_error(error: BaseException) -> bool:

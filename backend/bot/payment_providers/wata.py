@@ -9,7 +9,7 @@ from aiogram import Bot, F, Router, types
 from aiohttp import web
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from pydantic import Field, field_validator
 from pydantic_settings import SettingsConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -656,10 +656,10 @@ class WataService(HttpClientMixin):
                     logging.error("Wata public key request failed with status %s", response.status)
                     return None
                 data = await response.json()
-                value = data.get("value") if isinstance(data, dict) else None
-                if isinstance(value, str) and value.strip():
-                    self._cached_public_key_pem[resolved_profile.provider] = value
-                    return value.replace("\\n", "\n")
+                fetched_value: Any = data.get("value") if isinstance(data, dict) else None
+                if isinstance(fetched_value, str) and fetched_value.strip():
+                    self._cached_public_key_pem[resolved_profile.provider] = fetched_value
+                    return fetched_value.replace("\\n", "\n")
         except Exception:
             logging.exception("Wata public key request failed.")
         return None
@@ -677,6 +677,9 @@ class WataService(HttpClientMixin):
             return False
         try:
             public_key = serialization.load_pem_public_key(public_key_pem.encode("utf-8"))
+            if not isinstance(public_key, rsa.RSAPublicKey):
+                logging.warning("Wata webhook: public key is not an RSA key.")
+                return False
             signature = base64.b64decode(signature_header)
             public_key.verify(signature, raw_body, padding.PKCS1v15(), hashes.SHA512())
             return True
@@ -917,6 +920,7 @@ class WataService(HttpClientMixin):
     def _local_payment_link_ttl_expired(self, payment: Any) -> bool:
         profile = self.profile_for_payment(payment)
         created_at = getattr(payment, "created_at", None)
+        created_dt: Optional[datetime]
         if isinstance(created_at, datetime):
             created_dt = (
                 created_at.replace(tzinfo=timezone.utc)

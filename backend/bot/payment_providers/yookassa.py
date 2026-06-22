@@ -45,6 +45,7 @@ from bot.services.panel_api_service import PanelApiService
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
 from bot.services.user_email_notifications import send_user_notification_email
+from bot.utils.callback_answer import callback_message_or_none
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import ensure_user_install_guide_links
 from bot.utils.request_security import ip_in_allowlist, request_client_ip
@@ -172,9 +173,8 @@ class YooKassaService:
         self.subscription_service = subscription_service
         self._bot_username_for_default_return = bot_username_for_default_return
         self._configured_return_url_override = configured_return_url
-        self._sdk_configured_for = (
-            None  # (shop_id, secret_key) currently loaded into the global SDK
-        )
+        # (shop_id, secret_key) currently loaded into the global SDK.
+        self._sdk_configured_for: Optional[tuple[str, str]] = None
 
         if not self.configured:
             if not provider_runtime_enabled(self.config):
@@ -560,7 +560,9 @@ def _resolve_yookassa_activation_amounts(
 ) -> tuple[float, float, int, int, Optional[float]]:
     subscription_months = float(subscription_months_raw or 0)
     traffic_amount_gb = (
-        float(traffic_gb_raw) if _metadata_value_present(traffic_gb_raw) else subscription_months
+        float(traffic_gb_raw or 0)
+        if _metadata_value_present(traffic_gb_raw)
+        else subscription_months
     )
     hwid_devices_count = 0
     if _metadata_value_present(hwid_devices_raw):
@@ -602,7 +604,8 @@ async def process_successful_payment(
     referral_service: ReferralService,
     lknpd_service: Optional[LknpdService] = None,
 ):
-    metadata = payment_info_from_webhook.get("metadata", {})
+    metadata_raw = payment_info_from_webhook.get("metadata")
+    metadata = metadata_raw if isinstance(metadata_raw, dict) else {}
     user_id_str = metadata.get("user_id")
     subscription_months_str = metadata.get("subscription_months")
     traffic_gb_str = metadata.get("traffic_gb")
@@ -1003,7 +1006,7 @@ async def process_successful_payment(
         _ = translator
 
         traffic_label = format_human_units(traffic_amount_gb)
-        if should_send_lknpd_receipt:
+        if should_send_lknpd_receipt and lknpd_service is not None:
             receipt_item_name = payment_info_from_webhook.get("description")
             if not receipt_item_name:
                 if is_traffic_sale_base(sale_mode_base):
@@ -1123,7 +1126,8 @@ async def process_cancelled_payment(
     settings: Settings,
 ):
 
-    metadata = payment_info_from_webhook.get("metadata", {})
+    metadata_raw = payment_info_from_webhook.get("metadata")
+    metadata = metadata_raw if isinstance(metadata_raw, dict) else {}
     user_id_str = metadata.get("user_id")
     payment_db_id_str = metadata.get("payment_db_id")
 
@@ -1254,7 +1258,7 @@ async def yookassa_webhook_route(request: web.Request):
                 logging.exception("Failed to serialize YooKassa payment_method from webhook")
                 pm_dict = None
 
-        payment_dict_for_processing = {
+        payment_dict_for_processing: Dict[str, Any] = {
             "id": str(payment_data_from_notification.id),
             "status": str(payment_data_from_notification.status),
             "paid": bool(payment_data_from_notification.paid),
@@ -1327,7 +1331,8 @@ async def yookassa_webhook_route(request: web.Request):
                             )
                     elif notification_object.event == YOOKASSA_EVENT_PAYMENT_WAITING_FOR_CAPTURE:
                         # Bind-only flow: save method and cancel auth if metadata has bind_only
-                        metadata = payment_dict_for_processing.get("metadata", {}) or {}
+                        metadata_raw = payment_dict_for_processing.get("metadata")
+                        metadata = metadata_raw if isinstance(metadata_raw, dict) else {}
                         if (
                             settings.yookassa_autopayments_active
                             and metadata.get("bind_only") == "1"
@@ -1344,7 +1349,8 @@ async def yookassa_webhook_route(request: web.Request):
                                     ):
                                         pm_type = payment_method.get("type")
                                         title = payment_method.get("title")
-                                        card = payment_method.get("card") or {}
+                                        card_raw = payment_method.get("card")
+                                        card = card_raw if isinstance(card_raw, dict) else {}
                                         account_number = payment_method.get(
                                             "account_number"
                                         ) or payment_method.get("account")
@@ -1454,10 +1460,11 @@ async def yookassa_webhook_route(request: web.Request):
                                             yk: YooKassaService = request.app.get(
                                                 "yookassa_service"
                                             )
-                                            if yk:
-                                                await yk.cancel_payment(
-                                                    payment_dict_for_processing.get("id")
-                                                )
+                                            payment_id_to_cancel = str(
+                                                payment_dict_for_processing.get("id") or ""
+                                            )
+                                            if yk and payment_id_to_cancel:
+                                                await yk.cancel_payment(payment_id_to_cancel)
                                         except Exception:
                                             logging.exception(
                                                 "Failed to cancel bind-only payment auth"
@@ -1566,7 +1573,7 @@ async def _initiate_yk_payment(
     current_lang: str,
     get_text,
     user_id: int,
-    months: int,
+    months: float,
     price_rub: float,
     currency_code_for_yk: str,
     save_payment_method: bool,
@@ -1577,7 +1584,8 @@ async def _initiate_yk_payment(
     hwid_quote: Optional[dict] = None,
 ) -> bool:
     """Create payment record and initiate YooKassa payment (new card or saved card)."""
-    if not callback.message:
+    message = callback_message_or_none(callback)
+    if message is None:
         return False
 
     sale_base = _sale_mode_base(sale_mode)
@@ -1631,14 +1639,14 @@ async def _initiate_yk_payment(
             exc_info=True,
         )
         try:
-            await callback.message.edit_text(get_text("error_creating_payment_record"))
+            await message.edit_text(get_text("error_creating_payment_record"))
         except Exception:
             pass
         return False
 
     if not db_payment_record:
         try:
-            await callback.message.edit_text(get_text("error_creating_payment_record"))
+            await message.edit_text(get_text("error_creating_payment_record"))
         except Exception:
             pass
         return False
@@ -1753,13 +1761,13 @@ async def _initiate_yk_payment(
                 exc_info=True,
             )
             try:
-                await callback.message.edit_text(get_text("error_payment_gateway_link_failed"))
+                await message.edit_text(get_text("error_payment_gateway_link_failed"))
             except Exception:
                 pass
             return False
 
         try:
-            await callback.message.edit_text(
+            await message.edit_text(
                 get_text(
                     key="payment_link_message_traffic"
                     if sale_base in {"traffic", "traffic_package", "topup", "premium_topup"}
@@ -1779,7 +1787,7 @@ async def _initiate_yk_payment(
         except Exception as e_edit:
             logging.warning(f"Edit message for payment link failed: {e_edit}. Sending new one.")
             try:
-                await callback.message.answer(
+                await message.answer(
                     get_text(
                         key="payment_link_message_traffic"
                         if sale_base in {"traffic", "traffic_package", "topup", "premium_topup"}
@@ -1825,21 +1833,21 @@ async def _initiate_yk_payment(
                 exc_info=True,
             )
             try:
-                await callback.message.edit_text(get_text("error_payment_gateway"))
+                await message.edit_text(get_text("error_payment_gateway"))
             except Exception:
                 pass
             return False
 
         message_text = get_text("yookassa_autopay_charge_initiated")
         try:
-            await callback.message.edit_text(
+            await message.edit_text(
                 message_text,
                 reply_markup=get_back_to_main_menu_markup(current_lang, i18n),
             )
         except Exception as e_edit:
             logging.warning(f"Failed to notify about saved-card charge start: {e_edit}")
             try:
-                await callback.message.answer(
+                await message.answer(
                     message_text,
                     reply_markup=get_back_to_main_menu_markup(current_lang, i18n),
                 )
@@ -1862,7 +1870,7 @@ async def _initiate_yk_payment(
         f"Failed to create payment in YooKassa for user {user_id}, payment_db_id {db_payment_record.payment_id}. Response: {payment_response_yk}"  # noqa: E501
     )
     try:
-        await callback.message.edit_text(get_text("error_payment_gateway"))
+        await message.edit_text(get_text("error_payment_gateway"))
     except Exception:
         pass
     return False
@@ -1883,9 +1891,10 @@ async def _yookassa_available_to_callback_user(
         await callback.answer(get_text("payment_service_unavailable_alert"), show_alert=True)
     except Exception:
         pass
-    if callback.message:
+    message = callback_message_or_none(callback)
+    if message is not None:
         try:
-            await callback.message.edit_text(get_text("payment_service_unavailable"))
+            await message.edit_text(get_text("payment_service_unavailable"))
         except Exception:
             pass
     return False
@@ -1903,7 +1912,8 @@ async def pay_yk_callback_handler(
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
-    if not i18n or not callback.message:
+    message = callback_message_or_none(callback)
+    if not i18n or message is None:
         try:
             await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         except Exception:
@@ -1915,18 +1925,18 @@ async def pay_yk_callback_handler(
 
     if not yookassa_service or not yookassa_service.configured:
         logging.error("YooKassa service is not configured or unavailable.")
-        target_msg_edit = callback.message
-        await target_msg_edit.edit_text(get_text("payment_service_unavailable"))
+        await message.edit_text(get_text("payment_service_unavailable"))
         try:
             await callback.answer(get_text("payment_service_unavailable_alert"), show_alert=True)
         except Exception:
             pass
         return
 
+    callback_data = callback.data or ""
     try:
-        _, data_payload = callback.data.split(":", 1)
+        _, data_payload = callback_data.split(":", 1)
     except ValueError:
-        logging.error(f"Invalid pay_yk data in callback: {callback.data}")
+        logging.error(f"Invalid pay_yk data in callback: {callback_data}")
         try:
             await callback.answer(get_text("error_try_again"), show_alert=True)
         except Exception:
@@ -1935,7 +1945,7 @@ async def pay_yk_callback_handler(
 
     parsed = _parse_offer_payload(data_payload)
     if not parsed:
-        logging.error(f"Invalid pay_yk payload structure: {callback.data}")
+        logging.error(f"Invalid pay_yk payload structure: {callback_data}")
         try:
             await callback.answer(get_text("error_try_again"), show_alert=True)
         except Exception:
@@ -1966,7 +1976,7 @@ async def pay_yk_callback_handler(
 
     if autopay_enabled and saved_methods:
         try:
-            await callback.message.edit_text(
+            await message.edit_text(
                 get_text("yookassa_autopay_flow_prompt"),
                 reply_markup=get_yk_autopay_choice_keyboard(
                     months,
@@ -1983,7 +1993,7 @@ async def pay_yk_callback_handler(
         except Exception as e_edit:
             logging.warning(f"Failed to show autopay choice: {e_edit}. Sending new message.")
             try:
-                await callback.message.answer(
+                await message.answer(
                     get_text("yookassa_autopay_flow_prompt"),
                     reply_markup=get_yk_autopay_choice_keyboard(
                         months,
@@ -2056,7 +2066,8 @@ async def pay_yk_new_card_handler(
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
-    if not i18n or not callback.message:
+    message = callback_message_or_none(callback)
+    if not i18n or message is None:
         try:
             await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         except Exception:
@@ -2073,15 +2084,16 @@ async def pay_yk_new_card_handler(
         except Exception:
             pass
         try:
-            await callback.message.edit_text(get_text("payment_service_unavailable"))
+            await message.edit_text(get_text("payment_service_unavailable"))
         except Exception:
             pass
         return
 
+    callback_data = callback.data or ""
     try:
-        _, data_payload = callback.data.split(":", 1)
+        _, data_payload = callback_data.split(":", 1)
     except ValueError:
-        logging.error(f"Invalid pay_yk_new data in callback: {callback.data}")
+        logging.error(f"Invalid pay_yk_new data in callback: {callback_data}")
         try:
             await callback.answer(get_text("error_try_again"), show_alert=True)
         except Exception:
@@ -2090,7 +2102,7 @@ async def pay_yk_new_card_handler(
 
     parsed = _parse_offer_payload(data_payload)
     if not parsed:
-        logging.error(f"Invalid pay_yk_new payload structure: {callback.data}")
+        logging.error(f"Invalid pay_yk_new payload structure: {callback_data}")
         try:
             await callback.answer(get_text("error_try_again"), show_alert=True)
         except Exception:
@@ -2160,7 +2172,8 @@ async def pay_yk_saved_list_handler(
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
-    if not i18n or not callback.message:
+    message = callback_message_or_none(callback)
+    if not i18n or message is None:
         try:
             await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         except Exception:
@@ -2170,10 +2183,11 @@ async def pay_yk_saved_list_handler(
     if not await _yookassa_available_to_callback_user(callback, settings, get_text):
         return
 
+    callback_data = callback.data or ""
     try:
-        _, data_payload = callback.data.split(":", 1)
+        _, data_payload = callback_data.split(":", 1)
     except ValueError:
-        logging.error(f"Invalid pay_yk_saved_list data: {callback.data}")
+        logging.error(f"Invalid pay_yk_saved_list data: {callback_data}")
         try:
             await callback.answer(get_text("error_try_again"), show_alert=True)
         except Exception:
@@ -2182,7 +2196,7 @@ async def pay_yk_saved_list_handler(
 
     parsed_saved_list = _parse_saved_list_payload(data_payload)
     if not parsed_saved_list:
-        logging.error(f"pay_yk_saved_list payload missing components: {callback.data}")
+        logging.error(f"pay_yk_saved_list payload missing components: {callback_data}")
         try:
             await callback.answer(get_text("error_try_again"), show_alert=True)
         except Exception:
@@ -2213,7 +2227,7 @@ async def pay_yk_saved_list_handler(
 
     if not saved_methods:
         try:
-            await callback.message.edit_text(
+            await message.edit_text(
                 get_text("yookassa_autopay_no_saved_cards"),
                 reply_markup=get_yk_autopay_choice_keyboard(
                     months,
@@ -2230,7 +2244,7 @@ async def pay_yk_saved_list_handler(
         except Exception as e_edit:
             logging.warning(f"Failed to display no-saved-card notice: {e_edit}")
             try:
-                await callback.message.answer(
+                await message.answer(
                     get_text("yookassa_autopay_no_saved_cards"),
                     reply_markup=get_yk_autopay_choice_keyboard(
                         months,
@@ -2264,7 +2278,7 @@ async def pay_yk_saved_list_handler(
     page = max(0, min(page, max_page))
 
     try:
-        await callback.message.edit_text(
+        await message.edit_text(
             get_text("yookassa_autopay_choose_saved_card"),
             reply_markup=get_yk_saved_cards_keyboard(
                 cards,
@@ -2279,7 +2293,7 @@ async def pay_yk_saved_list_handler(
     except Exception as e_edit:
         logging.warning(f"Failed to display saved card list: {e_edit}")
         try:
-            await callback.message.answer(
+            await message.answer(
                 get_text("yookassa_autopay_choose_saved_card"),
                 reply_markup=get_yk_saved_cards_keyboard(
                     cards,
@@ -2311,7 +2325,8 @@ async def pay_yk_use_saved_handler(
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
-    if not i18n or not callback.message:
+    message = callback_message_or_none(callback)
+    if not i18n or message is None:
         try:
             await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         except Exception:
@@ -2328,15 +2343,16 @@ async def pay_yk_use_saved_handler(
         except Exception:
             pass
         try:
-            await callback.message.edit_text(get_text("payment_service_unavailable"))
+            await message.edit_text(get_text("payment_service_unavailable"))
         except Exception:
             pass
         return
 
+    callback_data = callback.data or ""
     try:
-        _, data_payload = callback.data.split(":", 1)
+        _, data_payload = callback_data.split(":", 1)
     except ValueError:
-        logging.error(f"Invalid pay_yk_use_saved data: {callback.data}")
+        logging.error(f"Invalid pay_yk_use_saved data: {callback_data}")
         try:
             await callback.answer(get_text("error_try_again"), show_alert=True)
         except Exception:
@@ -2345,7 +2361,7 @@ async def pay_yk_use_saved_handler(
 
     parts = data_payload.split(":")
     if len(parts) < 3:
-        logging.error(f"pay_yk_use_saved payload missing components: {callback.data}")
+        logging.error(f"pay_yk_use_saved payload missing components: {callback_data}")
         try:
             await callback.answer(get_text("error_try_again"), show_alert=True)
         except Exception:
@@ -2357,7 +2373,7 @@ async def pay_yk_use_saved_handler(
         price_rub = float(parts[1])
         sale_mode = parts[3] if len(parts) > 3 else "subscription"
     except (ValueError, IndexError):
-        logging.error(f"pay_yk_use_saved months/price parsing error: {callback.data}")
+        logging.error(f"pay_yk_use_saved months/price parsing error: {callback_data}")
         try:
             await callback.answer(get_text("error_try_again"), show_alert=True)
         except Exception:
@@ -2468,6 +2484,10 @@ async def payment_methods_manage(
             pass
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
+    message = callback_message_or_none(callback)
+    if message is None:
+        await callback.answer(_("error_try_again"), show_alert=True)
+        return
 
     from db.dal.user_billing_dal import list_user_payment_methods
 
@@ -2475,35 +2495,17 @@ async def payment_methods_manage(
     methods = await list_user_payment_methods(session, callback.from_user.id)
     cards: List[tuple] = []
 
-    def _is_yoomoney_network(network: Optional[str]) -> bool:
-        s = (network or "").lower()
-        return "yoomoney" in s or "yoo money" in s or "yoo-money" in s
-
-    def _extract_last4(text: str) -> Optional[str]:
-        digits = "".join(ch for ch in text if ch.isdigit())
-        return digits[-4:] if len(digits) >= 4 else None
-
-    def _format_pm_title(network: Optional[str], last4: Optional[str]) -> str:
-        if _is_yoomoney_network(network):
-            l4 = last4 or _extract_last4(network or "")
-            if l4:
-                return get_text("payment_method_wallet_title", last4=l4)
-            return get_text("payment_method_wallet_title", last4="****")
-        if last4:
-            network_name = network or get_text("payment_network_card")
-            return get_text("payment_method_card_title", network=network_name, last4=last4)
-        network_name = network or get_text("payment_network_generic")
-        return get_text("payment_method_generic_title", network=network_name)
-
     for m in methods:
-        title = _format_pm_title(m.card_network, m.card_last4)
-        cards.append((str(m.method_id), title if not m.is_default else f"⭐ {title}"))
+        title = _format_saved_payment_method_title(
+            get_text, m.card_network, m.card_last4, m.is_default
+        )
+        cards.append((str(m.method_id), title))
 
     text = get_text("payment_methods_title")
     if not cards:
         text += "\n\n" + get_text("payment_method_none")
 
-    await callback.message.edit_text(
+    await message.edit_text(
         text, reply_markup=get_payment_methods_list_keyboard(cards, 0, current_lang, i18n)
     )
     try:
@@ -2530,6 +2532,10 @@ async def payment_method_bind(
             pass
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
+    message = callback_message_or_none(callback)
+    if message is None:
+        await callback.answer(_("error_try_again"), show_alert=True)
+        return
 
     metadata = {"user_id": str(callback.from_user.id), "bind_only": "1"}
     resp = await yookassa_service.create_payment(
@@ -2550,7 +2556,7 @@ async def payment_method_bind(
         )
         await callback.answer(_("error_payment_gateway"), show_alert=True)
         return
-    await callback.message.edit_text(
+    await message.edit_text(
         _("payment_methods_title"),
         reply_markup=get_bind_url_keyboard(resp["confirmation_url"], current_lang, i18n),
     )
@@ -2574,9 +2580,13 @@ async def payment_method_delete_confirm(
             pass
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
-    parts = callback.data.split(":", 2)
+    message = callback_message_or_none(callback)
+    if message is None:
+        await callback.answer(_("error_try_again"), show_alert=True)
+        return
+    parts = (callback.data or "").split(":", 2)
     pm_id = parts[2] if len(parts) >= 3 else ""
-    await callback.message.edit_text(
+    await message.edit_text(
         _("payment_method_delete_confirm"),
         reply_markup=get_payment_method_delete_confirm_keyboard(pm_id, current_lang, i18n),
     )
@@ -2600,7 +2610,11 @@ async def payment_method_delete(
             pass
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
-    parts = callback.data.split(":", 2)
+    message = callback_message_or_none(callback)
+    if message is None:
+        await callback.answer(_("error_try_again"), show_alert=True)
+        return
+    parts = (callback.data or "").split(":", 2)
     pm_id_raw = parts[2] if len(parts) >= 3 else ""
     deleted = False
 
@@ -2633,33 +2647,14 @@ async def payment_method_delete(
         text = _("payment_methods_title")
         cards = []
         for m in methods:
-
-            def _is_yoomoney_network(network: Optional[str]) -> bool:
-                s = (network or "").lower()
-                return "yoomoney" in s or "yoo money" in s or "yoo-money" in s
-
-            def _extract_last4(text: str) -> Optional[str]:
-                digits = "".join(ch for ch in text if ch.isdigit())
-                return digits[-4:] if len(digits) >= 4 else None
-
-            def _format_pm_title(network: Optional[str], last4: Optional[str]) -> str:
-                if _is_yoomoney_network(network):
-                    l4 = last4 or _extract_last4(network or "")
-                    if l4:
-                        return _("payment_method_wallet_title", last4=l4)
-                    return _("payment_method_wallet_title", last4="****")
-                if last4:
-                    network_name = network or _("payment_network_card")
-                    return _("payment_method_card_title", network=network_name, last4=last4)
-                network_name = network or _("payment_network_generic")
-                return _("payment_method_generic_title", network=network_name)
-
-            title = _format_pm_title(m.card_network, m.card_last4)
-            cards.append((str(m.method_id), title if not m.is_default else f"⭐ {title}"))
+            title = _format_saved_payment_method_title(
+                _, m.card_network, m.card_last4, m.is_default
+            )
+            cards.append((str(m.method_id), title))
         if not cards:
             text += "\n\n" + _("payment_method_none")
         msg = _("payment_method_deleted_success") if deleted else _("error_try_again")
-        await callback.message.edit_text(
+        await message.edit_text(
             f"{msg}\n\n{text}",
             reply_markup=get_payment_methods_list_keyboard(cards, 0, current_lang, i18n),
         )
@@ -2690,6 +2685,10 @@ async def payment_method_view(
             pass
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
+    message = callback_message_or_none(callback)
+    if message is None:
+        await callback.answer(_("error_try_again"), show_alert=True)
+        return
 
     billing = await user_billing_dal.get_user_billing(session, callback.from_user.id)
     if not billing or not billing.yookassa_payment_method_id:
@@ -2699,7 +2698,7 @@ async def payment_method_view(
         if not methods:
             await callback.answer(_("payment_method_none"), show_alert=True)
             return
-        parts = callback.data.split(":", 2)
+        parts = (callback.data or "").split(":", 2)
         pm_id = parts[2] if len(parts) >= 3 else str(methods[0].method_id)
         sel = next(
             (
@@ -2710,27 +2709,7 @@ async def payment_method_view(
             methods[0],
         )
 
-        def _is_yoomoney_network(network: Optional[str]) -> bool:
-            s = (network or "").lower()
-            return "yoomoney" in s or "yoo money" in s or "yoo-money" in s
-
-        def _extract_last4(text: str) -> Optional[str]:
-            digits = "".join(ch for ch in text if ch.isdigit())
-            return digits[-4:] if len(digits) >= 4 else None
-
-        def _format_pm_title(network: Optional[str], last4: Optional[str]) -> str:
-            if _is_yoomoney_network(network):
-                l4 = last4 or _extract_last4(network or "")
-                if l4:
-                    return _("payment_method_wallet_title", last4=l4)
-                return _("payment_method_wallet_title", last4="****")
-            if last4:
-                network_name = network or _("payment_network_card")
-                return _("payment_method_card_title", network=network_name, last4=last4)
-            network_name = network or _("payment_network_generic")
-            return _("payment_method_generic_title", network=network_name)
-
-        title = _format_pm_title(sel.card_network, sel.card_last4)
+        title = _format_saved_payment_method_title(_, sel.card_network, sel.card_last4, False)
         added_at = sel.created_at.strftime("%Y-%m-%d") if getattr(sel, "created_at", None) else "—"
         last_tx = "—"
         try:
@@ -2751,7 +2730,7 @@ async def payment_method_view(
         except Exception:
             pass
         details = f"{title}\n{_('payment_method_added_at', date=added_at)}\n{_('payment_method_last_tx', date=last_tx)}"  # noqa: E501
-        await callback.message.edit_text(
+        await message.edit_text(
             details,
             reply_markup=get_payment_method_details_keyboard(
                 str(sel.method_id), current_lang, i18n
@@ -2785,29 +2764,9 @@ async def payment_method_view(
     except Exception:
         pass
 
-    def _is_yoomoney_network(network: Optional[str]) -> bool:
-        s = (network or "").lower()
-        return "yoomoney" in s or "yoo money" in s or "yoo-money" in s
-
-    def _extract_last4(text: str) -> Optional[str]:
-        digits = "".join(ch for ch in text if ch.isdigit())
-        return digits[-4:] if len(digits) >= 4 else None
-
-    def _format_pm_title(network: Optional[str], last4: Optional[str]) -> str:
-        if _is_yoomoney_network(network):
-            l4 = last4 or _extract_last4(network or "")
-            if l4:
-                return _("payment_method_wallet_title", last4=l4)
-            return _("payment_method_wallet_title", last4="****")
-        if last4:
-            network_name = network or _("payment_network_card")
-            return _("payment_method_card_title", network=network_name, last4=last4)
-        network_name = network or _("payment_network_generic")
-        return _("payment_method_generic_title", network=network_name)
-
-    title = _format_pm_title(billing.card_network, billing.card_last4)
+    title = _format_saved_payment_method_title(_, billing.card_network, billing.card_last4, False)
     details = f"{title}\n{_('payment_method_added_at', date=added_at)}\n{_('payment_method_last_tx', date=last_tx)}"  # noqa: E501
-    await callback.message.edit_text(
+    await message.edit_text(
         details,
         reply_markup=get_payment_method_details_keyboard(
             billing.yookassa_payment_method_id, current_lang, i18n
@@ -2837,6 +2796,10 @@ async def payment_method_history(
             pass
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
+    message = callback_message_or_none(callback)
+    if message is None:
+        await callback.answer(_("error_try_again"), show_alert=True)
+        return
 
     from db.dal import payment_dal
 
@@ -2845,8 +2808,9 @@ async def payment_method_history(
 
     selected_pm_provider_id: Optional[str] = None
     pm_filter_requested: bool = False
+    callback_data = callback.data or ""
     try:
-        split_a, split_b, split_pm_id = callback.data.split(":", 2)
+        split_a, split_b, split_pm_id = callback_data.split(":", 2)
         if split_pm_id:
             pm_filter_requested = True
             if split_pm_id.isdigit():
@@ -2889,7 +2853,7 @@ async def payment_method_history(
 
         back_pm_id = ""
         try:
-            split_a, split_b, back_pm_id = callback.data.split(":", 2)
+            split_a, split_b, back_pm_id = callback_data.split(":", 2)
         except Exception:
             back_pm_id = ""
         back_markup = (
@@ -2897,7 +2861,7 @@ async def payment_method_history(
             if back_pm_id
             else get_payment_methods_manage_keyboard(current_lang, i18n, has_card=True)
         )
-        await callback.message.edit_text(_("payment_method_no_history"), reply_markup=back_markup)
+        await message.edit_text(_("payment_method_no_history"), reply_markup=back_markup)
         return
 
     traffic_mode = getattr(settings, "traffic_sale_mode", False)
@@ -2919,7 +2883,7 @@ async def payment_method_history(
     lines = [_format_item(p) for p in user_payments]
     text = _("payment_method_tx_history_title") + "\n\n" + "\n".join(lines)
     try:
-        split_a, split_b, split_pm_id_for_back = callback.data.split(":", 2)
+        split_a, split_b, split_pm_id_for_back = callback_data.split(":", 2)
     except Exception:
         split_pm_id_for_back = ""
     from bot.keyboards.inline.user_keyboards import (
@@ -2932,7 +2896,7 @@ async def payment_method_history(
         if split_pm_id_for_back
         else get_payment_methods_manage_keyboard(current_lang, i18n, has_card=True)
     )
-    await callback.message.edit_text(text, reply_markup=back_markup)
+    await message.edit_text(text, reply_markup=back_markup)
 
 
 @router.callback_query(F.data.startswith("pm:list:"))
@@ -2942,38 +2906,23 @@ async def payment_methods_list(
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
+    message = callback_message_or_none(callback)
+    if message is None:
+        await callback.answer(get_text("error_try_again"), show_alert=True)
+        return
 
     from db.dal.user_billing_dal import list_user_payment_methods
 
     cards: List[tuple] = []
     methods = await list_user_payment_methods(session, callback.from_user.id)
     for m in methods:
-
-        def _is_yoomoney_network(network: Optional[str]) -> bool:
-            s = (network or "").lower()
-            return "yoomoney" in s or "yoo money" in s or "yoo-money" in s
-
-        def _extract_last4(text: str) -> Optional[str]:
-            digits = "".join(ch for ch in text if ch.isdigit())
-            return digits[-4:] if len(digits) >= 4 else None
-
-        def _format_pm_title(network: Optional[str], last4: Optional[str]) -> str:
-            if _is_yoomoney_network(network):
-                l4 = last4 or _extract_last4(network or "")
-                if l4:
-                    return get_text("payment_method_wallet_title", last4=l4)
-                return get_text("payment_method_wallet_title", last4="****")
-            if last4:
-                network_name = network or get_text("payment_network_card")
-                return get_text("payment_method_card_title", network=network_name, last4=last4)
-            network_name = network or get_text("payment_network_generic")
-            return get_text("payment_method_generic_title", network=network_name)
-
-        title = _format_pm_title(m.card_network, m.card_last4)
-        cards.append((str(m.method_id), title if not m.is_default else f"⭐ {title}"))
+        title = _format_saved_payment_method_title(
+            get_text, m.card_network, m.card_last4, m.is_default
+        )
+        cards.append((str(m.method_id), title))
 
     try:
-        _, _, page_str = callback.data.split(":", 2)
+        _, _, page_str = (callback.data or "").split(":", 2)
         page = int(page_str)
     except Exception:
         page = 0
@@ -2981,7 +2930,7 @@ async def payment_methods_list(
     text = get_text("payment_methods_title")
     if not cards:
         text += "\n\n" + get_text("payment_method_none")
-    await callback.message.edit_text(
+    await message.edit_text(
         text, reply_markup=get_payment_methods_list_keyboard(cards, page, current_lang, i18n)
     )
     try:
@@ -3065,13 +3014,14 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
             save_payment_method=False,
         )
         payment_url = response.get("confirmation_url") if response else None
+        provider_payment_id = str(response.get("id") or "") if response else ""
         if not payment_url:
             logger.error(
                 "YooKassa WebApp payment creation failed for payment %s "
                 "(user_id=%s, has_provider_payment_id=%s, response=%s).",
                 payment.payment_id,
                 ctx.user_id,
-                bool(response and response.get("id")),
+                bool(provider_payment_id),
                 response,
             )
             await mark_payment_failed_creation(ctx.session, payment.payment_id)
@@ -3081,7 +3031,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
             ctx.session,
             payment.payment_id,
             "pending_yookassa",
-            yk_payment_id=response.get("id"),
+            yk_payment_id=provider_payment_id or None,
         )
         await ctx.session.commit()
         return payment_link_response(payment_url=payment_url, payment_id=payment.payment_id)
@@ -3110,7 +3060,8 @@ async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optio
     if bool(info.get("paid")):
         return None
 
-    metadata = info.get("metadata") or {}
+    metadata_raw = info.get("metadata")
+    metadata = metadata_raw if isinstance(metadata_raw, dict) else {}
     expected_metadata = {
         "user_id": str(ctx.user_id),
         "payment_db_id": str(payment.payment_id),

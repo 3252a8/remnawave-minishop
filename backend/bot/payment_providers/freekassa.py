@@ -199,7 +199,7 @@ class FreeKassaService(HttpClientMixin):
         *,
         payment_db_id: int,
         user_id: int,
-        months: int,
+        months: float,
         amount: float,
         currency: Optional[str],
         email: Optional[str] = None,
@@ -224,6 +224,9 @@ class FreeKassaService(HttpClientMixin):
                 "currency": currency_code,
                 "supported_currencies": list(FREEKASSA_SUPPORTED_CURRENCIES),
             }
+        if payment_method_id is None:
+            logging.error("FreeKassaService: payment method id is required but not configured.")
+            return False, {"message": "missing_payment_method_id"}
 
         payload: Dict[str, Any] = {
             "shopId": int(self.shop_id),

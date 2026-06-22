@@ -11,6 +11,7 @@ from bot.keyboards.inline.user_keyboards import payment_methods_back_callback
 from bot.middlewares.i18n import JsonI18n
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
+from bot.utils.callback_answer import callback_message_or_none
 from config.settings import Settings
 from db.dal import payment_dal
 
@@ -155,12 +156,19 @@ class StarsService:
         if payment.status == "succeeded":
             logging.info("Stars: payment %s already succeeded.", payment_db_id)
             return
+        successful_payment = message.successful_payment
+        if successful_payment is None:
+            logging.error(
+                "Stars: successful payment payload is missing for payment %s.",
+                payment_db_id,
+            )
+            return
 
         try:
             payment_record = await payment_dal.update_provider_payment_and_status(
                 session,
                 payment_db_id,
-                message.successful_payment.provider_payment_charge_id,
+                successful_payment.provider_payment_charge_id,
                 PAYMENT_STATUS_PENDING_FINALIZATION,
             )
             await session.commit()
@@ -172,7 +180,7 @@ class StarsService:
         target_user_id = (
             int(payment_record.user_id)
             if payment_record and payment_record.user_id is not None
-            else int(message.from_user.id)
+            else int(message.from_user.id if message.from_user else payment.user_id)
         )
         payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
 
@@ -247,7 +255,7 @@ async def pay_stars_callback_handler(
     payment_db_id = await stars_service.create_invoice(
         session=session,
         user_id=callback.from_user.id,
-        months=parts.months,
+        months=int(parts.months),
         stars_price=stars_price,
         description=payment_description,
         sale_mode=parts.sale_mode,
@@ -274,7 +282,11 @@ async def pay_stars_callback_handler(
             ]
         )
         try:
-            await callback.message.edit_text(
+            message = callback_message_or_none(callback)
+            if message is None:
+                await safe_callback_answer(callback)
+                return
+            await message.edit_text(
                 translator(
                     text_key,
                     months=int(parts.months),
@@ -313,7 +325,7 @@ async def handle_successful_stars_payment(
     try:
         parts = (payload or "").split(":")
         payment_db_id = int(parts[0])
-        months = float(parts[1]) if len(parts) > 1 else 0
+        months = int(float(parts[1])) if len(parts) > 1 else 0
         sale_mode = parts[2] if len(parts) > 2 else "subscription"
     except Exception:
         return

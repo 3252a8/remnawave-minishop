@@ -225,7 +225,7 @@ class SeverPayService(HttpClientMixin):
         session = await self._get_session()
         url = f"{self.base_url}/payin/create"
 
-        body = {
+        body: Dict[str, Any] = {
             "order_id": str(payment_db_id),
             "amount": self._format_amount(amount),
             "currency": currency_code,

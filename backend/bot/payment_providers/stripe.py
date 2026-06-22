@@ -605,7 +605,8 @@ class StripeService(HttpClientMixin):
         )
 
     def _payment_db_id_from_object(self, obj: Mapping[str, Any]) -> Optional[str]:
-        metadata = obj.get("metadata") if isinstance(obj.get("metadata"), dict) else {}
+        metadata_raw = obj.get("metadata")
+        metadata: Mapping[str, Any] = metadata_raw if isinstance(metadata_raw, dict) else {}
         payment_db_id = metadata.get("payment_db_id") or obj.get("client_reference_id")
         return str(payment_db_id).strip() if payment_db_id else None
 
@@ -809,8 +810,10 @@ class StripeService(HttpClientMixin):
             return web.json_response({"error": "invalid_json"}, status=400)
 
         event_type = str(payload.get("type") or "").strip()
-        data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
-        obj = data.get("object") if isinstance(data.get("object"), dict) else {}
+        data_raw = payload.get("data")
+        data: Mapping[str, Any] = data_raw if isinstance(data_raw, dict) else {}
+        obj_raw = data.get("object")
+        obj: Mapping[str, Any] = obj_raw if isinstance(obj_raw, dict) else {}
         if event_type in _SUCCESS_EVENT_TYPES:
             return await self._handle_success_event(event_type, obj)
         if event_type in _FAILED_EVENT_TYPES:

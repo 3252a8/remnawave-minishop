@@ -1183,6 +1183,7 @@ class PaykillaService(HttpClientMixin):
                     payment=payment,
                 )
                 return web.Response(text="ok")
+        return web.Response(text="status_ignored")
 
 
 @router.callback_query(F.data.startswith("pay_paykilla:"))

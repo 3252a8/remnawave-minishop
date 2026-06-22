@@ -36,7 +36,7 @@ ignore_missing_imports = true
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-module = ["db", "db.*"]
+module = "db.*"
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 warn_return_any = true

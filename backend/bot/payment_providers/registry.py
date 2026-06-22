@@ -89,7 +89,7 @@ def build_provider_configs(*, force: bool = False) -> Dict[str, ProviderConfigBu
     from .base import provider_env_file
 
     env_file = provider_env_file()
-    init_kwargs = {"_env_file": env_file}
+    init_kwargs: Dict[str, Any] = {"_env_file": env_file}
 
     bundles: Dict[str, ProviderConfigBundle] = {}
     presentations: Dict[str, Any] = {}
@@ -301,7 +301,11 @@ def iter_service_specs() -> Iterable[PaymentProviderSpec]:
 def build_provider_services(ctx: ServiceFactoryContext) -> Dict[str, Any]:
     services: Dict[str, Any] = {}
     for spec in iter_service_specs():
-        services[spec.service_key] = spec.create_service(ctx)
+        service_key = spec.service_key
+        create_service = spec.create_service
+        if not service_key or create_service is None:
+            continue
+        services[service_key] = create_service(ctx)
     return services
 
 

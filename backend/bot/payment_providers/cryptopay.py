@@ -187,7 +187,7 @@ class CryptoPayService:
         self,
         session: AsyncSession,
         user_id: int,
-        months: int,
+        months: float,
         amount: float,
         description: str,
         sale_mode: str = "subscription",
