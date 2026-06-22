@@ -1,15 +1,28 @@
-<script>
+<script lang="ts">
   import { ArrowRight, ChevronLeft, ChevronRight } from "$components/ui/icons.js";
   import { watchAdminDatatable } from "$lib/admin/datatables.js";
   import AdminButton from "./AdminButton.svelte";
 
+  type AdminTableLike = {
+    currentPage?: number;
+    pageCount?: number;
+    rowCount?: { total?: number | string | null };
+    setPage: (page: number) => void;
+  };
+  type TableSignal = {
+    subscribe: (run: (value: AdminTableLike | null) => void) => () => void;
+  };
+  type PageItem =
+    | { type: "ellipsis"; key: string }
+    | { type: "page"; key: string; index: number; label: number };
+
   export let meta = "";
   export let prevLabel = "Back";
   export let nextLabel = "Next";
-  export let table = null;
-  export let page = null;
-  export let pageCount = null;
-  export let total = null;
+  export let table: AdminTableLike | null = null;
+  export let page: number | null = null;
+  export let pageCount: number | null = null;
+  export let total: number | string | null = null;
   export let pageLabel = "Page";
   export let ofLabel = "of";
   export let totalLabel = "Total";
@@ -19,15 +32,15 @@
   export let disabled = false;
   export let prevDisabled = false;
   export let nextDisabled = false;
-  export let onPrev = () => {};
-  export let onNext = () => {};
-  export let onPageChange = null;
+  export let onPrev: () => void = () => {};
+  export let onNext: () => void = () => {};
+  export let onPageChange: ((page: number) => void) | null = null;
 
   let jumpValue = "";
 
   // Bridge the runes-based handler into a store so paging re-renders this
   // legacy component (direct reads of table.* are untracked by Svelte).
-  $: tableSignal = watchAdminDatatable(table);
+  $: tableSignal = watchAdminDatatable(table) as TableSignal;
   $: liveTable = $tableSignal;
   $: tablePage = liveTable ? Number(liveTable.currentPage || 1) - 1 : null;
   $: tablePageCount = liveTable ? Number(liveTable.pageCount || 0) : null;
@@ -60,7 +73,7 @@
     jumpTarget >= 1 &&
     jumpTarget <= normalizedPageCount;
 
-  function visiblePages(activePage, count) {
+  function visiblePages(activePage: number, count: number): PageItem[] {
     const pageIndexes = new Set([0, count - 1, activePage - 1, activePage, activePage + 1]);
 
     if (activePage <= 2) {
@@ -76,10 +89,10 @@
       .filter((value) => value >= 0 && value < count)
       .sort((a, b) => a - b);
 
-    const result = [];
+    const result: PageItem[] = [];
     sorted.forEach((value, index) => {
       const previous = sorted[index - 1];
-      if (index > 0 && value - previous > 1) {
+      if (previous !== undefined && value - previous > 1) {
         result.push({ type: "ellipsis", key: `ellipsis-${previous}-${value}` });
       }
       result.push({ type: "page", key: `page-${value}`, index: value, label: value + 1 });
@@ -87,7 +100,7 @@
     return result;
   }
 
-  function goToPage(nextPage) {
+  function goToPage(nextPage: number) {
     if (!hasPageNavigation || paginationDisabled) return;
     const clamped = Math.min(
       Math.max(0, Math.floor(Number(nextPage) || 0)),
