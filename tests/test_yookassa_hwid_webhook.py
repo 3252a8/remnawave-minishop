@@ -378,6 +378,7 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
                         "referee_user_id": 42,
                         "inviter_bonus_applied": True,
                         "inviter_user_id": 1,
+                        "reason": "payment",
                     },
                 }
             )

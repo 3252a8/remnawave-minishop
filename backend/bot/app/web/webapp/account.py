@@ -3,6 +3,7 @@ from ._runtime import *  # noqa: F403,F405
 
 from bot.app.web.webapp.cache_helpers import webapp_cached_user_payload
 from bot.infra import events
+from bot.infra.event_payloads import AccountEmailLinkedPayload, AccountTelegramLinkedPayload
 from .auth import (
     _hash_email_password,
     _sync_merged_panel_identity_for_user,
@@ -138,16 +139,15 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
             final_first_name = current_user.first_name
             final_panel_uuid = current_user.panel_user_uuid
 
-            await events.emit(
-                events.ACCOUNT_EMAIL_LINKED,
-                {
-                    "user_id": final_user_id,
-                    "email": email,
-                    "first_link": should_notify_email_linked,
-                    "telegram_id": final_telegram_id,
-                    "username": final_username,
-                    "first_name": final_first_name,
-                },
+            await events.emit_model(
+                AccountEmailLinkedPayload(
+                    user_id=final_user_id,
+                    email=email,
+                    first_link=should_notify_email_linked,
+                    telegram_id=final_telegram_id,
+                    username=final_username,
+                    first_name=final_first_name,
+                )
             )
 
             if merge_notice:
@@ -323,16 +323,15 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
                 )
             await session.commit()
 
-            await events.emit(
-                events.ACCOUNT_TELEGRAM_LINKED,
-                {
-                    "user_id": final_user_id,
-                    "telegram_id": final_telegram_id,
-                    "first_link": should_notify_telegram_linked,
-                    "email": final_email,
-                    "username": final_username,
-                    "first_name": final_first_name,
-                },
+            await events.emit_model(
+                AccountTelegramLinkedPayload(
+                    user_id=final_user_id,
+                    telegram_id=final_telegram_id,
+                    first_link=should_notify_telegram_linked,
+                    email=final_email,
+                    username=final_username,
+                    first_name=final_first_name,
+                )
             )
 
             if merge_notice:

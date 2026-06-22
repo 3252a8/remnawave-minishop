@@ -6,7 +6,7 @@ from aiogram import Bot
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.infra import events
+from bot.infra.event_payloads import ReferralBonusGrantedPayload
 from bot.middlewares.i18n import JsonI18n
 from config.settings import Settings
 from db.dal import payment_dal, subscription_dal, user_dal
@@ -188,30 +188,30 @@ class ReferralService:
                     )
 
             if referee_bonus_applied_days or inviter_bonus_successfully_applied:
-                referral_event_payload = {
-                    "referee_user_id": referee_user_id,
-                    "referee_bonus_days": referee_bonus_applied_days,
-                    "referee_new_end_date": events.iso(referee_final_end_date),
-                    "inviter_bonus_applied": inviter_bonus_successfully_applied,
-                    "inviter_user_id": (
+                referral_event_payload = ReferralBonusGrantedPayload(
+                    referee_user_id=referee_user_id,
+                    referee_bonus_days=referee_bonus_applied_days,
+                    referee_new_end_date=referee_final_end_date,
+                    inviter_bonus_applied=inviter_bonus_successfully_applied,
+                    inviter_user_id=(
                         inviter_user_id if inviter_bonus_successfully_applied else None
                     ),
-                    "inviter_bonus_days": (
+                    inviter_bonus_days=(
                         inviter_bonus_days if inviter_bonus_successfully_applied else None
                     ),
-                    "inviter_bonus_end_date": events.iso(inviter_bonus_end_date),
-                    "inviter_bonus_kind": inviter_bonus_kind,
-                    "referee_name": referee_name_for_msg,
-                    "payment_db_id": current_payment_db_id,
-                    "purchased_subscription_months": purchased_subscription_months,
-                    "tariff_key": tariff_key,
-                    "one_bonus_per_referee": getattr(
+                    inviter_bonus_end_date=inviter_bonus_end_date,
+                    inviter_bonus_kind=inviter_bonus_kind,
+                    referee_name=referee_name_for_msg,
+                    payment_db_id=current_payment_db_id,
+                    purchased_subscription_months=purchased_subscription_months,
+                    tariff_key=tariff_key,
+                    one_bonus_per_referee=getattr(
                         self.settings,
                         "REFERRAL_ONE_BONUS_PER_REFEREE",
                         True,
                     ),
-                    "reason": "payment",
-                }
+                    reason="payment",
+                ).to_payload()
             else:
                 referral_event_payload = None
 

@@ -168,7 +168,6 @@ class InviterBonusTests(unittest.IsolatedAsyncioTestCase):
                 "bot.services.referral_service.subscription_dal.get_active_subscription_by_user_id",
                 AsyncMock(return_value=SimpleNamespace(subscription_id=10)),
             ),
-            patch("bot.services.referral_service.events.emit", AsyncMock()) as emit_event,
         ):
             result = await service.apply_referral_bonuses_for_payment(
                 session=AsyncMock(),
@@ -186,7 +185,6 @@ class InviterBonusTests(unittest.IsolatedAsyncioTestCase):
             reason=unittest.mock.ANY,
         )
         bot.send_message.assert_not_awaited()
-        emit_event.assert_not_awaited()
         payload = result["event_payload"]
         self.assertEqual(payload["inviter_user_id"], 1)
         self.assertEqual(payload["inviter_bonus_days"], 7)

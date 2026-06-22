@@ -753,6 +753,21 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
             }
         )
         session = AsyncMock()
+        event_payload = {
+            "user_id": 1001,
+            "payment_db_id": 42,
+            "provider": "yookassa",
+            "notification_provider": "yookassa",
+            "amount": 100.0,
+            "currency": "RUB",
+            "sale_mode": "subscription",
+            "tariff_key": None,
+            "months": 1,
+            "traffic_gb": None,
+            "purchased_hwid_devices": None,
+            "end_date": None,
+            "is_auto_renew": False,
+        }
 
         with (
             patch.object(
@@ -762,9 +777,12 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
             ),
             patch(
                 "bot.payment_providers.yookassa.process_successful_payment",
-                AsyncMock(return_value={"user_id": 1001, "payment_db_id": 42}),
+                AsyncMock(return_value=event_payload),
             ) as process_success,
-            patch.object(billing_module.events, "emit", AsyncMock()) as emit_event,
+            patch(
+                "bot.payment_providers.yookassa.emit_yookassa_success_events",
+                AsyncMock(),
+            ) as emit_success,
         ):
             result = await billing_module._refresh_yookassa_payment_status(
                 request,
@@ -775,10 +793,7 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
         self.assertIs(result, refreshed_payment)
         session.commit.assert_awaited_once()
         process_success.assert_awaited_once()
-        emit_event.assert_awaited_once_with(
-            "payment.succeeded",
-            {"user_id": 1001, "payment_db_id": 42},
-        )
+        emit_success.assert_awaited_once_with(event_payload)
         provider_payload = process_success.await_args.args[2]
         self.assertEqual(provider_payload["amount"], {"value": "100.0", "currency": "RUB"})
 

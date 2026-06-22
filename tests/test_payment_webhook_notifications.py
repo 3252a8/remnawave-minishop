@@ -90,8 +90,14 @@ class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
         async def commit():
             order.append("commit")
 
-        async def emit(name, payload):
-            order.append(("emit", name, payload))
+        async def emit_model(payload, **payload_options):
+            order.append(
+                (
+                    "emit",
+                    payload.EVENT_NAME,
+                    payload.to_payload(**payload_options),
+                )
+            )
 
         async def update_status(_session, _payment_id, status):
             order.append(("status", status))
@@ -120,6 +126,7 @@ class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
             "referee_user_id": 42,
             "inviter_bonus_applied": True,
             "inviter_user_id": 1,
+            "reason": "payment",
         }
         referral_service = SimpleNamespace(
             apply_referral_bonuses_for_payment=AsyncMock(
@@ -132,7 +139,10 @@ class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
         )
 
         with (
-            patch("bot.payment_providers.shared.success.events.emit", AsyncMock(side_effect=emit)),
+            patch(
+                "bot.payment_providers.shared.success.events.emit_model",
+                AsyncMock(side_effect=emit_model),
+            ),
             patch(
                 "bot.payment_providers.shared.success.payment_dal.update_payment_status_by_db_id",
                 AsyncMock(side_effect=update_status),

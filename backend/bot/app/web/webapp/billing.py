@@ -16,6 +16,7 @@ from bot.app.web.webapp.payloads import (
     WebAppTariffChangePayload,
 )
 from bot.infra import events
+from bot.infra.event_payloads import PaymentCanceledPayload
 from db.dal import message_log_dal
 
 
@@ -1028,7 +1029,10 @@ async def _refresh_yookassa_payment_status(
                 )
                 await session.commit()
                 if event_payload:
-                    await events.emit(events.PAYMENT_CANCELED, event_payload)
+                    await events.emit_model(
+                        PaymentCanceledPayload.model_validate(event_payload),
+                        exclude_unset=True,
+                    )
             except Exception:
                 await session.rollback()
                 logger.exception(

@@ -19,6 +19,13 @@ from yookassa.domain.notification import WebhookNotification
 from yookassa.domain.request.payment_request_builder import PaymentRequestBuilder
 
 from bot.infra import events
+from bot.infra.event_payloads import (
+    PaymentCanceledPayload,
+    PaymentSucceededPayload,
+    ReferralBonusGrantedPayload,
+    SubscriptionCreatedPayload,
+    SubscriptionExtendedPayload,
+)
 from bot.infra.payment_events import build_payment_succeeded_payload
 from bot.infra.webhook_queue import enqueue_webhook_event
 from bot.keyboards.inline.user_keyboards import (
@@ -493,10 +500,19 @@ async def emit_yookassa_success_events(event_payload: dict) -> None:
     if isinstance(event_payload, dict):
         deferred_events = list(event_payload.pop(DEFERRED_EVENTS_KEY, []) or [])
         deferred_success_message = event_payload.pop(DEFERRED_SUCCESS_MESSAGE_KEY, None)
-    await events.emit(events.PAYMENT_SUCCEEDED, event_payload)
+    await events.emit_model(PaymentSucceededPayload.model_validate(event_payload))
     for item in deferred_events:
         if isinstance(item, dict) and item.get("event") and isinstance(item.get("payload"), dict):
-            await events.emit(item["event"], item["payload"])
+            event_name = item["event"]
+            payload = item["payload"]
+            if event_name == events.SUBSCRIPTION_EXTENDED:
+                await events.emit_model(SubscriptionExtendedPayload.model_validate(payload))
+            elif event_name == events.SUBSCRIPTION_CREATED:
+                await events.emit_model(SubscriptionCreatedPayload.model_validate(payload))
+            elif event_name == events.REFERRAL_BONUS_GRANTED:
+                await events.emit_model(ReferralBonusGrantedPayload.model_validate(payload))
+            else:
+                await events.emit(event_name, payload)
     if isinstance(deferred_success_message, dict):
         await send_success_message_to_user(**deferred_success_message)
 
@@ -929,15 +945,19 @@ async def process_successful_payment(
                     "event": events.SUBSCRIPTION_EXTENDED
                     if activation_details.get("was_extension")
                     else events.SUBSCRIPTION_CREATED,
-                    "payload": {
-                        "user_id": user_id,
-                        "subscription_id": activation_details.get("subscription_id"),
-                        "tariff_key": activation_details.get("tariff_key"),
-                        "end_date": events.iso(activation_details.get("end_date")),
-                        "provider": "yookassa",
-                        "months": months_for_activation,
-                        "payment_db_id": payment_db_id,
-                    },
+                    "payload": (
+                        SubscriptionExtendedPayload
+                        if activation_details.get("was_extension")
+                        else SubscriptionCreatedPayload
+                    )(
+                        user_id=user_id,
+                        subscription_id=activation_details.get("subscription_id"),
+                        tariff_key=activation_details.get("tariff_key"),
+                        end_date=activation_details.get("end_date"),
+                        provider="yookassa",
+                        months=months_for_activation,
+                        payment_db_id=payment_db_id,
+                    ).to_payload(),
                 }
             )
 
@@ -959,7 +979,9 @@ async def process_successful_payment(
             deferred_events.append(
                 {
                     "event": events.REFERRAL_BONUS_GRANTED,
-                    "payload": referral_bonus_info["event_payload"],
+                    "payload": ReferralBonusGrantedPayload.model_validate(
+                        referral_bonus_info["event_payload"]
+                    ).to_payload(),
                 }
             )
         if deferred_events:
@@ -1129,13 +1151,13 @@ async def process_cancelled_payment(
             logging.info(
                 f"Payment {payment_db_id} (YK: {payment_info_from_webhook.get('id')}) status updated to cancelled for user {user_id}."  # noqa: E501
             )
-            return {
-                "user_id": user_id,
-                "payment_db_id": payment_db_id,
-                "provider": "yookassa",
-                "provider_payment_id": payment_info_from_webhook.get("id"),
-                "status": payment_info_from_webhook.get("status", "canceled"),
-            }
+            return PaymentCanceledPayload(
+                user_id=user_id,
+                payment_db_id=payment_db_id,
+                provider="yookassa",
+                provider_payment_id=payment_info_from_webhook.get("id"),
+                status=payment_info_from_webhook.get("status", "canceled"),
+            ).to_payload(exclude_unset=True)
         else:
             logging.warning(
                 f"Could not find payment record {payment_db_id} to update status to cancelled for user {user_id}."  # noqa: E501
@@ -1299,7 +1321,10 @@ async def yookassa_webhook_route(request: web.Request):
                         )
                         await session.commit()
                         if event_payload:
-                            await events.emit(events.PAYMENT_CANCELED, event_payload)
+                            await events.emit_model(
+                                PaymentCanceledPayload.model_validate(event_payload),
+                                exclude_unset=True,
+                            )
                     elif notification_object.event == YOOKASSA_EVENT_PAYMENT_WAITING_FOR_CAPTURE:
                         # Bind-only flow: save method and cancel auth if metadata has bind_only
                         metadata = payment_dict_for_processing.get("metadata", {}) or {}

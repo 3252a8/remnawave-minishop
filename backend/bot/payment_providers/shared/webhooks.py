@@ -6,6 +6,7 @@ from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra import events
+from bot.infra.event_payloads import PaymentCanceledPayload
 from db.dal import payment_dal
 from db.models import Payment
 
@@ -48,15 +49,14 @@ async def notify_user_payment_failed(
     message_key: str = "payment_failed",
 ) -> None:
     """Publish the standard payment-canceled event; reactions notify the user."""
-    await events.emit(
-        events.PAYMENT_CANCELED,
-        {
-            "user_id": int(payment.user_id),
-            "payment_db_id": getattr(payment, "payment_id", None),
-            "provider": getattr(payment, "provider", None),
-            "provider_payment_id": getattr(payment, "provider_payment_id", None)
+    await events.emit_model(
+        PaymentCanceledPayload(
+            user_id=int(payment.user_id),
+            payment_db_id=getattr(payment, "payment_id", None),
+            provider=getattr(payment, "provider", None),
+            provider_payment_id=getattr(payment, "provider_payment_id", None)
             or getattr(payment, "yookassa_payment_id", None),
-            "status": getattr(payment, "status", None),
-            "message_key": message_key,
-        },
+            status=getattr(payment, "status", None),
+            message_key=message_key,
+        )
     )

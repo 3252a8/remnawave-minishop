@@ -301,46 +301,61 @@ def test_create_user_existing_user_does_not_emit(monkeypatch):
 # --- Wiring guard ---------------------------------------------------------------
 
 # Every module that must publish a given event. The test fails when an emit
-# call is removed (or the constant is renamed) without updating this map.
+# call/model construction is removed without updating this map.
 EXPECTED_EVENT_WIRING = {
     "backend/bot/payment_providers/shared/success.py": [
-        "PAYMENT_SUCCEEDED",
-        "SUBSCRIPTION_CREATED",
-        "SUBSCRIPTION_EXTENDED",
-        "REFERRAL_BONUS_GRANTED",
+        ("PAYMENT_SUCCEEDED", "PaymentSucceededPayload"),
+        ("SUBSCRIPTION_CREATED", "SubscriptionCreatedPayload"),
+        ("SUBSCRIPTION_EXTENDED", "SubscriptionExtendedPayload"),
+        ("REFERRAL_BONUS_GRANTED", "ReferralBonusGrantedPayload"),
     ],
     "backend/bot/payment_providers/yookassa.py": [
-        "PAYMENT_SUCCEEDED",
-        "PAYMENT_CANCELED",
-        "SUBSCRIPTION_CREATED",
-        "SUBSCRIPTION_EXTENDED",
+        ("PAYMENT_SUCCEEDED", "PaymentSucceededPayload"),
+        ("PAYMENT_CANCELED", "PaymentCanceledPayload"),
+        ("SUBSCRIPTION_CREATED", "SubscriptionCreatedPayload"),
+        ("SUBSCRIPTION_EXTENDED", "SubscriptionExtendedPayload"),
     ],
-    "backend/bot/services/subscription_service_impl/trial.py": ["TRIAL_ACTIVATED"],
+    "backend/bot/services/subscription_service_impl/trial.py": [
+        ("TRIAL_ACTIVATED", "TrialActivatedPayload")
+    ],
     # user.registered is emitted in the DAL so every registration path is
     # covered: bot /start, Mini App Telegram login and email signup all go
     # through create_user. account.merged likewise covers all merge paths.
-    "backend/db/dal/user_dal.py": ["USER_REGISTERED", "ACCOUNT_MERGED"],
-    "backend/bot/app/web/webapp/account.py": [
-        "ACCOUNT_EMAIL_LINKED",
-        "ACCOUNT_TELEGRAM_LINKED",
+    "backend/db/dal/user_dal.py": [
+        ("USER_REGISTERED", "UserRegisteredPayload"),
+        ("ACCOUNT_MERGED", "AccountMergedPayload"),
     ],
-    "backend/bot/services/promo_code_service.py": ["PROMO_CODE_APPLIED"],
+    "backend/bot/app/web/webapp/account.py": [
+        ("ACCOUNT_EMAIL_LINKED", "AccountEmailLinkedPayload"),
+        ("ACCOUNT_TELEGRAM_LINKED", "AccountTelegramLinkedPayload"),
+    ],
+    "backend/bot/services/promo_code_service.py": [
+        ("PROMO_CODE_APPLIED", "PromoCodeAppliedPayload")
+    ],
     # Payment-triggered accrual payloads are calculated by the service and
     # emitted by the provider success layer. The one-time welcome grant has two
     # entry points (bot /start and the webapp helper used by claim/login flows).
-    "backend/bot/handlers/user/start.py": ["REFERRAL_BONUS_GRANTED"],
-    "backend/bot/app/web/webapp/auth.py": ["REFERRAL_BONUS_GRANTED"],
-    "backend/bot/services/support_service.py": ["SUPPORT_TICKET_CREATED"],
-    "backend/bot/services/panel_webhook_service.py": ["PANEL_WEBHOOK_RECEIVED"],
+    "backend/bot/handlers/user/start.py": [
+        ("REFERRAL_BONUS_GRANTED", "ReferralBonusGrantedPayload")
+    ],
+    "backend/bot/app/web/webapp/auth.py": [
+        ("REFERRAL_BONUS_GRANTED", "ReferralBonusGrantedPayload")
+    ],
+    "backend/bot/services/support_service.py": [
+        ("SUPPORT_TICKET_CREATED", "SupportTicketCreatedPayload")
+    ],
+    "backend/bot/services/panel_webhook_service.py": [
+        ("PANEL_WEBHOOK_RECEIVED", "PanelWebhookReceivedPayload")
+    ],
 }
 
 
 def test_emit_points_are_wired():
-    for module_path, constants in EXPECTED_EVENT_WIRING.items():
+    for module_path, event_contracts in EXPECTED_EVENT_WIRING.items():
         source = Path(module_path).read_text(encoding="utf-8")
-        assert "events.emit(" in source, f"{module_path} lost its events.emit call"
-        for constant in constants:
+        assert "events.emit(" in source or "events.emit_model(" in source, (
+            f"{module_path} lost its event emit call"
+        )
+        for constant, payload_model in event_contracts:
             assert getattr(events, constant), f"unknown event constant {constant}"
-            assert f"events.{constant}" in source, (
-                f"{module_path} no longer references events.{constant}"
-            )
+            assert payload_model in source, f"{module_path} no longer builds {payload_model}"

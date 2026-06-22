@@ -11,6 +11,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import aliased
 
 from bot.infra import events
+from bot.infra.event_payloads import AccountMergedPayload, UserRegisteredPayload
 
 from ..models import (
     AdAttribution,
@@ -257,18 +258,17 @@ async def create_user(
             else:
                 registered_via = "unknown"
         if registered_via:
-            await events.emit(
-                events.USER_REGISTERED,
-                {
-                    "user_id": int(user.user_id),
-                    "language": user_data.get("language_code"),
-                    "referred_by_id": user_data.get("referred_by_id"),
-                    "registered_via": registered_via,
-                    "telegram_id": user_data.get("telegram_id"),
-                    "username": user_data.get("username"),
-                    "first_name": user_data.get("first_name"),
-                    "email": user_data.get("email"),
-                },
+            await events.emit_model(
+                UserRegisteredPayload(
+                    user_id=int(user.user_id),
+                    language=user_data.get("language_code"),
+                    referred_by_id=user_data.get("referred_by_id"),
+                    registered_via=registered_via,
+                    telegram_id=user_data.get("telegram_id"),
+                    username=user_data.get("username"),
+                    first_name=user_data.get("first_name"),
+                    email=user_data.get("email"),
+                )
             )
     elif user is not None:
         logging.info(f"User {user.user_id} already exists in DAL. Proceeding without creation.")
@@ -652,24 +652,21 @@ async def merge_users(
     await session.flush()
     await session.refresh(target)
 
-    await events.emit(
-        events.ACCOUNT_MERGED,
-        {
-            "source_user_id": int(source_user_id),
-            "target_user_id": int(target_user_id),
-            "reason": reason,
-            "send_user_email": send_user_email,
-            "source_panel_user_uuid": source_panel_uuid,
-            "target_panel_user_uuid": target.panel_user_uuid,
-            "email": target.email,
-            "telegram_id": target.telegram_id,
-            "username": target.username,
-            "first_name": target.first_name,
-            "language": target.language_code,
-            "final_end_date": events.iso(
-                getattr(target_anchor_sub or source_active_sub, "end_date", None)
-            ),
-        },
+    await events.emit_model(
+        AccountMergedPayload(
+            source_user_id=int(source_user_id),
+            target_user_id=int(target_user_id),
+            reason=reason,
+            send_user_email=send_user_email,
+            source_panel_user_uuid=source_panel_uuid,
+            target_panel_user_uuid=target.panel_user_uuid,
+            email=target.email,
+            telegram_id=target.telegram_id,
+            username=target.username,
+            first_name=target.first_name,
+            language=target.language_code,
+            final_end_date=getattr(target_anchor_sub or source_active_sub, "end_date", None),
+        )
     )
     return target
 

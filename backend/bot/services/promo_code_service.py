@@ -7,6 +7,7 @@ from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra import events
+from bot.infra.event_payloads import PromoCodeAppliedPayload
 from bot.middlewares.i18n import JsonI18n
 from config.settings import Settings
 from db.dal import promo_code_dal, security_dal
@@ -114,14 +115,13 @@ class PromoCodeService:
                     scope=security_dal.PROMO_CODE_APPLY_SCOPE,
                     identifier=throttle_identifier,
                 )
-                await events.emit(
-                    events.PROMO_CODE_APPLIED,
-                    {
-                        "user_id": user_id,
-                        "code": applied_code,
-                        "bonus_days": bonus_days,
-                        "new_end_date": events.iso(new_end_date),
-                    },
+                await events.emit_model(
+                    PromoCodeAppliedPayload(
+                        user_id=user_id,
+                        code=applied_code,
+                        bonus_days=bonus_days,
+                        new_end_date=new_end_date,
+                    )
                 )
 
                 return True, new_end_date

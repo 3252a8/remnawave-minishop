@@ -17,41 +17,10 @@ Design rules:
 - Events may be emitted shortly before the surrounding transaction commits;
   treat a payload as a notification, not as a guarantee the row is visible.
 
-Event payload conventions (keys may be ``None`` when unknown):
-
-- ``PAYMENT_SUCCEEDED``: user_id, payment_db_id, provider,
-  notification_provider, amount, currency, sale_mode, tariff_key, months,
-  traffic_gb, purchased_hwid_devices, end_date, is_auto_renew.
-- ``PAYMENT_CANCELED``: user_id, payment_db_id, provider,
-  provider_payment_id, status, message_key.
-- ``SUBSCRIPTION_CREATED`` / ``SUBSCRIPTION_EXTENDED``: user_id,
-  subscription_id, tariff_key, end_date, provider, months, payment_db_id.
-- ``TRIAL_ACTIVATED``: user_id, end_date, days, traffic_gb.
-- ``USER_REGISTERED``: user_id, telegram_id, username, first_name, email,
-  language, referred_by_id, registered_via (``telegram`` | ``email`` |
-  ``panel_sync`` | ``unknown``); emitted for every registration path (bot
-  /start, Mini App Telegram login, email signup, users imported by panel
-  sync). Technical row creation (account linking intermediates, bulk
-  migration imports) does not emit.
-- ``ACCOUNT_EMAIL_LINKED``: user_id, email, first_link, telegram_id,
-  username, first_name.
-- ``ACCOUNT_TELEGRAM_LINKED``: user_id, telegram_id, first_link, email,
-  username, first_name.
-- ``ACCOUNT_MERGED``: source_user_id, target_user_id, reason,
-  send_user_email, source_panel_user_uuid, target_panel_user_uuid, email,
-  telegram_id, username, first_name, language, final_end_date (the source row
-  is removed; emitted for every merge path - email/Telegram linking, login
-  flows and admin panel sync).
-- ``PROMO_CODE_APPLIED``: user_id, code, bonus_days, new_end_date.
-- ``REFERRAL_BONUS_GRANTED``: referee_user_id, referee_bonus_days,
-  referee_new_end_date, inviter_bonus_applied, inviter_user_id,
-  inviter_bonus_days, inviter_bonus_end_date, inviter_bonus_kind,
-  referee_name, payment_db_id, purchased_subscription_months, tariff_key,
-  one_bonus_per_referee, reason (``payment`` for accruals triggered by a
-  referee payment, ``welcome`` for the one-time welcome grant of a newly
-  invited user).
-- ``SUPPORT_TICKET_CREATED``: user_id, ticket_id, category, priority.
-- ``PANEL_WEBHOOK_RECEIVED``: event, panel_user_uuid, telegram_id.
+Event payload contracts live in :mod:`bot.infra.event_payloads`. Emit sites
+construct those models first and publish their ``to_payload()`` dicts here;
+third-party subscribers still receive the public ``(event_name, dict)``
+signature.
 """
 
 from __future__ import annotations
@@ -59,6 +28,8 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from typing import Any, Awaitable, Callable, Dict, List, Optional
+
+from bot.infra.event_payloads import EventPayload
 
 logger = logging.getLogger(__name__)
 
@@ -120,3 +91,16 @@ async def emit(event_name: str, payload: Dict[str, Any]) -> None:
                 getattr(handler, "__qualname__", handler),
                 event_name,
             )
+
+
+async def emit_model(
+    payload: EventPayload,
+    *,
+    exclude_unset: bool = False,
+    exclude_none: bool = False,
+) -> None:
+    """Deliver a typed event payload without changing the raw bus primitive."""
+    await emit(
+        payload.EVENT_NAME,
+        payload.to_payload(exclude_unset=exclude_unset, exclude_none=exclude_none),
+    )

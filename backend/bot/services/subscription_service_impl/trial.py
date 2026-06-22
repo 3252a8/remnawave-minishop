@@ -2,6 +2,7 @@
 from ._runtime import *  # noqa: F403,F405
 
 from bot.infra import events
+from bot.infra.event_payloads import TrialActivatedPayload
 
 
 class TrialSubscriptionMixin:
@@ -122,14 +123,13 @@ class TrialSubscriptionMixin:
 
         await session.commit()
 
-        await events.emit(
-            events.TRIAL_ACTIVATED,
-            {
-                "user_id": user_id,
-                "end_date": events.iso(end_date),
-                "days": self.settings.TRIAL_DURATION_DAYS,
-                "traffic_gb": self.settings.TRIAL_TRAFFIC_LIMIT_GB,
-            },
+        await events.emit_model(
+            TrialActivatedPayload(
+                user_id=user_id,
+                end_date=end_date,
+                days=self.settings.TRIAL_DURATION_DAYS,
+                traffic_gb=self.settings.TRIAL_TRAFFIC_LIMIT_GB,
+            )
         )
 
         final_subscription_url = updated_panel_user.get("subscriptionUrl")

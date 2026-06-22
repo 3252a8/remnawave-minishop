@@ -2,6 +2,7 @@
 from ._runtime import *  # noqa: F403,F405
 
 from bot.infra import events
+from bot.infra.event_payloads import ReferralBonusGrantedPayload
 
 from .common import _invalidate_webapp_user_caches
 from .telegram_notifications import _probe_telegram_notifications_for_user_id
@@ -1455,16 +1456,16 @@ async def _grant_referral_welcome_bonus_if_eligible(
         # call does not commit on its own), so the bonus and its claimed-marker
         # stay atomic.
         user.referral_welcome_bonus_claimed_at = datetime.now(timezone.utc)
-        await events.emit(
-            events.REFERRAL_BONUS_GRANTED,
-            {
-                "referee_user_id": int(user.user_id),
-                "referee_bonus_days": referral_welcome_days,
-                "referee_new_end_date": events.iso(end_date),
-                "inviter_bonus_applied": False,
-                "payment_db_id": None,
-                "reason": "welcome",
-            },
+        await events.emit_model(
+            ReferralBonusGrantedPayload(
+                referee_user_id=int(user.user_id),
+                referee_bonus_days=referral_welcome_days,
+                referee_new_end_date=end_date,
+                inviter_bonus_applied=False,
+                payment_db_id=None,
+                reason="welcome",
+            ),
+            exclude_unset=True,
         )
     return end_date
 
