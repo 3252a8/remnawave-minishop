@@ -913,23 +913,6 @@ def get_connect_and_main_keyboard(
     return builder.as_markup()
 
 
-def get_payment_methods_manage_keyboard(
-    lang: str, i18n_instance, has_card: bool
-) -> InlineKeyboardMarkup:
-    """Deprecated in favor of get_payment_methods_list_keyboard. Kept for backward compatibility."""
-    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
-    builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(text=_(key="payment_method_bind_button"), callback_data="pm:bind")
-    )
-    builder.row(
-        InlineKeyboardButton(
-            text=_(key="back_to_main_menu_button"), callback_data="main_action:back_to_main"
-        )
-    )
-    return builder.as_markup()
-
-
 def get_payment_methods_list_keyboard(
     cards: List[Tuple[str, str]],
     page: int,

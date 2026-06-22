@@ -114,13 +114,6 @@ async def admin_panel_actions_callback_handler(
         await admin_user_mgmnt_handlers.unban_user_prompt_handler(
             callback, state, i18n_data, settings, session
         )
-    elif action == "users_management":
-        # This is deprecated, kept for compatibility
-        from . import user_management as admin_user_management_handlers
-
-        await admin_user_management_handlers.user_search_prompt_handler(
-            callback, state, i18n_data, settings, session
-        )
     elif action == "users_list" and len(action_parts) > 2:
         # Route to users list handler with page number
         from . import user_management as admin_user_management_handlers

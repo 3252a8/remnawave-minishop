@@ -79,7 +79,7 @@ from bot.app.web.route_contracts import (
     register_contract,
 )
 
-from .request_parsing import parse_body, parse_body_or_400
+from bot.app.web.request_parsing import parse_body, parse_body_or_400
 from .schemas import (
     AdCreateBody,
     AdOut,

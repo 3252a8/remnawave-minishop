@@ -401,10 +401,7 @@ async def payment_method_history(
         user_payments = filtered
 
     if not user_payments:
-        from bot.keyboards.inline.user_keyboards import (
-            get_back_to_payment_method_details_keyboard,
-            get_payment_methods_manage_keyboard,
-        )
+        from bot.keyboards.inline.user_keyboards import get_back_to_payment_method_details_keyboard
 
         back_pm_id = ""
         try:
@@ -414,7 +411,7 @@ async def payment_method_history(
         back_markup = (
             get_back_to_payment_method_details_keyboard(back_pm_id, current_lang, i18n)
             if back_pm_id
-            else get_payment_methods_manage_keyboard(current_lang, i18n, has_card=True)
+            else get_payment_methods_list_keyboard([], 0, current_lang, i18n)
         )
         await message.edit_text(_("payment_method_no_history"), reply_markup=back_markup)
         return
@@ -441,15 +438,12 @@ async def payment_method_history(
         split_a, split_b, split_pm_id_for_back = callback_data.split(":", 2)
     except Exception:
         split_pm_id_for_back = ""
-    from bot.keyboards.inline.user_keyboards import (
-        get_back_to_payment_method_details_keyboard,
-        get_payment_methods_manage_keyboard,
-    )
+    from bot.keyboards.inline.user_keyboards import get_back_to_payment_method_details_keyboard
 
     back_markup = (
         get_back_to_payment_method_details_keyboard(split_pm_id_for_back, current_lang, i18n)
         if split_pm_id_for_back
-        else get_payment_methods_manage_keyboard(current_lang, i18n, has_card=True)
+        else get_payment_methods_list_keyboard([], 0, current_lang, i18n)
     )
     await message.edit_text(text, reply_markup=back_markup)
 

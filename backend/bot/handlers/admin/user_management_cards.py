@@ -108,7 +108,7 @@ def get_user_card_keyboard(
 
     # Row 6: Navigation
     builder.button(
-        text=_(key="admin_user_search_new_button"), callback_data="admin_action:users_management"
+        text=_(key="admin_user_search_new_button"), callback_data="admin_action:users_search_prompt"
     )
     builder.button(text=_(key="back_to_admin_panel_button"), callback_data="admin_action:main")
 
