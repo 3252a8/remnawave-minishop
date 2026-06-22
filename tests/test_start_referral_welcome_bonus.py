@@ -39,7 +39,7 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
 
         with (
             patch(
-                "bot.handlers.user.start._resolve_referrer_from_start_ref",
+                "bot.handlers.user.start_flow._resolve_referrer_from_start_ref",
                 AsyncMock(return_value=7),
             ),
             patch(
@@ -51,11 +51,11 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
                 AsyncMock(return_value=(created_user, True)),
             ),
             patch(
-                "bot.handlers.user.start.ensure_required_channel_subscription",
+                "bot.handlers.user.start_flow.ensure_required_channel_subscription",
                 AsyncMock(return_value=True),
             ),
             patch(
-                "bot.handlers.user.start.send_main_menu",
+                "bot.handlers.user.start_flow.send_main_menu",
                 AsyncMock(),
             ),
         ):
