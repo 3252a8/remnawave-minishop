@@ -261,7 +261,7 @@ def test_persisted_support_email_override_disables_env_enabled(monkeypatch):
         return True, False
 
     monkeypatch.setattr(
-        "bot.services.notification_service.app_settings_dal.get_override_value",
+        "bot.services.notification_support.app_settings_dal.get_override_value",
         get_override_value,
     )
 
@@ -310,7 +310,7 @@ def test_persisted_support_email_override_enables_default_disabled(monkeypatch):
         return True, True
 
     monkeypatch.setattr(
-        "bot.services.notification_service.app_settings_dal.get_override_value",
+        "bot.services.notification_support.app_settings_dal.get_override_value",
         get_override_value,
     )
 
