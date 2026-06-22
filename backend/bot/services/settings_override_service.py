@@ -14,6 +14,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.admin_settings_manifest import (
@@ -180,7 +181,8 @@ def _read_appearance_backup() -> Dict[str, Any]:
         return {}
     if not isinstance(payload, dict):
         return {}
-    values = payload.get("settings") if isinstance(payload.get("settings"), dict) else payload
+    raw_values = payload.get("settings")
+    values: dict[str, Any] = raw_values if isinstance(raw_values, dict) else payload
     restored: Dict[str, Any] = {}
     for key, value in values.items():
         if key not in APPEARANCE_OVERRIDE_KEYS:
@@ -322,7 +324,8 @@ async def update_overrides(
         valid_deletes,
     )
 
-    async with async_session_factory() as session:  # type: AsyncSession
+    async with async_session_factory() as raw_session:
+        session: AsyncSession = raw_session
         async with session.begin():
             for key, value in coerced_updates.items():
                 await app_settings_dal.upsert_override(

@@ -2,6 +2,7 @@ from ._runtime import (
     AsyncSession,
     EmailAuthService,
     Optional,
+    SubscriptionServiceMixinContract,
     User,
     datetime,
     default_payment_currency_code_for_settings,
@@ -14,7 +15,7 @@ from ._runtime import (
 )
 
 
-class PaymentContextMixin:
+class PaymentContextMixin(SubscriptionServiceMixinContract):
     # Human-readable provider names rendered in payment-success emails.
     # Keys are the lowercased value persisted in ``subscriptions.provider``
     # (see the call sites in lifecycle.py / traffic.py); missing keys produce

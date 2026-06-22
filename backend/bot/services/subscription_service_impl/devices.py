@@ -5,6 +5,7 @@ from ._runtime import (
     List,
     Optional,
     Subscription,
+    SubscriptionServiceMixinContract,
     Tariff,
     Tuple,
     add_months,
@@ -19,7 +20,7 @@ from ._runtime import (
 )
 
 
-class HwidDeviceMixin:
+class HwidDeviceMixin(SubscriptionServiceMixinContract):
     @staticmethod
     def _as_aware_utc(value: Optional[datetime]) -> Optional[datetime]:
         if value is None:

@@ -186,8 +186,10 @@ class BackupRestoreService:
         if isinstance(manifest_warnings, list):
             warnings.extend(str(item) for item in manifest_warnings if item)
 
-        postgres = manifest.get("postgres") if isinstance(manifest.get("postgres"), dict) else {}
-        compose = manifest.get("compose") if isinstance(manifest.get("compose"), dict) else {}
+        postgres_raw = manifest.get("postgres")
+        postgres: dict[str, Any] = postgres_raw if isinstance(postgres_raw, dict) else {}
+        compose_raw = manifest.get("compose")
+        compose: dict[str, Any] = compose_raw if isinstance(compose_raw, dict) else {}
         return BackupArchiveInfo(
             name=archive_path.name,
             path=archive_path,
@@ -621,8 +623,9 @@ class BackupRestoreService:
         archive: zipfile.ZipFile,
         manifest: dict[str, Any],
     ) -> None:
-        archive_manifest = (
-            manifest.get("archive") if isinstance(manifest.get("archive"), dict) else {}
+        archive_manifest_raw = manifest.get("archive")
+        archive_manifest: dict[str, Any] = (
+            archive_manifest_raw if isinstance(archive_manifest_raw, dict) else {}
         )
         file_records = archive_manifest.get("files")
         if not isinstance(file_records, list):

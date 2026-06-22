@@ -73,7 +73,7 @@ class NotificationService:
         translate: Callable[..., str],
         user_id: int,
         referrer_id: Optional[int] = None,
-    ) -> InlineKeyboardMarkup:
+    ) -> Optional[InlineKeyboardMarkup]:
         """Create inline keyboard with links to user (and referrer) profiles.
 
         Email-only users have a synthetic negative ``user_id`` with no

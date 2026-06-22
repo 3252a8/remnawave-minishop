@@ -3,6 +3,7 @@ from ._runtime import (
     AsyncSession,
     Dict,
     Optional,
+    SubscriptionServiceMixinContract,
     Tuple,
     User,
     datetime,
@@ -13,7 +14,7 @@ from ._runtime import (
 )
 
 
-class PanelIdentityMixin:
+class PanelIdentityMixin(SubscriptionServiceMixinContract):
     def _extract_panel_traffic_details(
         self, panel_user_data: Dict[str, Any]
     ) -> Tuple[Optional[int], Optional[int], Optional[str]]:

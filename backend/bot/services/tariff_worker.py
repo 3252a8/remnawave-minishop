@@ -88,9 +88,12 @@ class TariffTrafficWorker:
         self.bot = bot
         self.i18n = i18n
         self._stopped = asyncio.Event()
-        self._premium_nodes_cache = {}
-        self._premium_node_usage_tick_cache = {}
-        self._premium_squad_match_cache = {}
+        self._premium_nodes_cache: dict[tuple[str, ...], dict[str, Any]] = {}
+        self._premium_node_usage_tick_cache: dict[
+            tuple[str, str, str],
+            Optional[dict[str, dict[Any, int]]],
+        ] = {}
+        self._premium_squad_match_cache: dict[tuple[str, tuple[str, ...]], float] = {}
 
     async def _user_lang(self, session: AsyncSession, user_id: int) -> str:
         try:
@@ -117,9 +120,12 @@ class TariffTrafficWorker:
     def _traffic_topup_markup(self, user_lang: str, kind: str) -> Optional[InlineKeyboardMarkup]:
         if not self.bot:
             return None
-        _ = lambda k, **kw: (
-            self.i18n.gettext(user_lang, k, **kw) if self.i18n else (lambda key, **_: key)
-        )
+
+        def translate(key: str, **kwargs: Any) -> str:
+            if self.i18n:
+                return self.i18n.gettext(user_lang, key, **kwargs)
+            return key
+
         normalized = "premium" if str(kind or "").lower() == "premium" else "regular"
         url = subscription_mini_app_topup_url(self.settings, normalized)
         if normalized == "premium":
@@ -130,9 +136,12 @@ class TariffTrafficWorker:
             fallback_key = "traffic_warn_btn_topup_regular"
         # Mini App inside Telegram when SUBSCRIPTION_MINI_APP_URL is configured.
         if url:
-            button = InlineKeyboardButton(text=_(label_key), web_app=WebAppInfo(url=url))
+            button = InlineKeyboardButton(text=translate(label_key), web_app=WebAppInfo(url=url))
         else:
-            button = InlineKeyboardButton(text=_(fallback_key), callback_data="tariff_topup:list")
+            button = InlineKeyboardButton(
+                text=translate(fallback_key),
+                callback_data="tariff_topup:list",
+            )
         return InlineKeyboardMarkup(inline_keyboard=[[button]])
 
     async def _send_traffic_warning_email(
@@ -1378,7 +1387,8 @@ class TariffTrafficWorker:
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
-            user_obj = entry.get("user") if isinstance(entry.get("user"), dict) else {}
+            user_obj_raw = entry.get("user")
+            user_obj: dict[str, Any] = user_obj_raw if isinstance(user_obj_raw, dict) else {}
             entry_uuid = (
                 user_obj.get("uuid")
                 or entry.get("userUuid")

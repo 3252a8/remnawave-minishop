@@ -5,6 +5,7 @@ from ._runtime import (
     List,
     Optional,
     Subscription,
+    SubscriptionServiceMixinContract,
     Tuple,
     User,
     add_months,
@@ -23,7 +24,7 @@ from ._runtime import (
 )
 
 
-class SubscriptionLifecycleMixin:
+class SubscriptionLifecycleMixin(SubscriptionServiceMixinContract):
     async def _lookup_panel_user_for_subscription_details(
         self,
         panel_user_uuid: str,

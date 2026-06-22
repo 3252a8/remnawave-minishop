@@ -4,6 +4,7 @@ from ._runtime import (
     Dict,
     List,
     Optional,
+    SubscriptionServiceMixinContract,
     datetime,
     logging,
     month_start,
@@ -14,7 +15,7 @@ from ._runtime import (
 )
 
 
-class TrafficMixin:
+class TrafficMixin(SubscriptionServiceMixinContract):
     async def _activate_traffic_package(
         self,
         session: AsyncSession,

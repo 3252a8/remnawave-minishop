@@ -171,6 +171,7 @@ jobs:
           backend/db
           backend/bot/infra
           backend/bot/payment_providers
+          backend/bot/services
           backend/bot/app/web/admin_api_impl
           backend/bot/app/web/webapp
           backend/bot/app/web/http_contracts.py

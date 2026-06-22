@@ -3,13 +3,14 @@ from ._runtime import (
     AsyncSession,
     Optional,
     Subscription,
+    SubscriptionServiceMixinContract,
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
     logging,
 )
 
 
-class RenewalMixin:
+class RenewalMixin(SubscriptionServiceMixinContract):
     def recurring_service_for(self, provider: Optional[str]) -> Any:
         """Resolve a provider service that can charge a saved payment method."""
         provider_key = str(provider or "").strip().lower()

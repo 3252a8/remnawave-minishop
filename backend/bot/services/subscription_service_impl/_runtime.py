@@ -2,7 +2,7 @@
 import logging
 import math
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,5 +31,10 @@ from bot.services.email_templates import render_payment_success
 from bot.services.panel_api_service import PanelApiService
 from bot.utils.text_sanitizer import panel_description_from_profile
 from config.traffic_strategy import normalize_traffic_limit_strategy
+
+if TYPE_CHECKING:
+    from ._typing import SubscriptionServiceMixinContract
+else:
+    SubscriptionServiceMixinContract = object
 
 __all__ = [name for name in globals() if not name.startswith("__")]

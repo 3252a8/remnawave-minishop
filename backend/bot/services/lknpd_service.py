@@ -50,8 +50,12 @@ class LknpdService:
         if not await self._ensure_authenticated():
             return None
 
+        client = self._client
+        if client is None:
+            return None
+
         try:
-            receipt_uuid = await self._client.create_income(
+            receipt_uuid = await client.create_income(
                 name=item_name,
                 amount=amount,
                 quantity=quantity,

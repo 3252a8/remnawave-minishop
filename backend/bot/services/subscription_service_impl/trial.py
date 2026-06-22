@@ -6,6 +6,7 @@ from ._runtime import (
     AsyncSession,
     Dict,
     Optional,
+    SubscriptionServiceMixinContract,
     datetime,
     logging,
     subscription_dal,
@@ -15,7 +16,7 @@ from ._runtime import (
 )
 
 
-class TrialSubscriptionMixin:
+class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
     async def activate_trial_subscription(
         self, session: AsyncSession, user_id: int
     ) -> Optional[Dict[str, Any]]:

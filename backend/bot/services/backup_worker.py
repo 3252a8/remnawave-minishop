@@ -329,15 +329,12 @@ class BackupWorker:
             )
             return
 
-        kwargs = {
-            "chat_id": chat_id,
-            "document": FSInputFile(result.archive_path),
-            "caption": self._caption(result),
-        }
-        thread_id = self._target_thread_id()
-        if thread_id is not None:
-            kwargs["message_thread_id"] = thread_id
-        await self.bot.send_document(**kwargs)
+        await self.bot.send_document(
+            chat_id=chat_id,
+            document=FSInputFile(result.archive_path),
+            caption=self._caption(result),
+            message_thread_id=self._target_thread_id(),
+        )
 
     def prune_old_backups(self) -> None:
         retention = int(getattr(self.settings, "BACKUP_LOCAL_RETENTION", 3) or 0)
@@ -466,14 +463,13 @@ class BackupWorker:
         chat_id = self._target_chat_id()
         if chat_id is None:
             return
-        kwargs = {
-            "chat_id": chat_id,
-            "text": f"Remnawave Minishop backup failed: {type(exc).__name__}. Check worker logs.",
-        }
-        thread_id = self._target_thread_id()
-        if thread_id is not None:
-            kwargs["message_thread_id"] = thread_id
         try:
-            await self.bot.send_message(**kwargs)
+            await self.bot.send_message(
+                chat_id=chat_id,
+                text=(
+                    f"Remnawave Minishop backup failed: {type(exc).__name__}. Check worker logs."
+                ),
+                message_thread_id=self._target_thread_id(),
+            )
         except Exception:
             logging.exception("Failed to send backup failure notification")
