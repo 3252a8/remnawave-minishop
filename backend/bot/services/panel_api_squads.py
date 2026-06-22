@@ -1,0 +1,139 @@
+import asyncio
+import json
+import logging
+import re
+import time
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
+from urllib.parse import urlencode
+
+import aiohttp
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from bot.utils.ttl_cache import AsyncTTLCache
+from config.settings import Settings
+from config.traffic_strategy import normalize_traffic_limit_strategy
+from db.dal import panel_sync_dal
+from db.models import PanelSyncStatus
+
+# Static endpoint prefixes used as log/metric labels instead of the raw request
+# path. Endpoints embed user identifiers (telegram id, username, email, uuids),
+# so logging the path verbatim would leak private data into log files; the
+# label keeps only the constant prefix. Longest prefixes first so e.g.
+
+from .panel_api_core import _endpoint_log_label
+
+class PanelApiSquadMutationMixin:
+    async def add_users_to_internal_squad(self, squad_uuid: str, user_uuids: List[str]) -> bool:
+        endpoint = f"/internal-squads/{squad_uuid}/bulk-actions/add-users"
+        response_data = await self._request(
+            "POST",
+            endpoint,
+            json={"users": user_uuids, "userUuids": user_uuids},
+            log_full_response=False,
+        )
+        if response_data and not response_data.get("error"):
+            await self._invalidate_squad_caches()
+            for user_uuid in user_uuids:
+                await self._invalidate_user_cache(user_uuid)
+            await self._invalidate_all_users_cache()
+            return True
+        logging.error("Failed to add users to squad %s. Response: %s", squad_uuid, response_data)
+        return False
+
+    async def remove_users_from_internal_squad(
+        self, squad_uuid: str, user_uuids: List[str]
+    ) -> bool:
+        endpoint = f"/internal-squads/{squad_uuid}/bulk-actions/remove-users"
+        response_data = await self._request(
+            "DELETE",
+            endpoint,
+            json={"users": user_uuids, "userUuids": user_uuids},
+            log_full_response=False,
+        )
+        if response_data and not response_data.get("error"):
+            await self._invalidate_squad_caches()
+            for user_uuid in user_uuids:
+                await self._invalidate_user_cache(user_uuid)
+            await self._invalidate_all_users_cache()
+            return True
+        logging.error(
+            "Failed to remove users from squad %s. Response: %s", squad_uuid, response_data
+        )
+        return False
+
+    async def get_nodes_online_lookups(self) -> Dict[str, Dict[str, int]]:
+        """Live ``usersOnline`` per node from ``GET /nodes`` (node directory).
+
+        Newer panels expose Prometheus-style metrics under ``/system/stats/nodes``
+        (``nodes: [{ usersOnline, ... }]``). Older/alternate builds only return
+        historical rows (e.g. ``lastSevenDays``) without live counts. The node
+        directory response always includes ``usersOnline`` and ``uuid``.
+
+        Returns:
+            ``{"byUuid": {uuid_lower: int}, "byName": {name_lower: int}}``
+        """
+        by_uuid: Dict[str, int] = {}
+        by_name: Dict[str, int] = {}
+        page_size = 100
+        start = 0
+        while True:
+            response_data = await self._request(
+                "GET",
+                "/nodes",
+                params={"size": page_size, "start": start},
+                log_full_response=False,
+            )
+            if not response_data or response_data.get("error"):
+                break
+            resp = response_data.get("response")
+            batch: List[Dict[str, Any]] = []
+            if isinstance(resp, list):
+                batch = [x for x in resp if isinstance(x, dict)]
+            elif isinstance(resp, dict):
+                inner = resp.get("nodes") or resp.get("items") or []
+                batch = [x for x in inner if isinstance(x, dict)]
+            if not batch:
+                break
+            for n in batch:
+                uid = n.get("uuid") or n.get("nodeUuid") or n.get("node_uuid")
+                uo = n.get("usersOnline")
+                if uo is None:
+                    uo = n.get("users_online")
+                if uo is None:
+                    continue
+                try:
+                    val = int(uo)
+                except (TypeError, ValueError):
+                    continue
+                if uid:
+                    by_uuid[str(uid).strip().lower()] = val
+                name = n.get("name")
+                if name and isinstance(name, str) and name.strip():
+                    by_name[name.strip().lower()] = val
+            if len(batch) < page_size:
+                break
+            start += page_size
+            await asyncio.sleep(0.05)
+        return {"byUuid": by_uuid, "byName": by_name}
+
+    async def get_nodes_statistics(self) -> Optional[Dict[str, Any]]:
+        """Get nodes statistics"""
+        response_data = await self._request("GET", "/system/stats/nodes", log_full_response=False)
+        if response_data and not response_data.get("error") and "response" in response_data:
+            return response_data.get("response")
+        return None
+
+    async def encrypt_happ_link(self, link_to_encrypt: str) -> Optional[str]:
+        """Encrypt a subscription link using the panel's happ crypt4 API.
+
+        Returns the encrypted link string or None if encryption failed.
+        """
+        payload = {"linkToEncrypt": link_to_encrypt}
+        response_data = await self._request(
+            "POST", "/system/tools/happ/encrypt", json=payload, log_full_response=False
+        )
+        if response_data and not response_data.get("error") and "response" in response_data:
+            return response_data.get("response", {}).get("encryptedLink")
+        logging.error(f"Failed to encrypt happ link. Response: {response_data}")
+        return None
