@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Input } from "$components/ui/index.js";
   import { getContext, onMount } from "svelte";
   import {
@@ -14,18 +14,32 @@
     syncAdminDatatable,
     watchAdminDatatable,
   } from "../../lib/admin/datatables.js";
+  import type { LogsStore } from "../../lib/admin/stores/logsStore";
+  import type { components } from "../../lib/api/openapi.generated";
 
-  export let at;
-  export let fmtDate;
-  export let onOpenUserCard = () => {};
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type LogEntry = components["schemas"]["LogOut"];
+  type UserKind = "user" | "target";
 
-  const logsStore = getContext("logsStore");
+  export let at: TranslateFn;
+  export let fmtDate: (value: string) => string;
+  export let onOpenUserCard: (userId: number | string | null | undefined) => void = () => {};
+
+  const logsStore = getContext<LogsStore>("logsStore");
   const logsTable = createAdminDatatable();
   const logsTableSignal = watchAdminDatatable(logsTable);
   const LOGS_PAGE_SIZE = 50;
 
+  let logs: LogEntry[] = [];
+  let logsTotal = 0;
+  let logsPage = 0;
+  let logsUserFilter = "";
+  let logsLoading = false;
+  let logsError = "";
+
   $: ({ logs, logsTotal, logsPage, logsUserFilter, logsLoading, logsError } = $logsStore);
   $: syncAdminDatatable(logsTable, logs);
+  $: logRows = $logsTableSignal.rows as LogEntry[];
 
   $: logsPageCount = Math.max(1, Math.ceil(Number(logsTotal || 0) / LOGS_PAGE_SIZE));
   $: logHeaders = [
@@ -36,7 +50,7 @@
     at("content", {}, "Контент"),
   ];
 
-  function userDisplay(entry, kind) {
+  function userDisplay(entry: LogEntry, kind: UserKind): string | number {
     const id = kind === "target" ? entry.target_user_id : entry.user_id;
     const label = kind === "target" ? entry.target_user_label : entry.user_label;
     if (label) return label;
@@ -51,7 +65,7 @@
     return id || "—";
   }
 
-  function userId(entry, kind) {
+  function userId(entry: LogEntry, kind: UserKind): number | null {
     return kind === "target" ? entry.target_user_id : entry.user_id;
   }
 
@@ -67,7 +81,7 @@
       class="input"
       placeholder={at("logs_user_filter_placeholder", {}, "Фильтр по ID пользователя")}
       value={logsUserFilter}
-      on:input={(e) => logsStore.setFilter(e.target.value)}
+      on:input={(e) => logsStore.setFilter((e.currentTarget as HTMLInputElement).value)}
       on:keydown={(e) => e.key === "Enter" && logsStore.setPage(0)}
     />
     <AdminButton
@@ -110,7 +124,7 @@
         {at("btn_refresh", {}, "Обновить")}
       </AdminButton>
     </AdminEmptyState>
-  {:else if !$logsTableSignal.rows.length}
+  {:else if !logRows.length}
     <AdminEmptyState tone="card"
       ><span class="admin-muted">{at("logs_empty", {}, "Записей нет")}</span></AdminEmptyState
     >
@@ -126,9 +140,11 @@
         </tr>
       </thead>
       <tbody>
-        {#each $logsTableSignal.rows as entry (entry.log_id)}
+        {#each logRows as entry (entry.log_id)}
           <tr>
-            <td data-label={at("date", {}, "Дата")}>{fmtDate(entry.timestamp)}</td>
+            <td data-label={at("date", {}, "Дата")}
+              >{entry.timestamp ? fmtDate(entry.timestamp) : "—"}</td
+            >
             <td class="admin-cell-mono" data-label={at("event", {}, "Событие")}
               >{entry.event_type}</td
             >
