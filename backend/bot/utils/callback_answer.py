@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, cast
 
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.types import CallbackQuery, Message
@@ -13,7 +13,11 @@ _EXPIRED_CALLBACK_MARKERS = (
 
 def callback_message_or_none(callback: CallbackQuery) -> Message | None:
     message = callback.message
-    return message if isinstance(message, Message) else None
+    if isinstance(message, Message):
+        return message
+    if message is not None and callable(getattr(message, "edit_text", None)):
+        return cast(Message, message)
+    return None
 
 
 def is_expired_callback_answer_error(error: BaseException) -> bool:
