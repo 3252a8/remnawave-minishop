@@ -1,3 +1,5 @@
+from aiohttp.typedefs import Handler
+
 from bot.app.web.context import (
     get_bot_username,
     get_i18n,
@@ -146,7 +148,9 @@ WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-ag
 
 
 @web.middleware
-async def _security_headers_middleware(request: web.Request, handler):
+async def _security_headers_middleware(
+    request: web.Request, handler: Handler
+) -> web.StreamResponse:
     request["csp_nonce"] = secrets.token_urlsafe(16)
     try:
         response = await handler(request)
@@ -184,7 +188,7 @@ async def _security_headers_middleware(request: web.Request, handler):
 
 
 @web.middleware
-async def _csrf_protection_middleware(request: web.Request, handler):
+async def _csrf_protection_middleware(request: web.Request, handler: Handler) -> web.StreamResponse:
     settings: Settings = get_settings(request)
     header = request.headers.get("Authorization", "")
     prefix = "Bearer "

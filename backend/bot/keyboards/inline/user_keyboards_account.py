@@ -3,6 +3,7 @@ from typing import Optional
 from aiogram.types import InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
+from bot.middlewares.i18n import JsonI18n
 from bot.utils.channel_subscription import normalize_required_channel_link
 from bot.utils.install_links import bot_install_guide_url
 from bot.utils.mini_app_url import subscription_mini_app_renew_url
@@ -10,7 +11,7 @@ from config.settings import Settings
 
 
 def get_referral_link_keyboard(
-    lang: str, i18n_instance, back_callback: str = "main_action:back_to_main"
+    lang: str, i18n_instance: JsonI18n, back_callback: str = "main_action:back_to_main"
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -23,7 +24,7 @@ def get_referral_link_keyboard(
 
 
 def get_back_to_main_menu_markup(
-    lang: str, i18n_instance, callback_data: Optional[str] = None
+    lang: str, i18n_instance: JsonI18n, callback_data: Optional[str] = None
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -38,7 +39,7 @@ def get_back_to_main_menu_markup(
 
 def get_subscribe_only_markup(
     lang: str,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     settings: Optional[Settings] = None,
     *,
     tariff_key: Optional[str] = None,
@@ -61,7 +62,7 @@ def get_subscribe_only_markup(
 
 
 def get_user_banned_keyboard(
-    support_link: Optional[str], lang: str, i18n_instance
+    support_link: Optional[str], lang: str, i18n_instance: JsonI18n
 ) -> Optional[InlineKeyboardMarkup]:
     if not support_link:
         return None
@@ -72,7 +73,10 @@ def get_user_banned_keyboard(
 
 
 def get_channel_subscription_keyboard(
-    lang: str, i18n_instance, channel_link: Optional[str], include_check_button: bool = True
+    lang: str,
+    i18n_instance: Optional[JsonI18n],
+    channel_link: Optional[str],
+    include_check_button: bool = True,
 ) -> Optional[InlineKeyboardMarkup]:
     """
     Return keyboard with buttons to open the required channel and trigger a subscription re-check.
@@ -109,7 +113,7 @@ def get_channel_subscription_keyboard(
 
 def get_connect_and_main_keyboard(
     lang: str,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     settings: Settings,
     config_link: Optional[str],
     connect_button_url: Optional[str] = None,

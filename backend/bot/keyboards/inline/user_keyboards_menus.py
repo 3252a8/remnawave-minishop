@@ -3,14 +3,16 @@ from typing import Optional
 from aiogram.types import InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
-from bot.middlewares.i18n import locale_language_options
+from bot.middlewares.i18n import JsonI18n, locale_language_options
 from bot.utils.mini_app_url import subscription_mini_app_trial_url
 from config.settings import Settings
 
 from .user_keyboards_context import telegram_bot_menu_enabled_for_user
 
 
-def _trial_activation_button(lang: str, i18n_instance, settings: Settings) -> InlineKeyboardButton:
+def _trial_activation_button(
+    lang: str, i18n_instance: JsonI18n, settings: Settings
+) -> InlineKeyboardButton:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     if settings.SUBSCRIPTION_MINI_APP_URL:
         trial_url = subscription_mini_app_trial_url(settings) or settings.SUBSCRIPTION_MINI_APP_URL
@@ -26,7 +28,7 @@ def _trial_activation_button(lang: str, i18n_instance, settings: Settings) -> In
 
 def get_main_menu_inline_keyboard(
     lang: str,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     settings: Settings,
     show_trial_button: bool = False,
     *,
@@ -82,7 +84,7 @@ def get_main_menu_inline_keyboard(
 
 
 def get_bot_interface_inline_keyboard(
-    lang: str, i18n_instance, settings: Settings, show_trial_button: bool = False
+    lang: str, i18n_instance: JsonI18n, settings: Settings, show_trial_button: bool = False
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -154,7 +156,7 @@ def get_bot_interface_inline_keyboard(
 
 def get_information_links_keyboard(
     lang: str,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     privacy_policy_url: Optional[str],
     user_agreement_url: Optional[str],
     back_callback: str = "main_action:back_to_main",
@@ -176,7 +178,7 @@ def get_information_links_keyboard(
 
 
 def get_language_selection_keyboard(
-    i18n_instance, current_lang: str, back_callback: str = "main_action:back_to_main"
+    i18n_instance: JsonI18n, current_lang: str, back_callback: str = "main_action:back_to_main"
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(current_lang, key, **kwargs)
     callback_suffix = ":bot" if back_callback == "main_action:bot_interface" else ""
@@ -198,7 +200,7 @@ def get_language_selection_keyboard(
     return builder.as_markup()
 
 
-def get_trial_confirmation_keyboard(lang: str, i18n_instance) -> InlineKeyboardMarkup:
+def get_trial_confirmation_keyboard(lang: str, i18n_instance: JsonI18n) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     builder.button(

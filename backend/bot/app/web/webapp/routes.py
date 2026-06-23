@@ -1,3 +1,5 @@
+from typing import Any
+
 from bot.app.web.route_contracts import (
     BINARY_RESPONSE_SCHEMA,
     JSON_OBJECT_SCHEMA,
@@ -136,11 +138,11 @@ _PROMO_APPLY_BODY_SCHEMA = {
 }
 
 
-def _public_contract(**kwargs) -> RouteContract:
+def _public_contract(**kwargs: Any) -> RouteContract:
     return RouteContract(**kwargs)
 
 
-def _user_contract(**kwargs) -> RouteContract:
+def _user_contract(**kwargs: Any) -> RouteContract:
     return RouteContract(security=USER_SECURITY, **kwargs)
 
 

@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
+from bot.middlewares.i18n import JsonI18n
 from config.settings import Settings
 from config.tariffs_config import (
     default_payment_currency_code_for_settings,
@@ -35,7 +36,7 @@ def get_payment_method_keyboard(
     stars_price: Optional[int],
     currency_symbol_val: str,
     lang: str,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     settings: Settings,
     sale_mode: str = "subscription",
     back_callback: Optional[str] = None,
@@ -121,7 +122,7 @@ def get_payment_method_keyboard(
 def get_payment_url_keyboard(
     payment_url: str,
     lang: str,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     back_callback: Optional[str] = None,
     back_text_key: str = "back_to_main_menu_button",
 ) -> InlineKeyboardMarkup:
@@ -142,7 +143,7 @@ def get_yk_autopay_choice_keyboard(
     months: int,
     price: float,
     lang: str,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     has_saved_cards: bool = True,
     sale_mode: str = "subscription",
     back_callback: Optional[str] = None,
@@ -184,7 +185,7 @@ def get_yk_saved_cards_keyboard(
     months: int,
     price: float,
     lang: str,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     page: int = 0,
     sale_mode: str = "subscription",
 ) -> InlineKeyboardMarkup:
@@ -248,7 +249,7 @@ def get_payment_methods_list_keyboard(
     cards: List[Tuple[str, str]],
     page: int,
     lang: str,
-    i18n_instance,
+    i18n_instance: JsonI18n,
 ) -> InlineKeyboardMarkup:
     """
     Build a paginated list of saved payment methods.
@@ -286,7 +287,7 @@ def get_payment_methods_list_keyboard(
 
 
 def get_payment_method_delete_confirm_keyboard(
-    pm_id: str, lang: str, i18n_instance
+    pm_id: str, lang: str, i18n_instance: JsonI18n
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -298,7 +299,7 @@ def get_payment_method_delete_confirm_keyboard(
 
 
 def get_payment_method_details_keyboard(
-    pm_id: str, lang: str, i18n_instance
+    pm_id: str, lang: str, i18n_instance: JsonI18n
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -318,7 +319,9 @@ def get_payment_method_details_keyboard(
     return builder.as_markup()
 
 
-def get_bind_url_keyboard(bind_url: str, lang: str, i18n_instance) -> InlineKeyboardMarkup:
+def get_bind_url_keyboard(
+    bind_url: str, lang: str, i18n_instance: JsonI18n
+) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     builder.button(text=_(key="payment_method_bind_button"), url=bind_url)
@@ -327,7 +330,9 @@ def get_bind_url_keyboard(bind_url: str, lang: str, i18n_instance) -> InlineKeyb
     return builder.as_markup()
 
 
-def get_back_to_payment_methods_keyboard(lang: str, i18n_instance) -> InlineKeyboardMarkup:
+def get_back_to_payment_methods_keyboard(
+    lang: str, i18n_instance: JsonI18n
+) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     builder.row(
@@ -337,7 +342,7 @@ def get_back_to_payment_methods_keyboard(lang: str, i18n_instance) -> InlineKeyb
 
 
 def get_back_to_payment_method_details_keyboard(
-    pm_id: str, lang: str, i18n_instance
+    pm_id: str, lang: str, i18n_instance: JsonI18n
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -350,7 +355,7 @@ def get_back_to_payment_method_details_keyboard(
     return builder.as_markup()
 
 
-def get_autorenew_cancel_keyboard(lang: str, i18n_instance) -> InlineKeyboardMarkup:
+def get_autorenew_cancel_keyboard(lang: str, i18n_instance: JsonI18n) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     builder.row(
@@ -367,7 +372,7 @@ def get_autorenew_cancel_keyboard(lang: str, i18n_instance) -> InlineKeyboardMar
 
 
 def get_autorenew_confirm_keyboard(
-    enable: bool, sub_id: int, lang: str, i18n_instance
+    enable: bool, sub_id: int, lang: str, i18n_instance: JsonI18n
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()

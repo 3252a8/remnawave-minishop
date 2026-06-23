@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 from importlib import metadata
+from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Set
 
 from .spec import ENTRY_POINT_GROUP, Plugin, PluginContext, QueueHandler, WorkerTaskSpec
@@ -111,7 +112,9 @@ def get_plugins(settings: "Settings") -> List[Plugin]:
     return [*builtin, *_discovered_plugins, *_registered_plugins]
 
 
-def _run_hook(settings: "Settings", plugin: Plugin, hook_name: str, *args, **kwargs) -> None:
+def _run_hook(
+    settings: "Settings", plugin: Plugin, hook_name: str, *args: object, **kwargs: object
+) -> None:
     try:
         getattr(plugin, hook_name)(*args, **kwargs)
     except Exception:
@@ -240,7 +243,7 @@ def collect_migrations(settings: "Settings") -> Dict[str, List["Migration"]]:
     return chains
 
 
-def _read_locales_dir(path) -> Dict[str, Dict[str, str]]:
+def _read_locales_dir(path: Path) -> Dict[str, Dict[str, str]]:
     locales: Dict[str, Dict[str, str]] = {}
     for file in sorted(path.glob("*.json")):
         try:

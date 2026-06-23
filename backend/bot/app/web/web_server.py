@@ -2,7 +2,7 @@ import asyncio
 import functools
 import hmac
 import logging
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Awaitable, Callable, Optional, cast
 
 from aiogram import Bot, Dispatcher
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
@@ -32,11 +32,11 @@ class SecureSimpleRequestHandler(SimpleRequestHandler):
 class TrustedProxyAccessLogger(AccessLogger):
     """Aiohttp access logger that respects trusted X-Forwarded-For headers."""
 
-    def compile_format(self, log_format):
+    def compile_format(self, log_format: str) -> tuple[str, list[KeyMethod]]:
         methods = []
         for atom in self.FORMAT_RE.findall(log_format):
             if atom[1] == "":
-                format_key = self.LOG_FORMAT_MAP[atom[0]]
+                format_key: str | tuple[str, str] = self.LOG_FORMAT_MAP[atom[0]]
                 method = getattr(type(self), f"_format_{atom[0]}", None)
                 if method is None:
                     method = getattr(AccessLogger, f"_format_{atom[0]}")
@@ -53,12 +53,13 @@ class TrustedProxyAccessLogger(AccessLogger):
         return compiled, methods
 
     @staticmethod
-    def _format_a(request, response, time):
+    def _format_a(request: web.BaseRequest, response: web.StreamResponse, time: float) -> str:
         if request is None:
             return "-"
-        settings = request.app.get("settings") if hasattr(request, "app") else None
+        app = getattr(request, "app", None)
+        settings = app.get("settings") if app is not None else None
         trusted_proxies = getattr(settings, "trusted_proxies", None)
-        client_ip = request_client_ip(request, trusted_proxies=trusted_proxies)
+        client_ip = request_client_ip(cast(web.Request, request), trusted_proxies=trusted_proxies)
         return client_ip or "-"
 
 
@@ -98,7 +99,7 @@ async def build_and_start_web_app(
     *,
     after_webhooks_started: Optional[Callable[[], Awaitable[None]]] = None,
     plugin_context: Optional[PluginContext] = None,
-):
+) -> None:
     app = web.Application()
     _inject_shared_instances(app, dp, bot, settings, async_session_factory)
 

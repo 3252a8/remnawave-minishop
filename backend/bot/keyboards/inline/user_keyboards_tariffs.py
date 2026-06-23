@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
+from bot.middlewares.i18n import JsonI18n
 from config.settings import Settings
 from config.tariffs_config import (
     default_currency_key_for_settings,
@@ -19,7 +20,7 @@ def get_subscription_options_keyboard(
     subscription_options: Dict[float, Optional[float]],
     currency_symbol_val: str,
     lang: str,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     traffic_mode: bool = False,
     back_callback: str = "main_action:back_to_main",
     callback_context: Optional[str] = None,
@@ -66,7 +67,7 @@ def get_subscription_options_keyboard(
 def get_tariff_catalog_keyboard(
     tariffs: List[Any],
     lang: str,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     settings: Optional[Settings] = None,
     back_callback: str = "main_action:back_to_main",
     callback_context: Optional[str] = None,
@@ -111,7 +112,7 @@ def get_tariff_catalog_keyboard(
 def get_tariff_periods_keyboard(
     tariff: Any,
     lang: str,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     settings: Settings,
     back_callback: str = "main_action:subscribe",
     callback_context: Optional[str] = None,
@@ -146,7 +147,7 @@ def get_tariff_packages_keyboard(
     tariff: Any,
     packages: List[Any],
     lang: str,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     currency_symbol: str = "RUB",
     back_callback: str = "main_action:subscribe",
     callback_context: Optional[str] = None,
@@ -177,7 +178,7 @@ def get_hwid_device_packages_keyboard(
     tariff: Any,
     packages: List[Any],
     lang: str,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     settings: Settings,
     back_callback: str = "main_action:my_subscription",
     renewal: bool = False,
