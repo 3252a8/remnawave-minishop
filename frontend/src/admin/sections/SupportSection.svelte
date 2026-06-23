@@ -382,7 +382,7 @@
               <TicketMessageBubble
                 role={message.author_role}
                 body={message.body}
-                createdAt={message.created_at}
+                createdAt={message.created_at ?? undefined}
                 isInternalNote={message.is_internal_note}
                 perspective="admin"
                 supportBrand={brand}

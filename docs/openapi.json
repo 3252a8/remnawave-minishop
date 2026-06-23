@@ -380,6 +380,629 @@
         "title": "AdminStatsOut",
         "type": "object"
       },
+      "AdminSupportMessageOut": {
+        "properties": {
+          "author_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Author Name"
+          },
+          "author_role": {
+            "title": "Author Role",
+            "type": "string"
+          },
+          "author_user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Author User Id"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
+          "is_internal_note": {
+            "title": "Is Internal Note",
+            "type": "boolean"
+          },
+          "message_id": {
+            "title": "Message Id",
+            "type": "integer"
+          },
+          "read_by_admin_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Read By Admin At"
+          },
+          "read_by_user_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Read By User At"
+          },
+          "ticket_id": {
+            "title": "Ticket Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "message_id",
+          "ticket_id",
+          "author_role",
+          "body",
+          "is_internal_note"
+        ],
+        "title": "AdminSupportMessageOut",
+        "type": "object"
+      },
+      "AdminSupportStatsOut": {
+        "additionalProperties": true,
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "integer"
+          },
+          "awaiting_admin": {
+            "title": "Awaiting Admin",
+            "type": "integer"
+          },
+          "awaiting_user": {
+            "title": "Awaiting User",
+            "type": "integer"
+          },
+          "closed": {
+            "title": "Closed",
+            "type": "integer"
+          },
+          "open": {
+            "title": "Open",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_unread_admin": {
+            "title": "Total Unread Admin",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "active",
+          "closed",
+          "total",
+          "open",
+          "awaiting_user",
+          "awaiting_admin",
+          "total_unread_admin"
+        ],
+        "title": "AdminSupportStatsOut",
+        "type": "object"
+      },
+      "AdminSupportTicketOut": {
+        "properties": {
+          "assigned_admin_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Assigned Admin Id"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Closed At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
+          "last_message_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Message At"
+          },
+          "last_message_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Message Role"
+          },
+          "priority": {
+            "title": "Priority",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "ticket_id": {
+            "title": "Ticket Id",
+            "type": "integer"
+          },
+          "unread_admin_count": {
+            "title": "Unread Admin Count",
+            "type": "integer"
+          },
+          "unread_user_count": {
+            "title": "Unread User Count",
+            "type": "integer"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Updated At"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AdminSupportUserOut"
+              },
+              {
+                "$ref": "#/components/schemas/EmptyObjectOut"
+              }
+            ],
+            "title": "User"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ticket_id",
+          "user_id",
+          "subject",
+          "category",
+          "priority",
+          "status",
+          "unread_user_count",
+          "unread_admin_count",
+          "user"
+        ],
+        "title": "AdminSupportTicketOut",
+        "type": "object"
+      },
+      "AdminSupportUserOut": {
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "First Name"
+          },
+          "is_banned": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Is Banned"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Name"
+          },
+          "registration_date": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Registration Date"
+          },
+          "telegram_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Id"
+          },
+          "telegram_photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Photo Url"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "User Id"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Username"
+          }
+        },
+        "title": "AdminSupportUserOut",
+        "type": "object"
+      },
+      "AdminSupportUserSnapshotOut": {
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Email"
+          },
+          "email_login": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Email Login"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "End Date"
+          },
+          "is_throttled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Is Throttled"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Language"
+          },
+          "lifetime_used_traffic_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lifetime Used Traffic Bytes"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "panel_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel Status"
+          },
+          "premium_topup_balance_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Premium Topup Balance Bytes"
+          },
+          "registration_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Registration Date"
+          },
+          "remaining": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Remaining"
+          },
+          "subscription_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Active"
+          },
+          "tariff": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tariff"
+          },
+          "telegram_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Id"
+          },
+          "topup_balance_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Topup Balance Bytes"
+          },
+          "traffic_premium": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SupportTrafficSnapshotOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "traffic_regular": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SupportTrafficSnapshotOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "User Id"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Username"
+          }
+        },
+        "title": "AdminSupportUserSnapshotOut",
+        "type": "object"
+      },
       "AdminTicketPatchPayload": {
         "properties": {
           "assigned_admin_id": {
@@ -653,6 +1276,12 @@
           "body"
         ],
         "title": "CreateTicketPayload",
+        "type": "object"
+      },
+      "EmptyObjectOut": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "EmptyObjectOut",
         "type": "object"
       },
       "HwidDevicePackage": {
@@ -1417,6 +2046,265 @@
           }
         },
         "title": "PromoUpdateBody",
+        "type": "object"
+      },
+      "SupportCountsOut": {
+        "additionalProperties": true,
+        "description": "Ticket counters keyed by known statuses, with room for future status keys.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "integer"
+          },
+          "closed": {
+            "title": "Closed",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "active",
+          "closed",
+          "total"
+        ],
+        "title": "SupportCountsOut",
+        "type": "object"
+      },
+      "SupportMessageOut": {
+        "properties": {
+          "author_role": {
+            "title": "Author Role",
+            "type": "string"
+          },
+          "author_user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Author User Id"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
+          "is_internal_note": {
+            "title": "Is Internal Note",
+            "type": "boolean"
+          },
+          "message_id": {
+            "title": "Message Id",
+            "type": "integer"
+          },
+          "read_by_admin_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Read By Admin At"
+          },
+          "read_by_user_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Read By User At"
+          },
+          "ticket_id": {
+            "title": "Ticket Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "message_id",
+          "ticket_id",
+          "author_role",
+          "body",
+          "is_internal_note"
+        ],
+        "title": "SupportMessageOut",
+        "type": "object"
+      },
+      "SupportTicketOut": {
+        "properties": {
+          "assigned_admin_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Assigned Admin Id"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Closed At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
+          "last_message_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Message At"
+          },
+          "last_message_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Message Role"
+          },
+          "priority": {
+            "title": "Priority",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "ticket_id": {
+            "title": "Ticket Id",
+            "type": "integer"
+          },
+          "unread_admin_count": {
+            "title": "Unread Admin Count",
+            "type": "integer"
+          },
+          "unread_user_count": {
+            "title": "Unread User Count",
+            "type": "integer"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Updated At"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ticket_id",
+          "user_id",
+          "subject",
+          "category",
+          "priority",
+          "status",
+          "unread_user_count",
+          "unread_admin_count"
+        ],
+        "title": "SupportTicketOut",
+        "type": "object"
+      },
+      "SupportTrafficSnapshotOut": {
+        "properties": {
+          "left_bytes": {
+            "default": 0,
+            "title": "Left Bytes",
+            "type": "integer"
+          },
+          "limit_bytes": {
+            "default": 0,
+            "title": "Limit Bytes",
+            "type": "integer"
+          },
+          "percent": {
+            "default": 0.0,
+            "title": "Percent",
+            "type": "number"
+          },
+          "used_bytes": {
+            "default": 0,
+            "title": "Used Bytes",
+            "type": "integer"
+          }
+        },
+        "title": "SupportTrafficSnapshotOut",
         "type": "object"
       },
       "Tariff": {
@@ -4849,8 +5737,7 @@
                       "type": "boolean"
                     },
                     "stats": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminSupportStatsOut"
                     }
                   },
                   "required": [
@@ -4894,8 +5781,7 @@
                     },
                     "tickets": {
                       "items": {
-                        "additionalProperties": true,
-                        "type": "object"
+                        "$ref": "#/components/schemas/AdminSupportTicketOut"
                       },
                       "type": "array"
                     }
@@ -4947,8 +5833,7 @@
                   "properties": {
                     "messages": {
                       "items": {
-                        "additionalProperties": true,
-                        "type": "object"
+                        "$ref": "#/components/schemas/AdminSupportMessageOut"
                       },
                       "type": "array"
                     },
@@ -4957,12 +5842,17 @@
                       "type": "boolean"
                     },
                     "ticket": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminSupportTicketOut"
                     },
                     "user_snapshot": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/AdminSupportUserSnapshotOut"
+                        },
+                        {
+                          "$ref": "#/components/schemas/EmptyObjectOut"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -5025,8 +5915,7 @@
                       "type": "boolean"
                     },
                     "ticket": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/SupportTicketOut"
                     }
                   },
                   "required": [
@@ -5085,16 +5974,14 @@
                   "additionalProperties": false,
                   "properties": {
                     "message": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminSupportMessageOut"
                     },
                     "ok": {
                       "const": true,
                       "type": "boolean"
                     },
                     "ticket": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/SupportTicketOut"
                     }
                   },
                   "required": [
@@ -7671,8 +8558,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "counts": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/SupportCountsOut"
                     },
                     "ok": {
                       "const": true,
@@ -7680,8 +8566,7 @@
                     },
                     "tickets": {
                       "items": {
-                        "additionalProperties": true,
-                        "type": "object"
+                        "$ref": "#/components/schemas/SupportTicketOut"
                       },
                       "type": "array"
                     }
@@ -7735,8 +8620,7 @@
                       "type": "boolean"
                     },
                     "ticket": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/SupportTicketOut"
                     }
                   },
                   "required": [
@@ -7786,8 +8670,7 @@
                   "properties": {
                     "messages": {
                       "items": {
-                        "additionalProperties": true,
-                        "type": "object"
+                        "$ref": "#/components/schemas/SupportMessageOut"
                       },
                       "type": "array"
                     },
@@ -7796,8 +8679,7 @@
                       "type": "boolean"
                     },
                     "ticket": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/SupportTicketOut"
                     }
                   },
                   "required": [
@@ -7857,16 +8739,14 @@
                   "additionalProperties": false,
                   "properties": {
                     "message": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/SupportMessageOut"
                     },
                     "ok": {
                       "const": true,
                       "type": "boolean"
                     },
                     "ticket": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/SupportTicketOut"
                     }
                   },
                   "required": [

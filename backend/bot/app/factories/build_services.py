@@ -1,3 +1,5 @@
+from typing import cast
+
 from aiogram import Bot
 from sqlalchemy.orm import sessionmaker
 
@@ -9,6 +11,7 @@ from bot.payment_providers import (
     build_provider_services,
     recurring_provider_services,
 )
+from bot.payment_providers.shared import RecurringProviderService
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.notification_service import NotificationService
 from bot.services.panel_api_service import PanelApiService
@@ -30,7 +33,7 @@ def build_core_services(
 ) -> CoreServices:
     panel_service = (
         PanelDryRunApiService(settings)
-        if bool(getattr(settings, "panel_dry_run_enabled", False))
+        if bool(settings.panel_dry_run_enabled)
         else PanelApiService(settings)
     )
     subscription_service = SubscriptionService(settings, panel_service, bot, i18n)
@@ -70,7 +73,10 @@ def build_core_services(
         )
     )
     # These attachments are critical for auto-renew and panel pre-expiry hooks.
-    subscription_service.yookassa_service = payment_services.get("yookassa_service")
+    subscription_service.yookassa_service = cast(
+        RecurringProviderService | None,
+        payment_services.get("yookassa_service"),
+    )
     subscription_service.recurring_provider_services = recurring_provider_services(payment_services)
     panel_webhook_service.subscription_service = subscription_service
 

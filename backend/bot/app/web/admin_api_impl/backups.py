@@ -170,8 +170,8 @@ async def admin_backups_create_route(request: web.Request) -> web.Response:
         60,
         int(
             max(
-                getattr(settings, "BACKUP_LOCK_TTL_SECONDS", 7200) or 7200,
-                getattr(settings, "BACKUP_PG_DUMP_TIMEOUT_SECONDS", 1800) or 1800,
+                settings.BACKUP_LOCK_TTL_SECONDS or 7200,
+                settings.BACKUP_PG_DUMP_TIMEOUT_SECONDS or 1800,
             )
         ),
     )
@@ -216,8 +216,8 @@ async def admin_backups_restore_route(request: web.Request) -> web.Response:
         60,
         int(
             max(
-                getattr(settings, "BACKUP_LOCK_TTL_SECONDS", 7200) or 7200,
-                getattr(settings, "BACKUP_PG_RESTORE_TIMEOUT_SECONDS", 1800) or 1800,
+                settings.BACKUP_LOCK_TTL_SECONDS or 7200,
+                settings.BACKUP_PG_RESTORE_TIMEOUT_SECONDS or 1800,
             )
         ),
     )

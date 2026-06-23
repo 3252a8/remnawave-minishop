@@ -95,7 +95,7 @@ async def my_subscription_command_handler(
 
     end_date = active.get("end_date")
     days_left = (end_date.date() - datetime.now().date()).days if end_date else 0
-    traffic_mode = bool(getattr(settings, "traffic_sale_mode", False))
+    traffic_mode = bool(settings.traffic_sale_mode)
     config_link_display = active.get("config_link")
     connect_button_url = active.get("connect_button_url")
     config_link_value = config_link_display or get_text("config_link_not_available")

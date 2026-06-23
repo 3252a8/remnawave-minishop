@@ -13,7 +13,7 @@ def telegram_bot_menu_enabled_for_user(
     is_admin: bool = False,
 ) -> bool:
     """Return whether the legacy in-bot interface should be available."""
-    return not bool(getattr(settings, "TELEGRAM_BOT_MENU_DISABLED", False))
+    return not bool(settings.TELEGRAM_BOT_MENU_DISABLED)
 
 
 def sale_mode_tokens(sale_mode: Optional[str]) -> Tuple[str, ...]:

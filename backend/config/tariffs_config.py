@@ -36,12 +36,12 @@ def payment_currency_code(currency: Any, default: str = "RUB") -> str:
 
 def default_currency_key_for_settings(settings: Any) -> str:
     try:
-        config = getattr(settings, "tariffs_config", None)
+        config = settings.tariffs_config
     except Exception:
         config = None
     if config is not None and getattr(config, "default_currency", None):
         return normalize_currency_key(config.default_currency)
-    return normalize_currency_key(getattr(settings, "DEFAULT_CURRENCY_SYMBOL", None))
+    return normalize_currency_key(settings.DEFAULT_CURRENCY_SYMBOL)
 
 
 def default_payment_currency_code_for_settings(settings: Any) -> str:

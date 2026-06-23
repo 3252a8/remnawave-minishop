@@ -204,13 +204,13 @@ async def _load_subscription_guides_status(
     app: web.Application,
     settings: Settings,
 ) -> Dict[str, Any]:
-    if not bool(getattr(settings, "SUBSCRIPTION_GUIDES_ENABLED", False)):
+    if not bool(settings.SUBSCRIPTION_GUIDES_ENABLED):
         return {"enabled": False, "config": None, "source": None, "error": None}
 
     if _subscription_guides_admin_json_override_enabled(settings):
         return subscription_guides_status(settings)
 
-    if bool(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED", True)):
+    if bool(settings.SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED):
         panel_status = await _subscription_guides_status_from_panel_config(app, settings)
         if panel_status.get("enabled"):
             return panel_status
@@ -267,14 +267,7 @@ async def _subscription_guides_status_from_panel_short_uuid_cached(
 ) -> Dict[str, Any]:
     ttl_seconds = max(
         0,
-        int(
-            getattr(
-                settings,
-                "SUBSCRIPTION_GUIDES_RESOLVED_CACHE_TTL_SECONDS",
-                SUBSCRIPTION_GUIDES_RESOLVED_CACHE_TTL_SECONDS,
-            )
-            or 0
-        ),
+        int(settings.SUBSCRIPTION_GUIDES_RESOLVED_CACHE_TTL_SECONDS or 0),
     )
     if ttl_seconds <= 0:
         return await _subscription_guides_status_from_panel_short_uuid(
@@ -391,14 +384,7 @@ async def _panel_subscription_page_config_by_uuid_cached(
 
     ttl_seconds = max(
         0,
-        int(
-            getattr(
-                settings,
-                "SUBSCRIPTION_GUIDES_CONFIG_CACHE_TTL_SECONDS",
-                300,
-            )
-            or 0
-        ),
+        int(settings.SUBSCRIPTION_GUIDES_CONFIG_CACHE_TTL_SECONDS or 0),
     )
     if ttl_seconds <= 0:
         return await _load_panel_subscription_page_config_by_uuid(app, config_uuid)
@@ -664,14 +650,7 @@ async def _public_subscription_payload_cached(
     settings: Settings = get_settings(request)
     ttl_seconds = max(
         0,
-        int(
-            getattr(
-                settings,
-                "SUBSCRIPTION_GUIDES_PUBLIC_CACHE_TTL_SECONDS",
-                SUBSCRIPTION_GUIDES_PUBLIC_CACHE_TTL_SECONDS,
-            )
-            or 0
-        ),
+        int(settings.SUBSCRIPTION_GUIDES_PUBLIC_CACHE_TTL_SECONDS or 0),
     )
     if ttl_seconds <= 0:
         return await _public_subscription_payload_uncached(request, share_token)
@@ -754,10 +733,10 @@ def _public_subscription_payload_fingerprint(request: web.Request) -> Tuple[str,
     host = headers.get("X-Forwarded-Host") or headers.get("Host") or request.host
     proto = headers.get("X-Forwarded-Proto") or request.scheme or "https"
     return (
-        str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", "") or "").strip(),
-        str(getattr(settings, "PANEL_API_URL", "") or "").strip(),
-        str(getattr(settings, "CRYPT4_REDIRECT_URL", "") or "").strip(),
-        str(bool(getattr(settings, "CRYPT4_ENABLED", False))),
+        str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip(),
+        str(settings.PANEL_API_URL or "").strip(),
+        str(settings.CRYPT4_REDIRECT_URL or "").strip(),
+        str(bool(settings.CRYPT4_ENABLED)),
         str(host or "").strip().lower(),
         str(proto or "").strip().lower(),
     )
@@ -835,32 +814,29 @@ def _looks_like_panel_subscription_page_config(payload: Dict[str, Any]) -> bool:
 
 
 def _subscription_guides_admin_json_override_enabled(settings: Settings) -> bool:
-    admin_json = str(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON", "") or "").strip()
-    return bool(
-        admin_json
-        and bool(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED", False))
-    )
+    admin_json = str(settings.SUBSCRIPTION_PAGE_CONFIG_JSON or "").strip()
+    return bool(admin_json and bool(settings.SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED))
 
 
 def _subscription_guides_should_try_resolved_panel_config(settings: Settings) -> bool:
     return bool(
-        getattr(settings, "SUBSCRIPTION_GUIDES_ENABLED", False)
-        and getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED", True)
+        settings.SUBSCRIPTION_GUIDES_ENABLED
+        and settings.SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED
         and not _subscription_guides_admin_json_override_enabled(settings)
     )
 
 
 def _subscription_guides_settings_fingerprint(settings: Settings) -> Tuple[Any, ...]:
-    admin_json = str(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON", "") or "")
+    admin_json = str(settings.SUBSCRIPTION_PAGE_CONFIG_JSON or "")
     return (
-        bool(getattr(settings, "SUBSCRIPTION_GUIDES_ENABLED", False)),
-        bool(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED", True)),
-        bool(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED", False)),
-        str(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_PATH", "") or ""),
+        bool(settings.SUBSCRIPTION_GUIDES_ENABLED),
+        bool(settings.SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED),
+        bool(settings.SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED),
+        str(settings.SUBSCRIPTION_PAGE_CONFIG_PATH or ""),
         str(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_UUID", "") or ""),
         hashlib.sha256(admin_json.encode("utf-8")).hexdigest(),
-        str(getattr(settings, "PANEL_API_URL", "") or ""),
-        bool(getattr(settings, "PANEL_API_KEY", "") or ""),
+        str(settings.PANEL_API_URL or ""),
+        bool(settings.PANEL_API_KEY or ""),
     )
 
 
@@ -903,7 +879,7 @@ def _local_subscription_is_publicly_active(subscription: Any) -> bool:
 
 def _public_install_url(request: web.Request, share_token: str) -> str:
     settings: Settings = get_settings(request)
-    configured_base = str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", "") or "").strip()
+    configured_base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     if configured_base:
         parts = urlsplit(configured_base)
         if parts.scheme and parts.netloc:

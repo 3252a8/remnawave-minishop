@@ -1,22 +1,35 @@
 import { get, writable, type Writable } from "svelte/store";
+import type { components } from "../../api/openapi.generated";
+import {
+  unwrap,
+  type ApiResponse,
+  type GetResponse,
+  type PostResponse,
+} from "../../webapp/publicApi";
 import { withRoutePrefix } from "../../webapp/routes.js";
 import { adminErrorMessage } from "../errors.js";
 
-type AdminApi = (path: string, options?: RequestInit) => Promise<Record<string, unknown>>;
+type AdminErrorResponse = { ok: false; error?: string; message?: string };
+type AdminApi = <Path extends string>(
+  path: Path,
+  options?: RequestInit
+) => Promise<ApiResponse<Path> | AdminErrorResponse>;
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type TicketId = number | string;
 type TicketViewOptions = { skipPush?: boolean };
 type LoadListOptions = { silent?: boolean };
-type TicketPatch = Record<string, unknown>;
+type TicketPatch = Partial<components["schemas"]["AdminTicketPatchPayload"]>;
+type TicketReplyPayload = components["schemas"]["AdminTicketReplyPayload"];
+type BaseSupportTicket = components["schemas"]["SupportTicketOut"];
+type AdminSupportTicket = components["schemas"]["AdminSupportTicketOut"];
+type AdminSupportUser = components["schemas"]["AdminSupportUserOut"];
+type AdminSupportUserSnapshot = components["schemas"]["AdminSupportUserSnapshotOut"];
+type AdminSupportTicketDetailResponse = GetResponse<"/api/admin/support/tickets/{id}">;
+type AdminSupportTicketReplyResponse = PostResponse<"/api/admin/support/tickets/{id}/messages">;
+type AdminSupportTicketPatchResponse = { ok: true; ticket: BaseSupportTicket };
 
-export type SupportStats = {
-  active: number;
-  closed: number;
-  open: number;
-  awaiting_admin: number;
-  total_unread_admin: number;
-};
+export type SupportStats = components["schemas"]["AdminSupportStatsOut"];
 
 export type SupportFilters = {
   status: string;
@@ -26,31 +39,14 @@ export type SupportFilters = {
   sort: string;
 };
 
-export type SupportUser = Record<string, unknown> & {
-  email?: string;
-  first_name?: string;
-  last_name?: string;
-  user_id?: number | string;
-  username?: string;
+export type SupportUser = Partial<AdminSupportUser & AdminSupportUserSnapshot> &
+  Record<string, unknown>;
+
+export type SupportTicket = BaseSupportTicket & {
+  user?: AdminSupportTicket["user"] | SupportUser;
 };
 
-export type SupportTicket = Record<string, unknown> & {
-  subject?: string;
-  status?: string;
-  ticket_id?: number;
-  unread_admin_count?: number;
-  user?: SupportUser;
-};
-
-export type SupportMessage = Record<string, unknown> & {
-  author_name?: string;
-  author_role?: string;
-  author_user_id?: number | string;
-  body?: string;
-  created_at?: string;
-  is_internal_note?: boolean;
-  message_id?: number;
-};
+export type SupportMessage = components["schemas"]["AdminSupportMessageOut"];
 
 type AdminSupportState = {
   tickets: SupportTicket[];
@@ -111,9 +107,45 @@ function asStats(value: unknown, fallback: SupportStats): SupportStats {
     active: Number(record.active ?? fallback.active ?? 0),
     closed: Number(record.closed ?? fallback.closed ?? 0),
     open: Number(record.open ?? fallback.open ?? 0),
+    awaiting_user: Number(record.awaiting_user ?? fallback.awaiting_user ?? 0),
     awaiting_admin: Number(record.awaiting_admin ?? fallback.awaiting_admin ?? 0),
+    total: Number(record.total ?? fallback.total ?? 0),
     total_unread_admin: Number(record.total_unread_admin ?? fallback.total_unread_admin ?? 0),
   };
+}
+
+function mergeTicket(
+  current: SupportTicket | null,
+  incoming: BaseSupportTicket | SupportTicket
+): SupportTicket {
+  const existingUser = current?.user;
+  const incomingUser = "user" in incoming ? incoming.user : undefined;
+  return {
+    ...(current || incoming),
+    ...incoming,
+    user: incomingUser || existingUser,
+  } as SupportTicket;
+}
+
+function mergeTicketValue(current: SupportTicket | null, value: unknown): SupportTicket | null {
+  const incoming = asTicket(value);
+  return incoming ? mergeTicket(current, incoming) : current;
+}
+
+function adminSupportTicketsPath(params: URLSearchParams): "/admin/support/tickets" {
+  return `/admin/support/tickets?${params.toString()}` as "/admin/support/tickets";
+}
+
+function adminSupportTicketPath(_id: TicketId): "/admin/support/tickets/{id}" {
+  return `/admin/support/tickets/${_id}` as "/admin/support/tickets/{id}";
+}
+
+function adminSupportTicketMessagesPath(_id: TicketId): "/admin/support/tickets/{id}/messages" {
+  return `/admin/support/tickets/${_id}/messages` as "/admin/support/tickets/{id}/messages";
+}
+
+function adminSupportTicketReadPath(_id: TicketId): "/admin/support/tickets/{id}/read" {
+  return `/admin/support/tickets/${_id}/read` as "/admin/support/tickets/{id}/read";
 }
 
 export function createAdminSupportStore({
@@ -129,7 +161,15 @@ export function createAdminSupportStore({
 
   const state: Writable<AdminSupportState> = writable({
     tickets: [],
-    stats: { active: 0, closed: 0, open: 0, awaiting_admin: 0, total_unread_admin: 0 },
+    stats: {
+      active: 0,
+      closed: 0,
+      open: 0,
+      awaiting_user: 0,
+      awaiting_admin: 0,
+      total: 0,
+      total_unread_admin: 0,
+    },
     filters: {
       status: "active",
       priority: "",
@@ -189,7 +229,10 @@ export function createAdminSupportStore({
 
   async function loadStats() {
     const res = await api("/admin/support/stats");
-    if (res?.ok) state.update((s) => ({ ...s, stats: asStats(res.stats, s.stats) }));
+    if (res?.ok) {
+      const payload = unwrap(res);
+      state.update((s) => ({ ...s, stats: asStats(payload.stats, s.stats) }));
+    }
   }
 
   async function loadList(options: LoadListOptions = {}) {
@@ -202,9 +245,11 @@ export function createAdminSupportStore({
       for (const [key, value] of Object.entries(filters || {})) {
         if (value) params.set(key, value);
       }
-      const res = await api(`/admin/support/tickets?${params.toString()}`);
-      if (res?.ok) state.update((s) => ({ ...s, tickets: asTickets(res.tickets) }));
-      else if (res?.error) onToast(adminErrorMessage(res, at));
+      const res = await api(adminSupportTicketsPath(params));
+      if (res?.ok) {
+        const payload = unwrap(res);
+        state.update((s) => ({ ...s, tickets: asTickets(payload.tickets) }));
+      } else if (res?.error) onToast(adminErrorMessage(res, at));
     } finally {
       if (!silent) state.update((s) => ({ ...s, loading: false }));
     }
@@ -213,31 +258,34 @@ export function createAdminSupportStore({
   async function refreshCurrentTicket(ticketId: TicketId) {
     const id = Number(ticketId);
     if (!id) return null;
-    const res = await api(`/admin/support/tickets/${id}`);
+    const res = (await api(adminSupportTicketPath(id))) as
+      | AdminSupportTicketDetailResponse
+      | AdminErrorResponse;
     if (!res?.ok) return res;
+    const payload = unwrap(res);
 
     let shouldRefreshList = false;
     let shouldMarkRead = false;
     state.update((s) => {
       if (s.openedTicketId !== id) return s;
-      const nextMessages = asMessages(res.messages);
+      const nextMessages = asMessages(payload.messages);
       shouldRefreshList =
         lastMessageId(nextMessages) !== lastMessageId(s.messages) ||
-        asTicket(res.ticket)?.status !== s.openedTicket?.status ||
-        Number(asTicket(res.ticket)?.unread_admin_count || 0) !==
+        asTicket(payload.ticket)?.status !== s.openedTicket?.status ||
+        Number(asTicket(payload.ticket)?.unread_admin_count || 0) !==
           Number(s.openedTicket?.unread_admin_count || 0);
-      shouldMarkRead = Number(asTicket(res.ticket)?.unread_admin_count || 0) > 0;
+      shouldMarkRead = Number(asTicket(payload.ticket)?.unread_admin_count || 0) > 0;
       return {
         ...s,
-        openedTicket: asTicket(res.ticket),
+        openedTicket: asTicket(payload.ticket),
         messages: nextMessages,
-        userSnapshot: asUser(res.user_snapshot),
+        userSnapshot: asUser(payload.user_snapshot),
       };
     });
 
     if (currentOpenedTicketId() !== id) return res;
     if (shouldMarkRead) {
-      await api(`/admin/support/tickets/${id}/read`, { method: "POST", body: "{}" });
+      await api(adminSupportTicketReadPath(id), { method: "POST", body: "{}" });
       await loadStats();
       shouldRefreshList = true;
     }
@@ -258,20 +306,23 @@ export function createAdminSupportStore({
     }));
     if (!opts.skipPush) pushTicketPath(id);
     try {
-      const res = await api(`/admin/support/tickets/${id}`);
+      const res = (await api(adminSupportTicketPath(id))) as
+        | AdminSupportTicketDetailResponse
+        | AdminErrorResponse;
       if (res?.ok) {
+        const payload = unwrap(res);
         state.update((s) =>
           s.openedTicketId === id
             ? {
                 ...s,
-                openedTicket: asTicket(res.ticket),
-                messages: asMessages(res.messages),
-                userSnapshot: asUser(res.user_snapshot),
+                openedTicket: asTicket(payload.ticket),
+                messages: asMessages(payload.messages),
+                userSnapshot: asUser(payload.user_snapshot),
               }
             : s
         );
         if (currentOpenedTicketId() === id) {
-          await api(`/admin/support/tickets/${id}/read`, { method: "POST", body: "{}" });
+          await api(adminSupportTicketReadPath(id), { method: "POST", body: "{}" });
           await loadStats();
           await loadList({ silent: true });
           scheduleTicketPoll(OPEN_TICKET_POLL_MS);
@@ -307,23 +358,19 @@ export function createAdminSupportStore({
       return;
     }
     try {
-      const res = await api(`/admin/support/tickets/${current}/messages`, {
+      const payload: TicketReplyPayload = { body, is_internal_note: internal };
+      const res = (await api(adminSupportTicketMessagesPath(current), {
         method: "POST",
-        body: JSON.stringify({ body, is_internal_note: internal }),
-      });
+        body: JSON.stringify(payload),
+      })) as AdminSupportTicketReplyResponse | AdminErrorResponse;
       if (!res?.ok) throw res;
+      const response = unwrap(res);
       state.update((s) =>
         s.openedTicketId === current
           ? {
               ...s,
-              openedTicket: asTicket(res.ticket)
-                ? {
-                    ...s.openedTicket,
-                    ...asTicket(res.ticket),
-                    user: asTicket(res.ticket)?.user || s.openedTicket?.user,
-                  }
-                : s.openedTicket,
-              messages: res.message ? [...s.messages, res.message as SupportMessage] : s.messages,
+              openedTicket: mergeTicketValue(s.openedTicket, response.ticket),
+              messages: response.message ? [...s.messages, response.message] : s.messages,
             }
           : s
       );
@@ -344,19 +391,16 @@ export function createAdminSupportStore({
       return s;
     });
     if (!current) return;
-    const res = await api(`/admin/support/tickets/${current}`, {
+    const res = (await api(adminSupportTicketPath(current), {
       method: "PATCH",
       body: JSON.stringify(updates),
-    });
+    })) as AdminSupportTicketPatchResponse | AdminErrorResponse;
     if (res?.ok) {
+      const payload = unwrap(res);
       state.update((s) => ({
         ...s,
-        openedTicket: res.ticket
-          ? {
-              ...s.openedTicket,
-              ...asTicket(res.ticket),
-              user: asTicket(res.ticket)?.user || s.openedTicket?.user,
-            }
+        openedTicket: payload.ticket
+          ? mergeTicket(s.openedTicket, asTicket(payload.ticket) || payload.ticket)
           : s.openedTicket,
       }));
       await loadList();
@@ -417,7 +461,7 @@ export function createAdminSupportStore({
     let failed = false;
     try {
       const res = await refreshCurrentTicket(ticketId);
-      if (res?.error) failed = true;
+      if (res && !res.ok) failed = true;
     } catch (_error) {
       failed = true;
     } finally {

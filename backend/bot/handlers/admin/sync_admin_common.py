@@ -412,7 +412,7 @@ def _should_update_lifetime_used_traffic(
     try:
         min_delta_bytes = max(
             0,
-            int(getattr(settings, "PANEL_SYNC_LIFETIME_TRAFFIC_MIN_DELTA_BYTES", 0) or 0),
+            int(settings.PANEL_SYNC_LIFETIME_TRAFFIC_MIN_DELTA_BYTES or 0),
         )
     except (TypeError, ValueError):
         min_delta_bytes = 0
@@ -422,7 +422,7 @@ def _should_update_lifetime_used_traffic(
     try:
         min_interval_seconds = max(
             0,
-            int(getattr(settings, "PANEL_SYNC_LIFETIME_TRAFFIC_MIN_INTERVAL_SECONDS", 0) or 0),
+            int(settings.PANEL_SYNC_LIFETIME_TRAFFIC_MIN_INTERVAL_SECONDS or 0),
         )
     except (TypeError, ValueError):
         min_interval_seconds = 0

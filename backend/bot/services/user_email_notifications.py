@@ -41,16 +41,14 @@ async def send_user_notification_email(
     audit_event_type: Optional[str] = None,
     audit_content: Optional[str] = None,
 ) -> bool:
-    if not getattr(settings, "email_auth_configured", False):
+    if not settings.email_auth_configured:
         return False
     recipient = str(getattr(user, "email", "") or "").strip()
     if not recipient:
         return False
 
     language = (
-        str(getattr(user, "language_code", "") or "").strip()
-        or getattr(settings, "DEFAULT_LANGUAGE", "ru")
-        or "ru"
+        str(getattr(user, "language_code", "") or "").strip() or settings.DEFAULT_LANGUAGE or "ru"
     )
     kwargs = subject_kwargs or {}
     subject = _translate(i18n, language, subject_key, subject_key, **kwargs)

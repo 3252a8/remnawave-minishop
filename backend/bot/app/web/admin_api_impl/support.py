@@ -6,6 +6,16 @@ from bot.app.web.context import (
     get_session_factory,
     get_support_service,
 )
+from bot.app.web.route_contracts import schema_ref
+from bot.app.web.support_schemas import (
+    AdminSupportMessageOut,
+    AdminSupportStatsOut,
+    AdminSupportTicketOut,
+    AdminSupportUserOut,
+    AdminSupportUserSnapshotOut,
+    EmptyObjectOut,
+    SupportTicketOut,
+)
 from bot.services.support_service import TicketNotFound
 from db.dal import support_dal, user_dal
 from db.models import SupportTicket, SupportTicketMessage, User
@@ -14,8 +24,6 @@ from ._runtime import (
     Any,
     Dict,
     RouteContract,
-    loose_array_schema,
-    loose_object_schema,
     ok_envelope_with,
     parse_body_or_400,
     register_contract,
@@ -60,18 +68,43 @@ class AdminTicketPatchPayload(BaseModel):
 
 register_contract(
     "admin_support_tickets_route",
-    RouteContract(response_schema=ok_envelope_with({"tickets": loose_array_schema()})),
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {
+                "tickets": {
+                    "type": "array",
+                    "items": schema_ref(AdminSupportTicketOut),
+                }
+            }
+        ),
+        models=(AdminSupportTicketOut, AdminSupportUserOut, EmptyObjectOut),
+    ),
 )
 register_contract(
     "admin_support_ticket_detail_route",
     RouteContract(
         response_schema=ok_envelope_with(
             {
-                "ticket": loose_object_schema(),
-                "messages": loose_array_schema(),
-                "user_snapshot": loose_object_schema(),
+                "ticket": schema_ref(AdminSupportTicketOut),
+                "messages": {
+                    "type": "array",
+                    "items": schema_ref(AdminSupportMessageOut),
+                },
+                "user_snapshot": {
+                    "oneOf": [
+                        schema_ref(AdminSupportUserSnapshotOut),
+                        schema_ref(EmptyObjectOut),
+                    ]
+                },
             }
-        )
+        ),
+        models=(
+            AdminSupportMessageOut,
+            AdminSupportTicketOut,
+            AdminSupportUserOut,
+            AdminSupportUserSnapshotOut,
+            EmptyObjectOut,
+        ),
     ),
 )
 register_contract(
@@ -79,15 +112,20 @@ register_contract(
     RouteContract(
         request_model=AdminTicketReplyPayload,
         response_schema=ok_envelope_with(
-            {"ticket": loose_object_schema(), "message": loose_object_schema()}
+            {
+                "ticket": schema_ref(SupportTicketOut),
+                "message": schema_ref(AdminSupportMessageOut),
+            }
         ),
+        models=(AdminTicketReplyPayload, AdminSupportMessageOut, SupportTicketOut),
     ),
 )
 register_contract(
     "admin_support_ticket_patch_route",
     RouteContract(
         request_model=AdminTicketPatchPayload,
-        response_schema=ok_envelope_with({"ticket": loose_object_schema()}),
+        response_schema=ok_envelope_with({"ticket": schema_ref(SupportTicketOut)}),
+        models=(AdminTicketPatchPayload, SupportTicketOut),
     ),
 )
 register_contract(
@@ -96,7 +134,10 @@ register_contract(
 )
 register_contract(
     "admin_support_stats_route",
-    RouteContract(response_schema=ok_envelope_with({"stats": loose_object_schema()})),
+    RouteContract(
+        response_schema=ok_envelope_with({"stats": schema_ref(AdminSupportStatsOut)}),
+        models=(AdminSupportStatsOut,),
+    ),
 )
 
 
@@ -105,22 +146,7 @@ def _invalid_request_payload_response(_exc: Exception) -> web.Response:
 
 
 def _support_ticket_payload(ticket: SupportTicket) -> Dict[str, Any]:
-    return {
-        "ticket_id": ticket.ticket_id,
-        "user_id": ticket.user_id,
-        "subject": ticket.subject,
-        "category": ticket.category,
-        "priority": ticket.priority,
-        "status": ticket.status,
-        "assigned_admin_id": ticket.assigned_admin_id,
-        "last_message_at": ticket.last_message_at.isoformat() if ticket.last_message_at else None,
-        "last_message_role": ticket.last_message_role,
-        "unread_user_count": int(ticket.unread_user_count or 0),
-        "unread_admin_count": int(ticket.unread_admin_count or 0),
-        "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
-        "updated_at": ticket.updated_at.isoformat() if ticket.updated_at else None,
-        "closed_at": ticket.closed_at.isoformat() if ticket.closed_at else None,
-    }
+    return SupportTicketOut.from_orm_ticket(ticket).model_dump(mode="json")
 
 
 def _user_display_name(user: Optional[User]) -> Optional[str]:
@@ -138,36 +164,16 @@ def _support_message_payload(
     authors: Optional[Dict[int, Any]] = None,
 ) -> Dict[str, Any]:
     author = authors.get(message.author_user_id) if authors and message.author_user_id else None
-    return {
-        "message_id": message.message_id,
-        "ticket_id": message.ticket_id,
-        "author_role": message.author_role,
-        "author_user_id": message.author_user_id,
-        "author_name": _user_display_name(author),
-        "body": message.body,
-        "is_internal_note": bool(message.is_internal_note),
-        "created_at": message.created_at.isoformat() if message.created_at else None,
-        "read_by_user_at": message.read_by_user_at.isoformat() if message.read_by_user_at else None,
-        "read_by_admin_at": message.read_by_admin_at.isoformat()
-        if message.read_by_admin_at
-        else None,
-    }
+    return AdminSupportMessageOut.from_orm_message(
+        message,
+        author_name=_user_display_name(author),
+    ).model_dump(mode="json")
 
 
 def _admin_support_user_payload(user: Optional[User]) -> Dict[str, Any]:
     if not user:
         return {}
-    return {
-        "user_id": user.user_id,
-        "telegram_id": user.telegram_id,
-        "username": user.username,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "email": user.email,
-        "telegram_photo_url": user.telegram_photo_url,
-        "is_banned": bool(user.is_banned),
-        "registration_date": user.registration_date.isoformat() if user.registration_date else None,
-    }
+    return AdminSupportUserOut.from_orm_user(user).model_dump(mode="json")
 
 
 def _support_limit_offset(request: web.Request) -> tuple[int, int]:

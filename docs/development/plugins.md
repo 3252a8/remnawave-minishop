@@ -47,6 +47,11 @@ class ExamplePlugin(Plugin):
 plugin = ExamplePlugin()
 ```
 
+В репозитории также есть runnable sample:
+[`examples/plugins/audit_logger_plugin`](../../examples/plugins/audit_logger_plugin). Его можно поставить
+в dev-окружение командой `pip install -e examples/plugins/audit_logger_plugin`; entry point
+`minishop.plugins` вернёт готовый объект `plugin`.
+
 ## Контракт Plugin
 
 `PluginContext` передаёт плагину общие объекты текущего процесса:
@@ -127,6 +132,9 @@ class ExamplePlugin(Plugin):
     def setup(self, ctx: PluginContext) -> None:
         events.subscribe(events.PAYMENT_SUCCEEDED, on_payment)
 ```
+
+Контракт подписчика закреплён тестами: публичная сигнатура остаётся `(event_name, payload)`, где
+`payload` — обычный плоский `dict`.
 
 ## Миграции БД
 

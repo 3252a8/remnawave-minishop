@@ -28,6 +28,7 @@ from bot.keyboards.inline.user_keyboards import (
 )
 from bot.middlewares.i18n import LOCALE_KEY_ALIASES
 from config.tariffs_config import TariffsConfig
+from tests.support.settings_stub import settings_stub
 
 
 class JsonI18nStub:
@@ -43,7 +44,7 @@ class JsonI18nStub:
 class UserBotMenuTests(unittest.TestCase):
     def setUp(self):
         self.i18n = JsonI18nStub()
-        self.settings = SimpleNamespace(
+        self.settings = settings_stub(
             SUBSCRIPTION_MINI_APP_URL="https://app.example.com/",
             SUPPORT_LINK="https://t.me/support",
             PRIVACY_POLICY_URL="https://example.com/privacy",
@@ -265,7 +266,7 @@ class UserBotMenuTests(unittest.TestCase):
         self.assertIn("subscribe_period:1:bot", self._callback_data(subscription_markup))
 
     def test_subscription_purchase_description_is_prepended_before_period_selection(self):
-        settings = SimpleNamespace(
+        settings = settings_stub(
             subscription_purchase_description=lambda language: f"Description {language}"
         )
 
@@ -303,7 +304,7 @@ class UserBotMenuTests(unittest.TestCase):
         self.assertNotIn("None", text)
 
     def test_payment_navigation_context_keeps_bot_menu_source(self):
-        settings = SimpleNamespace(
+        settings = settings_stub(
             payment_methods_order=[],
             PLATEGA_ENABLED=False,
             PLATEGA_SBP_ENABLED=False,
@@ -337,7 +338,7 @@ class UserBotMenuTests(unittest.TestCase):
         )
 
     def test_payment_method_keyboard_adds_hwid_renewal_toggle(self):
-        settings = SimpleNamespace(payment_methods_order=[])
+        settings = settings_stub(payment_methods_order=[])
         quote = {"device_count": 2, "price": 50}
 
         selected = get_payment_method_keyboard(

@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 from bot.app.web.admin_api_impl import users as admin_users
 from bot.app.web.admin_api_impl import users_actions
+from tests.support.settings_stub import settings_stub
 
 
 class FakeSession:
@@ -46,7 +47,7 @@ class FakeTariffsConfig:
 class FakeRequest:
     def __init__(self, body, session, subscription_service, settings=None):
         self.app = {
-            "settings": settings or SimpleNamespace(),
+            "settings": settings or settings_stub(),
             "async_session_factory": lambda: session,
             "subscription_service": subscription_service,
         }
@@ -210,7 +211,7 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
         subscription_service = SimpleNamespace(
             extend_active_subscription_days=AsyncMock(return_value=new_end)
         )
-        settings = SimpleNamespace(
+        settings = settings_stub(
             tariffs_config=FakeTariffsConfig(
                 [SimpleNamespace(key="standard", billing_model="period")]
             )

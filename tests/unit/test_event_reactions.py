@@ -7,6 +7,7 @@ from bot.infra import events
 from bot.plugins import PluginContext
 from bot.services import event_reactions
 from bot.services.event_reactions import register_core_reactions
+from tests.support.settings_stub import settings_stub
 
 
 class _SessionFactory:
@@ -38,7 +39,7 @@ class _TemplateI18n:
 
 
 def _settings():
-    return SimpleNamespace(
+    return settings_stub(
         DEFAULT_LANGUAGE="en",
         DEFAULT_CURRENCY="RUB",
         SUBSCRIPTION_MINI_APP_URL="https://mini.example.test",

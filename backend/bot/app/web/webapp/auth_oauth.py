@@ -75,7 +75,7 @@ async def _exchange_telegram_oauth_code(
 ) -> Optional[Dict[str, Any]]:
     settings: Settings = get_settings(request)
     client_id = _resolve_telegram_oauth_client_id(settings)
-    client_secret = str(getattr(settings, "TELEGRAM_OAUTH_CLIENT_SECRET", "") or "").strip()
+    client_secret = str(settings.TELEGRAM_OAUTH_CLIENT_SECRET or "").strip()
     if not client_id or not client_secret or not code or not code_verifier:
         return None
 
@@ -134,7 +134,7 @@ async def telegram_oauth_nonce_route(request: web.Request) -> web.Response:
 async def telegram_oauth_start_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
     client_id = _resolve_telegram_oauth_client_id(settings)
-    client_secret = str(getattr(settings, "TELEGRAM_OAUTH_CLIENT_SECRET", "") or "").strip()
+    client_secret = str(settings.TELEGRAM_OAUTH_CLIENT_SECRET or "").strip()
     if not client_id or not client_secret:
         raise web.HTTPFound(_telegram_oauth_redirect_url("/", status="not_configured"))
 

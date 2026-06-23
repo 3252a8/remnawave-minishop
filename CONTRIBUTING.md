@@ -21,6 +21,17 @@ CI (`.github/workflows/ci.yml`) прогоняет всё перечисленн
 make check
 ```
 
+Та же полная проверка доступна без GNU `make`:
+```bash
+npm run check
+```
+
+Для быстрого локального smoke-прогона без `ruff format --check`, `mypy` и полного frontend `build`
+можно использовать:
+```bash
+npm run check:quick
+```
+
 Current documented mypy frontier outside the CI scope: `backend/config`, `backend/main_*.py`,
 `backend/scripts`, `scripts`, and `tests`. Add those only after separate type-hardening work keeps the
 full command green.
@@ -40,6 +51,7 @@ python -m mypy backend/db backend/bot/infra backend/bot/middlewares backend/bot/
 **Фронтенд** (`frontend/`):
 ```bash
 npm run check        # eslint + svelte-check + prettier --check
+npm run test         # Vitest unit-тесты helper'ов и store'ов
 npm run build        # vite build должен проходить после type-only изменений
 ```
 

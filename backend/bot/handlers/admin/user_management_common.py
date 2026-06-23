@@ -96,7 +96,7 @@ def _admin_user_button_label(user: User) -> str:
 
 
 def _enabled_admin_tariffs(settings: Settings) -> list:
-    config = getattr(settings, "tariffs_config", None)
+    config = settings.tariffs_config
     if not config:
         return []
     return list(getattr(config, "enabled_tariffs", []) or [])
@@ -114,7 +114,7 @@ def _resolve_admin_period_tariff_key(
     settings: Settings,
     explicit_tariff_key: Optional[str] = None,
 ) -> tuple[Optional[str], Optional[str]]:
-    config = getattr(settings, "tariffs_config", None)
+    config = settings.tariffs_config
     if not config:
         return None, None
 

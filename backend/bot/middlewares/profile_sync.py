@@ -87,7 +87,7 @@ class ProfileSyncMiddleware(BaseMiddleware):
 
 
 async def _profile_sync_recently_checked(settings: Settings, telegram_id: int) -> bool:
-    ttl_seconds = int(getattr(settings, "PROFILE_SYNC_CACHE_TTL_SECONDS", 900) or 0)
+    ttl_seconds = int(settings.PROFILE_SYNC_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return False
 
@@ -108,7 +108,7 @@ async def _profile_sync_recently_checked(settings: Settings, telegram_id: int) -
 
 
 async def _mark_profile_sync_checked(settings: Settings, telegram_id: int) -> None:
-    ttl_seconds = int(getattr(settings, "PROFILE_SYNC_CACHE_TTL_SECONDS", 900) or 0)
+    ttl_seconds = int(settings.PROFILE_SYNC_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return
 

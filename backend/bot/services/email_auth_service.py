@@ -81,10 +81,10 @@ def is_disposable_email(value: Optional[str], settings: Settings) -> bool:
     domain = email_domain(value)
     if not domain:
         return False
-    blocked_domains = getattr(settings, "disposable_email_domains", None)
+    blocked_domains = settings.disposable_email_domains
     if blocked_domains is None:
         blocked_domains = _split_disposable_domain_values(
-            str(getattr(settings, "DISPOSABLE_EMAIL_DOMAINS", "") or "")
+            str(settings.DISPOSABLE_EMAIL_DOMAINS or "")
         )
     blocked_domains = blocked_domains or []
     for blocked in blocked_domains:

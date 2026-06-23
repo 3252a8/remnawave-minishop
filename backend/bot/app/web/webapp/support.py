@@ -2,6 +2,7 @@ from bot.app.web.context import (
     get_session_factory,
     get_support_service,
 )
+from bot.app.web.support_schemas import SupportMessageOut, SupportTicketOut
 from bot.services.support_service import TicketForbidden, TicketNotFound, TicketRateLimited
 from db.dal import support_dal, user_dal
 from db.models import SupportTicket, SupportTicketMessage
@@ -25,38 +26,11 @@ from .payloads import (
 
 
 def _support_ticket_payload(ticket: SupportTicket) -> Dict[str, Any]:
-    return {
-        "ticket_id": ticket.ticket_id,
-        "user_id": ticket.user_id,
-        "subject": ticket.subject,
-        "category": ticket.category,
-        "priority": ticket.priority,
-        "status": ticket.status,
-        "assigned_admin_id": ticket.assigned_admin_id,
-        "last_message_at": ticket.last_message_at.isoformat() if ticket.last_message_at else None,
-        "last_message_role": ticket.last_message_role,
-        "unread_user_count": int(ticket.unread_user_count or 0),
-        "unread_admin_count": int(ticket.unread_admin_count or 0),
-        "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
-        "updated_at": ticket.updated_at.isoformat() if ticket.updated_at else None,
-        "closed_at": ticket.closed_at.isoformat() if ticket.closed_at else None,
-    }
+    return SupportTicketOut.from_orm_ticket(ticket).model_dump(mode="json")
 
 
 def _support_message_payload(message: SupportTicketMessage) -> Dict[str, Any]:
-    return {
-        "message_id": message.message_id,
-        "ticket_id": message.ticket_id,
-        "author_role": message.author_role,
-        "author_user_id": message.author_user_id,
-        "body": message.body,
-        "is_internal_note": bool(message.is_internal_note),
-        "created_at": message.created_at.isoformat() if message.created_at else None,
-        "read_by_user_at": message.read_by_user_at.isoformat() if message.read_by_user_at else None,
-        "read_by_admin_at": message.read_by_admin_at.isoformat()
-        if message.read_by_admin_at
-        else None,
-    }
+    return SupportMessageOut.from_orm_message(message).model_dump(mode="json")
 
 
 def _support_limit_offset(request: web.Request) -> tuple[int, int]:

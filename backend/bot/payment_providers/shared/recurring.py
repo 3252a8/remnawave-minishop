@@ -20,7 +20,7 @@ The renewal worker discovers such services through
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping, Optional, Protocol
 
 
 @dataclass(frozen=True)
@@ -74,6 +74,19 @@ class RecurringChargeResult:
         return cls(initiated=True, provider_payment_id=provider_payment_id, status=status)
 
 
-def service_supports_recurring(service: Any) -> bool:
+class RecurringProviderService(Protocol):
+    @property
+    def configured(self) -> bool: ...
+
+    @property
+    def recurring_active(self) -> bool: ...
+
+    async def charge_saved_payment_method(
+        self,
+        context: RecurringChargeContext,
+    ) -> RecurringChargeResult: ...
+
+
+def service_supports_recurring(service: object | None) -> bool:
     """True when a wired provider service exposes an active recurring capability."""
     return bool(service is not None and getattr(service, "recurring_active", False))

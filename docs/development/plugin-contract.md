@@ -1,26 +1,32 @@
-# Plugin Contract Reference
+# Контракт плагинов
 
-The typed source of truth is [`../../backend/bot/plugins/spec.py`](../../backend/bot/plugins/spec.py).
-This page is an orientation layer, not a duplicate contract.
+Типизированный источник истины — [`../../backend/bot/plugins/spec.py`](../../backend/bot/plugins/spec.py).
+Эта страница помогает сориентироваться, но не дублирует весь контракт.
 
-Plugins subclass `Plugin` and may override any hook:
+Плагин наследуется от `Plugin` и переопределяет только нужные хуки:
 
-- `setup(ctx)` for service registration and event subscriptions
-- `setup_bot(ctx, user_root, admin_root)` for aiogram routers
-- `setup_web(ctx, app, scope)` for aiohttp routes
-- `worker_tasks(ctx)` for long-running worker coroutines
-- `queue_handlers(ctx)` for webhook queue consumers
-- `migrations()` for plugin migration chains
-- `locales_dir()` for additive locale catalogs
-- `entitlements_provider()` for feature entitlement integration
+- `setup(ctx)` — регистрация сервисов и подписок на события;
+- `setup_bot(ctx, user_root, admin_root)` — подключение aiogram-роутеров;
+- `setup_web(ctx, app, scope)` — добавление aiohttp routes;
+- `worker_tasks(ctx)` — долгоживущие coroutine-задачи worker-процесса;
+- `queue_handlers(ctx)` — обработчики webhook-очереди;
+- `migrations()` — цепочка миграций плагина;
+- `locales_dir()` — дополнительные JSON-каталоги локалей;
+- `entitlements_provider()` — интеграция feature flags.
 
-`PluginContext` carries settings, optional bot/dispatcher/session factory, i18n, and a shared
-services dict. Hooks must tolerate optional fields being absent in auxiliary entrypoints.
+`PluginContext` содержит настройки, optional bot/dispatcher/session factory, i18n и общий словарь
+`services`. Словарь `services` — публичная поверхность расширения; ключи должны быть строками,
+а хуки должны терпеть отсутствие optional-полей в вспомогательных entrypoint'ах.
 
-Web plugins receive one of two scopes from `bot.plugins.spec`: `WEB_SCOPE_WEBAPP` for the
-Mini App/admin API app, or `WEB_SCOPE_WEBHOOKS` for payment, panel, health, and Telegram
-webhook routes.
+Web-плагины получают один из двух scope из `bot.plugins.spec`:
 
-Domain event subscribers keep the public `(event_name, dict)` signature. Core payload shapes
-are documented in [`../architecture/events.md`](../architecture/events.md) and enforced by
-the pydantic models in `bot.infra.event_payloads`.
+- `WEB_SCOPE_WEBAPP` — Mini App и admin API;
+- `WEB_SCOPE_WEBHOOKS` — payment, panel, health и Telegram webhook routes.
+
+Подписчики доменных событий сохраняют публичную сигнатуру `(event_name, dict)`. Формы payload'ов
+описаны в [`../architecture/events.md`](../architecture/events.md) и проверяются pydantic-моделями
+в `bot.infra.event_payloads`, но внешние подписчики получают обычный плоский `dict`.
+
+Минимальный runnable sample лежит в
+[`../../examples/plugins/audit_logger_plugin`](../../examples/plugins/audit_logger_plugin). Он показывает
+`setup`, `setup_web` и подписку через `bot.infra.events.subscribe`.

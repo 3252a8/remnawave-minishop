@@ -99,7 +99,7 @@ def _format_plain_amount(value: float) -> str:
 def _tariff_display_name(settings: Any, tariff_key: Optional[str], language: str) -> str:
     if not tariff_key:
         return ""
-    cfg = getattr(settings, "tariffs_config", None)
+    cfg = settings.tariffs_config
     if not cfg:
         return str(tariff_key)
     try:

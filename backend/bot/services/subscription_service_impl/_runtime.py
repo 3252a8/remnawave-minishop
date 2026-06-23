@@ -34,8 +34,11 @@ from bot.utils.text_sanitizer import panel_description_from_profile
 from config.traffic_strategy import normalize_traffic_limit_strategy
 
 if TYPE_CHECKING:
+    from bot.payment_providers.shared import RecurringProviderService
+
     from ._typing import SubscriptionServiceMixinContract
 else:
+    RecurringProviderService = object
     SubscriptionServiceMixinContract = object
 
 __all__ = [name for name in globals() if not name.startswith("__")]

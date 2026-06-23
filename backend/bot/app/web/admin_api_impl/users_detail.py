@@ -604,7 +604,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
         except Exception as exc_link:  # pragma: no cover
             logger.warning("Failed to build bot referral link for %s: %s", target_id, exc_link)
     referral_webapp_link = _build_admin_webapp_referral_link(
-        getattr(settings, "SUBSCRIPTION_MINI_APP_URL", None),
+        settings.SUBSCRIPTION_MINI_APP_URL,
         referral_code,
     )
 

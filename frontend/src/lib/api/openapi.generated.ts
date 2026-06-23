@@ -1636,6 +1636,254 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /** AdminSupportMessageOut */
+    AdminSupportMessageOut: {
+      /**
+       * Author Name
+       * @default null
+       */
+      author_name: string | null;
+      /** Author Role */
+      author_role: string;
+      /**
+       * Author User Id
+       * @default null
+       */
+      author_user_id: number | null;
+      /** Body */
+      body: string;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /** Is Internal Note */
+      is_internal_note: boolean;
+      /** Message Id */
+      message_id: number;
+      /**
+       * Read By Admin At
+       * @default null
+       */
+      read_by_admin_at: string | null;
+      /**
+       * Read By User At
+       * @default null
+       */
+      read_by_user_at: string | null;
+      /** Ticket Id */
+      ticket_id: number;
+    };
+    /** AdminSupportStatsOut */
+    AdminSupportStatsOut: {
+      /** Active */
+      active: number;
+      /** Awaiting Admin */
+      awaiting_admin: number;
+      /** Awaiting User */
+      awaiting_user: number;
+      /** Closed */
+      closed: number;
+      /** Open */
+      open: number;
+      /** Total */
+      total: number;
+      /** Total Unread Admin */
+      total_unread_admin: number;
+    } & {
+      [key: string]: unknown;
+    };
+    /** AdminSupportTicketOut */
+    AdminSupportTicketOut: {
+      /**
+       * Assigned Admin Id
+       * @default null
+       */
+      assigned_admin_id: number | null;
+      /** Category */
+      category: string;
+      /**
+       * Closed At
+       * @default null
+       */
+      closed_at: string | null;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /**
+       * Last Message At
+       * @default null
+       */
+      last_message_at: string | null;
+      /**
+       * Last Message Role
+       * @default null
+       */
+      last_message_role: string | null;
+      /** Priority */
+      priority: string;
+      /** Status */
+      status: string;
+      /** Subject */
+      subject: string;
+      /** Ticket Id */
+      ticket_id: number;
+      /** Unread Admin Count */
+      unread_admin_count: number;
+      /** Unread User Count */
+      unread_user_count: number;
+      /**
+       * Updated At
+       * @default null
+       */
+      updated_at: string | null;
+      /** User */
+      user: components["schemas"]["AdminSupportUserOut"] | components["schemas"]["EmptyObjectOut"];
+      /** User Id */
+      user_id: number;
+    };
+    /** AdminSupportUserOut */
+    AdminSupportUserOut: {
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /**
+       * First Name
+       * @default null
+       */
+      first_name: string | null;
+      /**
+       * Is Banned
+       * @default null
+       */
+      is_banned: boolean | null;
+      /**
+       * Last Name
+       * @default null
+       */
+      last_name: string | null;
+      /**
+       * Registration Date
+       * @default null
+       */
+      registration_date: string | null;
+      /**
+       * Telegram Id
+       * @default null
+       */
+      telegram_id: number | null;
+      /**
+       * Telegram Photo Url
+       * @default null
+       */
+      telegram_photo_url: string | null;
+      /**
+       * User Id
+       * @default null
+       */
+      user_id: number | null;
+      /**
+       * Username
+       * @default null
+       */
+      username: string | null;
+    };
+    /** AdminSupportUserSnapshotOut */
+    AdminSupportUserSnapshotOut: {
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /**
+       * Email Login
+       * @default null
+       */
+      email_login: boolean | null;
+      /**
+       * End Date
+       * @default null
+       */
+      end_date: string | null;
+      /**
+       * Is Throttled
+       * @default null
+       */
+      is_throttled: boolean | null;
+      /**
+       * Language
+       * @default null
+       */
+      language: string | null;
+      /**
+       * Lifetime Used Traffic Bytes
+       * @default null
+       */
+      lifetime_used_traffic_bytes: number | null;
+      /**
+       * Name
+       * @default null
+       */
+      name: string | null;
+      /**
+       * Panel Status
+       * @default null
+       */
+      panel_status: string | null;
+      /**
+       * Premium Topup Balance Bytes
+       * @default null
+       */
+      premium_topup_balance_bytes: number | null;
+      /**
+       * Registration Date
+       * @default null
+       */
+      registration_date: string | null;
+      /**
+       * Remaining
+       * @default null
+       */
+      remaining: string | null;
+      /**
+       * Subscription Active
+       * @default null
+       */
+      subscription_active: boolean | null;
+      /**
+       * Tariff
+       * @default null
+       */
+      tariff: string | null;
+      /**
+       * Telegram Id
+       * @default null
+       */
+      telegram_id: number | null;
+      /**
+       * Topup Balance Bytes
+       * @default null
+       */
+      topup_balance_bytes: number | null;
+      /** @default null */
+      traffic_premium: components["schemas"]["SupportTrafficSnapshotOut"] | null;
+      /** @default null */
+      traffic_regular: components["schemas"]["SupportTrafficSnapshotOut"] | null;
+      /**
+       * User Id
+       * @default null
+       */
+      user_id: number | null;
+      /**
+       * Username
+       * @default null
+       */
+      username: string | null;
+    };
     /** AdminTicketPatchPayload */
     AdminTicketPatchPayload: {
       /**
@@ -1819,6 +2067,8 @@ export interface components {
       /** Subject */
       subject: string;
     };
+    /** EmptyObjectOut */
+    EmptyObjectOut: Record<string, never>;
     /** HwidDevicePackage */
     HwidDevicePackage: {
       /** Count */
@@ -2143,6 +2393,125 @@ export interface components {
        * @default null
        */
       max_activations: number | null;
+    };
+    /**
+     * SupportCountsOut
+     * @description Ticket counters keyed by known statuses, with room for future status keys.
+     */
+    SupportCountsOut: {
+      /** Active */
+      active: number;
+      /** Closed */
+      closed: number;
+      /** Total */
+      total: number;
+    } & {
+      [key: string]: unknown;
+    };
+    /** SupportMessageOut */
+    SupportMessageOut: {
+      /** Author Role */
+      author_role: string;
+      /**
+       * Author User Id
+       * @default null
+       */
+      author_user_id: number | null;
+      /** Body */
+      body: string;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /** Is Internal Note */
+      is_internal_note: boolean;
+      /** Message Id */
+      message_id: number;
+      /**
+       * Read By Admin At
+       * @default null
+       */
+      read_by_admin_at: string | null;
+      /**
+       * Read By User At
+       * @default null
+       */
+      read_by_user_at: string | null;
+      /** Ticket Id */
+      ticket_id: number;
+    };
+    /** SupportTicketOut */
+    SupportTicketOut: {
+      /**
+       * Assigned Admin Id
+       * @default null
+       */
+      assigned_admin_id: number | null;
+      /** Category */
+      category: string;
+      /**
+       * Closed At
+       * @default null
+       */
+      closed_at: string | null;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /**
+       * Last Message At
+       * @default null
+       */
+      last_message_at: string | null;
+      /**
+       * Last Message Role
+       * @default null
+       */
+      last_message_role: string | null;
+      /** Priority */
+      priority: string;
+      /** Status */
+      status: string;
+      /** Subject */
+      subject: string;
+      /** Ticket Id */
+      ticket_id: number;
+      /** Unread Admin Count */
+      unread_admin_count: number;
+      /** Unread User Count */
+      unread_user_count: number;
+      /**
+       * Updated At
+       * @default null
+       */
+      updated_at: string | null;
+      /** User Id */
+      user_id: number;
+    };
+    /** SupportTrafficSnapshotOut */
+    SupportTrafficSnapshotOut: {
+      /**
+       * Left Bytes
+       * @default 0
+       */
+      left_bytes: number;
+      /**
+       * Limit Bytes
+       * @default 0
+       */
+      limit_bytes: number;
+      /**
+       * Percent
+       * @default 0
+       */
+      percent: number;
+      /**
+       * Used Bytes
+       * @default 0
+       */
+      used_bytes: number;
     };
     /** Tariff */
     Tariff: {
@@ -3830,9 +4199,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
-            stats: {
-              [key: string]: unknown;
-            };
+            stats: components["schemas"]["AdminSupportStatsOut"];
           };
         };
       };
@@ -3856,9 +4223,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
-            tickets: {
-              [key: string]: unknown;
-            }[];
+            tickets: components["schemas"]["AdminSupportTicketOut"][];
           };
         };
       };
@@ -3882,17 +4247,13 @@ export interface operations {
         };
         content: {
           "application/json": {
-            messages: {
-              [key: string]: unknown;
-            }[];
+            messages: components["schemas"]["AdminSupportMessageOut"][];
             /** @constant */
             ok: true;
-            ticket: {
-              [key: string]: unknown;
-            };
-            user_snapshot: {
-              [key: string]: unknown;
-            };
+            ticket: components["schemas"]["AdminSupportTicketOut"];
+            user_snapshot:
+              | components["schemas"]["AdminSupportUserSnapshotOut"]
+              | components["schemas"]["EmptyObjectOut"];
           };
         };
       };
@@ -3922,9 +4283,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
-            ticket: {
-              [key: string]: unknown;
-            };
+            ticket: components["schemas"]["SupportTicketOut"];
           };
         };
       };
@@ -3952,14 +4311,10 @@ export interface operations {
         };
         content: {
           "application/json": {
-            message: {
-              [key: string]: unknown;
-            };
+            message: components["schemas"]["AdminSupportMessageOut"];
             /** @constant */
             ok: true;
-            ticket: {
-              [key: string]: unknown;
-            };
+            ticket: components["schemas"]["SupportTicketOut"];
           };
         };
       };
@@ -5304,14 +5659,10 @@ export interface operations {
         };
         content: {
           "application/json": {
-            counts: {
-              [key: string]: unknown;
-            };
+            counts: components["schemas"]["SupportCountsOut"];
             /** @constant */
             ok: true;
-            tickets: {
-              [key: string]: unknown;
-            }[];
+            tickets: components["schemas"]["SupportTicketOut"][];
           };
         };
       };
@@ -5339,9 +5690,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
-            ticket: {
-              [key: string]: unknown;
-            };
+            ticket: components["schemas"]["SupportTicketOut"];
           };
         };
       };
@@ -5365,14 +5714,10 @@ export interface operations {
         };
         content: {
           "application/json": {
-            messages: {
-              [key: string]: unknown;
-            }[];
+            messages: components["schemas"]["SupportMessageOut"][];
             /** @constant */
             ok: true;
-            ticket: {
-              [key: string]: unknown;
-            };
+            ticket: components["schemas"]["SupportTicketOut"];
           };
         };
       };
@@ -5400,14 +5745,10 @@ export interface operations {
         };
         content: {
           "application/json": {
-            message: {
-              [key: string]: unknown;
-            };
+            message: components["schemas"]["SupportMessageOut"];
             /** @constant */
             ok: true;
-            ticket: {
-              [key: string]: unknown;
-            };
+            ticket: components["schemas"]["SupportTicketOut"];
           };
         };
       };

@@ -60,7 +60,7 @@ from .telegram_notifications import _probe_telegram_notifications_for_user_id
 
 
 def _email_auth_enabled(settings: Any) -> bool:
-    return bool(getattr(settings, "email_auth_configured", True))
+    return bool(settings.email_auth_configured)
 
 
 def _email_auth_not_configured_response() -> web.Response:
@@ -427,7 +427,7 @@ async def me_route(request: web.Request) -> web.Response:
         settings,
         "me",
         user_id,
-        int(getattr(settings, "WEBAPP_ME_CACHE_TTL_SECONDS", 15) or 0),
+        int(settings.WEBAPP_ME_CACHE_TTL_SECONDS or 0),
         lambda: _build_user_payload(request, user_id),
     )
     return json_response({"ok": True, **data})

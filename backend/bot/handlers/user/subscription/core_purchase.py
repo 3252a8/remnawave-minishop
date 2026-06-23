@@ -57,7 +57,7 @@ async def display_subscription_options(
         return
 
     currency_symbol_val = settings.DEFAULT_CURRENCY_SYMBOL
-    tariffs_config = getattr(settings, "tariffs_config", None)
+    tariffs_config = settings.tariffs_config
     if tariffs_config:
         enabled_tariffs = list(tariffs_config.enabled_tariffs)
         callback_context = callback_context_from_back_callback(back_callback)
@@ -105,9 +105,9 @@ async def display_subscription_options(
             await event.answer(text_content, reply_markup=reply_markup)
         return
 
-    traffic_packages = getattr(settings, "traffic_packages", {}) or {}
-    stars_traffic_packages = getattr(settings, "stars_traffic_packages", {}) or {}
-    traffic_mode = bool(getattr(settings, "traffic_sale_mode", False) or stars_traffic_packages)
+    traffic_packages = settings.traffic_packages or {}
+    stars_traffic_packages = settings.stars_traffic_packages or {}
+    traffic_mode = bool(settings.traffic_sale_mode or stars_traffic_packages)
 
     if traffic_mode:
         if traffic_packages:

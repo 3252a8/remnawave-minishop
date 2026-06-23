@@ -1,31 +1,54 @@
-export function userDisplayName(user) {
+type AdminUserLike = Record<string, unknown> & {
+  avatar_url?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  telegram_id?: number | string;
+  telegram_photo_url?: string;
+  user_id?: number | string;
+  username?: string;
+};
+type TelegramWindow = Window & {
+  Telegram?: {
+    WebApp?: {
+      openTelegramLink?: (url: string) => void;
+    };
+  };
+};
+
+function stringField(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+export function userDisplayName(user: AdminUserLike | null | undefined): string {
   const full = [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim();
   return (
-    full || (user?.username ? `@${user.username}` : user?.email || `User #${user?.user_id || "—"}`)
+    full ||
+    (user?.username ? `@${user.username}` : user?.email || `User #${String(user?.user_id || "—")}`)
   );
 }
 
-export function userSecondaryName(user) {
+export function userSecondaryName(user: AdminUserLike | null | undefined): string {
   if (user?.username && userDisplayName(user) !== `@${user.username}`) return `@${user.username}`;
   if (user?.email && userDisplayName(user) !== user.email) return user.email;
-  return `ID ${user?.user_id || "—"}`;
+  return `ID ${String(user?.user_id || "—")}`;
 }
 
-export function userInitials(user) {
+export function userInitials(user: AdminUserLike | null | undefined): string {
   const source = userDisplayName(user).replace(/^@/, "").trim();
   const parts = source.split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
   return (source.slice(0, 2) || "U").toUpperCase();
 }
 
-export function userAvatarUrl(user) {
-  const cached = String(user?.avatar_url || "").trim();
+export function userAvatarUrl(user: AdminUserLike | null | undefined): string {
+  const cached = stringField(user?.avatar_url).trim();
   if (cached) return cached;
-  const value = String(user?.telegram_photo_url || "").trim();
+  const value = stringField(user?.telegram_photo_url).trim();
   return value && !value.startsWith("/api/account/avatar") ? value : "";
 }
 
-export function userTelegramProfileLink(user) {
+export function userTelegramProfileLink(user: AdminUserLike | null | undefined): string {
   const username = String(user?.username || "")
     .trim()
     .replace(/^@+/, "");
@@ -39,7 +62,7 @@ export function userTelegramProfileLink(user) {
   return "";
 }
 
-export function userTelegramProfileLinkKind(user) {
+export function userTelegramProfileLinkKind(user: AdminUserLike | null | undefined): string {
   return String(user?.username || "").trim()
     ? "username"
     : userTelegramProfileLink(user)
@@ -47,10 +70,10 @@ export function userTelegramProfileLinkKind(user) {
       : "";
 }
 
-export function openTelegramProfileLink(link) {
+export function openTelegramProfileLink(link: string): boolean {
   if (!link || typeof window === "undefined") return false;
 
-  const tg = window.Telegram?.WebApp;
+  const tg = (window as TelegramWindow).Telegram?.WebApp;
   if (/^https:\/\/(?:t|telegram)\.me\//i.test(link) && typeof tg?.openTelegramLink === "function") {
     try {
       tg.openTelegramLink(link);
@@ -69,11 +92,11 @@ export function openTelegramProfileLink(link) {
   return true;
 }
 
-export function createGravatarCache(onResolved = () => {}) {
-  const cache = new Map();
-  const pending = new Map();
+export function createGravatarCache(onResolved: () => void = () => {}) {
+  const cache = new Map<string, string>();
+  const pending = new Map<string, Promise<void>>();
 
-  async function sha256Hex(value) {
+  async function sha256Hex(value: string): Promise<string> {
     const buf = new TextEncoder().encode(value);
     const digest = await crypto.subtle.digest("SHA-256", buf);
     return Array.from(new Uint8Array(digest))
@@ -81,12 +104,12 @@ export function createGravatarCache(onResolved = () => {}) {
       .join("");
   }
 
-  function gravatarUrl(email) {
+  function gravatarUrl(email: unknown): string {
     const key = String(email || "")
       .trim()
       .toLowerCase();
     if (!key) return "";
-    if (cache.has(key)) return cache.get(key);
+    if (cache.has(key)) return cache.get(key) || "";
     if (pending.has(key)) return "";
     pending.set(
       key,
@@ -95,7 +118,9 @@ export function createGravatarCache(onResolved = () => {}) {
           cache.set(key, `https://gravatar.com/avatar/${h}?d=identicon&s=80`);
           onResolved();
         })
-        .catch(() => pending.delete(key))
+        .catch(() => {
+          pending.delete(key);
+        })
     );
     return "";
   }

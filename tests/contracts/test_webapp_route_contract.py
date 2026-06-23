@@ -12,6 +12,7 @@ from bot.app.web import admin_api, subscription_webapp
 from bot.app.web.admin_api_impl import auth as admin_auth_routes
 from bot.app.web.webapp_auth import create_webapp_session_token
 from config.webapp_themes_config import WebappThemesConfig
+from tests.support.settings_stub import settings_stub
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -301,7 +302,7 @@ class WebAppRouteContractTests(unittest.TestCase):
     def test_app_deeplink_gateway_keeps_target_in_fragment(self):
         request = _Request(
             app={
-                "settings": SimpleNamespace(
+                "settings": settings_stub(
                     WEBAPP_ENABLED=True,
                     WEBAPP_TITLE="/minishop",
                     DEFAULT_LANGUAGE="en",
@@ -329,7 +330,7 @@ class WebAppRouteContractTests(unittest.TestCase):
     def test_app_deeplink_gateway_uses_i18n_template(self):
         request = _Request(
             app={
-                "settings": SimpleNamespace(
+                "settings": settings_stub(
                     WEBAPP_ENABLED=True,
                     WEBAPP_TITLE="/minishop",
                     DEFAULT_LANGUAGE="en",
@@ -363,7 +364,7 @@ class WebAppRouteContractTests(unittest.TestCase):
         )
         request = _Request(
             app={
-                "settings": SimpleNamespace(
+                "settings": settings_stub(
                     WEBAPP_ENABLED=True,
                     WEBAPP_TITLE="/minishop",
                     DEFAULT_LANGUAGE="en",

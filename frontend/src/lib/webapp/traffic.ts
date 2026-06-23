@@ -1,17 +1,43 @@
 import { formatTrafficBytes, formatFraction, roundToHalf } from "./formatters.js";
 
-export function trafficPercent(sub) {
+type WebappRecord = Record<string, unknown>;
+type SubscriptionTraffic = WebappRecord & {
+  days_left?: number | string;
+  end_date_text?: string;
+  premium_limit?: string;
+  premium_limit_bytes?: number | string;
+  premium_node_labels?: unknown[];
+  premium_squad_labels?: unknown[];
+  premium_title?: string;
+  premium_topup_balance_bytes?: number | string;
+  premium_unlimited_override?: boolean;
+  premium_used?: string;
+  premium_used_bytes?: number | string;
+  regular_unlimited_override?: boolean;
+  traffic_limit?: string;
+  traffic_limit_bytes?: number | string;
+  traffic_limit_strategy?: string;
+  traffic_used?: string;
+  traffic_used_bytes?: number | string;
+};
+type TranslateFn = (key: string, params?: Record<string, string>, fallback?: string) => string;
+type TermLabelDeps = {
+  t: TranslateFn;
+  termUnitLabel: (value: number, unit: "day" | "month" | "year") => string;
+};
+
+export function trafficPercent(sub: SubscriptionTraffic | null | undefined): number {
   const used = Number(sub?.traffic_used_bytes || 0);
   const limit = Number(sub?.traffic_limit_bytes || 0);
   if (!limit || limit <= 0) return 100;
   return Math.max(0, Math.min(100, Math.round((used / limit) * 100)));
 }
 
-export function regularTrafficLimitVisible(sub) {
+export function regularTrafficLimitVisible(sub: SubscriptionTraffic | null | undefined): boolean {
   return !sub?.regular_unlimited_override && Number(sub?.traffic_limit_bytes || 0) > 0;
 }
 
-export function trafficLabel(sub, t) {
+export function trafficLabel(sub: SubscriptionTraffic | null | undefined, t: TranslateFn): string {
   if (!sub?.traffic_limit_bytes || Number(sub.traffic_limit_bytes) <= 0)
     return t("wa_unlimited_traffic");
   return t("wa_traffic_of", {
@@ -20,7 +46,10 @@ export function trafficLabel(sub, t) {
   });
 }
 
-export function trafficResetLabel(sub, t) {
+export function trafficResetLabel(
+  sub: SubscriptionTraffic | null | undefined,
+  t: TranslateFn
+): string {
   const strategy = String(sub?.traffic_limit_strategy || "")
     .trim()
     .toUpperCase();
@@ -32,31 +61,34 @@ export function trafficResetLabel(sub, t) {
   return t("wa_traffic_reset_policy");
 }
 
-export function premiumTrafficPercent(sub) {
+export function premiumTrafficPercent(sub: SubscriptionTraffic | null | undefined): number {
   const used = Number(sub?.premium_used_bytes || 0);
   const limit = Number(sub?.premium_limit_bytes || 0);
   if (!limit || limit <= 0) return 0;
   return Math.max(0, Math.min(100, Math.round((used / limit) * 100)));
 }
 
-export function premiumTrafficLimitVisible(sub) {
+export function premiumTrafficLimitVisible(sub: SubscriptionTraffic | null | undefined): boolean {
   return !sub?.premium_unlimited_override && Number(sub?.premium_limit_bytes || 0) > 0;
 }
 
-export function premiumTrafficLabel(sub, t) {
+export function premiumTrafficLabel(
+  sub: SubscriptionTraffic | null | undefined,
+  t: TranslateFn
+): string {
   return t("wa_traffic_of", {
     used: sub?.premium_used || "0 GB",
     limit: sub?.premium_limit || "0 GB",
   });
 }
 
-export function premiumTitle(sub, t) {
+export function premiumTitle(sub: SubscriptionTraffic | null | undefined, t: TranslateFn): string {
   return (
     String(sub?.premium_title || "").trim() || t("wa_premium_traffic_title", {}, "Premium-серверы")
   );
 }
 
-export function premiumTrafficLeftLabel(sub) {
+export function premiumTrafficLeftLabel(sub: SubscriptionTraffic | null | undefined): string {
   const left = Math.max(
     0,
     Number(sub?.premium_limit_bytes || 0) - Number(sub?.premium_used_bytes || 0)
@@ -64,19 +96,21 @@ export function premiumTrafficLeftLabel(sub) {
   return formatTrafficBytes(left);
 }
 
-export function premiumTopupBalanceLabel(sub) {
+export function premiumTopupBalanceLabel(sub: SubscriptionTraffic | null | undefined): string {
   return formatTrafficBytes(Number(sub?.premium_topup_balance_bytes || 0));
 }
 
-export function premiumServerLabels(sub) {
+export function premiumServerLabels(sub: SubscriptionTraffic | null | undefined): string[] {
   const labels =
     Array.isArray(sub?.premium_node_labels) && sub.premium_node_labels.length
       ? sub.premium_node_labels
-      : sub?.premium_squad_labels || [];
+      : Array.isArray(sub?.premium_squad_labels)
+        ? sub.premium_squad_labels
+        : [];
   return labels.map((label) => String(label || "").trim()).filter(Boolean);
 }
 
-function extractYear(text) {
+function extractYear(text: unknown): number {
   const iso = String(text || "").match(/\b(\d{4})-\d{1,2}-\d{1,2}\b/);
   if (iso) return Number(iso[1] || 0);
   const dmy = String(text || "").match(/\b\d{1,2}\.\d{1,2}\.(\d{4})\b/);
@@ -86,13 +120,16 @@ function extractYear(text) {
   return 0;
 }
 
-export function isForeverSubscription(sub) {
+export function isForeverSubscription(sub: SubscriptionTraffic | null | undefined): boolean {
   const raw = String(sub?.end_date_text || "").trim();
   if (!raw) return false;
   return extractYear(raw) >= 2099;
 }
 
-export function activeSubscriptionTermLabel(sub, { t, termUnitLabel }) {
+export function activeSubscriptionTermLabel(
+  sub: SubscriptionTraffic | null | undefined,
+  { t, termUnitLabel }: TermLabelDeps
+): string {
   if (isForeverSubscription(sub)) return t("wa_sub_term_forever");
 
   const days = Math.max(0, Number(sub?.days_left || 0));

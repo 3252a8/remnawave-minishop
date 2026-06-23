@@ -167,7 +167,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
     admin_ids = {int(x) for x in (settings.ADMIN_IDS or [])}
     is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
     telegram_linked = _user_has_linked_telegram(db_user)
-    referral_welcome_days = max(0, int(getattr(settings, "REFERRAL_WELCOME_BONUS_DAYS", 0) or 0))
+    referral_welcome_days = max(0, int(settings.REFERRAL_WELCOME_BONUS_DAYS or 0))
     referral_welcome_telegram_required_reason = (
         _referral_welcome_telegram_required_reason(settings, db_user)
         if db_user.referred_by_id and not active and referral_welcome_days > 0
@@ -215,15 +215,13 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             "purchased_count": referral_stats.get("purchased_count", 0),
             "welcome_bonus_days": referral_welcome_days,
             "welcome_bonus_without_telegram_enabled": bool(
-                getattr(settings, "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED", True)
+                settings.REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED
             ),
             "welcome_bonus_requires_telegram": bool(
                 referral_welcome_telegram_required_reason and not telegram_linked
             ),
             "welcome_bonus_block_reason": referral_welcome_telegram_required_reason,
-            "one_bonus_per_referee": bool(
-                getattr(settings, "REFERRAL_ONE_BONUS_PER_REFEREE", False)
-            ),
+            "one_bonus_per_referee": bool(settings.REFERRAL_ONE_BONUS_PER_REFEREE),
             "bonus_details": _serialize_referral_bonus_details(settings, lang),
         },
         "plans": plans_payload,
@@ -256,14 +254,12 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             ),
             "trial_enabled": bool(settings.TRIAL_ENABLED),
             "trial_available": trial_available,
-            "trial_without_telegram_enabled": bool(
-                getattr(settings, "TRIAL_WITHOUT_TELEGRAM_ENABLED", True)
-            ),
+            "trial_without_telegram_enabled": bool(settings.TRIAL_WITHOUT_TELEGRAM_ENABLED),
             "trial_requires_telegram": bool(trial_telegram_required_reason and not telegram_linked),
             "trial_block_reason": trial_telegram_required_reason,
             "trial_duration_days": int(settings.TRIAL_DURATION_DAYS or 0),
             "trial_traffic_limit_gb": float(settings.TRIAL_TRAFFIC_LIMIT_GB or 0),
-            "trial_traffic_strategy": getattr(settings, "TRIAL_TRAFFIC_STRATEGY", "NO_RESET"),
+            "trial_traffic_strategy": settings.TRIAL_TRAFFIC_STRATEGY,
             "subscription_purchase_description": settings.subscription_purchase_description(lang),
             "subscription_guides_enabled": subscription_guides_available(settings),
             "email_auth_enabled": settings.email_auth_configured,
@@ -272,7 +268,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
 
 
 def _legacy_referral_bonus_periods(settings: Settings) -> List[int]:
-    if getattr(settings, "traffic_sale_mode", False):
+    if settings.traffic_sale_mode:
         return []
 
     return sorted(int(months) for months in settings.subscription_options)
@@ -669,7 +665,7 @@ def _build_install_share_link(
     share_token = subscription_dal.normalize_install_share_token(share_token)
     if not share_token or request is None:
         return None
-    configured_base = str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", "") or "").strip()
+    configured_base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     if configured_base:
         parts = urlsplit(configured_base)
         if parts.scheme and parts.netloc:
@@ -785,7 +781,7 @@ def _serialize_plans(
                     plans.append(plan)
         return plans
 
-    if getattr(settings, "traffic_sale_mode", False):
+    if settings.traffic_sale_mode:
         active_traffic_packages = traffic_packages or settings.traffic_packages
         active_stars_traffic_packages = stars_traffic_packages or settings.stars_traffic_packages
         traffic_units = sorted(set(active_traffic_packages) | set(active_stars_traffic_packages))

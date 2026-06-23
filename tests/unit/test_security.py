@@ -35,6 +35,7 @@ from bot.utils.request_security import request_client_ip
 from config.settings import Settings
 from db.dal import security_dal
 from db.database_setup import redacted_database_url
+from tests.support.settings_stub import settings_stub
 
 
 class RequestSecurityTests(unittest.IsolatedAsyncioTestCase):
@@ -807,7 +808,7 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_account_password_confirm_requires_matching_passwords(self):
         request = SimpleNamespace(
-            app={},
+            app={"settings": settings_stub(email_auth_configured=True)},
             json=AsyncMock(
                 return_value={
                     "password": "secret-password",
@@ -824,9 +825,10 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("password_mismatch", response.text)
 
     async def test_account_password_confirm_sets_hash_after_email_code(self):
-        settings = SimpleNamespace(
+        settings = settings_stub(
             REDIS_URL=None,
             REDIS_KEY_PREFIX="test",
+            email_auth_configured=True,
         )
         db_user = SimpleNamespace(
             user_id=42,

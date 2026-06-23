@@ -385,7 +385,7 @@ async def format_user_card(
             )
 
     if settings is not None:
-        webapp_base = getattr(settings, "SUBSCRIPTION_MINI_APP_URL", None)
+        webapp_base = settings.SUBSCRIPTION_MINI_APP_URL
         if webapp_base:
             try:
                 code = await user_dal.ensure_referral_code(session, user)

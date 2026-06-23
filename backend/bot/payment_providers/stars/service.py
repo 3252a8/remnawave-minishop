@@ -491,7 +491,7 @@ SPEC = PaymentProviderSpec(
     pending_status="pending_stars",
     # Stars toggles stay on global Settings because stars_subscription_options
     # reads them together with STARS_PRICE_* fields.
-    enabled=lambda settings: bool(getattr(settings, "STARS_ENABLED", False)),
+    enabled=lambda settings: bool(settings.STARS_ENABLED),
     service_key="stars_service",
     callback_prefix="pay_stars",
     router=router,

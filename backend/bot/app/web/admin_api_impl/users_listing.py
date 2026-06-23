@@ -180,7 +180,7 @@ async def _load_admin_users_list_payload_uncached(
 
 
 def _admin_users_list_cache(settings: Settings) -> Optional[AsyncTTLCache]:
-    ttl_seconds = int(getattr(settings, "ADMIN_USERS_LIST_CACHE_TTL_SECONDS", 3) or 0)
+    ttl_seconds = int(settings.ADMIN_USERS_LIST_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return None
     cache_key = (id(settings), ttl_seconds)
@@ -226,7 +226,7 @@ async def _invalidate_after_admin_user_mutation(
 
 
 def _enabled_admin_tariffs(settings: Settings) -> List[Any]:
-    config = getattr(settings, "tariffs_config", None)
+    config = settings.tariffs_config
     if not config:
         return []
     return list(getattr(config, "enabled_tariffs", []) or [])
@@ -246,7 +246,7 @@ def _resolve_admin_period_tariff_key(
     *,
     allow_legacy_without_tariffs: bool = False,
 ) -> Tuple[Optional[str], Optional[str]]:
-    config = getattr(settings, "tariffs_config", None)
+    config = settings.tariffs_config
     if not config:
         return (None, None) if allow_legacy_without_tariffs else (None, "tariffs_not_configured")
 

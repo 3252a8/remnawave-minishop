@@ -58,6 +58,7 @@ from .http_client import (
 from .recurring import (
     RecurringChargeContext,
     RecurringChargeResult,
+    RecurringProviderService,
     service_supports_recurring,
 )
 from .success import (
@@ -89,6 +90,7 @@ __all__ = [
     "PaymentSuccessRequest",
     "RecurringChargeContext",
     "RecurringChargeResult",
+    "RecurringProviderService",
     "service_supports_recurring",
     "SuccessCheck",
     "SuccessMessage",

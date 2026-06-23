@@ -5,11 +5,12 @@ from unittest.mock import AsyncMock
 
 import bot.app.web.subscription_webapp  # noqa: F401
 from bot.app.web.webapp import auth as auth_module
+from tests.support.settings_stub import settings_stub
 
 
 class WebAppReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
     async def test_disposable_email_referral_welcome_bonus_requires_telegram(self):
-        settings = SimpleNamespace(
+        settings = settings_stub(
             REFERRAL_WELCOME_BONUS_DAYS=3,
             REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED=True,
             DISPOSABLE_EMAIL_DOMAINS="mailinator.com",
@@ -41,7 +42,7 @@ class WebAppReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
 
     async def test_linked_telegram_allows_disposable_email_referral_welcome_bonus(self):
         end_date = datetime(2026, 1, 9, 3, 4, tzinfo=timezone.utc)
-        settings = SimpleNamespace(
+        settings = settings_stub(
             REFERRAL_WELCOME_BONUS_DAYS=3,
             REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED=True,
             DISPOSABLE_EMAIL_DOMAINS="mailinator.com",
@@ -84,7 +85,7 @@ class WebAppReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
         self.assertIsNotNone(user.referral_welcome_bonus_claimed_at)
 
     async def test_already_claimed_referral_welcome_bonus_is_not_granted_again(self):
-        settings = SimpleNamespace(
+        settings = settings_stub(
             REFERRAL_WELCOME_BONUS_DAYS=3,
             REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED=True,
             DISPOSABLE_EMAIL_DOMAINS="",

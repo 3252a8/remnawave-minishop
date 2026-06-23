@@ -122,7 +122,7 @@ async def _load_admin_db_stats_uncached(async_session_factory: sessionmaker) -> 
 
 
 def _admin_db_stats_cache(settings: Settings) -> Optional[AsyncTTLCache]:
-    ttl_seconds = int(getattr(settings, "ADMIN_DB_STATS_CACHE_TTL_SECONDS", 5) or 0)
+    ttl_seconds = int(settings.ADMIN_DB_STATS_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return None
     cache_key = (id(settings), ttl_seconds)
@@ -152,7 +152,7 @@ async def _load_admin_panel_stats(
 
 
 def _admin_panel_stats_cache(settings: Settings) -> Optional[AsyncTTLCache]:
-    ttl_seconds = int(getattr(settings, "ADMIN_PANEL_STATS_CACHE_TTL_SECONDS", 15) or 0)
+    ttl_seconds = int(settings.ADMIN_PANEL_STATS_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return None
     cache_key = (id(settings), ttl_seconds)

@@ -4,6 +4,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 USER_DETAIL = REPO_ROOT / "frontend/src/admin/sections/UserDetailModal.svelte"
+USER_ACTIONS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserActionsTab.svelte"
 STATS_SECTION = REPO_ROOT / "frontend/src/admin/sections/StatsSection.svelte"
 ADMIN_PANEL = REPO_ROOT / "frontend/src/admin/AdminPanel.svelte"
 ADMIN_CSS = REPO_ROOT / "frontend/src/styles/admin.css"
@@ -14,15 +15,19 @@ def _source() -> str:
     return USER_DETAIL.read_text(encoding="utf-8")
 
 
+def _actions_source() -> str:
+    return USER_ACTIONS.read_text(encoding="utf-8")
+
+
 def _extend_card_markup() -> str:
-    source = _source()
+    source = _actions_source()
     start = source.index('class="admin-user-action-sheet admin-user-action-sheet--extend"')
     end = source.index('class="admin-reset-trial-btn"', start)
     return source[start:end]
 
 
 def test_extend_subscription_controls_are_grouped_in_action_card():
-    source = _source()
+    source = _actions_source()
     card = _extend_card_markup()
 
     assert '<AdminSectionHeader title={at("user_label_extend"' in card
@@ -80,7 +85,7 @@ def test_extend_tariff_current_badge_is_localized():
 
 
 def test_action_save_buttons_require_dirty_valid_state():
-    source = _source()
+    source = _actions_source()
 
     assert "tariffActionDirty" in source
     assert "premiumOverrideDirty" in source
@@ -102,7 +107,7 @@ def test_action_save_buttons_require_dirty_valid_state():
 
 
 def test_action_cards_surface_unsaved_state():
-    source = _source()
+    source = _actions_source()
 
     assert "admin-action-save-controls" in source
     assert "admin-unsaved-hint" in source

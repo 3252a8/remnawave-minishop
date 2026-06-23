@@ -27,7 +27,7 @@ def append_query_params(base_url: str, params: dict[str, str]) -> str:
 
 def subscription_mini_app_topup_url(settings: Settings, kind: str) -> Optional[str]:
     """Return Mini App URL that opens the traffic top-up flow for ``kind`` (``regular`` or ``premium``)."""  # noqa: E501
-    base = str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", None) or "").strip()
+    base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     if not base:
         return None
     normalized = "premium" if str(kind or "").strip().lower() == "premium" else "regular"
@@ -38,7 +38,7 @@ def subscription_mini_app_renew_url(
     settings: Settings, tariff_key: Optional[str] = None
 ) -> Optional[str]:
     """Return Mini App URL that opens the subscription renewal checkout."""
-    base = str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", None) or "").strip()
+    base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     if not base:
         return None
     params = {"renew": "1"}
@@ -50,7 +50,7 @@ def subscription_mini_app_renew_url(
 
 def subscription_mini_app_path_url(settings: Settings, path: str) -> Optional[str]:
     """Return a Mini App URL with ``path`` appended to the configured app base."""
-    base = str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", None) or "").strip()
+    base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     if not base:
         return None
     normalized_path = f"/{str(path or '').lstrip('/')}"
@@ -70,7 +70,7 @@ def subscription_mini_app_trial_url(settings: Settings) -> Optional[str]:
 def subscription_public_install_url(settings: Settings, share_token: str) -> Optional[str]:
     """Return the public install guide URL for a normalized share token."""
     token = normalize_install_share_token(share_token)
-    base = str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", None) or "").strip()
+    base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     if not token or not base:
         return None
     parts = urlsplit(base)

@@ -1,0 +1,8 @@
+[project]
+name = "minishop-audit-logger-plugin"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.entry-points."minishop.plugins"]
+audit_logger = "minishop_audit_logger:plugin"

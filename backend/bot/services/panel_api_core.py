@@ -63,7 +63,7 @@ class PanelApiCoreMixin:
         self.settings = settings
         self.base_url = settings.PANEL_API_URL
         self.api_key = settings.PANEL_API_KEY
-        self.api_cookie = getattr(settings, "PANEL_API_COOKIE", None)
+        self.api_cookie = settings.PANEL_API_COOKIE
         self._session: Optional[aiohttp.ClientSession] = None
         self.default_client_ip = "127.0.0.1"
         # Cache slow-changing reference data fetched from the panel. Errors and
@@ -79,12 +79,12 @@ class PanelApiCoreMixin:
             namespace="panel:hosts",
         )
         self._users_cache: AsyncTTLCache = AsyncTTLCache(
-            ttl_seconds=max(0, int(getattr(settings, "PANEL_USER_CACHE_TTL_SECONDS", 5) or 0)),
+            ttl_seconds=max(0, int(settings.PANEL_USER_CACHE_TTL_SECONDS or 0)),
             settings=settings,
             namespace="panel:users",
         )
         self._devices_cache: AsyncTTLCache = AsyncTTLCache(
-            ttl_seconds=max(0, int(getattr(settings, "PANEL_DEVICES_CACHE_TTL_SECONDS", 5) or 0)),
+            ttl_seconds=max(0, int(settings.PANEL_DEVICES_CACHE_TTL_SECONDS or 0)),
             settings=settings,
             namespace="panel:devices",
         )
@@ -99,7 +99,7 @@ class PanelApiCoreMixin:
         self._all_users_cache: AsyncTTLCache = AsyncTTLCache(
             ttl_seconds=max(
                 0,
-                int(getattr(settings, "PANEL_ALL_USERS_CACHE_TTL_SECONDS", 5) or 0),
+                int(settings.PANEL_ALL_USERS_CACHE_TTL_SECONDS or 0),
             ),
             settings=settings,
             namespace="panel:all_users",

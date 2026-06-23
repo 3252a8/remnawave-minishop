@@ -328,7 +328,7 @@ async def _absorb_duplicate_panel_identity(
                     "duration_months": None,
                     "is_active": True,
                     "status_from_panel": "ACTIVE_EXTENDED_BY_PANEL_DUPLICATE_MERGE",
-                    "traffic_limit_bytes": getattr(settings, "user_traffic_limit_bytes", 0),
+                    "traffic_limit_bytes": settings.user_traffic_limit_bytes,
                     "auto_renew_enabled": False,
                 },
             )

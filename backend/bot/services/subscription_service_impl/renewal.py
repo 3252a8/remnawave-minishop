@@ -1,7 +1,7 @@
 from ._runtime import (
-    Any,
     AsyncSession,
     Optional,
+    RecurringProviderService,
     Subscription,
     SubscriptionServiceMixinContract,
     default_currency_key_for_settings,
@@ -11,13 +11,16 @@ from ._runtime import (
 
 
 class RenewalMixin(SubscriptionServiceMixinContract):
-    def recurring_service_for(self, provider: Optional[str]) -> Any:
+    def recurring_service_for(self, provider: Optional[str]) -> RecurringProviderService | None:
         """Resolve a provider service that can charge a saved payment method."""
         provider_key = str(provider or "").strip().lower()
         if not provider_key:
             return None
-        services = getattr(self, "recurring_provider_services", {}) or {}
-        return services.get(provider_key)
+        try:
+            services = self.recurring_provider_services
+        except AttributeError:
+            return None
+        return (services or {}).get(provider_key)
 
     async def charge_subscription_renewal(
         self,

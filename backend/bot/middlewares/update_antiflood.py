@@ -63,16 +63,10 @@ class UpdateAntiFloodMiddleware(BaseMiddleware):
         self.settings = settings
         self.default_rule = default_rule or RateLimitRule(
             window_seconds=int(
-                getattr(settings, "TELEGRAM_ANTIFLOOD_WINDOW_SECONDS", DEFAULT_WINDOW_SECONDS)
-                or DEFAULT_WINDOW_SECONDS
+                settings.TELEGRAM_ANTIFLOOD_WINDOW_SECONDS or DEFAULT_WINDOW_SECONDS
             ),
             max_events=int(
-                getattr(
-                    settings,
-                    "TELEGRAM_ANTIFLOOD_MAX_UPDATES_PER_WINDOW",
-                    DEFAULT_MAX_UPDATES_PER_WINDOW,
-                )
-                or DEFAULT_MAX_UPDATES_PER_WINDOW
+                settings.TELEGRAM_ANTIFLOOD_MAX_UPDATES_PER_WINDOW or DEFAULT_MAX_UPDATES_PER_WINDOW
             ),
         )
         self.action_rules = action_rules or _default_action_rules(settings)
@@ -257,7 +251,7 @@ def _update_action_key(update: Update) -> str:
 
 
 def _update_action_cooldown(update: Update, settings: Settings) -> Optional[tuple[str, int]]:
-    if not bool(getattr(settings, "TELEGRAM_ACTION_COOLDOWN_ENABLED", True)):
+    if not bool(settings.TELEGRAM_ACTION_COOLDOWN_ENABLED):
         return None
     if not update.callback_query or not update.callback_query.from_user:
         return None
@@ -271,22 +265,14 @@ def _update_action_cooldown(update: Update, settings: Settings) -> Optional[tupl
 
     if callback_data.startswith("pay_"):
         ttl = int(
-            getattr(
-                settings,
-                "TELEGRAM_PAYMENT_CALLBACK_COOLDOWN_SECONDS",
-                DEFAULT_PAYMENT_CALLBACK_COOLDOWN_SECONDS,
-            )
+            settings.TELEGRAM_PAYMENT_CALLBACK_COOLDOWN_SECONDS
             or DEFAULT_PAYMENT_CALLBACK_COOLDOWN_SECONDS
         )
         return f"payment:user:{user_id}:data:{data_digest}", ttl
 
     if callback_data.startswith(TRIAL_CALLBACK_PREFIXES):
         ttl = int(
-            getattr(
-                settings,
-                "TELEGRAM_TRIAL_CALLBACK_COOLDOWN_SECONDS",
-                DEFAULT_TRIAL_CALLBACK_COOLDOWN_SECONDS,
-            )
+            settings.TELEGRAM_TRIAL_CALLBACK_COOLDOWN_SECONDS
             or DEFAULT_TRIAL_CALLBACK_COOLDOWN_SECONDS
         )
         return f"trial:user:{user_id}:data:{data_digest}", ttl
@@ -310,63 +296,33 @@ def _mark_dropped(data: Dict[str, Any]) -> None:
 
 
 def _default_action_rules(settings: Settings) -> Dict[str, RateLimitRule]:
-    window_seconds = int(
-        getattr(settings, "TELEGRAM_ANTIFLOOD_WINDOW_SECONDS", DEFAULT_WINDOW_SECONDS)
-        or DEFAULT_WINDOW_SECONDS
-    )
+    window_seconds = int(settings.TELEGRAM_ANTIFLOOD_WINDOW_SECONDS or DEFAULT_WINDOW_SECONDS)
     return {
         "message": RateLimitRule(
             window_seconds,
             int(
-                getattr(
-                    settings,
-                    "TELEGRAM_ANTIFLOOD_MESSAGE_MAX_PER_WINDOW",
-                    DEFAULT_MESSAGE_MAX_PER_WINDOW,
-                )
-                or DEFAULT_MESSAGE_MAX_PER_WINDOW
+                settings.TELEGRAM_ANTIFLOOD_MESSAGE_MAX_PER_WINDOW or DEFAULT_MESSAGE_MAX_PER_WINDOW
             ),
         ),
         "callback": RateLimitRule(
             window_seconds,
             int(
-                getattr(
-                    settings,
-                    "TELEGRAM_ANTIFLOOD_CALLBACK_MAX_PER_WINDOW",
-                    DEFAULT_CALLBACK_MAX_PER_WINDOW,
-                )
+                settings.TELEGRAM_ANTIFLOOD_CALLBACK_MAX_PER_WINDOW
                 or DEFAULT_CALLBACK_MAX_PER_WINDOW
             ),
         ),
         "inline": RateLimitRule(
             window_seconds,
-            int(
-                getattr(
-                    settings,
-                    "TELEGRAM_ANTIFLOOD_INLINE_MAX_PER_WINDOW",
-                    DEFAULT_INLINE_MAX_PER_WINDOW,
-                )
-                or DEFAULT_INLINE_MAX_PER_WINDOW
-            ),
+            int(settings.TELEGRAM_ANTIFLOOD_INLINE_MAX_PER_WINDOW or DEFAULT_INLINE_MAX_PER_WINDOW),
         ),
         "start": RateLimitRule(
             window_seconds,
-            int(
-                getattr(
-                    settings,
-                    "TELEGRAM_ANTIFLOOD_START_MAX_PER_WINDOW",
-                    DEFAULT_START_MAX_PER_WINDOW,
-                )
-                or DEFAULT_START_MAX_PER_WINDOW
-            ),
+            int(settings.TELEGRAM_ANTIFLOOD_START_MAX_PER_WINDOW or DEFAULT_START_MAX_PER_WINDOW),
         ),
         "expensive_callback": RateLimitRule(
             window_seconds,
             int(
-                getattr(
-                    settings,
-                    "TELEGRAM_ANTIFLOOD_EXPENSIVE_CALLBACK_MAX_PER_WINDOW",
-                    DEFAULT_EXPENSIVE_CALLBACK_MAX_PER_WINDOW,
-                )
+                settings.TELEGRAM_ANTIFLOOD_EXPENSIVE_CALLBACK_MAX_PER_WINDOW
                 or DEFAULT_EXPENSIVE_CALLBACK_MAX_PER_WINDOW
             ),
         ),

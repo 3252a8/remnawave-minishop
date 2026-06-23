@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Input, Textarea } from "$components/ui/index.js";
+  import { Input } from "$components/ui/index.js";
   import {
     ChevronRight,
     RefreshCw,
@@ -7,17 +7,25 @@
     Plus,
     Save,
     TriangleAlert,
-    X,
   } from "$components/ui/icons.js";
   import { getContext, onMount } from "svelte";
-  import {
-    AdminBadge,
-    AdminButton,
-    AdminEmptyState,
-    AdminSelect,
-  } from "$components/patterns/admin/index.js";
+  import { AdminBadge, AdminButton, AdminEmptyState } from "$components/patterns/admin/index.js";
   import { Accordion, Switch } from "$components/ui/primitives.js";
+  import TariffReferralSettings from "./tariffs/TariffReferralSettings.svelte";
+  import TariffTrialSettings from "./tariffs/TariffTrialSettings.svelte";
   import { normalizeCurrencyKey } from "$lib/admin/tariffDraft.js";
+  import {
+    LEGACY_PERIODS,
+    LEGACY_TARIFF_SETTING_KEYS,
+    boolValue as resolveBoolValue,
+    inputValueForKey as resolveInputValueForKey,
+    providerDisplayName,
+    providerSettingsPath,
+    summarizeProviderSupport,
+    type ProviderSupportSummary,
+    type SelectOption,
+    type SettingsDirtyState,
+  } from "$lib/admin/tariffSettings";
   import type {
     PanelSquad,
     ProviderCurrencySupport,
@@ -27,7 +35,6 @@
   } from "$lib/admin/stores/tariffsStore";
   import type {
     SettingField,
-    SettingsDirtyEntry,
     SettingsSavedPayload,
     SettingsSection,
     SettingsStore,
@@ -35,17 +42,6 @@
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type MoneyFormatter = (value: unknown, currency?: string) => string;
-  type SettingsDirtyState = Record<string, SettingsDirtyEntry>;
-  type SelectOption = { value: string; label: string };
-  type ComponentCallback = (...args: never[]) => void;
-  type ProviderKey = keyof typeof PROVIDER_FALLBACK_LABELS;
-  type ProviderSupportSummary = {
-    total: number;
-    enabled: number;
-    configured: number;
-    available: number;
-    blocked: number;
-  };
 
   export let at: TranslateFn;
   export let fmtMoney: MoneyFormatter;
@@ -54,118 +50,6 @@
 
   const tariffsStore = getContext<TariffsStore>("tariffsStore");
   const settingsStore = getContext<SettingsStore>("settingsStore");
-
-  const TRIAL_SETTING_KEYS = [
-    "TRIAL_ENABLED",
-    "TRIAL_DURATION_DAYS",
-    "TRIAL_TRAFFIC_LIMIT_GB",
-    "TRIAL_PREMIUM_TRAFFIC_LIMIT_GB",
-    "TRIAL_TRAFFIC_STRATEGY",
-    "TRIAL_WITHOUT_TELEGRAM_ENABLED",
-    "TRIAL_SQUAD_UUIDS",
-    "TRIAL_PREMIUM_SQUAD_UUIDS",
-  ];
-  const TRIAL_SWITCH_KEYS = ["TRIAL_ENABLED", "TRIAL_WITHOUT_TELEGRAM_ENABLED"];
-  const TRIAL_GENERAL_KEYS = [
-    "TRIAL_DURATION_DAYS",
-    "TRIAL_TRAFFIC_LIMIT_GB",
-    "TRIAL_PREMIUM_TRAFFIC_LIMIT_GB",
-  ];
-  const TRIAL_RESET_KEYS = ["TRIAL_TRAFFIC_STRATEGY"];
-  const TRIAL_SQUAD_KEYS = ["TRIAL_SQUAD_UUIDS", "TRIAL_PREMIUM_SQUAD_UUIDS"];
-  const REFERRAL_SETTING_KEYS = [
-    "REFERRAL_WELCOME_BONUS_DAYS",
-    "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
-    "REFERRAL_ONE_BONUS_PER_REFEREE",
-    "LEGACY_REFS",
-    "DISPOSABLE_EMAIL_DOMAINS",
-  ];
-  const REFERRAL_WELCOME_KEYS = [
-    "REFERRAL_WELCOME_BONUS_DAYS",
-    "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
-  ];
-  const REFERRAL_RULE_KEYS = [
-    "REFERRAL_ONE_BONUS_PER_REFEREE",
-    "LEGACY_REFS",
-    "DISPOSABLE_EMAIL_DOMAINS",
-  ];
-  const DISPOSABLE_EMAIL_DOMAINS_PLACEHOLDER = "mailinator.com\ntemp-mail.org\nyopmail.com";
-  const LEGACY_PERIODS = [
-    [
-      "1",
-      "MONTH_1_ENABLED",
-      "RUB_PRICE_1_MONTH",
-      "STARS_PRICE_1_MONTH",
-      "REFERRAL_BONUS_DAYS_INVITER_1_MONTH",
-      "REFERRAL_BONUS_DAYS_REFEREE_1_MONTH",
-    ],
-    [
-      "3",
-      "MONTH_3_ENABLED",
-      "RUB_PRICE_3_MONTHS",
-      "STARS_PRICE_3_MONTHS",
-      "REFERRAL_BONUS_DAYS_INVITER_3_MONTHS",
-      "REFERRAL_BONUS_DAYS_REFEREE_3_MONTHS",
-    ],
-    [
-      "6",
-      "MONTH_6_ENABLED",
-      "RUB_PRICE_6_MONTHS",
-      "STARS_PRICE_6_MONTHS",
-      "REFERRAL_BONUS_DAYS_INVITER_6_MONTHS",
-      "REFERRAL_BONUS_DAYS_REFEREE_6_MONTHS",
-    ],
-    [
-      "12",
-      "MONTH_12_ENABLED",
-      "RUB_PRICE_12_MONTHS",
-      "STARS_PRICE_12_MONTHS",
-      "REFERRAL_BONUS_DAYS_INVITER_12_MONTHS",
-      "REFERRAL_BONUS_DAYS_REFEREE_12_MONTHS",
-    ],
-  ] as const;
-  const LEGACY_TARIFF_SETTING_KEYS = [
-    ...LEGACY_PERIODS.flatMap((row) => row.slice(1)),
-    "TRAFFIC_PACKAGES",
-    "STARS_TRAFFIC_PACKAGES",
-  ];
-  const TRAFFIC_STRATEGY_OPTIONS = [
-    { value: "NO_RESET", label: "NO_RESET" },
-    { value: "DAY", label: "DAY" },
-    { value: "WEEK", label: "WEEK" },
-    { value: "MONTH", label: "MONTH" },
-    { value: "MONTH_ROLLING", label: "MONTH_ROLLING" },
-  ];
-  const PROVIDER_FALLBACK_LABELS = {
-    cryptopay: "CryptoPay",
-    freekassa: "FreeKassa",
-    heleket: "Heleket",
-    lava: "LAVA",
-    paykilla: "PayKilla",
-    platega: "Platega",
-    platega_crypto: "Platega Crypto",
-    platega_sbp: "Platega SBP/card",
-    severpay: "SeverPay",
-    stars: "Telegram Stars",
-    telegram_stars: "Telegram Stars",
-    wata: "Wata",
-    yookassa: "YooKassa",
-  } as const;
-  const PROVIDER_SETTINGS_PATHS: Partial<Record<ProviderKey, string[]>> = {
-    cryptopay: ["payments", "cryptopay"],
-    freekassa: ["payments", "freekassa"],
-    heleket: ["payments", "heleket"],
-    lava: ["payments", "lava"],
-    paykilla: ["payments", "paykilla"],
-    platega: ["payments", "platega"],
-    platega_crypto: ["payments", "platega", "crypto"],
-    platega_sbp: ["payments", "platega", "sbp"],
-    severpay: ["payments", "severpay"],
-    stars: ["payments", "telegram-stars"],
-    telegram_stars: ["payments", "telegram-stars"],
-    wata: ["payments", "wata"],
-    yookassa: ["payments", "yookassa"],
-  };
 
   let tariffsCatalog: TariffsCatalog;
   let tariffsLoading = false;
@@ -180,8 +64,6 @@
   let enabledTariffs: Tariff[] = [];
   let disabledTariffs = 0;
   let settingsFieldMap = new Map<string, SettingField>();
-  let trialDirtyCount = 0;
-  let referralDirtyCount = 0;
   let legacyDirtyCount = 0;
   let panelSquadOptions: SelectOption[] = [];
   let catalogCurrencyKey = "rub";
@@ -214,8 +96,6 @@
       .flatMap((section) => section.fields || [])
       .map((field) => [field.key, field])
   );
-  $: trialDirtyCount = TRIAL_SETTING_KEYS.filter((key) => Boolean(settingsDirty[key])).length;
-  $: referralDirtyCount = REFERRAL_SETTING_KEYS.filter((key) => Boolean(settingsDirty[key])).length;
   $: legacyDirtyCount = LEGACY_TARIFF_SETTING_KEYS.filter((key) =>
     Boolean(settingsDirty[key])
   ).length;
@@ -224,10 +104,6 @@
     label: `${squad.name || squad.uuid} · ${String(squad.uuid || "").slice(0, 8)}...`,
   }));
 
-  let selectedTrialSquad = "";
-  let selectedTrialPremiumSquad = "";
-  let trialSquadSelectKey = 0;
-  let trialPremiumSquadSelectKey = 0;
   let tariffSettingsOpen: string[] = [];
   let defaultCurrencyDraft = "RUB";
 
@@ -259,42 +135,16 @@
       .join(" · ");
   }
 
-  function fieldFor(key: string, fieldMap = settingsFieldMap): SettingField {
-    return fieldMap.get(key) || { key, label: key, value: "" };
-  }
-
-  function valueForKey(
-    key: string,
-    dirty: SettingsDirtyState = settingsDirty,
-    fieldMap = settingsFieldMap
-  ): unknown {
-    if (dirty[key]?.deleted) return "";
-    if (Object.prototype.hasOwnProperty.call(dirty, key)) {
-      return dirty[key].value;
-    }
-    return fieldFor(key, fieldMap).value ?? "";
-  }
-
   function boolValue(
     key: string,
     dirty: SettingsDirtyState = settingsDirty,
     fieldMap = settingsFieldMap
   ): boolean {
-    const value = valueForKey(key, dirty, fieldMap);
-    if (typeof value === "string") {
-      return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
-    }
-    return Boolean(value);
+    return resolveBoolValue(key, dirty, fieldMap);
   }
 
   function inputValueForKey(key: string): string | number {
-    const value = valueForKey(key, settingsDirty, settingsFieldMap);
-    return typeof value === "string" || typeof value === "number" ? value : "";
-  }
-
-  function textValueForKey(key: string): string {
-    const value = valueForKey(key, settingsDirty, settingsFieldMap);
-    return value == null ? "" : String(value);
+    return resolveInputValueForKey(key, settingsDirty, settingsFieldMap);
   }
 
   function setSetting(key: string, value: unknown): void {
@@ -309,92 +159,12 @@
     };
   }
 
-  function isSettingDirty(key: string, dirty: SettingsDirtyState = settingsDirty): boolean {
-    return Boolean(dirty[key]);
-  }
-
-  function dirtyCount(keys: readonly string[], dirty: SettingsDirtyState = settingsDirty): number {
-    return (keys || []).filter((key) => isSettingDirty(key, dirty)).length;
-  }
-
-  function resetSetting(key: string): void {
-    settingsStore.clearDirty(key);
-  }
-
-  function csvList(
-    key: string,
-    dirty: SettingsDirtyState = settingsDirty,
-    fieldMap = settingsFieldMap
-  ): string[] {
-    return String(valueForKey(key, dirty, fieldMap) || "")
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
-
-  function setCsvList(key: string, values: string[]): void {
-    const normalized = Array.from(
-      new Set((values || []).map((item) => String(item).trim()).filter(Boolean))
-    );
-    settingsStore.markDirty(key, normalized.join(","));
-  }
-
-  function addTrialSquad(uuid: string): void {
-    const next = String(uuid || "").trim();
-    if (!next) return;
-    const current = csvList("TRIAL_SQUAD_UUIDS");
-    if (!current.includes(next)) {
-      setCsvList("TRIAL_SQUAD_UUIDS", [...current, next]);
-    }
-    selectedTrialSquad = "";
-  }
-
-  function handleTrialSquadSelect(uuid: string): void {
-    addTrialSquad(uuid);
-    selectedTrialSquad = "";
-    trialSquadSelectKey += 1;
-  }
-
-  function addTrialPremiumSquad(uuid: string): void {
-    const next = String(uuid || "").trim();
-    if (!next) return;
-    const current = csvList("TRIAL_PREMIUM_SQUAD_UUIDS");
-    if (!current.includes(next)) {
-      setCsvList("TRIAL_PREMIUM_SQUAD_UUIDS", [...current, next]);
-    }
-    selectedTrialPremiumSquad = "";
-  }
-
-  function handleTrialPremiumSquadSelect(uuid: string): void {
-    addTrialPremiumSquad(uuid);
-    selectedTrialPremiumSquad = "";
-    trialPremiumSquadSelectKey += 1;
-  }
-
-  const handleTrialTrafficStrategySelect = ((value: string) =>
-    setSetting("TRIAL_TRAFFIC_STRATEGY", value)) as ComponentCallback;
-  const handleTrialSquadSelectChange = handleTrialSquadSelect as ComponentCallback;
-  const handleTrialPremiumSquadSelectChange = handleTrialPremiumSquadSelect as ComponentCallback;
-
   $: catalogCurrencyKey = normalizeCurrencyKey(tariffsCatalog.default_currency || "rub");
   $: catalogCurrencyCode = catalogCurrencyKey.toUpperCase();
   $: defaultCurrencyDraft = catalogCurrencyCode;
   $: defaultCurrencyDraftKey = normalizeCurrencyKey(defaultCurrencyDraft || "rub");
   $: defaultCurrencyDirty = defaultCurrencyDraftKey !== catalogCurrencyKey;
-  $: providerSupportSummary = (providerCurrencySupport || []).reduce(
-    (summary, provider) => {
-      const enabled = Boolean(provider.enabled);
-      const configured = Boolean(provider.configured);
-      const supportsDefault = Boolean(provider.supports_default_currency);
-      summary.total += 1;
-      if (enabled) summary.enabled += 1;
-      if (enabled && configured) summary.configured += 1;
-      if (enabled && configured && supportsDefault) summary.available += 1;
-      if (enabled && configured && !supportsDefault) summary.blocked += 1;
-      return summary;
-    },
-    { total: 0, enabled: 0, configured: 0, available: 0, blocked: 0 }
-  );
+  $: providerSupportSummary = summarizeProviderSupport(providerCurrencySupport);
 
   async function saveDefaultCurrency(): Promise<void> {
     await tariffsStore.setDefaultCurrency(defaultCurrencyDraft);
@@ -431,65 +201,8 @@
     return at("tariff_currency_unsupported", {}, "Заблокирован");
   }
 
-  function providerKey(provider: ProviderCurrencySupport): string {
-    return String(provider?.id || provider?.provider_key || provider?.key || "")
-      .trim()
-      .toLowerCase();
-  }
-
-  function providerDisplayName(provider: ProviderCurrencySupport): string {
-    const key = providerKey(provider);
-    return (
-      provider?.provider_label ||
-      provider?.provider_name ||
-      PROVIDER_FALLBACK_LABELS[key as ProviderKey] ||
-      PROVIDER_FALLBACK_LABELS[
-        String(provider?.provider_key || "")
-          .trim()
-          .toLowerCase() as ProviderKey
-      ] ||
-      provider?.label ||
-      provider?.id ||
-      "—"
-    );
-  }
-
-  function providerSettingsPath(provider: ProviderCurrencySupport): string[] {
-    if (Array.isArray(provider?.settings_path) && provider.settings_path.length) {
-      return provider.settings_path.map((segment) => String(segment || "").trim()).filter(Boolean);
-    }
-    const key = providerKey(provider);
-    const providerRouteKey = String(provider?.provider_key || "")
-      .trim()
-      .toLowerCase();
-    const mapped =
-      PROVIDER_SETTINGS_PATHS[key as ProviderKey] ||
-      PROVIDER_SETTINGS_PATHS[providerRouteKey as ProviderKey];
-    if (mapped) return mapped;
-    const fallback = providerRouteKey || key;
-    return fallback ? ["payments", fallback.replace(/_/g, "-")] : ["payments"];
-  }
-
   function openProviderSettings(provider: ProviderCurrencySupport): void {
     onOpenSettingsPath(providerSettingsPath(provider));
-  }
-
-  function removeTrialSquad(uuid: string): void {
-    setCsvList(
-      "TRIAL_SQUAD_UUIDS",
-      csvList("TRIAL_SQUAD_UUIDS").filter((item) => item !== uuid)
-    );
-  }
-
-  function removeTrialPremiumSquad(uuid: string): void {
-    setCsvList(
-      "TRIAL_PREMIUM_SQUAD_UUIDS",
-      csvList("TRIAL_PREMIUM_SQUAD_UUIDS").filter((item) => item !== uuid)
-    );
-  }
-
-  function trialSquadLabel(uuid: string): string {
-    return tariffsStore.squadLabel(uuid);
   }
 
   async function saveTariffSettings(): Promise<void> {
@@ -529,861 +242,23 @@
     </div>
   </div>
 
-  <article class="admin-card admin-tariff-settings-card">
-    <header class="admin-card-head">
-      <div>
-        <h3>{at("tariffs_trial_title", {}, "Trial access")}</h3>
-        <small>
-          {at(
-            "tariffs_trial_subtitle",
-            {},
-            "Configure trial duration, traffic limit, and Remnawave squads from the tariff page."
-          )}
-        </small>
-      </div>
-      <div class="admin-editor-section-actions">
-        <AdminBadge
-          variant={boolValue("TRIAL_ENABLED", settingsDirty, settingsFieldMap)
-            ? "success"
-            : "muted"}
-        >
-          {boolValue("TRIAL_ENABLED", settingsDirty, settingsFieldMap)
-            ? at("enabled", {}, "Enabled")
-            : at("disabled", {}, "Disabled")}
-        </AdminBadge>
-        {#if trialDirtyCount}
-          <AdminBadge variant="warning">
-            {at("settings_dirty_count", { count: trialDirtyCount }, `Changes: ${trialDirtyCount}`)}
-          </AdminBadge>
-          <AdminButton
-            size="sm"
-            variant="primary"
-            onclick={saveTariffSettings}
-            disabled={settingsSaving}
-          >
-            <Save size={13} />
-            {settingsSaving ? at("btn_saving", {}, "Saving...") : at("btn_save", {}, "Save")}
-          </AdminButton>
-        {/if}
-      </div>
-    </header>
-    <div class="admin-card-body admin-trial-settings-body">
-      <div class="admin-settings-field-groups admin-trial-settings-groups">
-        <section
-          class="admin-settings-field-group"
-          class:is-dirty={dirtyCount(TRIAL_SWITCH_KEYS, settingsDirty)}
-        >
-          <header class="admin-settings-field-group-head">
-            <div class="admin-settings-field-group-head-copy">
-              <strong>{at("tariffs_trial_group_switch", {}, "Доступ")}</strong>
-              <small>
-                {at(
-                  "tariffs_trial_group_switch_hint",
-                  {},
-                  "Включает или выключает выдачу пробного периода пользователям."
-                )}
-              </small>
-            </div>
-            {#if dirtyCount(TRIAL_SWITCH_KEYS, settingsDirty)}
-              <AdminBadge variant="warning">
-                {at(
-                  "settings_dirty_count",
-                  { count: dirtyCount(TRIAL_SWITCH_KEYS, settingsDirty) },
-                  `Изменений: ${dirtyCount(TRIAL_SWITCH_KEYS, settingsDirty)}`
-                )}
-              </AdminBadge>
-            {/if}
-          </header>
-          <div class="admin-settings-field-group-body">
-            <div
-              class="admin-setting admin-trial-setting-row"
-              class:is-dirty={isSettingDirty("TRIAL_ENABLED", settingsDirty)}
-            >
-              <div class="admin-setting-meta">
-                <strong>
-                  {at("tariffs_trial_enabled", {}, "Триал включён")}
-                  {#if isSettingDirty("TRIAL_ENABLED", settingsDirty)}
-                    <AdminBadge variant="warning"
-                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                    >
-                  {/if}
-                </strong>
-                <code>TRIAL_ENABLED</code>
-              </div>
-              <div class="admin-setting-control">
-                <div class="admin-setting-switch">
-                  <Switch.Root
-                    checked={boolValue("TRIAL_ENABLED", settingsDirty, settingsFieldMap)}
-                    onCheckedChange={(checked) => setSetting("TRIAL_ENABLED", checked)}
-                    class="admin-switch-root"
-                  >
-                    <Switch.Thumb class="admin-switch-thumb" />
-                  </Switch.Root>
-                  <span
-                    >{boolValue("TRIAL_ENABLED", settingsDirty, settingsFieldMap)
-                      ? at("enabled", {}, "Включено")
-                      : at("disabled", {}, "Выключено")}</span
-                  >
-                </div>
-                {#if isSettingDirty("TRIAL_ENABLED", settingsDirty)}
-                  <AdminButton
-                    size="sm"
-                    variant="ghost"
-                    onclick={() => resetSetting("TRIAL_ENABLED")}
-                  >
-                    <X size={12} />
-                    {at("reset", {}, "Сбросить")}
-                  </AdminButton>
-                {/if}
-              </div>
-            </div>
-            <div
-              class="admin-setting admin-trial-setting-row"
-              class:is-dirty={isSettingDirty("TRIAL_WITHOUT_TELEGRAM_ENABLED", settingsDirty)}
-            >
-              <div class="admin-setting-meta">
-                <strong>
-                  {at("tariffs_trial_without_telegram_enabled", {}, "Триал без Telegram")}
-                  {#if isSettingDirty("TRIAL_WITHOUT_TELEGRAM_ENABLED", settingsDirty)}
-                    <AdminBadge variant="warning"
-                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                    >
-                  {/if}
-                </strong>
-                <code>TRIAL_WITHOUT_TELEGRAM_ENABLED</code>
-              </div>
-              <div class="admin-setting-control">
-                <div class="admin-setting-switch">
-                  <Switch.Root
-                    checked={boolValue(
-                      "TRIAL_WITHOUT_TELEGRAM_ENABLED",
-                      settingsDirty,
-                      settingsFieldMap
-                    )}
-                    onCheckedChange={(checked) =>
-                      setSetting("TRIAL_WITHOUT_TELEGRAM_ENABLED", checked)}
-                    class="admin-switch-root"
-                  >
-                    <Switch.Thumb class="admin-switch-thumb" />
-                  </Switch.Root>
-                  <span
-                    >{boolValue("TRIAL_WITHOUT_TELEGRAM_ENABLED", settingsDirty, settingsFieldMap)
-                      ? at("enabled", {}, "Включено")
-                      : at("disabled", {}, "Выключено")}</span
-                  >
-                </div>
-                {#if isSettingDirty("TRIAL_WITHOUT_TELEGRAM_ENABLED", settingsDirty)}
-                  <AdminButton
-                    size="sm"
-                    variant="ghost"
-                    onclick={() => resetSetting("TRIAL_WITHOUT_TELEGRAM_ENABLED")}
-                  >
-                    <X size={12} />
-                    {at("reset", {}, "Сбросить")}
-                  </AdminButton>
-                {/if}
-              </div>
-            </div>
-          </div>
-        </section>
+  <TariffTrialSettings
+    {at}
+    {settingsDirty}
+    {settingsFieldMap}
+    {settingsSaving}
+    {panelSquadOptions}
+    {panelSquadsLoading}
+    {onSettingsSaved}
+  />
 
-        <section
-          class="admin-settings-field-group"
-          class:is-dirty={dirtyCount(TRIAL_GENERAL_KEYS, settingsDirty)}
-        >
-          <header class="admin-settings-field-group-head">
-            <div class="admin-settings-field-group-head-copy">
-              <strong>{at("tariffs_trial_group_general", {}, "Общие настройки")}</strong>
-              <small>
-                {at(
-                  "tariffs_trial_group_general_hint",
-                  {},
-                  "Длительность пробного доступа и объём трафика, который получает пользователь."
-                )}
-              </small>
-            </div>
-            {#if dirtyCount(TRIAL_GENERAL_KEYS, settingsDirty)}
-              <AdminBadge variant="warning">
-                {at(
-                  "settings_dirty_count",
-                  { count: dirtyCount(TRIAL_GENERAL_KEYS, settingsDirty) },
-                  `Изменений: ${dirtyCount(TRIAL_GENERAL_KEYS, settingsDirty)}`
-                )}
-              </AdminBadge>
-            {/if}
-          </header>
-          <div class="admin-settings-field-group-body">
-            <div
-              class="admin-setting admin-trial-setting-row"
-              class:is-dirty={isSettingDirty("TRIAL_DURATION_DAYS", settingsDirty)}
-            >
-              <div class="admin-setting-meta">
-                <strong>
-                  {at("tariffs_trial_days", {}, "Длительность, дней")}
-                  {#if isSettingDirty("TRIAL_DURATION_DAYS", settingsDirty)}
-                    <AdminBadge variant="warning"
-                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                    >
-                  {/if}
-                </strong>
-                <code>TRIAL_DURATION_DAYS</code>
-              </div>
-              <div class="admin-setting-control">
-                <Input
-                  class="input"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={inputValueForKey("TRIAL_DURATION_DAYS")}
-                  oninput={settingInputHandler("TRIAL_DURATION_DAYS")}
-                />
-                {#if isSettingDirty("TRIAL_DURATION_DAYS", settingsDirty)}
-                  <AdminButton
-                    size="sm"
-                    variant="ghost"
-                    onclick={() => resetSetting("TRIAL_DURATION_DAYS")}
-                  >
-                    <X size={12} />
-                    {at("reset", {}, "Сбросить")}
-                  </AdminButton>
-                {/if}
-              </div>
-            </div>
-            <div
-              class="admin-setting admin-trial-setting-row"
-              class:is-dirty={isSettingDirty("TRIAL_TRAFFIC_LIMIT_GB", settingsDirty)}
-            >
-              <div class="admin-setting-meta">
-                <strong>
-                  {at("tariffs_trial_traffic", {}, "Лимит трафика, GB")}
-                  {#if isSettingDirty("TRIAL_TRAFFIC_LIMIT_GB", settingsDirty)}
-                    <AdminBadge variant="warning"
-                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                    >
-                  {/if}
-                </strong>
-                <code>TRIAL_TRAFFIC_LIMIT_GB</code>
-              </div>
-              <div class="admin-setting-control">
-                <Input
-                  class="input"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={inputValueForKey("TRIAL_TRAFFIC_LIMIT_GB")}
-                  oninput={settingInputHandler("TRIAL_TRAFFIC_LIMIT_GB")}
-                />
-                {#if isSettingDirty("TRIAL_TRAFFIC_LIMIT_GB", settingsDirty)}
-                  <AdminButton
-                    size="sm"
-                    variant="ghost"
-                    onclick={() => resetSetting("TRIAL_TRAFFIC_LIMIT_GB")}
-                  >
-                    <X size={12} />
-                    {at("reset", {}, "Сбросить")}
-                  </AdminButton>
-                {/if}
-              </div>
-            </div>
-            <div
-              class="admin-setting admin-trial-setting-row"
-              class:is-dirty={isSettingDirty("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB", settingsDirty)}
-            >
-              <div class="admin-setting-meta">
-                <strong>
-                  {at("tariffs_trial_premium_traffic", {}, "Лимит premium-трафика, GB")}
-                  {#if isSettingDirty("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB", settingsDirty)}
-                    <AdminBadge variant="warning"
-                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                    >
-                  {/if}
-                </strong>
-                <code>TRIAL_PREMIUM_TRAFFIC_LIMIT_GB</code>
-              </div>
-              <div class="admin-setting-control">
-                <Input
-                  class="input"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={inputValueForKey("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB")}
-                  oninput={settingInputHandler("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB")}
-                />
-                {#if isSettingDirty("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB", settingsDirty)}
-                  <AdminButton
-                    size="sm"
-                    variant="ghost"
-                    onclick={() => resetSetting("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB")}
-                  >
-                    <X size={12} />
-                    {at("reset", {}, "Сбросить")}
-                  </AdminButton>
-                {/if}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section
-          class="admin-settings-field-group"
-          class:is-dirty={dirtyCount(TRIAL_RESET_KEYS, settingsDirty)}
-        >
-          <header class="admin-settings-field-group-head">
-            <div class="admin-settings-field-group-head-copy">
-              <strong>{at("tariffs_trial_group_reset", {}, "Сброс трафика")}</strong>
-              <small>
-                {at(
-                  "tariffs_trial_group_reset_hint",
-                  {},
-                  "Стратегия, по которой Remnawave обновляет лимит трафика для пробного периода."
-                )}
-              </small>
-            </div>
-            {#if dirtyCount(TRIAL_RESET_KEYS, settingsDirty)}
-              <AdminBadge variant="warning">
-                {at(
-                  "settings_dirty_count",
-                  { count: dirtyCount(TRIAL_RESET_KEYS, settingsDirty) },
-                  `Изменений: ${dirtyCount(TRIAL_RESET_KEYS, settingsDirty)}`
-                )}
-              </AdminBadge>
-            {/if}
-          </header>
-          <div class="admin-settings-field-group-body">
-            <div
-              class="admin-setting admin-trial-setting-row"
-              class:is-dirty={isSettingDirty("TRIAL_TRAFFIC_STRATEGY", settingsDirty)}
-            >
-              <div class="admin-setting-meta">
-                <strong>
-                  {at("tariffs_trial_strategy", {}, "Стратегия сброса трафика")}
-                  {#if isSettingDirty("TRIAL_TRAFFIC_STRATEGY", settingsDirty)}
-                    <AdminBadge variant="warning"
-                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                    >
-                  {/if}
-                </strong>
-                <code>TRIAL_TRAFFIC_STRATEGY</code>
-              </div>
-              <div class="admin-setting-control">
-                <AdminSelect
-                  class="admin-setting-select"
-                  value={String(
-                    valueForKey("TRIAL_TRAFFIC_STRATEGY", settingsDirty, settingsFieldMap) ||
-                      "NO_RESET"
-                  )}
-                  items={TRAFFIC_STRATEGY_OPTIONS}
-                  ariaLabel={at("tariffs_trial_strategy", {}, "Стратегия сброса трафика")}
-                  onValueChange={handleTrialTrafficStrategySelect}
-                />
-                {#if isSettingDirty("TRIAL_TRAFFIC_STRATEGY", settingsDirty)}
-                  <AdminButton
-                    size="sm"
-                    variant="ghost"
-                    onclick={() => resetSetting("TRIAL_TRAFFIC_STRATEGY")}
-                  >
-                    <X size={12} />
-                    {at("reset", {}, "Сбросить")}
-                  </AdminButton>
-                {/if}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section
-          class="admin-settings-field-group"
-          class:is-dirty={dirtyCount(TRIAL_SQUAD_KEYS, settingsDirty)}
-        >
-          <header class="admin-settings-field-group-head">
-            <div class="admin-settings-field-group-head-copy">
-              <strong>{at("tariffs_trial_group_squads", {}, "Сквады")}</strong>
-              <small>
-                {at(
-                  "tariffs_trial_group_squads_hint",
-                  {},
-                  "Сквады, которые будут назначены пользователю при активации триала."
-                )}
-              </small>
-            </div>
-            {#if dirtyCount(TRIAL_SQUAD_KEYS, settingsDirty)}
-              <AdminBadge variant="warning">
-                {at(
-                  "settings_dirty_count",
-                  { count: dirtyCount(TRIAL_SQUAD_KEYS, settingsDirty) },
-                  `Изменений: ${dirtyCount(TRIAL_SQUAD_KEYS, settingsDirty)}`
-                )}
-              </AdminBadge>
-            {/if}
-          </header>
-          <div class="admin-settings-field-group-body">
-            <div
-              class="admin-setting admin-trial-setting-row"
-              class:is-dirty={isSettingDirty("TRIAL_SQUAD_UUIDS", settingsDirty)}
-            >
-              <div class="admin-setting-meta">
-                <strong>
-                  {at("tariffs_trial_squads", {}, "Обычные Internal Squads для триала")}
-                  {#if isSettingDirty("TRIAL_SQUAD_UUIDS", settingsDirty)}
-                    <AdminBadge variant="warning"
-                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                    >
-                  {/if}
-                </strong>
-                <code>TRIAL_SQUAD_UUIDS</code>
-                <small>
-                  {at(
-                    "tariffs_trial_squads_hint",
-                    {},
-                    "Эти сквады применяются при активации триала как обычный доступ. Если поле пустое, используются USER_SQUAD_UUIDS."
-                  )}
-                </small>
-              </div>
-              <div class="admin-setting-control admin-trial-squad-control">
-                {#key trialSquadSelectKey}
-                  <AdminSelect
-                    value={selectedTrialSquad}
-                    items={panelSquadOptions}
-                    disabled={panelSquadsLoading || !panelSquadOptions.length}
-                    placeholder={panelSquadsLoading
-                      ? at("loading", {}, "Загрузка...")
-                      : at("tariffs_trial_add_squad", {}, "Добавить сквад из панели")}
-                    ariaLabel={at("tariffs_trial_add_squad", {}, "Добавить сквад из панели")}
-                    onValueChange={handleTrialSquadSelectChange}
-                  />
-                {/key}
-                {#if isSettingDirty("TRIAL_SQUAD_UUIDS", settingsDirty)}
-                  <AdminButton
-                    size="sm"
-                    variant="ghost"
-                    onclick={() => resetSetting("TRIAL_SQUAD_UUIDS")}
-                  >
-                    <X size={12} />
-                    {at("reset", {}, "Сбросить")}
-                  </AdminButton>
-                {/if}
-                <div class="admin-chip-list">
-                  {#each csvList("TRIAL_SQUAD_UUIDS", settingsDirty, settingsFieldMap) as uuid}
-                    <button type="button" class="admin-chip" onclick={() => removeTrialSquad(uuid)}>
-                      {trialSquadLabel(uuid)}
-                      <X size={12} />
-                    </button>
-                  {/each}
-                </div>
-              </div>
-            </div>
-            <div
-              class="admin-setting admin-trial-setting-row"
-              class:is-dirty={isSettingDirty("TRIAL_PREMIUM_SQUAD_UUIDS", settingsDirty)}
-            >
-              <div class="admin-setting-meta">
-                <strong>
-                  {at("tariffs_trial_premium_squads", {}, "Premium Internal Squads для триала")}
-                  {#if isSettingDirty("TRIAL_PREMIUM_SQUAD_UUIDS", settingsDirty)}
-                    <AdminBadge variant="warning"
-                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                    >
-                  {/if}
-                </strong>
-                <code>TRIAL_PREMIUM_SQUAD_UUIDS</code>
-                <small>
-                  {at(
-                    "tariffs_trial_premium_squads_hint",
-                    {},
-                    "Эти сквады добавляются к обычным сквадам триала. Если поле пустое, premium-доступ не выдаётся."
-                  )}
-                </small>
-              </div>
-              <div class="admin-setting-control admin-trial-squad-control">
-                {#key trialPremiumSquadSelectKey}
-                  <AdminSelect
-                    value={selectedTrialPremiumSquad}
-                    items={panelSquadOptions}
-                    disabled={panelSquadsLoading || !panelSquadOptions.length}
-                    placeholder={panelSquadsLoading
-                      ? at("loading", {}, "Загрузка...")
-                      : at(
-                          "tariffs_trial_add_premium_squad",
-                          {},
-                          "Добавить premium-сквад из панели"
-                        )}
-                    ariaLabel={at(
-                      "tariffs_trial_add_premium_squad",
-                      {},
-                      "Добавить premium-сквад из панели"
-                    )}
-                    onValueChange={handleTrialPremiumSquadSelectChange}
-                  />
-                {/key}
-                {#if isSettingDirty("TRIAL_PREMIUM_SQUAD_UUIDS", settingsDirty)}
-                  <AdminButton
-                    size="sm"
-                    variant="ghost"
-                    onclick={() => resetSetting("TRIAL_PREMIUM_SQUAD_UUIDS")}
-                  >
-                    <X size={12} />
-                    {at("reset", {}, "Сбросить")}
-                  </AdminButton>
-                {/if}
-                <div class="admin-chip-list">
-                  {#each csvList("TRIAL_PREMIUM_SQUAD_UUIDS", settingsDirty, settingsFieldMap) as uuid}
-                    <button
-                      type="button"
-                      class="admin-chip"
-                      onclick={() => removeTrialPremiumSquad(uuid)}
-                    >
-                      {trialSquadLabel(uuid)}
-                      <X size={12} />
-                    </button>
-                  {/each}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
-  </article>
-
-  <article class="admin-card admin-tariff-settings-card">
-    <header class="admin-card-head">
-      <div>
-        <h3>{at("tariffs_referral_title", {}, "Реферальная программа")}</h3>
-        <small>
-          {at(
-            "tariffs_referral_subtitle",
-            {},
-            "Настройки приветственного бонуса, правил начисления и защиты от одноразовых email."
-          )}
-        </small>
-      </div>
-      <div class="admin-editor-section-actions">
-        <AdminBadge
-          variant={Number(
-            valueForKey("REFERRAL_WELCOME_BONUS_DAYS", settingsDirty, settingsFieldMap) || 0
-          ) > 0
-            ? "success"
-            : "muted"}
-        >
-          {Number(
-            valueForKey("REFERRAL_WELCOME_BONUS_DAYS", settingsDirty, settingsFieldMap) || 0
-          ) > 0
-            ? at("enabled", {}, "Включено")
-            : at("disabled", {}, "Выключено")}
-        </AdminBadge>
-        {#if referralDirtyCount}
-          <AdminBadge variant="warning">
-            {at(
-              "settings_dirty_count",
-              { count: referralDirtyCount },
-              `Изменений: ${referralDirtyCount}`
-            )}
-          </AdminBadge>
-          <AdminButton
-            size="sm"
-            variant="primary"
-            onclick={saveTariffSettings}
-            disabled={settingsSaving}
-          >
-            <Save size={13} />
-            {settingsSaving
-              ? at("btn_saving", {}, "Сохранение...")
-              : at("btn_save", {}, "Сохранить")}
-          </AdminButton>
-        {/if}
-      </div>
-    </header>
-
-    <div class="admin-card-body admin-trial-settings-body">
-      <div class="admin-settings-field-groups admin-trial-settings-groups">
-        <section
-          class="admin-settings-field-group"
-          class:is-dirty={dirtyCount(REFERRAL_WELCOME_KEYS, settingsDirty)}
-        >
-          <header class="admin-settings-field-group-head">
-            <div class="admin-settings-field-group-head-copy">
-              <strong>{at("tariffs_referral_group_welcome", {}, "Приветственный бонус")}</strong>
-              <small>
-                {at(
-                  "tariffs_referral_group_welcome_hint",
-                  {},
-                  "Дни, которые получает приглашённый пользователь после регистрации по ссылке."
-                )}
-              </small>
-            </div>
-            {#if dirtyCount(REFERRAL_WELCOME_KEYS, settingsDirty)}
-              <AdminBadge variant="warning">
-                {at(
-                  "settings_dirty_count",
-                  { count: dirtyCount(REFERRAL_WELCOME_KEYS, settingsDirty) },
-                  `Изменений: ${dirtyCount(REFERRAL_WELCOME_KEYS, settingsDirty)}`
-                )}
-              </AdminBadge>
-            {/if}
-          </header>
-          <div class="admin-settings-field-group-body">
-            <div
-              class="admin-setting admin-trial-setting-row"
-              class:is-dirty={isSettingDirty("REFERRAL_WELCOME_BONUS_DAYS", settingsDirty)}
-            >
-              <div class="admin-setting-meta">
-                <strong>
-                  {at("tariffs_referral_welcome_bonus_days", {}, "Приветственный бонус, дней")}
-                  {#if isSettingDirty("REFERRAL_WELCOME_BONUS_DAYS", settingsDirty)}
-                    <AdminBadge variant="warning"
-                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                    >
-                  {/if}
-                </strong>
-                <code>REFERRAL_WELCOME_BONUS_DAYS</code>
-              </div>
-              <div class="admin-setting-control">
-                <Input
-                  class="input"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={inputValueForKey("REFERRAL_WELCOME_BONUS_DAYS")}
-                  oninput={settingInputHandler("REFERRAL_WELCOME_BONUS_DAYS")}
-                />
-                {#if isSettingDirty("REFERRAL_WELCOME_BONUS_DAYS", settingsDirty)}
-                  <AdminButton
-                    size="sm"
-                    variant="ghost"
-                    onclick={() => resetSetting("REFERRAL_WELCOME_BONUS_DAYS")}
-                  >
-                    <X size={12} />
-                    {at("reset", {}, "Сбросить")}
-                  </AdminButton>
-                {/if}
-              </div>
-            </div>
-
-            <div
-              class="admin-setting admin-trial-setting-row"
-              class:is-dirty={isSettingDirty(
-                "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
-                settingsDirty
-              )}
-            >
-              <div class="admin-setting-meta">
-                <strong>
-                  {at(
-                    "tariffs_referral_without_telegram",
-                    {},
-                    "Начислять welcome bonus без Telegram"
-                  )}
-                  {#if isSettingDirty("REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED", settingsDirty)}
-                    <AdminBadge variant="warning"
-                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                    >
-                  {/if}
-                </strong>
-                <code>REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED</code>
-              </div>
-              <div class="admin-setting-control">
-                <div class="admin-setting-switch">
-                  <Switch.Root
-                    checked={boolValue(
-                      "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
-                      settingsDirty,
-                      settingsFieldMap
-                    )}
-                    onCheckedChange={(checked) =>
-                      setSetting("REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED", checked)}
-                    class="admin-switch-root"
-                  >
-                    <Switch.Thumb class="admin-switch-thumb" />
-                  </Switch.Root>
-                  <span
-                    >{boolValue(
-                      "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
-                      settingsDirty,
-                      settingsFieldMap
-                    )
-                      ? at("enabled", {}, "Включено")
-                      : at("disabled", {}, "Выключено")}</span
-                  >
-                </div>
-                {#if isSettingDirty("REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED", settingsDirty)}
-                  <AdminButton
-                    size="sm"
-                    variant="ghost"
-                    onclick={() => resetSetting("REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED")}
-                  >
-                    <X size={12} />
-                    {at("reset", {}, "Сбросить")}
-                  </AdminButton>
-                {/if}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section
-          class="admin-settings-field-group"
-          class:is-dirty={dirtyCount(REFERRAL_RULE_KEYS, settingsDirty)}
-        >
-          <header class="admin-settings-field-group-head">
-            <div class="admin-settings-field-group-head-copy">
-              <strong>{at("tariffs_referral_group_rules", {}, "Правила и антиабьюз")}</strong>
-              <small>
-                {at(
-                  "tariffs_referral_group_rules_hint",
-                  {},
-                  "Ограничения повторных бонусов и домены одноразовой почты для no-Telegram аккаунтов."
-                )}
-              </small>
-            </div>
-            {#if dirtyCount(REFERRAL_RULE_KEYS, settingsDirty)}
-              <AdminBadge variant="warning">
-                {at(
-                  "settings_dirty_count",
-                  { count: dirtyCount(REFERRAL_RULE_KEYS, settingsDirty) },
-                  `Изменений: ${dirtyCount(REFERRAL_RULE_KEYS, settingsDirty)}`
-                )}
-              </AdminBadge>
-            {/if}
-          </header>
-          <div class="admin-settings-field-group-body">
-            <div
-              class="admin-setting admin-trial-setting-row"
-              class:is-dirty={isSettingDirty("REFERRAL_ONE_BONUS_PER_REFEREE", settingsDirty)}
-            >
-              <div class="admin-setting-meta">
-                <strong>
-                  {at("tariffs_referral_one_bonus_per_referee", {}, "Один бонус на приглашённого")}
-                  {#if isSettingDirty("REFERRAL_ONE_BONUS_PER_REFEREE", settingsDirty)}
-                    <AdminBadge variant="warning"
-                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                    >
-                  {/if}
-                </strong>
-                <code>REFERRAL_ONE_BONUS_PER_REFEREE</code>
-              </div>
-              <div class="admin-setting-control">
-                <div class="admin-setting-switch">
-                  <Switch.Root
-                    checked={boolValue(
-                      "REFERRAL_ONE_BONUS_PER_REFEREE",
-                      settingsDirty,
-                      settingsFieldMap
-                    )}
-                    onCheckedChange={(checked) =>
-                      setSetting("REFERRAL_ONE_BONUS_PER_REFEREE", checked)}
-                    class="admin-switch-root"
-                  >
-                    <Switch.Thumb class="admin-switch-thumb" />
-                  </Switch.Root>
-                  <span
-                    >{boolValue("REFERRAL_ONE_BONUS_PER_REFEREE", settingsDirty, settingsFieldMap)
-                      ? at("enabled", {}, "Включено")
-                      : at("disabled", {}, "Выключено")}</span
-                  >
-                </div>
-                {#if isSettingDirty("REFERRAL_ONE_BONUS_PER_REFEREE", settingsDirty)}
-                  <AdminButton
-                    size="sm"
-                    variant="ghost"
-                    onclick={() => resetSetting("REFERRAL_ONE_BONUS_PER_REFEREE")}
-                  >
-                    <X size={12} />
-                    {at("reset", {}, "Сбросить")}
-                  </AdminButton>
-                {/if}
-              </div>
-            </div>
-
-            <div
-              class="admin-setting admin-trial-setting-row"
-              class:is-dirty={isSettingDirty("LEGACY_REFS", settingsDirty)}
-            >
-              <div class="admin-setting-meta">
-                <strong>
-                  {at("tariffs_referral_legacy_refs", {}, "Старые ref-ссылки")}
-                  {#if isSettingDirty("LEGACY_REFS", settingsDirty)}
-                    <AdminBadge variant="warning"
-                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                    >
-                  {/if}
-                </strong>
-                <code>LEGACY_REFS</code>
-              </div>
-              <div class="admin-setting-control">
-                <div class="admin-setting-switch">
-                  <Switch.Root
-                    checked={boolValue("LEGACY_REFS", settingsDirty, settingsFieldMap)}
-                    onCheckedChange={(checked) => setSetting("LEGACY_REFS", checked)}
-                    class="admin-switch-root"
-                  >
-                    <Switch.Thumb class="admin-switch-thumb" />
-                  </Switch.Root>
-                  <span
-                    >{boolValue("LEGACY_REFS", settingsDirty, settingsFieldMap)
-                      ? at("enabled", {}, "Включено")
-                      : at("disabled", {}, "Выключено")}</span
-                  >
-                </div>
-                {#if isSettingDirty("LEGACY_REFS", settingsDirty)}
-                  <AdminButton
-                    size="sm"
-                    variant="ghost"
-                    onclick={() => resetSetting("LEGACY_REFS")}
-                  >
-                    <X size={12} />
-                    {at("reset", {}, "Сбросить")}
-                  </AdminButton>
-                {/if}
-              </div>
-            </div>
-
-            <div
-              class="admin-setting admin-trial-setting-row"
-              class:is-dirty={isSettingDirty("DISPOSABLE_EMAIL_DOMAINS", settingsDirty)}
-            >
-              <div class="admin-setting-meta">
-                <strong>
-                  {at("tariffs_referral_disposable_domains", {}, "Disposable email домены")}
-                  {#if isSettingDirty("DISPOSABLE_EMAIL_DOMAINS", settingsDirty)}
-                    <AdminBadge variant="warning"
-                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-                    >
-                  {/if}
-                </strong>
-                <code>DISPOSABLE_EMAIL_DOMAINS</code>
-                <small>
-                  {at(
-                    "tariffs_referral_disposable_domains_hint",
-                    {},
-                    "По одному домену на строку или через запятую. Поддомены тоже считаются совпадением."
-                  )}
-                </small>
-              </div>
-              <div class="admin-setting-control">
-                <Textarea
-                  class="admin-setting-textarea"
-                  rows={8}
-                  placeholder={DISPOSABLE_EMAIL_DOMAINS_PLACEHOLDER}
-                  value={textValueForKey("DISPOSABLE_EMAIL_DOMAINS")}
-                  oninput={settingInputHandler("DISPOSABLE_EMAIL_DOMAINS")}
-                />
-                {#if isSettingDirty("DISPOSABLE_EMAIL_DOMAINS", settingsDirty)}
-                  <AdminButton
-                    size="sm"
-                    variant="ghost"
-                    onclick={() => resetSetting("DISPOSABLE_EMAIL_DOMAINS")}
-                  >
-                    <X size={12} />
-                    {at("reset", {}, "Сбросить")}
-                  </AdminButton>
-                {/if}
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
-  </article>
+  <TariffReferralSettings
+    {at}
+    {settingsDirty}
+    {settingsFieldMap}
+    {settingsSaving}
+    {onSettingsSaved}
+  />
 
   <div class="admin-tariff-management">
     <div class="admin-tariff-overview-grid">

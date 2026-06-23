@@ -17,6 +17,8 @@
     "format": "prettier --write \"src/**/*.{js,ts,svelte}\" \"scripts/**/*.mjs\"",
     "format:check": "prettier --check \"src/**/*.{js,ts,svelte}\" \"scripts/**/*.mjs\"",
     "check:svelte": "svelte-check --tsconfig ./jsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "check": "npm run lint && npm run check:svelte && npm run format:check",
     "fix": "npm run format && npm run lint:js:fix"
   },
@@ -49,7 +51,8 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.61.1",
     "uplot": "^1.6.32",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9"
   },
   "dependencies": {
     "qrcode": "^1.5.4"

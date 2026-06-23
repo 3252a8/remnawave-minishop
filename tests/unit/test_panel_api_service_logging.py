@@ -7,12 +7,13 @@ from unittest.mock import AsyncMock, patch
 import aiohttp
 
 from bot.services.panel_api_service import PanelApiService, _endpoint_log_label
+from tests.support.settings_stub import settings_stub
 
 
 class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
     def _make_service(self) -> PanelApiService:
         return PanelApiService(
-            SimpleNamespace(
+            settings_stub(
                 PANEL_API_URL="https://panel.example.test/api",
                 PANEL_API_KEY="panel-key",
                 USER_HWID_DEVICE_LIMIT=None,
@@ -21,7 +22,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_client_timeout_uses_panel_settings(self):
         service = PanelApiService(
-            SimpleNamespace(
+            settings_stub(
                 PANEL_API_URL="https://panel.example.test/api",
                 PANEL_API_KEY="panel-key",
                 PANEL_API_TOTAL_TIMEOUT_SECONDS="30",
@@ -40,7 +41,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_prepare_headers_includes_optional_panel_cookie(self):
         service = PanelApiService(
-            SimpleNamespace(
+            settings_stub(
                 PANEL_API_URL="https://panel.example.test/api",
                 PANEL_API_KEY="panel-key",
                 PANEL_API_COOKIE="rw_session=session-value",

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Mapping, Optional
+from typing import Any, Dict, Iterable, List, Mapping, Optional, cast
 
 from . import (
     cloudpayments,
@@ -24,6 +24,7 @@ from .base import (
     ProviderManifestField,
     ServiceFactoryContext,
 )
+from .shared import RecurringProviderService
 
 PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
     freekassa.SPEC,
@@ -143,7 +144,7 @@ def _presentation_setting(spec: PaymentProviderSpec, suffix: str) -> str:
 
 
 def _normalize_language(language: Optional[str], settings: Any = None) -> str:
-    value = language or getattr(settings, "DEFAULT_LANGUAGE", None) or "ru"
+    value = language or (settings.DEFAULT_LANGUAGE if settings is not None else None) or "ru"
     normalized = str(value).strip().lower().split("-", 1)[0].split("_", 1)[0]
     return normalized or "ru"
 
@@ -298,8 +299,8 @@ def iter_service_specs() -> Iterable[PaymentProviderSpec]:
         yield spec
 
 
-def build_provider_services(ctx: ServiceFactoryContext) -> Dict[str, Any]:
-    services: Dict[str, Any] = {}
+def build_provider_services(ctx: ServiceFactoryContext) -> Dict[str, object]:
+    services: Dict[str, object] = {}
     for spec in iter_service_specs():
         service_key = spec.service_key
         create_service = spec.create_service
@@ -309,20 +310,22 @@ def build_provider_services(ctx: ServiceFactoryContext) -> Dict[str, Any]:
     return services
 
 
-def recurring_provider_services(services: Mapping[str, Any]) -> Dict[str, Any]:
+def recurring_provider_services(
+    services: Mapping[str, object],
+) -> Dict[str, RecurringProviderService]:
     """Map ``provider_key`` to service for every recurring-capable provider.
 
     Keyed by ``provider_key`` because that is what ``Subscription.provider``
     stores, so the renewal worker can resolve the service straight from a
     subscription row without knowing about service-key naming.
     """
-    recurring: Dict[str, Any] = {}
+    recurring: Dict[str, RecurringProviderService] = {}
     for spec in PAYMENT_PROVIDER_SPECS:
         if not spec.supports_recurring or not spec.service_key:
             continue
         service = services.get(spec.service_key)
         if service is not None:
-            recurring[spec.provider_key] = service
+            recurring[spec.provider_key] = cast(RecurringProviderService, service)
     return recurring
 
 

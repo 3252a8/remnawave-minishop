@@ -446,7 +446,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         home_source = (root / "frontend/src/webapp/screens/HomeScreen.svelte").read_text(
             encoding="utf-8"
         )
-        traffic_source = (root / "frontend/src/lib/webapp/traffic.js").read_text(encoding="utf-8")
+        traffic_source = (root / "frontend/src/lib/webapp/traffic.ts").read_text(encoding="utf-8")
 
         self.assertIn("export function regularTrafficLimitVisible", traffic_source)
         self.assertIn("!sub?.regular_unlimited_override", traffic_source)

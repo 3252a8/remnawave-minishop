@@ -1,8 +1,8 @@
 import unittest
-from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 from bot.services.panel_dry_run_api_service import PanelDryRunApiService
+from tests.support.settings_stub import settings_stub
 
 
 def _settings(**overrides):
@@ -19,7 +19,7 @@ def _settings(**overrides):
         "USER_HWID_DEVICE_LIMIT": None,
     }
     values.update(overrides)
-    return SimpleNamespace(**values)
+    return settings_stub(**values)
 
 
 class PanelDryRunApiServiceTests(unittest.IsolatedAsyncioTestCase):

@@ -169,7 +169,7 @@ class BaseProviderService(ABC):
 
 
 EnabledPredicate = Callable[[Any], bool]
-ServiceFactory = Callable[[ServiceFactoryContext], Any]
+ServiceFactory = Callable[[ServiceFactoryContext], object]
 WebhookPathGetter = Callable[[Any], str]
 WebhookRoute = Callable[[Any], Awaitable[Any]]
 WebAppPaymentFactory = Callable[[WebAppPaymentContext], Awaitable[Any]]

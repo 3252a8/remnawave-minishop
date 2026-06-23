@@ -14,6 +14,7 @@ from bot.services.subscription_service import SubscriptionService
 from bot.services.support_service import SupportService
 
 PanelService: TypeAlias = PanelApiService | PanelDryRunApiService
+PaymentServices: TypeAlias = Dict[str, object]
 
 
 @dataclass(frozen=True)
@@ -26,7 +27,7 @@ class CoreServices:
     email_auth_service: EmailAuthService
     support_service: SupportService
     panel_webhook_service: PanelWebhookService
-    payment_services: Dict[str, Any]
+    payment_services: PaymentServices
 
     def as_dict(self) -> Dict[str, Any]:
         return {

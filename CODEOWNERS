@@ -1,0 +1,12 @@
+# Maintainers по умолчанию
+* @3252a8
+
+# Поверхности повышенного риска
+/backend/bot/payment_providers/ @3252a8
+/backend/bot/app/web/ @3252a8
+/backend/bot/plugins/ @3252a8
+/backend/db/ @3252a8
+
+# Продуктовые поверхности и документация
+/frontend/ @3252a8
+/docs/ @3252a8

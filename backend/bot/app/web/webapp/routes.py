@@ -9,7 +9,9 @@ from bot.app.web.route_contracts import (
     loose_object_schema,
     ok_envelope_with,
     register_contract,
+    schema_ref,
 )
+from bot.app.web.support_schemas import SupportCountsOut, SupportMessageOut, SupportTicketOut
 
 from ._runtime import (
     WEBAPP_DEFAULT_LOGO_PATH,
@@ -339,23 +341,42 @@ _ROUTE_CONTRACTS = {
     "device_topup_options_route": _user_contract(response_schema=_PLAN_OPTIONS_RESPONSE_SCHEMA),
     "support_tickets_route": _user_contract(
         response_schema=ok_envelope_with(
-            {"tickets": loose_array_schema(), "counts": loose_object_schema()}
+            {
+                "tickets": {
+                    "type": "array",
+                    "items": schema_ref(SupportTicketOut),
+                },
+                "counts": schema_ref(SupportCountsOut),
+            }
         ),
+        models=(SupportCountsOut, SupportTicketOut),
     ),
     "support_create_ticket_route": _user_contract(
         request_model=CreateTicketPayload,
-        response_schema=ok_envelope_with({"ticket": loose_object_schema()}),
+        response_schema=ok_envelope_with({"ticket": schema_ref(SupportTicketOut)}),
+        models=(CreateTicketPayload, SupportTicketOut),
     ),
     "support_ticket_detail_route": _user_contract(
         response_schema=ok_envelope_with(
-            {"ticket": loose_object_schema(), "messages": loose_array_schema()}
+            {
+                "ticket": schema_ref(SupportTicketOut),
+                "messages": {
+                    "type": "array",
+                    "items": schema_ref(SupportMessageOut),
+                },
+            }
         ),
+        models=(SupportMessageOut, SupportTicketOut),
     ),
     "support_ticket_reply_route": _user_contract(
         request_model=TicketReplyPayload,
         response_schema=ok_envelope_with(
-            {"ticket": loose_object_schema(), "message": loose_object_schema()}
+            {
+                "ticket": schema_ref(SupportTicketOut),
+                "message": schema_ref(SupportMessageOut),
+            }
         ),
+        models=(SupportMessageOut, SupportTicketOut, TicketReplyPayload),
     ),
     "support_ticket_read_route": _user_contract(response_schema=ok_envelope_with()),
     "support_unread_route": _user_contract(

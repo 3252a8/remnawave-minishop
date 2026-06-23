@@ -52,7 +52,7 @@ WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-ag
 
 
 def _resolve_webapp_logo_url(settings: Settings) -> str:
-    raw_logo_url = (getattr(settings, "WEBAPP_LOGO_URL", None) or "").strip()
+    raw_logo_url = (settings.WEBAPP_LOGO_URL or "").strip()
     if not raw_logo_url:
         return WEBAPP_DEFAULT_LOGO_PATH
 
@@ -68,9 +68,9 @@ def _resolve_webapp_logo_url(settings: Settings) -> str:
 
 
 def _resolve_webapp_favicon_url(settings: Settings, logo_url: str = "") -> str:
-    raw_custom_url = (getattr(settings, "WEBAPP_FAVICON_URL", None) or "").strip()
-    raw_logo_favicon_url = (getattr(settings, "WEBAPP_LOGO_FAVICON_URL", None) or "").strip()
-    if getattr(settings, "WEBAPP_FAVICON_USE_CUSTOM", False) and raw_custom_url:
+    raw_custom_url = (settings.WEBAPP_FAVICON_URL or "").strip()
+    raw_logo_favicon_url = (settings.WEBAPP_LOGO_FAVICON_URL or "").strip()
+    if settings.WEBAPP_FAVICON_USE_CUSTOM and raw_custom_url:
         return _resolve_webapp_asset_url(raw_custom_url)
     if logo_url and raw_logo_favicon_url:
         resolved = _resolve_webapp_asset_url(raw_logo_favicon_url)

@@ -19,6 +19,7 @@ from typing import Any, List
 from unittest.mock import patch
 
 from bot.services import panel_webhook_service as pws
+from tests.support.settings_stub import settings_stub
 
 SECRET = "panel-shared-secret"
 
@@ -28,7 +29,7 @@ def _sign(body: bytes) -> str:
 
 
 def _make_service():
-    settings = SimpleNamespace(
+    settings = settings_stub(
         PANEL_WEBHOOK_SECRET=SECRET,
         SUBSCRIPTION_NOTIFICATIONS_ENABLED=True,
         SUBSCRIPTION_NOTIFY_DAYS_BEFORE=3,
