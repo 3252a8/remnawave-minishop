@@ -89,7 +89,7 @@ async def edit_or_answer(
     callback: types.CallbackQuery,
     text: str,
     *,
-    reply_markup=None,
+    reply_markup: Any = None,
     disable_web_page_preview: bool = False,
     log_prefix: str = "payment_providers",
 ) -> None:
@@ -131,9 +131,9 @@ async def quote_hwid_callback_parts(
     session: AsyncSession,
     user_id: int,
     parts: PaymentCallbackParts,
-    subscription_service,
+    subscription_service: Any,
     currency: str = "rub",
-) -> tuple[Optional[PaymentCallbackParts], Optional[dict]]:
+) -> tuple[Optional[PaymentCallbackParts], Optional[dict[str, Any]]]:
     base = sale_mode_base(parts.sale_mode)
     if base == "subscription" and sale_mode_has_token(parts.sale_mode, HWID_RENEWAL_TOKEN):
         try:

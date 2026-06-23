@@ -98,7 +98,7 @@ class HeleketConfig(ProviderEnvConfig):
 
     @field_validator("LIFETIME_SECONDS", mode="before")
     @classmethod
-    def _clamp_lifetime(cls, v):
+    def _clamp_lifetime(cls, v: Any) -> int:
         if isinstance(v, str):
             v = v.strip()
         try:
@@ -117,7 +117,7 @@ class HeleketConfig(ProviderEnvConfig):
         mode="before",
     )
     @classmethod
-    def _strip_optional(cls, v):
+    def _strip_optional(cls, v: Any) -> Any:
         if isinstance(v, str) and not v.strip():
             return None
         return v
@@ -234,7 +234,7 @@ class HeleketService(HttpClientMixin):
         subscription_service: SubscriptionService,
         referral_service: ReferralService,
         default_return_url: str,
-    ):
+    ) -> None:
         self.bot = bot
         self.settings = settings
         self.config = config
@@ -275,11 +275,11 @@ class HeleketService(HttpClientMixin):
         return (self.config.CURRENCY or "RUB").upper()
 
     @property
-    def to_currency(self):
+    def to_currency(self) -> Optional[str]:
         return (self.config.TO_CURRENCY or "").strip() or None
 
     @property
-    def network(self):
+    def network(self) -> Optional[str]:
         return (self.config.NETWORK or "").strip() or None
 
     @property
@@ -622,10 +622,10 @@ class HeleketService(HttpClientMixin):
 async def pay_heleket_callback_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     heleket_service: HeleketService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)

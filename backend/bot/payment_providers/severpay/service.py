@@ -82,7 +82,7 @@ class SeverPayConfig(ProviderEnvConfig):
 
     @field_validator("MID", "LIFETIME_MINUTES", mode="before")
     @classmethod
-    def _empty_to_none_int(cls, v):
+    def _empty_to_none_int(cls, v: Any) -> Any:
         if isinstance(v, str):
             v = v.strip()
             if not v:
@@ -91,7 +91,7 @@ class SeverPayConfig(ProviderEnvConfig):
 
     @field_validator("TOKEN", "RETURN_URL", mode="before")
     @classmethod
-    def _strip_optional(cls, v):
+    def _strip_optional(cls, v: Any) -> Any:
         if isinstance(v, str) and not v.strip():
             return None
         return v
@@ -155,7 +155,7 @@ class SeverPayService(HttpClientMixin):
         return (self.config.BASE_URL or "https://severpay.io/api/merchant").rstrip("/")
 
     @property
-    def mid(self):
+    def mid(self) -> Optional[int]:
         return self.config.MID
 
     @property
@@ -167,7 +167,7 @@ class SeverPayService(HttpClientMixin):
         return self.config.RETURN_URL or f"https://t.me/{self._default_return_url}"
 
     @property
-    def lifetime_minutes(self):
+    def lifetime_minutes(self) -> Optional[int]:
         return self.config.LIFETIME_MINUTES
 
     @staticmethod
@@ -455,10 +455,10 @@ router = Router(name="user_subscription_payments_severpay_router")
 async def pay_severpay_callback_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     severpay_service: SeverPayService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)

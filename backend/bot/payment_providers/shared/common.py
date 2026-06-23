@@ -21,7 +21,7 @@ def make_translator(i18n: Any, language: str) -> Translator:
     def _(key: str, **kwargs: Any) -> str:
         if i18n is None:
             return key
-        return i18n.gettext(language, key, **kwargs)
+        return str(i18n.gettext(language, key, **kwargs))
 
     return _
 

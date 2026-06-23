@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from aiogram import Bot, F, Router, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
@@ -83,7 +83,7 @@ class StarsService:
         stars_price: int,
         description: str,
         sale_mode: str = "subscription",
-        hwid_quote: Optional[dict] = None,
+        hwid_quote: Optional[dict[str, Any]] = None,
     ) -> Optional[int]:
         amounts = payment_record_amounts(
             months=months,
@@ -134,7 +134,7 @@ class StarsService:
                 currency="XTR",
                 prices=prices,
             )
-            return db_payment_record.payment_id
+            return int(db_payment_record.payment_id)
         except Exception:
             logging.exception("Failed to send Telegram Stars invoice")
             return None
@@ -146,7 +146,7 @@ class StarsService:
         payment_db_id: int,
         months: int,
         stars_amount: int,
-        i18n_data: dict,
+        i18n_data: dict[str, Any],
         sale_mode: str = "subscription",
     ) -> None:
         payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
@@ -213,10 +213,10 @@ router = Router(name="user_subscription_payments_stars_router")
 async def pay_stars_callback_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     session: AsyncSession,
     stars_service: StarsService,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)
@@ -303,7 +303,7 @@ async def pay_stars_callback_handler(
 
 
 @router.pre_checkout_query()
-async def handle_pre_checkout_query(query: types.PreCheckoutQuery):
+async def handle_pre_checkout_query(query: types.PreCheckoutQuery) -> None:
     try:
         await query.answer(ok=True)
     except Exception:
@@ -315,10 +315,10 @@ async def handle_pre_checkout_query(query: types.PreCheckoutQuery):
 async def handle_successful_stars_payment(
     message: types.Message,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     session: AsyncSession,
     stars_service: StarsService,
-):
+) -> None:
     payload = (
         message.successful_payment.invoice_payload if message and message.successful_payment else ""
     )

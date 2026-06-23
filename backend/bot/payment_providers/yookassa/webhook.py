@@ -35,7 +35,7 @@ from .success import (
 )
 
 
-async def yookassa_webhook_route(request: web.Request):
+async def yookassa_webhook_route(request: web.Request) -> web.Response:
 
     try:
         bot: Bot = request.app["bot"]

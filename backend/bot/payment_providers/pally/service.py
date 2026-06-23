@@ -96,7 +96,7 @@ class PallyConfig(ProviderEnvConfig):
 
     @field_validator("TTL_SECONDS", mode="before")
     @classmethod
-    def _empty_to_none_int(cls, v):
+    def _empty_to_none_int(cls, v: Any) -> Any:
         if isinstance(v, str):
             v = v.strip()
             if not v:
@@ -116,14 +116,14 @@ class PallyConfig(ProviderEnvConfig):
         mode="before",
     )
     @classmethod
-    def _strip_optional(cls, v):
+    def _strip_optional(cls, v: Any) -> Any:
         if isinstance(v, str) and not v.strip():
             return None
         return v
 
     @field_validator("PAYMENT_METHOD")
     @classmethod
-    def _normalize_payment_method(cls, v):
+    def _normalize_payment_method(cls, v: Any) -> Optional[str]:
         if v is None:
             return None
         method = str(v).strip().upper()
@@ -135,7 +135,7 @@ class PallyConfig(ProviderEnvConfig):
 
     @field_validator("LOCALE")
     @classmethod
-    def _normalize_locale(cls, v):
+    def _normalize_locale(cls, v: Any) -> Optional[str]:
         if v is None:
             return None
         locale = str(v).strip().lower().split("-", 1)[0].split("_", 1)[0]
@@ -229,7 +229,7 @@ class PallyService(HttpClientMixin):
         subscription_service: SubscriptionService,
         referral_service: ReferralService,
         default_return_url: str,
-    ):
+    ) -> None:
         self.bot = bot
         self.settings = settings
         self.config = config
@@ -671,10 +671,10 @@ router = Router(name="user_subscription_payments_pally_router")
 async def pay_pally_callback_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     pally_service: PallyService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)

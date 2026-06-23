@@ -1,4 +1,4 @@
-from typing import Any, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple
 
 
 def _format_value(val: float) -> str:
@@ -40,14 +40,15 @@ def _parse_saved_list_payload(payload: str) -> Optional[Tuple[float, float, int,
 def _metadata_iso(value: Any) -> Optional[str]:
     if value is None:
         return None
-    if hasattr(value, "isoformat"):
-        return value.isoformat()
+    isoformat = getattr(value, "isoformat", None)
+    if callable(isoformat):
+        return str(isoformat())
     text = str(value).strip()
     return text or None
 
 
 def _format_saved_payment_method_title(
-    get_text, network: Optional[str], last4: Optional[str], is_default: bool
+    get_text: Callable[..., str], network: Optional[str], last4: Optional[str], is_default: bool
 ) -> str:
     def _is_yoomoney_network(name: Optional[str]) -> bool:
         s = (name or "").lower()

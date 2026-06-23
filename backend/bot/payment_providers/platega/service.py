@@ -88,7 +88,7 @@ class PlategaConfig(ProviderEnvConfig):
 
     @field_validator("MERCHANT_ID", "SECRET", "RETURN_URL", "FAILED_URL", mode="before")
     @classmethod
-    def _strip_optional(cls, v):
+    def _strip_optional(cls, v: Any) -> Any:
         if isinstance(v, str) and not v.strip():
             return None
         return v
@@ -149,7 +149,7 @@ class PlategaService(HttpClientMixin):
         subscription_service: SubscriptionService,
         referral_service: ReferralService,
         default_return_url: str,
-    ):
+    ) -> None:
         self.bot = bot
         self.settings = settings
         self.config = config
@@ -190,11 +190,11 @@ class PlategaService(HttpClientMixin):
         return (self.config.BASE_URL or "https://app.platega.io").rstrip("/")
 
     @property
-    def merchant_id(self):
+    def merchant_id(self) -> Optional[str]:
         return self.config.MERCHANT_ID
 
     @property
-    def secret(self):
+    def secret(self) -> Optional[str]:
         return self.config.SECRET
 
     @property
@@ -218,7 +218,7 @@ class PlategaService(HttpClientMixin):
         return self.config.FAILED_URL or self.return_url
 
     @property
-    def _auth_headers(self) -> dict:
+    def _auth_headers(self) -> Dict[str, str]:
         return {
             "X-MerchantId": self.merchant_id or "",
             "X-Secret": self.secret or "",
@@ -515,10 +515,10 @@ def _platega_spec_for_callback_prefix(callback_prefix: str) -> PaymentProviderSp
 async def pay_platega_callback_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     platega_service: PlategaService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     from ..shared import make_translator

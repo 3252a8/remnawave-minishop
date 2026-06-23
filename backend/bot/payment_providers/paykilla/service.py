@@ -142,10 +142,7 @@ class PaykillaService(HttpClientMixin):
         cache_key = (source_currency, target_currency)
         cache_seconds = int(self.config.EXCHANGE_RATE_CACHE_SECONDS)
         now = time.time()
-        cache = getattr(self, "_exchange_rate_cache", None)
-        if cache is None:
-            cache = {}
-            self._exchange_rate_cache = cache
+        cache = self._exchange_rate_cache
         cached = cache.get(cache_key)
         if cached and now - cached[0] < cache_seconds:
             return cached[1]

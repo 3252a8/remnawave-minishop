@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import json
 import logging
-from typing import Optional
+from typing import Any, Optional, cast
 
 from aiocryptopay import AioCryptoPay, Networks
 from aiocryptopay.models.update import Update
@@ -82,7 +82,7 @@ CRYPTOPAY_FIAT_CURRENCIES = (
 CRYPTOPAY_CRYPTO_ASSETS = ("USDT", "TON", "BTC", "ETH", "LTC", "BNB", "TRX", "USDC")
 
 
-def _cryptopay_supported_currencies(config) -> tuple[str, ...]:
+def _cryptopay_supported_currencies(config: Any) -> tuple[str, ...]:
     currency_type = str(getattr(config, "CURRENCY_TYPE", "fiat") or "fiat").strip().lower()
     return CRYPTOPAY_CRYPTO_ASSETS if currency_type == "crypto" else CRYPTOPAY_FIAT_CURRENCIES
 
@@ -103,7 +103,7 @@ class CryptoPayConfig(ProviderEnvConfig):
 
     @field_validator("TOKEN", mode="before")
     @classmethod
-    def _strip_optional(cls, v):
+    def _strip_optional(cls, v: Any) -> Any:
         if isinstance(v, str) and not v.strip():
             return None
         return v
@@ -142,7 +142,7 @@ class CryptoPayService(BaseProviderService):
         async_session_factory: sessionmaker,
         subscription_service: SubscriptionService,
         referral_service: ReferralService,
-    ):
+    ) -> None:
         self.bot = bot
         self.settings = settings
         self.config = config
@@ -150,14 +150,14 @@ class CryptoPayService(BaseProviderService):
         self.async_session_factory = async_session_factory
         self.subscription_service = subscription_service
         self.referral_service = referral_service
-        self._client = None
-        self._client_token = None
-        self._client_network = None
+        self._client: Optional[AioCryptoPay] = None
+        self._client_token: Optional[str] = None
+        self._client_network: Optional[str] = None
         if not self.config.TOKEN:
             logging.warning("CryptoPay token not provided. CryptoPay disabled")
 
     @property
-    def token(self):
+    def token(self) -> Optional[str]:
         return self.config.TOKEN
 
     @property
@@ -169,7 +169,7 @@ class CryptoPayService(BaseProviderService):
         return bool(self.configured and self.client)
 
     @property
-    def client(self):
+    def client(self) -> Optional[AioCryptoPay]:
         # Recreate the SDK client whenever the admin changes the token / network
         # at runtime — otherwise we'd keep talking to the old account.
         token = self.config.TOKEN
@@ -178,13 +178,14 @@ class CryptoPayService(BaseProviderService):
             return None
         if self._client is None or token != self._client_token or network != self._client_network:
             net = Networks.TEST_NET if str(network).lower() == "testnet" else Networks.MAIN_NET
-            self._client = AioCryptoPay(token=token, network=net)
-            self._client.register_pay_handler(self._invoice_paid_handler)
+            client = AioCryptoPay(token=token, network=net)
+            client.register_pay_handler(self._invoice_paid_handler)
+            self._client = client
             self._client_token = token
             self._client_network = network
         return self._client
 
-    async def close(self):
+    async def close(self) -> None:
         if self._client:
             try:
                 await self._client.close()
@@ -201,7 +202,7 @@ class CryptoPayService(BaseProviderService):
         description: str,
         sale_mode: str = "subscription",
         url_kind: str = "bot",
-        hwid_quote: Optional[dict] = None,
+        hwid_quote: Optional[dict[str, Any]] = None,
         hwid_device_count: Optional[int] = None,
         currency: Optional[str] = None,
     ) -> Optional[str]:
@@ -297,17 +298,18 @@ class CryptoPayService(BaseProviderService):
                 )
                 return None
             if url_kind == "web":
-                return (
+                invoice_url = (
                     getattr(invoice, "web_app_invoice_url", None)
                     or getattr(invoice, "mini_app_invoice_url", None)
                     or invoice.bot_invoice_url
                 )
-            return invoice.bot_invoice_url
+                return str(invoice_url)
+            return str(invoice.bot_invoice_url)
         except Exception:
             logging.exception("CryptoPay invoice creation failed.")
             return None
 
-    async def _invoice_paid_handler(self, update: Update, app: web.Application):
+    async def _invoice_paid_handler(self, update: Update, app: web.Application) -> None:
         invoice = update.payload
         if not invoice.payload:
             logging.warning("CryptoPay webhook without payload")
@@ -418,7 +420,7 @@ class CryptoPayService(BaseProviderService):
         client = self.client
         if not client:
             return web.Response(status=503, text=self.disabled_response_text)
-        return await client.get_updates(request)
+        return cast(web.Response, await client.get_updates(request))
 
 
 async def cryptopay_webhook_route(request: web.Request) -> web.Response:
@@ -433,10 +435,10 @@ router = Router(name="user_subscription_payments_crypto_router")
 async def pay_crypto_callback_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     session: AsyncSession,
     cryptopay_service: CryptoPayService,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)
