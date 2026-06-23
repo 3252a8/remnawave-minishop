@@ -51,6 +51,7 @@ python -m mypy backend/db backend/bot/infra backend/bot/middlewares backend/bot/
 **Фронтенд** (`frontend/`):
 ```bash
 npm run check        # eslint + svelte-check + prettier --check
+npm run test         # Vitest unit-тесты helper'ов и store'ов
 npm run build        # vite build должен проходить после type-only изменений
 ```
 

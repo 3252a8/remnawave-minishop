@@ -29,6 +29,7 @@ types:
 
 front:
 	$(NPM) --prefix frontend run check
+	$(NPM) --prefix frontend run test
 	$(NPM) --prefix frontend run build
 
 check: test lint types front
