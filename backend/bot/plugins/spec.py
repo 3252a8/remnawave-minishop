@@ -9,7 +9,9 @@ Every hook is optional: the base class provides no-op defaults, so a plugin
 only overrides what it needs. Hooks must not assume a particular call order
 beyond the guarantees documented on each method.
 
-The plugin API is experimental and may change between minor versions.
+The plugin API is a public extension surface. Additive hooks may appear in
+minor versions; compatibility-breaking changes require an explicit migration
+note.
 """
 
 from __future__ import annotations
