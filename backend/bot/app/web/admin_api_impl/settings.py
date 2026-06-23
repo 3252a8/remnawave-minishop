@@ -1,3 +1,7 @@
+from bot.app.web.context import (
+    get_session_factory,
+    get_settings,
+)
 from bot.services.entitlements import features as entitlement_features
 from config.subscription_guides_config import (
     SubscriptionGuidesConfigError,
@@ -54,8 +58,8 @@ register_contract(
 
 async def admin_settings_get_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     async with async_session_factory() as session:
         overrides = await app_settings_dal.get_overrides_with_meta(session)
@@ -114,8 +118,8 @@ async def admin_settings_get_route(request: web.Request) -> web.Response:
 
 async def admin_settings_patch_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
     body = await parse_body_or_400(request, AdminSettingsPatchBody)
     updates = body.updates or {}
     deletes = body.deletes or []

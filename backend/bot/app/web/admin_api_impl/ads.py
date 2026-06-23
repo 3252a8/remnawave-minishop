@@ -1,3 +1,7 @@
+from bot.app.web.context import (
+    get_session_factory,
+)
+
 from ._runtime import (
     AdCreateBody,
     AdminAdsListOut,
@@ -50,7 +54,7 @@ register_contract(
 
 async def admin_ads_list_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         campaigns = await ad_dal.list_campaigns(session)
         totals = await ad_dal.get_totals(session)
@@ -71,7 +75,7 @@ async def admin_ad_create_route(request: web.Request) -> web.Response:
     start_param = body.start_param
     cost = body.cost
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         existing = await ad_dal.get_campaign_by_start_param(session, start_param)
         if existing:
@@ -92,7 +96,7 @@ async def admin_ad_toggle_route(request: web.Request) -> web.Response:
     campaign_id = int(request.match_info["campaign_id"])
     body = await parse_body_or_400(request, AdToggleBody)
     is_active = bool(body.is_active)
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         ok = await ad_dal.toggle_campaign_active(session, campaign_id, is_active)
         if not ok:
@@ -104,7 +108,7 @@ async def admin_ad_toggle_route(request: web.Request) -> web.Response:
 async def admin_ad_delete_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     campaign_id = int(request.match_info["campaign_id"])
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         ok = await ad_dal.delete_campaign(session, campaign_id)
         if not ok:

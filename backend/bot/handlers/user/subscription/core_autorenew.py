@@ -39,7 +39,7 @@ async def disconnect_device_handler(
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
     bot: Bot,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -112,7 +112,7 @@ async def toggle_autorenew_handler(
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
     bot: Bot,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -180,7 +180,7 @@ async def confirm_autorenew_handler(
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
     bot: Bot,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -253,7 +253,7 @@ async def autorenew_cancel_from_webhook_button(
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
     bot: Bot,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -296,7 +296,7 @@ async def connect_command_handler(
     subscription_service: SubscriptionService,
     session: AsyncSession,
     bot: Bot,
-):
+) -> None:
     logging.info(f"User {message_from_user(message).id} used /connect command.")
     await my_subscription_command_handler(
         message, i18n_data, settings, panel_service, subscription_service, session, bot

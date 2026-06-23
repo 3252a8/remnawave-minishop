@@ -1,3 +1,7 @@
+from bot.app.web.context import (
+    get_panel_service,
+)
+
 from ._runtime import (
     RouteContract,
     logger,
@@ -22,7 +26,7 @@ register_contract(
 
 async def admin_panel_internal_squads_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    panel_service = request.app.get("panel_service")
+    panel_service = get_panel_service(request)
     if panel_service is None:
         return _error(503, "panel_unavailable", "Panel service unavailable")
     try:

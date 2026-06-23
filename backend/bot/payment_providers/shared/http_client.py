@@ -23,7 +23,9 @@ def _trace_request_ctx(trace_config_ctx: Any) -> Optional[dict]:
     return ctx if isinstance(ctx, dict) else None
 
 
-async def _mark_request_headers_sent(session, trace_config_ctx, params) -> None:
+async def _mark_request_headers_sent(
+    _session: ClientSession, trace_config_ctx: Any, _params: Any
+) -> None:
     ctx = _trace_request_ctx(trace_config_ctx)
     if ctx is not None:
         ctx["headers_sent"] = True

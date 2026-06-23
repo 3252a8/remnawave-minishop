@@ -24,7 +24,7 @@ async def sync_command_handler(
     i18n_data: dict,
     panel_service: PanelApiService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:
@@ -65,14 +65,16 @@ async def sync_command_handler(
     logging.info("Admin (%s) queued panel sync from bot.", requested_by)
 
 
-def _sync_request_target_chat_id(message_event: Union[types.Message, types.CallbackQuery]):
+def _sync_request_target_chat_id(
+    message_event: Union[types.Message, types.CallbackQuery],
+) -> Optional[int]:
     chat = getattr(message_event, "chat", None)
     if chat and getattr(chat, "id", None) is not None:
-        return chat.id
+        return int(chat.id)
     callback_message = getattr(message_event, "message", None)
     callback_chat = getattr(callback_message, "chat", None)
     if callback_chat and getattr(callback_chat, "id", None) is not None:
-        return callback_chat.id
+        return int(callback_chat.id)
     return None
 
 
@@ -104,13 +106,13 @@ async def _enqueue_manual_panel_sync(
         "target_chat_id": target_chat_id,
         "language": language,
     }
-    return await enqueue_webhook_event(settings, "panel_sync", payload, event_id=None)
+    return bool(await enqueue_webhook_event(settings, "panel_sync", payload, event_id=None))
 
 
 @router.message(Command("syncstatus"))
 async def sync_status_command_handler(
     message: types.Message, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:

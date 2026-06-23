@@ -13,7 +13,7 @@ async def _encrypt_raw_link(settings: Settings, raw_link: str) -> Optional[str]:
     """Encrypt the raw subscription URL using the panel's happ crypt4 API."""
     async with PanelApiService(settings) as panel_service:
         encrypted_link = await panel_service.encrypt_happ_link(raw_link)
-        if encrypted_link:
+        if isinstance(encrypted_link, str) and encrypted_link:
             return encrypted_link
     return None
 
@@ -39,7 +39,8 @@ async def _encrypt_raw_link_cached(settings: Settings, raw_link: str) -> Optiona
     if cache is None:
         return await _encrypt_raw_link(settings, raw_link)
     key = hashlib.sha256(raw_link.encode("utf-8")).hexdigest()
-    return await cache.get_or_load(key, lambda: _encrypt_raw_link(settings, raw_link))
+    encrypted_link = await cache.get_or_load(key, lambda: _encrypt_raw_link(settings, raw_link))
+    return encrypted_link if isinstance(encrypted_link, str) else None
 
 
 async def prepare_config_links(

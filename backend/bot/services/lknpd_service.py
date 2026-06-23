@@ -64,7 +64,7 @@ class LknpdService:
             )
             if not receipt_uuid:
                 logging.info("LKNPD receipt created without a UUID in response.")
-            return receipt_uuid
+            return receipt_uuid if isinstance(receipt_uuid, str) else None
         except LknpdApiError:
             logging.exception("Failed to create LKNPD receipt.")
             return None

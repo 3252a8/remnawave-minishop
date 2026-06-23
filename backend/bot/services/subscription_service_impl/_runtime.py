@@ -13,6 +13,7 @@ from bot.utils.date_utils import add_months, month_start
 from config.settings import Settings
 from config.tariffs_config import (
     Tariff,
+    TariffsConfig,
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
 )

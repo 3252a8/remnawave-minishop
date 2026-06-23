@@ -63,7 +63,7 @@ async def users_list_handler(
     settings: Settings,
     session: AsyncSession,
     page: int = 0,
-):
+) -> None:
     """Display paginated list of all users"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -106,7 +106,7 @@ async def user_search_prompt_handler(
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession,
-):
+) -> None:
     """Display search prompt for user management"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -139,7 +139,7 @@ async def process_user_search_handler(
     i18n_data: dict,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     """Process user search input and display user card"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -201,7 +201,7 @@ async def user_action_handler(
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
     session: AsyncSession,
-):
+) -> None:
     """Handle user management actions"""
     try:
         parts = callback_data(callback).split(":")

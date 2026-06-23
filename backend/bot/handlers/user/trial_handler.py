@@ -31,7 +31,7 @@ async def request_trial_confirmation_handler(
     i18n_data: dict,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     user_id = callback.from_user.id
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -185,7 +185,7 @@ async def confirm_activate_trial_handler(
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
     session: AsyncSession,
-):
+) -> None:
     user_id = callback.from_user.id
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -331,5 +331,5 @@ async def cancel_trial_activation(
     i18n_data: dict,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     await send_main_menu(callback, settings, i18n_data, subscription_service, session, is_edit=True)

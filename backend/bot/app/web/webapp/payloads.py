@@ -1,4 +1,4 @@
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 
 from pydantic import StringConstraints
 
@@ -38,7 +38,7 @@ class WebAppEmailPayload(BaseModel):
         normalized = normalize_email(str(value))
         if len(normalized) > 254:
             raise ValueError("email_too_long")
-        return normalized
+        return cast(str, normalized)
 
 
 class WebAppEmailCodePayload(WebAppEmailPayload):

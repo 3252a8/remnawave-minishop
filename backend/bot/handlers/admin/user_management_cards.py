@@ -8,6 +8,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.utils.markdown import hcode
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.middlewares.i18n import JsonI18n
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
 from bot.utils.telegram_markup import (
@@ -32,7 +33,7 @@ from .user_management_common import (
 
 
 def get_user_card_keyboard(
-    user_id: int, i18n_instance, lang: str, referrer_id: Optional[int] = None
+    user_id: int, i18n_instance: JsonI18n, lang: str, referrer_id: Optional[int] = None
 ) -> InlineKeyboardBuilder:
     """Generate keyboard for user management actions"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -153,7 +154,7 @@ async def format_user_card(
     user: User,
     session: AsyncSession,
     subscription_service: SubscriptionService,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
     referral_service: Optional[ReferralService] = None,
     *,

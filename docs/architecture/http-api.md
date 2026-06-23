@@ -3,7 +3,7 @@
 Машиночитаемый источник правды для HTTP API — `docs/openapi.json`. На сайте
 документации он публикуется как [`/openapi.json`](/openapi.json). Файл
 генерируется из живого `aiohttp`-роутера после регистрации core-маршрутов и
-встроенных web-плагинов. Тест `tests/test_openapi_artifact.py` сравнивает
+встроенных web-плагинов. Тест `tests/contracts/test_openapi_artifact.py` сравнивает
 артефакт с текущим роутером и падает, если `docs/openapi.json` устарел.
 
 Эта страница описывает общие правила контракта. Детальные схемы, path-параметры,
@@ -138,7 +138,7 @@ PYTHONPATH=backend python -m bot.infra.event_catalog
 Минимальный набор проверок для API-контрактов:
 
 ```bash
-PYTHONPATH=backend python -m pytest tests/test_openapi_artifact.py tests/test_contract_docs_accuracy.py -q
+PYTHONPATH=backend python -m pytest tests/contracts/test_openapi_artifact.py tests/contracts/test_contract_docs_accuracy.py -q
 python -m ruff check backend tests
 python -m ruff format --check backend tests
 ```

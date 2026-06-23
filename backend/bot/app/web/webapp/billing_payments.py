@@ -1,3 +1,8 @@
+from bot.app.web.context import (
+    get_session_factory,
+    get_settings,
+    get_subscription_service,
+)
 from bot.app.web.webapp.assets import _enforce_webapp_rate_limit, _get_cached_webapp_settings
 from bot.app.web.webapp.auth import _require_user_id
 from bot.app.web.webapp.common import (
@@ -45,8 +50,8 @@ async def create_payment_route(request: web.Request) -> web.Response:
 
     payment_payload = await _parse_model_payload(request, WebAppPaymentCreatePayload)
     method = str(payment_payload.method or "").strip().lower()
-    settings: Settings = request.app["settings"]
-    subscription_service: SubscriptionService = request.app["subscription_service"]
+    settings: Settings = get_settings(request)
+    subscription_service: SubscriptionService = get_subscription_service(request)
     cached = _get_cached_webapp_settings(request)
     tariffs_config = settings.tariffs_config
     default_currency = default_currency_key_for_settings(settings)
@@ -229,7 +234,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
         payment_units = months
         sale_mode = "subscription"
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
@@ -345,7 +350,7 @@ async def _create_subscription_payment(
     is_admin: bool = False,
     hwid_quote: Optional[Dict[str, Any]] = None,
 ) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     payment_currency = (currency or default_payment_currency_code_for_settings(settings)).upper()
     sale_mode = str(sale_mode or "subscription")
     traffic_sale = _sale_mode_is_traffic(sale_mode)

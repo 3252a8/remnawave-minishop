@@ -1,10 +1,12 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
   import { ScrollArea as ScrollAreaPrimitive } from "./primitives.js";
 
+  type ScrollAreaType = "auto" | "always" | "scroll" | "hover";
+
   export let maxHeight = "100%";
-  export let element = null;
-  export let type = "auto";
+  export let element: HTMLElement | null = null;
+  export let type: ScrollAreaType = "auto";
   let className = "";
   export { className as class };
 </script>

@@ -1,3 +1,7 @@
+from bot.app.web.context import (
+    get_settings,
+)
+
 from ._runtime import (
     RouteContract,
     Settings,
@@ -23,7 +27,7 @@ register_contract(
 
 async def admin_sync_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     queued = await enqueue_webhook_event(
         settings,
         "panel_sync",

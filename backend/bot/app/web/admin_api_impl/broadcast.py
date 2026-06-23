@@ -1,6 +1,12 @@
 import asyncio
 from collections import defaultdict
+from typing import cast
 
+from bot.app.web.context import (
+    get_optional_subscription_service,
+    get_session_factory,
+    get_settings,
+)
 from bot.utils.ttl_cache import AsyncTTLCache
 
 from ._runtime import (
@@ -69,7 +75,7 @@ register_contract(
 
 
 def _resolve_panel_service(request: web.Request) -> Any:
-    subscription_service = request.app.get("subscription_service")
+    subscription_service = get_optional_subscription_service(request)
     return getattr(subscription_service, "panel_service", None)
 
 
@@ -175,11 +181,14 @@ async def _load_broadcast_audience_counts(
             panel_service,
         )
     cache_key = "with-panel" if panel_service is not None else "without-panel"
-    return await cache.get_or_load(
-        cache_key,
-        lambda: _load_broadcast_audience_counts_uncached(
-            async_session_factory,
-            panel_service,
+    return cast(
+        Dict[str, Optional[int]],
+        await cache.get_or_load(
+            cache_key,
+            lambda: _load_broadcast_audience_counts_uncached(
+                async_session_factory,
+                panel_service,
+            ),
         ),
     )
 
@@ -223,7 +232,7 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
     if not queue_manager:
         return _error(503, "queue_unavailable")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         if target == BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED:
             panel_service = _resolve_panel_service(request)
@@ -277,8 +286,8 @@ async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Res
     """Return how many users each broadcast audience currently resolves to."""
     _require_admin_user_id(request)
 
-    settings: Settings = request.app["settings"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
     panel_service = _resolve_panel_service(request)
     counts = await _load_broadcast_audience_counts(
         settings,

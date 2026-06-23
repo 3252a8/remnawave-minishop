@@ -1,5 +1,9 @@
 import gzip
 
+from bot.app.web.context import (
+    get_settings,
+)
+
 from ._runtime import (
     ASSET_DIR,
     ROBOTS_TX,
@@ -9,6 +13,7 @@ from ._runtime import (
     Path,
     Settings,
     hashlib,
+    json_response,
     re,
     time,
     web,
@@ -25,7 +30,7 @@ WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-ag
 
 
 async def health_route(request: web.Request) -> web.Response:
-    return web.json_response({"ok": True})
+    return json_response({"ok": True})
 
 
 async def robots_txt_route(request: web.Request) -> web.Response:
@@ -118,7 +123,7 @@ async def _serve_template_asset(
     allow_precompressed: bool = False,
     strip_dev_mock: bool = False,
 ) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not settings.WEBAPP_ENABLED:
         raise web.HTTPNotFound(text="webapp_disabled")
 

@@ -2,9 +2,13 @@ from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
 
+from bot.app.web.context import (
+    get_session_factory,
+    get_support_service,
+)
 from bot.services.support_service import TicketNotFound
 from db.dal import support_dal, user_dal
-from db.models import SupportTicket, SupportTicketMessage
+from db.models import SupportTicket, SupportTicketMessage, User
 
 from ._runtime import (
     Any,
@@ -96,7 +100,7 @@ register_contract(
 )
 
 
-def _invalid_request_payload_response(_exc) -> web.Response:
+def _invalid_request_payload_response(_exc: Exception) -> web.Response:
     return _error(400, "invalid_request", "Invalid request")
 
 
@@ -119,7 +123,7 @@ def _support_ticket_payload(ticket: SupportTicket) -> Dict[str, Any]:
     }
 
 
-def _user_display_name(user) -> Optional[str]:
+def _user_display_name(user: Optional[User]) -> Optional[str]:
     if not user:
         return None
     name = " ".join(
@@ -150,7 +154,7 @@ def _support_message_payload(
     }
 
 
-def _admin_support_user_payload(user) -> Dict[str, Any]:
+def _admin_support_user_payload(user: Optional[User]) -> Dict[str, Any]:
     if not user:
         return {}
     return {
@@ -179,7 +183,7 @@ async def admin_support_tickets_route(request: web.Request) -> web.Response:
     assigned_admin_id = None
     if assigned_raw and assigned_raw not in {"all", "any"}:
         assigned_admin_id = int(assigned_raw)
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         tickets = await support_dal.list_admin_tickets(
             session,
@@ -209,8 +213,8 @@ async def admin_support_tickets_route(request: web.Request) -> web.Response:
 async def admin_support_ticket_detail_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     ticket_id = int(request.match_info["id"])
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    service = request.app["support_service"]
+    async_session_factory: sessionmaker = get_session_factory(request)
+    service = get_support_service(request)
     async with async_session_factory() as session:
         ticket, messages = await support_dal.get_ticket(session, ticket_id, include_internal=True)
         if not ticket:
@@ -245,7 +249,7 @@ async def admin_support_ticket_reply_route(request: web.Request) -> web.Response
         validation_error_response_factory=_invalid_request_payload_response,
     )
     try:
-        ticket, message = await request.app["support_service"].reply_as_admin(
+        ticket, message = await get_support_service(request).reply_as_admin(
             admin_id,
             ticket_id,
             payload.body,
@@ -253,7 +257,7 @@ async def admin_support_ticket_reply_route(request: web.Request) -> web.Response
         )
     except TicketNotFound:
         return _error(404, "not_found", "Ticket not found")
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         admin = await user_dal.get_user_by_id(session, admin_id)
     return web.json_response(
@@ -278,16 +282,16 @@ async def admin_support_ticket_patch_route(request: web.Request) -> web.Response
     updates = payload.model_dump(exclude_unset=True)
     try:
         if updates.get("status") == "closed":
-            ticket = await request.app["support_service"].close_ticket(admin_id, ticket_id)
+            ticket = await get_support_service(request).close_ticket(admin_id, ticket_id)
             updates.pop("status", None)
             if updates:
-                ticket = await request.app["support_service"]._update_and_audit(
+                ticket = await get_support_service(request)._update_and_audit(
                     admin_id,
                     ticket_id,
                     **updates,
                 )
         else:
-            ticket = await request.app["support_service"]._update_and_audit(
+            ticket = await get_support_service(request)._update_and_audit(
                 admin_id,
                 ticket_id,
                 **updates,
@@ -300,13 +304,13 @@ async def admin_support_ticket_patch_route(request: web.Request) -> web.Response
 async def admin_support_ticket_read_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     ticket_id = int(request.match_info["id"])
-    await request.app["support_service"].mark_read_as_admin(ticket_id)
+    await get_support_service(request).mark_read_as_admin(ticket_id)
     return web.json_response({"ok": True})
 
 
 async def admin_support_stats_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         stats = await support_dal.admin_stats(session)
     return web.json_response({"ok": True, "stats": stats})

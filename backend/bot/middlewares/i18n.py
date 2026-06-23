@@ -298,7 +298,7 @@ class JsonI18n:
         default: str = "en",
         domain: str = "bot",
         overrides_path: Optional[str] = None,
-    ):
+    ) -> None:
         self.domain = domain
         self.path = path
         self.default_lang = default
@@ -318,7 +318,7 @@ class JsonI18n:
             f"JsonI18n initialized. Loaded languages: {list(self.locales_data.keys())}. Default: {self.default_lang}"  # noqa: E501
         )
 
-    def _load_locales(self):
+    def _load_locales(self) -> None:
         if not os.path.isdir(self.path):
             logging.error(f"Locales path not found or not a directory: {self.path}")
             return
@@ -506,7 +506,7 @@ class JsonI18n:
         logging.info("Locale overrides reloaded from %s", self._overrides_path)
         return True
 
-    def gettext(self, lang_code: Optional[str], key: str, **kwargs) -> str:
+    def gettext(self, lang_code: Optional[str], key: str, **kwargs: object) -> str:
         self.reload_overrides_from_file()
         lookup_key = resolve_locale_key(key)
 

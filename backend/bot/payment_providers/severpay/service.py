@@ -60,6 +60,7 @@ from ..shared import (
     render_link_or_fail,
     render_payment_link,
 )
+from ..shared.app_context import app_optional, app_required
 
 _LOG = "severpay"
 
@@ -82,7 +83,7 @@ class SeverPayConfig(ProviderEnvConfig):
 
     @field_validator("MID", "LIFETIME_MINUTES", mode="before")
     @classmethod
-    def _empty_to_none_int(cls, v):
+    def _empty_to_none_int(cls, v: Any) -> Any:
         if isinstance(v, str):
             v = v.strip()
             if not v:
@@ -91,7 +92,7 @@ class SeverPayConfig(ProviderEnvConfig):
 
     @field_validator("TOKEN", "RETURN_URL", mode="before")
     @classmethod
-    def _strip_optional(cls, v):
+    def _strip_optional(cls, v: Any) -> Any:
         if isinstance(v, str) and not v.strip():
             return None
         return v
@@ -155,7 +156,7 @@ class SeverPayService(HttpClientMixin):
         return (self.config.BASE_URL or "https://severpay.io/api/merchant").rstrip("/")
 
     @property
-    def mid(self):
+    def mid(self) -> Optional[int]:
         return self.config.MID
 
     @property
@@ -167,7 +168,7 @@ class SeverPayService(HttpClientMixin):
         return self.config.RETURN_URL or f"https://t.me/{self._default_return_url}"
 
     @property
-    def lifetime_minutes(self):
+    def lifetime_minutes(self) -> Optional[int]:
         return self.config.LIFETIME_MINUTES
 
     @staticmethod
@@ -444,7 +445,7 @@ class SeverPayService(HttpClientMixin):
 
 
 async def severpay_webhook_route(request: web.Request) -> web.Response:
-    service: SeverPayService = request.app["severpay_service"]
+    service: SeverPayService = app_required(request, "severpay_service", SeverPayService)
     return await service.webhook_route(request)
 
 
@@ -455,10 +456,10 @@ router = Router(name="user_subscription_payments_severpay_router")
 async def pay_severpay_callback_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     severpay_service: SeverPayService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)
@@ -593,8 +594,8 @@ def create_service(ctx: ServiceFactoryContext) -> SeverPayService:
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    settings = ctx.request.app["settings"]
-    service: SeverPayService = ctx.request.app["severpay_service"]
+    settings = app_required(ctx.request, "settings", Settings)
+    service: SeverPayService = app_required(ctx.request, "severpay_service", SeverPayService)
     if not service or not service.configured:
         return payment_unavailable()
 
@@ -632,7 +633,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service: SeverPayService = ctx.request.app.get("severpay_service")
+    service = app_optional(ctx.request, "severpay_service", SeverPayService)
     if not service or not service.configured:
         return None
     return await service.try_reuse_pending_payment(payment)

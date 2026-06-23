@@ -20,7 +20,7 @@ Template for migrated domains:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from pydantic import ConfigDict, Field, field_validator
 
@@ -348,7 +348,7 @@ class PaymentDetailOut(PaymentOut):
                 "updated_at": payment.updated_at,
             }
         )
-        return cls.model_validate(payload)
+        return cast("PaymentDetailOut", cls.model_validate(payload))
 
 
 class AdminStatsOut(HttpResponseModel):

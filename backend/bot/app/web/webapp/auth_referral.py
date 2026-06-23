@@ -1,3 +1,8 @@
+from bot.app.web.context import (
+    get_session_factory,
+    get_settings,
+    get_subscription_service,
+)
 from bot.infra import events
 from bot.infra.event_payloads import ReferralBonusGrantedPayload
 
@@ -10,6 +15,7 @@ from ._runtime import (
     SubscriptionService,
     User,
     datetime,
+    json_response,
     logger,
     sanitize_display_name,
     sanitize_username,
@@ -84,12 +90,12 @@ async def _apply_referral_to_existing_user(
         session,
         raw_referral_param,
         current_user_id=int(user.user_id),
-        settings=request.app["settings"],
+        settings=get_settings(request),
     )
     if not referred_by_id:
         return False
 
-    subscription_service: SubscriptionService = request.app["subscription_service"]
+    subscription_service: SubscriptionService = get_subscription_service(request)
     try:
         is_active_now = await subscription_service.has_active_subscription(
             session,
@@ -114,7 +120,7 @@ async def _apply_referral_welcome_bonus_if_needed(
     if not raw_referral_param or not user.referred_by_id:
         return None
 
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if _referral_welcome_telegram_required_reason(settings, user):
         return None
 
@@ -135,7 +141,7 @@ async def _grant_referral_welcome_bonus_if_eligible(
     if getattr(user, "referral_welcome_bonus_claimed_at", None) is not None:
         return None
 
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     referral_welcome_days = max(
         0,
         int(getattr(settings, "REFERRAL_WELCOME_BONUS_DAYS", 0) or 0),
@@ -143,7 +149,7 @@ async def _grant_referral_welcome_bonus_if_eligible(
     if referral_welcome_days <= 0:
         return None
 
-    subscription_service: SubscriptionService = request.app["subscription_service"]
+    subscription_service: SubscriptionService = get_subscription_service(request)
     default_tariff_key = None
     tariffs_config = getattr(settings, "tariffs_config", None)
     if tariffs_config:
@@ -197,8 +203,8 @@ async def referral_welcome_bonus_claim_route(request: web.Request) -> web.Respon
     if rate_limit_response:
         return rate_limit_response
 
-    settings: Settings = request.app["settings"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         try:
             db_user = await user_dal.get_user_by_id(session, user_id)
@@ -231,7 +237,7 @@ async def referral_welcome_bonus_claim_route(request: web.Request) -> web.Respon
             return _json_error(500, "referral_welcome_failed", "Referral welcome bonus failed")
 
     await _invalidate_webapp_user_caches(settings, user_id, include_devices=True)
-    return web.json_response(
+    return json_response(
         {
             "ok": True,
             "claimed": True,

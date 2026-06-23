@@ -59,6 +59,7 @@ from ..shared import (
     render_payment_link,
     safe_callback_answer,
 )
+from ..shared.app_context import app_optional, app_required
 
 _LOG = "platega"
 
@@ -88,7 +89,7 @@ class PlategaConfig(ProviderEnvConfig):
 
     @field_validator("MERCHANT_ID", "SECRET", "RETURN_URL", "FAILED_URL", mode="before")
     @classmethod
-    def _strip_optional(cls, v):
+    def _strip_optional(cls, v: Any) -> Any:
         if isinstance(v, str) and not v.strip():
             return None
         return v
@@ -149,7 +150,7 @@ class PlategaService(HttpClientMixin):
         subscription_service: SubscriptionService,
         referral_service: ReferralService,
         default_return_url: str,
-    ):
+    ) -> None:
         self.bot = bot
         self.settings = settings
         self.config = config
@@ -190,11 +191,11 @@ class PlategaService(HttpClientMixin):
         return (self.config.BASE_URL or "https://app.platega.io").rstrip("/")
 
     @property
-    def merchant_id(self):
+    def merchant_id(self) -> Optional[str]:
         return self.config.MERCHANT_ID
 
     @property
-    def secret(self):
+    def secret(self) -> Optional[str]:
         return self.config.SECRET
 
     @property
@@ -218,7 +219,7 @@ class PlategaService(HttpClientMixin):
         return self.config.FAILED_URL or self.return_url
 
     @property
-    def _auth_headers(self) -> dict:
+    def _auth_headers(self) -> Dict[str, str]:
         return {
             "X-MerchantId": self.merchant_id or "",
             "X-Secret": self.secret or "",
@@ -478,7 +479,7 @@ class PlategaService(HttpClientMixin):
 
 
 async def platega_webhook_route(request: web.Request) -> web.Response:
-    service: PlategaService = request.app["platega_service"]
+    service: PlategaService = app_required(request, "platega_service", PlategaService)
     return await service.webhook_route(request)
 
 
@@ -515,10 +516,10 @@ def _platega_spec_for_callback_prefix(callback_prefix: str) -> PaymentProviderSp
 async def pay_platega_callback_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     platega_service: PlategaService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     from ..shared import make_translator
@@ -690,8 +691,8 @@ def create_service(ctx: ServiceFactoryContext) -> PlategaService:
 
 
 async def _create_webapp_payment(ctx: WebAppPaymentContext, variant: str) -> web.Response:
-    settings: Settings = ctx.request.app["settings"]
-    service: PlategaService = ctx.request.app["platega_service"]
+    settings: Settings = app_required(ctx.request, "settings", Settings)
+    service: PlategaService = app_required(ctx.request, "platega_service", PlategaService)
     if not service or not service.configured:
         return payment_unavailable()
     if variant == "platega_crypto":
@@ -767,7 +768,7 @@ async def create_crypto_webapp_payment(ctx: WebAppPaymentContext) -> web.Respons
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service: PlategaService = ctx.request.app.get("platega_service")
+    service = app_optional(ctx.request, "platega_service", PlategaService)
     if not service or not service.configured:
         return None
     variant = "crypto" if ctx.method == "platega_crypto" else "sbp"

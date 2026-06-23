@@ -41,7 +41,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             getattr(self.settings, "traffic_sale_mode", False) and not self._tariffs_config()
         ):
             target_gb = traffic_gb if traffic_gb is not None else float(months)
-            return await self._activate_traffic_package(
+            result = await self._activate_traffic_package(
                 session=session,
                 user_id=user_id,
                 traffic_gb=target_gb,
@@ -51,6 +51,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 tariff_key=tariff_key,
                 sale_mode="traffic_package" if self._tariffs_config() else "traffic",
             )
+            return result if isinstance(result, dict) else None
         if sale_mode_base == "topup":
             if not tariff_key:
                 active_user = await user_dal.get_user_by_id(session, user_id)
@@ -65,7 +66,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             if not tariff_key:
                 logging.error("Top-up activation requires tariff_key for user %s", user_id)
                 return None
-            return await self.activate_topup(
+            result = await self.activate_topup(
                 session=session,
                 user_id=user_id,
                 tariff_key=tariff_key,
@@ -74,6 +75,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 payment_db_id=payment_db_id,
                 provider=provider,
             )
+            return result if isinstance(result, dict) else None
         if sale_mode_base == "premium_topup":
             if not tariff_key:
                 active_user = await user_dal.get_user_by_id(session, user_id)
@@ -88,7 +90,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             if not tariff_key:
                 logging.error("Premium top-up activation requires tariff_key for user %s", user_id)
                 return None
-            return await self.activate_premium_topup(
+            result = await self.activate_premium_topup(
                 session=session,
                 user_id=user_id,
                 tariff_key=tariff_key,
@@ -97,9 +99,10 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 payment_db_id=payment_db_id,
                 provider=provider,
             )
+            return result if isinstance(result, dict) else None
         if sale_mode_base in {"hwid_device", "hwid_devices", "hwid_devices_renewal"}:
             target_devices = int(traffic_gb if traffic_gb is not None else months)
-            return await self.activate_hwid_device_topup(
+            result = await self.activate_hwid_device_topup(
                 session=session,
                 user_id=user_id,
                 device_count=target_devices,
@@ -109,6 +112,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 tariff_key=tariff_key,
                 renewal=sale_mode_base == "hwid_devices_renewal",
             )
+            return result if isinstance(result, dict) else None
         if sale_mode_base == "tariff_upgrade":
             if not tariff_key:
                 logging.error("Tariff upgrade activation requires tariff_key for user %s", user_id)
@@ -143,7 +147,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                             end_date=sub.end_date,
                             provider=provider,
                         )
-            return result
+            return result if isinstance(result, dict) else None
 
         tariff = self._resolve_tariff(tariff_key, "period") if self._tariffs_config() else None
         await self._record_payment_context(

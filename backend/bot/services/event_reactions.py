@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Callable, Dict, Iterable, Optional
 
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 from bot.infra import events
@@ -15,6 +15,7 @@ from bot.services.email_templates import render_account_merged
 from bot.services.notification_service import NotificationService
 from bot.services.user_email_notifications import send_user_notification_email
 from db.dal import payment_dal, subscription_dal, user_dal
+from db.models import Payment, Subscription, User
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +109,9 @@ def _tariff_display_name(settings: Any, tariff_key: Optional[str], language: str
         return str(tariff_key)
 
 
-def _format_failed_payment_purchase(translate, purchase: PaymentPurchase) -> str:
+def _format_failed_payment_purchase(
+    translate: Callable[..., str], purchase: PaymentPurchase
+) -> str:
     if purchase.kind == "traffic":
         traffic_kind = translate(
             "payment_failed_traffic_kind_premium"
@@ -184,7 +187,7 @@ def _failed_payment_provider_detail(
 
 def _format_failed_payment_details(
     *,
-    translate,
+    translate: Callable[..., str],
     settings: Any,
     language: str,
     payment: Any,
@@ -234,7 +237,7 @@ def _format_failed_payment_details(
 
 
 class CoreEventReactions:
-    def __init__(self, ctx: PluginContext):
+    def __init__(self, ctx: PluginContext) -> None:
         self.ctx = ctx
 
     def _notification_service(self) -> Optional[NotificationService]:
@@ -251,7 +254,7 @@ class CoreEventReactions:
             email_auth_service=self.ctx.services.get("email_auth_service"),
         )
 
-    async def _load_user(self, user_id: Any):
+    async def _load_user(self, user_id: Any) -> Optional[User]:
         if self.ctx.session_factory is None or user_id is None:
             return None
         try:
@@ -261,7 +264,7 @@ class CoreEventReactions:
             logger.exception("Failed to load user %s for event reaction.", user_id)
             return None
 
-    async def _load_payment(self, payment_db_id: Any):
+    async def _load_payment(self, payment_db_id: Any) -> Optional[Payment]:
         if self.ctx.session_factory is None or payment_db_id is None:
             return None
         try:
@@ -271,7 +274,9 @@ class CoreEventReactions:
             logger.exception("Failed to load payment %s for event reaction.", payment_db_id)
             return None
 
-    async def _load_active_subscription(self, user_id: Any, panel_user_uuid: Optional[str] = None):
+    async def _load_active_subscription(
+        self, user_id: Any, panel_user_uuid: Optional[str] = None
+    ) -> Optional[Subscription]:
         if self.ctx.session_factory is None or user_id is None:
             return None
         try:

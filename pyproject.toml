@@ -35,6 +35,17 @@ python_version = "3.12"
 ignore_missing_imports = true
 warn_unused_configs = true
 
+[tool.coverage.run]
+source = ["backend"]
+omit = [
+    "backend/scripts/import_legacy.py",
+    "scripts/import_legacy.py",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+
 [[tool.mypy.overrides]]
 module = "db.*"
 disallow_untyped_defs = true
@@ -44,9 +55,16 @@ no_implicit_optional = true
 
 [[tool.mypy.overrides]]
 module = [
+    "bot.app.factories.*",
+    "bot.middlewares.*",
+    "bot.utils.*",
     "bot.infra.*",
-    "bot.app.web.http_contracts",
-    "bot.app.web.route_contracts",
+    "bot.plugins.*",
+    "bot.keyboards.*",
+    "bot.services.*",
+    "bot.payment_providers.*",
+    "bot.handlers.*",
+    "bot.app.web.*",
     "web.http_contracts",
     "web.route_contracts",
     "web.openapi",

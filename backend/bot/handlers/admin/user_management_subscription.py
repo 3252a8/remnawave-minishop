@@ -7,6 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service import SubscriptionService
 from bot.states.admin_states import AdminStates
@@ -28,7 +29,7 @@ from .user_management_info import handle_refresh_user_card
 async def handle_traffic_grant_menu(
     callback: types.CallbackQuery,
     user: User,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
 ) -> None:
     """Show traffic-grant menu (regular vs premium)."""
@@ -72,7 +73,7 @@ async def handle_traffic_grant_prompt(
     state: FSMContext,
     user: User,
     kind: str,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
 ) -> None:
     """Ask the admin for the amount of GB to grant (regular or premium)."""
@@ -104,9 +105,9 @@ async def handle_reset_trial(
     subscription_service: SubscriptionService,
     session: AsyncSession,
     settings: Settings,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
-):
+) -> None:
     """Reset user's trial eligibility"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 
@@ -132,9 +133,9 @@ async def handle_add_subscription_prompt(
     state: FSMContext,
     user: User,
     settings: Settings,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
-):
+) -> None:
     """Prompt admin to choose tariff when required, then enter subscription days."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 
@@ -181,11 +182,11 @@ async def handle_add_subscription_days_prompt(
     state: FSMContext,
     user: User,
     settings: Settings,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
     *,
     tariff_key: Optional[str],
-):
+) -> None:
     """Prompt admin to enter subscription days to add after tariff resolution."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     tariff_key, tariff_error = _resolve_admin_period_tariff_key(settings, tariff_key)
@@ -222,7 +223,7 @@ async def handle_change_tariff_menu(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
 ) -> None:
     """Show period tariff choices for an active subscription."""
@@ -276,7 +277,7 @@ async def handle_change_tariff_apply(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
     *,
     tariff_key: str,
@@ -348,9 +349,9 @@ async def handle_toggle_ban(
     subscription_service: SubscriptionService,
     session: AsyncSession,
     settings: Settings,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
-):
+) -> None:
     """Toggle user ban status"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 
@@ -390,8 +391,8 @@ async def handle_toggle_ban(
 
 
 async def handle_send_message_prompt(
-    callback: types.CallbackQuery, state: FSMContext, user: User, i18n_instance, lang: str
-):
+    callback: types.CallbackQuery, state: FSMContext, user: User, i18n_instance: JsonI18n, lang: str
+) -> None:
     """Prompt admin to enter message to send to user"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 

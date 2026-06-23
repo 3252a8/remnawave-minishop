@@ -17,7 +17,7 @@ import time
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from aiogram import Bot, Dispatcher
@@ -65,6 +65,11 @@ from db.dal.user_dal import UserMergeConflictError
 from db.models import Payment, User, UserTelegramAvatar
 
 logger = logging.getLogger(__name__)
+
+
+def json_response(data: Any = None, **kwargs: Any) -> web.Response:
+    return cast(web.Response, web.json_response(data, **kwargs))
+
 
 TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "templates" / "subscription_webapp.html"
 ASSET_DIR = TEMPLATE_PATH.parent

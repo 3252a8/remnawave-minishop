@@ -1,3 +1,6 @@
+from bot.app.web.context import (
+    get_settings,
+)
 from config.webapp_themes_config import (
     default_webapp_theme_asset_file,
     default_webapp_theme_css_files,
@@ -70,7 +73,7 @@ def _safe_theme_relative_path(
 
 
 async def theme_css_asset_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not settings.WEBAPP_ENABLED:
         raise web.HTTPNotFound(text="webapp_disabled")
 
@@ -132,7 +135,7 @@ async def theme_css_asset_route(request: web.Request) -> web.Response:
 
 
 async def theme_asset_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not settings.WEBAPP_ENABLED:
         raise web.HTTPNotFound(text="webapp_disabled")
 

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { getContext, onMount } from "svelte";
   import {
     AdminBadge,
@@ -14,25 +14,32 @@
     syncAdminDatatable,
     watchAdminDatatable,
   } from "../../lib/admin/datatables.js";
+  import type { PaymentOut, PaymentsStore } from "../../lib/admin/stores/paymentsStore";
 
-  export let at = (key) => key;
-  export let fmtDate = (value) => value;
-  export let fmtMoney = (value) => value;
-  export let paymentStatusVariant = () => "muted";
-  export let onOpenUserCard = () => {};
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
-  const paymentsStore = getContext("paymentsStore");
+  export let at: TranslateFn = (key) => key;
+  export let fmtDate: (value: string | null | undefined) => string = (value) => String(value || "");
+  export let fmtMoney: (value: number, currency?: string | null) => string = (value) =>
+    String(value);
+  export let paymentStatusVariant: (status: string | null | undefined) => string = () => "muted";
+  export let onOpenUserCard: (userId: number) => void = () => {};
+
+  const paymentsStore = getContext<PaymentsStore>("paymentsStore");
   const paymentsTable = createAdminDatatable();
   const paymentsTableSignal = watchAdminDatatable(paymentsTable);
   const PAYMENTS_PAGE_SIZE = 25;
+  let payments: PaymentOut[] = [];
+  let paymentsTotal = 0;
+  let paymentsPage = 0;
+  let paymentsLoading = false;
 
   $: ({ payments, paymentsTotal, paymentsPage, paymentsLoading } = $paymentsStore);
   $: syncAdminDatatable(paymentsTable, payments);
 
   $: paymentsPageCount = Math.max(1, Math.ceil(Number(paymentsTotal || 0) / PAYMENTS_PAGE_SIZE));
 
-  /** @param {number|null|undefined} v */
-  function formatTrafficGbCell(v) {
+  function formatTrafficGbCell(v: number | string | null | undefined): string {
     if (v == null || v === "") return "—";
     const n = Number(v);
     if (Number.isNaN(n)) return "—";
@@ -45,8 +52,7 @@
     return `${s} GB`;
   }
 
-  /** @param {number|null|undefined} v */
-  function formatGbAmountPlain(v) {
+  function formatGbAmountPlain(v: number | string | null | undefined): string {
     if (v == null || v === "") return "";
     const n = Number(v);
     if (Number.isNaN(n)) return "";
@@ -54,8 +60,7 @@
     return String(Math.round(n * 100) / 100);
   }
 
-  /** @param {Record<string, unknown>} p */
-  function paymentDescriptionDisplay(p) {
+  function paymentDescriptionDisplay(p: PaymentOut): string {
     const r = p.traffic_regular_gb;
     const pr = p.traffic_premium_gb;
     if (r != null && pr == null) {

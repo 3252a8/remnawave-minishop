@@ -91,7 +91,7 @@ async def view_payments_handler(
     settings: Settings,
     session: AsyncSession,
     page: int = 0,
-):
+) -> None:
     """Display paginated list of all payments."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -178,7 +178,7 @@ async def view_payments_handler(
 @router.callback_query(F.data.startswith("payments_page:"))
 async def payments_pagination_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     """Handle pagination for payments list."""
     try:
         page = int(callback_data(callback).split(":")[1])
@@ -190,7 +190,7 @@ async def payments_pagination_handler(
 @router.callback_query(F.data == "payments_export_csv")
 async def export_payments_csv_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     """Export all successful payments to CSV file."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -287,6 +287,6 @@ async def export_payments_csv_handler(
 
 
 @router.callback_query(F.data == "noop")
-async def noop_handler(callback: types.CallbackQuery):
+async def noop_handler(callback: types.CallbackQuery) -> None:
     """Handle no-op callback (for pagination display)."""
     await callback.answer()

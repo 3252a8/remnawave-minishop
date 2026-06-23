@@ -1,3 +1,8 @@
+from bot.app.web.context import (
+    get_session_factory,
+    get_settings,
+)
+
 from ._runtime import (
     Any,
     ClientTimeout,
@@ -10,6 +15,7 @@ from ._runtime import (
     create_telegram_oauth_nonce,
     create_webapp_session_token,
     datetime,
+    json_response,
     logger,
     secrets,
     sessionmaker,
@@ -67,7 +73,7 @@ async def _exchange_telegram_oauth_code(
     code_verifier: str,
     redirect_uri: str,
 ) -> Optional[Dict[str, Any]]:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     client_id = _resolve_telegram_oauth_client_id(settings)
     client_secret = str(getattr(settings, "TELEGRAM_OAUTH_CLIENT_SECRET", "") or "").strip()
     if not client_id or not client_secret or not code or not code_verifier:
@@ -106,7 +112,7 @@ async def _exchange_telegram_oauth_code(
 
 
 async def telegram_oauth_nonce_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     client_id = _resolve_telegram_oauth_client_id(settings)
     if not client_id:
         return _json_error(400, "telegram_oauth_not_configured", "Telegram OAuth is not configured")
@@ -115,7 +121,7 @@ async def telegram_oauth_nonce_route(request: web.Request) -> web.Response:
         settings,
         ttl_seconds=settings.WEBAPP_LOGIN_TOKEN_TTL_SECONDS,
     )
-    return web.json_response(
+    return json_response(
         {
             "ok": True,
             "nonce": nonce,
@@ -126,7 +132,7 @@ async def telegram_oauth_nonce_route(request: web.Request) -> web.Response:
 
 
 async def telegram_oauth_start_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     client_id = _resolve_telegram_oauth_client_id(settings)
     client_secret = str(getattr(settings, "TELEGRAM_OAUTH_CLIENT_SECRET", "") or "").strip()
     if not client_id or not client_secret:
@@ -178,7 +184,7 @@ async def telegram_oauth_start_route(request: web.Request) -> web.Response:
 
 
 async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
 
     def redirect(path: str = "/", status: Optional[str] = None) -> web.HTTPFound:
         response = web.HTTPFound(_telegram_oauth_redirect_url(path, status=status))
@@ -212,7 +218,7 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
 
     purpose = str(state.get("purpose") or "login")
     redirect_path = "/settings" if purpose == "link" else "/"
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     final_user_id: Optional[int] = None
     source_user_id_for_cache: Optional[int] = None
     linked_user_for_panel: Optional[User] = None
@@ -317,7 +323,7 @@ async def _validate_telegram_auth_payload(
     request: web.Request,
     payload: Dict[str, Any],
 ) -> Optional[Dict[str, Any]]:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     init_data = str(payload.get("init_data") or "")
     if init_data:
         return validate_telegram_webapp_init_data(
@@ -351,7 +357,7 @@ async def _validate_telegram_auth_payload(
 
 
 async def auth_token_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     auth_payload = await _parse_model_payload(request, WebAppTelegramAuthPayload)
     payload = auth_payload.model_dump(mode="json", exclude_none=True)
     referral_param = str(auth_payload.referral_code or auth_payload.start_param or "")
@@ -368,7 +374,7 @@ async def auth_token_route(request: web.Request) -> web.Response:
     if rate_limit_response:
         return rate_limit_response
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     authenticated_user_id: Optional[int] = None
     async with async_session_factory() as session:
         try:
@@ -408,6 +414,6 @@ async def auth_token_route(request: web.Request) -> web.Response:
 
 
 async def logout_route(request: web.Request) -> web.Response:
-    response = web.json_response({"ok": True})
+    response = json_response({"ok": True})
     _clear_webapp_auth_cookies(response)
     return response

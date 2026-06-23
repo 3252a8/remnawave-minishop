@@ -1,8 +1,14 @@
 import secrets
 import subprocess
+from typing import cast
 
 from aiohttp.multipart import BodyPartReader
 
+from bot.app.web.context import (
+    SESSION_FACTORY,
+    get_bot,
+    get_settings,
+)
 from bot.infra.redis import redis_lock
 from bot.services.backup_restore_service import (
     BACKUP_UPLOAD_MAX_BYTES,
@@ -76,12 +82,12 @@ register_contract(
 )
 
 
-def _backup_archive_payload(archive) -> Dict[str, Any]:
-    return archive.to_payload()
+def _backup_archive_payload(archive: BackupArchiveInfo) -> Dict[str, Any]:
+    return cast(Dict[str, Any], archive.to_payload())
 
 
 async def _read_uploaded_backup_file(request: web.Request) -> BackupArchiveInfo:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     service = BackupRestoreService(settings)
     backup_dir = service.backup_dir()
     temp_path: Optional[Path] = None
@@ -123,7 +129,7 @@ async def _read_uploaded_backup_file(request: web.Request) -> BackupArchiveInfo:
 
 async def admin_backups_list_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     try:
         service = BackupRestoreService(settings)
         archives = service.list_archives()
@@ -155,9 +161,9 @@ async def admin_backups_upload_route(request: web.Request) -> web.Response:
 
 async def admin_backups_create_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
-    bot = request.app["bot"]
-    session_factory = request.app.get("async_session_factory")
+    settings: Settings = get_settings(request)
+    bot = get_bot(request)
+    session_factory = request.app.get(SESSION_FACTORY)
     worker = BackupWorker(settings, bot, session_factory=session_factory)
 
     ttl_seconds = max(
@@ -195,7 +201,7 @@ async def admin_backups_create_route(request: web.Request) -> web.Response:
 
 async def admin_backups_restore_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     body = await parse_body_or_400(request, AdminBackupRestoreBody)
 
     archive_name = str(body.archive_name or "").strip()

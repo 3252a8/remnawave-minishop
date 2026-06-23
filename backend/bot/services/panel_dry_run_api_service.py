@@ -100,22 +100,23 @@ class _DryRunValidation:
 class PanelDryRunApiService(PanelApiService):
     """Panel API client that reads live data but never mutates Remnawave users."""
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings) -> None:
         super().__init__(settings)
         self._synthetic_users: Dict[str, Dict[str, Any]] = {}
 
     async def _request(
-        self, method: str, endpoint: str, log_full_response: bool = False, **kwargs
+        self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
     ) -> Optional[Dict[str, Any]]:
         method_upper = method.upper()
         normalized_endpoint = self._normalize_endpoint(endpoint)
         if not self._should_intercept(method_upper, normalized_endpoint):
-            return await super()._request(
+            result = await super()._request(
                 method_upper,
                 endpoint,
                 log_full_response=log_full_response,
                 **kwargs,
             )
+            return result if isinstance(result, dict) else None
 
         validation = await self._validate_dry_run_request(
             method_upper,
@@ -431,7 +432,7 @@ class PanelDryRunApiService(PanelApiService):
             return None
         if not user:
             validation.add(f"panel user {user_uuid} was not found.")
-        return user
+        return user if isinstance(user, dict) else None
 
     async def _validate_remote_squads(
         self,

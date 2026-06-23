@@ -23,7 +23,7 @@ async def referral_command_handler(
     bot: Bot,
     session: AsyncSession,
     back_callback: str = "main_action:back_to_main",
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
 
@@ -142,7 +142,7 @@ async def referral_action_handler(
     referral_service: ReferralService,
     bot: Bot,
     session: AsyncSession,
-):
+) -> None:
     action = callback_data(callback).split(":")[1]
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -363,5 +363,5 @@ async def referral_command_message_handler(
     referral_service: ReferralService,
     bot: Bot,
     session: AsyncSession,
-):
+) -> None:
     await referral_command_handler(message, settings, i18n_data, referral_service, bot, session)

@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import time
+from types import TracebackType
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode
 
@@ -58,7 +59,7 @@ class PanelApiCoreMixin:
     _DEFAULT_SOCK_CONNECT_TIMEOUT_SECONDS = 8.0
     _DEFAULT_SOCK_READ_TIMEOUT_SECONDS = 15.0
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.base_url = settings.PANEL_API_URL
         self.api_key = settings.PANEL_API_KEY
@@ -104,11 +105,16 @@ class PanelApiCoreMixin:
             namespace="panel:all_users",
         )
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "PanelApiCoreMixin":
         """Context manager entry"""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Context manager exit - automatically close session"""
         await self.close_session()
 
@@ -154,13 +160,13 @@ class PanelApiCoreMixin:
             ),
         )
 
-    async def close_session(self):
+    async def close_session(self) -> None:
         if self._session and not self._session.closed:
             await self._session.close()
             self._session = None
             logging.debug("Panel API service HTTP session closed.")
 
-    async def close(self):
+    async def close(self) -> None:
         """Alias for close_session for API consistency."""
         await self.close_session()
 
@@ -187,7 +193,7 @@ class PanelApiCoreMixin:
         return isinstance(code, int) and 500 <= code < 600
 
     async def _request(
-        self, method: str, endpoint: str, log_full_response: bool = False, **kwargs
+        self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
     ) -> Optional[Dict[str, Any]]:
         # Retry safe (idempotent) methods once on transient failures to absorb
         # network blips and short panel restarts without surfacing errors.
@@ -211,7 +217,7 @@ class PanelApiCoreMixin:
         return result
 
     async def _request_once(
-        self, method: str, endpoint: str, log_full_response: bool = False, **kwargs
+        self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
     ) -> Optional[Dict[str, Any]]:
         if not self.base_url:
             logging.error("Panel API URL (PANEL_API_URL) not configured in settings.")
@@ -282,7 +288,9 @@ class PanelApiCoreMixin:
                     try:
                         if "application/json" in response.headers.get("Content-Type", "").lower():
                             data = json.loads(response_text)
-                            return data
+                            if isinstance(data, dict):
+                                return data
+                            return {"status": "success", "code": response_status, "data": data}
                         else:
                             return {
                                 "status": "success",
@@ -307,7 +315,8 @@ class PanelApiCoreMixin:
                     try:
                         if "application/json" in response.headers.get("Content-Type", "").lower():
                             error_json_data = json.loads(response_text)
-                            error_details.update(error_json_data)
+                            if isinstance(error_json_data, dict):
+                                error_details.update(error_json_data)
                     except json.JSONDecodeError:
                         pass
                     return {"error": True, "status_code": response_status, "details": error_details}

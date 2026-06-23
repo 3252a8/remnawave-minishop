@@ -347,13 +347,14 @@ async def run_bot(settings_param: Settings):
     if not bot_username_resolved:
         logging.warning("Using fallback bot username: %s", actual_bot_username)
 
-    services = build_core_services(
+    core_services = build_core_services(
         settings_param,
         bot,
         local_async_session_factory,
         i18n_instance,
         actual_bot_username,
     )
+    services = core_services.as_dict()
     plugin_context = PluginContext(
         settings=settings_param,
         session_factory=local_async_session_factory,

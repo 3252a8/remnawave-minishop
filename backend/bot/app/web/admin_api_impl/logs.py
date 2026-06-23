@@ -1,3 +1,7 @@
+from bot.app.web.context import (
+    get_session_factory,
+)
+
 from ._runtime import (
     AdminLogsListOut,
     LogOut,
@@ -22,7 +26,7 @@ register_contract(
 
 async def admin_logs_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     page = max(0, int(request.query.get("page", 0) or 0))
     page_size = min(200, max(1, int(request.query.get("page_size", 50) or 50)))

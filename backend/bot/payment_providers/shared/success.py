@@ -53,7 +53,7 @@ async def resolve_user_language(
     language = (
         db_user.language_code if db_user and db_user.language_code else settings.DEFAULT_LANGUAGE
     )
-    return db_user, language
+    return db_user, str(language)
 
 
 async def resolve_inviter_name(
@@ -71,9 +71,9 @@ async def resolve_inviter_name(
     if inviter.first_name:
         safe_name = sanitize_display_name(inviter.first_name)
         if safe_name:
-            return safe_name
+            return str(safe_name)
     if inviter.username:
-        return username_for_display(inviter.username, with_at=False)
+        return str(username_for_display(inviter.username, with_at=False))
     return placeholder
 
 

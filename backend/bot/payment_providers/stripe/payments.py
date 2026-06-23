@@ -19,12 +19,13 @@ from ..shared import (
     payment_unavailable,
     sale_mode_base,
 )
+from ..shared.app_context import app_optional, app_required
 from .service import StripeService
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    settings: Settings = ctx.request.app["settings"]
-    service: StripeService = ctx.request.app["stripe_service"]
+    settings: Settings = app_required(ctx.request, "settings", Settings)
+    service: StripeService = app_required(ctx.request, "stripe_service", StripeService)
     if not service or not service.configured:
         return payment_unavailable()
 
@@ -78,7 +79,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service: StripeService = ctx.request.app.get("stripe_service")
+    service = app_optional(ctx.request, "stripe_service", StripeService)
     if not service or not service.configured:
         return None
     return await service.try_reuse_pending_payment(payment)

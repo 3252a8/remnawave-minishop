@@ -58,6 +58,7 @@ from ..shared import (
     render_link_or_fail,
     render_payment_link,
 )
+from ..shared.app_context import app_optional, app_required
 
 _LOG = "lava"
 
@@ -88,7 +89,7 @@ class LavaConfig(ProviderEnvConfig):
 
     @field_validator("LIFETIME_MINUTES", mode="before")
     @classmethod
-    def _empty_to_none_int(cls, v):
+    def _empty_to_none_int(cls, v: Any) -> Any:
         if isinstance(v, str):
             v = v.strip()
             if not v:
@@ -97,7 +98,7 @@ class LavaConfig(ProviderEnvConfig):
 
     @field_validator("SHOP_ID", "SECRET_KEY", "WEBHOOK_SECRET", "RETURN_URL", mode="before")
     @classmethod
-    def _strip_optional(cls, v):
+    def _strip_optional(cls, v: Any) -> Any:
         if isinstance(v, str) and not v.strip():
             return None
         return v
@@ -178,7 +179,7 @@ class LavaService(HttpClientMixin):
         subscription_service: SubscriptionService,
         referral_service: ReferralService,
         default_return_url: str,
-    ):
+    ) -> None:
         self.bot = bot
         self.settings = settings
         self.config = config
@@ -537,7 +538,7 @@ class LavaService(HttpClientMixin):
 
 
 async def lava_webhook_route(request: web.Request) -> web.Response:
-    service: LavaService = request.app["lava_service"]
+    service: LavaService = app_required(request, "lava_service", LavaService)
     return await service.webhook_route(request)
 
 
@@ -548,10 +549,10 @@ router = Router(name="user_subscription_payments_lava_router")
 async def pay_lava_callback_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     lava_service: LavaService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)
@@ -684,8 +685,8 @@ def create_service(ctx: ServiceFactoryContext) -> LavaService:
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    settings = ctx.request.app["settings"]
-    service: LavaService = ctx.request.app["lava_service"]
+    settings = app_required(ctx.request, "settings", Settings)
+    service: LavaService = app_required(ctx.request, "lava_service", LavaService)
     if not service or not service.configured:
         return payment_unavailable()
 
@@ -723,7 +724,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service: LavaService = ctx.request.app.get("lava_service")
+    service = app_optional(ctx.request, "lava_service", LavaService)
     if not service or not service.configured:
         return None
     return await service.try_reuse_pending_payment(payment)

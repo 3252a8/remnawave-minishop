@@ -267,7 +267,7 @@ def provider_telegram_button_text(
     return presentation.telegram_label
 
 
-def iter_unique_provider_routers():
+def iter_unique_provider_routers() -> Iterable[Any]:
     seen: set[int] = set()
     for spec in PAYMENT_PROVIDER_SPECS:
         router = spec.load_router()

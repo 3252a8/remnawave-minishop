@@ -106,7 +106,7 @@ class TariffWorkerCoreMixin:
                     return code
         except Exception:
             logging.exception("TariffTrafficWorker: failed to load user language for %s", user_id)
-        return self.settings.DEFAULT_LANGUAGE
+        return str(self.settings.DEFAULT_LANGUAGE)
 
     def _usage_placeholders(self, used_bytes: int, limit_bytes: int) -> dict:
         """Formatted traffic stats for warning messages (HTML-safe quoted)."""
@@ -125,7 +125,7 @@ class TariffWorkerCoreMixin:
 
         def translate(key: str, **kwargs: Any) -> str:
             if self.i18n:
-                return self.i18n.gettext(user_lang, key, **kwargs)
+                return str(self.i18n.gettext(user_lang, key, **kwargs))
             return key
 
         normalized = "premium" if str(kind or "").lower() == "premium" else "regular"

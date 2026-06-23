@@ -1,3 +1,7 @@
+from bot.app.web.context import (
+    get_optional_subscription_service,
+)
+
 from ._runtime import (
     Any,
     AsyncSession,
@@ -34,7 +38,7 @@ async def _sync_panel_identity_for_user(
 ) -> bool:
     if not user.panel_user_uuid:
         return False
-    subscription_service: SubscriptionService = request.app.get("subscription_service")
+    subscription_service: SubscriptionService = get_optional_subscription_service(request)
     if not subscription_service or not subscription_service.panel_service:
         return False
 
@@ -84,7 +88,7 @@ async def _delete_merged_source_panel_user(
     if not source_panel_uuid or not final_panel_uuid or source_panel_uuid == final_panel_uuid:
         return True
 
-    subscription_service: SubscriptionService = request.app.get("subscription_service")
+    subscription_service: SubscriptionService = get_optional_subscription_service(request)
     if not subscription_service or not subscription_service.panel_service:
         return False
 

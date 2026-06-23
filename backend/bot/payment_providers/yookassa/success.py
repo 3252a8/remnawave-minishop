@@ -165,14 +165,14 @@ def _resolve_yookassa_activation_amounts(
 async def process_successful_payment(
     session: AsyncSession,
     bot: Bot,
-    payment_info_from_webhook: dict,
+    payment_info_from_webhook: dict[str, Any],
     i18n: JsonI18n,
     settings: Settings,
     panel_service: PanelApiService,
     subscription_service: SubscriptionService,
     referral_service: ReferralService,
     lknpd_service: Optional[LknpdService] = None,
-):
+) -> Optional[dict[str, Any]]:
     metadata_raw = payment_info_from_webhook.get("metadata")
     metadata = metadata_raw if isinstance(metadata_raw, dict) else {}
     user_id_str = metadata.get("user_id")
@@ -201,7 +201,7 @@ async def process_successful_payment(
         logging.error(
             f"Missing crucial metadata for payment: {payment_info_from_webhook.get('id')}, metadata: {metadata}"  # noqa: E501
         )
-        return
+        return None
 
     db_user = None
     try:
@@ -246,7 +246,7 @@ async def process_successful_payment(
                 logging.error(
                     f"Payment record {payment_db_id} not found for YK ID {yk_payment_id_from_hook}."
                 )
-                return
+                return None
 
         if payment_record and sale_mode_base == "subscription":
             if hwid_devices_count <= 0:
@@ -290,7 +290,7 @@ async def process_successful_payment(
                     "failed_metadata_error",
                     yk_payment_id_from_hook,
                 )
-            return
+            return None
         if sale_mode_base == "subscription" and hwid_devices_count > 0:
             if (
                 not hwid_valid_from
@@ -303,7 +303,7 @@ async def process_successful_payment(
                     yk_payment_id_from_hook,
                     metadata,
                 )
-                return
+                return None
 
         # If this is an auto-renewal (no payment_db_id in metadata), ensure a payment record exists
         if payment_db_id is None and auto_renew_subscription_id_str:
@@ -312,7 +312,7 @@ async def process_successful_payment(
                     logging.error(
                         "Auto-renew webhook missing YooKassa payment id; cannot ensure payment record."  # noqa: E501
                     )
-                    return
+                    return None
                 from db.dal import payment_dal as _payment_dal
 
                 payment_record = await _payment_dal.get_payment_by_provider_payment_id(
@@ -346,13 +346,13 @@ async def process_successful_payment(
                     f"Failed to ensure payment record for auto-renew webhook (YK {payment_info_from_webhook.get('id')}): {e_ensure}",  # noqa: E501
                     exc_info=True,
                 )
-                return
+                return None
 
         if payment_record and payment_record.status == "succeeded":
             logging.info(
                 f"Skipping duplicate YooKassa webhook for payment {payment_db_id} (YK: {yk_payment_id_from_hook})."  # noqa: E501
             )
-            return
+            return None
 
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user:
@@ -364,7 +364,7 @@ async def process_successful_payment(
                 session, payment_db_id, "failed_user_not_found", payment_info_from_webhook.get("id")
             )
 
-            return
+            return None
 
     except (TypeError, ValueError) as e:
         logging.error(f"Invalid metadata format for payment processing: {metadata} - {e}")
@@ -379,7 +379,7 @@ async def process_successful_payment(
                 )
             except Exception as e_upd:
                 logging.error(f"Failed to update payment status after metadata error: {e_upd}")
-        return
+        return None
 
     try:
         yk_payment_id_from_hook = payment_info_from_webhook.get("id")
@@ -493,7 +493,7 @@ async def process_successful_payment(
             str(getattr(updated_payment_record, "tariff_key", "") or "").strip()
             or effective_tariff_key
         )
-        payment_succeeded_payload = build_payment_succeeded_payload(
+        payment_succeeded_payload: dict[str, Any] = build_payment_succeeded_payload(
             user_id=user_id,
             payment_db_id=payment_db_id,
             provider="yookassa",
@@ -690,10 +690,10 @@ async def process_successful_payment(
 async def process_cancelled_payment(
     session: AsyncSession,
     bot: Bot,
-    payment_info_from_webhook: dict,
+    payment_info_from_webhook: dict[str, Any],
     i18n: JsonI18n,
     settings: Settings,
-):
+) -> Optional[dict[str, Any]]:
 
     metadata_raw = payment_info_from_webhook.get("metadata")
     metadata = metadata_raw if isinstance(metadata_raw, dict) else {}
@@ -704,13 +704,13 @@ async def process_cancelled_payment(
         logging.warning(
             f"Missing metadata in cancelled payment webhook: {payment_info_from_webhook.get('id')}"
         )
-        return
+        return None
     try:
         user_id = int(user_id_str)
         payment_db_id = int(payment_db_id_str)
     except ValueError:
         logging.error(f"Invalid metadata in cancelled payment webhook: {metadata}")
-        return
+        return None
 
     try:
         updated_payment = await payment_dal.update_payment_status_by_db_id(
@@ -724,13 +724,14 @@ async def process_cancelled_payment(
             logging.info(
                 f"Payment {payment_db_id} (YK: {payment_info_from_webhook.get('id')}) status updated to cancelled for user {user_id}."  # noqa: E501
             )
-            return PaymentCanceledPayload(
+            payload: dict[str, Any] = PaymentCanceledPayload(
                 user_id=user_id,
                 payment_db_id=payment_db_id,
                 provider="yookassa",
                 provider_payment_id=payment_info_from_webhook.get("id"),
                 status=payment_info_from_webhook.get("status", "canceled"),
             ).to_payload(exclude_unset=True)
+            return payload
         else:
             logging.warning(
                 f"Could not find payment record {payment_db_id} to update status to cancelled for user {user_id}."  # noqa: E501
@@ -742,3 +743,4 @@ async def process_cancelled_payment(
             exc_info=True,
         )
         raise
+    return None

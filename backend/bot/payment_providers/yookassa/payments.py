@@ -17,6 +17,7 @@ from ..shared import (
     payment_record_amounts,
     payment_unavailable,
 )
+from ..shared.app_context import app_optional, app_required
 from .service import YooKassaService
 from .shared import _metadata_iso
 
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    service: YooKassaService = ctx.request.app["yookassa_service"]
+    service: YooKassaService = app_required(ctx.request, "yookassa_service", YooKassaService)
     if not service or not service.configured:
         return payment_unavailable()
     currency = (ctx.currency or "RUB").upper()
@@ -107,7 +108,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service: YooKassaService = ctx.request.app.get("yookassa_service")
+    service = app_optional(ctx.request, "yookassa_service", YooKassaService)
     if not service or not service.configured:
         return None
 

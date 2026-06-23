@@ -1,3 +1,9 @@
+from typing import cast
+
+from bot.app.web.context import (
+    get_i18n,
+    get_session_factory,
+)
 from bot.middlewares.i18n import JsonI18n, locale_language_options, resolve_locale_key
 from bot.services.locale_override_service import (
     LOCALE_OVERRIDES_PATH,
@@ -70,9 +76,12 @@ def _locale_languages(
     base_languages = set((i18n.base_locales_data or {}).keys())
     override_languages = {str(entry.get("lang") or "") for entry in overrides or []}
     override_languages.update((i18n.locale_overrides or {}).keys())
-    return locale_language_options(
-        base_languages | override_languages,
-        base_languages=base_languages,
+    return cast(
+        List[Dict[str, Any]],
+        locale_language_options(
+            base_languages | override_languages,
+            base_languages=base_languages,
+        ),
     )
 
 
@@ -149,10 +158,10 @@ def _admin_translations_payload(
 
 async def admin_translations_get_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    i18n: Optional[JsonI18n] = request.app.get("i18n")
+    i18n: Optional[JsonI18n] = get_i18n(request)
     if i18n is None:
         return _error(503, "i18n_unavailable")
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     await load_locale_overrides(i18n, async_session_factory)
     async with async_session_factory() as session:
@@ -163,10 +172,10 @@ async def admin_translations_get_route(request: web.Request) -> web.Response:
 
 async def admin_translations_patch_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
-    i18n: Optional[JsonI18n] = request.app.get("i18n")
+    i18n: Optional[JsonI18n] = get_i18n(request)
     if i18n is None:
         return _error(503, "i18n_unavailable")
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     body = await parse_body_or_400(request, AdminTranslationsPatchBody)
     updates = body.updates or {}
     deletes = body.deletes or []

@@ -56,10 +56,11 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                 panel_lookup_failure_reason,
             )
             if local_active_sub:
-                return await self._local_active_subscription_details_fallback(
+                fallback = await self._local_active_subscription_details_fallback(
                     db_user,
                     local_active_sub,
                 )
+                return fallback if isinstance(fallback, dict) else None
             return None
 
         panel_lifetime_used = self._extract_lifetime_used_traffic(panel_user_data)

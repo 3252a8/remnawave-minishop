@@ -39,6 +39,7 @@ from ..shared import (
     render_payment_link,
     safe_callback_answer,
 )
+from ..shared.app_context import app_optional, app_required
 from .config import (
     _WATA_LINK_MAX_TTL_MINUTES,
     _WATA_LINK_MIN_TTL_MINUTES,
@@ -69,10 +70,10 @@ def _wata_spec_for_callback_prefix(callback_prefix: str) -> PaymentProviderSpec:
 async def pay_wata_callback_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     wata_service: WataService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)
@@ -199,8 +200,8 @@ async def pay_wata_callback_handler(
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    settings: Settings = ctx.request.app["settings"]
-    service: WataService = ctx.request.app["wata_service"]
+    settings: Settings = app_required(ctx.request, "settings", Settings)
+    service: WataService = app_required(ctx.request, "wata_service", WataService)
     profile = service.profile_for_method(ctx.method) if service else None
     if not service or not profile or not service.profile_enabled(profile.provider):
         return payment_unavailable()
@@ -241,7 +242,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service: WataService = ctx.request.app.get("wata_service")
+    service = app_optional(ctx.request, "wata_service", WataService)
     profile = service.profile_for_method(ctx.method) if service else None
     if not service or not profile or not service.profile_enabled(profile.provider):
         return None

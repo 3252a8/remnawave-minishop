@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Input } from "$components/ui/index.js";
   import { Trash2 } from "$components/ui/icons.js";
   import { getContext, onMount } from "svelte";
@@ -16,17 +16,31 @@
     syncAdminDatatable,
     watchAdminDatatable,
   } from "../../lib/admin/datatables.js";
+  import type { PromosStore } from "../../lib/admin/stores/promosStore";
+  import type { components } from "../../lib/api/openapi.generated";
 
-  export let at;
-  export let fmtDateShort;
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type Promo = components["schemas"]["PromoOut"];
+  type PromoDraft = components["schemas"]["PromoCreateBody"];
 
-  const promosStore = getContext("promosStore");
+  export let at: TranslateFn;
+  export let fmtDateShort: (value: string) => string;
+
+  const promosStore = getContext<PromosStore>("promosStore");
   const promosTable = createAdminDatatable();
   const promosTableSignal = watchAdminDatatable(promosTable);
+
+  let promos: Promo[] = [];
+  let promosTotal = 0;
+  let promosPage = 0;
+  let promosLoading = false;
+  let promoCreateOpen = false;
+  let promoDraft: PromoDraft = { code: "", bonus_days: 7, max_activations: 1, valid_days: 30 };
 
   $: ({ promos, promosTotal, promosPage, promosLoading, promoCreateOpen, promoDraft } =
     $promosStore);
   $: syncAdminDatatable(promosTable, promos);
+  $: promoRows = $promosTableSignal.rows as Promo[];
 
   $: promosHasMore = promos.length < promosTotal;
   $: promoHeaders = [
@@ -68,7 +82,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each $promosTableSignal.rows as p (p.id)}
+        {#each promoRows as p (p.id)}
           <tr>
             <td class="admin-cell-mono" data-label={at("promo_col_code", {}, "Код")}>{p.code}</td>
             <td data-label={at("promo_col_bonus", {}, "Бонус")}
@@ -123,7 +137,8 @@
           type="text"
           class="input"
           value={promoDraft.code}
-          on:input={(e) => promosStore.updateDraft({ code: e.target.value })}
+          on:input={(e) =>
+            promosStore.updateDraft({ code: (e.currentTarget as HTMLInputElement).value })}
           placeholder="FREE-7-DAYS"
         />
       </AdminField>
@@ -135,8 +150,11 @@
             type="number"
             class="input"
             min="1"
-            value={promoDraft.bonus_days}
-            on:input={(e) => promosStore.updateDraft({ bonus_days: Number(e.target.value) })}
+            value={String(promoDraft.bonus_days)}
+            on:input={(e) =>
+              promosStore.updateDraft({
+                bonus_days: Number((e.currentTarget as HTMLInputElement).value),
+              })}
           />
         </AdminField>
         <AdminField label={at("promo_label_max_activations", {}, "Макс. активаций")}>
@@ -144,8 +162,11 @@
             type="number"
             class="input"
             min="1"
-            value={promoDraft.max_activations}
-            on:input={(e) => promosStore.updateDraft({ max_activations: Number(e.target.value) })}
+            value={String(promoDraft.max_activations)}
+            on:input={(e) =>
+              promosStore.updateDraft({
+                max_activations: Number((e.currentTarget as HTMLInputElement).value),
+              })}
           />
         </AdminField>
       </div>
@@ -154,8 +175,11 @@
           type="number"
           class="input"
           min="1"
-          value={promoDraft.valid_days}
-          on:input={(e) => promosStore.updateDraft({ valid_days: Number(e.target.value) })}
+          value={String(promoDraft.valid_days)}
+          on:input={(e) =>
+            promosStore.updateDraft({
+              valid_days: Number((e.currentTarget as HTMLInputElement).value),
+            })}
         />
       </AdminField>
     </div>

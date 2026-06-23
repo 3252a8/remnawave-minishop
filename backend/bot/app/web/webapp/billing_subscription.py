@@ -1,3 +1,9 @@
+from bot.app.web.context import (
+    get_promo_code_service,
+    get_session_factory,
+    get_settings,
+    get_subscription_service,
+)
 from bot.app.web.webapp.assets import _enforce_webapp_rate_limit
 from bot.app.web.webapp.auth import _require_user_id, _trial_telegram_required_reason
 from bot.app.web.webapp.common import (
@@ -17,6 +23,7 @@ from ._runtime import (
     Settings,
     SubscriptionService,
     datetime,
+    json_response,
     logger,
     prepare_config_links,
     sessionmaker,
@@ -42,12 +49,12 @@ async def apply_promo_route(request: web.Request) -> web.Response:
     if not code:
         return _json_error(400, "empty_code", "Promo code is empty")
 
-    settings: Settings = request.app["settings"]
-    promo_code_service: PromoCodeService = request.app.get("promo_code_service")
+    settings: Settings = get_settings(request)
+    promo_code_service: PromoCodeService = get_promo_code_service(request)
     if not promo_code_service:
         return _json_error(503, "service_unavailable", "Promo service unavailable")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         try:
             db_user = await user_dal.get_user_by_id(session, user_id)
@@ -66,7 +73,7 @@ async def apply_promo_route(request: web.Request) -> web.Response:
                 return _json_error(400, "promo_apply_failed", _plain_text_message(result))
             await session.commit()
             end_date = result if isinstance(result, datetime) else None
-            return web.json_response(
+            return json_response(
                 {
                     "ok": True,
                     "end_date": end_date.isoformat() if end_date else None,
@@ -84,9 +91,9 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
     auto_renew_payload = await _parse_model_payload(request, WebAppAutoRenewPayload)
 
     enabled = bool(auto_renew_payload.enabled)
-    settings: Settings = request.app["settings"]
-    subscription_service: SubscriptionService = request.app["subscription_service"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    settings: Settings = get_settings(request)
+    subscription_service: SubscriptionService = get_subscription_service(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     async with async_session_factory() as session:
         try:
@@ -155,7 +162,7 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
 
             lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
             provider_label = provider_label_map(settings, language=lang).get(provider, provider)
-            return web.json_response(
+            return json_response(
                 {
                     "ok": True,
                     "auto_renew_enabled": enabled,
@@ -179,12 +186,12 @@ async def activate_trial_route(request: web.Request) -> web.Response:
     if rate_limit_response:
         return rate_limit_response
 
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not settings.TRIAL_ENABLED or settings.TRIAL_DURATION_DAYS <= 0:
         return _json_error(400, "trial_unavailable", "Trial is not available")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    subscription_service: SubscriptionService = request.app["subscription_service"]
+    async_session_factory: sessionmaker = get_session_factory(request)
+    subscription_service: SubscriptionService = get_subscription_service(request)
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
@@ -249,7 +256,7 @@ async def activate_trial_route(request: web.Request) -> web.Response:
             await session.rollback()
             logger.exception("Failed to mark WebApp trial activation for ad attribution")
 
-        return web.json_response(
+        return json_response(
             {
                 "ok": True,
                 "activated": True,

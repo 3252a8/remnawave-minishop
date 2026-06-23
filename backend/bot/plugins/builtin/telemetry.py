@@ -8,12 +8,12 @@ by the worker itself.
 
 from __future__ import annotations
 
-from typing import List
+from typing import Any, Coroutine, List
 
 from bot.plugins.spec import Plugin, PluginContext, WorkerTaskSpec
 
 
-def _telemetry_task(ctx: PluginContext):
+def _telemetry_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
     from bot.services.telemetry_worker import TelemetryWorker
 
     return TelemetryWorker(ctx.settings, ctx.session_factory).run()

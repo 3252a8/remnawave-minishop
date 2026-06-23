@@ -71,17 +71,19 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
 
     async def get_user_language(self, session: AsyncSession, user_id: int) -> str:
         user_record = await user_dal.get_user_by_id(session, user_id)
-        return (
+        return str(
             user_record.language_code
             if user_record and user_record.language_code
             else self.settings.DEFAULT_LANGUAGE
         )
 
     async def has_had_any_subscription(self, session: AsyncSession, user_id: int) -> bool:
-        return await subscription_dal.has_any_subscription_for_user(session, user_id)
+        return bool(await subscription_dal.has_any_subscription_for_user(session, user_id))
 
     async def has_trial_blocking_subscription(self, session: AsyncSession, user_id: int) -> bool:
-        return await subscription_dal.has_trial_blocking_subscription_for_user(session, user_id)
+        return bool(
+            await subscription_dal.has_trial_blocking_subscription_for_user(session, user_id)
+        )
 
     async def has_active_subscription(self, session: AsyncSession, user_id: int) -> bool:
         """Return True if user currently has an active subscription (end_date in future)."""
@@ -96,7 +98,7 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
                 return False
             from datetime import datetime, timezone
 
-            return active_sub.is_active and active_sub.end_date > datetime.now(timezone.utc)
+            return bool(active_sub.is_active and active_sub.end_date > datetime.now(timezone.utc))
         except Exception:
             return False
 
@@ -154,7 +156,7 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
 
     async def update_last_notification_sent(
         self, session: AsyncSession, user_id: int, subscription_end_date: datetime
-    ):
+    ) -> None:
         sub_to_update = await subscription_dal.find_subscription_for_notification_update(
             session, user_id, subscription_end_date
         )

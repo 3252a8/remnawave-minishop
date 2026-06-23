@@ -1,9 +1,11 @@
 from .base import (
+    BaseProviderService,
     PaymentProviderPresentation,
     PaymentProviderSpec,
     ProviderConfigBundle,
     ProviderEnvConfig,
     ProviderManifestField,
+    ProviderWebhookPayload,
     ServiceFactoryContext,
     WebAppPaymentContext,
 )
@@ -34,11 +36,13 @@ from .registry import (
 
 __all__ = [
     "PAYMENT_PROVIDER_SPECS",
+    "BaseProviderService",
     "PaymentProviderPresentation",
     "PaymentProviderSpec",
     "ProviderConfigBundle",
     "ProviderEnvConfig",
     "ProviderManifestField",
+    "ProviderWebhookPayload",
     "ServiceFactoryContext",
     "WebAppPaymentContext",
     "build_provider_configs",

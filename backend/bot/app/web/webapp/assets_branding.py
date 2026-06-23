@@ -1,3 +1,8 @@
+from bot.app.web.context import (
+    get_app_settings,
+    get_settings,
+)
+
 from ._runtime import (
     _SHARED_HTTP_SESSION,
     _SHARED_HTTP_SESSION_LOCK,
@@ -142,7 +147,7 @@ def _uploaded_webapp_logo_response(filename: str) -> web.Response:
 
 
 async def webapp_logo_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     raw_logo_url = (settings.WEBAPP_LOGO_URL or "").strip()
     if not raw_logo_url:
         raise web.HTTPNotFound(text="webapp_logo_not_configured")
@@ -182,7 +187,7 @@ async def webapp_logo_route(request: web.Request) -> web.Response:
 
 
 async def webapp_uploaded_logo_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not settings.WEBAPP_ENABLED:
         raise web.HTTPNotFound(text="webapp_disabled")
 
@@ -191,7 +196,7 @@ async def webapp_uploaded_logo_route(request: web.Request) -> web.Response:
 
 
 async def webapp_default_logo_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not settings.WEBAPP_ENABLED:
         raise web.HTTPNotFound(text="webapp_disabled")
 
@@ -201,7 +206,7 @@ async def webapp_default_logo_route(request: web.Request) -> web.Response:
 
 
 async def webapp_favicon_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not settings.WEBAPP_ENABLED:
         raise web.HTTPNotFound(text="webapp_disabled")
 
@@ -211,7 +216,7 @@ async def webapp_favicon_route(request: web.Request) -> web.Response:
 
 
 async def webapp_current_favicon_route(request: web.Request) -> web.Response:
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not settings.WEBAPP_ENABLED:
         raise web.HTTPNotFound(text="webapp_disabled")
 
@@ -344,7 +349,7 @@ def _webapp_default_brand_file_response(path: Path, content_type: str) -> web.Re
 
 
 async def _warm_webapp_logo_cache(app: web.Application) -> None:
-    settings: Settings = app["settings"]
+    settings: Settings = get_app_settings(app)
     raw_logo_url = (settings.WEBAPP_LOGO_URL or "").strip()
     if not raw_logo_url or not _is_proxyable_webapp_logo_url(raw_logo_url):
         return

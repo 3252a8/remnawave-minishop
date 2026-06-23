@@ -40,7 +40,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
         except (TypeError, ValueError):
             return None
 
-    async def _notify_admin_panel_user_creation_failed(self, user_id: int):
+    async def _notify_admin_panel_user_creation_failed(self, user_id: int) -> None:
         if not self.bot or not self.i18n or not self.settings.ADMIN_IDS:
             return
         admin_lang = self.settings.DEFAULT_LANGUAGE
@@ -69,10 +69,12 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
         return f"em_{referral_code}"
 
     def _panel_description_for_user(self, db_user: User) -> str:
-        return panel_description_from_profile(
-            db_user.username,
-            db_user.first_name,
-            db_user.last_name,
+        return str(
+            panel_description_from_profile(
+                db_user.username,
+                db_user.first_name,
+                db_user.last_name,
+            )
         )
 
     def _panel_identity_payload_for_user(self, db_user: User) -> Dict[str, Any]:

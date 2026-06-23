@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from aiogram import F, types
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,8 +27,11 @@ from .shared import _format_saved_payment_method_title
 
 @router.callback_query(F.data == "pm:manage")
 async def payment_methods_manage(
-    callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
-):
+    callback: types.CallbackQuery,
+    settings: Settings,
+    i18n_data: dict[str, Any],
+    session: AsyncSession,
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not settings.yookassa_autopayments_active:
@@ -73,10 +76,10 @@ async def payment_methods_manage(
 async def payment_method_bind(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     session: AsyncSession,
     yookassa_service: YooKassaService,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not settings.yookassa_autopayments_active:
@@ -123,8 +126,8 @@ async def payment_method_bind(
 
 @router.callback_query(F.data.startswith("pm:delete_confirm"))
 async def payment_method_delete_confirm(
-    callback: types.CallbackQuery, settings: Settings, i18n_data: dict
-):
+    callback: types.CallbackQuery, settings: Settings, i18n_data: dict[str, Any]
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not settings.yookassa_autopayments_active:
@@ -153,8 +156,11 @@ async def payment_method_delete_confirm(
 
 @router.callback_query(F.data.startswith("pm:delete"))
 async def payment_method_delete(
-    callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
-):
+    callback: types.CallbackQuery,
+    settings: Settings,
+    i18n_data: dict[str, Any],
+    session: AsyncSession,
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not settings.yookassa_autopayments_active:
@@ -228,8 +234,11 @@ async def payment_method_delete(
 
 @router.callback_query(F.data.startswith("pm:view"))
 async def payment_method_view(
-    callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
-):
+    callback: types.CallbackQuery,
+    settings: Settings,
+    i18n_data: dict[str, Any],
+    session: AsyncSession,
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not settings.yookassa_autopayments_active:
@@ -339,10 +348,10 @@ async def payment_method_view(
 async def payment_method_history(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     session: AsyncSession,
     yookassa_service: YooKassaService,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not settings.yookassa_autopayments_active:
@@ -450,8 +459,11 @@ async def payment_method_history(
 
 @router.callback_query(F.data.startswith("pm:list:"))
 async def payment_methods_list(
-    callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
-):
+    callback: types.CallbackQuery,
+    settings: Settings,
+    i18n_data: dict[str, Any],
+    session: AsyncSession,
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key

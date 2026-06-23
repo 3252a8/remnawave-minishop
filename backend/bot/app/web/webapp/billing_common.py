@@ -1,3 +1,7 @@
+from bot.app.web.context import (
+    get_i18n,
+)
+
 from ._runtime import (
     Any,
     Optional,
@@ -25,7 +29,7 @@ def _plain_text_message(value: Any) -> str:
 
 
 def _localized_webapp_message(request: web.Request, lang: str, key: str) -> str:
-    i18n = request.app.get("i18n")
+    i18n = get_i18n(request)
     if i18n and hasattr(i18n, "gettext"):
         try:
             message = str(i18n.gettext(lang, key) or "")

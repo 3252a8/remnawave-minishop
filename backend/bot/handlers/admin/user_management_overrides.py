@@ -7,6 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.middlewares.i18n import JsonI18n
 from bot.services.subscription_service import SubscriptionService
 from bot.states.admin_states import AdminStates
 from bot.utils.callback_answer import (
@@ -25,7 +26,7 @@ async def handle_premium_override_menu(
     user: User,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
 ) -> None:
     """Show premium override sub-menu with current state and quick toggles."""
@@ -94,7 +95,7 @@ async def handle_premium_override_apply(
     subscription_service: SubscriptionService,
     session: AsyncSession,
     settings: Settings,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
     *,
     unlimited: bool,
@@ -148,7 +149,7 @@ async def handle_premium_override_bonus_prompt(
     callback: types.CallbackQuery,
     state: FSMContext,
     user: User,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
 ) -> None:
     """Ask admin for the bonus GB to grant."""
@@ -189,7 +190,7 @@ async def handle_hwid_limit_menu(
     state: FSMContext,
     user: User,
     session: AsyncSession,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
 ) -> None:
     """Show HWID device limit override controls."""
@@ -252,7 +253,7 @@ async def handle_hwid_limit_apply(
     subscription_service: SubscriptionService,
     session: AsyncSession,
     settings: Settings,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
     *,
     hwid_device_limit: Optional[int],
@@ -308,7 +309,7 @@ async def handle_hwid_limit_prompt(
     callback: types.CallbackQuery,
     state: FSMContext,
     user: User,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
 ) -> None:
     """Ask admin for an explicit HWID device limit."""

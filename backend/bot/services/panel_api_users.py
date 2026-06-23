@@ -14,6 +14,16 @@ from config.traffic_strategy import normalize_traffic_limit_strategy
 # label keeps only the constant prefix. Longest prefixes first so e.g.
 
 
+def _json_dict(value: object) -> Optional[Dict[str, Any]]:
+    return value if isinstance(value, dict) else None
+
+
+def _json_dict_list(value: object) -> Optional[List[Dict[str, Any]]]:
+    if not isinstance(value, list):
+        return None
+    return [item for item in value if isinstance(item, dict)]
+
+
 class PanelApiUsersMixin:
     settings: Settings
     _all_users_cache: AsyncTTLCache
@@ -22,7 +32,7 @@ class PanelApiUsersMixin:
     if TYPE_CHECKING:
 
         async def _request(
-            self, method: str, endpoint: str, log_full_response: bool = False, **kwargs
+            self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
         ) -> Optional[Dict[str, Any]]: ...
         async def _invalidate_user_cache(self, user_uuid: str) -> None: ...
         async def _invalidate_devices_cache(self, user_uuid: str) -> None: ...
@@ -56,12 +66,13 @@ class PanelApiUsersMixin:
             return await self._get_all_panel_users_uncached(
                 page_size=resolved_page_size, log_responses=log_responses
             )
-        return await self._all_users_cache.get_or_load(
+        cached = await self._all_users_cache.get_or_load(
             f"page_size:{resolved_page_size}",
             lambda: self._get_all_panel_users_uncached(
                 page_size=resolved_page_size, log_responses=False
             ),
         )
+        return _json_dict_list(cached)
 
     async def _get_all_panel_users_uncached(
         self, page_size: Optional[int] = None, log_responses: bool = False
@@ -85,7 +96,7 @@ class PanelApiUsersMixin:
     async def _fetch_all_panel_users_pages(
         self, page_size: int, log_responses: bool = False
     ) -> Optional[List[Dict[str, Any]]]:
-        all_users = []
+        all_users: List[Dict[str, Any]] = []
         start_offset = 0
         page_delay = self._resolve_all_users_page_delay()
         while True:
@@ -99,7 +110,10 @@ class PanelApiUsersMixin:
                     f"Failed to fetch panel users batch (start: {start_offset}). Response: {response_data}"  # noqa: E501
                 )
                 return None
-            users_batch = response_data.get("response", {}).get("users", [])
+            response = response_data.get("response")
+            users_batch = (
+                _json_dict_list(response.get("users") if isinstance(response, dict) else []) or []
+            )
             if not users_batch:
                 break
             all_users.extend(users_batch)
@@ -116,17 +130,19 @@ class PanelApiUsersMixin:
     ) -> Optional[Dict[str, Any]]:
         if log_response or self._users_cache.ttl_seconds <= 0:
             return await self._get_user_by_uuid_uncached(user_uuid, log_response=log_response)
-        return await self._users_cache.get_or_load(
+        cached = await self._users_cache.get_or_load(
             f"uuid:{user_uuid}",
             lambda: self._get_user_by_uuid_uncached(user_uuid, log_response=False),
         )
+        return _json_dict(cached)
 
     async def _get_user_by_uuid_uncached(
         self, user_uuid: str, log_response: bool = False
     ) -> Optional[Dict[str, Any]]:
         lookup = await self.get_user_by_uuid_lookup(user_uuid, log_response=log_response)
-        if lookup.get("ok") and isinstance(lookup.get("user"), dict):
-            return lookup["user"]
+        user = lookup.get("user")
+        if lookup.get("ok") and isinstance(user, dict):
+            return user
         return None
 
     @staticmethod
@@ -213,7 +229,7 @@ class PanelApiUsersMixin:
         if full_response and not full_response.get("error") and "response" in full_response:
             return {
                 "ok": True,
-                "user": full_response.get("response"),
+                "user": _json_dict(full_response.get("response")),
                 "not_found": False,
                 "failure_reason": None,
                 "response": full_response,
@@ -422,7 +438,7 @@ class PanelApiUsersMixin:
             logging.debug("User %s details updated on panel.", user_uuid)
             await self._invalidate_user_cache(user_uuid)
             await self._invalidate_all_users_cache()
-            return full_response.get("response")
+            return _json_dict(full_response.get("response"))
 
         logging.error(
             f"Failed to update user {user_uuid} details on panel. Payload: {update_payload}, Response: {full_response if not log_response else '(logged above)'}"  # noqa: E501

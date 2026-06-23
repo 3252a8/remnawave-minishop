@@ -171,7 +171,7 @@ def _panel_field_matches(current_value: Any, desired_value: Any, field: str) -> 
         return bool(current_dt and desired_dt and _datetime_matches(current_dt, desired_dt))
     if field == "status":
         return str(current_value or "").upper() == str(desired_value or "").upper()
-    return current_value == desired_value
+    return bool(current_value == desired_value)
 
 
 _MISSING = object()
@@ -359,11 +359,7 @@ def _panel_identity_fields_update_payload(user: User) -> dict[str, Any]:
 
 
 def _panel_description_for_user(user: User) -> str:
-    return panel_description_from_profile(
-        user.username,
-        user.first_name,
-        user.last_name,
-    )
+    return str(panel_description_from_profile(user.username, user.first_name, user.last_name))
 
 
 def _datetime_matches(current: Optional[datetime], desired: datetime) -> bool:
@@ -397,7 +393,7 @@ def _panel_subscription_uuid(panel_user: dict[str, Any]) -> Optional[str]:
 
 
 def _should_update_lifetime_used_traffic(
-    existing_user,
+    existing_user: User,
     lifetime_used: int,
     *,
     now: datetime,

@@ -459,12 +459,18 @@ def _valid_keys_by_language(i18n: JsonI18n) -> Dict[str, set[str]]:
 
 
 def _normalize_for_i18n(i18n: JsonI18n, payload: object) -> tuple[LocaleOverrides, Dict[str, str]]:
-    return normalize_locale_overrides_payload(
+    overrides, errors = normalize_locale_overrides_payload(
         payload,
         valid_languages=_valid_languages(i18n),
         valid_keys_by_language=_valid_keys_by_language(i18n),
         allow_extra_languages=True,
     )
+    normalized: LocaleOverrides = {
+        str(lang): {str(key): str(value) for key, value in messages.items()}
+        for lang, messages in overrides.items()
+        if isinstance(messages, dict)
+    }
+    return normalized, {str(key): str(value) for key, value in errors.items()}
 
 
 def _flatten(overrides: LocaleOverrides) -> Iterable[Tuple[str, str, str]]:

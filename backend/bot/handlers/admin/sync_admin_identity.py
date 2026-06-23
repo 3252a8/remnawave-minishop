@@ -210,9 +210,9 @@ async def _bind_panel_email_to_user(
 async def _merge_local_duplicate_panel_user_if_needed(
     session: AsyncSession,
     *,
-    existing_user,
+    existing_user: User,
     duplicate_panel_uuid: str,
-):
+) -> tuple[User, bool]:
     duplicate_local_user = await user_dal.get_user_by_panel_uuid(session, duplicate_panel_uuid)
     if not duplicate_local_user or duplicate_local_user.user_id == existing_user.user_id:
         return existing_user, True
@@ -243,7 +243,7 @@ async def _merge_local_duplicate_panel_user_if_needed(
 
 
 def _panel_identity_payload_with_expiry(
-    user,
+    user: User,
     *,
     expire_at: datetime,
 ) -> dict[str, Any]:
@@ -258,7 +258,7 @@ async def _absorb_duplicate_panel_identity(
     session: AsyncSession,
     *,
     panel_service: PanelApiService,
-    existing_user,
+    existing_user: User,
     keep_panel_uuid: str,
     keep_panel_user: Optional[dict[str, Any]],
     duplicate_panel_user: dict[str, Any],

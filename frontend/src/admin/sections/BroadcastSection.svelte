@@ -1,12 +1,25 @@
-<script>
+<script lang="ts">
   import { Textarea } from "$components/ui/index.js";
   import { Send } from "$components/ui/icons.js";
   import { getContext, onMount } from "svelte";
   import { Label } from "$components/ui/primitives.js";
   import { AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
+  import type { BroadcastStore } from "../../lib/admin/stores/broadcastStore";
 
-  export let at;
-  const broadcastStore = getContext("broadcastStore");
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+
+  export let at: TranslateFn;
+  const broadcastStore = getContext<BroadcastStore>("broadcastStore");
+
+  let broadcastTarget = "all";
+  let broadcastText = "";
+  let broadcastBusy = false;
+  let broadcastResult: { queued: number; failed: number } | null = null;
+  let broadcastCounts: Record<string, number> | null = null;
+  let broadcastCountsLoading = false;
+  const handleTargetChange = ((value: string) => {
+    broadcastStore.updateField({ broadcastTarget: value });
+  }) as () => void;
 
   $: ({
     broadcastTarget,
@@ -45,7 +58,7 @@
           value={broadcastTarget}
           items={targetOptions}
           ariaLabel={at("broadcast_label_audience", {}, "Аудитория")}
-          onValueChange={(value) => broadcastStore.updateField({ broadcastTarget: value })}
+          onValueChange={handleTargetChange}
         />
       </Label.Root>
       <Label.Root class="admin-field-label">
@@ -53,9 +66,12 @@
         <small>{at("broadcast_hint_text", {}, "Поддерживается HTML-разметка Telegram")}</small>
         <Textarea
           class="admin-textarea"
-          rows="6"
+          rows={6}
           value={broadcastText}
-          on:input={(e) => broadcastStore.updateField({ broadcastText: e.target.value })}
+          on:input={(e) =>
+            broadcastStore.updateField({
+              broadcastText: (e.currentTarget as HTMLTextAreaElement).value,
+            })}
         />
       </Label.Root>
       <div style="display:flex; gap:8px; align-items:center;">

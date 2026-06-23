@@ -819,7 +819,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         return False, set()
 
     @staticmethod
-    def _panel_squad_uuid_set(raw) -> set[str]:
+    def _panel_squad_uuid_set(raw: object) -> set[str]:
         if not isinstance(raw, (list, tuple, set)):
             return set()
         out: set[str] = set()

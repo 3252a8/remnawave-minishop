@@ -54,7 +54,7 @@ def _resolve_attribute_name(settings: Settings, key: str) -> Optional[str]:
     for attr_name, field_info in fields.items():
         alias = getattr(field_info, "alias", None)
         if alias and alias == key:
-            return attr_name
+            return str(attr_name)
     return None
 
 

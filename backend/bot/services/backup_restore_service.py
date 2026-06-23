@@ -56,7 +56,7 @@ def _applied_migration_ids(connection: Connection) -> set[str]:
     inspector = inspect(connection)
     if "schema_migrations" not in inspector.get_table_names():
         return set()
-    return {row[0] for row in connection.execute(text("SELECT id FROM schema_migrations"))}
+    return {str(row[0]) for row in connection.execute(text("SELECT id FROM schema_migrations"))}
 
 
 def _create_missing_tables_and_migrate(connection: Connection) -> list[str]:
@@ -679,8 +679,10 @@ class BackupRestoreService:
                 )
 
     def _compose_excluded_dirs(self) -> set[str]:
-        configured = self._split_csv(self.settings.BACKUP_COMPOSE_EXCLUDE_DIRS)
-        return DEFAULT_COMPOSE_EXCLUDED_DIRS | set(configured)
+        raw_excludes = self.settings.BACKUP_COMPOSE_EXCLUDE_DIRS
+        configured = self._split_csv(str(raw_excludes) if raw_excludes is not None else None)
+        defaults = {str(item) for item in DEFAULT_COMPOSE_EXCLUDED_DIRS}
+        return defaults | set(configured)
 
     @staticmethod
     def _split_csv(value: Optional[str]) -> list[str]:

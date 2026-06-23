@@ -43,7 +43,7 @@ async def prompt_promo_code_input(
     settings: Settings,
     session: AsyncSession,
     back_callback: str = "main_action:back_to_main",
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:
@@ -98,7 +98,7 @@ async def process_promo_code_input(
     subscription_service: SubscriptionService,
     bot: Bot,
     session: AsyncSession,
-):
+) -> None:
     logging.info(
         f"Processing promo code input from user {message_from_user(message).id} in state {await state.get_state()}: '{message.text}'"  # noqa: E501
     )
@@ -219,7 +219,7 @@ async def cancel_promo_input_via_button(
     i18n_data: dict,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:

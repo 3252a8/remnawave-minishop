@@ -14,6 +14,22 @@ from db.models import PanelSyncStatus
 # label keeps only the constant prefix. Longest prefixes first so e.g.
 
 
+def _json_dict(value: object) -> Optional[Dict[str, Any]]:
+    return value if isinstance(value, dict) else None
+
+
+def _json_dict_list(value: object) -> Optional[List[Dict[str, Any]]]:
+    if not isinstance(value, list):
+        return None
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _panel_dict_response(response_data: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if not response_data or response_data.get("error"):
+        return None
+    return _json_dict(response_data.get("response", response_data))
+
+
 class PanelApiResourcesMixin:
     settings: Settings
     _all_users_cache: AsyncTTLCache
@@ -26,7 +42,7 @@ class PanelApiResourcesMixin:
     if TYPE_CHECKING:
 
         async def _request(
-            self, method: str, endpoint: str, log_full_response: bool = False, **kwargs
+            self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
         ) -> Optional[Dict[str, Any]]: ...
 
     async def get_subscription_link(
@@ -55,8 +71,9 @@ class PanelApiResourcesMixin:
             json=payload,
             log_full_response=False,
         )
-        if response_data and not response_data.get("error"):
-            return response_data.get("response", response_data)
+        response = _panel_dict_response(response_data)
+        if response is not None:
+            return response
         logging.error(
             f"Failed to get subscription page config for short UUID {short_uuid}. Response: {response_data}"  # noqa: E501
         )
@@ -65,8 +82,9 @@ class PanelApiResourcesMixin:
     async def get_subscription_page_config_list(self) -> Optional[Dict[str, Any]]:
         endpoint = "/subscription-page-configs"
         response_data = await self._request("GET", endpoint, log_full_response=False)
-        if response_data and not response_data.get("error"):
-            return response_data.get("response", response_data)
+        response = _panel_dict_response(response_data)
+        if response is not None:
+            return response
         logging.error(
             f"Failed to get subscription page config list from panel. Response: {response_data}"
         )
@@ -81,8 +99,9 @@ class PanelApiResourcesMixin:
             return None
         endpoint = f"/subscription-page-configs/{config_uuid}"
         response_data = await self._request("GET", endpoint, log_full_response=False)
-        if response_data and not response_data.get("error"):
-            return response_data.get("response", response_data)
+        response = _panel_dict_response(response_data)
+        if response is not None:
+            return response
         logging.error(
             f"Failed to get subscription page config {config_uuid} from panel. Response: {response_data}"  # noqa: E501
         )
@@ -94,10 +113,11 @@ class PanelApiResourcesMixin:
             return None
         if self._external_squads_cache.ttl_seconds <= 0:
             return await self._get_external_squad_uncached(squad_uuid)
-        return await self._external_squads_cache.get_or_load(
+        cached = await self._external_squads_cache.get_or_load(
             f"detail:{squad_uuid}",
             lambda: self._get_external_squad_uncached(squad_uuid),
         )
+        return _json_dict(cached)
 
     async def _get_external_squad_uncached(self, squad_uuid: str) -> Optional[Dict[str, Any]]:
         response_data = await self._request(
@@ -115,16 +135,17 @@ class PanelApiResourcesMixin:
     async def get_user_devices(self, user_uuid: str) -> Optional[List[Dict[str, Any]]]:
         if self._devices_cache.ttl_seconds <= 0:
             return await self._get_user_devices_uncached(user_uuid)
-        return await self._devices_cache.get_or_load(
+        cached = await self._devices_cache.get_or_load(
             f"user:{user_uuid}",
             lambda: self._get_user_devices_uncached(user_uuid),
         )
+        return _json_dict_list(cached)
 
     async def _get_user_devices_uncached(self, user_uuid: str) -> Optional[List[Dict[str, Any]]]:
         endpoint = f"/hwid/devices/{user_uuid}"
         response_data = await self._request("GET", endpoint, log_full_response=False)
         if response_data and not response_data.get("error") and "response" in response_data:
-            return response_data.get("response")
+            return _json_dict_list(response_data.get("response"))
         logging.error(f"Failed to get user devices for user {user_uuid}. Response: {response_data}")
         return None
 
@@ -147,7 +168,7 @@ class PanelApiResourcesMixin:
         details: str,
         users_processed: int = 0,
         subs_synced: int = 0,
-    ):
+    ) -> None:
         await panel_sync_dal.update_panel_sync_status(
             session, status, details, users_processed, subs_synced
         )
@@ -159,7 +180,7 @@ class PanelApiResourcesMixin:
         """Get system statistics (CPU, memory, users counts)"""
         response_data = await self._request("GET", "/system/stats", log_full_response=False)
         if response_data and not response_data.get("error") and "response" in response_data:
-            return response_data.get("response")
+            return _json_dict(response_data.get("response"))
         return None
 
     async def get_bandwidth_stats(self) -> Optional[Dict[str, Any]]:
@@ -168,7 +189,7 @@ class PanelApiResourcesMixin:
             "GET", "/system/stats/bandwidth", log_full_response=False
         )
         if response_data and not response_data.get("error") and "response" in response_data:
-            return response_data.get("response")
+            return _json_dict(response_data.get("response"))
         return None
 
     async def get_nodes_bandwidth_usage(
@@ -194,14 +215,14 @@ class PanelApiResourcesMixin:
             log_full_response=False,
         )
         if response_data and not response_data.get("error") and "response" in response_data:
-            return response_data.get("response")
+            return _json_dict(response_data.get("response"))
         return None
 
     async def get_user_bandwidth_stats(self, user_uuid: str) -> Optional[Dict[str, Any]]:
         endpoint = f"/bandwidth-stats/users/{user_uuid}"
         response_data = await self._request("GET", endpoint, log_full_response=False)
         if response_data and not response_data.get("error") and "response" in response_data:
-            return response_data.get("response")
+            return _json_dict(response_data.get("response"))
         logging.error(
             "Failed to get bandwidth stats for user %s. Response: %s", user_uuid, response_data
         )
@@ -252,10 +273,12 @@ class PanelApiResourcesMixin:
         await self._devices_cache.invalidate_remote(f"user:{user_uuid}")
 
     async def get_internal_squads(self) -> Optional[List[Dict[str, Any]]]:
-        squads = await self._squads_cache.get_or_load("list", self._get_internal_squads_uncached)
+        squads = _json_dict_list(
+            await self._squads_cache.get_or_load("list", self._get_internal_squads_uncached)
+        )
         if squads is not None:
             return squads
-        stale_squads = self._squads_cache.get_stale("list")
+        stale_squads = _json_dict_list(self._squads_cache.get_stale("list"))
         if stale_squads is not None:
             logging.warning("Using stale internal squads cache after panel fetch failed.")
             return stale_squads
@@ -266,20 +289,21 @@ class PanelApiResourcesMixin:
         if response_data and not response_data.get("error") and "response" in response_data:
             response = response_data.get("response")
             if isinstance(response, list):
-                return response
+                return _json_dict_list(response)
             if isinstance(response, dict):
                 for key in ("internalSquads", "squads", "items", "data"):
                     value = response.get(key)
                     if isinstance(value, list):
-                        return value
+                        return _json_dict_list(value)
         logging.error("Failed to get internal squads. Response: %s", response_data)
         return None
 
     async def get_internal_squad(self, squad_uuid: str) -> Optional[Dict[str, Any]]:
-        return await self._squads_cache.get_or_load(
+        cached = await self._squads_cache.get_or_load(
             f"detail:{squad_uuid}",
             lambda: self._get_internal_squad_uncached(squad_uuid),
         )
+        return _json_dict(cached)
 
     async def _get_internal_squad_uncached(self, squad_uuid: str) -> Optional[Dict[str, Any]]:
         response_data = await self._request(
@@ -303,10 +327,11 @@ class PanelApiResourcesMixin:
         self,
         squad_uuid: str,
     ) -> Optional[List[Dict[str, Any]]]:
-        return await self._squads_cache.get_or_load(
+        cached = await self._squads_cache.get_or_load(
             f"nodes:{squad_uuid}",
             lambda: self._get_internal_squad_accessible_nodes_uncached(squad_uuid),
         )
+        return _json_dict_list(cached)
 
     async def _get_internal_squad_accessible_nodes_uncached(
         self,
@@ -323,12 +348,12 @@ class PanelApiResourcesMixin:
             if response_data and not response_data.get("error") and "response" in response_data:
                 response = response_data.get("response")
                 if isinstance(response, list):
-                    return response
+                    return _json_dict_list(response)
                 if isinstance(response, dict):
                     for key in ("nodes", "accessibleNodes", "items", "data"):
                         value = response.get(key)
                         if isinstance(value, list):
-                            return value
+                            return _json_dict_list(value)
         logging.error(
             "Failed to get accessible nodes for internal squad %s. Response: %s",
             squad_uuid,
@@ -337,19 +362,20 @@ class PanelApiResourcesMixin:
         return None
 
     async def get_hosts(self) -> Optional[List[Dict[str, Any]]]:
-        return await self._hosts_cache.get_or_load("list", self._get_hosts_uncached)
+        cached = await self._hosts_cache.get_or_load("list", self._get_hosts_uncached)
+        return _json_dict_list(cached)
 
     async def _get_hosts_uncached(self) -> Optional[List[Dict[str, Any]]]:
         response_data = await self._request("GET", "/hosts", log_full_response=False)
         if response_data and not response_data.get("error") and "response" in response_data:
             response = response_data.get("response")
             if isinstance(response, list):
-                return response
+                return _json_dict_list(response)
             if isinstance(response, dict):
                 for key in ("hosts", "items", "data"):
                     value = response.get(key)
                     if isinstance(value, list):
-                        return value
+                        return _json_dict_list(value)
         logging.error("Failed to get hosts. Response: %s", response_data)
         return None
 

@@ -1,3 +1,7 @@
+from bot.app.web.context import (
+    get_session_factory,
+)
+
 from ._runtime import (
     Any,
     Dict,
@@ -63,7 +67,7 @@ register_contract(
 
 async def admin_promos_list_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     page = max(0, int(request.query.get("page", 0) or 0))
     page_size = min(100, max(1, int(request.query.get("page_size", 25) or 25)))
     async with async_session_factory() as session:
@@ -95,7 +99,7 @@ async def admin_promo_create_route(request: web.Request) -> web.Response:
         except (TypeError, ValueError):
             return _error(400, "invalid_valid_days")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         existing = await promo_code_dal.get_promo_code_by_code(session, code)
         if existing:
@@ -131,7 +135,7 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
     if not update_data:
         return _error(400, "no_changes")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         promo = await promo_code_dal.update_promo_code(session, promo_id, update_data)
         if not promo:
@@ -144,7 +148,7 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
 async def admin_promo_delete_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     promo_id = int(request.match_info["promo_id"])
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         promo = await promo_code_dal.delete_promo_code(session, promo_id)
         if not promo:

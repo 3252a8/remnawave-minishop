@@ -3,6 +3,9 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from bot.app.web.context import (
+    get_settings,
+)
 from bot.app.web.webapp.cache_helpers import (
     invalidate_all_webapp_user_payloads,
     reset_subscription_guides_cache,
@@ -45,7 +48,7 @@ async def refresh_webapp_runtime_after_settings_change(
     deletes: Sequence[Any] | None = None,
     include_user_payloads: bool = True,
 ) -> None:
-    settings = request.app["settings"]
+    settings = get_settings(request)
     keys = changed_setting_keys(updates, deletes)
 
     reset_webapp_settings_cache(request.app)

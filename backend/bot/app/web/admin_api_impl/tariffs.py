@@ -1,3 +1,7 @@
+from bot.app.web.context import (
+    get_settings,
+)
+
 from ._runtime import (
     BOOLEAN_SCHEMA,
     STRING_SCHEMA,
@@ -55,7 +59,7 @@ register_contract(
 
 async def admin_tariffs_get_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     path = _tariffs_config_path(settings)
 
     try:
@@ -94,7 +98,7 @@ async def admin_tariffs_get_route(request: web.Request) -> web.Response:
 
 async def admin_tariffs_save_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     body = await parse_body_or_400(request, TariffsSaveBody)
     catalog = body.catalog_payload()
     if not isinstance(catalog, dict):

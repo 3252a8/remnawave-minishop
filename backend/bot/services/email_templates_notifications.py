@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import html
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Protocol
 
 if TYPE_CHECKING:
     from bot.middlewares.i18n import JsonI18n
@@ -26,6 +26,10 @@ from .email_templates_common import (
     _telegram_html_to_text,
     _theme_accent,
 )
+
+
+class _GettextProvider(Protocol):
+    def gettext(self, lang_code: Optional[str], key: str, **kwargs: object) -> str: ...
 
 
 def render_user_notification(
@@ -155,8 +159,12 @@ def render_subscription_expiring(
     return _email_content(subject=subject, text="\n".join(text_lines), layout=rendered)
 
 
+def _lifecycle_text(i18n: _GettextProvider, lang: str, key: str, **kwargs: object) -> str:
+    return i18n.gettext(lang, key, **kwargs)
+
+
 def _subscription_lifecycle_title(
-    i18n: JsonI18n,
+    i18n: _GettextProvider,
     lang: str,
     notification_key: str,
     *,
@@ -164,19 +172,19 @@ def _subscription_lifecycle_title(
     hours_before: Optional[int],
 ) -> str:
     if notification_key == "before_2d_autorenew":
-        return _t_text(i18n, lang, "email_subscription_lifecycle_subject_autorenew")
+        return _lifecycle_text(i18n, lang, "email_subscription_lifecycle_subject_autorenew")
     if notification_key == "expired":
-        return _t_text(i18n, lang, "email_subscription_lifecycle_subject_expired")
+        return _lifecycle_text(i18n, lang, "email_subscription_lifecycle_subject_expired")
     if notification_key == "expired_24h_after":
-        return _t_text(i18n, lang, "email_subscription_lifecycle_subject_expired_after")
+        return _lifecycle_text(i18n, lang, "email_subscription_lifecycle_subject_expired_after")
     if hours_before is not None:
-        return _t_text(
+        return _lifecycle_text(
             i18n,
             lang,
             "email_subscription_lifecycle_subject_before_hours",
             hours=hours_before,
         )
-    return _t_text(
+    return _lifecycle_text(
         i18n,
         lang,
         "email_subscription_lifecycle_subject_before_days",

@@ -1,16 +1,43 @@
-<script>
+<script lang="ts">
   import { Input, Textarea } from "$components/ui/index.js";
   import { ChevronRight, Languages, Plus, Search, X } from "$components/ui/icons.js";
   import { AdminBadge, AdminButton, AdminEmptyState } from "$components/patterns/admin/index.js";
   import { getContext, onDestroy, onMount } from "svelte";
   import { slide } from "svelte/transition";
+  import type {
+    TranslationDirtyEntry,
+    TranslationDirtyState,
+    TranslationGroup,
+    TranslationItem,
+    TranslationLanguage,
+    TranslationsSavedPayload,
+    TranslationsStore,
+    TranslationValue,
+  } from "../../lib/admin/stores/translationsStore";
 
-  export let at;
-  export let onTranslationsSaved;
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type TranslationGroupWithItems = TranslationGroup & { items: TranslationItem[] };
+  type AudienceSection = {
+    id: string;
+    title: string;
+    hint: string;
+    groups: TranslationGroupWithItems[];
+  };
 
-  const translationsStore = getContext("translationsStore");
+  export let at: TranslateFn;
+  export let onTranslationsSaved:
+    | ((payload: TranslationsSavedPayload) => void | Promise<void>)
+    | undefined;
+
+  const translationsStore = getContext<TranslationsStore>("translationsStore");
   const AUDIENCE_ORDER = ["user", "internal"];
   const AUDIENCE_FILTERS = ["all", ...AUDIENCE_ORDER];
+  let translationGroups: TranslationGroup[] = [];
+  let translationLanguages: TranslationLanguage[] = [];
+  let translationsLoading = false;
+  let translationsDirty: TranslationDirtyState = {};
+  let translationsSaving = false;
+  let translationsPath = "";
 
   $: ({
     translationGroups,
@@ -21,14 +48,14 @@
     translationsPath,
   } = $translationsStore);
 
-  let openGroups = [];
-  let readyGroups = [];
-  let openLocaleEditors = [];
-  let closedLocaleEditors = [];
+  let openGroups: string[] = [];
+  let readyGroups: string[] = [];
+  let openLocaleEditors: string[] = [];
+  let closedLocaleEditors: string[] = [];
   let search = "";
   let audienceFilter = "all";
   let newLanguageCode = "";
-  const readyTimers = new Map();
+  const readyTimers = new Map<string, number>();
 
   $: openGroupSet = new Set(openGroups);
   $: readyGroupSet = new Set(readyGroups);
@@ -52,15 +79,15 @@
     readyTimers.clear();
   });
 
-  function dirtyKey(lang, key) {
+  function dirtyKey(lang: string, key: string): string {
     return `${lang}:${key}`;
   }
 
-  function dirtyFor(lang, key) {
+  function dirtyFor(lang: string, key: string): TranslationDirtyEntry | null {
     return translationsDirty[dirtyKey(lang, key)] || null;
   }
 
-  function defaultBaseValue(item) {
+  function defaultBaseValue(item: TranslationItem): string {
     for (const values of Object.values(item.values || {})) {
       if (values?.fallback) return values.fallback;
     }
@@ -70,7 +97,7 @@
     return values.base || values.fallback || values.effective || "";
   }
 
-  function valueRecord(item, lang) {
+  function valueRecord(item: TranslationItem, lang: string): TranslationValue {
     return (
       item.values?.[lang] || {
         base: "",
@@ -82,46 +109,58 @@
     );
   }
 
-  function localeValue(item, lang, dirty = dirtyFor(lang, item.key)) {
+  function localeValue(
+    item: TranslationItem,
+    lang: string,
+    dirty = dirtyFor(lang, item.key)
+  ): string {
     if (dirty?.deleted) return "";
     if (dirty) return dirty.value;
     return valueRecord(item, lang).override || "";
   }
 
-  function isOverridden(item, lang, dirty = dirtyFor(lang, item.key)) {
+  function isOverridden(
+    item: TranslationItem,
+    lang: string,
+    dirty = dirtyFor(lang, item.key)
+  ): boolean {
     return Boolean(valueRecord(item, lang).overridden) && !dirty?.deleted;
   }
 
-  function isDirty(item, lang, dirty = dirtyFor(lang, item.key)) {
+  function isDirty(item: TranslationItem, lang: string, dirty = dirtyFor(lang, item.key)): boolean {
     return Boolean(dirty);
   }
 
-  function baseValue(item, lang) {
+  function baseValue(item: TranslationItem, lang: string): string {
     const values = valueRecord(item, lang);
     return values.base || values.fallback || "";
   }
 
-  function baseKind(item, lang) {
+  function baseKind(item: TranslationItem, lang: string): string {
     return valueRecord(item, lang).base
       ? at("translations_base_value", {}, "Base")
       : at("translations_fallback_value", {}, "Fallback");
   }
 
-  function effectiveValue(item, lang) {
+  function effectiveValue(item: TranslationItem, lang: string): string {
     return valueRecord(item, lang).effective || baseValue(item, lang);
   }
 
-  function localePreview(item, lang, dirty = dirtyFor(lang, item.key)) {
+  function localePreview(
+    item: TranslationItem,
+    lang: string,
+    dirty = dirtyFor(lang, item.key)
+  ): string {
     return (
       localeValue(item, lang, dirty) || effectiveValue(item, lang) || baseValue(item, lang) || "-"
     );
   }
 
-  function itemAudience(item, group = null) {
+  function itemAudience(item: TranslationItem, group: TranslationGroup | null = null): string {
     return item.audience || group?.audience || "user";
   }
 
-  function audienceLabel(id) {
+  function audienceLabel(id: string): string {
     if (id === "internal") {
       return at("translations_audience_internal", {}, "Admin/internal");
     }
@@ -131,22 +170,22 @@
     return at("translations_audience_all", {}, "All");
   }
 
-  function audienceHint(id) {
+  function audienceHint(id: string): string {
     if (id === "internal") {
       return at("translations_audience_internal_hint", {}, "Admin panel, logs, and sync copy");
     }
     return at("translations_audience_user_hint", {}, "Mini App, bot, payment, and support copy");
   }
 
-  function groupPanelId(sectionId, groupId) {
+  function groupPanelId(sectionId: string, groupId: string): string {
     return `${sectionId}:${groupId}`;
   }
 
-  function localePanelId(key, lang) {
+  function localePanelId(key: string, lang: string): string {
     return `${key}:${lang}`;
   }
 
-  function toggleLocaleEditor(item, lang) {
+  function toggleLocaleEditor(item: TranslationItem, lang: string): void {
     const id = localePanelId(item.key, lang);
     const defaultOpen = isOverridden(item, lang) || isDirty(item, lang);
     const openByUser = openLocaleEditors.includes(id);
@@ -164,10 +203,10 @@
   }
 
   function groupDirtyCount(
-    group,
+    group: TranslationGroupWithItems,
     dirtyState = translationsDirty,
     languages = translationLanguages
-  ) {
+  ): number {
     return (group.items || []).reduce(
       (count, item) =>
         count +
@@ -177,10 +216,10 @@
   }
 
   function groupOverrideCount(
-    group,
+    group: TranslationGroupWithItems,
     dirtyState = translationsDirty,
     languages = translationLanguages
-  ) {
+  ): number {
     return (group.items || []).reduce(
       (count, item) =>
         count +
@@ -191,21 +230,37 @@
     );
   }
 
-  function itemHasOverride(item, dirtyState = translationsDirty, languages = translationLanguages) {
+  function itemHasOverride(
+    item: TranslationItem,
+    dirtyState = translationsDirty,
+    languages = translationLanguages
+  ): boolean {
     return languages.some((lang) =>
       isOverridden(item, lang.code, dirtyState[dirtyKey(lang.code, item.key)])
     );
   }
 
-  function itemHasDirty(item, dirtyState = translationsDirty, languages = translationLanguages) {
+  function itemHasDirty(
+    item: TranslationItem,
+    dirtyState = translationsDirty,
+    languages = translationLanguages
+  ): boolean {
     return languages.some((lang) => Boolean(dirtyState[dirtyKey(lang.code, item.key)]));
   }
 
-  function filteredGroups(groups, query, languages = translationLanguages) {
+  function withItems(group: TranslationGroup): TranslationGroupWithItems {
+    return { ...group, items: group.items || [] };
+  }
+
+  function filteredGroups(
+    groups: TranslationGroup[],
+    query: string,
+    languages = translationLanguages
+  ): TranslationGroupWithItems[] {
     const needle = String(query || "")
       .trim()
       .toLowerCase();
-    if (!needle) return groups || [];
+    if (!needle) return (groups || []).map(withItems);
     return (groups || [])
       .map((group) => ({
         ...group,
@@ -214,7 +269,12 @@
       .filter((group) => group.items.length);
   }
 
-  function itemMatches(item, group, needle, languages = translationLanguages) {
+  function itemMatches(
+    item: TranslationItem,
+    group: TranslationGroup,
+    needle: string,
+    languages = translationLanguages
+  ): boolean {
     if (
       String(item.key || "")
         .toLowerCase()
@@ -230,7 +290,10 @@
     });
   }
 
-  function buildAudienceSections(groups, filter) {
+  function buildAudienceSections(
+    groups: TranslationGroupWithItems[],
+    filter: string
+  ): AudienceSection[] {
     return AUDIENCE_ORDER.map((audience) => ({
       id: audience,
       title: audienceLabel(audience),
@@ -245,15 +308,15 @@
     })).filter((section) => (filter === "all" || section.id === filter) && section.groups.length);
   }
 
-  function toggleAllGroups() {
+  function toggleAllGroups(): void {
     openGroups = allOpen ? [] : visibleGroupKeys;
   }
 
-  function isGroupOpen(id) {
+  function isGroupOpen(id: string): boolean {
     return openGroups.includes(id);
   }
 
-  function toggleGroup(id) {
+  function toggleGroup(id: string): void {
     if (isGroupOpen(id)) {
       openGroups = openGroups.filter((groupId) => groupId !== id);
       return;
@@ -262,7 +325,7 @@
     queueGroupReady(id);
   }
 
-  function scheduleReadyGroups(groups) {
+  function scheduleReadyGroups(groups: string[]): void {
     const openSet = new Set(groups);
     const nextReady = readyGroups.filter((id) => openSet.has(id));
     if (nextReady.length !== readyGroups.length) readyGroups = nextReady;
@@ -277,7 +340,7 @@
     }
   }
 
-  function queueGroupReady(id) {
+  function queueGroupReady(id: string): void {
     if (readyGroups.includes(id) || readyTimers.has(id)) return;
     readyTimers.set(
       id,
@@ -290,17 +353,17 @@
     );
   }
 
-  function groupTitle(group) {
+  function groupTitle(group: TranslationGroup): string {
     return group.title_key ? at(group.title_key, {}, group.title) : group.title;
   }
 
-  function groupDescription(group) {
+  function groupDescription(group: TranslationGroup): string {
     return group.description_key
-      ? at(group.description_key, {}, group.description)
-      : group.description;
+      ? at(group.description_key, {}, group.description || "")
+      : group.description || "";
   }
 
-  function canAddLanguage(code) {
+  function canAddLanguage(code: string): boolean {
     const normalized = String(code || "")
       .trim()
       .toLowerCase()
@@ -313,10 +376,15 @@
     );
   }
 
-  function addLanguage() {
+  function addLanguage(): void {
     if (translationsStore.addTranslationLanguage(newLanguageCode)) {
       newLanguageCode = "";
     }
+  }
+
+  function handleLocaleInput(lang: string, key: string, event: Event): void {
+    const textarea = event.currentTarget as HTMLTextAreaElement | null;
+    translationsStore.markDirty(lang, key, textarea?.value || "");
   }
 </script>
 
@@ -336,7 +404,7 @@
   </div>
 {/snippet}
 
-{#snippet renderGroupSkeleton(group)}
+{#snippet renderGroupSkeleton(group: TranslationGroupWithItems)}
   <div class="admin-translation-group-skeleton" aria-label={at("loading", {}, "Loading")}>
     <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span>
     {#each Array(Math.min(3, Math.max(1, group.items.length))) as _, index (index)}
@@ -354,7 +422,7 @@
   </div>
 {/snippet}
 
-{#snippet renderLocaleEditor(item, language)}
+{#snippet renderLocaleEditor(item: TranslationItem, language: TranslationLanguage)}
   {@const lang = language.code}
   {@const dirtyEntry = translationsDirty[dirtyKey(lang, item.key)] || null}
   {@const overridden = isOverridden(item, lang, dirtyEntry)}
@@ -399,12 +467,11 @@
       <div class="admin-translation-locale-body" transition:slide={{ duration: 130 }}>
         <Textarea
           class="admin-setting-textarea admin-translation-textarea"
-          rows="3"
+          rows={3}
           spellcheck="false"
           placeholder={baseValue(item, lang)}
           value={localeValue(item, lang, dirtyEntry)}
-          oninput={(event) =>
-            translationsStore.markDirty(lang, item.key, event.currentTarget.value)}
+          oninput={(event: Event) => handleLocaleInput(lang, item.key, event)}
         />
         <div class="admin-translation-base">
           <small>{baseKind(item, lang)}</small>
@@ -425,7 +492,7 @@
   </div>
 {/snippet}
 
-{#snippet renderTranslationItem(item, group)}
+{#snippet renderTranslationItem(item: TranslationItem, group: TranslationGroup)}
   {@const audience = itemAudience(item, group)}
   <div class="admin-translation-row">
     <div class="admin-setting-meta">

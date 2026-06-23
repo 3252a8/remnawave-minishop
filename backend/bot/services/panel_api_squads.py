@@ -8,11 +8,15 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 # label keeps only the constant prefix. Longest prefixes first so e.g.
 
 
+def _json_dict(value: object) -> Optional[Dict[str, Any]]:
+    return value if isinstance(value, dict) else None
+
+
 class PanelApiSquadMutationMixin:
     if TYPE_CHECKING:
 
         async def _request(
-            self, method: str, endpoint: str, log_full_response: bool = False, **kwargs
+            self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
         ) -> Optional[Dict[str, Any]]: ...
         async def _invalidate_squad_caches(self) -> None: ...
         async def _invalidate_user_cache(self, user_uuid: str) -> None: ...
@@ -115,7 +119,7 @@ class PanelApiSquadMutationMixin:
         """Get nodes statistics"""
         response_data = await self._request("GET", "/system/stats/nodes", log_full_response=False)
         if response_data and not response_data.get("error") and "response" in response_data:
-            return response_data.get("response")
+            return _json_dict(response_data.get("response"))
         return None
 
     async def encrypt_happ_link(self, link_to_encrypt: str) -> Optional[str]:
@@ -128,6 +132,8 @@ class PanelApiSquadMutationMixin:
             "POST", "/system/tools/happ/encrypt", json=payload, log_full_response=False
         )
         if response_data and not response_data.get("error") and "response" in response_data:
-            return response_data.get("response", {}).get("encryptedLink")
+            response = _json_dict(response_data.get("response"))
+            encrypted_link = response.get("encryptedLink") if response is not None else None
+            return encrypted_link if isinstance(encrypted_link, str) else None
         logging.error(f"Failed to encrypt happ link. Response: {response_data}")
         return None

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { getContext, onMount } from "svelte";
   import {
     AdminBadge,
@@ -24,19 +24,33 @@
     syncAdminDatatable,
     watchAdminDatatable,
   } from "../../lib/admin/datatables.js";
+  import type {
+    BackupArchive,
+    BackupRestoreResult,
+    BackupsStore,
+  } from "../../lib/admin/stores/backupsStore";
 
-  export let at = (key) => key;
-  export let fmtDate = (value) => value;
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+
+  export let at: TranslateFn = (key) => key;
+  export let fmtDate: (value: string) => string = (value) => value;
 
   const BACKUPS_PAGE_SIZE = 10;
   const backupsTable = createAdminDatatable([], { rowsPerPage: BACKUPS_PAGE_SIZE });
   const backupsSignal = watchAdminDatatable(backupsTable);
-  const backupsStore = getContext("backupsStore");
+  const backupsStore = getContext<BackupsStore>("backupsStore");
 
   let selectedName = "";
   let restoreDatabase = true;
   let restoreCompose = false;
-  let fileInput = null;
+  let fileInput: HTMLInputElement | null = null;
+  let archives: BackupArchive[] = [];
+  let backupDir = "";
+  let backupsCreating = false;
+  let backupsLoading = false;
+  let backupsUploading = false;
+  let backupsRestoring = false;
+  let lastRestore: BackupRestoreResult | null = null;
 
   $: ({
     archives,
@@ -89,7 +103,7 @@
     at("backups_col_warnings", {}, "Предупреждения"),
   ];
 
-  function formatSize(sizeBytes) {
+  function formatSize(sizeBytes: number): string {
     const units = ["B", "KB", "MB", "GB"];
     let value = Number(sizeBytes || 0);
     let unit = units[0];
@@ -100,42 +114,43 @@
     return unit === "B" ? `${Math.round(value)} ${unit}` : `${value.toFixed(1)} ${unit}`;
   }
 
-  function archiveDate(archive) {
+  function archiveDate(archive: BackupArchive | null | undefined): string {
     return archive?.created_at_local || archive?.created_at || archive?.modified_at || "";
   }
 
-  function selectedComponentsText() {
+  function selectedComponentsText(): string {
     const parts = [];
     if (restoreDatabase) parts.push(at("backups_target_database", {}, "БД"));
     if (restoreCompose) parts.push(at("backups_target_compose", {}, "compose-папку"));
     return parts.join(" + ");
   }
 
-  function selectArchive(name) {
+  function selectArchive(name: string): void {
     selectedName = name;
   }
 
-  function focusArchivePage(name) {
+  function focusArchivePage(name: string): void {
     const index = (archives || []).findIndex((item) => item.name === name);
     if (index >= 0) backupsTable.setPage(Math.floor(index / BACKUPS_PAGE_SIZE) + 1);
   }
 
-  function warningsText(warnings) {
+  function warningsText(warnings: string[]): string {
     return (warnings || []).filter(Boolean).join("\n");
   }
 
-  async function uploadSelectedFile(event) {
-    const file = event?.currentTarget?.files?.[0];
+  async function uploadSelectedFile(event: Event): Promise<void> {
+    const input = event.currentTarget as HTMLInputElement | null;
+    const file = input?.files?.[0];
     if (!file) return;
     const archive = await backupsStore.uploadArchive(file);
     if (archive?.name) {
       selectedName = archive.name;
       focusArchivePage(archive.name);
     }
-    event.currentTarget.value = "";
+    input.value = "";
   }
 
-  async function createManualBackup() {
+  async function createManualBackup(): Promise<void> {
     const archive = await backupsStore.createBackup();
     if (archive?.name) {
       selectedName = archive.name;
@@ -143,7 +158,7 @@
     }
   }
 
-  async function restoreSelected() {
+  async function restoreSelected(): Promise<void> {
     if (!canRestore) return;
     const confirmText = at(
       "backups_restore_confirm",

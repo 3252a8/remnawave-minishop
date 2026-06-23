@@ -1,8 +1,8 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
 
-  export let element = null;
-  export let accept = undefined;
+  export let element: HTMLInputElement | null = null;
+  export let accept: string | undefined = undefined;
   export let disabled = false;
   let className = "";
   export { className as class };

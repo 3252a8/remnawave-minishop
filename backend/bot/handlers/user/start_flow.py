@@ -66,7 +66,7 @@ async def start_command_handler(
     admin_user_match: Optional[re.Match] = None,
     ticket_match: Optional[re.Match] = None,
     notifications_match: Optional[re.Match] = None,
-):
+) -> None:
     await state.clear()
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")

@@ -7,6 +7,7 @@ from ._runtime import (
     Subscription,
     SubscriptionServiceMixinContract,
     Tariff,
+    TariffsConfig,
     Tuple,
     datetime,
     default_currency_key_for_settings,
@@ -44,8 +45,9 @@ class TariffMixin(SubscriptionServiceMixinContract):
                 break
         return mode, tariff_key
 
-    def _tariffs_config(self):
-        return getattr(self.settings, "tariffs_config", None)
+    def _tariffs_config(self) -> Optional[TariffsConfig]:
+        config = getattr(self.settings, "tariffs_config", None)
+        return config if isinstance(config, TariffsConfig) else None
 
     def _default_tariff(self) -> Optional[Tariff]:
         config = self._tariffs_config()
@@ -75,7 +77,7 @@ class TariffMixin(SubscriptionServiceMixinContract):
             if include_premium:
                 squads.extend(tariff.premium_squad_uuids or [])
             return list(dict.fromkeys(squads))
-        return self.settings.parsed_user_squad_uuids
+        return list(self.settings.parsed_user_squad_uuids or [])
 
     def _catalog_premium_squad_uuid_set(self) -> set[str]:
         config = self._tariffs_config()

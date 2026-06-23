@@ -319,7 +319,7 @@ class LknpdClient:
             if receipt_uuid:
                 logger.info("LKNPD receipt created: %s", receipt_uuid)
 
-            return receipt_uuid
+            return receipt_uuid if isinstance(receipt_uuid, str) else None
 
         except httpx.RequestError as e:
             logger.exception("Network error creating income")

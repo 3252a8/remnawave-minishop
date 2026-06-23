@@ -12,6 +12,7 @@ from typing import Iterable, Optional
 
 from aiogram import Bot
 from aiogram.types import FSInputFile
+from sqlalchemy.orm import sessionmaker
 
 from bot.infra.redis import redis_lock
 from bot.services.backup_archive import (
@@ -87,7 +88,9 @@ class BackupResult:
 class BackupWorker:
     SETTINGS_REFRESH_SECONDS = 60
 
-    def __init__(self, settings: Settings, bot: Bot, session_factory=None):
+    def __init__(
+        self, settings: Settings, bot: Bot, session_factory: Optional[sessionmaker] = None
+    ) -> None:
         self.settings = settings
         self.bot = bot
         self.session_factory = session_factory
@@ -354,10 +357,12 @@ class BackupWorker:
                 logging.exception("Failed to delete old backup archive %s", archive)
 
     def _target_chat_id(self) -> Optional[int]:
-        return self.settings.BACKUP_CHAT_ID or self.settings.LOG_CHAT_ID
+        value = self.settings.BACKUP_CHAT_ID or self.settings.LOG_CHAT_ID
+        return int(value) if value is not None else None
 
     def _target_thread_id(self) -> Optional[int]:
-        return self.settings.BACKUP_THREAD_ID or self.settings.LOG_THREAD_ID
+        value = self.settings.BACKUP_THREAD_ID or self.settings.LOG_THREAD_ID
+        return int(value) if value is not None else None
 
     def _caption(self, result: BackupResult) -> str:
         completed_at = result.completed_at.astimezone()

@@ -4,7 +4,7 @@ import logging
 import math
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, cast
 
 from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
@@ -53,7 +53,7 @@ def _format_user_with_email(
     return hd.quote(display)
 
 
-def _format_log_entry_user(log_entry: MessageLog, translate) -> str:
+def _format_log_entry_user(log_entry: MessageLog, translate: Callable[..., str]) -> str:
     fallback = (
         translate("system_or_unknown_user") if not log_entry.user_id else f"ID: {log_entry.user_id}"
     )
@@ -67,7 +67,7 @@ def _format_log_entry_user(log_entry: MessageLog, translate) -> str:
 
 async def display_logs_menu(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
 
@@ -101,7 +101,7 @@ async def _display_formatted_logs(
     i18n: JsonI18n,
     current_lang: str,
     title_kwargs: Optional[Dict[str, Any]] = None,
-):
+) -> None:
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     page_size = settings.LOGS_PAGE_SIZE
     actual_title_kwargs = title_kwargs or {}
@@ -204,7 +204,7 @@ async def _display_formatted_logs(
 @router.callback_query(F.data.startswith("admin_logs:view_all"))
 async def view_all_logs_handler(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
-):
+) -> None:
     page_idx = 0
     parts = callback_data(callback).split(":")
     if len(parts) == 3:
@@ -245,7 +245,7 @@ async def prompt_user_for_logs_handler(
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession,
-):
+) -> None:
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     if not i18n or not callback.message:
@@ -268,7 +268,7 @@ async def process_user_id_for_logs_handler(
     settings: Settings,
     i18n_data: dict,
     session: AsyncSession,
-):
+) -> None:
     await state.clear()
 
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -327,7 +327,7 @@ async def process_user_id_for_logs_handler(
 @router.callback_query(F.data.startswith("admin_logs:view_user:"))
 async def view_user_logs_paginated_handler(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
-):
+) -> None:
     try:
         parts = callback_data(callback).split(":")
         target_user_id = int(parts[2])
@@ -384,7 +384,7 @@ async def cancel_log_user_input_state_to_menu(
     settings: Settings,
     i18n_data: dict,
     session: AsyncSession,
-):
+) -> None:
     await state.clear()
 
     await display_logs_menu(callback, i18n_data, settings, session)
@@ -393,7 +393,7 @@ async def cancel_log_user_input_state_to_menu(
 @router.callback_query(F.data == "admin_logs:export_csv")
 async def export_logs_csv_handler(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
-):
+) -> None:
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     if not i18n or not callback.message:

@@ -9,7 +9,9 @@ from config.settings import Settings
 from db.models import User
 
 
-def get_admin_panel_keyboard(i18n_instance, lang: str, settings: Settings) -> InlineKeyboardMarkup:
+def get_admin_panel_keyboard(
+    i18n_instance: JsonI18n, lang: str, settings: Settings
+) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
 
@@ -41,7 +43,7 @@ def get_admin_panel_keyboard(i18n_instance, lang: str, settings: Settings) -> In
     return builder.as_markup()
 
 
-def get_stats_monitoring_keyboard(i18n_instance, lang: str) -> InlineKeyboardMarkup:
+def get_stats_monitoring_keyboard(i18n_instance: JsonI18n, lang: str) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
 
@@ -58,7 +60,7 @@ def get_stats_monitoring_keyboard(i18n_instance, lang: str) -> InlineKeyboardMar
     return builder.as_markup()
 
 
-def get_user_management_keyboard(i18n_instance, lang: str) -> InlineKeyboardMarkup:
+def get_user_management_keyboard(i18n_instance: JsonI18n, lang: str) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
 
@@ -80,7 +82,7 @@ def get_user_management_keyboard(i18n_instance, lang: str) -> InlineKeyboardMark
     return builder.as_markup()
 
 
-def get_ban_management_keyboard(i18n_instance, lang: str) -> InlineKeyboardMarkup:
+def get_ban_management_keyboard(i18n_instance: JsonI18n, lang: str) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
 
@@ -101,7 +103,7 @@ def get_ban_management_keyboard(i18n_instance, lang: str) -> InlineKeyboardMarku
     return builder.as_markup()
 
 
-def get_promo_marketing_keyboard(i18n_instance, lang: str) -> InlineKeyboardMarkup:
+def get_promo_marketing_keyboard(i18n_instance: JsonI18n, lang: str) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
 
@@ -120,7 +122,7 @@ def get_promo_marketing_keyboard(i18n_instance, lang: str) -> InlineKeyboardMark
     return builder.as_markup()
 
 
-def get_system_functions_keyboard(i18n_instance, lang: str) -> InlineKeyboardMarkup:
+def get_system_functions_keyboard(i18n_instance: JsonI18n, lang: str) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
 
@@ -135,7 +137,7 @@ def get_system_functions_keyboard(i18n_instance, lang: str) -> InlineKeyboardMar
     return builder.as_markup()
 
 
-def get_ads_menu_keyboard(i18n_instance, lang: str) -> InlineKeyboardMarkup:
+def get_ads_menu_keyboard(i18n_instance: JsonI18n, lang: str) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     builder.button(text=_(key="admin_ads_create_button"), callback_data="admin_action:ads_create")
@@ -145,7 +147,7 @@ def get_ads_menu_keyboard(i18n_instance, lang: str) -> InlineKeyboardMarkup:
 
 
 def get_ads_list_keyboard(
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
     campaigns: list,
     current_page: int,
@@ -194,7 +196,7 @@ def get_ads_list_keyboard(
 
 
 def get_ad_card_keyboard(
-    i18n_instance, lang: str, campaign_id: int, back_page: int
+    i18n_instance: JsonI18n, lang: str, campaign_id: int, back_page: int
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -211,7 +213,7 @@ def get_ad_card_keyboard(
     return builder.as_markup()
 
 
-def get_logs_menu_keyboard(i18n_instance, lang: str) -> InlineKeyboardMarkup:
+def get_logs_menu_keyboard(i18n_instance: JsonI18n, lang: str) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     builder.button(text=_(key="admin_view_all_logs_button"), callback_data="admin_logs:view_all:0")
@@ -234,7 +236,7 @@ def get_logs_pagination_keyboard(
     current_page: int,
     total_pages: int,
     base_callback_data: str,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
     back_to_logs_menu: bool = False,
 ) -> InlineKeyboardMarkup:
@@ -348,7 +350,7 @@ def get_users_list_keyboard(
     users: List[User],
     current_page: int,
     total_users: int,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
     page_size: int = 15,
 ) -> InlineKeyboardMarkup:
@@ -412,7 +414,7 @@ def get_users_list_keyboard(
 
 
 def get_user_card_keyboard(
-    user_id: int, is_banned: bool, i18n_instance, lang: str, banned_list_page: int = 0
+    user_id: int, is_banned: bool, i18n_instance: JsonI18n, lang: str, banned_list_page: int = 0
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -437,7 +439,7 @@ def get_user_card_keyboard(
 
 
 def get_confirmation_keyboard(
-    yes_callback_data: str, no_callback_data: str, i18n_instance, lang: str
+    yes_callback_data: str, no_callback_data: str, i18n_instance: JsonI18n, lang: str
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -447,7 +449,7 @@ def get_confirmation_keyboard(
 
 
 def get_broadcast_confirmation_keyboard(
-    lang: str, i18n_instance, target: str = "all"
+    lang: str, i18n_instance: JsonI18n, target: str = "all"
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -490,14 +492,16 @@ def get_broadcast_confirmation_keyboard(
     return builder.as_markup()
 
 
-def get_back_to_admin_panel_keyboard(lang: str, i18n_instance) -> InlineKeyboardMarkup:
+def get_back_to_admin_panel_keyboard(lang: str, i18n_instance: JsonI18n) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     builder.button(text=_(key="back_to_admin_panel_button"), callback_data="admin_action:main")
     return builder.as_markup()
 
 
-def get_back_to_stats_monitoring_keyboard(lang: str, i18n_instance) -> InlineKeyboardMarkup:
+def get_back_to_stats_monitoring_keyboard(
+    lang: str, i18n_instance: JsonI18n
+) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     builder.button(
@@ -507,7 +511,9 @@ def get_back_to_stats_monitoring_keyboard(lang: str, i18n_instance) -> InlineKey
     return builder.as_markup()
 
 
-def get_back_to_user_management_keyboard(lang: str, i18n_instance) -> InlineKeyboardMarkup:
+def get_back_to_user_management_keyboard(
+    lang: str, i18n_instance: JsonI18n
+) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     builder.button(

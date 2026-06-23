@@ -1,9 +1,12 @@
 # Bot utilities package
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 
-from aiogram import types
+from aiogram import Bot, types
+
+if TYPE_CHECKING:
+    from bot.utils.message_queue import MessageQueueManager
 
 
 @dataclass
@@ -177,7 +180,9 @@ def get_message_content(message: types.Message) -> MessageContent:
             return MessageContent(content_type="text", text=text)
 
 
-async def send_message_by_type(bot, chat_id: int, content: MessageContent, **kwargs) -> None:
+async def send_message_by_type(
+    bot: Bot, chat_id: int, content: MessageContent, **kwargs: Any
+) -> None:
     """
     Отправляет сообщение указанного типа.
     Использует match/case вместо длинных if-elif цепочек.
@@ -188,54 +193,56 @@ async def send_message_by_type(bot, chat_id: int, content: MessageContent, **kwa
 
     match content.content_type:
         case "text":
-            await bot.send_message(chat_id=chat_id, text=content.text, **filtered_kwargs)
+            await bot.send_message(chat_id=chat_id, text=cast(str, content.text), **filtered_kwargs)
         case "photo":
             await bot.send_photo(
                 chat_id=chat_id,
-                photo=content.file_id,
+                photo=cast(str, content.file_id),
                 caption=content.text or None,
                 **filtered_kwargs,
             )
         case "video":
             await bot.send_video(
                 chat_id=chat_id,
-                video=content.file_id,
+                video=cast(str, content.file_id),
                 caption=content.text or None,
                 **filtered_kwargs,
             )
         case "animation":
             await bot.send_animation(
                 chat_id=chat_id,
-                animation=content.file_id,
+                animation=cast(str, content.file_id),
                 caption=content.text or None,
                 **filtered_kwargs,
             )
         case "document":
             await bot.send_document(
                 chat_id=chat_id,
-                document=content.file_id,
+                document=cast(str, content.file_id),
                 caption=content.text or None,
                 **filtered_kwargs,
             )
         case "audio":
             await bot.send_audio(
                 chat_id=chat_id,
-                audio=content.file_id,
+                audio=cast(str, content.file_id),
                 caption=content.text or None,
                 **filtered_kwargs,
             )
         case "voice":
             await bot.send_voice(
                 chat_id=chat_id,
-                voice=content.file_id,
+                voice=cast(str, content.file_id),
                 caption=content.text or None,
                 **filtered_kwargs,
             )
         case "sticker":
-            await bot.send_sticker(chat_id=chat_id, sticker=content.file_id, **filtered_kwargs)
+            await bot.send_sticker(
+                chat_id=chat_id, sticker=cast(str, content.file_id), **filtered_kwargs
+            )
         case "video_note":
             await bot.send_video_note(
-                chat_id=chat_id, video_note=content.file_id, **filtered_kwargs
+                chat_id=chat_id, video_note=cast(str, content.file_id), **filtered_kwargs
             )
         case _:
             # Fallback для неизвестных типов - отправляем как текст
@@ -246,7 +253,10 @@ async def send_message_by_type(bot, chat_id: int, content: MessageContent, **kwa
 
 
 async def send_message_via_queue(
-    queue_manager, uid: int, content: MessageContent, **kwargs
+    queue_manager: "MessageQueueManager",
+    uid: int,
+    content: MessageContent,
+    **kwargs: Any,
 ) -> None:
     """
     Отправляет сообщение через очередь в зависимости от типа контента.
@@ -306,7 +316,11 @@ async def send_message_via_queue(
 
 
 async def send_direct_message(
-    bot, chat_id: int, content: MessageContent, extra_text: str = "", **kwargs
+    bot: Bot,
+    chat_id: int,
+    content: MessageContent,
+    extra_text: str = "",
+    **kwargs: Any,
 ) -> None:
     """
     Отправляет прямое сообщение с дополнительной обработкой для sticker и video_note.
@@ -317,7 +331,9 @@ async def send_direct_message(
         case "sticker":
             # Отправляем стикер с отфильтрованными параметрами
             sticker_kwargs = filter_kwargs("sticker", kwargs)
-            await bot.send_sticker(chat_id=chat_id, sticker=content.file_id, **sticker_kwargs)
+            await bot.send_sticker(
+                chat_id=chat_id, sticker=cast(str, content.file_id), **sticker_kwargs
+            )
             # Если есть текст с подписью, отправляем отдельно
             if content.text or extra_text:
                 text_to_send = (content.text + extra_text) if content.text else extra_text
@@ -327,7 +343,7 @@ async def send_direct_message(
             # Отправляем видео-заметку с отфильтрованными параметрами
             video_note_kwargs = filter_kwargs("video_note", kwargs)
             await bot.send_video_note(
-                chat_id=chat_id, video_note=content.file_id, **video_note_kwargs
+                chat_id=chat_id, video_note=cast(str, content.file_id), **video_note_kwargs
             )
             # Если есть текст с подписью, отправляем отдельно
             if content.text or extra_text:

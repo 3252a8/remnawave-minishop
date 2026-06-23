@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from aiogram import Bot, types
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramForbiddenError
@@ -84,9 +84,9 @@ async def ensure_required_channel_subscription(
     ):
         return True
 
-    def translate(key: str, **kwargs) -> str:
+    def translate(key: str, **kwargs: Any) -> str:
         if i18n:
-            return i18n.gettext(current_lang, key, **kwargs)
+            return str(i18n.gettext(current_lang, key, **kwargs))
         return key
 
     now = datetime.now(timezone.utc)

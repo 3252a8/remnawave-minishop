@@ -9,6 +9,7 @@
     "build:webapp:css": "npm run build:webapp:svelte",
     "build:webapp:js": "node ./scripts/build_subscription_webapp_js.mjs",
     "build:webapp": "npm run build:webapp:svelte && npm run build:webapp:js",
+    "build": "npm run build:webapp",
     "generate:api-types": "npx --yes --package openapi-typescript@7.13.0 openapi-typescript ../docs/openapi.json -o src/lib/api/openapi.generated.ts && prettier --write src/lib/api/openapi.generated.ts",
     "lint": "eslint src scripts",
     "lint:fix": "npm run lint:js:fix",

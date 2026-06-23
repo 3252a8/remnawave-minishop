@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
@@ -32,6 +32,13 @@ TARIFF_WORKER_DB_RETRY_ATTEMPTS = 3
 TARIFF_WORKER_DB_RETRY_BASE_SLEEP_SECONDS = 0.5
 POSTGRES_RETRYABLE_SQLSTATES = {"40001", "40P01"}
 POSTGRES_RETRYABLE_ERROR_NAMES = {"DeadlockDetectedError", "SerializationError"}
+
+
+class _RegularTariff(Protocol):
+    billing_model: str
+    monthly_bytes: int
+
+    def name(self, lang: str, fallback: str = "ru") -> str: ...
 
 
 class TariffWorkerRegularMixin:
@@ -135,7 +142,7 @@ class TariffWorkerRegularMixin:
                     )
                     return {}
             if data:
-                return data
+                return data if isinstance(data, dict) else {}
             return await self._repair_missing_panel_user_for_subscription(
                 session,
                 sub,
@@ -308,7 +315,7 @@ class TariffWorkerRegularMixin:
     async def _ensure_period_reset_strategy(
         self,
         sub: Subscription,
-        tariff,
+        tariff: _RegularTariff,
         limit: Optional[int],
         panel_strategy: Optional[str],
     ) -> None:
@@ -348,8 +355,8 @@ class TariffWorkerRegularMixin:
         self,
         session: AsyncSession,
         sub: Subscription,
-        tariff,
-        panel_data: dict,
+        tariff: _RegularTariff,
+        panel_data: dict[str, Any],
     ) -> None:
         base_hwid_limit = (
             int(sub.hwid_device_limit)
@@ -406,7 +413,7 @@ class TariffWorkerRegularMixin:
         self,
         session: AsyncSession,
         sub: Subscription,
-        tariff,
+        tariff: _RegularTariff,
         used: Optional[int],
         limit: Optional[int],
         *,

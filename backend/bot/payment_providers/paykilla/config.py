@@ -159,7 +159,7 @@ class PaykillaConfig(ProviderEnvConfig):
 
     @field_validator("LIFETIME_SECONDS", mode="before")
     @classmethod
-    def _clamp_lifetime(cls, v):
+    def _clamp_lifetime(cls, v: Any) -> int:
         if isinstance(v, str):
             v = v.strip()
         try:
@@ -170,7 +170,7 @@ class PaykillaConfig(ProviderEnvConfig):
 
     @field_validator("RECV_WINDOW_MS", mode="before")
     @classmethod
-    def _clamp_recv_window(cls, v):
+    def _clamp_recv_window(cls, v: Any) -> int:
         if isinstance(v, str):
             v = v.strip()
         try:
@@ -181,7 +181,7 @@ class PaykillaConfig(ProviderEnvConfig):
 
     @field_validator("EXCHANGE_RATE_CACHE_SECONDS", mode="before")
     @classmethod
-    def _clamp_exchange_rate_cache(cls, v):
+    def _clamp_exchange_rate_cache(cls, v: Any) -> int:
         if isinstance(v, str):
             v = v.strip()
         try:
@@ -192,7 +192,7 @@ class PaykillaConfig(ProviderEnvConfig):
 
     @field_validator("MIN_PAYMENT_AMOUNT", mode="before")
     @classmethod
-    def _normalize_min_payment_amount(cls, v):
+    def _normalize_min_payment_amount(cls, v: Any) -> float:
         if isinstance(v, str):
             v = v.strip()
         try:
@@ -205,7 +205,7 @@ class PaykillaConfig(ProviderEnvConfig):
 
     @field_validator("MIN_PAYMENT_CURRENCY", mode="before")
     @classmethod
-    def _normalize_min_payment_currency(cls, v):
+    def _normalize_min_payment_currency(cls, v: Any) -> str:
         return normalize_payment_currency_code(v, default=PAYKILLA_DEFAULT_MIN_PAYMENT_CURRENCY)
 
     @field_validator(
@@ -216,14 +216,14 @@ class PaykillaConfig(ProviderEnvConfig):
         mode="before",
     )
     @classmethod
-    def _strip_optional(cls, v):
+    def _strip_optional(cls, v: Any) -> Any:
         if isinstance(v, str) and not v.strip():
             return None
         return v
 
     @field_validator("INVOICE_TYPE", mode="before")
     @classmethod
-    def _normalize_invoice_type(cls, v):
+    def _normalize_invoice_type(cls, v: Any) -> Any:
         if isinstance(v, str):
             value = v.strip().upper()
             return value or None

@@ -38,9 +38,9 @@ async def handle_view_user_logs(
     user: User,
     session: AsyncSession,
     settings: Settings,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
-):
+) -> None:
     """Show recent user logs"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 
@@ -101,11 +101,11 @@ async def handle_view_user_invitees(
     callback: types.CallbackQuery,
     user: User,
     session: AsyncSession,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
     *,
     page: int = 0,
-):
+) -> None:
     """Show users invited by the selected account."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     page_size = 10
@@ -217,9 +217,9 @@ async def handle_refresh_user_card(
     subscription_service: SubscriptionService,
     session: AsyncSession,
     settings: Settings,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
-):
+) -> None:
     """Refresh user card with latest information"""
     try:
         # Reload user from database
@@ -277,10 +277,10 @@ async def handle_delete_user_prompt(
     state: FSMContext,
     user: User,
     settings: Settings,
-    i18n_instance,
+    i18n_instance: JsonI18n,
     lang: str,
     session: AsyncSession,
-):
+) -> None:
     """Trigger confirmation workflow for destructive deletion."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 
@@ -356,7 +356,7 @@ async def process_delete_user_confirmation_handler(
     i18n_data: dict,
     panel_service: PanelApiService,
     session: AsyncSession,
-):
+) -> None:
     """Confirm and execute destructive user deletion."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")

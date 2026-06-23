@@ -12,6 +12,7 @@ from bot.utils.mini_app_url import (
     subscription_mini_app_install_url,
     subscription_public_install_url,
 )
+from config.settings import Settings
 from config.subscription_guides_config import subscription_guides_available
 from db.dal import subscription_dal
 
@@ -22,7 +23,7 @@ class InstallGuideLinks:
     public_share_url: Optional[str] = None
 
 
-def bot_install_guides_enabled(settings: Any) -> bool:
+def bot_install_guides_enabled(settings: Settings) -> bool:
     return bool(
         getattr(settings, "SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED", False)
         and subscription_guides_available(settings)
@@ -30,15 +31,16 @@ def bot_install_guides_enabled(settings: Any) -> bool:
     )
 
 
-def bot_install_guide_url(settings: Any) -> Optional[str]:
+def bot_install_guide_url(settings: Settings) -> Optional[str]:
     if not bot_install_guides_enabled(settings):
         return None
-    return subscription_mini_app_install_url(settings)
+    install_url = subscription_mini_app_install_url(settings)
+    return install_url if isinstance(install_url, str) else None
 
 
 async def ensure_user_install_guide_links(
     session: AsyncSession,
-    settings: Any,
+    settings: Settings,
     user_id: int,
     panel_user_uuid: Optional[str] = None,
     local_subscription: Optional[Any] = None,

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import {
     Check,
     ExternalLink,
@@ -21,16 +21,86 @@
     localizedThemeName,
     writeThemePreviewDraft,
   } from "$lib/webapp/themeStyle.js";
+  import type {
+    SettingField,
+    SettingsDirtyEntry,
+    SettingsSavedPayload,
+    SettingsSection,
+    SettingsStore,
+  } from "$lib/admin/stores/settingsStore";
 
-  export let at;
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type SettingsDirtyState = Record<string, SettingsDirtyEntry>;
+  type TokenMap = Record<string, unknown>;
+  type ThemeVariant = "dark" | "light";
+  type LogoMode = "desktop" | "mobile";
+  type SelectCallback = (...args: never[]) => void;
+  type FontOption = { value: string; label: string };
+  type BrandInfo = Record<string, unknown> & { logoUrl?: string };
+  type ThemeEntry = Record<string, unknown> & {
+    active_variant?: string | null;
+    css_file?: string;
+    default?: boolean;
+    hidden?: boolean;
+    key: string;
+    tokens?: TokenMap | null;
+    use_in_admin?: boolean;
+    variant_alias_for?: string | null;
+    variants?: Record<string, TokenMap | null> | null;
+  };
+  type ThemeCatalog = { default_theme: string; themes: ThemeEntry[] };
+  type ThemesState = {
+    themesCatalog: ThemeCatalog;
+    savedThemesCatalog: ThemeCatalog;
+    themesLoading: boolean;
+    themesDir: string;
+    themesSaving: boolean;
+    themesDirty: boolean;
+  };
+  type ThemesStore = {
+    subscribe: (run: (value: ThemesState) => void) => () => void;
+    loadThemes: () => Promise<void>;
+    saveThemes: (options?: { silent?: boolean }) => Promise<boolean>;
+    setCurrentTheme: (key: string) => void;
+    setDefaultThemeVariant: (variant: string) => void;
+    setThemeAccent: (key: string, accent: unknown) => void;
+    setThemeToken: (
+      key: string,
+      tokenKey: string,
+      value: unknown,
+      options?: { raw?: boolean; variant?: string | null }
+    ) => void;
+    resetThemeToken: (
+      key: string,
+      tokenKey: string,
+      options?: { raw?: boolean; variant?: string | null }
+    ) => void;
+    applyThemePreset: (key: string, variant: string, tokens: unknown) => void;
+    setThemeHomeLogoScale: (key: string, mode: LogoMode, scale: unknown) => void;
+    resolveThemeHomeLogoScale: (
+      theme: ThemeEntry | null | undefined,
+      mode: LogoMode,
+      variant?: string | null
+    ) => number;
+    resolveThemeTokens: (theme: ThemeEntry | null | undefined, variant?: string | null) => TokenMap;
+    toggleAdminUse: (key: string, enabled: boolean) => void;
+    uploadLogoFile: (file: File | null) => Promise<{ logoUrl: string; faviconUrl: string } | null>;
+    uploadLogoUrl: (url: string) => Promise<{ logoUrl: string; faviconUrl: string } | null>;
+    uploadFaviconFile: (
+      file: File | null
+    ) => Promise<{ faviconUrl: string; variants: TokenMap } | null>;
+    uploadFaviconUrl: (url: string) => Promise<{ faviconUrl: string; variants: TokenMap } | null>;
+  };
+
+  export let at: TranslateFn;
   export let currentLang = "ru";
-  export let onSettingsSaved = () => {};
-  export let brand = {};
+  export let onSettingsSaved: (payload: SettingsSavedPayload) => void | Promise<void> = () => {};
+  export let brand: BrandInfo = {};
   export let appFaviconUrl = "";
   export let appFaviconUseCustom = false;
 
-  const settingsStore = getContext("settingsStore");
-  const themesStore = getContext("themesStore");
+  const settingsStore = getContext<SettingsStore>("settingsStore");
+  const themesStore = getContext<ThemesStore>("themesStore");
   const APPEARANCE_SETTING_KEYS = new Set([
     "SUBSCRIPTION_MINI_APP_URL",
     "WEBAPP_PRIMARY_COLOR",
@@ -73,10 +143,12 @@
     "IBM Plex Mono",
     "Space Mono",
   ];
-  const quoteFontFamily = (family) =>
+  const quoteFontFamily = (family: string): string =>
     /^[A-Za-z0-9_-]+$/.test(String(family || "")) ? family : `"${family}"`;
-  const googleSansFontStack = (family) => `${quoteFontFamily(family)}, ${SANS_FALLBACK}`;
-  const googleMonoFontStack = (family) => `${quoteFontFamily(family)}, ${MONO_FALLBACK}`;
+  const googleSansFontStack = (family: string): string =>
+    `${quoteFontFamily(family)}, ${SANS_FALLBACK}`;
+  const googleMonoFontStack = (family: string): string =>
+    `${quoteFontFamily(family)}, ${MONO_FALLBACK}`;
   const FONT_OPTIONS = [
     { value: "", label: "System" },
     {
@@ -290,6 +362,39 @@
     },
   ];
 
+  let settingsSections: SettingsSection[] = [];
+  let settingsLoading = false;
+  let settingsDirty: SettingsDirtyState = {};
+  let settingsSaving = false;
+  let themesCatalog: ThemeCatalog = { default_theme: DEFAULT_THEME_KEY, themes: [] };
+  let savedThemesCatalog: ThemeCatalog = { default_theme: DEFAULT_THEME_KEY, themes: [] };
+  let themesLoading = false;
+  let themesDir = "";
+  let themesSaving = false;
+  let themesDirty = false;
+  let appearanceFields: SettingField[] = [];
+  let fieldMap = new Map<string, SettingField>();
+  let activeKey = DEFAULT_THEME_KEY;
+  let logoUrl = "";
+  let currentLogoUrl = "";
+  let previewLogoUrl = "";
+  let persistedUseCustomFavicon = false;
+  let useCustomFavicon = false;
+  let faviconUrl = "";
+  let logoFaviconUrl = "";
+  let generatedFaviconUrl = "";
+  let currentFaviconUrl = "";
+  let previewFaviconUrl = "";
+  let dirtyCount = 0;
+  let appearanceDirtyCount = 0;
+  let appearanceDirtyKeys: string[] = [];
+  let defaultTheme: ThemeEntry | undefined;
+  let defaultVariant: ThemeVariant = "dark";
+  let defaultTokens: TokenMap = {};
+  let visibleThemes: ThemeEntry[] = [];
+  let customThemes: ThemeEntry[] = [];
+  let defaultThemeIsCurrent = false;
+
   $: ({ settingsSections, settingsLoading, settingsDirty, settingsSaving } = $settingsStore);
   $: ({ themesCatalog, savedThemesCatalog, themesLoading, themesDir, themesSaving, themesDirty } =
     $themesStore);
@@ -297,7 +402,7 @@
     settingsSections.find((section) => section.id === "appearance")?.fields || [];
   $: fieldMap = new Map(appearanceFields.map((field) => [field.key, field]));
   $: activeKey = themesCatalog.default_theme;
-  $: logoUrl = valueForKey("WEBAPP_LOGO_URL");
+  $: logoUrl = stringValueForKey("WEBAPP_LOGO_URL");
   $: currentLogoUrl = pendingLogoPreviewUrl || logoUrl || brand?.logoUrl || "";
   $: previewLogoUrl =
     logoPreviewNonce && currentLogoUrl ? withLogoCacheBust(currentLogoUrl) : currentLogoUrl;
@@ -312,14 +417,16 @@
     lastPersistedUseCustomFavicon = persistedUseCustomFavicon;
   }
   $: useCustomFavicon = faviconUseCustomDraft;
-  $: faviconUrl = valueForKey("WEBAPP_FAVICON_URL", appFaviconUrl);
-  $: logoFaviconUrl = valueForKey("WEBAPP_LOGO_FAVICON_URL");
+  $: faviconUrl = stringValueForKey("WEBAPP_FAVICON_URL", appFaviconUrl);
+  $: logoFaviconUrl = stringValueForKey("WEBAPP_LOGO_FAVICON_URL");
   $: generatedFaviconUrl = logoFaviconUrl || appFaviconUrl || previewLogoUrl || "";
   $: currentFaviconUrl = useCustomFavicon
     ? pendingFaviconPreviewUrl || faviconUrl || ""
     : generatedFaviconUrl;
   $: previewFaviconUrl =
-    faviconPreviewNonce && currentFaviconUrl ? withCacheBust(currentFaviconUrl) : currentFaviconUrl;
+    faviconPreviewNonce && currentFaviconUrl
+      ? withCacheBust(currentFaviconUrl, faviconPreviewNonce)
+      : currentFaviconUrl;
   $: dirtyCount = Object.keys(settingsDirty || {}).filter((key) =>
     isAppearanceSettingKey(key)
   ).length;
@@ -340,8 +447,8 @@
   $: customThemes = visibleThemes.filter((theme) => theme.key !== DEFAULT_THEME_KEY);
   $: defaultThemeIsCurrent = activeKey === DEFAULT_THEME_KEY;
 
-  let logoFileInput;
-  let faviconFileInput;
+  let logoFileInput: HTMLInputElement | null = null;
+  let faviconFileInput: HTMLInputElement | null = null;
   let customGoogleFontName = "";
   let logoSourceUrl = "";
   let faviconSourceUrl = "";
@@ -351,7 +458,7 @@
   let faviconPreviewFailed = false;
   let lastPreviewLogoUrl = "";
   let lastPreviewFaviconUrl = "";
-  let lastPersistedUseCustomFavicon;
+  let lastPersistedUseCustomFavicon: boolean | undefined;
   let faviconUseCustomDraft = false;
   let pendingLogoPreviewUrl = "";
   let pendingFaviconPreviewUrl = "";
@@ -368,7 +475,7 @@
     faviconPreviewFailed = false;
   }
 
-  function valueForKey(key, fallback = "") {
+  function valueForKey(key: string, fallback: unknown = ""): unknown {
     if (settingsDirty[key]?.deleted) return "";
     if (Object.prototype.hasOwnProperty.call(settingsDirty, key)) {
       return settingsDirty[key].value;
@@ -378,11 +485,16 @@
     return field.value ?? fallback;
   }
 
-  function isAppearanceSettingKey(key) {
+  function stringValueForKey(key: string, fallback = ""): string {
+    const value = valueForKey(key, fallback);
+    return value == null ? "" : String(value);
+  }
+
+  function isAppearanceSettingKey(key: string): boolean {
     return APPEARANCE_SETTING_KEYS.has(key) || appearanceFields.some((field) => field.key === key);
   }
 
-  function boolValue(value) {
+  function boolValue(value: unknown): boolean {
     if (typeof value === "boolean") return value;
     if (typeof value === "number") return value !== 0;
     if (typeof value === "string") {
@@ -391,31 +503,31 @@
     return Boolean(value);
   }
 
-  function withLogoCacheBust(url) {
+  function withLogoCacheBust(url: string): string {
     return withCacheBust(url, logoPreviewNonce);
   }
 
-  function withCacheBust(url, nonce) {
+  function withCacheBust(url: string, nonce: number): string {
     if (!url || url.startsWith("data:") || url.startsWith("blob:")) return url;
     const separator = url.includes("?") ? "&" : "?";
     return `${url}${separator}v=${nonce}`;
   }
 
-  function clearPendingObjectUrl() {
+  function clearPendingObjectUrl(): void {
     if (pendingObjectUrl && typeof URL !== "undefined") {
       URL.revokeObjectURL(pendingObjectUrl);
     }
     pendingObjectUrl = "";
   }
 
-  function clearPendingFaviconObjectUrl() {
+  function clearPendingFaviconObjectUrl(): void {
     if (pendingFaviconObjectUrl && typeof URL !== "undefined") {
       URL.revokeObjectURL(pendingFaviconObjectUrl);
     }
     pendingFaviconObjectUrl = "";
   }
 
-  function setPendingLogoPreview(url, objectUrl = "") {
+  function setPendingLogoPreview(url: string, objectUrl = ""): void {
     clearPendingObjectUrl();
     pendingObjectUrl = objectUrl;
     pendingLogoPreviewUrl = url;
@@ -423,7 +535,7 @@
     logoPreviewNonce = Date.now();
   }
 
-  function setPendingFaviconPreview(url, objectUrl = "") {
+  function setPendingFaviconPreview(url: string, objectUrl = ""): void {
     clearPendingFaviconObjectUrl();
     pendingFaviconObjectUrl = objectUrl;
     pendingFaviconPreviewUrl = url;
@@ -431,20 +543,20 @@
     faviconPreviewNonce = Date.now();
   }
 
-  function themeTitle(theme) {
+  function themeTitle(theme: ThemeEntry): string {
     return localizedThemeName(theme, currentLang) || "—";
   }
 
-  function themeDescription(theme) {
+  function themeDescription(theme: ThemeEntry): string {
     const folder = `${themesDir || "data/themes"}/${theme.key}`;
     return theme.css_file ? `${folder}/${theme.css_file}` : `${folder}/theme.json`;
   }
 
-  function isThemeAccentSet(theme) {
+  function isThemeAccentSet(theme: ThemeEntry): boolean {
     return Boolean(String(theme.tokens?.accent || "").trim());
   }
 
-  function pickerHex(value) {
+  function pickerHex(value: unknown): string {
     const raw = String(value || "").trim();
     const match = raw.match(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
     if (!match) return "#000000";
@@ -457,7 +569,7 @@
     return `#${hex}`;
   }
 
-  function normalizeVariant(variant) {
+  function normalizeVariant(variant: unknown): ThemeVariant {
     return String(variant || "")
       .trim()
       .toLowerCase() === "light"
@@ -465,35 +577,48 @@
       : "dark";
   }
 
-  function defaultVariantTitle(variant) {
+  function defaultVariantTitle(variant: unknown): string {
     const normalizedVariant = normalizeVariant(variant);
     return VARIANT_LABELS[normalizedVariant] || normalizedVariant;
   }
 
-  function defaultTokenValue(tokenKey, tokens = defaultTokens) {
+  function defaultTokenValue(tokenKey: string, tokens: TokenMap = defaultTokens): unknown {
     return tokens?.[tokenKey] ?? "";
   }
 
-  function normalizedCompareValue(value) {
+  function tokenTextValue(tokenKey: string, tokens: TokenMap = defaultTokens): string {
+    const value = defaultTokenValue(tokenKey, tokens);
+    return value == null ? "" : String(value);
+  }
+
+  function inputValue(event: Event): string {
+    return (event.currentTarget as HTMLInputElement | null)?.value ?? "";
+  }
+
+  function normalizedCompareValue(value: unknown): string {
     return String(value ?? "").trim();
   }
 
-  function savedThemeByKey(key) {
+  function savedThemeByKey(key: string): ThemeEntry | null {
     return (savedThemesCatalog.themes || []).find((theme) => theme.key === key) || null;
   }
 
-  function themeFingerprint(theme) {
+  function themeFingerprint(theme: unknown): string {
     return JSON.stringify(theme || null);
   }
 
-  function isThemeDirty(theme) {
+  function isThemeDirty(theme: ThemeEntry | null | undefined): boolean {
     if (!theme) return false;
     const savedTheme = savedThemeByKey(theme.key);
     if (!savedTheme) return false;
     return themeFingerprint(theme) !== themeFingerprint(savedTheme);
   }
 
-  function themeTokenValue(theme, tokenKey, variant = null) {
+  function themeTokenValue(
+    theme: ThemeEntry | null | undefined,
+    tokenKey: string,
+    variant: string | null = null
+  ): unknown {
     if (!theme) return "";
     if (theme.key === DEFAULT_THEME_KEY) {
       return themesStore.resolveThemeTokens(theme, variant || defaultVariant)?.[tokenKey] ?? "";
@@ -501,7 +626,11 @@
     return theme.tokens?.[tokenKey] ?? "";
   }
 
-  function isThemeTokenDirty(theme, tokenKey, variant = null) {
+  function isThemeTokenDirty(
+    theme: ThemeEntry | null | undefined,
+    tokenKey: string,
+    variant: string | null = null
+  ): boolean {
     if (!theme) return false;
     const savedTheme = savedThemeByKey(theme.key);
     if (!savedTheme) return false;
@@ -511,7 +640,7 @@
     );
   }
 
-  function isThemePropertyDirty(theme, property) {
+  function isThemePropertyDirty(theme: ThemeEntry | null | undefined, property: string): boolean {
     if (!theme) return false;
     const savedTheme = savedThemeByKey(theme.key);
     if (!savedTheme) return false;
@@ -520,15 +649,19 @@
     );
   }
 
-  function isDefaultTokenDirty(tokenKey) {
+  function isDefaultTokenDirty(tokenKey: string): boolean {
     return isThemeTokenDirty(defaultTheme, tokenKey, defaultVariant);
   }
 
-  function isDefaultVariantDirty() {
+  function isDefaultVariantDirty(): boolean {
     return isThemePropertyDirty(defaultTheme, "active_variant");
   }
 
-  function isThemeHomeLogoScaleDirty(theme, mode, variant = null) {
+  function isThemeHomeLogoScaleDirty(
+    theme: ThemeEntry | null | undefined,
+    mode: LogoMode,
+    variant: string | null = null
+  ): boolean {
     if (!theme) return false;
     const savedTheme = savedThemeByKey(theme.key);
     if (!savedTheme) return false;
@@ -538,91 +671,135 @@
     );
   }
 
-  function fontItemsWithCurrent(items, value) {
-    if (!value || items.some((item) => item.value === value)) return items;
+  function fontItemsWithCurrent(items: FontOption[], value: unknown): FontOption[] {
+    const currentValue = String(value ?? "");
+    if (!currentValue || items.some((item) => item.value === currentValue)) return items;
     return [
       {
-        value,
+        value: currentValue,
         label: `${at("appearance_font_custom_current", {}, "Custom")}: ${
-          firstFontFamily(value) || value
+          firstFontFamily(currentValue) || currentValue
         }`,
       },
       ...items,
     ];
   }
 
-  function customGoogleFontStack(kind = "sans") {
+  function customGoogleFontStack(kind: "sans" | "mono" = "sans"): string {
     const family = String(customGoogleFontName || "").trim();
     if (!family) return "";
     return kind === "mono" ? googleMonoFontStack(family) : googleSansFontStack(family);
   }
 
-  function applyCustomGoogleFont(tokenKey, kind = "sans") {
+  function applyCustomGoogleFont(tokenKey: string, kind: "sans" | "mono" = "sans"): void {
     const stack = customGoogleFontStack(kind);
     if (!stack) return;
     setDefaultFont(tokenKey, stack);
   }
 
-  function setDefaultVariantFromSwitch(checked) {
+  function setDefaultVariantFromSwitch(checked: boolean): void {
     themesStore.setDefaultThemeVariant(checked ? "light" : "dark");
   }
 
-  function setDefaultToken(tokenKey, value) {
+  function setDefaultToken(tokenKey: string, value: unknown): void {
     themesStore.setThemeToken(DEFAULT_THEME_KEY, tokenKey, value, { variant: defaultVariant });
   }
 
-  function resetDefaultToken(tokenKey) {
+  function resetDefaultToken(tokenKey: string): void {
     themesStore.resetThemeToken(DEFAULT_THEME_KEY, tokenKey, { variant: defaultVariant });
   }
 
-  function setDefaultColorToken(tokenKey, value) {
+  function setDefaultColorToken(tokenKey: string, value: unknown): void {
     setDefaultToken(tokenKey, value);
   }
 
-  function openDefaultColorPicker(tokenKey, fallback = "#00fe7a") {
+  function openDefaultColorPicker(tokenKey: string, fallback = "#00fe7a"): void {
     setDefaultColorToken(tokenKey, pickerHex(defaultTokenValue(tokenKey) || fallback));
   }
 
-  function setDefaultRadius(value) {
+  function setDefaultRadius(value: unknown): void {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return;
     setDefaultToken("radius", `${Math.min(28, Math.max(4, Math.round(numeric)))}px`);
   }
 
-  function radiusNumber(tokens = defaultTokens) {
+  const defaultRadiusRangeHandler = ((value: number) => setDefaultRadius(value)) as SelectCallback;
+
+  function radiusNumber(tokens: TokenMap = defaultTokens): number {
     const match = String(defaultTokenValue("radius", tokens) || "").match(/(\d+)/);
     return match ? Math.min(28, Math.max(4, Number(match[1]))) : 8;
   }
 
-  function setDefaultFont(tokenKey, value) {
+  function setDefaultFont(tokenKey: string, value: unknown): void {
     for (const variant of DEFAULT_THEME_VARIANTS) {
       themesStore.setThemeToken(DEFAULT_THEME_KEY, tokenKey, value, { variant });
     }
   }
 
-  function applyDefaultPreset(preset) {
+  function applyDefaultPreset(preset: { tokens?: TokenMap } | null | undefined): void {
     if (!preset?.tokens) return;
     themesStore.applyThemePreset(DEFAULT_THEME_KEY, defaultVariant, preset.tokens);
   }
 
-  function defaultHomeLogoScale(mode, theme = defaultTheme, variant = defaultVariant) {
+  function defaultHomeLogoScale(
+    mode: LogoMode,
+    theme: ThemeEntry | null | undefined = defaultTheme,
+    variant: string | null = defaultVariant
+  ): number {
     return themesStore.resolveThemeHomeLogoScale(theme, mode, variant);
   }
 
-  function setDefaultHomeLogoScale(mode, value) {
+  function setDefaultHomeLogoScale(mode: LogoMode, value: unknown): void {
     themesStore.setThemeHomeLogoScale(DEFAULT_THEME_KEY, mode, value);
   }
 
-  function homeLogoScale(theme, mode) {
-    return themesStore.resolveThemeHomeLogoScale(theme, mode);
+  function homeLogoScale(theme: ThemeEntry, mode: LogoMode): number {
+    return Number(themesStore.resolveThemeHomeLogoScale(theme, mode)) || 0;
   }
 
-  function openThemeAccentPicker(theme) {
+  function defaultFontSelectHandler(tokenKey: string): SelectCallback {
+    return ((value: string) => setDefaultFont(tokenKey, value)) as SelectCallback;
+  }
+
+  function defaultLogoScaleSelectHandler(mode: LogoMode): SelectCallback {
+    return ((value: number) => setDefaultHomeLogoScale(mode, value)) as SelectCallback;
+  }
+
+  function themeLogoScaleSelectHandler(theme: ThemeEntry, mode: LogoMode): SelectCallback {
+    return ((value: number) => setThemeHomeLogoScale(theme, mode, value)) as SelectCallback;
+  }
+
+  function defaultRadiusInputHandler(event: Event): void {
+    setDefaultRadius(inputValue(event));
+  }
+
+  function defaultLogoScaleInputHandler(mode: LogoMode): (event: Event) => void {
+    return (event) => setDefaultHomeLogoScale(mode, inputValue(event));
+  }
+
+  function themeLogoScaleInputHandler(theme: ThemeEntry, mode: LogoMode): (event: Event) => void {
+    return (event) => setThemeHomeLogoScale(theme, mode, inputValue(event));
+  }
+
+  function defaultTokenInputHandler(tokenKey: string): (event: Event) => void {
+    return (event) => setDefaultToken(tokenKey, inputValue(event));
+  }
+
+  function defaultColorInputHandler(tokenKey: string): (event: Event) => void {
+    return (event) => setDefaultColorToken(tokenKey, inputValue(event));
+  }
+
+  function themeAccentInputHandler(theme: ThemeEntry): (event: Event) => void {
+    return (event) => setThemeAccent(theme, inputValue(event));
+  }
+
+  function openThemeAccentPicker(theme: ThemeEntry): void {
     themesStore.setThemeAccent(theme.key, pickerHex(theme.tokens?.accent || "#00fe7a"));
   }
 
-  function handleLogoFileChange(event) {
-    const file = event.currentTarget.files?.[0];
+  function handleLogoFileChange(event: Event): void {
+    const input = event.currentTarget as HTMLInputElement | null;
+    const file = input?.files?.[0];
     if (!file) return;
     if (typeof URL !== "undefined") {
       const objectUrl = URL.createObjectURL(file);
@@ -643,7 +820,7 @@
     });
   }
 
-  function uploadLogoFromUrl() {
+  function uploadLogoFromUrl(): void {
     themesStore.uploadLogoUrl(logoSourceUrl).then((uploaded) => {
       const uploadedUrl = uploaded?.logoUrl || "";
       if (!uploadedUrl) return;
@@ -656,8 +833,9 @@
     });
   }
 
-  function handleFaviconFileChange(event) {
-    const file = event.currentTarget.files?.[0];
+  function handleFaviconFileChange(event: Event): void {
+    const input = event.currentTarget as HTMLInputElement | null;
+    const file = input?.files?.[0];
     if (!file) return;
     if (typeof URL !== "undefined") {
       const objectUrl = URL.createObjectURL(file);
@@ -677,7 +855,7 @@
     });
   }
 
-  function uploadFaviconFromUrl() {
+  function uploadFaviconFromUrl(): void {
     themesStore.uploadFaviconUrl(faviconSourceUrl).then((uploaded) => {
       const uploadedUrl = uploaded?.faviconUrl || "";
       if (!uploadedUrl) return;
@@ -689,7 +867,7 @@
     });
   }
 
-  function setCustomFavicon(enabled) {
+  function setCustomFavicon(enabled: boolean): void {
     const nextEnabled = Boolean(enabled);
     faviconUseCustomDraft = nextEnabled;
     settingsStore.markDirty("WEBAPP_FAVICON_USE_CUSTOM", nextEnabled);
@@ -699,7 +877,7 @@
     }
   }
 
-  async function saveAppearance() {
+  async function saveAppearance(): Promise<void> {
     const keysToSave = new Set(appearanceDirtyKeys);
     const shouldReloadFrontend = Array.from(keysToSave).some((key) =>
       [
@@ -717,59 +895,67 @@
     }
     await themesStore.saveThemes();
     if (settingsSaved && shouldReloadFrontend && typeof onSettingsSaved === "function") {
-      await onSettingsSaved({ reloadFrontend: true });
+      await onSettingsSaved({ updates: {}, deletes: [], reloadFrontend: true });
     }
   }
 
-  function toggleAdminTheme(theme, checked) {
+  function toggleAdminTheme(theme: ThemeEntry, checked: boolean): void {
     themesStore.toggleAdminUse(theme.key, checked);
   }
 
-  function setThemeAccent(theme, value) {
+  function setThemeAccent(theme: ThemeEntry, value: unknown): void {
     themesStore.setThemeAccent(theme.key, value);
   }
 
-  function setThemeHomeLogoScale(theme, mode, value) {
+  function setThemeHomeLogoScale(theme: ThemeEntry, mode: LogoMode, value: unknown): void {
     themesStore.setThemeHomeLogoScale(theme.key, mode, value);
   }
 
-  function activateDefaultTheme() {
+  function activateDefaultTheme(): void {
     if (!themesSaving) themesStore.setCurrentTheme(DEFAULT_THEME_KEY);
   }
 
-  function isThemeControlTarget(target) {
-    return target?.closest?.("button,input,label,.admin-theme-card-option,.ui-range-input");
+  function activateDefaultThemeFromClick(event: MouseEvent): void {
+    event.stopPropagation();
+    activateDefaultTheme();
   }
 
-  function selectDefaultTheme(event = null) {
+  function isThemeControlTarget(target: EventTarget | null | undefined): boolean {
+    return (
+      target instanceof Element &&
+      Boolean(target.closest("button,input,label,.admin-theme-card-option,.ui-range-input"))
+    );
+  }
+
+  function selectDefaultTheme(event: MouseEvent | KeyboardEvent | null = null): void {
     if (isThemeControlTarget(event?.target)) return;
     activateDefaultTheme();
   }
 
-  function handleDefaultThemeKeydown(event) {
+  function handleDefaultThemeKeydown(event: KeyboardEvent): void {
     if (isThemeControlTarget(event?.target)) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     activateDefaultTheme();
   }
 
-  function selectTheme(theme, event = null) {
+  function selectTheme(theme: ThemeEntry, event: MouseEvent | KeyboardEvent | null = null): void {
     if (isThemeControlTarget(event?.target)) return;
     if (!themesSaving) themesStore.setCurrentTheme(theme.key);
   }
 
-  function handleThemeKeydown(event, theme) {
+  function handleThemeKeydown(event: KeyboardEvent, theme: ThemeEntry): void {
     if (isThemeControlTarget(event?.target)) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     selectTheme(theme);
   }
 
-  function clonePreviewCatalog(catalog = themesCatalog) {
+  function clonePreviewCatalog(catalog: ThemeCatalog = themesCatalog): ThemeCatalog {
     return JSON.parse(JSON.stringify(catalog || { default_theme: DEFAULT_THEME_KEY, themes: [] }));
   }
 
-  function previewCatalogForDefaultVariant(variant) {
+  function previewCatalogForDefaultVariant(variant: unknown): ThemeCatalog {
     const nextVariant = normalizeVariant(variant);
     const catalog = clonePreviewCatalog();
     catalog.default_theme = DEFAULT_THEME_KEY;
@@ -782,7 +968,7 @@
     return catalog;
   }
 
-  function themePreviewUrl(themeKey) {
+  function themePreviewUrl(themeKey: string): string {
     const url = new URL(window.location.href);
     const docsRuntimeIndex = url.pathname.indexOf("/demo/runtime");
     if (docsRuntimeIndex >= 0) {
@@ -799,16 +985,24 @@
     return url.toString();
   }
 
-  function previewTheme(event, theme) {
+  function previewTheme(event: MouseEvent, theme: ThemeEntry): void {
     event.stopPropagation();
     writeThemePreviewDraft(clonePreviewCatalog(), theme.key);
     window.open(themePreviewUrl(theme.key), "_blank", "noopener");
   }
 
-  function previewDefaultVariant(event, variant) {
+  function previewThemeClickHandler(theme: ThemeEntry): (event: MouseEvent) => void {
+    return (event) => previewTheme(event, theme);
+  }
+
+  function previewDefaultVariant(event: MouseEvent, variant: ThemeVariant): void {
     event.stopPropagation();
     writeThemePreviewDraft(previewCatalogForDefaultVariant(variant), DEFAULT_THEME_KEY);
     window.open(themePreviewUrl(DEFAULT_THEME_KEY), "_blank", "noopener");
+  }
+
+  function previewDefaultVariantFromClick(event: MouseEvent): void {
+    previewDefaultVariant(event, defaultVariant);
   }
 
   onMount(() => {
@@ -1081,10 +1275,7 @@
                     {#if !defaultThemeIsCurrent}
                       <AdminButton
                         size="sm"
-                        onclick={(event) => {
-                          event.stopPropagation();
-                          activateDefaultTheme();
-                        }}
+                        onclick={activateDefaultThemeFromClick}
                         disabled={themesSaving}
                       >
                         <Check size={13} />
@@ -1102,11 +1293,7 @@
                       </Switch.Root>
                       <span>{at("appearance_default_light", {}, "Light")}</span>
                     </label>
-                    <AdminButton
-                      size="sm"
-                      variant="ghost"
-                      onclick={(event) => previewDefaultVariant(event, defaultVariant)}
-                    >
+                    <AdminButton size="sm" variant="ghost" onclick={previewDefaultVariantFromClick}>
                       <ExternalLink size={13} />
                       {at("appearance_preview_theme", {}, "Preview")}
                     </AdminButton>
@@ -1141,13 +1328,13 @@
                         </span>
                         <AdminSelect
                           class="appearance-select"
-                          value={defaultTokenValue("font_sans", defaultTokens) || ""}
+                          value={tokenTextValue("font_sans", defaultTokens)}
                           items={fontItemsWithCurrent(
                             FONT_OPTIONS,
-                            defaultTokenValue("font_sans", defaultTokens) || ""
+                            tokenTextValue("font_sans", defaultTokens)
                           )}
                           placeholder="System"
-                          onValueChange={(value) => setDefaultFont("font_sans", value)}
+                          onValueChange={defaultFontSelectHandler("font_sans")}
                         />
                       </label>
                       <label class:is-dirty={isDefaultTokenDirty("font_logo")}>
@@ -1161,13 +1348,13 @@
                         </span>
                         <AdminSelect
                           class="appearance-select"
-                          value={defaultTokenValue("font_logo", defaultTokens) || ""}
+                          value={tokenTextValue("font_logo", defaultTokens)}
                           items={fontItemsWithCurrent(
                             FONT_OPTIONS,
-                            defaultTokenValue("font_logo", defaultTokens) || ""
+                            tokenTextValue("font_logo", defaultTokens)
                           )}
                           placeholder="System"
-                          onValueChange={(value) => setDefaultFont("font_logo", value)}
+                          onValueChange={defaultFontSelectHandler("font_logo")}
                         />
                       </label>
                       <label class:is-dirty={isDefaultTokenDirty("font_mono")}>
@@ -1181,13 +1368,13 @@
                         </span>
                         <AdminSelect
                           class="appearance-select"
-                          value={defaultTokenValue("font_mono", defaultTokens) || ""}
+                          value={tokenTextValue("font_mono", defaultTokens)}
                           items={fontItemsWithCurrent(
                             MONO_FONT_OPTIONS,
-                            defaultTokenValue("font_mono", defaultTokens) || ""
+                            tokenTextValue("font_mono", defaultTokens)
                           )}
                           placeholder="Default mono"
-                          onValueChange={(value) => setDefaultFont("font_mono", value)}
+                          onValueChange={defaultFontSelectHandler("font_mono")}
                         />
                       </label>
                     </div>
@@ -1250,7 +1437,7 @@
                         step="1"
                         ariaLabel={at("appearance_radius", {}, "Radius")}
                         value={radiusNumber(defaultTokens)}
-                        onValueChange={setDefaultRadius}
+                        onValueChange={defaultRadiusRangeHandler}
                       />
                       <span class="appearance-logo-scale-value">
                         <Input
@@ -1260,7 +1447,7 @@
                           max="28"
                           step="1"
                           value={radiusNumber(defaultTokens)}
-                          oninput={(event) => setDefaultRadius(event.currentTarget.value)}
+                          oninput={defaultRadiusInputHandler}
                         />
                         px
                       </span>
@@ -1288,7 +1475,7 @@
                         step="5"
                         ariaLabel={at("appearance_logo_desktop", {}, "Desktop logo")}
                         value={defaultHomeLogoScale("desktop", defaultTheme, defaultVariant)}
-                        onValueChange={(value) => setDefaultHomeLogoScale("desktop", value)}
+                        onValueChange={defaultLogoScaleSelectHandler("desktop")}
                       />
                       <span class="appearance-logo-scale-value">
                         <Input
@@ -1298,8 +1485,7 @@
                           max="300"
                           step="5"
                           value={defaultHomeLogoScale("desktop", defaultTheme, defaultVariant)}
-                          oninput={(event) =>
-                            setDefaultHomeLogoScale("desktop", event.currentTarget.value)}
+                          oninput={defaultLogoScaleInputHandler("desktop")}
                         />
                         %
                       </span>
@@ -1327,7 +1513,7 @@
                         step="5"
                         ariaLabel={at("appearance_logo_mobile", {}, "Mobile logo")}
                         value={defaultHomeLogoScale("mobile", defaultTheme, defaultVariant)}
-                        onValueChange={(value) => setDefaultHomeLogoScale("mobile", value)}
+                        onValueChange={defaultLogoScaleSelectHandler("mobile")}
                       />
                       <span class="appearance-logo-scale-value">
                         <Input
@@ -1337,8 +1523,7 @@
                           max="300"
                           step="5"
                           value={defaultHomeLogoScale("mobile", defaultTheme, defaultVariant)}
-                          oninput={(event) =>
-                            setDefaultHomeLogoScale("mobile", event.currentTarget.value)}
+                          oninput={defaultLogoScaleInputHandler("mobile")}
                         />
                         %
                       </span>
@@ -1374,16 +1559,14 @@
                               value={pickerHex(defaultTokenValue(tokenKey, defaultTokens))}
                               ariaLabel={tokenLabel}
                               onclick={() => openDefaultColorPicker(tokenKey)}
-                              oninput={(event) =>
-                                setDefaultColorToken(tokenKey, event.currentTarget.value)}
+                              oninput={defaultColorInputHandler(tokenKey)}
                             />
                             <Input
                               class="input appearance-color-text"
                               type="text"
                               placeholder={at("appearance_token_empty", {}, "not set")}
-                              value={defaultTokenValue(tokenKey, defaultTokens) || ""}
-                              oninput={(event) =>
-                                setDefaultToken(tokenKey, event.currentTarget.value)}
+                              value={tokenTextValue(tokenKey, defaultTokens)}
+                              oninput={defaultTokenInputHandler(tokenKey)}
                             />
                             <AdminButton
                               class="appearance-token-reset"
@@ -1474,17 +1657,17 @@
                         value={pickerHex(theme.tokens?.accent)}
                         ariaLabel={at("appearance_theme_accent", {}, "Accent")}
                         title={isThemeAccentSet(theme)
-                          ? theme.tokens?.accent
+                          ? String(theme.tokens?.accent ?? "")
                           : at("appearance_theme_accent_empty", {}, "Не задан")}
                         onclick={() => openThemeAccentPicker(theme)}
-                        oninput={(event) => setThemeAccent(theme, event.currentTarget.value)}
+                        oninput={themeAccentInputHandler(theme)}
                       />
                       <Input
                         class="input appearance-color-text"
                         type="text"
                         placeholder={at("appearance_theme_accent_placeholder", {}, "Не задан")}
-                        value={theme.tokens?.accent || ""}
-                        oninput={(event) => setThemeAccent(theme, event.currentTarget.value)}
+                        value={String(theme.tokens?.accent ?? "")}
+                        oninput={themeAccentInputHandler(theme)}
                       />
                     </label>
                     <label
@@ -1529,7 +1712,7 @@
                           "Desktop logo scale"
                         )}
                         value={homeLogoScale(theme, "desktop")}
-                        onValueChange={(value) => setThemeHomeLogoScale(theme, "desktop", value)}
+                        onValueChange={themeLogoScaleSelectHandler(theme, "desktop")}
                       />
                       <span class="appearance-logo-scale-value">
                         <Input
@@ -1539,8 +1722,7 @@
                           max="300"
                           step="5"
                           value={homeLogoScale(theme, "desktop")}
-                          oninput={(event) =>
-                            setThemeHomeLogoScale(theme, "desktop", event.currentTarget.value)}
+                          oninput={themeLogoScaleInputHandler(theme, "desktop")}
                         />
                         %
                       </span>
@@ -1568,7 +1750,7 @@
                           "Mobile logo scale"
                         )}
                         value={homeLogoScale(theme, "mobile")}
-                        onValueChange={(value) => setThemeHomeLogoScale(theme, "mobile", value)}
+                        onValueChange={themeLogoScaleSelectHandler(theme, "mobile")}
                       />
                       <span class="appearance-logo-scale-value">
                         <Input
@@ -1578,8 +1760,7 @@
                           max="300"
                           step="5"
                           value={homeLogoScale(theme, "mobile")}
-                          oninput={(event) =>
-                            setThemeHomeLogoScale(theme, "mobile", event.currentTarget.value)}
+                          oninput={themeLogoScaleInputHandler(theme, "mobile")}
                         />
                         %
                       </span>
@@ -1588,7 +1769,7 @@
                       <AdminButton
                         size="sm"
                         variant="ghost"
-                        onclick={(event) => previewTheme(event, theme)}
+                        onclick={previewThemeClickHandler(theme)}
                       >
                         <ExternalLink size={13} />
                         {at("appearance_preview_theme", {}, "Предпросмотр")}

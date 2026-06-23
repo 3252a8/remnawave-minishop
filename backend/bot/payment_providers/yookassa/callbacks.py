@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 from aiogram import F, types
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,7 +57,7 @@ async def _initiate_yk_payment(
     yookassa_service: YooKassaService,
     i18n: Optional[JsonI18n],
     current_lang: str,
-    get_text,
+    get_text: Callable[..., str],
     user_id: int,
     months: float,
     price_rub: float,
@@ -67,7 +67,7 @@ async def _initiate_yk_payment(
     payment_method_id: Optional[str] = None,
     selected_method_internal_id: Optional[int] = None,
     sale_mode: str = "subscription",
-    hwid_quote: Optional[dict] = None,
+    hwid_quote: Optional[dict[str, Any]] = None,
 ) -> bool:
     """Create payment record and initiate YooKassa payment (new card or saved card)."""
     message = callback_message_or_none(callback)
@@ -365,7 +365,7 @@ async def _initiate_yk_payment(
 async def _yookassa_available_to_callback_user(
     callback: types.CallbackQuery,
     settings: Settings,
-    get_text,
+    get_text: Callable[..., str],
 ) -> bool:
     if _provider_spec().is_available_to_user(
         settings,
@@ -390,10 +390,10 @@ async def _yookassa_available_to_callback_user(
 async def pay_yk_callback_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     yookassa_service: YooKassaService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -544,10 +544,10 @@ async def pay_yk_callback_handler(
 async def pay_yk_new_card_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     yookassa_service: YooKassaService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -650,10 +650,10 @@ async def pay_yk_new_card_handler(
 async def pay_yk_saved_list_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     yookassa_service: YooKassaService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -803,10 +803,10 @@ async def pay_yk_saved_list_handler(
 async def pay_yk_use_saved_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     yookassa_service: YooKassaService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key

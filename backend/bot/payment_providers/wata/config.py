@@ -141,12 +141,12 @@ class WataConfig(ProviderEnvConfig):
 
     @field_validator("LINK_TTL_MINUTES", mode="before")
     @classmethod
-    def _clamp_link_ttl_minutes(cls, v):
+    def _clamp_link_ttl_minutes(cls, v: Any) -> int:
         return _clamp_wata_link_ttl_minutes(v, default=_WATA_LINK_DEFAULT_TTL_MINUTES)
 
     @field_validator("CRYPTO_LINK_TTL_MINUTES", mode="before")
     @classmethod
-    def _clamp_optional_link_ttl_minutes(cls, v):
+    def _clamp_optional_link_ttl_minutes(cls, v: Any) -> Optional[int]:
         if v is None or (isinstance(v, str) and not v.strip()):
             return None
         return _clamp_wata_link_ttl_minutes(v, default=_WATA_LINK_DEFAULT_TTL_MINUTES)
@@ -168,7 +168,7 @@ class WataConfig(ProviderEnvConfig):
         mode="before",
     )
     @classmethod
-    def _strip_optional(cls, v):
+    def _strip_optional(cls, v: Any) -> Any:
         if isinstance(v, str) and not v.strip():
             return None
         return v

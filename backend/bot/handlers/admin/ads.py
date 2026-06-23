@@ -21,7 +21,7 @@ PAGE_SIZE = 5
 @router.callback_query(F.data == "admin_action:ads")
 async def show_ads_menu(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -63,7 +63,7 @@ async def show_ads_menu(
 @router.callback_query(F.data.startswith("admin_ads:page:"))
 async def ads_list_pagination(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -102,7 +102,7 @@ async def ads_list_pagination(
 @router.callback_query(F.data.startswith("admin_ads:card:"))
 async def show_ad_card(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -150,7 +150,9 @@ async def show_ad_card(
 
 
 @router.callback_query(F.data.startswith("admin_ads:delete:"))
-async def ads_delete_prompt(callback: types.CallbackQuery, settings: Settings, i18n_data: dict):
+async def ads_delete_prompt(
+    callback: types.CallbackQuery, settings: Settings, i18n_data: dict
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
@@ -184,7 +186,7 @@ async def ads_delete_prompt(callback: types.CallbackQuery, settings: Settings, i
 @router.callback_query(F.data.startswith("admin_ads:delete_cancel:"))
 async def ads_delete_cancel(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
-):
+) -> None:
     # Return to the ad card view
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -236,7 +238,7 @@ async def ads_delete_cancel(
 @router.callback_query(F.data.startswith("admin_ads:delete_confirm:"))
 async def ads_delete_confirm(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -283,7 +285,7 @@ async def ads_delete_confirm(
 @router.callback_query(F.data == "admin_action:ads_create")
 async def ads_create_start(
     callback: types.CallbackQuery, state: FSMContext, settings: Settings, i18n_data: dict
-):
+) -> None:
     from bot.states.admin_states import AdminStates
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -316,7 +318,7 @@ async def ads_create_flow(
     settings: Settings,
     i18n_data: dict,
     session: AsyncSession,
-):
+) -> None:
     current_state = await state.get_state()
     if current_state not in (
         AdminStates.waiting_for_ad_source.state,

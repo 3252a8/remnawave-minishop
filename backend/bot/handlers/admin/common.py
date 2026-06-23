@@ -39,7 +39,7 @@ async def admin_panel_command_handler(
     state: FSMContext,
     settings: Settings,
     i18n_data: dict,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:
@@ -65,7 +65,7 @@ async def admin_panel_actions_callback_handler(
     panel_service: PanelApiService,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     action_parts = callback_data(callback).split(":")
     action = action_parts[1]
 
@@ -190,7 +190,7 @@ async def admin_section_handler(
     settings: Settings,
     i18n_data: dict,
     session: AsyncSession,
-):
+) -> None:
     section = callback_data(callback).split(":")[1]
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -243,7 +243,7 @@ async def admin_section_handler(
         await callback.answer()
 
 
-async def show_queue_status_handler(callback: types.CallbackQuery, i18n_data: dict):
+async def show_queue_status_handler(callback: types.CallbackQuery, i18n_data: dict) -> None:
     """Show message queue status to admin"""
     current_lang = i18n_data.get("current_language", "ru")
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")

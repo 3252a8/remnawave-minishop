@@ -4,6 +4,7 @@ from typing import Any, Awaitable, Callable, Dict, Optional, cast
 from aiogram import BaseMiddleware
 from aiogram.types import (
     CallbackQuery,
+    InlineKeyboardMarkup,
     Message,
     TelegramObject,
     Update,
@@ -82,14 +83,15 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
             return await handler(event, data)
 
         i18n_payload: Dict[str, Any] = data.get("i18n_data", {})
-        current_lang: str = i18n_payload.get("current_language", self.settings.DEFAULT_LANGUAGE)
-        i18n_instance: Optional[JsonI18n] = i18n_payload.get(
-            "i18n_instance", self.i18n_main_instance
+        current_lang = str(i18n_payload.get("current_language") or self.settings.DEFAULT_LANGUAGE)
+        raw_i18n = i18n_payload.get("i18n_instance")
+        i18n_instance: Optional[JsonI18n] = (
+            raw_i18n if isinstance(raw_i18n, JsonI18n) else self.i18n_main_instance
         )
 
         def translate(key: str) -> str:
             if i18n_instance:
-                return i18n_instance.gettext(current_lang, key)
+                return str(i18n_instance.gettext(current_lang, key))
             return key
 
         bot_instance = data.get("bot") or data.get("bot_instance")
@@ -124,7 +126,7 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
         self,
         callback: CallbackQuery,
         prompt_text: str,
-        keyboard,
+        keyboard: InlineKeyboardMarkup | None,
         data: Dict[str, Any],
     ) -> None:
         try:

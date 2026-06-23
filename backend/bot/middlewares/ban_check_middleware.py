@@ -10,10 +10,10 @@ from aiogram.exceptions import (
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message, TelegramObject, Update, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.keyboards.inline.user_keyboards import get_user_banned_keyboard
 from config.settings import Settings
 from db.dal import user_dal
 
-from ..keyboards.inline.user_keyboards import get_user_banned_keyboard
 from .i18n import JsonI18n
 
 

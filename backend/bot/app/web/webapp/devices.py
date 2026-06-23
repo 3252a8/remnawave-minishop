@@ -1,3 +1,8 @@
+from bot.app.web.context import (
+    get_session_factory,
+    get_settings,
+    get_subscription_service,
+)
 from bot.app.web.webapp.cache_helpers import webapp_cached_user_payload
 
 from ._runtime import (
@@ -12,6 +17,7 @@ from ._runtime import (
     datetime,
     hashlib,
     hmac,
+    json_response,
     logger,
     redis_key,
     sessionmaker,
@@ -35,12 +41,12 @@ from .payloads import (
 
 async def devices_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not settings.MY_DEVICES_SECTION_ENABLED:
         return _json_error(404, "devices_disabled", "Devices section is disabled")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    subscription_service: SubscriptionService = request.app["subscription_service"]
+    async_session_factory: sessionmaker = get_session_factory(request)
+    subscription_service: SubscriptionService = get_subscription_service(request)
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
@@ -60,11 +66,11 @@ async def devices_route(request: web.Request) -> web.Response:
             ),
         )
     if isinstance(result, dict) and result.get("ok") is True:
-        return web.json_response({"ok": True, **(result.get("payload") or {})})
+        return json_response({"ok": True, **(result.get("payload") or {})})
     if isinstance(result, dict) and not result.get("error"):
         # Backward-compatible with payloads written by older versions under
         # the same Redis cache key.
-        return web.json_response({"ok": True, **result})
+        return json_response({"ok": True, **result})
     if not isinstance(result, dict):
         result = {}
     if not result.get("ok"):
@@ -73,7 +79,7 @@ async def devices_route(request: web.Request) -> web.Response:
             str(result.get("error") or "devices_load_failed"),
             str(result.get("message") or "Failed to load devices"),
         )
-    return web.json_response({"ok": True, **(result.get("payload") or {})})
+    return json_response({"ok": True, **(result.get("payload") or {})})
 
 
 async def _load_devices_payload(
@@ -159,15 +165,15 @@ async def disconnect_device_route(request: web.Request) -> web.Response:
     if rate_limit_response:
         return rate_limit_response
 
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not settings.MY_DEVICES_SECTION_ENABLED:
         return _json_error(404, "devices_disabled", "Devices section is disabled")
 
     disconnect_payload = await _parse_model_payload(request, WebAppDeviceDisconnectPayload)
     token = str(disconnect_payload.token or "").strip()
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    subscription_service: SubscriptionService = request.app["subscription_service"]
+    async_session_factory: sessionmaker = get_session_factory(request)
+    subscription_service: SubscriptionService = get_subscription_service(request)
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
@@ -204,7 +210,7 @@ async def disconnect_device_route(request: web.Request) -> web.Response:
         await cache_delete(settings, redis_key(settings, "cache", "webapp", "devices", user_id))
         await session.commit()
 
-    return web.json_response({"ok": True})
+    return json_response({"ok": True})
 
 
 def _device_hwid_token(hwid: str) -> str:

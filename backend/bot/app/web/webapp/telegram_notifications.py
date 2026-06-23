@@ -1,3 +1,10 @@
+from bot.app.web.context import (
+    get_bot,
+    get_bot_username,
+    get_i18n,
+    get_session_factory,
+    get_settings,
+)
 from bot.services.telegram_notifications import (
     TELEGRAM_NOTIFICATIONS_ENABLED,
     probe_telegram_notifications,
@@ -8,6 +15,7 @@ from ._runtime import (
     Any,
     Dict,
     Settings,
+    json_response,
     logger,
     sessionmaker,
     user_dal,
@@ -26,8 +34,8 @@ async def _probe_telegram_notifications_for_user_id(
     *,
     force: bool = False,
 ) -> Dict[str, Any]:
-    settings: Settings = request.app["settings"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         try:
             db_user = await user_dal.get_user_by_id(session, user_id)
@@ -37,17 +45,15 @@ async def _probe_telegram_notifications_for_user_id(
                     "ok": False,
                     "status": "access_denied",
                     "enabled": False,
-                    "start_link": telegram_notifications_start_link(
-                        request.app.get("bot_username") or ""
-                    ),
+                    "start_link": telegram_notifications_start_link(get_bot_username(request)),
                 }
             result = await probe_telegram_notifications(
                 session=session,
-                bot=request.app["bot"],
+                bot=get_bot(request),
                 settings=settings,
-                i18n=request.app.get("i18n"),
+                i18n=get_i18n(request),
                 user=db_user,
-                bot_username=request.app.get("bot_username") or "",
+                bot_username=get_bot_username(request),
                 force=force,
             )
             await session.commit()
@@ -66,9 +72,7 @@ async def _probe_telegram_notifications_for_user_id(
                 "ok": False,
                 "status": "unknown",
                 "enabled": False,
-                "start_link": telegram_notifications_start_link(
-                    request.app.get("bot_username") or ""
-                ),
+                "start_link": telegram_notifications_start_link(get_bot_username(request)),
             }
 
 
@@ -78,4 +82,4 @@ async def account_telegram_notifications_probe_route(request: web.Request) -> we
     result = await _probe_telegram_notifications_for_user_id(request, user_id, force=force)
     if result.get("status") == "access_denied":
         return _json_error(403, "access_denied", "Access denied")
-    return web.json_response({"ok": True, "telegram_notifications": result})
+    return json_response({"ok": True, "telegram_notifications": result})

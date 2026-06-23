@@ -139,6 +139,6 @@ def _resolve_admin_period_tariff_key(
 
 def _admin_tariff_label(tariff: Any, lang: str) -> str:
     try:
-        return tariff.name(lang)
+        return str(tariff.name(lang))
     except Exception:
         return str(getattr(tariff, "key", "") or tariff)

@@ -1,3 +1,7 @@
+from bot.app.web.context import (
+    get_session_factory,
+    get_support_service,
+)
 from bot.services.support_service import TicketForbidden, TicketNotFound, TicketRateLimited
 from db.dal import support_dal, user_dal
 from db.models import SupportTicket, SupportTicketMessage
@@ -5,6 +9,7 @@ from db.models import SupportTicket, SupportTicketMessage
 from ._runtime import (
     Any,
     Dict,
+    json_response,
     sessionmaker,
     web,
 )
@@ -64,7 +69,7 @@ async def support_tickets_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     limit, offset = _support_limit_offset(request)
     status_filter = request.query.get("status") or None
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         tickets = await support_dal.list_user_tickets(
             session,
@@ -74,7 +79,7 @@ async def support_tickets_route(request: web.Request) -> web.Response:
             status_filter=status_filter,
         )
         counts = await support_dal.user_ticket_counts(session, user_id)
-    return web.json_response(
+    return json_response(
         {
             "ok": True,
             "tickets": [_support_ticket_payload(t) for t in tickets],
@@ -86,7 +91,7 @@ async def support_tickets_route(request: web.Request) -> web.Response:
 async def support_create_ticket_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     payload = await _parse_model_payload(request, CreateTicketPayload)
-    service = request.app["support_service"]
+    service = get_support_service(request)
     try:
         ticket = await service.create_ticket(
             user_id,
@@ -99,18 +104,18 @@ async def support_create_ticket_route(request: web.Request) -> web.Response:
         return _json_error(403, "ticket_forbidden", "Support ticket action is forbidden")
     except TicketRateLimited:
         return _json_error(429, "ticket_rate_limited", "Too many support tickets")
-    return web.json_response({"ok": True, "ticket": _support_ticket_payload(ticket)})
+    return json_response({"ok": True, "ticket": _support_ticket_payload(ticket)})
 
 
 async def support_ticket_detail_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     ticket_id = int(request.match_info["id"])
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         ticket, messages = await support_dal.get_ticket(session, ticket_id, include_internal=False)
         if not ticket or ticket.user_id != user_id:
             return _json_error(404, "not_found", "Ticket not found")
-    return web.json_response(
+    return json_response(
         {
             "ok": True,
             "ticket": _support_ticket_payload(ticket),
@@ -123,14 +128,14 @@ async def support_ticket_reply_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     ticket_id = int(request.match_info["id"])
     payload = await _parse_model_payload(request, TicketReplyPayload)
-    service = request.app["support_service"]
+    service = get_support_service(request)
     try:
         ticket, message = await service.reply_as_user(user_id, ticket_id, payload.body)
     except TicketForbidden:
         return _json_error(403, "ticket_forbidden", "Support ticket action is forbidden")
     except TicketNotFound:
         return _json_error(404, "not_found", "Ticket not found")
-    return web.json_response(
+    return json_response(
         {
             "ok": True,
             "ticket": _support_ticket_payload(ticket),
@@ -142,20 +147,20 @@ async def support_ticket_reply_route(request: web.Request) -> web.Response:
 async def support_ticket_read_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     ticket_id = int(request.match_info["id"])
-    service = request.app["support_service"]
+    service = get_support_service(request)
     try:
         await service.mark_read_as_user(user_id, ticket_id)
     except TicketNotFound:
         return _json_error(404, "not_found", "Ticket not found")
-    return web.json_response({"ok": True})
+    return json_response({"ok": True})
 
 
 async def support_unread_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         user = await user_dal.get_user_by_id(session, user_id)
         if user and user.is_banned:
             return _json_error(403, "ticket_forbidden", "Support ticket action is forbidden")
         unread = await support_dal.count_user_unread(session, user_id)
-    return web.json_response({"ok": True, "unread": unread})
+    return json_response({"ok": True, "unread": unread})

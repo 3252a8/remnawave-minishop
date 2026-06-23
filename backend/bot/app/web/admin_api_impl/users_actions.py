@@ -2,6 +2,14 @@ from html import escape as html_escape
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from bot.app.web.context import (
+    get_i18n,
+    get_optional_subscription_service,
+    get_panel_service,
+    get_session_factory,
+    get_settings,
+)
+
 from ._runtime import (
     AdminUserBanBody,
     AdminUserExtendBody,
@@ -44,8 +52,8 @@ async def admin_user_ban_route(request: web.Request) -> web.Response:
     body = await parse_body_or_400(request, AdminUserBanBody)
     desired = bool(body.banned)
 
-    settings: Settings = request.app["settings"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         user = await user_dal.get_user_by_id(session, target_id)
         if not user:
@@ -69,7 +77,7 @@ async def admin_user_message_route(request: web.Request) -> web.Response:
     if not queue_manager:
         return _error(503, "queue_unavailable")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         target_user = await user_dal.get_user_by_id(session, target_id)
         if not target_user or not target_user.telegram_id:
@@ -128,7 +136,7 @@ async def admin_user_message_preview_route(request: web.Request) -> web.Response
         logger.warning("Admin direct message preview failed: %s", exc)
         return _error(502, "preview_failed", str(exc))
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         await message_log_dal.create_message_log(
             session,
@@ -169,8 +177,8 @@ async def admin_user_telegram_profile_link_route(request: web.Request) -> web.Re
         return _error(503, "queue_unavailable")
 
     target_id = int(request.match_info["user_id"])
-    settings: Settings = request.app["settings"]
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    settings: Settings = get_settings(request)
+    async_session_factory: sessionmaker = get_session_factory(request)
 
     async with async_session_factory() as session:
         target_user = await user_dal.get_user_by_id(session, target_id)
@@ -198,7 +206,7 @@ async def admin_user_telegram_profile_link_route(request: web.Request) -> web.Re
         )
         await session.commit()
 
-    i18n_instance = request.app.get("i18n")
+    i18n_instance = get_i18n(request)
     translate = (
         (lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs))
         if i18n_instance is not None
@@ -249,12 +257,12 @@ async def admin_user_delete_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
 
-    settings: Settings = request.app["settings"]
-    panel_service = request.app.get("panel_service")
+    settings: Settings = get_settings(request)
+    panel_service = get_panel_service(request)
     if panel_service is None:
-        subscription_service = request.app.get("subscription_service")
+        subscription_service = get_optional_subscription_service(request)
         panel_service = getattr(subscription_service, "panel_service", None)
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         user = await user_dal.get_user_by_id(session, target_id)
         if not user:
@@ -317,9 +325,9 @@ async def admin_user_delete_route(request: web.Request) -> web.Response:
 async def admin_user_reset_trial_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         user = await user_dal.get_user_by_id(session, target_id)
         if not user:
@@ -349,9 +357,9 @@ async def admin_user_premium_override_route(request: web.Request) -> web.Respons
     """Premium-squad traffic overrides only (unlimited toggle + bonus GB)."""
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     body = await parse_body_or_400(request, AdminUserPremiumOverrideBody)
-    subscription_service = request.app.get("subscription_service")
+    subscription_service = get_optional_subscription_service(request)
 
     unlimited = bool(body.unlimited)
     bonus_bytes_raw = body.bonus_bytes
@@ -372,7 +380,7 @@ async def admin_user_premium_override_route(request: web.Request) -> web.Respons
     if bonus_bytes < 0:
         return _error(400, "invalid_bonus", "bonus must be non-negative")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         active = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
         if not active:
@@ -409,7 +417,7 @@ async def admin_user_regular_traffic_override_route(request: web.Request) -> web
     """Main (regular) traffic: native unlimited panel limit + admin bonus GB."""
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     body = await parse_body_or_400(request, AdminUserRegularTrafficOverrideBody)
 
     unlimited = bool(body.unlimited)
@@ -431,9 +439,9 @@ async def admin_user_regular_traffic_override_route(request: web.Request) -> web
     if regular_bonus_bytes < 0:
         return _error(400, "invalid_regular_bonus", "regular bonus must be non-negative")
 
-    subscription_service = request.app.get("subscription_service")
+    subscription_service = get_optional_subscription_service(request)
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         active = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
         if not active:
@@ -473,7 +481,7 @@ async def admin_user_hwid_device_limit_route(request: web.Request) -> web.Respon
     """
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     body = await parse_body_or_400(request, AdminUserHwidDeviceLimitBody)
 
     unlimited = bool(body.unlimited)
@@ -500,9 +508,9 @@ async def admin_user_hwid_device_limit_route(request: web.Request) -> web.Respon
                 "hwid_device_limit must be an integer from 0 to 1000000",
             )
 
-    subscription_service = request.app.get("subscription_service")
+    subscription_service = get_optional_subscription_service(request)
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         active = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
         if not active:
@@ -547,7 +555,7 @@ async def admin_user_traffic_grant_route(request: web.Request) -> web.Response:
     """
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     body = await parse_body_or_400(request, AdminUserTrafficGrantBody)
 
     kind = str(body.kind or "regular").strip().lower()
@@ -570,11 +578,11 @@ async def admin_user_traffic_grant_route(request: web.Request) -> web.Response:
     if gb_value <= 0 or grant_bytes <= 0:
         return _error(400, "invalid_amount", "amount must be positive")
 
-    subscription_service = request.app.get("subscription_service")
+    subscription_service = get_optional_subscription_service(request)
     if subscription_service is None:
         return _error(503, "subscription_service_unavailable")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         active = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
         if not active:
@@ -624,7 +632,7 @@ async def admin_user_traffic_grant_route(request: web.Request) -> web.Response:
 async def admin_user_extend_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     body = await parse_body_or_400(request, AdminUserExtendBody)
     try:
         days = int(body.days or 0)
@@ -642,11 +650,11 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
     if tariff_error:
         return _error(400, tariff_error)
 
-    subscription_service = request.app.get("subscription_service")
+    subscription_service = get_optional_subscription_service(request)
     if subscription_service is None:
         return _error(503, "subscription_service_unavailable")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         new_end = await subscription_service.extend_active_subscription_days(
             session,
@@ -689,7 +697,7 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
 async def admin_user_tariff_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     body = await parse_body_or_400(request, AdminUserTariffBody)
     tariff_key, tariff_error = _resolve_admin_period_tariff_key(
         settings,
@@ -700,11 +708,11 @@ async def admin_user_tariff_route(request: web.Request) -> web.Response:
     if not tariff_key:
         return _error(400, "tariff_required")
 
-    subscription_service = request.app.get("subscription_service")
+    subscription_service = get_optional_subscription_service(request)
     if subscription_service is None:
         return _error(503, "subscription_service_unavailable")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         active = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
         if not active:

@@ -46,7 +46,7 @@ async def process_subscription_days_handler(
     i18n_data: dict,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     """Process subscription days input"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -143,7 +143,7 @@ async def process_direct_message_handler(
     i18n_data: dict,
     bot: Bot,
     session: AsyncSession,
-):
+) -> None:
     """Process direct message to user"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -248,7 +248,7 @@ async def ban_user_prompt_handler(
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession,
-):
+) -> None:
     """Prompt admin to enter user ID or username to ban"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -279,7 +279,7 @@ async def unban_user_prompt_handler(
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession,
-):
+) -> None:
     """Prompt admin to enter user ID or username to unban"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -310,7 +310,7 @@ async def view_banned_users_handler(
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession,
-):
+) -> None:
     """Display list of banned users"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -354,7 +354,7 @@ async def process_ban_user_handler(
     i18n_data: dict,
     panel_service: PanelApiService,
     session: AsyncSession,
-):
+) -> None:
     """Process user ban input"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -404,7 +404,7 @@ async def process_unban_user_handler(
     i18n_data: dict,
     panel_service: PanelApiService,
     session: AsyncSession,
-):
+) -> None:
     """Process user unban input"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -454,7 +454,7 @@ async def process_premium_override_bonus_handler(
     i18n_data: dict,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     """Read bonus GB and apply premium override (non-unlimited path)."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -563,7 +563,7 @@ async def process_hwid_device_limit_handler(
     i18n_data: dict,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     """Read explicit HWID device limit and apply it."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -673,7 +673,7 @@ async def process_traffic_grant_gb_handler(
     i18n_data: dict,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     """Read GB amount and apply admin grant of regular or premium traffic."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -787,7 +787,7 @@ async def user_card_from_list_handler(
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
     session: AsyncSession,
-):
+) -> None:
     """Display user card when clicked from user list"""
     try:
         parts = callback_data(callback).split(":")

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Label, Separator, Tabs } from "$components/ui/primitives.js";
   import { Checkbox, Input, ScrollArea, Textarea } from "$components/ui/index.js";
   import Dialog from "$components/ui/dialog.svelte";
@@ -32,46 +32,59 @@
     watchAdminDatatable,
   } from "../../lib/admin/datatables.js";
 
-  export let at;
-  export let fmtDate;
-  export let fmtMoney;
-  export let resolvedAvatarUrl;
-  export let userDisplayName;
-  export let userSecondaryName;
-  export let paymentStatusVariant;
-  export let trafficPercentValue;
-  export let trafficLeftLabel;
-  export let trafficOfLabel;
-  export let userInitials = () => "";
-  export let fmtDateShort = (v) => v;
-  export let userTelegramProfileLink = () => "";
-  export let userTelegramProfileLinkKind = () => "";
-  export let openTelegramProfileLink = () => false;
-  export let onClose = () => usersStore.closeUser();
+  import type { Tariff, TariffsStore } from "$lib/admin/stores/tariffsStore";
+  import type { AdminUser, UsersStore } from "$lib/admin/stores/usersStore";
+
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type MoneyFormatter = (value: unknown, currency?: string) => string;
+  type DateFormatter = (value: unknown) => string;
+  type BadgeVariant = "success" | "danger" | "warning" | "muted";
+  type ComponentCallback = (...args: never[]) => void;
+  type SelectOption = { value: string; label: string };
+  type HwidDraftState = { key: string; valid: boolean };
+
+  export let at: TranslateFn;
+  export let fmtDate: DateFormatter;
+  export let fmtMoney: MoneyFormatter;
+  export let resolvedAvatarUrl: (user: AdminUser) => string;
+  export let userDisplayName: (user: AdminUser) => string;
+  export let userSecondaryName: (user: AdminUser) => string;
+  export let paymentStatusVariant: (status: unknown) => BadgeVariant;
+  export let trafficPercentValue: (left: unknown, total: unknown) => number;
+  export let trafficLeftLabel: (used: unknown, limit: unknown) => string;
+  export let trafficOfLabel: (used: unknown, limit: unknown) => string;
+  export let userInitials: (user: AdminUser) => string = () => "";
+  export let fmtDateShort: DateFormatter = (value) => String(value ?? "");
+  export let userTelegramProfileLink: (user: AdminUser) => string = () => "";
+  export let userTelegramProfileLinkKind: (user: AdminUser) => string = () => "";
+  export let openTelegramProfileLink: (url: string) => boolean = () => false;
+  export let onClose: () => void = () => usersStore.closeUser();
 
   let avatarPreviewOpen = false;
   let avatarPreviewUrl = "";
   let avatarPreviewName = "";
   let tariffsLoadRequested = false;
 
-  function pretty(val) {
+  function pretty(val: unknown): string {
     if (val === true) return at("yes", {}, "Да");
     if (val === false) return at("no", {}, "Нет");
     return String(val ?? "—");
   }
 
-  function isTrialSubscription(sub) {
+  function isTrialSubscription(sub: Record<string, unknown> | null | undefined): boolean {
     return Boolean(sub?.is_trial || String(sub?.provider || "").toLowerCase() === "trial");
   }
 
-  function subscriptionDisplayLabel(sub) {
+  function subscriptionDisplayLabel(sub: Record<string, unknown> | null | undefined): string {
     if (!sub) return "—";
     if (isTrialSubscription(sub)) return at("user_subscription_trial", {}, "Триал");
-    if (sub.display_label) return sub.display_label;
-    return sub.tariff_name || sub.tariff_key || at("user_history_no_tariff", {}, "Без тарифа");
+    if (sub.display_label) return String(sub.display_label);
+    return sub.tariff_name || sub.tariff_key
+      ? String(sub.tariff_name || sub.tariff_key)
+      : at("user_history_no_tariff", {}, "Без тарифа");
   }
 
-  function trialSummaryText(trial) {
+  function trialSummaryText(trial: Record<string, unknown> | null | undefined): string {
     if (!trial?.used) return at("user_trial_not_used", {}, "Не брал");
     const date = trial.latest_activated_at || trial.first_activated_at;
     const base = date
@@ -80,7 +93,7 @@
     return trial.active ? `${base} · ${at("user_trial_active", {}, "активен")}` : base;
   }
 
-  function hwidLimitLabel(sub) {
+  function hwidLimitLabel(sub: Record<string, unknown> | null | undefined): string {
     const rawBase = sub?.hwid_device_limit;
     const hasBase = rawBase !== null && rawBase !== undefined;
     const extra = Math.max(0, Number(sub?.extra_hwid_devices || 0));
@@ -97,7 +110,7 @@
     return at("user_hwid_limit_count", { count: base }, `${base}`);
   }
 
-  function vpnLastConnectionLabel(detail) {
+  function vpnLastConnectionLabel(detail: Record<string, unknown> | null | undefined): string {
     const connectedAt = detail?.last_vpn_connected_at;
     const status = detail?.vpn_connection_status;
     if (connectedAt) return fmtDate(connectedAt);
@@ -108,25 +121,35 @@
     return "—";
   }
 
-  const usersStore = getContext("usersStore");
-  const tariffsStore = getContext("tariffsStore");
+  const usersStore = getContext<UsersStore>("usersStore");
+  const tariffsStore = getContext<TariffsStore>("tariffsStore");
   const userLogsTable = createAdminDatatable();
   const userReferralsTable = createAdminDatatable();
   const userLogsTableSignal = watchAdminDatatable(userLogsTable);
   const userReferralsTableSignal = watchAdminDatatable(userReferralsTable);
 
-  function tariffLabel(tariff) {
+  const selectExtendTariff = ((value: string) =>
+    usersStore.updateState({ userExtendTariffKey: value })) as ComponentCallback;
+  const selectTariffAction = ((value: string) =>
+    usersStore.updateState({ userTariffActionKey: value })) as ComponentCallback;
+  const selectGrantTrafficKind = ((value: string) =>
+    usersStore.updateState({ grantTrafficKindDraft: value })) as ComponentCallback;
+
+  function tariffLabel(tariff: Tariff | Record<string, unknown> | null | undefined): string {
+    const raw = (tariff || {}) as Record<string, unknown>;
+    const names =
+      raw.names && typeof raw.names === "object" ? (raw.names as Record<string, unknown>) : {};
     return (
-      tariff?.names?.ru ||
-      tariff?.names?.en ||
-      tariff?.name ||
-      tariff?.key ||
+      String(names.ru || "") ||
+      String(names.en || "") ||
+      String(raw.name || "") ||
+      String(raw.key || "") ||
       at("user_history_no_tariff", {}, "No tariff")
     );
   }
 
-  function uniqueTariffsByKey(tariffs) {
-    const seen = new Set();
+  function uniqueTariffsByKey(tariffs: Tariff[]): Tariff[] {
+    const seen = new Set<string>();
     return tariffs.filter((tariff) => {
       const key = String(tariff?.key || "");
       if (!key || seen.has(key)) return false;
@@ -135,7 +158,10 @@
     });
   }
 
-  function tariffSelectItem(tariff, { currentKey = "", markCurrent = false } = {}) {
+  function tariffSelectItem(
+    tariff: Tariff,
+    { currentKey = "", markCurrent = false }: { currentKey?: string; markCurrent?: boolean } = {}
+  ): SelectOption {
     const value = String(tariff?.key || "");
     const label = tariffLabel(tariff);
     return {
@@ -147,20 +173,20 @@
     };
   }
 
-  function gbDraftNumber(value) {
+  function gbDraftNumber(value: unknown): number {
     if (value === "" || value === null || value === undefined) return 0;
     const num = Number(value);
     return Number.isFinite(num) ? num : NaN;
   }
 
-  function sameGbDraft(left, right) {
+  function sameGbDraft(left: unknown, right: unknown): boolean {
     const leftNum = gbDraftNumber(left);
     const rightNum = gbDraftNumber(right);
     if (!Number.isFinite(leftNum) || !Number.isFinite(rightNum)) return false;
     return Math.abs(leftNum - rightNum) < 0.000001;
   }
 
-  function hwidDraftState(unlimited, value) {
+  function hwidDraftState(unlimited: unknown, value: unknown): HwidDraftState {
     if (unlimited) return { key: "unlimited", valid: true };
     if (value === "" || value === null || value === undefined) {
       return { key: "default", valid: true };
@@ -347,10 +373,10 @@
     openTelegramProfileLink(openedUserTelegramProfileLink);
   }
 
-  function openRelatedUser(user) {
+  function openRelatedUser(user: AdminUser | null | undefined): void {
     if (!user?.user_id) return;
     usersStore.closeUserReferrals();
-    usersStore.openUser(user);
+    void usersStore.openUser(user);
   }
 </script>
 
@@ -953,8 +979,7 @@
                             placeholder={at("user_tariff_select_placeholder", {}, "Select tariff")}
                             ariaLabel={at("user_tariff_select_label", {}, "Tariff")}
                             disabled={userActionBusy || extendTariffItems.length === 1}
-                            onValueChange={(value) =>
-                              usersStore.updateState({ userExtendTariffKey: value })}
+                            onValueChange={selectExtendTariff}
                           />
                         </Label.Root>
                       {/if}
@@ -1060,8 +1085,7 @@
                           placeholder={at("user_tariff_select_placeholder", {}, "Select tariff")}
                           ariaLabel={at("user_tariff_select_label", {}, "Tariff")}
                           disabled={userActionBusy}
-                          onValueChange={(value) =>
-                            usersStore.updateState({ userTariffActionKey: value })}
+                          onValueChange={selectTariffAction}
                         />
                       </Label.Root>
                     </div>
@@ -1414,7 +1438,7 @@
                             label: at("user_traffic_grant_kind_premium", {}, "Премиум"),
                           },
                         ]}
-                        onValueChange={(v) => usersStore.updateState({ grantTrafficKindDraft: v })}
+                        onValueChange={selectGrantTrafficKind}
                         ariaLabel={at("user_traffic_grant_kind", {}, "Тип трафика")}
                       />
                     </Label.Root>
@@ -1455,7 +1479,7 @@
                 >
                 <Textarea
                   class="admin-textarea"
-                  rows="3"
+                  rows={3}
                   placeholder={at("user_placeholder_msg", {}, "Текст сообщения")}
                   bind:value={$usersStore.userMessageDraft}
                 />

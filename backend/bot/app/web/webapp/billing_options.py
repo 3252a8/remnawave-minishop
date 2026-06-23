@@ -1,3 +1,8 @@
+from bot.app.web.context import (
+    get_session_factory,
+    get_settings,
+    get_subscription_service,
+)
 from bot.app.web.webapp.auth import _require_user_id
 from bot.app.web.webapp.common import (
     _json_error,
@@ -13,6 +18,7 @@ from ._runtime import (
     SubscriptionService,
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
+    json_response,
     payment_currency_code,
     sessionmaker,
     subscription_dal,
@@ -33,7 +39,7 @@ from .serializers import (
 
 async def tariff_topup_options_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     config = settings.tariffs_config
     topup_kind = str(request.query.get("kind") or "all").strip().lower()
     if topup_kind not in {"all", "regular", "premium"}:
@@ -41,7 +47,7 @@ async def tariff_topup_options_route(request: web.Request) -> web.Response:
     if not config:
         return _json_error(404, "tariffs_unavailable", "Tariffs are not configured")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
+    async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
@@ -80,8 +86,8 @@ async def tariff_topup_options_route(request: web.Request) -> web.Response:
             + int(getattr(sub, "premium_topup_used_bytes", 0) or 0)
             + premium_bonus_bytes
         )
-        premium_access = await request.app["subscription_service"].premium_access_for_tariff(tariff)
-        return web.json_response(
+        premium_access = await get_subscription_service(request).premium_access_for_tariff(tariff)
+        return json_response(
             {
                 "ok": True,
                 "tariff_key": tariff.key,
@@ -115,13 +121,13 @@ async def tariff_topup_options_route(request: web.Request) -> web.Response:
 
 async def tariff_change_options_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     config = settings.tariffs_config
     if not config:
         return _json_error(404, "tariffs_unavailable", "Tariffs are not configured")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    subscription_service: SubscriptionService = request.app["subscription_service"]
+    async_session_factory: sessionmaker = get_session_factory(request)
+    subscription_service: SubscriptionService = get_subscription_service(request)
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
@@ -143,7 +149,7 @@ async def tariff_change_options_route(request: web.Request) -> web.Response:
                 session, sub, tariff
             )
             targets.append(_serialize_tariff_change_target(settings, config, tariff, options, lang))
-        return web.json_response(
+        return json_response(
             {
                 "ok": True,
                 "current": {
@@ -164,11 +170,11 @@ async def tariff_change_route(request: web.Request) -> web.Response:
     if mode not in {"recalc_days", "convert_days_to_gb"}:
         return _json_error(400, "invalid_change_mode", "This tariff change requires payment")
 
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     if not settings.tariffs_config:
         return _json_error(404, "tariffs_unavailable", "Tariffs are not configured")
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    subscription_service: SubscriptionService = request.app["subscription_service"]
+    async_session_factory: sessionmaker = get_session_factory(request)
+    subscription_service: SubscriptionService = get_subscription_service(request)
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
@@ -183,7 +189,7 @@ async def tariff_change_route(request: web.Request) -> web.Response:
             await session.rollback()
             return _json_error(400, "change_failed", "Tariff change failed")
         await session.commit()
-        return web.json_response({"ok": True, **result})
+        return json_response({"ok": True, **result})
 
 
 async def tariff_change_payment_route(request: web.Request) -> web.Response:
@@ -191,7 +197,7 @@ async def tariff_change_payment_route(request: web.Request) -> web.Response:
     payment_payload = await _parse_model_payload(request, WebAppPaymentCreatePayload)
     method = str(payment_payload.method or "").strip().lower()
     tariff_key = str(payment_payload.tariff_key or "").strip()
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     config = settings.tariffs_config
     default_currency_code = default_payment_currency_code_for_settings(settings)
     if not config:
@@ -199,8 +205,8 @@ async def tariff_change_payment_route(request: web.Request) -> web.Response:
     if not tariff_key:
         return _json_error(400, "invalid_plan", "Tariff is not selected")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    subscription_service: SubscriptionService = request.app["subscription_service"]
+    async_session_factory: sessionmaker = get_session_factory(request)
+    subscription_service: SubscriptionService = get_subscription_service(request)
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
@@ -237,15 +243,15 @@ async def tariff_change_payment_route(request: web.Request) -> web.Response:
 
 async def device_topup_options_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    settings: Settings = request.app["settings"]
+    settings: Settings = get_settings(request)
     config = settings.tariffs_config
     if not settings.MY_DEVICES_SECTION_ENABLED:
         return _json_error(404, "devices_disabled", "Devices section is disabled")
     if not config:
         return _json_error(404, "tariffs_unavailable", "Tariffs are not configured")
 
-    async_session_factory: sessionmaker = request.app["async_session_factory"]
-    subscription_service: SubscriptionService = request.app["subscription_service"]
+    async_session_factory: sessionmaker = get_session_factory(request)
+    subscription_service: SubscriptionService = get_subscription_service(request)
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or db_user.is_banned:
@@ -329,7 +335,7 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
             if stars_quote and int(stars_quote.get("price") or 0) > 0:
                 plan["stars_price"] = int(stars_quote["price"])
             plans.append(plan)
-        return web.json_response(
+        return json_response(
             {
                 "ok": True,
                 "tariff_key": tariff.key,

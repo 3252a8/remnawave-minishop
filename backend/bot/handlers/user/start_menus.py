@@ -44,7 +44,7 @@ async def send_main_menu(
     subscription_service: SubscriptionService,
     session: AsyncSession,
     is_edit: bool = False,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
 
@@ -135,7 +135,7 @@ async def send_bot_interface_menu(
     subscription_service: SubscriptionService,
     session: AsyncSession,
     is_edit: bool = False,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
 

@@ -4,9 +4,10 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Coroutine, Optional
 
 from aiogram import Bot
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.infra import events
@@ -16,7 +17,7 @@ from bot.services.email_auth_service import EmailAuthService
 from bot.services.notification_service import NotificationService
 from config.settings import Settings
 from db.dal import message_log_dal, subscription_dal, support_dal, user_dal
-from db.models import SupportTicket, SupportTicketMessage, User
+from db.models import Subscription, SupportTicket, SupportTicketMessage, User
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +124,7 @@ class SupportService:
         i18n: Optional[JsonI18n],
         notification_service: Optional[NotificationService] = None,
         email_auth_service: Optional[EmailAuthService] = None,
-    ):
+    ) -> None:
         self.session_factory = session_factory
         self.settings = settings
         self.bot = bot
@@ -138,8 +139,10 @@ class SupportService:
         )
 
     @staticmethod
-    def _schedule_notification(coro, error_message: str, *error_args: Any) -> None:
-        async def _runner():
+    def _schedule_notification(
+        coro: Coroutine[Any, Any, None], error_message: str, *error_args: Any
+    ) -> None:
+        async def _runner() -> None:
             try:
                 await coro
             except Exception:
@@ -147,7 +150,7 @@ class SupportService:
 
         asyncio.create_task(_runner(), name="support-notification")
 
-    async def _ensure_user_allowed(self, session, user_id: int) -> User:
+    async def _ensure_user_allowed(self, session: AsyncSession, user_id: int) -> User:
         user = await user_dal.get_user_by_id(session, user_id)
         if not user or user.is_banned or not self.settings.SUPPORT_TICKETS_ENABLED:
             raise TicketForbidden("ticket_forbidden")
@@ -378,11 +381,14 @@ class SupportService:
             await support_dal.mark_read(session, ticket_id, "admin")
             await session.commit()
 
-    async def build_user_snapshot(self, user: User, *, session=None) -> dict:
+    async def build_user_snapshot(
+        self, user: User, *, session: Optional[AsyncSession] = None
+    ) -> dict[str, object]:
         owns_session = session is None
         if owns_session:
             session = self.session_factory()
             await session.__aenter__()
+        assert session is not None
         try:
             sub = None
             if getattr(user, "panel_user_uuid", None):
@@ -451,7 +457,7 @@ class SupportService:
                 await session.__aexit__(None, None, None)
 
     @staticmethod
-    def _regular_limit(sub) -> int:
+    def _regular_limit(sub: Optional[Subscription]) -> int:
         if not sub:
             return 0
         if getattr(sub, "regular_unlimited_override", False):
@@ -463,7 +469,7 @@ class SupportService:
         )
 
     @staticmethod
-    def _premium_limit(sub) -> int:
+    def _premium_limit(sub: Optional[Subscription]) -> int:
         if not sub:
             return 0
         if getattr(sub, "premium_unlimited_override", False):

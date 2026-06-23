@@ -37,11 +37,12 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         at: Optional[datetime] = None,
     ) -> int:
         try:
-            return await tariff_dal.sum_active_hwid_devices(
+            active_devices = await tariff_dal.sum_active_hwid_devices(
                 session,
                 subscription_id=sub.subscription_id,
                 at=at or datetime.now(timezone.utc),
             )
+            return int(active_devices)
         except Exception:
             logging.exception(
                 "Failed to recalculate active HWID devices for subscription %s",
@@ -90,7 +91,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
             )
         except Exception:
             logging.exception("sync_hwid_device_limit_to_panel failed for user %s", user_id)
-        return effective_hwid_limit
+        return int(effective_hwid_limit)
 
     async def _hwid_topup_validity_window(
         self,

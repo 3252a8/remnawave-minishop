@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from aiogram import Bot
 from aiohttp import web
@@ -22,6 +22,7 @@ from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
 from db.dal import user_billing_dal
 
+from ..shared.app_context import app_optional, app_required
 from .service import YooKassaService
 from .success import (
     YOOKASSA_EVENT_PAYMENT_CANCELED,
@@ -35,17 +36,23 @@ from .success import (
 )
 
 
-async def yookassa_webhook_route(request: web.Request):
+async def yookassa_webhook_route(request: web.Request) -> web.Response:
 
     try:
-        bot: Bot = request.app["bot"]
-        i18n_instance: JsonI18n = request.app["i18n"]
-        settings: Settings = request.app["settings"]
-        panel_service: PanelApiService = request.app["panel_service"]
-        subscription_service: SubscriptionService = request.app["subscription_service"]
-        referral_service: ReferralService = request.app["referral_service"]
-        lknpd_service: Optional[LknpdService] = request.app.get("lknpd_service")
-        async_session_factory: sessionmaker = request.app["async_session_factory"]
+        bot: Bot = app_required(request, "bot", Bot)
+        i18n_instance: JsonI18n = app_required(request, "i18n", JsonI18n)
+        settings: Settings = app_required(request, "settings", Settings)
+        panel_service: PanelApiService = app_required(request, "panel_service", PanelApiService)
+        subscription_service: SubscriptionService = app_required(
+            request, "subscription_service", SubscriptionService
+        )
+        referral_service: ReferralService = app_required(
+            request, "referral_service", ReferralService
+        )
+        lknpd_service = app_optional(request, "lknpd_service", LknpdService)
+        async_session_factory: sessionmaker = app_required(
+            request, "async_session_factory", sessionmaker
+        )
     except KeyError:
         logging.exception("KeyError accessing app context in yookassa_webhook_route.")
         return web.Response(status=500, text="Internal Server Error: Missing app context component")
@@ -317,8 +324,8 @@ async def yookassa_webhook_route(request: web.Request):
                                             pass
                                         # Attempt to cancel the authorization to avoid charge hold
                                         try:
-                                            yk: YooKassaService = request.app.get(
-                                                "yookassa_service"
+                                            yk = app_optional(
+                                                request, "yookassa_service", YooKassaService
                                             )
                                             payment_id_to_cancel = str(
                                                 payment_dict_for_processing.get("id") or ""

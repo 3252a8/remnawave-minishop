@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Input, Sortable } from "$components/ui/index.js";
   import { Tabs, Switch, Label } from "$components/ui/primitives.js";
   import Dialog from "$components/ui/dialog.svelte";
@@ -6,9 +6,40 @@
   import { AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
   import { getContext } from "svelte";
   import { normalizeCurrencyKey, normalizeUuidList } from "../../lib/admin/tariffDraft.js";
+  import type {
+    DraftRowsField,
+    DraftSquadField,
+    PanelSquad,
+    Tariff,
+    TariffDraft,
+    TariffsCatalog,
+    TariffsStore,
+  } from "$lib/admin/stores/tariffsStore";
 
-  export let at;
-  const tariffsStore = getContext("tariffsStore");
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type SelectOption = { value: string; label: string };
+  type ComponentCallback = (...args: never[]) => void;
+  type DraftRow = Record<string, string | number | undefined>;
+
+  export let at: TranslateFn;
+  const tariffsStore = getContext<TariffsStore>("tariffsStore");
+
+  let tariffEditorOpen = false;
+  let tariffEditingKey = "";
+  let tariffDraft: TariffDraft;
+  let tariffsSaving = false;
+  let tariffDeleteOpen = false;
+  let tariffDeleteTarget: Tariff | null = null;
+  let panelSquadsLoading = false;
+  let panelSquads: PanelSquad[] = [];
+  let tariffsCatalog: TariffsCatalog;
+  let billingModelOptions: SelectOption[] = [];
+  let panelSquadOptions: SelectOption[] = [];
+  let defaultCurrencyKey = "rub";
+  let defaultCurrencyCode = "RUB";
+  let currencyPriceColumnLabel = "";
+  let currencyPriceAriaLabel = "";
+  let conversionCurrencyLabel = "";
 
   $: ({
     tariffEditorOpen,
@@ -30,7 +61,7 @@
     value: squad.uuid,
     label: squad.name,
   }));
-  $: defaultCurrencyKey = normalizeCurrencyKey(tariffsCatalog?.default_currency || "rub");
+  $: defaultCurrencyKey = normalizeCurrencyKey(tariffsCatalog?.default_currency || "rub") as string;
   $: defaultCurrencyCode = defaultCurrencyKey.toUpperCase();
   $: currencyPriceColumnLabel = at(
     "tariff_col_price_currency",
@@ -47,6 +78,37 @@
     { currency: defaultCurrencyCode },
     `Курс конвертации, ${defaultCurrencyCode} за 1 GB`
   );
+  function addDraftSquad(field: DraftSquadField, value: string): void {
+    tariffsStore.addSquadToDraft(field, value);
+    tariffsStore.update((state) => ({
+      ...state,
+      selectedBaseSquad: field === "squadUuids" ? "" : state.selectedBaseSquad,
+      selectedPremiumSquad: field === "premiumSquadUuids" ? "" : state.selectedPremiumSquad,
+    }));
+  }
+
+  const addBaseSquad = ((value: string) => addDraftSquad("squadUuids", value)) as ComponentCallback;
+  const addPremiumSquad = ((value: string) =>
+    addDraftSquad("premiumSquadUuids", value)) as ComponentCallback;
+
+  function moveDraftRow(field: DraftRowsField, from: number, to: number): void {
+    tariffsStore.moveDraftRow(field, from, to);
+  }
+
+  function addPackageRow(field: DraftRowsField, row: DraftRow): void {
+    tariffsStore.addDraftRow(field, row);
+  }
+
+  const movePremiumTopupRow = ((from: number, to: number) =>
+    moveDraftRow("premiumTopupRows", from, to)) as ComponentCallback;
+  const movePeriodRow = ((from: number, to: number) =>
+    moveDraftRow("periodRows", from, to)) as ComponentCallback;
+  const moveTrafficRow = ((from: number, to: number) =>
+    moveDraftRow("trafficRows", from, to)) as ComponentCallback;
+  const moveTopupRow = ((from: number, to: number) =>
+    moveDraftRow("topupRows", from, to)) as ComponentCallback;
+  const moveHwidRow = ((from: number, to: number) =>
+    moveDraftRow("hwidRows", from, to)) as ComponentCallback;
 </script>
 
 <Dialog
@@ -201,10 +263,7 @@
           items={panelSquadOptions}
           placeholder={at("btn_add_squad", {}, "Добавить сквад")}
           ariaLabel={at("btn_add_squad", {}, "Добавить основной сквад")}
-          onValueChange={(value) => {
-            tariffsStore.addSquadToDraft("squadUuids", value);
-            tariffsStore.update((s) => ({ ...s, selectedBaseSquad: "" }));
-          }}
+          onValueChange={addBaseSquad}
         />
         <div class="admin-chip-list">
           {#each normalizeUuidList(tariffDraft.squadUuids) as uuid}
@@ -345,10 +404,7 @@
               items={panelSquadOptions}
               placeholder={at("btn_add_premium_squad", {}, "Добавить premium-сквад")}
               ariaLabel={at("btn_add_premium_squad", {}, "Добавить premium-сквад")}
-              onValueChange={(value) => {
-                tariffsStore.addSquadToDraft("premiumSquadUuids", value);
-                tariffsStore.update((s) => ({ ...s, selectedPremiumSquad: "" }));
-              }}
+              onValueChange={addPremiumSquad}
             />
             <div class="admin-chip-list">
               {#each normalizeUuidList(tariffDraft.premiumSquadUuids) as uuid}
@@ -405,8 +461,7 @@
           <div class="admin-editor-section-actions">
             <AdminButton
               size="sm"
-              onclick={() =>
-                tariffsStore.addDraftRow("premiumTopupRows", { gb: 10, price: "", stars: "" })}
+              onclick={() => addPackageRow("premiumTopupRows", { gb: 10, price: "", stars: "" })}
               ><Plus size={12} /> {at("tariff_btn_package", {}, "Пакет")}</AdminButton
             >
           </div>
@@ -424,7 +479,7 @@
               items={tariffDraft.premiumTopupRows}
               class="admin-row-editor-line admin-row-editor-drag"
               handleLabel={at("tariff_package_reorder", {}, "Перетащите, чтобы изменить порядок")}
-              onReorder={(from, to) => tariffsStore.moveDraftRow("premiumTopupRows", from, to)}
+              onReorder={movePremiumTopupRow}
               let:item={row}
               let:index
             >
@@ -488,7 +543,7 @@
             <AdminButton
               size="sm"
               onclick={() =>
-                tariffsStore.addDraftRow("periodRows", {
+                addPackageRow("periodRows", {
                   months: 1,
                   rub: "",
                   stars: "",
@@ -523,7 +578,7 @@
                 items={tariffDraft.periodRows}
                 class="admin-row-editor-line admin-row-editor-period"
                 handleLabel={at("tariff_period_reorder", {}, "Перетащите, чтобы изменить порядок")}
-                onReorder={(from, to) => tariffsStore.moveDraftRow("periodRows", from, to)}
+                onReorder={movePeriodRow}
                 let:item={row}
                 let:index
               >
@@ -599,8 +654,7 @@
             <div class="admin-editor-section-actions">
               <AdminButton
                 size="sm"
-                onclick={() =>
-                  tariffsStore.addDraftRow("trafficRows", { gb: 10, price: "", stars: "" })}
+                onclick={() => addPackageRow("trafficRows", { gb: 10, price: "", stars: "" })}
                 ><Plus size={12} /> {at("tariff_btn_package", {}, "Пакет")}</AdminButton
               >
             </div>
@@ -618,7 +672,7 @@
                 items={tariffDraft.trafficRows}
                 class="admin-row-editor-line admin-row-editor-drag"
                 handleLabel={at("tariff_package_reorder", {}, "Перетащите, чтобы изменить порядок")}
-                onReorder={(from, to) => tariffsStore.moveDraftRow("trafficRows", from, to)}
+                onReorder={moveTrafficRow}
                 let:item={row}
                 let:index
               >
@@ -681,8 +735,7 @@
             <div class="admin-editor-section-actions">
               <AdminButton
                 size="sm"
-                onclick={() =>
-                  tariffsStore.addDraftRow("topupRows", { gb: 10, price: "", stars: "" })}
+                onclick={() => addPackageRow("topupRows", { gb: 10, price: "", stars: "" })}
                 ><Plus size={12} /> {at("tariff_btn_package", {}, "Пакет")}</AdminButton
               >
             </div>
@@ -700,7 +753,7 @@
                 items={tariffDraft.topupRows}
                 class="admin-row-editor-line admin-row-editor-drag"
                 handleLabel={at("tariff_package_reorder", {}, "Перетащите, чтобы изменить порядок")}
-                onReorder={(from, to) => tariffsStore.moveDraftRow("topupRows", from, to)}
+                onReorder={moveTopupRow}
                 let:item={row}
                 let:index
               >
@@ -774,8 +827,7 @@
           <div class="admin-editor-section-actions">
             <AdminButton
               size="sm"
-              onclick={() =>
-                tariffsStore.addDraftRow("hwidRows", { count: 1, price: "", stars: "" })}
+              onclick={() => addPackageRow("hwidRows", { count: 1, price: "", stars: "" })}
               ><Plus size={12} /> {at("tariff_btn_package", {}, "Пакет")}</AdminButton
             >
           </div>
@@ -793,7 +845,7 @@
               items={tariffDraft.hwidRows}
               class="admin-row-editor-line admin-row-editor-drag"
               handleLabel={at("tariff_package_reorder", {}, "Перетащите, чтобы изменить порядок")}
-              onReorder={(from, to) => tariffsStore.moveDraftRow("hwidRows", from, to)}
+              onReorder={moveHwidRow}
               let:item={row}
               let:index
             >

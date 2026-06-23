@@ -63,6 +63,7 @@ from ..shared import (
     render_payment_link,
     safe_callback_answer,
 )
+from ..shared.app_context import app_optional, app_required
 
 _LOG = "freekassa"
 FREEKASSA_SUPPORTED_CURRENCIES = ("RUB", "USD", "EUR", "UAH", "KZT")
@@ -88,7 +89,7 @@ class FreeKassaConfig(ProviderEnvConfig):
 
     @field_validator("PAYMENT_METHOD_ID", mode="before")
     @classmethod
-    def _empty_to_none_int(cls, v):
+    def _empty_to_none_int(cls, v: Any) -> Any:
         if isinstance(v, str):
             v = v.strip()
             if not v:
@@ -104,7 +105,7 @@ class FreeKassaConfig(ProviderEnvConfig):
         mode="before",
     )
     @classmethod
-    def _strip_optional(cls, v):
+    def _strip_optional(cls, v: Any) -> Any:
         if isinstance(v, str) and not v.strip():
             return None
         return v
@@ -114,7 +115,7 @@ class FreeKassaConfig(ProviderEnvConfig):
         return "/webhook/freekassa"
 
     @property
-    def trusted_ips_list(self) -> list:
+    def trusted_ips_list(self) -> list[str]:
         return [item.strip() for item in (self.TRUSTED_IPS or "").split(",") if item.strip()]
 
 
@@ -145,7 +146,7 @@ class FreeKassaService(HttpClientMixin):
         async_session_factory: sessionmaker,
         subscription_service: SubscriptionService,
         referral_service: ReferralService,
-    ):
+    ) -> None:
         self.bot = bot
         self.settings = settings
         self.config = config
@@ -175,23 +176,23 @@ class FreeKassaService(HttpClientMixin):
         return bool(provider_runtime_enabled(self.config) and self.shop_id and self.api_key)
 
     @property
-    def shop_id(self):
+    def shop_id(self) -> Optional[str]:
         return self.config.MERCHANT_ID
 
     @property
-    def api_key(self):
+    def api_key(self) -> Optional[str]:
         return self.config.API_KEY
 
     @property
-    def second_secret(self):
+    def second_secret(self) -> Optional[str]:
         return self.config.SECOND_SECRET
 
     @property
-    def server_ip(self):
+    def server_ip(self) -> Optional[str]:
         return self.config.PAYMENT_IP
 
     @property
-    def payment_method_id(self):
+    def payment_method_id(self) -> Optional[int]:
         return self.config.PAYMENT_METHOD_ID
 
     async def create_order(
@@ -227,9 +228,12 @@ class FreeKassaService(HttpClientMixin):
         if payment_method_id is None:
             logging.error("FreeKassaService: payment method id is required but not configured.")
             return False, {"message": "missing_payment_method_id"}
+        shop_id = self.shop_id
+        if shop_id is None:
+            return False, {"message": "missing_shop_id"}
 
         payload: Dict[str, Any] = {
-            "shopId": int(self.shop_id),
+            "shopId": int(shop_id),
             "nonce": await self._generate_nonce(),
             "paymentId": str(payment_db_id),
             "i": int(payment_method_id),
@@ -268,9 +272,12 @@ class FreeKassaService(HttpClientMixin):
     ) -> Tuple[bool, Dict[str, Any]]:
         if not self.configured:
             return False, {"message": "service_not_configured"}
+        shop_id = self.shop_id
+        if shop_id is None:
+            return False, {"message": "missing_shop_id"}
 
         payload: Dict[str, Any] = {
-            "shopId": int(self.shop_id),
+            "shopId": int(shop_id),
             "nonce": await self._generate_nonce(),
             "paymentId": str(payment_id),
         }
@@ -506,7 +513,7 @@ class FreeKassaService(HttpClientMixin):
 
 
 async def freekassa_webhook_route(request: web.Request) -> web.Response:
-    service: FreeKassaService = request.app["freekassa_service"]
+    service: FreeKassaService = app_required(request, "freekassa_service", FreeKassaService)
     return await service.webhook_route(request)
 
 
@@ -517,10 +524,10 @@ router = Router(name="user_subscription_payments_freekassa_router")
 async def pay_fk_callback_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     freekassa_service: FreeKassaService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)
@@ -684,7 +691,7 @@ def create_service(ctx: ServiceFactoryContext) -> FreeKassaService:
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    service: FreeKassaService = ctx.request.app["freekassa_service"]
+    service: FreeKassaService = app_required(ctx.request, "freekassa_service", FreeKassaService)
     if not service or not service.configured or not service.payment_method_id:
         return payment_unavailable()
     currency = ctx.currency or service.default_currency
@@ -724,7 +731,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service: FreeKassaService = ctx.request.app.get("freekassa_service")
+    service = app_optional(ctx.request, "freekassa_service", FreeKassaService)
     if not service or not service.configured:
         return None
 

@@ -28,7 +28,6 @@ from db.dal import payment_dal
 from ..base import (
     PaymentProviderSpec,
     ProviderEnvConfig,
-    ProviderManifestField,
     ServiceFactoryContext,
     WebAppPaymentContext,
     normalize_payment_currency_code,
@@ -62,6 +61,8 @@ from ..shared import (
     render_payment_link,
     safe_callback_answer,
 )
+from ..shared.app_context import app_optional, app_required
+from .manifest import _CONFIG_MANIFEST, _PRESENTATION_MANIFEST
 
 _LOG = "pally"
 PALLY_SUPPORTED_CURRENCIES = ("RUB", "USD", "EUR")
@@ -96,7 +97,7 @@ class PallyConfig(ProviderEnvConfig):
 
     @field_validator("TTL_SECONDS", mode="before")
     @classmethod
-    def _empty_to_none_int(cls, v):
+    def _empty_to_none_int(cls, v: Any) -> Any:
         if isinstance(v, str):
             v = v.strip()
             if not v:
@@ -116,14 +117,14 @@ class PallyConfig(ProviderEnvConfig):
         mode="before",
     )
     @classmethod
-    def _strip_optional(cls, v):
+    def _strip_optional(cls, v: Any) -> Any:
         if isinstance(v, str) and not v.strip():
             return None
         return v
 
     @field_validator("PAYMENT_METHOD")
     @classmethod
-    def _normalize_payment_method(cls, v):
+    def _normalize_payment_method(cls, v: Any) -> Optional[str]:
         if v is None:
             return None
         method = str(v).strip().upper()
@@ -135,7 +136,7 @@ class PallyConfig(ProviderEnvConfig):
 
     @field_validator("LOCALE")
     @classmethod
-    def _normalize_locale(cls, v):
+    def _normalize_locale(cls, v: Any) -> Optional[str]:
         if v is None:
             return None
         locale = str(v).strip().lower().split("-", 1)[0].split("_", 1)[0]
@@ -229,7 +230,7 @@ class PallyService(HttpClientMixin):
         subscription_service: SubscriptionService,
         referral_service: ReferralService,
         default_return_url: str,
-    ):
+    ) -> None:
         self.bot = bot
         self.settings = settings
         self.config = config
@@ -660,7 +661,7 @@ class PallyService(HttpClientMixin):
 
 
 async def pally_webhook_route(request: web.Request) -> web.Response:
-    service: PallyService = request.app["pally_service"]
+    service: PallyService = app_required(request, "pally_service", PallyService)
     return await service.webhook_route(request)
 
 
@@ -671,10 +672,10 @@ router = Router(name="user_subscription_payments_pally_router")
 async def pay_pally_callback_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     pally_service: PallyService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)
@@ -811,8 +812,8 @@ def create_service(ctx: ServiceFactoryContext) -> PallyService:
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    settings: Settings = ctx.request.app["settings"]
-    service: PallyService = ctx.request.app["pally_service"]
+    settings: Settings = app_required(ctx.request, "settings", Settings)
+    service: PallyService = app_required(ctx.request, "pally_service", PallyService)
     if not service or not service.configured:
         return payment_unavailable()
 
@@ -848,164 +849,10 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service: PallyService = ctx.request.app.get("pally_service")
+    service = app_optional(ctx.request, "pally_service", PallyService)
     if not service or not service.configured:
         return None
     return await service.try_reuse_pending_bill(payment)
-
-
-_PRESENTATION_MANIFEST = tuple(
-    ProviderManifestField(
-        key=key,
-        type=type_,
-        label=label,
-        description=description,
-        placeholder=placeholder,
-        subsection="Pally",
-        target="presentation",
-        attr=attr,
-    )
-    for key, type_, label, description, placeholder, attr in (
-        (
-            "PAYMENT_PALLY_WEBAPP_LABEL_RU",
-            "string",
-            "WebApp button text (RU)",
-            "Custom Russian text shown in the Web App payment method button.",
-            "",
-            "WEBAPP_LABEL_RU",
-        ),
-        (
-            "PAYMENT_PALLY_WEBAPP_LABEL_EN",
-            "string",
-            "WebApp button text (EN)",
-            "Custom English text shown in the Web App payment method button.",
-            "",
-            "WEBAPP_LABEL_EN",
-        ),
-        (
-            "PAYMENT_PALLY_WEBAPP_ICON",
-            "icon",
-            "WebApp button icon",
-            "Lucide icon name rendered inside the Web App payment method button.",
-            "WalletCards",
-            "WEBAPP_ICON",
-        ),
-        (
-            "PAYMENT_PALLY_TELEGRAM_LABEL_RU",
-            "string",
-            "Telegram button text (RU)",
-            "Custom Russian text shown in Telegram bot payment buttons.",
-            "",
-            "TELEGRAM_LABEL_RU",
-        ),
-        (
-            "PAYMENT_PALLY_TELEGRAM_LABEL_EN",
-            "string",
-            "Telegram button text (EN)",
-            "Custom English text shown in Telegram bot payment buttons.",
-            "",
-            "TELEGRAM_LABEL_EN",
-        ),
-        (
-            "PAYMENT_PALLY_TELEGRAM_EMOJI",
-            "string",
-            "Telegram button emoji",
-            "Emoji prepended to the Telegram bot payment button when customized.",
-            r"\U0001f4b3",
-            "TELEGRAM_EMOJI",
-        ),
-    )
-)
-
-_CONFIG_MANIFEST = (
-    ProviderManifestField("PALLY_ENABLED", "bool", "Enabled", subsection="Pally", attr="ENABLED"),
-    ProviderManifestField(
-        "PALLY_API_TOKEN",
-        "string",
-        "API token",
-        description="Bearer token from the Pally API integrations page.",
-        subsection="Pally",
-        secret=True,
-        attr="API_TOKEN",
-    ),
-    ProviderManifestField(
-        "PALLY_SIGNATURE_TOKEN",
-        "string",
-        "Signature token",
-        description="Token used to verify postback MD5 signatures. Leave empty to use API token.",
-        subsection="Pally",
-        secret=True,
-        attr="SIGNATURE_TOKEN",
-    ),
-    ProviderManifestField(
-        "PALLY_SHOP_ID",
-        "string",
-        "Shop ID",
-        description="Pally shop identifier used by bills and Result URL postbacks.",
-        subsection="Pally",
-        attr="SHOP_ID",
-    ),
-    ProviderManifestField(
-        "PALLY_BASE_URL",
-        "url",
-        "Base URL",
-        placeholder="https://pally.info/api/v1",
-        subsection="Pally",
-        attr="BASE_URL",
-    ),
-    ProviderManifestField(
-        "PALLY_RETURN_URL", "url", "Return URL", subsection="Pally", attr="RETURN_URL"
-    ),
-    ProviderManifestField(
-        "PALLY_SUCCESS_URL", "url", "Success URL", subsection="Pally", attr="SUCCESS_URL"
-    ),
-    ProviderManifestField("PALLY_FAIL_URL", "url", "Fail URL", subsection="Pally", attr="FAIL_URL"),
-    ProviderManifestField(
-        "PALLY_TTL_SECONDS",
-        "int",
-        "Bill lifetime (seconds)",
-        description="Optional Pally bill lifetime in seconds.",
-        subsection="Pally",
-        min=1,
-        attr="TTL_SECONDS",
-    ),
-    ProviderManifestField(
-        "PALLY_PAYER_PAYS_COMMISSION",
-        "bool",
-        "Payer pays commission",
-        description="Sends payer_pays_commission=1 when enabled.",
-        subsection="Pally",
-        attr="PAYER_PAYS_COMMISSION",
-    ),
-    ProviderManifestField(
-        "PALLY_PAYMENT_METHOD",
-        "string",
-        "Preselected payment method",
-        description="Optionally lock the hosted payment form to bank card or SBP.",
-        subsection="Pally",
-        choices=(("BANK_CARD", "Bank card"), ("SBP", "SBP")),
-        attr="PAYMENT_METHOD",
-    ),
-    ProviderManifestField(
-        "PALLY_LOCALE",
-        "string",
-        "Payment page locale",
-        description=(
-            "Optional payment form locale. Empty follows the user's language where possible."
-        ),
-        subsection="Pally",
-        choices=(("ru", "Russian"), ("en", "English")),
-        attr="LOCALE",
-    ),
-    ProviderManifestField(
-        "PALLY_NAME",
-        "string",
-        "Payment form title",
-        description="Optional link name displayed on the Pally payment form.",
-        subsection="Pally",
-        attr="NAME",
-    ),
-)
 
 
 SPEC = PaymentProviderSpec(

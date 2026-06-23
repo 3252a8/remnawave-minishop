@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { getContext } from "svelte";
   import {
     CalendarDays,
@@ -11,17 +11,31 @@
   } from "$components/ui/icons.js";
   import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
   import Dialog from "$components/ui/dialog.svelte";
+  import type { AdminPayment, PaymentsStore } from "../../lib/admin/stores/paymentsStore";
 
-  export let at = (key, _params = {}, fallback = "") => fallback || key;
-  export let fmtDate = (value) => value;
-  export let fmtMoney = (amount, currency) => `${amount} ${currency || ""}`.trim();
-  export let paymentStatusVariant = () => "muted";
-  export let onOpenUserCard = () => {};
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type MetaRow = {
+    label: string;
+    value: unknown;
+    copy?: unknown;
+  };
 
-  const paymentsStore = getContext("paymentsStore");
+  export let at: TranslateFn = (key, _params = {}, fallback = "") => fallback || key;
+  export let fmtDate: (value: string | null | undefined) => string = (value) => String(value || "");
+  export let fmtMoney: (amount: unknown, currency?: string | null) => string = (amount, currency) =>
+    `${amount} ${currency || ""}`.trim();
+  export let paymentStatusVariant: (status: string | null | undefined) => string = () => "muted";
+  export let onOpenUserCard: (userId: number) => void = () => {};
+
+  const paymentsStore = getContext<PaymentsStore>("paymentsStore");
+  const closePayment = (): void => paymentsStore.closePayment();
+  let openedPaymentId: number | null = null;
+  let openedPayment: AdminPayment | null = null;
+  let paymentDetailLoading = false;
 
   $: ({ openedPaymentId, openedPayment, paymentDetailLoading } = $paymentsStore);
-  $: payment = openedPayment || (openedPaymentId ? { payment_id: openedPaymentId } : null);
+  $: payment = (openedPayment ||
+    (openedPaymentId ? { payment_id: openedPaymentId } : null)) as AdminPayment | null;
   $: title = payment
     ? at("payment_detail_title", { id: payment.payment_id }, `Платёж #${payment.payment_id}`)
     : "";
@@ -35,19 +49,19 @@
         .join(" · ")
     : "";
 
-  function present(value) {
+  function present(value: unknown): boolean {
     return value !== null && value !== undefined && value !== "";
   }
 
-  function display(value) {
+  function display(value: unknown): string {
     return present(value) ? String(value) : "—";
   }
 
-  function money(value, currency) {
+  function money(value: unknown, currency?: string | null): string {
     return present(value) ? fmtMoney(value, currency) : "—";
   }
 
-  function formatGb(value) {
+  function formatGb(value: unknown): string {
     if (!present(value)) return "—";
     const n = Number(value);
     if (Number.isNaN(n)) return display(value);
@@ -55,43 +69,57 @@
     return `${rounded} GB`;
   }
 
-  function formatTrafficSplit(p) {
-    const parts = [];
-    if (present(p?.traffic_regular_gb)) {
+  function formatTrafficSplit(p: AdminPayment | null): string {
+    const parts: string[] = [];
+    const regularGb = p?.traffic_regular_gb;
+    const premiumGb = p?.traffic_premium_gb;
+    if (present(regularGb)) {
       parts.push(
         at(
           "payment_detail_regular_traffic",
-          { gb: formatGb(p.traffic_regular_gb) },
-          `Основной: ${formatGb(p.traffic_regular_gb)}`
+          { gb: formatGb(regularGb) },
+          `Основной: ${formatGb(regularGb)}`
         )
       );
     }
-    if (present(p?.traffic_premium_gb)) {
+    if (present(premiumGb)) {
       parts.push(
         at(
           "payment_detail_premium_traffic",
-          { gb: formatGb(p.traffic_premium_gb) },
-          `Премиум: ${formatGb(p.traffic_premium_gb)}`
+          { gb: formatGb(premiumGb) },
+          `Премиум: ${formatGb(premiumGb)}`
         )
       );
     }
     return parts.join(" · ") || "—";
   }
 
-  function paymentDescription(p) {
+  function paymentDescription(p: AdminPayment | null): string {
     const raw = p?.description && String(p.description).trim();
     if (raw) return raw;
     return formatTrafficSplit(p);
   }
 
-  function copy(value) {
+  function copy(value: unknown): void {
     paymentsStore.copyToClipboard(value, at("payment_detail_copied", {}, "Скопировано"));
   }
 
-  function openUser() {
+  function openUser(): void {
     if (!payment?.user_id) return;
     paymentsStore.closePayment({ skipPush: true });
     onOpenUserCard(payment.user_id);
+  }
+
+  function durationText(p: AdminPayment | null): string {
+    const months = p?.subscription_duration_months;
+    return present(months)
+      ? at("payment_detail_months_count", { count: months }, `${months} мес.`)
+      : "";
+  }
+
+  function purchasedGbText(p: AdminPayment | null): string {
+    const purchasedGb = p?.purchased_gb;
+    return present(purchasedGb) ? formatGb(purchasedGb) : "";
   }
 
   $: paymentRows = [
@@ -114,7 +142,7 @@
       value: payment?.updated_at ? fmtDate(payment.updated_at) : "",
     },
     { label: at("description", {}, "Описание"), value: paymentDescription(payment) },
-  ];
+  ] satisfies MetaRow[];
 
   $: providerRows = [
     { label: at("provider", {}, "Провайдер"), value: payment?.provider },
@@ -133,20 +161,14 @@
       value: payment?.idempotence_key,
       copy: payment?.idempotence_key,
     },
-  ];
+  ] satisfies MetaRow[];
 
   $: purchaseRows = [
     { label: at("payment_detail_sale_mode", {}, "Тип продажи"), value: payment?.sale_mode },
     { label: at("payment_detail_tariff_key", {}, "Тариф"), value: payment?.tariff_key },
     {
       label: at("payment_detail_duration_months", {}, "Период"),
-      value: present(payment?.subscription_duration_months)
-        ? at(
-            "payment_detail_months_count",
-            { count: payment.subscription_duration_months },
-            `${payment.subscription_duration_months} мес.`
-          )
-        : "",
+      value: durationText(payment),
     },
     {
       label: at("payment_detail_traffic", {}, "Трафик"),
@@ -154,20 +176,20 @@
     },
     {
       label: at("payment_detail_purchased_gb", {}, "Куплено GB"),
-      value: present(payment?.purchased_gb) ? formatGb(payment.purchased_gb) : "",
+      value: purchasedGbText(payment),
     },
     {
       label: at("payment_detail_hwid_devices", {}, "HWID-устройства"),
       value: payment?.purchased_hwid_devices,
     },
     { label: at("payment_detail_promo_code", {}, "Промокод"), value: payment?.promo_code },
-  ];
+  ] satisfies MetaRow[];
 
   $: userRows = [
     { label: at("user", {}, "Пользователь"), value: payment?.user_label },
     { label: "User ID", value: payment?.user_id, copy: payment?.user_id },
     { label: "Telegram ID", value: payment?.telegram_id, copy: payment?.telegram_id },
-  ];
+  ] satisfies MetaRow[];
 </script>
 
 <Dialog
@@ -175,7 +197,7 @@
   {title}
   {description}
   closeLabel={at("close", {}, "Закрыть")}
-  onclose={paymentsStore.closePayment}
+  onclose={closePayment}
   class="admin-dialog admin-payment-dialog"
 >
   {#if payment}

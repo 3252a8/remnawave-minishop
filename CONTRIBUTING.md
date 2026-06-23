@@ -16,15 +16,25 @@
 
 CI (`.github/workflows/ci.yml`) прогоняет всё перечисленное; ничего не мёржится красным.
 
+Удобная агрегирующая команда из корня репозитория:
+```bash
+make check
+```
+
+Current documented mypy frontier outside the CI scope: `backend/config`, `backend/main_*.py`,
+`backend/scripts`, `scripts`, and `tests`. Add those only after separate type-hardening work keeps the
+full command green.
+
+Явные команды ниже остаются источником правды для CI и ручной диагностики.
+
 **Бэкенд** (из корня репозитория; `pytest.ini` задаёт `pythonpath = backend .`):
 ```bash
 python -m pytest -q                 # полный прогон (в CI поднимаются сервисы Postgres + Redis)
 python -m ruff check .              # линт
 python -m ruff format --check .     # формат
-python -m mypy backend/db backend/bot/infra backend/bot/payment_providers \
-  backend/bot/services backend/bot/handlers backend/bot/app/web/admin_api_impl \
-  backend/bot/app/web/webapp backend/bot/app/web/http_contracts.py \
-  backend/bot/app/web/route_contracts.py backend/bot/app/web/openapi.py   # весь бэкенд, зелёный
+python -m mypy backend/db backend/bot/infra backend/bot/middlewares backend/bot/utils \
+  backend/bot/plugins backend/bot/keyboards backend/bot/payment_providers backend/bot/services \
+  backend/bot/handlers backend/bot/app/factories backend/bot/app/controllers backend/bot/app/web
 ```
 
 **Фронтенд** (`frontend/`):

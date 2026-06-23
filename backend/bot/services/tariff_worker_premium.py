@@ -1,7 +1,7 @@
 import logging
 import time
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
@@ -31,6 +31,14 @@ TARIFF_WORKER_DB_RETRY_ATTEMPTS = 3
 TARIFF_WORKER_DB_RETRY_BASE_SLEEP_SECONDS = 0.5
 POSTGRES_RETRYABLE_SQLSTATES = {"40001", "40P01"}
 POSTGRES_RETRYABLE_ERROR_NAMES = {"DeadlockDetectedError", "SerializationError"}
+
+
+class _PremiumTariff(Protocol):
+    key: str
+    premium_monthly_bytes: int
+    premium_squad_uuids: list[str]
+
+    def name(self, lang: str, fallback: str = "ru") -> str: ...
 
 
 class TariffWorkerPremiumMixin:
@@ -69,11 +77,11 @@ class TariffWorkerPremiumMixin:
         self,
         session: AsyncSession,
         sub: Subscription,
-        tariff,
+        tariff: _PremiumTariff,
         now: datetime,
         *,
         panel_username: Optional[str] = None,
-        panel_user_dict: Optional[dict] = None,
+        panel_user_dict: Optional[dict[str, Any]] = None,
         panel_view: str = "unknown",
     ) -> None:
         if not getattr(tariff, "premium_squad_uuids", None):
@@ -255,12 +263,13 @@ class TariffWorkerPremiumMixin:
     async def _get_full_panel_user_for_squad_confirmation(
         self,
         panel_user_uuid: str,
-    ) -> Optional[dict]:
+    ) -> Optional[dict[str, Any]]:
         try:
-            return await self.panel_service.get_user_by_uuid(
+            panel_user = await self.panel_service.get_user_by_uuid(
                 panel_user_uuid,
                 log_response=False,
             )
+            return panel_user if isinstance(panel_user, dict) else None
         except Exception:
             logging.exception(
                 "TariffTrafficWorker: failed to confirm panel squads for user %s",
@@ -273,7 +282,7 @@ class TariffWorkerPremiumMixin:
         if value is None:
             return False
         try:
-            return month_start(value) == premium_period_start
+            return bool(month_start(value) == premium_period_start)
         except Exception:
             return False
 
@@ -321,12 +330,13 @@ class TariffWorkerPremiumMixin:
         if not subscription_id or not isinstance(session, AsyncSession):
             return None
         try:
-            return await tariff_dal.sum_traffic_topups(
+            total = await tariff_dal.sum_traffic_topups(
                 session,
                 subscription_id=subscription_id,
                 kinds=["premium_topup", "admin_premium_topup"],
                 created_at_gte=premium_period_start,
             )
+            return int(total) if total is not None else None
         except Exception:
             logging.exception(
                 "TariffTrafficWorker: failed to read premium top-up ledger for subscription %s",
@@ -406,7 +416,7 @@ class TariffWorkerPremiumMixin:
         )
 
     @staticmethod
-    def _internal_squad_uuid_set(raw) -> set[str]:
+    def _internal_squad_uuid_set(raw: object) -> set[str]:
         if not isinstance(raw, (list, tuple, set)):
             return set()
         out: set[str] = set()
@@ -452,7 +462,7 @@ class TariffWorkerPremiumMixin:
         self,
         session: AsyncSession,
         sub: Subscription,
-        tariff,
+        tariff: _PremiumTariff,
         used: int,
         limit: int,
         period_start_at: datetime,
@@ -623,12 +633,14 @@ class TariffWorkerPremiumMixin:
                 audit_content=audit_content,
             )
 
-    async def _premium_node_uuids_for_tariff(self, tariff) -> list[str]:
+    async def _premium_node_uuids_for_tariff(self, tariff: _PremiumTariff) -> list[str]:
         cache_key = tuple(sorted(tariff.premium_squad_uuids or []))
         cached = self._premium_nodes_cache.get(cache_key)
         now_ts = datetime.now(timezone.utc).timestamp()
-        if cached and now_ts - cached["ts"] < 600:
-            return list(cached["nodes"])
+        cached_nodes = cached.get("nodes") if cached else None
+        cached_ts = cached.get("ts") if cached else None
+        if cached and cached_nodes is not None and now_ts - float(cached_ts or 0) < 600:
+            return [str(node) for node in cached_nodes] if isinstance(cached_nodes, list) else []
 
         nodes: list[str] = []
         for squad_uuid in tariff.premium_squad_uuids or []:

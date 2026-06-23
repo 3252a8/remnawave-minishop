@@ -39,7 +39,7 @@ async def display_subscription_options(
     settings: Settings,
     session: AsyncSession,
     back_callback: str = "main_action:back_to_main",
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
 
@@ -166,14 +166,14 @@ async def display_subscription_options(
 @router.callback_query(F.data == "main_action:subscribe")
 async def reshow_subscription_options_callback(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     await display_subscription_options(callback, i18n_data, settings, session)
 
 
 @router.callback_query(F.data.startswith("tariff:select:"))
 async def select_tariff_callback(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
@@ -215,7 +215,7 @@ async def select_tariff_period_callback(
     settings: Settings,
     session: AsyncSession,
     subscription_service: SubscriptionService,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
@@ -280,7 +280,7 @@ async def select_tariff_period_callback(
 @router.callback_query(F.data.startswith("tariff:package:"))
 async def select_tariff_package_callback(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)

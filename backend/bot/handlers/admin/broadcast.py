@@ -34,7 +34,7 @@ async def broadcast_message_prompt_handler(
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:
@@ -69,7 +69,7 @@ async def process_broadcast_message_handler(
     settings: Settings,
     session: AsyncSession,
     bot: Bot,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n:
@@ -148,7 +148,7 @@ async def change_broadcast_target_handler(
     state: FSMContext,
     i18n_data: dict,
     settings: Settings,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
@@ -181,7 +181,7 @@ async def cancel_broadcast_at_prompt_stage(
     settings: Settings,
     i18n_data: dict,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
@@ -216,7 +216,7 @@ async def confirm_broadcast_callback_handler(
     bot: Bot,
     settings: Settings,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
@@ -342,12 +342,14 @@ async def confirm_broadcast_callback_handler(
                 0, stats.get("user_failed_messages", 0) - initial_user_failed
             ) + max(0, stats.get("group_failed_messages", 0) - initial_group_failed)
             total_failed = failed_count + dynamic_failed
-            return _(
-                "broadcast_queue_result",
-                sent_count=sent_count,
-                failed_count=total_failed,
-                user_queue_size=stats["user_queue_size"],
-                group_queue_size=stats["group_queue_size"],
+            return str(
+                _(
+                    "broadcast_queue_result",
+                    sent_count=sent_count,
+                    failed_count=total_failed,
+                    user_queue_size=stats["user_queue_size"],
+                    group_queue_size=stats["group_queue_size"],
+                )
             )
 
         result_message = build_queue_status(queue_stats)

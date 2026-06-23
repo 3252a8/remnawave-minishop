@@ -35,6 +35,7 @@ from ..shared import (
     quote_hwid_callback_parts,
     render_link_or_fail,
 )
+from ..shared.app_context import app_optional, app_required
 from .config import (
     PAYKILLA_DEFAULT_EXCHANGE_RATE_URL,
     PAYKILLA_DEFAULT_INVOICE_CURRENCIES,
@@ -61,10 +62,10 @@ _LOG = "paykilla"
 async def pay_paykilla_callback_handler(
     callback: types.CallbackQuery,
     settings: Settings,
-    i18n_data: dict,
+    i18n_data: dict[str, Any],
     paykilla_service: PaykillaService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)
@@ -160,8 +161,8 @@ async def pay_paykilla_callback_handler(
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    settings: Settings = ctx.request.app["settings"]
-    service: PaykillaService = ctx.request.app["paykilla_service"]
+    settings: Settings = app_required(ctx.request, "settings", Settings)
+    service: PaykillaService = app_required(ctx.request, "paykilla_service", PaykillaService)
     if not service or not service.configured:
         return payment_unavailable()
 
@@ -198,7 +199,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service: PaykillaService = ctx.request.app.get("paykilla_service")
+    service = app_optional(ctx.request, "paykilla_service", PaykillaService)
     if not service or not service.configured:
         return None
     return await service.try_reuse_pending_invoice(payment)

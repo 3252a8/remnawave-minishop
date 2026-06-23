@@ -53,7 +53,7 @@ def _format_rating_user_label(
 
 async def show_statistics_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
@@ -313,7 +313,7 @@ async def show_user_ratings_handler(
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:

@@ -140,12 +140,12 @@ class WataService(HttpClientMixin):
         return self.config.WEBHOOK_VERIFY_SIGNATURE
 
     @property
-    def _public_key_pem(self):
+    def _public_key_pem(self) -> Optional[str]:
         profile = self.profile_for_method(WATA_PROVIDER)
         return profile.public_key or self._cached_public_key_pem.get(profile.provider)
 
     @_public_key_pem.setter
-    def _public_key_pem(self, value):
+    def _public_key_pem(self, value: str) -> None:
         self._cached_public_key_pem[WATA_PROVIDER] = value
 
     def _return_url_for_profile(self, profile: WataTerminalProfile) -> str:

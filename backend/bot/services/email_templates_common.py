@@ -15,11 +15,12 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Optional, Protocol, Sequence, Tuple
 from urllib.parse import urlsplit
 
 if TYPE_CHECKING:
-    from bot.middlewares.i18n import JsonI18n
+    from PIL.Image import Image as PILImage
+
     from config.settings import Settings
 
 _BG = "#05070a"
@@ -49,6 +50,10 @@ _LOGO_CONTENT_TYPES = {
     ".webp": "image/webp",
 }
 _EMAIL_LOGO_SAFE_RASTER_EXTENSIONS = {".gif", ".ico", ".jpg", ".jpeg", ".png", ".webp"}
+
+
+class _GettextProvider(Protocol):
+    def gettext(self, lang_code: Optional[str], key: str, **kwargs: object) -> str: ...
 
 
 def _uploaded_logo_dir() -> Path:
@@ -212,7 +217,7 @@ def _email_safe_raster_logo_to_png(body: bytes) -> Optional[bytes]:
     return output.getvalue()
 
 
-def _crop_transparent_logo_padding(image):
+def _crop_transparent_logo_padding(image: PILImage) -> PILImage:
     bbox = image.getchannel("A").getbbox()
     return image.crop(bbox) if bbox else image
 
@@ -253,7 +258,7 @@ def _normalize_lang(language_code: Optional[str], settings: Settings) -> str:
     return value.replace("_", "-") or "ru"
 
 
-def _resolve_i18n(i18n: Optional[JsonI18n]) -> JsonI18n:
+def _resolve_i18n(i18n: Optional[_GettextProvider]) -> _GettextProvider:
     if i18n is not None:
         return i18n
     from bot.middlewares.i18n import get_i18n_instance
@@ -261,7 +266,7 @@ def _resolve_i18n(i18n: Optional[JsonI18n]) -> JsonI18n:
     return get_i18n_instance()
 
 
-def _t_html(i18n: JsonI18n, lang: str, key: str, **kwargs) -> str:
+def _t_html(i18n: _GettextProvider, lang: str, key: str, **kwargs: object) -> str:
     """Translate for HTML context: format args are HTML-escaped, the
     translated template itself is treated as already-safe HTML (locale files
     are author-controlled and may include simple inline tags like <strong>)."""
@@ -269,7 +274,7 @@ def _t_html(i18n: JsonI18n, lang: str, key: str, **kwargs) -> str:
     return i18n.gettext(lang, key, **safe_kwargs)
 
 
-def _t_text(i18n: JsonI18n, lang: str, key: str, **kwargs) -> str:
+def _t_text(i18n: _GettextProvider, lang: str, key: str, **kwargs: object) -> str:
     return i18n.gettext(lang, key, **kwargs)
 
 

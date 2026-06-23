@@ -1,3 +1,11 @@
+from bot.app.web.context import (
+    EMAIL_AUTH_SERVICE,
+    set_bot_username,
+    set_core_context,
+    set_service_context,
+    workflow_data_for,
+)
+
 from ._runtime import (
     Bot,
     Dispatcher,
@@ -34,12 +42,15 @@ def create_subscription_webapp_application(
             admin_auth_middleware,
         ]
     )
-    app["bot"] = bot
-    app["dp"] = dp
-    app["settings"] = settings
-    app["async_session_factory"] = async_session_factory
-    app["i18n"] = dp.get("i18n_instance")
+    set_core_context(
+        app,
+        bot=bot,
+        dp=dp,
+        settings=settings,
+        async_session_factory=async_session_factory,
+    )
     app["email_auth_service"] = EmailAuthService(settings, app["i18n"])
+    app[EMAIL_AUTH_SERVICE] = app["email_auth_service"]
     app["webapp_logo_cache"] = None
     app["webapp_logo_cache_lock"] = asyncio.Lock()
     app["webapp_settings_cache"] = {"ts": 0.0, "data": {}}
@@ -67,6 +78,7 @@ def create_subscription_webapp_application(
 
     from bot.payment_providers import iter_service_keys
 
+    workflow_data = workflow_data_for(dp)
     for key in (
         "subscription_service",
         "promo_code_service",
@@ -77,11 +89,11 @@ def create_subscription_webapp_application(
         "panel_service",
         *iter_service_keys(),
     ):
-        if hasattr(dp, "workflow_data") and key in dp.workflow_data:  # type: ignore[attr-defined]
-            app[key] = dp.workflow_data[key]  # type: ignore[index]
+        if key in workflow_data:
+            set_service_context(app, key, workflow_data[key])
 
-    if hasattr(dp, "workflow_data") and "bot_username" in dp.workflow_data:  # type: ignore[attr-defined]
-        app["bot_username"] = dp.workflow_data["bot_username"]  # type: ignore[index]
+    if "bot_username" in workflow_data:
+        set_bot_username(app, workflow_data["bot_username"])
 
     setup_subscription_webapp_routes(app)
     return app

@@ -1,5 +1,5 @@
 import hashlib
-from typing import Optional
+from typing import Any, Optional, Protocol, cast
 
 from aiogram import Router, types
 from aiogram.types import InlineKeyboardMarkup
@@ -23,6 +23,18 @@ from config.tariffs_config import (
 from db.models import Subscription
 
 router = Router(name="user_subscription_core_router")
+
+
+class _TrafficPackages(Protocol):
+    def for_currency(self, currency: str) -> Any: ...
+
+
+class _PurchaseTariff(Protocol):
+    billing_model: str
+    traffic_packages: _TrafficPackages
+
+    def name(self, lang: str) -> str: ...
+    def description(self, lang: str) -> str: ...
 
 
 def _shorten_hwid_for_display(hwid: Optional[str], max_length: int = 24) -> str:
@@ -75,7 +87,7 @@ def _auto_renew_control_visible(
 
 
 def _tariff_purchase_markup(
-    tariff,
+    tariff: _PurchaseTariff,
     current_lang: str,
     i18n: JsonI18n,
     settings: Settings,
@@ -83,31 +95,39 @@ def _tariff_purchase_markup(
     callback_context: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
     if tariff.billing_model == "period":
-        return get_tariff_periods_keyboard(
-            tariff,
-            current_lang,
-            i18n,
-            settings,
-            back_callback=back_callback,
-            callback_context=callback_context,
+        return cast(
+            InlineKeyboardMarkup,
+            get_tariff_periods_keyboard(
+                tariff,
+                current_lang,
+                i18n,
+                settings,
+                back_callback=back_callback,
+                callback_context=callback_context,
+            ),
         )
     default_currency = default_currency_key_for_settings(settings)
-    return get_tariff_packages_keyboard(
-        tariff,
-        tariff.traffic_packages.for_currency(default_currency),
-        current_lang,
-        i18n,
-        currency_symbol=default_payment_currency_code_for_settings(settings),
-        back_callback=back_callback,
-        callback_context=callback_context,
+    return cast(
+        InlineKeyboardMarkup,
+        get_tariff_packages_keyboard(
+            tariff,
+            tariff.traffic_packages.for_currency(default_currency),
+            current_lang,
+            i18n,
+            currency_symbol=default_payment_currency_code_for_settings(settings),
+            back_callback=back_callback,
+            callback_context=callback_context,
+        ),
     )
 
 
-def _tariff_purchase_text(tariff, current_lang: str, i18n: JsonI18n, settings: Settings) -> str:
+def _tariff_purchase_text(
+    tariff: _PurchaseTariff, current_lang: str, i18n: JsonI18n, settings: Settings
+) -> str:
     if not _has_multiple_enabled_tariffs(settings):
         if tariff.billing_model == "period":
-            return i18n.gettext(current_lang, "select_subscription_period")
-        return i18n.gettext(current_lang, "select_traffic_package")
+            return str(i18n.gettext(current_lang, "select_subscription_period"))
+        return str(i18n.gettext(current_lang, "select_traffic_package"))
     return f"{tariff.name(current_lang)}\n{tariff.description(current_lang)}".strip()
 
 
@@ -137,8 +157,8 @@ def _format_premium_bytes(value: object) -> str:
 
 def _event_user_id(event: types.Message | types.CallbackQuery) -> int:
     if isinstance(event, types.CallbackQuery):
-        return event.from_user.id
-    return message_from_user(event).id
+        return int(event.from_user.id)
+    return int(message_from_user(event).id)
 
 
 def _format_premium_usage_limit(active: dict[str, object]) -> str:

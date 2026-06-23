@@ -41,7 +41,7 @@ async def tg_interface_command_handler(
     i18n_data: dict,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     await state.clear()
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -70,7 +70,7 @@ async def verify_channel_subscription_callback(
     i18n_data: dict,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
 
@@ -121,7 +121,7 @@ async def language_command_handler(
     i18n_data: dict,
     settings: Settings,
     back_callback: str = "main_action:back_to_main",
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -161,7 +161,7 @@ async def select_language_callback_handler(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await safe_answer_callback(
@@ -237,7 +237,7 @@ async def main_action_callback_handler(
     panel_service: PanelApiService,
     promo_code_service: PromoCodeService,
     session: AsyncSession,
-):
+) -> None:
     action = callback_data(callback).split(":")[1]
 
     if action in {"back_to_main", "back_to_main_keep", "bot_interface"}:

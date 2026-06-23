@@ -61,7 +61,8 @@ async def _build_worker_context(settings) -> PluginContext:
         bot_username = bot_info.username or bot_username
     except Exception:
         logging.exception("Worker failed to resolve bot username")
-    services = build_core_services(settings, bot, session_factory, i18n, bot_username)
+    core_services = build_core_services(settings, bot, session_factory, i18n, bot_username)
+    services = core_services.as_dict()
     init_queue_manager(bot)
     ctx = PluginContext(
         settings=settings,

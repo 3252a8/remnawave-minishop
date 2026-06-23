@@ -47,7 +47,7 @@ async def my_subscription_command_handler(
     session: AsyncSession,
     bot: Bot,
     back_callback: str = "main_action:back_to_main",
-):
+) -> None:
     target = event.message if isinstance(event, types.CallbackQuery) else event
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
@@ -102,7 +102,7 @@ async def my_subscription_command_handler(
 
     def _fmt_gb(val: Optional[float]) -> str:
         if val is None:
-            return get_text("traffic_na")
+            return str(get_text("traffic_na"))
         try:
             if isinstance(val, (int, float)):
                 val_gb = float(val) / (2**30)
@@ -127,8 +127,10 @@ async def my_subscription_command_handler(
     def _format_used_with_period(used_display: str, period_label: Optional[str]) -> str:
         if not period_label:
             return used_display
-        return get_text(
-            "traffic_used_with_period", traffic_used=used_display, traffic_period=period_label
+        return str(
+            get_text(
+                "traffic_used_with_period", traffic_used=used_display, traffic_period=period_label
+            )
         )
 
     period_label = _format_traffic_period(active.get("traffic_limit_strategy"))
@@ -453,7 +455,7 @@ async def my_devices_command_handler(
     subscription_service: SubscriptionService,
     session: AsyncSession,
     bot: Bot,
-):
+) -> None:
     target = event.message if isinstance(event, types.CallbackQuery) else event
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")

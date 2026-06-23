@@ -34,7 +34,7 @@ async def tariff_topup_list_callback(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
@@ -113,7 +113,7 @@ async def tariff_topup_list_callback(
 @router.callback_query(F.data.startswith("tariff:premium_package:"))
 async def select_tariff_premium_package_callback(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
@@ -160,7 +160,7 @@ async def hwid_devices_list_callback(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
@@ -215,7 +215,7 @@ async def hwid_devices_package_callback(
     settings: Settings,
     session: AsyncSession,
     subscription_service: SubscriptionService,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
@@ -296,7 +296,7 @@ async def tariff_change_list_callback(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     config = settings.tariffs_config
@@ -344,7 +344,7 @@ async def tariff_change_select_callback(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     config = settings.tariffs_config
@@ -435,7 +435,7 @@ async def tariff_change_confirm_apply_callback(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     config = settings.tariffs_config
@@ -482,7 +482,7 @@ async def tariff_change_confirm_apply_callback(
 @router.callback_query(F.data.startswith("tariff_change:confirm_pay:"))
 async def tariff_change_confirm_pay_callback(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     config = settings.tariffs_config
@@ -520,7 +520,7 @@ async def tariff_change_apply_callback(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
-):
+) -> None:
     _, _, tariff_key, mode = callback_data(callback).split(":", 3)
     result = await subscription_service.switch_tariff_without_payment(
         session, callback.from_user.id, tariff_key, mode
@@ -544,7 +544,7 @@ async def tariff_change_apply_callback(
 @router.callback_query(F.data.startswith("tariff_change:pay:"))
 async def tariff_change_pay_callback(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
-):
+) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     _, _, tariff_key, amount_raw = callback_data(callback).split(":", 3)
