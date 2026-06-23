@@ -188,11 +188,7 @@ async def admin_user_telegram_profile_link_route(request: web.Request) -> web.Re
             return _error(404, "no_telegram_account")
 
         admin_user = await user_dal.get_user_by_id(session, actor_id)
-        lang = (
-            getattr(admin_user, "language_code", None)
-            or getattr(settings, "DEFAULT_LANGUAGE", None)
-            or "ru"
-        )
+        lang = getattr(admin_user, "language_code", None) or settings.DEFAULT_LANGUAGE or "ru"
 
         await message_log_dal.create_message_log(
             session,

@@ -141,7 +141,7 @@ def data_dir_alerts(settings: Any, app_root: Path = APP_ROOT) -> List[ConfigAler
             )
         )
 
-    backup_dir = _resolve_data_path(str(getattr(settings, "BACKUP_DIR", "") or "data/backups"))
+    backup_dir = _resolve_data_path(str(settings.BACKUP_DIR or "data/backups"))
     if backup_dir.is_dir() and not _dir_is_writable(backup_dir):
         alerts.append(
             ConfigAlert(
@@ -157,9 +157,7 @@ def data_dir_alerts(settings: Any, app_root: Path = APP_ROOT) -> List[ConfigAler
 def config_file_alerts(settings: Any) -> List[ConfigAlert]:
     alerts: List[ConfigAlert] = []
 
-    tariffs_path = _resolve_data_path(
-        str(getattr(settings, "TARIFFS_CONFIG_PATH", "") or "data/tariffs.json")
-    )
+    tariffs_path = _resolve_data_path(str(settings.TARIFFS_CONFIG_PATH or "data/tariffs.json"))
     if tariffs_path.is_file():
         try:
             from config.tariffs_config import load_tariffs_config
@@ -244,7 +242,7 @@ def payment_provider_alerts(settings: Any, app: Any) -> List[ConfigAlert]:
                     message_key="provider_not_configured",
                 )
             )
-        if spec.webhook_requires_base_url and not getattr(settings, "WEBHOOK_BASE_URL", None):
+        if spec.webhook_requires_base_url and not settings.WEBHOOK_BASE_URL:
             alerts.append(
                 ConfigAlert(
                     id=f"provider_webhook_needs_base_url:{spec.id}",
@@ -268,7 +266,7 @@ def payment_provider_alerts(settings: Any, app: Any) -> List[ConfigAlert]:
 def settings_alerts(settings: Any) -> List[ConfigAlert]:
     alerts: List[ConfigAlert] = []
 
-    mini_app_url = str(getattr(settings, "SUBSCRIPTION_MINI_APP_URL", "") or "").strip()
+    mini_app_url = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     if not mini_app_url:
         alerts.append(
             ConfigAlert(
@@ -287,7 +285,7 @@ def settings_alerts(settings: Any) -> List[ConfigAlert]:
             )
         )
 
-    if not getattr(settings, "REDIS_URL", None):
+    if not settings.REDIS_URL:
         alerts.append(
             ConfigAlert(
                 id="redis_not_configured",
@@ -300,7 +298,7 @@ def settings_alerts(settings: Any) -> List[ConfigAlert]:
         getattr(settings, key, None)
         for key in ("SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_FROM_EMAIL")
     )
-    if smtp_partial and not getattr(settings, "email_auth_configured", False):
+    if smtp_partial and not settings.email_auth_configured:
         alerts.append(
             ConfigAlert(
                 id="smtp_incomplete",
@@ -323,7 +321,7 @@ def proxy_alerts(request: Any, settings: Any) -> List[ConfigAlert]:
     remote = getattr(request, "remote", None)
     if not forwarded or not remote:
         return []
-    if ip_in_allowlist(remote, getattr(settings, "trusted_proxies", None)):
+    if ip_in_allowlist(remote, settings.trusted_proxies):
         return []
     return [
         ConfigAlert(
@@ -363,10 +361,8 @@ async def telegram_alerts(bot: Any, settings: Any) -> List[ConfigAlert]:
 
     alerts: List[ConfigAlert] = []
     actual_url = str(getattr(info, "url", "") or "")
-    base_url = str(getattr(settings, "WEBHOOK_BASE_URL", "") or "").rstrip("/")
-    expected_url = (
-        f"{base_url}{getattr(settings, 'telegram_webhook_path', '/tg/webhook')}" if base_url else ""
-    )
+    base_url = str(settings.WEBHOOK_BASE_URL or "").rstrip("/")
+    expected_url = f"{base_url}{settings.telegram_webhook_path}" if base_url else ""
     if not actual_url:
         alerts.append(
             ConfigAlert(
@@ -421,7 +417,7 @@ async def telegram_alerts(bot: Any, settings: Any) -> List[ConfigAlert]:
 
 
 async def panel_alerts(panel_service: Any, settings: Any) -> List[ConfigAlert]:
-    if not getattr(settings, "PANEL_API_URL", None) or not getattr(settings, "PANEL_API_KEY", None):
+    if not settings.PANEL_API_URL or not settings.PANEL_API_KEY:
         return [
             ConfigAlert(
                 id="panel_api_not_configured",
@@ -444,7 +440,7 @@ async def panel_alerts(panel_service: Any, settings: Any) -> List[ConfigAlert]:
                 id="panel_api_unreachable",
                 severity=SEVERITY_ERROR,
                 sections=(SECTION_SETTINGS, SECTION_USERS),
-                params={"url": str(getattr(settings, "PANEL_API_URL", "") or "")},
+                params={"url": str(settings.PANEL_API_URL or "")},
             )
         ]
     return []

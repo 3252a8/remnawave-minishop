@@ -8,6 +8,7 @@ from bot.services import panel_api_service
 from bot.utils import config_link
 from bot.utils.config_link import prepare_config_links
 from bot.utils.ttl_cache import AsyncTTLCache
+from tests.support.settings_stub import settings_stub
 
 
 class AsyncTTLCacheSingleflightTests(unittest.IsolatedAsyncioTestCase):
@@ -88,7 +89,7 @@ class Crypt4LinkCacheTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_prepare_config_links_singleflights_same_crypt4_link(self):
         config_link._CRYPT4_LINK_CACHES.clear()
-        settings = SimpleNamespace(
+        settings = settings_stub(
             CRYPT4_ENABLED=True,
             CRYPT4_REDIRECT_URL="",
             CRYPT4_LINK_CACHE_TTL_SECONDS=3600,

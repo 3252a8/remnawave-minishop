@@ -1,5 +1,4 @@
 import json
-from types import SimpleNamespace
 
 import pytest
 
@@ -14,6 +13,7 @@ from config.subscription_guides_config import (
     validate_subscription_guides_config,
     validate_subscription_guides_config_text,
 )
+from tests.support.settings_stub import settings_stub
 
 BASE_TRANSLATION_KEYS = (
     "active",
@@ -222,7 +222,7 @@ def test_admin_json_overrides_file_path(tmp_path):
     json_config = _config(app_name="JSON App")
     config_path = tmp_path / "multiapp.json"
     config_path.write_text(json.dumps(file_config), encoding="utf-8")
-    settings = SimpleNamespace(
+    settings = settings_stub(
         SUBSCRIPTION_PAGE_CONFIG_PATH=str(config_path),
         SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED=True,
         SUBSCRIPTION_PAGE_CONFIG_JSON=json.dumps(json_config),
@@ -239,7 +239,7 @@ def test_admin_json_is_ignored_when_override_switch_is_disabled(tmp_path):
     json_config = _config(app_name="JSON App")
     config_path = tmp_path / "multiapp.json"
     config_path.write_text(json.dumps(file_config), encoding="utf-8")
-    settings = SimpleNamespace(
+    settings = settings_stub(
         SUBSCRIPTION_PAGE_CONFIG_PATH=str(config_path),
         SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED=False,
         SUBSCRIPTION_PAGE_CONFIG_JSON=json.dumps(json_config),
@@ -255,7 +255,7 @@ def test_file_path_is_used_when_admin_json_is_empty(tmp_path):
     file_config = _config(app_name="File App")
     config_path = tmp_path / "multiapp.json"
     config_path.write_text(json.dumps(file_config), encoding="utf-8")
-    settings = SimpleNamespace(
+    settings = settings_stub(
         SUBSCRIPTION_PAGE_CONFIG_PATH=str(config_path),
         SUBSCRIPTION_PAGE_CONFIG_JSON="",
     )
@@ -268,7 +268,7 @@ def test_file_path_is_used_when_admin_json_is_empty(tmp_path):
 
 def test_missing_file_path_is_not_created_implicitly(tmp_path):
     config_path = tmp_path / "subpage-config" / "multiapp.json"
-    settings = SimpleNamespace(
+    settings = settings_stub(
         SUBSCRIPTION_PAGE_CONFIG_PATH=str(config_path),
         SUBSCRIPTION_PAGE_CONFIG_JSON="",
     )
@@ -281,7 +281,7 @@ def test_missing_file_path_is_not_created_implicitly(tmp_path):
 
 def test_admin_json_editor_is_empty_when_override_is_empty(tmp_path):
     config_path = tmp_path / "subpage-config" / "multiapp.json"
-    settings = SimpleNamespace(
+    settings = settings_stub(
         SUBSCRIPTION_PAGE_CONFIG_PATH=str(config_path),
         SUBSCRIPTION_PAGE_CONFIG_JSON="",
     )
@@ -296,7 +296,7 @@ def test_admin_json_editor_is_empty_when_override_is_empty(tmp_path):
 def test_admin_json_editor_keeps_admin_override_without_creating_file(tmp_path):
     config_path = tmp_path / "subpage-config" / "multiapp.json"
     override = json.dumps(_config(app_name="JSON App"))
-    settings = SimpleNamespace(
+    settings = settings_stub(
         SUBSCRIPTION_PAGE_CONFIG_PATH=str(config_path),
         SUBSCRIPTION_PAGE_CONFIG_JSON=override,
     )

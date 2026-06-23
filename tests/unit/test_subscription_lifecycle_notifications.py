@@ -11,6 +11,7 @@ from bot.services.subscription_lifecycle_notifications import (
     SubscriptionLifecycleNotificationService,
     SubscriptionNotificationStage,
 )
+from tests.support.settings_stub import settings_stub
 
 
 class FakeI18n:
@@ -68,7 +69,7 @@ class FakeEmailService:
 
 
 def _settings(**overrides):
-    return SimpleNamespace(
+    return settings_stub(
         DEFAULT_LANGUAGE="ru",
         SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED=True,
         SUBSCRIPTION_MINI_APP_URL="https://app.example.test/",

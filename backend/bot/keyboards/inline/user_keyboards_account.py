@@ -48,7 +48,7 @@ def get_subscribe_only_markup(
     builder = InlineKeyboardBuilder()
     renew_url = (
         subscription_mini_app_renew_url(settings, tariff_key)
-        if settings and bool(getattr(settings, "TELEGRAM_BOT_MENU_DISABLED", False))
+        if settings and bool(settings.TELEGRAM_BOT_MENU_DISABLED)
         else None
     )
     if renew_url:

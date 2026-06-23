@@ -143,7 +143,7 @@ def _presentation_setting(spec: PaymentProviderSpec, suffix: str) -> str:
 
 
 def _normalize_language(language: Optional[str], settings: Any = None) -> str:
-    value = language or getattr(settings, "DEFAULT_LANGUAGE", None) or "ru"
+    value = language or (settings.DEFAULT_LANGUAGE if settings is not None else None) or "ru"
     normalized = str(value).strip().lower().split("-", 1)[0].split("_", 1)[0]
     return normalized or "ru"
 

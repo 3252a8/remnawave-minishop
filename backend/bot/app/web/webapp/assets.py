@@ -484,7 +484,7 @@ async def i18n_route(request: web.Request) -> web.Response:
 
 
 def _webapp_page_title(settings: Settings, suffix: str = "") -> str:
-    base = str(getattr(settings, "WEBAPP_TITLE", "") or "").strip() or "Subscription"
+    base = str(settings.WEBAPP_TITLE or "").strip() or "Subscription"
     suffix = str(suffix or "").strip()
     return f"{base} - {suffix}" if suffix else base
 
@@ -633,17 +633,17 @@ async def index_route(request: web.Request) -> web.Response:
 
 async def app_deeplink_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
-    if not getattr(settings, "WEBAPP_ENABLED", True):
+    if not settings.WEBAPP_ENABLED:
         raise web.HTTPNotFound(text="webapp_disabled")
 
     nonce = html.escape(str(request.get("csp_nonce", "")), quote=True)
     query = getattr(request, "query", {}) or {}
-    themes_catalog = getattr(settings, "webapp_themes_catalog", None)
-    primary_color = getattr(settings, "WEBAPP_PRIMARY_COLOR", None) or "#00fe7a"
+    themes_catalog = settings.webapp_themes_catalog
+    primary_color = settings.WEBAPP_PRIMARY_COLOR or "#00fe7a"
     initial_theme = (
         _initial_theme_for_request(request, themes_catalog) if themes_catalog is not None else None
     )
-    lang = _normalize_language(query.get("lang") or getattr(settings, "DEFAULT_LANGUAGE", "ru"))
+    lang = _normalize_language(query.get("lang") or settings.DEFAULT_LANGUAGE)
     messages = _app_deeplink_i18n_payload(request, lang)
     page_title = _webapp_page_title(settings, messages["title"])
     messages_json = json.dumps(

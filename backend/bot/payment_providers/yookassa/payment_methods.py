@@ -425,7 +425,7 @@ async def payment_method_history(
         await message.edit_text(_("payment_method_no_history"), reply_markup=back_markup)
         return
 
-    traffic_mode = getattr(settings, "traffic_sale_mode", False)
+    traffic_mode = settings.traffic_sale_mode
 
     def _format_item(p: Payment) -> str:
         if traffic_mode:

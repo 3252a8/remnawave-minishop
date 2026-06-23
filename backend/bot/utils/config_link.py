@@ -19,7 +19,7 @@ async def _encrypt_raw_link(settings: Settings, raw_link: str) -> Optional[str]:
 
 
 def _crypt4_link_cache(settings: Settings) -> Optional[AsyncTTLCache]:
-    ttl_seconds = int(getattr(settings, "CRYPT4_LINK_CACHE_TTL_SECONDS", 3600) or 0)
+    ttl_seconds = int(settings.CRYPT4_LINK_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return None
     cache_key = (id(settings), ttl_seconds)

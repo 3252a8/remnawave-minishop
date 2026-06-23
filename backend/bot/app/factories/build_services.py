@@ -30,7 +30,7 @@ def build_core_services(
 ) -> CoreServices:
     panel_service = (
         PanelDryRunApiService(settings)
-        if bool(getattr(settings, "panel_dry_run_enabled", False))
+        if bool(settings.panel_dry_run_enabled)
         else PanelApiService(settings)
     )
     subscription_service = SubscriptionService(settings, panel_service, bot, i18n)

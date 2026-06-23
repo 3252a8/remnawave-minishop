@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 from bot.app.web import subscription_webapp as guides
 from config.subscription_guides_config import default_subscription_guides_config_text
+from tests.support.settings_stub import settings_stub
 
 
 class _AsyncSessionFactory:
@@ -49,7 +50,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
             "CRYPT4_LINK_CACHE_TTL_SECONDS": 3600,
         }
         values.update(overrides)
-        return SimpleNamespace(**values)
+        return settings_stub(**values)
 
     def _auth_patch(self):
         return patch.dict(

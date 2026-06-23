@@ -129,7 +129,7 @@ def _resolve_telegram_bot_id(bot_token: str) -> Optional[int]:
 
 
 def _resolve_telegram_oauth_client_id(settings: Settings) -> Optional[int]:
-    configured_client_id = getattr(settings, "TELEGRAM_OAUTH_CLIENT_ID", None)
+    configured_client_id = settings.TELEGRAM_OAUTH_CLIENT_ID
     if configured_client_id:
         try:
             return int(configured_client_id)
@@ -139,7 +139,7 @@ def _resolve_telegram_oauth_client_id(settings: Settings) -> Optional[int]:
 
 
 def _resolve_telegram_oauth_request_access(settings: Settings) -> List[str]:
-    raw_value = str(getattr(settings, "TELEGRAM_OAUTH_REQUEST_ACCESS", "") or "")
+    raw_value = str(settings.TELEGRAM_OAUTH_REQUEST_ACCESS or "")
     allowed = {"write", "phone"}
     scopes = []
     for item in raw_value.split(","):

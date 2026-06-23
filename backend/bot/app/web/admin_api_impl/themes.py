@@ -233,15 +233,15 @@ def prune_unused_appearance_assets(settings: Settings) -> None:
     keep_logos = {
         filename
         for filename in [
-            _uploaded_logo_filename(getattr(settings, "WEBAPP_LOGO_URL", "")),
+            _uploaded_logo_filename(settings.WEBAPP_LOGO_URL),
         ]
         if filename
     }
     keep_favicons = {
         digest
         for digest in [
-            _favicon_digest(getattr(settings, "WEBAPP_FAVICON_URL", "")),
-            _favicon_digest(getattr(settings, "WEBAPP_LOGO_FAVICON_URL", "")),
+            _favicon_digest(settings.WEBAPP_FAVICON_URL),
+            _favicon_digest(settings.WEBAPP_LOGO_FAVICON_URL),
         ]
         if digest
     }

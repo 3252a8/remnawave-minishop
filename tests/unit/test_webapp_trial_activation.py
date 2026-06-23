@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 import bot.app.web.subscription_webapp  # noqa: F401
 from bot.app.web.webapp import billing as billing_module
 from bot.app.web.webapp import billing_subscription
+from tests.support.settings_stub import settings_stub
 
 
 class _Session:
@@ -39,7 +40,7 @@ class WebAppTrialActivationTests(IsolatedAsyncioTestCase):
     async def test_email_only_trial_activation_is_written_to_admin_logs(self):
         session = _Session()
         end_date = datetime(2026, 1, 9, 3, 4, tzinfo=timezone.utc)
-        settings = SimpleNamespace(
+        settings = settings_stub(
             TRIAL_ENABLED=True,
             TRIAL_DURATION_DAYS=7,
             TRIAL_TRAFFIC_LIMIT_GB=10,
@@ -114,7 +115,7 @@ class WebAppTrialActivationTests(IsolatedAsyncioTestCase):
 
     async def test_email_only_trial_activation_requires_telegram_when_disabled(self):
         session = _Session()
-        settings = SimpleNamespace(
+        settings = settings_stub(
             TRIAL_ENABLED=True,
             TRIAL_DURATION_DAYS=7,
             TRIAL_TRAFFIC_LIMIT_GB=10,
@@ -160,7 +161,7 @@ class WebAppTrialActivationTests(IsolatedAsyncioTestCase):
 
     async def test_disposable_email_trial_activation_requires_telegram(self):
         session = _Session()
-        settings = SimpleNamespace(
+        settings = settings_stub(
             TRIAL_ENABLED=True,
             TRIAL_DURATION_DAYS=7,
             TRIAL_TRAFFIC_LIMIT_GB=10,
@@ -206,7 +207,7 @@ class WebAppTrialActivationTests(IsolatedAsyncioTestCase):
 
     async def test_trial_activation_failure_returns_localized_panel_hint(self):
         session = _Session()
-        settings = SimpleNamespace(
+        settings = settings_stub(
             DEFAULT_LANGUAGE="ru",
             TRIAL_ENABLED=True,
             TRIAL_DURATION_DAYS=7,

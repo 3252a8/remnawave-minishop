@@ -54,7 +54,7 @@ def _hwid_callback_token(hwid: Optional[str]) -> str:
 
 
 def _enabled_tariffs(settings: Settings) -> list:
-    config = getattr(settings, "tariffs_config", None)
+    config = settings.tariffs_config
     return list(config.enabled_tariffs) if config else []
 
 
@@ -140,7 +140,7 @@ def _with_subscription_purchase_description(
 ) -> str:
     if not include:
         return text
-    description_resolver = getattr(settings, "subscription_purchase_description", None)
+    description_resolver = settings.subscription_purchase_description
     description = description_resolver(current_lang) if callable(description_resolver) else ""
     if not description:
         return text

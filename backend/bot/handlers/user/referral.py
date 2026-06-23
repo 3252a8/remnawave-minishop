@@ -81,7 +81,7 @@ async def referral_command_handler(
             await event.answer()
         return
 
-    if getattr(settings, "traffic_sale_mode", False):
+    if settings.traffic_sale_mode:
         bonus_details_str = _("referral_not_available_for_traffic")
     else:
         bonus_details_str = _build_referral_bonus_details_text(settings, _, current_lang)

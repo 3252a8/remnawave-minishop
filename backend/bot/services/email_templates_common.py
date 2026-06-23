@@ -96,9 +96,9 @@ def _safe_color(value: Optional[str]) -> str:
 
 
 def _theme_accent(settings: Settings) -> str:
-    primary = _safe_color(getattr(settings, "WEBAPP_PRIMARY_COLOR", None))
+    primary = _safe_color(settings.WEBAPP_PRIMARY_COLOR)
     try:
-        catalog = getattr(settings, "webapp_themes_catalog", None)
+        catalog = settings.webapp_themes_catalog
         if catalog is None:
             return primary
         from config.webapp_themes_config import effective_webapp_theme_accent

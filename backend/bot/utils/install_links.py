@@ -25,7 +25,7 @@ class InstallGuideLinks:
 
 def bot_install_guides_enabled(settings: Settings) -> bool:
     return bool(
-        getattr(settings, "SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED", False)
+        settings.SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED
         and subscription_guides_available(settings)
         and subscription_mini_app_install_url(settings)
     )

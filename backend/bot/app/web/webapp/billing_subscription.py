@@ -197,7 +197,7 @@ async def activate_trial_route(request: web.Request) -> web.Response:
         if not db_user or db_user.is_banned:
             return _json_error(403, "access_denied", "Access denied")
         lang = _normalize_language(
-            getattr(db_user, "language_code", None) or getattr(settings, "DEFAULT_LANGUAGE", "ru")
+            getattr(db_user, "language_code", None) or settings.DEFAULT_LANGUAGE
         )
         telegram_required_reason = _trial_telegram_required_reason(settings, db_user)
         if telegram_required_reason:

@@ -144,14 +144,14 @@ async def _grant_referral_welcome_bonus_if_eligible(
     settings: Settings = get_settings(request)
     referral_welcome_days = max(
         0,
-        int(getattr(settings, "REFERRAL_WELCOME_BONUS_DAYS", 0) or 0),
+        int(settings.REFERRAL_WELCOME_BONUS_DAYS or 0),
     )
     if referral_welcome_days <= 0:
         return None
 
     subscription_service: SubscriptionService = get_subscription_service(request)
     default_tariff_key = None
-    tariffs_config = getattr(settings, "tariffs_config", None)
+    tariffs_config = settings.tariffs_config
     if tariffs_config:
         default_tariff_key = getattr(tariffs_config, "default_tariff", None)
     try:

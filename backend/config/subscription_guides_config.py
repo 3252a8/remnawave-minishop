@@ -140,10 +140,7 @@ def default_subscription_guides_config_text() -> str:
 
 
 def resolve_subscription_guides_config_path(settings: Any) -> Path:
-    configured_path = str(
-        getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_PATH", DEFAULT_CONFIG_PATH)
-        or DEFAULT_CONFIG_PATH
-    ).strip()
+    configured_path = str(settings.SUBSCRIPTION_PAGE_CONFIG_PATH or DEFAULT_CONFIG_PATH).strip()
     if not configured_path:
         raise SubscriptionGuidesConfigError("SUBSCRIPTION_PAGE_CONFIG_PATH is empty")
     path = Path(configured_path)
@@ -160,7 +157,7 @@ def ensure_subscription_guides_config_file(settings: Any) -> Path:
 
 
 def subscription_guides_admin_config_json(settings: Any) -> Tuple[str, str]:
-    admin_json = str(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON", "") or "").strip()
+    admin_json = str(settings.SUBSCRIPTION_PAGE_CONFIG_JSON or "").strip()
     if admin_json:
         return admin_json, "admin_json"
     return "", "empty"
@@ -183,7 +180,7 @@ def load_subscription_guides_config(settings: Any) -> Tuple[Dict[str, Any], str]
 def subscription_guides_status(settings: Any) -> Dict[str, Any]:
     """Return a safe status payload for user-facing guide availability checks."""
 
-    if not bool(getattr(settings, "SUBSCRIPTION_GUIDES_ENABLED", False)):
+    if not bool(settings.SUBSCRIPTION_GUIDES_ENABLED):
         return {"enabled": False, "config": None, "source": None, "error": None}
     try:
         config, source = load_subscription_guides_config(settings)
@@ -193,17 +190,14 @@ def subscription_guides_status(settings: Any) -> Dict[str, Any]:
 
 
 def subscription_guides_available(settings: Any) -> bool:
-    if not bool(getattr(settings, "SUBSCRIPTION_GUIDES_ENABLED", False)):
+    if not bool(settings.SUBSCRIPTION_GUIDES_ENABLED):
         return False
-    admin_json = str(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON", "") or "").strip()
+    admin_json = str(settings.SUBSCRIPTION_PAGE_CONFIG_JSON or "").strip()
     if (
-        not (
-            admin_json
-            and bool(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED", False))
-        )
-        and bool(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED", True))
-        and getattr(settings, "PANEL_API_URL", None)
-        and getattr(settings, "PANEL_API_KEY", None)
+        not (admin_json and bool(settings.SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED))
+        and bool(settings.SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED)
+        and settings.PANEL_API_URL
+        and settings.PANEL_API_KEY
     ):
         return True
     status = subscription_guides_status(settings)
@@ -264,10 +258,8 @@ def validate_subscription_guides_config(payload: Any) -> Dict[str, Any]:
 
 
 def _read_config_source(settings: Any) -> Tuple[str, str]:
-    admin_json = str(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON", "") or "").strip()
-    json_override_enabled = bool(
-        getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED", False)
-    )
+    admin_json = str(settings.SUBSCRIPTION_PAGE_CONFIG_JSON or "").strip()
+    json_override_enabled = bool(settings.SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED)
     if admin_json and json_override_enabled:
         return "admin_json", admin_json
 

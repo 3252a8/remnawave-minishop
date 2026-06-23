@@ -58,7 +58,7 @@ class TrustedProxyAccessLogger(AccessLogger):
             return "-"
         app = getattr(request, "app", None)
         settings = app.get("settings") if app is not None else None
-        trusted_proxies = getattr(settings, "trusted_proxies", None)
+        trusted_proxies = settings.trusted_proxies if settings is not None else None
         client_ip = request_client_ip(cast(web.Request, request), trusted_proxies=trusted_proxies)
         return client_ip or "-"
 

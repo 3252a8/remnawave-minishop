@@ -6,6 +6,7 @@ from bot.services.support_service import (
     TicketForbidden,
     _support_admin_notification_decision,
 )
+from tests.support.settings_stub import settings_stub
 
 
 def test_support_traffic_snapshot_calculates_percent_and_left_bytes():
@@ -34,7 +35,7 @@ def test_support_admin_notification_decision_sends_first_unread():
         admin_last_notified_at=now,
         admin_last_emailed_at=now,
     )
-    settings = SimpleNamespace(
+    settings = settings_stub(
         SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS=300,
         SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS=1800,
         SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED=True,
@@ -53,7 +54,7 @@ def test_support_admin_notification_decision_defaults_email_disabled():
         admin_last_notified_at=None,
         admin_last_emailed_at=None,
     )
-    settings = SimpleNamespace(
+    settings = settings_stub(
         SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS=300,
         SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS=1800,
     )
@@ -71,7 +72,7 @@ def test_support_admin_notification_decision_suppresses_fast_followups():
         admin_last_notified_at=now - timedelta(seconds=60),
         admin_last_emailed_at=now - timedelta(seconds=60),
     )
-    settings = SimpleNamespace(
+    settings = settings_stub(
         SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS=300,
         SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS=1800,
         SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED=True,
@@ -90,7 +91,7 @@ def test_support_admin_notification_decision_uses_separate_email_cooldown():
         admin_last_notified_at=now - timedelta(seconds=301),
         admin_last_emailed_at=now - timedelta(seconds=301),
     )
-    settings = SimpleNamespace(
+    settings = settings_stub(
         SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS=300,
         SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS=1800,
         SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED=True,

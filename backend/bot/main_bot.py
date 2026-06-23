@@ -211,7 +211,7 @@ async def on_startup_configured(dispatcher: Dispatcher):
             BotCommand(command="start", description=start_description),
             BotCommand(command="tg", description="Интерфейс в боте"),
         ]
-        bot_menu_disabled = bool(getattr(settings, "TELEGRAM_BOT_MENU_DISABLED", False))
+        bot_menu_disabled = bool(settings.TELEGRAM_BOT_MENU_DISABLED)
         public_bot_commands = [bot_commands[0]] if bot_menu_disabled else bot_commands
         command_scopes_to_clear: list[BotCommandScopeUnion] = [
             BotCommandScopeDefault(),
@@ -223,7 +223,7 @@ async def on_startup_configured(dispatcher: Dispatcher):
             for language_code in _telegram_command_language_codes(settings):
                 await bot.delete_my_commands(scope=scope, language_code=language_code)
         if bot_menu_disabled:
-            for admin_id in getattr(settings, "ADMIN_IDS", []) or []:
+            for admin_id in settings.ADMIN_IDS or []:
                 for language_code in _telegram_command_language_codes(settings):
                     try:
                         await bot.delete_my_commands(

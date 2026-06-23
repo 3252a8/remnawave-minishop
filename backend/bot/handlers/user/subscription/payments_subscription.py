@@ -34,9 +34,9 @@ async def select_subscription_period_callback_handler(
             pass
         return
 
-    traffic_packages = getattr(settings, "traffic_packages", {}) or {}
-    stars_traffic_packages = getattr(settings, "stars_traffic_packages", {}) or {}
-    traffic_mode = bool(getattr(settings, "traffic_sale_mode", False) or stars_traffic_packages)
+    traffic_packages = settings.traffic_packages or {}
+    stars_traffic_packages = settings.stars_traffic_packages or {}
+    traffic_mode = bool(settings.traffic_sale_mode or stars_traffic_packages)
     parts = callback_data(callback).split(":")
     callback_context = parts[2] if len(parts) > 2 else None
     try:

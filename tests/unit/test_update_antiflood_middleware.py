@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from bot.middlewares.update_antiflood import RateLimitRule, UpdateAntiFloodMiddleware
+from tests.support.settings_stub import settings_stub
 
 
 def _settings(**overrides):
@@ -18,7 +19,7 @@ def _settings(**overrides):
         "TELEGRAM_TRIAL_CALLBACK_COOLDOWN_SECONDS": 30,
     }
     base.update(overrides)
-    return SimpleNamespace(**base)
+    return settings_stub(**base)
 
 
 def _message_update(*, user_id=42, chat_id=42, chat_type="private", text="hello"):

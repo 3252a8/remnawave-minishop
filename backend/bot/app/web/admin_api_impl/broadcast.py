@@ -152,9 +152,7 @@ async def _user_ids_with_active_subscription_never_connected(
 
 
 def _admin_broadcast_audience_counts_cache(settings: Settings) -> Optional[AsyncTTLCache]:
-    ttl_seconds = int(
-        getattr(settings, "ADMIN_BROADCAST_AUDIENCE_COUNTS_CACHE_TTL_SECONDS", 30) or 0
-    )
+    ttl_seconds = int(settings.ADMIN_BROADCAST_AUDIENCE_COUNTS_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return None
     cache_key = (id(settings), ttl_seconds)

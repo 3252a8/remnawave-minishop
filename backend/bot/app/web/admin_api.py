@@ -1,63 +1,87 @@
 """Compatibility re-export facade for the admin Mini App API."""
 
-# ruff: noqa: I001
-
 from bot.app.web.admin_api_impl import (
-    _runtime as _runtime,
-    ads as _ads,
-    auth as _auth,
-    backups as _backups,
-    broadcast as _broadcast,
-    common as _common,
-    health as _health,
-    logs as _logs,
-    panel as _panel,
-    payments as _payments,
-    promos as _promos,
-    routes as _routes,
-    settings as _settings,
-    stats as _stats,
-    support as _support,
-    sync as _sync,
-    tariffs as _tariffs,
-    themes as _themes,
-    translations as _translations,
-    users as _users,
+    _runtime as _runtime,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    ads as _ads,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    auth as _auth,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    backups as _backups,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    broadcast as _broadcast,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    common as _common,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    health as _health,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    logs as _logs,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    panel as _panel,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    payments as _payments,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    promos as _promos,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    routes as _routes,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    settings as _settings,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    stats as _stats,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    support as _support,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    sync as _sync,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    tariffs as _tariffs,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    themes as _themes,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    translations as _translations,  # noqa: F401
+)
+from bot.app.web.admin_api_impl import (
+    users as _users,  # noqa: F401
+)
+from bot.app.web.admin_api_impl.auth import (
+    admin_auth_middleware,
+)
+from bot.app.web.admin_api_impl.common import (
+    _premium_traffic_list_payload,
+)
+from bot.app.web.admin_api_impl.routes import (
+    setup_admin_routes,
+)
+from bot.app.web.admin_api_impl.settings import (
+    admin_settings_get_route,
+    app_settings_dal,
+)
+from bot.app.web.admin_api_impl.stats import (
+    admin_me_route,
 )
 
-_MODULES = (
-    _runtime,
-    _auth,
-    _common,
-    _health,
-    _stats,
-    _users,
-    _payments,
-    _promos,
-    _logs,
-    _support,
-    _broadcast,
-    _sync,
-    _ads,
-    _backups,
-    _settings,
-    _tariffs,
-    _themes,
-    _translations,
-    _panel,
-    _routes,
-)
-
-_NAMESPACE = {}
-for _module in _MODULES:
-    _NAMESPACE.update(
-        {
-            _name: _value
-            for _name, _value in vars(_module).items()
-            if not _name.startswith("__") and _name != "annotations"
-        }
-    )
-
-globals().update(_NAMESPACE)
-
-__all__ = sorted(_name for _name in _NAMESPACE if not _name.startswith("__"))
+__all__ = [
+    "_premium_traffic_list_payload",
+    "admin_auth_middleware",
+    "admin_me_route",
+    "admin_settings_get_route",
+    "app_settings_dal",
+    "setup_admin_routes",
+]

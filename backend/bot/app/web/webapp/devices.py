@@ -56,7 +56,7 @@ async def devices_route(request: web.Request) -> web.Response:
             settings,
             "devices",
             user_id,
-            int(getattr(settings, "WEBAPP_DEVICES_CACHE_TTL_SECONDS", 5) or 0),
+            int(settings.WEBAPP_DEVICES_CACHE_TTL_SECONDS or 0),
             lambda: _load_devices_payload(
                 subscription_service,
                 session,

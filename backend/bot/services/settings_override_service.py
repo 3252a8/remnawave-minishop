@@ -154,18 +154,18 @@ def _normalize_exclusive_provider_toggles(
 
 def _appearance_snapshot(settings: Settings) -> Dict[str, Any]:
     snapshot: Dict[str, Any] = {}
-    logo_url = getattr(settings, "WEBAPP_LOGO_URL", None)
-    logo_favicon_url = getattr(settings, "WEBAPP_LOGO_FAVICON_URL", None)
-    favicon_url = getattr(settings, "WEBAPP_FAVICON_URL", None)
+    logo_url = settings.WEBAPP_LOGO_URL
+    logo_favicon_url = settings.WEBAPP_LOGO_FAVICON_URL
+    favicon_url = settings.WEBAPP_FAVICON_URL
     if logo_url:
         snapshot["WEBAPP_LOGO_URL"] = logo_url
     if logo_favicon_url:
         snapshot["WEBAPP_LOGO_FAVICON_URL"] = logo_favicon_url
     if favicon_url:
         snapshot["WEBAPP_FAVICON_URL"] = favicon_url
-    if getattr(settings, "WEBAPP_FAVICON_USE_CUSTOM", False):
+    if settings.WEBAPP_FAVICON_USE_CUSTOM:
         snapshot["WEBAPP_FAVICON_USE_CUSTOM"] = True
-    primary_color = getattr(settings, "WEBAPP_PRIMARY_COLOR", None)
+    primary_color = settings.WEBAPP_PRIMARY_COLOR
     if primary_color and primary_color != "#00fe7a":
         snapshot["WEBAPP_PRIMARY_COLOR"] = primary_color
     return snapshot

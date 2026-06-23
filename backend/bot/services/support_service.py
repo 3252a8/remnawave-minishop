@@ -67,18 +67,16 @@ def _support_admin_notification_decision(
     send_telegram = first_unread or _notification_due(
         getattr(ticket, "admin_last_notified_at", None),
         now=now,
-        cooldown_seconds=getattr(settings, "SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS", 300),
+        cooldown_seconds=settings.SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS,
     )
     if admin_email_notifications_enabled is None:
-        admin_email_notifications_enabled = bool(
-            getattr(settings, "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED", False)
-        )
+        admin_email_notifications_enabled = bool(settings.SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED)
     send_email = bool(admin_email_notifications_enabled) and (
         first_unread
         or _notification_due(
             getattr(ticket, "admin_last_emailed_at", None),
             now=now,
-            cooldown_seconds=getattr(settings, "SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS", 1800),
+            cooldown_seconds=settings.SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS,
         )
     )
     return AdminNotificationDecision(send_telegram=send_telegram, send_email=send_email)
