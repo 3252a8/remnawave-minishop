@@ -59,6 +59,7 @@ from ..shared import (
     render_payment_link,
     safe_callback_answer,
 )
+from ..shared.app_context import app_optional, app_required
 
 _LOG = "platega"
 
@@ -478,7 +479,7 @@ class PlategaService(HttpClientMixin):
 
 
 async def platega_webhook_route(request: web.Request) -> web.Response:
-    service: PlategaService = request.app["platega_service"]
+    service: PlategaService = app_required(request, "platega_service", PlategaService)
     return await service.webhook_route(request)
 
 
@@ -690,8 +691,8 @@ def create_service(ctx: ServiceFactoryContext) -> PlategaService:
 
 
 async def _create_webapp_payment(ctx: WebAppPaymentContext, variant: str) -> web.Response:
-    settings: Settings = ctx.request.app["settings"]
-    service: PlategaService = ctx.request.app["platega_service"]
+    settings: Settings = app_required(ctx.request, "settings", Settings)
+    service: PlategaService = app_required(ctx.request, "platega_service", PlategaService)
     if not service or not service.configured:
         return payment_unavailable()
     if variant == "platega_crypto":
@@ -767,7 +768,7 @@ async def create_crypto_webapp_payment(ctx: WebAppPaymentContext) -> web.Respons
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service: PlategaService = ctx.request.app.get("platega_service")
+    service = app_optional(ctx.request, "platega_service", PlategaService)
     if not service or not service.configured:
         return None
     variant = "crypto" if ctx.method == "platega_crypto" else "sbp"

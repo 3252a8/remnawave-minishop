@@ -42,6 +42,7 @@ from ..shared import (
     sale_mode_base,
     sale_mode_tariff_key,
 )
+from ..shared.app_context import app_required
 
 
 class StarsPresentation(ProviderEnvConfig):
@@ -355,7 +356,7 @@ def create_service(ctx: ServiceFactoryContext) -> StarsService:
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     if ctx.stars_price is None:
         return payment_unavailable()
-    bot = ctx.request.app["bot"]
+    bot = app_required(ctx.request, "bot", Bot)
     try:
         amounts = payment_record_amounts(
             months=ctx.months,

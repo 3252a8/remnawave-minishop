@@ -60,6 +60,7 @@ from ..shared import (
     render_link_or_fail,
     render_payment_link,
 )
+from ..shared.app_context import app_optional, app_required
 
 _LOG = "severpay"
 
@@ -444,7 +445,7 @@ class SeverPayService(HttpClientMixin):
 
 
 async def severpay_webhook_route(request: web.Request) -> web.Response:
-    service: SeverPayService = request.app["severpay_service"]
+    service: SeverPayService = app_required(request, "severpay_service", SeverPayService)
     return await service.webhook_route(request)
 
 
@@ -593,8 +594,8 @@ def create_service(ctx: ServiceFactoryContext) -> SeverPayService:
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    settings = ctx.request.app["settings"]
-    service: SeverPayService = ctx.request.app["severpay_service"]
+    settings = app_required(ctx.request, "settings", Settings)
+    service: SeverPayService = app_required(ctx.request, "severpay_service", SeverPayService)
     if not service or not service.configured:
         return payment_unavailable()
 
@@ -632,7 +633,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service: SeverPayService = ctx.request.app.get("severpay_service")
+    service = app_optional(ctx.request, "severpay_service", SeverPayService)
     if not service or not service.configured:
         return None
     return await service.try_reuse_pending_payment(payment)

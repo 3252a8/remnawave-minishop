@@ -62,6 +62,7 @@ from ..shared import (
     render_link_or_fail,
     render_payment_link,
 )
+from ..shared.app_context import app_optional, app_required
 from .constants import HELEKET_DEFAULT_SUPPORTED_CURRENCIES
 from .manifest import _CONFIG_MANIFEST, _PRESENTATION_MANIFEST
 
@@ -745,8 +746,8 @@ async def pay_heleket_callback_handler(
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    settings: Settings = ctx.request.app["settings"]
-    service: HeleketService = ctx.request.app["heleket_service"]
+    settings: Settings = app_required(ctx.request, "settings", Settings)
+    service: HeleketService = app_required(ctx.request, "heleket_service", HeleketService)
     if not service or not service.configured:
         return payment_unavailable()
 
@@ -784,14 +785,14 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service: HeleketService = ctx.request.app.get("heleket_service")
+    service = app_optional(ctx.request, "heleket_service", HeleketService)
     if not service or not service.configured:
         return None
     return await service.try_reuse_pending_payment(payment)
 
 
 async def heleket_webhook_route(request: web.Request) -> web.Response:
-    service: HeleketService = request.app["heleket_service"]
+    service: HeleketService = app_required(request, "heleket_service", HeleketService)
     return await service.webhook_route(request)
 
 

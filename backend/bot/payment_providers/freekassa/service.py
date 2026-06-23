@@ -63,6 +63,7 @@ from ..shared import (
     render_payment_link,
     safe_callback_answer,
 )
+from ..shared.app_context import app_optional, app_required
 
 _LOG = "freekassa"
 FREEKASSA_SUPPORTED_CURRENCIES = ("RUB", "USD", "EUR", "UAH", "KZT")
@@ -512,7 +513,7 @@ class FreeKassaService(HttpClientMixin):
 
 
 async def freekassa_webhook_route(request: web.Request) -> web.Response:
-    service: FreeKassaService = request.app["freekassa_service"]
+    service: FreeKassaService = app_required(request, "freekassa_service", FreeKassaService)
     return await service.webhook_route(request)
 
 
@@ -690,7 +691,7 @@ def create_service(ctx: ServiceFactoryContext) -> FreeKassaService:
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    service: FreeKassaService = ctx.request.app["freekassa_service"]
+    service: FreeKassaService = app_required(ctx.request, "freekassa_service", FreeKassaService)
     if not service or not service.configured or not service.payment_method_id:
         return payment_unavailable()
     currency = ctx.currency or service.default_currency
@@ -730,7 +731,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service: FreeKassaService = ctx.request.app.get("freekassa_service")
+    service = app_optional(ctx.request, "freekassa_service", FreeKassaService)
     if not service or not service.configured:
         return None
 

@@ -63,6 +63,7 @@ from ..shared import (
     render_payment_link,
     safe_callback_answer,
 )
+from ..shared.app_context import app_optional, app_required
 from .manifest import _CONFIG_MANIFEST, _PRESENTATION_MANIFEST
 
 _LOG = "cloudpayments"
@@ -671,7 +672,9 @@ class CloudPaymentsService(HttpClientMixin):
 
 
 async def cloudpayments_webhook_route(request: web.Request) -> web.Response:
-    service: CloudPaymentsService = request.app["cloudpayments_service"]
+    service: CloudPaymentsService = app_required(
+        request, "cloudpayments_service", CloudPaymentsService
+    )
     return await service.webhook_route(request)
 
 
@@ -827,8 +830,10 @@ def create_service(ctx: ServiceFactoryContext) -> CloudPaymentsService:
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    settings: Settings = ctx.request.app["settings"]
-    service: CloudPaymentsService = ctx.request.app["cloudpayments_service"]
+    settings: Settings = app_required(ctx.request, "settings", Settings)
+    service: CloudPaymentsService = app_required(
+        ctx.request, "cloudpayments_service", CloudPaymentsService
+    )
     if not service or not service.configured:
         return payment_unavailable()
 
@@ -865,7 +870,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service: CloudPaymentsService = ctx.request.app.get("cloudpayments_service")
+    service = app_optional(ctx.request, "cloudpayments_service", CloudPaymentsService)
     if not service or not service.configured:
         return None
     return await service.try_reuse_pending_payment(payment)

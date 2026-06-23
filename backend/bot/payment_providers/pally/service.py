@@ -61,6 +61,7 @@ from ..shared import (
     render_payment_link,
     safe_callback_answer,
 )
+from ..shared.app_context import app_optional, app_required
 from .manifest import _CONFIG_MANIFEST, _PRESENTATION_MANIFEST
 
 _LOG = "pally"
@@ -660,7 +661,7 @@ class PallyService(HttpClientMixin):
 
 
 async def pally_webhook_route(request: web.Request) -> web.Response:
-    service: PallyService = request.app["pally_service"]
+    service: PallyService = app_required(request, "pally_service", PallyService)
     return await service.webhook_route(request)
 
 
@@ -811,8 +812,8 @@ def create_service(ctx: ServiceFactoryContext) -> PallyService:
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    settings: Settings = ctx.request.app["settings"]
-    service: PallyService = ctx.request.app["pally_service"]
+    settings: Settings = app_required(ctx.request, "settings", Settings)
+    service: PallyService = app_required(ctx.request, "pally_service", PallyService)
     if not service or not service.configured:
         return payment_unavailable()
 
@@ -848,7 +849,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service: PallyService = ctx.request.app.get("pally_service")
+    service = app_optional(ctx.request, "pally_service", PallyService)
     if not service or not service.configured:
         return None
     return await service.try_reuse_pending_bill(payment)

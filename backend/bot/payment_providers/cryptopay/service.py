@@ -54,6 +54,7 @@ from ..shared import (
     sale_mode_is_traffic,
     sale_mode_tariff_key,
 )
+from ..shared.app_context import app_required
 
 logger = logging.getLogger(__name__)
 _LOG = "cryptopay"
@@ -424,7 +425,7 @@ class CryptoPayService(BaseProviderService):
 
 
 async def cryptopay_webhook_route(request: web.Request) -> web.Response:
-    service: CryptoPayService = request.app["cryptopay_service"]
+    service: CryptoPayService = app_required(request, "cryptopay_service", CryptoPayService)
     return await service.webhook_route(request)
 
 
@@ -522,7 +523,7 @@ def create_service(ctx: ServiceFactoryContext) -> CryptoPayService:
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    service: CryptoPayService = ctx.request.app["cryptopay_service"]
+    service: CryptoPayService = app_required(ctx.request, "cryptopay_service", CryptoPayService)
     if not service or not service.configured:
         return payment_unavailable()
     url = await service.create_invoice(
