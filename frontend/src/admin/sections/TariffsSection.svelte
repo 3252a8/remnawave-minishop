@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Input, Textarea } from "$components/ui/index.js";
   import {
     ChevronRight,
@@ -18,14 +18,42 @@
   } from "$components/patterns/admin/index.js";
   import { Accordion, Switch } from "$components/ui/primitives.js";
   import { normalizeCurrencyKey } from "$lib/admin/tariffDraft.js";
+  import type {
+    PanelSquad,
+    ProviderCurrencySupport,
+    Tariff,
+    TariffsCatalog,
+    TariffsStore,
+  } from "$lib/admin/stores/tariffsStore";
+  import type {
+    SettingField,
+    SettingsDirtyEntry,
+    SettingsSavedPayload,
+    SettingsSection,
+    SettingsStore,
+  } from "$lib/admin/stores/settingsStore";
 
-  export let at;
-  export let fmtMoney;
-  export let onSettingsSaved = () => {};
-  export let onOpenSettingsPath = () => {};
+  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type MoneyFormatter = (value: unknown, currency?: string) => string;
+  type SettingsDirtyState = Record<string, SettingsDirtyEntry>;
+  type SelectOption = { value: string; label: string };
+  type ComponentCallback = (...args: never[]) => void;
+  type ProviderKey = keyof typeof PROVIDER_FALLBACK_LABELS;
+  type ProviderSupportSummary = {
+    total: number;
+    enabled: number;
+    configured: number;
+    available: number;
+    blocked: number;
+  };
 
-  const tariffsStore = getContext("tariffsStore");
-  const settingsStore = getContext("settingsStore");
+  export let at: TranslateFn;
+  export let fmtMoney: MoneyFormatter;
+  export let onSettingsSaved: (payload: SettingsSavedPayload) => void | Promise<void> = () => {};
+  export let onOpenSettingsPath: (path: string[]) => void = () => {};
+
+  const tariffsStore = getContext<TariffsStore>("tariffsStore");
+  const settingsStore = getContext<SettingsStore>("settingsStore");
 
   const TRIAL_SETTING_KEYS = [
     "TRIAL_ENABLED",
@@ -95,7 +123,7 @@
       "REFERRAL_BONUS_DAYS_INVITER_12_MONTHS",
       "REFERRAL_BONUS_DAYS_REFEREE_12_MONTHS",
     ],
-  ];
+  ] as const;
   const LEGACY_TARIFF_SETTING_KEYS = [
     ...LEGACY_PERIODS.flatMap((row) => row.slice(1)),
     "TRAFFIC_PACKAGES",
@@ -122,8 +150,8 @@
     telegram_stars: "Telegram Stars",
     wata: "Wata",
     yookassa: "YooKassa",
-  };
-  const PROVIDER_SETTINGS_PATHS = {
+  } as const;
+  const PROVIDER_SETTINGS_PATHS: Partial<Record<ProviderKey, string[]>> = {
     cryptopay: ["payments", "cryptopay"],
     freekassa: ["payments", "freekassa"],
     heleket: ["payments", "heleket"],
@@ -137,6 +165,35 @@
     telegram_stars: ["payments", "telegram-stars"],
     wata: ["payments", "wata"],
     yookassa: ["payments", "yookassa"],
+  };
+
+  let tariffsCatalog: TariffsCatalog;
+  let tariffsLoading = false;
+  let tariffsPath = "";
+  let tariffsSaving = false;
+  let panelSquads: PanelSquad[] = [];
+  let providerCurrencySupport: ProviderCurrencySupport[] = [];
+  let panelSquadsLoading = false;
+  let settingsSections: SettingsSection[] = [];
+  let settingsDirty: SettingsDirtyState = {};
+  let settingsSaving = false;
+  let enabledTariffs: Tariff[] = [];
+  let disabledTariffs = 0;
+  let settingsFieldMap = new Map<string, SettingField>();
+  let trialDirtyCount = 0;
+  let referralDirtyCount = 0;
+  let legacyDirtyCount = 0;
+  let panelSquadOptions: SelectOption[] = [];
+  let catalogCurrencyKey = "rub";
+  let catalogCurrencyCode = "RUB";
+  let defaultCurrencyDraftKey = "rub";
+  let defaultCurrencyDirty = false;
+  let providerSupportSummary: ProviderSupportSummary = {
+    total: 0,
+    enabled: 0,
+    configured: 0,
+    available: 0,
+    blocked: 0,
   };
 
   $: ({
@@ -171,14 +228,14 @@
   let selectedTrialPremiumSquad = "";
   let trialSquadSelectKey = 0;
   let trialPremiumSquadSelectKey = 0;
-  let tariffSettingsOpen = [];
+  let tariffSettingsOpen: string[] = [];
   let defaultCurrencyDraft = "RUB";
 
-  function tariffName(tariff) {
+  function tariffName(tariff: Tariff): string {
     return tariff?.names?.ru || tariff?.names?.en || tariff?.key || "—";
   }
 
-  function tariffPriceSummary(tariff) {
+  function tariffPriceSummary(tariff: Tariff): string {
     const currency = normalizeCurrencyKey(tariffsCatalog.default_currency || "rub");
     const currencyCode = currency.toUpperCase();
     if (tariff.billing_model === "traffic") {
@@ -202,11 +259,15 @@
       .join(" · ");
   }
 
-  function fieldFor(key, fieldMap = settingsFieldMap) {
-    return fieldMap.get(key) || { key, value: "" };
+  function fieldFor(key: string, fieldMap = settingsFieldMap): SettingField {
+    return fieldMap.get(key) || { key, label: key, value: "" };
   }
 
-  function valueForKey(key, dirty = settingsDirty, fieldMap = settingsFieldMap) {
+  function valueForKey(
+    key: string,
+    dirty: SettingsDirtyState = settingsDirty,
+    fieldMap = settingsFieldMap
+  ): unknown {
     if (dirty[key]?.deleted) return "";
     if (Object.prototype.hasOwnProperty.call(dirty, key)) {
       return dirty[key].value;
@@ -214,7 +275,11 @@
     return fieldFor(key, fieldMap).value ?? "";
   }
 
-  function boolValue(key, dirty = settingsDirty, fieldMap = settingsFieldMap) {
+  function boolValue(
+    key: string,
+    dirty: SettingsDirtyState = settingsDirty,
+    fieldMap = settingsFieldMap
+  ): boolean {
     const value = valueForKey(key, dirty, fieldMap);
     if (typeof value === "string") {
       return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
@@ -222,38 +287,59 @@
     return Boolean(value);
   }
 
-  function setSetting(key, value) {
+  function inputValueForKey(key: string): string | number {
+    const value = valueForKey(key, settingsDirty, settingsFieldMap);
+    return typeof value === "string" || typeof value === "number" ? value : "";
+  }
+
+  function textValueForKey(key: string): string {
+    const value = valueForKey(key, settingsDirty, settingsFieldMap);
+    return value == null ? "" : String(value);
+  }
+
+  function setSetting(key: string, value: unknown): void {
     if (!settingsFieldMap.has(key)) return;
     settingsStore.markDirty(key, value);
   }
 
-  function isSettingDirty(key, dirty = settingsDirty) {
+  function settingInputHandler(key: string): (event: Event) => void {
+    return (event: Event) => {
+      const input = event.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
+      setSetting(key, input?.value ?? "");
+    };
+  }
+
+  function isSettingDirty(key: string, dirty: SettingsDirtyState = settingsDirty): boolean {
     return Boolean(dirty[key]);
   }
 
-  function dirtyCount(keys, dirty = settingsDirty) {
+  function dirtyCount(keys: readonly string[], dirty: SettingsDirtyState = settingsDirty): number {
     return (keys || []).filter((key) => isSettingDirty(key, dirty)).length;
   }
 
-  function resetSetting(key) {
+  function resetSetting(key: string): void {
     settingsStore.clearDirty(key);
   }
 
-  function csvList(key, dirty = settingsDirty, fieldMap = settingsFieldMap) {
+  function csvList(
+    key: string,
+    dirty: SettingsDirtyState = settingsDirty,
+    fieldMap = settingsFieldMap
+  ): string[] {
     return String(valueForKey(key, dirty, fieldMap) || "")
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean);
   }
 
-  function setCsvList(key, values) {
+  function setCsvList(key: string, values: string[]): void {
     const normalized = Array.from(
       new Set((values || []).map((item) => String(item).trim()).filter(Boolean))
     );
     settingsStore.markDirty(key, normalized.join(","));
   }
 
-  function addTrialSquad(uuid) {
+  function addTrialSquad(uuid: string): void {
     const next = String(uuid || "").trim();
     if (!next) return;
     const current = csvList("TRIAL_SQUAD_UUIDS");
@@ -263,13 +349,13 @@
     selectedTrialSquad = "";
   }
 
-  function handleTrialSquadSelect(uuid) {
+  function handleTrialSquadSelect(uuid: string): void {
     addTrialSquad(uuid);
     selectedTrialSquad = "";
     trialSquadSelectKey += 1;
   }
 
-  function addTrialPremiumSquad(uuid) {
+  function addTrialPremiumSquad(uuid: string): void {
     const next = String(uuid || "").trim();
     if (!next) return;
     const current = csvList("TRIAL_PREMIUM_SQUAD_UUIDS");
@@ -279,11 +365,16 @@
     selectedTrialPremiumSquad = "";
   }
 
-  function handleTrialPremiumSquadSelect(uuid) {
+  function handleTrialPremiumSquadSelect(uuid: string): void {
     addTrialPremiumSquad(uuid);
     selectedTrialPremiumSquad = "";
     trialPremiumSquadSelectKey += 1;
   }
+
+  const handleTrialTrafficStrategySelect = ((value: string) =>
+    setSetting("TRIAL_TRAFFIC_STRATEGY", value)) as ComponentCallback;
+  const handleTrialSquadSelectChange = handleTrialSquadSelect as ComponentCallback;
+  const handleTrialPremiumSquadSelectChange = handleTrialPremiumSquadSelect as ComponentCallback;
 
   $: catalogCurrencyKey = normalizeCurrencyKey(tariffsCatalog.default_currency || "rub");
   $: catalogCurrencyCode = catalogCurrencyKey.toUpperCase();
@@ -305,11 +396,20 @@
     { total: 0, enabled: 0, configured: 0, available: 0, blocked: 0 }
   );
 
-  async function saveDefaultCurrency() {
+  async function saveDefaultCurrency(): Promise<void> {
     await tariffsStore.setDefaultCurrency(defaultCurrencyDraft);
   }
 
-  function providerCurrencyLabel(provider) {
+  function handleDefaultCurrencyInput(event: Event): void {
+    const input = event.currentTarget as HTMLInputElement | null;
+    defaultCurrencyDraft = (input?.value ?? "").toUpperCase();
+  }
+
+  function handleDefaultCurrencyKeydown(event: KeyboardEvent): void {
+    if (event.key === "Enter" && defaultCurrencyDirty) void saveDefaultCurrency();
+  }
+
+  function providerCurrencyLabel(provider: ProviderCurrencySupport): string {
     if (provider.accepts_any_currency) return at("tariff_provider_any_currency", {}, "Любая");
     return (
       (provider.currencies || []).map((currency) => String(currency).toUpperCase()).join(", ") ||
@@ -317,34 +417,36 @@
     );
   }
 
-  function providerCurrencyVariant(provider) {
+  function providerCurrencyVariant(
+    provider: ProviderCurrencySupport
+  ): "success" | "warning" | "muted" {
     if (!provider.enabled || !provider.configured) return "muted";
     return provider.supports_default_currency ? "success" : "warning";
   }
 
-  function providerCurrencyStatus(provider) {
+  function providerCurrencyStatus(provider: ProviderCurrencySupport): string {
     if (!provider.enabled) return at("disabled", {}, "Отключен");
     if (!provider.configured) return at("status_not_configured", {}, "Не настроен");
     if (provider.supports_default_currency) return at("tariff_currency_supported", {}, "Доступен");
     return at("tariff_currency_unsupported", {}, "Заблокирован");
   }
 
-  function providerKey(provider) {
+  function providerKey(provider: ProviderCurrencySupport): string {
     return String(provider?.id || provider?.provider_key || provider?.key || "")
       .trim()
       .toLowerCase();
   }
 
-  function providerDisplayName(provider) {
+  function providerDisplayName(provider: ProviderCurrencySupport): string {
     const key = providerKey(provider);
     return (
       provider?.provider_label ||
       provider?.provider_name ||
-      PROVIDER_FALLBACK_LABELS[key] ||
+      PROVIDER_FALLBACK_LABELS[key as ProviderKey] ||
       PROVIDER_FALLBACK_LABELS[
         String(provider?.provider_key || "")
           .trim()
-          .toLowerCase()
+          .toLowerCase() as ProviderKey
       ] ||
       provider?.label ||
       provider?.id ||
@@ -352,7 +454,7 @@
     );
   }
 
-  function providerSettingsPath(provider) {
+  function providerSettingsPath(provider: ProviderCurrencySupport): string[] {
     if (Array.isArray(provider?.settings_path) && provider.settings_path.length) {
       return provider.settings_path.map((segment) => String(segment || "").trim()).filter(Boolean);
     }
@@ -360,41 +462,43 @@
     const providerRouteKey = String(provider?.provider_key || "")
       .trim()
       .toLowerCase();
-    const mapped = PROVIDER_SETTINGS_PATHS[key] || PROVIDER_SETTINGS_PATHS[providerRouteKey];
+    const mapped =
+      PROVIDER_SETTINGS_PATHS[key as ProviderKey] ||
+      PROVIDER_SETTINGS_PATHS[providerRouteKey as ProviderKey];
     if (mapped) return mapped;
     const fallback = providerRouteKey || key;
     return fallback ? ["payments", fallback.replace(/_/g, "-")] : ["payments"];
   }
 
-  function openProviderSettings(provider) {
+  function openProviderSettings(provider: ProviderCurrencySupport): void {
     onOpenSettingsPath(providerSettingsPath(provider));
   }
 
-  function removeTrialSquad(uuid) {
+  function removeTrialSquad(uuid: string): void {
     setCsvList(
       "TRIAL_SQUAD_UUIDS",
       csvList("TRIAL_SQUAD_UUIDS").filter((item) => item !== uuid)
     );
   }
 
-  function removeTrialPremiumSquad(uuid) {
+  function removeTrialPremiumSquad(uuid: string): void {
     setCsvList(
       "TRIAL_PREMIUM_SQUAD_UUIDS",
       csvList("TRIAL_PREMIUM_SQUAD_UUIDS").filter((item) => item !== uuid)
     );
   }
 
-  function trialSquadLabel(uuid) {
+  function trialSquadLabel(uuid: string): string {
     return tariffsStore.squadLabel(uuid);
   }
 
-  async function saveTariffSettings() {
+  async function saveTariffSettings(): Promise<void> {
     await settingsStore.saveSettings(onSettingsSaved);
   }
 
   onMount(() => {
-    tariffsStore.loadTariffs();
-    settingsStore.loadSettings();
+    void tariffsStore.loadTariffs();
+    void settingsStore.loadSettings();
   });
 </script>
 
@@ -630,8 +734,8 @@
                   type="number"
                   min="0"
                   step="1"
-                  value={valueForKey("TRIAL_DURATION_DAYS", settingsDirty, settingsFieldMap)}
-                  oninput={(event) => setSetting("TRIAL_DURATION_DAYS", event.currentTarget.value)}
+                  value={inputValueForKey("TRIAL_DURATION_DAYS")}
+                  oninput={settingInputHandler("TRIAL_DURATION_DAYS")}
                 />
                 {#if isSettingDirty("TRIAL_DURATION_DAYS", settingsDirty)}
                   <AdminButton
@@ -666,9 +770,8 @@
                   type="number"
                   min="0"
                   step="0.1"
-                  value={valueForKey("TRIAL_TRAFFIC_LIMIT_GB", settingsDirty, settingsFieldMap)}
-                  oninput={(event) =>
-                    setSetting("TRIAL_TRAFFIC_LIMIT_GB", event.currentTarget.value)}
+                  value={inputValueForKey("TRIAL_TRAFFIC_LIMIT_GB")}
+                  oninput={settingInputHandler("TRIAL_TRAFFIC_LIMIT_GB")}
                 />
                 {#if isSettingDirty("TRIAL_TRAFFIC_LIMIT_GB", settingsDirty)}
                   <AdminButton
@@ -703,13 +806,8 @@
                   type="number"
                   min="0"
                   step="0.1"
-                  value={valueForKey(
-                    "TRIAL_PREMIUM_TRAFFIC_LIMIT_GB",
-                    settingsDirty,
-                    settingsFieldMap
-                  )}
-                  oninput={(event) =>
-                    setSetting("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB", event.currentTarget.value)}
+                  value={inputValueForKey("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB")}
+                  oninput={settingInputHandler("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB")}
                 />
                 {#if isSettingDirty("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB", settingsDirty)}
                   <AdminButton
@@ -776,7 +874,7 @@
                   )}
                   items={TRAFFIC_STRATEGY_OPTIONS}
                   ariaLabel={at("tariffs_trial_strategy", {}, "Стратегия сброса трафика")}
-                  onValueChange={(value) => setSetting("TRIAL_TRAFFIC_STRATEGY", value)}
+                  onValueChange={handleTrialTrafficStrategySelect}
                 />
                 {#if isSettingDirty("TRIAL_TRAFFIC_STRATEGY", settingsDirty)}
                   <AdminButton
@@ -851,7 +949,7 @@
                       ? at("loading", {}, "Загрузка...")
                       : at("tariffs_trial_add_squad", {}, "Добавить сквад из панели")}
                     ariaLabel={at("tariffs_trial_add_squad", {}, "Добавить сквад из панели")}
-                    onValueChange={handleTrialSquadSelect}
+                    onValueChange={handleTrialSquadSelectChange}
                   />
                 {/key}
                 {#if isSettingDirty("TRIAL_SQUAD_UUIDS", settingsDirty)}
@@ -914,7 +1012,7 @@
                       {},
                       "Добавить premium-сквад из панели"
                     )}
-                    onValueChange={handleTrialPremiumSquadSelect}
+                    onValueChange={handleTrialPremiumSquadSelectChange}
                   />
                 {/key}
                 {#if isSettingDirty("TRIAL_PREMIUM_SQUAD_UUIDS", settingsDirty)}
@@ -1045,13 +1143,8 @@
                   type="number"
                   min="0"
                   step="1"
-                  value={valueForKey(
-                    "REFERRAL_WELCOME_BONUS_DAYS",
-                    settingsDirty,
-                    settingsFieldMap
-                  )}
-                  oninput={(event) =>
-                    setSetting("REFERRAL_WELCOME_BONUS_DAYS", event.currentTarget.value)}
+                  value={inputValueForKey("REFERRAL_WELCOME_BONUS_DAYS")}
+                  oninput={settingInputHandler("REFERRAL_WELCOME_BONUS_DAYS")}
                 />
                 {#if isSettingDirty("REFERRAL_WELCOME_BONUS_DAYS", settingsDirty)}
                   <AdminButton
@@ -1269,11 +1362,10 @@
               <div class="admin-setting-control">
                 <Textarea
                   class="admin-setting-textarea"
-                  rows="8"
+                  rows={8}
                   placeholder={DISPOSABLE_EMAIL_DOMAINS_PLACEHOLDER}
-                  value={valueForKey("DISPOSABLE_EMAIL_DOMAINS", settingsDirty, settingsFieldMap)}
-                  oninput={(event) =>
-                    setSetting("DISPOSABLE_EMAIL_DOMAINS", event.currentTarget.value)}
+                  value={textValueForKey("DISPOSABLE_EMAIL_DOMAINS")}
+                  oninput={settingInputHandler("DISPOSABLE_EMAIL_DOMAINS")}
                 />
                 {#if isSettingDirty("DISPOSABLE_EMAIL_DOMAINS", settingsDirty)}
                   <AdminButton
@@ -1320,13 +1412,10 @@
               <Input
                 class="input admin-currency-input"
                 type="text"
-                maxlength="12"
+                maxlength={12}
                 value={defaultCurrencyDraft}
-                oninput={(event) =>
-                  (defaultCurrencyDraft = event.currentTarget.value.toUpperCase())}
-                onkeydown={(event) => {
-                  if (event.key === "Enter" && defaultCurrencyDirty) saveDefaultCurrency();
-                }}
+                oninput={handleDefaultCurrencyInput}
+                onkeydown={handleDefaultCurrencyKeydown}
               />
             </label>
             {#if defaultCurrencyDirty}
@@ -1643,32 +1732,32 @@
                   type="number"
                   min="0"
                   step="1"
-                  value={valueForKey(rubKey, settingsDirty, settingsFieldMap)}
-                  oninput={(event) => setSetting(rubKey, event.currentTarget.value)}
+                  value={inputValueForKey(rubKey)}
+                  oninput={settingInputHandler(rubKey)}
                 />
                 <Input
                   class="input"
                   type="number"
                   min="0"
                   step="1"
-                  value={valueForKey(starsKey, settingsDirty, settingsFieldMap)}
-                  oninput={(event) => setSetting(starsKey, event.currentTarget.value)}
+                  value={inputValueForKey(starsKey)}
+                  oninput={settingInputHandler(starsKey)}
                 />
                 <Input
                   class="input"
                   type="number"
                   min="0"
                   step="1"
-                  value={valueForKey(inviterKey, settingsDirty, settingsFieldMap)}
-                  oninput={(event) => setSetting(inviterKey, event.currentTarget.value)}
+                  value={inputValueForKey(inviterKey)}
+                  oninput={settingInputHandler(inviterKey)}
                 />
                 <Input
                   class="input"
                   type="number"
                   min="0"
                   step="1"
-                  value={valueForKey(refereeKey, settingsDirty, settingsFieldMap)}
-                  oninput={(event) => setSetting(refereeKey, event.currentTarget.value)}
+                  value={inputValueForKey(refereeKey)}
+                  oninput={settingInputHandler(refereeKey)}
                 />
               </div>
             {/each}
@@ -1681,8 +1770,8 @@
               <Input
                 class="input"
                 type="text"
-                value={valueForKey("TRAFFIC_PACKAGES", settingsDirty, settingsFieldMap)}
-                oninput={(event) => setSetting("TRAFFIC_PACKAGES", event.currentTarget.value)}
+                value={inputValueForKey("TRAFFIC_PACKAGES")}
+                oninput={settingInputHandler("TRAFFIC_PACKAGES")}
               />
             </label>
             <label class="admin-field-label admin-field-label-compact">
@@ -1693,8 +1782,8 @@
               <Input
                 class="input"
                 type="text"
-                value={valueForKey("STARS_TRAFFIC_PACKAGES", settingsDirty, settingsFieldMap)}
-                oninput={(event) => setSetting("STARS_TRAFFIC_PACKAGES", event.currentTarget.value)}
+                value={inputValueForKey("STARS_TRAFFIC_PACKAGES")}
+                oninput={settingInputHandler("STARS_TRAFFIC_PACKAGES")}
               />
             </label>
           </div>
