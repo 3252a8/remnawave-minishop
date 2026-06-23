@@ -123,6 +123,42 @@
         "title": "AdminAdsListOut",
         "type": "object"
       },
+      "AdminBackupRestoreBody": {
+        "properties": {
+          "archive_name": {
+            "default": "",
+            "title": "Archive Name"
+          },
+          "confirm": {
+            "default": false,
+            "title": "Confirm"
+          },
+          "restore_compose": {
+            "default": false,
+            "title": "Restore Compose"
+          },
+          "restore_database": {
+            "default": false,
+            "title": "Restore Database"
+          }
+        },
+        "title": "AdminBackupRestoreBody",
+        "type": "object"
+      },
+      "AdminBroadcastBody": {
+        "properties": {
+          "target": {
+            "default": "all",
+            "title": "Target"
+          },
+          "text": {
+            "default": "",
+            "title": "Text"
+          }
+        },
+        "title": "AdminBroadcastBody",
+        "type": "object"
+      },
       "AdminHealthOut": {
         "properties": {
           "alerts": {
@@ -267,6 +303,18 @@
           "total"
         ],
         "title": "AdminPaymentsListOut",
+        "type": "object"
+      },
+      "AdminSettingsPatchBody": {
+        "properties": {
+          "deletes": {
+            "title": "Deletes"
+          },
+          "updates": {
+            "title": "Updates"
+          }
+        },
+        "title": "AdminSettingsPatchBody",
         "type": "object"
       },
       "AdminStatsOut": {
@@ -423,6 +471,146 @@
           "body"
         ],
         "title": "AdminTicketReplyPayload",
+        "type": "object"
+      },
+      "AdminTranslationsPatchBody": {
+        "properties": {
+          "deletes": {
+            "title": "Deletes"
+          },
+          "updates": {
+            "title": "Updates"
+          }
+        },
+        "title": "AdminTranslationsPatchBody",
+        "type": "object"
+      },
+      "AdminUserBanBody": {
+        "properties": {
+          "banned": {
+            "default": false,
+            "title": "Banned"
+          }
+        },
+        "title": "AdminUserBanBody",
+        "type": "object"
+      },
+      "AdminUserExtendBody": {
+        "properties": {
+          "days": {
+            "default": null,
+            "title": "Days"
+          },
+          "extend_hwid_devices": {
+            "default": null,
+            "title": "Extend Hwid Devices"
+          },
+          "tariff_key": {
+            "default": null,
+            "title": "Tariff Key"
+          }
+        },
+        "title": "AdminUserExtendBody",
+        "type": "object"
+      },
+      "AdminUserHwidDeviceLimitBody": {
+        "properties": {
+          "hwid_device_limit": {
+            "default": null,
+            "title": "Hwid Device Limit"
+          },
+          "limit": {
+            "default": null,
+            "title": "Limit"
+          },
+          "reset_to_default": {
+            "default": false,
+            "title": "Reset To Default"
+          },
+          "unlimited": {
+            "default": false,
+            "title": "Unlimited"
+          },
+          "use_default": {
+            "default": false,
+            "title": "Use Default"
+          }
+        },
+        "title": "AdminUserHwidDeviceLimitBody",
+        "type": "object"
+      },
+      "AdminUserMessageBody": {
+        "properties": {
+          "text": {
+            "default": "",
+            "title": "Text"
+          }
+        },
+        "title": "AdminUserMessageBody",
+        "type": "object"
+      },
+      "AdminUserPremiumOverrideBody": {
+        "properties": {
+          "bonus_bytes": {
+            "default": null,
+            "title": "Bonus Bytes"
+          },
+          "bonus_gb": {
+            "default": null,
+            "title": "Bonus Gb"
+          },
+          "unlimited": {
+            "default": false,
+            "title": "Unlimited"
+          }
+        },
+        "title": "AdminUserPremiumOverrideBody",
+        "type": "object"
+      },
+      "AdminUserRegularTrafficOverrideBody": {
+        "properties": {
+          "regular_bonus_bytes": {
+            "default": null,
+            "title": "Regular Bonus Bytes"
+          },
+          "regular_bonus_gb": {
+            "default": null,
+            "title": "Regular Bonus Gb"
+          },
+          "unlimited": {
+            "default": false,
+            "title": "Unlimited"
+          }
+        },
+        "title": "AdminUserRegularTrafficOverrideBody",
+        "type": "object"
+      },
+      "AdminUserTariffBody": {
+        "properties": {
+          "tariff_key": {
+            "default": null,
+            "title": "Tariff Key"
+          }
+        },
+        "title": "AdminUserTariffBody",
+        "type": "object"
+      },
+      "AdminUserTrafficGrantBody": {
+        "properties": {
+          "bytes": {
+            "default": null,
+            "title": "Bytes"
+          },
+          "gb": {
+            "default": null,
+            "title": "Gb"
+          },
+          "kind": {
+            "default": "regular",
+            "title": "Kind"
+          }
+        },
+        "title": "AdminUserTrafficGrantBody",
         "type": "object"
       },
       "CreateTicketPayload": {
@@ -1479,6 +1667,17 @@
         "title": "TariffsConfig",
         "type": "object"
       },
+      "TariffsSaveBody": {
+        "additionalProperties": true,
+        "properties": {
+          "catalog": {
+            "default": null,
+            "title": "Catalog"
+          }
+        },
+        "title": "TariffsSaveBody",
+        "type": "object"
+      },
       "ThemeTokens": {
         "description": "CSS design tokens for the subscription Mini App shell.",
         "properties": {
@@ -2215,6 +2414,17 @@
         "title": "ThemeTokens",
         "type": "object"
       },
+      "ThemesSaveBody": {
+        "additionalProperties": true,
+        "properties": {
+          "catalog": {
+            "default": null,
+            "title": "Catalog"
+          }
+        },
+        "title": "ThemesSaveBody",
+        "type": "object"
+      },
       "TicketReplyPayload": {
         "properties": {
           "body": {
@@ -2276,6 +2486,49 @@
         "title": "WebAppDeviceDisconnectPayload",
         "type": "object"
       },
+      "WebAppEmailCodeAuthPayload": {
+        "properties": {
+          "code": {
+            "default": "",
+            "title": "Code",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "referral_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referral Code"
+          },
+          "start_param": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start Param"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "WebAppEmailCodeAuthPayload",
+        "type": "object"
+      },
       "WebAppEmailCodePayload": {
         "properties": {
           "code": {
@@ -2295,8 +2548,32 @@
         "title": "WebAppEmailCodePayload",
         "type": "object"
       },
-      "WebAppEmailMagicPayload": {
+      "WebAppEmailMagicAuthPayload": {
         "properties": {
+          "referral_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referral Code"
+          },
+          "start_param": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start Param"
+          },
           "token": {
             "maxLength": 512,
             "minLength": 8,
@@ -2307,7 +2584,7 @@
         "required": [
           "token"
         ],
-        "title": "WebAppEmailMagicPayload",
+        "title": "WebAppEmailMagicAuthPayload",
         "type": "object"
       },
       "WebAppEmailPasswordPayload": {
@@ -2343,6 +2620,32 @@
           "email"
         ],
         "title": "WebAppEmailPayload",
+        "type": "object"
+      },
+      "WebAppEmailRequestPayload": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Language"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "WebAppEmailRequestPayload",
         "type": "object"
       },
       "WebAppLanguagePayload": {
@@ -2460,6 +2763,16 @@
         "title": "WebAppPaymentCreatePayload",
         "type": "object"
       },
+      "WebAppPromoApplyPayload": {
+        "properties": {
+          "code": {
+            "default": "",
+            "title": "Code"
+          }
+        },
+        "title": "WebAppPromoApplyPayload",
+        "type": "object"
+      },
       "WebAppSetPasswordPayload": {
         "properties": {
           "code": {
@@ -2509,6 +2822,55 @@
           "mode"
         ],
         "title": "WebAppTariffChangePayload",
+        "type": "object"
+      },
+      "WebAppTelegramAuthPayload": {
+        "properties": {
+          "auth_data": {
+            "default": null,
+            "title": "Auth Data"
+          },
+          "id_token": {
+            "default": "",
+            "title": "Id Token",
+            "type": "string"
+          },
+          "init_data": {
+            "default": "",
+            "title": "Init Data",
+            "type": "string"
+          },
+          "nonce": {
+            "default": "",
+            "title": "Nonce",
+            "type": "string"
+          },
+          "referral_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referral Code"
+          },
+          "start_param": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start Param"
+          }
+        },
+        "title": "WebAppTelegramAuthPayload",
         "type": "object"
       },
       "WebappTheme": {
@@ -2714,10 +3076,16 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "already_linked": {
                       "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "email_code": {
+                      "type": "string"
                     },
                     "ok": {
                       "const": true,
@@ -2772,11 +3140,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "account_merge": {
                       "additionalProperties": true,
                       "type": "object"
+                    },
+                    "csrf_token": {
+                      "type": "string"
                     },
                     "ok": {
                       "const": true,
@@ -2837,7 +3208,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "language": {
                       "type": "string"
@@ -2890,7 +3261,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -2933,7 +3304,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -2977,29 +3348,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "properties": {
-                  "auth_data": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  "id_token": {
-                    "type": "string"
-                  },
-                  "init_data": {
-                    "type": "string"
-                  },
-                  "nonce": {
-                    "type": "string"
-                  },
-                  "referral_code": {
-                    "type": "string"
-                  },
-                  "start_param": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
+                "$ref": "#/components/schemas/WebAppTelegramAuthPayload"
               }
             }
           },
@@ -3010,11 +3359,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "account_merge": {
                       "additionalProperties": true,
                       "type": "object"
+                    },
+                    "csrf_token": {
+                      "type": "string"
                     },
                     "ok": {
                       "const": true,
@@ -3065,7 +3417,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -3111,7 +3463,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
                       "properties": {
                         "ok": {
                           "const": true,
@@ -3163,7 +3515,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "campaign": {
                       "$ref": "#/components/schemas/AdOut"
@@ -3216,7 +3568,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -3275,7 +3627,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -3347,7 +3699,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "favicon_url": {
                       "type": "string"
@@ -3426,7 +3778,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "favicon_url": {
                       "type": "string"
@@ -3476,7 +3828,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "archives": {
                       "items": {
@@ -3527,7 +3879,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "archive": {
                       "additionalProperties": true,
@@ -3575,26 +3927,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "properties": {
-                  "archive_name": {
-                    "type": "string"
-                  },
-                  "confirm": {
-                    "type": "boolean"
-                  },
-                  "restore_compose": {
-                    "type": "boolean"
-                  },
-                  "restore_database": {
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "archive_name",
-                  "confirm"
-                ],
-                "type": "object"
+                "$ref": "#/components/schemas/AdminBackupRestoreBody"
               }
             }
           },
@@ -3605,7 +3938,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -3668,7 +4001,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "archive": {
                       "additionalProperties": true,
@@ -3711,27 +4044,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "properties": {
-                  "target": {
-                    "enum": [
-                      "active",
-                      "active_never_connected",
-                      "all",
-                      "expired",
-                      "inactive",
-                      "never"
-                    ],
-                    "type": "string"
-                  },
-                  "text": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "text"
-                ],
-                "type": "object"
+                "$ref": "#/components/schemas/AdminBroadcastBody"
               }
             }
           },
@@ -3742,7 +4055,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "failed": {
                       "type": "integer"
@@ -3793,7 +4106,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "counts": {
                       "additionalProperties": true,
@@ -3839,7 +4152,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
                       "properties": {
                         "ok": {
                           "const": true,
@@ -3885,7 +4198,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
                       "properties": {
                         "ok": {
                           "const": true,
@@ -3931,7 +4244,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
                       "properties": {
                         "ok": {
                           "const": true,
@@ -3975,7 +4288,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -4024,7 +4337,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
                       "properties": {
                         "ok": {
                           "const": true,
@@ -4108,7 +4421,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -4151,7 +4464,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -4221,7 +4534,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -4274,7 +4587,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -4331,7 +4644,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -4374,7 +4687,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "features": {
                       "items": {
@@ -4425,20 +4738,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "properties": {
-                  "deletes": {
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  "updates": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  }
-                },
-                "type": "object"
+                "$ref": "#/components/schemas/AdminSettingsPatchBody"
               }
             }
           },
@@ -4449,7 +4749,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "applied": {
                       "type": "integer"
@@ -4498,7 +4798,7 @@
                 "schema": {
                   "allOf": [
                     {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
                       "properties": {
                         "ok": {
                           "const": true,
@@ -4542,7 +4842,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -4586,7 +4886,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -4643,7 +4943,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "messages": {
                       "items": {
@@ -4718,7 +5018,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -4782,7 +5082,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "message": {
                       "additionalProperties": true,
@@ -4841,7 +5141,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -4880,7 +5180,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -4924,7 +5224,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "catalog": {
                       "additionalProperties": true,
@@ -4981,23 +5281,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/TariffsConfig"
-                  },
-                  {
-                    "additionalProperties": true,
-                    "properties": {
-                      "catalog": {
-                        "$ref": "#/components/schemas/TariffsConfig"
-                      }
-                    },
-                    "required": [
-                      "catalog"
-                    ],
-                    "type": "object"
-                  }
-                ]
+                "$ref": "#/components/schemas/TariffsSaveBody"
               }
             }
           },
@@ -5008,7 +5292,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "catalog": {
                       "additionalProperties": true,
@@ -5068,7 +5352,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "catalog": {
                       "additionalProperties": true,
@@ -5117,23 +5401,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/WebappThemesConfig"
-                  },
-                  {
-                    "additionalProperties": true,
-                    "properties": {
-                      "catalog": {
-                        "$ref": "#/components/schemas/WebappThemesConfig"
-                      }
-                    },
-                    "required": [
-                      "catalog"
-                    ],
-                    "type": "object"
-                  }
-                ]
+                "$ref": "#/components/schemas/ThemesSaveBody"
               }
             }
           },
@@ -5144,7 +5412,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "catalog": {
                       "additionalProperties": true,
@@ -5196,7 +5464,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "groups": {
                       "items": {
@@ -5256,21 +5524,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "properties": {
-                  "deletes": {
-                    "items": {
-                      "additionalProperties": true,
-                      "type": "object"
-                    },
-                    "type": "array"
-                  },
-                  "updates": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  }
-                },
-                "type": "object"
+                "$ref": "#/components/schemas/AdminTranslationsPatchBody"
               }
             }
           },
@@ -5281,7 +5535,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "applied": {
                       "type": "integer"
@@ -5332,7 +5586,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -5401,7 +5655,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -5448,7 +5702,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "active_subscription": {
                       "additionalProperties": true,
@@ -5598,16 +5852,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "properties": {
-                  "banned": {
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "banned"
-                ],
-                "type": "object"
+                "$ref": "#/components/schemas/AdminUserBanBody"
               }
             }
           },
@@ -5618,7 +5863,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -5671,25 +5916,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "properties": {
-                  "days": {
-                    "type": "integer"
-                  },
-                  "extend_hwid_devices": {
-                    "type": "boolean"
-                  },
-                  "tariff_key": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
-                  }
-                },
-                "required": [
-                  "days"
-                ],
-                "type": "object"
+                "$ref": "#/components/schemas/AdminUserExtendBody"
               }
             }
           },
@@ -5700,7 +5927,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -5752,31 +5979,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "properties": {
-                  "hwid_device_limit": {
-                    "type": [
-                      "integer",
-                      "null"
-                    ]
-                  },
-                  "limit": {
-                    "type": [
-                      "integer",
-                      "null"
-                    ]
-                  },
-                  "reset_to_default": {
-                    "type": "boolean"
-                  },
-                  "unlimited": {
-                    "type": "boolean"
-                  },
-                  "use_default": {
-                    "type": "boolean"
-                  }
-                },
-                "type": "object"
+                "$ref": "#/components/schemas/AdminUserHwidDeviceLimitBody"
               }
             }
           },
@@ -5787,7 +5990,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -5839,16 +6042,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "properties": {
-                  "text": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "text"
-                ],
-                "type": "object"
+                "$ref": "#/components/schemas/AdminUserMessageBody"
               }
             }
           },
@@ -5859,7 +6053,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -5907,16 +6101,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "properties": {
-                  "text": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "text"
-                ],
-                "type": "object"
+                "$ref": "#/components/schemas/AdminUserMessageBody"
               }
             }
           },
@@ -5927,7 +6112,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -5975,25 +6160,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "properties": {
-                  "bonus_bytes": {
-                    "type": [
-                      "integer",
-                      "null"
-                    ]
-                  },
-                  "bonus_gb": {
-                    "type": [
-                      "number",
-                      "null"
-                    ]
-                  },
-                  "unlimited": {
-                    "type": "boolean"
-                  }
-                },
-                "type": "object"
+                "$ref": "#/components/schemas/AdminUserPremiumOverrideBody"
               }
             }
           },
@@ -6004,7 +6171,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -6057,7 +6224,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "invitees": {
                       "items": {
@@ -6135,25 +6302,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "properties": {
-                  "regular_bonus_bytes": {
-                    "type": [
-                      "integer",
-                      "null"
-                    ]
-                  },
-                  "regular_bonus_gb": {
-                    "type": [
-                      "number",
-                      "null"
-                    ]
-                  },
-                  "unlimited": {
-                    "type": "boolean"
-                  }
-                },
-                "type": "object"
+                "$ref": "#/components/schemas/AdminUserRegularTrafficOverrideBody"
               }
             }
           },
@@ -6164,7 +6313,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -6217,7 +6366,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -6265,16 +6414,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "properties": {
-                  "tariff_key": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "tariff_key"
-                ],
-                "type": "object"
+                "$ref": "#/components/schemas/AdminUserTariffBody"
               }
             }
           },
@@ -6285,7 +6425,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -6338,7 +6478,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -6390,29 +6530,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "properties": {
-                  "bytes": {
-                    "type": [
-                      "integer",
-                      "null"
-                    ]
-                  },
-                  "gb": {
-                    "type": [
-                      "number",
-                      "null"
-                    ]
-                  },
-                  "kind": {
-                    "enum": [
-                      "regular",
-                      "premium"
-                    ],
-                    "type": "string"
-                  }
-                },
-                "type": "object"
+                "$ref": "#/components/schemas/AdminUserTrafficGrantBody"
               }
             }
           },
@@ -6423,7 +6541,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "grant": {
                       "additionalProperties": true,
@@ -6470,7 +6588,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WebAppEmailMagicPayload"
+                "$ref": "#/components/schemas/WebAppEmailMagicAuthPayload"
               }
             }
           },
@@ -6481,11 +6599,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "account_merge": {
                       "additionalProperties": true,
                       "type": "object"
+                    },
+                    "csrf_token": {
+                      "type": "string"
                     },
                     "ok": {
                       "const": true,
@@ -6538,11 +6659,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "account_merge": {
                       "additionalProperties": true,
                       "type": "object"
+                    },
+                    "csrf_token": {
+                      "type": "string"
                     },
                     "ok": {
                       "const": true,
@@ -6584,7 +6708,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WebAppEmailPayload"
+                "$ref": "#/components/schemas/WebAppEmailRequestPayload"
               }
             }
           },
@@ -6595,8 +6719,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "email_code": {
+                      "type": "string"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
@@ -6631,7 +6761,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WebAppEmailCodePayload"
+                "$ref": "#/components/schemas/WebAppEmailCodeAuthPayload"
               }
             }
           },
@@ -6642,11 +6772,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "account_merge": {
                       "additionalProperties": true,
                       "type": "object"
+                    },
+                    "csrf_token": {
+                      "type": "string"
                     },
                     "ok": {
                       "const": true,
@@ -6689,7 +6822,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -6720,7 +6853,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "client_id": {
                       "type": "string"
@@ -6762,29 +6895,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "properties": {
-                  "auth_data": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  "id_token": {
-                    "type": "string"
-                  },
-                  "init_data": {
-                    "type": "string"
-                  },
-                  "nonce": {
-                    "type": "string"
-                  },
-                  "referral_code": {
-                    "type": "string"
-                  },
-                  "start_param": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
+                "$ref": "#/components/schemas/WebAppTelegramAuthPayload"
               }
             }
           },
@@ -6795,11 +6906,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "account_merge": {
                       "additionalProperties": true,
                       "type": "object"
+                    },
+                    "csrf_token": {
+                      "type": "string"
                     },
                     "ok": {
                       "const": true,
@@ -6842,7 +6956,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "config": {
                       "additionalProperties": true,
@@ -6883,7 +6997,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "devices": {
                       "items": {
@@ -6943,7 +7057,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -6982,7 +7096,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -7034,7 +7148,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "i18n": {
                       "additionalProperties": true,
@@ -7074,7 +7188,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -7123,7 +7237,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "confirmation_url": {
                       "type": [
@@ -7198,7 +7312,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "confirmation_url": {
                       "type": [
@@ -7261,16 +7375,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "properties": {
-                  "code": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "code"
-                ],
-                "type": "object"
+                "$ref": "#/components/schemas/WebAppPromoApplyPayload"
               }
             }
           },
@@ -7281,7 +7386,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "end_date": {
                       "type": [
@@ -7332,7 +7437,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "claimed": {
                       "type": "boolean"
@@ -7389,7 +7494,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "config": {
                       "additionalProperties": true,
@@ -7453,7 +7558,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "config": {
                       "additionalProperties": true,
@@ -7512,7 +7617,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "auto_renew_enabled": {
                       "type": "boolean"
@@ -7563,8 +7668,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
+                    "counts": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
@@ -7579,7 +7688,8 @@
                   },
                   "required": [
                     "ok",
-                    "tickets"
+                    "tickets",
+                    "counts"
                   ],
                   "type": "object"
                 }
@@ -7618,7 +7728,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -7672,8 +7782,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
+                    "messages": {
+                      "items": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
@@ -7685,7 +7802,8 @@
                   },
                   "required": [
                     "ok",
-                    "ticket"
+                    "ticket",
+                    "messages"
                   ],
                   "type": "object"
                 }
@@ -7736,8 +7854,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
+                    "message": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
@@ -7749,7 +7871,8 @@
                   },
                   "required": [
                     "ok",
-                    "ticket"
+                    "ticket",
+                    "message"
                   ],
                   "type": "object"
                 }
@@ -7790,7 +7913,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -7829,7 +7952,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -7882,7 +8005,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -7925,7 +8048,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "current": {
                       "additionalProperties": true,
@@ -7987,7 +8110,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "confirmation_url": {
                       "type": [
@@ -8051,7 +8174,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "ok": {
                       "const": true,
@@ -8103,7 +8226,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": false,
                   "properties": {
                     "activated": {
                       "type": "boolean"

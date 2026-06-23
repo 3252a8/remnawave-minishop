@@ -18,8 +18,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Protocol, Sequence, Tuple
 from urllib.parse import urlsplit
 
-from bot.middlewares.i18n import JsonI18n
-
 if TYPE_CHECKING:
     from PIL.Image import Image as PILImage
 
@@ -260,7 +258,7 @@ def _normalize_lang(language_code: Optional[str], settings: Settings) -> str:
     return value.replace("_", "-") or "ru"
 
 
-def _resolve_i18n(i18n: Optional[JsonI18n]) -> JsonI18n:
+def _resolve_i18n(i18n: Optional[_GettextProvider]) -> _GettextProvider:
     if i18n is not None:
         return i18n
     from bot.middlewares.i18n import get_i18n_instance
