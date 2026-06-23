@@ -24,9 +24,11 @@ from config.tariffs_config import (
 from db.dal import payment_dal
 
 from ..base import (
+    BaseProviderService,
     PaymentProviderSpec,
     ProviderEnvConfig,
     ProviderManifestField,
+    ProviderWebhookPayload,
     ServiceFactoryContext,
     WebAppPaymentContext,
     normalize_payment_currency_code,
@@ -127,7 +129,10 @@ class CryptoPayPresentation(ProviderEnvConfig):
     TELEGRAM_EMOJI: Optional[str] = None
 
 
-class CryptoPayService:
+class CryptoPayService(BaseProviderService):
+    provider_key = "cryptopay"
+    disabled_response_text = "cryptopay_disabled"
+
     def __init__(
         self,
         bot: Bot,
@@ -158,6 +163,10 @@ class CryptoPayService:
     @property
     def configured(self) -> bool:
         return bool(provider_runtime_enabled(self.config) and self.config.TOKEN)
+
+    @property
+    def webhook_available(self) -> bool:
+        return bool(self.configured and self.client)
 
     @property
     def client(self):
@@ -392,14 +401,24 @@ class CryptoPayService:
             return False
         return True
 
-    async def webhook_route(self, request: web.Request) -> web.Response:
-        if not self.configured or not self.client:
-            return web.Response(status=503, text="cryptopay_disabled")
+    async def parse_payload(self, request: web.Request) -> ProviderWebhookPayload:
         raw_body = await request.read()
         signature = request.headers.get("crypto-pay-api-signature", "")
-        if not self._validate_webhook_signature(raw_body, signature):
-            return web.Response(status=401)
-        return await self.client.get_updates(request)
+        return ProviderWebhookPayload(raw_body=raw_body, signature=signature)
+
+    def verify_signature(self, payload: ProviderWebhookPayload) -> bool:
+        return self._validate_webhook_signature(payload.raw_body, payload.signature)
+
+    async def handle_verified_webhook(
+        self,
+        request: web.Request,
+        payload: ProviderWebhookPayload,
+    ) -> web.Response:
+        del payload
+        client = self.client
+        if not client:
+            return web.Response(status=503, text=self.disabled_response_text)
+        return await client.get_updates(request)
 
 
 async def cryptopay_webhook_route(request: web.Request) -> web.Response:

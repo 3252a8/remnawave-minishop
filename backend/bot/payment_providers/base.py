@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import os
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Mapping, Optional, Sequence, Type
+from typing import Any, Awaitable, Callable, ClassVar, Mapping, Optional, Sequence, Type
 
+from aiohttp import web
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -120,6 +122,50 @@ class WebAppPaymentContext:
     hwid_pricing_period_months: Optional[int] = None
     hwid_proration_ratio: Optional[float] = None
     hwid_full_price: Optional[float] = None
+
+
+@dataclass(frozen=True)
+class ProviderWebhookPayload:
+    raw_body: bytes
+    signature: str = ""
+    data: Mapping[str, Any] | None = None
+
+
+class BaseProviderService(ABC):
+    provider_key: ClassVar[str] = "provider"
+    disabled_response_text: ClassVar[str | None] = None
+
+    @property
+    @abstractmethod
+    def configured(self) -> bool:
+        """Return whether the provider is configured for runtime webhook handling."""
+
+    @property
+    def webhook_available(self) -> bool:
+        return self.configured
+
+    async def parse_payload(self, request: web.Request) -> ProviderWebhookPayload:
+        return ProviderWebhookPayload(raw_body=await request.read())
+
+    @abstractmethod
+    def verify_signature(self, payload: ProviderWebhookPayload) -> bool:
+        """Return True when the provider webhook signature is trusted."""
+
+    @abstractmethod
+    async def handle_verified_webhook(
+        self,
+        request: web.Request,
+        payload: ProviderWebhookPayload,
+    ) -> web.Response:
+        """Process a verified provider webhook payload."""
+
+    async def webhook_route(self, request: web.Request) -> web.Response:
+        if not self.webhook_available:
+            return web.Response(status=503, text=self.disabled_response_text)
+        payload = await self.parse_payload(request)
+        if not self.verify_signature(payload):
+            return web.Response(status=401)
+        return await self.handle_verified_webhook(request, payload)
 
 
 EnabledPredicate = Callable[[Any], bool]
