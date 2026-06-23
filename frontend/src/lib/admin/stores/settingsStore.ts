@@ -73,6 +73,8 @@ export type SettingsUpdates = Record<string, unknown>;
 export type SettingsSavedPayload = {
   updates: SettingsUpdates;
   deletes: string[];
+  deferFrontendReload?: boolean;
+  reloadFrontend?: boolean;
 };
 type SettingsState = {
   settingsSections: SettingsSection[];
