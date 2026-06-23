@@ -113,6 +113,12 @@ chmod -R u+rwX data
 ## Полезные команды
 
 ```bash
+# Полная локальная проверка перед PR
+npm run check
+
+# Быстрый smoke-прогон во время разработки
+npm run check:quick
+
 # Локальная сборка и запуск
 docker compose up -d --build
 
