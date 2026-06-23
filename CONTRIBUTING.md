@@ -21,6 +21,10 @@ CI (`.github/workflows/ci.yml`) прогоняет всё перечисленн
 make check
 ```
 
+Current documented mypy frontier outside the CI scope: `backend/config`, `backend/main_*.py`,
+`backend/scripts`, `scripts`, and `tests`. Add those only after separate type-hardening work keeps the
+full command green.
+
 Явные команды ниже остаются источником правды для CI и ручной диагностики.
 
 **Бэкенд** (из корня репозитория; `pytest.ini` задаёт `pythonpath = backend .`):
