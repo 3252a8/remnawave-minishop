@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -46,3 +46,14 @@ class WebAppSettings(BaseModel):
     server_port: int
     enabled: bool
     trusted_proxies: List[str]
+
+
+class PaymentSettings(BaseModel):
+    default_currency_symbol: str
+    payment_request_timeout_seconds: float
+    payment_methods_order: List[str]
+    subscription_options: Dict[int, float]
+    stars_subscription_options: Dict[int, int]
+    traffic_packages: Dict[float, float]
+    stars_traffic_packages: Dict[float, int]
+    traffic_sale_mode: bool

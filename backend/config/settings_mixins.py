@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import computed_field, field_validator
 
-from config.settings_models import DBSettings, EmailSettings, WebAppSettings
+from config.settings_models import DBSettings, EmailSettings, PaymentSettings, WebAppSettings
 from config.tariffs_config import TariffsConfig, load_tariffs_config
 from config.traffic_strategy import normalize_traffic_limit_strategy
 from config.webapp_themes_config import WebappThemesConfig, resolved_webapp_themes_catalog
@@ -77,6 +77,19 @@ class SettingsComputedMixin:
             server_port=self.WEBAPP_SERVER_PORT,
             enabled=self.WEBAPP_ENABLED,
             trusted_proxies=self.trusted_proxies,
+        )
+
+    @property
+    def payment_settings(self) -> PaymentSettings:
+        return PaymentSettings(
+            default_currency_symbol=self.DEFAULT_CURRENCY_SYMBOL,
+            payment_request_timeout_seconds=self.PAYMENT_REQUEST_TIMEOUT_SECONDS,
+            payment_methods_order=self.payment_methods_order,
+            subscription_options=self.subscription_options,
+            stars_subscription_options=self.stars_subscription_options,
+            traffic_packages=self.traffic_packages,
+            stars_traffic_packages=self.stars_traffic_packages,
+            traffic_sale_mode=self.traffic_sale_mode,
         )
 
     @computed_field

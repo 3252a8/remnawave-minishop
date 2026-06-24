@@ -215,18 +215,19 @@ def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
     now = time.monotonic()
     if now - float(cache.get("ts", 0.0)) >= 60 or not cache.get("data"):
         logo_url = _resolve_webapp_logo_url(settings)
+        payment_settings = settings.payment_settings
         cache["data"] = {
             "logo_url": logo_url,
             "favicon_url": _resolve_webapp_favicon_url(settings, logo_url),
-            "subscription_options": settings.subscription_options,
-            "stars_subscription_options": settings.stars_subscription_options,
-            "traffic_packages": settings.traffic_packages,
-            "stars_traffic_packages": settings.stars_traffic_packages,
+            "subscription_options": payment_settings.subscription_options,
+            "stars_subscription_options": payment_settings.stars_subscription_options,
+            "traffic_packages": payment_settings.traffic_packages,
+            "stars_traffic_packages": payment_settings.stars_traffic_packages,
             "support_url": settings.SUPPORT_LINK or "",
             "server_status_url": settings.SERVER_STATUS_URL or "",
             "privacy_policy_url": settings.PRIVACY_POLICY_URL or "",
             "user_agreement_url": settings.USER_AGREEMENT_URL or "",
-            "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+            "currency": payment_settings.default_currency_symbol or "RUB",
             "email_auth_enabled": settings.email_auth_configured,
             "language": _normalize_language(settings.DEFAULT_LANGUAGE),
         }

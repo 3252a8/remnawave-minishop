@@ -121,6 +121,38 @@ class SettingsTests(unittest.TestCase):
             {1: 200.0, 3: 600.0, 6: 1200.0, 12: 2400.0},
         )
 
+    def test_payment_settings_view_reflects_payment_fields(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            DEFAULT_CURRENCY_SYMBOL="EUR",
+            PAYMENT_REQUEST_TIMEOUT_SECONDS=7,
+            PAYMENT_METHODS_ORDER="stars,severpay",
+            TARIFFS_CONFIG_PATH="missing-tariffs.json",
+            TRAFFIC_PACKAGES="10:199,50:799",
+            STARS_TRAFFIC_PACKAGES="10:1000",
+        )
+
+        payment_settings = settings.payment_settings
+
+        self.assertEqual(payment_settings.default_currency_symbol, "EUR")
+        self.assertEqual(payment_settings.payment_request_timeout_seconds, 7)
+        self.assertEqual(payment_settings.payment_methods_order[:2], ["stars", "severpay"])
+        self.assertIn("stripe", payment_settings.payment_methods_order)
+        self.assertEqual(
+            payment_settings.subscription_options,
+            settings.subscription_options,
+        )
+        self.assertEqual(
+            payment_settings.stars_subscription_options,
+            settings.stars_subscription_options,
+        )
+        self.assertEqual(payment_settings.traffic_packages, {10.0: 199.0, 50.0: 799.0})
+        self.assertEqual(payment_settings.stars_traffic_packages, {10.0: 1000})
+        self.assertTrue(payment_settings.traffic_sale_mode)
+
     def test_subscription_guides_defaults_are_enabled(self):
         settings = Settings(
             _env_file=None,
