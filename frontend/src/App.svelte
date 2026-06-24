@@ -35,6 +35,12 @@
   import { openAppLinkTarget } from "./lib/webapp/appLinkActions.js";
   import { createWebappDataClient } from "./lib/webapp/dataClient";
   import { copyTextToClipboard } from "./lib/webapp/clipboard.js";
+  import {
+    activationConnectLink,
+    canUseSubscriptionInstallGuides,
+    connectLinkFromSubscription,
+    trialConnectLink,
+  } from "./lib/webapp/connectLinks.js";
   import { createI18n } from "./lib/webapp/i18n.js";
   import { createActivationWatcher } from "./lib/webapp/activationWatcher";
   import { createAdminBundle } from "./lib/webapp/adminBundle";
@@ -667,12 +673,11 @@
     }
   }
 
-  function canUseInstallGuides(settings: AnyRecord = appSettings, sub: AnyRecord = subscription) {
-    const enabled =
-      settings === appSettings
-        ? installGuidesEnabled
-        : Boolean(settings?.subscription_guides_enabled);
-    return Boolean(enabled && sub?.active);
+  function canUseInstallGuides() {
+    return canUseSubscriptionInstallGuides({
+      installGuidesEnabled,
+      subscription,
+    });
   }
 
   function hasPendingActivationHandoff(payload: AnyRecord | null = data) {
@@ -1396,22 +1401,21 @@
     });
   }
 
-  function openConnectLink() {
-    const url = subscription?.connect_url || subscription?.config_link;
+  function openResolvedConnectLink(url: string) {
     if (!url) {
       showToast(t("wa_connect_link_unavailable"));
-      return;
+      return false;
     }
     openExternalLink(url);
+    return true;
+  }
+
+  function openConnectLink() {
+    openResolvedConnectLink(connectLinkFromSubscription(subscription));
   }
 
   function openPublicConnectLink() {
-    const url = publicInstallSubscription?.connect_url || publicInstallSubscription?.config_link;
-    if (!url) {
-      showToast(t("wa_connect_link_unavailable"));
-      return;
-    }
-    openExternalLink(url);
+    openResolvedConnectLink(connectLinkFromSubscription(publicInstallSubscription));
   }
 
   function openInstallOrConnect() {
@@ -1427,25 +1431,11 @@
       goInstall();
       return;
     }
-    const url = trialActivationResult?.connect_url || trialActivationResult?.config_link;
-    if (url) {
-      openExternalLink(url);
-      return;
-    }
-    openConnectLink();
+    openResolvedConnectLink(trialConnectLink(trialActivationResult, subscription));
   }
 
   function openActivationConnectLink() {
-    const url =
-      subscription?.connect_url ||
-      subscription?.config_link ||
-      trialActivationResult?.connect_url ||
-      trialActivationResult?.config_link;
-    if (!url) {
-      showToast(t("wa_connect_link_unavailable"));
-      return;
-    }
-    openExternalLink(url);
+    openResolvedConnectLink(activationConnectLink(subscription, trialActivationResult));
   }
 
   function navigateToActivationTarget({ replace = true } = {}) {
