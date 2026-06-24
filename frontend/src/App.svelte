@@ -77,6 +77,7 @@
   import { createConnectActions } from "./lib/webapp/connectActions.js";
   import { createClipboardActions } from "./lib/webapp/clipboardActions.js";
   import { createPromoTrialActions } from "./lib/webapp/promoTrialActions.js";
+  import { createTariffActions } from "./lib/webapp/tariffActions.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -1484,17 +1485,13 @@
     await handleAdminPersistedSaved({ ...options, deferFrontendReload: true });
   }
 
-  function selectTariff(tariff: AnyRecord) {
-    billingStore.selectTariff(tariff, plans);
-  }
-
-  function continueWithSelectedTariff() {
-    billingStore.continueWithSelectedTariff(selectedTariffPlans);
-  }
-
-  function backToTariffList() {
-    billingStore.backToTariffList(subscription, tariffCatalog);
-  }
+  const { backToTariffList, continueWithSelectedTariff, selectTariff } = createTariffActions({
+    billingStore,
+    getPlans: () => plans,
+    getSelectedTariffPlans: () => selectedTariffPlans,
+    getSubscription: () => subscription,
+    getTariffCatalog: () => tariffCatalog,
+  });
 
   function primaryPayActionLabel() {
     if (!subscription.active && appSettings?.trial_enabled && appSettings?.trial_available) {
