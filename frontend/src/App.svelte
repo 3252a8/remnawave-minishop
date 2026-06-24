@@ -14,19 +14,12 @@
   import BrandMark from "$lib/webapp/BrandMark.svelte";
   import Button from "$components/ui/button.svelte";
   import Dialog from "$components/ui/dialog.svelte";
-  import WebAppShell from "./webapp/WebAppShell.svelte";
+  import AuthenticatedScreens from "./webapp/AuthenticatedScreens.svelte";
   import AuthScreen from "./webapp/auth/AuthScreen.svelte";
   import PaymentDialogs from "./webapp/PaymentDialogs.svelte";
   import TariffDialogs from "./webapp/TariffDialogs.svelte";
   import AppLaunchScreen from "./webapp/screens/AppLaunchScreen.svelte";
-  import DevicesScreen from "./webapp/screens/DevicesScreen.svelte";
-  import HomeScreen from "./webapp/screens/HomeScreen.svelte";
   import InstallGuideScreen from "./webapp/screens/InstallGuideScreen.svelte";
-  import InviteScreen from "./webapp/screens/InviteScreen.svelte";
-  import SettingsScreen from "./webapp/screens/SettingsScreen.svelte";
-  import SupportScreen from "./webapp/screens/SupportScreen.svelte";
-  import SupportTicketScreen from "./webapp/screens/SupportTicketScreen.svelte";
-  import TrialActivationScreen from "./webapp/screens/TrialActivationScreen.svelte";
 
   import {
     MANUAL_LOGOUT_FLAG_KEY,
@@ -2088,183 +2081,111 @@
             </div>
           {/if}
         {:else}
-          <WebAppShell
-            {screen}
+          <AuthenticatedScreens
+            {accountStore}
+            {activateTrial}
             {activeTab}
-            {brandTitle}
+            {appSettings}
+            {applyPromo}
+            {autoRenewBusy}
             {brand}
+            {brandTitle}
+            {canChangeTariff}
+            {clearPromoFieldError}
+            {copyText}
+            {currentLang}
+            {currentLanguageOption}
+            {currentTariffName}
+            {devicesBusy}
+            {devicesData}
             {devicesEnabled}
-            {supportEnabled}
-            {supportUnreadCount}
-            {supportUnreadLoading}
-            {supportUnreadLoaded}
-            {hasUnlinkedIdentity}
-            {isAdmin}
-            {openAdminPanel}
+            {devicesErrorCode}
+            {devicesIsError}
+            {devicesLoaded}
+            {devicesStatus}
+            {devicesStore}
+            {emailAuthEnabled}
+            {emailLinkStatus}
             {goDevices}
             {goHome}
             {goInvite}
-            {goSupport}
             {goSettings}
+            {goSupport}
+            {hasActiveTariffSubscription}
+            {hasMultipleTariffs}
+            {hasUnlinkedIdentity}
+            {isAdmin}
+            {languageBusy}
+            {languageClickGuard}
+            {languageClickGuardArmed}
+            bind:languageMenuOpen
+            {languageOptions}
+            {linkEmailBusy}
+            linkTelegramAccount={linkTelegramFromSettings}
+            {linkTelegramAndActivateTrial}
+            {linkTelegramAndClaimReferralWelcome}
+            {linkTelegramBusy}
+            {loadDevices}
+            {openAdminPanel}
+            {openAppLink}
+            {openConnectLink}
+            {openDeviceTopupModal}
+            {openExternalLink}
+            {openInstallOrConnect}
+            openLinkEmailDialog={openSettingsLinkEmailDialog}
+            {openPaymentModal}
+            {openPremiumTopupModal}
+            {openRegularTopupModal}
+            openSetPasswordDialog={openSettingsSetPasswordDialog}
+            {openTariffChangeModal}
+            {openTelegramNotificationsBot}
+            {openTrialInstallOrConnect}
+            {premiumTrafficTopupBarClickable}
+            {premiumTrafficTopupUnlocked}
+            {primaryPayActionLabel}
+            {privacyPolicyUrl}
+            {profileAvatarUrl}
+            {profileEmail}
+            {profileTelegramId}
+            {promoBusy}
+            {promoCode}
+            {promoFieldError}
+            {promoIsError}
+            {promoStatus}
+            {referral}
+            {referralBonusDetails}
+            {referralOneBonusPerReferee}
+            {referralWelcomeBonusDays}
+            {regularTrafficTopupBarClickable}
+            {regularTrafficTopupUnlocked}
+            {screen}
+            {serverStatusUrl}
+            {setLanguageMenuOpen}
+            {setPromoCode}
+            {subscription}
+            {supportEnabled}
+            {supportStore}
+            {supportUnreadCount}
+            {supportUnreadLoaded}
+            {supportUnreadLoading}
+            {supportUrl}
             {t}
-          >
-            {#if screen === "home"}
-              <HomeScreen
-                {appSettings}
-                {brand}
-                {brandTitle}
-                {canChangeTariff}
-                {currentTariffName}
-                {hasActiveTariffSubscription}
-                {hasMultipleTariffs}
-                {premiumTrafficTopupBarClickable}
-                {premiumTrafficTopupUnlocked}
-                {regularTrafficTopupBarClickable}
-                {regularTrafficTopupUnlocked}
-                {referral}
-                {subscription}
-                {autoRenewBusy}
-                {linkTelegramBusy}
-                {telegramNotificationsNeedPrompt}
-                {telegramNotificationsStartLink}
-                {telegramNotificationsStatus}
-                {termUnitLabel}
-                {trafficMode}
-                {trialBusy}
-                {activateTrial}
-                {toggleAutoRenew}
-                {linkTelegramAndActivateTrial}
-                {linkTelegramAndClaimReferralWelcome}
-                {openTelegramNotificationsBot}
-                openConnectLink={openInstallOrConnect}
-                {openPaymentModal}
-                {openRegularTopupModal}
-                {openPremiumTopupModal}
-                {openTariffChangeModal}
-                {primaryPayActionLabel}
-                {t}
-              />
-            {:else if screen === "install"}
-              <InstallGuideScreen
-                {currentLang}
-                telegramPlatform={tg?.platform || ""}
-                {user}
-                {subscription}
-                {goHome}
-                {openConnectLink}
-                {openExternalLink}
-                {openAppLink}
-                {copyText}
-                {t}
-              />
-            {:else if screen === "trial"}
-              <TrialActivationScreen
-                {appSettings}
-                {brand}
-                {brandTitle}
-                {subscription}
-                {trialBusy}
-                {linkTelegramBusy}
-                trialResult={trialActivationResult}
-                trialError={trialActivationError}
-                {activateTrial}
-                {linkTelegramAndActivateTrial}
-                openInstallOrConnect={openTrialInstallOrConnect}
-                {goHome}
-                {t}
-              />
-            {:else if screen === "invite"}
-              <InviteScreen
-                {referral}
-                {referralBonusDetails}
-                {referralOneBonusPerReferee}
-                {referralWelcomeBonusDays}
-                {promoCode}
-                {promoFieldError}
-                {promoBusy}
-                {promoIsError}
-                {promoStatus}
-                {applyPromo}
-                setPromoCode={setPromoCode as any}
-                {clearPromoFieldError}
-                copyText={copyText as any}
-                {t}
-              />
-            {:else if screen === "devices"}
-              <DevicesScreen
-                {devicesBusy}
-                devicesData={devicesData || undefined}
-                {devicesIsError}
-                {devicesLoaded}
-                {devicesErrorCode}
-                {devicesStatus}
-                {subscription}
-                {loadDevices}
-                openDeviceDisconnectDialog={devicesStore.openDeviceDisconnectDialog}
-                {openDeviceTopupModal}
-                {t}
-              />
-            {:else if screen === "support"}
-              {#if $supportStore.openedTicketId}
-                <SupportTicketScreen
-                  maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
-                  {brand}
-                  {user}
-                  userAvatarUrl={profileAvatarUrl}
-                  userInitials={telegramProfileName
-                    ? telegramProfileName.slice(0, 2).toUpperCase()
-                    : "U"}
-                  {t}
-                />
-              {:else}
-                <SupportScreen
-                  maxSubjectLength={appSettings?.support_ticket_max_subject_length || 160}
-                  maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
-                  {user}
-                  {t}
-                />
-              {/if}
-            {:else if screen === "settings"}
-              <SettingsScreen
-                {currentLang}
-                {currentLanguageOption}
-                {emailAuthEnabled}
-                {emailLinkStatus}
-                {isAdmin}
-                {languageBusy}
-                {languageClickGuard}
-                {languageClickGuardArmed}
-                bind:languageMenuOpen
-                {languageOptions}
-                {linkEmailBusy}
-                {linkTelegramBusy}
-                {privacyPolicyUrl}
-                {profileAvatarUrl}
-                {profileEmail}
-                {profileTelegramId}
-                {serverStatusUrl}
-                {supportUrl}
-                {telegramNotificationsNeedPrompt}
-                {telegramNotificationsStartLink}
-                {telegramNotificationsStatus}
-                {telegramProfileName}
-                {user}
-                {userAgreementUrl}
-                {userLanguage}
-                showLogout={!telegramMiniAppContext}
-                linkTelegramAccount={linkTelegramFromSettings}
-                {openTelegramNotificationsBot}
-                logout={accountStore.logout}
-                {openAdminPanel}
-                {openExternalLink}
-                openLinkEmailDialog={openSettingsLinkEmailDialog}
-                openSetPasswordDialog={openSettingsSetPasswordDialog}
-                {setLanguageMenuOpen}
-                {t}
-                updateAccountLanguage={accountStore.updateAccountLanguage}
-              />
-            {/if}
-          </WebAppShell>
+            {telegramMiniAppContext}
+            {telegramNotificationsNeedPrompt}
+            {telegramNotificationsStartLink}
+            {telegramNotificationsStatus}
+            telegramPlatform={tg?.platform || ""}
+            {telegramProfileName}
+            {termUnitLabel}
+            {toggleAutoRenew}
+            {trafficMode}
+            {trialActivationError}
+            {trialActivationResult}
+            {trialBusy}
+            {user}
+            {userAgreementUrl}
+            {userLanguage}
+          />
 
           <PaymentDialogs
             bind:linkEmailCode={$accountStore.linkEmailCode}
