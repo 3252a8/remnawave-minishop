@@ -81,6 +81,7 @@
   import { createAutoRenewAction } from "./lib/webapp/autoRenewAction.js";
   import { createAdminPanelActions } from "./lib/webapp/adminPanelActions.js";
   import { createPublicInstallActions } from "./lib/webapp/publicInstallActions.js";
+  import { createWebappSessionActions } from "./lib/webapp/webappSessionActions.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -91,14 +92,7 @@
   import { createBillingActions } from "./lib/webapp/billingActions";
   import { invalidateWebappTariffOptionCaches } from "./lib/webapp/billingOptionCache.js";
   import { runWebappBoot } from "./lib/webapp/webappBoot.js";
-  import {
-    clearManualLogoutFlag as clearManualLogoutFlagInStorage,
-    clearStoredToken,
-    CSRF_COOKIE_NAME,
-    isManuallyLoggedOut as readManualLogoutFlag,
-    markManualLogout as markManualLogoutInStorage,
-    readCookie,
-  } from "./lib/webapp/session.js";
+  import { CSRF_COOKIE_NAME, readCookie } from "./lib/webapp/session.js";
   import { createTelegramSdk } from "./lib/webapp/telegramSdk.js";
   import {
     adminPaymentIdFromPath,
@@ -273,6 +267,18 @@
       languageClickGuardArmed = value;
     },
   });
+  const { clearManualLogoutFlag, clearToken, isManuallyLoggedOut, markManualLogout, setToken } =
+    createWebappSessionActions({
+      csrfCookieName: CSRF_COOKIE_NAME,
+      isMock: () => Boolean(MOCK),
+      manualLogoutFlagKey: MANUAL_LOGOUT_FLAG_KEY,
+      setCsrfToken: (nextToken) => {
+        csrfToken = nextToken;
+      },
+      setToken: (nextToken) => {
+        token = nextToken;
+      },
+    });
   const dataClient = createWebappDataClient({
     apiBase: CFG.apiBase,
     csrfCookieName: CSRF_COOKIE_NAME,
@@ -1283,31 +1289,6 @@
       screen = nextScreen;
     });
     void startEmailCodeLoginFromDeeplink();
-  }
-
-  function setToken(nextToken: string, nextCsrf = "") {
-    clearManualLogoutFlag();
-    token = nextToken || "";
-    csrfToken = nextCsrf || readCookie(CSRF_COOKIE_NAME) || "";
-    if (!MOCK) clearStoredToken();
-  }
-
-  function clearToken() {
-    token = "";
-    csrfToken = "";
-    clearStoredToken();
-  }
-
-  function markManualLogout() {
-    markManualLogoutInStorage(MANUAL_LOGOUT_FLAG_KEY);
-  }
-
-  function clearManualLogoutFlag() {
-    clearManualLogoutFlagInStorage(MANUAL_LOGOUT_FLAG_KEY);
-  }
-
-  function isManuallyLoggedOut() {
-    return readManualLogoutFlag(MANUAL_LOGOUT_FLAG_KEY);
   }
 
   function submitEmailOnEnter(event: KeyboardEvent) {
