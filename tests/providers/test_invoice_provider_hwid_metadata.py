@@ -4,7 +4,8 @@ from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
-from bot.payment_providers import cryptopay, stars
+from bot.payment_providers.cryptopay import service as cryptopay
+from bot.payment_providers.stars import service as stars
 
 
 class InvoiceProviderHwidMetadataTests(IsolatedAsyncioTestCase):

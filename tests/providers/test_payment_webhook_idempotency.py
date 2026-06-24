@@ -3,8 +3,10 @@ import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-from bot.payment_providers import cryptopay, severpay, stars
+from bot.payment_providers import severpay
+from bot.payment_providers.cryptopay import service as cryptopay_service
 from bot.payment_providers.severpay import service as severpay_service
+from bot.payment_providers.stars import service as stars_service
 
 
 class _FakeSession:
@@ -60,23 +62,23 @@ def test_cryptopay_duplicate_success_webhook_does_not_finalize_again(monkeypatch
     }
 
     monkeypatch.setattr(
-        cryptopay.payment_dal,
+        cryptopay_service.payment_dal,
         "get_payment_by_db_id",
         AsyncMock(return_value=payment),
     )
     monkeypatch.setattr(
-        cryptopay.payment_dal,
+        cryptopay_service.payment_dal,
         "update_provider_payment_and_status",
         AsyncMock(side_effect=AssertionError("duplicate webhook must not update payment")),
     )
     monkeypatch.setattr(
-        cryptopay,
+        cryptopay_service,
         "finalize_successful_payment",
         AsyncMock(side_effect=AssertionError("duplicate webhook must not finalize")),
     )
 
     service = SimpleNamespace(settings=SimpleNamespace(traffic_sale_mode=False))
-    asyncio.run(cryptopay.CryptoPayService._invoice_paid_handler(service, update, app))
+    asyncio.run(cryptopay_service.CryptoPayService._invoice_paid_handler(service, update, app))
 
 
 def test_severpay_duplicate_success_webhook_does_not_finalize_again(monkeypatch):
@@ -150,24 +152,24 @@ def test_stars_duplicate_success_message_does_not_finalize_again(monkeypatch):
     )
 
     monkeypatch.setattr(
-        stars.payment_dal,
+        stars_service.payment_dal,
         "get_payment_by_db_id",
         AsyncMock(return_value=payment),
     )
     monkeypatch.setattr(
-        stars.payment_dal,
+        stars_service.payment_dal,
         "update_provider_payment_and_status",
         AsyncMock(side_effect=AssertionError("duplicate stars payment must not update")),
     )
     monkeypatch.setattr(
-        stars,
+        stars_service,
         "finalize_successful_payment",
         AsyncMock(side_effect=AssertionError("duplicate stars payment must not finalize")),
     )
 
     service = SimpleNamespace()
     asyncio.run(
-        stars.StarsService.process_successful_payment(
+        stars_service.StarsService.process_successful_payment(
             service,
             session=session,
             message=message,
