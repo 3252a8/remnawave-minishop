@@ -27,11 +27,7 @@
     readJsonScript,
     structuredCloneSafe,
   } from "./lib/webapp/browser.js";
-  import {
-    isExternalAppLaunchPath,
-    openUrlWithHiddenAnchor,
-    readExternalAppLaunchTarget,
-  } from "./lib/webapp/appLinks.js";
+  import { isExternalAppLaunchPath, readExternalAppLaunchTarget } from "./lib/webapp/appLinks.js";
   import { openAppLinkTarget } from "./lib/webapp/appLinkActions.js";
   import { createWebappDataClient } from "./lib/webapp/dataClient";
   import { copyTextToClipboard } from "./lib/webapp/clipboard.js";
@@ -82,6 +78,7 @@
   import { createAdminPanelActions } from "./lib/webapp/adminPanelActions.js";
   import { createPublicInstallActions } from "./lib/webapp/publicInstallActions.js";
   import { createWebappSessionActions } from "./lib/webapp/webappSessionActions.js";
+  import { createAppLaunchActions } from "./lib/webapp/appLaunchActions.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -759,18 +756,11 @@
     }
   }
 
-  function refreshAppLaunchTarget() {
-    appLaunchTarget = readExternalAppLaunchTarget();
-    return appLaunchTarget;
-  }
-
-  function openAppLaunchTarget(nextTarget = "") {
-    const target = String(nextTarget || refreshAppLaunchTarget() || "").trim();
-    if (!target) return false;
-    appLaunchTarget = target;
-    openUrlWithHiddenAnchor(target);
-    return true;
-  }
+  const { openAppLaunchTarget, refreshAppLaunchTarget } = createAppLaunchActions({
+    setAppLaunchTarget: (target) => {
+      appLaunchTarget = target;
+    },
+  });
 
   onMount(() => {
     if (isPreviewBoard) return;
