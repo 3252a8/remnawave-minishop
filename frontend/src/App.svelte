@@ -75,6 +75,7 @@
   import { computeLanguageView, type LanguageOption } from "./lib/webapp/languageView.js";
   import { computeTelegramLoginView } from "./lib/webapp/telegramLoginView.js";
   import { computeAccountView } from "./lib/webapp/accountView.js";
+  import { createWebappNavigation } from "./lib/webapp/webappNavigation.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -1472,50 +1473,26 @@
     sonnerToast(text, { duration: 2400 });
   }
 
-  function goHome() {
-    billingStore.closePaymentModal();
-    activeTab = "home";
-    screen = "home";
-    syncAppSectionPath("home");
-  }
-
-  function goInstall() {
-    if (!canUseInstallGuides()) {
-      openConnectLink();
-      return;
-    }
-    billingStore.closePaymentModal();
-    activeTab = "home";
-    screen = "install";
-    syncAppSectionPath("install");
-    installGuidesStore.load();
-  }
-
-  function goInvite() {
-    billingStore.closePaymentModal();
-    activeTab = "invite";
-    screen = "invite";
-    syncAppSectionPath("invite");
-  }
-
-  function goDevices() {
-    if (!devicesEnabled) return;
-    billingStore.closePaymentModal();
-    activeTab = "devices";
-    screen = "devices";
-    syncAppSectionPath("devices");
-    devicesStore.loadDevices(devicesEnabled);
-  }
-
-  function goSupport() {
-    if (!supportEnabled) return;
-    billingStore.closePaymentModal();
-    activeTab = "support";
-    screen = "support";
-    syncAppSectionPath("support");
-    supportStore.loadList();
-    supportStore.startPolling({ includeList: true });
-  }
+  const { goDevices, goHome, goInstall, goInvite, goSettings, goSupport } = createWebappNavigation({
+    canUseInstallGuides,
+    closePaymentModal: () => billingStore.closePaymentModal(),
+    devicesEnabled: () => devicesEnabled,
+    loadDevices: () => devicesStore.loadDevices(devicesEnabled),
+    loadInstallGuides: () => installGuidesStore.load(),
+    loadSupport: () => {
+      supportStore.loadList();
+      supportStore.startPolling({ includeList: true });
+    },
+    openConnectLink,
+    setActiveTab: (tab) => {
+      activeTab = tab;
+    },
+    setScreen: (nextScreen) => {
+      screen = nextScreen;
+    },
+    supportEnabled: () => supportEnabled,
+    syncSectionPath: syncAppSectionPath,
+  });
 
   function defaultPaymentMethod() {
     return String(methods[0]?.id || "");
@@ -1562,13 +1539,6 @@
 
   function disconnectDevice() {
     return devicesStore.disconnectDevice(devicesEnabled);
-  }
-
-  function goSettings() {
-    billingStore.closePaymentModal();
-    activeTab = "settings";
-    screen = "settings";
-    syncAppSectionPath("settings");
   }
 
   async function openAdminPanel() {
