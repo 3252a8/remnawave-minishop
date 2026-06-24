@@ -78,16 +78,8 @@
     regularTrafficLimitVisible,
     trafficPercent,
   } from "./lib/webapp/traffic.js";
-  import {
-    findThemeEntry,
-    materializeThemesCatalog,
-    readThemePreviewDraft,
-    resolveEffectiveThemeKey,
-    syncThemeGoogleFonts,
-    themeCssHref,
-    themeEntryToInlineStyle,
-    themeRootClass,
-  } from "./lib/webapp/themeStyle.js";
+  import { readThemePreviewDraft, syncThemeGoogleFonts } from "./lib/webapp/themeStyle.js";
+  import { computeThemeView } from "./lib/webapp/themeView.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -555,26 +547,31 @@
       premiumTrafficPercent(subscription) >= TRAFFIC_TOPUP_UNLOCK_PERCENT)
   );
   $: user = (data?.user || {}) as AnyRecord;
-  $: rawThemesCatalog = themePreviewDraft?.catalog ||
-    data?.themes_catalog ||
-    CFG.themesCatalog || { default_theme: "dark", themes: [] };
-  $: themesCatalog = materializeThemesCatalog(rawThemesCatalog);
-  $: previewThemeAllowed = Boolean(themePreviewKey && (!data?.user || user?.is_admin));
-  $: previewThemeEntry = previewThemeAllowed
-    ? findThemeEntry(themesCatalog, themePreviewKey)
-    : null;
-  $: resolvedThemeKey = previewThemeEntry?.key || resolveEffectiveThemeKey(themesCatalog);
-  $: activeThemeEntry = findThemeEntry(themesCatalog, resolvedThemeKey);
-  $: darkThemeEntry = findThemeEntry(themesCatalog, "dark");
-  $: effectiveThemeEntry =
-    screen === "admin" && activeThemeEntry?.use_in_admin === false
-      ? darkThemeEntry || activeThemeEntry
-      : activeThemeEntry;
-  $: shellStyle = themeEntryToInlineStyle(effectiveThemeEntry, CFG.primaryColor);
-  $: shellToneClass =
-    effectiveThemeEntry?.tokens?.color_scheme === "light" ? "theme-light" : "theme-dark";
-  $: shellThemeClass = themeRootClass(effectiveThemeEntry);
-  $: shellThemeCssHref = themeCssHref(effectiveThemeEntry);
+  let themesCatalog: AnyRecord = {};
+  let resolvedThemeKey = "";
+  let effectiveThemeEntry: AnyRecord | null = null;
+  let shellStyle = "";
+  let shellToneClass = "";
+  let shellThemeClass = "";
+  let shellThemeCssHref: string | null = null;
+  $: {
+    const themeView = computeThemeView({
+      themePreviewDraft,
+      themePreviewKey,
+      data,
+      user,
+      screen,
+      cfgThemesCatalog: CFG.themesCatalog,
+      primaryColor: CFG.primaryColor,
+    });
+    themesCatalog = themeView.themesCatalog;
+    resolvedThemeKey = themeView.resolvedThemeKey;
+    effectiveThemeEntry = themeView.effectiveThemeEntry;
+    shellStyle = themeView.shellStyle;
+    shellToneClass = themeView.shellToneClass;
+    shellThemeClass = themeView.shellThemeClass;
+    shellThemeCssHref = themeView.shellThemeCssHref;
+  }
   $: if (typeof document !== "undefined" && effectiveThemeEntry?.tokens) {
     const scheme = effectiveThemeEntry.tokens.color_scheme || "dark";
     document.documentElement.style.colorScheme = scheme;
