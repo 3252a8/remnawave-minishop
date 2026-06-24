@@ -76,6 +76,7 @@
   import { computeTelegramLoginView } from "./lib/webapp/telegramLoginView.js";
   import { computeAccountView } from "./lib/webapp/accountView.js";
   import { createWebappNavigation } from "./lib/webapp/webappNavigation.js";
+  import { adminPayloadHasFrontendReloadChange } from "./lib/webapp/adminPersistedSettings.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -1584,19 +1585,6 @@
     syncAppSectionPath("admin", false, nextAdminSection, adminUserId);
   }
 
-  function adminPayloadHasLogoChange(options: AdminPersistOptions = {}) {
-    const keys = new Set([
-      ...Object.keys(options.updates || {}),
-      ...(Array.isArray(options.deletes) ? options.deletes : []),
-    ]);
-    return [
-      "WEBAPP_LOGO_URL",
-      "WEBAPP_FAVICON_URL",
-      "WEBAPP_FAVICON_USE_CUSTOM",
-      "WEBAPP_LOGO_FAVICON_URL",
-    ].some((key) => keys.has(key));
-  }
-
   async function handleAdminPersistedSaved(options: AdminPersistOptions = {}) {
     invalidateWebappTariffOptionCaches(billingStore);
     installGuidesStore.reset();
@@ -1607,7 +1595,7 @@
     }
     const shouldReloadFrontend =
       options?.reloadFrontend === true ||
-      (!options?.deferFrontendReload && adminPayloadHasLogoChange(options));
+      (!options?.deferFrontendReload && adminPayloadHasFrontendReloadChange(options));
     if (shouldReloadFrontend && typeof window !== "undefined") {
       window.location.reload();
     }
