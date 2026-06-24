@@ -50,7 +50,6 @@
     type PaymentMethod,
     type TariffCatalogEntry,
   } from "./lib/webapp/tariffs.js";
-  import { reconcileBillingSelection } from "./lib/webapp/billingSelectionSync.js";
   import { renewalPaymentConfig, resolveTopupDeeplinkKind } from "./lib/webapp/billingDeeplinks.js";
   import { activeTabForWebappSection } from "./lib/webapp/sectionAvailability.js";
   import { readThemePreviewDraft, syncThemeGoogleFonts } from "./lib/webapp/themeStyle.js";
@@ -82,6 +81,12 @@
     resolveSupportLoadRoute,
   } from "./lib/webapp/appLoadFlow.js";
   import { resolvePopstateRoute } from "./lib/webapp/appRouteLifecycle.js";
+  import {
+    applyThemeDocumentEffects,
+    closeDisabledEmailAuthDialogs,
+    syncShellBillingSelection,
+    syncShellEmailAvatar,
+  } from "./lib/webapp/shellEffects.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -573,12 +578,7 @@
     shellThemeCssHref = themeView.shellThemeCssHref;
     toastTheme = themeView.toastTheme;
   }
-  $: if (typeof document !== "undefined" && effectiveThemeEntry?.tokens) {
-    const scheme = effectiveThemeEntry.tokens.color_scheme || "dark";
-    document.documentElement.style.colorScheme = scheme;
-    const bg = effectiveThemeEntry.tokens.bg;
-    if (bg) document.body.style.backgroundColor = bg;
-  }
+  $: applyThemeDocumentEffects(effectiveThemeEntry);
   $: syncThemeGoogleFonts(effectiveThemeEntry);
   $: isAdmin = Boolean(user?.is_admin);
   $: if (screen === "admin" && !isAdmin) {
@@ -671,36 +671,37 @@
       (emailAuthEnabled && linkEmailOpen) ||
       (emailAuthEnabled && setPasswordOpen)
   );
-  $: if (!emailAuthEnabled && linkEmailOpen) {
-    accountStore.closeLinkEmailDialog();
-  }
-  $: if (!emailAuthEnabled && setPasswordOpen) {
-    accountStore.closeSetPasswordDialog();
-  }
-  $: {
-    const billingSelectionPatch = reconcileBillingSelection(
-      {
-        paymentStep: $billingStore.paymentStep,
-        selectedMethod: $billingStore.selectedMethod,
-        selectedPlan,
-        selectedTariffKey,
-      },
-      {
-        methods,
-        plans,
-        selectedTariffPlans,
-        singleTariffMode,
-        tariffCatalog,
-        tariffMode,
-      }
-    );
-    if (billingSelectionPatch) billingStore.update((s) => ({ ...s, ...billingSelectionPatch }));
-  }
-  $: {
-    emailAvatarSync.sync(user?.email, (url) => {
+  $: closeDisabledEmailAuthDialogs({
+    closeLinkEmailDialog: () => accountStore.closeLinkEmailDialog(),
+    closeSetPasswordDialog: () => accountStore.closeSetPasswordDialog(),
+    emailAuthEnabled,
+    linkEmailOpen,
+    setPasswordOpen,
+  });
+  $: syncShellBillingSelection({
+    applyPatch: (patch) => billingStore.update((s) => ({ ...s, ...patch })),
+    input: {
+      methods,
+      plans,
+      selectedTariffPlans,
+      singleTariffMode,
+      tariffCatalog,
+      tariffMode,
+    },
+    state: {
+      paymentStep: $billingStore.paymentStep,
+      selectedMethod: $billingStore.selectedMethod,
+      selectedPlan,
+      selectedTariffKey,
+    },
+  });
+  $: syncShellEmailAvatar({
+    email: user?.email,
+    emailAvatarSync,
+    setEmailAvatarUrl: (url) => {
       emailAvatarUrl = url;
-    });
-  }
+    },
+  });
 
   function canUseInstallGuides() {
     return canUseSubscriptionInstallGuides({
