@@ -79,6 +79,7 @@
   import { createPromoTrialActions } from "./lib/webapp/promoTrialActions.js";
   import { createTariffActions } from "./lib/webapp/tariffActions.js";
   import { createPrimaryPayActionLabel } from "./lib/webapp/primaryPayActionLabel.js";
+  import { createTelegramLoginActions } from "./lib/webapp/telegramLoginActions.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -923,13 +924,13 @@
     adminBundle.destroyMount();
   }
 
-  async function openLoginTelegram() {
-    if (demoAuthLogin) {
-      await authStore.finalizeTelegramAuth(demoAuth.telegramAuthPayload(), "auth_data");
-      return;
-    }
-    await authStore.openTelegramLogin(telegramOAuthClientId, () => telegramMiniAppInitData);
-  }
+  const { openLoginTelegram } = createTelegramLoginActions({
+    authStore,
+    getDemoTelegramAuthPayload: () => demoAuth.telegramAuthPayload(),
+    getTelegramMiniAppInitData: () => telegramMiniAppInitData,
+    getTelegramOAuthClientId: () => telegramOAuthClientId,
+    isDemoAuthLogin: () => Boolean(demoAuthLogin),
+  });
 
   const {
     continueTelegramLinkPendingAction,
