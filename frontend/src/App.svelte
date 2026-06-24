@@ -59,13 +59,12 @@
   import { createUiChrome } from "./lib/webapp/uiChrome";
   import { createEmailAvatarSync } from "./lib/webapp/emailAvatarSync.js";
   import {
-    buildTariffCatalog,
     type BillingPlan,
     type PaymentMethod,
     type TariffCatalogEntry,
   } from "./lib/webapp/tariffs.js";
   import { reconcileBillingSelection } from "./lib/webapp/billingSelectionSync.js";
-  import { premiumTrafficLimitVisible, regularTrafficLimitVisible } from "./lib/webapp/traffic.js";
+  import { renewalPaymentConfig, resolveTopupDeeplinkKind } from "./lib/webapp/billingDeeplinks.js";
   import { readThemePreviewDraft, syncThemeGoogleFonts } from "./lib/webapp/themeStyle.js";
   import { computeThemeView } from "./lib/webapp/themeView.js";
   import { computeBillingView } from "./lib/webapp/billingView.js";
@@ -1228,55 +1227,37 @@
     if (deviceTopupModalOpen) await billingStore.loadDeviceTopupOptions();
     if (changeModalOpen) await billingStore.loadTariffChangeOptions();
 
-    const topupDeep = new URLSearchParams(window.location.search).get("topup");
-    if (topupDeep === "regular" || topupDeep === "premium") {
-      const plansList = (payload.plans?.length ? payload.plans : []) as AnyRecord[];
-      const tariffCatalogLocal = buildTariffCatalog(plansList);
-      const sub = (payload.subscription || {}) as AnyRecord;
-      const tariffModeLocal = plansList.some((plan: AnyRecord) => plan?.tariff_key);
-      const hasTariffSub = Boolean(
-        tariffModeLocal &&
-        sub?.active &&
-        sub?.tariff_key &&
-        tariffCatalogLocal.some((t) => t.key === sub.tariff_key)
-      );
-      const canRegular =
-        hasTariffSub &&
-        (sub?.can_topup_regular_traffic ?? sub?.can_topup_traffic) &&
-        regularTrafficLimitVisible(sub);
-      const canPremium =
-        hasTariffSub &&
-        (sub?.can_topup_premium_traffic ?? sub?.can_topup_traffic) &&
-        premiumTrafficLimitVisible(sub);
-      if (topupDeep === "regular" && canRegular) {
-        billingStore.openTopupModal("regular", payload.payment_methods?.[0]?.id || "");
-        stripTopupQueryFromUrl();
-      } else if (topupDeep === "premium" && canPremium) {
-        billingStore.openTopupModal("premium", payload.payment_methods?.[0]?.id || "");
-        stripTopupQueryFromUrl();
-      }
+    const deeplinkPlans = (payload.plans?.length ? payload.plans : []) as BillingPlan[];
+    const deeplinkDefaultMethod = String(payload.payment_methods?.[0]?.id || "");
+    const topupDeeplinkKind = resolveTopupDeeplinkKind({
+      plans: deeplinkPlans,
+      search: window.location.search,
+      subscription: (payload.subscription || {}) as AnyRecord,
+    });
+    if (topupDeeplinkKind) {
+      billingStore.openTopupModal(topupDeeplinkKind, deeplinkDefaultMethod);
+      stripTopupQueryFromUrl();
     }
 
     const renewalDeep = readRenewalDeeplink();
     if (renewalDeep) {
-      const plansList = (payload.plans?.length ? payload.plans : []) as AnyRecord[];
-      const tariffCatalogLocal = buildTariffCatalog(plansList);
-      const tariffModeLocal = plansList.some((plan: AnyRecord) => plan?.tariff_key);
+      const renewalPayment = renewalPaymentConfig({
+        defaultMethod: deeplinkDefaultMethod,
+        plans: deeplinkPlans,
+        subscription: (payload.subscription || {}) as AnyRecord,
+        tariffKey: renewalDeep.tariffKey,
+      });
       activeTab = "home";
       screen = "home";
       syncAppSectionPath("home", true);
       billingStore.openPaymentModal(
-        tariffModeLocal,
-        tariffModeLocal && tariffCatalogLocal.length === 1,
-        tariffCatalogLocal,
-        payload.subscription || {},
-        plansList,
-        payload.payment_methods?.[0]?.id || "",
-        {
-          preferredTariffKey: renewalDeep.tariffKey,
-          selectDefaultTariff: true,
-          preferCheckout: true,
-        }
+        renewalPayment.tariffMode,
+        renewalPayment.singleTariffMode,
+        renewalPayment.tariffCatalog,
+        renewalPayment.subscription,
+        renewalPayment.plans,
+        renewalPayment.defaultMethod,
+        renewalPayment.options
       );
       stripRenewalLoginQueryFromUrl();
     }
