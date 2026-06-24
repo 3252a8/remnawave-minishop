@@ -79,6 +79,7 @@
   import { adminPayloadHasFrontendReloadChange } from "./lib/webapp/adminPersistedSettings.js";
   import { createBillingModalActions } from "./lib/webapp/billingModalActions.js";
   import { createAutoRenewAction } from "./lib/webapp/autoRenewAction.js";
+  import { createAdminPanelActions } from "./lib/webapp/adminPanelActions.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -1503,48 +1504,31 @@
     tariffMode: () => tariffMode,
   });
 
-  async function openAdminPanel() {
-    if (!isAdmin) return;
-    clearLanguageClickGuard();
-    billingStore.closePaymentModal();
-    const nextAdminSection = normalizeAdminSection(
-      adminActiveSection || adminSectionFromPath(routePathnameFromLocation(), routePrefix)
-    );
-    cancelAdminAssetsPrefetch();
-    activeTab = "settings";
-    screen = "admin";
-    adminActiveSection = nextAdminSection;
-    syncAppSectionPath("admin", false, adminActiveSection);
-    try {
-      await ensureI18nScope("admin");
-      await ensureAdminBundle();
-    } catch (_error) {
-      void _error;
-      if (screen === "admin") {
-        screen = "settings";
-        activeTab = "settings";
-        syncAppSectionPath("settings");
-      }
-      showToast(t("wa_unavailable"));
-    }
-  }
-
-  function closeAdminPanel() {
-    screen = "settings";
-    activeTab = "settings";
-    syncAppSectionPath("settings");
-  }
-
-  function handleAdminSectionChange(
-    adminSection: string,
-    adminUserId: string | number | null = null
-  ) {
-    if (screen !== "admin") return;
-    const nextAdminSection = normalizeAdminSection(adminSection);
-    adminActiveSection = nextAdminSection;
-    if (window.location.protocol === "file:") return;
-    syncAppSectionPath("admin", false, nextAdminSection, adminUserId);
-  }
+  const { closeAdminPanel, handleAdminSectionChange, openAdminPanel } = createAdminPanelActions({
+    cancelAdminAssetsPrefetch,
+    clearLanguageClickGuard,
+    closePaymentModal: () => billingStore.closePaymentModal(),
+    ensureAdminBundle,
+    ensureI18nScope,
+    getAdminActiveSection: () => adminActiveSection,
+    getRoutePathname: routePathnameFromLocation,
+    getScreen: () => screen,
+    isAdmin: () => isAdmin,
+    isFileProtocol: () => window.location.protocol === "file:",
+    routePrefix,
+    setActiveTab: (tab) => {
+      activeTab = tab;
+    },
+    setAdminActiveSection: (section) => {
+      adminActiveSection = section;
+    },
+    setScreen: (nextScreen) => {
+      screen = nextScreen;
+    },
+    showToast,
+    syncAppSectionPath,
+    t,
+  });
 
   async function handleAdminPersistedSaved(options: AdminPersistOptions = {}) {
     invalidateWebappTariffOptionCaches(billingStore);
