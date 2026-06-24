@@ -45,6 +45,7 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 - [Темы Web App](docs/features/webapp-themes.md) - кастомные темы, настройка внешнего вида, логотипы, CSS/ассеты и пайплайн создания новой темы.
 - [Миграции](docs/migrations/index.md) - готовые сценарии переноса с `remnawave-tg-shop` и Remnashop.
 - [Миграция с remnawave-tg-shop](docs/migrations/remnawave-tg-shop.md) и [Remnashop](docs/migrations/remnashop.md) - сценарии через общий install wizard.
+- [Рецепты для контрибьюторов](docs/development/how-to.md) - пошагово: добавить платёжного провайдера, доменное событие или HTTP-эндпоинт (см. также [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## Совместимость
 

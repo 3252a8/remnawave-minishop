@@ -89,6 +89,10 @@ npm run build        # vite build должен проходить после typ
 Бэкенд — рукописный `aiohttp` + `aiogram` + SQLAlchemy (async) + pydantic v2. **FastAPI нет** —
 не вводи его. Обзор архитектуры: [docs/architecture.md](docs/architecture.md).
 
+Пошаговые рецепты для типовых задач (добавить платёжного провайдера, доменное событие или
+HTTP-эндпоинт) — [docs/development/how-to.md](docs/development/how-to.md); каждый заканчивается
+прогоном гейтов раздела 1.
+
 ### 3.1 HTTP API (типизированные контракты)
 - Роуты регистрируются явно в `setup_subscription_webapp_routes`
   (`bot/app/web/webapp/routes.py`) и `setup_admin_routes`
