@@ -76,6 +76,7 @@
   import { createAccountUiActions } from "./lib/webapp/accountUiActions.js";
   import { createConnectActions } from "./lib/webapp/connectActions.js";
   import { createClipboardActions } from "./lib/webapp/clipboardActions.js";
+  import { createPromoTrialActions } from "./lib/webapp/promoTrialActions.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -1353,21 +1354,11 @@
 
   const { copyText } = createClipboardActions({ showToast, t });
 
-  function applyPromo() {
-    return actionsStore.applyPromo();
-  }
-
-  function setPromoCode(value: string) {
-    actionsStore.setPromoCode(value);
-  }
-
-  function clearPromoFieldError() {
-    actionsStore.clearPromoFieldError();
-  }
-
-  function activateTrial() {
-    return actionsStore.activateTrial();
-  }
+  const { activateTrial, applyPromo, clearPromoFieldError, setPromoCode } = createPromoTrialActions(
+    {
+      actionsStore,
+    }
+  );
 
   function showToast(message: unknown) {
     const text = String(message ?? "").trim();
