@@ -4041,6 +4041,76 @@
         "title": "WebAppDeviceDisconnectPayload",
         "type": "object"
       },
+      "WebAppDeviceOut": {
+        "properties": {
+          "can_disconnect": {
+            "title": "Can Disconnect",
+            "type": "boolean"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
+          "created_at_text": {
+            "title": "Created At Text",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "hwid_short": {
+            "title": "Hwid Short",
+            "type": "string"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "os_version": {
+            "title": "Os Version",
+            "type": "string"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "platform_label": {
+            "title": "Platform Label",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "user_agent": {
+            "title": "User Agent",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "display_name",
+          "platform",
+          "os_version",
+          "platform_label",
+          "user_agent",
+          "created_at_text",
+          "hwid_short",
+          "token",
+          "can_disconnect"
+        ],
+        "title": "WebAppDeviceOut",
+        "type": "object"
+      },
       "WebAppEmailCodeAuthPayload": {
         "properties": {
           "code": {
@@ -8669,20 +8739,36 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "current_devices": {
+                      "type": "integer"
+                    },
                     "devices": {
                       "items": {
-                        "additionalProperties": true,
-                        "type": "object"
+                        "$ref": "#/components/schemas/WebAppDeviceOut"
                       },
                       "type": "array"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "max_devices": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "max_devices_label": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "ok": {
                       "const": true,
                       "type": "boolean"
                     },
-                    "subscription": {
-                      "additionalProperties": true,
-                      "type": "object"
+                    "subscription_active": {
+                      "type": "boolean"
                     }
                   },
                   "required": [

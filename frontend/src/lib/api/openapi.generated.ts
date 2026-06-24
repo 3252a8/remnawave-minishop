@@ -3244,6 +3244,34 @@ export interface components {
       /** Token */
       token: string;
     };
+    /** WebAppDeviceOut */
+    WebAppDeviceOut: {
+      /** Can Disconnect */
+      can_disconnect: boolean;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /** Created At Text */
+      created_at_text: string;
+      /** Display Name */
+      display_name: string;
+      /** Hwid Short */
+      hwid_short: string;
+      /** Index */
+      index: number;
+      /** Os Version */
+      os_version: string;
+      /** Platform */
+      platform: string;
+      /** Platform Label */
+      platform_label: string;
+      /** Token */
+      token: string;
+      /** User Agent */
+      user_agent: string;
+    };
     /** WebAppEmailCodeAuthPayload */
     WebAppEmailCodeAuthPayload: {
       /**
@@ -5571,14 +5599,14 @@ export interface operations {
         };
         content: {
           "application/json": {
-            devices?: {
-              [key: string]: unknown;
-            }[];
+            current_devices?: number;
+            devices?: components["schemas"]["WebAppDeviceOut"][];
+            enabled?: boolean;
+            max_devices?: number | null;
+            max_devices_label?: string | null;
             /** @constant */
             ok: true;
-            subscription?: {
-              [key: string]: unknown;
-            };
+            subscription_active?: boolean;
           };
         };
       };

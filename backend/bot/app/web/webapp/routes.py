@@ -75,6 +75,7 @@ from .billing import (
     tariff_topup_options_route,
 )
 from .devices import (
+    WebAppDeviceOut,
     devices_route,
     disconnect_device_route,
 )
@@ -329,10 +330,18 @@ _ROUTE_CONTRACTS = {
         ),
     ),
     "devices_route": _user_contract(
+        models=(WebAppDeviceOut,),
         response_schema=ok_envelope_with(
-            {"devices": loose_array_schema(), "subscription": loose_object_schema()},
+            {
+                "enabled": _BOOLEAN_SCHEMA,
+                "subscription_active": _BOOLEAN_SCHEMA,
+                "current_devices": _INTEGER_SCHEMA,
+                "max_devices": _NULLABLE_INTEGER_SCHEMA,
+                "max_devices_label": _NULLABLE_STRING_SCHEMA,
+                "devices": {"type": "array", "items": schema_ref(WebAppDeviceOut)},
+            },
             required=[],
-        )
+        ),
     ),
     "disconnect_device_route": _user_contract(
         request_model=WebAppDeviceDisconnectPayload,
