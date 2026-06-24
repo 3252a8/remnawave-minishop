@@ -26,12 +26,14 @@ describe("computeThemeView", () => {
     expect(view.resolvedThemeKey).toBe("ocean");
     expect(view.effectiveThemeEntry?.key).toBe("ocean");
     expect(view.shellToneClass).toBe("theme-light");
+    expect(view.toastTheme).toBe("light");
   });
 
   it("falls back to dark in admin when the active theme opts out of admin", () => {
     const view = computeThemeView({ ...BASE, screen: "admin" });
     expect(view.effectiveThemeEntry?.key).toBe("dark");
     expect(view.shellToneClass).toBe("theme-dark");
+    expect(view.toastTheme).toBe("dark");
   });
 
   it("honours an allowed preview theme key", () => {

@@ -547,13 +547,13 @@
       premiumTrafficPercent(subscription) >= TRAFFIC_TOPUP_UNLOCK_PERCENT)
   );
   $: user = (data?.user || {}) as AnyRecord;
-  let themesCatalog: AnyRecord = {};
   let resolvedThemeKey = "";
   let effectiveThemeEntry: AnyRecord | null = null;
   let shellStyle = "";
   let shellToneClass = "";
   let shellThemeClass = "";
   let shellThemeCssHref: string | null = null;
+  let toastTheme: "dark" | "light" = "dark";
   $: {
     const themeView = computeThemeView({
       themePreviewDraft,
@@ -564,13 +564,13 @@
       cfgThemesCatalog: CFG.themesCatalog,
       primaryColor: CFG.primaryColor,
     });
-    themesCatalog = themeView.themesCatalog;
     resolvedThemeKey = themeView.resolvedThemeKey;
     effectiveThemeEntry = themeView.effectiveThemeEntry;
     shellStyle = themeView.shellStyle;
     shellToneClass = themeView.shellToneClass;
     shellThemeClass = themeView.shellThemeClass;
     shellThemeCssHref = themeView.shellThemeCssHref;
+    toastTheme = themeView.toastTheme;
   }
   $: if (typeof document !== "undefined" && effectiveThemeEntry?.tokens) {
     const scheme = effectiveThemeEntry.tokens.color_scheme || "dark";
@@ -1985,11 +1985,13 @@
 <Tooltip.Provider>
   <Toaster
     position="bottom-right"
+    theme={toastTheme}
     duration={2400}
     visibleToasts={3}
     gap={10}
     offset="16px"
-    toastOptions={{ class: "app-toast" }}
+    style={shellStyle}
+    toastOptions={{ class: "app-toast", unstyled: true }}
   />
   {#key currentLang}
     {#if isPreviewBoard}

@@ -1,5 +1,6 @@
 import { writable, type Writable } from "svelte/store";
 import { adminErrorMessage } from "../errors.js";
+import { userDisplayName } from "../users.js";
 import { withRoutePrefix } from "../../webapp/routes.js";
 
 type AdminStoreState = Record<string, any>;
@@ -855,6 +856,9 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
       return;
     }
     const kind = s.grantTrafficKindDraft === "premium" ? "premium" : "regular";
+    const userId = String(s.openedUser.user_id ?? "");
+    const user = userDisplayName(s.openedUser);
+    const toastParams = { gb, user_id: userId, user };
     state.update((st) => ({ ...st, userActionBusy: true }));
     try {
       const res = await api(`/admin/users/${s.openedUser.user_id}/traffic-grant`, {
@@ -864,8 +868,16 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
       if (res?.ok) {
         onToast(
           kind === "premium"
-            ? at("traffic_grant_premium_done", { gb }, `+${gb} ГБ премиум-трафика`)
-            : at("traffic_grant_regular_done", { gb }, `+${gb} ГБ трафика`)
+            ? at(
+                "traffic_grant_premium_done",
+                toastParams,
+                `+${gb} ГБ премиум-трафика для ${user} (ID: ${userId})`
+              )
+            : at(
+                "traffic_grant_regular_done",
+                toastParams,
+                `+${gb} ГБ трафика для ${user} (ID: ${userId})`
+              )
         );
         await refreshOpenedUserDetail({
           resetExtendTariff: false,

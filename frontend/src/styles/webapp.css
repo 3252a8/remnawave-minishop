@@ -2715,14 +2715,19 @@ a {
 .app-toast {
   width: var(--width);
   max-width: min(420px, calc(100vw - 32px));
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
   box-shadow: var(--shadow-popover);
   color: var(--text);
   padding: 12px 14px;
   font-size: 13px;
   font-weight: 800;
+  line-height: 1.35;
+  backdrop-filter: blur(16px);
 }
 
 .app-toast [data-content] {

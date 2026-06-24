@@ -21,6 +21,7 @@ export interface ThemeView {
   shellToneClass: string;
   shellThemeClass: string;
   shellThemeCssHref: string | null;
+  toastTheme: "dark" | "light";
 }
 
 export interface ThemeViewInput {
@@ -57,14 +58,15 @@ export function computeThemeView({
     screen === "admin" && activeThemeEntry?.use_in_admin === false
       ? darkThemeEntry || activeThemeEntry
       : activeThemeEntry;
+  const colorScheme = effectiveThemeEntry?.tokens?.color_scheme === "light" ? "light" : "dark";
   return {
     themesCatalog,
     resolvedThemeKey,
     effectiveThemeEntry,
     shellStyle: themeEntryToInlineStyle(effectiveThemeEntry, primaryColor),
-    shellToneClass:
-      effectiveThemeEntry?.tokens?.color_scheme === "light" ? "theme-light" : "theme-dark",
+    shellToneClass: colorScheme === "light" ? "theme-light" : "theme-dark",
     shellThemeClass: themeRootClass(effectiveThemeEntry),
     shellThemeCssHref: themeCssHref(effectiveThemeEntry),
+    toastTheme: colorScheme,
   };
 }
