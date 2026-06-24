@@ -52,6 +52,7 @@
   } from "./lib/webapp/tariffs.js";
   import { createBillingDeeplinkEffects } from "./lib/webapp/billingDeeplinkEffects.js";
   import { createSectionDataLoader } from "./lib/webapp/sectionDataLoader.js";
+  import { createRouteSync } from "./lib/webapp/routeSync.js";
   import { activeTabForWebappSection } from "./lib/webapp/sectionAvailability.js";
   import { readThemePreviewDraft, syncThemeGoogleFonts } from "./lib/webapp/themeStyle.js";
   import { computeThemeView } from "./lib/webapp/themeView.js";
@@ -432,6 +433,19 @@
     devicesStore,
     installGuidesStore,
     supportStore,
+  });
+  const { syncLoadedRoute } = createRouteSync({
+    cleanDocsDemoRouteQuery,
+    getLocation: () => ({
+      hash: window.location.hash,
+      pathname: window.location.pathname,
+      protocol: window.location.protocol,
+      search: window.location.search,
+    }),
+    replaceHistoryState: (url) => {
+      window.history.replaceState(null, "", url);
+    },
+    syncAppSectionPath,
   });
   const actionsStore = createActionsStore({
     api,
@@ -1096,21 +1110,12 @@
       }
       supportStore.startPolling({ includeList: false });
     }
-    if (section === "support" && initialSupportTicketId && supportRoute.targetPath) {
-      if (
-        window.location.protocol !== "file:" &&
-        window.location.pathname !== supportRoute.targetPath
-      ) {
-        window.history.replaceState(
-          null,
-          "",
-          `${supportRoute.targetPath}${window.location.search}${window.location.hash}`
-        );
-      }
-      cleanDocsDemoRouteQuery();
-    } else {
-      syncAppSectionPath(section, true, initialAdminSection);
-    }
+    syncLoadedRoute({
+      initialAdminSection,
+      initialSupportTicketId,
+      section,
+      supportTargetPath: supportRoute.targetPath,
+    });
     await loadSectionData({
       initialSupportTicketId,
       installGuidesPromise,
