@@ -66,10 +66,10 @@
   import { createBillingModalActions } from "./lib/webapp/billingModalActions.js";
   import { createAutoRenewAction } from "./lib/webapp/autoRenewAction.js";
   import { createAdminPanelActions } from "./lib/webapp/adminPanelActions.js";
-  import { createPublicInstallActions } from "./lib/webapp/publicInstallActions.js";
   import { createWebappSessionActions } from "./lib/webapp/webappSessionActions.js";
   import { createAccountUiActions } from "./lib/webapp/accountUiActions.js";
   import { createConnectActions } from "./lib/webapp/connectActions.js";
+  import { createInstallRuntime } from "./lib/webapp/installRuntime.js";
   import { createClipboardActions } from "./lib/webapp/clipboardActions.js";
   import { createPromoTrialActions } from "./lib/webapp/promoTrialActions.js";
   import { createTariffActions } from "./lib/webapp/tariffActions.js";
@@ -1231,27 +1231,6 @@
     return payload;
   }
 
-  const { loadPublicInstall } = createPublicInstallActions({
-    getOrigin: () => (typeof window !== "undefined" ? window.location.origin : ""),
-    getPreloadHost: () => (typeof window !== "undefined" ? (window as unknown as AnyRecord) : null),
-    installGuidesStore,
-    setActiveTab: (tab) => {
-      activeTab = tab;
-    },
-    setMode: (nextMode) => {
-      mode = nextMode;
-    },
-    setPublicInstallSubscription: (subscription) => {
-      publicInstallSubscription = subscription;
-    },
-    setPublicInstallToken: (nextToken) => {
-      publicInstallToken = nextToken;
-    },
-    setScreen: (nextScreen) => {
-      screen = nextScreen;
-    },
-  });
-
   function showLogin() {
     mode = "login";
     screen = "login";
@@ -1282,22 +1261,6 @@
     showToast,
     t,
   });
-
-  function openInstallOrConnect() {
-    if (canUseInstallGuides()) {
-      goInstall();
-      return;
-    }
-    openConnectLink();
-  }
-
-  function openTrialInstallOrConnect() {
-    if (canUseInstallGuides()) {
-      goInstall();
-      return;
-    }
-    openTrialConnectLink();
-  }
 
   function navigateToActivationTarget({ replace = true } = {}) {
     const useInstallGuides = canUseInstallGuides();
@@ -1375,6 +1338,32 @@
     supportEnabled: () => supportEnabled,
     syncSectionPath: syncAppSectionPath,
   });
+  const { loadPublicInstall, openInstallOrConnect, openTrialInstallOrConnect } =
+    createInstallRuntime({
+      canUseInstallGuides,
+      getOrigin: () => (typeof window !== "undefined" ? window.location.origin : ""),
+      getPreloadHost: () =>
+        typeof window !== "undefined" ? (window as unknown as AnyRecord) : null,
+      goInstall,
+      installGuidesStore,
+      openConnectLink,
+      openTrialConnectLink,
+      setActiveTab: (tab) => {
+        activeTab = tab;
+      },
+      setMode: (nextMode) => {
+        mode = nextMode;
+      },
+      setPublicInstallSubscription: (subscription) => {
+        publicInstallSubscription = subscription;
+      },
+      setPublicInstallToken: (nextToken) => {
+        publicInstallToken = nextToken;
+      },
+      setScreen: (nextScreen) => {
+        screen = nextScreen;
+      },
+    });
 
   const {
     closeDeviceTopupModal,
