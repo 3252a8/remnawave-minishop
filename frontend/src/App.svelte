@@ -78,6 +78,7 @@
   import { createClipboardActions } from "./lib/webapp/clipboardActions.js";
   import { createPromoTrialActions } from "./lib/webapp/promoTrialActions.js";
   import { createTariffActions } from "./lib/webapp/tariffActions.js";
+  import { createPrimaryPayActionLabel } from "./lib/webapp/primaryPayActionLabel.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -1492,16 +1493,13 @@
     getSubscription: () => subscription,
     getTariffCatalog: () => tariffCatalog,
   });
-
-  function primaryPayActionLabel() {
-    if (!subscription.active && appSettings?.trial_enabled && appSettings?.trial_available) {
-      return t("wa_pay_full_subscription", {}, "Оплатить полную подписку");
-    }
-    if (trafficMode || selectedPlan?.sale_mode === "traffic_package") return t("wa_buy_traffic");
-    return subscription.active
-      ? t("wa_renew_subscription", {}, "Продлить подписку")
-      : t("wa_pay_subscription");
-  }
+  const primaryPayActionLabel = createPrimaryPayActionLabel({
+    getAppSettings: () => appSettings,
+    getSelectedPlan: () => selectedPlan,
+    getSubscription: () => subscription,
+    getTrafficMode: () => trafficMode,
+    t,
+  });
 </script>
 
 <svelte:head>
