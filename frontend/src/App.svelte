@@ -31,6 +31,7 @@
   import { canUseSubscriptionInstallGuides } from "./lib/webapp/connectLinks.js";
   import { createI18n } from "./lib/webapp/i18n.js";
   import { createActivationWatcher } from "./lib/webapp/activationWatcher";
+  import { createActivationRuntime } from "./lib/webapp/activationRuntime.js";
   import { isPasswordLoginPath, syncPasswordLoginPath } from "./lib/webapp/passwordLoginRoute.js";
   import {
     currentSearchParams,
@@ -323,7 +324,46 @@
     storageKey: ACTIVATION_HANDOFF_STORAGE_KEY,
     ttlMs: ACTIVATION_HANDOFF_TTL_MS,
   } as any) as any;
-  const activationWatcher = createActivationWatcher({
+  let activationWatcher: ReturnType<typeof createActivationWatcher>;
+  const activationRuntime = createActivationRuntime({
+    activationHandoff,
+    closePaymentModal: () => billingStore.closePaymentModal(),
+    getActivationSuccessDialogOpen: () => activationSuccessDialogOpen,
+    getActivationSuccessUseInstallGuides: () => activationSuccessUseInstallGuides,
+    getData: () => data,
+    getSubscription: () => subscription,
+    canUseInstallGuides,
+    loadInstallGuides: (force) => installGuidesStore.load(force),
+    openActivationConnectLink: () => openActivationConnectLink(),
+    refreshPendingActivationOnResume: () => activationWatcher.refreshOnResume(),
+    setActivationSuccessDialogOpen: (open) => {
+      activationSuccessDialogOpen = open;
+    },
+    setActivationSuccessUseInstallGuides: (useInstallGuides) => {
+      activationSuccessUseInstallGuides = useInstallGuides;
+    },
+    setActiveTab: (tab) => {
+      activeTab = tab;
+    },
+    setScreen: (nextScreen) => {
+      screen = nextScreen;
+    },
+    startPendingActivationWatch: () => activationWatcher.start(),
+    stopPendingActivationWatch: () => activationWatcher.stop(),
+    syncAppSectionPath,
+    tick,
+  });
+  const {
+    closeActivationSuccessDialog,
+    handleSubscriptionActivated,
+    hasPendingActivationHandoff,
+    maybeShowActivationSuccessDialog,
+    refreshPendingActivationOnResume,
+    rememberActivationPending,
+    startPendingActivationWatch,
+    stopPendingActivationWatch,
+  } = activationRuntime;
+  activationWatcher = createActivationWatcher({
     activationHandoff,
     billing,
     getData: () => data,
@@ -695,61 +735,6 @@
       installGuidesEnabled,
       subscription,
     });
-  }
-
-  function hasPendingActivationHandoff(payload: AnyRecord | null = data) {
-    return activationHandoff.hasPending(payload || {});
-  }
-
-  function rememberActivationPending(context: AnyRecord = {}) {
-    activationHandoff.rememberPending(context, data || {});
-  }
-
-  async function maybeShowActivationSuccessDialog(context: AnyRecord = {}) {
-    if (activationSuccessDialogOpen) return false;
-    await tick();
-    const payload = context.payload || data;
-    const subscriptionKey = activationHandoff.subscriptionKey(payload);
-    if (!subscriptionKey) return false;
-    const state = activationHandoff.read();
-    const pending = state.pending;
-    if (!context.force && activationHandoff.isAcknowledged(subscriptionKey, state)) {
-      if (pending && activationHandoff.pendingMatchesUser(pending, payload)) {
-        activationHandoff.write({ ...state, pending: null });
-      }
-      return false;
-    }
-    if (
-      !context.force &&
-      (!pending ||
-        !activationHandoff.isPendingFresh(pending) ||
-        !activationHandoff.pendingMatchesUser(pending, payload))
-    ) {
-      return false;
-    }
-    activationHandoff.acknowledge(subscriptionKey, context, payload, state);
-    stopPendingActivationWatch();
-    activationSuccessUseInstallGuides = canUseInstallGuides();
-    billingStore.closePaymentModal();
-    activeTab = "home";
-    if (!activationSuccessUseInstallGuides) {
-      screen = "home";
-      syncAppSectionPath("home", true);
-    }
-    activationSuccessDialogOpen = true;
-    return true;
-  }
-
-  function stopPendingActivationWatch() {
-    activationWatcher.stop();
-  }
-
-  function startPendingActivationWatch() {
-    activationWatcher.start();
-  }
-
-  async function refreshPendingActivationOnResume() {
-    await activationWatcher.refreshOnResume();
   }
 
   async function refreshTelegramNotificationsOnResume() {
@@ -1215,37 +1200,6 @@
     showToast,
     t,
   });
-
-  function navigateToActivationTarget({ replace = true } = {}) {
-    const useInstallGuides = canUseInstallGuides();
-    activationSuccessUseInstallGuides = useInstallGuides;
-    billingStore.closePaymentModal();
-    activeTab = "home";
-    if (useInstallGuides) {
-      screen = "install";
-      syncAppSectionPath("install", replace);
-      installGuidesStore.load(true);
-      return;
-    }
-    screen = "home";
-    syncAppSectionPath("home", replace);
-  }
-
-  async function handleSubscriptionActivated(context = {}) {
-    await tick();
-    if (!subscription?.active) return;
-    await maybeShowActivationSuccessDialog({ ...context, force: true, source: "payment" });
-  }
-
-  function closeActivationSuccessDialog() {
-    const shouldOpenConnect = !activationSuccessUseInstallGuides;
-    activationSuccessDialogOpen = false;
-    if (activationSuccessUseInstallGuides) {
-      navigateToActivationTarget({ replace: true });
-      return;
-    }
-    if (shouldOpenConnect) openActivationConnectLink();
-  }
 
   const { copyText } = createClipboardActions({ showToast, t });
 
