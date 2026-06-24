@@ -11,6 +11,7 @@ from bot.app.web.context import (
 )
 
 from ._runtime import (
+    AdminUserTrialOut,
     Any,
     AsyncSession,
     Dict,
@@ -522,21 +523,7 @@ def _user_search_condition(query: str) -> ColumnElement[bool] | None:
 
 
 def _serialize_trial_summary(user: User, trial_subs: List[Subscription]) -> Dict[str, Any]:
-    first_trial_sub = trial_subs[0] if trial_subs else None
-    latest_trial_sub = trial_subs[-1] if trial_subs else None
-    first_start = getattr(first_trial_sub, "start_date", None)
-    latest_start = getattr(latest_trial_sub, "start_date", None)
-    latest_end = getattr(latest_trial_sub, "end_date", None)
-    reset_at = getattr(user, "trial_eligibility_reset_at", None)
-    return {
-        "used": bool(trial_subs),
-        "count": len(trial_subs),
-        "first_activated_at": first_start.isoformat() if first_start else None,
-        "latest_activated_at": latest_start.isoformat() if latest_start else None,
-        "latest_end_date": latest_end.isoformat() if latest_end else None,
-        "active": bool(latest_trial_sub and getattr(latest_trial_sub, "is_active", False)),
-        "last_reset_at": reset_at.isoformat() if reset_at else None,
-    }
+    return AdminUserTrialOut.from_orm_trial(user, trial_subs).model_dump(mode="json")
 
 
 async def admin_user_detail_route(request: web.Request) -> web.Response:

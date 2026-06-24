@@ -17,11 +17,11 @@ from ._runtime import (
     AdminUserRegularTrafficOverrideBody,
     AdminUserTariffBody,
     AdminUserTrafficGrantBody,
+    AdminUserTrialOut,
     AdminUserWithAvatarOut,
     PaymentOut,
     RouteContract,
     loose_array_schema,
-    loose_object_schema,
     ok_envelope_with,
     register_contract,
     schema_ref,
@@ -80,7 +80,7 @@ register_contract(
 register_contract(
     "admin_user_detail_route",
     RouteContract(
-        models=(AdminUserWithAvatarOut, AdminSubscriptionOut, PaymentOut),
+        models=(AdminUserWithAvatarOut, AdminSubscriptionOut, AdminUserTrialOut, PaymentOut),
         response_schema=ok_envelope_with(
             {
                 "user": schema_ref(AdminUserWithAvatarOut),
@@ -88,14 +88,27 @@ register_contract(
                     "anyOf": [schema_ref(AdminSubscriptionOut), {"type": "null"}]
                 },
                 "subscriptions": {"type": "array", "items": schema_ref(AdminSubscriptionOut)},
-                "trial": loose_object_schema(),
+                "trial": schema_ref(AdminUserTrialOut),
                 "total_paid": NUMBER_SCHEMA,
                 "recent_payments": {"type": "array", "items": schema_ref(PaymentOut)},
                 "log_count": INTEGER_SCHEMA,
                 "subscription_url": NULLABLE_STRING_SCHEMA,
                 "last_vpn_connected_at": NULLABLE_STRING_SCHEMA,
                 "vpn_connection_status": STRING_SCHEMA,
-                "referral": loose_object_schema(),
+                "referral": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["code", "bot_link", "webapp_link", "inviter", "invitees_total"],
+                    "properties": {
+                        "code": NULLABLE_STRING_SCHEMA,
+                        "bot_link": NULLABLE_STRING_SCHEMA,
+                        "webapp_link": NULLABLE_STRING_SCHEMA,
+                        "inviter": {
+                            "anyOf": [schema_ref(AdminUserWithAvatarOut), {"type": "null"}]
+                        },
+                        "invitees_total": INTEGER_SCHEMA,
+                    },
+                },
             }
         ),
     ),

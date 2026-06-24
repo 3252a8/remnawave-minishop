@@ -1670,6 +1670,77 @@
         "title": "AdminUserTrafficGrantBody",
         "type": "object"
       },
+      "AdminUserTrialOut": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "first_activated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "First Activated At"
+          },
+          "last_reset_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Reset At"
+          },
+          "latest_activated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Latest Activated At"
+          },
+          "latest_end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Latest End Date"
+          },
+          "used": {
+            "title": "Used",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "used",
+          "count",
+          "active"
+        ],
+        "title": "AdminUserTrialOut",
+        "type": "object"
+      },
       "AdminUserWithAvatarOut": {
         "properties": {
           "avatar_url": {
@@ -7217,7 +7288,47 @@
                       "type": "array"
                     },
                     "referral": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "bot_link": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "code": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "invitees_total": {
+                          "type": "integer"
+                        },
+                        "inviter": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/AdminUserWithAvatarOut"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "webapp_link": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "bot_link",
+                        "webapp_link",
+                        "inviter",
+                        "invitees_total"
+                      ],
                       "type": "object"
                     },
                     "subscription_url": {
@@ -7236,8 +7347,7 @@
                       "type": "number"
                     },
                     "trial": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminUserTrialOut"
                     },
                     "user": {
                       "$ref": "#/components/schemas/AdminUserWithAvatarOut"

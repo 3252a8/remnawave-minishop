@@ -99,6 +99,7 @@ from .schemas import (
     AdminTranslationsPatchBody,
     AdminUserBanBody,
     AdminUserOut,
+    AdminUserTrialOut,
     AdminUserWithAvatarOut,
     AdminUserExtendBody,
     AdminUserHwidDeviceLimitBody,

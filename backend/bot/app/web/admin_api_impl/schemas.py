@@ -395,6 +395,35 @@ class AdminUserWithAvatarOut(AdminUserOut):
     avatar_url: str | None = None
 
 
+class AdminUserTrialOut(HttpResponseModel):
+    # Field order mirrors the legacy ``_serialize_trial_summary`` dict.
+    used: bool
+    count: int
+    first_activated_at: str | None = None
+    latest_activated_at: str | None = None
+    latest_end_date: str | None = None
+    active: bool
+    last_reset_at: str | None = None
+
+    @classmethod
+    def from_orm_trial(cls, user: Any, trial_subs: Any) -> "AdminUserTrialOut":
+        first_trial_sub = trial_subs[0] if trial_subs else None
+        latest_trial_sub = trial_subs[-1] if trial_subs else None
+        first_start = getattr(first_trial_sub, "start_date", None)
+        latest_start = getattr(latest_trial_sub, "start_date", None)
+        latest_end = getattr(latest_trial_sub, "end_date", None)
+        reset_at = getattr(user, "trial_eligibility_reset_at", None)
+        return cls(
+            used=bool(trial_subs),
+            count=len(trial_subs),
+            first_activated_at=first_start.isoformat() if first_start else None,
+            latest_activated_at=latest_start.isoformat() if latest_start else None,
+            latest_end_date=latest_end.isoformat() if latest_end else None,
+            active=bool(latest_trial_sub and getattr(latest_trial_sub, "is_active", False)),
+            last_reset_at=reset_at.isoformat() if reset_at else None,
+        )
+
+
 class AdminSubscriptionOut(HttpResponseModel):
     # Field order mirrors the legacy ``_serialize_subscription`` dict so
     # ``model_dump(mode="json")`` is byte-identical; the parity test guards it.

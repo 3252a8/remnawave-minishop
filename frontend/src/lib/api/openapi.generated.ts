@@ -2227,6 +2227,35 @@ export interface components {
        */
       kind: unknown;
     };
+    /** AdminUserTrialOut */
+    AdminUserTrialOut: {
+      /** Active */
+      active: boolean;
+      /** Count */
+      count: number;
+      /**
+       * First Activated At
+       * @default null
+       */
+      first_activated_at: string | null;
+      /**
+       * Last Reset At
+       * @default null
+       */
+      last_reset_at: string | null;
+      /**
+       * Latest Activated At
+       * @default null
+       */
+      latest_activated_at: string | null;
+      /**
+       * Latest End Date
+       * @default null
+       */
+      latest_end_date: string | null;
+      /** Used */
+      used: boolean;
+    };
     /** AdminUserWithAvatarOut */
     AdminUserWithAvatarOut: {
       /**
@@ -4858,14 +4887,16 @@ export interface operations {
             ok: true;
             recent_payments: components["schemas"]["PaymentOut"][];
             referral: {
-              [key: string]: unknown;
+              bot_link: string | null;
+              code: string | null;
+              invitees_total: number;
+              inviter: components["schemas"]["AdminUserWithAvatarOut"] | null;
+              webapp_link: string | null;
             };
             subscription_url: string | null;
             subscriptions: components["schemas"]["AdminSubscriptionOut"][];
             total_paid: number;
-            trial: {
-              [key: string]: unknown;
-            };
+            trial: components["schemas"]["AdminUserTrialOut"];
             user: components["schemas"]["AdminUserWithAvatarOut"];
             vpn_connection_status: string;
           };
