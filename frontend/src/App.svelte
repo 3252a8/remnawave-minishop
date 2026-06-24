@@ -79,6 +79,7 @@
   import { createPublicInstallActions } from "./lib/webapp/publicInstallActions.js";
   import { createWebappSessionActions } from "./lib/webapp/webappSessionActions.js";
   import { createAppLaunchActions } from "./lib/webapp/appLaunchActions.js";
+  import { createAccountUiActions } from "./lib/webapp/accountUiActions.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -931,47 +932,31 @@
     await authStore.openTelegramLogin(telegramOAuthClientId, () => telegramMiniAppInitData);
   }
 
-  function openSettingsLinkEmailDialog() {
-    if (!emailAuthEnabled) return;
-    accountStore.openLinkEmailDialog(demoAuthLogin ? demoAuth.demoEmail() : "");
-  }
-
-  function openSettingsSetPasswordDialog() {
-    if (!emailAuthEnabled) return;
-    accountStore.openSetPasswordDialog();
-  }
-
-  function continueTelegramLinkPendingAction() {
-    return accountStore.continueTelegramLinkPendingAction();
-  }
-
-  function linkTelegramAndActivateTrial() {
-    return accountStore.linkTelegramAndActivateTrial();
-  }
-
-  function linkTelegramAndClaimReferralWelcome() {
-    return accountStore.linkTelegramAndClaimReferralWelcome();
-  }
-
-  function openTelegramNotificationsBot() {
-    const link = telegramNotificationsStartLink;
-    telegramNotificationsBotOpenedAt = Date.now();
-    if (!link) {
-      showToast(t("wa_telegram_notifications_link_unavailable"));
-      return;
-    }
-    const currentTg = tg || telegramSdk.refresh();
-    if (currentTg?.openTelegramLink && /^https:\/\/t\.me\//i.test(link)) {
-      try {
-        tg = currentTg;
-        currentTg.openTelegramLink(link);
-        return;
-      } catch {
-        // Fall back to generic external opening below.
-      }
-    }
-    openExternalLink(link);
-  }
+  const {
+    continueTelegramLinkPendingAction,
+    linkTelegramAndActivateTrial,
+    linkTelegramAndClaimReferralWelcome,
+    openSettingsLinkEmailDialog,
+    openSettingsSetPasswordDialog,
+    openTelegramNotificationsBot,
+  } = createAccountUiActions({
+    accountStore,
+    demoEmail: () => demoAuth.demoEmail(),
+    emailAuthEnabled: () => emailAuthEnabled,
+    getTelegram: () => tg,
+    getTelegramNotificationsStartLink: () => telegramNotificationsStartLink,
+    isDemoAuthLogin: () => Boolean(demoAuthLogin),
+    markTelegramNotificationsBotOpened: (openedAt) => {
+      telegramNotificationsBotOpenedAt = openedAt;
+    },
+    openExternalLink,
+    refreshTelegram: () => telegramSdk.refresh(),
+    setTelegram: (value) => {
+      tg = value;
+    },
+    showToast,
+    t,
+  });
 
   async function startEmailCodeLoginFromDeeplink() {
     if (emailLoginDeeplinkConsumed) return;
