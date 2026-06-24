@@ -78,6 +78,7 @@
   import { createWebappNavigation } from "./lib/webapp/webappNavigation.js";
   import { adminPayloadHasFrontendReloadChange } from "./lib/webapp/adminPersistedSettings.js";
   import { createBillingModalActions } from "./lib/webapp/billingModalActions.js";
+  import { createAutoRenewAction } from "./lib/webapp/autoRenewAction.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -141,10 +142,6 @@
   };
   type WindowWithPublicInstallPreload = Window &
     Record<string, PublicInstallPreload | null | undefined>;
-
-  function asRecord(value: unknown): AnyRecord {
-    return value && typeof value === "object" ? (value as AnyRecord) : {};
-  }
 
   export let mockRuntime: AnyRecord | null = null;
 
@@ -1447,33 +1444,22 @@
     return actionsStore.activateTrial();
   }
 
-  async function toggleAutoRenew(enabled: boolean) {
-    if (autoRenewBusy) return;
-    autoRenewBusy = true;
-    try {
-      const response = await billing.postAutoRenew(enabled);
-      if (!response.ok) throw response;
-      showToast(
-        response.auto_renew_enabled ? t("wa_auto_renew_enabled") : t("wa_auto_renew_disabled")
-      );
-      await loadData({ fresh: true, preserveView: true });
-    } catch (error) {
-      const errorRecord = asRecord(error);
-      if (errorRecord.error === "auto_renew_requires_saved_method") {
-        showToast(t("wa_auto_renew_requires_saved_method"));
-      } else {
-        showToast(errorRecord.message || t("wa_auto_renew_update_failed"));
-      }
-    } finally {
-      autoRenewBusy = false;
-    }
-  }
-
   function showToast(message: unknown) {
     const text = String(message ?? "").trim();
     if (!text) return;
     sonnerToast(text, { duration: 2400 });
   }
+
+  const { toggleAutoRenew } = createAutoRenewAction({
+    billing,
+    getBusy: () => autoRenewBusy,
+    loadData,
+    setBusy: (busy) => {
+      autoRenewBusy = busy;
+    },
+    showToast,
+    t,
+  });
 
   const { goDevices, goHome, goInstall, goInvite, goSettings, goSupport } = createWebappNavigation({
     canUseInstallGuides,
