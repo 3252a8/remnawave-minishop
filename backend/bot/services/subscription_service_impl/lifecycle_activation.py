@@ -18,6 +18,7 @@ from ._runtime import (
     user_billing_dal,
     user_dal,
 )
+from .sale_mode import parse_sale_mode_context
 
 
 class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
@@ -35,8 +36,9 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         tariff_key: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
 
-        sale_mode_base, sale_mode_tariff_key = self._parse_sale_mode_context(sale_mode, tariff_key)
-        tariff_key = sale_mode_tariff_key
+        sale_mode_context = parse_sale_mode_context(sale_mode, tariff_key)
+        sale_mode_base = sale_mode_context.base
+        tariff_key = sale_mode_context.tariff_key
         if sale_mode_base in {"traffic", "traffic_package"} or (
             getattr(self.settings, "traffic_sale_mode", False) and not self._tariffs_config()
         ):
