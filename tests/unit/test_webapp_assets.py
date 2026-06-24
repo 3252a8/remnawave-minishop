@@ -442,8 +442,10 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
     def test_home_screen_hides_unlimited_traffic_limit_cards(self):
         root = Path(__file__).resolve().parents[2]
-        app_source = (root / "frontend/src/App.svelte").read_text(encoding="utf-8")
         home_source = (root / "frontend/src/webapp/screens/HomeScreen.svelte").read_text(
+            encoding="utf-8"
+        )
+        billing_view_source = (root / "frontend/src/lib/webapp/billingView.ts").read_text(
             encoding="utf-8"
         )
         traffic_source = (root / "frontend/src/lib/webapp/traffic.ts").read_text(encoding="utf-8")
@@ -461,8 +463,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             home_source,
         )
         self.assertNotIn("wa_premium_unlimited", home_source)
-        self.assertIn("regularTrafficLimitVisible(subscription)", app_source)
-        self.assertIn("premiumTrafficLimitVisible(subscription)", app_source)
+        self.assertIn("regularTrafficLimitVisible(subscription)", billing_view_source)
+        self.assertIn("premiumTrafficLimitVisible(subscription)", billing_view_source)
 
     def test_https_webapp_logo_uses_same_origin_proxy(self):
         settings = SimpleNamespace(WEBAPP_LOGO_URL="https://cdn.example.com/logo.png")

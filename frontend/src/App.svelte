@@ -71,15 +71,15 @@
   import { createTelegramLaunch } from "./lib/webapp/telegramLaunch";
   import { createUiChrome } from "./lib/webapp/uiChrome";
   import { normalizedEmail, telegramName } from "./lib/webapp/formatters.js";
-  import { activeTariffName, buildTariffCatalog } from "./lib/webapp/tariffs.js";
   import {
-    premiumTrafficLimitVisible,
-    premiumTrafficPercent,
-    regularTrafficLimitVisible,
-    trafficPercent,
-  } from "./lib/webapp/traffic.js";
+    buildTariffCatalog,
+    type BillingPlan,
+    type TariffCatalogEntry,
+  } from "./lib/webapp/tariffs.js";
+  import { premiumTrafficLimitVisible, regularTrafficLimitVisible } from "./lib/webapp/traffic.js";
   import { readThemePreviewDraft, syncThemeGoogleFonts } from "./lib/webapp/themeStyle.js";
   import { computeThemeView } from "./lib/webapp/themeView.js";
+  import { computeBillingView } from "./lib/webapp/billingView.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -491,61 +491,48 @@
   $: subscriptionPurchaseDescription = String(
     appSettings?.subscription_purchase_description || ""
   ).trim();
-  $: trafficMode = Boolean(appSettings?.traffic_mode);
-  $: tariffMode = plans.some((plan) => plan?.tariff_key);
-  $: tariffCatalog = buildTariffCatalog(plans);
-  $: singleTariffMode = tariffMode && tariffCatalog.length === 1;
-  $: hasMultipleTariffs = tariffCatalog.length > 1;
-  $: selectedTariff = tariffCatalog.find((tariff) => tariff.key === selectedTariffKey) || null;
-  $: selectedTariffPlans = tariffMode
-    ? selectedTariffKey
-      ? plans.filter((plan) => plan?.tariff_key === selectedTariffKey)
-      : []
-    : plans;
   $: devicesEnabled = Boolean(appSettings?.my_devices_enabled);
   $: supportEnabled = Boolean(appSettings?.support_tickets_enabled ?? true);
   $: installGuidesEnabled = Boolean(appSettings?.subscription_guides_enabled);
   $: supportStore.setActive(Boolean(mode === "app" && screen === "support" && supportEnabled));
   $: subscription = (data?.subscription || MOCK_SOURCE.data.subscription || {}) as AnyRecord;
-  $: hasActiveTariffSubscription = Boolean(
-    tariffMode && subscription?.active && subscription?.tariff_key
-  );
-  $: canChangeTariff = Boolean(hasActiveTariffSubscription && hasMultipleTariffs);
-  $: currentTariffName = activeTariffName(subscription, plans);
-  $: canOpenRegularTopupModal = Boolean(
-    hasActiveTariffSubscription &&
-    (subscription?.can_topup_regular_traffic ?? subscription?.can_topup_traffic) &&
-    regularTrafficLimitVisible(subscription)
-  );
-  $: canOpenPremiumTopupModal = Boolean(
-    hasActiveTariffSubscription &&
-    (subscription?.can_topup_premium_traffic ?? subscription?.can_topup_traffic) &&
-    premiumTrafficLimitVisible(subscription)
-  );
-  $: activeTariffCatalogEntry =
-    tariffCatalog.find((entry) => entry.key === String(subscription?.tariff_key || "").trim()) ||
-    null;
-  $: subscriptionIsTrafficTariff = Boolean(
-    String(
-      subscription?.billing_model || activeTariffCatalogEntry?.billing_model || ""
-    ).toLowerCase() === "traffic"
-  );
-  $: regularTrafficTopupUnlocked = Boolean(
-    canOpenRegularTopupModal && trafficPercent(subscription) >= TRAFFIC_TOPUP_UNLOCK_PERCENT
-  );
-  $: premiumTrafficTopupUnlocked = Boolean(
-    canOpenPremiumTopupModal && premiumTrafficPercent(subscription) >= TRAFFIC_TOPUP_UNLOCK_PERCENT
-  );
-  /** Progress-bar card opens top-up immediately on traffic-only tariffs; period tariffs still need 80% usage */
-  $: regularTrafficTopupBarClickable = Boolean(
-    canOpenRegularTopupModal &&
-    (subscriptionIsTrafficTariff || trafficPercent(subscription) >= TRAFFIC_TOPUP_UNLOCK_PERCENT)
-  );
-  $: premiumTrafficTopupBarClickable = Boolean(
-    canOpenPremiumTopupModal &&
-    (subscriptionIsTrafficTariff ||
-      premiumTrafficPercent(subscription) >= TRAFFIC_TOPUP_UNLOCK_PERCENT)
-  );
+  let trafficMode = false;
+  let tariffMode = false;
+  let tariffCatalog: TariffCatalogEntry[] = [];
+  let singleTariffMode = false;
+  let hasMultipleTariffs = false;
+  let selectedTariff: TariffCatalogEntry | null = null;
+  let selectedTariffPlans: BillingPlan[] = [];
+  let hasActiveTariffSubscription = false;
+  let canChangeTariff = false;
+  let currentTariffName = "";
+  let regularTrafficTopupUnlocked = false;
+  let premiumTrafficTopupUnlocked = false;
+  let regularTrafficTopupBarClickable = false;
+  let premiumTrafficTopupBarClickable = false;
+  $: {
+    const billingView = computeBillingView({
+      appSettings,
+      plans,
+      selectedTariffKey,
+      subscription,
+      topupUnlockPercent: TRAFFIC_TOPUP_UNLOCK_PERCENT,
+    });
+    trafficMode = billingView.trafficMode;
+    tariffMode = billingView.tariffMode;
+    tariffCatalog = billingView.tariffCatalog;
+    singleTariffMode = billingView.singleTariffMode;
+    hasMultipleTariffs = billingView.hasMultipleTariffs;
+    selectedTariff = billingView.selectedTariff;
+    selectedTariffPlans = billingView.selectedTariffPlans;
+    hasActiveTariffSubscription = billingView.hasActiveTariffSubscription;
+    canChangeTariff = billingView.canChangeTariff;
+    currentTariffName = billingView.currentTariffName;
+    regularTrafficTopupUnlocked = billingView.regularTrafficTopupUnlocked;
+    premiumTrafficTopupUnlocked = billingView.premiumTrafficTopupUnlocked;
+    regularTrafficTopupBarClickable = billingView.regularTrafficTopupBarClickable;
+    premiumTrafficTopupBarClickable = billingView.premiumTrafficTopupBarClickable;
+  }
   $: user = (data?.user || {}) as AnyRecord;
   let resolvedThemeKey = "";
   let effectiveThemeEntry: AnyRecord | null = null;
