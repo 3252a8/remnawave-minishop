@@ -1636,6 +1636,123 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /** AdminSubscriptionOut */
+    AdminSubscriptionOut: {
+      /** Auto Renew Enabled */
+      auto_renew_enabled: boolean;
+      /**
+       * Display Label
+       * @default null
+       */
+      display_label: string | null;
+      /**
+       * Duration Months
+       * @default null
+       */
+      duration_months: number | null;
+      /**
+       * End Date
+       * @default null
+       */
+      end_date: string | null;
+      /** Extra Hwid Devices */
+      extra_hwid_devices: number;
+      /**
+       * Hwid Device Limit
+       * @default null
+       */
+      hwid_device_limit: number | null;
+      /** Is Active */
+      is_active: boolean;
+      /** Is Throttled */
+      is_throttled: boolean;
+      /** Is Trial */
+      is_trial: boolean;
+      /**
+       * Panel Subscription Uuid
+       * @default null
+       */
+      panel_subscription_uuid: string | null;
+      /**
+       * Panel User Uuid
+       * @default null
+       */
+      panel_user_uuid: string | null;
+      /**
+       * Premium Baseline Bytes
+       * @default null
+       */
+      premium_baseline_bytes: number | null;
+      /** Premium Bonus Bytes */
+      premium_bonus_bytes: number;
+      /** Premium Is Limited */
+      premium_is_limited: boolean;
+      /** Premium Limit Bytes */
+      premium_limit_bytes: number;
+      /**
+       * Premium Topup Balance Bytes
+       * @default null
+       */
+      premium_topup_balance_bytes: number | null;
+      /**
+       * Premium Topup Used Bytes
+       * @default null
+       */
+      premium_topup_used_bytes: number | null;
+      /** Premium Unlimited Override */
+      premium_unlimited_override: boolean;
+      /**
+       * Premium Used Bytes
+       * @default null
+       */
+      premium_used_bytes: number | null;
+      /**
+       * Provider
+       * @default null
+       */
+      provider: string | null;
+      /** Regular Bonus Bytes */
+      regular_bonus_bytes: number;
+      /** Regular Unlimited Override */
+      regular_unlimited_override: boolean;
+      /**
+       * Start Date
+       * @default null
+       */
+      start_date: string | null;
+      /**
+       * Status From Panel
+       * @default null
+       */
+      status_from_panel: string | null;
+      /** Subscription Id */
+      subscription_id: number;
+      /**
+       * Tariff Key
+       * @default null
+       */
+      tariff_key: string | null;
+      /**
+       * Tier Baseline Bytes
+       * @default null
+       */
+      tier_baseline_bytes: number | null;
+      /**
+       * Topup Balance Bytes
+       * @default null
+       */
+      topup_balance_bytes: number | null;
+      /**
+       * Traffic Limit Bytes
+       * @default null
+       */
+      traffic_limit_bytes: number | null;
+      /**
+       * Traffic Used Bytes
+       * @default null
+       */
+      traffic_used_bytes: number | null;
+    };
     /** AdminSupportMessageOut */
     AdminSupportMessageOut: {
       /**
@@ -4738,9 +4855,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
-            subscription?: {
-              [key: string]: unknown;
-            };
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
           };
         };
       };
@@ -4770,9 +4885,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
-            subscription?: {
-              [key: string]: unknown;
-            };
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
           };
         };
       };
@@ -4860,9 +4973,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
-            subscription?: {
-              [key: string]: unknown;
-            };
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
           };
         };
       };
@@ -4929,9 +5040,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
-            subscription?: {
-              [key: string]: unknown;
-            };
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
           };
         };
       };
@@ -4986,9 +5095,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
-            subscription?: {
-              [key: string]: unknown;
-            };
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
           };
         };
       };

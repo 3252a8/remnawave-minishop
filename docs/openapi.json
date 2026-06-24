@@ -380,6 +380,290 @@
         "title": "AdminStatsOut",
         "type": "object"
       },
+      "AdminSubscriptionOut": {
+        "properties": {
+          "auto_renew_enabled": {
+            "title": "Auto Renew Enabled",
+            "type": "boolean"
+          },
+          "display_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Display Label"
+          },
+          "duration_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Months"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "End Date"
+          },
+          "extra_hwid_devices": {
+            "title": "Extra Hwid Devices",
+            "type": "integer"
+          },
+          "hwid_device_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Hwid Device Limit"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "is_throttled": {
+            "title": "Is Throttled",
+            "type": "boolean"
+          },
+          "is_trial": {
+            "title": "Is Trial",
+            "type": "boolean"
+          },
+          "panel_subscription_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel Subscription Uuid"
+          },
+          "panel_user_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel User Uuid"
+          },
+          "premium_baseline_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Premium Baseline Bytes"
+          },
+          "premium_bonus_bytes": {
+            "title": "Premium Bonus Bytes",
+            "type": "integer"
+          },
+          "premium_is_limited": {
+            "title": "Premium Is Limited",
+            "type": "boolean"
+          },
+          "premium_limit_bytes": {
+            "title": "Premium Limit Bytes",
+            "type": "integer"
+          },
+          "premium_topup_balance_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Premium Topup Balance Bytes"
+          },
+          "premium_topup_used_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Premium Topup Used Bytes"
+          },
+          "premium_unlimited_override": {
+            "title": "Premium Unlimited Override",
+            "type": "boolean"
+          },
+          "premium_used_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Premium Used Bytes"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Provider"
+          },
+          "regular_bonus_bytes": {
+            "title": "Regular Bonus Bytes",
+            "type": "integer"
+          },
+          "regular_unlimited_override": {
+            "title": "Regular Unlimited Override",
+            "type": "boolean"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start Date"
+          },
+          "status_from_panel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status From Panel"
+          },
+          "subscription_id": {
+            "title": "Subscription Id",
+            "type": "integer"
+          },
+          "tariff_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tariff Key"
+          },
+          "tier_baseline_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tier Baseline Bytes"
+          },
+          "topup_balance_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Topup Balance Bytes"
+          },
+          "traffic_limit_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Traffic Limit Bytes"
+          },
+          "traffic_used_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Traffic Used Bytes"
+          }
+        },
+        "required": [
+          "subscription_id",
+          "is_active",
+          "premium_limit_bytes",
+          "premium_bonus_bytes",
+          "regular_bonus_bytes",
+          "regular_unlimited_override",
+          "premium_unlimited_override",
+          "premium_is_limited",
+          "extra_hwid_devices",
+          "is_trial",
+          "auto_renew_enabled",
+          "is_throttled"
+        ],
+        "title": "AdminSubscriptionOut",
+        "type": "object"
+      },
       "AdminSupportMessageOut": {
         "properties": {
           "author_name": {
@@ -6821,8 +7105,7 @@
                       "type": "boolean"
                     },
                     "subscription": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminSubscriptionOut"
                     }
                   },
                   "required": [
@@ -6884,8 +7167,7 @@
                       "type": "boolean"
                     },
                     "subscription": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminSubscriptionOut"
                     }
                   },
                   "required": [
@@ -7065,8 +7347,7 @@
                       "type": "boolean"
                     },
                     "subscription": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminSubscriptionOut"
                     }
                   },
                   "required": [
@@ -7207,8 +7488,7 @@
                       "type": "boolean"
                     },
                     "subscription": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminSubscriptionOut"
                     }
                   },
                   "required": [
@@ -7319,8 +7599,7 @@
                       "type": "boolean"
                     },
                     "subscription": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminSubscriptionOut"
                     }
                   },
                   "required": [

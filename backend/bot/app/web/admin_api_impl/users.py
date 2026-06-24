@@ -7,6 +7,7 @@ from ._runtime import (
     NULLABLE_STRING_SCHEMA,
     NUMBER_SCHEMA,
     STRING_SCHEMA,
+    AdminSubscriptionOut,
     AdminUserBanBody,
     AdminUserExtendBody,
     AdminUserHwidDeviceLimitBody,
@@ -143,6 +144,7 @@ register_contract(
     RouteContract(
         request_model=AdminUserPremiumOverrideBody,
         response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
+        models=(AdminSubscriptionOut,),
     ),
 )
 register_contract(
@@ -150,6 +152,7 @@ register_contract(
     RouteContract(
         request_model=AdminUserRegularTrafficOverrideBody,
         response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
+        models=(AdminSubscriptionOut,),
     ),
 )
 register_contract(
@@ -157,6 +160,7 @@ register_contract(
     RouteContract(
         request_model=AdminUserHwidDeviceLimitBody,
         response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
+        models=(AdminSubscriptionOut,),
     ),
 )
 register_contract(
@@ -174,6 +178,7 @@ register_contract(
     RouteContract(
         request_model=AdminUserExtendBody,
         response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
+        models=(AdminSubscriptionOut,),
     ),
 )
 register_contract(
@@ -181,6 +186,7 @@ register_contract(
     RouteContract(
         request_model=AdminUserTariffBody,
         response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
+        models=(AdminSubscriptionOut,),
     ),
 )
 

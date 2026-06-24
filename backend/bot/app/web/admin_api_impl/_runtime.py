@@ -77,6 +77,7 @@ from bot.app.web.route_contracts import (
     ok_envelope_for,
     ok_envelope_with,
     register_contract,
+    schema_ref,
 )
 
 from bot.app.web.request_parsing import parse_body, parse_body_or_400
@@ -94,6 +95,7 @@ from .schemas import (
     AdminPaymentsListOut,
     AdminSettingsPatchBody,
     AdminStatsOut,
+    AdminSubscriptionOut,
     AdminTranslationsPatchBody,
     AdminUserBanBody,
     AdminUserExtendBody,

@@ -2,6 +2,7 @@ from typing import cast
 
 from ._runtime import (
     AdCampaign,
+    AdminSubscriptionOut,
     AdOut,
     Any,
     Dict,
@@ -276,46 +277,10 @@ def _premium_traffic_list_payload(sub: Optional[Subscription]) -> Dict[str, Any]
 
 
 def _serialize_subscription(sub: Subscription) -> Dict[str, Any]:
-    premium_bonus_bytes = int(getattr(sub, "premium_bonus_bytes", 0) or 0)
-    regular_bonus_bytes = int(getattr(sub, "regular_bonus_bytes", 0) or 0)
-    regular_unlimited_override = bool(getattr(sub, "regular_unlimited_override", False))
-    premium_unlimited_override = bool(getattr(sub, "premium_unlimited_override", False))
-    premium_limit_bytes = _premium_limit_bytes_from_subscription(sub)
-    provider = sub.provider
-    is_trial = str(provider or "").strip().lower() == "trial"
-    display_label = "Trial" if is_trial else sub.tariff_key
-    return {
-        "subscription_id": int(sub.subscription_id),
-        "panel_user_uuid": sub.panel_user_uuid,
-        "panel_subscription_uuid": sub.panel_subscription_uuid,
-        "start_date": sub.start_date.isoformat() if sub.start_date else None,
-        "end_date": sub.end_date.isoformat() if sub.end_date else None,
-        "duration_months": sub.duration_months,
-        "is_active": bool(sub.is_active),
-        "status_from_panel": sub.status_from_panel,
-        "traffic_limit_bytes": sub.traffic_limit_bytes,
-        "traffic_used_bytes": sub.traffic_used_bytes,
-        "tier_baseline_bytes": sub.tier_baseline_bytes,
-        "topup_balance_bytes": sub.topup_balance_bytes,
-        "premium_used_bytes": sub.premium_used_bytes,
-        "premium_limit_bytes": premium_limit_bytes,
-        "premium_baseline_bytes": sub.premium_baseline_bytes,
-        "premium_topup_balance_bytes": sub.premium_topup_balance_bytes,
-        "premium_topup_used_bytes": getattr(sub, "premium_topup_used_bytes", 0),
-        "premium_bonus_bytes": premium_bonus_bytes,
-        "regular_bonus_bytes": regular_bonus_bytes,
-        "regular_unlimited_override": regular_unlimited_override,
-        "premium_unlimited_override": premium_unlimited_override,
-        "premium_is_limited": bool(sub.premium_is_limited),
-        "hwid_device_limit": getattr(sub, "hwid_device_limit", None),
-        "extra_hwid_devices": int(getattr(sub, "extra_hwid_devices", 0) or 0),
-        "tariff_key": sub.tariff_key,
-        "display_label": display_label,
-        "is_trial": is_trial,
-        "auto_renew_enabled": bool(sub.auto_renew_enabled),
-        "provider": provider,
-        "is_throttled": bool(sub.is_throttled),
-    }
+    return cast(
+        Dict[str, Any],
+        AdminSubscriptionOut.from_orm_subscription(sub).model_dump(mode="json"),
+    )
 
 
 def _payment_traffic_gb_split(payment: Payment) -> Tuple[Optional[float], Optional[float]]:
