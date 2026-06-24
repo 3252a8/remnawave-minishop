@@ -33,6 +33,7 @@
   import { createActivationWatcher } from "./lib/webapp/activationWatcher";
   import { createActivationRuntime } from "./lib/webapp/activationRuntime.js";
   import { createAuthRuntime } from "./lib/webapp/authRuntime.js";
+  import { refreshTelegramNotificationsAfterResume } from "./lib/webapp/telegramNotificationsResume.js";
   import {
     currentSearchParams,
     hasEmailCodeLoginDeeplink,
@@ -759,31 +760,26 @@
   }
 
   async function refreshTelegramNotificationsOnResume() {
-    if (
-      mode !== "app" ||
-      !telegramNotificationsNeedPrompt ||
-      !telegramNotificationsBotOpenedAt ||
-      telegramNotificationsResumeRefreshBusy
-    ) {
-      return;
-    }
-    const now = Date.now();
-    if (
-      now - telegramNotificationsResumeLastCheckAt <
-      TELEGRAM_NOTIFICATIONS_RESUME_REFRESH_COOLDOWN_MS
-    ) {
-      return;
-    }
-    telegramNotificationsResumeLastCheckAt = now;
-    telegramNotificationsResumeRefreshBusy = true;
-    try {
-      await loadData({ fresh: true, preserveView: true });
-      if (!telegramNotificationsNeedPrompt) telegramNotificationsBotOpenedAt = 0;
-    } catch (_error) {
-      void _error;
-    } finally {
-      telegramNotificationsResumeRefreshBusy = false;
-    }
+    await refreshTelegramNotificationsAfterResume({
+      cooldownMs: TELEGRAM_NOTIFICATIONS_RESUME_REFRESH_COOLDOWN_MS,
+      loadData: () => loadData({ fresh: true, preserveView: true }),
+      readState: () => ({
+        botOpenedAt: telegramNotificationsBotOpenedAt,
+        lastCheckAt: telegramNotificationsResumeLastCheckAt,
+        mode,
+        needPrompt: telegramNotificationsNeedPrompt,
+        refreshBusy: telegramNotificationsResumeRefreshBusy,
+      }),
+      setBotOpenedAt: (openedAt) => {
+        telegramNotificationsBotOpenedAt = openedAt;
+      },
+      setLastCheckAt: (checkedAt) => {
+        telegramNotificationsResumeLastCheckAt = checkedAt;
+      },
+      setRefreshBusy: (busy) => {
+        telegramNotificationsResumeRefreshBusy = busy;
+      },
+    });
   }
 
   onMount(() => {
