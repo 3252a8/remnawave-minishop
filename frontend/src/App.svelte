@@ -31,12 +31,7 @@
   import { openAppLinkTarget } from "./lib/webapp/appLinkActions.js";
   import { createWebappDataClient } from "./lib/webapp/dataClient";
   import { copyTextToClipboard } from "./lib/webapp/clipboard.js";
-  import {
-    activationConnectLink,
-    canUseSubscriptionInstallGuides,
-    connectLinkFromSubscription,
-    trialConnectLink,
-  } from "./lib/webapp/connectLinks.js";
+  import { canUseSubscriptionInstallGuides } from "./lib/webapp/connectLinks.js";
   import { createI18n } from "./lib/webapp/i18n.js";
   import { createActivationWatcher } from "./lib/webapp/activationWatcher";
   import { createAdminBundle } from "./lib/webapp/adminBundle";
@@ -80,6 +75,7 @@
   import { createWebappSessionActions } from "./lib/webapp/webappSessionActions.js";
   import { createAppLaunchActions } from "./lib/webapp/appLaunchActions.js";
   import { createAccountUiActions } from "./lib/webapp/accountUiActions.js";
+  import { createConnectActions } from "./lib/webapp/connectActions.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -1294,22 +1290,19 @@
     });
   }
 
-  function openResolvedConnectLink(url: string) {
-    if (!url) {
-      showToast(t("wa_connect_link_unavailable"));
-      return false;
-    }
-    openExternalLink(url);
-    return true;
-  }
-
-  function openConnectLink() {
-    openResolvedConnectLink(connectLinkFromSubscription(subscription));
-  }
-
-  function openPublicConnectLink() {
-    openResolvedConnectLink(connectLinkFromSubscription(publicInstallSubscription));
-  }
+  const {
+    openActivationConnectLink,
+    openConnectLink,
+    openPublicConnectLink,
+    openTrialConnectLink,
+  } = createConnectActions({
+    getPublicInstallSubscription: () => publicInstallSubscription,
+    getSubscription: () => subscription,
+    getTrialActivationResult: () => trialActivationResult,
+    openExternalLink,
+    showToast,
+    t,
+  });
 
   function openInstallOrConnect() {
     if (canUseInstallGuides()) {
@@ -1324,11 +1317,7 @@
       goInstall();
       return;
     }
-    openResolvedConnectLink(trialConnectLink(trialActivationResult, subscription));
-  }
-
-  function openActivationConnectLink() {
-    openResolvedConnectLink(activationConnectLink(subscription, trialActivationResult));
+    openTrialConnectLink();
   }
 
   function navigateToActivationTarget({ replace = true } = {}) {
