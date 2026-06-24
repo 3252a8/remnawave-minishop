@@ -3,7 +3,18 @@ from __future__ import annotations
 import logging
 import re
 import secrets
-from typing import TYPE_CHECKING, Any, Callable, Dict, Generic, List, Optional, TypeVar, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Protocol,
+    TypeVar,
+    overload,
+)
 
 from pydantic import field_validator
 
@@ -32,8 +43,99 @@ if TYPE_CHECKING:
 
     def computed_field(func: Callable[[Any], _T]) -> _ComputedField[_T]: ...
 
+    class _SettingsFieldsProtocol(Protocol):
+        POSTGRES_USER: str
+        POSTGRES_PASSWORD: str
+        POSTGRES_HOST: str
+        POSTGRES_PORT: int
+        POSTGRES_DB: str
+        SMTP_HOST: str
+        SMTP_PORT: int
+        SMTP_FALLBACK_PORTS: Optional[str]
+        SMTP_TIMEOUT_SECONDS: int
+        SMTP_USERNAME: Optional[str]
+        SMTP_PASSWORD: Optional[str]
+        SMTP_FROM_EMAIL: Optional[str]
+        SMTP_FROM_NAME: Optional[str]
+        SMTP_STARTTLS: bool
+        SMTP_USE_SSL: bool
+        EMAIL_CODE_TTL_SECONDS: int
+        EMAIL_CODE_RESEND_SECONDS: int
+        EMAIL_CODE_MAX_ATTEMPTS: int
+        BRUTE_FORCE_MAX_FAILURES: int
+        BRUTE_FORCE_WINDOW_SECONDS: int
+        BRUTE_FORCE_LOCK_SECONDS: int
+        WEBAPP_TITLE: str
+        WEBAPP_PRIMARY_COLOR: str
+        WEBAPP_LOGO_URL: Optional[str]
+        WEBAPP_FAVICON_USE_CUSTOM: bool
+        WEBAPP_FAVICON_URL: Optional[str]
+        WEBAPP_LOGO_FAVICON_URL: Optional[str]
+        WEBAPP_SESSION_TTL_SECONDS: int
+        WEBAPP_SESSION_SECRET: str
+        WEBHOOK_SECRET_TOKEN: str
+        WEBAPP_AUTH_MAX_AGE_SECONDS: int
+        WEBAPP_LOGIN_TOKEN_TTL_SECONDS: int
+        WEBAPP_SERVER_HOST: str
+        WEBAPP_SERVER_PORT: int
+        WEBAPP_ENABLED: bool
+        DEFAULT_CURRENCY_SYMBOL: str
+        PAYMENT_REQUEST_TIMEOUT_SECONDS: float
+        ADMIN_IDS_STR: str
+        PANEL_WRITE_MODE: str
+        APP_RUNTIME_MODE: str
+        TRIAL_TRAFFIC_LIMIT_GB: Optional[float]
+        TRIAL_PREMIUM_TRAFFIC_LIMIT_GB: Optional[float]
+        USER_TRAFFIC_LIMIT_GB: Optional[float]
+        USER_SQUAD_UUIDS: Optional[str]
+        TRIAL_SQUAD_UUIDS: Optional[str]
+        TRIAL_PREMIUM_SQUAD_UUIDS: Optional[str]
+        DISPOSABLE_EMAIL_DOMAINS: str
+        USER_EXTERNAL_SQUAD_UUID: Optional[str]
+        TRUSTED_PROXIES: Optional[str]
+        WEBHOOK_BASE_URL: Optional[str]
+        MONTH_1_ENABLED: bool
+        RUB_PRICE_1_MONTH: Optional[int]
+        MONTH_3_ENABLED: bool
+        RUB_PRICE_3_MONTHS: Optional[int]
+        MONTH_6_ENABLED: bool
+        RUB_PRICE_6_MONTHS: Optional[int]
+        MONTH_12_ENABLED: bool
+        RUB_PRICE_12_MONTHS: Optional[int]
+        STARS_ENABLED: bool
+        STARS_ADMIN_ONLY_ENABLED: bool
+        STARS_PRICE_1_MONTH: Optional[int]
+        STARS_PRICE_3_MONTHS: Optional[int]
+        STARS_PRICE_6_MONTHS: Optional[int]
+        STARS_PRICE_12_MONTHS: Optional[int]
+        TRAFFIC_PACKAGES: Optional[str]
+        STARS_TRAFFIC_PACKAGES: Optional[str]
+        TARIFF_TRAFFIC_WARNING_LEVELS: str
+        TARIFFS_CONFIG_PATH: str
+        WEBAPP_DEFAULT_THEME: Optional[str]
+        WEBAPP_THEMES_DIR: str
+        REFERRAL_BONUS_DAYS_INVITER_1_MONTH: Optional[int]
+        REFERRAL_BONUS_DAYS_INVITER_3_MONTHS: Optional[int]
+        REFERRAL_BONUS_DAYS_INVITER_6_MONTHS: Optional[int]
+        REFERRAL_BONUS_DAYS_INVITER_12_MONTHS: Optional[int]
+        REFERRAL_BONUS_DAYS_REFEREE_1_MONTH: Optional[int]
+        REFERRAL_BONUS_DAYS_REFEREE_3_MONTHS: Optional[int]
+        REFERRAL_BONUS_DAYS_REFEREE_6_MONTHS: Optional[int]
+        REFERRAL_BONUS_DAYS_REFEREE_12_MONTHS: Optional[int]
+        PAYMENT_METHODS_ORDER: Optional[str]
+        SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED: bool
+        DEFAULT_LANGUAGE: str
+        SUBSCRIPTION_PURCHASE_DESCRIPTION_EN: str
+        SUBSCRIPTION_PURCHASE_DESCRIPTION_RU: str
+
+    class _SettingsComputedMixinBase(_SettingsFieldsProtocol):
+        pass
+
 else:
     from pydantic import computed_field
+
+    class _SettingsComputedMixinBase:
+        pass
 
 
 def _split_csv(value: Optional[str]) -> List[str]:
@@ -42,7 +144,7 @@ def _split_csv(value: Optional[str]) -> List[str]:
     return [item.strip() for item in re.split(r"[,;\r\n]+", value) if item.strip()]
 
 
-class SettingsComputedMixin:
+class SettingsComputedMixin(_SettingsComputedMixinBase):
     @computed_field
     def DATABASE_URL(self) -> str:
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"

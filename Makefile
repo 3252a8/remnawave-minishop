@@ -2,6 +2,7 @@ PYTHON ?= python
 NPM ?= npm
 
 MYPY_PATHS := \
+	backend/config \
 	backend/db \
 	backend/bot/infra \
 	backend/bot/middlewares \

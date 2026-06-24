@@ -172,6 +172,7 @@ jobs:
       - name: Mypy web API and event layers
         run: >-
           python -m mypy
+          backend/config
           backend/db
           backend/bot/infra
           backend/bot/middlewares
