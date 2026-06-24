@@ -77,6 +77,7 @@
   import { computeAccountView } from "./lib/webapp/accountView.js";
   import { createWebappNavigation } from "./lib/webapp/webappNavigation.js";
   import { adminPayloadHasFrontendReloadChange } from "./lib/webapp/adminPersistedSettings.js";
+  import { createBillingModalActions } from "./lib/webapp/billingModalActions.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -1495,52 +1496,26 @@
     syncSectionPath: syncAppSectionPath,
   });
 
-  function defaultPaymentMethod() {
-    return String(methods[0]?.id || "");
-  }
-
-  function openPaymentModal() {
-    billingStore.openPaymentModal(
-      tariffMode,
-      singleTariffMode,
-      tariffCatalog,
-      subscription,
-      plans,
-      defaultPaymentMethod()
-    );
-  }
-
-  function openTopupModal(kind: string) {
-    billingStore.openTopupModal(kind, defaultPaymentMethod());
-  }
-
-  function openRegularTopupModal() {
-    openTopupModal("regular");
-  }
-
-  function openPremiumTopupModal() {
-    openTopupModal("premium");
-  }
-
-  function openTariffChangeModal() {
-    billingStore.openTariffChangeModal(defaultPaymentMethod());
-  }
-
-  function openDeviceTopupModal() {
-    billingStore.openDeviceTopupModal(defaultPaymentMethod());
-  }
-
-  function closeDeviceTopupModal() {
-    billingStore.closeDeviceTopupModal();
-  }
-
-  function loadDevices(force = false) {
-    return devicesStore.loadDevices(devicesEnabled, force);
-  }
-
-  function disconnectDevice() {
-    return devicesStore.disconnectDevice(devicesEnabled);
-  }
+  const {
+    closeDeviceTopupModal,
+    disconnectDevice,
+    loadDevices,
+    openDeviceTopupModal,
+    openPaymentModal,
+    openPremiumTopupModal,
+    openRegularTopupModal,
+    openTariffChangeModal,
+  } = createBillingModalActions({
+    billingStore,
+    devicesEnabled: () => devicesEnabled,
+    devicesStore,
+    methods: () => methods,
+    plans: () => plans,
+    singleTariffMode: () => singleTariffMode,
+    subscription: () => subscription,
+    tariffCatalog: () => tariffCatalog,
+    tariffMode: () => tariffMode,
+  });
 
   async function openAdminPanel() {
     if (!isAdmin) return;
