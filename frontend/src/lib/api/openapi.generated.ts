@@ -2103,6 +2103,68 @@ export interface components {
        */
       text: unknown;
     };
+    /** AdminUserOut */
+    AdminUserOut: {
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /**
+       * First Name
+       * @default null
+       */
+      first_name: string | null;
+      /** Is Banned */
+      is_banned: boolean;
+      /**
+       * Language Code
+       * @default null
+       */
+      language_code: string | null;
+      /**
+       * Last Name
+       * @default null
+       */
+      last_name: string | null;
+      /**
+       * Panel User Uuid
+       * @default null
+       */
+      panel_user_uuid: string | null;
+      /**
+       * Referral Code
+       * @default null
+       */
+      referral_code: string | null;
+      /**
+       * Referred By Id
+       * @default null
+       */
+      referred_by_id: number | null;
+      /**
+       * Registration Date
+       * @default null
+       */
+      registration_date: string | null;
+      /**
+       * Telegram Id
+       * @default null
+       */
+      telegram_id: number | null;
+      /**
+       * Telegram Photo Url
+       * @default null
+       */
+      telegram_photo_url: string | null;
+      /** User Id */
+      user_id: number;
+      /**
+       * Username
+       * @default null
+       */
+      username: string | null;
+    };
     /** AdminUserPremiumOverrideBody */
     AdminUserPremiumOverrideBody: {
       /**
@@ -2164,6 +2226,73 @@ export interface components {
        * @default regular
        */
       kind: unknown;
+    };
+    /** AdminUserWithAvatarOut */
+    AdminUserWithAvatarOut: {
+      /**
+       * Avatar Url
+       * @default null
+       */
+      avatar_url: string | null;
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /**
+       * First Name
+       * @default null
+       */
+      first_name: string | null;
+      /** Is Banned */
+      is_banned: boolean;
+      /**
+       * Language Code
+       * @default null
+       */
+      language_code: string | null;
+      /**
+       * Last Name
+       * @default null
+       */
+      last_name: string | null;
+      /**
+       * Panel User Uuid
+       * @default null
+       */
+      panel_user_uuid: string | null;
+      /**
+       * Referral Code
+       * @default null
+       */
+      referral_code: string | null;
+      /**
+       * Referred By Id
+       * @default null
+       */
+      referred_by_id: number | null;
+      /**
+       * Registration Date
+       * @default null
+       */
+      registration_date: string | null;
+      /**
+       * Telegram Id
+       * @default null
+       */
+      telegram_id: number | null;
+      /**
+       * Telegram Photo Url
+       * @default null
+       */
+      telegram_photo_url: string | null;
+      /** User Id */
+      user_id: number;
+      /**
+       * Username
+       * @default null
+       */
+      username: string | null;
     };
     /** CreateTicketPayload */
     CreateTicketPayload: {
@@ -4743,9 +4872,7 @@ export interface operations {
             trial: {
               [key: string]: unknown;
             };
-            user: {
-              [key: string]: unknown;
-            };
+            user: components["schemas"]["AdminUserWithAvatarOut"];
             vpn_connection_status: string;
           };
         };
@@ -4823,9 +4950,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
-            user: {
-              [key: string]: unknown;
-            };
+            user: components["schemas"]["AdminUserOut"];
           };
         };
       };
@@ -4997,20 +5122,14 @@ export interface operations {
         };
         content: {
           "application/json": {
-            invitees: {
-              [key: string]: unknown;
-            }[];
-            inviter: {
-              [key: string]: unknown;
-            };
+            invitees: components["schemas"]["AdminUserWithAvatarOut"][];
+            inviter: components["schemas"]["AdminUserWithAvatarOut"] | null;
             /** @constant */
             ok: true;
             page: number;
             page_size: number;
             total: number;
-            user: {
-              [key: string]: unknown;
-            };
+            user: components["schemas"]["AdminUserWithAvatarOut"];
           };
         };
       };

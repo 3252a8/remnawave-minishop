@@ -1456,6 +1456,156 @@
         "title": "AdminUserMessageBody",
         "type": "object"
       },
+      "AdminUserOut": {
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "First Name"
+          },
+          "is_banned": {
+            "title": "Is Banned",
+            "type": "boolean"
+          },
+          "language_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Language Code"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Name"
+          },
+          "panel_user_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel User Uuid"
+          },
+          "referral_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referral Code"
+          },
+          "referred_by_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referred By Id"
+          },
+          "registration_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Registration Date"
+          },
+          "telegram_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Id"
+          },
+          "telegram_photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Photo Url"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Username"
+          }
+        },
+        "required": [
+          "user_id",
+          "is_banned"
+        ],
+        "title": "AdminUserOut",
+        "type": "object"
+      },
       "AdminUserPremiumOverrideBody": {
         "properties": {
           "bonus_bytes": {
@@ -1518,6 +1668,168 @@
           }
         },
         "title": "AdminUserTrafficGrantBody",
+        "type": "object"
+      },
+      "AdminUserWithAvatarOut": {
+        "properties": {
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Avatar Url"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "First Name"
+          },
+          "is_banned": {
+            "title": "Is Banned",
+            "type": "boolean"
+          },
+          "language_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Language Code"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Name"
+          },
+          "panel_user_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel User Uuid"
+          },
+          "referral_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referral Code"
+          },
+          "referred_by_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referred By Id"
+          },
+          "registration_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Registration Date"
+          },
+          "telegram_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Id"
+          },
+          "telegram_photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Photo Url"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Username"
+          }
+        },
+        "required": [
+          "user_id",
+          "is_banned"
+        ],
+        "title": "AdminUserWithAvatarOut",
         "type": "object"
       },
       "CreateTicketPayload": {
@@ -6924,8 +7236,7 @@
                       "type": "object"
                     },
                     "user": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminUserWithAvatarOut"
                     },
                     "vpn_connection_status": {
                       "type": "string"
@@ -7041,8 +7352,7 @@
                       "type": "boolean"
                     },
                     "user": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminUserOut"
                     }
                   },
                   "required": [
@@ -7396,14 +7706,19 @@
                   "properties": {
                     "invitees": {
                       "items": {
-                        "additionalProperties": true,
-                        "type": "object"
+                        "$ref": "#/components/schemas/AdminUserWithAvatarOut"
                       },
                       "type": "array"
                     },
                     "inviter": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/AdminUserWithAvatarOut"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "ok": {
                       "const": true,
@@ -7419,8 +7734,7 @@
                       "type": "integer"
                     },
                     "user": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminUserWithAvatarOut"
                     }
                   },
                   "required": [

@@ -98,6 +98,8 @@ from .schemas import (
     AdminSubscriptionOut,
     AdminTranslationsPatchBody,
     AdminUserBanBody,
+    AdminUserOut,
+    AdminUserWithAvatarOut,
     AdminUserExtendBody,
     AdminUserHwidDeviceLimitBody,
     AdminUserMessageBody,

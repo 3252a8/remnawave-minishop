@@ -12,15 +12,18 @@ from ._runtime import (
     AdminUserExtendBody,
     AdminUserHwidDeviceLimitBody,
     AdminUserMessageBody,
+    AdminUserOut,
     AdminUserPremiumOverrideBody,
     AdminUserRegularTrafficOverrideBody,
     AdminUserTariffBody,
     AdminUserTrafficGrantBody,
+    AdminUserWithAvatarOut,
     RouteContract,
     loose_array_schema,
     loose_object_schema,
     ok_envelope_with,
     register_contract,
+    schema_ref,
 )
 from .users_actions import (
     admin_user_ban_route,
@@ -76,9 +79,10 @@ register_contract(
 register_contract(
     "admin_user_detail_route",
     RouteContract(
+        models=(AdminUserWithAvatarOut,),
         response_schema=ok_envelope_with(
             {
-                "user": loose_object_schema(),
+                "user": schema_ref(AdminUserWithAvatarOut),
                 "active_subscription": loose_object_schema(),
                 "subscriptions": loose_array_schema(),
                 "trial": loose_object_schema(),
@@ -90,22 +94,23 @@ register_contract(
                 "vpn_connection_status": STRING_SCHEMA,
                 "referral": loose_object_schema(),
             }
-        )
+        ),
     ),
 )
 register_contract(
     "admin_user_referrals_route",
     RouteContract(
+        models=(AdminUserWithAvatarOut,),
         response_schema=ok_envelope_with(
             {
-                "user": loose_object_schema(),
-                "inviter": loose_object_schema(),
-                "invitees": loose_array_schema(),
+                "user": schema_ref(AdminUserWithAvatarOut),
+                "inviter": {"anyOf": [schema_ref(AdminUserWithAvatarOut), {"type": "null"}]},
+                "invitees": {"type": "array", "items": schema_ref(AdminUserWithAvatarOut)},
                 "total": INTEGER_SCHEMA,
                 "page": INTEGER_SCHEMA,
                 "page_size": INTEGER_SCHEMA,
             }
-        )
+        ),
     ),
 )
 register_contract(
@@ -117,6 +122,7 @@ register_contract(
     RouteContract(
         request_model=AdminUserBanBody,
         response_schema=_ADMIN_USER_RESPONSE_SCHEMA,
+        models=(AdminUserOut,),
     ),
 )
 register_contract(

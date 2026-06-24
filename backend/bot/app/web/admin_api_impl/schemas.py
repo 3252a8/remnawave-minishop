@@ -351,6 +351,50 @@ class PaymentDetailOut(PaymentOut):
         return cast("PaymentDetailOut", cls.model_validate(payload))
 
 
+class AdminUserOut(HttpResponseModel):
+    # Field order mirrors the legacy ``_serialize_user`` dict so
+    # ``model_dump(mode="json")`` is byte-identical; the parity test guards it.
+    user_id: int
+    telegram_id: int | None = None
+    telegram_photo_url: str | None = None
+    username: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    email: str | None = None
+    language_code: str | None = None
+    is_banned: bool
+    registration_date: str | None = None
+    panel_user_uuid: str | None = None
+    referral_code: str | None = None
+    referred_by_id: int | None = None
+
+    @classmethod
+    def from_orm_user(cls, user: Any) -> "AdminUserOut":
+        return cls(
+            user_id=int(user.user_id),
+            telegram_id=int(user.telegram_id) if user.telegram_id else None,
+            telegram_photo_url=user.telegram_photo_url,
+            username=user.username,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            email=user.email,
+            language_code=user.language_code,
+            is_banned=bool(user.is_banned),
+            registration_date=(
+                user.registration_date.isoformat() if user.registration_date else None
+            ),
+            panel_user_uuid=user.panel_user_uuid,
+            referral_code=user.referral_code,
+            referred_by_id=int(user.referred_by_id) if user.referred_by_id else None,
+        )
+
+
+class AdminUserWithAvatarOut(AdminUserOut):
+    # Schema for the admin user object enriched with the avatar URL
+    # (``_serialize_admin_user_with_avatar`` appends ``avatar_url`` last).
+    avatar_url: str | None = None
+
+
 class AdminSubscriptionOut(HttpResponseModel):
     # Field order mirrors the legacy ``_serialize_subscription`` dict so
     # ``model_dump(mode="json")`` is byte-identical; the parity test guards it.

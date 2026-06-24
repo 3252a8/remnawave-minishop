@@ -3,6 +3,7 @@ from typing import cast
 from ._runtime import (
     AdCampaign,
     AdminSubscriptionOut,
+    AdminUserOut,
     AdOut,
     Any,
     Dict,
@@ -211,21 +212,7 @@ def _panel_user_connection_activity(panel_user_data: Any) -> Dict[str, Any]:
 
 
 def _serialize_user(user: User) -> Dict[str, Any]:
-    return {
-        "user_id": int(user.user_id),
-        "telegram_id": int(user.telegram_id) if user.telegram_id else None,
-        "telegram_photo_url": user.telegram_photo_url,
-        "username": user.username,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "email": user.email,
-        "language_code": user.language_code,
-        "is_banned": bool(user.is_banned),
-        "registration_date": user.registration_date.isoformat() if user.registration_date else None,
-        "panel_user_uuid": user.panel_user_uuid,
-        "referral_code": user.referral_code,
-        "referred_by_id": int(user.referred_by_id) if user.referred_by_id else None,
-    }
+    return cast(Dict[str, Any], AdminUserOut.from_orm_user(user).model_dump(mode="json"))
 
 
 def _premium_limit_bytes_from_subscription(sub: Subscription) -> int:

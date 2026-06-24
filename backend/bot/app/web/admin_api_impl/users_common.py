@@ -8,13 +8,13 @@ from ._runtime import (
     NULLABLE_STRING_SCHEMA,
     STRING_SCHEMA,
     AdminSubscriptionOut,
+    AdminUserOut,
     Any,
     AsyncSession,
     Dict,
     List,
     User,
     UserTelegramAvatar,
-    loose_object_schema,
     ok_envelope_with,
     schema_ref,
     select,
@@ -90,7 +90,7 @@ _ADMIN_USER_TARIFF_BODY_SCHEMA = {
     "required": ["tariff_key"],
     "properties": {"tariff_key": STRING_SCHEMA},
 }
-_ADMIN_USER_RESPONSE_SCHEMA = ok_envelope_with({"user": loose_object_schema()})
+_ADMIN_USER_RESPONSE_SCHEMA = ok_envelope_with({"user": schema_ref(AdminUserOut)})
 _ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA = ok_envelope_with(
     {"subscription": schema_ref(AdminSubscriptionOut)}, required=[]
 )
