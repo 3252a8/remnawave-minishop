@@ -30,7 +30,6 @@
   import { isExternalAppLaunchPath, readExternalAppLaunchTarget } from "./lib/webapp/appLinks.js";
   import { openAppLinkTarget } from "./lib/webapp/appLinkActions.js";
   import { createWebappDataClient } from "./lib/webapp/dataClient";
-  import { copyTextToClipboard } from "./lib/webapp/clipboard.js";
   import { canUseSubscriptionInstallGuides } from "./lib/webapp/connectLinks.js";
   import { createI18n } from "./lib/webapp/i18n.js";
   import { createActivationWatcher } from "./lib/webapp/activationWatcher";
@@ -76,6 +75,7 @@
   import { createAppLaunchActions } from "./lib/webapp/appLaunchActions.js";
   import { createAccountUiActions } from "./lib/webapp/accountUiActions.js";
   import { createConnectActions } from "./lib/webapp/connectActions.js";
+  import { createClipboardActions } from "./lib/webapp/clipboardActions.js";
 
   /** Used-traffic percent from which top-up modals and CTAs unlock in the web app home screen */
   const TRAFFIC_TOPUP_UNLOCK_PERCENT = 80;
@@ -1351,13 +1351,7 @@
     if (shouldOpenConnect) openActivationConnectLink();
   }
 
-  async function copyText(value: string, success = t("wa_copied")) {
-    if (!(await copyTextToClipboard(value))) {
-      showToast(t("wa_unavailable"));
-      return;
-    }
-    showToast(success);
-  }
+  const { copyText } = createClipboardActions({ showToast, t });
 
   function applyPromo() {
     return actionsStore.applyPromo();
