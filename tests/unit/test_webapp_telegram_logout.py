@@ -40,10 +40,12 @@ def test_logout_handler_is_noop_inside_telegram_mini_app():
 def test_open_app_route_uses_fallback_screen_without_auth_flow():
     main_source = _read("frontend/src/main.js")
     app_source = _read("frontend/src/App.svelte")
+    app_mode_source = _read("frontend/src/webapp/AppModeContent.svelte")
     screen_source = _read("frontend/src/webapp/screens/AppLaunchScreen.svelte")
 
     assert "loadBootstrap().finally" in main_source
-    assert "AppLaunchScreen" in app_source
+    assert "AppModeContent" in app_source
+    assert "AppLaunchScreen" in app_mode_source
     assert 'mode = isAppLaunchRoute ? "appLaunch"' in app_source
     assert "window.close()" in screen_source
     assert 'window.addEventListener("blur", notePageLeft)' not in screen_source

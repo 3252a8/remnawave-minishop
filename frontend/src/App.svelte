@@ -10,12 +10,7 @@
   import { createActionsStore } from "./lib/webapp/stores/actionsStore";
   import { Tooltip } from "$components/ui/primitives.js";
 
-  import BrandMark from "$lib/webapp/BrandMark.svelte";
-  import AuthenticatedDialogs from "./webapp/AuthenticatedDialogs.svelte";
-  import AuthenticatedScreens from "./webapp/AuthenticatedScreens.svelte";
-  import AuthScreen from "./webapp/auth/AuthScreen.svelte";
-  import AppLaunchScreen from "./webapp/screens/AppLaunchScreen.svelte";
-  import InstallGuideScreen from "./webapp/screens/InstallGuideScreen.svelte";
+  import AppModeContent from "./webapp/AppModeContent.svelte";
 
   import {
     MANUAL_LOGOUT_FLAG_KEY,
@@ -963,10 +958,6 @@
   function openSettingsSetPasswordDialog() {
     if (!emailAuthEnabled) return;
     accountStore.openSetPasswordDialog();
-  }
-
-  function linkTelegramFromSettings() {
-    return accountStore.linkTelegramFromSettings();
   }
 
   function continueTelegramLinkPendingAction() {
@@ -1956,235 +1947,160 @@
     {#if isPreviewBoard}
       <svelte:component this={previewBoardComponent} config={CFG} mockData={MOCK_SOURCE.data} />
     {:else}
-      <div class="app-shell {shellToneClass} {shellThemeClass}" style={shellStyle}>
-        {#if mode === "loading"}
-          <div class="loader">
-            <BrandMark {brand} size="md" />
-            <div>{t("wa_loading")}</div>
-          </div>
-        {:else if mode === "appLaunch"}
-          <AppLaunchScreen
-            {brand}
-            {appLaunchTarget}
-            {refreshAppLaunchTarget}
-            {openAppLaunchTarget}
-            {t}
-          />
-        {:else if mode === "publicInstall"}
-          <div class="public-install-shell">
-            <a class="public-install-brand" href="/" aria-label={brandTitle}>
-              <BrandMark {brand} />
-              <strong>{brandTitle}</strong>
-            </a>
-            <InstallGuideScreen
-              {currentLang}
-              telegramPlatform={tg?.platform || ""}
-              user={{}}
-              subscription={publicInstallSubscription || {
-                install_share_token: publicInstallToken,
-              }}
-              {goHome}
-              openConnectLink={openPublicConnectLink}
-              {openExternalLink}
-              {openAppLink}
-              {copyText}
-              {t}
-              publicMode
-            />
-          </div>
-        {:else if mode === "login"}
-          <AuthScreen
-            {screen}
-            {CFG}
-            {brandTitle}
-            {brand}
-            bind:email={$authStore.email}
-            bind:emailPassword={$authStore.emailPassword}
-            bind:emailCode={$authStore.emailCode}
-            {pendingEmail}
-            {authStatus}
-            {authIsError}
-            {authBusy}
-            {authResendCooldown}
-            {loginEmailFieldError}
-            {loginEmailTooltipOpen}
-            {passwordLoginFallback}
-            {passwordLoginMode}
-            {telegramLoginBusy}
-            {telegramLoginUnavailable}
-            {telegramLoginChecking}
-            {telegramLoginLabel}
-            {telegramLoginUnavailableMessage}
-            {privacyPolicyUrl}
-            {userAgreementUrl}
-            {currentLang}
-            currentLanguageOption={currentLanguageOption as any}
-            {languageOptions}
-            {languageMenuOpen}
-            {languageClickGuard}
-            {languageClickGuardArmed}
-            {t}
-            setLanguageMenuOpen={setLanguageMenuOpen as any}
-            updateLoginLanguage={updateGuestLanguage as any}
-            requestEmailCode={() => authStore.requestEmailCode((s) => (screen = s))}
-            loginWithEmailPassword={authStore.loginWithEmailPassword}
-            verifyEmailCode={authStore.verifyEmailCode}
-            openTelegramLogin={openLoginTelegram}
-            {openExternalLink}
-            {submitEmailOnEnter}
-            onBackToLogin={() => (screen = "login")}
-            clearLoginEmailError={() => {
-              loginEmailFieldError = "";
-              loginEmailTooltipOpen = false;
-            }}
-            setPasswordLoginMode={(enabled: boolean) => setPasswordLoginMode(enabled)}
-          />
-        {:else if screen === "admin" && isAdmin}
-          {#if adminBundleApi}
-            <div class="admin-mount" bind:this={adminMountTarget}></div>
-          {:else}
-            <div class="loader">
-              <BrandMark {brand} size="md" />
-              <div>{adminBundleError ? t("wa_unavailable") : t("wa_loading")}</div>
-            </div>
-          {/if}
-        {:else}
-          <AuthenticatedScreens
-            {accountStore}
-            {activateTrial}
-            {activeTab}
-            {appSettings}
-            {applyPromo}
-            {autoRenewBusy}
-            {brand}
-            {brandTitle}
-            {canChangeTariff}
-            {clearPromoFieldError}
-            {copyText}
-            {currentLang}
-            {currentLanguageOption}
-            {currentTariffName}
-            {devicesBusy}
-            {devicesData}
-            {devicesEnabled}
-            {devicesErrorCode}
-            {devicesIsError}
-            {devicesLoaded}
-            {devicesStatus}
-            {devicesStore}
-            {emailAuthEnabled}
-            {emailLinkStatus}
-            {goDevices}
-            {goHome}
-            {goInvite}
-            {goSettings}
-            {goSupport}
-            {hasActiveTariffSubscription}
-            {hasMultipleTariffs}
-            {hasUnlinkedIdentity}
-            {isAdmin}
-            {languageBusy}
-            {languageClickGuard}
-            {languageClickGuardArmed}
-            bind:languageMenuOpen
-            {languageOptions}
-            {linkEmailBusy}
-            linkTelegramAccount={linkTelegramFromSettings}
-            {linkTelegramAndActivateTrial}
-            {linkTelegramAndClaimReferralWelcome}
-            {linkTelegramBusy}
-            {loadDevices}
-            {openAdminPanel}
-            {openAppLink}
-            {openConnectLink}
-            {openDeviceTopupModal}
-            {openExternalLink}
-            {openInstallOrConnect}
-            openLinkEmailDialog={openSettingsLinkEmailDialog}
-            {openPaymentModal}
-            {openPremiumTopupModal}
-            {openRegularTopupModal}
-            openSetPasswordDialog={openSettingsSetPasswordDialog}
-            {openTariffChangeModal}
-            {openTelegramNotificationsBot}
-            {openTrialInstallOrConnect}
-            {premiumTrafficTopupBarClickable}
-            {premiumTrafficTopupUnlocked}
-            {primaryPayActionLabel}
-            {privacyPolicyUrl}
-            {profileAvatarUrl}
-            {profileEmail}
-            {profileTelegramId}
-            {promoBusy}
-            {promoCode}
-            {promoFieldError}
-            {promoIsError}
-            {promoStatus}
-            {referral}
-            {referralBonusDetails}
-            {referralOneBonusPerReferee}
-            {referralWelcomeBonusDays}
-            {regularTrafficTopupBarClickable}
-            {regularTrafficTopupUnlocked}
-            {screen}
-            {serverStatusUrl}
-            {setLanguageMenuOpen}
-            {setPromoCode}
-            {subscription}
-            {supportEnabled}
-            {supportStore}
-            {supportUnreadCount}
-            {supportUnreadLoaded}
-            {supportUnreadLoading}
-            {supportUrl}
-            {t}
-            {telegramMiniAppContext}
-            {telegramNotificationsNeedPrompt}
-            {telegramNotificationsStartLink}
-            {telegramNotificationsStatus}
-            telegramPlatform={tg?.platform || ""}
-            {telegramProfileName}
-            {termUnitLabel}
-            {toggleAutoRenew}
-            {trafficMode}
-            {trialActivationError}
-            {trialActivationResult}
-            {trialBusy}
-            {user}
-            {userAgreementUrl}
-            {userLanguage}
-          />
-
-          <AuthenticatedDialogs
-            {accountStore}
-            {activationSuccessDialogOpen}
-            {activationSuccessUseInstallGuides}
-            {backToTariffList}
-            {billingStore}
-            {closeActivationSuccessDialog}
-            {closeDeviceTopupModal}
-            {continueWithSelectedTariff}
-            {devicesStore}
-            {disconnectDevice}
-            {emailAuthEnabled}
-            {hasMultipleTariffs}
-            {methods}
-            {plans}
-            {selectTariff}
-            {selectedTariff}
-            {selectedTariffPlans}
-            {singleTariffMode}
-            {subscription}
-            {subscriptionPurchaseDescription}
-            {t}
-            {tariffCatalog}
-            {tariffMode}
-            {termUnitLabel}
-            {trafficMode}
-            {user}
-          />
-        {/if}
-      </div>
+      <AppModeContent
+        {accountStore}
+        {activateTrial}
+        {activationSuccessDialogOpen}
+        {activationSuccessUseInstallGuides}
+        {activeTab}
+        {adminBundleApi}
+        {adminBundleError}
+        bind:adminMountTarget
+        {appLaunchTarget}
+        {appSettings}
+        {applyPromo}
+        {authBusy}
+        {authIsError}
+        {authResendCooldown}
+        {authStatus}
+        {authStore}
+        {autoRenewBusy}
+        {backToTariffList}
+        {billingStore}
+        {brand}
+        {brandTitle}
+        {canChangeTariff}
+        cfg={CFG}
+        {clearPromoFieldError}
+        {closeActivationSuccessDialog}
+        {closeDeviceTopupModal}
+        {continueWithSelectedTariff}
+        {copyText}
+        {currentLang}
+        {currentLanguageOption}
+        {currentTariffName}
+        {devicesBusy}
+        {devicesData}
+        {devicesEnabled}
+        {devicesErrorCode}
+        {devicesIsError}
+        {devicesLoaded}
+        {devicesStatus}
+        {devicesStore}
+        {disconnectDevice}
+        {emailAuthEnabled}
+        {emailLinkStatus}
+        {goDevices}
+        {goHome}
+        {goInvite}
+        {goSettings}
+        {goSupport}
+        {hasActiveTariffSubscription}
+        {hasMultipleTariffs}
+        {hasUnlinkedIdentity}
+        {isAdmin}
+        {languageBusy}
+        {languageClickGuard}
+        {languageClickGuardArmed}
+        bind:languageMenuOpen
+        {languageOptions}
+        {linkEmailBusy}
+        {linkTelegramAndActivateTrial}
+        {linkTelegramAndClaimReferralWelcome}
+        {linkTelegramBusy}
+        {loadDevices}
+        {loginEmailFieldError}
+        {loginEmailTooltipOpen}
+        {methods}
+        {mode}
+        {openAdminPanel}
+        {openAppLaunchTarget}
+        {openAppLink}
+        {openConnectLink}
+        {openDeviceTopupModal}
+        {openExternalLink}
+        {openInstallOrConnect}
+        {openLoginTelegram}
+        {openPaymentModal}
+        {openPremiumTopupModal}
+        {openPublicConnectLink}
+        {openRegularTopupModal}
+        {openSettingsLinkEmailDialog}
+        {openSettingsSetPasswordDialog}
+        {openTariffChangeModal}
+        {openTelegramNotificationsBot}
+        {openTrialInstallOrConnect}
+        {passwordLoginFallback}
+        {passwordLoginMode}
+        {pendingEmail}
+        {plans}
+        {premiumTrafficTopupBarClickable}
+        {premiumTrafficTopupUnlocked}
+        {primaryPayActionLabel}
+        {privacyPolicyUrl}
+        {profileAvatarUrl}
+        {profileEmail}
+        {profileTelegramId}
+        {promoBusy}
+        {promoCode}
+        {promoFieldError}
+        {promoIsError}
+        {promoStatus}
+        {publicInstallSubscription}
+        {publicInstallToken}
+        {referral}
+        {referralBonusDetails}
+        {referralOneBonusPerReferee}
+        {referralWelcomeBonusDays}
+        {refreshAppLaunchTarget}
+        {regularTrafficTopupBarClickable}
+        {regularTrafficTopupUnlocked}
+        bind:screen
+        {selectedTariff}
+        {selectedTariffPlans}
+        {selectTariff}
+        {serverStatusUrl}
+        {setLanguageMenuOpen}
+        {setPasswordLoginMode}
+        {setPromoCode}
+        {shellStyle}
+        {shellThemeClass}
+        {shellToneClass}
+        {singleTariffMode}
+        {submitEmailOnEnter}
+        {subscription}
+        {subscriptionPurchaseDescription}
+        {supportEnabled}
+        {supportStore}
+        {supportUnreadCount}
+        {supportUnreadLoaded}
+        {supportUnreadLoading}
+        {supportUrl}
+        {t}
+        {tariffCatalog}
+        {tariffMode}
+        {telegramLoginBusy}
+        {telegramLoginChecking}
+        {telegramLoginLabel}
+        {telegramLoginUnavailable}
+        {telegramLoginUnavailableMessage}
+        {telegramMiniAppContext}
+        {telegramNotificationsNeedPrompt}
+        {telegramNotificationsStartLink}
+        {telegramNotificationsStatus}
+        telegramPlatform={tg?.platform || ""}
+        {telegramProfileName}
+        {termUnitLabel}
+        {toggleAutoRenew}
+        {trafficMode}
+        {trialActivationError}
+        {trialActivationResult}
+        {trialBusy}
+        {user}
+        {userAgreementUrl}
+        {userLanguage}
+        {updateGuestLanguage}
+      />
     {/if}
   {/key}
 </Tooltip.Provider>

@@ -41,13 +41,17 @@
   export let privacyPolicyUrl;
   export let userAgreementUrl;
   export let currentLang = "ru";
+  /** @type {import("../../lib/webapp/languageView.js").LanguageOption | null} */
   export let currentLanguageOption = null;
+  /** @type {import("../../lib/webapp/languageView.js").LanguageOption[]} */
   export let languageOptions = [];
   export let languageMenuOpen = false;
   export let languageClickGuard = false;
   export let languageClickGuardArmed = false;
   export let t;
+  /** @type {(open: boolean) => void} */
   export let setLanguageMenuOpen = () => {};
+  /** @type {(language: string) => void} */
   export let updateLoginLanguage = () => {};
   export let requestEmailCode;
   export let loginWithEmailPassword;
