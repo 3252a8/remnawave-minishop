@@ -13,9 +13,10 @@ Non-negotiables (details in CONTRIBUTING.md §2):
   backend mypy run must stay green.
 - Never break the wire contracts: the HTTP `{"ok": …}` envelope, flat-dict event payloads,
   the plugin `(event_name, dict)` subscriber signature.
-- Frontend: Svelte first-party code is runes-only; no `export let`, `$:`, `$$props`,
-  `$$restProps`, `<slot>`, `<svelte:component>`, or class API `$set`. No global `checkJs`;
-  typing is opt-in (`.ts` / `<script lang="ts">`); use literal API paths; `unwrap` the envelope.
+- Frontend: first-party Svelte code is runes-only and enforced for `frontend/src`; no
+  `export let`, `$:`, `$$props`, `$$restProps`, `<slot>`, `<svelte:component>`,
+  `createEventDispatcher`, or class API `$set`. No global `checkJs`; typing is opt-in
+  (`.ts` / `<script lang="ts">`); use literal API paths; `unwrap` the envelope.
 - Decompose, then type; no module > ~1000 lines without a reason; mind the
   monkeypatch/re-export trap (CONTRIBUTING.md §5).
 - "Compatibility with other bots" is a feature (keep), not legacy.

@@ -157,10 +157,11 @@ Svelte + Vite. API-клиент **типизирован из OpenAPI-спека
 - Новый код, трогающий API, пиши в `.ts`; типизируй сторы (`writable<State>`) и потребляющие
   `<script lang="ts">` компоненты, чтобы изменение контракта на бэке валило `check:svelte` ровно
   у потребителя. **Не** включай глобальный `checkJs`.
-- First-party Svelte code in `frontend/src` is Svelte 5 runes-only. Do not reintroduce
-  `export let`, `$:`, `$$props`, `$$restProps`, `<slot>`, `<svelte:component>`, or class API
-  `$set`. `vite.config.mjs` enforces `runes: true` for first-party `src` files while leaving
-  third-party Svelte packages in `node_modules` in their own compile mode.
+- Frontend first-party Svelte code is Svelte 5 runes-only. Do not reintroduce `export let`,
+  `$:`, `$$props`, `$$restProps`, `<slot>`, `<svelte:component>`, `createEventDispatcher`, or
+  class API `$set`. `frontend/vite.config.mjs` and `frontend/vitest.config.mjs` enable
+  `runes: true` for `frontend/src`, while `npm run check:runes`, `svelte-check`, builds, and
+  Vitest fail if legacy syntax comes back.
 
 ---
 
