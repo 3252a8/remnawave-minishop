@@ -41,7 +41,7 @@ def test_support_admin_notification_decision_sends_first_unread():
         SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED=True,
     )
 
-    decision = _support_admin_notification_decision(ticket, settings, now=now)
+    decision = _support_admin_notification_decision(ticket, settings.support_settings, now=now)
 
     assert decision.send_telegram is True
     assert decision.send_email is True
@@ -59,7 +59,7 @@ def test_support_admin_notification_decision_defaults_email_disabled():
         SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS=1800,
     )
 
-    decision = _support_admin_notification_decision(ticket, settings, now=now)
+    decision = _support_admin_notification_decision(ticket, settings.support_settings, now=now)
 
     assert decision.send_telegram is True
     assert decision.send_email is False
@@ -78,7 +78,7 @@ def test_support_admin_notification_decision_suppresses_fast_followups():
         SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED=True,
     )
 
-    decision = _support_admin_notification_decision(ticket, settings, now=now)
+    decision = _support_admin_notification_decision(ticket, settings.support_settings, now=now)
 
     assert decision.send_telegram is False
     assert decision.send_email is False
@@ -97,7 +97,7 @@ def test_support_admin_notification_decision_uses_separate_email_cooldown():
         SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED=True,
     )
 
-    decision = _support_admin_notification_decision(ticket, settings, now=now)
+    decision = _support_admin_notification_decision(ticket, settings.support_settings, now=now)
 
     assert decision.send_telegram is True
     assert decision.send_email is False

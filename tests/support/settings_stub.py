@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from config.settings_mixins import _split_csv
+from config.settings_models import SupportSettings
 from config.webapp_themes_config import WebappThemesConfig
 
 DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
@@ -138,6 +139,25 @@ class SettingsStub(SimpleNamespace):
     @property
     def trusted_proxies(self) -> list[str]:
         return _split_csv(getattr(self, "TRUSTED_PROXIES", None))
+
+    @property
+    def support_settings(self) -> SupportSettings:
+        return SupportSettings(
+            link=getattr(self, "SUPPORT_LINK", None),
+            tickets_enabled=bool(getattr(self, "SUPPORT_TICKETS_ENABLED", True)),
+            ticket_max_body_length=int(getattr(self, "SUPPORT_TICKET_MAX_BODY_LENGTH", 4000)),
+            ticket_max_subject_length=int(getattr(self, "SUPPORT_TICKET_MAX_SUBJECT_LENGTH", 160)),
+            ticket_rate_limit_per_hour=int(getattr(self, "SUPPORT_TICKET_RATE_LIMIT_PER_HOUR", 5)),
+            admin_email_notifications_enabled=bool(
+                getattr(self, "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED", False)
+            ),
+            admin_notification_cooldown_seconds=int(
+                getattr(self, "SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS", 300)
+            ),
+            admin_email_cooldown_seconds=int(
+                getattr(self, "SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS", 1800)
+            ),
+        )
 
     @property
     def user_traffic_limit_bytes(self) -> int:
