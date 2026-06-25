@@ -5,6 +5,7 @@
   import type { AppActionRuntime } from "../lib/webapp/appActionRuntime.js";
   import type { AppShellView } from "../lib/webapp/appShellView.js";
   import type { LanguageOption } from "../lib/webapp/languageView.js";
+  import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import AppLaunchScreen from "./screens/AppLaunchScreen.svelte";
   import AuthenticatedDialogs from "./AuthenticatedDialogs.svelte";
   import AuthenticatedScreens from "./AuthenticatedScreens.svelte";
@@ -61,7 +62,7 @@
     devicesIsError?: boolean;
     devicesLoaded?: boolean;
     devicesStatus?: string;
-    devicesStore: WritableStoreLike;
+    devicesStore: DevicesStore;
     disconnectDevice?: Action;
     emailAuthEnabled?: boolean;
     emailLinkStatus?: string;
@@ -309,7 +310,6 @@
   }: Props = $props();
 
   const authState = $derived($authStore);
-  const devicesState = $derived($devicesStore);
   const supportState = $derived($supportStore);
   const accountState = $derived($accountStore);
   const actionsState = $derived($actionsStore);
@@ -331,12 +331,12 @@
   const authResendCooldown = $derived(authState.authResendCooldown);
   const pendingEmail = $derived(authState.pendingEmail);
 
-  const devicesData = $derived(devicesState.devicesData);
-  const devicesLoaded = $derived(devicesState.devicesLoaded);
-  const devicesBusy = $derived(devicesState.devicesBusy);
-  const devicesStatus = $derived(devicesState.devicesStatus);
-  const devicesIsError = $derived(devicesState.devicesIsError);
-  const devicesErrorCode = $derived(devicesState.devicesErrorCode);
+  const devicesData = $derived(devicesStore.devicesData);
+  const devicesLoaded = $derived(devicesStore.devicesLoaded);
+  const devicesBusy = $derived(devicesStore.devicesBusy);
+  const devicesStatus = $derived(devicesStore.devicesStatus);
+  const devicesIsError = $derived(devicesStore.devicesIsError);
+  const devicesErrorCode = $derived(devicesStore.devicesErrorCode);
 
   const supportUnreadCount = $derived(supportState.unreadCount);
   const supportUnreadLoading = $derived(supportState.unreadLoading);

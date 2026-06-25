@@ -4,6 +4,7 @@
   import { CheckCircle2 } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
   import Dialog from "$components/ui/dialog.svelte";
+  import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import PaymentDialogs from "./PaymentDialogs.svelte";
   import TariffDialogs from "./TariffDialogs.svelte";
 
@@ -21,7 +22,7 @@
     closeActivationSuccessDialog: Action;
     closeDeviceTopupModal: Action;
     continueWithSelectedTariff: Action;
-    devicesStore: StoreLike;
+    devicesStore: DevicesStore;
     disconnectDevice: Action;
     emailAuthEnabled?: boolean;
     hasMultipleTariffs?: boolean;
@@ -86,9 +87,9 @@
   bind:setPasswordValue={$accountStore.setPasswordValue}
   setPasswordEmail={user?.email || ""}
   createPayment={billingStore.createPayment}
-  deviceConfirmOpen={$devicesStore.deviceConfirmOpen}
-  deviceDisconnectBusy={$devicesStore.deviceDisconnectBusy}
-  deviceToDisconnect={$devicesStore.deviceToDisconnect}
+  deviceConfirmOpen={devicesStore.deviceConfirmOpen}
+  deviceDisconnectBusy={devicesStore.deviceDisconnectBusy}
+  deviceToDisconnect={devicesStore.deviceToDisconnect}
   {disconnectDevice}
   linkEmailBusy={$accountStore.linkEmailBusy}
   linkEmailIsError={$accountStore.linkEmailIsError}

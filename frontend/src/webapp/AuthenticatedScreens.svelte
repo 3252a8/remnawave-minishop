@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Readable } from "svelte/store";
   import type { LanguageOption } from "../lib/webapp/languageView.js";
+  import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
 
   import WebAppShell from "./WebAppShell.svelte";
   import DevicesScreen from "./screens/DevicesScreen.svelte";
@@ -39,7 +40,7 @@
     devicesIsError?: boolean;
     devicesLoaded?: boolean;
     devicesStatus?: string;
-    devicesStore: StoreLike;
+    devicesStore: DevicesStore;
     emailAuthEnabled?: boolean;
     emailLinkStatus?: string;
     goDevices: Action;

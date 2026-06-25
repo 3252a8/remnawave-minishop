@@ -115,8 +115,7 @@
 
   onDestroy(() => installStageAnimator.destroy());
 
-  const guideState = $derived($installGuidesStore);
-  const config = $derived((guideState?.config || null) as AnyRecord | null);
+  const config = $derived((installGuidesStore?.config || null) as AnyRecord | null);
   const platforms = $derived(
     Object.entries((config?.platforms || {}) as Record<string, AnyRecord>)
       .filter(([, platform]) => Array.isArray(platform?.apps) && platform.apps.length)
@@ -158,7 +157,7 @@
   const installStageStyle = $derived(
     `${stageHeightStyle} --motion-stage-duration:${STAGE_HEIGHT_ANIMATION_MS}ms;`
   );
-  const guideSubscription = $derived(guideState?.subscription || subscription || {});
+  const guideSubscription = $derived(installGuidesStore?.subscription || subscription || {});
   const finalSubscriptionLink = $derived(
     guideSubscription?.config_link ||
       guideSubscription?.connect_url ||
@@ -385,7 +384,7 @@
       </h1>
       <p>{t("wa_install_subtitle", {}, "Choose your platform and app.")}</p>
     </div>
-    {#if guideState?.enabled && config && platforms.length}
+    {#if installGuidesStore?.enabled && config && platforms.length}
       <div class="install-platform-topbar">
         <Select.Root
           type="single"
@@ -447,7 +446,7 @@
     {/if}
   </div>
 
-  {#if guideState?.loading && !guideState?.loaded}
+  {#if installGuidesStore?.loading && !installGuidesStore?.loaded}
     <div
       class="install-loading motion-fade-up"
       role="status"
@@ -456,7 +455,7 @@
       <Spinner size="lg" />
       <span>{t("wa_install_loading", {}, "Loading instructions...")}</span>
     </div>
-  {:else if !guideState?.enabled || !config || !platforms.length}
+  {:else if !installGuidesStore?.enabled || !config || !platforms.length}
     <Card class="install-empty">
       <p>{t("wa_install_unavailable", {}, "Instructions are unavailable.")}</p>
       <Button class="wide" onclick={openConnectLink}>
