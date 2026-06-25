@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { Readable } from "svelte/store";
   import type { LanguageOption } from "../lib/webapp/languageView.js";
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
+  import type { SupportStore } from "../lib/webapp/stores/supportStore.js";
 
   import WebAppShell from "./WebAppShell.svelte";
   import DevicesScreen from "./screens/DevicesScreen.svelte";
@@ -14,12 +14,11 @@
   import TrialActivationScreen from "./screens/TrialActivationScreen.svelte";
 
   type AnyRecord = Record<string, any>;
-  type StoreLike = Readable<AnyRecord> & Record<string, any>;
   type Action = (...args: any[]) => any;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
   type Props = {
-    accountStore: StoreLike;
+    accountStore: AnyRecord;
     activateTrial: Action;
     activeTab?: string;
     appSettings?: AnyRecord;
@@ -101,7 +100,7 @@
     setPromoCode: (value: string) => void;
     subscription?: AnyRecord;
     supportEnabled?: boolean;
-    supportStore: StoreLike;
+    supportStore: SupportStore;
     supportUnreadCount?: number;
     supportUnreadLoaded?: boolean;
     supportUnreadLoading?: boolean;
@@ -348,7 +347,7 @@
       {t}
     />
   {:else if screen === "support"}
-    {#if $supportStore.openedTicketId}
+    {#if supportStore.openedTicketId}
       <SupportTicketScreen
         maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
         {brand}

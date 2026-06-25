@@ -78,7 +78,7 @@
   const paymentsStore = getContext<PaymentsStore>("paymentsStore");
   const statsStore = getContext<StatsStore>("statsStore");
 
-  const statsState = $derived($statsStore);
+  const statsState = $derived(statsStore);
   const rawStats: StatsState["stats"] = $derived(statsState.stats);
   const stats: AdminStats | null = $derived(rawStats as AdminStats | null);
   const statsError = $derived(statsState.statsError || "");

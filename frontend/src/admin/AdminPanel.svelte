@@ -346,7 +346,7 @@
   const translationsDirtyCount = $derived(
     Object.keys($translationsStore.translationsDirty || {}).length
   );
-  const syncBusy = $derived($statsStore.syncBusy);
+  const syncBusy = $derived(statsStore.syncBusy);
   const settingsSaving = $derived($settingsStore.settingsSaving);
   const translationsSaving = $derived($translationsStore.translationsSaving);
   const meta = $derived(SECTION_META[active] || { title: active, subtitle: "" });

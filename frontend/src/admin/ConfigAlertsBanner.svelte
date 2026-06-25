@@ -80,8 +80,8 @@
     return at(`nav_${id}`, {}, SECTION_FALLBACK_LABELS[id] || id);
   }
 
-  const alerts = $derived($healthStore.alerts);
-  const healthLoading = $derived($healthStore.healthLoading);
+  const alerts = $derived(healthStore.alerts);
+  const healthLoading = $derived(healthStore.healthLoading);
   const isDashboard = $derived(section === "stats");
   const visibleAlerts: HealthAlert[] = $derived(
     isDashboard ? alerts : alerts.filter((alert) => alert.sections.includes(section))

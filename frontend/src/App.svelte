@@ -541,8 +541,7 @@
   const linkEmailOpen = $derived(Boolean(accountState.linkEmailOpen));
   const setPasswordOpen = $derived(Boolean(accountState.setPasswordOpen));
   const languageBusy = $derived(Boolean(accountState.languageBusy));
-  const actionsState = $derived($actionsStore);
-  const trialActivationResult = $derived(actionsState.trialActivationResult);
+  const trialActivationResult = $derived(actionsStore.trialActivationResult);
 
   const shellView: AppShellView = $derived(
     computeAppShellView({

@@ -46,10 +46,10 @@
   let lastMessageKey = $state("");
   let replyDraftKey = $state("");
 
-  const openedTicket = $derived($supportStore.openedTicket);
-  const messages = $derived($supportStore.messages);
-  const detailLoading = $derived($supportStore.detailLoading);
-  const sending = $derived($supportStore.sending);
+  const openedTicket = $derived(supportStore.openedTicket);
+  const messages = $derived(supportStore.messages);
+  const detailLoading = $derived(supportStore.detailLoading);
+  const sending = $derived(supportStore.sending);
   const closed = $derived(["resolved", "closed"].includes(String(openedTicket?.status || "")));
   const ticketId = $derived(String(openedTicket?.ticket_id || ""));
   const draftScope = $derived(supportDraftScope(user));

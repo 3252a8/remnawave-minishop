@@ -31,7 +31,7 @@
   const logsTable = createAdminDatatable();
   const LOGS_PAGE_SIZE = 50;
 
-  const logsState = $derived($logsStore);
+  const logsState = $derived(logsStore);
   const logs = $derived(logsState.logs as LogEntry[]);
   const logsTotal = $derived(Number(logsState.logsTotal || 0));
   const logsPage = $derived(Number(logsState.logsPage || 0));

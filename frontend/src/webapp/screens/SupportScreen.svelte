@@ -50,12 +50,11 @@
   let loadedCreateDraftScope = $state("");
   const selectContentProps = { trapFocus: false } as Record<string, unknown>;
 
-  const supportState = $derived($supportStore);
-  const tickets = $derived(supportState.tickets);
-  const loading = $derived(supportState.loading);
-  const creating = $derived(supportState.creating);
-  const statusFilter = $derived(supportState.statusFilter);
-  const counts = $derived(supportState.counts);
+  const tickets = $derived(supportStore.tickets);
+  const loading = $derived(supportStore.loading);
+  const creating = $derived(supportStore.creating);
+  const statusFilter = $derived(supportStore.statusFilter);
+  const counts = $derived(supportStore.counts);
   const categoryOptions = $derived([
     { value: "billing", label: t("wa_support_category_billing") },
     { value: "technical", label: t("wa_support_category_technical") },

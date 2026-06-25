@@ -1,11 +1,13 @@
 <script lang="ts">
-  import type { Readable, Writable } from "svelte/store";
+  import type { Writable } from "svelte/store";
 
   import BrandMark from "$lib/webapp/BrandMark.svelte";
   import type { AppActionRuntime } from "../lib/webapp/appActionRuntime.js";
   import type { AppShellView } from "../lib/webapp/appShellView.js";
   import type { LanguageOption } from "../lib/webapp/languageView.js";
+  import type { ActionsStore } from "../lib/webapp/stores/actionsStore.js";
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
+  import type { SupportStore } from "../lib/webapp/stores/supportStore.js";
   import AppLaunchScreen from "./screens/AppLaunchScreen.svelte";
   import AuthenticatedDialogs from "./AuthenticatedDialogs.svelte";
   import AuthenticatedScreens from "./AuthenticatedScreens.svelte";
@@ -13,7 +15,6 @@
   import InstallGuideScreen from "./screens/InstallGuideScreen.svelte";
 
   type AnyRecord = Record<string, any>;
-  type ReadableStoreLike = Readable<AnyRecord> & Record<string, any>;
   type WritableStoreLike = Writable<AnyRecord> & Record<string, any>;
   type Action = (...args: any[]) => any;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -24,7 +25,7 @@
     accountStore: WritableStoreLike;
     shellView?: AppShellView | null;
     appActions?: AppActionRuntime | null;
-    actionsStore: ReadableStoreLike;
+    actionsStore: ActionsStore;
     activateTrial?: Action;
     activationSuccessDialogOpen?: boolean;
     activationSuccessUseInstallGuides?: boolean;
@@ -147,7 +148,7 @@
     subscription?: AnyRecord;
     subscriptionPurchaseDescription?: string;
     supportEnabled?: boolean;
-    supportStore: ReadableStoreLike;
+    supportStore: SupportStore;
     supportUnreadCount?: number;
     supportUnreadLoaded?: boolean;
     supportUnreadLoading?: boolean;
@@ -310,9 +311,7 @@
   }: Props = $props();
 
   const authState = $derived($authStore);
-  const supportState = $derived($supportStore);
   const accountState = $derived($accountStore);
-  const actionsState = $derived($actionsStore);
   const accountView = $derived(shellView?.accountView);
   const appDataView = $derived(shellView?.appDataView);
   const billingView = $derived(shellView?.billingView);
@@ -338,20 +337,20 @@
   const devicesIsError = $derived(devicesStore.devicesIsError);
   const devicesErrorCode = $derived(devicesStore.devicesErrorCode);
 
-  const supportUnreadCount = $derived(supportState.unreadCount);
-  const supportUnreadLoading = $derived(supportState.unreadLoading);
-  const supportUnreadLoaded = $derived(supportState.unreadLoaded);
+  const supportUnreadCount = $derived(supportStore.unreadCount);
+  const supportUnreadLoading = $derived(supportStore.unreadLoading);
+  const supportUnreadLoaded = $derived(supportStore.unreadLoaded);
   const linkEmailBusy = $derived(accountState.linkEmailBusy);
   const linkTelegramBusy = $derived(accountState.linkTelegramBusy);
 
-  const promoCode = $derived(actionsState.promoCode);
-  const promoBusy = $derived(actionsState.promoBusy);
-  const promoStatus = $derived(actionsState.promoStatus);
-  const promoIsError = $derived(actionsState.promoIsError);
-  const promoFieldError = $derived(actionsState.promoFieldError);
-  const trialBusy = $derived(actionsState.trialBusy);
-  const trialActivationResult = $derived(actionsState.trialActivationResult);
-  const trialActivationError = $derived(actionsState.trialActivationError);
+  const promoCode = $derived(actionsStore.promoCode);
+  const promoBusy = $derived(actionsStore.promoBusy);
+  const promoStatus = $derived(actionsStore.promoStatus);
+  const promoIsError = $derived(actionsStore.promoIsError);
+  const promoFieldError = $derived(actionsStore.promoFieldError);
+  const trialBusy = $derived(actionsStore.trialBusy);
+  const trialActivationResult = $derived(actionsStore.trialActivationResult);
+  const trialActivationError = $derived(actionsStore.trialActivationError);
 
   $effect(() => {
     loginEmailFieldError = authState.loginEmailFieldError ?? loginEmailFieldErrorProp;
