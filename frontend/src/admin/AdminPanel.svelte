@@ -618,7 +618,7 @@
       aria-label={at("close_menu", {}, "Закрыть меню")}
       in:fade={sidebarBackdropFade}
       out:fade={sidebarBackdropFade}
-      on:click={() => (sidebarOpen = false)}
+      onclick={() => (sidebarOpen = false)}
     ></button>
   {/if}
   {#if adminLanguageGuardActive}
@@ -627,8 +627,8 @@
       class:language-select-guard--armed={adminLanguageClickGuardArmed}
       type="button"
       aria-label={t("wa_close", {}, at("close", {}, "Закрыть"))}
-      on:pointerdown={closeAdminLanguageFromGuard}
-      on:click={closeAdminLanguageFromGuard}
+      onpointerdown={closeAdminLanguageFromGuard}
+      onclick={closeAdminLanguageFromGuard}
     ></button>
   {/if}
   <aside class="admin-sidebar" aria-label={at("sidebar_navigation", {}, "Навигация админки")}>
@@ -652,13 +652,14 @@
       <div class="admin-sidebar-section-label">{group.label}</div>
       <nav class="admin-nav" aria-label={group.label}>
         {#each group.items as item}
+          {@const NavIcon = dynamicComponent(item.icon)}
           <button
             type="button"
             class="admin-nav-item"
             class:active={active === item.id}
-            on:click={() => setActive(item.id)}
+            onclick={() => setActive(item.id)}
           >
-            <svelte:component this={dynamicComponent(item.icon)} size={16} />
+            <NavIcon size={16} />
             <span>{item.label}</span>
             <span>
               {#if item.id === "support" && $supportStore.stats?.total_unread_admin}
@@ -739,7 +740,7 @@
         <button
           type="button"
           class="admin-mobile-toggle"
-          on:click={() => (sidebarOpen = !sidebarOpen)}
+          onclick={() => (sidebarOpen = !sidebarOpen)}
           aria-label={at("menu", {}, "Меню")}
         >
           <Menu size={18} />
@@ -831,8 +832,8 @@
       {#key active}
         <div class="admin-section-stage" in:fade={sectionFade} out:fade={sectionFade}>
           {#if activeSection}
-            <svelte:component
-              this={dynamicComponent(activeSection.component)}
+            {@const ActiveSectionComponent = dynamicComponent(activeSection.component)}
+            <ActiveSectionComponent
               {at}
               {brand}
               {currentLang}

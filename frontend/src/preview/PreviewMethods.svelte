@@ -1,7 +1,7 @@
 <script>
   import { CreditCard, Send, WalletCards } from "$components/ui/icons.js";
 
-  export let methods = [];
+  let { methods = [] } = $props();
 
   const icons = [CreditCard, Send, WalletCards, WalletCards];
 
@@ -19,8 +19,9 @@
   class="method-grid"
 >
   {#each methods as method, index}
+    {@const MethodIcon = icons[index] || WalletCards}
     <div class:active={index === 1} class="method-card">
-      <svelte:component this={icons[index] || WalletCards} size={18} />
+      <MethodIcon size={18} />
       <span>
         <strong>{method.name}</strong>
         <small>{note(index)}</small>

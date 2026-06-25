@@ -728,7 +728,7 @@
           onclick={() => openIconPicker(field)}
         >
           {#if SelectedIcon}
-            <svelte:component this={SelectedIcon} size={16} />
+            <SelectedIcon size={16} />
           {/if}
           <span>{iconLabel(field)}</span>
         </AdminButton>

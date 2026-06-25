@@ -413,9 +413,10 @@
 
       <div class="default-theme-token-grid">
         {#each TOKEN_GROUPS as group (group.title)}
+          {@const GroupIcon = group.icon}
           <section class="default-theme-panel">
             <h4>
-              <svelte:component this={group.icon} size={15} />
+              <GroupIcon size={15} />
               {at(group.titleKey, {}, group.title)}
             </h4>
             <div class="appearance-token-list">

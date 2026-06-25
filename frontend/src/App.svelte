@@ -906,7 +906,8 @@
   />
   {#key currentLang}
     {#if isPreviewBoard}
-      <svelte:component this={previewBoardComponent} config={CFG} mockData={MOCK_SOURCE.data} />
+      {@const PreviewBoardComponent = previewBoardComponent}
+      <PreviewBoardComponent config={CFG} mockData={MOCK_SOURCE.data} />
     {:else}
       <AppModeContent
         {accountStore}

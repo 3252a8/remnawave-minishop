@@ -38,7 +38,7 @@
       <div class="admin-icon-picker-current">
         <span class="admin-icon-picker-current-preview" aria-hidden="true">
           {#if CurrentIcon}
-            <svelte:component this={CurrentIcon} size={24} />
+            <CurrentIcon size={24} />
           {/if}
         </span>
         <span class="admin-icon-picker-current-meta">
@@ -75,7 +75,7 @@
             onclick={() => selectIcon(iconName)}
           >
             {#if Icon}
-              <svelte:component this={Icon} size={18} />
+              <Icon size={18} />
             {/if}
             <span>{iconName}</span>
           </button>

@@ -379,7 +379,7 @@
                     >{@html iconSvg(selectedPlatform.svgIconKey)}</span
                   >
                 {:else}
-                  <svelte:component this={SelectedFallbackIcon} size={19} />
+                  <SelectedFallbackIcon size={19} />
                 {/if}
               {/if}
               <span>{selectedPlatformLabel}</span>
@@ -407,7 +407,7 @@
                         >{@html iconSvg(platform.svgIconKey)}</span
                       >
                     {:else}
-                      <svelte:component this={PlatformFallbackIcon} size={18} />
+                      <PlatformFallbackIcon size={18} />
                     {/if}
                     <span>{localized(platform.displayName, platform.key)}</span>
                   </span>

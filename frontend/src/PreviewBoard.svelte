@@ -119,8 +119,9 @@
     </div>
     <div class="tariff-list">
       {#each tariffs as tariff, index}
+        {@const TariffIcon = tariff[4]}
         <div class:active={index === 0} class="select-card">
-          <span class="select-icon"><svelte:component this={tariff[4]} size={24} /></span>
+          <span class="select-icon"><TariffIcon size={24} /></span>
           <span><strong>{tariff[1]}</strong><small>{tariff[2]}</small><em>{tariff[3]}</em></span>
           {#if index === 0}<CheckCircle2 size={21} />{:else}<Circle size={21} />{/if}
         </div>
@@ -241,8 +242,9 @@
     </Card>
     <div class="settings-list">
       {#each settingsRows as row}
+        {@const RowIcon = row[0]}
         <div class="settings-row">
-          <svelte:component this={row[0]} size={20} />
+          <RowIcon size={20} />
           <span><strong>{row[1]}</strong><small>{row[2]}</small></span>
           <ArrowRight size={16} />
         </div>
