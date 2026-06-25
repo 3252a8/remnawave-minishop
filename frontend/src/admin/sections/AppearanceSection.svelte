@@ -18,7 +18,6 @@
     googleSansFontStack,
   } from "$lib/admin/appearanceOptions";
   import type {
-    AppearanceThemesStore,
     BrandInfo,
     FontOption,
     LogoMode,
@@ -37,6 +36,7 @@
     SettingsSection,
     SettingsStore,
   } from "$lib/admin/stores/settingsStore";
+  import type { ThemesStore } from "$lib/admin/stores/themesStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SettingsDirtyState = Record<string, SettingsDirtyEntry>;
@@ -59,7 +59,7 @@
   } = $props();
 
   const settingsStore = getContext<SettingsStore>("settingsStore");
-  const themesStore = getContext<AppearanceThemesStore>("themesStore");
+  const themesStore = getContext<ThemesStore>("themesStore");
   const APPEARANCE_SETTING_KEYS = new Set([
     "SUBSCRIPTION_MINI_APP_URL",
     "WEBAPP_PRIMARY_COLOR",
@@ -91,12 +91,12 @@
   const settingsLoading = $derived(settingsStore.settingsLoading);
   const settingsDirty: SettingsDirtyState = $derived(settingsStore.settingsDirty);
   const settingsSaving = $derived(settingsStore.settingsSaving);
-  const themesCatalog: ThemeCatalog = $derived($themesStore.themesCatalog);
-  const savedThemesCatalog: ThemeCatalog = $derived($themesStore.savedThemesCatalog);
-  const themesLoading = $derived($themesStore.themesLoading);
-  const themesDir = $derived($themesStore.themesDir);
-  const themesSaving = $derived($themesStore.themesSaving);
-  const themesDirty = $derived($themesStore.themesDirty);
+  const themesCatalog: ThemeCatalog = $derived(themesStore.themesCatalog);
+  const savedThemesCatalog: ThemeCatalog = $derived(themesStore.savedThemesCatalog);
+  const themesLoading = $derived(themesStore.themesLoading);
+  const themesDir = $derived(themesStore.themesDir);
+  const themesSaving = $derived(themesStore.themesSaving);
+  const themesDirty = $derived(themesStore.themesDirty);
   const appearanceFields: SettingField[] = $derived(
     settingsSections.find((section: SettingsSection) => section.id === "appearance")?.fields || []
   );
