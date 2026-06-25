@@ -78,7 +78,7 @@
     resolveLoadedWebappRoute,
     resolveSupportLoadRoute,
   } from "./lib/webapp/appLoadFlow.js";
-  import { resolvePopstateRoute } from "./lib/webapp/appRouteLifecycle.js";
+  import { createPopstateLifecycle } from "./lib/webapp/popstateLifecycle.js";
   import {
     applyThemeDocumentEffects,
     closeDisabledEmailAuthDialogs,
@@ -94,7 +94,7 @@
   import { runWebappBoot } from "./lib/webapp/webappBoot.js";
   import { CSRF_COOKIE_NAME, readCookie } from "./lib/webapp/session.js";
   import { createTelegramRuntime, type TelegramWebApp } from "./lib/webapp/telegramRuntime.js";
-  import { publicInstallTokenFromPath, sectionFromPath } from "./lib/webapp/routes.js";
+  import { publicInstallTokenFromPath } from "./lib/webapp/routes.js";
 
   type AnyRecord = Record<string, any>;
   type AppLoadDataOptions = {
@@ -788,68 +788,53 @@
     });
   }
 
+  const popstateLifecycle = createPopstateLifecycle({
+    adminRuntime,
+    boot,
+    canUseInstallGuides,
+    currentSearchParams,
+    getDevicesEnabled: () => devicesEnabled,
+    getFallbackAdminSection: initialAdminSectionFromLocation,
+    getIsAdmin: () => isAdmin,
+    getMode: () => mode,
+    getScreen: () => screen,
+    getSupportEnabled: () => supportEnabled,
+    isDocsDemo,
+    loadDevices: () => {
+      devicesStore.loadDevices(devicesEnabled);
+    },
+    loadInstallGuides: () => {
+      installGuidesStore.load();
+    },
+    loadPublicInstall: (shareToken) => loadPublicInstall(shareToken),
+    loadSupport: () => {
+      supportStore.loadList();
+    },
+    routePathnameFromLocation,
+    routePrefix,
+    setActiveTab: (tab) => {
+      activeTab = tab;
+    },
+    setAdminActiveSection: (section) => {
+      adminActiveSection = section;
+    },
+    setPasswordLoginMode,
+    setScreen: (nextScreen) => {
+      screen = nextScreen;
+    },
+    showAdminUnavailable: () => {
+      showToast(t("wa_unavailable"));
+    },
+    startSupportPolling: () => {
+      supportStore.startPolling({ includeList: true });
+    },
+    syncAppSectionPath,
+  });
+
   onMount(() => {
     if (isPreviewBoard) return;
     if (isAppLaunchRoute) return;
-    const onPopState = () => {
-      const currentQuery = currentSearchParams();
-      const decision = resolvePopstateRoute({
-        canUseInstallGuides: canUseInstallGuides(),
-        devicesEnabled,
-        fallbackAdminSection: initialAdminSectionFromLocation(),
-        isAdmin,
-        isDocsDemo,
-        mode,
-        pathname: routePathnameFromLocation(),
-        routePrefix,
-        screenQuery: currentQuery.get("screen"),
-        supportEnabled,
-      });
-      if (decision.kind === "publicInstall") {
-        void loadPublicInstall(decision.shareToken);
-        return;
-      }
-      if (decision.kind === "boot") {
-        void boot();
-        return;
-      }
-      if (decision.kind === "login") {
-        setPasswordLoginMode(decision.passwordLoginEnabled, true);
-        screen = "login";
-        return;
-      }
-      if (decision.kind === "admin") {
-        adminActiveSection = decision.adminSection;
-        adminRuntime.cancelAdminAssetsPrefetch();
-        activeTab = decision.activeTab;
-        screen = decision.section;
-        const pathAtStart = window.location.pathname;
-        void Promise.all([
-          adminRuntime.ensureI18nScope("admin"),
-          adminRuntime.ensureAdminBundle(),
-        ]).catch(() => {
-          if (sectionFromPath(routePathnameFromLocation(), routePrefix) !== "admin") return;
-          if (window.location.pathname !== pathAtStart) return;
-          if (screen === "admin") {
-            activeTab = "settings";
-            screen = "settings";
-            syncAppSectionPath("settings", true);
-          }
-          showToast(t("wa_unavailable"));
-        });
-        return;
-      }
-      if (decision.kind === "section") {
-        activeTab = decision.activeTab;
-        screen = decision.section;
-        if (decision.loadDevices) devicesStore.loadDevices(devicesEnabled);
-        if (decision.loadSupport) {
-          supportStore.loadList();
-          supportStore.startPolling({ includeList: true });
-        }
-        if (decision.loadInstallGuides) installGuidesStore.load();
-      }
-    };
+    const onPopState = popstateLifecycle.handlePopstate;
     window.addEventListener("popstate", onPopState);
     const cleanupResumeLifecycle = resumeLifecycle.mount();
     boot();
