@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createResumeLifecycle } from "./resumeLifecycle.js";
+import { resetShellState, shellState } from "./shellState.svelte.ts";
 
 function makeTarget(extra = {}) {
   const listeners = new Map();
@@ -20,13 +21,12 @@ function makeTarget(extra = {}) {
 }
 
 function makeLifecycle(overrides = {}) {
-  const state = { mode: "app" };
+  resetShellState({ mode: "app" });
   const documentTarget = makeTarget({ visibilityState: "visible" });
   const windowTarget = makeTarget();
   const deps = {
     clearLoginTooltip: vi.fn(),
     documentTarget,
-    getMode: () => state.mode,
     refreshPendingActivationOnResume: vi.fn(),
     refreshTelegramNotificationsOnResume: vi.fn(),
     windowTarget,
@@ -36,17 +36,16 @@ function makeLifecycle(overrides = {}) {
     deps,
     documentTarget,
     lifecycle: createResumeLifecycle(deps),
-    state,
     windowTarget,
   };
 }
 
 describe("createResumeLifecycle", () => {
   it("clears login tooltip only while login screen is active", () => {
-    const { deps, lifecycle, state } = makeLifecycle();
+    const { deps, lifecycle } = makeLifecycle();
 
     lifecycle.onAnyPointerDown();
-    state.mode = "login";
+    shellState.mode = "login";
     lifecycle.onAnyPointerDown();
 
     expect(deps.clearLoginTooltip).toHaveBeenCalledOnce();

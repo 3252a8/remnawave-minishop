@@ -424,7 +424,6 @@
     clearLoginTooltip: () => {
       authStore.update((state) => ({ ...state, loginEmailTooltipOpen: false }));
     },
-    getMode: () => mode,
     refreshPendingActivationOnResume: () => {
       void refreshPendingActivationOnResume();
     },

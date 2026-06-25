@@ -1,3 +1,5 @@
+import { shellState } from "./shellState.svelte";
+
 type EventTargetLike = {
   addEventListener: (type: string, listener: () => void) => void;
   removeEventListener: (type: string, listener: () => void) => void;
@@ -10,7 +12,6 @@ type DocumentLike = EventTargetLike & {
 type ResumeLifecycleDeps = {
   clearLoginTooltip: () => void;
   documentTarget?: DocumentLike | null;
-  getMode: () => string;
   refreshPendingActivationOnResume: () => void;
   refreshTelegramNotificationsOnResume: () => void;
   windowTarget?: EventTargetLike | null;
@@ -19,13 +20,12 @@ type ResumeLifecycleDeps = {
 export function createResumeLifecycle({
   clearLoginTooltip,
   documentTarget = typeof document === "undefined" ? null : document,
-  getMode,
   refreshPendingActivationOnResume,
   refreshTelegramNotificationsOnResume,
   windowTarget = typeof window === "undefined" ? null : window,
 }: ResumeLifecycleDeps) {
   function onAnyPointerDown() {
-    if (getMode() === "login") clearLoginTooltip();
+    if (shellState.mode === "login") clearLoginTooltip();
   }
 
   function onResume() {
