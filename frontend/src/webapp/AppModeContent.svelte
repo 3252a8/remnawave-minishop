@@ -19,300 +19,550 @@
   const noopAction: Action = () => {};
   const noopPrimaryPayActionLabel = () => "";
 
-  export let accountStore: WritableStoreLike;
-  export let shellView: AppShellView | null = null;
-  export let appActions: AppActionRuntime | null = null;
-  export let actionsStore: ReadableStoreLike;
-  export let activateTrial: Action = noopAction;
-  export let activationSuccessDialogOpen = false;
-  export let activationSuccessUseInstallGuides = false;
-  export let activeTab = "home";
-  export let adminBundleApi: AnyRecord | null = null;
-  export let adminBundleError = "";
-  export let adminMountTarget: HTMLElement | null = null;
-  export let appLaunchTarget = "";
-  export let appSettings: AnyRecord = {};
-  export let applyPromo: Action = noopAction;
-  export let authBusy = false;
-  export let authIsError = false;
-  export let authResendCooldown = 0;
-  export let authStatus = "";
-  export let authStore: WritableStoreLike;
-  export let autoRenewBusy = false;
-  export let backToTariffList: Action = noopAction;
-  export let billingStore: WritableStoreLike;
-  export let brand: AnyRecord = {};
-  export let brandTitle = "";
-  export let canChangeTariff = false;
-  export let cfg: AnyRecord = {};
-  export let clearPromoFieldError: Action = noopAction;
-  export let closeActivationSuccessDialog: Action = noopAction;
-  export let closeDeviceTopupModal: Action = noopAction;
-  export let continueWithSelectedTariff: Action = noopAction;
-  export let copyText: Action = noopAction;
-  export let currentLang = "ru";
-  export let currentLanguageOption: LanguageOption | null = null;
-  export let currentTariffName = "";
-  export let devicesBusy = false;
-  export let devicesData: AnyRecord | null = null;
-  export let devicesEnabled = false;
-  export let devicesErrorCode = "";
-  export let devicesIsError = false;
-  export let devicesLoaded = false;
-  export let devicesStatus = "";
-  export let devicesStore: WritableStoreLike;
-  export let disconnectDevice: Action = noopAction;
-  export let emailAuthEnabled = true;
-  export let emailLinkStatus = "";
-  export let goDevices: Action = noopAction;
-  export let goHome: Action = noopAction;
-  export let goInvite: Action = noopAction;
-  export let goSettings: Action = noopAction;
-  export let goSupport: Action = noopAction;
-  export let hasActiveTariffSubscription = false;
-  export let hasMultipleTariffs = false;
-  export let hasUnlinkedIdentity = false;
-  export let isAdmin = false;
-  export let languageBusy = false;
-  export let languageClickGuard = false;
-  export let languageClickGuardArmed = false;
-  export let languageMenuOpen = false;
-  export let languageOptions: LanguageOption[] = [];
-  export let linkEmailBusy = false;
-  export let linkTelegramAndActivateTrial: Action = noopAction;
-  export let linkTelegramAndClaimReferralWelcome: Action = noopAction;
-  export let linkTelegramBusy = false;
-  export let loadDevices: Action = noopAction;
-  export let loginEmailFieldError = "";
-  export let loginEmailTooltipOpen = false;
-  export let methods: AnyRecord[] = [];
-  export let mode = "loading";
-  export let openAdminPanel: Action = noopAction;
-  export let openAppLaunchTarget: Action = noopAction;
-  export let openAppLink: Action = noopAction;
-  export let openConnectLink: Action = noopAction;
-  export let openDeviceTopupModal: Action = noopAction;
-  export let openExternalLink: Action = noopAction;
-  export let openInstallOrConnect: Action = noopAction;
-  export let openLoginTelegram: Action = noopAction;
-  export let openPaymentModal: Action = noopAction;
-  export let openPremiumTopupModal: Action = noopAction;
-  export let openPublicConnectLink: Action = noopAction;
-  export let openRegularTopupModal: Action = noopAction;
-  export let openSettingsLinkEmailDialog: Action = noopAction;
-  export let openSettingsSetPasswordDialog: Action = noopAction;
-  export let openTariffChangeModal: Action = noopAction;
-  export let openTelegramNotificationsBot: Action = noopAction;
-  export let openTrialInstallOrConnect: Action = noopAction;
-  export let passwordLoginFallback = false;
-  export let passwordLoginMode = false;
-  export let pendingEmail = "";
-  export let plans: AnyRecord[] = [];
-  export let premiumTrafficTopupBarClickable = false;
-  export let premiumTrafficTopupUnlocked = false;
-  export let primaryPayActionLabel: () => string = noopPrimaryPayActionLabel;
-  export let privacyPolicyUrl = "";
-  export let profileAvatarUrl = "";
-  export let profileEmail = "";
-  export let profileTelegramId = "";
-  export let promoBusy = false;
-  export let promoCode = "";
-  export let promoFieldError = "";
-  export let promoIsError = false;
-  export let promoStatus = "";
-  export let publicInstallSubscription: AnyRecord | null = null;
-  export let publicInstallToken = "";
-  export let referral: AnyRecord = {};
-  export let referralBonusDetails: AnyRecord[] = [];
-  export let referralOneBonusPerReferee = false;
-  export let referralWelcomeBonusDays = 0;
-  export let refreshAppLaunchTarget: Action = noopAction;
-  export let regularTrafficTopupBarClickable = false;
-  export let regularTrafficTopupUnlocked = false;
-  export let screen = "home";
-  export let selectedTariff: AnyRecord | null = null;
-  export let selectedTariffPlans: AnyRecord[] = [];
-  export let selectTariff: Action = noopAction;
-  export let serverStatusUrl = "";
-  export let setLanguageMenuOpen: (open: boolean) => void;
-  export let setPasswordLoginMode: (enabled: boolean) => void;
-  export let setPromoCode: (value: string) => void = noopAction;
-  export let shellStyle = "";
-  export let shellThemeClass = "";
-  export let shellToneClass = "";
-  export let singleTariffMode = false;
-  export let submitEmailOnEnter: Action = noopAction;
-  export let subscription: AnyRecord = {};
-  export let subscriptionPurchaseDescription = "";
-  export let supportEnabled = false;
-  export let supportStore: ReadableStoreLike;
-  export let supportUnreadCount = 0;
-  export let supportUnreadLoaded = false;
-  export let supportUnreadLoading = false;
-  export let supportUrl = "";
-  export let t: Translate;
-  export let tariffCatalog: AnyRecord[] = [];
-  export let tariffMode = false;
-  export let telegramLoginBusy = false;
-  export let telegramLoginChecking = false;
-  export let telegramLoginLabel = "";
-  export let telegramLoginUnavailable = false;
-  export let telegramLoginUnavailableMessage = "";
-  export let telegramMiniAppContext = false;
-  export let telegramNotificationsNeedPrompt = false;
-  export let telegramNotificationsStartLink = "";
-  export let telegramNotificationsStatus = "unknown";
-  export let telegramPlatform = "";
-  export let telegramProfileName = "";
-  export let termUnitLabel: Action = noopAction;
-  export let toggleAutoRenew: Action = noopAction;
-  export let trafficMode = false;
-  export let trialActivationError = "";
-  export let trialActivationResult: AnyRecord | null = null;
-  export let trialBusy = false;
-  export let user: AnyRecord = {};
-  export let userAgreementUrl = "";
-  export let userLanguage = "";
-  export let updateGuestLanguage: (language: string) => void;
+  type Props = {
+    accountStore: WritableStoreLike;
+    shellView?: AppShellView | null;
+    appActions?: AppActionRuntime | null;
+    actionsStore: ReadableStoreLike;
+    activateTrial?: Action;
+    activationSuccessDialogOpen?: boolean;
+    activationSuccessUseInstallGuides?: boolean;
+    activeTab?: string;
+    adminBundleApi?: AnyRecord | null;
+    adminBundleError?: string;
+    adminMountTarget?: HTMLElement | null;
+    appLaunchTarget?: string;
+    appSettings?: AnyRecord;
+    applyPromo?: Action;
+    authBusy?: boolean;
+    authIsError?: boolean;
+    authResendCooldown?: number;
+    authStatus?: string;
+    authStore: WritableStoreLike;
+    autoRenewBusy?: boolean;
+    backToTariffList?: Action;
+    billingStore: WritableStoreLike;
+    brand?: AnyRecord;
+    brandTitle?: string;
+    canChangeTariff?: boolean;
+    cfg?: AnyRecord;
+    clearPromoFieldError?: Action;
+    closeActivationSuccessDialog?: Action;
+    closeDeviceTopupModal?: Action;
+    continueWithSelectedTariff?: Action;
+    copyText?: Action;
+    currentLang?: string;
+    currentLanguageOption?: LanguageOption | null;
+    currentTariffName?: string;
+    devicesBusy?: boolean;
+    devicesData?: AnyRecord | null;
+    devicesEnabled?: boolean;
+    devicesErrorCode?: string;
+    devicesIsError?: boolean;
+    devicesLoaded?: boolean;
+    devicesStatus?: string;
+    devicesStore: WritableStoreLike;
+    disconnectDevice?: Action;
+    emailAuthEnabled?: boolean;
+    emailLinkStatus?: string;
+    goDevices?: Action;
+    goHome?: Action;
+    goInvite?: Action;
+    goSettings?: Action;
+    goSupport?: Action;
+    hasActiveTariffSubscription?: boolean;
+    hasMultipleTariffs?: boolean;
+    hasUnlinkedIdentity?: boolean;
+    isAdmin?: boolean;
+    languageBusy?: boolean;
+    languageClickGuard?: boolean;
+    languageClickGuardArmed?: boolean;
+    languageMenuOpen?: boolean;
+    languageOptions?: LanguageOption[];
+    linkEmailBusy?: boolean;
+    linkTelegramAndActivateTrial?: Action;
+    linkTelegramAndClaimReferralWelcome?: Action;
+    linkTelegramBusy?: boolean;
+    loadDevices?: Action;
+    loginEmailFieldError?: string;
+    loginEmailTooltipOpen?: boolean;
+    methods?: AnyRecord[];
+    mode?: string;
+    openAdminPanel?: Action;
+    openAppLaunchTarget?: Action;
+    openAppLink?: Action;
+    openConnectLink?: Action;
+    openDeviceTopupModal?: Action;
+    openExternalLink?: Action;
+    openInstallOrConnect?: Action;
+    openLoginTelegram?: Action;
+    openPaymentModal?: Action;
+    openPremiumTopupModal?: Action;
+    openPublicConnectLink?: Action;
+    openRegularTopupModal?: Action;
+    openSettingsLinkEmailDialog?: Action;
+    openSettingsSetPasswordDialog?: Action;
+    openTariffChangeModal?: Action;
+    openTelegramNotificationsBot?: Action;
+    openTrialInstallOrConnect?: Action;
+    passwordLoginFallback?: boolean;
+    passwordLoginMode?: boolean;
+    pendingEmail?: string;
+    plans?: AnyRecord[];
+    premiumTrafficTopupBarClickable?: boolean;
+    premiumTrafficTopupUnlocked?: boolean;
+    primaryPayActionLabel?: () => string;
+    privacyPolicyUrl?: string;
+    profileAvatarUrl?: string;
+    profileEmail?: string;
+    profileTelegramId?: string;
+    promoBusy?: boolean;
+    promoCode?: string;
+    promoFieldError?: string;
+    promoIsError?: boolean;
+    promoStatus?: string;
+    publicInstallSubscription?: AnyRecord | null;
+    publicInstallToken?: string;
+    referral?: AnyRecord;
+    referralBonusDetails?: AnyRecord[];
+    referralOneBonusPerReferee?: boolean;
+    referralWelcomeBonusDays?: number;
+    refreshAppLaunchTarget?: Action;
+    regularTrafficTopupBarClickable?: boolean;
+    regularTrafficTopupUnlocked?: boolean;
+    screen?: string;
+    selectedTariff?: AnyRecord | null;
+    selectedTariffPlans?: AnyRecord[];
+    selectTariff?: Action;
+    serverStatusUrl?: string;
+    setLanguageMenuOpen: (open: boolean) => void;
+    setPasswordLoginMode: (enabled: boolean) => void;
+    setPromoCode?: (value: string) => void;
+    shellStyle?: string;
+    shellThemeClass?: string;
+    shellToneClass?: string;
+    singleTariffMode?: boolean;
+    submitEmailOnEnter?: Action;
+    subscription?: AnyRecord;
+    subscriptionPurchaseDescription?: string;
+    supportEnabled?: boolean;
+    supportStore: ReadableStoreLike;
+    supportUnreadCount?: number;
+    supportUnreadLoaded?: boolean;
+    supportUnreadLoading?: boolean;
+    supportUrl?: string;
+    t: Translate;
+    tariffCatalog?: AnyRecord[];
+    tariffMode?: boolean;
+    telegramLoginBusy?: boolean;
+    telegramLoginChecking?: boolean;
+    telegramLoginLabel?: string;
+    telegramLoginUnavailable?: boolean;
+    telegramLoginUnavailableMessage?: string;
+    telegramMiniAppContext?: boolean;
+    telegramNotificationsNeedPrompt?: boolean;
+    telegramNotificationsStartLink?: string;
+    telegramNotificationsStatus?: string;
+    telegramPlatform?: string;
+    telegramProfileName?: string;
+    termUnitLabel?: Action;
+    toggleAutoRenew?: Action;
+    trafficMode?: boolean;
+    trialActivationError?: string;
+    trialActivationResult?: AnyRecord | null;
+    trialBusy?: boolean;
+    user?: AnyRecord;
+    userAgreementUrl?: string;
+    userLanguage?: string;
+    updateGuestLanguage: (language: string) => void;
+  };
 
-  $: ({
-    authStatus,
-    authIsError,
-    authBusy,
-    telegramLoginBusy,
-    loginEmailFieldError,
-    loginEmailTooltipOpen,
-    passwordLoginFallback,
-    passwordLoginMode,
-    authResendCooldown,
-    pendingEmail,
-  } = $authStore);
-  $: ({ devicesData, devicesLoaded, devicesBusy, devicesStatus, devicesIsError, devicesErrorCode } =
-    $devicesStore);
-  $: ({
-    unreadCount: supportUnreadCount,
-    unreadLoading: supportUnreadLoading,
-    unreadLoaded: supportUnreadLoaded,
-  } = $supportStore);
-  $: ({ linkEmailBusy, linkTelegramBusy } = $accountStore);
-  $: ({
-    promoCode,
-    promoBusy,
-    promoStatus,
-    promoIsError,
-    promoFieldError,
-    trialBusy,
-    trialActivationResult,
-    trialActivationError,
-  } = $actionsStore);
+  let {
+    accountStore,
+    shellView = null,
+    appActions = null,
+    actionsStore,
+    activateTrial: activateTrialProp = noopAction,
+    activationSuccessDialogOpen = false,
+    activationSuccessUseInstallGuides = false,
+    activeTab = "home",
+    adminBundleApi = null,
+    adminBundleError = "",
+    adminMountTarget = $bindable(null),
+    appLaunchTarget = "",
+    appSettings: appSettingsProp = {},
+    applyPromo: applyPromoProp = noopAction,
+    authStore,
+    autoRenewBusy = false,
+    backToTariffList: backToTariffListProp = noopAction,
+    billingStore,
+    brand: brandProp = {},
+    brandTitle: brandTitleProp = "",
+    canChangeTariff: canChangeTariffProp = false,
+    cfg = {},
+    clearPromoFieldError: clearPromoFieldErrorProp = noopAction,
+    closeActivationSuccessDialog = noopAction,
+    closeDeviceTopupModal: closeDeviceTopupModalProp = noopAction,
+    continueWithSelectedTariff: continueWithSelectedTariffProp = noopAction,
+    copyText: copyTextProp = noopAction,
+    currentLang: currentLangProp = "ru",
+    currentLanguageOption: currentLanguageOptionProp = null,
+    currentTariffName: currentTariffNameProp = "",
+    devicesEnabled: devicesEnabledProp = false,
+    devicesStore,
+    disconnectDevice: disconnectDeviceProp = noopAction,
+    emailAuthEnabled: emailAuthEnabledProp = true,
+    emailLinkStatus: emailLinkStatusProp = "",
+    goDevices: goDevicesProp = noopAction,
+    goHome: goHomeProp = noopAction,
+    goInvite: goInviteProp = noopAction,
+    goSettings: goSettingsProp = noopAction,
+    goSupport: goSupportProp = noopAction,
+    hasActiveTariffSubscription: hasActiveTariffSubscriptionProp = false,
+    hasMultipleTariffs: hasMultipleTariffsProp = false,
+    hasUnlinkedIdentity: hasUnlinkedIdentityProp = false,
+    isAdmin: isAdminProp = false,
+    languageBusy = false,
+    languageClickGuard = false,
+    languageClickGuardArmed = false,
+    languageMenuOpen = $bindable(false),
+    languageOptions: languageOptionsProp = [],
+    linkTelegramAndActivateTrial: linkTelegramAndActivateTrialProp = noopAction,
+    linkTelegramAndClaimReferralWelcome: linkTelegramAndClaimReferralWelcomeProp = noopAction,
+    loadDevices: loadDevicesProp = noopAction,
+    loginEmailFieldError: loginEmailFieldErrorProp = "",
+    loginEmailTooltipOpen: loginEmailTooltipOpenProp = false,
+    methods: methodsProp = [],
+    mode = "loading",
+    openAdminPanel: openAdminPanelProp = noopAction,
+    openAppLaunchTarget: openAppLaunchTargetProp = noopAction,
+    openAppLink: openAppLinkProp = noopAction,
+    openConnectLink: openConnectLinkProp = noopAction,
+    openDeviceTopupModal: openDeviceTopupModalProp = noopAction,
+    openExternalLink: openExternalLinkProp = noopAction,
+    openInstallOrConnect: openInstallOrConnectProp = noopAction,
+    openLoginTelegram: openLoginTelegramProp = noopAction,
+    openPaymentModal: openPaymentModalProp = noopAction,
+    openPremiumTopupModal: openPremiumTopupModalProp = noopAction,
+    openPublicConnectLink: openPublicConnectLinkProp = noopAction,
+    openRegularTopupModal: openRegularTopupModalProp = noopAction,
+    openSettingsLinkEmailDialog: openSettingsLinkEmailDialogProp = noopAction,
+    openSettingsSetPasswordDialog: openSettingsSetPasswordDialogProp = noopAction,
+    openTariffChangeModal: openTariffChangeModalProp = noopAction,
+    openTelegramNotificationsBot: openTelegramNotificationsBotProp = noopAction,
+    openTrialInstallOrConnect: openTrialInstallOrConnectProp = noopAction,
+    plans: plansProp = [],
+    premiumTrafficTopupBarClickable: premiumTrafficTopupBarClickableProp = false,
+    premiumTrafficTopupUnlocked: premiumTrafficTopupUnlockedProp = false,
+    primaryPayActionLabel: primaryPayActionLabelProp = noopPrimaryPayActionLabel,
+    privacyPolicyUrl: privacyPolicyUrlProp = "",
+    profileAvatarUrl: profileAvatarUrlProp = "",
+    profileEmail: profileEmailProp = "",
+    profileTelegramId: profileTelegramIdProp = "",
+    publicInstallSubscription = null,
+    publicInstallToken = "",
+    referral: referralProp = {},
+    referralBonusDetails: referralBonusDetailsProp = [],
+    referralOneBonusPerReferee: referralOneBonusPerRefereeProp = false,
+    referralWelcomeBonusDays: referralWelcomeBonusDaysProp = 0,
+    refreshAppLaunchTarget: refreshAppLaunchTargetProp = noopAction,
+    regularTrafficTopupBarClickable: regularTrafficTopupBarClickableProp = false,
+    regularTrafficTopupUnlocked: regularTrafficTopupUnlockedProp = false,
+    screen = $bindable("home"),
+    selectedTariff: selectedTariffProp = null,
+    selectedTariffPlans: selectedTariffPlansProp = [],
+    selectTariff: selectTariffProp = noopAction,
+    serverStatusUrl: serverStatusUrlProp = "",
+    setLanguageMenuOpen,
+    setPasswordLoginMode,
+    setPromoCode: setPromoCodeProp = noopAction,
+    shellStyle: shellStyleProp = "",
+    shellThemeClass: shellThemeClassProp = "",
+    shellToneClass: shellToneClassProp = "",
+    singleTariffMode: singleTariffModeProp = false,
+    submitEmailOnEnter = noopAction,
+    subscription: subscriptionProp = {},
+    subscriptionPurchaseDescription: subscriptionPurchaseDescriptionProp = "",
+    supportEnabled: supportEnabledProp = false,
+    supportStore,
+    supportUrl: supportUrlProp = "",
+    t,
+    tariffCatalog: tariffCatalogProp = [],
+    tariffMode: tariffModeProp = false,
+    telegramLoginChecking: telegramLoginCheckingProp = false,
+    telegramLoginLabel: telegramLoginLabelProp = "",
+    telegramLoginUnavailable: telegramLoginUnavailableProp = false,
+    telegramLoginUnavailableMessage: telegramLoginUnavailableMessageProp = "",
+    telegramMiniAppContext: telegramMiniAppContextProp = false,
+    telegramNotificationsNeedPrompt: telegramNotificationsNeedPromptProp = false,
+    telegramNotificationsStartLink: telegramNotificationsStartLinkProp = "",
+    telegramNotificationsStatus: telegramNotificationsStatusProp = "unknown",
+    telegramPlatform = "",
+    telegramProfileName: telegramProfileNameProp = "",
+    termUnitLabel = noopAction,
+    toggleAutoRenew: toggleAutoRenewProp = noopAction,
+    trafficMode: trafficModeProp = false,
+    user: userProp = {},
+    userAgreementUrl: userAgreementUrlProp = "",
+    userLanguage: userLanguageProp = "",
+    updateGuestLanguage,
+  }: Props = $props();
 
-  $: if (shellView) {
-    ({
-      accountView: {
-        emailLinkStatus,
-        hasUnlinkedIdentity,
-        privacyPolicyUrl,
-        profileAvatarUrl,
-        profileEmail,
-        profileTelegramId,
-        serverStatusUrl,
-        supportUrl,
-        telegramNotificationsNeedPrompt,
-        telegramNotificationsStartLink,
-        telegramNotificationsStatus,
-        telegramProfileName,
-        userAgreementUrl,
-      },
-      appDataView: {
-        appSettings,
-        brand,
-        brandTitle,
-        devicesEnabled,
-        emailAuthEnabled,
-        methods,
-        plans,
-        referral,
-        referralBonusDetails,
-        referralOneBonusPerReferee,
-        referralWelcomeBonusDays,
-        subscription,
-        subscriptionPurchaseDescription,
-        supportEnabled,
-      },
-      billingView: {
-        canChangeTariff,
-        currentTariffName,
-        hasActiveTariffSubscription,
-        hasMultipleTariffs,
-        premiumTrafficTopupBarClickable,
-        premiumTrafficTopupUnlocked,
-        regularTrafficTopupBarClickable,
-        regularTrafficTopupUnlocked,
-        selectedTariff,
-        selectedTariffPlans,
-        singleTariffMode,
-        tariffCatalog,
-        tariffMode,
-        trafficMode,
-      },
-      currentLang,
-      isAdmin,
-      languageView: { currentLanguageOption = null, languageOptions },
-      telegramLoginView: {
-        telegramLoginChecking,
-        telegramLoginLabel,
-        telegramLoginUnavailable,
-        telegramLoginUnavailableMessage,
-      },
-      telegramMiniAppContext,
-      themeView: { shellStyle, shellThemeClass, shellToneClass },
-      user,
-      userLanguage,
-    } = shellView);
-  }
+  const authState = $derived($authStore);
+  const devicesState = $derived($devicesStore);
+  const supportState = $derived($supportStore);
+  const accountState = $derived($accountStore);
+  const actionsState = $derived($actionsStore);
+  const accountView = $derived(shellView?.accountView);
+  const appDataView = $derived(shellView?.appDataView);
+  const billingView = $derived(shellView?.billingView);
+  const languageView = $derived(shellView?.languageView);
+  const telegramLoginView = $derived(shellView?.telegramLoginView);
+  const themeView = $derived(shellView?.themeView);
 
-  $: if (appActions) {
-    ({
-      activateTrial,
-      applyPromo,
-      backToTariffList,
-      clearPromoFieldError,
-      closeDeviceTopupModal,
-      continueWithSelectedTariff,
-      copyText,
-      disconnectDevice,
-      goDevices,
-      goHome,
-      goInvite,
-      goSettings,
-      goSupport,
-      linkTelegramAndActivateTrial,
-      linkTelegramAndClaimReferralWelcome,
-      loadDevices,
-      openAdminPanel,
-      openAppLaunchTarget,
-      openAppLink,
-      openConnectLink,
-      openDeviceTopupModal,
-      openExternalLink,
-      openInstallOrConnect,
-      openLoginTelegram,
-      openPaymentModal,
-      openPremiumTopupModal,
-      openPublicConnectLink,
-      openRegularTopupModal,
-      openSettingsLinkEmailDialog,
-      openSettingsSetPasswordDialog,
-      openTariffChangeModal,
-      openTelegramNotificationsBot,
-      openTrialInstallOrConnect,
-      primaryPayActionLabel,
-      refreshAppLaunchTarget,
-      selectTariff,
-      setPromoCode,
-      toggleAutoRenew,
-    } = appActions);
-  }
+  const authStatus = $derived(authState.authStatus);
+  const authIsError = $derived(authState.authIsError);
+  const authBusy = $derived(authState.authBusy);
+  const telegramLoginBusy = $derived(authState.telegramLoginBusy);
+  let loginEmailFieldError = $state("");
+  let loginEmailTooltipOpen = $state(false);
+  const passwordLoginFallback = $derived(authState.passwordLoginFallback);
+  const passwordLoginMode = $derived(authState.passwordLoginMode);
+  const authResendCooldown = $derived(authState.authResendCooldown);
+  const pendingEmail = $derived(authState.pendingEmail);
+
+  const devicesData = $derived(devicesState.devicesData);
+  const devicesLoaded = $derived(devicesState.devicesLoaded);
+  const devicesBusy = $derived(devicesState.devicesBusy);
+  const devicesStatus = $derived(devicesState.devicesStatus);
+  const devicesIsError = $derived(devicesState.devicesIsError);
+  const devicesErrorCode = $derived(devicesState.devicesErrorCode);
+
+  const supportUnreadCount = $derived(supportState.unreadCount);
+  const supportUnreadLoading = $derived(supportState.unreadLoading);
+  const supportUnreadLoaded = $derived(supportState.unreadLoaded);
+  const linkEmailBusy = $derived(accountState.linkEmailBusy);
+  const linkTelegramBusy = $derived(accountState.linkTelegramBusy);
+
+  const promoCode = $derived(actionsState.promoCode);
+  const promoBusy = $derived(actionsState.promoBusy);
+  const promoStatus = $derived(actionsState.promoStatus);
+  const promoIsError = $derived(actionsState.promoIsError);
+  const promoFieldError = $derived(actionsState.promoFieldError);
+  const trialBusy = $derived(actionsState.trialBusy);
+  const trialActivationResult = $derived(actionsState.trialActivationResult);
+  const trialActivationError = $derived(actionsState.trialActivationError);
+
+  $effect(() => {
+    loginEmailFieldError = authState.loginEmailFieldError ?? loginEmailFieldErrorProp;
+    loginEmailTooltipOpen = authState.loginEmailTooltipOpen ?? loginEmailTooltipOpenProp;
+  });
+
+  const emailLinkStatus = $derived(shellView ? accountView?.emailLinkStatus : emailLinkStatusProp);
+  const hasUnlinkedIdentity = $derived(
+    shellView ? accountView?.hasUnlinkedIdentity : hasUnlinkedIdentityProp
+  );
+  const privacyPolicyUrl = $derived(
+    shellView ? accountView?.privacyPolicyUrl : privacyPolicyUrlProp
+  );
+  const profileAvatarUrl = $derived(
+    shellView ? accountView?.profileAvatarUrl : profileAvatarUrlProp
+  );
+  const profileEmail = $derived(shellView ? accountView?.profileEmail : profileEmailProp);
+  const profileTelegramId = $derived(
+    shellView ? accountView?.profileTelegramId : profileTelegramIdProp
+  );
+  const serverStatusUrl = $derived(shellView ? accountView?.serverStatusUrl : serverStatusUrlProp);
+  const supportUrl = $derived(shellView ? accountView?.supportUrl : supportUrlProp);
+  const telegramNotificationsNeedPrompt = $derived(
+    shellView ? accountView?.telegramNotificationsNeedPrompt : telegramNotificationsNeedPromptProp
+  );
+  const telegramNotificationsStartLink = $derived(
+    shellView ? accountView?.telegramNotificationsStartLink : telegramNotificationsStartLinkProp
+  );
+  const telegramNotificationsStatus = $derived(
+    shellView ? accountView?.telegramNotificationsStatus : telegramNotificationsStatusProp
+  );
+  const telegramProfileName = $derived(
+    shellView ? accountView?.telegramProfileName : telegramProfileNameProp
+  );
+  const userAgreementUrl = $derived(
+    shellView ? accountView?.userAgreementUrl : userAgreementUrlProp
+  );
+
+  const appSettings = $derived(shellView ? appDataView?.appSettings : appSettingsProp);
+  const brand = $derived(shellView ? appDataView?.brand : brandProp);
+  const brandTitle = $derived(shellView ? appDataView?.brandTitle : brandTitleProp);
+  const devicesEnabled = $derived(shellView ? appDataView?.devicesEnabled : devicesEnabledProp);
+  const emailAuthEnabled = $derived(
+    shellView ? appDataView?.emailAuthEnabled : emailAuthEnabledProp
+  );
+  const methods = $derived(shellView ? appDataView?.methods : methodsProp);
+  const plans = $derived(shellView ? appDataView?.plans : plansProp);
+  const referral = $derived(shellView ? appDataView?.referral : referralProp);
+  const referralBonusDetails = $derived(
+    shellView ? appDataView?.referralBonusDetails : referralBonusDetailsProp
+  );
+  const referralOneBonusPerReferee = $derived(
+    shellView ? appDataView?.referralOneBonusPerReferee : referralOneBonusPerRefereeProp
+  );
+  const referralWelcomeBonusDays = $derived(
+    shellView ? appDataView?.referralWelcomeBonusDays : referralWelcomeBonusDaysProp
+  );
+  const subscription = $derived(shellView ? appDataView?.subscription : subscriptionProp);
+  const subscriptionPurchaseDescription = $derived(
+    shellView ? appDataView?.subscriptionPurchaseDescription : subscriptionPurchaseDescriptionProp
+  );
+  const supportEnabled = $derived(shellView ? appDataView?.supportEnabled : supportEnabledProp);
+
+  const canChangeTariff = $derived(shellView ? billingView?.canChangeTariff : canChangeTariffProp);
+  const currentTariffName = $derived(
+    shellView ? billingView?.currentTariffName : currentTariffNameProp
+  );
+  const hasActiveTariffSubscription = $derived(
+    shellView ? billingView?.hasActiveTariffSubscription : hasActiveTariffSubscriptionProp
+  );
+  const hasMultipleTariffs = $derived(
+    shellView ? billingView?.hasMultipleTariffs : hasMultipleTariffsProp
+  );
+  const premiumTrafficTopupBarClickable = $derived(
+    shellView ? billingView?.premiumTrafficTopupBarClickable : premiumTrafficTopupBarClickableProp
+  );
+  const premiumTrafficTopupUnlocked = $derived(
+    shellView ? billingView?.premiumTrafficTopupUnlocked : premiumTrafficTopupUnlockedProp
+  );
+  const regularTrafficTopupBarClickable = $derived(
+    shellView ? billingView?.regularTrafficTopupBarClickable : regularTrafficTopupBarClickableProp
+  );
+  const regularTrafficTopupUnlocked = $derived(
+    shellView ? billingView?.regularTrafficTopupUnlocked : regularTrafficTopupUnlockedProp
+  );
+  const selectedTariff = $derived(shellView ? billingView?.selectedTariff : selectedTariffProp);
+  const selectedTariffPlans = $derived(
+    shellView ? billingView?.selectedTariffPlans : selectedTariffPlansProp
+  );
+  const singleTariffMode = $derived(
+    shellView ? billingView?.singleTariffMode : singleTariffModeProp
+  );
+  const tariffCatalog = $derived(shellView ? billingView?.tariffCatalog : tariffCatalogProp);
+  const tariffMode = $derived(shellView ? billingView?.tariffMode : tariffModeProp);
+  const trafficMode = $derived(shellView ? billingView?.trafficMode : trafficModeProp);
+
+  const currentLang = $derived(shellView ? shellView.currentLang : currentLangProp);
+  const isAdmin = $derived(shellView ? shellView.isAdmin : isAdminProp);
+  const currentLanguageOption = $derived(
+    shellView ? (languageView?.currentLanguageOption ?? null) : currentLanguageOptionProp
+  );
+  const languageOptions = $derived(shellView ? languageView?.languageOptions : languageOptionsProp);
+  const telegramLoginChecking = $derived(
+    shellView ? telegramLoginView?.telegramLoginChecking : telegramLoginCheckingProp
+  );
+  const telegramLoginLabel = $derived(
+    shellView ? telegramLoginView?.telegramLoginLabel : telegramLoginLabelProp
+  );
+  const telegramLoginUnavailable = $derived(
+    shellView ? telegramLoginView?.telegramLoginUnavailable : telegramLoginUnavailableProp
+  );
+  const telegramLoginUnavailableMessage = $derived(
+    shellView
+      ? telegramLoginView?.telegramLoginUnavailableMessage
+      : telegramLoginUnavailableMessageProp
+  );
+  const telegramMiniAppContext = $derived(
+    shellView ? shellView.telegramMiniAppContext : telegramMiniAppContextProp
+  );
+  const shellStyle = $derived(shellView ? themeView?.shellStyle : shellStyleProp);
+  const shellThemeClass = $derived(shellView ? themeView?.shellThemeClass : shellThemeClassProp);
+  const shellToneClass = $derived(shellView ? themeView?.shellToneClass : shellToneClassProp);
+  const user = $derived(shellView ? shellView.user : userProp);
+  const userLanguage = $derived(shellView ? shellView.userLanguage : userLanguageProp);
+
+  const activateTrial = $derived(appActions ? appActions.activateTrial : activateTrialProp);
+  const applyPromo = $derived(appActions ? appActions.applyPromo : applyPromoProp);
+  const backToTariffList = $derived(
+    appActions ? appActions.backToTariffList : backToTariffListProp
+  );
+  const clearPromoFieldError = $derived(
+    appActions ? appActions.clearPromoFieldError : clearPromoFieldErrorProp
+  );
+  const closeDeviceTopupModal = $derived(
+    appActions ? appActions.closeDeviceTopupModal : closeDeviceTopupModalProp
+  );
+  const continueWithSelectedTariff = $derived(
+    appActions ? appActions.continueWithSelectedTariff : continueWithSelectedTariffProp
+  );
+  const copyText = $derived(appActions ? appActions.copyText : copyTextProp);
+  const disconnectDevice = $derived(
+    appActions ? appActions.disconnectDevice : disconnectDeviceProp
+  );
+  const goDevices = $derived(appActions ? appActions.goDevices : goDevicesProp);
+  const goHome = $derived(appActions ? appActions.goHome : goHomeProp);
+  const goInvite = $derived(appActions ? appActions.goInvite : goInviteProp);
+  const goSettings = $derived(appActions ? appActions.goSettings : goSettingsProp);
+  const goSupport = $derived(appActions ? appActions.goSupport : goSupportProp);
+  const linkTelegramAndActivateTrial = $derived(
+    appActions ? appActions.linkTelegramAndActivateTrial : linkTelegramAndActivateTrialProp
+  );
+  const linkTelegramAndClaimReferralWelcome = $derived(
+    appActions
+      ? appActions.linkTelegramAndClaimReferralWelcome
+      : linkTelegramAndClaimReferralWelcomeProp
+  );
+  const loadDevices = $derived(appActions ? appActions.loadDevices : loadDevicesProp);
+  const openAdminPanel = $derived(appActions ? appActions.openAdminPanel : openAdminPanelProp);
+  const openAppLaunchTarget = $derived(
+    appActions ? appActions.openAppLaunchTarget : openAppLaunchTargetProp
+  );
+  const openAppLink = $derived(appActions ? appActions.openAppLink : openAppLinkProp);
+  const openConnectLink = $derived(appActions ? appActions.openConnectLink : openConnectLinkProp);
+  const openDeviceTopupModal = $derived(
+    appActions ? appActions.openDeviceTopupModal : openDeviceTopupModalProp
+  );
+  const openExternalLink = $derived(
+    appActions ? appActions.openExternalLink : openExternalLinkProp
+  );
+  const openInstallOrConnect = $derived(
+    appActions ? appActions.openInstallOrConnect : openInstallOrConnectProp
+  );
+  const openLoginTelegram = $derived(
+    appActions ? appActions.openLoginTelegram : openLoginTelegramProp
+  );
+  const openPaymentModal = $derived(
+    appActions ? appActions.openPaymentModal : openPaymentModalProp
+  );
+  const openPremiumTopupModal = $derived(
+    appActions ? appActions.openPremiumTopupModal : openPremiumTopupModalProp
+  );
+  const openPublicConnectLink = $derived(
+    appActions ? appActions.openPublicConnectLink : openPublicConnectLinkProp
+  );
+  const openRegularTopupModal = $derived(
+    appActions ? appActions.openRegularTopupModal : openRegularTopupModalProp
+  );
+  const openSettingsLinkEmailDialog = $derived(
+    appActions ? appActions.openSettingsLinkEmailDialog : openSettingsLinkEmailDialogProp
+  );
+  const openSettingsSetPasswordDialog = $derived(
+    appActions ? appActions.openSettingsSetPasswordDialog : openSettingsSetPasswordDialogProp
+  );
+  const openTariffChangeModal = $derived(
+    appActions ? appActions.openTariffChangeModal : openTariffChangeModalProp
+  );
+  const openTelegramNotificationsBot = $derived(
+    appActions ? appActions.openTelegramNotificationsBot : openTelegramNotificationsBotProp
+  );
+  const openTrialInstallOrConnect = $derived(
+    appActions ? appActions.openTrialInstallOrConnect : openTrialInstallOrConnectProp
+  );
+  const primaryPayActionLabel = $derived(
+    appActions ? appActions.primaryPayActionLabel : primaryPayActionLabelProp
+  );
+  const refreshAppLaunchTarget = $derived(
+    appActions ? appActions.refreshAppLaunchTarget : refreshAppLaunchTargetProp
+  );
+  const selectTariff = $derived(appActions ? appActions.selectTariff : selectTariffProp);
+  const setPromoCode = $derived(appActions ? appActions.setPromoCode : setPromoCodeProp);
+  const toggleAutoRenew = $derived(appActions ? appActions.toggleAutoRenew : toggleAutoRenewProp);
 </script>
 
 <div class="app-shell {shellToneClass} {shellThemeClass}" style={shellStyle}>
