@@ -22,6 +22,7 @@
   export let accountStore: WritableStoreLike;
   export let shellView: AppShellView | null = null;
   export let appActions: AppActionRuntime | null = null;
+  export let actionsStore: ReadableStoreLike;
   export let activateTrial: Action = noopAction;
   export let activationSuccessDialogOpen = false;
   export let activationSuccessUseInstallGuides = false;
@@ -173,6 +174,37 @@
   export let userAgreementUrl = "";
   export let userLanguage = "";
   export let updateGuestLanguage: (language: string) => void;
+
+  $: ({
+    authStatus,
+    authIsError,
+    authBusy,
+    telegramLoginBusy,
+    loginEmailFieldError,
+    loginEmailTooltipOpen,
+    passwordLoginFallback,
+    passwordLoginMode,
+    authResendCooldown,
+    pendingEmail,
+  } = $authStore);
+  $: ({ devicesData, devicesLoaded, devicesBusy, devicesStatus, devicesIsError, devicesErrorCode } =
+    $devicesStore);
+  $: ({
+    unreadCount: supportUnreadCount,
+    unreadLoading: supportUnreadLoading,
+    unreadLoaded: supportUnreadLoaded,
+  } = $supportStore);
+  $: ({ linkEmailBusy, linkTelegramBusy } = $accountStore);
+  $: ({
+    promoCode,
+    promoBusy,
+    promoStatus,
+    promoIsError,
+    promoFieldError,
+    trialBusy,
+    trialActivationResult,
+    trialActivationError,
+  } = $actionsStore);
 
   $: if (shellView) {
     ({

@@ -416,7 +416,7 @@
   const { setPasswordLoginMode, showLogin, submitEmailOnEnter } = authRuntime;
   const resumeLifecycle = createResumeLifecycle({
     clearLoginTooltip: () => {
-      loginEmailTooltipOpen = false;
+      authStore.update((state) => ({ ...state, loginEmailTooltipOpen: false }));
     },
     getMode: () => mode,
     refreshPendingActivationOnResume: () => {
@@ -464,18 +464,7 @@
 
   let appActions: AppActionRuntime;
   let shellView: AppShellView;
-  $: ({
-    authStatus,
-    authIsError,
-    authBusy,
-    telegramLoginBusy,
-    loginEmailFieldError,
-    loginEmailTooltipOpen,
-    passwordLoginFallback,
-    passwordLoginMode,
-    authResendCooldown,
-    pendingEmail,
-  } = $authStore);
+  $: ({ authStatus, authBusy, telegramLoginBusy } = $authStore);
   $: ({
     paymentModalOpen,
     selectedTariffKey,
@@ -486,25 +475,8 @@
     changeModalOpen,
     changeConfirmOpen,
   } = $billingStore);
-  $: ({ devicesData, devicesLoaded, devicesBusy, devicesStatus, devicesIsError, devicesErrorCode } =
-    $devicesStore);
-  $: ({
-    unreadCount: supportUnreadCount,
-    unreadLoading: supportUnreadLoading,
-    unreadLoaded: supportUnreadLoaded,
-  } = $supportStore);
-  $: ({ linkEmailOpen, linkEmailBusy, linkTelegramBusy, setPasswordOpen, languageBusy } =
-    $accountStore);
-  $: ({
-    promoCode,
-    promoBusy,
-    promoStatus,
-    promoIsError,
-    promoFieldError,
-    trialBusy,
-    trialActivationResult,
-    trialActivationError,
-  } = $actionsStore);
+  $: ({ linkEmailOpen, setPasswordOpen, languageBusy } = $accountStore);
+  $: ({ trialActivationResult } = $actionsStore);
 
   $: user = (data?.user || {}) as AnyRecord;
   $: isAdmin = Boolean(user?.is_admin);
@@ -977,39 +949,18 @@
         {adminBundleError}
         bind:adminMountTarget
         {appLaunchTarget}
-        {authBusy}
-        {authIsError}
-        {authResendCooldown}
-        {authStatus}
+        {actionsStore}
         {authStore}
         {autoRenewBusy}
         {billingStore}
         cfg={CFG}
         {closeActivationSuccessDialog}
-        {devicesBusy}
-        {devicesData}
-        {devicesErrorCode}
-        {devicesIsError}
-        {devicesLoaded}
-        {devicesStatus}
         {devicesStore}
         {languageBusy}
         {languageClickGuard}
         {languageClickGuardArmed}
         bind:languageMenuOpen
-        {linkEmailBusy}
-        {linkTelegramBusy}
-        {loginEmailFieldError}
-        {loginEmailTooltipOpen}
         {mode}
-        {passwordLoginFallback}
-        {passwordLoginMode}
-        {pendingEmail}
-        {promoBusy}
-        {promoCode}
-        {promoFieldError}
-        {promoIsError}
-        {promoStatus}
         {publicInstallSubscription}
         {publicInstallToken}
         bind:screen
@@ -1017,16 +968,9 @@
         {setPasswordLoginMode}
         {submitEmailOnEnter}
         {supportStore}
-        {supportUnreadCount}
-        {supportUnreadLoaded}
-        {supportUnreadLoading}
         {t}
-        {telegramLoginBusy}
         telegramPlatform={tg?.platform || ""}
         {termUnitLabel}
-        {trialActivationError}
-        {trialActivationResult}
-        {trialBusy}
         {updateGuestLanguage}
       />
     {/if}
