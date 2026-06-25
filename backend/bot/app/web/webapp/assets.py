@@ -216,6 +216,7 @@ def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
     if now - float(cache.get("ts", 0.0)) >= 60 or not cache.get("data"):
         logo_url = _resolve_webapp_logo_url(settings)
         payment_settings = settings.payment_settings
+        support_settings = settings.support_settings
         cache["data"] = {
             "logo_url": logo_url,
             "favicon_url": _resolve_webapp_favicon_url(settings, logo_url),
@@ -223,7 +224,7 @@ def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
             "stars_subscription_options": payment_settings.stars_subscription_options,
             "traffic_packages": payment_settings.traffic_packages,
             "stars_traffic_packages": payment_settings.stars_traffic_packages,
-            "support_url": settings.SUPPORT_LINK or "",
+            "support_url": support_settings.link or "",
             "server_status_url": settings.SERVER_STATUS_URL or "",
             "privacy_policy_url": settings.PRIVACY_POLICY_URL or "",
             "user_agreement_url": settings.USER_AGREEMENT_URL or "",
@@ -390,8 +391,9 @@ def _filter_webapp_i18n_payload(locales_data: object, scope: str = "webapp") -> 
 def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
     settings: Settings = get_settings(request)
     cached = _get_cached_webapp_settings(request)
+    webapp_settings = settings.webapp_settings
     themes_catalog = settings.webapp_themes_catalog
-    primary_color = settings.WEBAPP_PRIMARY_COLOR or "#00fe7a"
+    primary_color = webapp_settings.primary_color or "#00fe7a"
     preview_key = str(request.query.get("theme_preview") or "").strip()
     preview_theme = (
         resolve_webapp_theme_selection(themes_catalog, preview_key) if preview_key else None
@@ -428,14 +430,14 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
     base_locales_data = getattr(i18n_instance, "base_locales_data", {}) if i18n_instance else {}
     return {
         "config": {
-            "title": settings.WEBAPP_TITLE,
-            "primaryColor": settings.WEBAPP_PRIMARY_COLOR,
+            "title": webapp_settings.title,
+            "primaryColor": webapp_settings.primary_color,
             "themesCatalog": themes_payload,
             "themesDir": settings.WEBAPP_THEMES_DIR,
             "themePreviewKey": preview_key,
             "logoUrl": cached["logo_url"],
             "faviconUrl": cached["favicon_url"],
-            "faviconUseCustom": bool(settings.WEBAPP_FAVICON_USE_CUSTOM),
+            "faviconUseCustom": bool(webapp_settings.favicon_use_custom),
             "apiBase": "/api",
             "adminJsAsset": f"/{_resolve_webapp_admin_js_asset_name()}",
             "adminCssAsset": f"/{_resolve_webapp_admin_css_asset_name()}",
