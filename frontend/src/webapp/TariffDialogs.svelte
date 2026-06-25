@@ -26,33 +26,65 @@
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type VoidAction = () => void;
 
-  export let applyTariffChange: VoidAction = () => {};
-  export let changeConfirmOpen = false;
-  export let changeModalOpen = false;
-  export let changeOptions: AnyRecord | null = null;
-  export let closeDeviceTopupModal: VoidAction = () => {};
-  export let closeTariffChangeConfirm: VoidAction = () => {};
-  export let closeTariffChangeModal: VoidAction = () => {};
-  export let closeTopupModal: VoidAction = () => {};
-  export let createDeviceTopupPayment: VoidAction = () => {};
-  export let createTopupPayment: VoidAction = () => {};
-  export let deviceTopupModalOpen = false;
-  export let deviceTopupOptions: AnyRecord | null = null;
-  export let methods: AnyRecord[] = [];
-  export let openTariffChangeConfirm: VoidAction = () => {};
-  export let payBusy = false;
-  export let selectedChangeAction: AnyRecord | null = null;
-  export let selectedChangeTarget: AnyRecord | null = null;
-  export let selectedDeviceTopupPlan: AnyRecord | null = null;
-  export let selectedMethod = "";
-  export let selectedTopupPlan: AnyRecord | null = null;
-  export let singleTariffMode = false;
-  export let tariffActionBusy = false;
-  export let topupModalOpen = false;
-  export let topupOptions: AnyRecord | null = null;
-  export let topupKind = "regular";
-  export let subscription: AnyRecord = {};
-  export let trafficMode = false;
+  let {
+    applyTariffChange = () => {},
+    changeConfirmOpen = $bindable(false),
+    changeModalOpen = $bindable(false),
+    changeOptions = null,
+    closeDeviceTopupModal = () => {},
+    closeTariffChangeConfirm = () => {},
+    closeTariffChangeModal = () => {},
+    closeTopupModal = () => {},
+    createDeviceTopupPayment = () => {},
+    createTopupPayment = () => {},
+    deviceTopupModalOpen = $bindable(false),
+    deviceTopupOptions = null,
+    methods = [],
+    openTariffChangeConfirm = () => {},
+    payBusy = false,
+    selectedChangeAction = $bindable(null),
+    selectedChangeTarget = $bindable(null),
+    selectedDeviceTopupPlan = $bindable(null),
+    selectedMethod = $bindable(""),
+    selectedTopupPlan = $bindable(null),
+    singleTariffMode = false,
+    tariffActionBusy = false,
+    topupModalOpen = $bindable(false),
+    topupOptions = null,
+    topupKind = "regular",
+    subscription = {},
+    trafficMode = false,
+    t = (key) => key,
+  }: {
+    applyTariffChange?: VoidAction;
+    changeConfirmOpen?: boolean;
+    changeModalOpen?: boolean;
+    changeOptions?: AnyRecord | null;
+    closeDeviceTopupModal?: VoidAction;
+    closeTariffChangeConfirm?: VoidAction;
+    closeTariffChangeModal?: VoidAction;
+    closeTopupModal?: VoidAction;
+    createDeviceTopupPayment?: VoidAction;
+    createTopupPayment?: VoidAction;
+    deviceTopupModalOpen?: boolean;
+    deviceTopupOptions?: AnyRecord | null;
+    methods?: AnyRecord[];
+    openTariffChangeConfirm?: VoidAction;
+    payBusy?: boolean;
+    selectedChangeAction?: AnyRecord | null;
+    selectedChangeTarget?: AnyRecord | null;
+    selectedDeviceTopupPlan?: AnyRecord | null;
+    selectedMethod?: string;
+    selectedTopupPlan?: AnyRecord | null;
+    singleTariffMode?: boolean;
+    tariffActionBusy?: boolean;
+    topupModalOpen?: boolean;
+    topupOptions?: AnyRecord | null;
+    topupKind?: string;
+    subscription?: AnyRecord;
+    trafficMode?: boolean;
+    t?: Translate;
+  } = $props();
 
   function priceLabel(plan: AnyRecord | null) {
     return priceLabelFn(plan, selectedMethod);
@@ -67,30 +99,40 @@
     return actionKeyFn(action);
   }
 
-  $: changePaymentMethods = methodsForPlan(methods, selectedChangeAction);
-  $: topupPaymentMethods = methodsForPlan(methods, selectedTopupPlan);
-  $: devicePaymentMethods = methodsForPlan(methods, selectedDeviceTopupPlan);
-  $: changePaymentMethodSelected = methodSelectable(changePaymentMethods, selectedMethod);
-  $: topupPaymentMethodSelected = methodSelectable(topupPaymentMethods, selectedMethod);
-  $: devicePaymentMethodSelected = methodSelectable(devicePaymentMethods, selectedMethod);
-  $: if (changeModalOpen && selectedChangeAction?.kind === "payment") {
+  const changePaymentMethods = $derived(methodsForPlan(methods, selectedChangeAction));
+  const topupPaymentMethods = $derived(methodsForPlan(methods, selectedTopupPlan));
+  const devicePaymentMethods = $derived(methodsForPlan(methods, selectedDeviceTopupPlan));
+  const changePaymentMethodSelected = $derived(
+    methodSelectable(changePaymentMethods, selectedMethod)
+  );
+  const topupPaymentMethodSelected = $derived(
+    methodSelectable(topupPaymentMethods, selectedMethod)
+  );
+  const devicePaymentMethodSelected = $derived(
+    methodSelectable(devicePaymentMethods, selectedMethod)
+  );
+
+  $effect(() => {
+    if (!changeModalOpen || selectedChangeAction?.kind !== "payment") return;
     const firstMethod = firstAvailableMethod(changePaymentMethods);
     if (firstMethod && !methodSelectable(changePaymentMethods, selectedMethod)) {
       selectedMethod = firstMethod;
     }
-  }
-  $: if (topupModalOpen && selectedTopupPlan) {
+  });
+  $effect(() => {
+    if (!topupModalOpen || !selectedTopupPlan) return;
     const firstMethod = firstAvailableMethod(topupPaymentMethods);
     if (firstMethod && !methodSelectable(topupPaymentMethods, selectedMethod)) {
       selectedMethod = firstMethod;
     }
-  }
-  $: if (deviceTopupModalOpen && selectedDeviceTopupPlan) {
+  });
+  $effect(() => {
+    if (!deviceTopupModalOpen || !selectedDeviceTopupPlan) return;
     const firstMethod = firstAvailableMethod(devicePaymentMethods);
     if (firstMethod && !methodSelectable(devicePaymentMethods, selectedMethod)) {
       selectedMethod = firstMethod;
     }
-  }
+  });
 
   function changeActionTitle(action: AnyRecord | null) {
     const mode = String(action?.mode || "");
@@ -202,8 +244,6 @@
       return premiumTitleFn({ ...subscription, ...(topupOptions || {}) }, t);
     return t("wa_topup_traffic");
   }
-
-  export let t: Translate = (key) => key;
 </script>
 
 <Dialog
