@@ -20,34 +20,46 @@
     copy?: unknown;
   };
 
-  export let at: TranslateFn = (key, _params = {}, fallback = "") => fallback || key;
-  export let fmtDate: (value: string | null | undefined) => string = (value) => String(value || "");
-  export let fmtMoney: (amount: unknown, currency?: string | null) => string = (amount, currency) =>
-    `${amount} ${currency || ""}`.trim();
-  export let paymentStatusVariant: (status: string | null | undefined) => string = () => "muted";
-  export let onOpenUserCard: (userId: number) => void = () => {};
+  let {
+    at = (key, _params = {}, fallback = "") => fallback || key,
+    fmtDate = (value) => String(value || ""),
+    fmtMoney = (amount, currency) => `${amount} ${currency || ""}`.trim(),
+    paymentStatusVariant = () => "muted",
+    onOpenUserCard = () => {},
+  }: {
+    at?: TranslateFn;
+    fmtDate?: (value: string | null | undefined) => string;
+    fmtMoney?: (amount: unknown, currency?: string | null) => string;
+    paymentStatusVariant?: (status: string | null | undefined) => string;
+    onOpenUserCard?: (userId: number) => void;
+  } = $props();
 
   const paymentsStore = getContext<PaymentsStore>("paymentsStore");
   const closePayment = (): void => paymentsStore.closePayment();
-  let openedPaymentId: number | null = null;
-  let openedPayment: AdminPayment | null = null;
-  let paymentDetailLoading = false;
-
-  $: ({ openedPaymentId, openedPayment, paymentDetailLoading } = $paymentsStore);
-  $: payment = (openedPayment ||
-    (openedPaymentId ? { payment_id: openedPaymentId } : null)) as AdminPayment | null;
-  $: title = payment
-    ? at("payment_detail_title", { id: payment.payment_id }, `Платёж #${payment.payment_id}`)
-    : "";
-  $: description = payment
-    ? [
-        payment.provider,
-        payment.created_at ? fmtDate(payment.created_at) : "",
-        payment.user_label || payment.user_id,
-      ]
-        .filter(Boolean)
-        .join(" · ")
-    : "";
+  const paymentState = $derived($paymentsStore);
+  const openedPaymentId = $derived(paymentState.openedPaymentId as number | null);
+  const openedPayment = $derived(paymentState.openedPayment as AdminPayment | null);
+  const paymentDetailLoading = $derived(Boolean(paymentState.paymentDetailLoading));
+  const payment = $derived(
+    (openedPayment ||
+      (openedPaymentId ? { payment_id: openedPaymentId } : null)) as AdminPayment | null
+  );
+  const title = $derived(
+    payment
+      ? at("payment_detail_title", { id: payment.payment_id }, `Платёж #${payment.payment_id}`)
+      : ""
+  );
+  const description = $derived(
+    payment
+      ? [
+          payment.provider,
+          payment.created_at ? fmtDate(payment.created_at) : "",
+          payment.user_label || payment.user_id,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : ""
+  );
 
   function present(value: unknown): boolean {
     return value !== null && value !== undefined && value !== "";
@@ -122,7 +134,7 @@
     return present(purchasedGb) ? formatGb(purchasedGb) : "";
   }
 
-  $: paymentRows = [
+  const paymentRows = $derived([
     {
       label: "ID",
       value: payment?.payment_id ? `#${payment.payment_id}` : "",
@@ -142,9 +154,9 @@
       value: payment?.updated_at ? fmtDate(payment.updated_at) : "",
     },
     { label: at("description", {}, "Описание"), value: paymentDescription(payment) },
-  ] satisfies MetaRow[];
+  ] satisfies MetaRow[]);
 
-  $: providerRows = [
+  const providerRows = $derived([
     { label: at("provider", {}, "Провайдер"), value: payment?.provider },
     {
       label: at("payment_detail_provider_payment_id", {}, "ID у провайдера"),
@@ -161,9 +173,9 @@
       value: payment?.idempotence_key,
       copy: payment?.idempotence_key,
     },
-  ] satisfies MetaRow[];
+  ] satisfies MetaRow[]);
 
-  $: purchaseRows = [
+  const purchaseRows = $derived([
     { label: at("payment_detail_sale_mode", {}, "Тип продажи"), value: payment?.sale_mode },
     { label: at("payment_detail_tariff_key", {}, "Тариф"), value: payment?.tariff_key },
     {
@@ -183,13 +195,13 @@
       value: payment?.purchased_hwid_devices,
     },
     { label: at("payment_detail_promo_code", {}, "Промокод"), value: payment?.promo_code },
-  ] satisfies MetaRow[];
+  ] satisfies MetaRow[]);
 
-  $: userRows = [
+  const userRows = $derived([
     { label: at("user", {}, "Пользователь"), value: payment?.user_label },
     { label: "User ID", value: payment?.user_id, copy: payment?.user_id },
     { label: "Telegram ID", value: payment?.telegram_id, copy: payment?.telegram_id },
-  ] satisfies MetaRow[];
+  ] satisfies MetaRow[]);
 </script>
 
 <Dialog
