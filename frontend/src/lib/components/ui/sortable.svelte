@@ -11,23 +11,25 @@
   // `item`, `index` and `dragging`. The slot content fills the row alongside
   // the leading drag handle, so pass a grid `class` whose first column matches
   // the handle width.
-  export let items = [];
-  export let onReorder = () => {};
-  export let getKey = (item) => item;
-  export let handleLabel = "Drag to reorder";
-  export let disabled = false;
-  let className = "";
-  export { className as class };
-  export let containerClass = "";
+  let {
+    items = [],
+    onReorder = () => {},
+    getKey = (item) => item,
+    handleLabel = "Drag to reorder",
+    disabled = false,
+    class: className = "",
+    containerClass = "",
+    children,
+  } = $props();
 
-  let containerEl;
-  let dragIndex = null;
-  let dropSlot = null;
-  let dropIndex = null;
-  let dragResetToken = 0;
-  let rowRects = [];
-  $: dragActive = dragIndex !== null;
-  $: dragDisabled = disabled || !items?.length || items.length < 2;
+  let containerEl = $state();
+  let dragIndex = $state(null);
+  let dropSlot = $state(null);
+  let dropIndex = $state(null);
+  let dragResetToken = $state(0);
+  let rowRects = $state([]);
+  const dragActive = $derived(dragIndex !== null);
+  const dragDisabled = $derived(disabled || !items?.length || items.length < 2);
 
   const flipConfig = {
     duration(distance) {
@@ -188,13 +190,13 @@
           aria-label={handleLabel}
           aria-grabbed={dragIndex === index}
           title={handleLabel}
-          on:pointercancel={cancelPointerDrag}
-          on:keydown={(event) => handleHandleKeydown(event, index)}
+          onpointercancel={cancelPointerDrag}
+          onkeydown={(event) => handleHandleKeydown(event, index)}
         >
           <GripVertical size={14} />
         </button>
       {/key}
-      <slot {item} {index} dragging={dragIndex === index} />
+      {@render children?.(item, index, dragIndex === index)}
     </div>
   {/each}
 </div>

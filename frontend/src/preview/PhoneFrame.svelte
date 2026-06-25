@@ -1,12 +1,10 @@
 <script>
-  export let number = "";
-  export let label = "";
-  export let wide = false;
+  let { number = "", label = "", wide = false, children } = $props();
 </script>
 
 <section class:wide class="preview-phone-wrap">
   <h2><span>{number}.</span> {label}</h2>
   <div class="preview-phone">
-    <slot />
+    {@render children?.()}
   </div>
 </section>
