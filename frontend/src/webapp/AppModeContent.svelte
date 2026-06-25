@@ -1,12 +1,11 @@
 <script lang="ts">
-  import type { Writable } from "svelte/store";
-
   import BrandMark from "$lib/webapp/BrandMark.svelte";
   import type { AppActionRuntime } from "../lib/webapp/appActionRuntime.js";
   import type { AppShellView } from "../lib/webapp/appShellView.js";
   import type { LanguageOption } from "../lib/webapp/languageView.js";
   import type { AccountStore } from "../lib/webapp/stores/accountStore.js";
   import type { ActionsStore } from "../lib/webapp/stores/actionsStore.js";
+  import type { AuthStore } from "../lib/webapp/stores/authStore.js";
   import type { BillingStore } from "../lib/webapp/stores/billingStore.js";
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import type { SupportStore } from "../lib/webapp/stores/supportStore.js";
@@ -17,7 +16,6 @@
   import InstallGuideScreen from "./screens/InstallGuideScreen.svelte";
 
   type AnyRecord = Record<string, any>;
-  type WritableStoreLike = Writable<AnyRecord> & Record<string, any>;
   type Action = (...args: any[]) => any;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   const noopAction: Action = () => {};
@@ -42,7 +40,7 @@
     authIsError?: boolean;
     authResendCooldown?: number;
     authStatus?: string;
-    authStore: WritableStoreLike;
+    authStore: AuthStore;
     autoRenewBusy?: boolean;
     backToTariffList?: Action;
     billingStore: BillingStore;
@@ -312,7 +310,7 @@
     updateGuestLanguage,
   }: Props = $props();
 
-  const authState = $derived($authStore);
+  const authState = $derived(authStore);
   const accountView = $derived(shellView?.accountView);
   const appDataView = $derived(shellView?.appDataView);
   const billingView = $derived(shellView?.billingView);
@@ -601,9 +599,9 @@
       CFG={cfg}
       {brandTitle}
       {brand}
-      bind:email={$authStore.email}
-      bind:emailPassword={$authStore.emailPassword}
-      bind:emailCode={$authStore.emailCode}
+      bind:email={authStore.email}
+      bind:emailPassword={authStore.emailPassword}
+      bind:emailCode={authStore.emailCode}
       {pendingEmail}
       {authStatus}
       {authIsError}

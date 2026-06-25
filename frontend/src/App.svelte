@@ -524,7 +524,7 @@
   setContext("actionsStore", actionsStore);
   setContext("accountStore", accountStore);
 
-  const authState = $derived($authStore);
+  const authState = $derived(authStore);
   const authStatus = $derived(authState.authStatus);
   const authBusy = $derived(Boolean(authState.authBusy));
   const telegramLoginBusy = $derived(Boolean(authState.telegramLoginBusy));
