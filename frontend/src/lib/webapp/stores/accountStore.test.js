@@ -1,4 +1,3 @@
-import { get } from "svelte/store";
 import { describe, expect, it, vi } from "vitest";
 
 import { createAccountStore } from "./accountStore.ts";
@@ -43,7 +42,7 @@ describe("accountStore", () => {
     const { store } = makeAccountStore();
 
     store.openLinkEmailDialog("User@Example.COM");
-    expect(get(store)).toMatchObject({
+    expect(store).toMatchObject({
       linkEmailOpen: true,
       linkEmailValue: "User@Example.COM",
       linkEmailCode: "",
@@ -52,7 +51,7 @@ describe("accountStore", () => {
     });
 
     store.closeLinkEmailDialog();
-    expect(get(store)).toMatchObject({
+    expect(store).toMatchObject({
       linkEmailOpen: false,
       linkEmailValue: "User@Example.COM",
       linkEmailCode: "",
@@ -67,7 +66,7 @@ describe("accountStore", () => {
     await store.requestLinkEmailCode();
 
     expect(deps.api).not.toHaveBeenCalled();
-    expect(get(store).linkEmailFieldError).toBe("wa_auth_invalid_email");
+    expect(store.linkEmailFieldError).toBe("wa_auth_invalid_email");
   });
 
   it("updates account language and refreshes local data", async () => {
@@ -88,7 +87,7 @@ describe("accountStore", () => {
       preserveView: true,
       preserveScroll: true,
     });
-    expect(get(store).languageBusy).toBe(false);
+    expect(store.languageBusy).toBe(false);
   });
 
   it("logs out non-Telegram sessions through the public API", async () => {

@@ -537,10 +537,9 @@
   const deviceTopupModalOpen = $derived(Boolean(billingState.deviceTopupModalOpen));
   const changeModalOpen = $derived(Boolean(billingState.changeModalOpen));
   const changeConfirmOpen = $derived(Boolean(billingState.changeConfirmOpen));
-  const accountState = $derived($accountStore);
-  const linkEmailOpen = $derived(Boolean(accountState.linkEmailOpen));
-  const setPasswordOpen = $derived(Boolean(accountState.setPasswordOpen));
-  const languageBusy = $derived(Boolean(accountState.languageBusy));
+  const linkEmailOpen = $derived(Boolean(accountStore.linkEmailOpen));
+  const setPasswordOpen = $derived(Boolean(accountStore.setPasswordOpen));
+  const languageBusy = $derived(Boolean(accountStore.languageBusy));
   const trialActivationResult = $derived(actionsStore.trialActivationResult);
 
   const shellView: AppShellView = $derived(

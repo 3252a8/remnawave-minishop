@@ -5,6 +5,7 @@
   import type { AppActionRuntime } from "../lib/webapp/appActionRuntime.js";
   import type { AppShellView } from "../lib/webapp/appShellView.js";
   import type { LanguageOption } from "../lib/webapp/languageView.js";
+  import type { AccountStore } from "../lib/webapp/stores/accountStore.js";
   import type { ActionsStore } from "../lib/webapp/stores/actionsStore.js";
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import type { SupportStore } from "../lib/webapp/stores/supportStore.js";
@@ -22,7 +23,7 @@
   const noopPrimaryPayActionLabel = () => "";
 
   type Props = {
-    accountStore: WritableStoreLike;
+    accountStore: AccountStore;
     shellView?: AppShellView | null;
     appActions?: AppActionRuntime | null;
     actionsStore: ActionsStore;
@@ -311,7 +312,6 @@
   }: Props = $props();
 
   const authState = $derived($authStore);
-  const accountState = $derived($accountStore);
   const accountView = $derived(shellView?.accountView);
   const appDataView = $derived(shellView?.appDataView);
   const billingView = $derived(shellView?.billingView);
@@ -340,8 +340,8 @@
   const supportUnreadCount = $derived(supportStore.unreadCount);
   const supportUnreadLoading = $derived(supportStore.unreadLoading);
   const supportUnreadLoaded = $derived(supportStore.unreadLoaded);
-  const linkEmailBusy = $derived(accountState.linkEmailBusy);
-  const linkTelegramBusy = $derived(accountState.linkTelegramBusy);
+  const linkEmailBusy = $derived(accountStore.linkEmailBusy);
+  const linkTelegramBusy = $derived(accountStore.linkTelegramBusy);
 
   const promoCode = $derived(actionsStore.promoCode);
   const promoBusy = $derived(actionsStore.promoBusy);

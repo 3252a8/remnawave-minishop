@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Writable } from "svelte/store";
+  import type { AccountStore } from "../lib/webapp/stores/accountStore.js";
 
   import { CheckCircle2 } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
@@ -14,7 +15,7 @@
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
   type Props = {
-    accountStore: StoreLike;
+    accountStore: AccountStore;
     activationSuccessDialogOpen?: boolean;
     activationSuccessUseInstallGuides?: boolean;
     backToTariffList: Action;
@@ -73,36 +74,36 @@
 </script>
 
 <PaymentDialogs
-  bind:linkEmailCode={$accountStore.linkEmailCode}
-  bind:linkEmailFieldError={$accountStore.linkEmailFieldError}
-  bind:linkEmailValue={$accountStore.linkEmailValue}
+  bind:linkEmailCode={accountStore.linkEmailCode}
+  bind:linkEmailFieldError={accountStore.linkEmailFieldError}
+  bind:linkEmailValue={accountStore.linkEmailValue}
   bind:paymentModalOpen={$billingStore.paymentModalOpen}
   bind:paymentStep={$billingStore.paymentStep}
   bind:selectedMethod={$billingStore.selectedMethod}
   bind:selectedPlan={$billingStore.selectedPlan}
   bind:renewHwidDevices={$billingStore.renewHwidDevices}
   bind:selectedTariffKey={$billingStore.selectedTariffKey}
-  bind:setPasswordCode={$accountStore.setPasswordCode}
-  bind:setPasswordConfirm={$accountStore.setPasswordConfirm}
-  bind:setPasswordValue={$accountStore.setPasswordValue}
+  bind:setPasswordCode={accountStore.setPasswordCode}
+  bind:setPasswordConfirm={accountStore.setPasswordConfirm}
+  bind:setPasswordValue={accountStore.setPasswordValue}
   setPasswordEmail={user?.email || ""}
   createPayment={billingStore.createPayment}
   deviceConfirmOpen={devicesStore.deviceConfirmOpen}
   deviceDisconnectBusy={devicesStore.deviceDisconnectBusy}
   deviceToDisconnect={devicesStore.deviceToDisconnect}
   {disconnectDevice}
-  linkEmailBusy={$accountStore.linkEmailBusy}
-  linkEmailIsError={$accountStore.linkEmailIsError}
-  linkEmailOpen={emailAuthEnabled && $accountStore.linkEmailOpen}
-  linkEmailPending={$accountStore.linkEmailPending}
-  linkEmailResendCooldown={$accountStore.linkEmailResendCooldown}
-  linkEmailStatus={$accountStore.linkEmailStatus}
-  setPasswordBusy={$accountStore.setPasswordBusy}
-  setPasswordIsError={$accountStore.setPasswordIsError}
-  setPasswordOpen={emailAuthEnabled && $accountStore.setPasswordOpen}
-  setPasswordPending={$accountStore.setPasswordPending}
-  setPasswordResendCooldown={$accountStore.setPasswordResendCooldown}
-  setPasswordStatus={$accountStore.setPasswordStatus}
+  linkEmailBusy={accountStore.linkEmailBusy}
+  linkEmailIsError={accountStore.linkEmailIsError}
+  linkEmailOpen={emailAuthEnabled && accountStore.linkEmailOpen}
+  linkEmailPending={accountStore.linkEmailPending}
+  linkEmailResendCooldown={accountStore.linkEmailResendCooldown}
+  linkEmailStatus={accountStore.linkEmailStatus}
+  setPasswordBusy={accountStore.setPasswordBusy}
+  setPasswordIsError={accountStore.setPasswordIsError}
+  setPasswordOpen={emailAuthEnabled && accountStore.setPasswordOpen}
+  setPasswordPending={accountStore.setPasswordPending}
+  setPasswordResendCooldown={accountStore.setPasswordResendCooldown}
+  setPasswordStatus={accountStore.setPasswordStatus}
   {hasMultipleTariffs}
   {methods}
   payBusy={$billingStore.payBusy}
