@@ -1,11 +1,9 @@
 <script>
   import { cn } from "$lib/utils.js";
 
-  export let error = false;
-  let className = "";
-  export { className as class };
+  let { error = false, class: className = "", children, ...rest } = $props();
 </script>
 
-<p class={cn("status-line", error && "error", className)} {...$$restProps}>
-  <slot />
+<p class={cn("status-line", error && "error", className)} {...rest}>
+  {@render children?.()}
 </p>

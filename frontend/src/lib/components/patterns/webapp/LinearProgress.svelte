@@ -1,12 +1,9 @@
 <script>
   import { cn } from "$lib/utils.js";
 
-  export let value = 0;
-  export let label = "";
-  let className = "";
-  export { className as class };
+  let { value = 0, label = "", class: className = "", ...rest } = $props();
 
-  $: clamped = Math.max(0, Math.min(100, Number(value) || 0));
+  const clamped = $derived(Math.max(0, Math.min(100, Number(value) || 0)));
 </script>
 
 <div
@@ -16,7 +13,7 @@
   aria-valuemin={label ? "0" : undefined}
   aria-valuemax={label ? "100" : undefined}
   aria-valuenow={label ? Math.round(clamped) : undefined}
-  {...$$restProps}
+  {...rest}
 >
   <span style={`width: ${clamped}%`}></span>
 </div>

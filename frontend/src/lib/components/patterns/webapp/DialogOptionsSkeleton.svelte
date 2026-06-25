@@ -1,13 +1,15 @@
 <script>
   import Skeleton from "$components/ui/skeleton.svelte";
 
-  export let label = "";
-  export let rows = 3;
-  export let actions = 0;
-  export let methods = 2;
-  export let showNote = false;
-  export let showPayButton = true;
-  export let showMeta = true;
+  let {
+    label = "",
+    rows = 3,
+    actions = 0,
+    methods = 2,
+    showNote = false,
+    showPayButton = true,
+    showMeta = true,
+  } = $props();
 </script>
 
 <div class="dialog-skeleton" aria-label={label}>
