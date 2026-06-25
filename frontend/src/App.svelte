@@ -49,7 +49,6 @@
   } from "./lib/webapp/tariffs.js";
   import { createBillingDeeplinkEffects } from "./lib/webapp/billingDeeplinkEffects.js";
   import { createWebappSectionContext } from "./lib/webapp/webappSectionContext";
-  import { activeTabForWebappSection } from "./lib/webapp/sectionAvailability.js";
   import { readThemePreviewDraft, syncThemeGoogleFonts } from "./lib/webapp/themeStyle.js";
   import { computeThemeView } from "./lib/webapp/themeView.js";
   import { computeBillingView } from "./lib/webapp/billingView.js";
@@ -73,11 +72,7 @@
   import { buildAdminPanelProps } from "./lib/webapp/adminPanelProps.js";
   import { createAdminRuntime } from "./lib/webapp/adminRuntime.js";
   import { createExternalLinkRuntime } from "./lib/webapp/externalLinkRuntime.js";
-  import {
-    resolveInitialLoadRoute,
-    resolveLoadedWebappRoute,
-    resolveSupportLoadRoute,
-  } from "./lib/webapp/appLoadFlow.js";
+  import { createAppLoadExecutor, type AppLoadDataOptions } from "./lib/webapp/appLoadExecutor.js";
   import { createPopstateLifecycle } from "./lib/webapp/popstateLifecycle.js";
   import {
     applyThemeDocumentEffects,
@@ -97,13 +92,6 @@
   import { publicInstallTokenFromPath } from "./lib/webapp/routes.js";
 
   type AnyRecord = Record<string, any>;
-  type AppLoadDataOptions = {
-    fresh?: boolean;
-    preserveView?: boolean;
-    section?: string;
-    adminSection?: string | null;
-    [key: string]: any;
-  };
   export let mockRuntime: AnyRecord | null = null;
 
   const FALLBACK_BRAND_TITLE = "Subscription";
@@ -831,6 +819,62 @@
     syncAppSectionPath,
   });
 
+  const appLoadExecutor = createAppLoadExecutor({
+    adminRuntime,
+    applyPostLoadBillingDeeplinks,
+    currentSearchParams,
+    dataClientLoadData: (options) => dataClient.loadData(options) as Promise<AnyRecord>,
+    getModalState: () => ({
+      changeModalOpen,
+      deviceTopupModalOpen,
+      topupKind,
+      topupModalOpen,
+    }),
+    getRouteState: () => ({
+      activeTab,
+      adminActiveSection,
+      screen,
+    }),
+    getWindowSearch: () => window.location.search,
+    hydrateSupportUnread,
+    initialAdminSectionFromLocation,
+    isDocsDemo: () => isDocsDemo,
+    isMock: () => Boolean(MOCK),
+    loadDeviceTopupOptions: () => billingStore.loadDeviceTopupOptions(),
+    loadInstallGuides: () => installGuidesStore.load(),
+    loadSectionData,
+    loadTariffChangeOptions: () => billingStore.loadTariffChangeOptions(),
+    loadTopupOptions: (kind) => billingStore.loadTopupOptions(kind),
+    resetBillingSelection: (defaultMethod) => {
+      billingStore.update((s) => ({
+        ...s,
+        selectedPlan: null,
+        selectedTariffKey: "",
+        paymentStep: "tariff",
+        renewHwidDevices: true,
+        selectedMethod: defaultMethod,
+      }));
+    },
+    routePathnameFromLocation,
+    routePrefix,
+    setData: (payload) => {
+      data = payload;
+    },
+    setDocsDemoParentRouteConsumed: () => {
+      docsDemoParentRouteConsumed = true;
+    },
+    setRouteState: (patch) => {
+      if (patch.activeTab !== undefined) activeTab = patch.activeTab;
+      if (patch.adminActiveSection !== undefined) adminActiveSection = patch.adminActiveSection;
+      if (patch.mode !== undefined) mode = patch.mode;
+      if (patch.screen !== undefined) screen = patch.screen;
+    },
+    showAdminUnavailable: () => {
+      showToast(t("wa_unavailable"));
+    },
+    syncLoadedRoute,
+  });
+
   onMount(() => {
     if (isPreviewBoard) return;
     if (isAppLaunchRoute) return;
@@ -978,100 +1022,7 @@
   }
 
   async function loadData(options: AppLoadDataOptions = {}) {
-    const currentQuery = currentSearchParams();
-    const initialRoute = resolveInitialLoadRoute({
-      activeTab,
-      adminActiveSection,
-      adminSection: options?.adminSection,
-      fallbackAdminSection: initialAdminSectionFromLocation(),
-      mock: Boolean(MOCK),
-      pathname: routePathnameFromLocation(),
-      preserveView: options?.preserveView === true,
-      routePrefix,
-      screen,
-      screenQuery: currentQuery.get("screen"),
-      section: options?.section,
-    });
-    const installGuidesPromise = initialRoute.shouldPreloadInstallGuides
-      ? installGuidesStore.load()
-      : null;
-    const payload = (await dataClient.loadData({ fresh: options?.fresh === true })) as AnyRecord;
-    if (!payload.ok) throw new Error(payload.error || "load_failed");
-    data = payload;
-    billingStore.update((s) => ({
-      ...s,
-      selectedPlan: null,
-      selectedTariffKey: "",
-      paymentStep: "tariff",
-      renewHwidDevices: true,
-      selectedMethod: payload.payment_methods?.[0]?.id || "",
-    }));
-    const loadedRoute = resolveLoadedWebappRoute({
-      fallbackAdminSection: initialAdminSectionFromLocation(),
-      payload,
-      preservedAdminSection: initialRoute.preservedAdminSection,
-      routeSection: initialRoute.routeSection,
-    });
-    let section = loadedRoute.section;
-    const initialAdminSection = loadedRoute.initialAdminSection;
-    if (section === "admin" && payload.user?.is_admin) {
-      adminRuntime.cancelAdminAssetsPrefetch();
-      adminActiveSection = initialAdminSection || "stats";
-      activeTab = "settings";
-      screen = "admin";
-      mode = "app";
-      try {
-        await adminRuntime.ensureI18nScope("admin");
-        await adminRuntime.ensureAdminBundle();
-      } catch (_error) {
-        void _error;
-        section = "settings";
-        activeTab = "settings";
-        screen = "settings";
-        showToast(t("wa_unavailable"));
-      }
-    }
-    const supportRoute = resolveSupportLoadRoute({
-      pathname: routePathnameFromLocation(),
-      routePrefix,
-      section,
-    });
-    const initialSupportTicketId = supportRoute.initialSupportTicketId;
-    if (isDocsDemo) docsDemoParentRouteConsumed = true;
-    activeTab =
-      section === loadedRoute.section ? loadedRoute.activeTab : activeTabForWebappSection(section);
-    screen = section;
-    mode = "app";
-    if (loadedRoute.shouldPrefetchAdminAssets) {
-      adminRuntime.scheduleAdminAssetsPrefetch(true);
-    }
-    hydrateSupportUnread({
-      supportEnabled: loadedRoute.supportEnabled,
-      unreadCount: payload.support_unread_count,
-    });
-    syncLoadedRoute({
-      initialAdminSection,
-      initialSupportTicketId,
-      section,
-      supportTargetPath: supportRoute.targetPath,
-    });
-    await loadSectionData({
-      initialSupportTicketId,
-      installGuidesPromise,
-      payload,
-      section,
-    });
-    if (topupModalOpen) await billingStore.loadTopupOptions(topupKind);
-    if (deviceTopupModalOpen) await billingStore.loadDeviceTopupOptions();
-    if (changeModalOpen) await billingStore.loadTariffChangeOptions();
-
-    applyPostLoadBillingDeeplinks({
-      defaultMethod: String(payload.payment_methods?.[0]?.id || ""),
-      plans: (payload.plans?.length ? payload.plans : []) as BillingPlan[],
-      search: window.location.search,
-      subscription: (payload.subscription || {}) as AnyRecord,
-    });
-    return payload;
+    return appLoadExecutor.loadData(options) as Promise<AnyRecord>;
   }
 
   const {
