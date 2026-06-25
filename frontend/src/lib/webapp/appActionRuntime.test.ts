@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createAppActionRuntime, type AppActionRuntimeDeps } from "./appActionRuntime.js";
+import { resetShellState, shellState } from "./shellState.svelte.js";
 
 function createDeps(overrides: Partial<AppActionRuntimeDeps> = {}) {
   const state = {
@@ -27,6 +28,13 @@ function createDeps(overrides: Partial<AppActionRuntimeDeps> = {}) {
     trialActivationResult: null as Record<string, unknown> | null,
     trafficMode: false,
   };
+  resetShellState({
+    adminActiveSection: state.adminActiveSection,
+    autoRenewBusy: state.autoRenewBusy,
+    publicInstallSubscription: state.publicInstallSubscription,
+    screen: state.screen,
+    tg: state.telegram,
+  });
   const billingStore = {
     backToTariffList: vi.fn(),
     closeDeviceTopupModal: vi.fn(),
@@ -45,28 +53,7 @@ function createDeps(overrides: Partial<AppActionRuntimeDeps> = {}) {
     publicPath: vi.fn((shareToken: string) => `/subscription-guides/public/${shareToken}`),
   };
   const calls = {
-    markTelegramNotificationsBotOpened: vi.fn(),
     openExternalLink: vi.fn(),
-    setActiveTab: vi.fn((tab: string) => {
-      void tab;
-    }),
-    setAdminActiveSection: vi.fn((section: string) => {
-      state.adminActiveSection = section;
-    }),
-    setAutoRenewBusy: vi.fn((busy: boolean) => {
-      state.autoRenewBusy = busy;
-    }),
-    setMode: vi.fn(),
-    setPublicInstallSubscription: vi.fn((subscription: Record<string, unknown> | null) => {
-      state.publicInstallSubscription = subscription;
-    }),
-    setPublicInstallToken: vi.fn(),
-    setScreen: vi.fn((screen: string) => {
-      state.screen = screen;
-    }),
-    setTelegram: vi.fn((telegram: { openTelegramLink?: (url: string) => void }) => {
-      state.telegram = telegram;
-    }),
     showToast: vi.fn(),
     syncAppSectionPath: vi.fn(),
   };
@@ -110,9 +97,7 @@ function createDeps(overrides: Partial<AppActionRuntimeDeps> = {}) {
       openExternalLink: calls.openExternalLink,
       refreshAppLaunchTarget: vi.fn(),
     },
-    getAdminActiveSection: () => state.adminActiveSection,
     getAppSettings: () => state.appSettings,
-    getAutoRenewBusy: () => state.autoRenewBusy,
     getDevicesEnabled: () => state.devicesEnabled,
     getDemoTelegramAuthPayload: () => ({ id: 1 }),
     getEmailAuthEnabled: () => state.emailAuthEnabled,
@@ -122,9 +107,7 @@ function createDeps(overrides: Partial<AppActionRuntimeDeps> = {}) {
     getOrigin: () => "https://shop.example",
     getPlans: () => state.plans,
     getPreloadHost: () => null,
-    getPublicInstallSubscription: () => state.publicInstallSubscription,
     getRoutePathname: () => "/app/admin/stats",
-    getScreen: () => state.screen,
     getSelectedPlan: () => state.selectedPlan,
     getSelectedTariffPlans: () => state.selectedTariffPlans,
     getSingleTariffMode: () => state.singleTariffMode,
@@ -132,26 +115,14 @@ function createDeps(overrides: Partial<AppActionRuntimeDeps> = {}) {
     getSupportEnabled: () => state.supportEnabled,
     getTariffCatalog: () => state.tariffCatalog,
     getTariffMode: () => state.tariffMode,
-    getTelegram: () => state.telegram,
-    getTelegramMiniAppInitData: () => "",
     getTelegramNotificationsStartLink: () => state.telegramNotificationsStartLink,
     getTelegramOAuthClientId: () => 42,
     getTrafficMode: () => state.trafficMode,
     getTrialActivationResult: () => state.trialActivationResult,
     installGuidesStore,
-    isDemoAuthLogin: () => false,
     loadData: vi.fn(async () => undefined),
-    markTelegramNotificationsBotOpened: calls.markTelegramNotificationsBotOpened,
     refreshTelegram: vi.fn(() => state.telegram),
     routePrefix: "",
-    setActiveTab: calls.setActiveTab,
-    setAdminActiveSection: calls.setAdminActiveSection,
-    setAutoRenewBusy: calls.setAutoRenewBusy,
-    setMode: calls.setMode,
-    setPublicInstallSubscription: calls.setPublicInstallSubscription,
-    setPublicInstallToken: calls.setPublicInstallToken,
-    setScreen: calls.setScreen,
-    setTelegram: calls.setTelegram,
     showToast: calls.showToast,
     supportStore: {
       loadList: vi.fn(),
@@ -193,7 +164,7 @@ describe("appActionRuntime", () => {
     state.canUseInstallGuides = true;
     runtime.openInstallOrConnect();
 
-    expect(calls.setScreen).toHaveBeenCalledWith("install");
+    expect(shellState.screen).toBe("install");
     expect(installGuidesStore.load).toHaveBeenCalled();
     expect(calls.openExternalLink).not.toHaveBeenCalled();
 
@@ -217,14 +188,14 @@ describe("appActionRuntime", () => {
   });
 
   it("opens Telegram notification links through Telegram when available", () => {
-    const { calls, deps, state } = createDeps();
+    const { calls, deps } = createDeps();
     const openTelegramLink = vi.fn();
-    state.telegram = { openTelegramLink };
+    shellState.tg = { openTelegramLink };
     const runtime = createAppActionRuntime(deps);
 
     runtime.openTelegramNotificationsBot();
 
-    expect(calls.markTelegramNotificationsBotOpened).toHaveBeenCalled();
+    expect(shellState.telegramNotificationsBotOpenedAt).toBeGreaterThan(0);
     expect(openTelegramLink).toHaveBeenCalledWith("https://t.me/example_bot");
     expect(calls.openExternalLink).not.toHaveBeenCalled();
   });

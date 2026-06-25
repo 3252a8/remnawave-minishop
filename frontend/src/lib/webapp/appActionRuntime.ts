@@ -10,6 +10,7 @@ import { createPromoTrialActions } from "./promoTrialActions.js";
 import { createTariffActions } from "./tariffActions.js";
 import { createTelegramLoginActions } from "./telegramLoginActions.js";
 import { createWebappNavigation } from "./webappNavigation.js";
+import { shellState } from "./shellState.svelte";
 
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
@@ -24,6 +25,7 @@ type PrimaryPayLabelDeps = Parameters<typeof createPrimaryPayActionLabel>[0];
 type PromoTrialDeps = Parameters<typeof createPromoTrialActions>[0];
 type TariffActionDeps = Parameters<typeof createTariffActions>[0];
 type TelegramLoginDeps = Parameters<typeof createTelegramLoginActions>[0];
+type PublicInstallSubscription = ReturnType<ConnectDeps["getPublicInstallSubscription"]>;
 
 type ExternalLinkActions = {
   openAppLaunchTarget: () => void;
@@ -55,9 +57,7 @@ export type AppActionRuntimeDeps = {
   demoEmail: () => string;
   devicesStore: BillingModalDeps["devicesStore"];
   externalLinkActions: ExternalLinkActions;
-  getAdminActiveSection: AdminPanelDeps["getAdminActiveSection"];
   getAppSettings: PrimaryPayLabelDeps["getAppSettings"];
-  getAutoRenewBusy: AutoRenewDeps["getBusy"];
   getDevicesEnabled: () => boolean;
   getDemoTelegramAuthPayload: TelegramLoginDeps["getDemoTelegramAuthPayload"];
   getEmailAuthEnabled: AccountUiDeps["emailAuthEnabled"];
@@ -67,9 +67,7 @@ export type AppActionRuntimeDeps = {
   getOrigin: InstallRuntimeDeps["getOrigin"];
   getPlans: BillingModalDeps["plans"] & TariffActionDeps["getPlans"];
   getPreloadHost: InstallRuntimeDeps["getPreloadHost"];
-  getPublicInstallSubscription: ConnectDeps["getPublicInstallSubscription"];
   getRoutePathname: AdminPanelDeps["getRoutePathname"];
-  getScreen: AdminPanelDeps["getScreen"];
   getSelectedPlan: PrimaryPayLabelDeps["getSelectedPlan"];
   getSelectedTariffPlans: TariffActionDeps["getSelectedTariffPlans"];
   getSingleTariffMode: BillingModalDeps["singleTariffMode"];
@@ -80,8 +78,6 @@ export type AppActionRuntimeDeps = {
   getSupportEnabled: () => boolean;
   getTariffCatalog: BillingModalDeps["tariffCatalog"] & TariffActionDeps["getTariffCatalog"];
   getTariffMode: BillingModalDeps["tariffMode"];
-  getTelegram: AccountUiDeps["getTelegram"];
-  getTelegramMiniAppInitData: TelegramLoginDeps["getTelegramMiniAppInitData"];
   getTelegramNotificationsStartLink: AccountUiDeps["getTelegramNotificationsStartLink"];
   getTelegramOAuthClientId: TelegramLoginDeps["getTelegramOAuthClientId"];
   getTrafficMode: PrimaryPayLabelDeps["getTrafficMode"];
@@ -89,19 +85,9 @@ export type AppActionRuntimeDeps = {
   installGuidesStore: InstallRuntimeDeps["installGuidesStore"] & {
     load: (force?: boolean) => unknown;
   };
-  isDemoAuthLogin: TelegramLoginDeps["isDemoAuthLogin"] & AccountUiDeps["isDemoAuthLogin"];
   loadData: AutoRenewDeps["loadData"];
-  markTelegramNotificationsBotOpened: AccountUiDeps["markTelegramNotificationsBotOpened"];
   refreshTelegram: AccountUiDeps["refreshTelegram"];
   routePrefix: string;
-  setActiveTab: NavigationDeps["setActiveTab"];
-  setAdminActiveSection: AdminPanelDeps["setAdminActiveSection"];
-  setAutoRenewBusy: AutoRenewDeps["setBusy"];
-  setMode: InstallRuntimeDeps["setMode"];
-  setPublicInstallSubscription: InstallRuntimeDeps["setPublicInstallSubscription"];
-  setPublicInstallToken: InstallRuntimeDeps["setPublicInstallToken"];
-  setScreen: NavigationDeps["setScreen"];
-  setTelegram: AccountUiDeps["setTelegram"];
   showToast: AutoRenewDeps["showToast"];
   supportStore: SupportStore;
   syncAppSectionPath: AdminPanelDeps["syncAppSectionPath"];
@@ -120,9 +106,7 @@ export function createAppActionRuntime({
   demoEmail,
   devicesStore,
   externalLinkActions,
-  getAdminActiveSection,
   getAppSettings,
-  getAutoRenewBusy,
   getDevicesEnabled,
   getDemoTelegramAuthPayload,
   getEmailAuthEnabled,
@@ -132,9 +116,7 @@ export function createAppActionRuntime({
   getOrigin,
   getPlans,
   getPreloadHost,
-  getPublicInstallSubscription,
   getRoutePathname,
-  getScreen,
   getSelectedPlan,
   getSelectedTariffPlans,
   getSingleTariffMode,
@@ -142,35 +124,31 @@ export function createAppActionRuntime({
   getSupportEnabled,
   getTariffCatalog,
   getTariffMode,
-  getTelegram,
-  getTelegramMiniAppInitData,
   getTelegramNotificationsStartLink,
   getTelegramOAuthClientId,
   getTrafficMode,
   getTrialActivationResult,
   installGuidesStore,
-  isDemoAuthLogin,
   loadData,
-  markTelegramNotificationsBotOpened,
   refreshTelegram,
   routePrefix,
-  setActiveTab,
-  setAdminActiveSection,
-  setAutoRenewBusy,
-  setMode,
-  setPublicInstallSubscription,
-  setPublicInstallToken,
-  setScreen,
-  setTelegram,
   showToast,
   supportStore,
   syncAppSectionPath,
   t,
 }: AppActionRuntimeDeps) {
+  const isDemoAuthLogin = () => Boolean(shellState.demoAuthLogin);
+  const setActiveTab = (tab: string) => {
+    shellState.activeTab = tab;
+  };
+  const setScreen = (screen: string) => {
+    shellState.screen = screen;
+  };
+
   const telegramLoginActions = createTelegramLoginActions({
     authStore,
     getDemoTelegramAuthPayload,
-    getTelegramMiniAppInitData,
+    getTelegramMiniAppInitData: () => shellState.telegramMiniAppInitData,
     getTelegramOAuthClientId,
     isDemoAuthLogin,
   });
@@ -179,19 +157,24 @@ export function createAppActionRuntime({
     accountStore,
     demoEmail,
     emailAuthEnabled: getEmailAuthEnabled,
-    getTelegram,
+    getTelegram: () => shellState.tg,
     getTelegramNotificationsStartLink,
     isDemoAuthLogin,
-    markTelegramNotificationsBotOpened,
+    markTelegramNotificationsBotOpened: (openedAt) => {
+      shellState.telegramNotificationsBotOpenedAt = openedAt;
+    },
     openExternalLink: externalLinkActions.openExternalLink,
     refreshTelegram,
-    setTelegram,
+    setTelegram: (telegram) => {
+      shellState.tg = telegram;
+    },
     showToast,
     t,
   });
 
   const connectActions = createConnectActions({
-    getPublicInstallSubscription,
+    getPublicInstallSubscription: () =>
+      shellState.publicInstallSubscription as PublicInstallSubscription,
     getSubscription,
     getTrialActivationResult,
     openExternalLink: externalLinkActions.openExternalLink,
@@ -225,9 +208,15 @@ export function createAppActionRuntime({
     openConnectLink: connectActions.openConnectLink,
     openTrialConnectLink: connectActions.openTrialConnectLink,
     setActiveTab,
-    setMode,
-    setPublicInstallSubscription,
-    setPublicInstallToken,
+    setMode: (mode) => {
+      shellState.mode = mode;
+    },
+    setPublicInstallSubscription: (subscription) => {
+      shellState.publicInstallSubscription = subscription;
+    },
+    setPublicInstallToken: (token) => {
+      shellState.publicInstallToken = token;
+    },
     setScreen,
   });
 
@@ -249,14 +238,16 @@ export function createAppActionRuntime({
     closePaymentModal: () => billingStore.closePaymentModal(),
     ensureAdminBundle: adminRuntime.ensureAdminBundle,
     ensureI18nScope: adminRuntime.ensureI18nScope,
-    getAdminActiveSection,
+    getAdminActiveSection: () => shellState.adminActiveSection,
     getRoutePathname,
-    getScreen,
+    getScreen: () => shellState.screen,
     isAdmin: getIsAdmin,
     isFileProtocol: getIsFileProtocol,
     routePrefix,
     setActiveTab,
-    setAdminActiveSection,
+    setAdminActiveSection: (section) => {
+      shellState.adminActiveSection = section;
+    },
     setScreen,
     showToast,
     syncAppSectionPath,
@@ -280,9 +271,11 @@ export function createAppActionRuntime({
     ...createPromoTrialActions({ actionsStore }),
     ...createAutoRenewAction({
       billing,
-      getBusy: getAutoRenewBusy,
+      getBusy: () => shellState.autoRenewBusy,
       loadData,
-      setBusy: setAutoRenewBusy,
+      setBusy: (busy) => {
+        shellState.autoRenewBusy = busy;
+      },
       showToast,
       t,
     }),

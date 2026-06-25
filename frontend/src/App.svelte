@@ -760,9 +760,7 @@
       openExternalLink,
       refreshAppLaunchTarget,
     },
-    getAdminActiveSection: () => adminActiveSection,
     getAppSettings: () => appSettings,
-    getAutoRenewBusy: () => autoRenewBusy,
     getDevicesEnabled: () => devicesEnabled,
     getDemoTelegramAuthPayload: () => demoAuth.telegramAuthPayload(),
     getEmailAuthEnabled: () => emailAuthEnabled,
@@ -772,9 +770,7 @@
     getOrigin: () => (typeof window !== "undefined" ? window.location.origin : ""),
     getPlans: () => plans,
     getPreloadHost: () => (typeof window !== "undefined" ? (window as unknown as AnyRecord) : null),
-    getPublicInstallSubscription: () => publicInstallSubscription,
     getRoutePathname: routePathnameFromLocation,
-    getScreen: () => screen,
     getSelectedPlan: () => selectedPlan,
     getSelectedTariffPlans: () => selectedTariffPlans,
     getSingleTariffMode: () => singleTariffMode,
@@ -782,44 +778,14 @@
     getSupportEnabled: () => supportEnabled,
     getTariffCatalog: () => tariffCatalog,
     getTariffMode: () => tariffMode,
-    getTelegram: () => tg,
-    getTelegramMiniAppInitData: () => telegramMiniAppInitData,
     getTelegramNotificationsStartLink: () => telegramNotificationsStartLink,
     getTelegramOAuthClientId: () => telegramOAuthClientId,
     getTrafficMode: () => trafficMode,
     getTrialActivationResult: () => trialActivationResult,
     installGuidesStore,
-    isDemoAuthLogin: () => Boolean(demoAuthLogin),
     loadData,
-    markTelegramNotificationsBotOpened: (openedAt) => {
-      shellState.telegramNotificationsBotOpenedAt = openedAt;
-    },
     refreshTelegram: telegramRuntime.refreshTelegram,
     routePrefix,
-    setActiveTab: (tab) => {
-      shellState.activeTab = tab;
-    },
-    setAdminActiveSection: (section) => {
-      shellState.adminActiveSection = section;
-    },
-    setAutoRenewBusy: (busy) => {
-      shellState.autoRenewBusy = busy;
-    },
-    setMode: (nextMode) => {
-      shellState.mode = nextMode;
-    },
-    setPublicInstallSubscription: (subscription) => {
-      shellState.publicInstallSubscription = subscription;
-    },
-    setPublicInstallToken: (nextToken) => {
-      shellState.publicInstallToken = nextToken;
-    },
-    setScreen: (nextScreen) => {
-      shellState.screen = nextScreen;
-    },
-    setTelegram: (value) => {
-      shellState.tg = value;
-    },
     showToast,
     supportStore,
     syncAppSectionPath,
