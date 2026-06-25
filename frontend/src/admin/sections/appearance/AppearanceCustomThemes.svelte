@@ -8,41 +8,59 @@
   type LogoMode = "desktop" | "mobile";
   type SelectCallback = (...args: never[]) => void;
 
-  export let at: TranslateFn;
-  export let customThemes: ThemeEntry[] = [];
-  export let activeKey = "";
-  export let themesSaving = false;
-  export let isThemeDirty: (theme: ThemeEntry | null | undefined) => boolean;
-  export let themeTitle: (theme: ThemeEntry) => string;
-  export let themeDescription: (theme: ThemeEntry) => string;
-  export let isThemeTokenDirty: (
-    theme: ThemeEntry | null | undefined,
-    tokenKey: string,
-    variant?: string | null
-  ) => boolean;
-  export let isThemeAccentSet: (theme: ThemeEntry) => boolean;
-  export let pickerHex: (value: unknown) => string;
-  export let openThemeAccentPicker: (theme: ThemeEntry) => void;
-  export let themeAccentInputHandler: (theme: ThemeEntry) => (event: Event) => void;
-  export let isThemePropertyDirty: (
-    theme: ThemeEntry | null | undefined,
-    property: string
-  ) => boolean;
-  export let toggleAdminTheme: (theme: ThemeEntry, checked: boolean) => void;
-  export let isThemeHomeLogoScaleDirty: (
-    theme: ThemeEntry | null | undefined,
-    mode: LogoMode,
-    variant?: string | null
-  ) => boolean;
-  export let homeLogoScale: (theme: ThemeEntry, mode: LogoMode) => number;
-  export let themeLogoScaleSelectHandler: (theme: ThemeEntry, mode: LogoMode) => SelectCallback;
-  export let themeLogoScaleInputHandler: (
-    theme: ThemeEntry,
-    mode: LogoMode
-  ) => (event: Event) => void;
-  export let previewThemeClickHandler: (theme: ThemeEntry) => (event: MouseEvent) => void;
-  export let selectTheme: (theme: ThemeEntry, event: MouseEvent | KeyboardEvent | null) => void;
-  export let handleThemeKeydown: (event: KeyboardEvent, theme: ThemeEntry) => void;
+  let {
+    at,
+    customThemes = [],
+    activeKey = "",
+    themesSaving = false,
+    isThemeDirty,
+    themeTitle,
+    themeDescription,
+    isThemeTokenDirty,
+    isThemeAccentSet,
+    pickerHex,
+    openThemeAccentPicker,
+    themeAccentInputHandler,
+    isThemePropertyDirty,
+    toggleAdminTheme,
+    isThemeHomeLogoScaleDirty,
+    homeLogoScale,
+    themeLogoScaleSelectHandler,
+    themeLogoScaleInputHandler,
+    previewThemeClickHandler,
+    selectTheme,
+    handleThemeKeydown,
+  }: {
+    at: TranslateFn;
+    customThemes?: ThemeEntry[];
+    activeKey?: string;
+    themesSaving?: boolean;
+    isThemeDirty: (theme: ThemeEntry | null | undefined) => boolean;
+    themeTitle: (theme: ThemeEntry) => string;
+    themeDescription: (theme: ThemeEntry) => string;
+    isThemeTokenDirty: (
+      theme: ThemeEntry | null | undefined,
+      tokenKey: string,
+      variant?: string | null
+    ) => boolean;
+    isThemeAccentSet: (theme: ThemeEntry) => boolean;
+    pickerHex: (value: unknown) => string;
+    openThemeAccentPicker: (theme: ThemeEntry) => void;
+    themeAccentInputHandler: (theme: ThemeEntry) => (event: Event) => void;
+    isThemePropertyDirty: (theme: ThemeEntry | null | undefined, property: string) => boolean;
+    toggleAdminTheme: (theme: ThemeEntry, checked: boolean) => void;
+    isThemeHomeLogoScaleDirty: (
+      theme: ThemeEntry | null | undefined,
+      mode: LogoMode,
+      variant?: string | null
+    ) => boolean;
+    homeLogoScale: (theme: ThemeEntry, mode: LogoMode) => number;
+    themeLogoScaleSelectHandler: (theme: ThemeEntry, mode: LogoMode) => SelectCallback;
+    themeLogoScaleInputHandler: (theme: ThemeEntry, mode: LogoMode) => (event: Event) => void;
+    previewThemeClickHandler: (theme: ThemeEntry) => (event: MouseEvent) => void;
+    selectTheme: (theme: ThemeEntry, event: MouseEvent | KeyboardEvent | null) => void;
+    handleThemeKeydown: (event: KeyboardEvent, theme: ThemeEntry) => void;
+  } = $props();
 </script>
 
 <section class="appearance-theme-section">

@@ -66,49 +66,87 @@
     },
   ];
 
-  export let at: TranslateFn;
-  export let defaultTheme: ThemeEntry | undefined;
-  export let defaultVariant: ThemeVariant;
-  export let defaultThemeIsCurrent = false;
-  export let themesSaving = false;
-  export let defaultTokens: TokenMap = {};
-  export let customGoogleFontName = "";
-  export let isThemeDirty: (theme: ThemeEntry | null | undefined) => boolean;
-  export let isDefaultVariantDirty: () => boolean;
-  export let defaultVariantTitle: (variant: unknown) => string;
-  export let themeDescription: (theme: ThemeEntry) => string;
-  export let selectDefaultTheme: (event: MouseEvent | KeyboardEvent | null) => void;
-  export let handleDefaultThemeKeydown: (event: KeyboardEvent) => void;
-  export let activateDefaultThemeFromClick: (event: MouseEvent) => void;
-  export let setDefaultVariantFromSwitch: (checked: boolean) => void;
-  export let previewDefaultVariantFromClick: (event: MouseEvent) => void;
-  export let applyDefaultPreset: (preset: { tokens?: TokenMap } | null | undefined) => void;
-  export let isDefaultTokenDirty: (tokenKey: string) => boolean;
-  export let tokenTextValue: (tokenKey: string, tokens?: TokenMap) => string;
-  export let fontItemsWithCurrent: (items: FontOption[], value: unknown) => FontOption[];
-  export let defaultFontSelectHandler: (tokenKey: string) => SelectCallback;
-  export let applyCustomGoogleFont: (tokenKey: string, kind?: "sans" | "mono") => void;
-  export let radiusNumber: (tokens?: TokenMap) => number;
-  export let defaultRadiusRangeHandler: SelectCallback;
-  export let defaultRadiusInputHandler: (event: Event) => void;
-  export let isThemeHomeLogoScaleDirty: (
-    theme: ThemeEntry | null | undefined,
-    mode: LogoMode,
-    variant?: string | null
-  ) => boolean;
-  export let defaultHomeLogoScale: (
-    mode: LogoMode,
-    theme?: ThemeEntry | null | undefined,
-    variant?: string | null
-  ) => number;
-  export let defaultLogoScaleSelectHandler: (mode: LogoMode) => SelectCallback;
-  export let defaultLogoScaleInputHandler: (mode: LogoMode) => (event: Event) => void;
-  export let defaultTokenValue: (tokenKey: string, tokens?: TokenMap) => unknown;
-  export let pickerHex: (value: unknown) => string;
-  export let openDefaultColorPicker: (tokenKey: string, fallback?: string) => void;
-  export let defaultColorInputHandler: (tokenKey: string) => (event: Event) => void;
-  export let defaultTokenInputHandler: (tokenKey: string) => (event: Event) => void;
-  export let resetDefaultToken: (tokenKey: string) => void;
+  let {
+    at,
+    defaultTheme,
+    defaultVariant,
+    defaultThemeIsCurrent = false,
+    themesSaving = false,
+    defaultTokens = {},
+    customGoogleFontName = $bindable(""),
+    isThemeDirty,
+    isDefaultVariantDirty,
+    defaultVariantTitle,
+    themeDescription,
+    selectDefaultTheme,
+    handleDefaultThemeKeydown,
+    activateDefaultThemeFromClick,
+    setDefaultVariantFromSwitch,
+    previewDefaultVariantFromClick,
+    applyDefaultPreset,
+    isDefaultTokenDirty,
+    tokenTextValue,
+    fontItemsWithCurrent,
+    defaultFontSelectHandler,
+    applyCustomGoogleFont,
+    radiusNumber,
+    defaultRadiusRangeHandler,
+    defaultRadiusInputHandler,
+    isThemeHomeLogoScaleDirty,
+    defaultHomeLogoScale,
+    defaultLogoScaleSelectHandler,
+    defaultLogoScaleInputHandler,
+    defaultTokenValue,
+    pickerHex,
+    openDefaultColorPicker,
+    defaultColorInputHandler,
+    defaultTokenInputHandler,
+    resetDefaultToken,
+  }: {
+    at: TranslateFn;
+    defaultTheme: ThemeEntry | undefined;
+    defaultVariant: ThemeVariant;
+    defaultThemeIsCurrent?: boolean;
+    themesSaving?: boolean;
+    defaultTokens?: TokenMap;
+    customGoogleFontName?: string;
+    isThemeDirty: (theme: ThemeEntry | null | undefined) => boolean;
+    isDefaultVariantDirty: () => boolean;
+    defaultVariantTitle: (variant: unknown) => string;
+    themeDescription: (theme: ThemeEntry) => string;
+    selectDefaultTheme: (event: MouseEvent | KeyboardEvent | null) => void;
+    handleDefaultThemeKeydown: (event: KeyboardEvent) => void;
+    activateDefaultThemeFromClick: (event: MouseEvent) => void;
+    setDefaultVariantFromSwitch: (checked: boolean) => void;
+    previewDefaultVariantFromClick: (event: MouseEvent) => void;
+    applyDefaultPreset: (preset: { tokens?: TokenMap } | null | undefined) => void;
+    isDefaultTokenDirty: (tokenKey: string) => boolean;
+    tokenTextValue: (tokenKey: string, tokens?: TokenMap) => string;
+    fontItemsWithCurrent: (items: FontOption[], value: unknown) => FontOption[];
+    defaultFontSelectHandler: (tokenKey: string) => SelectCallback;
+    applyCustomGoogleFont: (tokenKey: string, kind?: "sans" | "mono") => void;
+    radiusNumber: (tokens?: TokenMap) => number;
+    defaultRadiusRangeHandler: SelectCallback;
+    defaultRadiusInputHandler: (event: Event) => void;
+    isThemeHomeLogoScaleDirty: (
+      theme: ThemeEntry | null | undefined,
+      mode: LogoMode,
+      variant?: string | null
+    ) => boolean;
+    defaultHomeLogoScale: (
+      mode: LogoMode,
+      theme?: ThemeEntry | null | undefined,
+      variant?: string | null
+    ) => number;
+    defaultLogoScaleSelectHandler: (mode: LogoMode) => SelectCallback;
+    defaultLogoScaleInputHandler: (mode: LogoMode) => (event: Event) => void;
+    defaultTokenValue: (tokenKey: string, tokens?: TokenMap) => unknown;
+    pickerHex: (value: unknown) => string;
+    openDefaultColorPicker: (tokenKey: string, fallback?: string) => void;
+    defaultColorInputHandler: (tokenKey: string) => (event: Event) => void;
+    defaultTokenInputHandler: (tokenKey: string) => (event: Event) => void;
+    resetDefaultToken: (tokenKey: string) => void;
+  } = $props();
 </script>
 
 <section class="appearance-theme-section">

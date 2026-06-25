@@ -59,45 +59,47 @@
   type RevenueRangeMode = "preset" | "custom";
   type IsoRange = { from: string; to: string };
 
-  export let at: TranslateFn;
-  export let fmtDate: DateFormatterFn = (value) => String(value ?? "");
-  export let fmtDateShort: DateFormatterFn = (value) => String(value ?? "");
-  export let fmtMoney: FormatterFn = (value) => String(value ?? "");
-  export let paymentStatusVariant: (status: unknown) => AdminBadgeVariant = () => "muted";
-  export let onOpenUserCard: (userId: unknown) => void = () => {};
+  let {
+    at,
+    fmtDate = (value) => String(value ?? ""),
+    fmtDateShort = (value) => String(value ?? ""),
+    fmtMoney = (value) => String(value ?? ""),
+    paymentStatusVariant = () => "muted",
+    onOpenUserCard = () => {},
+  }: {
+    at: TranslateFn;
+    fmtDate?: DateFormatterFn;
+    fmtDateShort?: DateFormatterFn;
+    fmtMoney?: FormatterFn;
+    paymentStatusVariant?: (status: unknown) => AdminBadgeVariant;
+    onOpenUserCard?: (userId: unknown) => void;
+  } = $props();
 
   const paymentsStore = getContext<PaymentsStore>("paymentsStore");
   const statsStore = getContext<StatsStore>("statsStore");
 
-  let rawStats: StatsState["stats"] = null;
-  let stats: AdminStats | null = null;
-  let statsError = "";
-  let statsLoading = false;
-  let showSkeleton = true;
-  let currency = "RUB";
-  let fin: AdminStats["financial"] = {};
-  let users: AdminStats["users"] = {};
-  let panelPayload: PanelStats | null = null;
-  let panelMetrics: PanelSystemMetrics | null = null;
-  let panelBw: { week: unknown; month: unknown } | null = null;
-  let panelNodeTraffic: PanelNodeTraffic | null = null;
-  let panelNodesListedCount = 0;
+  const statsState = $derived($statsStore);
+  const rawStats: StatsState["stats"] = $derived(statsState.stats);
+  const stats: AdminStats | null = $derived(rawStats as AdminStats | null);
+  const statsError = $derived(statsState.statsError || "");
+  const statsLoading = $derived(Boolean(statsState.statsLoading));
+  const showSkeleton = $derived(!stats && !statsError);
+  const currency = $derived(stats?.currency_symbol || "RUB");
+  const fin: AdminStats["financial"] = $derived(stats?.financial || {});
+  const users: AdminStats["users"] = $derived(stats?.users || {});
+  const panelPayload: PanelStats | null = $derived(stats?.panel ?? null);
+  const panelMetrics: PanelSystemMetrics | null = $derived(
+    panelPayload && !panelPayload.error ? parsePanelSystem(panelPayload) : null
+  );
+  const panelBw: { week: unknown; month: unknown } | null = $derived(
+    panelPayload && !panelPayload.error ? parsePanelBandwidth(panelPayload) : null
+  );
+  const panelNodeTraffic: PanelNodeTraffic | null = $derived(
+    panelPayload && !panelPayload.error ? parsePanelNodeTraffic(panelPayload) : null
+  );
 
-  $: ({ stats: rawStats, statsError, statsLoading } = $statsStore);
-  $: stats = rawStats as AdminStats | null;
-
-  $: showSkeleton = !stats && !statsError;
-
-  $: currency = stats?.currency_symbol || "RUB";
-  $: fin = stats?.financial || {};
-  $: users = stats?.users || {};
-  $: panelPayload = stats?.panel ?? null;
-  $: panelMetrics = panelPayload && !panelPayload.error ? parsePanelSystem(panelPayload) : null;
-  $: panelBw = panelPayload && !panelPayload.error ? parsePanelBandwidth(panelPayload) : null;
-  $: panelNodeTraffic =
-    panelPayload && !panelPayload.error ? parsePanelNodeTraffic(panelPayload) : null;
   /** Same rows as the «Per node (7 days)» block — not system.nodes.totalOnline from /system/stats */
-  $: panelNodesListedCount = panelNodeTraffic?.seven?.length ?? 0;
+  const panelNodesListedCount = $derived(panelNodeTraffic?.seven?.length ?? 0);
 
   const PANEL_NODE_TILE_LIMIT = 10;
 
@@ -105,40 +107,37 @@
 
   const REVENUE_PRESET_DAYS = [7, 14, 30, 90, 180, 365];
 
-  let revenueRangeMode: RevenueRangeMode = "preset";
-  let revenuePresetDays = 14;
-  let revenueCustomIso: IsoRange | null = null;
-  let revenueGranularity: RevenueGranularity = "day";
-  let revenueCustomPopoverOpen = false;
-  let dailySeries: RevenuePoint[] = [];
-  let revenueBoundsIso: { min: string; max: string } | null = null;
-  let revenueDailyFiltered: RevenuePoint[] = [];
-  let revenueChartSeries: RevenuePoint[] = [];
-  let revenueKpis: RevenueKpis;
-  let chartRangeSum = 0;
-  let revenueChartShortfall = false;
-  let revenueCustomDaySpan = 0;
-  let recentPaymentHeaders: string[] = [];
-  let recentPayments: PaymentOut[] = [];
+  let revenueRangeMode = $state<RevenueRangeMode>("preset");
+  let revenuePresetDays = $state(14);
+  let revenueCustomIso = $state<IsoRange | null>(null);
+  let revenueGranularity = $state<RevenueGranularity>("day");
+  let revenueCustomPopoverOpen = $state(false);
 
-  $: dailySeries = Array.isArray(fin.daily_series) ? fin.daily_series : [];
-  $: revenueBoundsIso =
+  const dailySeries: RevenuePoint[] = $derived(
+    Array.isArray(fin.daily_series) ? fin.daily_series : []
+  );
+  const revenueBoundsIso: { min: string; max: string } | null = $derived(
     dailySeries.length > 0
       ? { min: dailySeries[0].date, max: dailySeries[dailySeries.length - 1].date }
-      : null;
+      : null
+  );
 
-  $: revenueDailyFiltered = (() => {
+  const revenueDailyFiltered: RevenuePoint[] = $derived.by(() => {
     if (!dailySeries.length) return [];
     if (revenueRangeMode === "custom" && revenueCustomIso) {
       return filterDailyByIsoRange(dailySeries, revenueCustomIso.from, revenueCustomIso.to);
     }
     return sliceLastDays(dailySeries, revenuePresetDays);
-  })();
+  });
 
-  $: revenueChartSeries = aggregateRevenueSeries(revenueDailyFiltered, revenueGranularity);
+  const revenueChartSeries: RevenuePoint[] = $derived(
+    aggregateRevenueSeries(revenueDailyFiltered, revenueGranularity)
+  );
 
-  $: revenueKpis = computeRevenueKpis(fin, dailySeries);
-  $: chartRangeSum = revenueChartSeries.reduce((a, p) => a + (Number(p.amount) || 0), 0);
+  const revenueKpis: RevenueKpis = $derived(computeRevenueKpis(fin, dailySeries));
+  const chartRangeSum = $derived(
+    revenueChartSeries.reduce((a, p) => a + (Number(p.amount) || 0), 0)
+  );
 
   function setRevenuePresetDays(days: number): void {
     const next = Number(days);
@@ -169,13 +168,15 @@
     return "stats_revenue_chart_hint";
   }
 
-  $: revenueChartShortfall =
-    revenueRangeMode === "preset" && dailySeries.length < revenuePresetDays;
-  $: revenueCustomDaySpan =
+  const revenueChartShortfall = $derived(
+    revenueRangeMode === "preset" && dailySeries.length < revenuePresetDays
+  );
+  const revenueCustomDaySpan = $derived(
     revenueRangeMode === "custom" && revenueCustomIso
       ? inclusiveDaySpan(revenueCustomIso.from, revenueCustomIso.to)
-      : 0;
-  $: recentPaymentHeaders = [
+      : 0
+  );
+  const recentPaymentHeaders = $derived([
     at("id", {}, "ID"),
     at("user", {}, "Пользователь"),
     at("payments_col_user_id", {}, "ID"),
@@ -186,8 +187,8 @@
     at("description", {}, "Описание"),
     at("status", {}, "Статус"),
     at("date", {}, "Дата"),
-  ];
-  $: recentPayments = (stats?.recent_payments || []).slice(0, 10);
+  ]);
+  const recentPayments: PaymentOut[] = $derived((stats?.recent_payments || []).slice(0, 10));
 
   onMount(() => {
     void statsStore.loadStats();
@@ -548,7 +549,7 @@
                     class:is-active={revenueRangeMode === "preset" && revenuePresetDays === d}
                     role="tab"
                     aria-selected={revenueRangeMode === "preset" && revenuePresetDays === d}
-                    on:click={() => setRevenuePresetDays(d)}
+                    onclick={() => setRevenuePresetDays(d)}
                   >
                     {revenuePeriodLabel(d)}
                   </button>
@@ -580,7 +581,7 @@
                 class:is-active={revenueGranularity === g}
                 role="tab"
                 aria-selected={revenueGranularity === g}
-                on:click={() => setRevenueGranularity(g)}
+                onclick={() => setRevenueGranularity(g)}
               >
                 {at(`stats_revenue_granularity_${g}`, {}, g)}
               </button>

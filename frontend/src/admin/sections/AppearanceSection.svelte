@@ -42,12 +42,21 @@
   type SettingsDirtyState = Record<string, SettingsDirtyEntry>;
   type SelectCallback = (...args: never[]) => void;
 
-  export let at: TranslateFn;
-  export let currentLang = "ru";
-  export let onSettingsSaved: (payload: SettingsSavedPayload) => void | Promise<void> = () => {};
-  export let brand: BrandInfo = {};
-  export let appFaviconUrl = "";
-  export let appFaviconUseCustom = false;
+  let {
+    at,
+    currentLang = "ru",
+    onSettingsSaved = () => {},
+    brand = {},
+    appFaviconUrl = "",
+    appFaviconUseCustom = false,
+  }: {
+    at: TranslateFn;
+    currentLang?: string;
+    onSettingsSaved?: (payload: SettingsSavedPayload) => void | Promise<void>;
+    brand?: BrandInfo;
+    appFaviconUrl?: string;
+    appFaviconUseCustom?: boolean;
+  } = $props();
 
   const settingsStore = getContext<SettingsStore>("settingsStore");
   const themesStore = getContext<AppearanceThemesStore>("themesStore");
@@ -60,118 +69,106 @@
     "WEBAPP_LOGO_FAVICON_URL",
     "WEBAPP_ENABLED",
   ]);
-  let settingsSections: SettingsSection[] = [];
-  let settingsLoading = false;
-  let settingsDirty: SettingsDirtyState = {};
-  let settingsSaving = false;
-  let themesCatalog: ThemeCatalog = { default_theme: DEFAULT_THEME_KEY, themes: [] };
-  let savedThemesCatalog: ThemeCatalog = { default_theme: DEFAULT_THEME_KEY, themes: [] };
-  let themesLoading = false;
-  let themesDir = "";
-  let themesSaving = false;
-  let themesDirty = false;
-  let appearanceFields: SettingField[] = [];
-  let fieldMap = new Map<string, SettingField>();
-  let activeKey = DEFAULT_THEME_KEY;
-  let logoUrl = "";
-  let currentLogoUrl = "";
-  let previewLogoUrl = "";
-  let persistedUseCustomFavicon = false;
-  let useCustomFavicon = false;
-  let faviconUrl = "";
-  let logoFaviconUrl = "";
-  let generatedFaviconUrl = "";
-  let currentFaviconUrl = "";
-  let previewFaviconUrl = "";
-  let dirtyCount = 0;
-  let appearanceDirtyCount = 0;
-  let appearanceDirtyKeys: string[] = [];
-  let defaultTheme: ThemeEntry | undefined;
-  let defaultVariant: ThemeVariant = "dark";
-  let defaultTokens: TokenMap = {};
-  let visibleThemes: ThemeEntry[] = [];
-  let customThemes: ThemeEntry[] = [];
-  let defaultThemeIsCurrent = false;
+  let logoFileInput = $state<HTMLInputElement | null>(null);
+  let faviconFileInput = $state<HTMLInputElement | null>(null);
+  let customGoogleFontName = $state("");
+  let logoSourceUrl = $state("");
+  let faviconSourceUrl = $state("");
+  let logoPreviewNonce = $state(0);
+  let faviconPreviewNonce = $state(0);
+  let logoPreviewFailed = $state(false);
+  let faviconPreviewFailed = $state(false);
+  let lastPreviewLogoUrl = $state("");
+  let lastPreviewFaviconUrl = $state("");
+  let lastPersistedUseCustomFavicon = $state<boolean | undefined>();
+  let faviconUseCustomDraft = $state(false);
+  let pendingLogoPreviewUrl = $state("");
+  let pendingFaviconPreviewUrl = $state("");
+  let pendingObjectUrl = $state("");
+  let pendingFaviconObjectUrl = $state("");
 
-  $: ({ settingsSections, settingsLoading, settingsDirty, settingsSaving } = $settingsStore);
-  $: ({ themesCatalog, savedThemesCatalog, themesLoading, themesDir, themesSaving, themesDirty } =
-    $themesStore);
-  $: appearanceFields =
-    settingsSections.find((section) => section.id === "appearance")?.fields || [];
-  $: fieldMap = new Map(appearanceFields.map((field) => [field.key, field]));
-  $: activeKey = themesCatalog.default_theme;
-  $: logoUrl = stringValueForKey("WEBAPP_LOGO_URL");
-  $: currentLogoUrl = pendingLogoPreviewUrl || logoUrl || brand?.logoUrl || "";
-  $: previewLogoUrl =
-    logoPreviewNonce && currentLogoUrl ? withLogoCacheBust(currentLogoUrl) : currentLogoUrl;
-  $: persistedUseCustomFavicon = boolValue(
-    valueForKey("WEBAPP_FAVICON_USE_CUSTOM", appFaviconUseCustom)
+  const settingsSections = $derived($settingsStore.settingsSections);
+  const settingsLoading = $derived($settingsStore.settingsLoading);
+  const settingsDirty: SettingsDirtyState = $derived($settingsStore.settingsDirty);
+  const settingsSaving = $derived($settingsStore.settingsSaving);
+  const themesCatalog: ThemeCatalog = $derived($themesStore.themesCatalog);
+  const savedThemesCatalog: ThemeCatalog = $derived($themesStore.savedThemesCatalog);
+  const themesLoading = $derived($themesStore.themesLoading);
+  const themesDir = $derived($themesStore.themesDir);
+  const themesSaving = $derived($themesStore.themesSaving);
+  const themesDirty = $derived($themesStore.themesDirty);
+  const appearanceFields: SettingField[] = $derived(
+    settingsSections.find((section: SettingsSection) => section.id === "appearance")?.fields || []
   );
-  $: if (
-    !Object.prototype.hasOwnProperty.call(settingsDirty, "WEBAPP_FAVICON_USE_CUSTOM") &&
-    lastPersistedUseCustomFavicon !== persistedUseCustomFavicon
-  ) {
-    faviconUseCustomDraft = persistedUseCustomFavicon;
-    lastPersistedUseCustomFavicon = persistedUseCustomFavicon;
-  }
-  $: useCustomFavicon = faviconUseCustomDraft;
-  $: faviconUrl = stringValueForKey("WEBAPP_FAVICON_URL", appFaviconUrl);
-  $: logoFaviconUrl = stringValueForKey("WEBAPP_LOGO_FAVICON_URL");
-  $: generatedFaviconUrl = logoFaviconUrl || appFaviconUrl || previewLogoUrl || "";
-  $: currentFaviconUrl = useCustomFavicon
-    ? pendingFaviconPreviewUrl || faviconUrl || ""
-    : generatedFaviconUrl;
-  $: previewFaviconUrl =
+  const fieldMap = $derived(new Map(appearanceFields.map((field) => [field.key, field])));
+  const activeKey = $derived(themesCatalog.default_theme);
+  const logoUrl = $derived(stringValueForKey("WEBAPP_LOGO_URL"));
+  const currentLogoUrl = $derived(pendingLogoPreviewUrl || logoUrl || brand?.logoUrl || "");
+  const previewLogoUrl = $derived(
+    logoPreviewNonce && currentLogoUrl ? withLogoCacheBust(currentLogoUrl) : currentLogoUrl
+  );
+  const persistedUseCustomFavicon = $derived(
+    boolValue(valueForKey("WEBAPP_FAVICON_USE_CUSTOM", appFaviconUseCustom))
+  );
+  const useCustomFavicon = $derived(faviconUseCustomDraft);
+  const faviconUrl = $derived(stringValueForKey("WEBAPP_FAVICON_URL", appFaviconUrl));
+  const logoFaviconUrl = $derived(stringValueForKey("WEBAPP_LOGO_FAVICON_URL"));
+  const generatedFaviconUrl = $derived(logoFaviconUrl || appFaviconUrl || previewLogoUrl || "");
+  const currentFaviconUrl = $derived(
+    useCustomFavicon ? pendingFaviconPreviewUrl || faviconUrl || "" : generatedFaviconUrl
+  );
+  const previewFaviconUrl = $derived(
     faviconPreviewNonce && currentFaviconUrl
       ? withCacheBust(currentFaviconUrl, faviconPreviewNonce)
-      : currentFaviconUrl;
-  $: dirtyCount = Object.keys(settingsDirty || {}).filter((key) =>
-    isAppearanceSettingKey(key)
-  ).length;
-  $: appearanceDirtyCount = dirtyCount + (themesDirty ? 1 : 0);
-  $: appearanceDirtyKeys = Object.keys(settingsDirty || {}).filter((key) =>
-    isAppearanceSettingKey(key)
+      : currentFaviconUrl
   );
-  $: defaultTheme = (themesCatalog.themes || []).find((theme) => theme.key === DEFAULT_THEME_KEY);
-  $: defaultVariant = normalizeVariant(
-    defaultTheme?.active_variant || defaultTheme?.tokens?.color_scheme
+  const dirtyCount = $derived(
+    Object.keys(settingsDirty || {}).filter((key) => isAppearanceSettingKey(key)).length
   );
-  $: defaultTokens = defaultTheme
-    ? themesStore.resolveThemeTokens(defaultTheme, defaultVariant)
-    : {};
-  $: visibleThemes = (themesCatalog.themes || []).filter(
-    (theme) => !theme.hidden && !theme.variant_alias_for
+  const appearanceDirtyCount = $derived(dirtyCount + (themesDirty ? 1 : 0));
+  const appearanceDirtyKeys = $derived(
+    Object.keys(settingsDirty || {}).filter((key) => isAppearanceSettingKey(key))
   );
-  $: customThemes = visibleThemes.filter((theme) => theme.key !== DEFAULT_THEME_KEY);
-  $: defaultThemeIsCurrent = activeKey === DEFAULT_THEME_KEY;
+  const defaultTheme: ThemeEntry | undefined = $derived(
+    (themesCatalog.themes || []).find((theme) => theme.key === DEFAULT_THEME_KEY)
+  );
+  const defaultVariant: ThemeVariant = $derived(
+    normalizeVariant(defaultTheme?.active_variant || defaultTheme?.tokens?.color_scheme)
+  );
+  const defaultTokens: TokenMap = $derived(
+    defaultTheme ? themesStore.resolveThemeTokens(defaultTheme, defaultVariant) : {}
+  );
+  const visibleThemes: ThemeEntry[] = $derived(
+    (themesCatalog.themes || []).filter((theme) => !theme.hidden && !theme.variant_alias_for)
+  );
+  const customThemes: ThemeEntry[] = $derived(
+    visibleThemes.filter((theme) => theme.key !== DEFAULT_THEME_KEY)
+  );
+  const defaultThemeIsCurrent = $derived(activeKey === DEFAULT_THEME_KEY);
 
-  let logoFileInput: HTMLInputElement | null = null;
-  let faviconFileInput: HTMLInputElement | null = null;
-  let customGoogleFontName = "";
-  let logoSourceUrl = "";
-  let faviconSourceUrl = "";
-  let logoPreviewNonce = 0;
-  let faviconPreviewNonce = 0;
-  let logoPreviewFailed = false;
-  let faviconPreviewFailed = false;
-  let lastPreviewLogoUrl = "";
-  let lastPreviewFaviconUrl = "";
-  let lastPersistedUseCustomFavicon: boolean | undefined;
-  let faviconUseCustomDraft = false;
-  let pendingLogoPreviewUrl = "";
-  let pendingFaviconPreviewUrl = "";
-  let pendingObjectUrl = "";
-  let pendingFaviconObjectUrl = "";
+  $effect.pre(() => {
+    if (
+      !Object.prototype.hasOwnProperty.call(settingsDirty, "WEBAPP_FAVICON_USE_CUSTOM") &&
+      lastPersistedUseCustomFavicon !== persistedUseCustomFavicon
+    ) {
+      faviconUseCustomDraft = persistedUseCustomFavicon;
+      lastPersistedUseCustomFavicon = persistedUseCustomFavicon;
+    }
+  });
 
-  $: if (previewLogoUrl !== lastPreviewLogoUrl) {
-    lastPreviewLogoUrl = previewLogoUrl;
-    logoPreviewFailed = false;
-  }
+  $effect(() => {
+    if (previewLogoUrl !== lastPreviewLogoUrl) {
+      lastPreviewLogoUrl = previewLogoUrl;
+      logoPreviewFailed = false;
+    }
+  });
 
-  $: if (previewFaviconUrl !== lastPreviewFaviconUrl) {
-    lastPreviewFaviconUrl = previewFaviconUrl;
-    faviconPreviewFailed = false;
-  }
+  $effect(() => {
+    if (previewFaviconUrl !== lastPreviewFaviconUrl) {
+      lastPreviewFaviconUrl = previewFaviconUrl;
+      faviconPreviewFailed = false;
+    }
+  });
 
   function valueForKey(key: string, fallback: unknown = ""): unknown {
     if (settingsDirty[key]?.deleted) return "";

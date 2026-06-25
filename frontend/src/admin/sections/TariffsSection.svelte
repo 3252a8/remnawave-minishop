@@ -43,69 +43,61 @@
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type MoneyFormatter = (value: unknown, currency?: string) => string;
 
-  export let at: TranslateFn;
-  export let fmtMoney: MoneyFormatter;
-  export let onSettingsSaved: (payload: SettingsSavedPayload) => void | Promise<void> = () => {};
-  export let onOpenSettingsPath: (path: string[]) => void = () => {};
+  let {
+    at,
+    fmtMoney,
+    onSettingsSaved = () => {},
+    onOpenSettingsPath = () => {},
+  }: {
+    at: TranslateFn;
+    fmtMoney: MoneyFormatter;
+    onSettingsSaved?: (payload: SettingsSavedPayload) => void | Promise<void>;
+    onOpenSettingsPath?: (path: string[]) => void;
+  } = $props();
 
   const tariffsStore = getContext<TariffsStore>("tariffsStore");
   const settingsStore = getContext<SettingsStore>("settingsStore");
 
-  let tariffsCatalog: TariffsCatalog;
-  let tariffsLoading = false;
-  let tariffsPath = "";
-  let tariffsSaving = false;
-  let panelSquads: PanelSquad[] = [];
-  let providerCurrencySupport: ProviderCurrencySupport[] = [];
-  let panelSquadsLoading = false;
-  let settingsSections: SettingsSection[] = [];
-  let settingsDirty: SettingsDirtyState = {};
-  let settingsSaving = false;
-  let enabledTariffs: Tariff[] = [];
-  let disabledTariffs = 0;
-  let settingsFieldMap = new Map<string, SettingField>();
-  let legacyDirtyCount = 0;
-  let panelSquadOptions: SelectOption[] = [];
-  let catalogCurrencyKey = "rub";
-  let catalogCurrencyCode = "RUB";
-  let defaultCurrencyDraftKey = "rub";
-  let defaultCurrencyDirty = false;
-  let providerSupportSummary: ProviderSupportSummary = {
-    total: 0,
-    enabled: 0,
-    configured: 0,
-    available: 0,
-    blocked: 0,
-  };
-
-  $: ({
-    tariffsCatalog,
-    tariffsLoading,
-    tariffsPath,
-    tariffsSaving,
-    panelSquads,
-    providerCurrencySupport,
-    panelSquadsLoading,
-  } = $tariffsStore);
-  $: ({ settingsSections, settingsDirty, settingsSaving } = $settingsStore);
-
-  $: enabledTariffs = (tariffsCatalog.tariffs || []).filter((tariff) => tariff.enabled !== false);
-  $: disabledTariffs = Math.max(0, (tariffsCatalog.tariffs || []).length - enabledTariffs.length);
-  $: settingsFieldMap = new Map(
-    (settingsSections || [])
-      .flatMap((section) => section.fields || [])
-      .map((field) => [field.key, field])
+  const tariffsState = $derived($tariffsStore);
+  const settingsState = $derived($settingsStore);
+  const tariffsCatalog: TariffsCatalog = $derived(tariffsState.tariffsCatalog);
+  const tariffsLoading = $derived(Boolean(tariffsState.tariffsLoading));
+  const tariffsPath = $derived(String(tariffsState.tariffsPath || ""));
+  const tariffsSaving = $derived(Boolean(tariffsState.tariffsSaving));
+  const panelSquads: PanelSquad[] = $derived(tariffsState.panelSquads || []);
+  const providerCurrencySupport: ProviderCurrencySupport[] = $derived(
+    tariffsState.providerCurrencySupport || []
   );
-  $: legacyDirtyCount = LEGACY_TARIFF_SETTING_KEYS.filter((key) =>
-    Boolean(settingsDirty[key])
-  ).length;
-  $: panelSquadOptions = (panelSquads || []).map((squad) => ({
-    value: squad.uuid,
-    label: `${squad.name || squad.uuid} · ${String(squad.uuid || "").slice(0, 8)}...`,
-  }));
+  const panelSquadsLoading = $derived(Boolean(tariffsState.panelSquadsLoading));
+  const settingsSections: SettingsSection[] = $derived(settingsState.settingsSections || []);
+  const settingsDirty: SettingsDirtyState = $derived(settingsState.settingsDirty || {});
+  const settingsSaving = $derived(Boolean(settingsState.settingsSaving));
 
-  let tariffSettingsOpen: string[] = [];
-  let defaultCurrencyDraft = "RUB";
+  const enabledTariffs: Tariff[] = $derived(
+    (tariffsCatalog.tariffs || []).filter((tariff) => tariff.enabled !== false)
+  );
+  const disabledTariffs = $derived(
+    Math.max(0, (tariffsCatalog.tariffs || []).length - enabledTariffs.length)
+  );
+  const settingsFieldMap: Map<string, SettingField> = $derived(
+    new Map(
+      (settingsSections || [])
+        .flatMap((section) => section.fields || [])
+        .map((field) => [field.key, field])
+    )
+  );
+  const legacyDirtyCount = $derived(
+    LEGACY_TARIFF_SETTING_KEYS.filter((key) => Boolean(settingsDirty[key])).length
+  );
+  const panelSquadOptions: SelectOption[] = $derived(
+    (panelSquads || []).map((squad) => ({
+      value: squad.uuid,
+      label: `${squad.name || squad.uuid} · ${String(squad.uuid || "").slice(0, 8)}...`,
+    }))
+  );
+
+  let tariffSettingsOpen = $state<string[]>([]);
+  let defaultCurrencyDraft = $state("RUB");
 
   function tariffName(tariff: Tariff): string {
     return tariff?.names?.ru || tariff?.names?.en || tariff?.key || "—";
@@ -159,12 +151,19 @@
     };
   }
 
-  $: catalogCurrencyKey = normalizeCurrencyKey(tariffsCatalog.default_currency || "rub");
-  $: catalogCurrencyCode = catalogCurrencyKey.toUpperCase();
-  $: defaultCurrencyDraft = catalogCurrencyCode;
-  $: defaultCurrencyDraftKey = normalizeCurrencyKey(defaultCurrencyDraft || "rub");
-  $: defaultCurrencyDirty = defaultCurrencyDraftKey !== catalogCurrencyKey;
-  $: providerSupportSummary = summarizeProviderSupport(providerCurrencySupport);
+  const catalogCurrencyKey = $derived(
+    normalizeCurrencyKey(tariffsCatalog.default_currency || "rub")
+  );
+  const catalogCurrencyCode = $derived(catalogCurrencyKey.toUpperCase());
+  const defaultCurrencyDraftKey = $derived(normalizeCurrencyKey(defaultCurrencyDraft || "rub"));
+  const defaultCurrencyDirty = $derived(defaultCurrencyDraftKey !== catalogCurrencyKey);
+  const providerSupportSummary: ProviderSupportSummary = $derived(
+    summarizeProviderSupport(providerCurrencySupport)
+  );
+
+  $effect(() => {
+    defaultCurrencyDraft = catalogCurrencyCode;
+  });
 
   async function saveDefaultCurrency(): Promise<void> {
     await tariffsStore.setDefaultCurrency(defaultCurrencyDraft);

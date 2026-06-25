@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { afterUpdate, getContext, onMount, tick } from "svelte";
+  import { getContext, onMount, tick } from "svelte";
   import {
     AdminButton,
     AdminSelect,
@@ -24,38 +24,51 @@
   type ComponentCallback = () => void;
   type TicketPatch = Record<string, unknown>;
 
-  export let at: TranslateFn = (key) => key;
-  export let initialTicketId: number | string | null = null;
-  export let brand: Record<string, unknown> = {};
-  export let resolvedAvatarUrl: (user: SupportUser | Record<string, unknown>) => string = () => "";
-  export let onOpenUserCard: (userId: number | string | undefined) => void = () => {};
+  let {
+    at = (key) => key,
+    initialTicketId = null,
+    brand = {},
+    resolvedAvatarUrl = () => "",
+    onOpenUserCard = () => {},
+  }: {
+    at?: TranslateFn;
+    initialTicketId?: number | string | null;
+    brand?: Record<string, unknown>;
+    resolvedAvatarUrl?: (user: SupportUser | Record<string, unknown>) => string;
+    onOpenUserCard?: (userId: number | string | undefined) => void;
+  } = $props();
 
   const supportStore = getContext<AdminSupportStore>("adminSupportStore");
-  let reply = "";
-  let messagesScrollEl: HTMLElement | null = null;
-  let lastMessageScrollKey = "";
-  let tickets: SupportTicket[] = [];
-  let stats = {
-    active: 0,
-    closed: 0,
-    open: 0,
-    awaiting_admin: 0,
-    total_unread_admin: 0,
-  };
-  let loading = false;
-  let filters: SupportFilters = {
-    status: "active",
-    priority: "",
-    category: "",
-    search: "",
-    sort: "importance_desc",
-  };
-  let openedTicketId: number | null = null;
-  let openedTicket: SupportTicket | null = null;
-  let messages: SupportMessage[] = [];
-  let userSnapshot: SupportUser | null = null;
-  let sending = false;
-  let composerInternalNote = false;
+  let reply = $state("");
+  let messagesScrollEl = $state<HTMLElement | null>(null);
+  let lastMessageScrollKey = $state("");
+  const supportState = $derived($supportStore);
+  const tickets: SupportTicket[] = $derived(supportState.tickets || []);
+  const stats = $derived(
+    supportState.stats || {
+      active: 0,
+      closed: 0,
+      open: 0,
+      awaiting_admin: 0,
+      total_unread_admin: 0,
+    }
+  );
+  const loading = $derived(Boolean(supportState.loading));
+  const filters: SupportFilters = $derived(
+    supportState.filters || {
+      status: "active",
+      priority: "",
+      category: "",
+      search: "",
+      sort: "importance_desc",
+    }
+  );
+  const openedTicketId: number | null = $derived(supportState.openedTicketId || null);
+  const openedTicket: SupportTicket | null = $derived(supportState.openedTicket || null);
+  const messages: SupportMessage[] = $derived(supportState.messages || []);
+  const userSnapshot: SupportUser | null = $derived(supportState.userSnapshot || null);
+  const sending = $derived(Boolean(supportState.sending));
+  const composerInternalNote = $derived(Boolean(supportState.composerInternalNote));
   const priorityFilterChange = ((value: string) =>
     setFilterAndLoad("priority", value)) as ComponentCallback;
   const categoryFilterChange = ((value: string) =>
@@ -70,19 +83,7 @@
     onOpenUserCard(userId)) as ComponentCallback;
   const sendComposerReply = ((body: string) => void send(body)) as ComponentCallback;
 
-  $: ({
-    tickets,
-    stats,
-    loading,
-    filters,
-    openedTicketId,
-    openedTicket,
-    messages,
-    userSnapshot,
-    sending,
-    composerInternalNote,
-  } = $supportStore);
-  $: statusTabs = [
+  const statusTabs = $derived([
     {
       value: "active",
       label: at("support_filter_active", {}, "Активные"),
@@ -93,44 +94,50 @@
       label: at("support_filter_closed", {}, "Закрытые"),
       count: stats?.closed || 0,
     },
-  ];
-  $: priorityFilterOptions = [
+  ]);
+  const priorityFilterOptions = $derived([
     { value: "all", label: at("support_filter_all_priorities", {}, "Любой приоритет") },
     { value: "low", label: at("support_priority_low", {}, "Низкий") },
     { value: "normal", label: at("support_priority_normal", {}, "Обычный") },
     { value: "high", label: at("support_priority_high", {}, "Высокий") },
     { value: "urgent", label: at("support_priority_urgent", {}, "Срочный") },
-  ];
-  $: categoryFilterOptions = [
+  ]);
+  const categoryFilterOptions = $derived([
     { value: "all", label: at("support_filter_all_categories", {}, "Все категории") },
     { value: "billing", label: at("support_category_billing", {}, "Оплата") },
     { value: "technical", label: at("support_category_technical", {}, "Техническое") },
     { value: "account", label: at("support_category_account", {}, "Аккаунт") },
     { value: "other", label: at("support_category_other", {}, "Другое") },
-  ];
-  $: sortOptions = [
+  ]);
+  const sortOptions = $derived([
     { value: "importance_desc", label: at("support_sort_importance_desc", {}, "Важные сверху") },
     { value: "updated_desc", label: at("sort_updated_desc", {}, "Сначала новые") },
     { value: "updated_asc", label: at("sort_updated_asc", {}, "Сначала старые") },
     { value: "created_desc", label: at("sort_created_desc", {}, "Созданы недавно") },
     { value: "created_asc", label: at("sort_created_asc", {}, "Созданы давно") },
-  ];
-  $: ticketReady = Boolean(openedTicket && openedTicket.ticket_id === openedTicketId);
-  $: modalTitle = ticketReady
-    ? openedTicket?.subject || ""
-    : openedTicketId
+  ]);
+  const ticketReady = $derived(Boolean(openedTicket && openedTicket.ticket_id === openedTicketId));
+  const modalTitle = $derived(
+    ticketReady
+      ? openedTicket?.subject || ""
+      : openedTicketId
+        ? at("support_ticket_number", { id: openedTicketId }, `Тикет #${openedTicketId}`)
+        : at("support_ticket_dialog", {}, "Диалог поддержки")
+  );
+  const modalDescription = $derived(
+    ticketReady
       ? at("support_ticket_number", { id: openedTicketId }, `Тикет #${openedTicketId}`)
-      : at("support_ticket_dialog", {}, "Диалог поддержки");
-  $: modalDescription = ticketReady
-    ? at("support_ticket_number", { id: openedTicketId }, `Тикет #${openedTicketId}`)
-    : at("loading", {}, "Загрузка");
-  $: openedTicketUser = openedTicket?.user || {};
-  $: openedTicketUserAvatarUrl = resolvedAvatarUrl(openedTicketUser);
-  $: openedTicketUserInitials = userInitials(openedTicketUser);
-  $: if (!openedTicketId) {
-    reply = "";
-    lastMessageScrollKey = "";
-  }
+      : at("loading", {}, "Загрузка")
+  );
+  const openedTicketUser = $derived(openedTicket?.user || {});
+  const openedTicketUserAvatarUrl = $derived(resolvedAvatarUrl(openedTicketUser));
+  const openedTicketUserInitials = $derived(userInitials(openedTicketUser));
+  $effect(() => {
+    if (!openedTicketId) {
+      reply = "";
+      lastMessageScrollKey = "";
+    }
+  });
 
   onMount(() => {
     supportStore.loadList();
@@ -224,7 +231,7 @@
     if (event.key === "Enter") void supportStore.loadList();
   }
 
-  afterUpdate(async () => {
+  $effect(() => {
     const lastMessage = messages.at(-1);
     const nextKey = `${openedTicketId || ""}:${ticketReady}:${messages.length}:${
       lastMessage?.message_id || lastMessage?.created_at || ""
@@ -233,8 +240,7 @@
       return;
     }
     lastMessageScrollKey = nextKey;
-    await tick();
-    scrollMessagesToBottom();
+    void tick().then(scrollMessagesToBottom);
   });
 </script>
 
@@ -260,7 +266,7 @@
         <button
           type="button"
           class:active={filters.status === tab.value}
-          on:click={() => supportStore.setStatusView(tab.value)}
+          onclick={() => supportStore.setStatusView(tab.value)}
         >
           <span>{tab.label}</span>
           <b>{tab.count}</b>
@@ -308,6 +314,7 @@
 
     {#if loading}
       <div class="support-ticket-list-skeleton" aria-label={at("loading", {}, "Загрузка")}>
+        );
         {#each Array(6) as _, index (index)}
           <article class="support-ticket-row-skeleton">
             <Skeleton variant="dot" width="38px" height="38px" />
