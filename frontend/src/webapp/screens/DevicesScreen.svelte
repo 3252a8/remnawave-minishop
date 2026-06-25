@@ -33,30 +33,46 @@
     max_devices?: number | null;
   };
 
-  export let devicesBusy = false;
-  export let devicesData: DevicesData = {};
-  export let devicesErrorCode = "";
-  export let devicesIsError = false;
-  export let devicesLoaded = false;
-  export let devicesStatus = "";
-  export let subscription: SubscriptionData = {};
+  type Props = {
+    devicesBusy?: boolean;
+    devicesData?: DevicesData;
+    devicesErrorCode?: string;
+    devicesIsError?: boolean;
+    devicesLoaded?: boolean;
+    devicesStatus?: string;
+    subscription?: SubscriptionData;
+    loadDevices?: (force?: boolean) => void;
+    openDeviceDisconnectDialog?: (device: DeviceRecord) => void;
+    openDeviceTopupModal?: () => void;
+    t?: Translate;
+  };
 
-  export let loadDevices: (force?: boolean) => void = () => {};
-  export let openDeviceDisconnectDialog: (device: DeviceRecord) => void = () => {};
-  export let openDeviceTopupModal: () => void = () => {};
-  export let t: Translate = (key) => key;
+  let {
+    devicesBusy = false,
+    devicesData = {},
+    devicesErrorCode = "",
+    devicesIsError = false,
+    devicesLoaded = false,
+    devicesStatus = "",
+    subscription = {},
+    loadDevices = () => {},
+    openDeviceDisconnectDialog = () => {},
+    openDeviceTopupModal = () => {},
+    t = (key: string) => key,
+  }: Props = $props();
 
-  $: deviceList = Array.isArray(devicesData?.devices) ? devicesData.devices : [];
-  $: hasDevices = deviceList.length > 0;
-  $: subscriptionNotActiveError =
-    devicesErrorCode === "subscription_not_active" ||
-    devicesStatus === "Subscription is not active";
-  $: hideDevicesSummary = !subscription?.active && !hasDevices;
-  $: showInactiveDevicesNotice =
+  const deviceList = $derived(Array.isArray(devicesData?.devices) ? devicesData.devices : []);
+  const hasDevices = $derived(deviceList.length > 0);
+  const subscriptionNotActiveError = $derived(
+    devicesErrorCode === "subscription_not_active" || devicesStatus === "Subscription is not active"
+  );
+  const hideDevicesSummary = $derived(!subscription?.active && !hasDevices);
+  const showInactiveDevicesNotice = $derived(
     hideDevicesSummary &&
-    !(devicesBusy && !devicesLoaded) &&
-    (!devicesStatus || subscriptionNotActiveError);
-  $: effectiveMaxDevices = devicesData?.max_devices ?? subscription?.max_devices;
+      !(devicesBusy && !devicesLoaded) &&
+      (!devicesStatus || subscriptionNotActiveError)
+  );
+  const effectiveMaxDevices = $derived(devicesData?.max_devices ?? subscription?.max_devices);
 </script>
 
 <main class="content with-nav">
