@@ -83,6 +83,8 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
     async_session_factory: sessionmaker = get_session_factory(request)
     subscription_service: SubscriptionService = get_subscription_service(request)
     cached = _get_cached_webapp_settings(request)
+    referral_settings = settings.referral_settings
+    support_settings = settings.support_settings
 
     async with async_session_factory() as session:
         db_user = await user_dal.get_user_by_id(session, user_id)
@@ -114,7 +116,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
         )
         support_unread_count = (
             await support_dal.count_user_unread(session, user_id)
-            if settings.SUPPORT_TICKETS_ENABLED
+            if support_settings.tickets_enabled
             else 0
         )
         local_sub = (
@@ -167,7 +169,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
     admin_ids = {int(x) for x in (settings.ADMIN_IDS or [])}
     is_admin = bool(db_user.telegram_id and int(db_user.telegram_id) in admin_ids)
     telegram_linked = _user_has_linked_telegram(db_user)
-    referral_welcome_days = max(0, int(settings.REFERRAL_WELCOME_BONUS_DAYS or 0))
+    referral_welcome_days = max(0, int(referral_settings.welcome_bonus_days or 0))
     referral_welcome_telegram_required_reason = (
         _referral_welcome_telegram_required_reason(settings, db_user)
         if db_user.referred_by_id and not active and referral_welcome_days > 0
@@ -215,13 +217,13 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
             "purchased_count": referral_stats.get("purchased_count", 0),
             "welcome_bonus_days": referral_welcome_days,
             "welcome_bonus_without_telegram_enabled": bool(
-                settings.REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED
+                referral_settings.welcome_bonus_without_telegram_enabled
             ),
             "welcome_bonus_requires_telegram": bool(
                 referral_welcome_telegram_required_reason and not telegram_linked
             ),
             "welcome_bonus_block_reason": referral_welcome_telegram_required_reason,
-            "one_bonus_per_referee": bool(settings.REFERRAL_ONE_BONUS_PER_REFEREE),
+            "one_bonus_per_referee": bool(referral_settings.one_bonus_per_referee),
             "bonus_details": _serialize_referral_bonus_details(settings, lang),
         },
         "plans": plans_payload,
@@ -238,12 +240,12 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
         ),
         "support_unread_count": int(support_unread_count or 0),
         "settings": {
-            "support_url": settings.SUPPORT_LINK,
+            "support_url": support_settings.link,
             "server_status_url": settings.SERVER_STATUS_URL,
-            "support_tickets_enabled": bool(settings.SUPPORT_TICKETS_ENABLED),
-            "support_ticket_max_body_length": int(settings.SUPPORT_TICKET_MAX_BODY_LENGTH or 4000),
+            "support_tickets_enabled": bool(support_settings.tickets_enabled),
+            "support_ticket_max_body_length": int(support_settings.ticket_max_body_length or 4000),
             "support_ticket_max_subject_length": int(
-                settings.SUPPORT_TICKET_MAX_SUBJECT_LENGTH or 160
+                support_settings.ticket_max_subject_length or 160
             ),
             "traffic_mode": bool(settings.traffic_sale_mode),
             "my_devices_enabled": bool(settings.MY_DEVICES_SECTION_ENABLED),
