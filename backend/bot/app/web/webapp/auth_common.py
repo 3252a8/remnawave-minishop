@@ -83,7 +83,11 @@ def _set_telegram_oauth_state_cookie(
     settings: Settings,
     payload: Dict[str, Any],
 ) -> None:
-    max_age = max(60, int(settings.WEBAPP_LOGIN_TOKEN_TTL_SECONDS))
+    try:
+        login_token_ttl_seconds = int(settings.webapp_settings.login_token_ttl_seconds)
+    except AttributeError:
+        login_token_ttl_seconds = int(settings.WEBAPP_LOGIN_TOKEN_TTL_SECONDS)
+    max_age = max(60, login_token_ttl_seconds)
     response.set_cookie(
         WEBAPP_TELEGRAM_OAUTH_STATE_COOKIE_NAME,
         create_signed_telegram_oauth_state(settings, payload, ttl_seconds=max_age),

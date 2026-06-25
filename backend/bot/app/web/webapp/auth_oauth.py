@@ -66,6 +66,20 @@ from .payloads import (
 from .telegram_notifications import _probe_telegram_notifications_for_user_id
 
 
+def _webapp_auth_max_age_seconds(settings: Settings) -> int:
+    try:
+        return int(settings.webapp_settings.auth_max_age_seconds)
+    except AttributeError:
+        return int(settings.WEBAPP_AUTH_MAX_AGE_SECONDS)
+
+
+def _webapp_login_token_ttl_seconds(settings: Settings) -> int:
+    try:
+        return int(settings.webapp_settings.login_token_ttl_seconds)
+    except AttributeError:
+        return int(settings.WEBAPP_LOGIN_TOKEN_TTL_SECONDS)
+
+
 async def _exchange_telegram_oauth_code(
     request: web.Request,
     *,
@@ -119,7 +133,7 @@ async def telegram_oauth_nonce_route(request: web.Request) -> web.Response:
 
     nonce = create_telegram_oauth_nonce(
         settings,
-        ttl_seconds=settings.WEBAPP_LOGIN_TOKEN_TTL_SECONDS,
+        ttl_seconds=_webapp_login_token_ttl_seconds(settings),
     )
     return json_response(
         {
@@ -211,7 +225,7 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
         id_token,
         client_id=int(_resolve_telegram_oauth_client_id(settings) or 0),
         expected_nonce=str(state.get("nonce") or ""),
-        max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
+        max_age_seconds=_webapp_auth_max_age_seconds(settings),
     )
     if not telegram_user:
         raise redirect("/", "invalid_token")
@@ -329,7 +343,7 @@ async def _validate_telegram_auth_payload(
         return validate_telegram_webapp_init_data(
             init_data,
             settings.BOT_TOKEN,
-            max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
+            max_age_seconds=_webapp_auth_max_age_seconds(settings),
         )
 
     oauth_id_token = str(payload.get("id_token") or "")
@@ -342,7 +356,7 @@ async def _validate_telegram_auth_payload(
             oauth_id_token,
             client_id=client_id,
             expected_nonce=nonce,
-            max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
+            max_age_seconds=_webapp_auth_max_age_seconds(settings),
         )
 
     auth_data = payload.get("auth_data")
@@ -350,7 +364,7 @@ async def _validate_telegram_auth_payload(
         return validate_telegram_login_widget_data(
             auth_data,
             settings.BOT_TOKEN,
-            max_age_seconds=settings.WEBAPP_AUTH_MAX_AGE_SECONDS,
+            max_age_seconds=_webapp_auth_max_age_seconds(settings),
         )
 
     return None
