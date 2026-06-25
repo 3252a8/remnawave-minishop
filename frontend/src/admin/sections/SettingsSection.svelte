@@ -54,69 +54,72 @@
     options: boolean | { passive: boolean },
   ];
 
-  export let at: TranslateFn;
-  export let onSettingsSaved: (payload: SettingsSavedPayload) => void | Promise<void>;
-  export let currentLang = "ru";
-  export let settingsPath: SettingsPath = [];
-  export let routePrefix = "";
-  export let onSettingsPathChange: (path: SettingsPath) => void = () => {};
+  let {
+    at,
+    onSettingsSaved,
+    currentLang = "ru",
+    settingsPath = [],
+    routePrefix = "",
+    onSettingsPathChange = () => {},
+  }: {
+    at: TranslateFn;
+    onSettingsSaved: (payload: SettingsSavedPayload) => void | Promise<void>;
+    currentLang?: string;
+    settingsPath?: SettingsPath;
+    routePrefix?: string;
+    onSettingsPathChange?: (path: SettingsPath) => void;
+  } = $props();
 
   const settingsStore = getContext<SettingsStore>("settingsStore");
 
-  let rawSettingsSections: SettingsSection[] = [];
-  let settingsSections: AdminSettingsSection[] = [];
-  let settingsLoading = false;
-  let settingsDirty: SettingsDirtyState = {};
-  let settingsSaving = false;
-  let visibleSettingsSections: SettingsSection[] = [];
-  let settingsAllOpen = false;
-  let iconOptions: string[] = [];
-  let filteredIconOptions: string[] = [];
-  let currentSettingsPathKey = "";
-
-  $: ({
-    settingsSections: rawSettingsSections,
-    settingsLoading,
-    settingsDirty,
-    settingsSaving,
-  } = $settingsStore);
-  $: settingsSections = rawSettingsSections as AdminSettingsSection[];
-
-  $: visibleSettingsSections = settingsSections.filter(
-    (section) => !SETTINGS_SECTION_IDS_HIDDEN_IN_GENERAL_SETTINGS.has(section.id)
+  const settingsState = $derived($settingsStore);
+  const rawSettingsSections = $derived((settingsState.settingsSections || []) as SettingsSection[]);
+  const settingsSections = $derived(rawSettingsSections as AdminSettingsSection[]);
+  const settingsLoading = $derived(Boolean(settingsState.settingsLoading));
+  const settingsDirty = $derived((settingsState.settingsDirty || {}) as SettingsDirtyState);
+  const settingsSaving = $derived(Boolean(settingsState.settingsSaving));
+  const visibleSettingsSections = $derived(
+    settingsSections.filter(
+      (section) => !SETTINGS_SECTION_IDS_HIDDEN_IN_GENERAL_SETTINGS.has(section.id)
+    )
   );
 
-  let settingsOpenSections: string[] = [];
-  let settingsOpenSubsections: Record<string, string[]> = {};
-  let revealedSecrets = new Set<string>();
-  let iconPickerField: SettingField | null = null;
-  let iconPickerSearch = "";
-  let copiedWebhookKey = "";
-  let copiedWebhookTimer: ReturnType<typeof window.setTimeout> | null = null;
-  let lastAppliedSettingsPathKey = "";
-  let settingsPathSyncing = false;
-  let settingsAnchorScrollTimers: Array<ReturnType<typeof window.setTimeout>> = [];
-  let settingsAnchorScrollFrames: number[] = [];
-  let settingsAnchorScrollCleanup: (() => void) | null = null;
+  let settingsOpenSections = $state<string[]>([]);
+  let settingsOpenSubsections = $state<Record<string, string[]>>({});
+  let revealedSecrets = $state(new Set<string>());
+  let iconPickerField = $state<SettingField | null>(null);
+  let iconPickerSearch = $state("");
+  let copiedWebhookKey = $state("");
+  let copiedWebhookTimer = $state<ReturnType<typeof window.setTimeout> | null>(null);
+  let lastAppliedSettingsPathKey = $state("");
+  let settingsPathSyncing = $state(false);
+  let settingsAnchorScrollTimers = $state<Array<ReturnType<typeof window.setTimeout>>>([]);
+  let settingsAnchorScrollFrames = $state<number[]>([]);
+  let settingsAnchorScrollCleanup = $state<(() => void) | null>(null);
 
-  $: settingsAllOpen =
+  const settingsAllOpen = $derived(
     visibleSettingsSections.length > 0 &&
-    settingsOpenSections.length === visibleSettingsSections.length;
-  $: iconOptions = Object.keys(UiIcons)
-    .filter((name) => /^[A-Z]/.test(name))
-    .sort((a, b) => a.localeCompare(b));
-  $: filteredIconOptions = iconOptions.filter((name) =>
-    name.toLowerCase().includes(iconPickerSearch.trim().toLowerCase())
+      settingsOpenSections.length === visibleSettingsSections.length
   );
-  $: currentSettingsPathKey = settingsPathKey(settingsPath);
-  $: if (visibleSettingsSections.length && currentSettingsPathKey) {
-    if (currentSettingsPathKey !== lastAppliedSettingsPathKey) {
-      lastAppliedSettingsPathKey = currentSettingsPathKey;
-      void applySettingsPath(settingsPath);
+  const iconOptions = $derived(
+    Object.keys(UiIcons)
+      .filter((name) => /^[A-Z]/.test(name))
+      .sort((a, b) => a.localeCompare(b))
+  );
+  const filteredIconOptions = $derived(
+    iconOptions.filter((name) => name.toLowerCase().includes(iconPickerSearch.trim().toLowerCase()))
+  );
+  const currentSettingsPathKey = $derived(settingsPathKey(settingsPath));
+  $effect(() => {
+    if (visibleSettingsSections.length && currentSettingsPathKey) {
+      if (currentSettingsPathKey !== lastAppliedSettingsPathKey) {
+        lastAppliedSettingsPathKey = currentSettingsPathKey;
+        void applySettingsPath(settingsPath);
+      }
+      return;
     }
-  } else if (!currentSettingsPathKey) {
-    lastAppliedSettingsPathKey = "";
-  }
+    if (!currentSettingsPathKey) lastAppliedSettingsPathKey = "";
+  });
 
   onMount(() => {
     settingsStore.loadSettings();
