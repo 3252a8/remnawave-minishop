@@ -42,10 +42,9 @@
   let reply = $state("");
   let messagesScrollEl = $state<HTMLElement | null>(null);
   let lastMessageScrollKey = $state("");
-  const supportState = $derived($supportStore);
-  const tickets: SupportTicket[] = $derived(supportState.tickets || []);
+  const tickets: SupportTicket[] = $derived(supportStore.tickets || []);
   const stats = $derived(
-    supportState.stats || {
+    supportStore.stats || {
       active: 0,
       closed: 0,
       open: 0,
@@ -53,9 +52,9 @@
       total_unread_admin: 0,
     }
   );
-  const loading = $derived(Boolean(supportState.loading));
+  const loading = $derived(Boolean(supportStore.loading));
   const filters: SupportFilters = $derived(
-    supportState.filters || {
+    supportStore.filters || {
       status: "active",
       priority: "",
       category: "",
@@ -63,12 +62,12 @@
       sort: "importance_desc",
     }
   );
-  const openedTicketId: number | null = $derived(supportState.openedTicketId || null);
-  const openedTicket: SupportTicket | null = $derived(supportState.openedTicket || null);
-  const messages: SupportMessage[] = $derived(supportState.messages || []);
-  const userSnapshot: SupportUser | null = $derived(supportState.userSnapshot || null);
-  const sending = $derived(Boolean(supportState.sending));
-  const composerInternalNote = $derived(Boolean(supportState.composerInternalNote));
+  const openedTicketId: number | null = $derived(supportStore.openedTicketId || null);
+  const openedTicket: SupportTicket | null = $derived(supportStore.openedTicket || null);
+  const messages: SupportMessage[] = $derived(supportStore.messages || []);
+  const userSnapshot: SupportUser | null = $derived(supportStore.userSnapshot || null);
+  const sending = $derived(Boolean(supportStore.sending));
+  const composerInternalNote = $derived(Boolean(supportStore.composerInternalNote));
   const priorityFilterChange = ((value: string) =>
     setFilterAndLoad("priority", value)) as ComponentCallback;
   const categoryFilterChange = ((value: string) =>

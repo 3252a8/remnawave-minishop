@@ -474,10 +474,10 @@
     }
     const ticketId = readSupportTicketIdFromPath();
     if (active === "support" && ticketId) {
-      if (!$supportStore.openedTicketId || $supportStore.openedTicketId !== ticketId) {
+      if (!supportStore.openedTicketId || supportStore.openedTicketId !== ticketId) {
         void supportStore.openTicket(ticketId, { skipPush: true });
       }
-    } else if (active === "support" && $supportStore.openedTicketId) {
+    } else if (active === "support" && supportStore.openedTicketId) {
       supportStore.closeTicketView({ skipPush: true });
     }
   }
@@ -767,9 +767,9 @@
             <NavIcon size={16} />
             <span>{item.label}</span>
             <span>
-              {#if item.id === "support" && $supportStore.stats?.total_unread_admin}
+              {#if item.id === "support" && supportStore.stats?.total_unread_admin}
                 <AdminBadge variant="danger">
-                  <span class="numeric-badge-value">{$supportStore.stats.total_unread_admin}</span>
+                  <span class="numeric-badge-value">{supportStore.stats.total_unread_admin}</span>
                 </AdminBadge>
               {/if}
             </span>
