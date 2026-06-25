@@ -161,18 +161,10 @@
   const autoRenewBusy = $derived(shellState.autoRenewBusy);
   const activationSuccessDialogOpen = $derived(shellState.activationSuccessDialogOpen);
   const activationSuccessUseInstallGuides = $derived(shellState.activationSuccessUseInstallGuides);
-  const telegramNotificationsBotOpenedAt = $derived(shellState.telegramNotificationsBotOpenedAt);
-  const telegramNotificationsResumeRefreshBusy = $derived(
-    shellState.telegramNotificationsResumeRefreshBusy
-  );
-  const telegramNotificationsResumeLastCheckAt = $derived(
-    shellState.telegramNotificationsResumeLastCheckAt
-  );
   const languageClickGuard = $derived(shellState.languageClickGuard);
   const languageClickGuardArmed = $derived(shellState.languageClickGuardArmed);
   const guestLanguage = $derived(shellState.guestLanguage);
   const emailAvatarUrl = $derived(shellState.emailAvatarUrl);
-  const token = $derived(shellState.token);
   const csrfToken = $derived(shellState.csrfToken);
   const adminBundleApi: AnyRecord | null = $derived(shellState.adminBundleApi as AnyRecord | null);
   const adminBundleError = $derived(shellState.adminBundleError);
@@ -444,10 +436,6 @@
     isDemoAuthMock: () => Boolean(MOCK) && demoAuth.isDemoAuthMock(),
     prepareDemoAuthState: () => demoAuth.prepareAuthState(),
     mock: MOCK,
-    getTelegram: () => tg,
-    setMode: (next) => {
-      shellState.mode = next;
-    },
     hasTelegramLaunchParams,
     loadTelegramSdk,
     loadData,
@@ -460,33 +448,13 @@
     finalizeTelegramAuth: (authData, source) => authStore.finalizeTelegramAuth(authData, source),
     setAuthStatus: (message, isError = false) => authStore.setAuthStatus(message, isError),
     t,
-    getInitDataForBoot: () =>
-      telegramMiniAppInitData || tg?.initData || readTelegramMiniAppInitDataFromLocation(),
-    getToken: () => token,
-    getCsrfToken: () => csrfToken,
-    getMode: () => mode,
-    getScreen: () => screen,
+    readTelegramMiniAppInitDataFromLocation,
     continueTelegramLinkPendingAction: () => appActions.continueTelegramLinkPendingAction(),
     hasPendingActivationHandoff,
     maybeShowActivationSuccessDialog,
     startPendingActivationWatch,
     telegramNotificationsResumeCooldownMs: TELEGRAM_NOTIFICATIONS_RESUME_REFRESH_COOLDOWN_MS,
-    readTelegramNotificationsResumeState: () => ({
-      botOpenedAt: telegramNotificationsBotOpenedAt,
-      lastCheckAt: telegramNotificationsResumeLastCheckAt,
-      mode,
-      needPrompt: telegramNotificationsNeedPrompt,
-      refreshBusy: telegramNotificationsResumeRefreshBusy,
-    }),
-    setTelegramNotificationsBotOpenedAt: (openedAt) => {
-      shellState.telegramNotificationsBotOpenedAt = openedAt;
-    },
-    setTelegramNotificationsResumeLastCheckAt: (checkedAt) => {
-      shellState.telegramNotificationsResumeLastCheckAt = checkedAt;
-    },
-    setTelegramNotificationsResumeRefreshBusy: (busy) => {
-      shellState.telegramNotificationsResumeRefreshBusy = busy;
-    },
+    getTelegramNotificationsNeedPrompt: () => telegramNotificationsNeedPrompt,
   });
   const resumeLifecycle = createResumeLifecycle({
     clearLoginTooltip: () => {

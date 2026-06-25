@@ -1,20 +1,12 @@
 import { publicInstallTokenFromPath } from "./routes.js";
+import { shellState } from "./shellState.svelte";
 import { refreshTelegramNotificationsAfterResume } from "./telegramNotificationsResume.js";
 import { runWebappBoot } from "./webappBoot.js";
 
-type TelegramLike = { ready?: () => void; expand?: () => void; initData?: string } | null;
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type LoadData = (
   options?: { fresh?: boolean; preserveView?: boolean } & Record<string, unknown>
 ) => Promise<unknown>;
-
-type TelegramNotificationsResumeState = {
-  botOpenedAt: number;
-  lastCheckAt: number;
-  mode: string;
-  needPrompt: boolean;
-  refreshBusy: boolean;
-};
 
 type AppBootRuntimeDeps = {
   // Pre-boot short-circuits.
@@ -23,8 +15,6 @@ type AppBootRuntimeDeps = {
   prepareDemoAuthState: () => void;
   // Shared / runWebappBoot environment.
   mock: unknown;
-  getTelegram: () => TelegramLike;
-  setMode: (mode: string) => void;
   hasTelegramLaunchParams: () => boolean;
   loadTelegramSdk: () => Promise<unknown> | unknown;
   loadData: LoadData;
@@ -40,22 +30,15 @@ type AppBootRuntimeDeps = {
   ) => unknown;
   setAuthStatus: (message: string, isError?: boolean) => void;
   t: Translate;
-  getInitDataForBoot: () => string;
-  getToken: () => string;
-  getCsrfToken: () => string;
+  readTelegramMiniAppInitDataFromLocation: () => string;
   // Post-boot activation handoff.
-  getMode: () => string;
-  getScreen: () => string;
   continueTelegramLinkPendingAction: () => unknown;
   hasPendingActivationHandoff: () => boolean;
   maybeShowActivationSuccessDialog: (context?: Record<string, unknown>) => Promise<boolean>;
   startPendingActivationWatch: () => void;
   // Telegram-notifications resume refresh.
   telegramNotificationsResumeCooldownMs: number;
-  readTelegramNotificationsResumeState: () => TelegramNotificationsResumeState;
-  setTelegramNotificationsBotOpenedAt: (openedAt: number) => void;
-  setTelegramNotificationsResumeLastCheckAt: (checkedAt: number) => void;
-  setTelegramNotificationsResumeRefreshBusy: (busy: boolean) => void;
+  getTelegramNotificationsNeedPrompt: () => boolean;
 };
 
 /**
@@ -80,11 +63,13 @@ export function createAppBootRuntime(deps: AppBootRuntimeDeps) {
     }
     await runWebappBoot({
       MOCK: deps.mock,
-      setMode: deps.setMode,
+      setMode: (mode: string) => {
+        shellState.mode = mode;
+      },
       hasTelegramLaunchParams: deps.hasTelegramLaunchParams,
       loadTelegramSdk: deps.loadTelegramSdk,
       prepareTelegramMiniApp: () => {
-        const telegram = deps.getTelegram();
+        const telegram = shellState.tg;
         if (!telegram) return;
         try {
           telegram.ready?.();
@@ -103,11 +88,14 @@ export function createAppBootRuntime(deps: AppBootRuntimeDeps) {
       finalizeTelegramAuth: deps.finalizeTelegramAuth,
       setAuthStatus: deps.setAuthStatus,
       t: deps.t,
-      getInitDataForBoot: deps.getInitDataForBoot,
-      getToken: deps.getToken,
-      getCsrfToken: deps.getCsrfToken,
+      getInitDataForBoot: () =>
+        shellState.telegramMiniAppInitData ||
+        shellState.tg?.initData ||
+        deps.readTelegramMiniAppInitDataFromLocation(),
+      getToken: () => shellState.token,
+      getCsrfToken: () => shellState.csrfToken,
     });
-    if (deps.getMode() === "app" && deps.getScreen() !== "admin") {
+    if (shellState.mode === "app" && shellState.screen !== "admin") {
       const telegramActionHandled = await deps.continueTelegramLinkPendingAction();
       if (!telegramActionHandled) {
         if (deps.hasPendingActivationHandoff()) await deps.loadData({ fresh: true });
@@ -121,10 +109,22 @@ export function createAppBootRuntime(deps: AppBootRuntimeDeps) {
     await refreshTelegramNotificationsAfterResume({
       cooldownMs: deps.telegramNotificationsResumeCooldownMs,
       loadData: () => deps.loadData({ fresh: true, preserveView: true }),
-      readState: deps.readTelegramNotificationsResumeState,
-      setBotOpenedAt: deps.setTelegramNotificationsBotOpenedAt,
-      setLastCheckAt: deps.setTelegramNotificationsResumeLastCheckAt,
-      setRefreshBusy: deps.setTelegramNotificationsResumeRefreshBusy,
+      readState: () => ({
+        botOpenedAt: shellState.telegramNotificationsBotOpenedAt,
+        lastCheckAt: shellState.telegramNotificationsResumeLastCheckAt,
+        mode: shellState.mode,
+        needPrompt: deps.getTelegramNotificationsNeedPrompt(),
+        refreshBusy: shellState.telegramNotificationsResumeRefreshBusy,
+      }),
+      setBotOpenedAt: (openedAt) => {
+        shellState.telegramNotificationsBotOpenedAt = openedAt;
+      },
+      setLastCheckAt: (checkedAt) => {
+        shellState.telegramNotificationsResumeLastCheckAt = checkedAt;
+      },
+      setRefreshBusy: (busy) => {
+        shellState.telegramNotificationsResumeRefreshBusy = busy;
+      },
     });
   }
 
