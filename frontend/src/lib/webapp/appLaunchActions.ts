@@ -1,26 +1,25 @@
 import { openUrlWithHiddenAnchor, readExternalAppLaunchTarget } from "./appLinks.js";
+import { shellState } from "./shellState.svelte";
 
 type AppLaunchActionDeps = {
   openTarget?: (url: string) => void;
   readTarget?: () => string;
-  setAppLaunchTarget: (target: string) => void;
 };
 
 export function createAppLaunchActions({
   openTarget = openUrlWithHiddenAnchor,
   readTarget = readExternalAppLaunchTarget,
-  setAppLaunchTarget,
 }: AppLaunchActionDeps) {
   function refreshAppLaunchTarget() {
     const target = readTarget();
-    setAppLaunchTarget(target);
+    shellState.appLaunchTarget = target;
     return target;
   }
 
   function openAppLaunchTarget(nextTarget = "") {
     const target = String(nextTarget || refreshAppLaunchTarget() || "").trim();
     if (!target) return false;
-    setAppLaunchTarget(target);
+    shellState.appLaunchTarget = target;
     openTarget(target);
     return true;
   }

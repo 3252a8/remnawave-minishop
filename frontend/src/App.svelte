@@ -203,9 +203,6 @@
       getTelegram: () => tg,
       hasTelegramLaunchParams,
       refreshTelegram: telegramRuntime.refreshTelegram,
-      setAppLaunchTarget: (target) => {
-        shellState.appLaunchTarget = target;
-      },
       setTelegram: (value) => {
         shellState.tg = value;
       },

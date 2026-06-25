@@ -15,7 +15,6 @@ type ExternalLinkRuntimeDeps = {
   openLaunchTarget?: (url: string) => void;
   refreshTelegram: () => TelegramWebApp | null;
   readLaunchTarget?: () => string;
-  setAppLaunchTarget: (target: string) => void;
   setTelegram: (value: TelegramWebApp) => void;
 };
 
@@ -28,7 +27,6 @@ export function createExternalLinkRuntime({
   openLaunchTarget,
   refreshTelegram,
   readLaunchTarget,
-  setAppLaunchTarget,
   setTelegram,
 }: ExternalLinkRuntimeDeps) {
   function openExternalLink(url: string) {
@@ -57,7 +55,6 @@ export function createExternalLinkRuntime({
     ...createAppLaunchActions({
       openTarget: openLaunchTarget,
       readTarget: readLaunchTarget,
-      setAppLaunchTarget,
     }),
     openAppLink,
     openExternalLink,
