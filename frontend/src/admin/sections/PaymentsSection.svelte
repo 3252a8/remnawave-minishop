@@ -9,7 +9,7 @@
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
   import { FileText, User } from "$components/ui/icons.js";
-  import { createAdminDatatable, syncAdminDatatable } from "../../lib/admin/datatables.js";
+  import { TableHandler } from "@vincjo/datatables";
   import type { PaymentOut, PaymentsStore } from "../../lib/admin/stores/paymentsStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -29,14 +29,14 @@
   } = $props();
 
   const paymentsStore = getContext<PaymentsStore>("paymentsStore");
-  const paymentsTable = createAdminDatatable();
+  const paymentsTable = new TableHandler<PaymentOut>();
   const PAYMENTS_PAGE_SIZE = 25;
   const payments = $derived(paymentsStore.payments as PaymentOut[]);
   const paymentsTotal = $derived(Number(paymentsStore.paymentsTotal || 0));
   const paymentsPage = $derived(Number(paymentsStore.paymentsPage || 0));
   const paymentsLoading = $derived(Boolean(paymentsStore.paymentsLoading));
 
-  $effect(() => syncAdminDatatable(paymentsTable, payments));
+  $effect(() => paymentsTable.setRows(payments));
 
   const paymentsPageCount = $derived(
     Math.max(1, Math.ceil(Number(paymentsTotal || 0) / PAYMENTS_PAGE_SIZE))
@@ -163,7 +163,7 @@
               </span>
             </td>
             <td class="admin-cell-mono" data-label={at("payments_col_user_id", {}, "ID")}>
-              {p.user_id != null && p.user_id !== "" ? p.user_id : "—"}
+              {p.user_id != null ? p.user_id : "—"}
             </td>
             <td
               class="admin-cell-traffic-gb"

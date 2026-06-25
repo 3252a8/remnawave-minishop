@@ -11,7 +11,7 @@
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
-  import { createAdminDatatable, syncAdminDatatable } from "../../lib/admin/datatables.js";
+  import { TableHandler } from "@vincjo/datatables";
   import type { PromosStore } from "../../lib/admin/stores/promosStore";
   import type { components } from "../../lib/api/openapi.generated";
 
@@ -28,7 +28,7 @@
   } = $props();
 
   const promosStore = getContext<PromosStore>("promosStore");
-  const promosTable = createAdminDatatable();
+  const promosTable = new TableHandler<Promo>();
 
   const promos = $derived(promosStore.promos as Promo[]);
   const promosTotal = $derived(Number(promosStore.promosTotal || 0));
@@ -45,7 +45,7 @@
   );
   const promoRows = $derived(promosTable.rows as Promo[]);
 
-  $effect(() => syncAdminDatatable(promosTable, promos));
+  $effect(() => promosTable.setRows(promos));
 
   const promosHasMore = $derived(promos.length < promosTotal);
   const promoHeaders = $derived([

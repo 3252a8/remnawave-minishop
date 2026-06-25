@@ -9,7 +9,7 @@
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
   import { RefreshCw, TriangleAlert, User } from "$components/ui/icons.js";
-  import { createAdminDatatable, syncAdminDatatable } from "../../lib/admin/datatables.js";
+  import { TableHandler } from "@vincjo/datatables";
   import type { LogsStore } from "../../lib/admin/stores/logsStore";
   import type { components } from "../../lib/api/openapi.generated";
 
@@ -28,7 +28,7 @@
   } = $props();
 
   const logsStore = getContext<LogsStore>("logsStore");
-  const logsTable = createAdminDatatable();
+  const logsTable = new TableHandler<LogEntry>();
   const LOGS_PAGE_SIZE = 50;
 
   const logsState = $derived(logsStore);
@@ -40,7 +40,7 @@
   const logsError = $derived(String(logsState.logsError || ""));
   const logRows = $derived(logsTable.rows as LogEntry[]);
 
-  $effect(() => syncAdminDatatable(logsTable, logs));
+  $effect(() => logsTable.setRows(logs));
 
   const logsPageCount = $derived(Math.max(1, Math.ceil(Number(logsTotal || 0) / LOGS_PAGE_SIZE)));
   const logHeaders = $derived([

@@ -19,7 +19,7 @@
     Upload,
   } from "$components/ui/icons.js";
   import { Tooltip } from "$components/ui/primitives.js";
-  import { createAdminDatatable, syncAdminDatatable } from "../../lib/admin/datatables.js";
+  import { TableHandler } from "@vincjo/datatables";
   import type {
     BackupArchive,
     BackupRestoreResult,
@@ -37,7 +37,7 @@
   } = $props();
 
   const BACKUPS_PAGE_SIZE = 10;
-  const backupsTable = createAdminDatatable([], { rowsPerPage: BACKUPS_PAGE_SIZE });
+  const backupsTable = new TableHandler<BackupArchive>([], { rowsPerPage: BACKUPS_PAGE_SIZE });
   const backupsStore = getContext<BackupsStore>("backupsStore");
 
   let selectedName = $state("");
@@ -55,7 +55,7 @@
   const totalArchives = $derived(archives?.length || 0);
 
   $effect(() => {
-    syncAdminDatatable(backupsTable, archives || []);
+    backupsTable.setRows(archives || []);
     if (backupsTable.currentPage > (backupsTable.pageCount || 1))
       backupsTable.setPage(backupsTable.pageCount || 1);
   });

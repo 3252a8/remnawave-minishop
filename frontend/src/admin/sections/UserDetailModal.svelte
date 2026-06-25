@@ -7,7 +7,7 @@
   import { AdminBadge, AdminButton, AdminTrafficCard } from "$components/patterns/admin/index.js";
   import { Copy, ExternalLink, UsersRound } from "$components/ui/icons.js";
   import { getContext } from "svelte";
-  import { createAdminDatatable, syncAdminDatatable } from "../../lib/admin/datatables.js";
+  import { TableHandler } from "@vincjo/datatables";
 
   import type { Tariff, TariffsStore } from "$lib/admin/stores/tariffsStore";
   import type { AdminUser, UsersStore } from "$lib/admin/stores/usersStore";
@@ -20,11 +20,12 @@
   type ComponentCallback = (...args: never[]) => void;
   type SelectOption = { value: string; label: string };
   type HwidDraftState = { key: string; valid: boolean };
+  type UserLogRow = Record<string, unknown> & { log_id?: number | string };
 
   const usersStore = getContext<UsersStore>("usersStore");
   const tariffsStore = getContext<TariffsStore>("tariffsStore");
-  const userLogsTable = createAdminDatatable();
-  const userReferralsTable = createAdminDatatable();
+  const userLogsTable = new TableHandler<UserLogRow>();
+  const userReferralsTable = new TableHandler<AdminUser>();
 
   let {
     at,
@@ -235,8 +236,8 @@
   const userLogsLoaded = $derived(usersState.userLogsLoaded);
   const userLogsPageSize = $derived(usersState.userLogsPageSize);
 
-  $effect(() => syncAdminDatatable(userLogsTable, userLogs));
-  $effect(() => syncAdminDatatable(userReferralsTable, userReferrals));
+  $effect(() => userLogsTable.setRows(userLogs as UserLogRow[]));
+  $effect(() => userReferralsTable.setRows(userReferrals));
 
   const userLogsPageCount = $derived(
     Math.max(1, Math.ceil(Number(userLogsTotal || 0) / Number(userLogsPageSize || 20)))

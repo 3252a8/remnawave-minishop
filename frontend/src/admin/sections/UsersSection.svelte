@@ -22,7 +22,7 @@
   } from "$components/patterns/admin/index.js";
   import { getContext, onMount } from "svelte";
   import { trafficOfLabel } from "../../lib/admin/format.js";
-  import { createAdminDatatable, syncAdminDatatable } from "../../lib/admin/datatables.js";
+  import { TableHandler } from "@vincjo/datatables";
   import type { AdminUser, UsersStore } from "../../lib/admin/stores/usersStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -72,7 +72,7 @@
   }: UsersSectionProps = $props();
 
   const usersStore = getContext<UsersStore>("usersStore");
-  const usersTable = createAdminDatatable();
+  const usersTable = new TableHandler<AdminUser>();
   const usersState = $derived(usersStore);
   const users = $derived(usersState.users);
   const usersTotal = $derived(usersState.usersTotal);
@@ -85,7 +85,7 @@
   const usersLoading = $derived(usersState.usersLoading);
 
   $effect(() => {
-    syncAdminDatatable(usersTable, users);
+    usersTable.setRows(users);
   });
 
   const USERS_PAGE_SIZE = 25;

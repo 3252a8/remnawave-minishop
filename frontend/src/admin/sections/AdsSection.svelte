@@ -12,7 +12,7 @@
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
-  import { createAdminDatatable, syncAdminDatatable } from "../../lib/admin/datatables.js";
+  import { TableHandler } from "@vincjo/datatables";
   import type { AdsStore } from "../../lib/admin/stores/adsStore";
   import type { components } from "../../lib/api/openapi.generated";
 
@@ -30,7 +30,7 @@
 
   const ADS_PAGE_SIZE = 10;
   const adsStore = getContext<AdsStore>("adsStore");
-  const adsTable = createAdminDatatable([], { rowsPerPage: ADS_PAGE_SIZE });
+  const adsTable = new TableHandler<Ad>([], { rowsPerPage: ADS_PAGE_SIZE });
 
   const ads = $derived(adsStore.ads as Ad[]);
   const adsLoading = $derived(Boolean(adsStore.adsLoading));
@@ -41,7 +41,7 @@
   const adRows = $derived(adsTable.rows as Ad[]);
 
   $effect(() => {
-    syncAdminDatatable(adsTable, ads);
+    adsTable.setRows(ads);
     if (adsTable.currentPage > (adsTable.pageCount || 1)) adsTable.setPage(adsTable.pageCount || 1);
   });
   const adHeaders = $derived([
