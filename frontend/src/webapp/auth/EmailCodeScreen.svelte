@@ -5,16 +5,18 @@
   import { Input } from "$components/ui/index.js";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
 
-  export let code = "";
-  export let email = "";
-  export let busy = false;
-  export let resendCooldown = 0;
-  export let status = "";
-  export let isError = false;
-  export let t = (key) => key;
-  export let onBack = () => {};
-  export let onConfirm = () => {};
-  export let onResend = () => {};
+  let {
+    code = $bindable(""),
+    email = "",
+    busy = false,
+    resendCooldown = 0,
+    status = "",
+    isError = false,
+    t = (key) => key,
+    onBack = () => {},
+    onConfirm = () => {},
+    onResend = () => {},
+  } = $props();
 </script>
 
 <div class="phone-screen auth-screen">
