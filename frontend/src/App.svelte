@@ -319,29 +319,11 @@
   } = createWebappActivationContext({
     billing,
     loadData,
-    getData: () => data,
-    getSubscription: () => subscription,
-    getMode: () => mode,
-    getScreen: () => screen,
-    getActivationSuccessDialogOpen: () => activationSuccessDialogOpen,
-    getActivationSuccessUseInstallGuides: () => activationSuccessUseInstallGuides,
     getPaymentModalOpen: () => paymentModalOpen,
     getTopupModalOpen: () => topupModalOpen,
     getDeviceTopupModalOpen: () => deviceTopupModalOpen,
     getChangeModalOpen: () => changeModalOpen,
     getChangeConfirmOpen: () => changeConfirmOpen,
-    setActivationSuccessDialogOpen: (open) => {
-      shellState.activationSuccessDialogOpen = open;
-    },
-    setActivationSuccessUseInstallGuides: (useInstallGuides) => {
-      shellState.activationSuccessUseInstallGuides = useInstallGuides;
-    },
-    setActiveTab: (tab) => {
-      shellState.activeTab = tab;
-    },
-    setScreen: (nextScreen) => {
-      shellState.screen = nextScreen;
-    },
     canUseInstallGuides,
     closePaymentModal: () => billingStore.closePaymentModal(),
     loadInstallGuides: (force) => installGuidesStore.load(force),
