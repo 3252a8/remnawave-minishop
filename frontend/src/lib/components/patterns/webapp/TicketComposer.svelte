@@ -2,13 +2,23 @@
   import { Send } from "$components/ui/icons.js";
   import { Button, Spinner, Textarea } from "$components/ui/index.js";
 
-  export let value = "";
-  export let maxLength = 4000;
-  export let disabled = false;
-  export let sending = false;
-  export let placeholder = "";
-  export let sendLabel = "";
-  export let onSend: (value: string) => void | Promise<void> = () => {};
+  let {
+    value = $bindable(""),
+    maxLength = 4000,
+    disabled = false,
+    sending = false,
+    placeholder = "",
+    sendLabel = "",
+    onSend = () => {},
+  }: {
+    value?: string;
+    maxLength?: number;
+    disabled?: boolean;
+    sending?: boolean;
+    placeholder?: string;
+    sendLabel?: string;
+    onSend?: (value: string) => void | Promise<void>;
+  } = $props();
 
   function submit() {
     if (disabled || sending || !value.trim()) return;
@@ -31,7 +41,7 @@
     {placeholder}
     ariaLabel={placeholder}
     class="ticket-composer-textarea"
-    on:keydown={handleKeydown}
+    onkeydown={handleKeydown}
   />
   <div class="ticket-composer-row">
     <small>{value.length}/{maxLength}</small>

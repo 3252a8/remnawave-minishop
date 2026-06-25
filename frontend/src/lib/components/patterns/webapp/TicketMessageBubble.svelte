@@ -2,30 +2,35 @@
   import BrandMark from "$lib/webapp/BrandMark.svelte";
   import { LifeBuoy, Lock, MessageSquare, UserRound } from "$components/ui/icons.js";
 
-  export let role = "user";
-  export let body = "";
-  export let createdAt = "";
-  export let isInternalNote = false;
-  export let perspective = "user";
-  export let userAvatarUrl = "";
-  export let userInitials = "";
-  export let authorName = "";
-  export let supportBrand = {};
-  export let t = (key, _params = {}, fallback = "") => fallback || key;
+  let {
+    role = "user",
+    body = "",
+    createdAt = "",
+    isInternalNote = false,
+    perspective = "user",
+    userAvatarUrl = "",
+    userInitials = "",
+    authorName = "",
+    supportBrand = {},
+    t = (key, _params = {}, fallback = "") => fallback || key,
+  } = $props();
 
-  $: messageRole = role || "system";
-  $: serviceMessage = isInternalNote || messageRole === "system";
-  $: outgoing =
+  const messageRole = $derived(role || "system");
+  const serviceMessage = $derived(isInternalNote || messageRole === "system");
+  const outgoing = $derived(
     (perspective === "admin" && (messageRole === "admin" || serviceMessage)) ||
-    (!serviceMessage && perspective !== "admin" && messageRole === "user");
-  $: roleLabel = isInternalNote
-    ? [authorName, t("wa_support_internal_note", {}, "Внутренняя заметка")]
-        .filter(Boolean)
-        .join(" / ")
-    : authorName || t(`wa_support_role_${messageRole}`, {}, messageRole);
-  $: timeLabel = formatTime(createdAt);
-  $: showSupportAvatar = !isInternalNote && messageRole === "admin";
-  $: showUserAvatar = !isInternalNote && messageRole === "user";
+      (!serviceMessage && perspective !== "admin" && messageRole === "user")
+  );
+  const roleLabel = $derived(
+    isInternalNote
+      ? [authorName, t("wa_support_internal_note", {}, "Внутренняя заметка")]
+          .filter(Boolean)
+          .join(" / ")
+      : authorName || t(`wa_support_role_${messageRole}`, {}, messageRole)
+  );
+  const timeLabel = $derived(formatTime(createdAt));
+  const showSupportAvatar = $derived(!isInternalNote && messageRole === "admin");
+  const showUserAvatar = $derived(!isInternalNote && messageRole === "user");
 
   function formatTime(value) {
     if (!value) return "";

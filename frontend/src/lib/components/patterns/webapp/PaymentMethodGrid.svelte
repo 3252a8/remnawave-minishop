@@ -4,10 +4,17 @@
   type AnyRecord = Record<string, any>;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
-  export let methods: AnyRecord[] = [];
-  export let selectedMethod = "";
-  export let t: Translate = (key) => key;
-  export let onSelect: (id: string) => void = () => {};
+  let {
+    methods = [],
+    selectedMethod = "",
+    t = (key) => key,
+    onSelect = () => {},
+  }: {
+    methods?: AnyRecord[];
+    selectedMethod?: string;
+    t?: Translate;
+    onSelect?: (id: string) => void;
+  } = $props();
 
   function methodTitle(method: AnyRecord) {
     return method?.name || t("wa_method_other_title");
@@ -30,7 +37,7 @@
   class="method-grid"
 >
   {#each methods as method}
-    {@const icon = methodIcon(method)}
+    {@const Icon = methodIcon(method)}
     <button
       class:active={selectedMethod === method.id}
       class:disabled={method.disabled}
@@ -41,8 +48,8 @@
       onclick={() => !method.disabled && onSelect(method.id)}
     >
       <span class="method-card-main">
-        {#if icon}
-          <svelte:component this={icon} size={19} />
+        {#if Icon}
+          <Icon size={19} />
         {/if}
         <strong>{methodTitle(method)}</strong>
       </span>

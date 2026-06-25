@@ -14,12 +14,20 @@
     updated_at?: string;
   };
 
-  export let ticket: TicketRecord;
-  export let t: Translate = (key) => key;
-  export let onOpen: (ticket: TicketRecord) => void = () => {};
+  let {
+    ticket,
+    t = (key) => key,
+    onOpen = () => {},
+  }: {
+    ticket: TicketRecord;
+    t?: Translate;
+    onOpen?: (ticket: TicketRecord) => void;
+  } = $props();
 
-  $: unread = Number(ticket?.unread_user_count || 0);
-  $: timeLabel = formatTime(ticket?.last_message_at || ticket?.updated_at || ticket?.created_at);
+  const unread = $derived(Number(ticket?.unread_user_count || 0));
+  const timeLabel = $derived(
+    formatTime(ticket?.last_message_at || ticket?.updated_at || ticket?.created_at)
+  );
 
   function formatTime(value: unknown) {
     if (!value) return "";
@@ -42,7 +50,7 @@
   type="button"
   data-status={ticket?.status}
   data-priority={ticket?.priority}
-  on:click={() => onOpen(ticket)}
+  onclick={() => onOpen(ticket)}
 >
   <span class="ticket-card-main">
     <span class="ticket-card-title">
