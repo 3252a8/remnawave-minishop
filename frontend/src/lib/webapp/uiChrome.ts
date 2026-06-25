@@ -1,17 +1,11 @@
+import { shellState } from "./shellState.svelte";
+
 export function createUiChrome({
   getCurrentLang,
   normalizeLangCode,
-  setGuestLanguage,
-  setLanguageClickGuard,
-  setLanguageClickGuardArmed,
-  setLanguageMenuOpenState,
 }: {
   getCurrentLang: () => string;
   normalizeLangCode: (value: string) => string;
-  setGuestLanguage: (value: string) => void;
-  setLanguageClickGuard: (value: boolean) => void;
-  setLanguageClickGuardArmed: (value: boolean) => void;
-  setLanguageMenuOpenState: (value: boolean) => void;
 }) {
   let scrollLockApplied = false;
   let languageClickGuardTimer: number | null = null;
@@ -39,26 +33,26 @@ export function createUiChrome({
       window.clearTimeout(languageClickGuardArmTimer);
       languageClickGuardArmTimer = null;
     }
-    setLanguageClickGuard(false);
-    setLanguageClickGuardArmed(false);
+    shellState.languageClickGuard = false;
+    shellState.languageClickGuardArmed = false;
   }
 
   function setLanguageMenuOpen(open: boolean) {
     const nextOpen = Boolean(open);
-    setLanguageMenuOpenState(nextOpen);
+    shellState.languageMenuOpen = nextOpen;
     clearLanguageClickGuard();
     if (nextOpen) {
-      setLanguageClickGuard(true);
+      shellState.languageClickGuard = true;
       languageClickGuardArmTimer = window.setTimeout(() => {
-        setLanguageClickGuardArmed(true);
+        shellState.languageClickGuardArmed = true;
         languageClickGuardArmTimer = null;
       }, 220);
       return;
     }
-    setLanguageClickGuard(true);
-    setLanguageClickGuardArmed(false);
+    shellState.languageClickGuard = true;
+    shellState.languageClickGuardArmed = false;
     languageClickGuardTimer = window.setTimeout(() => {
-      setLanguageClickGuard(false);
+      shellState.languageClickGuard = false;
       languageClickGuardTimer = null;
     }, 260);
   }
@@ -67,7 +61,7 @@ export function createUiChrome({
     const language = normalizeLangCode(nextValue);
     setLanguageMenuOpen(false);
     if (!language || language === getCurrentLang()) return;
-    setGuestLanguage(language);
+    shellState.guestLanguage = language;
   }
 
   return {

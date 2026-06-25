@@ -262,18 +262,6 @@
     createUiChrome({
       normalizeLangCode,
       getCurrentLang: () => currentLang,
-      setGuestLanguage: (value) => {
-        shellState.guestLanguage = value;
-      },
-      setLanguageMenuOpenState: (value) => {
-        shellState.languageMenuOpen = value;
-      },
-      setLanguageClickGuard: (value) => {
-        shellState.languageClickGuard = value;
-      },
-      setLanguageClickGuardArmed: (value) => {
-        shellState.languageClickGuardArmed = value;
-      },
     });
   const { clearManualLogoutFlag, clearToken, isManuallyLoggedOut, markManualLogout, setToken } =
     createWebappSessionActions({

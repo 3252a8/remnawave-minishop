@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createUiChrome } from "./uiChrome.js";
+import { resetShellState, shellState } from "./shellState.svelte.ts";
 
 function installWindowTimers() {
   vi.stubGlobal("window", {
@@ -12,29 +13,14 @@ function installWindowTimers() {
 function makeChrome(overrides = {}) {
   const state = {
     currentLang: "ru",
-    guestLanguage: "",
-    languageClickGuard: false,
-    languageClickGuardArmed: false,
-    languageMenuOpen: false,
   };
+  resetShellState();
   const deps = {
     getCurrentLang: () => state.currentLang,
     normalizeLangCode: (value) =>
       String(value || "")
         .trim()
         .toLowerCase(),
-    setGuestLanguage: vi.fn((value) => {
-      state.guestLanguage = value;
-    }),
-    setLanguageClickGuard: vi.fn((value) => {
-      state.languageClickGuard = value;
-    }),
-    setLanguageClickGuardArmed: vi.fn((value) => {
-      state.languageClickGuardArmed = value;
-    }),
-    setLanguageMenuOpenState: vi.fn((value) => {
-      state.languageMenuOpen = value;
-    }),
     ...overrides.deps,
   };
   return { actions: createUiChrome(deps), deps, state };
@@ -63,42 +49,41 @@ describe("createUiChrome", () => {
   it("arms and clears the language click guard around menu transitions", () => {
     vi.useFakeTimers();
     installWindowTimers();
-    const { actions, state } = makeChrome();
+    const { actions } = makeChrome();
 
     actions.setLanguageMenuOpen(true);
 
-    expect(state.languageMenuOpen).toBe(true);
-    expect(state.languageClickGuard).toBe(true);
-    expect(state.languageClickGuardArmed).toBe(false);
+    expect(shellState.languageMenuOpen).toBe(true);
+    expect(shellState.languageClickGuard).toBe(true);
+    expect(shellState.languageClickGuardArmed).toBe(false);
 
     vi.advanceTimersByTime(220);
 
-    expect(state.languageClickGuardArmed).toBe(true);
+    expect(shellState.languageClickGuardArmed).toBe(true);
 
     actions.setLanguageMenuOpen(false);
 
-    expect(state.languageMenuOpen).toBe(false);
-    expect(state.languageClickGuard).toBe(true);
-    expect(state.languageClickGuardArmed).toBe(false);
+    expect(shellState.languageMenuOpen).toBe(false);
+    expect(shellState.languageClickGuard).toBe(true);
+    expect(shellState.languageClickGuardArmed).toBe(false);
 
     vi.advanceTimersByTime(260);
 
-    expect(state.languageClickGuard).toBe(false);
+    expect(shellState.languageClickGuard).toBe(false);
   });
 
   it("normalizes and applies a changed guest language", () => {
     vi.useFakeTimers();
     installWindowTimers();
-    const { actions, deps, state } = makeChrome();
+    const { actions, state } = makeChrome();
 
     actions.updateGuestLanguage(" EN ");
 
-    expect(state.guestLanguage).toBe("en");
-    expect(deps.setGuestLanguage).toHaveBeenCalledWith("en");
+    expect(shellState.guestLanguage).toBe("en");
 
     state.currentLang = "en";
     actions.updateGuestLanguage("en");
 
-    expect(deps.setGuestLanguage).toHaveBeenCalledOnce();
+    expect(shellState.guestLanguage).toBe("en");
   });
 });
