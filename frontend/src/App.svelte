@@ -3,9 +3,6 @@
   import { Toaster, toast as sonnerToast } from "svelte-sonner";
   import { createAuthStore } from "./lib/webapp/stores/authStore";
   import { createBillingStore } from "./lib/webapp/stores/billingStore";
-  import { createDevicesStore } from "./lib/webapp/stores/devicesStore";
-  import { createInstallGuidesStore } from "./lib/webapp/stores/installGuidesStore";
-  import { createSupportStore } from "./lib/webapp/stores/supportStore";
   import { createAccountStore } from "./lib/webapp/stores/accountStore";
   import { createActionsStore } from "./lib/webapp/stores/actionsStore";
   import { Tooltip } from "$components/ui/primitives.js";
@@ -52,9 +49,7 @@
     type TariffCatalogEntry,
   } from "./lib/webapp/tariffs.js";
   import { createBillingDeeplinkEffects } from "./lib/webapp/billingDeeplinkEffects.js";
-  import { createSectionDataLoader } from "./lib/webapp/sectionDataLoader.js";
-  import { createRouteSync } from "./lib/webapp/routeSync.js";
-  import { createSupportUnreadHydration } from "./lib/webapp/supportUnreadHydration.js";
+  import { createWebappSectionContext } from "./lib/webapp/webappSectionContext";
   import { activeTabForWebappSection } from "./lib/webapp/sectionAvailability.js";
   import { readThemePreviewDraft, syncThemeGoogleFonts } from "./lib/webapp/themeStyle.js";
   import { computeThemeView } from "./lib/webapp/themeView.js";
@@ -428,26 +423,19 @@
     stripRenewalLoginQueryFromUrl,
     stripTopupQueryFromUrl,
   });
-  const devicesStore = createDevicesStore({ api, t, showToast });
-  const supportStore = createSupportStore({ api, t, showToast, routePrefix });
-  const installGuidesStore = createInstallGuidesStore({ api, t, showToast });
-  const { loadSectionData } = createSectionDataLoader({
+  const {
     devicesStore,
-    installGuidesStore,
     supportStore,
-  });
-  const { hydrateSupportUnread } = createSupportUnreadHydration(supportStore);
-  const { syncLoadedRoute } = createRouteSync({
+    installGuidesStore,
+    loadSectionData,
+    hydrateSupportUnread,
+    syncLoadedRoute,
+  } = createWebappSectionContext({
+    api,
+    t,
+    showToast,
+    routePrefix,
     cleanDocsDemoRouteQuery,
-    getLocation: () => ({
-      hash: window.location.hash,
-      pathname: window.location.pathname,
-      protocol: window.location.protocol,
-      search: window.location.search,
-    }),
-    replaceHistoryState: (url) => {
-      window.history.replaceState(null, "", url);
-    },
     syncAppSectionPath,
   });
   const actionsStore = createActionsStore({
