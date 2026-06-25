@@ -29,32 +29,44 @@
     subject: string;
   };
 
-  export let t: Translate = (key) => key;
-  export let maxSubjectLength = 160;
-  export let maxBodyLength = 4000;
-  export let user: Record<string, unknown> = {};
+  let {
+    t = (key) => key,
+    maxSubjectLength = 160,
+    maxBodyLength = 4000,
+    user = {},
+  }: {
+    t?: Translate;
+    maxSubjectLength?: number;
+    maxBodyLength?: number;
+    user?: Record<string, unknown>;
+  } = $props();
 
   const supportStore = getContext("supportStore") as SupportStore;
-  let subject = "";
-  let body = "";
-  let category: SupportCategory = "other";
-  let priority: SupportPriority = "normal";
-  let createOpen = false;
-  let loadedCreateDraftScope = "";
+  let subject = $state("");
+  let body = $state("");
+  let category = $state<SupportCategory>("other");
+  let priority = $state<SupportPriority>("normal");
+  let createOpen = $state(false);
+  let loadedCreateDraftScope = $state("");
   const selectContentProps = { trapFocus: false } as Record<string, unknown>;
 
-  $: ({ tickets, loading, creating, statusFilter, counts } = $supportStore);
-  $: categoryOptions = [
+  const supportState = $derived($supportStore);
+  const tickets = $derived(supportState.tickets);
+  const loading = $derived(supportState.loading);
+  const creating = $derived(supportState.creating);
+  const statusFilter = $derived(supportState.statusFilter);
+  const counts = $derived(supportState.counts);
+  const categoryOptions = $derived([
     { value: "billing", label: t("wa_support_category_billing") },
     { value: "technical", label: t("wa_support_category_technical") },
     { value: "account", label: t("wa_support_category_account") },
     { value: "other", label: t("wa_support_category_other") },
-  ] as { value: SupportCategory; label: string }[];
-  $: priorityOptions = [
+  ] as { value: SupportCategory; label: string }[]);
+  const priorityOptions = $derived([
     { value: "normal", label: t("wa_support_priority_normal") },
     { value: "high", label: t("wa_support_priority_high") },
-  ] as { value: SupportPriority; label: string }[];
-  $: statusTabs = [
+  ] as { value: SupportPriority; label: string }[]);
+  const statusTabs = $derived([
     {
       value: "active",
       label: t("wa_support_filter_active", {}, "Активные"),
@@ -75,16 +87,22 @@
       label: t("wa_support_status_closed", {}, "Закрытые"),
       count: counts?.closed || 0,
     },
-  ];
-  $: selectedCategory =
-    categoryOptions.find((option) => option.value === category) || categoryOptions[0];
-  $: selectedPriority =
-    priorityOptions.find((option) => option.value === priority) || priorityOptions[0];
-  $: draftScope = supportDraftScope(user);
-  $: if (draftScope && draftScope !== loadedCreateDraftScope) {
+  ]);
+  const selectedCategory = $derived(
+    categoryOptions.find((option) => option.value === category) || categoryOptions[0]
+  );
+  const selectedPriority = $derived(
+    priorityOptions.find((option) => option.value === priority) || priorityOptions[0]
+  );
+  const draftScope = $derived(supportDraftScope(user));
+
+  $effect.pre(() => {
+    if (!draftScope || draftScope === loadedCreateDraftScope) return;
     loadCreateDraft(draftScope);
-  }
-  $: if (draftScope && draftScope === loadedCreateDraftScope) {
+  });
+
+  $effect(() => {
+    if (!draftScope || draftScope !== loadedCreateDraftScope) return;
     persistCreateDraft(draftScope, {
       subject,
       body,
@@ -94,7 +112,7 @@
       maxSubjectLength,
       maxBodyLength,
     });
-  }
+  });
 
   onMount(() => {
     supportStore.loadList();
@@ -172,7 +190,7 @@
       class="support-new-ticket-button"
       type="button"
       aria-expanded={createOpen}
-      on:click={() => (createOpen = !createOpen)}
+      onclick={() => (createOpen = !createOpen)}
     >
       <span class="support-new-ticket-icon">
         <MessageSquarePlus size={20} />

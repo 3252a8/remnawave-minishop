@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { afterUpdate, getContext, tick } from "svelte";
+  import { getContext, tick } from "svelte";
   import { Badge, Button, ScrollArea, Skeleton } from "$components/ui/index.js";
   import Card from "$components/ui/card.svelte";
   import { ArrowLeft } from "$components/ui/icons.js";
@@ -22,34 +22,52 @@
     message_id?: number;
   };
 
-  export let t: Translate = (key) => key;
-  export let maxBodyLength = 4000;
-  export let brand: Record<string, unknown> = {};
-  export let user: Record<string, unknown> = {};
-  export let userAvatarUrl = "";
-  export let userInitials = "";
+  type Props = {
+    t?: Translate;
+    maxBodyLength?: number;
+    brand?: Record<string, unknown>;
+    user?: Record<string, unknown>;
+    userAvatarUrl?: string;
+    userInitials?: string;
+  };
+
+  let {
+    t = (key) => key,
+    maxBodyLength = 4000,
+    brand = {},
+    user = {},
+    userAvatarUrl = "",
+    userInitials = "",
+  }: Props = $props();
 
   const supportStore = getContext("supportStore") as SupportStore;
-  let reply = "";
-  let messagesScrollEl: null = null;
-  let lastMessageKey = "";
-  let replyDraftKey = "";
+  let reply = $state("");
+  let messagesScrollEl = $state<HTMLElement | null>(null);
+  let lastMessageKey = $state("");
+  let replyDraftKey = $state("");
 
-  $: ({ openedTicket, messages, detailLoading, sending } = $supportStore);
-  $: closed = ["resolved", "closed"].includes(String(openedTicket?.status || ""));
-  $: ticketId = String(openedTicket?.ticket_id || "");
-  $: draftScope = supportDraftScope(user);
-  $: nextReplyDraftKey = ticketId ? `${draftScope}:${ticketId}` : "";
-  $: if (nextReplyDraftKey && nextReplyDraftKey !== replyDraftKey) {
+  const openedTicket = $derived($supportStore.openedTicket);
+  const messages = $derived($supportStore.messages);
+  const detailLoading = $derived($supportStore.detailLoading);
+  const sending = $derived($supportStore.sending);
+  const closed = $derived(["resolved", "closed"].includes(String(openedTicket?.status || "")));
+  const ticketId = $derived(String(openedTicket?.ticket_id || ""));
+  const draftScope = $derived(supportDraftScope(user));
+  const nextReplyDraftKey = $derived(ticketId ? `${draftScope}:${ticketId}` : "");
+
+  $effect.pre(() => {
+    if (!nextReplyDraftKey || nextReplyDraftKey === replyDraftKey) return;
     const draft = readSupportDraft("reply", draftScope, ticketId);
     reply = typeof draft?.body === "string" ? draft.body.slice(0, maxBodyLength) : "";
     replyDraftKey = nextReplyDraftKey;
-  }
-  $: if (nextReplyDraftKey && replyDraftKey === nextReplyDraftKey && !closed) {
+  });
+
+  $effect(() => {
+    if (!nextReplyDraftKey || replyDraftKey !== nextReplyDraftKey || closed) return;
     const body = String(reply || "").slice(0, maxBodyLength);
     if (body.trim()) writeSupportDraft("reply", draftScope, ticketId, { body });
     else clearSupportDraft("reply", draftScope, ticketId);
-  }
+  });
 
   async function send(body: string) {
     const currentTicketId = ticketId;
@@ -77,12 +95,11 @@
     return message?.author_role === "user" ? t("wa_support_role_user") : "";
   }
 
-  afterUpdate(async () => {
+  $effect(() => {
     const nextKey = `${openedTicket?.ticket_id || ""}:${messages.length}:${messages.at(-1)?.message_id || ""}`;
     if (!messagesScrollEl || nextKey === lastMessageKey) return;
     lastMessageKey = nextKey;
-    await tick();
-    scrollMessagesToBottom();
+    void tick().then(scrollMessagesToBottom);
   });
 </script>
 
