@@ -301,7 +301,7 @@ def _telegram_photo_url_value(telegram_user: Dict[str, Any]) -> Optional[str]:
 def _remnashop_referral_compat_enabled(settings: Optional[Settings]) -> bool:
     if settings is None:
         return False
-    return bool(settings.MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED)
+    return bool(settings.compatibility_settings.remnashop_referral_code_compat_enabled)
 
 
 def _strip_referral_param_prefix(
