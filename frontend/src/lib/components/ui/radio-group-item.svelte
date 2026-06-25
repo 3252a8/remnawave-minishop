@@ -1,12 +1,21 @@
-<script>
+<script lang="ts">
   import { RadioGroup as RadioGroupPrimitive } from "bits-ui";
+  import type { Snippet } from "svelte";
   import { cn } from "$lib/utils.js";
 
-  export let value = "";
-  export let disabled = false;
-  export let ariaLabel = "";
-  let className = "";
-  export { className as class };
+  type Props = Omit<RadioGroupPrimitive.ItemProps, "children"> & {
+    ariaLabel?: string;
+    children?: Snippet;
+  };
+
+  let {
+    value = "",
+    disabled = false,
+    ariaLabel = "",
+    class: className = "",
+    children,
+    ...rest
+  }: Props = $props();
 </script>
 
 <RadioGroupPrimitive.Item
@@ -14,10 +23,10 @@
   {value}
   {disabled}
   aria-label={ariaLabel || value}
-  {...$$restProps}
+  {...rest}
 >
   <span class="ui-radio-indicator" aria-hidden="true"></span>
-  <slot />
+  {@render children?.()}
 </RadioGroupPrimitive.Item>
 
 <style>

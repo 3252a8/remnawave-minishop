@@ -3,13 +3,20 @@
   import { cn } from "$lib/utils.js";
   import { Check } from "./icons.js";
 
-  export let checked = false;
-  export let disabled = false;
-  export let indeterminate = false;
-  export let ariaLabel = "";
-  export let onCheckedChange: (checked: boolean) => void = () => {};
-  let className = "";
-  export { className as class };
+  type Props = CheckboxPrimitive.RootProps & {
+    ariaLabel?: string;
+    onCheckedChange?: (checked: boolean) => void;
+  };
+
+  let {
+    checked = $bindable(false),
+    disabled = false,
+    indeterminate = false,
+    ariaLabel = "",
+    onCheckedChange = () => {},
+    class: className = "",
+    ...rest
+  }: Props = $props();
 
   function handleCheckedChange(next: unknown) {
     checked = Boolean(next);
@@ -24,7 +31,7 @@
   {indeterminate}
   aria-label={ariaLabel}
   onCheckedChange={handleCheckedChange}
-  {...$$restProps}
+  {...rest}
 >
   {#if checked || indeterminate}
     <Check size={13} strokeWidth={3} aria-hidden="true" />

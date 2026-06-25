@@ -146,7 +146,9 @@
   onclose={closeActivationSuccessDialog}
   class="activation-success-dialog"
 >
-  <CheckCircle2 slot="titleIcon" size={23} />
+  {#snippet titleIcon()}
+    <CheckCircle2 size={23} />
+  {/snippet}
   <div class="activation-success-dialog-body">
     <Button class="wide" onclick={closeActivationSuccessDialog}>
       {t("wa_ok", {}, "OK")}

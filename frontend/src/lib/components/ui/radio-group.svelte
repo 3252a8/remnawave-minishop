@@ -2,15 +2,20 @@
   import { RadioGroup as RadioGroupPrimitive } from "bits-ui";
   import { cn } from "$lib/utils.js";
 
-  type Orientation = "horizontal" | "vertical";
+  type Props = RadioGroupPrimitive.RootProps & {
+    onValueChange?: (value: string) => void;
+  };
 
-  export let value = "";
-  export let orientation: Orientation = "vertical";
-  export let name = "";
-  export let disabled = false;
-  export let onValueChange: (value: string) => void = () => {};
-  let className = "";
-  export { className as class };
+  let {
+    value = $bindable(""),
+    orientation = "vertical",
+    name = "",
+    disabled = false,
+    onValueChange = () => {},
+    class: className = "",
+    children,
+    ...rest
+  }: Props = $props();
 
   function handleValueChange(next: string): void {
     value = next;
@@ -25,9 +30,9 @@
   {name}
   {disabled}
   onValueChange={handleValueChange}
-  {...$$restProps}
+  {...rest}
 >
-  <slot />
+  {@render children?.()}
 </RadioGroupPrimitive.Root>
 
 <style>
