@@ -156,7 +156,7 @@
           type="text"
           placeholder="telegram_ads"
           value={adDraft.source}
-          on:input={(e) =>
+          oninput={(e) =>
             adsStore.updateDraft({ source: (e.currentTarget as HTMLInputElement).value })}
         />
       </AdminField>
@@ -169,7 +169,7 @@
           type="text"
           placeholder="ads_summer25"
           value={adDraft.start_param}
-          on:input={(e) =>
+          oninput={(e) =>
             adsStore.updateDraft({ start_param: (e.currentTarget as HTMLInputElement).value })}
         />
       </AdminField>
@@ -182,7 +182,7 @@
           step="0.01"
           min="0"
           value={String(adDraft.cost)}
-          on:input={(e) =>
+          oninput={(e) =>
             adsStore.updateDraft({ cost: Number((e.currentTarget as HTMLInputElement).value) })}
         />
       </AdminField>

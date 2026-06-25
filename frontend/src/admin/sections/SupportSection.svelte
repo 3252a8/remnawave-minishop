@@ -276,8 +276,8 @@
           type="search"
           placeholder={at("support_search", {}, "Поиск")}
           value={filters.search}
-          on:input={handleSearchInput}
-          on:keydown={handleSearchKeydown}
+          oninput={handleSearchInput}
+          onkeydown={handleSearchKeydown}
         />
       </label>
 

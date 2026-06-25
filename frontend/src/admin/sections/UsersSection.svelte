@@ -388,8 +388,8 @@
       class="input"
       placeholder={at("users_search_placeholder", {}, "ID, @username или email")}
       value={usersQuery}
-      on:input={handleUsersSearchInput}
-      on:keydown={handleUsersSearchKeydown}
+      oninput={handleUsersSearchInput}
+      onkeydown={handleUsersSearchKeydown}
     />
     <AdminButton
       variant="primary"

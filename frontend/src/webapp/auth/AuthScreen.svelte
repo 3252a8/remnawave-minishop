@@ -114,7 +114,7 @@
                         placeholder={t("wa_email_placeholder")}
                         autocomplete="email"
                         class={loginEmailFieldError ? "input-error" : ""}
-                        on:input={clearLoginEmailError}
+                        oninput={clearLoginEmailError}
                       />
                       {#if loginEmailFieldError}
                         <Tooltip.Trigger
@@ -140,7 +140,7 @@
                     type="password"
                     placeholder={t("wa_password_placeholder")}
                     autocomplete="current-password"
-                    on:keydown={(event) => {
+                    onkeydown={(event) => {
                       if (event.key !== "Enter") return;
                       event.preventDefault();
                       loginWithEmailPassword();
@@ -189,8 +189,8 @@
                           placeholder={t("wa_email_placeholder")}
                           autocomplete="email"
                           class={loginEmailFieldError ? "input-error" : ""}
-                          on:keydown={submitEmailOnEnter}
-                          on:input={clearLoginEmailError}
+                          onkeydown={submitEmailOnEnter}
+                          oninput={clearLoginEmailError}
                         />
                         {#if loginEmailFieldError}
                           <Tooltip.Trigger

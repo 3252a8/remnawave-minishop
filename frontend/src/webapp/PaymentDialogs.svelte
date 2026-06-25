@@ -511,7 +511,7 @@
       type="password"
       placeholder={t("wa_password_confirm_placeholder")}
       autocomplete="new-password"
-      on:keydown={(event) => {
+      onkeydown={(event) => {
         if (event.key !== "Enter") return;
         event.preventDefault();
         requestSetPasswordCode();
@@ -582,7 +582,7 @@
           placeholder={t("wa_email_placeholder")}
           autocomplete="email"
           class={linkEmailFieldError ? "input-error" : ""}
-          on:input={() => (linkEmailFieldError = "")}
+          oninput={() => (linkEmailFieldError = "")}
         />
         {#if linkEmailFieldError}
           <Tooltip.Trigger class="field-error-trigger" aria-label={linkEmailFieldError}>

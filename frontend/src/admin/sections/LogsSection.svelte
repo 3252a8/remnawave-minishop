@@ -81,8 +81,8 @@
       class="input"
       placeholder={at("logs_user_filter_placeholder", {}, "Фильтр по ID пользователя")}
       value={logsUserFilter}
-      on:input={(e) => logsStore.setFilter((e.currentTarget as HTMLInputElement).value)}
-      on:keydown={(e) => e.key === "Enter" && logsStore.setPage(0)}
+      oninput={(e) => logsStore.setFilter((e.currentTarget as HTMLInputElement).value)}
+      onkeydown={(e) => e.key === "Enter" && logsStore.setPage(0)}
     />
     <AdminButton
       variant="primary"

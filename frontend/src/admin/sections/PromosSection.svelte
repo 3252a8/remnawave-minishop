@@ -137,7 +137,7 @@
           type="text"
           class="input"
           value={promoDraft.code}
-          on:input={(e) =>
+          oninput={(e) =>
             promosStore.updateDraft({ code: (e.currentTarget as HTMLInputElement).value })}
           placeholder="FREE-7-DAYS"
         />
@@ -151,7 +151,7 @@
             class="input"
             min="1"
             value={String(promoDraft.bonus_days)}
-            on:input={(e) =>
+            oninput={(e) =>
               promosStore.updateDraft({
                 bonus_days: Number((e.currentTarget as HTMLInputElement).value),
               })}
@@ -163,7 +163,7 @@
             class="input"
             min="1"
             value={String(promoDraft.max_activations)}
-            on:input={(e) =>
+            oninput={(e) =>
               promosStore.updateDraft({
                 max_activations: Number((e.currentTarget as HTMLInputElement).value),
               })}
@@ -176,7 +176,7 @@
           class="input"
           min="1"
           value={String(promoDraft.valid_days)}
-          on:input={(e) =>
+          oninput={(e) =>
             promosStore.updateDraft({
               valid_days: Number((e.currentTarget as HTMLInputElement).value),
             })}

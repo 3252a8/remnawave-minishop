@@ -203,7 +203,7 @@
         bind:element={fileInput}
         class="backups-file-input"
         accept=".zip,application/zip"
-        on:change={uploadSelectedFile}
+        onchange={uploadSelectedFile}
       />
     </div>
     <div class="admin-toolbar-summary">

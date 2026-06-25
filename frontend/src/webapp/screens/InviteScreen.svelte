@@ -146,7 +146,7 @@
             value={promoCode}
             placeholder="PROMO2026"
             class={promoFieldError ? "input-error" : ""}
-            on:input={(event) => {
+            oninput={(event) => {
               setPromoCode(event.currentTarget.value);
               clearPromoFieldError();
             }}

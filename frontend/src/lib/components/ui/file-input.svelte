@@ -1,11 +1,32 @@
 <script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { HTMLInputAttributes } from "svelte/elements";
 
-  export let element: HTMLInputElement | null = null;
-  export let accept: string | undefined = undefined;
-  export let disabled = false;
-  let className = "";
-  export { className as class };
+  type FileInputProps = Omit<
+    HTMLInputAttributes,
+    "type" | "accept" | "disabled" | "class" | "onchange"
+  > & {
+    element?: HTMLInputElement | null;
+    accept?: string | undefined;
+    disabled?: boolean;
+    class?: string;
+    onchange?: HTMLInputAttributes["onchange"];
+  };
+
+  type FileInputEventWithTarget = Event & { currentTarget: EventTarget & HTMLInputElement };
+
+  let {
+    element = $bindable(null),
+    accept = undefined,
+    disabled = false,
+    class: className = "",
+    onchange,
+    ...rest
+  }: FileInputProps = $props();
+
+  function forwardChange(event: FileInputEventWithTarget) {
+    onchange?.(event);
+  }
 </script>
 
 <input
@@ -14,6 +35,6 @@
   type="file"
   {accept}
   {disabled}
-  on:change
-  {...$$restProps}
+  onchange={forwardChange}
+  {...rest}
 />

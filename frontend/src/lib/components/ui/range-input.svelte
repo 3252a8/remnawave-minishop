@@ -1,37 +1,71 @@
-<script>
+<script lang="ts">
+  import type { Slider as SliderPrimitive } from "bits-ui";
   import { cn } from "$lib/utils.js";
   import { Slider } from "./primitives.js";
 
-  export let value = 0;
-  export let min = undefined;
-  export let max = undefined;
-  export let step = undefined;
-  export let disabled = false;
-  export let ariaLabel = "";
-  export let onValueChange = () => {};
-  export let onValueCommit = () => {};
-  let className = "";
-  export { className as class };
+  type NumericInput = number | string | undefined;
+  type RangeInputProps = Omit<
+    SliderPrimitive.RootProps,
+    | "type"
+    | "value"
+    | "min"
+    | "max"
+    | "step"
+    | "disabled"
+    | "children"
+    | "onValueChange"
+    | "onValueCommit"
+    | "class"
+  > & {
+    value?: number | string;
+    min?: NumericInput;
+    max?: NumericInput;
+    step?: NumericInput;
+    disabled?: boolean;
+    ariaLabel?: string;
+    onValueChange?: unknown;
+    onValueCommit?: unknown;
+    class?: string;
+  };
 
-  $: sliderMin = min === undefined ? undefined : Number(min);
-  $: sliderMax = max === undefined ? undefined : Number(max);
-  $: sliderStep = step === undefined ? undefined : Number(step);
-  $: sliderValue = normalizeSliderValue(value, sliderMin ?? 0);
+  let {
+    value = $bindable(0),
+    min = undefined,
+    max = undefined,
+    step = undefined,
+    disabled = false,
+    ariaLabel = "",
+    onValueChange = undefined,
+    onValueCommit = undefined,
+    class: className = "",
+    ...rest
+  }: RangeInputProps = $props();
 
-  function normalizeSliderValue(next, fallback = 0) {
+  const sliderMin = $derived(min === undefined ? undefined : Number(min));
+  const sliderMax = $derived(max === undefined ? undefined : Number(max));
+  const sliderStep = $derived(step === undefined ? undefined : Number(step));
+  const sliderValue = $derived(normalizeSliderValue(value, sliderMin ?? 0));
+
+  function normalizeSliderValue(next: number | string | number[], fallback = 0): number {
     const raw = Array.isArray(next) ? next[0] : next;
     const numeric = Number(raw);
     return Number.isFinite(numeric) ? numeric : fallback;
   }
 
-  function handleValueChange(next) {
+  function handleValueChange(next: number | number[]): void {
     const normalized = normalizeSliderValue(next, sliderMin ?? 0);
     value = normalized;
-    onValueChange(normalized);
+    callValueCallback(onValueChange, normalized);
   }
 
-  function handleValueCommit(next) {
-    onValueCommit(normalizeSliderValue(next, sliderMin ?? 0));
+  function handleValueCommit(next: number | number[]): void {
+    callValueCallback(onValueCommit, normalizeSliderValue(next, sliderMin ?? 0));
+  }
+
+  function callValueCallback(callback: unknown, next: number): void {
+    if (typeof callback === "function") {
+      (callback as (value: number) => void)(next);
+    }
   }
 </script>
 
@@ -45,7 +79,7 @@
   {disabled}
   onValueChange={handleValueChange}
   onValueCommit={handleValueCommit}
-  {...$$restProps}
+  {...rest}
 >
   <Slider.Range class="ui-range-input__range" />
   <Slider.Thumb class="ui-range-input__thumb" index={0} aria-label={ariaLabel} />

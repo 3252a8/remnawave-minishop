@@ -1,11 +1,38 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { HTMLInputAttributes } from "svelte/elements";
 
-  export let value = "#000000";
-  export let disabled = false;
-  export let ariaLabel = "";
-  let className = "";
-  export { className as class };
+  type ColorInputProps = Omit<
+    HTMLInputAttributes,
+    "value" | "type" | "disabled" | "aria-label" | "class" | "oninput" | "onchange"
+  > & {
+    value?: string;
+    disabled?: boolean;
+    ariaLabel?: string;
+    class?: string;
+    oninput?: HTMLInputAttributes["oninput"];
+    onchange?: HTMLInputAttributes["onchange"];
+  };
+
+  type ColorInputEventWithTarget = Event & { currentTarget: EventTarget & HTMLInputElement };
+
+  let {
+    value = $bindable("#000000"),
+    disabled = false,
+    ariaLabel = "",
+    class: className = "",
+    oninput,
+    onchange,
+    ...rest
+  }: ColorInputProps = $props();
+
+  function forwardInput(event: ColorInputEventWithTarget) {
+    oninput?.(event);
+  }
+
+  function forwardChange(event: ColorInputEventWithTarget) {
+    onchange?.(event);
+  }
 </script>
 
 <input
@@ -14,7 +41,7 @@
   type="color"
   {disabled}
   aria-label={ariaLabel}
-  on:input
-  on:change
-  {...$$restProps}
+  oninput={forwardInput}
+  onchange={forwardChange}
+  {...rest}
 />

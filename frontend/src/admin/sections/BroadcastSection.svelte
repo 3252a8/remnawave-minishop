@@ -68,7 +68,7 @@
           class="admin-textarea"
           rows={6}
           value={broadcastText}
-          on:input={(e) =>
+          oninput={(e) =>
             broadcastStore.updateField({
               broadcastText: (e.currentTarget as HTMLTextAreaElement).value,
             })}
