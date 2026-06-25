@@ -64,18 +64,17 @@ class BanCheckMiddleware(BaseMiddleware):
 
             ban_message_text = "You are banned. Please contact support."
             keyboard: Optional[InlineKeyboardMarkup] = None
+            support_link = self.settings.support_settings.link
 
             if i18n_to_use:
                 _ = lambda k, **kw: i18n_to_use.gettext(current_lang, k, **kw)
                 ban_message_text = _("user_is_banned")
-                keyboard = get_user_banned_keyboard(
-                    self.settings.SUPPORT_LINK, current_lang, i18n_to_use
-                )
-            elif self.settings.SUPPORT_LINK:
+                keyboard = get_user_banned_keyboard(support_link, current_lang, i18n_to_use)
+            elif support_link:
                 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
                 builder = InlineKeyboardBuilder()
-                builder.button(text="Support", url=self.settings.SUPPORT_LINK)
+                builder.button(text="Support", url=support_link)
                 keyboard = builder.as_markup()
 
             actual_event_object: Optional[Union[Message, CallbackQuery]] = None

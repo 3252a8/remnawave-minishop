@@ -3,9 +3,10 @@ import json
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
-from bot.payment_providers import wata
+from bot.payment_providers.shared import PAYMENT_STATUS_PENDING_FINALIZATION
 from bot.payment_providers.wata import WataConfig, WataService
 from bot.payment_providers.wata import service as wata_service
+from bot.payment_providers.wata.config import _parse_wata_datetime
 
 
 class _FakeRequest:
@@ -279,7 +280,7 @@ def test_wata_refresh_finds_paid_transaction_by_order_id_and_finalizes(monkeypat
     result = asyncio.run(service.refresh_payment_status(session, payment))
 
     assert result is payment
-    assert updates == [(465, "tx-paid", wata.PAYMENT_STATUS_PENDING_FINALIZATION)]
+    assert updates == [(465, "tx-paid", PAYMENT_STATUS_PENDING_FINALIZATION)]
     assert finalized == [(465, "wata", "wata")]
     assert session.commits == 1
 
@@ -496,7 +497,7 @@ def test_create_payment_link_uses_clean_iso_expiration_without_microseconds(monk
     assert expiration.endswith("Z"), expiration
     assert "." not in expiration, expiration
     assert "+" not in expiration, expiration
-    expiration_dt = wata._parse_wata_datetime(expiration)
+    expiration_dt = _parse_wata_datetime(expiration)
     assert expiration_dt is not None
     ttl_delta = expiration_dt - datetime.now(timezone.utc)
     assert timedelta(minutes=14, seconds=30) <= ttl_delta <= timedelta(minutes=15, seconds=30)
@@ -537,7 +538,7 @@ def test_create_crypto_payment_link_uses_crypto_terminal_credentials(monkeypatch
     assert captured["body"]["successRedirectUrl"] == "https://example.com/ok"
     assert captured["body"]["failRedirectUrl"] == "https://example.com/fail"
     assert captured["log_prefix"] == "Wata crypto create_payment_link"
-    expiration = wata._parse_wata_datetime(captured["body"]["expirationDateTime"])
+    expiration = _parse_wata_datetime(captured["body"]["expirationDateTime"])
     assert expiration is not None
     ttl_delta = expiration - datetime.now(timezone.utc)
     assert timedelta(minutes=44, seconds=30) <= ttl_delta <= timedelta(minutes=45, seconds=30)

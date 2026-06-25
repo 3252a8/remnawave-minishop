@@ -40,7 +40,7 @@ type AuthStoreDeps = {
   t: Translate;
   currentLang: () => string;
 };
-type AuthState = {
+export type AuthState = {
   authStatus: string;
   authIsError: boolean;
   authBusy: boolean;

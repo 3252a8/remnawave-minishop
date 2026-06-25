@@ -17,7 +17,7 @@
     "format:check": "npm run format:check:py && npm run format:check:js",
     "bench:bot": "python scripts/perf_benchmarks.py",
     "test": "pytest -q",
-    "typecheck:py": "python -m mypy backend/db backend/bot/infra backend/bot/middlewares backend/bot/utils backend/bot/plugins backend/bot/keyboards backend/bot/payment_providers backend/bot/services backend/bot/handlers backend/bot/app/factories backend/bot/app/controllers backend/bot/app/web",
+    "typecheck:py": "python -m mypy backend/config backend/db backend/bot/infra backend/bot/middlewares backend/bot/utils backend/bot/plugins backend/bot/keyboards backend/bot/payment_providers backend/bot/services backend/bot/handlers backend/bot/app/factories backend/bot/app/controllers backend/bot/app/web",
     "check:backend": "npm test && npm run lint:py && npm run format:check:py && npm run typecheck:py",
     "check:frontend": "npm --prefix frontend run check && npm --prefix frontend run test && npm --prefix frontend run build",
     "check:quick": "npm run lint && npm test && npm run build:webapp",

@@ -180,7 +180,8 @@ async def build_and_start_web_app(
     if after_webhooks_started is not None:
         await after_webhooks_started()
 
-    if settings.WEBAPP_ENABLED:
+    webapp_settings = settings.webapp_settings
+    if webapp_settings.enabled:
         from bot.app.web.subscription_webapp import create_subscription_webapp_application
 
         subscription_app = create_subscription_webapp_application(
@@ -199,14 +200,14 @@ async def build_and_start_web_app(
         runners.append(subscription_runner)
         subscription_site = web.TCPSite(
             subscription_runner,
-            host=settings.WEBAPP_SERVER_HOST,
-            port=settings.WEBAPP_SERVER_PORT,
+            host=webapp_settings.server_host,
+            port=webapp_settings.server_port,
         )
         await subscription_site.start()
         logging.info(
             "Subscription WebApp server started on http://%s:%s",
-            settings.WEBAPP_SERVER_HOST,
-            settings.WEBAPP_SERVER_PORT,
+            webapp_settings.server_host,
+            webapp_settings.server_port,
         )
 
     try:

@@ -1636,6 +1636,123 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /** AdminSubscriptionOut */
+    AdminSubscriptionOut: {
+      /** Auto Renew Enabled */
+      auto_renew_enabled: boolean;
+      /**
+       * Display Label
+       * @default null
+       */
+      display_label: string | null;
+      /**
+       * Duration Months
+       * @default null
+       */
+      duration_months: number | null;
+      /**
+       * End Date
+       * @default null
+       */
+      end_date: string | null;
+      /** Extra Hwid Devices */
+      extra_hwid_devices: number;
+      /**
+       * Hwid Device Limit
+       * @default null
+       */
+      hwid_device_limit: number | null;
+      /** Is Active */
+      is_active: boolean;
+      /** Is Throttled */
+      is_throttled: boolean;
+      /** Is Trial */
+      is_trial: boolean;
+      /**
+       * Panel Subscription Uuid
+       * @default null
+       */
+      panel_subscription_uuid: string | null;
+      /**
+       * Panel User Uuid
+       * @default null
+       */
+      panel_user_uuid: string | null;
+      /**
+       * Premium Baseline Bytes
+       * @default null
+       */
+      premium_baseline_bytes: number | null;
+      /** Premium Bonus Bytes */
+      premium_bonus_bytes: number;
+      /** Premium Is Limited */
+      premium_is_limited: boolean;
+      /** Premium Limit Bytes */
+      premium_limit_bytes: number;
+      /**
+       * Premium Topup Balance Bytes
+       * @default null
+       */
+      premium_topup_balance_bytes: number | null;
+      /**
+       * Premium Topup Used Bytes
+       * @default null
+       */
+      premium_topup_used_bytes: number | null;
+      /** Premium Unlimited Override */
+      premium_unlimited_override: boolean;
+      /**
+       * Premium Used Bytes
+       * @default null
+       */
+      premium_used_bytes: number | null;
+      /**
+       * Provider
+       * @default null
+       */
+      provider: string | null;
+      /** Regular Bonus Bytes */
+      regular_bonus_bytes: number;
+      /** Regular Unlimited Override */
+      regular_unlimited_override: boolean;
+      /**
+       * Start Date
+       * @default null
+       */
+      start_date: string | null;
+      /**
+       * Status From Panel
+       * @default null
+       */
+      status_from_panel: string | null;
+      /** Subscription Id */
+      subscription_id: number;
+      /**
+       * Tariff Key
+       * @default null
+       */
+      tariff_key: string | null;
+      /**
+       * Tier Baseline Bytes
+       * @default null
+       */
+      tier_baseline_bytes: number | null;
+      /**
+       * Topup Balance Bytes
+       * @default null
+       */
+      topup_balance_bytes: number | null;
+      /**
+       * Traffic Limit Bytes
+       * @default null
+       */
+      traffic_limit_bytes: number | null;
+      /**
+       * Traffic Used Bytes
+       * @default null
+       */
+      traffic_used_bytes: number | null;
+    };
     /** AdminSupportMessageOut */
     AdminSupportMessageOut: {
       /**
@@ -1986,6 +2103,68 @@ export interface components {
        */
       text: unknown;
     };
+    /** AdminUserOut */
+    AdminUserOut: {
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /**
+       * First Name
+       * @default null
+       */
+      first_name: string | null;
+      /** Is Banned */
+      is_banned: boolean;
+      /**
+       * Language Code
+       * @default null
+       */
+      language_code: string | null;
+      /**
+       * Last Name
+       * @default null
+       */
+      last_name: string | null;
+      /**
+       * Panel User Uuid
+       * @default null
+       */
+      panel_user_uuid: string | null;
+      /**
+       * Referral Code
+       * @default null
+       */
+      referral_code: string | null;
+      /**
+       * Referred By Id
+       * @default null
+       */
+      referred_by_id: number | null;
+      /**
+       * Registration Date
+       * @default null
+       */
+      registration_date: string | null;
+      /**
+       * Telegram Id
+       * @default null
+       */
+      telegram_id: number | null;
+      /**
+       * Telegram Photo Url
+       * @default null
+       */
+      telegram_photo_url: string | null;
+      /** User Id */
+      user_id: number;
+      /**
+       * Username
+       * @default null
+       */
+      username: string | null;
+    };
     /** AdminUserPremiumOverrideBody */
     AdminUserPremiumOverrideBody: {
       /**
@@ -2047,6 +2226,102 @@ export interface components {
        * @default regular
        */
       kind: unknown;
+    };
+    /** AdminUserTrialOut */
+    AdminUserTrialOut: {
+      /** Active */
+      active: boolean;
+      /** Count */
+      count: number;
+      /**
+       * First Activated At
+       * @default null
+       */
+      first_activated_at: string | null;
+      /**
+       * Last Reset At
+       * @default null
+       */
+      last_reset_at: string | null;
+      /**
+       * Latest Activated At
+       * @default null
+       */
+      latest_activated_at: string | null;
+      /**
+       * Latest End Date
+       * @default null
+       */
+      latest_end_date: string | null;
+      /** Used */
+      used: boolean;
+    };
+    /** AdminUserWithAvatarOut */
+    AdminUserWithAvatarOut: {
+      /**
+       * Avatar Url
+       * @default null
+       */
+      avatar_url: string | null;
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /**
+       * First Name
+       * @default null
+       */
+      first_name: string | null;
+      /** Is Banned */
+      is_banned: boolean;
+      /**
+       * Language Code
+       * @default null
+       */
+      language_code: string | null;
+      /**
+       * Last Name
+       * @default null
+       */
+      last_name: string | null;
+      /**
+       * Panel User Uuid
+       * @default null
+       */
+      panel_user_uuid: string | null;
+      /**
+       * Referral Code
+       * @default null
+       */
+      referral_code: string | null;
+      /**
+       * Referred By Id
+       * @default null
+       */
+      referred_by_id: number | null;
+      /**
+       * Registration Date
+       * @default null
+       */
+      registration_date: string | null;
+      /**
+       * Telegram Id
+       * @default null
+       */
+      telegram_id: number | null;
+      /**
+       * Telegram Photo Url
+       * @default null
+       */
+      telegram_photo_url: string | null;
+      /** User Id */
+      user_id: number;
+      /**
+       * Username
+       * @default null
+       */
+      username: string | null;
     };
     /** CreateTicketPayload */
     CreateTicketPayload: {
@@ -2969,6 +3244,34 @@ export interface components {
       /** Token */
       token: string;
     };
+    /** WebAppDeviceOut */
+    WebAppDeviceOut: {
+      /** Can Disconnect */
+      can_disconnect: boolean;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /** Created At Text */
+      created_at_text: string;
+      /** Display Name */
+      display_name: string;
+      /** Hwid Short */
+      hwid_short: string;
+      /** Index */
+      index: number;
+      /** Os Version */
+      os_version: string;
+      /** Platform */
+      platform: string;
+      /** Platform Label */
+      platform_label: string;
+      /** Token */
+      token: string;
+      /** User Agent */
+      user_agent: string;
+    };
     /** WebAppEmailCodeAuthPayload */
     WebAppEmailCodeAuthPayload: {
       /**
@@ -3322,7 +3625,14 @@ export interface operations {
         content: {
           "application/json": {
             account_merge?: {
-              [key: string]: unknown;
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
             };
             csrf_token?: string;
             /** @constant */
@@ -3435,7 +3745,14 @@ export interface operations {
         content: {
           "application/json": {
             account_merge?: {
-              [key: string]: unknown;
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
             };
             csrf_token?: string;
             /** @constant */
@@ -3466,7 +3783,10 @@ export interface operations {
             /** @constant */
             ok: true;
             telegram_notifications: {
-              [key: string]: unknown;
+              enabled: boolean;
+              ok: boolean;
+              start_link: string | null;
+              status: string;
             };
           };
         };
@@ -4579,9 +4899,18 @@ export interface operations {
             page: number;
             page_size: number;
             total: number;
-            users: {
-              [key: string]: unknown;
-            }[];
+            users: (components["schemas"]["AdminUserWithAvatarOut"] & {
+              invited_users_count: number;
+              panel_status: string | null;
+              panel_status_expired_at?: string | null;
+              payments_count: number;
+              payments_currency: string | null;
+              payments_total_amount: number;
+              premium_traffic: {
+                [key: string]: unknown;
+              };
+              subscription_expires_at: string | null;
+            })[];
           };
         };
       };
@@ -4605,30 +4934,24 @@ export interface operations {
         };
         content: {
           "application/json": {
-            active_subscription: {
-              [key: string]: unknown;
-            };
+            active_subscription: components["schemas"]["AdminSubscriptionOut"] | null;
             last_vpn_connected_at: string | null;
             log_count: number;
             /** @constant */
             ok: true;
-            recent_payments: {
-              [key: string]: unknown;
-            }[];
+            recent_payments: components["schemas"]["PaymentOut"][];
             referral: {
-              [key: string]: unknown;
+              bot_link: string | null;
+              code: string | null;
+              invitees_total: number;
+              inviter: components["schemas"]["AdminUserWithAvatarOut"] | null;
+              webapp_link: string | null;
             };
             subscription_url: string | null;
-            subscriptions: {
-              [key: string]: unknown;
-            }[];
+            subscriptions: components["schemas"]["AdminSubscriptionOut"][];
             total_paid: number;
-            trial: {
-              [key: string]: unknown;
-            };
-            user: {
-              [key: string]: unknown;
-            };
+            trial: components["schemas"]["AdminUserTrialOut"];
+            user: components["schemas"]["AdminUserWithAvatarOut"];
             vpn_connection_status: string;
           };
         };
@@ -4706,9 +5029,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
-            user: {
-              [key: string]: unknown;
-            };
+            user: components["schemas"]["AdminUserOut"];
           };
         };
       };
@@ -4738,9 +5059,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
-            subscription?: {
-              [key: string]: unknown;
-            };
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
           };
         };
       };
@@ -4770,9 +5089,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
-            subscription?: {
-              [key: string]: unknown;
-            };
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
           };
         };
       };
@@ -4860,9 +5177,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
-            subscription?: {
-              [key: string]: unknown;
-            };
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
           };
         };
       };
@@ -4886,20 +5201,14 @@ export interface operations {
         };
         content: {
           "application/json": {
-            invitees: {
-              [key: string]: unknown;
-            }[];
-            inviter: {
-              [key: string]: unknown;
-            };
+            invitees: components["schemas"]["AdminUserWithAvatarOut"][];
+            inviter: components["schemas"]["AdminUserWithAvatarOut"] | null;
             /** @constant */
             ok: true;
             page: number;
             page_size: number;
             total: number;
-            user: {
-              [key: string]: unknown;
-            };
+            user: components["schemas"]["AdminUserWithAvatarOut"];
           };
         };
       };
@@ -4929,9 +5238,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
-            subscription?: {
-              [key: string]: unknown;
-            };
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
           };
         };
       };
@@ -4986,9 +5293,7 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
-            subscription?: {
-              [key: string]: unknown;
-            };
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
           };
         };
       };
@@ -5043,13 +5348,13 @@ export interface operations {
         content: {
           "application/json": {
             grant: {
-              [key: string]: unknown;
+              granted_bytes: number;
+              granted_gb: number;
+              kind: string;
             };
             /** @constant */
             ok: true;
-            subscription?: {
-              [key: string]: unknown;
-            };
+            subscription?: components["schemas"]["AdminSubscriptionOut"] | null;
           };
         };
       };
@@ -5076,7 +5381,14 @@ export interface operations {
         content: {
           "application/json": {
             account_merge?: {
-              [key: string]: unknown;
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
             };
             csrf_token?: string;
             /** @constant */
@@ -5109,7 +5421,14 @@ export interface operations {
         content: {
           "application/json": {
             account_merge?: {
-              [key: string]: unknown;
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
             };
             csrf_token?: string;
             /** @constant */
@@ -5172,7 +5491,14 @@ export interface operations {
         content: {
           "application/json": {
             account_merge?: {
-              [key: string]: unknown;
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
             };
             csrf_token?: string;
             /** @constant */
@@ -5254,7 +5580,14 @@ export interface operations {
         content: {
           "application/json": {
             account_merge?: {
-              [key: string]: unknown;
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
             };
             csrf_token?: string;
             /** @constant */
@@ -5311,14 +5644,14 @@ export interface operations {
         };
         content: {
           "application/json": {
-            devices?: {
-              [key: string]: unknown;
-            }[];
+            current_devices?: number;
+            devices?: components["schemas"]["WebAppDeviceOut"][];
+            enabled?: boolean;
+            max_devices?: number | null;
+            max_devices_label?: string | null;
             /** @constant */
             ok: true;
-            subscription?: {
-              [key: string]: unknown;
-            };
+            subscription_active?: boolean;
           };
         };
       };

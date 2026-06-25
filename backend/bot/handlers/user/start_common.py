@@ -11,7 +11,7 @@ router = Router(name="user_start_router")
 
 
 def _remnashop_referral_compat_enabled(settings: Settings) -> bool:
-    return bool(settings.MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED)
+    return bool(settings.compatibility_settings.remnashop_referral_code_compat_enabled)
 
 
 def _referral_code_lookup_candidates(

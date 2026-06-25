@@ -380,6 +380,290 @@
         "title": "AdminStatsOut",
         "type": "object"
       },
+      "AdminSubscriptionOut": {
+        "properties": {
+          "auto_renew_enabled": {
+            "title": "Auto Renew Enabled",
+            "type": "boolean"
+          },
+          "display_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Display Label"
+          },
+          "duration_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Months"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "End Date"
+          },
+          "extra_hwid_devices": {
+            "title": "Extra Hwid Devices",
+            "type": "integer"
+          },
+          "hwid_device_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Hwid Device Limit"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "is_throttled": {
+            "title": "Is Throttled",
+            "type": "boolean"
+          },
+          "is_trial": {
+            "title": "Is Trial",
+            "type": "boolean"
+          },
+          "panel_subscription_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel Subscription Uuid"
+          },
+          "panel_user_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel User Uuid"
+          },
+          "premium_baseline_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Premium Baseline Bytes"
+          },
+          "premium_bonus_bytes": {
+            "title": "Premium Bonus Bytes",
+            "type": "integer"
+          },
+          "premium_is_limited": {
+            "title": "Premium Is Limited",
+            "type": "boolean"
+          },
+          "premium_limit_bytes": {
+            "title": "Premium Limit Bytes",
+            "type": "integer"
+          },
+          "premium_topup_balance_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Premium Topup Balance Bytes"
+          },
+          "premium_topup_used_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Premium Topup Used Bytes"
+          },
+          "premium_unlimited_override": {
+            "title": "Premium Unlimited Override",
+            "type": "boolean"
+          },
+          "premium_used_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Premium Used Bytes"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Provider"
+          },
+          "regular_bonus_bytes": {
+            "title": "Regular Bonus Bytes",
+            "type": "integer"
+          },
+          "regular_unlimited_override": {
+            "title": "Regular Unlimited Override",
+            "type": "boolean"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start Date"
+          },
+          "status_from_panel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status From Panel"
+          },
+          "subscription_id": {
+            "title": "Subscription Id",
+            "type": "integer"
+          },
+          "tariff_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tariff Key"
+          },
+          "tier_baseline_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tier Baseline Bytes"
+          },
+          "topup_balance_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Topup Balance Bytes"
+          },
+          "traffic_limit_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Traffic Limit Bytes"
+          },
+          "traffic_used_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Traffic Used Bytes"
+          }
+        },
+        "required": [
+          "subscription_id",
+          "is_active",
+          "premium_limit_bytes",
+          "premium_bonus_bytes",
+          "regular_bonus_bytes",
+          "regular_unlimited_override",
+          "premium_unlimited_override",
+          "premium_is_limited",
+          "extra_hwid_devices",
+          "is_trial",
+          "auto_renew_enabled",
+          "is_throttled"
+        ],
+        "title": "AdminSubscriptionOut",
+        "type": "object"
+      },
       "AdminSupportMessageOut": {
         "properties": {
           "author_name": {
@@ -1172,6 +1456,156 @@
         "title": "AdminUserMessageBody",
         "type": "object"
       },
+      "AdminUserOut": {
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "First Name"
+          },
+          "is_banned": {
+            "title": "Is Banned",
+            "type": "boolean"
+          },
+          "language_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Language Code"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Name"
+          },
+          "panel_user_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel User Uuid"
+          },
+          "referral_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referral Code"
+          },
+          "referred_by_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referred By Id"
+          },
+          "registration_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Registration Date"
+          },
+          "telegram_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Id"
+          },
+          "telegram_photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Photo Url"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Username"
+          }
+        },
+        "required": [
+          "user_id",
+          "is_banned"
+        ],
+        "title": "AdminUserOut",
+        "type": "object"
+      },
       "AdminUserPremiumOverrideBody": {
         "properties": {
           "bonus_bytes": {
@@ -1234,6 +1668,239 @@
           }
         },
         "title": "AdminUserTrafficGrantBody",
+        "type": "object"
+      },
+      "AdminUserTrialOut": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "first_activated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "First Activated At"
+          },
+          "last_reset_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Reset At"
+          },
+          "latest_activated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Latest Activated At"
+          },
+          "latest_end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Latest End Date"
+          },
+          "used": {
+            "title": "Used",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "used",
+          "count",
+          "active"
+        ],
+        "title": "AdminUserTrialOut",
+        "type": "object"
+      },
+      "AdminUserWithAvatarOut": {
+        "properties": {
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Avatar Url"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "First Name"
+          },
+          "is_banned": {
+            "title": "Is Banned",
+            "type": "boolean"
+          },
+          "language_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Language Code"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Name"
+          },
+          "panel_user_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel User Uuid"
+          },
+          "referral_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referral Code"
+          },
+          "referred_by_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referred By Id"
+          },
+          "registration_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Registration Date"
+          },
+          "telegram_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Id"
+          },
+          "telegram_photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Photo Url"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Username"
+          }
+        },
+        "required": [
+          "user_id",
+          "is_banned"
+        ],
+        "title": "AdminUserWithAvatarOut",
         "type": "object"
       },
       "CreateTicketPayload": {
@@ -3374,6 +4041,76 @@
         "title": "WebAppDeviceDisconnectPayload",
         "type": "object"
       },
+      "WebAppDeviceOut": {
+        "properties": {
+          "can_disconnect": {
+            "title": "Can Disconnect",
+            "type": "boolean"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
+          "created_at_text": {
+            "title": "Created At Text",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "hwid_short": {
+            "title": "Hwid Short",
+            "type": "string"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "os_version": {
+            "title": "Os Version",
+            "type": "string"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "platform_label": {
+            "title": "Platform Label",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "user_agent": {
+            "title": "User Agent",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "display_name",
+          "platform",
+          "os_version",
+          "platform_label",
+          "user_agent",
+          "created_at_text",
+          "hwid_short",
+          "token",
+          "can_disconnect"
+        ],
+        "title": "WebAppDeviceOut",
+        "type": "object"
+      },
       "WebAppEmailCodeAuthPayload": {
         "properties": {
           "code": {
@@ -4031,7 +4768,55 @@
                   "additionalProperties": false,
                   "properties": {
                     "account_merge": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
                       "type": "object"
                     },
                     "csrf_token": {
@@ -4250,7 +5035,55 @@
                   "additionalProperties": false,
                   "properties": {
                     "account_merge": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
                       "type": "object"
                     },
                     "csrf_token": {
@@ -4312,7 +5145,30 @@
                       "type": "boolean"
                     },
                     "telegram_notifications": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "ok": {
+                          "type": "boolean"
+                        },
+                        "start_link": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "status",
+                        "enabled",
+                        "start_link"
+                      ],
                       "type": "object"
                     }
                   },
@@ -6490,8 +7346,62 @@
                     },
                     "users": {
                       "items": {
-                        "additionalProperties": true,
-                        "type": "object"
+                        "allOf": [
+                          {
+                            "$ref": "#/components/schemas/AdminUserWithAvatarOut"
+                          },
+                          {
+                            "properties": {
+                              "invited_users_count": {
+                                "type": "integer"
+                              },
+                              "panel_status": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "panel_status_expired_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "payments_count": {
+                                "type": "integer"
+                              },
+                              "payments_currency": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "payments_total_amount": {
+                                "type": "number"
+                              },
+                              "premium_traffic": {
+                                "additionalProperties": true,
+                                "type": "object"
+                              },
+                              "subscription_expires_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "panel_status",
+                              "subscription_expires_at",
+                              "premium_traffic",
+                              "payments_total_amount",
+                              "payments_count",
+                              "payments_currency",
+                              "invited_users_count"
+                            ],
+                            "type": "object"
+                          }
+                        ]
                       },
                       "type": "array"
                     }
@@ -6592,8 +7502,14 @@
                   "additionalProperties": false,
                   "properties": {
                     "active_subscription": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/AdminSubscriptionOut"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "last_vpn_connected_at": {
                       "type": [
@@ -6610,13 +7526,52 @@
                     },
                     "recent_payments": {
                       "items": {
-                        "additionalProperties": true,
-                        "type": "object"
+                        "$ref": "#/components/schemas/PaymentOut"
                       },
                       "type": "array"
                     },
                     "referral": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "bot_link": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "code": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "invitees_total": {
+                          "type": "integer"
+                        },
+                        "inviter": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/AdminUserWithAvatarOut"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "webapp_link": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "bot_link",
+                        "webapp_link",
+                        "inviter",
+                        "invitees_total"
+                      ],
                       "type": "object"
                     },
                     "subscription_url": {
@@ -6627,8 +7582,7 @@
                     },
                     "subscriptions": {
                       "items": {
-                        "additionalProperties": true,
-                        "type": "object"
+                        "$ref": "#/components/schemas/AdminSubscriptionOut"
                       },
                       "type": "array"
                     },
@@ -6636,12 +7590,10 @@
                       "type": "number"
                     },
                     "trial": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminUserTrialOut"
                     },
                     "user": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminUserWithAvatarOut"
                     },
                     "vpn_connection_status": {
                       "type": "string"
@@ -6757,8 +7709,7 @@
                       "type": "boolean"
                     },
                     "user": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminUserOut"
                     }
                   },
                   "required": [
@@ -6821,8 +7772,7 @@
                       "type": "boolean"
                     },
                     "subscription": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminSubscriptionOut"
                     }
                   },
                   "required": [
@@ -6884,8 +7834,7 @@
                       "type": "boolean"
                     },
                     "subscription": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminSubscriptionOut"
                     }
                   },
                   "required": [
@@ -7065,8 +8014,7 @@
                       "type": "boolean"
                     },
                     "subscription": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminSubscriptionOut"
                     }
                   },
                   "required": [
@@ -7115,14 +8063,19 @@
                   "properties": {
                     "invitees": {
                       "items": {
-                        "additionalProperties": true,
-                        "type": "object"
+                        "$ref": "#/components/schemas/AdminUserWithAvatarOut"
                       },
                       "type": "array"
                     },
                     "inviter": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/AdminUserWithAvatarOut"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "ok": {
                       "const": true,
@@ -7138,8 +8091,7 @@
                       "type": "integer"
                     },
                     "user": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminUserWithAvatarOut"
                     }
                   },
                   "required": [
@@ -7207,8 +8159,7 @@
                       "type": "boolean"
                     },
                     "subscription": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminSubscriptionOut"
                     }
                   },
                   "required": [
@@ -7319,8 +8270,7 @@
                       "type": "boolean"
                     },
                     "subscription": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminSubscriptionOut"
                     }
                   },
                   "required": [
@@ -7431,7 +8381,23 @@
                   "additionalProperties": false,
                   "properties": {
                     "grant": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "granted_bytes": {
+                          "type": "integer"
+                        },
+                        "granted_gb": {
+                          "type": "number"
+                        },
+                        "kind": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "granted_bytes",
+                        "granted_gb"
+                      ],
                       "type": "object"
                     },
                     "ok": {
@@ -7439,8 +8405,14 @@
                       "type": "boolean"
                     },
                     "subscription": {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/AdminSubscriptionOut"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -7489,7 +8461,55 @@
                   "additionalProperties": false,
                   "properties": {
                     "account_merge": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
                       "type": "object"
                     },
                     "csrf_token": {
@@ -7549,7 +8569,55 @@
                   "additionalProperties": false,
                   "properties": {
                     "account_merge": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
                       "type": "object"
                     },
                     "csrf_token": {
@@ -7662,7 +8730,55 @@
                   "additionalProperties": false,
                   "properties": {
                     "account_merge": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
                       "type": "object"
                     },
                     "csrf_token": {
@@ -7796,7 +8912,55 @@
                   "additionalProperties": false,
                   "properties": {
                     "account_merge": {
-                      "additionalProperties": true,
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
                       "type": "object"
                     },
                     "csrf_token": {
@@ -7886,20 +9050,36 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "current_devices": {
+                      "type": "integer"
+                    },
                     "devices": {
                       "items": {
-                        "additionalProperties": true,
-                        "type": "object"
+                        "$ref": "#/components/schemas/WebAppDeviceOut"
                       },
                       "type": "array"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "max_devices": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "max_devices_label": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "ok": {
                       "const": true,
                       "type": "boolean"
                     },
-                    "subscription": {
-                      "additionalProperties": true,
-                      "type": "object"
+                    "subscription_active": {
+                      "type": "boolean"
                     }
                   },
                   "required": [

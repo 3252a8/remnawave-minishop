@@ -83,7 +83,11 @@ def _set_telegram_oauth_state_cookie(
     settings: Settings,
     payload: Dict[str, Any],
 ) -> None:
-    max_age = max(60, int(settings.WEBAPP_LOGIN_TOKEN_TTL_SECONDS))
+    try:
+        login_token_ttl_seconds = int(settings.webapp_settings.login_token_ttl_seconds)
+    except AttributeError:
+        login_token_ttl_seconds = int(settings.WEBAPP_LOGIN_TOKEN_TTL_SECONDS)
+    max_age = max(60, login_token_ttl_seconds)
     response.set_cookie(
         WEBAPP_TELEGRAM_OAUTH_STATE_COOKIE_NAME,
         create_signed_telegram_oauth_state(settings, payload, ttl_seconds=max_age),
@@ -186,7 +190,11 @@ def _set_webapp_auth_cookies(
     session_token: str,
     csrf_token: str,
 ) -> None:
-    max_age = max(60, int(settings.WEBAPP_SESSION_TTL_SECONDS))
+    try:
+        session_ttl_seconds = int(settings.webapp_settings.session_ttl_seconds)
+    except AttributeError:
+        session_ttl_seconds = int(settings.WEBAPP_SESSION_TTL_SECONDS)
+    max_age = max(60, session_ttl_seconds)
     response.set_cookie(
         WEBAPP_SESSION_COOKIE_NAME,
         session_token,
@@ -301,7 +309,7 @@ def _telegram_photo_url_value(telegram_user: Dict[str, Any]) -> Optional[str]:
 def _remnashop_referral_compat_enabled(settings: Optional[Settings]) -> bool:
     if settings is None:
         return False
-    return bool(settings.MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED)
+    return bool(settings.compatibility_settings.remnashop_referral_code_compat_enabled)
 
 
 def _strip_referral_param_prefix(

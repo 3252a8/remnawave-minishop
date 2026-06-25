@@ -1,12 +1,12 @@
 type AdminUserLike = Record<string, unknown> & {
-  avatar_url?: string;
-  email?: string;
-  first_name?: string;
-  last_name?: string;
-  telegram_id?: number | string;
-  telegram_photo_url?: string;
+  avatar_url?: string | null;
+  email?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  telegram_id?: number | string | null;
+  telegram_photo_url?: string | null;
   user_id?: number | string;
-  username?: string;
+  username?: string | null;
 };
 type TelegramWindow = Window & {
   Telegram?: {

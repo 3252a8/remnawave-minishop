@@ -479,6 +479,75 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             self.assertEqual(kwargs["payment_amount"], 250)
             self.assertEqual(kwargs["payment_db_id"], 10)
 
+    async def test_activate_subscription_regular_topup_uses_active_subscription_tariff(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            service = _make_service(settings)
+            service.activate_topup = AsyncMock(return_value={"kind": "topup"})
+            session = AsyncMock()
+            active_user = SimpleNamespace(panel_user_uuid="panel-user")
+            active_sub = SimpleNamespace(tariff_key="standard")
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.user_dal.get_user_by_id",
+                    AsyncMock(return_value=active_user),
+                ) as get_user,
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=active_sub),
+                ) as get_active_subscription,
+            ):
+                result = await service.activate_subscription(
+                    session=session,
+                    user_id=42,
+                    months=7,
+                    payment_amount=250,
+                    payment_db_id=10,
+                    provider="yookassa",
+                    sale_mode="topup",
+                    traffic_gb=None,
+                )
+
+            self.assertEqual(result, {"kind": "topup"})
+            get_user.assert_awaited_once_with(session, 42)
+            get_active_subscription.assert_awaited_once_with(session, 42, "panel-user")
+            service.activate_topup.assert_awaited_once()
+            kwargs = service.activate_topup.await_args.kwargs
+            self.assertEqual(kwargs["tariff_key"], "standard")
+            self.assertEqual(kwargs["traffic_gb"], 7.0)
+
+    async def test_activate_subscription_regular_topup_without_active_subscription_returns_none(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            service = _make_service(settings)
+            service.activate_topup = AsyncMock(return_value={"kind": "topup"})
+            session = AsyncMock()
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.user_dal.get_user_by_id",
+                    AsyncMock(return_value=SimpleNamespace(panel_user_uuid="panel-user")),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=None),
+                ),
+            ):
+                result = await service.activate_subscription(
+                    session=session,
+                    user_id=42,
+                    months=7,
+                    payment_amount=250,
+                    payment_db_id=10,
+                    sale_mode="topup",
+                )
+
+            self.assertIsNone(result)
+            service.activate_topup.assert_not_awaited()
+
     async def test_activate_subscription_dispatches_premium_topup_sale_mode(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
@@ -503,6 +572,76 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             self.assertEqual(kwargs["tariff_key"], "standard")
             self.assertEqual(kwargs["traffic_gb"], 20)
             self.assertEqual(kwargs["provider"], "cryptopay")
+
+    async def test_activate_subscription_premium_topup_uses_active_subscription_tariff(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            service = _make_service(settings)
+            service.activate_premium_topup = AsyncMock(return_value={"kind": "premium"})
+            session = AsyncMock()
+            active_user = SimpleNamespace(panel_user_uuid="panel-user")
+            active_sub = SimpleNamespace(tariff_key="standard")
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.user_dal.get_user_by_id",
+                    AsyncMock(return_value=active_user),
+                ) as get_user,
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=active_sub),
+                ) as get_active_subscription,
+            ):
+                result = await service.activate_subscription(
+                    session=session,
+                    user_id=77,
+                    months=9,
+                    payment_amount=350,
+                    payment_db_id=11,
+                    provider="cryptopay",
+                    sale_mode="premium_topup",
+                    traffic_gb=None,
+                )
+
+            self.assertEqual(result, {"kind": "premium"})
+            get_user.assert_awaited_once_with(session, 77)
+            get_active_subscription.assert_awaited_once_with(session, 77, "panel-user")
+            service.activate_premium_topup.assert_awaited_once()
+            kwargs = service.activate_premium_topup.await_args.kwargs
+            self.assertEqual(kwargs["tariff_key"], "standard")
+            self.assertEqual(kwargs["traffic_gb"], 9.0)
+            self.assertEqual(kwargs["provider"], "cryptopay")
+
+    async def test_activate_subscription_premium_topup_without_active_subscription_returns_none(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            service = _make_service(settings)
+            service.activate_premium_topup = AsyncMock(return_value={"kind": "premium"})
+            session = AsyncMock()
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.user_dal.get_user_by_id",
+                    AsyncMock(return_value=SimpleNamespace(panel_user_uuid="panel-user")),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=None),
+                ),
+            ):
+                result = await service.activate_subscription(
+                    session=session,
+                    user_id=77,
+                    months=9,
+                    payment_amount=350,
+                    payment_db_id=11,
+                    sale_mode="premium_topup",
+                )
+
+            self.assertIsNone(result)
+            service.activate_premium_topup.assert_not_awaited()
 
     async def test_activate_subscription_dispatches_hwid_device_sale_mode(self):
         with tempfile.TemporaryDirectory() as tmpdir:

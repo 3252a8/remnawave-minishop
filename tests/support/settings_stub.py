@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from config.settings_mixins import _split_csv
+from config.settings_models import PanelSettings, ReferralSettings, SupportSettings, WebAppSettings
 from config.webapp_themes_config import WebappThemesConfig
 
 DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
@@ -40,6 +41,7 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "PANEL_SYNC_LIFETIME_TRAFFIC_MIN_DELTA_BYTES": 104857600,
     "PANEL_SYNC_LIFETIME_TRAFFIC_MIN_INTERVAL_SECONDS": 3600,
     "PANEL_USER_CACHE_TTL_SECONDS": 5,
+    "PANEL_WRITE_MODE": "auto",
     "PROFILE_SYNC_CACHE_TTL_SECONDS": 900,
     "REDIS_KEY_PREFIX": "tests",
     "REDIS_URL": None,
@@ -88,7 +90,14 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "WEBAPP_LOGO_URL": None,
     "WEBAPP_ME_CACHE_TTL_SECONDS": 15,
     "WEBAPP_PRIMARY_COLOR": "#00fe7a",
+    "WEBAPP_SERVER_HOST": "0.0.0.0",
+    "WEBAPP_SERVER_PORT": 8080,
+    "WEBAPP_SESSION_SECRET": "test-session-secret",
+    "WEBAPP_SESSION_TTL_SECONDS": 86400,
     "WEBAPP_TITLE": "/minishop",
+    "WEBAPP_AUTH_MAX_AGE_SECONDS": 86400,
+    "WEBAPP_LOGIN_TOKEN_TTL_SECONDS": 600,
+    "WEBHOOK_SECRET_TOKEN": "test-webhook-secret",
 }
 
 
@@ -138,6 +147,103 @@ class SettingsStub(SimpleNamespace):
     @property
     def trusted_proxies(self) -> list[str]:
         return _split_csv(getattr(self, "TRUSTED_PROXIES", None))
+
+    @property
+    def webapp_settings(self) -> WebAppSettings:
+        return WebAppSettings(
+            title=getattr(self, "WEBAPP_TITLE", "/minishop"),
+            primary_color=getattr(self, "WEBAPP_PRIMARY_COLOR", "#00fe7a"),
+            logo_url=getattr(self, "WEBAPP_LOGO_URL", None),
+            favicon_use_custom=bool(getattr(self, "WEBAPP_FAVICON_USE_CUSTOM", False)),
+            favicon_url=getattr(self, "WEBAPP_FAVICON_URL", None),
+            logo_favicon_url=getattr(self, "WEBAPP_LOGO_FAVICON_URL", None),
+            session_ttl_seconds=int(getattr(self, "WEBAPP_SESSION_TTL_SECONDS", 86400)),
+            session_secret=getattr(self, "WEBAPP_SESSION_SECRET", "test-session-secret"),
+            webhook_secret_token=getattr(self, "WEBHOOK_SECRET_TOKEN", "test-webhook-secret"),
+            auth_max_age_seconds=int(getattr(self, "WEBAPP_AUTH_MAX_AGE_SECONDS", 86400)),
+            login_token_ttl_seconds=int(getattr(self, "WEBAPP_LOGIN_TOKEN_TTL_SECONDS", 600)),
+            server_host=getattr(self, "WEBAPP_SERVER_HOST", "0.0.0.0"),
+            server_port=int(getattr(self, "WEBAPP_SERVER_PORT", 8080)),
+            enabled=bool(getattr(self, "WEBAPP_ENABLED", True)),
+            trusted_proxies=self.trusted_proxies,
+        )
+
+    @property
+    def panel_settings(self) -> PanelSettings:
+        return PanelSettings(
+            api_url=getattr(self, "PANEL_API_URL", None),
+            api_key=getattr(self, "PANEL_API_KEY", None),
+            api_cookie=getattr(self, "PANEL_API_COOKIE", None),
+            webhook_secret=getattr(self, "PANEL_WEBHOOK_SECRET", None),
+            write_mode=getattr(self, "PANEL_WRITE_MODE", "auto"),
+            dry_run_enabled=self.panel_dry_run_enabled,
+            api_total_timeout_seconds=float(getattr(self, "PANEL_API_TOTAL_TIMEOUT_SECONDS", 25)),
+            api_connect_timeout_seconds=float(
+                getattr(self, "PANEL_API_CONNECT_TIMEOUT_SECONDS", 8)
+            ),
+            api_sock_connect_timeout_seconds=float(
+                getattr(self, "PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS", 8)
+            ),
+            api_sock_read_timeout_seconds=float(
+                getattr(self, "PANEL_API_SOCK_READ_TIMEOUT_SECONDS", 15)
+            ),
+        )
+
+    @property
+    def panel_dry_run_enabled(self) -> bool:
+        mode = (
+            str(getattr(self, "PANEL_WRITE_MODE", "auto") or "auto")
+            .strip()
+            .lower()
+            .replace(
+                "-",
+                "_",
+            )
+        )
+        if mode == "dry_run":
+            return True
+        if mode == "live":
+            return False
+        runtime = str(getattr(self, "APP_RUNTIME_MODE", "production") or "production").lower()
+        return runtime in {"dev", "development", "local", "test", "testing"}
+
+    @property
+    def support_settings(self) -> SupportSettings:
+        return SupportSettings(
+            link=getattr(self, "SUPPORT_LINK", None),
+            tickets_enabled=bool(getattr(self, "SUPPORT_TICKETS_ENABLED", True)),
+            ticket_max_body_length=int(getattr(self, "SUPPORT_TICKET_MAX_BODY_LENGTH", 4000)),
+            ticket_max_subject_length=int(getattr(self, "SUPPORT_TICKET_MAX_SUBJECT_LENGTH", 160)),
+            ticket_rate_limit_per_hour=int(getattr(self, "SUPPORT_TICKET_RATE_LIMIT_PER_HOUR", 5)),
+            admin_email_notifications_enabled=bool(
+                getattr(self, "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED", False)
+            ),
+            admin_notification_cooldown_seconds=int(
+                getattr(self, "SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS", 300)
+            ),
+            admin_email_cooldown_seconds=int(
+                getattr(self, "SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS", 1800)
+            ),
+        )
+
+    @property
+    def referral_settings(self) -> ReferralSettings:
+        return ReferralSettings(
+            bonus_days_inviter_1_month=getattr(self, "REFERRAL_BONUS_DAYS_1_MONTH", 7),
+            bonus_days_inviter_3_months=getattr(self, "REFERRAL_BONUS_DAYS_3_MONTHS", 7),
+            bonus_days_inviter_6_months=getattr(self, "REFERRAL_BONUS_DAYS_6_MONTHS", 7),
+            bonus_days_inviter_12_months=getattr(self, "REFERRAL_BONUS_DAYS_12_MONTHS", 7),
+            bonus_days_referee_1_month=getattr(self, "REFEREE_BONUS_DAYS_1_MONTH", 3),
+            bonus_days_referee_3_months=getattr(self, "REFEREE_BONUS_DAYS_3_MONTHS", 3),
+            bonus_days_referee_6_months=getattr(self, "REFEREE_BONUS_DAYS_6_MONTHS", 3),
+            bonus_days_referee_12_months=getattr(self, "REFEREE_BONUS_DAYS_12_MONTHS", 3),
+            one_bonus_per_referee=bool(getattr(self, "REFERRAL_ONE_BONUS_PER_REFEREE", False)),
+            welcome_bonus_days=int(getattr(self, "REFERRAL_WELCOME_BONUS_DAYS", 0)),
+            welcome_bonus_without_telegram_enabled=bool(
+                getattr(self, "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED", True)
+            ),
+            legacy_refs_enabled=bool(getattr(self, "LEGACY_REFS", True)),
+        )
 
     @property
     def user_traffic_limit_bytes(self) -> int:

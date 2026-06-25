@@ -8,6 +8,30 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from bot.services import config_health_service as health
+from config.settings_models import PanelSettings
+
+
+class _SettingsNamespace(SimpleNamespace):
+    @property
+    def panel_settings(self) -> PanelSettings:
+        return PanelSettings(
+            api_url=getattr(self, "PANEL_API_URL", None),
+            api_key=getattr(self, "PANEL_API_KEY", None),
+            api_cookie=getattr(self, "PANEL_API_COOKIE", None),
+            webhook_secret=getattr(self, "PANEL_WEBHOOK_SECRET", None),
+            write_mode=getattr(self, "PANEL_WRITE_MODE", "auto"),
+            dry_run_enabled=False,
+            api_total_timeout_seconds=float(getattr(self, "PANEL_API_TOTAL_TIMEOUT_SECONDS", 25)),
+            api_connect_timeout_seconds=float(
+                getattr(self, "PANEL_API_CONNECT_TIMEOUT_SECONDS", 8)
+            ),
+            api_sock_connect_timeout_seconds=float(
+                getattr(self, "PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS", 8)
+            ),
+            api_sock_read_timeout_seconds=float(
+                getattr(self, "PANEL_API_SOCK_READ_TIMEOUT_SECONDS", 15)
+            ),
+        )
 
 
 def _settings(**overrides):
@@ -27,7 +51,7 @@ def _settings(**overrides):
         "trusted_proxies": ["127.0.0.1", "172.16.0.0/12"],
     }
     base.update(overrides)
-    return SimpleNamespace(**base)
+    return _SettingsNamespace(**base)
 
 
 def _alert_ids(alerts):

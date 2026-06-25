@@ -630,6 +630,7 @@ class PanelDryRunApiService(PanelApiService):
         return response
 
     def _subscription_url(self, short_uuid: str) -> Optional[str]:
-        if not self.settings.PANEL_API_URL:
+        panel_api_url = self.settings.panel_settings.api_url
+        if not panel_api_url:
             return None
-        return f"{self.settings.PANEL_API_URL.rstrip('/')}/sub/{short_uuid}"
+        return f"{panel_api_url.rstrip('/')}/sub/{short_uuid}"

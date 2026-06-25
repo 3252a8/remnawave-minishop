@@ -4,22 +4,27 @@ from ._runtime import (
     BINARY_RESPONSE_SCHEMA,
     BOOLEAN_SCHEMA,
     INTEGER_SCHEMA,
+    JSON_OBJECT_SCHEMA,
     NULLABLE_STRING_SCHEMA,
     NUMBER_SCHEMA,
     STRING_SCHEMA,
+    AdminSubscriptionOut,
     AdminUserBanBody,
     AdminUserExtendBody,
     AdminUserHwidDeviceLimitBody,
     AdminUserMessageBody,
+    AdminUserOut,
     AdminUserPremiumOverrideBody,
     AdminUserRegularTrafficOverrideBody,
     AdminUserTariffBody,
     AdminUserTrafficGrantBody,
+    AdminUserTrialOut,
+    AdminUserWithAvatarOut,
+    PaymentOut,
     RouteContract,
-    loose_array_schema,
-    loose_object_schema,
     ok_envelope_with,
     register_contract,
+    schema_ref,
 )
 from .users_actions import (
     admin_user_ban_route,
@@ -62,49 +67,99 @@ from .users_listing import (
 register_contract(
     "admin_users_list_route",
     RouteContract(
+        models=(AdminUserWithAvatarOut,),
         response_schema=ok_envelope_with(
             {
-                "users": loose_array_schema(),
+                "users": {
+                    "type": "array",
+                    # Base admin user (+ avatar_url) enriched per-row by the list
+                    # endpoint; panel_status_expired_at is only present for expired
+                    # subscriptions, so it stays out of ``required``.
+                    "items": {
+                        "allOf": [
+                            schema_ref(AdminUserWithAvatarOut),
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "panel_status": NULLABLE_STRING_SCHEMA,
+                                    "subscription_expires_at": NULLABLE_STRING_SCHEMA,
+                                    "panel_status_expired_at": NULLABLE_STRING_SCHEMA,
+                                    "premium_traffic": JSON_OBJECT_SCHEMA,
+                                    "payments_total_amount": NUMBER_SCHEMA,
+                                    "payments_count": INTEGER_SCHEMA,
+                                    "payments_currency": NULLABLE_STRING_SCHEMA,
+                                    "invited_users_count": INTEGER_SCHEMA,
+                                },
+                                "required": [
+                                    "panel_status",
+                                    "subscription_expires_at",
+                                    "premium_traffic",
+                                    "payments_total_amount",
+                                    "payments_count",
+                                    "payments_currency",
+                                    "invited_users_count",
+                                ],
+                            },
+                        ],
+                    },
+                },
                 "page": INTEGER_SCHEMA,
                 "page_size": INTEGER_SCHEMA,
                 "total": INTEGER_SCHEMA,
             }
-        )
+        ),
     ),
 )
 register_contract(
     "admin_user_detail_route",
     RouteContract(
+        models=(AdminUserWithAvatarOut, AdminSubscriptionOut, AdminUserTrialOut, PaymentOut),
         response_schema=ok_envelope_with(
             {
-                "user": loose_object_schema(),
-                "active_subscription": loose_object_schema(),
-                "subscriptions": loose_array_schema(),
-                "trial": loose_object_schema(),
+                "user": schema_ref(AdminUserWithAvatarOut),
+                "active_subscription": {
+                    "anyOf": [schema_ref(AdminSubscriptionOut), {"type": "null"}]
+                },
+                "subscriptions": {"type": "array", "items": schema_ref(AdminSubscriptionOut)},
+                "trial": schema_ref(AdminUserTrialOut),
                 "total_paid": NUMBER_SCHEMA,
-                "recent_payments": loose_array_schema(),
+                "recent_payments": {"type": "array", "items": schema_ref(PaymentOut)},
                 "log_count": INTEGER_SCHEMA,
                 "subscription_url": NULLABLE_STRING_SCHEMA,
                 "last_vpn_connected_at": NULLABLE_STRING_SCHEMA,
                 "vpn_connection_status": STRING_SCHEMA,
-                "referral": loose_object_schema(),
+                "referral": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["code", "bot_link", "webapp_link", "inviter", "invitees_total"],
+                    "properties": {
+                        "code": NULLABLE_STRING_SCHEMA,
+                        "bot_link": NULLABLE_STRING_SCHEMA,
+                        "webapp_link": NULLABLE_STRING_SCHEMA,
+                        "inviter": {
+                            "anyOf": [schema_ref(AdminUserWithAvatarOut), {"type": "null"}]
+                        },
+                        "invitees_total": INTEGER_SCHEMA,
+                    },
+                },
             }
-        )
+        ),
     ),
 )
 register_contract(
     "admin_user_referrals_route",
     RouteContract(
+        models=(AdminUserWithAvatarOut,),
         response_schema=ok_envelope_with(
             {
-                "user": loose_object_schema(),
-                "inviter": loose_object_schema(),
-                "invitees": loose_array_schema(),
+                "user": schema_ref(AdminUserWithAvatarOut),
+                "inviter": {"anyOf": [schema_ref(AdminUserWithAvatarOut), {"type": "null"}]},
+                "invitees": {"type": "array", "items": schema_ref(AdminUserWithAvatarOut)},
                 "total": INTEGER_SCHEMA,
                 "page": INTEGER_SCHEMA,
                 "page_size": INTEGER_SCHEMA,
             }
-        )
+        ),
     ),
 )
 register_contract(
@@ -116,6 +171,7 @@ register_contract(
     RouteContract(
         request_model=AdminUserBanBody,
         response_schema=_ADMIN_USER_RESPONSE_SCHEMA,
+        models=(AdminUserOut,),
     ),
 )
 register_contract(
@@ -143,6 +199,7 @@ register_contract(
     RouteContract(
         request_model=AdminUserPremiumOverrideBody,
         response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
+        models=(AdminSubscriptionOut,),
     ),
 )
 register_contract(
@@ -150,6 +207,7 @@ register_contract(
     RouteContract(
         request_model=AdminUserRegularTrafficOverrideBody,
         response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
+        models=(AdminSubscriptionOut,),
     ),
 )
 register_contract(
@@ -157,14 +215,28 @@ register_contract(
     RouteContract(
         request_model=AdminUserHwidDeviceLimitBody,
         response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
+        models=(AdminSubscriptionOut,),
     ),
 )
 register_contract(
     "admin_user_traffic_grant_route",
     RouteContract(
         request_model=AdminUserTrafficGrantBody,
+        models=(AdminSubscriptionOut,),
         response_schema=ok_envelope_with(
-            {"subscription": loose_object_schema(), "grant": loose_object_schema()},
+            {
+                "subscription": {"anyOf": [schema_ref(AdminSubscriptionOut), {"type": "null"}]},
+                "grant": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["kind", "granted_bytes", "granted_gb"],
+                    "properties": {
+                        "kind": STRING_SCHEMA,
+                        "granted_bytes": INTEGER_SCHEMA,
+                        "granted_gb": NUMBER_SCHEMA,
+                    },
+                },
+            },
             required=["grant"],
         ),
     ),
@@ -174,6 +246,7 @@ register_contract(
     RouteContract(
         request_model=AdminUserExtendBody,
         response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
+        models=(AdminSubscriptionOut,),
     ),
 )
 register_contract(
@@ -181,6 +254,7 @@ register_contract(
     RouteContract(
         request_model=AdminUserTariffBody,
         response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
+        models=(AdminSubscriptionOut,),
     ),
 )
 

@@ -218,7 +218,7 @@ async def start_command_handler(
                 )
 
                 # Auto-grant referral welcome bonus to newly registered referred users.
-                referral_welcome_days = max(0, int(settings.REFERRAL_WELCOME_BONUS_DAYS or 0))
+                referral_welcome_days = max(0, int(settings.referral_settings.welcome_bonus_days))
                 if referred_by_user_id and referral_welcome_days > 0:
                     try:
                         default_tariff_key = None

@@ -3,6 +3,7 @@ from bot.app.web.context import (
     get_settings,
     get_subscription_service,
 )
+from bot.app.web.http_contracts import HttpResponseModel
 from bot.app.web.webapp.cache_helpers import webapp_cached_user_payload
 
 from ._runtime import (
@@ -260,24 +261,43 @@ def _serialize_device_datetime(value: Any) -> Optional[str]:
     return str(value)
 
 
+class WebAppDeviceOut(HttpResponseModel):
+    # Field order mirrors the legacy ``_serialize_device`` dict.
+    index: int
+    display_name: str
+    platform: str
+    os_version: str
+    platform_label: str
+    user_agent: str
+    created_at: str | None = None
+    created_at_text: str
+    hwid_short: str
+    token: str
+    can_disconnect: bool
+
+    @classmethod
+    def from_panel_device(cls, device: Dict[str, Any], index: int) -> "WebAppDeviceOut":
+        hwid = str(device.get("hwid") or "").strip()
+        model = str(device.get("deviceModel") or "").strip()
+        platform = str(device.get("platform") or "").strip()
+        os_version = str(device.get("osVersion") or "").strip()
+        user_agent = str(device.get("userAgent") or "").strip()
+        display_name = model or platform or f"Device {index}"
+        platform_label = " ".join(part for part in (platform, os_version) if part).strip()
+        return cls(
+            index=index,
+            display_name=display_name,
+            platform=platform,
+            os_version=os_version,
+            platform_label=platform_label,
+            user_agent=user_agent,
+            created_at=_serialize_device_datetime(device.get("createdAt")),
+            created_at_text=_format_device_datetime(device.get("createdAt")),
+            hwid_short=_shorten_hwid_for_display(hwid),
+            token=_device_hwid_token(hwid) if hwid else "",
+            can_disconnect=bool(hwid),
+        )
+
+
 def _serialize_device(device: Dict[str, Any], index: int) -> Dict[str, Any]:
-    hwid = str(device.get("hwid") or "").strip()
-    model = str(device.get("deviceModel") or "").strip()
-    platform = str(device.get("platform") or "").strip()
-    os_version = str(device.get("osVersion") or "").strip()
-    user_agent = str(device.get("userAgent") or "").strip()
-    display_name = model or platform or f"Device {index}"
-    platform_label = " ".join(part for part in (platform, os_version) if part).strip()
-    return {
-        "index": index,
-        "display_name": display_name,
-        "platform": platform,
-        "os_version": os_version,
-        "platform_label": platform_label,
-        "user_agent": user_agent,
-        "created_at": _serialize_device_datetime(device.get("createdAt")),
-        "created_at_text": _format_device_datetime(device.get("createdAt")),
-        "hwid_short": _shorten_hwid_for_display(hwid),
-        "token": _device_hwid_token(hwid) if hwid else "",
-        "can_disconnect": bool(hwid),
-    }
+    return WebAppDeviceOut.from_panel_device(device, index).model_dump(mode="json")

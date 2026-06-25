@@ -18,7 +18,7 @@
   import "./UserDetailModal.css";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-  type MoneyFormatter = (value: unknown, currency?: string) => string;
+  type MoneyFormatter = (value: unknown, currency?: string | null) => string;
   type DateFormatter = (value: unknown) => string;
   type BadgeVariant = "success" | "danger" | "warning" | "muted";
   type ComponentCallback = (...args: never[]) => void;
@@ -115,7 +115,9 @@
   const selectTariffAction = ((value: string) =>
     usersStore.updateState({ userTariffActionKey: value })) as ComponentCallback;
   const selectGrantTrafficKind = ((value: string) =>
-    usersStore.updateState({ grantTrafficKindDraft: value })) as ComponentCallback;
+    usersStore.updateState({
+      grantTrafficKindDraft: value === "premium" ? "premium" : "regular",
+    })) as ComponentCallback;
 
   function tariffLabel(tariff: Tariff | Record<string, unknown> | null | undefined): string {
     const raw = (tariff || {}) as Record<string, unknown>;

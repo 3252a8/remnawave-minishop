@@ -8,7 +8,6 @@ from ._runtime import (
     SubscriptionServiceMixinContract,
     Tariff,
     TariffsConfig,
-    Tuple,
     datetime,
     default_currency_key_for_settings,
     logging,
@@ -26,24 +25,6 @@ class TariffMixin(SubscriptionServiceMixinContract):
     @staticmethod
     def _far_future() -> datetime:
         return datetime(2099, 1, 1, tzinfo=timezone.utc)
-
-    def _parse_sale_mode_context(
-        self,
-        sale_mode: str,
-        explicit_tariff_key: Optional[str] = None,
-    ) -> Tuple[str, Optional[str]]:
-        mode = (sale_mode or "subscription").strip()
-        tariff_key = explicit_tariff_key
-        for separator in ("@", "|"):
-            if separator in mode:
-                base, suffix = mode.split(separator, 1)
-                mode = base or mode
-                suffix_key = suffix.split("|", 1)[0]
-                if separator == "|" and suffix_key in {"bot"}:
-                    suffix_key = ""
-                tariff_key = tariff_key or suffix_key or None
-                break
-        return mode, tariff_key
 
     def _tariffs_config(self) -> Optional[TariffsConfig]:
         config = getattr(self.settings, "tariffs_config", None)

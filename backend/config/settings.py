@@ -1,5 +1,3 @@
-# mypy: disable-error-code=prop-decorator
-
 import logging
 import os
 import secrets
@@ -9,7 +7,16 @@ from pydantic import Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from config.settings_mixins import SettingsComputedMixin, SettingsValidationMixin
-from config.settings_models import DBSettings, EmailSettings, WebAppSettings
+from config.settings_models import (
+    CompatibilitySettings,
+    DBSettings,
+    EmailSettings,
+    PanelSettings,
+    PaymentSettings,
+    ReferralSettings,
+    SupportSettings,
+    WebAppSettings,
+)
 
 DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_RU = (
     "Покупая или продлевая подписку, вы получаете доступ к VPN/прокси-сервису, "
@@ -775,4 +782,15 @@ def get_settings() -> Settings:
     return _settings_instance
 
 
-__all__ = ["DBSettings", "EmailSettings", "Settings", "WebAppSettings", "get_settings"]
+__all__ = [
+    "CompatibilitySettings",
+    "DBSettings",
+    "EmailSettings",
+    "PanelSettings",
+    "PaymentSettings",
+    "ReferralSettings",
+    "Settings",
+    "SupportSettings",
+    "WebAppSettings",
+    "get_settings",
+]

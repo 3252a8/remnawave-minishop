@@ -68,6 +68,12 @@ tmp
 # Игнорировать кэш Python
 __pycache__/
 
+# Игнорировать артефакты тестов и покрытия
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+
 # Игнорировать настройки IDE (если используешь, например, PyCharm или VSCode)
 .idea/
 .vscode/

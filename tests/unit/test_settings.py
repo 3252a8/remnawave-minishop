@@ -121,6 +121,129 @@ class SettingsTests(unittest.TestCase):
             {1: 200.0, 3: 600.0, 6: 1200.0, 12: 2400.0},
         )
 
+    def test_payment_settings_view_reflects_payment_fields(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            DEFAULT_CURRENCY_SYMBOL="EUR",
+            PAYMENT_REQUEST_TIMEOUT_SECONDS=7,
+            PAYMENT_METHODS_ORDER="stars,severpay",
+            TARIFFS_CONFIG_PATH="missing-tariffs.json",
+            TRAFFIC_PACKAGES="10:199,50:799",
+            STARS_TRAFFIC_PACKAGES="10:1000",
+        )
+
+        payment_settings = settings.payment_settings
+
+        self.assertEqual(payment_settings.default_currency_symbol, "EUR")
+        self.assertEqual(payment_settings.payment_request_timeout_seconds, 7)
+        self.assertEqual(payment_settings.payment_methods_order[:2], ["stars", "severpay"])
+        self.assertIn("stripe", payment_settings.payment_methods_order)
+        self.assertEqual(
+            payment_settings.subscription_options,
+            settings.subscription_options,
+        )
+        self.assertEqual(
+            payment_settings.stars_subscription_options,
+            settings.stars_subscription_options,
+        )
+        self.assertEqual(payment_settings.traffic_packages, {10.0: 199.0, 50.0: 799.0})
+        self.assertEqual(payment_settings.stars_traffic_packages, {10.0: 1000})
+        self.assertTrue(payment_settings.traffic_sale_mode)
+
+    def test_referral_settings_view_reflects_referral_fields(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            REFERRAL_BONUS_DAYS_1_MONTH=5,
+            REFEREE_BONUS_DAYS_12_MONTHS=11,
+            REFERRAL_ONE_BONUS_PER_REFEREE=False,
+            REFERRAL_WELCOME_BONUS_DAYS=9,
+            REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED=False,
+            LEGACY_REFS=False,
+        )
+
+        referral_settings = settings.referral_settings
+
+        self.assertEqual(referral_settings.bonus_days_inviter_1_month, 5)
+        self.assertEqual(referral_settings.bonus_days_inviter_3_months, 7)
+        self.assertEqual(referral_settings.bonus_days_referee_12_months, 11)
+        self.assertEqual(referral_settings.bonus_days_referee_1_month, 1)
+        self.assertFalse(referral_settings.one_bonus_per_referee)
+        self.assertEqual(referral_settings.welcome_bonus_days, 9)
+        self.assertFalse(referral_settings.welcome_bonus_without_telegram_enabled)
+        self.assertFalse(referral_settings.legacy_refs_enabled)
+
+    def test_support_settings_view_reflects_support_fields(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            SUPPORT_LINK="https://t.me/support",
+            SUPPORT_TICKETS_ENABLED=False,
+            SUPPORT_TICKET_MAX_BODY_LENGTH=1000,
+            SUPPORT_TICKET_RATE_LIMIT_PER_HOUR=2,
+            SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED=True,
+        )
+
+        support_settings = settings.support_settings
+
+        self.assertEqual(support_settings.link, "https://t.me/support")
+        self.assertFalse(support_settings.tickets_enabled)
+        self.assertEqual(support_settings.ticket_max_body_length, 1000)
+        self.assertEqual(support_settings.ticket_max_subject_length, 160)
+        self.assertEqual(support_settings.ticket_rate_limit_per_hour, 2)
+        self.assertTrue(support_settings.admin_email_notifications_enabled)
+        self.assertEqual(support_settings.admin_notification_cooldown_seconds, 300)
+        self.assertEqual(support_settings.admin_email_cooldown_seconds, 1800)
+
+    def test_panel_settings_view_reflects_panel_fields(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            PANEL_API_URL="https://panel.example.com",
+            PANEL_API_KEY="secret-key",
+            PANEL_WEBHOOK_SECRET="hook",
+            APP_RUNTIME_MODE="development",
+        )
+
+        panel_settings = settings.panel_settings
+
+        self.assertEqual(panel_settings.api_url, "https://panel.example.com")
+        self.assertEqual(panel_settings.api_key, "secret-key")
+        self.assertIsNone(panel_settings.api_cookie)
+        self.assertEqual(panel_settings.webhook_secret, "hook")
+        self.assertEqual(panel_settings.write_mode, "auto")
+        self.assertTrue(panel_settings.dry_run_enabled)
+        self.assertEqual(panel_settings.api_total_timeout_seconds, 25)
+        self.assertEqual(panel_settings.api_connect_timeout_seconds, 8)
+        self.assertEqual(panel_settings.api_sock_read_timeout_seconds, 15)
+
+    def test_compatibility_settings_view_reflects_migration_fields(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED=True,
+            MIGRATION_REMNASHOP_IMPORTED_AT="2026-01-02T03:04:05Z",
+            MIGRATION_REMNASHOP_NOTES="migrated batch 1",
+        )
+
+        compatibility_settings = settings.compatibility_settings
+
+        self.assertTrue(compatibility_settings.remnashop_referral_code_compat_enabled)
+        self.assertFalse(compatibility_settings.remnashop_promo_code_compat_enabled)
+        self.assertEqual(compatibility_settings.remnashop_imported_at, "2026-01-02T03:04:05Z")
+        self.assertEqual(compatibility_settings.remnashop_notes, "migrated batch 1")
+
     def test_subscription_guides_defaults_are_enabled(self):
         settings = Settings(
             _env_file=None,

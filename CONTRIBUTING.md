@@ -32,9 +32,9 @@ npm run check
 npm run check:quick
 ```
 
-Current documented mypy frontier outside the CI scope: `backend/config`, `backend/main_*.py`,
-`backend/scripts`, `scripts`, and `tests`. Add those only after separate type-hardening work keeps the
-full command green.
+Current documented mypy frontier outside the CI scope: `backend/main_*.py`, `backend/scripts`,
+`scripts`, and `tests`. Add those only after separate type-hardening work keeps the full command
+green. (`backend/config` graduated into the enforced scope.)
 
 Явные команды ниже остаются источником правды для CI и ручной диагностики.
 
@@ -43,7 +43,7 @@ full command green.
 python -m pytest -q                 # полный прогон (в CI поднимаются сервисы Postgres + Redis)
 python -m ruff check .              # линт
 python -m ruff format --check .     # формат
-python -m mypy backend/db backend/bot/infra backend/bot/middlewares backend/bot/utils \
+python -m mypy backend/config backend/db backend/bot/infra backend/bot/middlewares backend/bot/utils \
   backend/bot/plugins backend/bot/keyboards backend/bot/payment_providers backend/bot/services \
   backend/bot/handlers backend/bot/app/factories backend/bot/app/controllers backend/bot/app/web
 ```
@@ -88,6 +88,10 @@ npm run build        # vite build должен проходить после typ
 
 Бэкенд — рукописный `aiohttp` + `aiogram` + SQLAlchemy (async) + pydantic v2. **FastAPI нет** —
 не вводи его. Обзор архитектуры: [docs/architecture.md](docs/architecture.md).
+
+Пошаговые рецепты для типовых задач (добавить платёжного провайдера, доменное событие или
+HTTP-эндпоинт) — [docs/development/how-to.md](docs/development/how-to.md); каждый заканчивается
+прогоном гейтов раздела 1.
 
 ### 3.1 HTTP API (типизированные контракты)
 - Роуты регистрируются явно в `setup_subscription_webapp_routes`

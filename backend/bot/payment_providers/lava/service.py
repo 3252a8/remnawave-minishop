@@ -15,10 +15,6 @@ from bot.middlewares.i18n import JsonI18n
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service import SubscriptionService
 from config.settings import Settings
-from config.tariffs_config import (
-    default_currency_key_for_settings,
-    default_payment_currency_code_for_settings,
-)
 from db.dal import payment_dal
 
 from ..base import (
@@ -33,32 +29,23 @@ from ..base import (
 )
 from ..shared import (
     PAYMENT_STATUS_PENDING_FINALIZATION,
+    CreatePaymentRequest,
+    CreateResult,
     HttpClientMixin,
+    LinkPaymentDescriptor,
     PaymentSuccessRequest,
-    build_payment_record_payload,
-    create_webapp_payment_record,
     decimal_amounts_equal,
-    describe_payment,
     finalize_successful_payment,
-    finalize_webapp_link_payment,
     first_value,
     format_decimal_amount,
     lookup_payment_by_order_or_provider_id,
-    make_translator,
-    notify_callback_parse_error,
-    notify_payment_record_failure,
-    notify_service_unavailable,
     notify_user_payment_failed,
-    parse_payment_callback,
-    payment_failed,
-    payment_record_amounts,
-    payment_unavailable,
     payment_units_for_activation,
-    quote_hwid_callback_parts,
-    render_link_or_fail,
-    render_payment_link,
+    run_callback_payment,
+    run_reuse_webapp_payment,
+    run_webapp_payment,
 )
-from ..shared.app_context import app_optional, app_required
+from ..shared.app_context import app_required
 
 _LOG = "lava"
 
@@ -553,120 +540,7 @@ async def pay_lava_callback_handler(
     lava_service: LavaService,
     session: AsyncSession,
 ) -> None:
-    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
-    translator = make_translator(i18n, current_lang)
-
-    if not i18n or not callback.message:
-        await notify_callback_parse_error(callback, translator)
-        return
-
-    if not SPEC.is_available_to_user(
-        settings,
-        user_id=callback.from_user.id,
-        require_configured=False,
-    ):
-        await notify_service_unavailable(callback, translator)
-        return
-
-    if not lava_service or not lava_service.configured:
-        logging.error("LAVA service is not configured or unavailable.")
-        await notify_service_unavailable(callback, translator)
-        return
-
-    parts = parse_payment_callback(callback.data or "")
-    if not parts:
-        logging.error("Invalid pay_lava data in callback: %s", callback.data)
-        await notify_callback_parse_error(callback, translator)
-        return
-    parts, hwid_quote = await quote_hwid_callback_parts(
-        session=session,
-        user_id=callback.from_user.id,
-        parts=parts,
-        subscription_service=lava_service.subscription_service,
-        currency=default_currency_key_for_settings(settings),
-    )
-    if not parts:
-        await notify_callback_parse_error(callback, translator)
-        return
-
-    currency_code = default_payment_currency_code_for_settings(settings)
-    payment_description = describe_payment(translator, parts)
-    record_payload = build_payment_record_payload(
-        user_id=callback.from_user.id,
-        amount=parts.price,
-        currency=currency_code,
-        status="pending_lava",
-        description=payment_description,
-        months=parts.months,
-        provider="lava",
-        sale_mode=parts.sale_mode,
-        hwid_quote=hwid_quote,
-    )
-
-    reuse_amounts = payment_record_amounts(
-        months=parts.months,
-        sale_mode=parts.sale_mode,
-        hwid_device_count=hwid_quote.get("device_count") if hwid_quote else None,
-    )
-    reusable_payment = await payment_dal.find_recent_pending_provider_payment(
-        session,
-        user_id=callback.from_user.id,
-        provider="lava",
-        pending_status="pending_lava",
-        amount=parts.price,
-        currency=currency_code,
-        sale_mode=parts.sale_mode,
-        months=reuse_amounts.months,
-        purchased_gb=reuse_amounts.purchased_gb,
-        purchased_hwid_devices=reuse_amounts.purchased_hwid_devices,
-        tariff_key=reuse_amounts.tariff_key,
-    )
-    if reusable_payment is not None:
-        reusable_url = await lava_service.try_reuse_pending_payment(reusable_payment)
-        if reusable_url:
-            await render_payment_link(
-                callback,
-                translator=translator,
-                current_lang=current_lang,
-                i18n=i18n,
-                parts=parts,
-                payment_url=reusable_url,
-                log_prefix=_LOG,
-            )
-            return
-
-    try:
-        payment_record = await payment_dal.create_payment_record(session, record_payload)
-        await session.commit()
-    except Exception:
-        await session.rollback()
-        logging.exception(
-            "LAVA: failed to create payment record for user %s.", callback.from_user.id
-        )
-        await notify_payment_record_failure(callback, translator)
-        return
-
-    success, response_data = await lava_service.create_payment(
-        payment_db_id=payment_record.payment_id,
-        amount=parts.price,
-        currency=currency_code,
-        description=payment_description,
-    )
-    await render_link_or_fail(
-        callback,
-        translator=translator,
-        current_lang=current_lang,
-        i18n=i18n,
-        parts=parts,
-        session=session,
-        payment=payment_record,
-        api_success=success,
-        payment_url=first_value(response_data, "url", "payment_url", "paymentUrl"),
-        provider_payment_id=first_value(response_data, "id", "invoice_id"),
-        provider_response=response_data,
-        log_prefix=_LOG,
-    )
+    await run_callback_payment(_DESCRIPTOR, callback, settings, i18n_data, lava_service, session)
 
 
 def create_service(ctx: ServiceFactoryContext) -> LavaService:
@@ -685,49 +559,11 @@ def create_service(ctx: ServiceFactoryContext) -> LavaService:
 
 
 async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
-    settings = app_required(ctx.request, "settings", Settings)
-    service: LavaService = app_required(ctx.request, "lava_service", LavaService)
-    if not service or not service.configured:
-        return payment_unavailable()
-
-    currency = ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
-    try:
-        payment = await create_webapp_payment_record(
-            ctx,
-            amount=ctx.price,
-            currency=currency,
-            status="pending_lava",
-            provider="lava",
-        )
-        success, response_data = await service.create_payment(
-            payment_db_id=payment.payment_id,
-            amount=ctx.price,
-            currency=currency,
-            description=ctx.description,
-        )
-    except Exception:
-        await ctx.session.rollback()
-        logging.exception("LAVA WebApp payment failed")
-        return payment_failed()
-
-    return await finalize_webapp_link_payment(
-        session=ctx.session,
-        payment=payment,
-        api_success=success,
-        payment_url=(
-            first_value(response_data, "url", "payment_url", "paymentUrl") if success else None
-        ),
-        provider_payment_id=first_value(response_data, "id", "invoice_id"),
-        provider_response=response_data,
-        log_prefix="LAVA",
-    )
+    return await run_webapp_payment(_DESCRIPTOR, ctx)
 
 
 async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
-    service = app_optional(ctx.request, "lava_service", LavaService)
-    if not service or not service.configured:
-        return None
-    return await service.try_reuse_pending_payment(payment)
+    return await run_reuse_webapp_payment(_DESCRIPTOR, ctx, payment)
 
 
 _PRESENTATION_MANIFEST = tuple(
@@ -878,4 +714,32 @@ SPEC = PaymentProviderSpec(
     supported_currencies=("RUB",),
     currency_support_note="LAVA Business invoices are issued in RUB only.",
     currency_support_url="https://dev.lava.ru/",
+)
+
+
+async def _create_payment(service: LavaService, req: CreatePaymentRequest) -> CreateResult:
+    return await service.create_payment(
+        payment_db_id=req.payment.payment_id,
+        amount=req.amount,
+        currency=req.currency,
+        description=req.description,
+    )
+
+
+async def _reuse_payment(service: LavaService, payment: Any) -> Optional[str]:
+    return await service.try_reuse_pending_payment(payment)
+
+
+_DESCRIPTOR: LinkPaymentDescriptor[LavaService] = LinkPaymentDescriptor(
+    spec=SPEC,
+    provider_key="lava",
+    pending_status="pending_lava",
+    display_name="LAVA",
+    log_prefix=_LOG,
+    service_app_key="lava_service",
+    service_type=LavaService,
+    create=_create_payment,
+    reuse=_reuse_payment,
+    extract_url=lambda r: first_value(r, "url", "payment_url", "paymentUrl"),
+    extract_provider_id=lambda r: first_value(r, "id", "invoice_id"),
 )

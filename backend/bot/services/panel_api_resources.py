@@ -48,10 +48,11 @@ class PanelApiResourcesMixin:
     async def get_subscription_link(
         self, short_uuid_or_sub_uuid: str, client_type: Optional[str] = None
     ) -> Optional[str]:
-        if not self.settings.PANEL_API_URL:
+        panel_api_url = self.settings.panel_settings.api_url
+        if not panel_api_url:
             logging.error("PANEL_API_URL not set, cannot generate subscription link.")
             return None
-        base_sub_url = f"{self.settings.PANEL_API_URL.rstrip('/')}/sub/{short_uuid_or_sub_uuid}"
+        base_sub_url = f"{panel_api_url.rstrip('/')}/sub/{short_uuid_or_sub_uuid}"
         if client_type:
             return f"{base_sub_url}/{client_type.lower()}"
         return base_sub_url

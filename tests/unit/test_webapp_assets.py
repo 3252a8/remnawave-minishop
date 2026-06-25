@@ -345,17 +345,26 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("display: none;", css)
 
     def test_settings_screen_places_server_status_between_legal_and_support_links(self):
-        source = (Path(__file__).resolve().parents[2] / "frontend/src/App.svelte").read_text(
+        app_source = (Path(__file__).resolve().parents[2] / "frontend/src/App.svelte").read_text(
             encoding="utf-8"
         )
+        app_mode_source = (
+            Path(__file__).resolve().parents[2] / "frontend/src/webapp/AppModeContent.svelte"
+        ).read_text(encoding="utf-8")
+        account_view_source = (
+            Path(__file__).resolve().parents[2] / "frontend/src/lib/webapp/accountView.ts"
+        ).read_text(encoding="utf-8")
         settings_source = (
             Path(__file__).resolve().parents[2]
             / "frontend/src/webapp/screens/SettingsScreen.svelte"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("CFG.serverStatusUrl", source)
-        self.assertIn("appSettings?.server_status_url", source)
-        self.assertIn("{serverStatusUrl}", source)
+        self.assertIn("cfg.serverStatusUrl", account_view_source)
+        self.assertIn("appSettings?.server_status_url", account_view_source)
+        self.assertIn("{shellView}", app_source)
+        self.assertIn("accountView: {", app_mode_source)
+        self.assertIn("serverStatusUrl,", app_mode_source)
+        self.assertIn("{serverStatusUrl}", app_mode_source)
         self.assertIn('t("menu_server_status_button")', settings_source)
 
         agreement_pos = settings_source.index("{#if userAgreementUrl}")
@@ -429,21 +438,25 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
     def test_frontend_starts_public_install_preload_before_mount(self):
         main_source = Path("frontend/src/main.js").read_text(encoding="utf-8")
-        app_source = Path("frontend/src/App.svelte").read_text(encoding="utf-8")
+        public_install_actions_source = Path(
+            "frontend/src/lib/webapp/publicInstallActions.ts"
+        ).read_text(encoding="utf-8")
         store_source = Path("frontend/src/lib/webapp/stores/installGuidesStore.ts").read_text(
             encoding="utf-8"
         )
 
         self.assertIn("__RW_PUBLIC_INSTALL_PRELOAD__", main_source)
         self.assertIn("startPublicInstallPreload();", main_source)
-        self.assertIn("loadPublicInstallGuides", app_source)
-        self.assertIn("installGuidesStore.hydrate", app_source)
+        self.assertIn("loadPublicInstallGuides", public_install_actions_source)
+        self.assertIn("installGuidesStore.hydrate", public_install_actions_source)
         self.assertIn("hydrate,", store_source)
 
     def test_home_screen_hides_unlimited_traffic_limit_cards(self):
         root = Path(__file__).resolve().parents[2]
-        app_source = (root / "frontend/src/App.svelte").read_text(encoding="utf-8")
         home_source = (root / "frontend/src/webapp/screens/HomeScreen.svelte").read_text(
+            encoding="utf-8"
+        )
+        billing_view_source = (root / "frontend/src/lib/webapp/billingView.ts").read_text(
             encoding="utf-8"
         )
         traffic_source = (root / "frontend/src/lib/webapp/traffic.ts").read_text(encoding="utf-8")
@@ -461,8 +474,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             home_source,
         )
         self.assertNotIn("wa_premium_unlimited", home_source)
-        self.assertIn("regularTrafficLimitVisible(subscription)", app_source)
-        self.assertIn("premiumTrafficLimitVisible(subscription)", app_source)
+        self.assertIn("regularTrafficLimitVisible(subscription)", billing_view_source)
+        self.assertIn("premiumTrafficLimitVisible(subscription)", billing_view_source)
 
     def test_https_webapp_logo_uses_same_origin_proxy(self):
         settings = SimpleNamespace(WEBAPP_LOGO_URL="https://cdn.example.com/logo.png")

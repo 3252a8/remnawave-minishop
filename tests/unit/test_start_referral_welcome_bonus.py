@@ -4,6 +4,7 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, patch
 
 from bot.handlers.user.start import start_command_handler
+from config.settings_models import ReferralSettings
 
 
 class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
@@ -14,6 +15,20 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
             ADMIN_IDS=[],
             DISABLE_WELCOME_MESSAGE=False,
             REFERRAL_WELCOME_BONUS_DAYS=3,
+            referral_settings=ReferralSettings(
+                bonus_days_inviter_1_month=7,
+                bonus_days_inviter_3_months=7,
+                bonus_days_inviter_6_months=7,
+                bonus_days_inviter_12_months=7,
+                bonus_days_referee_1_month=3,
+                bonus_days_referee_3_months=3,
+                bonus_days_referee_6_months=3,
+                bonus_days_referee_12_months=3,
+                one_bonus_per_referee=False,
+                welcome_bonus_days=3,
+                welcome_bonus_without_telegram_enabled=True,
+                legacy_refs_enabled=True,
+            ),
             tariffs_config=SimpleNamespace(default_tariff="standard"),
         )
         i18n = SimpleNamespace(gettext=lambda lang, key, **kw: key)

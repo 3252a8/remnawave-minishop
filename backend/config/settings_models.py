@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -46,3 +46,60 @@ class WebAppSettings(BaseModel):
     server_port: int
     enabled: bool
     trusted_proxies: List[str]
+
+
+class PaymentSettings(BaseModel):
+    default_currency_symbol: str
+    payment_request_timeout_seconds: float
+    payment_methods_order: List[str]
+    subscription_options: Dict[int, float]
+    stars_subscription_options: Dict[int, int]
+    traffic_packages: Dict[float, float]
+    stars_traffic_packages: Dict[float, int]
+    traffic_sale_mode: bool
+
+
+class CompatibilitySettings(BaseModel):
+    remnashop_referral_code_compat_enabled: bool
+    remnashop_promo_code_compat_enabled: bool
+    remnashop_imported_at: Optional[str]
+    remnashop_notes: Optional[str]
+
+
+class PanelSettings(BaseModel):
+    api_url: Optional[str]
+    api_key: Optional[str]
+    api_cookie: Optional[str]
+    webhook_secret: Optional[str]
+    write_mode: str
+    dry_run_enabled: bool
+    api_total_timeout_seconds: float
+    api_connect_timeout_seconds: float
+    api_sock_connect_timeout_seconds: float
+    api_sock_read_timeout_seconds: float
+
+
+class SupportSettings(BaseModel):
+    link: Optional[str]
+    tickets_enabled: bool
+    ticket_max_body_length: int
+    ticket_max_subject_length: int
+    ticket_rate_limit_per_hour: int
+    admin_email_notifications_enabled: bool
+    admin_notification_cooldown_seconds: int
+    admin_email_cooldown_seconds: int
+
+
+class ReferralSettings(BaseModel):
+    bonus_days_inviter_1_month: Optional[int]
+    bonus_days_inviter_3_months: Optional[int]
+    bonus_days_inviter_6_months: Optional[int]
+    bonus_days_inviter_12_months: Optional[int]
+    bonus_days_referee_1_month: Optional[int]
+    bonus_days_referee_3_months: Optional[int]
+    bonus_days_referee_6_months: Optional[int]
+    bonus_days_referee_12_months: Optional[int]
+    one_bonus_per_referee: bool
+    welcome_bonus_days: int
+    welcome_bonus_without_telegram_enabled: bool
+    legacy_refs_enabled: bool

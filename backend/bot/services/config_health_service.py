@@ -417,7 +417,8 @@ async def telegram_alerts(bot: Any, settings: Any) -> List[ConfigAlert]:
 
 
 async def panel_alerts(panel_service: Any, settings: Any) -> List[ConfigAlert]:
-    if not settings.PANEL_API_URL or not settings.PANEL_API_KEY:
+    panel_settings = settings.panel_settings
+    if not panel_settings.api_url or not panel_settings.api_key:
         return [
             ConfigAlert(
                 id="panel_api_not_configured",
@@ -440,7 +441,7 @@ async def panel_alerts(panel_service: Any, settings: Any) -> List[ConfigAlert]:
                 id="panel_api_unreachable",
                 severity=SEVERITY_ERROR,
                 sections=(SECTION_SETTINGS, SECTION_USERS),
-                params={"url": str(settings.PANEL_API_URL or "")},
+                params={"url": str(panel_settings.api_url or "")},
             )
         ]
     return []

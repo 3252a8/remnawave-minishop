@@ -18,6 +18,22 @@ from ._runtime import (
     user_billing_dal,
     user_dal,
 )
+from .sale_mode import parse_sale_mode_context
+
+
+async def _active_subscription_tariff_key(
+    session: AsyncSession,
+    user_id: int,
+) -> Optional[str]:
+    active_user = await user_dal.get_user_by_id(session, user_id)
+    active_sub = (
+        await subscription_dal.get_active_subscription_by_user_id(
+            session, user_id, active_user.panel_user_uuid
+        )
+        if active_user and active_user.panel_user_uuid
+        else None
+    )
+    return active_sub.tariff_key if active_sub else None
 
 
 class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
@@ -35,8 +51,9 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         tariff_key: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
 
-        sale_mode_base, sale_mode_tariff_key = self._parse_sale_mode_context(sale_mode, tariff_key)
-        tariff_key = sale_mode_tariff_key
+        sale_mode_context = parse_sale_mode_context(sale_mode, tariff_key)
+        sale_mode_base = sale_mode_context.base
+        tariff_key = sale_mode_context.tariff_key
         if sale_mode_base in {"traffic", "traffic_package"} or (
             getattr(self.settings, "traffic_sale_mode", False) and not self._tariffs_config()
         ):
@@ -54,15 +71,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             return result if isinstance(result, dict) else None
         if sale_mode_base == "topup":
             if not tariff_key:
-                active_user = await user_dal.get_user_by_id(session, user_id)
-                active_sub = (
-                    await subscription_dal.get_active_subscription_by_user_id(
-                        session, user_id, active_user.panel_user_uuid
-                    )
-                    if active_user and active_user.panel_user_uuid
-                    else None
-                )
-                tariff_key = active_sub.tariff_key if active_sub else None
+                tariff_key = await _active_subscription_tariff_key(session, user_id)
             if not tariff_key:
                 logging.error("Top-up activation requires tariff_key for user %s", user_id)
                 return None
@@ -78,15 +87,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             return result if isinstance(result, dict) else None
         if sale_mode_base == "premium_topup":
             if not tariff_key:
-                active_user = await user_dal.get_user_by_id(session, user_id)
-                active_sub = (
-                    await subscription_dal.get_active_subscription_by_user_id(
-                        session, user_id, active_user.panel_user_uuid
-                    )
-                    if active_user and active_user.panel_user_uuid
-                    else None
-                )
-                tariff_key = active_sub.tariff_key if active_sub else None
+                tariff_key = await _active_subscription_tariff_key(session, user_id)
             if not tariff_key:
                 logging.error("Premium top-up activation requires tariff_key for user %s", user_id)
                 return None

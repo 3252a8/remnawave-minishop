@@ -14,7 +14,6 @@ import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-from bot.payment_providers import lava
 from bot.payment_providers.lava import LavaConfig, LavaService
 from bot.payment_providers.lava import service as lava_service
 
@@ -300,7 +299,7 @@ def test_webhook_duplicate_success_does_not_finalize_again(monkeypatch):
     )
     service = _webhook_service(session, payment, monkeypatch)
     monkeypatch.setattr(
-        lava.payment_dal,
+        lava_service.payment_dal,
         "update_provider_payment_and_status",
         AsyncMock(side_effect=AssertionError("duplicate webhook must not update payment")),
     )
@@ -337,7 +336,7 @@ def test_webhook_success_finalizes_payment(monkeypatch):
     service = _webhook_service(session, payment, monkeypatch)
     update_mock = AsyncMock()
     finalize_mock = AsyncMock(return_value=SimpleNamespace())
-    monkeypatch.setattr(lava.payment_dal, "update_provider_payment_and_status", update_mock)
+    monkeypatch.setattr(lava_service.payment_dal, "update_provider_payment_and_status", update_mock)
     monkeypatch.setattr(lava_service, "finalize_successful_payment", finalize_mock)
 
     response = asyncio.run(
@@ -354,7 +353,7 @@ def test_webhook_success_finalizes_payment(monkeypatch):
         session,
         88,
         "inv-1",
-        lava.PAYMENT_STATUS_PENDING_FINALIZATION,
+        lava_service.PAYMENT_STATUS_PENDING_FINALIZATION,
     )
     finalize_mock.assert_awaited_once()
 
@@ -375,7 +374,7 @@ def test_webhook_success_with_amount_mismatch_is_rejected(monkeypatch):
     )
     service = _webhook_service(session, payment, monkeypatch)
     monkeypatch.setattr(
-        lava.payment_dal,
+        lava_service.payment_dal,
         "update_provider_payment_and_status",
         AsyncMock(side_effect=AssertionError("mismatched amount must not update payment")),
     )
@@ -414,7 +413,7 @@ def test_webhook_failed_status_marks_payment_failed(monkeypatch):
     service = _webhook_service(session, payment, monkeypatch)
     update_mock = AsyncMock()
     notify_mock = AsyncMock()
-    monkeypatch.setattr(lava.payment_dal, "update_provider_payment_and_status", update_mock)
+    monkeypatch.setattr(lava_service.payment_dal, "update_provider_payment_and_status", update_mock)
     monkeypatch.setattr(lava_service, "notify_user_payment_failed", notify_mock)
     monkeypatch.setattr(
         lava_service,

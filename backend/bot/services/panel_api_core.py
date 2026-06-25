@@ -10,6 +10,7 @@ import aiohttp
 
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
+from config.settings_models import PanelSettings
 
 # Static endpoint prefixes used as log/metric labels instead of the raw request
 # path. Endpoints embed user identifiers (telegram id, username, email, uuids),
@@ -61,9 +62,10 @@ class PanelApiCoreMixin:
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self.base_url = settings.PANEL_API_URL
-        self.api_key = settings.PANEL_API_KEY
-        self.api_cookie = settings.PANEL_API_COOKIE
+        self.panel_settings: PanelSettings = settings.panel_settings
+        self.base_url = self.panel_settings.api_url
+        self.api_key = self.panel_settings.api_key
+        self.api_cookie = self.panel_settings.api_cookie
         self._session: Optional[aiohttp.ClientSession] = None
         self.default_client_ip = "127.0.0.1"
         # Cache slow-changing reference data fetched from the panel. Errors and
@@ -124,8 +126,7 @@ class PanelApiCoreMixin:
         return self._session
 
     @classmethod
-    def _timeout_setting(cls, settings: Settings, name: str, default: float) -> float:
-        raw_value = getattr(settings, name, default)
+    def _timeout_setting(cls, raw_value: Any, default: float) -> float:
         try:
             value = float(raw_value)
         except (TypeError, ValueError):
@@ -137,25 +138,22 @@ class PanelApiCoreMixin:
     def _client_timeout(self) -> aiohttp.ClientTimeout:
         # Separate connect/read timeouts so a slow panel route has more room,
         # while genuinely stuck requests still cannot pin a worker forever.
+        panel_settings = self.panel_settings
         return aiohttp.ClientTimeout(
             total=self._timeout_setting(
-                self.settings,
-                "PANEL_API_TOTAL_TIMEOUT_SECONDS",
+                panel_settings.api_total_timeout_seconds,
                 self._DEFAULT_TOTAL_TIMEOUT_SECONDS,
             ),
             connect=self._timeout_setting(
-                self.settings,
-                "PANEL_API_CONNECT_TIMEOUT_SECONDS",
+                panel_settings.api_connect_timeout_seconds,
                 self._DEFAULT_CONNECT_TIMEOUT_SECONDS,
             ),
             sock_connect=self._timeout_setting(
-                self.settings,
-                "PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS",
+                panel_settings.api_sock_connect_timeout_seconds,
                 self._DEFAULT_SOCK_CONNECT_TIMEOUT_SECONDS,
             ),
             sock_read=self._timeout_setting(
-                self.settings,
-                "PANEL_API_SOCK_READ_TIMEOUT_SECONDS",
+                panel_settings.api_sock_read_timeout_seconds,
                 self._DEFAULT_SOCK_READ_TIMEOUT_SECONDS,
             ),
         )

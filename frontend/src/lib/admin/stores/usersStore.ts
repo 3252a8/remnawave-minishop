@@ -1,10 +1,90 @@
 import { writable, type Writable } from "svelte/store";
 import { adminErrorMessage } from "../errors.js";
+import { userDisplayName } from "../users.js";
 import { withRoutePrefix } from "../../webapp/routes.js";
+import type { ApiResponse, GetResponse } from "../../webapp/publicApi";
+import type { components } from "../../api/openapi.generated";
 
-type AdminStoreState = Record<string, any>;
-export type AdminUser = Record<string, any> & { user_id?: number | string };
-type AdminApi = (path: string, options?: RequestInit) => Promise<any>;
+type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
+type AdminApi = <Path extends string>(
+  path: Path,
+  options?: RequestInit
+) => Promise<ApiResponse<Path> | AdminErrorResponse>;
+type AdminUsersListResponse = GetResponse<"/api/admin/users">;
+type AdminUserDetailResponse = GetResponse<"/api/admin/users/{user_id}">;
+type AdminUserReferralsResponse = GetResponse<"/api/admin/users/{user_id}/referrals">;
+type AdminLogsResponse = GetResponse<"/api/admin/logs">;
+type AdminListUser = AdminUsersListResponse["users"][number];
+type AdminSubscription = components["schemas"]["AdminSubscriptionOut"] & Record<string, unknown>;
+type AdminUserDetail = AdminUserDetailResponse & {
+  active_subscription: AdminSubscription | null;
+  subscriptions: AdminSubscription[];
+  user: AdminUser;
+};
+type UserLogRow = Record<string, unknown> & {
+  log_id?: number | string;
+  user_id?: number | string | null;
+};
+type DraftNumber = number | string;
+type AdminStoreState = {
+  users: AdminUser[];
+  usersTotal: number;
+  usersPage: number;
+  usersQuery: string;
+  usersFilter: string;
+  usersPanelStatus: string;
+  usersPremiumTraffic: string;
+  usersSort: string;
+  usersLoading: boolean;
+  openedUser: AdminUser | null;
+  openedUserDetail: AdminUserDetail | null;
+  userDetailLoading: boolean;
+  userMessageDraft: string;
+  userExtendDays: DraftNumber;
+  userExtendHwidDevices: boolean;
+  userExtendTariffKey: string;
+  userTariffActionKey: string;
+  userTariffActionBaselineKey: string;
+  userActionBusy: boolean;
+  userDeleteOpen: boolean;
+  userBanConfirmOpen: boolean;
+  userMessageConfirmOpen: boolean;
+  userReferralsOpen: boolean;
+  userReferralsLoading: boolean;
+  userReferrals: AdminUser[];
+  userReferralsTotal: number;
+  userReferralsPage: number;
+  userReferralsPageSize: number;
+  userReferralsInviter: AdminUser | null;
+  userDetailTab: string;
+  premiumUnlimitedDraft: boolean;
+  premiumUnlimitedBaseline: boolean;
+  premiumBonusGbDraft: DraftNumber;
+  premiumBonusGbBaseline: DraftNumber;
+  regularUnlimitedDraft: boolean;
+  regularUnlimitedBaseline: boolean;
+  regularBonusGbDraft: DraftNumber;
+  regularBonusGbBaseline: DraftNumber;
+  hwidUnlimitedDraft: boolean;
+  hwidUnlimitedBaseline: boolean;
+  hwidDeviceLimitDraft: DraftNumber;
+  hwidDeviceLimitBaseline: DraftNumber;
+  grantTrafficGbDraft: DraftNumber;
+  grantTrafficKindDraft: "regular" | "premium";
+  userLogs: UserLogRow[];
+  userLogsTotal: number;
+  userLogsPage: number;
+  userLogsLoading: boolean;
+  userLogsLoaded: boolean;
+  userLogsUserId: number | string | null;
+  userLogsPageSize: number;
+};
+export type AdminUser = Partial<
+  components["schemas"]["AdminUserOut"] &
+    components["schemas"]["AdminUserWithAvatarOut"] &
+    AdminListUser
+> &
+  Record<string, unknown> & { user_id: number | string };
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type PathContext = "users" | "payments" | null;
@@ -29,7 +109,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   const USERS_PAGE_SIZE = 25;
   const USER_LOGS_PAGE_SIZE = 20;
 
-  const state: Writable<AdminStoreState> = writable({
+  const initialState: AdminStoreState = {
     users: [],
     usersTotal: 0,
     usersPage: 0,
@@ -83,13 +163,15 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
     userLogsLoaded: false,
     userLogsUserId: null,
     userLogsPageSize: USER_LOGS_PAGE_SIZE,
-  });
+  };
+
+  const state: Writable<AdminStoreState> = writable(initialState);
 
   let _activeRef = "stats"; // fallback if active isn't tracked
   let _pathContext: PathContext = null;
   let _openUserRequestId = 0;
 
-  function _closedUserModalState() {
+  function _closedUserModalState(): Partial<AdminStoreState> {
     return {
       openedUser: null,
       openedUserDetail: null,
@@ -133,7 +215,10 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
     };
   }
 
-  function _openingUserModalState(user: AdminUser | null, userId: number) {
+  function _openingUserModalState(
+    user: AdminUser | null,
+    userId: number
+  ): Partial<AdminStoreState> {
     return {
       ..._closedUserModalState(),
       openedUser: user,
@@ -144,8 +229,9 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   function _isCurrentUserRequest(s: AdminStoreState, requestId: number, userId: number) {
+    const openedUser = s.openedUser;
     return (
-      requestId === _openUserRequestId && Boolean(s.openedUser) && s.openedUser.user_id === userId
+      requestId === _openUserRequestId && Boolean(openedUser) && openedUser?.user_id === userId
     );
   }
 
@@ -154,7 +240,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
     return value > 0 ? +(value / 1024 ** 3).toFixed(2) : "";
   }
 
-  function _draftStateFromSubscription(sub: AdminStoreState | null | undefined) {
+  function _draftStateFromSubscription(sub: AdminSubscription | null | undefined) {
     const bonusGb = _gbDraftFromBytes(sub?.premium_bonus_bytes);
     const regularBonusGb = _gbDraftFromBytes(sub?.regular_bonus_bytes);
     const hasHwidLimit = sub?.hwid_device_limit !== null && sub?.hwid_device_limit !== undefined;
@@ -177,7 +263,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
 
   function _applyUserDetailSnapshot(
     s: AdminStoreState,
-    res: AdminStoreState,
+    res: AdminUserDetail,
     options: SnapshotOptions = {}
   ) {
     const {
@@ -262,7 +348,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
 
   async function loadUsers() {
     state.update((s) => ({ ...s, usersLoading: true }));
-    let s: AdminStoreState = {};
+    let s = initialState;
     state.update((st) => {
       s = st;
       return st;
@@ -281,7 +367,9 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
         params.set("premium_traffic", s.usersPremiumTraffic);
       }
       if (s.usersSort) params.set("sort", s.usersSort);
-      const data = await api(`/admin/users?${params.toString()}`);
+      const data = (await api(`/admin/users?${params.toString()}`)) as
+        | AdminUsersListResponse
+        | AdminErrorResponse;
       if (data?.ok) {
         state.update((st) => ({
           ...st,
@@ -313,7 +401,9 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
 
     if (!opts.skipPush) _pushUserPath(userId);
     try {
-      const res = await api(`/admin/users/${userId}`);
+      const res = (await api(`/admin/users/${userId}`)) as
+        | AdminUserDetailResponse
+        | AdminErrorResponse;
       if (res?.ok) {
         state.update((s) => {
           if (!_isCurrentUserRequest(s, requestId, userId)) return s;
@@ -349,7 +439,9 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
     const userId = Number(snapshot?.openedUser?.user_id || 0);
     if (!userId) return null;
     const requestId = _openUserRequestId;
-    const res = await api(`/admin/users/${userId}`);
+    const res = (await api(`/admin/users/${userId}`)) as
+      | AdminUserDetailResponse
+      | AdminErrorResponse;
     if (res?.ok) {
       state.update((s) => {
         if (!_isCurrentUserRequest(s, requestId, userId)) return s;
@@ -376,7 +468,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function loadUserLogs(page: number) {
-    let s: AdminStoreState = {};
+    let s = initialState;
     state.update((st) => {
       s = st;
       return st;
@@ -396,7 +488,9 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
         page_size: String(USER_LOGS_PAGE_SIZE),
         user_id: String(userId),
       });
-      const data = await api(`/admin/logs?${params.toString()}`);
+      const data = (await api(`/admin/logs?${params.toString()}`)) as
+        | AdminLogsResponse
+        | AdminErrorResponse;
       if (data?.ok) {
         state.update((st) => {
           if (!st.openedUser || st.openedUser.user_id !== userId) return st;
@@ -420,7 +514,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function openUserReferrals(page = 0) {
-    let s: AdminStoreState = {};
+    let s = initialState;
     state.update((st) => {
       s = st;
       return st;
@@ -439,7 +533,9 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
         page: String(targetPage),
         page_size: String(s.userReferralsPageSize || USERS_PAGE_SIZE),
       });
-      const data = await api(`/admin/users/${userId}/referrals?${params.toString()}`);
+      const data = (await api(`/admin/users/${userId}/referrals?${params.toString()}`)) as
+        | AdminUserReferralsResponse
+        | AdminErrorResponse;
       if (data?.ok) {
         state.update((st) => {
           if (!st.openedUser || st.openedUser.user_id !== userId) return st;
@@ -471,7 +567,10 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
     openUserReferrals(page);
   }
 
-  function copyToClipboard(text: string, successMessage = at("link_copied", {}, "Скопировано")) {
+  function copyToClipboard(
+    text: string | null | undefined,
+    successMessage = at("link_copied", {}, "Скопировано")
+  ) {
     if (!text) return;
     if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
       navigator.clipboard.writeText(text).then(
@@ -484,7 +583,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   function requestBanToggle() {
-    let s: AdminStoreState = {};
+    let s = initialState;
     state.update((st) => {
       s = st;
       return st;
@@ -498,21 +597,22 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function applyBanToggle(banned: boolean) {
-    let s: AdminStoreState = {};
+    let s = initialState;
     state.update((st) => {
       s = st;
       return st;
     });
-    if (!s.openedUser) return;
+    const openedUser = s.openedUser;
+    if (!openedUser) return;
     state.update((st) => ({ ...st, userActionBusy: true }));
     try {
-      const res = await api(`/admin/users/${s.openedUser.user_id}/ban`, {
+      const res = await api(`/admin/users/${openedUser.user_id}/ban`, {
         method: "POST",
         body: JSON.stringify({ banned }),
       });
       if (res?.ok) {
         state.update((st) => {
-          const updatedUser = { ...st.openedUser, is_banned: banned };
+          const updatedUser: AdminUser = { ...openedUser, is_banned: banned };
           return {
             ...st,
             openedUser: updatedUser,
@@ -532,7 +632,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function sendUserMessage() {
-    let s: AdminStoreState = {};
+    let s = initialState;
     state.update((st) => {
       s = st;
       return st;
@@ -565,7 +665,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function previewUserMessage() {
-    let s: AdminStoreState = {};
+    let s = initialState;
     state.update((st) => {
       s = st;
       return st;
@@ -588,7 +688,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function sendTelegramProfileLink() {
-    let s: AdminStoreState = {};
+    let s = initialState;
     state.update((st) => {
       s = st;
       return st;
@@ -616,7 +716,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function extendUser() {
-    let s: AdminStoreState = {};
+    let s = initialState;
     state.update((st) => {
       s = st;
       return st;
@@ -650,7 +750,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function changeUserTariff() {
-    let s: AdminStoreState = {};
+    let s = initialState;
     state.update((st) => {
       s = st;
       return st;
@@ -680,7 +780,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function resetTrialUser() {
-    let s: AdminStoreState = {};
+    let s = initialState;
     state.update((st) => {
       s = st;
       return st;
@@ -707,7 +807,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function savePremiumTrafficOverride() {
-    let s: AdminStoreState = {};
+    let s = initialState;
     state.update((st) => {
       s = st;
       return st;
@@ -749,7 +849,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function saveRegularTrafficOverride() {
-    let s: AdminStoreState = {};
+    let s = initialState;
     state.update((st) => {
       s = st;
       return st;
@@ -791,7 +891,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function saveHwidDeviceLimit() {
-    let s: AdminStoreState = {};
+    let s = initialState;
     state.update((st) => {
       s = st;
       return st;
@@ -842,7 +942,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function grantTraffic() {
-    let s: AdminStoreState = {};
+    let s = initialState;
     state.update((st) => {
       s = st;
       return st;
@@ -855,6 +955,9 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
       return;
     }
     const kind = s.grantTrafficKindDraft === "premium" ? "premium" : "regular";
+    const userId = String(s.openedUser.user_id ?? "");
+    const user = userDisplayName(s.openedUser);
+    const toastParams = { gb, user_id: userId, user };
     state.update((st) => ({ ...st, userActionBusy: true }));
     try {
       const res = await api(`/admin/users/${s.openedUser.user_id}/traffic-grant`, {
@@ -864,8 +967,16 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
       if (res?.ok) {
         onToast(
           kind === "premium"
-            ? at("traffic_grant_premium_done", { gb }, `+${gb} ГБ премиум-трафика`)
-            : at("traffic_grant_regular_done", { gb }, `+${gb} ГБ трафика`)
+            ? at(
+                "traffic_grant_premium_done",
+                toastParams,
+                `+${gb} ГБ премиум-трафика для ${user} (ID: ${userId})`
+              )
+            : at(
+                "traffic_grant_regular_done",
+                toastParams,
+                `+${gb} ГБ трафика для ${user} (ID: ${userId})`
+              )
         );
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
@@ -883,20 +994,21 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function deleteUser() {
-    let s: AdminStoreState = {};
+    let s = initialState;
     state.update((st) => {
       s = st;
       return st;
     });
-    if (!s.openedUser) return;
+    const openedUser = s.openedUser;
+    if (!openedUser) return;
     state.update((st) => ({ ...st, userActionBusy: true }));
     try {
-      const res = await api(`/admin/users/${s.openedUser.user_id}`, { method: "DELETE" });
+      const res = await api(`/admin/users/${openedUser.user_id}`, { method: "DELETE" });
       if (res?.ok) {
         onToast(at("user_deleted", {}, "Удален"));
         state.update((st) => ({
           ...st,
-          users: st.users.filter((u: AdminUser) => u.user_id !== st.openedUser.user_id),
+          users: st.users.filter((u: AdminUser) => u.user_id !== openedUser.user_id),
         }));
         closeUser();
       } else onToast(adminErrorMessage(res, at));

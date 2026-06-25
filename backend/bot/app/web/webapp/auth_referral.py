@@ -142,10 +142,7 @@ async def _grant_referral_welcome_bonus_if_eligible(
         return None
 
     settings: Settings = get_settings(request)
-    referral_welcome_days = max(
-        0,
-        int(settings.REFERRAL_WELCOME_BONUS_DAYS or 0),
-    )
+    referral_welcome_days = max(0, int(settings.referral_settings.welcome_bonus_days))
     if referral_welcome_days <= 0:
         return None
 

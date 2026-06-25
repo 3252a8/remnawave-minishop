@@ -4,7 +4,9 @@ from ._runtime import (
     Dict,
     List,
     Optional,
+    Subscription,
     SubscriptionServiceMixinContract,
+    Tariff,
     datetime,
     logging,
     month_start,
@@ -13,9 +15,25 @@ from ._runtime import (
     timezone,
     user_dal,
 )
+from .hwid_limits import HwidDeviceLimits
 
 
 class TrafficMixin(SubscriptionServiceMixinContract):
+    async def _resolve_hwid_device_limits(
+        self,
+        session: AsyncSession,
+        sub: Subscription,
+        tariff: Optional[Tariff],
+    ) -> HwidDeviceLimits:
+        base = (
+            int(sub.hwid_device_limit)
+            if sub.hwid_device_limit is not None
+            else self._base_hwid_limit_for_tariff(tariff)
+        )
+        extra = await self._active_hwid_extra_devices_for_sub(session, sub)
+        effective = self._effective_hwid_limit(base, extra)
+        return HwidDeviceLimits(base=base, extra=extra, effective=effective)
+
     async def _activate_traffic_package(
         self,
         session: AsyncSession,
@@ -232,13 +250,10 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             regular_unlimited_override=runl,
             traffic_used_bytes=used_for_lim,
         )
-        base_hwid_limit = (
-            int(sub.hwid_device_limit)
-            if sub.hwid_device_limit is not None
-            else self._base_hwid_limit_for_tariff(tariff)
-        )
-        extra_hwid_devices = await self._active_hwid_extra_devices_for_sub(session, sub)
-        effective_hwid_limit = self._effective_hwid_limit(base_hwid_limit, extra_hwid_devices)
+        hwid_limits = await self._resolve_hwid_device_limits(session, sub, tariff)
+        base_hwid_limit = hwid_limits.base
+        extra_hwid_devices = hwid_limits.extra
+        effective_hwid_limit = hwid_limits.effective
         updated_sub = await subscription_dal.update_subscription(
             session,
             sub.subscription_id,
@@ -526,13 +541,10 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             regular_unlimited_override=runl,
             traffic_used_bytes=used_for_lim,
         )
-        base_hwid_limit = (
-            int(sub.hwid_device_limit)
-            if sub.hwid_device_limit is not None
-            else self._base_hwid_limit_for_tariff(tariff)
-        )
-        extra_hwid_devices = await self._active_hwid_extra_devices_for_sub(session, sub)
-        effective_hwid_limit = self._effective_hwid_limit(base_hwid_limit, extra_hwid_devices)
+        hwid_limits = await self._resolve_hwid_device_limits(session, sub, tariff)
+        base_hwid_limit = hwid_limits.base
+        extra_hwid_devices = hwid_limits.extra
+        effective_hwid_limit = hwid_limits.effective
         updated_sub = await subscription_dal.update_subscription(
             session,
             sub.subscription_id,
@@ -606,14 +618,10 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         sub.traffic_limit_bytes = new_limit
         if runl:
             sub.is_throttled = False
-        base_hwid_limit = (
-            int(sub.hwid_device_limit)
-            if sub.hwid_device_limit is not None
-            else self._base_hwid_limit_for_tariff(tariff)
-        )
-        extra_hwid_devices = await self._active_hwid_extra_devices_for_sub(session, sub)
+        hwid_limits = await self._resolve_hwid_device_limits(session, sub, tariff)
+        extra_hwid_devices = hwid_limits.extra
         sub.extra_hwid_devices = extra_hwid_devices
-        effective_hwid_limit = self._effective_hwid_limit(base_hwid_limit, extra_hwid_devices)
+        effective_hwid_limit = hwid_limits.effective
         panel_payload = self._build_panel_update_payload(
             panel_user_uuid=db_user.panel_user_uuid,
             expire_at=sub.end_date,

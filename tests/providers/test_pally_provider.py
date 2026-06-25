@@ -7,7 +7,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from urllib.parse import urlencode
 
-from bot.payment_providers import pally
 from bot.payment_providers.pally import PallyConfig, PallyService
 from bot.payment_providers.pally import service as pally_service
 
@@ -203,7 +202,9 @@ def test_webhook_success_accepts_commission_adjusted_amount(monkeypatch):
     update_mock = AsyncMock()
     finalize_mock = AsyncMock(return_value=SimpleNamespace())
     monkeypatch.setattr(pally_service, "lookup_payment_by_order_or_provider_id", lookup_payment)
-    monkeypatch.setattr(pally.payment_dal, "update_provider_payment_and_status", update_mock)
+    monkeypatch.setattr(
+        pally_service.payment_dal, "update_provider_payment_and_status", update_mock
+    )
     monkeypatch.setattr(pally_service, "finalize_successful_payment", finalize_mock)
 
     signature = service.calculate_signature("102.50", "77")
@@ -228,7 +229,7 @@ def test_webhook_success_accepts_commission_adjusted_amount(monkeypatch):
         session,
         77,
         "bill-1",
-        pally.PAYMENT_STATUS_PENDING_FINALIZATION,
+        pally_service.PAYMENT_STATUS_PENDING_FINALIZATION,
     )
     finalize_mock.assert_awaited_once()
 
@@ -237,7 +238,7 @@ def test_webhook_rejects_wrong_signature(monkeypatch):
     service = _make_service()
     service.async_session_factory = _FakeDbSession()
     monkeypatch.setattr(
-        pally,
+        pally_service,
         "lookup_payment_by_order_or_provider_id",
         AsyncMock(side_effect=AssertionError("invalid signature must stop before DB lookup")),
     )

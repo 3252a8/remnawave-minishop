@@ -29,9 +29,23 @@ def _urlsafe_b64decode(raw: str) -> bytes:
     return base64.urlsafe_b64decode(padded.encode("ascii"))
 
 
+def _webapp_session_secret(settings: Settings) -> str:
+    try:
+        return str(settings.webapp_settings.session_secret)
+    except AttributeError:
+        return str(settings.WEBAPP_SESSION_SECRET)
+
+
+def _webapp_session_ttl_seconds(settings: Settings) -> int:
+    try:
+        return int(settings.webapp_settings.session_ttl_seconds)
+    except AttributeError:
+        return int(settings.WEBAPP_SESSION_TTL_SECONDS)
+
+
 def _session_secret(settings: Settings) -> bytes:
     return hmac.new(
-        settings.WEBAPP_SESSION_SECRET.encode("utf-8"),
+        _webapp_session_secret(settings).encode("utf-8"),
         b"remnawave-tg-shop-webapp-session",
         hashlib.sha256,
     ).digest()
@@ -42,7 +56,7 @@ def create_webapp_session_token(settings: Settings, user_id: int) -> str:
     payload = {
         "sub": int(user_id),
         "iat": now,
-        "exp": now + max(60, int(settings.WEBAPP_SESSION_TTL_SECONDS)),
+        "exp": now + max(60, _webapp_session_ttl_seconds(settings)),
     }
     payload_part = _urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
     signature = hmac.new(

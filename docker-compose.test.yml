@@ -1,0 +1,52 @@
+services:
+  test-postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app_password
+      POSTGRES_DB: vpn_shop_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d vpn_shop_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  test-redis:
+    image: redis:7
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  test-runner:
+    image: python:3.12
+    working_dir: /app
+    depends_on:
+      test-postgres:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+    environment:
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app_password
+      POSTGRES_HOST: test-postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: vpn_shop_db
+      REDIS_URL: redis://test-redis:6379/0
+      BOT_TOKEN: "1234567890:AA_secret_bot_token_value"
+      ADMIN_IDS: "1"
+      WEBAPP_SESSION_SECRET: "test-webapp-session-secret"
+      WEBHOOK_SECRET_TOKEN: "test-webhook-secret"
+      PANEL_API_URL: "https://panel.example.test"
+      PANEL_API_KEY: "test-panel-api-key"
+      PANEL_WEBHOOK_SECRET: "test-panel-webhook-secret"
+      SUBSCRIPTION_MINI_APP_URL: "https://miniapp.example.test"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - .:/app
+    command:
+      - bash
+      - -c
+      - "pip install -q -r backend/requirements.txt pytest && python -m pytest -q"

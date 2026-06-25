@@ -22,9 +22,8 @@ from bot.app.web.webapp_auth import (
 from bot.payment_providers.cryptopay import CryptoPayService
 from bot.payment_providers.freekassa import FreeKassaService
 from bot.payment_providers.heleket import HeleketConfig, HeleketService, _compute_signature
-from bot.payment_providers.paykilla import (
-    PaykillaConfig,
-    PaykillaService,
+from bot.payment_providers.paykilla import PaykillaConfig, PaykillaService
+from bot.payment_providers.paykilla.config import (
     _clean_paykilla_text,
     _sign_query,
     _webhook_signature,

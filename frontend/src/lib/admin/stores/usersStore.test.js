@@ -1,6 +1,7 @@
 import { get } from "svelte/store";
 import { describe, expect, it, vi } from "vitest";
 
+import { formatTemplate } from "../../webapp/formatters.js";
 import { createUsersStore } from "./usersStore.ts";
 
 function makeStore(api = vi.fn()) {
@@ -84,5 +85,46 @@ describe("usersStore", () => {
       userReferralsOpen: false,
       userLogsLoaded: false,
     });
+  });
+
+  it("shows traffic grant toasts with interpolated user identity", async () => {
+    const api = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({
+        ok: true,
+        user: { user_id: 77, first_name: "Ann", last_name: "Lee", username: "ann" },
+        active_subscription: null,
+      });
+    const onToast = vi.fn();
+    const at = vi.fn((key, params = {}, fallback = key) =>
+      formatTemplate(
+        key === "traffic_grant_premium_done"
+          ? "+{gb} GB premium granted to {user} (ID: {user_id})"
+          : fallback,
+        params
+      )
+    );
+    const store = createUsersStore({ api, onToast, at });
+
+    store.updateState({
+      openedUser: { user_id: 77, first_name: "Ann", last_name: "Lee", username: "ann" },
+      grantTrafficGbDraft: "25",
+      grantTrafficKindDraft: "premium",
+    });
+
+    await store.grantTraffic();
+
+    expect(api).toHaveBeenNthCalledWith(1, "/admin/users/77/traffic-grant", {
+      method: "POST",
+      body: JSON.stringify({ kind: "premium", gb: 25 }),
+    });
+    expect(at).toHaveBeenCalledWith(
+      "traffic_grant_premium_done",
+      { gb: 25, user_id: "77", user: "Ann Lee" },
+      "+25 ГБ премиум-трафика для Ann Lee (ID: 77)"
+    );
+    expect(onToast).toHaveBeenCalledWith("+25 GB premium granted to Ann Lee (ID: 77)");
+    expect(onToast.mock.calls[0][0]).not.toContain("{user_id}");
   });
 });

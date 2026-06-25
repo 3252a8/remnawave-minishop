@@ -1,0 +1,8 @@
+services:
+  demo:
+    image: nginx:alpine
+    ports:
+      - "8088:80"
+    volumes:
+      - ./docs-site/public:/usr/share/nginx/html:ro
+      - ./nginx-demo.conf:/etc/nginx/conf.d/default.conf:ro

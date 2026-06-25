@@ -37,6 +37,7 @@ def get_main_menu_inline_keyboard(
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
+    support_link = settings.support_settings.link
 
     if show_trial_button and settings.TRIAL_ENABLED:
         builder.row(_trial_activation_button(lang, i18n_instance, settings))
@@ -70,10 +71,8 @@ def get_main_menu_inline_keyboard(
             )
         )
 
-    if settings.SUPPORT_LINK:
-        builder.row(
-            InlineKeyboardButton(text=_(key="menu_support_button"), url=settings.SUPPORT_LINK)
-        )
+    if support_link:
+        builder.row(InlineKeyboardButton(text=_(key="menu_support_button"), url=support_link))
 
     if settings.PRIVACY_POLICY_URL or settings.USER_AGREEMENT_URL:
         builder.row(
@@ -88,6 +87,7 @@ def get_bot_interface_inline_keyboard(
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
+    support_link = settings.support_settings.link
 
     if show_trial_button and settings.TRIAL_ENABLED:
         builder.row(_trial_activation_button(lang, i18n_instance, settings))
@@ -133,10 +133,8 @@ def get_bot_interface_inline_keyboard(
             )
         )
 
-    if settings.SUPPORT_LINK:
-        builder.row(
-            InlineKeyboardButton(text=_(key="menu_support_button"), url=settings.SUPPORT_LINK)
-        )
+    if support_link:
+        builder.row(InlineKeyboardButton(text=_(key="menu_support_button"), url=support_link))
 
     if settings.PRIVACY_POLICY_URL or settings.USER_AGREEMENT_URL:
         builder.row(

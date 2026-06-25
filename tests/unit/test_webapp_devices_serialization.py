@@ -1,3 +1,4 @@
+import hashlib
 import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -6,6 +7,45 @@ from unittest.mock import AsyncMock
 
 import bot.app.web.subscription_webapp  # noqa: F401
 from bot.app.web.webapp.devices import _load_devices_payload, _serialize_device
+
+
+def test_serialize_device_matches_contract():
+    created = datetime(2099, 1, 2, 3, 4, 0, tzinfo=timezone.utc)
+    result = _serialize_device(
+        {
+            "hwid": "ABC123XYZ",
+            "deviceModel": "iPhone 15",
+            "platform": "iOS",
+            "osVersion": "17.2",
+            "userAgent": "TgWeb/1.0",
+            "createdAt": created,
+        },
+        3,
+    )
+    expected = {
+        "index": 3,
+        "display_name": "iPhone 15",
+        "platform": "iOS",
+        "os_version": "17.2",
+        "platform_label": "iOS 17.2",
+        "user_agent": "TgWeb/1.0",
+        "created_at": created.isoformat(),
+        "created_at_text": "02.01.2099 03:04",
+        "hwid_short": "ABC123XYZ",
+        "token": hashlib.sha256(b"ABC123XYZ").hexdigest()[:32],
+        "can_disconnect": True,
+    }
+    assert result == expected
+    assert list(result.keys()) == list(expected.keys())
+
+
+def test_serialize_device_without_hwid_cannot_disconnect():
+    result = _serialize_device({"platform": "Android"}, 1)
+    assert result["token"] == ""
+    assert result["can_disconnect"] is False
+    assert result["display_name"] == "Android"
+    assert result["created_at"] is None
+    assert result["created_at_text"] == ""
 
 
 def test_device_serializer_accepts_datetime_created_at():
