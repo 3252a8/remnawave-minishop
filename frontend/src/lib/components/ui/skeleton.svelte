@@ -1,11 +1,7 @@
 <script>
   import { cn } from "$lib/utils.js";
 
-  export let variant = "block";
-  export let width = "";
-  export let height = "";
-  let className = "";
-  export { className as class };
+  let { variant = "block", width = "", height = "", class: className = "", ...rest } = $props();
 </script>
 
 <span
@@ -21,5 +17,5 @@
   )}
   style={`${width ? `width:${width};` : ""}${height ? `height:${height};` : ""}`}
   aria-hidden="true"
-  {...$$restProps}
+  {...rest}
 ></span>

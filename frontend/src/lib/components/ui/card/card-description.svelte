@@ -1,10 +1,9 @@
 <script>
   import { cn } from "$lib/utils.js";
 
-  let className = "";
-  export { className as class };
+  let { class: className = "", children, ...rest } = $props();
 </script>
 
-<p data-slot="card-description" class={cn("admin-cn-card-description", className)} {...$$restProps}>
-  <slot />
+<p data-slot="card-description" class={cn("admin-cn-card-description", className)} {...rest}>
+  {@render children?.()}
 </p>

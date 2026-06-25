@@ -1,11 +1,14 @@
 <script>
   import { cn } from "$lib/utils.js";
 
-  /** @type {'default' | 'outline' | 'destructive' | 'success' | 'muted'} */
-  export let variant = "default";
-
-  let className = "";
-  export { className as class };
+  /**
+   * @type {{
+   *   variant?: 'default' | 'outline' | 'destructive' | 'success' | 'muted';
+   *   class?: string;
+   *   children?: import('svelte').Snippet;
+   * }}
+   */
+  let { variant = "default", class: className = "", children, ...rest } = $props();
 </script>
 
 <span
@@ -18,7 +21,7 @@
     variant === "muted" && "admin-cn-badge-muted",
     className
   )}
-  {...$$restProps}
+  {...rest}
 >
-  <slot />
+  {@render children?.()}
 </span>

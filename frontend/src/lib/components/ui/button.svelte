@@ -2,14 +2,17 @@
   import { cva } from "class-variance-authority";
   import { cn } from "$lib/utils.js";
 
-  export let type = "button";
-  export let variant = "default";
-  export let size = "default";
-  export let disabled = false;
-  export let href = "";
-  export let onclick = undefined;
-  let className = "";
-  export { className as class };
+  let {
+    type = "button",
+    variant = "default",
+    size = "default",
+    disabled = false,
+    href = "",
+    onclick = undefined,
+    class: className = "",
+    children,
+    ...rest
+  } = $props();
 
   const buttonVariants = cva("btn", {
     variants: {
@@ -36,8 +39,8 @@
 </script>
 
 {#if href}
-  <a class={cn(buttonVariants({ variant, size }), className)} {href} {onclick} {...$$restProps}>
-    <slot />
+  <a class={cn(buttonVariants({ variant, size }), className)} {href} {onclick} {...rest}>
+    {@render children?.()}
   </a>
 {:else}
   <button
@@ -45,8 +48,8 @@
     {type}
     {disabled}
     {onclick}
-    {...$$restProps}
+    {...rest}
   >
-    <slot />
+    {@render children?.()}
   </button>
 {/if}

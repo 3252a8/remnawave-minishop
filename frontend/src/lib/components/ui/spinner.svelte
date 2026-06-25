@@ -1,10 +1,7 @@
 <script>
   import { cn } from "$lib/utils.js";
 
-  export let size = "default";
-  export let label = "";
-  let className = "";
-  export { className as class };
+  let { size = "default", label = "", class: className = "", ...rest } = $props();
 </script>
 
 <span
@@ -17,5 +14,5 @@
   role={label ? "status" : undefined}
   aria-label={label || undefined}
   aria-hidden={label ? undefined : "true"}
-  {...$$restProps}
+  {...rest}
 ></span>
