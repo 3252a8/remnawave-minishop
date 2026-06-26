@@ -179,6 +179,86 @@ is_secret_key() {
     esac
 }
 
+is_port_number() {
+    value="$1"
+    case "$value" in
+        ""|*[!0-9]*)
+            return 1
+            ;;
+    esac
+    [ "$value" -ge 1 ] 2>/dev/null && [ "$value" -le 65535 ] 2>/dev/null
+}
+
+is_valid_ipv4_address() {
+    awk -v ip="$1" '
+        BEGIN {
+            if (split(ip, parts, "\\.") != 4) {
+                exit 1
+            }
+            for (i = 1; i <= 4; i++) {
+                if (parts[i] !~ /^[0-9]+$/ || parts[i] < 0 || parts[i] > 255) {
+                    exit 1
+                }
+            }
+        }
+    '
+}
+
+is_ipv6_literal() {
+    printf '%s' "$1" | grep -Eq '^[0-9A-Fa-f:]+$' && printf '%s' "$1" | grep -q ':'
+}
+
+is_bind_address() {
+    value="$1"
+    [ -n "$value" ] || return 0
+    case "$value" in
+        *[[:space:]]*)
+            return 1
+            ;;
+    esac
+    case "$value" in
+        \[*\]:*)
+            host=${value%%]:*}
+            host=${host#\[}
+            port=${value##*:}
+            [ -n "$host" ] && is_ipv6_literal "$host" && is_port_number "$port"
+            ;;
+        *:*)
+            host=${value%:*}
+            port=${value##*:}
+            case "$host" in
+                ""|*:*)
+                    return 1
+                    ;;
+            esac
+            is_valid_ipv4_address "$host" && is_port_number "$port"
+            ;;
+        *)
+            is_port_number "$value"
+            ;;
+    esac
+}
+
+print_validation_hint() {
+    validator="$1"
+    value="${2:-}"
+    case "$validator" in
+        hostname)
+            warn "Укажите hostname без схемы, пути и порта: app.example.com, а не https://app.example.com:443/path."
+            ;;
+        url)
+            warn "URL должен начинаться с http:// или https:// и не содержать пробелов."
+            ;;
+        bind)
+            warn "Формат Docker bind: PORT или IP:PORT. Примеры: 80, 0.0.0.0:80, 127.0.0.1:8080, [::1]:8080."
+            if is_valid_ipv4_address "$value"; then
+                warn "Похоже, указан только IP без порта. Docker Compose прочитает это неверно; добавьте порт, например $value:80."
+            fi
+            warn "Если не уверены, оставьте значение по умолчанию. 0.0.0.0 означает слушать все сетевые интерфейсы сервера."
+            ;;
+    esac
+}
+
 validate_value() {
     value="$1"
     validator="$2"
@@ -191,6 +271,9 @@ validate_value() {
             ;;
         url)
             printf '%s' "$value" | grep -Eq '^https?://[^[:space:]]+$'
+            ;;
+        bind)
+            is_bind_address "$value"
             ;;
         *)
             return 0
@@ -242,6 +325,7 @@ prompt_value() {
         fi
         if [ -n "$value" ] && ! validate_value "$value" "$validator"; then
             warn "Значение выглядит некорректным."
+            print_validation_hint "$validator" "$value"
             continue
         fi
         PROMPT_VALUE="$value"
@@ -847,9 +931,9 @@ prompt_common_env() {
 
     case "$PROFILE_KEY" in
         caddy|nginx)
-            prompt_value "Адрес привязки HTTP" "$(env_get HTTP_BIND '0.0.0.0:80')" 0 0 ""
+            prompt_value "Адрес привязки HTTP" "$(env_get HTTP_BIND '0.0.0.0:80')" 0 0 "bind"
             HTTP_BIND_VALUE="$PROMPT_VALUE"
-            prompt_value "Адрес привязки HTTPS" "$(env_get HTTPS_BIND '0.0.0.0:443')" 0 0 ""
+            prompt_value "Адрес привязки HTTPS" "$(env_get HTTPS_BIND '0.0.0.0:443')" 0 0 "bind"
             HTTPS_BIND_VALUE="$PROMPT_VALUE"
             ;;
         newt)
@@ -861,9 +945,9 @@ prompt_common_env() {
             NEWT_SECRET_VALUE="$PROMPT_VALUE"
             ;;
         no-proxy)
-            prompt_value "Адрес привязки backend" "$(env_get WEB_SERVER_BIND '0.0.0.0:8080')" 0 0 ""
+            prompt_value "Адрес привязки backend" "$(env_get WEB_SERVER_BIND '0.0.0.0:8080')" 0 0 "bind"
             WEB_SERVER_BIND_VALUE="$PROMPT_VALUE"
-            prompt_value "Адрес привязки frontend" "$(env_get FRONTEND_BIND '0.0.0.0:8082')" 0 0 ""
+            prompt_value "Адрес привязки frontend" "$(env_get FRONTEND_BIND '0.0.0.0:8082')" 0 0 "bind"
             FRONTEND_BIND_VALUE="$PROMPT_VALUE"
             prompt_value "Публичный URL webhook/API" "$(env_get WEBHOOK_PUBLIC_URL 'http://127.0.0.1:8080')" 1 0 "url"
             WEBHOOK_PUBLIC_URL_VALUE="$PROMPT_VALUE"
@@ -872,9 +956,9 @@ prompt_common_env() {
             TRUSTED_PROXIES_VALUE="$(env_get TRUSTED_PROXIES '127.0.0.1,::1')"
             ;;
         egames)
-            prompt_value "Адрес привязки backend для eGames Nginx" "$(env_get WEB_SERVER_BIND '127.0.0.1:8080')" 0 0 ""
+            prompt_value "Адрес привязки backend для eGames Nginx" "$(env_get WEB_SERVER_BIND '127.0.0.1:8080')" 0 0 "bind"
             WEB_SERVER_BIND_VALUE="$PROMPT_VALUE"
-            prompt_value "Адрес привязки frontend для eGames Nginx" "$(env_get FRONTEND_BIND '127.0.0.1:8082')" 0 0 ""
+            prompt_value "Адрес привязки frontend для eGames Nginx" "$(env_get FRONTEND_BIND '127.0.0.1:8082')" 0 0 "bind"
             FRONTEND_BIND_VALUE="$PROMPT_VALUE"
             WEBHOOK_PUBLIC_URL_VALUE="$(env_get WEBHOOK_PUBLIC_URL "https://$WEBHOOK_HOST_VALUE")"
             MINIAPP_PUBLIC_URL_VALUE="$(env_get MINIAPP_PUBLIC_URL "https://$MINIAPP_HOST_VALUE/")"
@@ -1058,7 +1142,7 @@ prepare_data_mount() {
 }
 
 is_ipv4_address() {
-    printf '%s' "$1" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}$'
+    is_valid_ipv4_address "$1"
 }
 
 is_local_hostname() {
@@ -1386,17 +1470,239 @@ configure_nginx_certificates() {
     esac
 }
 
-require_docker() {
+run_privileged() {
+    if [ "$(id -u 2>/dev/null || printf '1')" = "0" ]; then
+        "$@"
+        return $?
+    fi
+    if command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+        return $?
+    fi
+    fail "Нужны права root, но sudo не найден. Запустите команду от root или установите sudo."
+    return 1
+}
+
+detect_compose_command() {
     if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
         COMPOSE_STYLE="docker"
+        return 0
     elif command -v docker-compose >/dev/null 2>&1; then
         COMPOSE_STYLE="docker-compose"
-    else
-        fail "Docker Compose не найден."
+        return 0
+    fi
+    return 1
+}
+
+ensure_docker_daemon() {
+    if ! command -v docker >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if docker info >/dev/null 2>&1; then
+        return 0
+    fi
+
+    warn "Docker установлен, но daemon сейчас недоступен."
+    if command -v systemctl >/dev/null 2>&1 && confirm "Попробовать запустить docker.service сейчас?" 1; then
+        run_privileged systemctl enable --now docker >/dev/null 2>&1 || run_privileged systemctl start docker >/dev/null 2>&1 || true
+        if docker info >/dev/null 2>&1; then
+            ok "Docker daemon запущен."
+            return 0
+        fi
+    fi
+
+    fail "Docker daemon не отвечает."
+    info "Проверьте сервис: sudo systemctl status docker"
+    current_user="${USER:-${LOGNAME:-your_user}}"
+    info "Если Docker работает, но не хватает прав, добавьте пользователя в группу docker: sudo usermod -aG docker $current_user"
+    info "После добавления в группу нужно перелогиниться или открыть новую SSH-сессию."
+    return 1
+}
+
+install_compose_with_package_manager() {
+    if command -v apt-get >/dev/null 2>&1; then
+        info "Найден apt-get. Пробую установить Docker Compose через пакеты."
+        run_privileged apt-get update || warn "apt-get update завершился с предупреждением; всё равно пробую установку пакетов."
+        for package_set in "docker-compose-plugin" "docker-compose-v2" "docker.io docker-compose-v2" "docker.io docker-compose-plugin" "docker-compose"; do
+            info "Пробую: apt-get install -y $package_set"
+            if run_privileged apt-get install -y $package_set; then
+                detect_compose_command && return 0
+            fi
+        done
         return 1
     fi
-    if command -v docker >/dev/null 2>&1 && ! docker info >/dev/null 2>&1; then
-        fail "Docker установлен, но недоступен. Проверьте сервис Docker и права пользователя."
+
+    if command -v dnf >/dev/null 2>&1; then
+        info "Найден dnf. Пробую установить Docker Compose через пакеты."
+        for package_set in "docker-compose-plugin" "docker-compose"; do
+            if run_privileged dnf install -y $package_set; then
+                detect_compose_command && return 0
+            fi
+        done
+        return 1
+    fi
+
+    if command -v yum >/dev/null 2>&1; then
+        info "Найден yum. Пробую установить Docker Compose через пакеты."
+        for package_set in "docker-compose-plugin" "docker-compose"; do
+            if run_privileged yum install -y $package_set; then
+                detect_compose_command && return 0
+            fi
+        done
+        return 1
+    fi
+
+    if command -v apk >/dev/null 2>&1; then
+        info "Найден apk. Пробую установить Docker Compose через пакеты."
+        for package_set in "docker-cli-compose" "docker-compose"; do
+            if run_privileged apk add --no-cache $package_set; then
+                detect_compose_command && return 0
+            fi
+        done
+        return 1
+    fi
+
+    if command -v pacman >/dev/null 2>&1; then
+        info "Найден pacman. Пробую установить Docker Compose через пакеты."
+        if run_privileged pacman -Sy --noconfirm docker-compose; then
+            detect_compose_command && return 0
+        fi
+        return 1
+    fi
+
+    return 1
+}
+
+compose_binary_arch() {
+    case "$(uname -m 2>/dev/null)" in
+        x86_64|amd64)
+            printf 'x86_64'
+            ;;
+        aarch64|arm64)
+            printf 'aarch64'
+            ;;
+        armv7l|armv7*)
+            printf 'armv7'
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+install_compose_binary_plugin() {
+    if ! command -v docker >/dev/null 2>&1; then
+        warn "Docker CLI не найден, поэтому скачать Compose как docker-плагин не получится."
+        return 1
+    fi
+    arch=$(compose_binary_arch || true)
+    if [ -z "$arch" ]; then
+        warn "Не удалось определить архитектуру CPU для binary-install Docker Compose."
+        return 1
+    fi
+    os_name=$(uname -s 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    [ -n "$os_name" ] || os_name="linux"
+    if [ -n "${DOCKER_CONFIG:-}" ]; then
+        plugin_dir="$DOCKER_CONFIG/cli-plugins"
+    elif [ -n "${HOME:-}" ]; then
+        plugin_dir="$HOME/.docker/cli-plugins"
+    else
+        warn "Не удалось определить HOME/DOCKER_CONFIG для установки Docker CLI plugin."
+        return 1
+    fi
+
+    mkdir -p "$plugin_dir" || return 1
+    plugin_path="$plugin_dir/docker-compose"
+    tmp="$plugin_path.tmp.$$"
+    url="https://github.com/docker/compose/releases/latest/download/docker-compose-$os_name-$arch"
+    info "Пробую скачать Docker Compose CLI plugin: $url"
+    if ! download_to "$url" "$tmp"; then
+        rm -f "$tmp"
+        return 1
+    fi
+    chmod +x "$tmp" || {
+        rm -f "$tmp"
+        return 1
+    }
+    mv "$tmp" "$plugin_path" || return 1
+    docker compose version >/dev/null 2>&1
+}
+
+install_docker_compose() {
+    section "Установка Docker Compose"
+    warn "Docker Compose не найден: нет команды docker compose и fallback docker-compose."
+    if ! confirm "Попробовать установить Docker Compose автоматически?" 1; then
+        fail "Без Docker Compose wizard не сможет скачать образы, запустить стек или выполнить миграции."
+        info "Установите Docker Engine и Docker Compose plugin, затем запустите wizard повторно."
+        return 1
+    fi
+
+    if install_compose_with_package_manager || install_compose_binary_plugin; then
+        if detect_compose_command; then
+            ok "Docker Compose установлен: $(compose version 2>/dev/null | head -n 1)"
+            return 0
+        fi
+    fi
+
+    fail "Автоматически установить Docker Compose не удалось."
+    info "Установите Docker Compose вручную и повторите запуск. Для Ubuntu/Debian обычно подходит: sudo apt-get update && sudo apt-get install -y docker-compose-plugin"
+    info "Если Docker Engine тоже не установлен, сначала установите Docker Engine, затем Compose plugin."
+    return 1
+}
+
+require_docker() {
+    if ! detect_compose_command; then
+        install_docker_compose || return 1
+    fi
+    detect_compose_command || {
+        fail "Docker Compose не найден после установки."
+        return 1
+    }
+    ensure_docker_daemon || return 1
+}
+
+compose_bind_value() {
+    key="$1"
+    value=""
+    case "$key" in
+        HTTP_BIND) value="$HTTP_BIND_VALUE" ;;
+        HTTPS_BIND) value="$HTTPS_BIND_VALUE" ;;
+        WEB_SERVER_BIND) value="$WEB_SERVER_BIND_VALUE" ;;
+        FRONTEND_BIND) value="$FRONTEND_BIND_VALUE" ;;
+    esac
+    if [ -z "$value" ]; then
+        value=$(env_get "$key" "")
+    fi
+    printf '%s' "$value"
+}
+
+print_current_bind_settings() {
+    printed=0
+    for key in HTTP_BIND HTTPS_BIND WEB_SERVER_BIND FRONTEND_BIND; do
+        value=$(compose_bind_value "$key")
+        [ -n "$value" ] || continue
+        if [ "$printed" = "0" ]; then
+            info "Текущие значения публикации портов:"
+            printed=1
+        fi
+        info "  $key=$value"
+    done
+}
+
+validate_bind_settings() {
+    failed=0
+    for key in HTTP_BIND HTTPS_BIND WEB_SERVER_BIND FRONTEND_BIND; do
+        value=$(compose_bind_value "$key")
+        [ -n "$value" ] || continue
+        if ! is_bind_address "$value"; then
+            fail "Некорректное значение $key=$value"
+            print_validation_hint bind "$value"
+            failed=1
+        fi
+    done
+    if [ "$failed" != "0" ]; then
+        info "Исправьте значения в $ENV_PATH или перезапустите wizard и оставьте рекомендованные значения по умолчанию."
         return 1
     fi
 }
@@ -1424,22 +1730,125 @@ run_compose() {
     compose "$@"
 }
 
+explain_compose_failure() {
+    output_file="$1"
+    shift
+    log_args=$(mask_compose_log_args "$@")
+    fail "Docker Compose вернул ошибку на команде: $log_args"
+
+    if grep -Eiq 'invalid hostPort|invalid host port|invalid.*published.*port|invalid.*containerPort|invalid port' "$output_file"; then
+        fail "Docker Compose не смог разобрать публикацию порта."
+        info "Самая частая причина: в HTTP_BIND, HTTPS_BIND, WEB_SERVER_BIND или FRONTEND_BIND указан только IP без порта."
+        info "Нужно указать PORT или IP:PORT: 80, 0.0.0.0:80, <IP_СЕРВЕРА>:80, 127.0.0.1:8080."
+        info "Если хотите слушать все интерфейсы сервера, оставьте 0.0.0.0:PORT."
+        print_current_bind_settings
+        return 0
+    fi
+
+    if grep -Eiq 'address already in use|port is already allocated|Ports are not available|bind: address already in use' "$output_file"; then
+        fail "Один из портов уже занят другим процессом или контейнером."
+        print_current_bind_settings
+        info "Проверьте занятые порты: sudo ss -ltnp | grep -E ':80|:443|:8080|:8082'"
+        info "Либо остановите конфликтующий сервис, либо задайте другой порт в соответствующем *_BIND."
+        return 0
+    fi
+
+    if grep -Eiq 'cannot assign requested address|bind: cannot assign requested' "$output_file"; then
+        fail "Указанный IP-адрес не назначен ни одному сетевому интерфейсу этого сервера."
+        print_current_bind_settings
+        info "Проверьте адреса сервера: ip addr"
+        info "Используйте 0.0.0.0:PORT, 127.0.0.1:PORT или реальный IP из вывода ip addr."
+        return 0
+    fi
+
+    if grep -Eiq 'permission denied.*docker|permission denied while trying to connect|Got permission denied while trying to connect' "$output_file"; then
+        fail "Не хватает прав на Docker socket."
+        current_user="${USER:-${LOGNAME:-your_user}}"
+        info "Запустите wizard от root или добавьте пользователя в группу docker: sudo usermod -aG docker $current_user"
+        info "После изменения группы откройте новую SSH-сессию."
+        return 0
+    fi
+
+    if grep -Eiq 'Cannot connect to the Docker daemon|docker daemon is not running|Is the docker daemon running' "$output_file"; then
+        fail "Docker daemon не запущен или недоступен."
+        info "Проверьте сервис: sudo systemctl status docker"
+        info "Попробуйте запустить: sudo systemctl enable --now docker"
+        return 0
+    fi
+
+    if grep -Eiq 'pull access denied|requested access to the resource is denied|manifest unknown|no matching manifest|not found: manifest' "$output_file"; then
+        fail "Не удалось скачать Docker-образ."
+        info "Проверьте IMAGE_TAG в .env. Для стабильного запуска обычно оставляют latest или опубликованный тег релиза."
+        info "Если образы находятся в приватном registry, сначала выполните docker login."
+        return 0
+    fi
+
+    if grep -Eiq 'temporary failure|i/o timeout|TLS handshake timeout|Could not resolve|network is unreachable|connection refused|proxyconnect tcp' "$output_file"; then
+        fail "Похоже на сетевую ошибку при обращении к registry или Docker API."
+        info "Проверьте DNS, доступ в интернет с сервера, proxy/firewall и повторите команду."
+        return 0
+    fi
+
+    if grep -Eiq 'variable is not set|required variable|set .+ in \.env' "$output_file"; then
+        fail "Docker Compose не нашел обязательную переменную окружения."
+        info "Проверьте файл $ENV_PATH: обязательные значения не должны быть пустыми."
+        info "Проще всего снова пройти wizard и разрешить ему записать .env."
+        return 0
+    fi
+
+    if grep -Eiq 'yaml:|mapping values are not allowed|did not find expected key|found character that cannot start any token' "$output_file"; then
+        fail "Compose-файл выглядит синтаксически некорректным."
+        info "Если файл редактировался вручную, сравните его с исходным примером или заново скачайте профиль через пункт меню обновления файлов."
+        return 0
+    fi
+
+    info "Подсказка: посмотрите полный вывод выше. Если причина не очевидна, сохраните его и проверьте docker compose config в каталоге установки."
+}
+
+run_compose_checked() {
+    if [ -n "$TARGET_DIR" ]; then
+        mkdir -p "$TARGET_DIR/$INSTALL_STATE_DIR" 2>/dev/null || true
+        output_file="$TARGET_DIR/$INSTALL_STATE_DIR/compose-last-error.log"
+    else
+        output_file="${TMPDIR:-/tmp}/remnawave-minishop-compose-last-error.log"
+    fi
+    tmp="$output_file.tmp.$$"
+    if run_compose "$@" > "$tmp" 2>&1; then
+        cat "$tmp"
+        rm -f "$tmp"
+        return 0
+    fi
+    status=$?
+    cat "$tmp"
+    mv "$tmp" "$output_file" 2>/dev/null || cp "$tmp" "$output_file" 2>/dev/null || true
+    [ -f "$tmp" ] && rm -f "$tmp"
+    explain_compose_failure "$output_file" "$@"
+    if [ -f "$output_file" ]; then
+        info "Полный вывод последней ошибки сохранен: $output_file"
+    fi
+    return "$status"
+}
+
 start_stack() {
     pull="${1:-1}"
     section "Запуск Docker Compose стека"
+    [ -n "$ENV_PATH" ] || ENV_PATH="$TARGET_DIR/.env"
+    validate_bind_settings || return 1
     require_docker || return 1
     if [ "$pull" = "1" ]; then
-        (cd "$TARGET_DIR" && run_compose pull) || return 1
+        (cd "$TARGET_DIR" && run_compose_checked pull) || return 1
     fi
-    (cd "$TARGET_DIR" && run_compose up -d) || return 1
+    (cd "$TARGET_DIR" && run_compose_checked up -d) || return 1
     (cd "$TARGET_DIR" && run_compose ps) || true
     ok "Команда запуска стека выполнена."
 }
 
 validate_stack() {
     section "Проверка стека"
+    [ -n "$ENV_PATH" ] || ENV_PATH="$TARGET_DIR/.env"
+    validate_bind_settings || return 1
     require_docker || return 1
-    (cd "$TARGET_DIR" && run_compose ps) || true
+    (cd "$TARGET_DIR" && run_compose_checked ps) || true
     (cd "$TARGET_DIR" && run_compose logs --tail 80 migrate) || true
     ok "Команды проверки выполнены."
 }
@@ -2483,9 +2892,11 @@ run_import_command() {
 
 reset_target_compose_database() {
     section "Сброс целевой базы Minishop"
+    [ -n "$ENV_PATH" ] || ENV_PATH="$TARGET_DIR/.env"
+    validate_bind_settings || return 1
     require_docker || return 1
     (cd "$TARGET_DIR" && run_compose stop backend worker migrate) || true
-    (cd "$TARGET_DIR" && run_compose up -d postgres redis) || return 1
+    (cd "$TARGET_DIR" && run_compose_checked up -d postgres redis) || return 1
     wait_target_postgres || return 1
     (cd "$TARGET_DIR" && run_compose exec -T postgres sh -c \
         'dropdb -U "$POSTGRES_USER" --if-exists "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"') || return 1
@@ -2708,15 +3119,19 @@ run_remnashop_migration() {
 
 run_target_schema_migrations() {
     section "Применение миграций схемы целевого стека"
+    [ -n "$ENV_PATH" ] || ENV_PATH="$TARGET_DIR/.env"
+    validate_bind_settings || return 1
     require_docker || return 1
-    (cd "$TARGET_DIR" && run_compose run --rm migrate) || return 1
+    (cd "$TARGET_DIR" && run_compose_checked run --rm migrate) || return 1
     ok "Миграции схемы выполнены."
 }
 
 prepare_compose_without_starting_apps() {
     section "Подготовка целевого Docker Compose стека"
+    [ -n "$ENV_PATH" ] || ENV_PATH="$TARGET_DIR/.env"
+    validate_bind_settings || return 1
     require_docker || return 1
-    (cd "$TARGET_DIR" && run_compose up --no-start) || return 1
+    (cd "$TARGET_DIR" && run_compose_checked up --no-start) || return 1
 }
 
 run_tgshop_volume_migration() {
@@ -2760,10 +3175,11 @@ run_tgshop_dsn_migration() {
     POSTGRES_PASSWORD_VALUE="$(env_get POSTGRES_PASSWORD '')"
     POSTGRES_DB_VALUE="$(env_get POSTGRES_DB '')"
     TARGET_DSN="$(local_target_dsn)"
+    validate_bind_settings || return 1
 
     section "Запуск целевого PostgreSQL"
     (cd "$TARGET_DIR" && run_compose stop backend worker frontend migrate) || true
-    (cd "$TARGET_DIR" && run_compose up -d postgres redis) || return 1
+    (cd "$TARGET_DIR" && run_compose_checked up -d postgres redis) || return 1
     wait_target_postgres || return 1
 
     section "Сброс целевой базы"

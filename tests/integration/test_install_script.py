@@ -70,6 +70,33 @@ def test_shell_installer_downloads_raw_files_and_runs_import_in_container():
     assert "Мигрировать данные в уже установленный remnawave-minishop" in script
 
 
+def test_shell_installer_installs_compose_and_explains_bind_errors():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "install_docker_compose" in script
+    assert "Попробовать установить Docker Compose автоматически" in script
+    assert "docker-compose-plugin" in script
+    assert "install_compose_binary_plugin" in script
+    assert "validate_bind_settings" in script
+    assert (
+        'prompt_value "Адрес привязки HTTP" "$(env_get HTTP_BIND \'0.0.0.0:80\')" 0 0 "bind"'
+    ) in script
+    assert "invalid hostPort" in script
+    assert "IP без порта" in script
+    assert "<IP_СЕРВЕРА>:80" in script
+    assert "compose-last-error.log" in script
+
+
+def test_deployment_docs_explain_install_wizard_prompts():
+    docs = (REPO_ROOT / "docs" / "getting-started" / "deployment.md").read_text(encoding="utf-8")
+
+    assert "### Что спрашивает install wizard" in docs
+    assert "`HTTP_BIND` / `HTTPS_BIND`" in docs
+    assert "с одним IP без порта некорректно" in docs
+    assert "Docker Compose не найден" in docs
+    assert ".installer/compose-last-error.log" in docs
+
+
 def test_shell_installer_download_helper_does_not_clobber_target_name():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
     helper = script.split("download_to() {", 1)[1].split("\n}", 1)[0]
@@ -189,7 +216,7 @@ def test_shell_installer_supports_legacy_tgshop_volume_and_dsn_paths():
     assert "remnawave-tg-shop-db-data" in script
     assert "remnawave-minishop-db-data" in script
     assert "pg_dump --clean --if-exists" in script
-    assert "run_compose run --rm migrate" in script
+    assert "run_compose_checked run --rm migrate" in script
 
 
 def test_shell_installer_only_prepares_data_mount_not_runtime_content():

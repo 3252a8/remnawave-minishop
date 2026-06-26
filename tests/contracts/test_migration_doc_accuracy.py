@@ -147,7 +147,7 @@ class InstallWizardCoverageTests(unittest.TestCase):
         self.assertIn("run_tgshop_dsn_migration", self.script)
         self.assertIn("remnawave-tg-shop-db-data", self.script)
         self.assertIn("pg_dump --clean --if-exists", self.script)
-        self.assertIn("run_compose run --rm migrate", self.script)
+        self.assertIn("run_compose_checked run --rm migrate", self.script)
 
     def test_script_is_syntactically_valid_sh_and_bash(self):
         sh = shutil.which("sh")
