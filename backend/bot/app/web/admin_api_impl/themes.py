@@ -1,19 +1,38 @@
 import asyncio
 import hashlib
+import io
 import ipaddress
+import logging
 import re
 import shutil
 import socket
-from typing import cast
+from pathlib import Path
+from typing import Any, Dict, Optional, cast
+from urllib.parse import urlsplit
 
-from aiohttp import ClientSession, ClientTimeout
+from aiohttp import ClientSession, ClientTimeout, web
 from aiohttp.multipart import BodyPartReader
 from PIL import Image, ImageOps, UnidentifiedImageError
+from pydantic import ValidationError
+from schemas import ImageUrlUploadBody, ThemesSaveBody
+from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
     get_session_factory,
     get_settings,
 )
+from bot.app.web.request_parsing import parse_body_or_400
+from bot.app.web.route_contracts import (
+    BINARY_RESPONSE_SCHEMA,
+    BOOLEAN_SCHEMA,
+    STRING_SCHEMA,
+    RouteContract,
+    loose_object_schema,
+    ok_envelope_with,
+    register_contract,
+)
+from bot.services.settings_override_service import update_overrides
+from config.settings import Settings
 from config.webapp_themes_config import (
     WebappThemesConfig,
     ensure_webapp_core_themes,
@@ -21,30 +40,6 @@ from config.webapp_themes_config import (
     write_webapp_theme_dir,
 )
 
-from ._runtime import (
-    BINARY_RESPONSE_SCHEMA,
-    BOOLEAN_SCHEMA,
-    STRING_SCHEMA,
-    Any,
-    Dict,
-    ImageUrlUploadBody,
-    Optional,
-    Path,
-    RouteContract,
-    Settings,
-    ThemesSaveBody,
-    ValidationError,
-    io,
-    logger,
-    loose_object_schema,
-    ok_envelope_with,
-    parse_body_or_400,
-    register_contract,
-    sessionmaker,
-    update_overrides,
-    urlsplit,
-    web,
-)
 from .auth import (
     _require_admin_user_id,
 )
@@ -54,6 +49,8 @@ from .common import (
     _webapp_themes_catalog_payload,
 )
 from .webapp_runtime import refresh_webapp_runtime_after_settings_change
+
+logger = logging.getLogger(__name__)
 
 _IMAGE_URL_UPLOAD_SCHEMA = {
     "type": "object",

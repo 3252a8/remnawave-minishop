@@ -1,6 +1,5 @@
-from ._runtime import (
-    web,
-)
+from aiohttp import web
+
 from .ads import (
     admin_ad_create_route,
     admin_ad_delete_route,

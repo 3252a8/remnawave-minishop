@@ -1,13 +1,4 @@
-from db.dal import message_log_dal, payment_dal, subscription_dal, user_dal
-
-from ._runtime import (
-    BINARY_RESPONSE_SCHEMA,
-    BOOLEAN_SCHEMA,
-    INTEGER_SCHEMA,
-    JSON_OBJECT_SCHEMA,
-    NULLABLE_STRING_SCHEMA,
-    NUMBER_SCHEMA,
-    STRING_SCHEMA,
+from schemas import (
     AdminSubscriptionOut,
     AdminUserBanBody,
     AdminUserExtendBody,
@@ -21,11 +12,23 @@ from ._runtime import (
     AdminUserTrialOut,
     AdminUserWithAvatarOut,
     PaymentOut,
+)
+
+from bot.app.web.route_contracts import (
+    BINARY_RESPONSE_SCHEMA,
+    BOOLEAN_SCHEMA,
+    INTEGER_SCHEMA,
+    JSON_OBJECT_SCHEMA,
+    NULLABLE_STRING_SCHEMA,
+    NUMBER_SCHEMA,
+    STRING_SCHEMA,
     RouteContract,
     ok_envelope_with,
     register_contract,
     schema_ref,
 )
+from db.dal import message_log_dal, payment_dal, subscription_dal, user_dal
+
 from .users_actions import (
     admin_user_ban_route,
     admin_user_delete_route,

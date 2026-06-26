@@ -1,12 +1,20 @@
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Any, Dict, Literal, Optional
 
+from aiohttp import web
 from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
+from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
     get_session_factory,
     get_support_service,
 )
-from bot.app.web.route_contracts import schema_ref
+from bot.app.web.request_parsing import parse_body_or_400
+from bot.app.web.route_contracts import (
+    RouteContract,
+    ok_envelope_with,
+    register_contract,
+    schema_ref,
+)
 from bot.app.web.support_schemas import (
     AdminSupportMessageOut,
     AdminSupportStatsOut,
@@ -20,16 +28,6 @@ from bot.services.support_service import TicketNotFound
 from db.dal import support_dal, user_dal
 from db.models import SupportTicket, SupportTicketMessage, User
 
-from ._runtime import (
-    Any,
-    Dict,
-    RouteContract,
-    ok_envelope_with,
-    parse_body_or_400,
-    register_contract,
-    sessionmaker,
-    web,
-)
 from .auth import (
     _require_admin_user_id,
 )

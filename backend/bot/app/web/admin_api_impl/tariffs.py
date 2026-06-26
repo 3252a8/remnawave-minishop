@@ -1,27 +1,26 @@
+import logging
+from typing import Any, Dict, List
+
+from aiohttp import web
+from pydantic import ValidationError
+from schemas import TariffsSaveBody
+
 from bot.app.web.context import (
     get_settings,
 )
-
-from ._runtime import (
+from bot.app.web.request_parsing import parse_body_or_400
+from bot.app.web.route_contracts import (
     BOOLEAN_SCHEMA,
     STRING_SCHEMA,
-    Any,
-    Dict,
-    List,
     RouteContract,
-    Settings,
-    TariffsConfig,
-    TariffsSaveBody,
-    ValidationError,
-    default_payment_currency_code_for_settings,
-    logger,
     loose_array_schema,
     loose_object_schema,
     ok_envelope_with,
-    parse_body_or_400,
     register_contract,
-    web,
 )
+from config.settings import Settings
+from config.tariffs_config import TariffsConfig, default_payment_currency_code_for_settings
+
 from .auth import (
     _require_admin_user_id,
 )
@@ -33,6 +32,8 @@ from .common import (
     _write_tariffs_config_file,
 )
 from .webapp_runtime import refresh_webapp_runtime_after_settings_change
+
+logger = logging.getLogger(__name__)
 
 _TARIFFS_RESPONSE_SCHEMA = ok_envelope_with(
     {

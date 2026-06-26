@@ -1,13 +1,10 @@
 # ruff: noqa: F401,F403,F405,I001
 from datetime import datetime, timezone
 
-from ._runtime import (
-    AdminHealthOut,
-    RouteContract,
-    ok_envelope_for,
-    register_contract,
-    web,
-)
+
+from aiohttp import web
+from bot.app.web.route_contracts import RouteContract, ok_envelope_for, register_contract
+from schemas import AdminHealthOut
 from .auth import _require_admin_user_id
 from .common import _ok
 from bot.services.config_health_service import collect_config_alerts

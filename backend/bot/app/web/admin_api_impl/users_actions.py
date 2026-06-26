@@ -1,16 +1,10 @@
+import logging
 from html import escape as html_escape
+from typing import Optional
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-
-from bot.app.web.context import (
-    get_i18n,
-    get_optional_subscription_service,
-    get_panel_service,
-    get_session_factory,
-    get_settings,
-)
-
-from ._runtime import (
+from aiohttp import web
+from schemas import (
     AdminUserBanBody,
     AdminUserExtendBody,
     AdminUserHwidDeviceLimitBody,
@@ -19,20 +13,23 @@ from ._runtime import (
     AdminUserRegularTrafficOverrideBody,
     AdminUserTariffBody,
     AdminUserTrafficGrantBody,
-    MessageContent,
-    Optional,
-    Settings,
-    User,
-    get_queue_manager,
-    logger,
-    message_log_dal,
-    parse_body_or_400,
-    send_message_via_queue,
-    sessionmaker,
-    subscription_dal,
-    user_dal,
-    web,
 )
+from sqlalchemy.orm import sessionmaker
+
+from bot.app.web.context import (
+    get_i18n,
+    get_optional_subscription_service,
+    get_panel_service,
+    get_session_factory,
+    get_settings,
+)
+from bot.app.web.request_parsing import parse_body_or_400
+from bot.utils import MessageContent, send_message_via_queue
+from bot.utils.message_queue import get_queue_manager
+from config.settings import Settings
+from db.dal import message_log_dal, subscription_dal, user_dal
+from db.models import User
+
 from .auth import _require_admin_user_id
 from .common import (
     _error,
@@ -44,6 +41,8 @@ from .users_listing import (
     _invalidate_after_admin_user_mutation,
     _resolve_admin_period_tariff_key,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def admin_user_ban_route(request: web.Request) -> web.Response:

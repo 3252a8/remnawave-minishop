@@ -1,16 +1,17 @@
+from aiohttp import web
+
 from bot.app.web.context import (
     get_settings,
 )
-
-from ._runtime import (
+from bot.app.web.route_contracts import (
     RouteContract,
-    Settings,
-    enqueue_webhook_event,
     loose_object_schema,
     ok_envelope_with,
     register_contract,
-    web,
 )
+from bot.infra.webhook_queue import enqueue_webhook_event
+from config.settings import Settings
+
 from .auth import (
     _require_admin_user_id,
 )

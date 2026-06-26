@@ -1,17 +1,15 @@
+import json
 from collections.abc import Awaitable, Callable
+
+from aiohttp import web
+from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
     get_session_factory,
     get_settings,
 )
-
-from ._runtime import (
-    Settings,
-    json,
-    sessionmaker,
-    user_dal,
-    web,
-)
+from config.settings import Settings
+from db.dal import user_dal
 
 
 def _require_admin_user_id(request: web.Request) -> int:

@@ -1,15 +1,17 @@
+import logging
+
+from aiohttp import web
+
 from bot.app.web.context import (
     get_panel_service,
 )
-
-from ._runtime import (
+from bot.app.web.route_contracts import (
     RouteContract,
-    logger,
     loose_array_schema,
     ok_envelope_with,
     register_contract,
-    web,
 )
+
 from .auth import (
     _require_admin_user_id,
 )
@@ -17,6 +19,8 @@ from .common import (
     _error,
     _ok,
 )
+
+logger = logging.getLogger(__name__)
 
 register_contract(
     "admin_panel_internal_squads_route",

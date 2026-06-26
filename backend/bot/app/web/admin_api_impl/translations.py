@@ -1,8 +1,22 @@
-from typing import cast
+from typing import Any, Dict, List, Optional, Tuple, cast
+
+from aiohttp import web
+from schemas import AdminTranslationsPatchBody
+from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
     get_i18n,
     get_session_factory,
+)
+from bot.app.web.request_parsing import parse_body_or_400
+from bot.app.web.route_contracts import (
+    BOOLEAN_SCHEMA,
+    INTEGER_SCHEMA,
+    STRING_SCHEMA,
+    RouteContract,
+    loose_array_schema,
+    ok_envelope_with,
+    register_contract,
 )
 from bot.middlewares.i18n import JsonI18n, locale_language_options, resolve_locale_key
 from bot.services.locale_override_service import (
@@ -13,26 +27,8 @@ from bot.services.locale_override_service import (
     locale_group_catalog,
     update_locale_overrides,
 )
+from db.dal import locale_overrides_dal
 
-from ._runtime import (
-    BOOLEAN_SCHEMA,
-    INTEGER_SCHEMA,
-    STRING_SCHEMA,
-    AdminTranslationsPatchBody,
-    Any,
-    Dict,
-    List,
-    Optional,
-    RouteContract,
-    Tuple,
-    locale_overrides_dal,
-    loose_array_schema,
-    ok_envelope_with,
-    parse_body_or_400,
-    register_contract,
-    sessionmaker,
-    web,
-)
 from .auth import (
     _require_admin_user_id,
 )

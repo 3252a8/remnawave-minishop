@@ -1,17 +1,13 @@
+from aiohttp import web
+from schemas import AdminLogsListOut, LogOut
+from sqlalchemy.orm import sessionmaker
+
 from bot.app.web.context import (
     get_session_factory,
 )
+from bot.app.web.route_contracts import RouteContract, ok_envelope_for, register_contract
+from db.dal import message_log_dal
 
-from ._runtime import (
-    AdminLogsListOut,
-    LogOut,
-    RouteContract,
-    message_log_dal,
-    ok_envelope_for,
-    register_contract,
-    sessionmaker,
-    web,
-)
 from .auth import _require_admin_user_id
 from .common import _error, _ok, _serialize_log
 

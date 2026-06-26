@@ -10,37 +10,28 @@ from bot.app.web.context import (
 
 import asyncio
 
-from ._runtime import (
-    AdminMeOut,
-    AdminPanelSyncOut,
-    AdminStatsOut,
-    Any,
-    Dict,
-    Optional,
-    PaymentOut,
-    RouteContract,
-    Settings,
-    datetime,
-    default_payment_currency_code_for_settings,
-    get_queue_manager,
-    logger,
-    ok_envelope_for,
-    panel_sync_dal,
-    payment_dal,
-    register_contract,
-    sessionmaker,
-    timedelta,
-    timezone,
-    user_dal,
-    web,
-)
+
+from aiohttp import web
+from bot.app.web.route_contracts import RouteContract, ok_envelope_for, register_contract
+from bot.utils.message_queue import get_queue_manager
+from config.settings import Settings
+from config.tariffs_config import default_payment_currency_code_for_settings
+from datetime import datetime, timedelta, timezone
+from db.dal import panel_sync_dal, payment_dal, user_dal
+from schemas import AdminMeOut, AdminPanelSyncOut, AdminStatsOut, PaymentOut
+from sqlalchemy.orm import sessionmaker
+from typing import Any, Dict, Optional
+import logging
+from .auth import _require_admin_user_id
 from .common import (
     _enrich_bandwidth_nodes_with_online,
+    _ok,
     _panel_nodes_online_by_uuid,
+    _serialize_payment,
 )
-from .auth import _require_admin_user_id
-from .common import _ok, _serialize_payment
 from bot.utils.ttl_cache import AsyncTTLCache
+
+logger = logging.getLogger(__name__)
 
 _ADMIN_PANEL_STATS_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
 _ADMIN_DB_STATS_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}

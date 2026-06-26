@@ -1,24 +1,17 @@
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict
+
+from aiohttp import web
+from schemas import PromoCreateBody, PromoOut, PromoUpdateBody
+from sqlalchemy.orm import sessionmaker
+
 from bot.app.web.context import (
     get_session_factory,
 )
+from bot.app.web.request_parsing import parse_body_or_400
+from bot.app.web.route_contracts import RouteContract, ok_envelope_for, register_contract
+from db.dal import promo_code_dal
 
-from ._runtime import (
-    Any,
-    Dict,
-    PromoCreateBody,
-    PromoOut,
-    PromoUpdateBody,
-    RouteContract,
-    datetime,
-    ok_envelope_for,
-    parse_body_or_400,
-    promo_code_dal,
-    register_contract,
-    sessionmaker,
-    timedelta,
-    timezone,
-    web,
-)
 from .auth import (
     _require_admin_user_id,
 )

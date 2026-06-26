@@ -1,24 +1,22 @@
-from bot.utils.ttl_cache import AsyncTTLCache
+from typing import Any, Dict, List
 
-from ._runtime import (
+from schemas import AdminSubscriptionOut, AdminUserOut
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from bot.app.web.route_contracts import (
     BOOLEAN_SCHEMA,
     INTEGER_SCHEMA,
     NULLABLE_INTEGER_SCHEMA,
     NULLABLE_NUMBER_SCHEMA,
     NULLABLE_STRING_SCHEMA,
     STRING_SCHEMA,
-    AdminSubscriptionOut,
-    AdminUserOut,
-    Any,
-    AsyncSession,
-    Dict,
-    List,
-    User,
-    UserTelegramAvatar,
     ok_envelope_with,
     schema_ref,
-    select,
 )
+from bot.utils.ttl_cache import AsyncTTLCache
+from db.models import User, UserTelegramAvatar
+
 from .common import (
     _serialize_user,
 )

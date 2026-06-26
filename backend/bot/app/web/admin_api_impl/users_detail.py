@@ -1,4 +1,13 @@
-from sqlalchemy.orm import aliased
+import logging
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+from aiohttp import web
+from schemas import AdminUserTrialOut
+from sqlalchemy import Float, and_, case, cast, or_, select
+from sqlalchemy import func as sa_func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased, sessionmaker
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Subquery
 
@@ -9,37 +18,11 @@ from bot.app.web.context import (
     get_session_factory,
     get_settings,
 )
+from bot.services.referral_service import ReferralService
+from config.settings import Settings
+from db.dal import message_log_dal, payment_dal, subscription_dal, user_dal
+from db.models import Payment, Subscription, User, UserTelegramAvatar
 
-from ._runtime import (
-    AdminUserTrialOut,
-    Any,
-    AsyncSession,
-    Dict,
-    Float,
-    List,
-    Optional,
-    Payment,
-    ReferralService,
-    Settings,
-    Subscription,
-    User,
-    UserTelegramAvatar,
-    and_,
-    case,
-    cast,
-    datetime,
-    logger,
-    message_log_dal,
-    or_,
-    payment_dal,
-    sa_func,
-    select,
-    sessionmaker,
-    subscription_dal,
-    timezone,
-    user_dal,
-    web,
-)
 from .auth import _require_admin_user_id
 from .common import (
     _build_admin_webapp_referral_link,
@@ -50,6 +33,8 @@ from .common import (
     _serialize_subscription,
 )
 from .users_common import _bulk_user_avatar_keys, _serialize_admin_user_with_avatar
+
+logger = logging.getLogger(__name__)
 
 
 async def admin_user_avatar_route(request: web.Request) -> web.Response:
