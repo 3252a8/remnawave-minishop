@@ -4,16 +4,6 @@ from typing import Optional
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiohttp import web
-from schemas import (
-    AdminUserBanBody,
-    AdminUserExtendBody,
-    AdminUserHwidDeviceLimitBody,
-    AdminUserMessageBody,
-    AdminUserPremiumOverrideBody,
-    AdminUserRegularTrafficOverrideBody,
-    AdminUserTariffBody,
-    AdminUserTrafficGrantBody,
-)
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
@@ -36,6 +26,16 @@ from .common import (
     _ok,
     _serialize_subscription,
     _serialize_user,
+)
+from .schemas import (
+    AdminUserBanBody,
+    AdminUserExtendBody,
+    AdminUserHwidDeviceLimitBody,
+    AdminUserMessageBody,
+    AdminUserPremiumOverrideBody,
+    AdminUserRegularTrafficOverrideBody,
+    AdminUserTariffBody,
+    AdminUserTrafficGrantBody,
 )
 from .users_listing import (
     _invalidate_after_admin_user_mutation,

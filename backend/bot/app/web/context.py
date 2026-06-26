@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+from collections import deque
 from collections.abc import Mapping
-from typing import Protocol, TypeAlias, TypeVar, cast
+from typing import Any, Callable, Protocol, TypeAlias, TypeVar, cast
 
 from aiogram import Bot, Dispatcher
 from aiohttp import web
@@ -59,6 +61,44 @@ PANEL_WEBHOOK_SERVICE: web.AppKey[PanelWebhookService] = web.AppKey(
 )
 LKNPD_SERVICE: web.AppKey[object] = web.AppKey("lknpd_service", object)
 
+WEBAPP_SETTINGS_CACHE: web.AppKey[dict[str, Any]] = web.AppKey("webapp_settings_cache", dict)
+WEBAPP_RATE_LIMIT_BUCKETS: web.AppKey[dict[str, deque[float]]] = web.AppKey(
+    "webapp_rate_limit_buckets", dict
+)
+WEBAPP_RATE_LIMIT_LOCK: web.AppKey[asyncio.Lock] = web.AppKey(
+    "webapp_rate_limit_lock", asyncio.Lock
+)
+WEBAPP_LOGO_CACHE: web.AppKey[tuple[str, bytes, str] | None] = web.AppKey(
+    "webapp_logo_cache", tuple
+)
+WEBAPP_LOGO_CACHE_LOCK: web.AppKey[asyncio.Lock] = web.AppKey(
+    "webapp_logo_cache_lock", asyncio.Lock
+)
+SUBSCRIPTION_GUIDES_CONFIG_CACHE: web.AppKey[dict[str, Any]] = web.AppKey(
+    "subscription_guides_config_cache", dict
+)
+SUBSCRIPTION_GUIDES_CONFIG_LOCK: web.AppKey[asyncio.Lock] = web.AppKey(
+    "subscription_guides_config_lock", asyncio.Lock
+)
+SUBSCRIPTION_GUIDES_PANEL_CONFIG_CACHE: web.AppKey[dict[Any, Any]] = web.AppKey(
+    "subscription_guides_panel_config_cache", dict
+)
+SUBSCRIPTION_GUIDES_PANEL_CONFIG_LOCK: web.AppKey[asyncio.Lock] = web.AppKey(
+    "subscription_guides_panel_config_lock", asyncio.Lock
+)
+SUBSCRIPTION_GUIDES_RESOLVED_CONFIG_CACHE: web.AppKey[dict[Any, Any]] = web.AppKey(
+    "subscription_guides_resolved_config_cache", dict
+)
+SUBSCRIPTION_GUIDES_RESOLVED_CONFIG_LOCK: web.AppKey[asyncio.Lock] = web.AppKey(
+    "subscription_guides_resolved_config_lock", asyncio.Lock
+)
+SUBSCRIPTION_GUIDES_PUBLIC_SUBSCRIPTION_CACHE: web.AppKey[dict[Any, Any]] = web.AppKey(
+    "subscription_guides_public_subscription_cache", dict
+)
+SUBSCRIPTION_GUIDES_PUBLIC_SUBSCRIPTION_LOCK: web.AppKey[asyncio.Lock] = web.AppKey(
+    "subscription_guides_public_subscription_lock", asyncio.Lock
+)
+
 PAYMENT_SERVICE_KEYS: dict[str, web.AppKey[object]] = {
     key: web.AppKey(key, object) for key in iter_service_keys()
 }
@@ -85,16 +125,59 @@ def _optional_value(app: object, app_key: web.AppKey[T], string_key: str) -> T |
     return cast(T | None, storage.get(string_key))
 
 
+def _set_both_values(app: web.Application, key: web.AppKey[T], string_key: str, value: T) -> None:
+    app[key] = value
+    app[string_key] = cast(Any, value)
+
+
+def _get_or_set_default(
+    app: web.Application,
+    key: web.AppKey[T],
+    string_key: str,
+    default_factory: Callable[[], T],
+) -> T:
+    storage = cast(AppStorage, app)
+    if key in storage:
+        return cast(T, storage[key])
+    if string_key in storage:
+        value = cast(T, storage[string_key])
+        _set_both_values(app, key, string_key, value)
+        return value
+    value = default_factory()
+    _set_both_values(app, key, string_key, value)
+    return value
+
+
 def get_settings(request: web.Request) -> Settings:
     return _required_value(request.app, SETTINGS, "settings")
 
 
-def get_app_settings(app: Mapping[object, object]) -> Settings:
+def get_app_settings(app: object) -> Settings:
     return _required_value(app, SETTINGS, "settings")
 
 
+def get_app_session_factory(app: object) -> sessionmaker:
+    return _required_value(app, SESSION_FACTORY, "async_session_factory")
+
+
+def get_app_bot(app: object) -> Bot:
+    return _required_value(app, BOT, "bot")
+
+
+def get_app_i18n(app: object) -> JsonI18n | None:
+    return _optional_value(app, I18N, "i18n")
+
+
+def get_app_subscription_service(app: object) -> SubscriptionService:
+    return _required_value(app, SUBSCRIPTION_SERVICE, "subscription_service")
+
+
+def get_app_required_subscription_service(app: object) -> SubscriptionService:
+    return _required_value(app, SUBSCRIPTION_SERVICE, "subscription_service")
+
+
 def get_session_factory(request: web.Request) -> sessionmaker:
-    return _required_value(request.app, SESSION_FACTORY, "async_session_factory")
+    return get_app_session_factory(request.app)
 
 
 def get_bot(request: web.Request) -> Bot:
@@ -123,12 +206,139 @@ def get_app_optional_subscription_service(
     return _optional_value(app, SUBSCRIPTION_SERVICE, "subscription_service")
 
 
+def get_webapp_settings_cache(request: web.Request) -> dict[str, Any]:
+    return _required_value(request.app, WEBAPP_SETTINGS_CACHE, "webapp_settings_cache")
+
+
+def get_app_webapp_settings_cache(app: object) -> dict[str, Any]:
+    return _required_value(app, WEBAPP_SETTINGS_CACHE, "webapp_settings_cache")
+
+
+def get_webapp_rate_limit_buckets(request: web.Request) -> dict[str, deque[float]]:
+    return _required_value(request.app, WEBAPP_RATE_LIMIT_BUCKETS, "webapp_rate_limit_buckets")
+
+
+def get_webapp_rate_limit_lock(request: web.Request) -> asyncio.Lock:
+    return _required_value(request.app, WEBAPP_RATE_LIMIT_LOCK, "webapp_rate_limit_lock")
+
+
+def get_webapp_logo_cache(
+    app: Mapping[object, object],
+) -> tuple[str, bytes, str] | None:
+    return _optional_value(app, WEBAPP_LOGO_CACHE, "webapp_logo_cache")
+
+
+def get_webapp_logo_cache_lock(app: Mapping[object, object]) -> asyncio.Lock:
+    return _required_value(app, WEBAPP_LOGO_CACHE_LOCK, "webapp_logo_cache_lock")
+
+
+def set_webapp_logo_cache(app: web.Application, cache: tuple[str, bytes, str] | None) -> None:
+    _set_both_values(
+        app,
+        WEBAPP_LOGO_CACHE,
+        "webapp_logo_cache",
+        cast(tuple[str, bytes, str] | None, cache),
+    )
+
+
+def get_subscription_guides_config_cache(app: web.Application) -> dict[str, Any]:
+    return _required_value(
+        app,
+        SUBSCRIPTION_GUIDES_CONFIG_CACHE,
+        "subscription_guides_config_cache",
+    )
+
+
+def get_subscription_guides_config_lock(app: web.Application) -> asyncio.Lock:
+    return _required_value(app, SUBSCRIPTION_GUIDES_CONFIG_LOCK, "subscription_guides_config_lock")
+
+
+def get_or_create_subscription_guides_config_cache(app: web.Application) -> dict[str, Any]:
+    return _get_or_set_default(
+        app,
+        SUBSCRIPTION_GUIDES_CONFIG_CACHE,
+        "subscription_guides_config_cache",
+        lambda: {"fingerprint": None, "status": None},
+    )
+
+
+def get_or_create_subscription_guides_config_lock(app: web.Application) -> asyncio.Lock:
+    return _get_or_set_default(
+        app,
+        SUBSCRIPTION_GUIDES_CONFIG_LOCK,
+        "subscription_guides_config_lock",
+        asyncio.Lock,
+    )
+
+
+def get_or_create_subscription_guides_panel_config_cache(app: web.Application) -> dict[Any, Any]:
+    return _get_or_set_default(
+        app,
+        SUBSCRIPTION_GUIDES_PANEL_CONFIG_CACHE,
+        "subscription_guides_panel_config_cache",
+        lambda: {},
+    )
+
+
+def get_or_create_subscription_guides_panel_config_lock(app: web.Application) -> asyncio.Lock:
+    return _get_or_set_default(
+        app,
+        SUBSCRIPTION_GUIDES_PANEL_CONFIG_LOCK,
+        "subscription_guides_panel_config_lock",
+        asyncio.Lock,
+    )
+
+
+def get_or_create_subscription_guides_resolved_config_cache(app: web.Application) -> dict[Any, Any]:
+    return _get_or_set_default(
+        app,
+        SUBSCRIPTION_GUIDES_RESOLVED_CONFIG_CACHE,
+        "subscription_guides_resolved_config_cache",
+        lambda: {},
+    )
+
+
+def get_or_create_subscription_guides_resolved_config_lock(app: web.Application) -> asyncio.Lock:
+    return _get_or_set_default(
+        app,
+        SUBSCRIPTION_GUIDES_RESOLVED_CONFIG_LOCK,
+        "subscription_guides_resolved_config_lock",
+        asyncio.Lock,
+    )
+
+
+def get_or_create_subscription_guides_public_subscription_cache(
+    app: web.Application,
+) -> dict[Any, Any]:
+    return _get_or_set_default(
+        app,
+        SUBSCRIPTION_GUIDES_PUBLIC_SUBSCRIPTION_CACHE,
+        "subscription_guides_public_subscription_cache",
+        lambda: {},
+    )
+
+
+def get_or_create_subscription_guides_public_subscription_lock(
+    app: web.Application,
+) -> asyncio.Lock:
+    return _get_or_set_default(
+        app,
+        SUBSCRIPTION_GUIDES_PUBLIC_SUBSCRIPTION_LOCK,
+        "subscription_guides_public_subscription_lock",
+        asyncio.Lock,
+    )
+
+
 def get_panel_service(request: web.Request) -> PanelService | None:
     return _optional_value(request.app, PANEL_SERVICE, "panel_service")
 
 
-def get_app_panel_service(app: Mapping[object, object]) -> PanelService | None:
+def get_app_panel_service(app: object) -> PanelService | None:
     return _optional_value(app, PANEL_SERVICE, "panel_service")
+
+
+def get_app_referral_service(app: object) -> ReferralService:
+    return _required_value(app, REFERRAL_SERVICE, "referral_service")
 
 
 def get_required_panel_service(request: web.Request) -> PanelService:
@@ -139,8 +349,16 @@ def get_referral_service(request: web.Request) -> ReferralService | None:
     return _optional_value(request.app, REFERRAL_SERVICE, "referral_service")
 
 
+def get_app_required_referral_service(app: object) -> ReferralService:
+    return _required_value(app, REFERRAL_SERVICE, "referral_service")
+
+
 def get_required_referral_service(request: web.Request) -> ReferralService:
     return _required_value(request.app, REFERRAL_SERVICE, "referral_service")
+
+
+def get_panel_webhook_service(request: web.Request) -> PanelWebhookService:
+    return _required_value(request.app, PANEL_WEBHOOK_SERVICE, "panel_webhook_service")
 
 
 def get_promo_code_service(request: web.Request) -> PromoCodeService | None:
@@ -175,16 +393,71 @@ def set_core_context(
     async_session_factory: sessionmaker,
 ) -> None:
     i18n = dp.get("i18n_instance")
-    app["bot"] = bot
-    app[BOT] = bot
-    app["dp"] = dp
-    app[DISPATCHER] = dp
-    app["settings"] = settings
-    app[SETTINGS] = settings
-    app["async_session_factory"] = async_session_factory
-    app[SESSION_FACTORY] = async_session_factory
-    app["i18n"] = i18n
-    app[I18N] = cast(JsonI18n | None, i18n)
+    _set_both_values(app, BOT, "bot", bot)
+    _set_both_values(app, DISPATCHER, "dp", dp)
+    _set_both_values(app, SETTINGS, "settings", settings)
+    _set_both_values(app, SESSION_FACTORY, "async_session_factory", async_session_factory)
+    _set_both_values(app, I18N, "i18n", cast(JsonI18n | None, i18n))
+
+
+def initialize_webapp_runtime_context(app: web.Application) -> None:
+    _set_both_values(
+        app,
+        WEBAPP_SETTINGS_CACHE,
+        "webapp_settings_cache",
+        {"ts": 0.0, "data": {}},
+    )
+    _set_both_values(app, WEBAPP_RATE_LIMIT_BUCKETS, "webapp_rate_limit_buckets", {})
+    _set_both_values(app, WEBAPP_RATE_LIMIT_LOCK, "webapp_rate_limit_lock", asyncio.Lock())
+    _set_both_values(app, WEBAPP_LOGO_CACHE, "webapp_logo_cache", None)
+    _set_both_values(
+        app,
+        SUBSCRIPTION_GUIDES_CONFIG_CACHE,
+        "subscription_guides_config_cache",
+        {"fingerprint": None, "status": None},
+    )
+    _set_both_values(
+        app,
+        SUBSCRIPTION_GUIDES_CONFIG_LOCK,
+        "subscription_guides_config_lock",
+        asyncio.Lock(),
+    )
+    _set_both_values(
+        app,
+        SUBSCRIPTION_GUIDES_PANEL_CONFIG_CACHE,
+        "subscription_guides_panel_config_cache",
+        {},
+    )
+    _set_both_values(
+        app,
+        SUBSCRIPTION_GUIDES_PANEL_CONFIG_LOCK,
+        "subscription_guides_panel_config_lock",
+        asyncio.Lock(),
+    )
+    _set_both_values(
+        app,
+        SUBSCRIPTION_GUIDES_RESOLVED_CONFIG_CACHE,
+        "subscription_guides_resolved_config_cache",
+        {},
+    )
+    _set_both_values(
+        app,
+        SUBSCRIPTION_GUIDES_RESOLVED_CONFIG_LOCK,
+        "subscription_guides_resolved_config_lock",
+        asyncio.Lock(),
+    )
+    _set_both_values(
+        app,
+        SUBSCRIPTION_GUIDES_PUBLIC_SUBSCRIPTION_CACHE,
+        "subscription_guides_public_subscription_cache",
+        {},
+    )
+    _set_both_values(
+        app,
+        SUBSCRIPTION_GUIDES_PUBLIC_SUBSCRIPTION_LOCK,
+        "subscription_guides_public_subscription_lock",
+        asyncio.Lock(),
+    )
 
 
 def set_service_context(app: web.Application, key: str, value: object) -> None:
@@ -213,5 +486,4 @@ def set_service_context(app: web.Application, key: str, value: object) -> None:
 
 def set_bot_username(app: web.Application, value: object) -> None:
     username = str(value)
-    app["bot_username"] = username
-    app[BOT_USERNAME] = username
+    _set_both_values(app, BOT_USERNAME, "bot_username", username)

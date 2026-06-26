@@ -1,7 +1,6 @@
 from typing import Any, Dict
 
 from aiohttp import web
-from schemas import AdminSettingsPatchBody
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.admin_settings_manifest import manifest_payload
@@ -36,6 +35,7 @@ from .common import (
     _error_payload,
     _ok,
 )
+from .schemas import AdminSettingsPatchBody
 
 register_contract(
     "admin_settings_get_route",

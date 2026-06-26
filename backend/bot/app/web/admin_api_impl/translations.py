@@ -1,7 +1,6 @@
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 from aiohttp import web
-from schemas import AdminTranslationsPatchBody
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
@@ -37,6 +36,7 @@ from .common import (
     _error_payload,
     _ok,
 )
+from .schemas import AdminTranslationsPatchBody
 
 register_contract(
     "admin_translations_get_route",

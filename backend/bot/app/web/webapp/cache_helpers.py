@@ -3,8 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Awaitable, Callable, Optional, cast
 
+from aiohttp import web
+
+from bot.app.web.context import (
+    get_app_webapp_settings_cache,
+    get_or_create_subscription_guides_config_cache,
+    get_or_create_subscription_guides_panel_config_cache,
+    get_or_create_subscription_guides_public_subscription_cache,
+    get_or_create_subscription_guides_resolved_config_cache,
+    set_webapp_logo_cache,
+)
 from bot.infra.redis import cache_delete, cache_delete_pattern, redis_key
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
@@ -41,29 +51,26 @@ WEBAPP_DEVICE_PAYLOAD_SETTING_KEYS = frozenset(
 )
 
 
-def reset_webapp_settings_cache(app: Any) -> None:
-    cache = app.get("webapp_settings_cache") if hasattr(app, "get") else None
+def reset_webapp_settings_cache(app: Mapping[object, object]) -> None:
+    cache = get_app_webapp_settings_cache(app)
     if isinstance(cache, dict):
         cache["ts"] = 0.0
         cache["data"] = {}
 
 
-def reset_subscription_guides_cache(app: Any) -> None:
-    cache = app.get("subscription_guides_config_cache") if hasattr(app, "get") else None
+def reset_subscription_guides_cache(app: Mapping[object, object]) -> None:
+    application = cast(web.Application, app)
+    cache = get_or_create_subscription_guides_config_cache(application)
     if isinstance(cache, dict):
         cache["fingerprint"] = None
         cache["status"] = None
-    panel_cache = app.get("subscription_guides_panel_config_cache") if hasattr(app, "get") else None
+    panel_cache = get_or_create_subscription_guides_panel_config_cache(application)
     if isinstance(panel_cache, dict):
         panel_cache.clear()
-    resolved_cache = (
-        app.get("subscription_guides_resolved_config_cache") if hasattr(app, "get") else None
-    )
+    resolved_cache = get_or_create_subscription_guides_resolved_config_cache(application)
     if isinstance(resolved_cache, dict):
         resolved_cache.clear()
-    public_cache = (
-        app.get("subscription_guides_public_subscription_cache") if hasattr(app, "get") else None
-    )
+    public_cache = get_or_create_subscription_guides_public_subscription_cache(application)
     if isinstance(public_cache, dict):
         public_cache.clear()
 
@@ -208,8 +215,8 @@ async def refresh_webapp_runtime_after_settings_change(
         )
 
     if keys & WEBAPP_APPEARANCE_SETTING_KEYS:
-        app["webapp_logo_cache"] = None
-        from bot.app.web.webapp.themes import prune_unused_appearance_assets
+        set_webapp_logo_cache(app, None)
+        from bot.app.web.admin_api_impl.themes import prune_unused_appearance_assets
 
         prune_unused_appearance_assets(settings)
 

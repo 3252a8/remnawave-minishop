@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from bot.app.web.context import get_app_bot, get_app_panel_service, get_app_settings
 from bot.utils.request_security import ip_in_allowlist
 
 logger = logging.getLogger(__name__)
@@ -484,8 +485,8 @@ async def network_alerts(app: Any, settings: Any, *, refresh: bool = False) -> L
                 return cached[1]
 
         results = await asyncio.gather(
-            telegram_alerts(app.get("bot"), settings),
-            panel_alerts(app.get("panel_service"), settings),
+            telegram_alerts(get_app_bot(app), settings),
+            panel_alerts(get_app_panel_service(app), settings),
             return_exceptions=True,
         )
         alerts: List[ConfigAlert] = []
@@ -500,7 +501,7 @@ async def network_alerts(app: Any, settings: Any, *, refresh: bool = False) -> L
 
 async def collect_config_alerts(request: Any, *, refresh: bool = False) -> List[Dict[str, Any]]:
     app = request.app
-    settings = app["settings"]
+    settings = get_app_settings(app)
     alerts = local_alerts(request, settings, app)
     alerts.extend(await network_alerts(app, settings, refresh=refresh))
     order = {SEVERITY_ERROR: 0, SEVERITY_WARNING: 1}

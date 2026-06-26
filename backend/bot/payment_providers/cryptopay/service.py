@@ -316,6 +316,15 @@ class CryptoPayService(BaseProviderService):
             return None
 
     async def _invoice_paid_handler(self, update: Update, app: web.Application) -> None:
+        from bot.app.web.context import (
+            get_app_bot,
+            get_app_i18n,
+            get_app_required_referral_service,
+            get_app_required_subscription_service,
+            get_app_session_factory,
+            get_app_settings,
+        )
+
         invoice = update.payload
         if not invoice.payload:
             logging.warning("CryptoPay webhook without payload")
@@ -333,12 +342,12 @@ class CryptoPayService(BaseProviderService):
             logging.exception("Failed to parse CryptoPay payload.")
             return
 
-        async_session_factory: sessionmaker = app["async_session_factory"]
-        bot: Bot = app["bot"]
-        settings: Settings = app["settings"]
-        i18n: JsonI18n = app["i18n"]
-        subscription_service: SubscriptionService = app["subscription_service"]
-        referral_service: ReferralService = app["referral_service"]
+        async_session_factory: sessionmaker = get_app_session_factory(app)
+        bot: Bot = get_app_bot(app)
+        settings: Settings = get_app_settings(app)
+        i18n: JsonI18n | None = get_app_i18n(app)
+        subscription_service: SubscriptionService = get_app_required_subscription_service(app)
+        referral_service: ReferralService = get_app_required_referral_service(app)
 
         async with async_session_factory() as session:
             payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)

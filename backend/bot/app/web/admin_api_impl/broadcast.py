@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, cast
 
 from aiohttp import web
-from schemas import AdminBroadcastBody
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -39,6 +38,7 @@ from .common import (
     _ok,
     _panel_user_connection_activity,
 )
+from .schemas import AdminBroadcastBody
 
 logger = logging.getLogger(__name__)
 

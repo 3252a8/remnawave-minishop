@@ -1,5 +1,3 @@
-import asyncio
-
 from aiogram import Bot, Dispatcher
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
@@ -9,6 +7,8 @@ from bot.app.web.admin_api_impl.auth import (
 )
 from bot.app.web.context import (
     EMAIL_AUTH_SERVICE,
+    get_app_i18n,
+    initialize_webapp_runtime_context,
     set_bot_username,
     set_core_context,
     set_service_context,
@@ -50,21 +50,9 @@ def create_subscription_webapp_application(
         settings=settings,
         async_session_factory=async_session_factory,
     )
-    app["email_auth_service"] = EmailAuthService(settings, app["i18n"])
-    app[EMAIL_AUTH_SERVICE] = app["email_auth_service"]
-    app["webapp_logo_cache"] = None
-    app["webapp_logo_cache_lock"] = asyncio.Lock()
-    app["webapp_settings_cache"] = {"ts": 0.0, "data": {}}
-    app["subscription_guides_config_cache"] = {"fingerprint": None, "status": None}
-    app["subscription_guides_config_lock"] = asyncio.Lock()
-    app["subscription_guides_panel_config_cache"] = {}
-    app["subscription_guides_panel_config_lock"] = asyncio.Lock()
-    app["subscription_guides_resolved_config_cache"] = {}
-    app["subscription_guides_resolved_config_lock"] = asyncio.Lock()
-    app["subscription_guides_public_subscription_cache"] = {}
-    app["subscription_guides_public_subscription_lock"] = asyncio.Lock()
-    app["webapp_rate_limit_buckets"] = {}
-    app["webapp_rate_limit_lock"] = asyncio.Lock()
+    initialize_webapp_runtime_context(app)
+    app[EMAIL_AUTH_SERVICE] = EmailAuthService(settings, get_app_i18n(app))
+    set_service_context(app, "email_auth_service", app[EMAIL_AUTH_SERVICE])
 
     async def _startup(app_obj: web.Application) -> None:
         await _ensure_shared_http_session()

@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from bot.app.web.admin_api_impl import webapp_runtime
+from bot.app.web.webapp import cache_helpers
 
 
 class AdminWebappRuntimeTests(unittest.IsolatedAsyncioTestCase):
@@ -20,7 +21,7 @@ class AdminWebappRuntimeTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with patch.object(
-            webapp_runtime,
+            cache_helpers,
             "invalidate_all_webapp_user_payloads",
             AsyncMock(),
         ) as invalidate_mock:
@@ -49,7 +50,7 @@ class AdminWebappRuntimeTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch.object(
-                webapp_runtime,
+                cache_helpers,
                 "invalidate_all_webapp_user_payloads",
                 AsyncMock(),
             ),

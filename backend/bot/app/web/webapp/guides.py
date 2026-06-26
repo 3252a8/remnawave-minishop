@@ -14,6 +14,14 @@ from bot.app.web.context import (
     get_app_optional_subscription_service,
     get_app_panel_service,
     get_app_settings,
+    get_or_create_subscription_guides_config_cache,
+    get_or_create_subscription_guides_config_lock,
+    get_or_create_subscription_guides_panel_config_cache,
+    get_or_create_subscription_guides_panel_config_lock,
+    get_or_create_subscription_guides_public_subscription_cache,
+    get_or_create_subscription_guides_public_subscription_lock,
+    get_or_create_subscription_guides_resolved_config_cache,
+    get_or_create_subscription_guides_resolved_config_lock,
     get_session_factory,
     get_settings,
 )
@@ -136,8 +144,8 @@ async def public_subscription_guides_route(request: web.Request) -> web.Response
 
 async def _subscription_guides_status_shared(app: web.Application) -> Dict[str, Any]:
     settings: Settings = get_app_settings(app)
-    cache = app.setdefault("subscription_guides_config_cache", {})
-    lock: asyncio.Lock = app.setdefault("subscription_guides_config_lock", asyncio.Lock())
+    cache = get_or_create_subscription_guides_config_cache(app)
+    lock: asyncio.Lock = get_or_create_subscription_guides_config_lock(app)
     fingerprint = _subscription_guides_settings_fingerprint(settings)
     now = time.monotonic()
 
@@ -273,11 +281,8 @@ async def _subscription_guides_status_from_panel_short_uuid_cached(
             request_headers=request_headers,
         )
 
-    cache = app.setdefault("subscription_guides_resolved_config_cache", {})
-    lock: asyncio.Lock = app.setdefault(
-        "subscription_guides_resolved_config_lock",
-        asyncio.Lock(),
-    )
+    cache = get_or_create_subscription_guides_resolved_config_cache(app)
+    lock: asyncio.Lock = get_or_create_subscription_guides_resolved_config_lock(app)
     key = (
         _subscription_guides_settings_fingerprint(settings),
         str(short_uuid or "").strip(),
@@ -384,11 +389,8 @@ async def _panel_subscription_page_config_by_uuid_cached(
     if ttl_seconds <= 0:
         return await _load_panel_subscription_page_config_by_uuid(app, config_uuid)
 
-    cache = app.setdefault("subscription_guides_panel_config_cache", {})
-    lock: asyncio.Lock = app.setdefault(
-        "subscription_guides_panel_config_lock",
-        asyncio.Lock(),
-    )
+    cache = get_or_create_subscription_guides_panel_config_cache(app)
+    lock: asyncio.Lock = get_or_create_subscription_guides_panel_config_lock(app)
     key = (_subscription_guides_settings_fingerprint(settings), config_uuid)
     now = time.monotonic()
 
@@ -650,11 +652,8 @@ async def _public_subscription_payload_cached(
     if ttl_seconds <= 0:
         return await _public_subscription_payload_uncached(request, share_token)
 
-    cache = request.app.setdefault("subscription_guides_public_subscription_cache", {})
-    lock: asyncio.Lock = request.app.setdefault(
-        "subscription_guides_public_subscription_lock",
-        asyncio.Lock(),
-    )
+    cache = get_or_create_subscription_guides_public_subscription_cache(request.app)
+    lock: asyncio.Lock = get_or_create_subscription_guides_public_subscription_lock(request.app)
     key = (
         str(share_token or "").strip(),
         _public_subscription_payload_fingerprint(request),

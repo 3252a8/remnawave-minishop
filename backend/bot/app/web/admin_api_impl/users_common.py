@@ -1,6 +1,5 @@
 from typing import Any, Dict, List
 
-from schemas import AdminSubscriptionOut, AdminUserOut
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +19,7 @@ from db.models import User, UserTelegramAvatar
 from .common import (
     _serialize_user,
 )
+from .schemas import AdminSubscriptionOut, AdminUserOut
 
 _ADMIN_USERS_LIST_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
 _ADMIN_USER_MESSAGE_BODY_SCHEMA = {

@@ -3,7 +3,6 @@ from typing import Any, Dict, List
 
 from aiohttp import web
 from pydantic import ValidationError
-from schemas import TariffsSaveBody
 
 from bot.app.web.context import (
     get_settings,
@@ -32,6 +31,7 @@ from .common import (
     _tariffs_config_payload,
     _write_tariffs_config_file,
 )
+from .schemas import TariffsSaveBody
 
 logger = logging.getLogger(__name__)
 

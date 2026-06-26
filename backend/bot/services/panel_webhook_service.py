@@ -593,7 +593,9 @@ class PanelWebhookService:
 
 
 async def panel_webhook_route(request: web.Request) -> web.Response:
-    service: PanelWebhookService = request.app["panel_webhook_service"]
+    from bot.app.web.context import get_panel_webhook_service
+
+    service: PanelWebhookService = get_panel_webhook_service(request)
     raw = await request.read()
     signature_header = request.headers.get("X-Remnawave-Signature")
     return await service.handle_webhook(raw, signature_header)

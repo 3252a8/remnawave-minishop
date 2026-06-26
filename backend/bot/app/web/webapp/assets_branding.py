@@ -14,6 +14,9 @@ from aiohttp import ClientSession, ClientTimeout, web
 from bot.app.web.context import (
     get_app_settings,
     get_settings,
+    get_webapp_logo_cache,
+    get_webapp_logo_cache_lock,
+    set_webapp_logo_cache,
 )
 from config.settings import Settings
 
@@ -161,17 +164,17 @@ async def webapp_logo_route(request: web.Request) -> web.Response:
         raise web.HTTPNotFound(text="webapp_logo_not_proxied")
 
     source_logo_url = raw_logo_url
-    logo_cache: Optional[Tuple[str, bytes, str]] = request.app.get("webapp_logo_cache")
+    logo_cache: Optional[Tuple[str, bytes, str]] = get_webapp_logo_cache(request.app)
     if logo_cache is None or logo_cache[0] != source_logo_url:
-        cache_lock: asyncio.Lock = request.app["webapp_logo_cache_lock"]
+        cache_lock: asyncio.Lock = get_webapp_logo_cache_lock(request.app)
         async with cache_lock:
-            logo_cache = request.app.get("webapp_logo_cache")
+            logo_cache = get_webapp_logo_cache(request.app)
             if logo_cache is None or logo_cache[0] != source_logo_url:
                 fetched_logo = await _load_or_fetch_webapp_logo(source_logo_url)
                 logo_cache = (
                     (source_logo_url, fetched_logo[0], fetched_logo[1]) if fetched_logo else None
                 )
-                request.app["webapp_logo_cache"] = logo_cache
+                set_webapp_logo_cache(request.app, logo_cache)
 
     if not logo_cache:
         raise web.HTTPNotFound(text="webapp_logo_unavailable")
@@ -356,14 +359,15 @@ async def _warm_webapp_logo_cache(app: web.Application) -> None:
     ):
         return
 
-    cache_lock: asyncio.Lock = app["webapp_logo_cache_lock"]
+    cache_lock: asyncio.Lock = get_webapp_logo_cache_lock(app)
     async with cache_lock:
-        logo_cache: Optional[Tuple[str, bytes, str]] = app.get("webapp_logo_cache")
+        logo_cache: Optional[Tuple[str, bytes, str]] = get_webapp_logo_cache(app)
         if logo_cache and logo_cache[0] == raw_logo_url:
             return
         loaded_logo = await _load_or_fetch_webapp_logo(raw_logo_url)
-        app["webapp_logo_cache"] = (
-            (raw_logo_url, loaded_logo[0], loaded_logo[1]) if loaded_logo else None
+        set_webapp_logo_cache(
+            app,
+            (raw_logo_url, loaded_logo[0], loaded_logo[1]) if loaded_logo else None,
         )
 
 

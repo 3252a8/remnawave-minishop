@@ -249,15 +249,14 @@ async def account_password_request_route(request: web.Request) -> web.Response:
 
 async def account_password_confirm_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    settings_for_gate = request.app.get("settings")
-    if not _email_auth_enabled(settings_for_gate):
+    settings: Settings = get_settings(request)
+    if not _email_auth_enabled(settings):
         return _email_auth_not_configured_response()
 
     password_payload = await _parse_model_payload(request, WebAppSetPasswordPayload)
     if password_payload.password != password_payload.password_confirm:
         return _json_error(400, "password_mismatch", "Passwords do not match")
 
-    settings: Settings = get_settings(request)
     email_service: EmailAuthService = get_email_auth_service(request)
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:

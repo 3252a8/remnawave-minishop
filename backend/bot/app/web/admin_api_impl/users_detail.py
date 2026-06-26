@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from aiohttp import web
-from schemas import AdminUserTrialOut
 from sqlalchemy import Float, and_, case, cast, or_, select
 from sqlalchemy import func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +31,7 @@ from .common import (
     _serialize_payment,
     _serialize_subscription,
 )
+from .schemas import AdminUserTrialOut
 from .users_common import _bulk_user_avatar_keys, _serialize_admin_user_with_avatar
 
 logger = logging.getLogger(__name__)

@@ -1,19 +1,3 @@
-from schemas import (
-    AdminSubscriptionOut,
-    AdminUserBanBody,
-    AdminUserExtendBody,
-    AdminUserHwidDeviceLimitBody,
-    AdminUserMessageBody,
-    AdminUserOut,
-    AdminUserPremiumOverrideBody,
-    AdminUserRegularTrafficOverrideBody,
-    AdminUserTariffBody,
-    AdminUserTrafficGrantBody,
-    AdminUserTrialOut,
-    AdminUserWithAvatarOut,
-    PaymentOut,
-)
-
 from bot.app.web.route_contracts import (
     BINARY_RESPONSE_SCHEMA,
     BOOLEAN_SCHEMA,
@@ -29,6 +13,21 @@ from bot.app.web.route_contracts import (
 )
 from db.dal import message_log_dal, payment_dal, subscription_dal, user_dal
 
+from .schemas import (
+    AdminSubscriptionOut,
+    AdminUserBanBody,
+    AdminUserExtendBody,
+    AdminUserHwidDeviceLimitBody,
+    AdminUserMessageBody,
+    AdminUserOut,
+    AdminUserPremiumOverrideBody,
+    AdminUserRegularTrafficOverrideBody,
+    AdminUserTariffBody,
+    AdminUserTrafficGrantBody,
+    AdminUserTrialOut,
+    AdminUserWithAvatarOut,
+    PaymentOut,
+)
 from .users_actions import (
     admin_user_ban_route,
     admin_user_delete_route,

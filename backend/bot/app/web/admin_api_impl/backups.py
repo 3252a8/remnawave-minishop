@@ -6,11 +6,10 @@ from typing import Any, Dict, Optional, cast
 
 from aiohttp import web
 from aiohttp.multipart import BodyPartReader
-from schemas import AdminBackupRestoreBody
 
 from bot.app.web.context import (
-    SESSION_FACTORY,
     get_bot,
+    get_session_factory,
     get_settings,
 )
 from bot.app.web.request_parsing import parse_body_or_400
@@ -41,6 +40,7 @@ from .common import (
     _error,
     _ok,
 )
+from .schemas import AdminBackupRestoreBody
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +162,7 @@ async def admin_backups_create_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     settings: Settings = get_settings(request)
     bot = get_bot(request)
-    session_factory = request.app.get(SESSION_FACTORY)
+    session_factory = get_session_factory(request)
     worker = BackupWorker(settings, bot, session_factory=session_factory)
 
     ttl_seconds = max(

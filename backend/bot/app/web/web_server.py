@@ -10,7 +10,12 @@ from aiohttp import web
 from aiohttp.web_log import AccessLogger, KeyMethod
 from sqlalchemy.orm import sessionmaker
 
-from bot.app.web.context import set_core_context, set_service_context, workflow_data_for
+from bot.app.web.context import (
+    get_app_settings,
+    set_core_context,
+    set_service_context,
+    workflow_data_for,
+)
 from bot.payment_providers import iter_provider_specs, iter_service_keys
 from bot.plugins import (
     WEB_SCOPE_WEBAPP,
@@ -57,7 +62,7 @@ class TrustedProxyAccessLogger(AccessLogger):
         if request is None:
             return "-"
         app = getattr(request, "app", None)
-        settings = app.get("settings") if app is not None else None
+        settings = get_app_settings(app) if app is not None else None
         trusted_proxies = settings.trusted_proxies if settings is not None else None
         client_ip = request_client_ip(cast(web.Request, request), trusted_proxies=trusted_proxies)
         return client_ip or "-"

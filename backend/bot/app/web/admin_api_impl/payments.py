@@ -2,7 +2,6 @@ import csv
 import io
 
 from aiohttp import web
-from schemas import AdminPaymentsListOut, PaymentDetailOut, PaymentOut
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
@@ -21,6 +20,7 @@ from .common import (
     _ok,
     _payment_user_display_label,
 )
+from .schemas import AdminPaymentsListOut, PaymentDetailOut, PaymentOut
 
 register_contract(
     "admin_payments_list_route",

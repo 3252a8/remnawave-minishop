@@ -17,6 +17,9 @@ from bot.app.web.context import (
     get_bot_username,
     get_i18n,
     get_settings,
+    get_webapp_rate_limit_buckets,
+    get_webapp_rate_limit_lock,
+    get_webapp_settings_cache,
 )
 from bot.app.web.webapp_auth import verify_webapp_session_token
 from bot.infra.redis import get_redis, redis_key
@@ -209,7 +212,7 @@ async def _csrf_protection_middleware(request: web.Request, handler: Handler) ->
 
 def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
     settings: Settings = get_settings(request)
-    cache = request.app["webapp_settings_cache"]
+    cache = get_webapp_settings_cache(request)
     now = time.monotonic()
     if now - float(cache.get("ts", 0.0)) >= 60 or not cache.get("data"):
         logo_url = _resolve_webapp_logo_url(settings)
@@ -302,8 +305,8 @@ async def _enforce_webapp_rate_limit(
     except Exception as exc:
         logger.warning("Redis webapp rate limiter unavailable; using local fallback: %s", exc)
 
-    buckets: Dict[str, deque[float]] = request.app["webapp_rate_limit_buckets"]
-    lock: asyncio.Lock = request.app["webapp_rate_limit_lock"]
+    buckets: Dict[str, deque[float]] = get_webapp_rate_limit_buckets(request)
+    lock: asyncio.Lock = get_webapp_rate_limit_lock(request)
     now = time.monotonic()
 
     async with lock:

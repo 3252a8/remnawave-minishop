@@ -2,7 +2,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 
 from aiohttp import web
-from schemas import PromoCreateBody, PromoOut, PromoUpdateBody
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
@@ -19,6 +18,7 @@ from .common import (
     _error,
     _ok,
 )
+from .schemas import PromoCreateBody, PromoOut, PromoUpdateBody
 
 register_contract(
     "admin_promos_list_route",

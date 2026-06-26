@@ -14,7 +14,6 @@ from aiohttp import ClientSession, ClientTimeout, web
 from aiohttp.multipart import BodyPartReader
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import ValidationError
-from schemas import ImageUrlUploadBody, ThemesSaveBody
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
@@ -49,6 +48,7 @@ from .common import (
     _ok,
     _webapp_themes_catalog_payload,
 )
+from .schemas import ImageUrlUploadBody, ThemesSaveBody
 
 logger = logging.getLogger(__name__)
 

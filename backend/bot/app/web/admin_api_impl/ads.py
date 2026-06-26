@@ -1,5 +1,4 @@
 from aiohttp import web
-from schemas import AdCreateBody, AdminAdsListOut, AdOut, AdToggleBody
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
@@ -16,6 +15,7 @@ from .common import (
     _error,
     _ok,
 )
+from .schemas import AdCreateBody, AdminAdsListOut, AdOut, AdToggleBody
 
 register_contract(
     "admin_ads_list_route",

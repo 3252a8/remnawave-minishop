@@ -5,12 +5,13 @@ from typing import Any, Dict, List, Optional, Tuple, cast
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
 from aiohttp import web
-from schemas import AdminSubscriptionOut, AdminUserOut, AdOut, LogOut, PaymentOut
 
 from bot.app.web.response_helpers import json_response
 from config.settings import Settings
 from config.tariffs_config import TariffsConfig
 from db.models import AdCampaign, MessageLog, Payment, PromoCode, Subscription, User
+
+from .schemas import AdminSubscriptionOut, AdminUserOut, AdOut, LogOut, PaymentOut
 
 
 def _ok(payload: Dict[str, Any], **extra: Any) -> web.Response:

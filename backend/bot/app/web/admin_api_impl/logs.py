@@ -1,5 +1,4 @@
 from aiohttp import web
-from schemas import AdminLogsListOut, LogOut
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
@@ -10,6 +9,7 @@ from db.dal import message_log_dal
 
 from .auth import _require_admin_user_id
 from .common import _error, _ok, _serialize_log
+from .schemas import AdminLogsListOut, LogOut
 
 register_contract(
     "admin_logs_route",
