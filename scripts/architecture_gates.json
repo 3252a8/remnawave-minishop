@@ -78,7 +78,8 @@
     ],
     "runtime_modules": {
       "admin_api_impl_runtime": "bot.app.web.admin_api_impl._runtime",
-      "webapp_runtime": "bot.app.web.webapp._runtime"
+      "webapp_runtime": "bot.app.web.webapp._runtime",
+      "subscription_service_impl_runtime": "bot.services.subscription_service_impl._runtime"
     },
     "baseline_path": "scripts/runtime_import_baseline.json",
     "allowlist_paths": []

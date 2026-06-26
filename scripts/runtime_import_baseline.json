@@ -1,5 +1,6 @@
 {
   "admin_api_impl_runtime": [],
+  "subscription_service_impl_runtime": [],
   "webapp_runtime": [
     "backend/bot/app/web/webapp/assets.py",
     "backend/bot/app/web/webapp/assets_branding.py",

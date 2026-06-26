@@ -13,7 +13,7 @@ def _project_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _load_baseline() -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+def _load_baseline() -> tuple[dict[str, list[str]], dict[str, list[str]], dict[str, list[str]]]:
     scripts_dir = _project_root() / "scripts"
     exports_path = scripts_dir / "facade_exports_baseline.json"
     imports_path = scripts_dir / "facade_import_baseline.json"
@@ -140,6 +140,7 @@ def test_facade_imports_growth_is_forbidden() -> None:
 def _collect_runtime_importers() -> dict[str, set[str]]:
     runtime_importers = {
         "admin_api_impl_runtime": set[str](),
+        "subscription_service_impl_runtime": set[str](),
         "webapp_runtime": set[str](),
     }
     backend_root = _project_root() / "backend"
@@ -150,6 +151,9 @@ def _collect_runtime_importers() -> dict[str, set[str]]:
 
         relative = file.relative_to(_project_root()).as_posix()
         is_admin_api_impl = "backend/bot/app/web/admin_api_impl" in file.as_posix()
+        is_subscription_service_impl = (
+            "backend/bot/services/subscription_service_impl/" in file.as_posix()
+        )
         is_webapp_package = "backend/bot/app/web/webapp/" in file.as_posix()
 
         try:
@@ -165,12 +169,16 @@ def _collect_runtime_importers() -> dict[str, set[str]]:
             if node.level and module == "_runtime":
                 if is_admin_api_impl:
                     runtime_importers["admin_api_impl_runtime"].add(relative)
+                if is_subscription_service_impl:
+                    runtime_importers["subscription_service_impl_runtime"].add(relative)
                 if is_webapp_package:
                     runtime_importers["webapp_runtime"].add(relative)
                 continue
 
             if module == "bot.app.web.admin_api_impl._runtime":
                 runtime_importers["admin_api_impl_runtime"].add(relative)
+            elif module == "bot.services.subscription_service_impl._runtime":
+                runtime_importers["subscription_service_impl_runtime"].add(relative)
             elif module == "bot.app.web.webapp._runtime":
                 runtime_importers["webapp_runtime"].add(relative)
 
@@ -238,9 +246,7 @@ def test_monkeypatch_targets_avoid_facade_imports() -> None:
 
     assert not offenders, (
         "tests must patch concrete implementation modules, not compatibility facades: "
-        + "; ".join(
-            f"{file}: {sorted(targets)}" for file, targets in sorted(offenders.items())
-        )
+        + "; ".join(f"{file}: {sorted(targets)}" for file, targets in sorted(offenders.items()))
     )
 
 
