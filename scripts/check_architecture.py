@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import ast
 import fnmatch
 import json
 import re
 from pathlib import Path
-import ast
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "scripts" / "architecture_gates.json"
@@ -126,9 +126,16 @@ def _collect_facade_importers(facade_modules: set[str], file: Path) -> set[str]:
                         imports.add(facade)
         elif isinstance(node, ast.ImportFrom):
             module = node.module or ""
+            aliases = [alias.name for alias in node.names]
             for facade in facade_modules:
                 if module == facade or module.startswith(f"{facade}."):
                     imports.add(facade)
+                    continue
+                for alias in aliases:
+                    imported_path = f"{module}.{alias}"
+                    if imported_path == facade or imported_path.startswith(f"{facade}."):
+                        imports.add(facade)
+                        break
 
     return imports
 

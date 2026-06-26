@@ -18,7 +18,6 @@ from typing import Any
 from aiohttp import web
 from pydantic import BaseModel
 
-from bot.app.web import subscription_webapp
 from bot.app.web.route_contracts import (
     ADMIN_SECURITY,
     RouteContract,
@@ -26,6 +25,7 @@ from bot.app.web.route_contracts import (
     ok_envelope,
     schema_ref,
 )
+from bot.app.web.webapp.routes import setup_subscription_webapp_routes
 from bot.plugins import WEB_SCOPE_WEBAPP, PluginContext, setup_web_plugins
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -37,7 +37,7 @@ _GENERIC_JSON_RESPONSE = ok_envelope({}, [])
 
 def _build_core_webapp() -> web.Application:
     app = web.Application()
-    subscription_webapp.setup_subscription_webapp_routes(app)
+    setup_subscription_webapp_routes(app)
 
     settings = SimpleNamespace(PLUGINS_ENABLED=False, PLUGINS_STRICT=False)
     ctx = PluginContext(settings=settings)
@@ -271,7 +271,7 @@ def generate_openapi() -> dict[str, Any]:
             ),
         },
         "x-generated-from": {
-            "router": "bot.app.web.subscription_webapp.setup_subscription_webapp_routes",
+            "router": "bot.app.web.webapp.routes.setup_subscription_webapp_routes",
             "plugins": "core+builtin only",
         },
         "paths": {path: paths[path] for path in sorted(paths)},
