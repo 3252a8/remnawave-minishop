@@ -28,8 +28,7 @@ class _SubscriptionServiceLike(Protocol):
         user_id: int,
         bonus_days: int,
         reason: str,
-    ) -> Optional[datetime]:
-        ...
+    ) -> Optional[datetime]: ...
 
 
 class ReferralService:

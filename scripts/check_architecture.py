@@ -32,9 +32,7 @@ def _iter_text_files(scope: str, extensions: set[str]):
         return [base] if base.suffix.lower() in extensions else []
 
     return [
-        file
-        for file in base.rglob("*")
-        if file.is_file() and file.suffix.lower() in extensions
+        file for file in base.rglob("*") if file.is_file() and file.suffix.lower() in extensions
     ]
 
 
@@ -103,9 +101,7 @@ def _collect_contract_names(cfg: dict, issues: list[str]) -> set[str]:
                 assigned_keys = {
                     key
                     for key in (
-                        _string_value(key_node)
-                        for key_node in value.keys
-                        if key_node is not None
+                        _string_value(key_node) for key_node in value.keys if key_node is not None
                     )
                     if key is not None
                 }
@@ -300,9 +296,7 @@ def _check_frontend_weak_typing(cfg: dict, issues: list[str]) -> None:
     if not checks:
         return
 
-    pattern = re.compile(
-        r"\b(?:as\s+any|Record<\s*string\s*,\s*any\s*>|\bAnyRecord\b)"
-    )
+    pattern = re.compile(r"\b(?:as\s+any|Record<\s*string\s*,\s*any\s*>|\bAnyRecord\b)")
     extensions = set(checks["extensions"])
     allowlist = list(checks.get("allowlist", []))
 
@@ -434,10 +428,7 @@ def _collect_runtime_importers_with_aliases(
         if node.level and module == "_runtime":
             has_admin_runtime_alias = "admin_api_impl_runtime" in runtime_modules
             has_webapp_runtime_alias = "webapp_runtime" in runtime_modules
-            if (
-                "backend/bot/app/web/admin_api_impl/" in file_path
-                and has_admin_runtime_alias
-            ):
+            if "backend/bot/app/web/admin_api_impl/" in file_path and has_admin_runtime_alias:
                 imported_aliases.add("admin_api_impl_runtime")
             elif "backend/bot/app/web/webapp/" in file_path and has_webapp_runtime_alias:
                 imported_aliases.add("webapp_runtime")
