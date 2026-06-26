@@ -79,6 +79,28 @@ def test_facade_imports_are_explicit_and_frozen() -> None:
         assert sorted(actual_importers[facade_name]) == normalized_expected
 
 
+def test_facade_imports_growth_is_forbidden() -> None:
+    _, expected_importers, _ = _load_baseline()
+    actual_importers = _collect_facade_importers()
+    legacy_importers = {
+        "admin_api": {"backend/bot/app/web/admin_api.py"},
+        "subscription_webapp": {
+            "backend/bot/app/web/subscription_webapp.py",
+            "backend/bot/app/web/web_server.py",
+        },
+        "subscription_service": set(),
+    }
+
+    for facade_name, expected in expected_importers.items():
+        expected_importers_set = set(Path(p).as_posix() for p in expected)
+        allowed_importers = expected_importers_set | legacy_importers[facade_name]
+        assert actual_importers[facade_name].issubset(allowed_importers), (
+            f"compatibility facade imports grew for {facade_name}: "
+            f"{sorted(actual_importers[facade_name] - expected_importers_set)}. "
+            f"Import concrete implementation modules instead."
+        )
+
+
 def _collect_runtime_importers() -> dict[str, set[str]]:
     runtime_importers = {
         "admin_api_impl_runtime": set[str](),
