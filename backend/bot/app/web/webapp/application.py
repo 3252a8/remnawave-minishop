@@ -1,3 +1,6 @@
+from bot.app.web.admin_api_impl.auth import (
+    admin_auth_middleware,
+)
 from bot.app.web.context import (
     EMAIL_AUTH_SERVICE,
     set_bot_username,
@@ -11,7 +14,6 @@ from ._runtime import (
     Dispatcher,
     EmailAuthService,
     Settings,
-    admin_auth_middleware,
     asyncio,
     sessionmaker,
     web,

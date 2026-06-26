@@ -1,5 +1,8 @@
 from typing import Any
 
+from bot.app.web.admin_api_impl.routes import (
+    setup_admin_routes,
+)
 from bot.app.web.route_contracts import (
     BINARY_RESPONSE_SCHEMA,
     JSON_OBJECT_SCHEMA,
@@ -18,7 +21,6 @@ from ._runtime import (
     WEBAPP_FAVICON_PATH,
     WEBAPP_LOGO_PROXY_PATH,
     WEBAPP_UPLOADED_LOGO_PATH,
-    setup_admin_routes,
     web,
 )
 from .account import (
