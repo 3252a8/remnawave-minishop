@@ -1,4 +1,5 @@
 import { adminErrorMessage } from "../errors.js";
+import { buildAdminHealthPath } from "../../webapp/publicApi";
 import { unwrap, type ApiResponse, type GetResponse } from "../../webapp/publicApi";
 
 const HEALTH_QUERY_KEY = ["admin", "health"] as const;
@@ -106,7 +107,7 @@ export function createHealthStore({
   }
 
   async function requestHealth(refresh: boolean): Promise<HealthResponse> {
-    const data = (await api(`/admin/health${refresh ? "?refresh=1" : ""}`)) as
+    const data = (await api(buildAdminHealthPath(refresh))) as
       | HealthResponse
       | AdminErrorResponse;
     if (!isOkResponse(data)) {

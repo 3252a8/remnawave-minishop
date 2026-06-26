@@ -8,6 +8,11 @@ import type {
   SupportTicketReplyResponse,
   SupportTicketsResponse,
 } from "../publicApi";
+import {
+  buildSupportTicketMessagesPath,
+  buildSupportTicketPath,
+  buildSupportTicketReadPath,
+} from "../publicApi";
 import { unwrap } from "../publicApi";
 
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -34,6 +39,7 @@ type CountsRecord = {
   open: number;
   total: number;
 };
+type SupportTicketsListPath = "/support/tickets" | `/support/tickets?${string}`;
 export type SupportState = {
   tickets: TicketRecord[];
   openedTicketId: number | null;
@@ -167,12 +173,12 @@ export function createSupportStore({
   let listPromiseKey = "";
   let unreadPromise: Promise<unknown> | null = null;
 
-  function fetchTicketList(path: string): Promise<SupportTicketsResponse> {
-    return api(path as "/support/tickets") as Promise<SupportTicketsResponse>;
+  function fetchTicketList(path: SupportTicketsListPath): Promise<SupportTicketsResponse> {
+    return api(path) as Promise<SupportTicketsResponse>;
   }
 
   function fetchTicketDetail(id: number): Promise<SupportTicketDetailResponse> {
-    return api(`/support/tickets/${id}` as "/support/tickets/{id}");
+    return api(buildSupportTicketPath(id));
   }
 
   function postCreateTicket(
@@ -188,17 +194,17 @@ export function createSupportStore({
     id: number,
     payload: PostPayload<"/api/support/tickets/{id}/messages">
   ): Promise<SupportTicketReplyResponse> {
-    return api(`/support/tickets/${id}/messages` as "/support/tickets/{id}/messages", {
+    return api(buildSupportTicketMessagesPath(id), {
       method: "POST",
       body: JSON.stringify(payload),
-    });
+    }) as Promise<SupportTicketReplyResponse>;
   }
 
   function postTicketRead(id: number): Promise<SupportTicketReadResponse> {
-    return api(`/support/tickets/${id}/read` as "/support/tickets/{id}/read", {
+    return api(buildSupportTicketReadPath(id), {
       method: "POST",
       body: "{}",
-    });
+    }) as Promise<SupportTicketReadResponse>;
   }
 
   function updateUnreadBackoff(value: unknown, countEmptyPoll = false) {

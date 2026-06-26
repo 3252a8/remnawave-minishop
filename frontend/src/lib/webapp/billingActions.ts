@@ -1,3 +1,4 @@
+import { buildPaymentStatusPath, buildTariffTopupOptionsPath } from "./publicApi";
 import type {
   ApiClient,
   DeviceTopupOptionsResponse,
@@ -51,9 +52,7 @@ export type BillingActions = {
 
 export function createBillingActions({ api }: { api: BillingApi }): BillingActions {
   async function fetchTopupOptions(kind: string): Promise<TariffTopupOptionsResponse> {
-    return api(
-      `/tariffs/topup-options?kind=${encodeURIComponent(kind)}` as "/tariffs/topup-options"
-    );
+    return api(buildTariffTopupOptionsPath(kind));
   }
 
   async function fetchDeviceTopupOptions(): Promise<DeviceTopupOptionsResponse> {
@@ -69,7 +68,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
   }
 
   async function fetchPaymentStatus(paymentId: string | number): Promise<PaymentStatusResponse> {
-    return api(`/payments/${encodeURIComponent(paymentId)}` as "/payments/{payment_id}");
+    return api(buildPaymentStatusPath(paymentId));
   }
 
   async function postTariffChange(

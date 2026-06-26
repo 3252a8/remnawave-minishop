@@ -1,6 +1,11 @@
 import { writable, type Writable } from "svelte/store";
 
-import { createApiClient, type ApiClient, type MeResponse } from "./publicApi";
+import {
+  buildMePath,
+  createApiClient,
+  type ApiClient,
+  type MeResponse,
+} from "./publicApi";
 
 export type WebappData = MeResponse & Record<string, unknown>;
 
@@ -24,7 +29,7 @@ export function createWebappDataClient(
   const data = writable<WebappData | null>(initialData);
 
   async function loadData({ fresh = false }: LoadDataOptions = {}): Promise<WebappData> {
-    const response = await apiClient.api((fresh ? "/me?fresh=1" : "/me") as "/me");
+    const response = await apiClient.api(buildMePath(fresh));
     const payload = response as WebappData;
     if (payload.ok) data.set(payload);
     return payload;
