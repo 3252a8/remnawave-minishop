@@ -87,3 +87,29 @@ def test_live_api_routes_have_response_contracts():
             missing.append(f"{route.method} {path} ({handler_name})")
 
     assert missing == []
+
+
+def test_live_api_routes_are_registered_in_contracts():
+    app = _build_core_webapp()
+    contracts = get_contracts()
+
+    api_handlers = {
+        getattr(route.handler, "__name__", "")
+        for route in app.router.routes()
+        if route.method != "HEAD"
+        and _route_path(route).startswith("/api/")
+    }
+
+    missing_contracts = sorted(
+        handler
+        for handler in api_handlers
+        if handler
+        and contracts.get(handler) is None
+        and handler not in {"", None}
+    )
+    assert missing_contracts == []
+
+    undocumented_contracts = sorted(
+        handler for handler in contracts if handler not in api_handlers
+    )
+    assert undocumented_contracts == []
