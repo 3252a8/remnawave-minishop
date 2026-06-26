@@ -60,6 +60,7 @@
     stripRoutePrefix,
     withRoutePrefix,
   } from "../lib/webapp/routes.js";
+  import { buildAdminPaymentsExportPath } from "../lib/webapp/publicApi";
   import type { AdminSectionDescriptor } from "./sections/registry";
   import type { SettingsSavedPayload } from "../lib/admin/stores/settingsStore";
   import type { TariffsCatalog } from "../lib/admin/stores/tariffsStore";
@@ -484,7 +485,7 @@
 
   function exportPayments(): void {
     if (typeof window === "undefined") return;
-    window.open("/api/admin/payments/export.csv", "_blank", "noopener");
+    window.open(buildAdminPaymentsExportPath(), "_blank", "noopener");
   }
 
   function openPaymentUserCard(userId: unknown): void {

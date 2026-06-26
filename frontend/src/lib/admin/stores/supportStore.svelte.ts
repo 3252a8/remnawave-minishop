@@ -5,6 +5,7 @@ import {
   type GetResponse,
   type PostResponse,
   buildAdminSupportStatsPath,
+  buildAdminSupportPath,
   buildAdminSupportTicketMessagesPath,
   buildAdminSupportTicketPath,
   buildAdminSupportTicketReadPath,
@@ -208,10 +209,7 @@ export function createAdminSupportStore({
   function pushTicketPath(ticketId: number | null) {
     if (typeof window === "undefined" || window.location.protocol === "file:") return;
     if (active !== "support") return;
-    const target = withRoutePrefix(
-      ticketId ? `/admin/support/${ticketId}` : "/admin/support",
-      routePrefix
-    );
+    const target = withRoutePrefix(buildAdminSupportPath(ticketId), routePrefix);
     if (window.location.pathname !== target) {
       window.history.pushState(
         null,

@@ -244,6 +244,13 @@ export function buildAdminSupportTicketReadPath(ticketId: string | number): Admi
   return `/admin/support/tickets/${encodeURIComponent(String(ticketId))}/read` as AdminSupportTicketReadPath;
 }
 
+export type AdminSupportPath = "/admin/support" | "/admin/support/{id}";
+export function buildAdminSupportPath(ticketId?: string | number | null): AdminSupportPath {
+  return ticketId
+    ? (`/admin/support/${encodeURIComponent(String(ticketId))}` as AdminSupportPath)
+    : "/admin/support";
+}
+
 export type AdminBroadcastPath = "/admin/broadcast";
 export function buildAdminBroadcastPath(): AdminBroadcastPath {
   return "/admin/broadcast";
@@ -347,9 +354,21 @@ export function buildAdminPaymentsPath(params?: URLSearchParams): AdminPaymentsP
   return (query ? `/admin/payments?${query}` : "/admin/payments") as AdminPaymentsPath;
 }
 
+export type AdminPaymentUsersPath = "/admin/payments/users" | "/admin/payments/users/{user_id}";
+export function buildAdminPaymentsUserPath(userId?: string | number | null): AdminPaymentUsersPath {
+  return userId
+    ? (`/admin/payments/users/${encodeURIComponent(String(userId))}` as AdminPaymentUsersPath)
+    : "/admin/payments/users";
+}
+
 export type AdminPaymentPath = "/admin/payments/{payment_id}";
 export function buildAdminPaymentPath(paymentId: string | number): AdminPaymentPath {
   return `/admin/payments/${encodeURIComponent(String(paymentId))}` as AdminPaymentPath;
+}
+
+export type AdminPaymentsExportPath = "/api/admin/payments/export.csv";
+export function buildAdminPaymentsExportPath(): AdminPaymentsExportPath {
+  return "/api/admin/payments/export.csv";
 }
 
 export function unwrap<T extends { ok: boolean }>(response: T): Extract<T, { ok: true }> {

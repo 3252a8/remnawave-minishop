@@ -5,6 +5,8 @@ import {
   buildAdminUserActionPath,
   buildAdminUserLogsPath,
   buildAdminUserPath,
+  buildAdminPaymentsPath,
+  buildAdminPaymentsUserPath,
   buildAdminUserReferralsPath,
   buildAdminUsersPath,
   type ApiResponse,
@@ -352,9 +354,9 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
     if (window.location.protocol === "file:") return;
     let target = "";
     if (_activeRef === "users") {
-      target = userId ? `/admin/users/${userId}` : `/admin/users`;
+      target = userId ? buildAdminUserPath(userId) : buildAdminUsersPath();
     } else if (_activeRef === "payments" && _pathContext === "payments") {
-      target = userId ? `/admin/payments/users/${userId}` : `/admin/payments`;
+      target = userId ? buildAdminPaymentsUserPath(userId) : buildAdminPaymentsPath();
     }
     if (!target) return;
     target = withRoutePrefix(target, routePrefix);
