@@ -1,0 +1,51 @@
+{
+  "admin_api": [
+    "backend\\bot\\app\\web\\webapp\\_runtime.py"
+  ],
+  "subscription_service": [
+    "backend\\bot\\app\\factories\\build_services.py",
+    "backend\\bot\\app\\factories\\core_services.py",
+    "backend\\bot\\app\\web\\context.py",
+    "backend\\bot\\app\\web\\webapp\\_runtime.py",
+    "backend\\bot\\handlers\\admin\\common.py",
+    "backend\\bot\\handlers\\admin\\user_management_browser.py",
+    "backend\\bot\\handlers\\admin\\user_management_cards.py",
+    "backend\\bot\\handlers\\admin\\user_management_info.py",
+    "backend\\bot\\handlers\\admin\\user_management_overrides.py",
+    "backend\\bot\\handlers\\admin\\user_management_state.py",
+    "backend\\bot\\handlers\\admin\\user_management_subscription.py",
+    "backend\\bot\\handlers\\user\\promo_user.py",
+    "backend\\bot\\handlers\\user\\start_callbacks.py",
+    "backend\\bot\\handlers\\user\\start_flow.py",
+    "backend\\bot\\handlers\\user\\start_menus.py",
+    "backend\\bot\\handlers\\user\\subscription\\core_autorenew.py",
+    "backend\\bot\\handlers\\user\\subscription\\core_common.py",
+    "backend\\bot\\handlers\\user\\subscription\\core_purchase.py",
+    "backend\\bot\\handlers\\user\\subscription\\core_status.py",
+    "backend\\bot\\handlers\\user\\subscription\\core_topup.py",
+    "backend\\bot\\handlers\\user\\trial_handler.py",
+    "backend\\bot\\payment_providers\\cloudpayments\\service.py",
+    "backend\\bot\\payment_providers\\cryptopay\\service.py",
+    "backend\\bot\\payment_providers\\freekassa\\service.py",
+    "backend\\bot\\payment_providers\\heleket\\service.py",
+    "backend\\bot\\payment_providers\\lava\\service.py",
+    "backend\\bot\\payment_providers\\pally\\service.py",
+    "backend\\bot\\payment_providers\\paykilla\\service.py",
+    "backend\\bot\\payment_providers\\platega\\service.py",
+    "backend\\bot\\payment_providers\\severpay\\service.py",
+    "backend\\bot\\payment_providers\\stars\\service.py",
+    "backend\\bot\\payment_providers\\stripe\\service.py",
+    "backend\\bot\\payment_providers\\wata\\service.py",
+    "backend\\bot\\payment_providers\\yookassa\\service.py",
+    "backend\\bot\\payment_providers\\yookassa\\success.py",
+    "backend\\bot\\payment_providers\\yookassa\\webhook.py",
+    "backend\\bot\\services\\panel_webhook_service.py",
+    "backend\\bot\\services\\subscription_notification_worker.py",
+    "backend\\bot\\services\\tariff_worker_core.py",
+    "backend\\bot\\services\\tariff_worker_premium.py",
+    "backend\\bot\\services\\tariff_worker_regular.py"
+  ],
+  "subscription_webapp": [
+    "backend\\bot\\app\\web\\web_server.py"
+  ]
+}
