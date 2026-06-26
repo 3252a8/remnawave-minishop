@@ -38,10 +38,12 @@
   },
   "raw_json_response": {
     "scopes": [
-      "backend/bot/app/web/admin_api_impl"
+      "backend/bot/app/web/admin_api_impl",
+      "backend/bot/app/web/webapp"
     ],
     "allowlist": [
-      "backend/bot/app/web/admin_api_impl/common.py"
+      "backend/bot/app/web/admin_api_impl/common.py",
+      "backend/bot/app/web/webapp/_runtime.py"
     ]
   },
   "frontend_weak_typing": {
