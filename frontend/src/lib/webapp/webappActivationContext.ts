@@ -48,9 +48,9 @@ export function createWebappActivationContext(deps: ActivationContextDeps) {
   }
 
   const activationHandoff = createActivationHandoff({
-    storageKey: ACTIVATION_HANDOFF_STORAGE_KEY,
     ttlMs: ACTIVATION_HANDOFF_TTL_MS,
-  });
+    storageKey: ACTIVATION_HANDOFF_STORAGE_KEY,
+  } as { storageKey: string; ttlMs: number; now?: () => number });
   let activationWatcher: ReturnType<typeof createActivationWatcher>;
   const activationRuntime = createActivationRuntime({
     activationHandoff,

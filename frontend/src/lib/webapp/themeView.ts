@@ -11,7 +11,16 @@ import {
 } from "./themeStyle.js";
 
 type ThemeData = Record<string, unknown>;
-type ThemeEntry = ThemeData | null;
+type ThemeTokens = ThemeData & {
+  color_scheme?: string;
+  bg?: string;
+};
+type ThemeEntry =
+  | (ThemeData & {
+      use_in_admin?: unknown;
+      tokens?: ThemeTokens | null;
+    })
+  | null;
 
 export interface ThemeView {
   themesCatalog: ThemeData;
@@ -58,7 +67,8 @@ export function computeThemeView({
     screen === "admin" && activeThemeEntry?.use_in_admin === false
       ? darkThemeEntry || activeThemeEntry
       : activeThemeEntry;
-  const colorScheme = effectiveThemeEntry?.tokens?.color_scheme === "light" ? "light" : "dark";
+  const tokens = (effectiveThemeEntry?.tokens as ThemeTokens | undefined) || {};
+  const colorScheme = tokens.color_scheme === "light" ? "light" : "dark";
   return {
     themesCatalog,
     resolvedThemeKey,

@@ -35,6 +35,12 @@ export type AppShellViewInput = {
   t: Translate;
 };
 
+type AppShellConfig = AppShellViewData & {
+  themesCatalog?: Record<string, unknown> | null;
+  primaryColor?: string;
+  language?: string;
+};
+
 export function computeAppShellView({
   authBusy,
   authStatus,
@@ -81,13 +87,13 @@ export function computeAppShellView({
     data,
     user,
     screen,
-    cfgThemesCatalog: cfg.themesCatalog,
-    primaryColor: cfg.primaryColor,
+    cfgThemesCatalog: (cfg as AppShellConfig).themesCatalog,
+    primaryColor: typeof cfg.primaryColor === "string" ? cfg.primaryColor : undefined,
   });
   const isAdmin = Boolean(user?.is_admin);
-  const currentLang = normalizeLangCode(
-    user?.language_code || guestLanguage || cfg.language || "ru"
-  );
+  const cfgLanguage = String((cfg as AppShellConfig).language || "");
+  const userLanguage = String(user?.language_code || "");
+  const currentLang = normalizeLangCode(userLanguage || guestLanguage || cfgLanguage || "ru");
   const languageView = computeLanguageView({
     cfgLanguages: cfg.languages,
     currentLang,

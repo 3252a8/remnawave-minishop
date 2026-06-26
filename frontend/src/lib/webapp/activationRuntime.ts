@@ -1,4 +1,11 @@
 type ActivationPayload = Record<string, unknown>;
+type ActivationContext = {
+  force?: boolean;
+  source?: string;
+  payload?: ActivationPayload;
+  paymentId?: string;
+  initialSubscriptionPayment?: boolean;
+};
 
 type ActivationState = {
   pending?: ActivationPayload | null;
@@ -67,14 +74,14 @@ export function createActivationRuntime({
     return activationHandoff.hasPending(payload || {});
   }
 
-  function rememberActivationPending(context: ActivationPayload = {}) {
+  function rememberActivationPending(context: ActivationContext = {}) {
     activationHandoff.rememberPending(context, getData() || {});
   }
 
-  async function maybeShowActivationSuccessDialog(context: ActivationPayload = {}) {
+  async function maybeShowActivationSuccessDialog(context: ActivationContext = {}) {
     if (getActivationSuccessDialogOpen()) return false;
     await tick();
-    const payload = context.payload || getData();
+    const payload: ActivationPayload = context.payload ?? getData() ?? {};
     const subscriptionKey = activationHandoff.subscriptionKey(payload);
     if (!subscriptionKey) return false;
     const state = activationHandoff.read();
@@ -122,7 +129,7 @@ export function createActivationRuntime({
     syncAppSectionPath("home", replace);
   }
 
-  async function handleSubscriptionActivated(context: ActivationPayload = {}) {
+  async function handleSubscriptionActivated(context: ActivationContext = {}) {
     await tick();
     if (!getSubscription()?.active) return;
     await maybeShowActivationSuccessDialog({ ...context, force: true, source: "payment" });

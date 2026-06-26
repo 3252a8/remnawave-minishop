@@ -5,17 +5,22 @@ import {
 } from "./billingSelectionSync.js";
 
 type ThemeEffectRecord = Record<string, unknown>;
+type ThemeTokens = Record<string, unknown> & {
+  color_scheme?: string;
+  bg?: string;
+};
 type EmailAvatarSync = {
   sync(email: unknown, onAvatarUrl: (url: string) => void): void;
 };
 
 export function applyThemeDocumentEffects(
-  effectiveThemeEntry: ThemeEffectRecord | null | undefined,
+  effectiveThemeEntry: ThemeEffectRecord | null | undefined
 ) {
   if (typeof document === "undefined" || !effectiveThemeEntry?.tokens) return;
-  const scheme = effectiveThemeEntry.tokens.color_scheme || "dark";
+  const tokens = effectiveThemeEntry.tokens as ThemeTokens;
+  const scheme = tokens?.color_scheme || "dark";
   document.documentElement.style.colorScheme = scheme;
-  const bg = effectiveThemeEntry.tokens.bg;
+  const bg = String(tokens?.bg || "");
   if (bg) document.body.style.backgroundColor = bg;
 }
 
