@@ -26,8 +26,10 @@ from pydantic import BaseModel, ConfigDict, EmailStr, ValidationError, constr, f
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-from bot.app.web.admin_api import (
+from bot.app.web.admin_api_impl.auth import (
     admin_auth_middleware,
+)
+from bot.app.web.admin_api_impl.routes import (
     setup_admin_routes,
 )
 from bot.app.web.webapp_auth import (

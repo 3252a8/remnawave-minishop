@@ -1,7 +1,5 @@
 {
-  "admin_api": [
-    "backend\\bot\\app\\web\\webapp\\_runtime.py"
-  ],
+  "admin_api": [],
   "subscription_service": [
     "backend\\bot\\app\\factories\\build_services.py",
     "backend\\bot\\app\\factories\\core_services.py",

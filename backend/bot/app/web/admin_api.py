@@ -1,9 +1,6 @@
 """Compatibility re-export facade for the admin Mini App API."""
 
 from bot.app.web.admin_api_impl import (
-    _runtime as _runtime,  # noqa: F401
-)
-from bot.app.web.admin_api_impl import (
     ads as _ads,  # noqa: F401
 )
 from bot.app.web.admin_api_impl import (
