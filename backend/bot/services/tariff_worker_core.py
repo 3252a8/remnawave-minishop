@@ -11,6 +11,7 @@ from sqlalchemy.orm import sessionmaker
 
 from bot.infra.redis import redis_lock
 from bot.middlewares.i18n import JsonI18n
+from bot.services.message_audit import log_user_message_delivery
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service import SubscriptionService
 from bot.services.user_email_notifications import send_user_notification_email
@@ -68,6 +69,9 @@ class _TrialPremiumTariff:
 
 
 class TariffWorkerCoreMixin:
+    REGULAR_RESET_NOTICE_LEVEL = -100
+    PREMIUM_RESET_NOTICE_LEVEL = -200
+
     if TYPE_CHECKING:
 
         def _fmt_bytes(self, value: int) -> str: ...
@@ -116,8 +120,94 @@ class TariffWorkerCoreMixin:
         return {
             "used": hd.quote(self._fmt_bytes(used_b)),
             "remaining": hd.quote(self._fmt_bytes(remaining_b)),
+            "available": hd.quote(self._fmt_bytes(remaining_b)),
             "limit_total": hd.quote(self._fmt_bytes(lim_b)),
         }
+
+    def _traffic_notice_channels_available(self) -> bool:
+        return bool(self.bot) or bool(getattr(self.settings, "email_auth_configured", False))
+
+    def _first_traffic_warning_threshold_ratio(self) -> float:
+        levels = [100]
+        for raw_level in getattr(self.settings, "tariff_traffic_warning_levels", [85, 90, 95]):
+            try:
+                level = int(raw_level)
+            except (TypeError, ValueError):
+                continue
+            if level >= 0:
+                levels.append(level)
+        return min(levels) / 100
+
+    def _traffic_reset_notice_is_reassuring(self, used_bytes: int, limit_bytes: int) -> bool:
+        limit = int(limit_bytes or 0)
+        if limit <= 0:
+            return False
+        ratio = max(0, int(used_bytes or 0)) / limit
+        return ratio < self._first_traffic_warning_threshold_ratio()
+
+    async def _send_traffic_reset_notice(
+        self,
+        session: AsyncSession,
+        *,
+        sub: Subscription,
+        subject_key: str,
+        message_text: str,
+        kind: str,
+        warning_key: str,
+        audit_content: str,
+    ) -> None:
+        user_id = int(getattr(sub, "user_id", 0) or 0)
+        if user_id <= 0:
+            return
+        if not self._traffic_notice_channels_available():
+            return
+
+        if self.bot:
+            try:
+                await self.bot.send_message(
+                    user_id,
+                    message_text,
+                    parse_mode="HTML",
+                )
+                await log_user_message_delivery(
+                    session,
+                    target_user_id=user_id,
+                    event_type="telegram_traffic_reset_notice_sent",
+                    channel="telegram",
+                    recipient=str(user_id),
+                    content=audit_content,
+                )
+            except Exception:
+                logging.exception(
+                    "Failed to send %s traffic reset notice to user %s",
+                    kind,
+                    user_id,
+                )
+
+        if not getattr(self.settings, "email_auth_configured", False):
+            return
+        try:
+            user = await user_dal.get_user_by_id(session, user_id)
+        except Exception:
+            logging.exception(
+                "TariffTrafficWorker: failed to load user %s for reset email",
+                user_id,
+            )
+            return
+        if not user:
+            return
+        dashboard_url = str(getattr(self.settings, "SUBSCRIPTION_MINI_APP_URL", "") or "").strip()
+        await send_user_notification_email(
+            settings=self.settings,
+            i18n=self.i18n,
+            user=user,
+            subject_key=subject_key,
+            message_text=message_text,
+            dashboard_url=dashboard_url or None,
+            session=session,
+            audit_event_type="email_traffic_reset_notice_sent",
+            audit_content=f"{audit_content} subject_key={subject_key} warning_key={warning_key}",
+        )
 
     def _traffic_topup_markup(self, user_lang: str, kind: str) -> Optional[InlineKeyboardMarkup]:
         if not self.bot:

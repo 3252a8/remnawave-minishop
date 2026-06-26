@@ -33,6 +33,37 @@ def _tariffs_config_payload() -> dict:
     }
 
 
+class _FormatI18n:
+    def gettext(self, _lang, key, **kwargs):
+        templates = {
+            "traffic_reset_regular_notification": "regular reset {available} {used} {limit_total}",
+            "traffic_reset_premium_notification": (
+                "premium reset {available} {used} {limit_total}\n{servers}"
+            ),
+            "traffic_warning_premium_generic_servers": "premium servers",
+            "traffic_warning_premium_servers_more": "and {count} more",
+        }
+        return templates.get(key, key).format(**kwargs)
+
+
+class _PeriodTariff:
+    billing_model = "period"
+    monthly_bytes = 100
+
+    def name(self, _lang, fallback="ru"):
+        return "Standard"
+
+
+class _PremiumTariff:
+    key = "standard"
+    squad_uuids = ["squad-1"]
+    premium_squad_uuids = ["premium-squad"]
+    premium_monthly_bytes = 25 * (1024**3)
+
+    def name(self, _lang, fallback="ru"):
+        return "Standard"
+
+
 class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
     def test_topup_webapp_button_labels_do_not_mention_mini_app(self):
         class I18n:
@@ -58,6 +89,176 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(regular.web_app.url, "https://app.example.com?topup=regular")
         self.assertEqual(premium.text, "Top up premium traffic")
         self.assertEqual(premium.web_app.url, "https://app.example.com?topup=premium")
+
+    async def test_regular_reset_notice_sent_after_previous_period_warning(self):
+        bot = AsyncMock()
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(
+                DEFAULT_LANGUAGE="en",
+                SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
+                email_auth_configured=False,
+                tariff_traffic_warning_levels=[85],
+            ),
+            session_factory=SimpleNamespace(),
+            panel_service=SimpleNamespace(),
+            subscription_service=SimpleNamespace(),
+            bot=bot,
+            i18n=_FormatI18n(),
+        )
+        worker._user_lang = AsyncMock(return_value="en")
+        session = AsyncMock()
+        current_period = datetime(2026, 6, 1, tzinfo=timezone.utc)
+        sub = SimpleNamespace(subscription_id=10, user_id=123, traffic_used_bytes=1)
+
+        with (
+            patch(
+                "bot.services.tariff_worker_regular.tariff_dal.has_warning_level_between",
+                new=AsyncMock(side_effect=[True, False]),
+            ),
+            patch(
+                "bot.services.tariff_worker_regular.tariff_dal.get_warning",
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.services.tariff_worker_regular.tariff_dal.create_warning",
+                new=AsyncMock(),
+            ) as create_warning,
+            patch(
+                "bot.services.tariff_worker_core.log_user_message_delivery",
+                new=AsyncMock(),
+            ),
+        ):
+            await worker._maybe_send_regular_reset_notice(
+                session,
+                sub,
+                _PeriodTariff(),
+                used=1,
+                limit=100,
+                period_start_at=current_period,
+            )
+
+        create_warning.assert_awaited_once()
+        self.assertEqual(
+            create_warning.await_args.kwargs["level"],
+            worker.REGULAR_RESET_NOTICE_LEVEL,
+        )
+        bot.send_message.assert_awaited_once()
+        sent_text = bot.send_message.await_args.args[1]
+        self.assertIn("regular reset", sent_text)
+        self.assertIn("99 B", sent_text)
+
+    async def test_regular_reset_notice_skips_when_current_period_already_near_limit(self):
+        bot = AsyncMock()
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(
+                DEFAULT_LANGUAGE="en",
+                email_auth_configured=False,
+                tariff_traffic_warning_levels=[85],
+            ),
+            session_factory=SimpleNamespace(),
+            panel_service=SimpleNamespace(),
+            subscription_service=SimpleNamespace(),
+            bot=bot,
+            i18n=_FormatI18n(),
+        )
+        session = AsyncMock()
+
+        with patch(
+            "bot.services.tariff_worker_regular.tariff_dal.has_warning_level_between",
+            new=AsyncMock(),
+        ) as has_warning:
+            await worker._maybe_send_regular_reset_notice(
+                session,
+                SimpleNamespace(subscription_id=10, user_id=123),
+                _PeriodTariff(),
+                used=85,
+                limit=100,
+                period_start_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            )
+
+        has_warning.assert_not_awaited()
+        bot.send_message.assert_not_awaited()
+
+    async def test_premium_reset_notice_waits_for_restored_panel_access(self):
+        settings = SimpleNamespace(
+            DEFAULT_LANGUAGE="en",
+            SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
+            email_auth_configured=False,
+            tariff_traffic_warning_levels=[85],
+        )
+        panel_service = AsyncMock(spec=PanelApiService)
+        panel_service.get_internal_squad_accessible_nodes = AsyncMock(
+            return_value=[{"uuid": "node-1", "name": "Premium A"}]
+        )
+        panel_service.get_node_users_bandwidth_stats = AsyncMock(
+            return_value={"topUsers": [{"username": "tg_123", "total": 1 * (1024**3)}]}
+        )
+        panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+        subscription_service = SubscriptionService(settings, panel_service)
+        subscription_service.premium_access_for_tariff = AsyncMock(
+            return_value={"node_labels": ["Premium A"], "squad_labels": []}
+        )
+        bot = AsyncMock()
+        worker = TariffTrafficWorker(
+            settings=settings,
+            session_factory=SimpleNamespace(),
+            panel_service=panel_service,
+            subscription_service=subscription_service,
+            bot=bot,
+            i18n=_FormatI18n(),
+        )
+        worker._user_lang = AsyncMock(return_value="en")
+        sub = SimpleNamespace(
+            subscription_id=11,
+            user_id=123,
+            panel_user_uuid="panel-uuid",
+            premium_baseline_bytes=25 * (1024**3),
+            premium_topup_balance_bytes=0,
+            premium_topup_used_bytes=0,
+            premium_used_bytes=25 * (1024**3),
+            premium_is_limited=True,
+            premium_period_start_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+            premium_unlimited_override=False,
+            premium_bonus_bytes=0,
+        )
+
+        with (
+            patch(
+                "bot.services.tariff_worker_premium.tariff_dal.has_warning_level_between",
+                new=AsyncMock(side_effect=[True, False]),
+            ),
+            patch(
+                "bot.services.tariff_worker_premium.tariff_dal.get_warning",
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.services.tariff_worker_premium.tariff_dal.create_warning",
+                new=AsyncMock(),
+            ) as create_warning,
+            patch(
+                "bot.services.tariff_worker_core.log_user_message_delivery",
+                new=AsyncMock(),
+            ),
+        ):
+            await worker._sync_premium_squad_limit(
+                AsyncMock(),
+                sub,
+                _PremiumTariff(),
+                datetime(2026, 6, 2, tzinfo=timezone.utc),
+                panel_username="tg_123",
+                panel_user_dict={"activeInternalSquads": [{"uuid": "squad-1"}]},
+            )
+
+        panel_service.update_user_details_on_panel.assert_awaited_once()
+        create_warning.assert_awaited_once()
+        self.assertEqual(
+            create_warning.await_args.kwargs["level"],
+            worker.PREMIUM_RESET_NOTICE_LEVEL,
+        )
+        bot.send_message.assert_awaited_once()
+        sent_text = bot.send_message.await_args.args[1]
+        self.assertIn("premium reset", sent_text)
+        self.assertIn("Premium A", sent_text)
 
     async def test_db_tick_retries_deadlock_once(self):
         class FakeSession:

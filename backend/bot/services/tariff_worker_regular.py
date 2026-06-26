@@ -13,7 +13,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.services.message_audit import log_user_message_delivery
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service import SubscriptionService
-from bot.utils.date_utils import month_start
+from bot.utils.date_utils import add_months, month_start
 from config.settings import Settings
 from db.dal import tariff_dal, user_dal
 from db.models import Subscription
@@ -53,6 +53,7 @@ class TariffWorkerRegularMixin:
     ]
 
     if TYPE_CHECKING:
+        REGULAR_RESET_NOTICE_LEVEL: int
 
         def _is_trial_subscription(self, sub: Subscription) -> bool: ...
         def _trial_premium_tariff(self) -> Optional[Any]: ...
@@ -77,6 +78,21 @@ class TariffWorkerRegularMixin:
             session: AsyncSession,
             *,
             user_id: int,
+            subject_key: str,
+            message_text: str,
+            kind: str,
+            warning_key: str,
+            audit_content: str,
+        ) -> None: ...
+        def _traffic_notice_channels_available(self) -> bool: ...
+        def _traffic_reset_notice_is_reassuring(
+            self, used_bytes: int, limit_bytes: int
+        ) -> bool: ...
+        async def _send_traffic_reset_notice(
+            self,
+            session: AsyncSession,
+            *,
+            sub: Subscription,
             subject_key: str,
             message_text: str,
             kind: str,
@@ -187,6 +203,14 @@ class TariffWorkerRegularMixin:
 
                 if not trial_premium_subscription and tariff.billing_model == "period":
                     await self._ensure_period_reset_strategy(sub, tariff, limit, panel_strategy)
+                    await self._maybe_send_regular_reset_notice(
+                        session,
+                        sub,
+                        tariff,
+                        used,
+                        limit,
+                        warning_period_start,
+                    )
                 if not trial_premium_subscription:
                     await self._sync_hwid_device_limit(session, sub, tariff, panel_data)
                     await self._maybe_warn_or_throttle(
@@ -408,6 +432,89 @@ class TariffWorkerRegularMixin:
                 sub.subscription_id,
                 updated_panel,
             )
+
+    async def _maybe_send_regular_reset_notice(
+        self,
+        session: AsyncSession,
+        sub: Subscription,
+        tariff: _RegularTariff,
+        used: Optional[int],
+        limit: Optional[int],
+        period_start_at: datetime,
+    ) -> None:
+        if not self._traffic_notice_channels_available():
+            return
+        if bool(getattr(sub, "regular_unlimited_override", False)):
+            return
+        used_val = int(used if used is not None else (getattr(sub, "traffic_used_bytes", 0) or 0))
+        limit_val = int(
+            limit if limit is not None else (getattr(sub, "traffic_limit_bytes", 0) or 0)
+        )
+        if not self._traffic_reset_notice_is_reassuring(used_val, limit_val):
+            return
+
+        previous_period_start = add_months(period_start_at, -1)
+        was_warned_previous_period = await tariff_dal.has_warning_level_between(
+            session,
+            subscription_id=sub.subscription_id,
+            period_start_at=previous_period_start,
+            min_level=0,
+            max_level=100,
+        )
+        if not was_warned_previous_period:
+            return
+        warned_current_period = await tariff_dal.has_warning_level_between(
+            session,
+            subscription_id=sub.subscription_id,
+            period_start_at=period_start_at,
+            min_level=0,
+            max_level=100,
+        )
+        if warned_current_period:
+            return
+        reset_notice = await tariff_dal.get_warning(
+            session,
+            subscription_id=sub.subscription_id,
+            period_start_at=period_start_at,
+            level=self.REGULAR_RESET_NOTICE_LEVEL,
+        )
+        if reset_notice:
+            return
+        await tariff_dal.create_warning(
+            session,
+            subscription_id=sub.subscription_id,
+            period_start_at=period_start_at,
+            level=self.REGULAR_RESET_NOTICE_LEVEL,
+            traffic_limit_bytes=None,
+        )
+
+        user_lang = await self._user_lang(session, sub.user_id)
+        _ = (
+            (lambda k, **kw: self.i18n.gettext(user_lang, k, **kw))
+            if self.i18n
+            else (lambda k, **kw: k)
+        )
+        usage = self._usage_placeholders(used_val, limit_val)
+        tariff_name = hd.quote(str(tariff.name(user_lang)))
+        text = _(
+            "traffic_reset_regular_notification",
+            tariff_name=tariff_name,
+            **usage,
+        )
+        warning_key = "traffic_reset_regular"
+        audit_content = (
+            f"kind=regular warning_key={warning_key} used_bytes={used_val} "
+            f"limit_bytes={limit_val} period_start={period_start_at.isoformat()}"
+        )
+        await self._send_traffic_reset_notice(
+            session,
+            sub=sub,
+            subject_key="email_traffic_reset_regular_subject",
+            message_text=text,
+            kind="regular",
+            warning_key=warning_key,
+            audit_content=audit_content,
+        )
 
     async def _maybe_warn_or_throttle(
         self,

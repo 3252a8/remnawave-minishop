@@ -288,6 +288,30 @@ async def get_warning(
     return result.scalar_one_or_none()
 
 
+async def has_warning_level_between(
+    session: AsyncSession,
+    *,
+    subscription_id: int,
+    period_start_at: Optional[datetime],
+    min_level: int,
+    max_level: int,
+) -> bool:
+    conditions = [
+        TrafficWarning.subscription_id == subscription_id,
+        TrafficWarning.level >= min_level,
+        TrafficWarning.level <= max_level,
+    ]
+    if period_start_at is None:
+        conditions.append(TrafficWarning.period_start_at.is_(None))
+    else:
+        conditions.append(TrafficWarning.period_start_at == period_start_at)
+    result = await session.execute(
+        select(TrafficWarning.warning_id).where(and_(*conditions)).limit(1)
+    )
+    warning_id = await _resolve_result_value(result.scalar_one_or_none())
+    return warning_id is not None
+
+
 async def create_warning(
     session: AsyncSession,
     *,

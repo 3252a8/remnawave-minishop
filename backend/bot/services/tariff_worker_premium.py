@@ -12,7 +12,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.services.message_audit import log_user_message_delivery
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service import SubscriptionService
-from bot.utils.date_utils import month_start
+from bot.utils.date_utils import add_months, month_start
 from config.settings import Settings
 from db.dal import tariff_dal
 from db.models import Subscription
@@ -55,6 +55,7 @@ class TariffWorkerPremiumMixin:
     _premium_squad_match_cache: dict[tuple[str, tuple[str, ...]], float]
 
     if TYPE_CHECKING:
+        PREMIUM_RESET_NOTICE_LEVEL: int
 
         async def _user_lang(self, session: AsyncSession, user_id: int) -> str: ...
         def _usage_placeholders(self, used_bytes: int, limit_bytes: int) -> dict: ...
@@ -66,6 +67,21 @@ class TariffWorkerPremiumMixin:
             session: AsyncSession,
             *,
             user_id: int,
+            subject_key: str,
+            message_text: str,
+            kind: str,
+            warning_key: str,
+            audit_content: str,
+        ) -> None: ...
+        def _traffic_notice_channels_available(self) -> bool: ...
+        def _traffic_reset_notice_is_reassuring(
+            self, used_bytes: int, limit_bytes: int
+        ) -> bool: ...
+        async def _send_traffic_reset_notice(
+            self,
+            session: AsyncSession,
+            *,
+            sub: Subscription,
             subject_key: str,
             message_text: str,
             kind: str,
@@ -104,8 +120,9 @@ class TariffWorkerPremiumMixin:
 
         premium_period_start = month_start(now)
         is_trial_premium_tariff = bool(getattr(tariff, "key", "") == "trial")
+        previous_premium_period_start = getattr(sub, "premium_period_start_at", None)
         same_period = self._same_premium_period(
-            getattr(sub, "premium_period_start_at", None),
+            previous_premium_period_start,
             premium_period_start,
         )
         premium_baseline = int(tariff.premium_monthly_bytes or 0)
@@ -233,6 +250,16 @@ class TariffWorkerPremiumMixin:
                 premium_period_start,
             )
         if not panel_needs_update:
+            if not premium_unlimited_override and not is_trial_premium_tariff:
+                await self._maybe_send_premium_reset_notice(
+                    session,
+                    sub,
+                    tariff,
+                    used=int(premium_used),
+                    limit=int(premium_limit),
+                    period_start_at=premium_period_start,
+                    previous_period_start=previous_premium_period_start,
+                )
             return
 
         squads = desired_squads
@@ -249,8 +276,18 @@ class TariffWorkerPremiumMixin:
             {"uuid": sub.panel_user_uuid, "activeInternalSquads": squads},
             log_response=False,
         )
-        if updated_panel_user:
+        if updated_panel_user and not updated_panel_user.get("error"):
             self._remember_premium_squad_match(squad_match_cache_key)
+            if not premium_unlimited_override and not is_trial_premium_tariff:
+                await self._maybe_send_premium_reset_notice(
+                    session,
+                    sub,
+                    tariff,
+                    used=int(premium_used),
+                    limit=int(premium_limit),
+                    period_start_at=premium_period_start,
+                    previous_period_start=previous_premium_period_start,
+                )
         logging.info(
             "Premium squad access %s for user %s tariff %s: %s/%s bytes",
             "limited" if should_limit else "restored",
@@ -259,6 +296,100 @@ class TariffWorkerPremiumMixin:
             premium_used,
             premium_limit,
         )
+
+    async def _maybe_send_premium_reset_notice(
+        self,
+        session: AsyncSession,
+        sub: Subscription,
+        tariff: _PremiumTariff,
+        *,
+        used: int,
+        limit: int,
+        period_start_at: datetime,
+        previous_period_start: Optional[datetime],
+    ) -> None:
+        if not self._traffic_notice_channels_available():
+            return
+        if not self._traffic_reset_notice_is_reassuring(used, limit):
+            return
+
+        expected_previous_period = add_months(period_start_at, -1)
+        if not self._same_premium_period(previous_period_start, expected_previous_period):
+            return
+        was_warned_previous_period = await tariff_dal.has_warning_level_between(
+            session,
+            subscription_id=sub.subscription_id,
+            period_start_at=expected_previous_period,
+            min_level=PREMIUM_WARNING_LEVEL_OFFSET,
+            max_level=PREMIUM_WARNING_DEPLETED_LEVEL,
+        )
+        if not was_warned_previous_period:
+            return
+        warned_current_period = await tariff_dal.has_warning_level_between(
+            session,
+            subscription_id=sub.subscription_id,
+            period_start_at=period_start_at,
+            min_level=PREMIUM_WARNING_LEVEL_OFFSET,
+            max_level=PREMIUM_WARNING_DEPLETED_LEVEL,
+        )
+        if warned_current_period:
+            return
+        reset_notice = await tariff_dal.get_warning(
+            session,
+            subscription_id=sub.subscription_id,
+            period_start_at=period_start_at,
+            level=self.PREMIUM_RESET_NOTICE_LEVEL,
+        )
+        if reset_notice:
+            return
+        await tariff_dal.create_warning(
+            session,
+            subscription_id=sub.subscription_id,
+            period_start_at=period_start_at,
+            level=self.PREMIUM_RESET_NOTICE_LEVEL,
+            traffic_limit_bytes=None,
+        )
+
+        user_lang = await self._user_lang(session, sub.user_id)
+        _ = (
+            (lambda k, **kw: self.i18n.gettext(user_lang, k, **kw))
+            if self.i18n
+            else (lambda k, **kw: k)
+        )
+        servers = await self._premium_servers_text(tariff, _)
+        usage = self._usage_placeholders(used, limit)
+        text = _(
+            "traffic_reset_premium_notification",
+            tariff_name=hd.quote(str(tariff.name(user_lang))),
+            servers=servers,
+            **usage,
+        )
+        warning_key = "traffic_reset_premium"
+        audit_content = (
+            f"kind=premium warning_key={warning_key} used_bytes={int(used)} "
+            f"limit_bytes={int(limit)} period_start={period_start_at.isoformat()}"
+        )
+        await self._send_traffic_reset_notice(
+            session,
+            sub=sub,
+            subject_key="email_traffic_reset_premium_subject",
+            message_text=text,
+            kind="premium",
+            warning_key=warning_key,
+            audit_content=audit_content,
+        )
+
+    async def _premium_servers_text(self, tariff: _PremiumTariff, translate: Any) -> str:
+        access = await self.subscription_service.premium_access_for_tariff(tariff)
+        labels = access.get("node_labels") or access.get("squad_labels") or []
+        if not labels:
+            return translate("traffic_warning_premium_generic_servers")
+        visible = [hd.quote(str(x)) for x in labels[:8]]
+        servers = "\n".join(f"• {label}" for label in visible)
+        if len(labels) > len(visible):
+            more = len(labels) - len(visible)
+            servers += "\n" + translate("traffic_warning_premium_servers_more", count=more)
+        return servers
 
     async def _get_full_panel_user_for_squad_confirmation(
         self,
