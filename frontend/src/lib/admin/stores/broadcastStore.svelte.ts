@@ -1,5 +1,11 @@
 import { adminErrorMessage } from "../errors.js";
-import { unwrap, type ApiResponse, type PostPayload } from "../../webapp/publicApi";
+import {
+  buildAdminBroadcastAudienceCountsPath,
+  buildAdminBroadcastPath,
+  unwrap,
+  type ApiResponse,
+  type PostPayload,
+} from "../../webapp/publicApi";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
 type AdminApi = <Path extends string>(
@@ -134,7 +140,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
 
     countsPromise = (async () => {
       try {
-        const res = await api("/admin/broadcast/audience-counts");
+        const res = await api(buildAdminBroadcastAudienceCountsPath());
         if (res?.ok) {
           const counts = asBroadcastCounts(unwrap(res).counts);
           if (!counts) return;
@@ -164,7 +170,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
 
     try {
       const body = { target, text } satisfies PostPayload<"/api/admin/broadcast">;
-      const res = await api("/admin/broadcast", {
+      const res = await api(buildAdminBroadcastPath(), {
         method: "POST",
         body: JSON.stringify(body),
       });

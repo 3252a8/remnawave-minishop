@@ -1,5 +1,10 @@
 import { adminErrorMessage } from "../errors.js";
-import { unwrap, type ApiResponse, type GetResponse } from "../../webapp/publicApi";
+import {
+  buildAdminLogsPath,
+  unwrap,
+  type ApiResponse,
+  type GetResponse,
+} from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
 
 const LOGS_QUERY_KEY = ["admin", "logs"] as const;
@@ -79,12 +84,15 @@ export function createLogsStore({
     return [LOGS_QUERY_KEY[0], LOGS_QUERY_KEY[1], { page, filter }];
   }
 
-  function logsPath(page: number, filter: string): string {
-    let q = `/admin/logs?page=${page}&page_size=${LOGS_PAGE_SIZE}`;
+  function logsPath(page: number, filter: string): ReturnType<typeof buildAdminLogsPath> {
+    const params = new URLSearchParams({
+      page: String(page),
+      page_size: String(LOGS_PAGE_SIZE),
+    });
     if (filter) {
-      q += `&user_id=${encodeURIComponent(filter)}`;
+      params.set("user_id", filter);
     }
-    return q;
+    return buildAdminLogsPath(params);
   }
 
   async function requestLogs(page: number, filter: string): Promise<LogsResponse> {

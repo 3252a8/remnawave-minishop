@@ -1,5 +1,11 @@
 import { withRoutePrefix } from "../../webapp/routes.js";
-import { unwrap, type ApiResponse, type GetResponse } from "../../webapp/publicApi";
+import {
+  buildAdminPaymentPath,
+  buildAdminPaymentsPath,
+  unwrap,
+  type ApiResponse,
+  type GetResponse,
+} from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
 import { adminErrorMessage } from "../errors.js";
 
@@ -82,7 +88,7 @@ export function createPaymentsStore({
     if (typeof window === "undefined" || window.location.protocol === "file:") return;
     if (active !== "payments") return;
     const target = withRoutePrefix(
-      paymentId ? `/admin/payments/${paymentId}` : "/admin/payments",
+      paymentId ? buildAdminPaymentPath(paymentId) : buildAdminPaymentsPath(),
       routePrefix
     );
     if (window.location.pathname === target) return;
@@ -95,7 +101,12 @@ export function createPaymentsStore({
 
     try {
       const data = (await api(
-        `/admin/payments?page=${currentPage}&page_size=${PAYMENTS_PAGE_SIZE}`
+        buildAdminPaymentsPath(
+          new URLSearchParams({
+            page: String(currentPage),
+            page_size: String(PAYMENTS_PAGE_SIZE),
+          })
+        )
       )) as PaymentsListResponse | AdminErrorResponse;
       if (isOkResponse(data)) {
         const result = unwrap(data);
@@ -131,7 +142,7 @@ export function createPaymentsStore({
     if (!opts.skipPush) pushPaymentPath(paymentId);
 
     try {
-      const path = `/admin/payments/${paymentId}` as "/api/admin/payments/{payment_id}";
+      const path = buildAdminPaymentPath(paymentId);
       const res = (await api(path)) as PaymentDetailResponse | AdminErrorResponse;
       if (isOkResponse(res)) {
         const result = unwrap(res);

@@ -244,6 +244,22 @@ export function buildAdminSupportTicketReadPath(ticketId: string | number): Admi
   return `/admin/support/tickets/${encodeURIComponent(String(ticketId))}/read` as AdminSupportTicketReadPath;
 }
 
+export type AdminBroadcastPath = "/admin/broadcast";
+export function buildAdminBroadcastPath(): AdminBroadcastPath {
+  return "/admin/broadcast";
+}
+
+export type AdminBroadcastAudienceCountsPath = "/admin/broadcast/audience-counts";
+export function buildAdminBroadcastAudienceCountsPath(): AdminBroadcastAudienceCountsPath {
+  return "/admin/broadcast/audience-counts";
+}
+
+export type AdminLogsPath = "/admin/logs" | `/admin/logs?${string}`;
+export function buildAdminLogsPath(params?: URLSearchParams): AdminLogsPath {
+  const query = params?.toString();
+  return (query ? `/admin/logs?${query}` : "/admin/logs") as AdminLogsPath;
+}
+
 export type AdminStatsPath = "/admin/stats";
 export function buildAdminStatsPath(): AdminStatsPath {
   return "/admin/stats";
@@ -323,6 +339,17 @@ export function buildAdminAdTogglePath(campaignId: string | number): AdminAdTogg
 export type AdminSupportStatsPath = "/admin/support/stats";
 export function buildAdminSupportStatsPath(): AdminSupportStatsPath {
   return "/admin/support/stats";
+}
+
+export type AdminPaymentsPath = "/admin/payments" | `/admin/payments?${string}`;
+export function buildAdminPaymentsPath(params?: URLSearchParams): AdminPaymentsPath {
+  const query = params?.toString();
+  return (query ? `/admin/payments?${query}` : "/admin/payments") as AdminPaymentsPath;
+}
+
+export type AdminPaymentPath = "/admin/payments/{payment_id}";
+export function buildAdminPaymentPath(paymentId: string | number): AdminPaymentPath {
+  return `/admin/payments/${encodeURIComponent(String(paymentId))}` as AdminPaymentPath;
 }
 
 export function unwrap<T extends { ok: boolean }>(response: T): Extract<T, { ok: true }> {
