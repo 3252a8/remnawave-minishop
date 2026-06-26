@@ -16,7 +16,6 @@ import subprocess
 import time
 from collections import deque
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
@@ -26,6 +25,24 @@ from pydantic import BaseModel, ConfigDict, EmailStr, ValidationError, constr, f
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
+from .asset_paths import (
+    APP_DEEPLINK_TEMPLATE_PATH,
+    APP_ROOT,
+    ASSET_DIR,
+    TEMPLATE_PATH,
+    WEBAPP_DEFAULT_BRAND_DIR,
+    WEBAPP_DEFAULT_FAVICON_DIGEST,
+    WEBAPP_DEFAULT_FAVICON_DIR,
+    WEBAPP_DEFAULT_FAVICON_URL,
+    WEBAPP_DEFAULT_LOGO_FILE,
+    WEBAPP_DEFAULT_LOGO_PATH,
+    WEBAPP_FAVICON_DIR,
+    WEBAPP_FAVICON_PATH,
+    WEBAPP_LOGO_CACHE_DIR,
+    WEBAPP_LOGO_PROXY_PATH,
+    WEBAPP_UPLOADED_LOGO_DIR,
+    WEBAPP_UPLOADED_LOGO_PATH,
+)
 from .response_helpers import json_response
 from bot.app.web.webapp_auth import (
     create_signed_telegram_oauth_state,
@@ -64,22 +81,6 @@ from db.models import Payment, User, UserTelegramAvatar
 logger = logging.getLogger(__name__)
 
 
-TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "templates" / "subscription_webapp.html"
-ASSET_DIR = TEMPLATE_PATH.parent
-APP_DEEPLINK_TEMPLATE_PATH = ASSET_DIR / "open_app_gateway.html"
-APP_ROOT = Path(__file__).resolve().parents[5]
-WEBAPP_LOGO_PROXY_PATH = "/webapp-logo"
-WEBAPP_LOGO_CACHE_DIR = APP_ROOT / "data" / "webapp-logo"
-WEBAPP_UPLOADED_LOGO_DIR = WEBAPP_LOGO_CACHE_DIR / "uploads"
-WEBAPP_UPLOADED_LOGO_PATH = "/webapp-uploaded-logo"
-WEBAPP_FAVICON_DIR = WEBAPP_LOGO_CACHE_DIR / "favicons"
-WEBAPP_FAVICON_PATH = "/webapp-favicon"
-WEBAPP_DEFAULT_BRAND_DIR = ASSET_DIR / "default-brand"
-WEBAPP_DEFAULT_LOGO_FILE = WEBAPP_DEFAULT_BRAND_DIR / "default-logo.webp"
-WEBAPP_DEFAULT_LOGO_PATH = "/webapp-default-logo.webp"
-WEBAPP_DEFAULT_FAVICON_DIGEST = "19b2a242e5b7bc2d"
-WEBAPP_DEFAULT_FAVICON_DIR = WEBAPP_DEFAULT_BRAND_DIR / "favicons" / WEBAPP_DEFAULT_FAVICON_DIGEST
-WEBAPP_DEFAULT_FAVICON_URL = f"{WEBAPP_FAVICON_PATH}/{WEBAPP_DEFAULT_FAVICON_DIGEST}/icon-180.png"
 WEBAPP_CONFIG_PLACEHOLDER = "<!-- WEBAPP_CONFIG_SCRIPT -->"
 WEBAPP_I18N_PLACEHOLDER = "<!-- WEBAPP_I18N_SCRIPT -->"
 WEBAPP_JS_PLACEHOLDER = "<!-- WEBAPP_JS_SCRIPT -->"

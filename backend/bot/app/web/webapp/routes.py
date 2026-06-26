@@ -4,12 +4,6 @@ from bot.app.web.admin_api_impl.routes import (
     setup_admin_routes,
 )
 
-from ._runtime import (
-    WEBAPP_DEFAULT_LOGO_PATH,
-    WEBAPP_FAVICON_PATH,
-    WEBAPP_LOGO_PROXY_PATH,
-    WEBAPP_UPLOADED_LOGO_PATH,
-)
 from .account import (
     account_avatar_route,
     account_email_request_route,
@@ -19,6 +13,12 @@ from .account import (
     account_password_request_route,
     account_telegram_link_route,
     me_route,
+)
+from .asset_paths import (
+    WEBAPP_DEFAULT_LOGO_PATH,
+    WEBAPP_FAVICON_PATH,
+    WEBAPP_LOGO_PROXY_PATH,
+    WEBAPP_UPLOADED_LOGO_PATH,
 )
 from .assets import (
     admin_css_asset_route,

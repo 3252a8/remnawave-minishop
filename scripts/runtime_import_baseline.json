@@ -8,7 +8,6 @@
     "backend/bot/app/web/webapp/assets_theme.py",
     "backend/bot/app/web/webapp/auth_common.py",
     "backend/bot/app/web/webapp/billing_options.py",
-    "backend/bot/app/web/webapp/common.py",
-    "backend/bot/app/web/webapp/routes.py"
+    "backend/bot/app/web/webapp/common.py"
   ]
 }

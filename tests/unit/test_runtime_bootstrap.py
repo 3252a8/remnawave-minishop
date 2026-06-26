@@ -1,5 +1,38 @@
+import main_worker
+
 from bot.app.factories import runtime as runtime_factory
 from bot.app.factories.runtime import RuntimeBootstrap, build_core_runtime
+from bot.plugins import (
+    Plugin,
+    WorkerTaskSpec,
+    collect_migrations,
+    collect_queue_handlers,
+    collect_worker_tasks,
+    register,
+    reset_plugins,
+)
+from config.settings import Settings
+from db.migrator import Migration, validate_migration_chains
+
+
+def make_settings(**overrides) -> Settings:
+    values = {
+        "_env_file": None,
+        "BOT_TOKEN": "x",
+        "POSTGRES_USER": "u",
+        "POSTGRES_PASSWORD": "p",
+        "ADMIN_IDS": "1",
+    }
+    values.update(overrides)
+    return Settings(**values)
+
+
+async def _noop() -> None:
+    return None
+
+
+def teardown_function() -> None:
+    reset_plugins()
 
 
 def test_build_core_runtime_uses_shared_bootstrap_for_plugin_context(monkeypatch) -> None:
@@ -49,3 +82,65 @@ def test_build_core_runtime_uses_shared_bootstrap_for_plugin_context(monkeypatch
     assert core_runtime.plugin_context.bot is bot
     assert core_runtime.plugin_context.i18n is i18n
     assert core_runtime.services == {"panel_service": service}
+
+
+def test_worker_plugin_hooks_use_shared_runtime_context(monkeypatch) -> None:
+    settings = make_settings()
+    session_factory = object()
+    bot = object()
+    i18n = object()
+    panel_service = object()
+
+    class FakeCoreServices:
+        def as_dict(self) -> dict[str, object]:
+            return {"panel_service": panel_service}
+
+    monkeypatch.setattr(
+        runtime_factory,
+        "build_core_services",
+        lambda *_args, **_kwargs: FakeCoreServices(),
+    )
+
+    class WorkerCompositionPlugin(Plugin):
+        name = "worker_composition"
+
+        def worker_tasks(self, ctx):
+            assert ctx.require_session_factory() is session_factory
+            assert ctx.require_panel_service() is panel_service
+            return [WorkerTaskSpec(name="PluginWorker", factory=lambda _ctx: _noop())]
+
+        def queue_handlers(self, ctx):
+            assert ctx.require_bot() is bot
+
+            async def _handler(_ctx, _payload):
+                return None
+
+            return {"worker_composition": _handler}
+
+        def migrations(self):
+            return [
+                Migration(
+                    id="worker_composition.0001_initial",
+                    description="test",
+                    upgrade=lambda _connection: None,
+                )
+            ]
+
+    register(WorkerCompositionPlugin())
+    runtime = RuntimeBootstrap(
+        settings=settings,
+        session_factory=session_factory,
+        bot=bot,
+        i18n=i18n,
+    )
+    ctx = build_core_runtime(runtime, bot_username="workerbot").plugin_context
+
+    handlers = main_worker._core_queue_handlers()
+    handlers.update(collect_queue_handlers(ctx, reserved=set(handlers)))
+    task_specs = [*main_worker._core_worker_tasks(), *collect_worker_tasks(ctx)]
+    migration_chains = collect_migrations(settings)
+    validate_migration_chains(migration_chains)
+
+    assert "worker_composition" in handlers
+    assert "PluginWorker" in {spec.name for spec in task_specs}
+    assert migration_chains["worker_composition"][0].id == "worker_composition.0001_initial"
