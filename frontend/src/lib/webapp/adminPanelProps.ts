@@ -5,8 +5,6 @@ import {
   adminUserIdFromPath,
 } from "./routes.js";
 
-type AnyRecord = Record<string, unknown>;
-
 export type AdminPanelPropsInput = {
   adminActiveSection: string;
   api: unknown;
@@ -59,7 +57,7 @@ export function buildAdminPanelProps({
   routePrefix,
   screen,
   t,
-}: AdminPanelPropsInput): AnyRecord {
+}: AdminPanelPropsInput): Record<string, unknown> {
   return {
     api,
     onClose,

@@ -4,12 +4,14 @@ import {
   type BillingSelectionState,
 } from "./billingSelectionSync.js";
 
-type AnyRecord = Record<string, any>;
+type ThemeEffectRecord = Record<string, unknown>;
 type EmailAvatarSync = {
   sync(email: unknown, onAvatarUrl: (url: string) => void): void;
 };
 
-export function applyThemeDocumentEffects(effectiveThemeEntry: AnyRecord | null | undefined) {
+export function applyThemeDocumentEffects(
+  effectiveThemeEntry: ThemeEffectRecord | null | undefined,
+) {
   if (typeof document === "undefined" || !effectiveThemeEntry?.tokens) return;
   const scheme = effectiveThemeEntry.tokens.color_scheme || "dark";
   document.documentElement.style.colorScheme = scheme;

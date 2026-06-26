@@ -43,5 +43,15 @@
     "allowlist": [
       "backend/bot/app/web/admin_api_impl/common.py"
     ]
+  },
+  "frontend_weak_typing": {
+    "scopes": [
+      "frontend/src"
+    ],
+    "extensions": [
+      ".ts",
+      ".js"
+    ],
+    "allowlist": []
   }
 }

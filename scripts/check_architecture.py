@@ -85,6 +85,31 @@ def _check_raw_json_response(cfg: dict, issues: list[str]) -> None:
                 issues.append(f"[raw-json-response] {rel}: uses web.json_response directly")
 
 
+def _check_frontend_weak_typing(cfg: dict, issues: list[str]) -> None:
+    checks = cfg.get("frontend_weak_typing")
+    if not checks:
+        return
+
+    pattern = re.compile(
+        r"\b(?:as\s+any|Record<\s*string\s*,\s*any\s*>|\bAnyRecord\b)"
+    )
+    extensions = set(checks["extensions"])
+    allowlist = list(checks.get("allowlist", []))
+
+    for scope in checks["scopes"]:
+        for file in _iter_text_files(scope, extensions):
+            rel = _to_posix(file)
+            if _is_allowed(rel, allowlist):
+                continue
+
+            content = file.read_text(encoding="utf-8", errors="ignore")
+            if pattern.search(content):
+                issues.append(
+                    f"[frontend-weak-typing] {rel}: uses forbidden weak typing patterns (as any / "
+                    "Record<string, any> / AnyRecord)"
+                )
+
+
 def main() -> int:
     config = _load_config()
     issues: list[str] = []
@@ -92,6 +117,7 @@ def main() -> int:
     _check_module_size(config, issues)
     _check_type_ignores(config, issues)
     _check_raw_json_response(config, issues)
+    _check_frontend_weak_typing(config, issues)
 
     if issues:
         print("Architecture checks failed:")

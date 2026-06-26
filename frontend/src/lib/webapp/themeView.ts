@@ -10,11 +10,11 @@ import {
   themeRootClass,
 } from "./themeStyle.js";
 
-type AnyRecord = Record<string, any>;
-type ThemeEntry = AnyRecord | null;
+type ThemeData = Record<string, unknown>;
+type ThemeEntry = ThemeData | null;
 
 export interface ThemeView {
-  themesCatalog: AnyRecord;
+  themesCatalog: ThemeData;
   resolvedThemeKey: string;
   effectiveThemeEntry: ThemeEntry;
   shellStyle: string;
@@ -25,12 +25,12 @@ export interface ThemeView {
 }
 
 export interface ThemeViewInput {
-  themePreviewDraft: AnyRecord | null;
+  themePreviewDraft: ThemeData | null;
   themePreviewKey: string | null;
-  data: AnyRecord | null;
-  user: AnyRecord;
+  data: ThemeData | null;
+  user: ThemeData;
   screen: string;
-  cfgThemesCatalog: AnyRecord | null | undefined;
+  cfgThemesCatalog: ThemeData | null | undefined;
   primaryColor: string | undefined;
 }
 

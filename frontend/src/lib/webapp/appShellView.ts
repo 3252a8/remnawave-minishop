@@ -5,22 +5,22 @@ import { computeLanguageView } from "./languageView.js";
 import { computeTelegramLoginView } from "./telegramLoginView.js";
 import { computeThemeView } from "./themeView.js";
 
-type AnyRecord = Record<string, any>;
 type Translate = (key: string) => string;
+type AppShellViewData = Record<string, unknown>;
 
 export type AppShellViewInput = {
   authBusy: boolean;
   authStatus: string;
-  cfg: AnyRecord;
-  data: AnyRecord | null;
+  cfg: AppShellViewData;
+  data: AppShellViewData | null;
   emailAvatarUrl: string;
   fallbackBrandTitle: string;
   guestLanguage: string;
   hasTelegramLaunchParams: () => boolean;
-  i18nMessages: AnyRecord;
+  i18nMessages: AppShellViewData;
   isDemoAuthMock: () => boolean;
   languageName: (language: string) => string;
-  mockData: AnyRecord;
+  mockData: AppShellViewData;
   mockEnabled: boolean;
   normalizeLangCode: (language: string) => string;
   readTelegramMiniAppInitDataFromLocation: () => string;
@@ -29,7 +29,7 @@ export type AppShellViewInput = {
   telegramLoginBusy: boolean;
   telegramSdkStatus: string;
   tg: { initData?: string } | null;
-  themePreviewDraft: AnyRecord | null;
+  themePreviewDraft: AppShellViewData | null;
   themePreviewKey: string;
   topupUnlockPercent: number;
   t: Translate;
@@ -67,7 +67,7 @@ export function computeAppShellView({
     fallbackBrandTitle,
     mockData,
   });
-  const user = (data?.user || {}) as AnyRecord;
+  const user = (data?.user || {}) as Record<string, unknown>;
   const billingView = computeBillingView({
     appSettings: appDataView.appSettings,
     plans: appDataView.plans,

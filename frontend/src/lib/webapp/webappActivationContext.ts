@@ -9,6 +9,7 @@ const ACTIVATION_HANDOFF_STORAGE_KEY = "rw_webapp_activation_handoff_v1";
 const ACTIVATION_HANDOFF_TTL_MS = 48 * 60 * 60 * 1000;
 
 type WatcherDeps = Parameters<typeof createActivationWatcher>[0];
+type ShellDataRecord = Record<string, unknown>;
 
 type ActivationContextDeps = {
   billing: WatcherDeps["billing"];
@@ -33,9 +34,9 @@ type ActivationContextDeps = {
  * and updated through the shared shell state store.
  */
 export function createWebappActivationContext(deps: ActivationContextDeps) {
-  function getShellData(): Record<string, any> | null {
+  function getShellData(): ShellDataRecord | null {
     return shellState.data && typeof shellState.data === "object"
-      ? (shellState.data as Record<string, any>)
+      ? (shellState.data as ShellDataRecord)
       : null;
   }
 
@@ -49,7 +50,7 @@ export function createWebappActivationContext(deps: ActivationContextDeps) {
   const activationHandoff = createActivationHandoff({
     storageKey: ACTIVATION_HANDOFF_STORAGE_KEY,
     ttlMs: ACTIVATION_HANDOFF_TTL_MS,
-  } as any) as any;
+  });
   let activationWatcher: ReturnType<typeof createActivationWatcher>;
   const activationRuntime = createActivationRuntime({
     activationHandoff,

@@ -1,24 +1,24 @@
-type AnyRecord = Record<string, any>;
+type ActivationPayload = Record<string, unknown>;
 
 type ActivationState = {
-  pending?: AnyRecord | null;
-  acknowledged?: AnyRecord | null;
+  pending?: ActivationPayload | null;
+  acknowledged?: ActivationPayload | null;
 };
 
 type ActivationHandoff = {
   acknowledge(
     subscriptionKey: string,
-    context?: AnyRecord,
-    payload?: AnyRecord,
+    context?: ActivationPayload,
+    payload?: ActivationPayload,
     state?: ActivationState
   ): void;
-  hasPending(payload?: AnyRecord): boolean;
+  hasPending(payload?: ActivationPayload): boolean;
   isAcknowledged(subscriptionKey: string, state?: ActivationState): boolean;
-  isPendingFresh(pending?: AnyRecord | null): boolean;
-  pendingMatchesUser(pending?: AnyRecord | null, payload?: AnyRecord): boolean;
+  isPendingFresh(pending?: ActivationPayload | null): boolean;
+  pendingMatchesUser(pending?: ActivationPayload | null, payload?: ActivationPayload): boolean;
   read(): ActivationState;
-  rememberPending(context?: AnyRecord, payload?: AnyRecord): void;
-  subscriptionKey(payload?: AnyRecord): string;
+  rememberPending(context?: ActivationPayload, payload?: ActivationPayload): void;
+  subscriptionKey(payload?: ActivationPayload): string;
   write(state: ActivationState): void;
 };
 
@@ -27,8 +27,8 @@ type ActivationRuntimeDeps = {
   closePaymentModal: () => void;
   getActivationSuccessDialogOpen: () => boolean;
   getActivationSuccessUseInstallGuides: () => boolean;
-  getData: () => AnyRecord | null;
-  getSubscription: () => AnyRecord | null;
+  getData: () => ActivationPayload | null;
+  getSubscription: () => ActivationPayload | null;
   canUseInstallGuides: () => boolean;
   loadInstallGuides: (force?: boolean) => unknown;
   openActivationConnectLink: () => unknown;
@@ -63,15 +63,15 @@ export function createActivationRuntime({
   syncAppSectionPath,
   tick,
 }: ActivationRuntimeDeps) {
-  function hasPendingActivationHandoff(payload: AnyRecord | null = getData()) {
+  function hasPendingActivationHandoff(payload: ActivationPayload | null = getData()) {
     return activationHandoff.hasPending(payload || {});
   }
 
-  function rememberActivationPending(context: AnyRecord = {}) {
+  function rememberActivationPending(context: ActivationPayload = {}) {
     activationHandoff.rememberPending(context, getData() || {});
   }
 
-  async function maybeShowActivationSuccessDialog(context: AnyRecord = {}) {
+  async function maybeShowActivationSuccessDialog(context: ActivationPayload = {}) {
     if (getActivationSuccessDialogOpen()) return false;
     await tick();
     const payload = context.payload || getData();
@@ -122,7 +122,7 @@ export function createActivationRuntime({
     syncAppSectionPath("home", replace);
   }
 
-  async function handleSubscriptionActivated(context: AnyRecord = {}) {
+  async function handleSubscriptionActivated(context: ActivationPayload = {}) {
     await tick();
     if (!getSubscription()?.active) return;
     await maybeShowActivationSuccessDialog({ ...context, force: true, source: "payment" });
