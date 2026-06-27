@@ -333,7 +333,8 @@ class PanelApiUsersMixin:
             return []
 
         logging.error(
-            f"Failed to fetch panel users with filter ({filter_used_log}). Last API response: {response_data if not log_response else '(logged above)'}"  # noqa: E501
+            "Failed to fetch panel users with filter (%s); panel response redacted.",
+            filter_used_log,
         )
         return None
 
