@@ -52,9 +52,16 @@ export function buildExternalAppLaunchUrl(value, locationRef = null, language = 
 }
 
 export function openUrlWithHiddenAnchor(url) {
+  const target = String(url || "").trim();
+  // Guard the navigation sink itself: reject javascript:/data:/vbscript: and
+  // control characters inline so the scheme check is a barrier for this href /
+  // location.assign sink even if a caller forgets to pre-validate.
+  if (!target || hasControlChars(target) || /^(?:javascript|data|vbscript):/i.test(target)) {
+    return;
+  }
   try {
     const anchor = document.createElement("a");
-    anchor.href = url;
+    anchor.href = target;
     anchor.target = "_self";
     anchor.rel = "noreferrer";
     anchor.style.display = "none";
@@ -62,6 +69,6 @@ export function openUrlWithHiddenAnchor(url) {
     anchor.click();
     anchor.remove();
   } catch {
-    window.location.assign(url);
+    window.location.assign(target);
   }
 }
