@@ -297,7 +297,7 @@ class PanelApiUsersMixin:
                 return []
 
         elif username is not None:
-            filter_used_log = f"username={username}"
+            filter_used_log = "username (redacted)"
             endpoint = f"/users/by-username/{username}"
             response_data = await self._request("GET", endpoint, log_full_response=log_response)
 
@@ -313,7 +313,7 @@ class PanelApiUsersMixin:
                 return []
 
         elif email is not None:
-            filter_used_log = f"email={email}"
+            filter_used_log = "email (redacted)"
             endpoint = f"/users/by-email/{email}"
             response_data = await self._request("GET", endpoint, log_full_response=log_response)
 

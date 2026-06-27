@@ -147,7 +147,9 @@ class PanelApiResourcesMixin:
         response_data = await self._request("GET", endpoint, log_full_response=False)
         if response_data and not response_data.get("error") and "response" in response_data:
             return _json_dict_list(response_data.get("response"))
-        logging.error(f"Failed to get user devices for user {user_uuid}. Response: {response_data}")
+        logging.error(
+            "Failed to get user devices for user %s (panel response redacted).", user_uuid
+        )
         return None
 
     async def disconnect_device(self, user_uuid: str, hwid: str) -> bool:
@@ -158,7 +160,8 @@ class PanelApiResourcesMixin:
             await self._invalidate_devices_cache(user_uuid)
             return True
         logging.error(
-            f"Failed to disconnect device {hwid} for user {user_uuid}. Payload: {payload}, Response: {response_data}"  # noqa: E501
+            "Failed to disconnect device for user %s (device id and panel response redacted).",
+            user_uuid,
         )
         return False
 
