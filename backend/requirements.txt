@@ -15,4 +15,4 @@ asyncpg==0.31.0
 aiocryptopay==0.4.8
 PyJWT[crypto]==2.13.0
 Pillow==12.2.0
-redis==6.4.0
+redis==7.4.1
