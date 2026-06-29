@@ -5,8 +5,10 @@
   type NumericInput = number | string | undefined;
   type RangeInputProps = Omit<
     HTMLInputAttributes,
+    | "id"
     | "type"
     | "value"
+    | "name"
     | "min"
     | "max"
     | "step"
@@ -17,7 +19,9 @@
     | "onValueCommit"
     | "class"
   > & {
+    id?: string;
     value?: number | string;
+    name?: string;
     min?: NumericInput;
     max?: NumericInput;
     step?: NumericInput;
@@ -29,7 +33,9 @@
   };
 
   let {
+    id = "",
     value = $bindable(0),
+    name = undefined,
     min = undefined,
     max = undefined,
     step = undefined,
@@ -41,6 +47,8 @@
     ...rest
   }: RangeInputProps = $props();
 
+  const fallbackId = `ui-range-input-${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
+  const inputId = $derived(id || fallbackId);
   const sliderMin = $derived(min === undefined ? undefined : Number(min));
   const sliderMax = $derived(max === undefined ? undefined : Number(max));
   const sliderStep = $derived(step === undefined ? undefined : Number(step));
@@ -90,8 +98,10 @@
 </script>
 
 <input
+  id={inputId}
   class={cn("ui-range-input", className)}
   type="range"
+  {name}
   value={sliderValue}
   min={sliderMin}
   max={sliderMax}

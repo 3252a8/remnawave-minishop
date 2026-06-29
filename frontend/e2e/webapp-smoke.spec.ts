@@ -75,6 +75,36 @@ function activeAdminSection(page: Page, id: string): Locator {
   return page.locator(`.admin-section-stage[data-admin-active-section="${id}"]:not([inert])`);
 }
 
+async function assertFormFieldsNamed(page: Page, phase: string): Promise<void> {
+  const violations = await page
+    .locator('input:not([type="hidden"]), textarea, select')
+    .evaluateAll((elements) =>
+      elements
+        .filter((element) => {
+          const field = element as HTMLElement;
+          const style = window.getComputedStyle(field);
+          const rect = field.getBoundingClientRect();
+          return (
+            !field.closest("[inert]") &&
+            style.display !== "none" &&
+            style.visibility !== "hidden" &&
+            rect.width > 0 &&
+            rect.height > 0
+          );
+        })
+        .filter((element) => {
+          const field = element as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+          return !field.id && !field.name;
+        })
+        .map((element) => {
+          const field = element as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+          const label = field.getAttribute("aria-label") || field.getAttribute("placeholder") || "";
+          return `${field.tagName.toLowerCase()}${field.type ? `[type=${field.type}]` : ""}${label ? ` "${label}"` : ""}`;
+        })
+    );
+  expect(violations, `${phase}: visible form fields must have id or name`).toEqual([]);
+}
+
 async function openAdminSection(page: Page, id: string): Promise<Locator> {
   const button = adminSectionButton(page, id);
   await expect(button, `admin section button: ${id}`).toBeVisible();
@@ -82,6 +112,7 @@ async function openAdminSection(page: Page, id: string): Promise<Locator> {
   await expect(page).toHaveURL(new RegExp(`/demo/runtime/admin/${escapeRegExp(id)}(?:$|[/?#])`));
   const stage = activeAdminSection(page, id);
   await expect(stage, `active admin section: ${id}`).toBeVisible();
+  await assertFormFieldsNamed(page, `admin-section:${id}`);
   return stage;
 }
 
@@ -125,6 +156,7 @@ async function exerciseDialogTabs(
       })
       .toBe(true);
     await expect(card.locator(".admin-tabs-content:visible").first()).toBeVisible();
+    await assertFormFieldsNamed(card.page(), `${phasePrefix}:tab:${index + 1}`);
   }
 }
 
@@ -136,6 +168,7 @@ async function openUserDetailFromCurrentSection(
   const userDialog = page.locator(".dialog-card.admin-user-dialog");
   setPhase(`${phasePrefix}:user-card`);
   await expect(userDialog).toBeVisible();
+  await assertFormFieldsNamed(page, `${phasePrefix}:user-card`);
   await exerciseDialogTabs(userDialog, 4, setPhase, `${phasePrefix}:user-tabs`);
 
   setPhase(`${phasePrefix}:user-avatar`);
@@ -146,6 +179,7 @@ async function openUserDetailFromCurrentSection(
   ) {
     const avatarDialog = page.locator(".dialog-card.admin-avatar-dialog");
     await expect(avatarDialog).toBeVisible();
+    await assertFormFieldsNamed(page, `${phasePrefix}:user-avatar`);
     await closeDialog(avatarDialog);
   }
 
@@ -155,6 +189,7 @@ async function openUserDetailFromCurrentSection(
   ) {
     const referralsDialog = page.locator(".dialog-card.admin-user-referrals-dialog");
     await expect(referralsDialog).toBeVisible();
+    await assertFormFieldsNamed(page, `${phasePrefix}:user-referrals`);
     await closeDialog(referralsDialog);
   }
 
@@ -162,24 +197,28 @@ async function openUserDetailFromCurrentSection(
   await actionsTab.click();
   const actionsPanel = userDialog.locator(".admin-actions-tab");
   await expect(actionsPanel).toBeVisible();
+  await assertFormFieldsNamed(page, `${phasePrefix}:user-actions`);
 
   setPhase(`${phasePrefix}:message-confirm`);
   await actionsPanel.locator("textarea").fill("E2E smoke message");
   await actionsPanel.locator('[data-admin-action="request-user-message"]').click();
   const messageDialog = page.locator(".dialog-card.admin-user-message-confirm-dialog");
   await expect(messageDialog).toBeVisible();
+  await assertFormFieldsNamed(page, `${phasePrefix}:message-confirm`);
   await closeDialog(messageDialog);
 
   setPhase(`${phasePrefix}:ban-confirm`);
   await actionsPanel.locator('[data-admin-action="request-user-ban-toggle"]').click();
   const banDialog = page.locator(".dialog-card.admin-user-ban-confirm-dialog");
   await expect(banDialog).toBeVisible();
+  await assertFormFieldsNamed(page, `${phasePrefix}:ban-confirm`);
   await closeDialog(banDialog);
 
   setPhase(`${phasePrefix}:delete-confirm`);
   await actionsPanel.locator('[data-admin-action="request-user-delete"]').click();
   const deleteDialog = page.locator(".dialog-card.admin-user-delete-dialog");
   await expect(deleteDialog).toBeVisible();
+  await assertFormFieldsNamed(page, `${phasePrefix}:delete-confirm`);
   await closeDialog(deleteDialog);
 
   await closeDialog(userDialog);
@@ -218,6 +257,7 @@ async function exerciseWebappDialogs(
   expect(paymentOpened).toBe(true);
   const paymentDialog = page.locator(".dialog-card.webapp-payment-dialog");
   await expect(paymentDialog).toBeVisible();
+  await assertFormFieldsNamed(page, "webapp-payment-modal");
   const tariffRows = paymentDialog.locator(".tariff-row");
   if ((await tariffRows.count()) > 0) {
     await tariffRows.first().click();
@@ -225,6 +265,7 @@ async function exerciseWebappDialogs(
     if (!(await nextButton.isDisabled())) {
       await nextButton.click();
       await expect(paymentDialog.locator(".period-card").first()).toBeVisible();
+      await assertFormFieldsNamed(page, "webapp-payment-modal:checkout");
     }
   } else {
     await expect(paymentDialog.locator(".payment-dialog-body")).toBeVisible();
@@ -235,6 +276,7 @@ async function exerciseWebappDialogs(
   if (await clickFirstVisibleEnabled(webappAction(page, "open-tariff-change"))) {
     const changeDialog = page.locator(".dialog-card.webapp-tariff-change-dialog");
     await expect(changeDialog).toBeVisible();
+    await assertFormFieldsNamed(page, "webapp-tariff-change-modal");
     const targetRows = changeDialog.locator(".tariff-action-card");
     if ((await targetRows.count()) > 0) {
       await targetRows.first().click();
@@ -244,6 +286,7 @@ async function exerciseWebappDialogs(
       await changeSubmit.click();
       const confirmDialog = page.locator(".dialog-card.webapp-tariff-change-confirm-dialog");
       await expect(confirmDialog).toBeVisible();
+      await assertFormFieldsNamed(page, "webapp-tariff-change-confirm-modal");
       await closeDialog(confirmDialog);
     }
     if (await changeDialog.isVisible()) {
@@ -256,6 +299,7 @@ async function exerciseWebappDialogs(
     const topupDialog = page.locator(".dialog-card.webapp-topup-dialog");
     await expect(topupDialog).toBeVisible();
     await expect(topupDialog.locator(".payment-dialog-body")).toBeVisible();
+    await assertFormFieldsNamed(page, "webapp-regular-topup-modal");
     await closeDialog(topupDialog);
   }
 
@@ -264,6 +308,7 @@ async function exerciseWebappDialogs(
     const topupDialog = page.locator(".dialog-card.webapp-topup-dialog");
     await expect(topupDialog).toBeVisible();
     await expect(topupDialog.locator(".payment-dialog-body")).toBeVisible();
+    await assertFormFieldsNamed(page, "webapp-premium-topup-modal");
     await closeDialog(topupDialog);
   }
 
@@ -273,11 +318,13 @@ async function exerciseWebappDialogs(
     const deviceTopupDialog = page.locator(".dialog-card.webapp-device-topup-dialog");
     await expect(deviceTopupDialog).toBeVisible();
     await expect(deviceTopupDialog.locator(".payment-dialog-body")).toBeVisible();
+    await assertFormFieldsNamed(page, "webapp-device-topup-modal");
     await closeDialog(deviceTopupDialog);
   }
   if (await clickFirstVisibleEnabled(webappAction(page, "open-device-disconnect"))) {
     const deviceDisconnectDialog = page.locator(".dialog-card.webapp-device-disconnect-dialog");
     await expect(deviceDisconnectDialog).toBeVisible();
+    await assertFormFieldsNamed(page, "webapp-device-disconnect-modal");
     await closeDialog(deviceDisconnectDialog);
   }
 
@@ -286,22 +333,26 @@ async function exerciseWebappDialogs(
   if (await clickFirstVisibleEnabled(webappAction(page, "open-set-password"))) {
     const setPasswordDialog = page.locator(".dialog-card.webapp-set-password-dialog");
     await expect(setPasswordDialog).toBeVisible();
+    await assertFormFieldsNamed(page, "webapp-set-password-modal");
     const inputs = setPasswordDialog.locator('input[type="password"]');
     await inputs.nth(0).fill("DemoPassword42");
     await inputs.nth(1).fill("DemoPassword42");
     await setPasswordDialog.locator(".payment-submit-button").click();
     const codeDialog = page.locator(".webapp-set-password-code-dialog");
     await expect(codeDialog).toBeVisible();
+    await assertFormFieldsNamed(page, "webapp-set-password-code-modal");
     await codeDialog.locator("header button").click();
     await expect(codeDialog).toBeHidden();
   }
   if (await clickFirstVisibleEnabled(webappAction(page, "open-link-email"))) {
     const linkEmailDialog = page.locator(".dialog-card.webapp-link-email-dialog");
     await expect(linkEmailDialog).toBeVisible();
+    await assertFormFieldsNamed(page, "webapp-link-email-modal");
     await linkEmailDialog.locator('input[type="email"]').fill("demo-e2e@example.test");
     await linkEmailDialog.locator(".payment-submit-button").click();
     const codeDialog = page.locator(".webapp-link-email-code-dialog");
     await expect(codeDialog).toBeVisible();
+    await assertFormFieldsNamed(page, "webapp-link-email-code-modal");
     await codeDialog.locator("header button").click();
     await expect(codeDialog).toBeHidden();
   }
@@ -330,6 +381,7 @@ async function exerciseActivationSuccessHandoff(
   await page.goto(APP_URL);
   const activationDialog = page.locator(".dialog-card.webapp-activation-success-dialog");
   await expect(activationDialog).toBeVisible();
+  await assertFormFieldsNamed(page, "webapp-activation-success-dialog");
   await closeDialog(activationDialog);
   await expect(page.locator(".dialog-card:visible")).toHaveCount(0);
 }
@@ -349,6 +401,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const nav = page.locator("nav.bottom-nav");
   await expect(nav).toBeVisible();
   await expect(page.getByRole("button", { name: "Сменить тариф" })).toBeVisible();
+  await assertFormFieldsNamed(page, "boot");
 
   setPhase("bottom-nav");
   for (const tab of NAV_TABS) {
@@ -356,6 +409,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
     await button.click();
     await expect(page).toHaveURL(new RegExp(escapeRegExp(tab.urlPart)));
     await expect(button).toHaveClass(/active/);
+    await assertFormFieldsNamed(page, `bottom-nav:${tab.urlPart}`);
   }
 
   await exerciseWebappDialogs(page, nav, setPhase);
@@ -383,6 +437,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   await page.locator(".admin-users-filter-toggle").click();
   const usersFilterDialog = page.locator(".dialog-card.admin-users-filter-dialog");
   await expect(usersFilterDialog).toBeVisible();
+  await assertFormFieldsNamed(page, "admin-users:filter-dialog");
   await closeDialog(usersFilterDialog);
   await page.setViewportSize(DESKTOP_VIEWPORT);
   await expect(adminSidebar).toBeVisible();
@@ -396,6 +451,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   await page.locator(".admin-payment-id-btn").first().click();
   const paymentDialog = page.locator(".dialog-card.admin-payment-dialog");
   await expect(paymentDialog).toBeVisible();
+  await assertFormFieldsNamed(page, "admin-payments:payment-dialog");
   await closeDialog(paymentDialog);
 
   setPhase("admin-payments:user-card");
@@ -410,14 +466,17 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   );
   await expect(createCodeDialog).toBeVisible();
   await expect(createCodeDialog.locator(".admin-promo-effect-row")).toHaveCount(4);
+  await assertFormFieldsNamed(page, "admin-codes:create-dialog");
   await closeDialog(createCodeDialog);
 
   setPhase("admin-codes:editor-dialog");
   await page.locator('[data-admin-action="open-code-settings"]').first().click();
   const codeEditorDialog = page.locator(".dialog-card.admin-promo-edit-dialog");
   await expect(codeEditorDialog).toBeVisible();
+  await assertFormFieldsNamed(page, "admin-codes:editor-dialog");
   await exerciseDialogTabs(codeEditorDialog, 2, setPhase, "admin-codes:tabs");
   await expect(codeEditorDialog.locator(".admin-promo-activations-tab")).toBeVisible();
+  await assertFormFieldsNamed(page, "admin-codes:activations-tab");
 
   setPhase("admin-codes:activation-user-card");
   if (await clickFirstVisibleEnabled(codeEditorDialog.locator(".admin-promos-user-btn"))) {
@@ -430,6 +489,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   await page.locator('[data-admin-action="create-ad"]').click();
   const adDialog = page.locator(".dialog-card.admin-ad-dialog");
   await expect(adDialog).toBeVisible();
+  await assertFormFieldsNamed(page, "admin-ads:create-dialog");
   await closeDialog(adDialog);
 
   setPhase("admin-support:ticket-dialog");
@@ -438,6 +498,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const supportDialog = page.locator(".dialog-card.support-ticket-dialog");
   await expect(supportDialog).toBeVisible();
   await expect(supportDialog.locator(".support-admin-composer")).toBeVisible();
+  await assertFormFieldsNamed(page, "admin-support:ticket-dialog");
 
   setPhase("admin-support:user-card");
   if (
@@ -454,12 +515,14 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   await page.locator('[data-admin-action="create-tariff"]').click();
   const tariffDialog = page.locator(".dialog-card.admin-tariff-dialog");
   await expect(tariffDialog).toBeVisible();
+  await assertFormFieldsNamed(page, "admin-tariffs:create-dialog");
   await exerciseDialogTabs(tariffDialog, 5, setPhase, "admin-tariffs:create-tabs");
   await closeDialog(tariffDialog);
 
   setPhase("admin-tariffs:edit-dialog");
   await page.locator('[data-admin-action="open-tariff-editor"]').first().click();
   await expect(tariffDialog).toBeVisible();
+  await assertFormFieldsNamed(page, "admin-tariffs:edit-dialog");
   await exerciseDialogTabs(tariffDialog, 5, setPhase, "admin-tariffs:edit-tabs");
   await closeDialog(tariffDialog);
 
@@ -467,6 +530,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   await page.locator('[data-admin-action="open-tariff-delete"]').first().click();
   const tariffDeleteDialog = page.locator(".dialog-card.admin-tariff-delete-dialog");
   await expect(tariffDeleteDialog).toBeVisible();
+  await assertFormFieldsNamed(page, "admin-tariffs:delete-dialog");
   await closeDialog(tariffDeleteDialog);
 
   setPhase("admin-appearance:panels");
@@ -474,6 +538,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   await expect(appearanceStage.locator(".appearance-stack")).toBeVisible();
   await expect(appearanceStage.locator(".appearance-logo-grid").first()).toBeVisible();
   await expect(appearanceStage.locator(".appearance-theme-section").first()).toBeVisible();
+  await assertFormFieldsNamed(page, "admin-appearance:panels");
 
   setPhase("admin-translations:panels");
   const translationsStage = await openAdminSection(page, "translations");
@@ -495,14 +560,17 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const localeToggle = translationsStage.locator("[data-admin-translation-locale]").first();
   await localeToggle.click();
   await expect(localeToggle).toHaveAttribute("aria-expanded", "true");
+  await assertFormFieldsNamed(page, "admin-translations:locale-panel");
 
   setPhase("admin-settings:panels-and-icon-dialog");
   const settingsStage = await openAdminSection(page, "settings");
   await exerciseSettingsDisclosures(settingsStage);
+  await assertFormFieldsNamed(page, "admin-settings:panels");
   const iconPickerTrigger = settingsStage.locator(".admin-icon-picker-trigger").first();
   if (await clickFirstVisibleEnabled(iconPickerTrigger)) {
     const iconPickerDialog = page.locator(".dialog-card.admin-icon-picker-dialog");
     await expect(iconPickerDialog).toBeVisible();
+    await assertFormFieldsNamed(page, "admin-settings:icon-picker-dialog");
     await closeDialog(iconPickerDialog);
   }
 

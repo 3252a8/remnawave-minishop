@@ -17,6 +17,9 @@
     ...rest
   }: Props = $props();
 
+  const fallbackName = `ui-radio-group-${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
+  const groupName = $derived(name || fallbackName);
+
   function handleValueChange(next: string): void {
     value = next;
     onValueChange(next);
@@ -27,7 +30,7 @@
   class={cn("ui-radio-group", className)}
   {value}
   {orientation}
-  {name}
+  name={groupName}
   {disabled}
   onValueChange={handleValueChange}
   {...rest}

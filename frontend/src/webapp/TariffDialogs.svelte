@@ -16,6 +16,7 @@
 
   import Card from "$components/ui/card.svelte";
   import Dialog from "$components/ui/dialog.svelte";
+  import Input from "$components/ui/input.svelte";
   import {
     DialogOptionsSkeleton,
     EmptyCard,
@@ -475,7 +476,9 @@
               </button>
             </span>
           {:else}
-            <input
+            <Input
+              id="webapp-topup-checkout-code"
+              name="webapp-topup-checkout-code"
               class="input"
               value={checkoutPromoInput}
               oninput={(e) => (checkoutPromoInput = (e.currentTarget as HTMLInputElement).value)}
@@ -573,7 +576,9 @@
               </button>
             </span>
           {:else}
-            <input
+            <Input
+              id="webapp-device-topup-checkout-code"
+              name="webapp-device-topup-checkout-code"
               class="input"
               value={checkoutPromoInput}
               oninput={(e) => (checkoutPromoInput = (e.currentTarget as HTMLInputElement).value)}

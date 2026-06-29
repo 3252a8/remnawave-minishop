@@ -3,7 +3,9 @@
 
   type TextareaProps = Omit<
     HTMLTextareaAttributes,
+    | "id"
     | "value"
+    | "name"
     | "rows"
     | "disabled"
     | "placeholder"
@@ -13,7 +15,9 @@
     | "oninput"
     | "onkeydown"
   > & {
+    id?: string;
     value?: string;
+    name?: string;
     rows?: number;
     disabled?: boolean;
     placeholder?: string;
@@ -30,7 +34,9 @@
   };
 
   let {
+    id = "",
     value = $bindable(""),
+    name = undefined,
     rows = 3,
     disabled = false,
     placeholder = "",
@@ -42,6 +48,9 @@
     ...rest
   }: TextareaProps = $props();
 
+  const fallbackId = `ui-textarea-${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
+  const textareaId = $derived(id || fallbackId);
+
   function forwardInput(event: TextareaEventWithTarget) {
     oninput?.(event);
   }
@@ -52,8 +61,10 @@
 </script>
 
 <textarea
+  id={textareaId}
   class={`textarea ${className}`.trim()}
   bind:value
+  {name}
   {rows}
   {disabled}
   {placeholder}
