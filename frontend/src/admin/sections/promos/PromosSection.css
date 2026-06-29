@@ -125,12 +125,24 @@
 }
 
 .admin-promo-settings-tab {
-  overflow: auto;
-  padding-right: 2px;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
+  overflow: hidden;
+  padding-right: 0;
 }
 
 .admin-promo-activations-tab {
   overflow: hidden;
+}
+
+.admin-promo-settings-grid {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .admin-promo-edit-summary {
@@ -191,7 +203,7 @@
 }
 
 .admin-promo-editor-section {
-  gap: 12px;
+  gap: 10px;
 }
 
 .admin-promo-editor-section.is-dirty {
@@ -205,9 +217,9 @@
 
 .admin-promo-field-shell {
   display: grid;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
-  padding: 8px;
+  padding: 7px;
   border: 1px solid transparent;
   border-radius: 8px;
 }
@@ -219,6 +231,17 @@
 
 .admin-promo-field-shell .admin-badge {
   justify-self: start;
+}
+
+.admin-promo-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-promo-field-shell .admin-field-label {
+  gap: 4px;
 }
 
 .admin-promo-dialog-actions {
@@ -262,11 +285,53 @@
     height: auto;
     max-height: none;
   }
+
+  .admin-promo-settings-tab {
+    overflow: visible;
+  }
+
+  .admin-promo-settings-grid {
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .admin-promo-fields-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (min-width: 721px) {
   .dialog-card.admin-dialog.admin-promo-edit-dialog {
     height: min(100%, 780px);
     block-size: min(100%, 780px);
+  }
+}
+
+@media (min-width: 980px) {
+  .admin-promo-settings-grid {
+    grid-template-columns: minmax(0, 0.95fr) minmax(430px, 1.05fr);
+    align-items: start;
+  }
+
+  .admin-promo-basics-section,
+  .admin-promo-eligibility-section {
+    grid-column: 1;
+  }
+
+  .admin-promo-effect-section {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .admin-promo-editor-section {
+    padding: 10px;
+  }
+
+  .admin-promo-edit-summary {
+    padding: 10px 12px;
+  }
+
+  .admin-promo-check-row {
+    min-height: 34px;
   }
 }

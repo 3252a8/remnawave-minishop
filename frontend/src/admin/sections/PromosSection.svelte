@@ -683,249 +683,249 @@
         </Tabs.List>
 
         <Tabs.Content value="settings" class="admin-tabs-content admin-promo-settings-tab">
-          <section
-            class="admin-editor-section admin-promo-editor-section"
-            class:is-dirty={promoBasicsDirtyCount}
-          >
-            <header class="admin-editor-section-head">
-              <div class="admin-editor-section-title">
-                <strong>{at("promo_section_basics", {}, "Basics")}</strong>
-              </div>
-              {#if promoBasicsDirtyCount}
-                <AdminBadge variant="warning">
-                  {at(
-                    "settings_dirty_count",
-                    { count: promoBasicsDirtyCount },
-                    `Changes: ${promoBasicsDirtyCount}`
-                  )}
-                </AdminBadge>
-              {/if}
-            </header>
-            <div class="admin-form-row-2">
-              <div class="admin-promo-field-shell" class:is-dirty={editFieldDirty("is_active")}>
-                <AdminField label={at("promo_col_status", {}, "Status")}>
-                  <label class="admin-promo-check-row">
-                    <Checkbox
-                      checked={Boolean(promoEditDraft.is_active)}
-                      ariaLabel={at("status_active", {}, "Active")}
-                      onCheckedChange={(checked) =>
-                        promosStore.updateEditDraft({ is_active: checked })}
+          <div class="admin-promo-settings-grid">
+            <section
+              class="admin-editor-section admin-promo-editor-section admin-promo-basics-section"
+              class:is-dirty={promoBasicsDirtyCount}
+            >
+              <header class="admin-editor-section-head">
+                <div class="admin-editor-section-title">
+                  <strong>{at("promo_section_basics", {}, "Basics")}</strong>
+                </div>
+                {#if promoBasicsDirtyCount}
+                  <AdminBadge variant="warning">
+                    {at(
+                      "settings_dirty_count",
+                      { count: promoBasicsDirtyCount },
+                      `Changes: ${promoBasicsDirtyCount}`
+                    )}
+                  </AdminBadge>
+                {/if}
+              </header>
+              <div class="admin-promo-fields-grid admin-promo-basics-grid">
+                <div class="admin-promo-field-shell" class:is-dirty={editFieldDirty("is_active")}>
+                  <AdminField label={at("promo_col_status", {}, "Status")}>
+                    <label class="admin-promo-check-row">
+                      <Checkbox
+                        checked={Boolean(promoEditDraft.is_active)}
+                        ariaLabel={at("status_active", {}, "Active")}
+                        onCheckedChange={(checked) =>
+                          promosStore.updateEditDraft({ is_active: checked })}
+                      />
+                      <span>{at("badge_active", {}, "Active")}</span>
+                    </label>
+                  </AdminField>
+                  {#if editFieldDirty("is_active")}
+                    <AdminBadge variant="warning"
+                      >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                    >
+                  {/if}
+                </div>
+                <div class="admin-promo-field-shell" class:is-dirty={editFieldDirty("applies_to")}>
+                  <AdminField label={at("promo_label_scope", {}, "Scope")}>
+                    <AdminSelect
+                      value={promoEditDraft.applies_to || "all"}
+                      items={scopeItems}
+                      placeholder={at("promo_label_scope", {}, "Scope")}
+                      onValueChange={(value: string) =>
+                        promosStore.updateEditDraft({ applies_to: value })}
                     />
-                    <span>{at("badge_active", {}, "Active")}</span>
-                  </label>
-                </AdminField>
-                {#if editFieldDirty("is_active")}
-                  <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                  >
-                {/if}
+                  </AdminField>
+                  {#if editFieldDirty("applies_to")}
+                    <AdminBadge variant="warning"
+                      >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                    >
+                  {/if}
+                </div>
+                <div
+                  class="admin-promo-field-shell"
+                  class:is-dirty={editFieldDirty("max_activations")}
+                >
+                  <AdminField label={at("promo_label_max_activations", {}, "Max uses")}>
+                    <Input
+                      type="number"
+                      class="input"
+                      min={String(promoEditing.current_activations || 1)}
+                      value={promoEditDraft.max_activations == null
+                        ? ""
+                        : String(promoEditDraft.max_activations)}
+                      oninput={(e) => updateEditNumber("max_activations", inputValue(e))}
+                    />
+                  </AdminField>
+                  {#if editFieldDirty("max_activations")}
+                    <AdminBadge variant="warning"
+                      >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                    >
+                  {/if}
+                </div>
+                <div class="admin-promo-field-shell admin-promo-field-shell-static">
+                  <AdminField label={at("promo_col_activations", {}, "Uses")}>
+                    <Input
+                      type="text"
+                      class="input"
+                      value={`${promoEditing.current_activations}/${promoEditing.max_activations}`}
+                      disabled
+                    />
+                  </AdminField>
+                </div>
+                <div class="admin-promo-field-shell" class:is-dirty={editFieldDirty("valid_until")}>
+                  <AdminField label={at("promo_col_valid_until", {}, "Valid until")}>
+                    <Input
+                      type="datetime-local"
+                      class="input"
+                      value={promoEditDraft.clear_valid_until
+                        ? ""
+                        : validUntilInputValue(
+                            promoEditDraft.valid_until || promoEditing.valid_until
+                          )}
+                      disabled={Boolean(promoEditDraft.clear_valid_until)}
+                      oninput={(e) => updateEditValidUntil(inputValue(e))}
+                    />
+                  </AdminField>
+                  {#if editFieldDirty("valid_until")}
+                    <AdminBadge variant="warning"
+                      >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                    >
+                  {/if}
+                </div>
+                <div class="admin-promo-field-shell" class:is-dirty={editFieldDirty("valid_until")}>
+                  <AdminField label={at("unlimited", {}, "Unlimited")}>
+                    <label class="admin-promo-check-row">
+                      <Checkbox
+                        checked={Boolean(promoEditDraft.clear_valid_until)}
+                        ariaLabel={at("unlimited", {}, "Unlimited")}
+                        onCheckedChange={(checked) =>
+                          promosStore.updateEditDraft({
+                            clear_valid_until: checked,
+                            valid_until: checked ? null : promoEditing.valid_until,
+                          } as Partial<PromoPatch>)}
+                      />
+                      <span>{at("unlimited", {}, "Unlimited")}</span>
+                    </label>
+                  </AdminField>
+                  {#if editFieldDirty("valid_until")}
+                    <AdminBadge variant="warning"
+                      >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                    >
+                  {/if}
+                </div>
               </div>
-              <div class="admin-promo-field-shell" class:is-dirty={editFieldDirty("applies_to")}>
-                <AdminField label={at("promo_label_scope", {}, "Scope")}>
-                  <AdminSelect
-                    value={promoEditDraft.applies_to || "all"}
-                    items={scopeItems}
-                    placeholder={at("promo_label_scope", {}, "Scope")}
-                    onValueChange={(value: string) =>
-                      promosStore.updateEditDraft({ applies_to: value })}
-                  />
-                </AdminField>
-                {#if editFieldDirty("applies_to")}
-                  <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                  >
+            </section>
+
+            <section
+              class="admin-editor-section admin-promo-editor-section admin-promo-effect-section"
+              class:is-dirty={promoEffectDirtyCount}
+            >
+              <header class="admin-editor-section-head">
+                <div class="admin-editor-section-title">
+                  <strong>{at("promo_col_effect", {}, "Effect")}</strong>
+                  <small>
+                    {at("promo_effect_single_hint", {}, "Choose one effect; values do not stack.")}
+                  </small>
+                </div>
+                {#if promoEffectDirtyCount}
+                  <AdminBadge variant="warning">
+                    {at(
+                      "settings_dirty_count",
+                      { count: promoEffectDirtyCount },
+                      `Changes: ${promoEffectDirtyCount}`
+                    )}
+                  </AdminBadge>
                 {/if}
-              </div>
-            </div>
-            <div class="admin-form-row-2">
-              <div
-                class="admin-promo-field-shell"
-                class:is-dirty={editFieldDirty("max_activations")}
-              >
-                <AdminField label={at("promo_label_max_activations", {}, "Max uses")}>
-                  <Input
-                    type="number"
-                    class="input"
-                    min={String(promoEditing.current_activations || 1)}
-                    value={promoEditDraft.max_activations == null
-                      ? ""
-                      : String(promoEditDraft.max_activations)}
-                    oninput={(e) => updateEditNumber("max_activations", inputValue(e))}
-                  />
-                </AdminField>
-                {#if editFieldDirty("max_activations")}
-                  <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                  >
-                {/if}
-              </div>
-              <AdminField label={at("promo_col_activations", {}, "Uses")}>
-                <Input
-                  type="text"
-                  class="input"
-                  value={`${promoEditing.current_activations}/${promoEditing.max_activations}`}
-                  disabled
-                />
-              </AdminField>
-            </div>
-            <div class="admin-form-row-2">
-              <div class="admin-promo-field-shell" class:is-dirty={editFieldDirty("valid_until")}>
-                <AdminField label={at("promo_col_valid_until", {}, "Valid until")}>
-                  <Input
-                    type="datetime-local"
-                    class="input"
-                    value={promoEditDraft.clear_valid_until
-                      ? ""
-                      : validUntilInputValue(
-                          promoEditDraft.valid_until || promoEditing.valid_until
+              </header>
+              <PromoEffectSelector
+                {at}
+                value={promoEditEffectKind}
+                values={promoEditDraft}
+                dirtyFields={promoEffectDirtyFields}
+                bonusRequiresPayment={Boolean(promoEditDraft.bonus_requires_payment)}
+                bonusModeDirty={editFieldDirty("bonus_requires_payment")}
+                onValueChange={selectEditEffect}
+                onNumberInput={updateEditNumber}
+                onBonusRequiresPaymentChange={setEditBonusRequiresPayment}
+              />
+            </section>
+
+            <section
+              class="admin-editor-section admin-promo-editor-section admin-promo-eligibility-section"
+              class:is-dirty={promoEligibilityDirtyCount}
+            >
+              <header class="admin-editor-section-head">
+                <div class="admin-editor-section-title">
+                  <strong>{at("promo_col_eligibility", {}, "Eligibility")}</strong>
+                  <small>
+                    {promoEditUsesCheckout
+                      ? at(
+                          "promo_conditions_hint",
+                          {},
+                          "Optional minimum purchase requirements checked before the code can be applied."
+                        )
+                      : at(
+                          "promo_conditions_disabled_for_instant_bonus",
+                          {},
+                          "Instant bonus-day grants do not use purchase requirements."
                         )}
-                    disabled={Boolean(promoEditDraft.clear_valid_until)}
-                    oninput={(e) => updateEditValidUntil(inputValue(e))}
-                  />
-                </AdminField>
-                {#if editFieldDirty("valid_until")}
-                  <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                  >
+                  </small>
+                </div>
+                {#if promoEligibilityDirtyCount}
+                  <AdminBadge variant="warning">
+                    {at(
+                      "settings_dirty_count",
+                      { count: promoEligibilityDirtyCount },
+                      `Changes: ${promoEligibilityDirtyCount}`
+                    )}
+                  </AdminBadge>
                 {/if}
-              </div>
-              <div class="admin-promo-field-shell" class:is-dirty={editFieldDirty("valid_until")}>
-                <AdminField label={at("unlimited", {}, "Unlimited")}>
-                  <label class="admin-promo-check-row">
-                    <Checkbox
-                      checked={Boolean(promoEditDraft.clear_valid_until)}
-                      ariaLabel={at("unlimited", {}, "Unlimited")}
-                      onCheckedChange={(checked) =>
-                        promosStore.updateEditDraft({
-                          clear_valid_until: checked,
-                          valid_until: checked ? null : promoEditing.valid_until,
-                        } as Partial<PromoPatch>)}
+              </header>
+              <div class="admin-promo-fields-grid admin-promo-eligibility-grid">
+                <div
+                  class="admin-promo-field-shell"
+                  class:is-dirty={editFieldDirty("min_subscription_months")}
+                >
+                  <AdminField label={at("promo_label_min_months", {}, "Min months")}>
+                    <Input
+                      type="number"
+                      class="input"
+                      min="1"
+                      disabled={!promoEditUsesCheckout}
+                      value={promoEditDraft.min_subscription_months == null
+                        ? ""
+                        : String(promoEditDraft.min_subscription_months)}
+                      oninput={(e) => updateEditNumber("min_subscription_months", inputValue(e))}
                     />
-                    <span>{at("unlimited", {}, "Unlimited")}</span>
-                  </label>
-                </AdminField>
-                {#if editFieldDirty("valid_until")}
-                  <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                  >
-                {/if}
+                  </AdminField>
+                  {#if editFieldDirty("min_subscription_months")}
+                    <AdminBadge variant="warning"
+                      >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                    >
+                  {/if}
+                </div>
+                <div
+                  class="admin-promo-field-shell"
+                  class:is-dirty={editFieldDirty("min_traffic_gb")}
+                >
+                  <AdminField label={at("promo_label_min_gb", {}, "Min GB")}>
+                    <Input
+                      type="number"
+                      class="input"
+                      min="0"
+                      step="0.01"
+                      disabled={!promoEditUsesCheckout}
+                      value={promoEditDraft.min_traffic_gb == null
+                        ? ""
+                        : String(promoEditDraft.min_traffic_gb)}
+                      oninput={(e) => updateEditNumber("min_traffic_gb", inputValue(e))}
+                    />
+                  </AdminField>
+                  {#if editFieldDirty("min_traffic_gb")}
+                    <AdminBadge variant="warning"
+                      >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                    >
+                  {/if}
+                </div>
               </div>
-            </div>
-          </section>
-
-          <section
-            class="admin-editor-section admin-promo-editor-section"
-            class:is-dirty={promoEffectDirtyCount}
-          >
-            <header class="admin-editor-section-head">
-              <div class="admin-editor-section-title">
-                <strong>{at("promo_col_effect", {}, "Effect")}</strong>
-                <small>
-                  {at("promo_effect_single_hint", {}, "Choose one effect; values do not stack.")}
-                </small>
-              </div>
-              {#if promoEffectDirtyCount}
-                <AdminBadge variant="warning">
-                  {at(
-                    "settings_dirty_count",
-                    { count: promoEffectDirtyCount },
-                    `Changes: ${promoEffectDirtyCount}`
-                  )}
-                </AdminBadge>
-              {/if}
-            </header>
-            <PromoEffectSelector
-              {at}
-              value={promoEditEffectKind}
-              values={promoEditDraft}
-              dirtyFields={promoEffectDirtyFields}
-              bonusRequiresPayment={Boolean(promoEditDraft.bonus_requires_payment)}
-              bonusModeDirty={editFieldDirty("bonus_requires_payment")}
-              onValueChange={selectEditEffect}
-              onNumberInput={updateEditNumber}
-              onBonusRequiresPaymentChange={setEditBonusRequiresPayment}
-            />
-          </section>
-
-          <section
-            class="admin-editor-section admin-promo-editor-section"
-            class:is-dirty={promoEligibilityDirtyCount}
-          >
-            <header class="admin-editor-section-head">
-              <div class="admin-editor-section-title">
-                <strong>{at("promo_col_eligibility", {}, "Eligibility")}</strong>
-                <small>
-                  {promoEditUsesCheckout
-                    ? at(
-                        "promo_conditions_hint",
-                        {},
-                        "Optional minimum purchase requirements checked before the code can be applied."
-                      )
-                    : at(
-                        "promo_conditions_disabled_for_instant_bonus",
-                        {},
-                        "Instant bonus-day grants do not use purchase requirements."
-                      )}
-                </small>
-              </div>
-              {#if promoEligibilityDirtyCount}
-                <AdminBadge variant="warning">
-                  {at(
-                    "settings_dirty_count",
-                    { count: promoEligibilityDirtyCount },
-                    `Changes: ${promoEligibilityDirtyCount}`
-                  )}
-                </AdminBadge>
-              {/if}
-            </header>
-            <div class="admin-form-row-2">
-              <div
-                class="admin-promo-field-shell"
-                class:is-dirty={editFieldDirty("min_subscription_months")}
-              >
-                <AdminField label={at("promo_label_min_months", {}, "Min months")}>
-                  <Input
-                    type="number"
-                    class="input"
-                    min="1"
-                    disabled={!promoEditUsesCheckout}
-                    value={promoEditDraft.min_subscription_months == null
-                      ? ""
-                      : String(promoEditDraft.min_subscription_months)}
-                    oninput={(e) => updateEditNumber("min_subscription_months", inputValue(e))}
-                  />
-                </AdminField>
-                {#if editFieldDirty("min_subscription_months")}
-                  <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                  >
-                {/if}
-              </div>
-              <div
-                class="admin-promo-field-shell"
-                class:is-dirty={editFieldDirty("min_traffic_gb")}
-              >
-                <AdminField label={at("promo_label_min_gb", {}, "Min GB")}>
-                  <Input
-                    type="number"
-                    class="input"
-                    min="0"
-                    step="0.01"
-                    disabled={!promoEditUsesCheckout}
-                    value={promoEditDraft.min_traffic_gb == null
-                      ? ""
-                      : String(promoEditDraft.min_traffic_gb)}
-                    oninput={(e) => updateEditNumber("min_traffic_gb", inputValue(e))}
-                  />
-                </AdminField>
-                {#if editFieldDirty("min_traffic_gb")}
-                  <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                  >
-                {/if}
-              </div>
-            </div>
-          </section>
+            </section>
+          </div>
 
           <div class="admin-dialog-actions admin-promo-dialog-actions">
             {#if promoSettingsDirtyCount}
