@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
-from bot.services.promo_code_service import PromoCodeService
+from bot.services.promo_code_service import PromoCheckoutRequired, PromoCodeService
 
 
 class PromoCodeServiceTests(IsolatedAsyncioTestCase):
@@ -148,3 +148,60 @@ class PromoCodeServiceTests(IsolatedAsyncioTestCase):
         release_activation.assert_awaited_once_with(session, 5, 42, payment_id=None)
         clear_throttle.assert_not_awaited()
         emit_event.assert_not_awaited()
+
+    async def test_apply_bonus_code_requires_checkout_when_payment_mode_enabled(self):
+        settings = SimpleNamespace(
+            MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED=False,
+            BRUTE_FORCE_LOCK_SECONDS=60,
+            BRUTE_FORCE_MAX_FAILURES=5,
+            BRUTE_FORCE_WINDOW_SECONDS=300,
+        )
+        subscription_service = SimpleNamespace(extend_active_subscription_days=AsyncMock())
+        i18n = SimpleNamespace(gettext=lambda lang, key, **kw: key)
+        service = PromoCodeService(settings, subscription_service, AsyncMock(), i18n)
+        session = AsyncMock()
+        promo = SimpleNamespace(
+            promo_code_id=5,
+            code="HELLO",
+            bonus_days=7,
+            bonus_requires_payment=True,
+            applies_to="subscription",
+        )
+
+        with (
+            patch(
+                "bot.services.promo_code_service.security_dal.check_throttle",
+                AsyncMock(return_value=SimpleNamespace(locked=False, retry_after=None)),
+            ),
+            patch(
+                "bot.services.promo_code_service.promo_code_dal.get_active_promo_code_by_code_str",
+                AsyncMock(return_value=promo),
+            ),
+            patch(
+                "bot.services.promo_code_service.promo_code_dal.get_user_activation_for_promo",
+                AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.services.promo_code_service.promo_code_dal.consume_promo_activation",
+                AsyncMock(),
+            ) as consume_activation,
+            patch(
+                "bot.services.promo_code_service.security_dal.clear_throttle_state",
+                AsyncMock(),
+            ) as clear_throttle,
+        ):
+            success, result = await service.apply_promo_code(
+                session=session,
+                user_id=42,
+                code_input="hello",
+                user_lang="en",
+            )
+
+        self.assertTrue(success)
+        self.assertIsInstance(result, PromoCheckoutRequired)
+        assert isinstance(result, PromoCheckoutRequired)
+        self.assertEqual(result.code, "HELLO")
+        self.assertEqual(result.effect_summary, "+7 days")
+        subscription_service.extend_active_subscription_days.assert_not_awaited()
+        consume_activation.assert_not_awaited()
+        clear_throttle.assert_awaited_once()

@@ -26,6 +26,7 @@ def test_promo_effects_normalize_model_defaults():
     assert effects.traffic_multiplier == 1.0
     assert effects.applies_to == "all"
     assert effects.is_bonus_days_only is True
+    assert effects.can_apply_standalone is True
 
 
 @pytest.mark.parametrize(
@@ -45,8 +46,10 @@ def test_promo_effects_normalize_model_defaults():
         PromoEffects(bonus_days=1, discount_percent=10),
         PromoEffects(discount_percent=10, duration_multiplier=2),
         PromoEffects(duration_multiplier=2, traffic_multiplier=2),
+        PromoEffects(bonus_days=1, min_subscription_months=12),
         PromoEffects(bonus_days=1, applies_to="traffic", min_subscription_months=12),
         PromoEffects(bonus_days=1, applies_to="subscription", min_traffic_gb=50),
+        PromoEffects(discount_percent=10, bonus_requires_payment=True),
     ],
 )
 def test_validate_effects_rejects_invalid_combinations(effects):
@@ -91,6 +94,26 @@ def test_thresholds_are_inclusive_and_dimension_scoped():
         months=None,
         traffic_gb=99.9,
     )
+
+
+def test_bonus_days_payment_mode_controls_standalone_redemption():
+    instant = PromoEffects(bonus_days=7)
+    after_payment = PromoEffects(bonus_days=7, bonus_requires_payment=True)
+    thresholded = PromoEffects(
+        bonus_days=7,
+        bonus_requires_payment=True,
+        min_subscription_months=3,
+    )
+
+    validate_effects(instant)
+    validate_effects(after_payment)
+    validate_effects(thresholded)
+    assert instant.is_bonus_days_only is True
+    assert after_payment.is_bonus_days_only is True
+    assert thresholded.is_bonus_days_only is True
+    assert instant.can_apply_standalone is True
+    assert after_payment.can_apply_standalone is False
+    assert thresholded.can_apply_standalone is False
 
 
 def test_promo_effects_from_payment_snapshot_normalizes_scope_and_discount():

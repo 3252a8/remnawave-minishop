@@ -100,6 +100,9 @@ class PromoCodeService:
                 "traffic_multiplier": (
                     effects.traffic_multiplier if effects.traffic_multiplier != 1.0 else None
                 ),
+                "bonus_requires_payment": bool(
+                    effects.bonus_requires_payment and effects.bonus_days > 0
+                ),
                 "applies_to": effects.applies_to,
                 "min_subscription_months": effects.min_subscription_months,
                 "min_traffic_gb": effects.min_traffic_gb,
@@ -168,7 +171,7 @@ class PromoCodeService:
             return False, _("promo_code_already_used_by_user", code=code_display)
 
         effects = PromoEffects.from_model(promo_data)
-        if not effects.is_bonus_days_only:
+        if not effects.can_apply_standalone:
             await security_dal.clear_throttle_state(
                 session,
                 scope=security_dal.PROMO_CODE_APPLY_SCOPE,

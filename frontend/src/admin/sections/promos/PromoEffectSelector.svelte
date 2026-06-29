@@ -32,8 +32,12 @@
     {
       kind: "bonus_days",
       title: at("promo_effect_bonus_days_title", {}, "Bonus days"),
-      hint: at("promo_effect_bonus_days_hint", {}, "Adds days after a subscription payment."),
-      example: at("promo_effect_bonus_days_example", {}, "Example: 10 adds 10 days."),
+      hint: at("promo_effect_bonus_days_hint", {}, "Adds days to the user's subscription."),
+      example: at(
+        "promo_effect_bonus_days_example",
+        {},
+        "Example: 10 adds 10 days immediately or after payment, depending on grant mode."
+      ),
     },
     {
       kind: "discount_percent",

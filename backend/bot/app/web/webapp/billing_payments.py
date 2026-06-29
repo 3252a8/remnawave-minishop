@@ -117,6 +117,13 @@ async def _resolve_checkout_promo(
     except ValueError:
         return None, CheckoutPromoError(400, "promo_code_invalid", "Code is not available")
 
+    if effects.can_apply_standalone:
+        return None, CheckoutPromoError(
+            400,
+            "promo_code_direct_activation_required",
+            "Activate this code outside checkout",
+        )
+
     sale_base = _sale_mode_base(sale_mode)
     months = int(payment_units) if sale_base == "subscription" else None
     traffic_units = traffic_gb if _sale_mode_is_traffic(sale_mode) else None

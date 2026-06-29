@@ -44,6 +44,7 @@
     | "max_activations"
     | "valid_until"
     | "bonus_days"
+    | "bonus_requires_payment"
     | "discount_percent"
     | "duration_multiplier"
     | "traffic_multiplier"
@@ -54,6 +55,7 @@
     discount_percent?: number | null;
     duration_multiplier?: number | null;
     traffic_multiplier?: number | null;
+    bonus_requires_payment?: boolean | null;
     effect_summary?: string | null;
   };
 
@@ -65,6 +67,7 @@
   ];
   const EFFECT_EDIT_FIELDS: readonly PromoEditField[] = [
     "bonus_days",
+    "bonus_requires_payment",
     "discount_percent",
     "duration_multiplier",
     "traffic_multiplier",
@@ -113,6 +116,7 @@
       discount_percent: null,
       duration_multiplier: null,
       traffic_multiplier: null,
+      bonus_requires_payment: false,
       applies_to: "all",
       min_subscription_months: null,
       min_traffic_gb: null,
@@ -130,7 +134,7 @@
     promoBasicsDirtyCount + promoEffectDirtyCount + promoEligibilityDirtyCount
   );
   const promoEffectDirtyFields = $derived({
-    bonus_days: editFieldDirty("bonus_days"),
+    bonus_days: editFieldDirty("bonus_days") || editFieldDirty("bonus_requires_payment"),
     discount_percent: editFieldDirty("discount_percent"),
     duration_multiplier: editFieldDirty("duration_multiplier"),
     traffic_multiplier: editFieldDirty("traffic_multiplier"),
@@ -140,6 +144,12 @@
   let promoEditTab = $state<PromoEditTab>("settings");
   let previousCreateOpen = $state(false);
   let previousEditPromoId = $state<number | null>(null);
+  const promoCreateUsesCheckout = $derived(
+    promoCreateEffectKind !== "bonus_days" || Boolean(promoDraft.bonus_requires_payment)
+  );
+  const promoEditUsesCheckout = $derived(
+    promoEditEffectKind !== "bonus_days" || Boolean(promoEditDraft.bonus_requires_payment)
+  );
 
   $effect(() => promosTable.setRows(promos));
   $effect(() => {
@@ -258,6 +268,12 @@
     if (field === "valid_until") {
       return validUntilDirty();
     }
+    if (field === "bonus_requires_payment") {
+      return (
+        Boolean(promoEditDraft.bonus_requires_payment) !==
+        Boolean(promoEditing.bonus_requires_payment)
+      );
+    }
     return comparableNumber(promoEditDraft[field]) !== comparableNumber(promoEditing[field]);
   }
 
@@ -275,19 +291,47 @@
         kind === "duration_multiplier" ? positiveNumber(source.duration_multiplier, 2, 1) : null,
       traffic_multiplier:
         kind === "traffic_multiplier" ? positiveNumber(source.traffic_multiplier, 2, 1) : null,
+      bonus_requires_payment:
+        kind === "bonus_days" ? Boolean(source.bonus_requires_payment) : false,
     };
   }
 
   function selectCreateEffect(value: string): void {
     const kind = value as PromoEffectKind;
     promoCreateEffectKind = kind;
-    promosStore.updateDraft(singleEffectPatch(kind, promoDraft));
+    const patch = singleEffectPatch(kind, promoDraft);
+    if (kind === "bonus_days" && !patch.bonus_requires_payment) {
+      patch.min_subscription_months = null;
+      patch.min_traffic_gb = null;
+    }
+    promosStore.updateDraft(patch);
   }
 
   function selectEditEffect(value: string): void {
     const kind = value as PromoEffectKind;
     promoEditEffectKind = kind;
-    promosStore.updateEditDraft(singleEffectPatch(kind, promoEditDraft));
+    const patch = singleEffectPatch(kind, promoEditDraft);
+    if (kind === "bonus_days" && !patch.bonus_requires_payment) {
+      patch.min_subscription_months = null;
+      patch.min_traffic_gb = null;
+    }
+    promosStore.updateEditDraft(patch);
+  }
+
+  function setCreateBonusRequiresPayment(checked: boolean): void {
+    promosStore.updateDraft({
+      bonus_requires_payment: checked,
+      min_subscription_months: checked ? promoDraft.min_subscription_months : null,
+      min_traffic_gb: checked ? promoDraft.min_traffic_gb : null,
+    });
+  }
+
+  function setEditBonusRequiresPayment(checked: boolean): void {
+    promosStore.updateEditDraft({
+      bonus_requires_payment: checked,
+      min_subscription_months: checked ? promoEditDraft.min_subscription_months : null,
+      min_traffic_gb: checked ? promoEditDraft.min_traffic_gb : null,
+    } as Partial<PromoPatch>);
   }
 
   function openPromoSettings(promo: Promo): void {
@@ -370,9 +414,13 @@
   }
 
   function effectText(promo: EffectLike): string {
-    if (promo.effect_summary) return promo.effect_summary;
     const parts = effectPieces(promo);
-    return parts.length ? parts.join(" + ") : "-";
+    const text = promo.effect_summary || (parts.length ? parts.join(" + ") : "-");
+    if (Number(promo.bonus_days || 0) <= 0) return text;
+    const mode = promo.bonus_requires_payment
+      ? at("promo_bonus_mode_payment_short", {}, "after payment")
+      : at("promo_bonus_mode_instant_short", {}, "instant");
+    return `${text} · ${mode}`;
   }
 
   function promoStatus(promo: Promo): { label: string; variant: "success" | "warning" | "muted" } {
@@ -609,17 +657,50 @@
           onValueChange={selectCreateEffect}
           onNumberInput={updateCreateNumber}
         />
+        {#if promoCreateEffectKind === "bonus_days"}
+          <div class="admin-promo-field-shell admin-promo-bonus-mode">
+            <AdminField label={at("promo_bonus_mode_label", {}, "Grant mode")}>
+              <label class="admin-promo-check-row">
+                <Checkbox
+                  checked={Boolean(promoDraft.bonus_requires_payment)}
+                  ariaLabel={at("promo_bonus_mode_payment", {}, "Grant after payment")}
+                  onCheckedChange={setCreateBonusRequiresPayment}
+                />
+                <span>{at("promo_bonus_mode_payment", {}, "Grant after payment")}</span>
+              </label>
+            </AdminField>
+            <small>
+              {promoDraft.bonus_requires_payment
+                ? at(
+                    "promo_bonus_mode_payment_hint",
+                    {},
+                    "The user is sent to checkout; days are added only after a paid subscription purchase."
+                  )
+                : at(
+                    "promo_bonus_mode_instant_hint",
+                    {},
+                    "The user receives the days immediately when the code is activated."
+                  )}
+            </small>
+          </div>
+        {/if}
       </div>
       <div class="admin-promo-config-block">
         <div class="admin-promo-block-head">
           <div class="admin-promo-block-title">
             <strong>{at("promo_col_eligibility", {}, "Eligibility")}</strong>
             <small>
-              {at(
-                "promo_conditions_hint",
-                {},
-                "Optional minimum purchase requirements checked before the code can be applied."
-              )}
+              {promoCreateUsesCheckout
+                ? at(
+                    "promo_conditions_hint",
+                    {},
+                    "Optional minimum purchase requirements checked before the code can be applied."
+                  )
+                : at(
+                    "promo_conditions_disabled_for_instant_bonus",
+                    {},
+                    "Instant bonus-day grants do not use purchase requirements."
+                  )}
             </small>
           </div>
         </div>
@@ -629,6 +710,7 @@
               type="number"
               class="input"
               min="1"
+              disabled={!promoCreateUsesCheckout}
               value={promoDraft.min_subscription_months == null
                 ? ""
                 : String(promoDraft.min_subscription_months)}
@@ -641,6 +723,7 @@
               class="input"
               min="0"
               step="0.01"
+              disabled={!promoCreateUsesCheckout}
               value={promoDraft.min_traffic_gb == null ? "" : String(promoDraft.min_traffic_gb)}
               oninput={(e) => updateCreateNumber("min_traffic_gb", inputValue(e))}
             />
@@ -890,6 +973,41 @@
               onValueChange={selectEditEffect}
               onNumberInput={updateEditNumber}
             />
+            {#if promoEditEffectKind === "bonus_days"}
+              <div
+                class="admin-promo-field-shell admin-promo-bonus-mode"
+                class:is-dirty={editFieldDirty("bonus_requires_payment")}
+              >
+                <AdminField label={at("promo_bonus_mode_label", {}, "Grant mode")}>
+                  <label class="admin-promo-check-row">
+                    <Checkbox
+                      checked={Boolean(promoEditDraft.bonus_requires_payment)}
+                      ariaLabel={at("promo_bonus_mode_payment", {}, "Grant after payment")}
+                      onCheckedChange={setEditBonusRequiresPayment}
+                    />
+                    <span>{at("promo_bonus_mode_payment", {}, "Grant after payment")}</span>
+                  </label>
+                </AdminField>
+                <small>
+                  {promoEditDraft.bonus_requires_payment
+                    ? at(
+                        "promo_bonus_mode_payment_hint",
+                        {},
+                        "The user is sent to checkout; days are added only after a paid subscription purchase."
+                      )
+                    : at(
+                        "promo_bonus_mode_instant_hint",
+                        {},
+                        "The user receives the days immediately when the code is activated."
+                      )}
+                </small>
+                {#if editFieldDirty("bonus_requires_payment")}
+                  <AdminBadge variant="warning"
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                  >
+                {/if}
+              </div>
+            {/if}
           </section>
 
           <section
@@ -900,11 +1018,17 @@
               <div class="admin-editor-section-title">
                 <strong>{at("promo_col_eligibility", {}, "Eligibility")}</strong>
                 <small>
-                  {at(
-                    "promo_conditions_hint",
-                    {},
-                    "Optional minimum purchase requirements checked before the code can be applied."
-                  )}
+                  {promoEditUsesCheckout
+                    ? at(
+                        "promo_conditions_hint",
+                        {},
+                        "Optional minimum purchase requirements checked before the code can be applied."
+                      )
+                    : at(
+                        "promo_conditions_disabled_for_instant_bonus",
+                        {},
+                        "Instant bonus-day grants do not use purchase requirements."
+                      )}
                 </small>
               </div>
               {#if promoEligibilityDirtyCount}
@@ -927,6 +1051,7 @@
                     type="number"
                     class="input"
                     min="1"
+                    disabled={!promoEditUsesCheckout}
                     value={promoEditDraft.min_subscription_months == null
                       ? ""
                       : String(promoEditDraft.min_subscription_months)}
@@ -949,6 +1074,7 @@
                     class="input"
                     min="0"
                     step="0.01"
+                    disabled={!promoEditUsesCheckout}
                     value={promoEditDraft.min_traffic_gb == null
                       ? ""
                       : String(promoEditDraft.min_traffic_gb)}
@@ -1176,6 +1302,16 @@
 
   .admin-promo-field-shell :global(.admin-badge) {
     justify-self: start;
+  }
+
+  .admin-promo-bonus-mode {
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
+  }
+
+  .admin-promo-bonus-mode small {
+    color: var(--admin-muted);
+    font-size: 12px;
+    line-height: 1.35;
   }
 
   .admin-promo-dialog-actions {

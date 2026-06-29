@@ -389,6 +389,7 @@ class PromoCode(Base):
     discount_percent = Column(Numeric(5, 2), nullable=True)
     duration_multiplier = Column(Numeric(6, 3), nullable=True)
     traffic_multiplier = Column(Numeric(6, 3), nullable=True)
+    bonus_requires_payment = Column(Boolean, nullable=False, default=False)
     applies_to = Column(String(32), nullable=False, default="all")
     min_subscription_months = Column(Integer, nullable=True)
     min_traffic_gb = Column(Numeric(10, 2), nullable=True)

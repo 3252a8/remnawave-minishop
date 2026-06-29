@@ -10,6 +10,7 @@ function promo(overrides = {}) {
     discount_percent: 20,
     duration_multiplier: null,
     traffic_multiplier: null,
+    bonus_requires_payment: false,
     applies_to: "subscription",
     min_subscription_months: null,
     min_traffic_gb: null,

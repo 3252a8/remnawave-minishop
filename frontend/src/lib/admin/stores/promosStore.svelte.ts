@@ -32,6 +32,7 @@ type PromoEffectPayload = {
   discount_percent?: number | null;
   duration_multiplier?: number | null;
   traffic_multiplier?: number | null;
+  bonus_requires_payment?: boolean | null;
 };
 type PromoPatchResponse = Extract<ApiResponse<"/api/admin/promos/{promo_id}">, { promo: Promo }>;
 type PromoDeleteResponse = Extract<
@@ -93,6 +94,7 @@ const defaultPromoDraft = (): PromoDraft => ({
   discount_percent: null,
   duration_multiplier: null,
   traffic_multiplier: null,
+  bonus_requires_payment: false,
   applies_to: "all",
   min_subscription_months: null,
   min_traffic_gb: null,
@@ -107,6 +109,7 @@ const defaultPromoPatchDraft = (): PromoPatch => ({
   discount_percent: null,
   duration_multiplier: null,
   traffic_multiplier: null,
+  bonus_requires_payment: null,
   applies_to: null,
   min_subscription_months: null,
   min_traffic_gb: null,
@@ -123,6 +126,7 @@ function promoToPatchDraft(promo: Promo): PromoPatch {
     discount_percent: promo.discount_percent,
     duration_multiplier: promo.duration_multiplier,
     traffic_multiplier: promo.traffic_multiplier,
+    bonus_requires_payment: promo.bonus_requires_payment,
     applies_to: promo.applies_to,
     min_subscription_months: promo.min_subscription_months,
     min_traffic_gb: promo.min_traffic_gb,
@@ -155,6 +159,7 @@ function normalizeEffectPayload<T extends PromoEffectPayload>(payload: T): T {
     discount_percent: kind === "discount_percent" ? payload.discount_percent : null,
     duration_multiplier: kind === "duration_multiplier" ? payload.duration_multiplier : null,
     traffic_multiplier: kind === "traffic_multiplier" ? payload.traffic_multiplier : null,
+    bonus_requires_payment: kind === "bonus_days" ? Boolean(payload.bonus_requires_payment) : false,
   } as T;
 }
 

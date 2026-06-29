@@ -2881,6 +2881,11 @@
             "title": "Bonus Days",
             "type": "integer"
           },
+          "bonus_requires_payment": {
+            "default": false,
+            "title": "Bonus Requires Payment",
+            "type": "boolean"
+          },
           "code": {
             "anyOf": [
               {
@@ -2989,6 +2994,11 @@
           "bonus_days": {
             "title": "Bonus Days",
             "type": "integer"
+          },
+          "bonus_requires_payment": {
+            "default": false,
+            "title": "Bonus Requires Payment",
+            "type": "boolean"
           },
           "code": {
             "title": "Code",
@@ -3157,6 +3167,18 @@
             ],
             "default": null,
             "title": "Bonus Days"
+          },
+          "bonus_requires_payment": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bonus Requires Payment"
           },
           "clear_valid_until": {
             "default": null,

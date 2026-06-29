@@ -34,6 +34,7 @@ class PromoCreateBody(HttpBodyModel):
     discount_percent: float | None = Field(default=None, gt=0, le=100)
     duration_multiplier: float | None = Field(default=None, ge=1)
     traffic_multiplier: float | None = Field(default=None, ge=1)
+    bonus_requires_payment: bool = False
     applies_to: str = "all"
     min_subscription_months: int | None = Field(default=None, gt=0)
     min_traffic_gb: float | None = Field(default=None, gt=0)
@@ -63,6 +64,7 @@ class PromoCreateBody(HttpBodyModel):
             discount_percent=self.discount_percent,
             duration_multiplier=float(self.duration_multiplier or 1.0),
             traffic_multiplier=float(self.traffic_multiplier or 1.0),
+            bonus_requires_payment=bool(self.bonus_requires_payment),
             applies_to=self.applies_to or "all",
             min_subscription_months=self.min_subscription_months,
             min_traffic_gb=self.min_traffic_gb,
@@ -75,6 +77,7 @@ class PromoUpdateBody(HttpBodyModel):
     discount_percent: float | None = Field(default=None, gt=0, le=100)
     duration_multiplier: float | None = Field(default=None, ge=1)
     traffic_multiplier: float | None = Field(default=None, ge=1)
+    bonus_requires_payment: bool | None = None
     applies_to: str | None = None
     min_subscription_months: int | None = Field(default=None, gt=0)
     min_traffic_gb: float | None = Field(default=None, gt=0)
@@ -210,6 +213,7 @@ class PromoOut(HttpResponseModel):
     discount_percent: float | None = None
     duration_multiplier: float | None = None
     traffic_multiplier: float | None = None
+    bonus_requires_payment: bool = False
     applies_to: str
     min_subscription_months: int | None = None
     min_traffic_gb: float | None = None
@@ -236,6 +240,7 @@ class PromoOut(HttpResponseModel):
             traffic_multiplier=(
                 effects.traffic_multiplier if effects.traffic_multiplier != 1.0 else None
             ),
+            bonus_requires_payment=bool(effects.bonus_requires_payment),
             applies_to=effects.applies_to,
             min_subscription_months=effects.min_subscription_months,
             min_traffic_gb=effects.min_traffic_gb,

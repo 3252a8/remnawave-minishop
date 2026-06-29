@@ -1310,6 +1310,26 @@ def _migration_0040_add_code_checkout_snapshots(connection: Connection) -> None:
         connection.execute(text(stmt))
 
 
+def _migration_0041_add_bonus_payment_mode_flag(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("promo_codes")}
+    if "bonus_requires_payment" not in columns:
+        connection.execute(
+            text(
+                "ALTER TABLE promo_codes "
+                "ADD COLUMN bonus_requires_payment BOOLEAN NOT NULL DEFAULT FALSE"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE promo_codes "
+                "SET bonus_requires_payment = TRUE "
+                "WHERE bonus_days > 0 "
+                "AND (min_subscription_months IS NOT NULL OR min_traffic_gb IS NOT NULL)"
+            )
+        )
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -1510,6 +1530,11 @@ MIGRATIONS: List[Migration] = [
         id="0040_add_code_checkout_snapshots",
         description="Snapshot code checkout terms and archive used codes safely",
         upgrade=_migration_0040_add_code_checkout_snapshots,
+    ),
+    Migration(
+        id="0041_add_bonus_payment_mode_flag",
+        description="Choose whether bonus days are granted immediately or after payment",
+        upgrade=_migration_0041_add_bonus_payment_mode_flag,
     ),
 ]
 

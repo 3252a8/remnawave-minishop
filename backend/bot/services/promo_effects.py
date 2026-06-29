@@ -65,6 +65,7 @@ class PromoEffects:
     discount_percent: float | None = None
     duration_multiplier: float = 1.0
     traffic_multiplier: float = 1.0
+    bonus_requires_payment: bool = False
     applies_to: str = PROMO_APPLIES_TO_ALL
     min_subscription_months: int | None = None
     min_traffic_gb: float | None = None
@@ -82,6 +83,7 @@ class PromoEffects:
             discount_percent=discount if discount and discount > 0 else None,
             duration_multiplier=duration_multiplier if duration_multiplier else 1.0,
             traffic_multiplier=traffic_multiplier if traffic_multiplier else 1.0,
+            bonus_requires_payment=bool(getattr(promo, "bonus_requires_payment", False)),
             applies_to=applies_to if applies_to in ALLOWED_PROMO_SCOPES else PROMO_APPLIES_TO_ALL,
             min_subscription_months=min_subscription_months,
             min_traffic_gb=min_traffic_gb,
@@ -118,6 +120,7 @@ class PromoEffects:
             or 1.0,
             traffic_multiplier=_optional_float(getattr(payment, "promo_traffic_multiplier", None))
             or 1.0,
+            bonus_requires_payment=False,
             applies_to=applies_to if applies_to in ALLOWED_PROMO_SCOPES else PROMO_APPLIES_TO_ALL,
             min_subscription_months=_optional_int(
                 getattr(payment, "promo_min_subscription_months", None)
@@ -158,8 +161,13 @@ class PromoEffects:
             self.bonus_days > 0
             and not self.has_discount
             and not self.has_multiplier
-            and not self.has_threshold
             and self.applies_to in {PROMO_APPLIES_TO_ALL, PROMO_APPLIES_TO_SUBSCRIPTION}
+        )
+
+    @property
+    def can_apply_standalone(self) -> bool:
+        return (
+            self.is_bonus_days_only and not self.bonus_requires_payment and not self.has_threshold
         )
 
     def applies_to_sale_mode(self, sale_mode_base: str) -> bool:
@@ -201,6 +209,10 @@ def validate_effects(
         errors.append("empty_effect")
     if effects.active_effect_count > 1:
         errors.append("multiple_effects")
+    if effects.bonus_requires_payment and effects.bonus_days <= 0:
+        errors.append("bonus_payment_mode_requires_bonus_days")
+    if effects.bonus_days > 0 and effects.has_threshold and not effects.bonus_requires_payment:
+        errors.append("bonus_threshold_requires_payment_mode")
     if effects.bonus_days < 0:
         errors.append("invalid_bonus_days")
     if effects.discount_percent is not None and not (0 < effects.discount_percent <= 100):

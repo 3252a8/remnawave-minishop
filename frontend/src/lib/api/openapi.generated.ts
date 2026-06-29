@@ -2775,6 +2775,11 @@ export interface components {
        */
       bonus_days: number;
       /**
+       * Bonus Requires Payment
+       * @default false
+       */
+      bonus_requires_payment: boolean;
+      /**
        * Code
        * @default null
        */
@@ -2823,6 +2828,11 @@ export interface components {
       applies_to: string;
       /** Bonus Days */
       bonus_days: number;
+      /**
+       * Bonus Requires Payment
+       * @default false
+       */
+      bonus_requires_payment: boolean;
       /** Code */
       code: string;
       /**
@@ -2890,6 +2900,11 @@ export interface components {
        * @default null
        */
       bonus_days: number | null;
+      /**
+       * Bonus Requires Payment
+       * @default null
+       */
+      bonus_requires_payment: boolean | null;
       /**
        * Clear Valid Until
        * @default null

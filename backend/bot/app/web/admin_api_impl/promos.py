@@ -142,6 +142,8 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
         update_data["is_active"] = bool(body.is_active)
     if "bonus_days" in fields_set and body.bonus_days is not None:
         update_data["bonus_days"] = int(body.bonus_days)
+    if "bonus_requires_payment" in fields_set:
+        update_data["bonus_requires_payment"] = bool(body.bonus_requires_payment)
     for field in (
         "discount_percent",
         "duration_multiplier",
@@ -178,6 +180,7 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
             "discount_percent",
             "duration_multiplier",
             "traffic_multiplier",
+            "bonus_requires_payment",
             "applies_to",
             "min_subscription_months",
             "min_traffic_gb",
@@ -191,6 +194,7 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
                 "discount_percent": getattr(current, "discount_percent", None),
                 "duration_multiplier": getattr(current, "duration_multiplier", None),
                 "traffic_multiplier": getattr(current, "traffic_multiplier", None),
+                "bonus_requires_payment": getattr(current, "bonus_requires_payment", False),
                 "applies_to": getattr(current, "applies_to", "all"),
                 "min_subscription_months": getattr(current, "min_subscription_months", None),
                 "min_traffic_gb": getattr(current, "min_traffic_gb", None),
