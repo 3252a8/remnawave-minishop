@@ -24,6 +24,7 @@ from bot.utils.install_links import (
     append_install_share_link_text,
     ensure_user_install_guide_links,
 )
+from bot.utils.mini_app_url import subscription_mini_app_checkout_code_url
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
 from db.dal import user_dal
@@ -391,10 +392,11 @@ async def start_command_handler(
 
             if success and isinstance(result, PromoCheckoutRequired):
                 await session.commit()
-                base_url = (settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
-                if base_url:
-                    code_param = result.code or promo_code_to_apply
-                    checkout_url = f"{base_url.rstrip('/')}?startapp=promo_{code_param}"
+                checkout_url = subscription_mini_app_checkout_code_url(
+                    settings,
+                    result.code or promo_code_to_apply,
+                )
+                if checkout_url:
                     keyboard = types.InlineKeyboardMarkup(
                         inline_keyboard=[
                             [

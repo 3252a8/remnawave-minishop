@@ -48,6 +48,15 @@ def subscription_mini_app_renew_url(
     return append_query_params(base, params)
 
 
+def subscription_mini_app_checkout_code_url(settings: Settings, code: str) -> Optional[str]:
+    """Return Mini App URL that opens checkout with a prefilled code."""
+    base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
+    normalized_code = str(code or "").strip()
+    if not base or not normalized_code:
+        return None
+    return append_query_params(base, {"startapp": f"promo_{normalized_code}"})
+
+
 def subscription_mini_app_path_url(settings: Settings, path: str) -> Optional[str]:
     """Return a Mini App URL with ``path`` appended to the configured app base."""
     base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
