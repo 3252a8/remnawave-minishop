@@ -301,6 +301,7 @@ async def finalize_successful_payment(
             provider=req.provider_subscription,
             sale_mode=req.sale_mode,
             traffic_gb=traffic_gb_for_activation,
+            promo_code_id_from_payment=getattr(req.payment, "promo_code_id", None),
             **activation_extra_kwargs,
         )
         referral_bonus = None
@@ -402,6 +403,11 @@ async def finalize_successful_payment(
     final_end_date = base_end_date
     applied_referee_bonus_days = 0
     applied_promo_bonus_days = activation.get("applied_promo_bonus_days", 0) if activation else 0
+    displayed_traffic_amount = (
+        activation.get("traffic_gb")
+        if is_traffic and activation and activation.get("traffic_gb") is not None
+        else req.traffic_amount
+    )
 
     inviter_name: Optional[str] = None
     if referral_bonus and referral_bonus.get("referee_new_end_date"):
@@ -416,7 +422,7 @@ async def finalize_successful_payment(
             months=(
                 activation_months
                 if is_subscription
-                else format_human_units(req.traffic_amount or req.months)
+                else format_human_units(displayed_traffic_amount or req.months)
             ),
             base_end_date=base_end_date,
             final_end_date=final_end_date,

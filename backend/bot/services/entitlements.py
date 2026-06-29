@@ -12,6 +12,15 @@ from typing import Iterable, Protocol
 
 logger = logging.getLogger(__name__)
 
+MARKETING_WINBACK_ENTITLEMENT = "marketing.winback"
+MARKETING_CAMPAIGNS_ENTITLEMENT = "marketing.campaigns"
+RESERVED_ENTITLEMENT_KEYS = frozenset(
+    {
+        MARKETING_WINBACK_ENTITLEMENT,
+        MARKETING_CAMPAIGNS_ENTITLEMENT,
+    }
+)
+
 
 class EntitlementsProvider(Protocol):
     """Provider that answers whether a named feature is available."""

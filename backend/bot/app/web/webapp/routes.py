@@ -57,6 +57,7 @@ from .billing import (
     create_payment_route,
     device_topup_options_route,
     payment_status_route,
+    quote_promo_route,
     subscription_auto_renew_route,
     tariff_change_options_route,
     tariff_change_payment_route,
@@ -181,6 +182,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/promo/apply", apply_promo_route)
     app.router.add_post("/api/trial/activate", activate_trial_route)
     app.router.add_post("/api/subscription/auto-renew", subscription_auto_renew_route)
+    app.router.add_post("/api/subscription/quote-promo", quote_promo_route)
     app.router.add_get("/api/devices", devices_route)
     app.router.add_post("/api/devices/disconnect", disconnect_device_route)
     app.router.add_get("/api/devices/topup-options", device_topup_options_route)

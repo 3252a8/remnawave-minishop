@@ -6,6 +6,7 @@
     CircleX,
     LockKeyhole,
     TriangleAlert,
+    X,
   } from "$components/ui/icons.js";
   import { Tooltip } from "$components/ui/primitives.js";
 
@@ -82,7 +83,14 @@
     closeLinkEmailDialog = () => {},
     closePaymentModal = () => {},
     closeSetPasswordDialog = () => {},
+    checkoutPromoAppliedCode = "",
+    checkoutPromoInput = $bindable(""),
+    checkoutPromoIsError = false,
+    checkoutPromoPriceText = "",
+    checkoutPromoStatus = "",
+    applyCheckoutPromo = () => {},
     backToTariffList = () => {},
+    clearCheckoutPromo = () => {},
     continueWithSelectedTariff = () => {},
     requestLinkEmailCode = () => {},
     requestSetPasswordCode = () => {},
@@ -138,7 +146,14 @@
     closeLinkEmailDialog?: VoidAction;
     closePaymentModal?: VoidAction;
     closeSetPasswordDialog?: VoidAction;
+    checkoutPromoAppliedCode?: string;
+    checkoutPromoInput?: string;
+    checkoutPromoIsError?: boolean;
+    checkoutPromoPriceText?: string;
+    checkoutPromoStatus?: string;
+    applyCheckoutPromo?: VoidAction;
     backToTariffList?: VoidAction;
+    clearCheckoutPromo?: VoidAction;
     continueWithSelectedTariff?: VoidAction;
     requestLinkEmailCode?: VoidAction;
     requestSetPasswordCode?: VoidAction;
@@ -184,6 +199,10 @@
   }
   function paymentPriceLabel(plan: AnyRecord | null) {
     return priceLabelFn(planWithSelectedHwidRenewal(plan), selectedMethod);
+  }
+  function checkoutPaymentPriceLabel(plan: AnyRecord | null) {
+    if (checkoutPromoAppliedCode && checkoutPromoPriceText) return checkoutPromoPriceText;
+    return paymentPriceLabel(plan);
   }
   const selectedPlanForPayment = $derived(planWithSelectedHwidRenewal(selectedPlan));
   const paymentMethods = $derived(methodsForPlan(methods, selectedPlanForPayment));
@@ -252,6 +271,10 @@
   }
   function tariffLimitLabel(tariff: AnyRecord) {
     return tariffLimitLabelFn(tariff, { t });
+  }
+
+  function checkoutPromoBlock() {
+    return Boolean(checkoutPromoAppliedCode || checkoutPromoStatus || selectedPlan);
   }
 
   function paymentTitle() {
@@ -413,13 +436,47 @@
         {:else}
           <EmptyCard>{t("wa_payment_methods_not_configured")}</EmptyCard>
         {/if}
+        {#if checkoutPromoBlock()}
+          <div class="checkout-promo-row">
+            {#if checkoutPromoAppliedCode}
+              <span class="checkout-promo-chip">
+                {checkoutPromoAppliedCode}
+                <button type="button" onclick={clearCheckoutPromo} aria-label={t("wa_remove")}>
+                  <X size={14} />
+                </button>
+              </span>
+            {:else}
+              <Input
+                class="input"
+                value={checkoutPromoInput}
+                oninput={(e) => (checkoutPromoInput = (e.currentTarget as HTMLInputElement).value)}
+                placeholder={t("wa_promo_enter")}
+              />
+              <Button
+                variant="secondary"
+                onclick={applyCheckoutPromo}
+                disabled={!checkoutPromoInput.trim()}
+              >
+                {t("wa_apply")}
+              </Button>
+            {/if}
+          </div>
+          {#if checkoutPromoStatus}
+            <StatusMessage error={checkoutPromoIsError}>
+              {checkoutPromoStatus}
+              {#if checkoutPromoPriceText}
+                - {checkoutPromoPriceText}
+              {/if}
+            </StatusMessage>
+          {/if}
+        {/if}
         <Button
           class="wide bottom-action payment-submit-button"
           onclick={createPayment}
           disabled={!selectedPlan || !paymentMethodSelected || payBusy}
         >
           {t("wa_pay")}
-          {selectedPlan ? paymentPriceLabel(selectedPlan) : ""}
+          {selectedPlan ? checkoutPaymentPriceLabel(selectedPlan) : ""}
           <LockKeyhole size={17} />
         </Button>
       {:else}
@@ -504,13 +561,47 @@
       {:else}
         <EmptyCard>{t("wa_payment_methods_not_configured")}</EmptyCard>
       {/if}
+      {#if checkoutPromoBlock()}
+        <div class="checkout-promo-row">
+          {#if checkoutPromoAppliedCode}
+            <span class="checkout-promo-chip">
+              {checkoutPromoAppliedCode}
+              <button type="button" onclick={clearCheckoutPromo} aria-label={t("wa_remove")}>
+                <X size={14} />
+              </button>
+            </span>
+          {:else}
+            <Input
+              class="input"
+              value={checkoutPromoInput}
+              oninput={(e) => (checkoutPromoInput = (e.currentTarget as HTMLInputElement).value)}
+              placeholder={t("wa_promo_enter")}
+            />
+            <Button
+              variant="secondary"
+              onclick={applyCheckoutPromo}
+              disabled={!checkoutPromoInput.trim()}
+            >
+              {t("wa_apply")}
+            </Button>
+          {/if}
+        </div>
+        {#if checkoutPromoStatus}
+          <StatusMessage error={checkoutPromoIsError}>
+            {checkoutPromoStatus}
+            {#if checkoutPromoPriceText}
+              - {checkoutPromoPriceText}
+            {/if}
+          </StatusMessage>
+        {/if}
+      {/if}
       <Button
         class="wide bottom-action payment-submit-button"
         onclick={createPayment}
         disabled={!selectedPlan || !paymentMethodSelected || payBusy}
       >
         {t("wa_pay")}
-        {selectedPlan ? paymentPriceLabel(selectedPlan) : ""}
+        {selectedPlan ? checkoutPaymentPriceLabel(selectedPlan) : ""}
         <LockKeyhole size={17} />
       </Button>
     {/if}

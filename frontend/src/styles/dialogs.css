@@ -143,6 +143,45 @@
   background: var(--border);
 }
 
+.checkout-promo-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.checkout-promo-row .input {
+  min-width: 0;
+}
+
+.checkout-promo-chip {
+  display: inline-grid;
+  grid-template-columns: minmax(0, auto) auto;
+  gap: 8px;
+  align-items: center;
+  justify-self: start;
+  max-width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 88%, var(--accent));
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.checkout-promo-chip button {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+}
+
 .payment-submit-button {
   border-color: color-mix(in srgb, var(--accent) 72%, transparent);
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 94%, white), var(--accent));

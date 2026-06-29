@@ -168,6 +168,8 @@ class BuildServicesWiringTests(unittest.TestCase):
             "referral_service",
             "promo_code_service",
             "notification_service",
+            "audience_segmentation_service",
+            "outbound_messaging_service",
             "email_auth_service",
             "support_service",
             "stars_service",

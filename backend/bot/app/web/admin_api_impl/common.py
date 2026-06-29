@@ -11,7 +11,7 @@ from config.settings import Settings
 from config.tariffs_config import TariffsConfig
 from db.models import AdCampaign, MessageLog, Payment, PromoCode, Subscription, User
 
-from .schemas import AdminSubscriptionOut, AdminUserOut, AdOut, LogOut, PaymentOut
+from .schemas import AdminSubscriptionOut, AdminUserOut, AdOut, LogOut, PaymentOut, PromoOut
 
 
 def _ok(payload: Dict[str, Any], **extra: Any) -> web.Response:
@@ -340,19 +340,7 @@ def _serialize_payment(payment: Payment) -> Dict[str, Any]:
 
 
 def _serialize_promo(promo: PromoCode) -> Dict[str, Any]:
-    return {
-        "id": int(promo.promo_code_id),
-        "code": promo.code,
-        "bonus_days": int(promo.bonus_days),
-        "max_activations": int(promo.max_activations),
-        "current_activations": int(promo.current_activations or 0),
-        "is_active": bool(promo.is_active),
-        "valid_until": promo.valid_until.isoformat() if promo.valid_until else None,
-        "created_at": promo.created_at.isoformat() if promo.created_at else None,
-        "created_by_admin_id": int(promo.created_by_admin_id)
-        if promo.created_by_admin_id
-        else None,
-    }
+    return cast(Dict[str, Any], PromoOut.from_orm_promo(promo).model_dump(mode="json"))
 
 
 def _serialize_ad(campaign: AdCampaign, totals: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:

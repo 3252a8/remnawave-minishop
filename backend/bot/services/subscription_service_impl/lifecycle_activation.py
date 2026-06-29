@@ -6,11 +6,12 @@ from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra.grants import GrantContext, resolve_effective_grant
+from bot.services.payment_promo import consume_payment_promo, load_payment_promo_effects
 from bot.utils.date_utils import add_months
 from config.tariffs_config import default_currency_key_for_settings
 from db.dal import (
     payment_dal,
-    promo_code_dal,
     subscription_dal,
     tariff_dal,
     user_billing_dal,
@@ -67,6 +68,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 provider=provider,
                 tariff_key=tariff_key,
                 sale_mode="traffic_package" if self._tariffs_config() else "traffic",
+                promo_code_id_from_payment=promo_code_id_from_payment,
             )
             return result if isinstance(result, dict) else None
         if sale_mode_base == "topup":
@@ -83,6 +85,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 payment_amount=payment_amount,
                 payment_db_id=payment_db_id,
                 provider=provider,
+                promo_code_id_from_payment=promo_code_id_from_payment,
             )
             return result if isinstance(result, dict) else None
         if sale_mode_base == "premium_topup":
@@ -99,6 +102,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 payment_amount=payment_amount,
                 payment_db_id=payment_db_id,
                 provider=provider,
+                promo_code_id_from_payment=promo_code_id_from_payment,
             )
             return result if isinstance(result, dict) else None
         if sale_mode_base in {"hwid_device", "hwid_devices", "hwid_devices_renewal"}:
@@ -210,36 +214,50 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         ):
             start_date = current_active_sub.end_date
 
-        # base duration by months
         end_after_months = add_months(start_date, months_int)
-        duration_days_total = (end_after_months - start_date).days
+        base_period_days = (end_after_months - start_date).days
+        duration_days_total = base_period_days
         applied_promo_bonus_days = 0
 
         if promo_code_id_from_payment:
-            promo_model = await promo_code_dal.get_promo_code_by_id(
-                session, promo_code_id_from_payment
+            promo_model, promo_effects = await load_payment_promo_effects(
+                session,
+                payment or promo_code_id_from_payment,
             )
-            if (
-                promo_model
-                and promo_model.is_active
-                and promo_model.current_activations < promo_model.max_activations
-            ):
-                applied_promo_bonus_days = promo_model.bonus_days
-                duration_days_total += applied_promo_bonus_days
-
-                activation = await promo_code_dal.record_promo_activation(
-                    session,
-                    promo_code_id_from_payment,
-                    user_id,
-                    payment_id=payment_db_id,
-                )
-                if activation:
-                    await promo_code_dal.increment_promo_code_usage(
-                        session, promo_code_id_from_payment
+            if promo_model is not None and promo_effects is not None:
+                grant = resolve_effective_grant(
+                    GrantContext(
+                        sale_mode_base="subscription",
+                        tariff_key=tariff.key if tariff else tariff_key,
+                        base_period_days=base_period_days,
+                        months=months_int,
+                        charged_gb=None,
+                        scope="regular",
+                        promo=promo_effects,
+                        period_start=start_date,
+                        base_period_end=end_after_months,
                     )
+                )
+                consumed = await consume_payment_promo(
+                    session=session,
+                    user_id=user_id,
+                    promo_model=promo_model,
+                    effects=promo_effects,
+                    payment_id=payment_db_id,
+                    payment=payment,
+                    sale_mode_base="subscription",
+                    months=months_int,
+                    traffic_gb=None,
+                    granted_days=grant.extra_days,
+                )
+                if consumed:
+                    applied_promo_bonus_days = grant.extra_days
+                    duration_days_total += applied_promo_bonus_days
                 else:
                     logging.warning(
-                        f"Promo code {promo_code_id_from_payment} was already activated by user {user_id}, but bonus applied via payment {payment_db_id}."  # noqa: E501
+                        "Attached code %s was not consumed for subscription payment %s.",
+                        promo_code_id_from_payment,
+                        payment_db_id,
                     )
             else:
                 logging.warning(

@@ -65,8 +65,24 @@ class PaymentSucceededPayload(EventPayload):
     months: int | None = None
     traffic_gb: float | None = None
     purchased_hwid_devices: int | None = None
+    promo_code_id: int | None = None
+    base_amount: float | None = None
+    discount_amount: float | None = None
     end_date: datetime | None = None
     is_auto_renew: bool
+
+
+class SubscriptionExpiredPayload(EventPayload):
+    EVENT_NAME: ClassVar[str] = "subscription.expired"
+
+    user_id: int
+    subscription_id: int | None = None
+    tariff_key: str | None = None
+    end_date: datetime | None = None
+
+
+class SubscriptionLapsedPayload(SubscriptionExpiredPayload):
+    EVENT_NAME: ClassVar[str] = "subscription.lapsed"
 
 
 class PaymentCanceledPayload(EventPayload):

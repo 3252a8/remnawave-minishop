@@ -4,6 +4,16 @@ export type RenewalDeeplink = {
   tariffKey: string;
 };
 
+type TelegramWindow = Window & {
+  Telegram?: {
+    WebApp?: {
+      initDataUnsafe?: {
+        start_param?: string;
+      };
+    };
+  };
+};
+
 export function currentSearchParams() {
   return new URLSearchParams(window.location.search);
 }
@@ -33,6 +43,45 @@ export function stripRenewalLoginQueryFromUrl() {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
   const keys = ["login", "login_email", "after_login", "renew", "renew_tariff"];
+  const changed = keys.some((key) => url.searchParams.has(key));
+  if (!changed) return;
+  for (const key of keys) url.searchParams.delete(key);
+  const search = url.searchParams.toString();
+  window.history.replaceState(null, "", `${url.pathname}${search ? `?${search}` : ""}${url.hash}`);
+}
+
+function telegramStartParam(): string {
+  if (typeof window === "undefined") return "";
+  return (
+    ((window as TelegramWindow).Telegram?.WebApp?.initDataUnsafe?.start_param as string | undefined)
+      ?.trim()
+      .toString() || ""
+  );
+}
+
+function normalizeCheckoutPromoParam(value: string | null): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const lower = raw.toLowerCase();
+  return lower.startsWith("promo_") ? raw.slice("promo_".length).trim() : raw;
+}
+
+export function readCheckoutPromoDeeplink(): string {
+  const params = currentSearchParams();
+  return (
+    normalizeCheckoutPromoParam(params.get("promo_code")) ||
+    normalizeCheckoutPromoParam(params.get("promo")) ||
+    normalizeCheckoutPromoParam(params.get("startapp")) ||
+    normalizeCheckoutPromoParam(params.get("start_param")) ||
+    normalizeCheckoutPromoParam(params.get("tgWebAppStartParam")) ||
+    normalizeCheckoutPromoParam(telegramStartParam())
+  );
+}
+
+export function stripCheckoutPromoQueryFromUrl() {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  const keys = ["promo", "promo_code", "startapp", "start_param", "tgWebAppStartParam"];
   const changed = keys.some((key) => url.searchParams.has(key));
   if (!changed) return;
   for (const key of keys) url.searchParams.delete(key);

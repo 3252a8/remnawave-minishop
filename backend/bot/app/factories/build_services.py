@@ -12,8 +12,10 @@ from bot.payment_providers import (
     recurring_provider_services,
 )
 from bot.payment_providers.shared import RecurringProviderService
+from bot.services.audience_segmentation import AudienceSegmentationService
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.notification_service import NotificationService
+from bot.services.outbound_messaging import OutboundMessagingService
 from bot.services.panel_api_service import PanelApiService
 from bot.services.panel_dry_run_api_service import PanelDryRunApiService
 from bot.services.panel_webhook_service import PanelWebhookService
@@ -59,6 +61,11 @@ def build_core_services(
     panel_webhook_service = PanelWebhookService(
         bot, settings, i18n, async_session_factory, panel_service
     )
+    audience_segmentation_service = AudienceSegmentationService(
+        async_session_factory,
+        panel_service=panel_service,
+    )
+    outbound_messaging_service = OutboundMessagingService(bot)
     provider_configs = build_provider_configs()
     payment_services = build_provider_services(
         ServiceFactoryContext(
@@ -89,5 +96,7 @@ def build_core_services(
         email_auth_service=email_auth_service,
         support_service=support_service,
         panel_webhook_service=panel_webhook_service,
+        audience_segmentation_service=audience_segmentation_service,
+        outbound_messaging_service=outbound_messaging_service,
         payment_services=payment_services,
     )

@@ -55,6 +55,8 @@ jobs:
       - name: Svelte typecheck
         run: npm run check:svelte
         working-directory: frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
 
       - name: Check generated API types are in sync
         run: |

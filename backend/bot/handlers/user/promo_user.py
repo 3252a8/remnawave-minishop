@@ -12,7 +12,7 @@ from bot.keyboards.inline.user_keyboards import (
     get_connect_and_main_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
-from bot.services.promo_code_service import PromoCodeService
+from bot.services.promo_code_service import PromoCheckoutRequired, PromoCodeService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.states.user_states import UserPromoStates
 from bot.utils.callback_answer import callback_message, message_from_user, safe_answer_callback
@@ -20,6 +20,7 @@ from bot.utils.install_links import (
     append_install_share_link_text,
     ensure_user_install_guide_links,
 )
+from bot.utils.mini_app_url import subscription_mini_app_checkout_code_url
 from config.settings import Settings
 from db.dal import user_dal
 
@@ -152,6 +153,38 @@ async def process_promo_code_input(
     success, result = await promo_code_service.apply_promo_code(
         session, user.id, code_input, current_lang
     )
+    if success and isinstance(result, PromoCheckoutRequired):
+        await session.commit()
+        logging.info(
+            "Code '%s' requires checkout for user %s; sending Mini App handoff.",
+            code_input,
+            user.id,
+        )
+        checkout_url = subscription_mini_app_checkout_code_url(settings, result.code or code_input)
+        reply_markup = None
+        if checkout_url:
+            reply_markup = types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text=_("open_mini_app"),
+                            web_app=types.WebAppInfo(url=checkout_url),
+                        )
+                    ]
+                ]
+            )
+
+        await message.answer(
+            _("promo_code_requires_checkout", effect=result.effect_summary),
+            reply_markup=reply_markup,
+            parse_mode="HTML",
+        )
+        await state.clear()
+        logging.info(
+            f"Promo code input '{code_input}' processing finished for user {user.id}. State cleared."  # noqa: E501
+        )
+        return
+
     if success:
         await session.commit()
         logging.info(f"Promo code '{code_input}' successfully applied for user {user.id}.")

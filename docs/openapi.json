@@ -2574,21 +2574,400 @@
         "title": "PaymentOut",
         "type": "object"
       },
+      "PromoActivationOut": {
+        "properties": {
+          "activated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Activated At"
+          },
+          "activation_id": {
+            "title": "Activation Id",
+            "type": "integer"
+          },
+          "applies_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Applies To"
+          },
+          "base_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Base Amount"
+          },
+          "bonus_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bonus Days"
+          },
+          "charged_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Charged Gb"
+          },
+          "charged_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Charged Months"
+          },
+          "discount_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Discount Amount"
+          },
+          "discount_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Discount Percent"
+          },
+          "duration_multiplier": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Multiplier"
+          },
+          "effect_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Effect Summary"
+          },
+          "granted_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Granted Days"
+          },
+          "granted_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Granted Gb"
+          },
+          "payment_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payment Amount"
+          },
+          "payment_created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payment Created At"
+          },
+          "payment_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payment Currency"
+          },
+          "payment_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payment Description"
+          },
+          "payment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payment Id"
+          },
+          "payment_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payment Provider"
+          },
+          "payment_sale_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payment Sale Mode"
+          },
+          "payment_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payment Status"
+          },
+          "promo_id": {
+            "title": "Promo Id",
+            "type": "integer"
+          },
+          "telegram_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Id"
+          },
+          "traffic_multiplier": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Traffic Multiplier"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          },
+          "user_label": {
+            "title": "User Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activation_id",
+          "promo_id",
+          "user_id",
+          "user_label"
+        ],
+        "title": "PromoActivationOut",
+        "type": "object"
+      },
       "PromoCreateBody": {
         "properties": {
+          "applies_to": {
+            "default": "all",
+            "title": "Applies To",
+            "type": "string"
+          },
           "bonus_days": {
-            "exclusiveMinimum": 0,
+            "default": 0,
+            "minimum": 0,
             "title": "Bonus Days",
             "type": "integer"
           },
           "code": {
-            "title": "Code",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Code"
+          },
+          "discount_percent": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 100,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Discount Percent"
+          },
+          "duration_multiplier": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Multiplier"
           },
           "max_activations": {
             "exclusiveMinimum": 0,
             "title": "Max Activations",
             "type": "integer"
+          },
+          "min_subscription_months": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Subscription Months"
+          },
+          "min_traffic_gb": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Traffic Gb"
+          },
+          "origin": {
+            "default": "admin",
+            "title": "Origin",
+            "type": "string"
+          },
+          "traffic_multiplier": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Traffic Multiplier"
           },
           "valid_days": {
             "default": null,
@@ -2596,8 +2975,6 @@
           }
         },
         "required": [
-          "code",
-          "bonus_days",
           "max_activations"
         ],
         "title": "PromoCreateBody",
@@ -2605,6 +2982,10 @@
       },
       "PromoOut": {
         "properties": {
+          "applies_to": {
+            "title": "Applies To",
+            "type": "string"
+          },
           "bonus_days": {
             "title": "Bonus Days",
             "type": "integer"
@@ -2642,6 +3023,34 @@
             "title": "Current Activations",
             "type": "integer"
           },
+          "discount_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Discount Percent"
+          },
+          "duration_multiplier": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Multiplier"
+          },
+          "effect_summary": {
+            "title": "Effect Summary",
+            "type": "string"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -2653,6 +3062,46 @@
           "max_activations": {
             "title": "Max Activations",
             "type": "integer"
+          },
+          "min_subscription_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Subscription Months"
+          },
+          "min_traffic_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Traffic Gb"
+          },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
+          "traffic_multiplier": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Traffic Multiplier"
           },
           "valid_until": {
             "anyOf": [
@@ -2672,6 +3121,9 @@
           "id",
           "code",
           "bonus_days",
+          "applies_to",
+          "origin",
+          "effect_summary",
           "max_activations",
           "current_activations",
           "is_active"
@@ -2681,10 +3133,22 @@
       },
       "PromoUpdateBody": {
         "properties": {
+          "applies_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Applies To"
+          },
           "bonus_days": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0,
+                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -2693,6 +3157,37 @@
             ],
             "default": null,
             "title": "Bonus Days"
+          },
+          "clear_valid_until": {
+            "default": null,
+            "title": "Clear Valid Until"
+          },
+          "discount_percent": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 100,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Discount Percent"
+          },
+          "duration_multiplier": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Multiplier"
           },
           "is_active": {
             "default": null,
@@ -2710,6 +3205,70 @@
             ],
             "default": null,
             "title": "Max Activations"
+          },
+          "min_subscription_months": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Subscription Months"
+          },
+          "min_traffic_gb": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Traffic Gb"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Origin"
+          },
+          "traffic_multiplier": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Traffic Multiplier"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Valid Until"
           }
         },
         "title": "PromoUpdateBody",
@@ -4366,6 +4925,20 @@
             "default": null,
             "title": "Note"
           },
+          "promo_code": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Promo Code"
+          },
           "renew_hwid_devices": {
             "anyOf": [
               {
@@ -4420,6 +4993,115 @@
           }
         },
         "title": "WebAppPromoApplyPayload",
+        "type": "object"
+      },
+      "WebAppPromoQuotePayload": {
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comment"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "device_count": {
+            "default": null,
+            "title": "Device Count"
+          },
+          "method": {
+            "default": "",
+            "title": "Method",
+            "type": "string"
+          },
+          "months": {
+            "default": null,
+            "title": "Months"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Note"
+          },
+          "promo_code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Promo Code",
+            "type": "string"
+          },
+          "renew_hwid_devices": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Renew Hwid Devices"
+          },
+          "sale_mode": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sale Mode"
+          },
+          "tariff_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tariff Key"
+          },
+          "traffic_gb": {
+            "default": null,
+            "title": "Traffic Gb"
+          }
+        },
+        "required": [
+          "promo_code"
+        ],
+        "title": "WebAppPromoQuotePayload",
         "type": "object"
       },
       "WebAppSetPasswordPayload": {
@@ -6442,6 +7124,78 @@
           }
         ],
         "summary": "Admin Promo Update",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/promos/{promo_id}/activations": {
+      "get": {
+        "operationId": "get_admin_promo_activations_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "promo_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "activations": {
+                      "items": {
+                        "$ref": "#/components/schemas/PromoActivationOut"
+                      },
+                      "type": "array"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "page": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "page_size": {
+                      "maximum": 100,
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "total": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "activations",
+                    "page",
+                    "page_size",
+                    "total"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Promo Activations",
         "tags": [
           "admin"
         ]
@@ -10542,6 +11296,15 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "applies_to": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "effect_summary": {
+                      "type": "string"
+                    },
                     "end_date": {
                       "type": [
                         "string",
@@ -10554,8 +11317,23 @@
                         "null"
                       ]
                     },
+                    "min_subscription_months": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "min_traffic_gb": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "ok": {
                       "const": true,
+                      "type": "boolean"
+                    },
+                    "requires_checkout": {
                       "type": "boolean"
                     }
                   },
@@ -10812,6 +11590,125 @@
           }
         ],
         "summary": "Subscription Auto Renew",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/subscription/quote-promo": {
+      "post": {
+        "operationId": "post_quote_promo_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppPromoQuotePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "applies_to": {
+                      "type": "string"
+                    },
+                    "base_amount": {
+                      "type": "number"
+                    },
+                    "base_stars": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "currency": {
+                      "type": "string"
+                    },
+                    "discount_amount": {
+                      "type": "number"
+                    },
+                    "discount_percent": {
+                      "type": "number"
+                    },
+                    "effect_summary": {
+                      "type": "string"
+                    },
+                    "effective_amount": {
+                      "type": "number"
+                    },
+                    "effective_stars": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "min_subscription_months": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "min_traffic_gb": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "payable": {
+                      "type": "boolean"
+                    },
+                    "promo_code_id": {
+                      "type": "integer"
+                    },
+                    "reason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reason_key": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "valid": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "valid"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Quote Promo",
         "tags": [
           "subscription"
         ]

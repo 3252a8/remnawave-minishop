@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from bot.app.web.route_contracts import (
     BOOLEAN_SCHEMA,
+    INTEGER_SCHEMA,
+    NULLABLE_INTEGER_SCHEMA,
+    NULLABLE_NUMBER_SCHEMA,
+    NULLABLE_STRING_SCHEMA,
+    NUMBER_SCHEMA,
     STRING_SCHEMA,
     RouteContract,
     ok_envelope_with,
@@ -17,7 +22,31 @@ from .contract_schemas import (
 from .payloads import (
     WebAppAutoRenewPayload,
     WebAppPaymentCreatePayload,
+    WebAppPromoQuotePayload,
     WebAppTariffChangePayload,
+)
+
+PROMO_QUOTE_RESPONSE_SCHEMA = ok_envelope_with(
+    {
+        "valid": BOOLEAN_SCHEMA,
+        "payable": BOOLEAN_SCHEMA,
+        "code": STRING_SCHEMA,
+        "promo_code_id": INTEGER_SCHEMA,
+        "currency": STRING_SCHEMA,
+        "discount_percent": NUMBER_SCHEMA,
+        "base_amount": NUMBER_SCHEMA,
+        "effective_amount": NUMBER_SCHEMA,
+        "base_stars": NULLABLE_INTEGER_SCHEMA,
+        "effective_stars": NULLABLE_INTEGER_SCHEMA,
+        "discount_amount": NUMBER_SCHEMA,
+        "effect_summary": STRING_SCHEMA,
+        "applies_to": STRING_SCHEMA,
+        "min_subscription_months": NULLABLE_INTEGER_SCHEMA,
+        "min_traffic_gb": NULLABLE_NUMBER_SCHEMA,
+        "reason": NULLABLE_STRING_SCHEMA,
+        "reason_key": NULLABLE_STRING_SCHEMA,
+    },
+    required=["valid"],
 )
 
 BILLING_ROUTE_CONTRACTS: dict[str, RouteContract] = {
@@ -47,6 +76,10 @@ BILLING_ROUTE_CONTRACTS: dict[str, RouteContract] = {
     "create_payment_route": user_contract(
         request_model=WebAppPaymentCreatePayload,
         response_schema=PAYMENT_RESPONSE_SCHEMA,
+    ),
+    "quote_promo_route": user_contract(
+        request_model=WebAppPromoQuotePayload,
+        response_schema=PROMO_QUOTE_RESPONSE_SCHEMA,
     ),
     "payment_status_route": user_contract(response_schema=PAYMENT_RESPONSE_SCHEMA),
 }

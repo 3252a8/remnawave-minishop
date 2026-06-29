@@ -281,6 +281,8 @@ async def process_successful_payment(
                     hwid_full_price = _metadata_float(
                         getattr(payment_record, "hwid_full_price", None)
                     )
+        if promo_code_id is None and payment_record is not None:
+            promo_code_id = _metadata_int(getattr(payment_record, "promo_code_id", None))
 
         if _is_hwid_device_sale_base(sale_mode_base) and hwid_devices_count <= 0:
             logging.error(
@@ -579,7 +581,12 @@ async def process_successful_payment(
         translator = make_translator(i18n, user_lang)
         _ = translator
 
-        traffic_label = format_human_units(traffic_amount_gb)
+        granted_traffic_gb = (
+            activation_details.get("traffic_gb")
+            if activation_details and activation_details.get("traffic_gb") is not None
+            else traffic_amount_gb
+        )
+        traffic_label = format_human_units(granted_traffic_gb)
         if should_send_lknpd_receipt and lknpd_service is not None:
             receipt_item_name = payment_info_from_webhook.get("description")
             if not receipt_item_name:

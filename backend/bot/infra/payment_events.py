@@ -61,6 +61,9 @@ class PaymentSuccessSnapshot:
     traffic_gb: Optional[float]
     traffic_is_premium: bool
     purchased_hwid_devices: Optional[int]
+    promo_code_id: Optional[int]
+    base_amount: Optional[float]
+    discount_amount: Optional[float]
     purchases: tuple[PaymentPurchase, ...]
 
 
@@ -89,6 +92,14 @@ def _optional_float(value: Any) -> Optional[float]:
         return float(text)
     except (TypeError, ValueError):
         return None
+
+
+def _first_optional_float(*values: Any) -> Optional[float]:
+    for value in values:
+        parsed = _optional_float(value)
+        if parsed is not None:
+            return parsed
+    return None
 
 
 def _optional_positive_int(value: Any) -> Optional[int]:
@@ -270,6 +281,17 @@ def resolve_payment_success_snapshot(
             or (traffic_purchase is not None and traffic_purchase.scope == "premium")
         ),
         purchased_hwid_devices=int(hwid_purchase.amount) if hwid_purchase else None,
+        promo_code_id=_optional_int(
+            payload.get("promo_code_id") or _getattr_or_none(payment, "promo_code_id")
+        ),
+        base_amount=_first_optional_float(
+            payload.get("base_amount"),
+            _getattr_or_none(payment, "checkout_base_amount"),
+        ),
+        discount_amount=_first_optional_float(
+            payload.get("discount_amount"),
+            _getattr_or_none(payment, "checkout_discount_amount"),
+        ),
         purchases=purchases,
     )
 
@@ -291,6 +313,9 @@ def build_payment_succeeded_payload(
     payment: Any = None,
     activation: Optional[Mapping[str, Any]] = None,
     purchased_hwid_devices: Optional[int] = None,
+    promo_code_id: Optional[int] = None,
+    base_amount: Optional[float] = None,
+    discount_amount: Optional[float] = None,
 ) -> dict[str, Any]:
     activation = activation or {}
     payload: dict[str, Any] = {
@@ -309,10 +334,16 @@ def build_payment_succeeded_payload(
             or activation.get("purchased_hwid_devices")
             or activation.get("hwid_devices_renewed_count")
         ),
+        "promo_code_id": promo_code_id or _getattr_or_none(payment, "promo_code_id"),
+        "base_amount": base_amount,
+        "discount_amount": discount_amount,
         "end_date": end_date,
         "is_auto_renew": is_auto_renew,
     }
     snapshot = resolve_payment_success_snapshot(payload, payment)
     payload["traffic_gb"] = snapshot.traffic_gb
     payload["purchased_hwid_devices"] = snapshot.purchased_hwid_devices
+    payload["promo_code_id"] = snapshot.promo_code_id
+    payload["base_amount"] = snapshot.base_amount
+    payload["discount_amount"] = snapshot.discount_amount
     return cast(dict[str, Any], PaymentSucceededPayload(**payload).to_payload())

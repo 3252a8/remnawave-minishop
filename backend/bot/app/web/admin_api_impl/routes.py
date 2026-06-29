@@ -31,6 +31,7 @@ from .payments import (
     admin_payments_list_route,
 )
 from .promos import (
+    admin_promo_activations_route,
     admin_promo_create_route,
     admin_promo_delete_route,
     admin_promo_update_route,
@@ -135,6 +136,7 @@ def setup_admin_routes(app: web.Application) -> None:
 
     router.add_get("/api/admin/promos", admin_promos_list_route)
     router.add_post("/api/admin/promos", admin_promo_create_route)
+    router.add_get("/api/admin/promos/{promo_id:\\d+}/activations", admin_promo_activations_route)
     router.add_patch("/api/admin/promos/{promo_id:\\d+}", admin_promo_update_route)
     router.add_delete("/api/admin/promos/{promo_id:\\d+}", admin_promo_delete_route)
 

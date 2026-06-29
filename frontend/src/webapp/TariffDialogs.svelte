@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowRight, CheckCircle2, LockKeyhole } from "$components/ui/icons.js";
+  import { ArrowRight, CheckCircle2, LockKeyhole, X } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
   import {
@@ -20,6 +20,7 @@
     DialogOptionsSkeleton,
     EmptyCard,
     PaymentMethodGrid,
+    StatusMessage,
   } from "$components/patterns/webapp/index.js";
 
   type AnyRecord = Record<string, any>;
@@ -35,6 +36,13 @@
     closeTariffChangeConfirm = () => {},
     closeTariffChangeModal = () => {},
     closeTopupModal = () => {},
+    checkoutPromoAppliedCode = "",
+    checkoutPromoInput = $bindable(""),
+    checkoutPromoIsError = false,
+    checkoutPromoPriceText = "",
+    checkoutPromoStatus = "",
+    applyCheckoutPromo = () => {},
+    clearCheckoutPromo = () => {},
     createDeviceTopupPayment = () => {},
     createTopupPayment = () => {},
     deviceTopupModalOpen = $bindable(false),
@@ -64,6 +72,13 @@
     closeTariffChangeConfirm?: VoidAction;
     closeTariffChangeModal?: VoidAction;
     closeTopupModal?: VoidAction;
+    checkoutPromoAppliedCode?: string;
+    checkoutPromoInput?: string;
+    checkoutPromoIsError?: boolean;
+    checkoutPromoPriceText?: string;
+    checkoutPromoStatus?: string;
+    applyCheckoutPromo?: VoidAction;
+    clearCheckoutPromo?: VoidAction;
     createDeviceTopupPayment?: VoidAction;
     createTopupPayment?: VoidAction;
     deviceTopupModalOpen?: boolean;
@@ -88,6 +103,10 @@
 
   function priceLabel(plan: AnyRecord | null) {
     return priceLabelFn(plan, selectedMethod);
+  }
+  function checkoutPlanPriceLabel(plan: AnyRecord | null) {
+    if (checkoutPromoAppliedCode && checkoutPromoPriceText) return checkoutPromoPriceText;
+    return priceLabel(plan);
   }
   function planKey(plan: AnyRecord | null) {
     return planKeyFn(plan);
@@ -154,7 +173,7 @@
       });
     }
     if (mode === "buy_period") {
-      return `${action?.title || ""} · ${priceLabel(action)}`;
+      return `${action?.title || ""} - ${priceLabel(action)}`;
     }
     return action?.title || mode;
   }
@@ -189,7 +208,7 @@
       t(
         "wa_topup_carryover",
         {},
-        "Докупленный трафик не сгорает: сначала расходуется месячный лимит, затем докупленный остаток."
+        "Purchased traffic does not expire: monthly allowance is spent first, then the purchased balance."
       ),
     ];
   }
@@ -243,6 +262,10 @@
     if (isPremiumTopupContext())
       return premiumTitleFn({ ...subscription, ...(topupOptions || {}) }, t);
     return t("wa_topup_traffic");
+  }
+
+  function checkoutPromoBlock(plan: AnyRecord | null) {
+    return Boolean(plan || checkoutPromoAppliedCode || checkoutPromoStatus);
   }
 </script>
 
@@ -436,13 +459,47 @@
         {t}
         onSelect={(id) => (selectedMethod = id)}
       />
+      {#if checkoutPromoBlock(selectedTopupPlan)}
+        <div class="checkout-promo-row">
+          {#if checkoutPromoAppliedCode}
+            <span class="checkout-promo-chip">
+              {checkoutPromoAppliedCode}
+              <button type="button" onclick={clearCheckoutPromo} aria-label={t("wa_remove")}>
+                <X size={14} />
+              </button>
+            </span>
+          {:else}
+            <input
+              class="input"
+              value={checkoutPromoInput}
+              oninput={(e) => (checkoutPromoInput = (e.currentTarget as HTMLInputElement).value)}
+              placeholder={t("wa_promo_enter")}
+            />
+            <Button
+              variant="secondary"
+              onclick={applyCheckoutPromo}
+              disabled={!checkoutPromoInput.trim()}
+            >
+              {t("wa_apply")}
+            </Button>
+          {/if}
+        </div>
+        {#if checkoutPromoStatus}
+          <StatusMessage error={checkoutPromoIsError}>
+            {checkoutPromoStatus}
+            {#if checkoutPromoPriceText}
+              - {checkoutPromoPriceText}
+            {/if}
+          </StatusMessage>
+        {/if}
+      {/if}
       <Button
         class="wide bottom-action payment-submit-button"
         onclick={createTopupPayment}
         disabled={!selectedTopupPlan || !topupPaymentMethodSelected || payBusy}
       >
         {t("wa_buy_traffic")}
-        {selectedTopupPlan ? priceLabel(selectedTopupPlan) : ""}
+        {selectedTopupPlan ? checkoutPlanPriceLabel(selectedTopupPlan) : ""}
         <LockKeyhole size={17} />
       </Button>
     {:else}
@@ -500,13 +557,47 @@
         {t}
         onSelect={(id) => (selectedMethod = id)}
       />
+      {#if checkoutPromoBlock(selectedDeviceTopupPlan)}
+        <div class="checkout-promo-row">
+          {#if checkoutPromoAppliedCode}
+            <span class="checkout-promo-chip">
+              {checkoutPromoAppliedCode}
+              <button type="button" onclick={clearCheckoutPromo} aria-label={t("wa_remove")}>
+                <X size={14} />
+              </button>
+            </span>
+          {:else}
+            <input
+              class="input"
+              value={checkoutPromoInput}
+              oninput={(e) => (checkoutPromoInput = (e.currentTarget as HTMLInputElement).value)}
+              placeholder={t("wa_promo_enter")}
+            />
+            <Button
+              variant="secondary"
+              onclick={applyCheckoutPromo}
+              disabled={!checkoutPromoInput.trim()}
+            >
+              {t("wa_apply")}
+            </Button>
+          {/if}
+        </div>
+        {#if checkoutPromoStatus}
+          <StatusMessage error={checkoutPromoIsError}>
+            {checkoutPromoStatus}
+            {#if checkoutPromoPriceText}
+              - {checkoutPromoPriceText}
+            {/if}
+          </StatusMessage>
+        {/if}
+      {/if}
       <Button
         class="wide bottom-action payment-submit-button"
         onclick={createDeviceTopupPayment}
         disabled={!selectedDeviceTopupPlan || !devicePaymentMethodSelected || payBusy}
       >
         {t("wa_pay")}
-        {selectedDeviceTopupPlan ? priceLabel(selectedDeviceTopupPlan) : ""}
+        {selectedDeviceTopupPlan ? checkoutPlanPriceLabel(selectedDeviceTopupPlan) : ""}
         <LockKeyhole size={17} />
       </Button>
     {:else}

@@ -34,7 +34,9 @@
   import {
     currentSearchParams,
     hasEmailCodeLoginDeeplink,
+    readCheckoutPromoDeeplink,
     readRenewalDeeplink,
+    stripCheckoutPromoQueryFromUrl,
     stripRenewalLoginQueryFromUrl,
     stripTopupQueryFromUrl,
   } from "./lib/webapp/deeplinks";
@@ -324,12 +326,14 @@
   });
   const { applyPostLoadBillingDeeplinks } = createBillingDeeplinkEffects({
     billingStore,
+    readCheckoutPromoDeeplink,
     readRenewalDeeplink,
     setHomeRoute: () => {
       shellState.activeTab = "home";
       shellState.screen = "home";
       syncAppSectionPath("home", true);
     },
+    stripCheckoutPromoQueryFromUrl,
     stripRenewalLoginQueryFromUrl,
     stripTopupQueryFromUrl,
   });
@@ -354,6 +358,25 @@
     showToast,
     loadData,
     maybeShowActivationSuccessDialog,
+    startCheckoutPromo: (code) => {
+      shellState.activeTab = "home";
+      shellState.screen = "home";
+      syncAppSectionPath("home", true);
+      billingStore.setCheckoutPromoInput(code);
+      billingStore.openPaymentModal(
+        tariffMode,
+        singleTariffMode,
+        tariffCatalog,
+        subscription,
+        plans,
+        String(methods?.[0]?.id || ""),
+        {
+          preferCheckout: true,
+          selectDefaultTariff: true,
+        }
+      );
+      void billingStore.applyCheckoutPromo();
+    },
   });
   const authRuntime = createAuthRuntime({
     authStore,

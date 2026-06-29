@@ -2,6 +2,7 @@ import unittest
 
 from bot.utils.mini_app_url import (
     append_query_params,
+    subscription_mini_app_checkout_code_url,
     subscription_mini_app_install_url,
     subscription_mini_app_path_url,
     subscription_mini_app_renew_url,
@@ -76,6 +77,19 @@ class MiniAppUrlTests(unittest.TestCase):
         self.assertEqual(
             subscription_mini_app_renew_url(s, "premium"),
             "https://app.example.com/webapp?lang=ru&renew=1&renew_tariff=premium",
+        )
+
+    def test_subscription_mini_app_checkout_code_url_preserves_existing_query(self):
+        s = Settings(
+            _env_file=None,
+            BOT_TOKEN="x",
+            POSTGRES_USER="u",
+            POSTGRES_PASSWORD="p",
+            SUBSCRIPTION_MINI_APP_URL="https://app.example.com/webapp?lang=ru",
+        )
+        self.assertEqual(
+            subscription_mini_app_checkout_code_url(s, "SAVE20"),
+            "https://app.example.com/webapp?lang=ru&startapp=promo_SAVE20",
         )
 
     def test_subscription_mini_app_path_url(self):

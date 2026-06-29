@@ -22,7 +22,7 @@ from bot.app.web.webapp.payloads import (
     WebAppAutoRenewPayload,
     WebAppPromoApplyPayload,
 )
-from bot.services.promo_code_service import PromoCodeService
+from bot.services.promo_code_service import PromoCheckoutRequired, PromoCodeService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.config_link import prepare_config_links
 from config.settings import Settings
@@ -71,6 +71,18 @@ async def apply_promo_route(request: web.Request) -> web.Response:
                 await session.commit()
                 return _json_error(400, "promo_apply_failed", _plain_text_message(result))
             await session.commit()
+            if isinstance(result, PromoCheckoutRequired):
+                return json_response(
+                    {
+                        "ok": True,
+                        "requires_checkout": True,
+                        "code": result.code,
+                        "effect_summary": result.effect_summary,
+                        "applies_to": result.applies_to,
+                        "min_subscription_months": result.min_subscription_months,
+                        "min_traffic_gb": result.min_traffic_gb,
+                    }
+                )
             end_date = result if isinstance(result, datetime) else None
             return json_response(
                 {

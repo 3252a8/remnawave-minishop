@@ -2,11 +2,12 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import func, or_
+from sqlalchemy import and_, case, delete, func, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
-from db.models import PromoCode, PromoCodeActivation
+from db.models import Payment, PromoCode, PromoCodeActivation
 
 
 async def create_promo_code(session: AsyncSession, promo_data: Dict[str, Any]) -> PromoCode:
@@ -54,6 +55,7 @@ async def get_active_promo_code_by_code_str(
         stmt = select(PromoCode).where(
             PromoCode.code == candidate,
             PromoCode.is_active == True,
+            PromoCode.archived_at == None,
             PromoCode.current_activations < PromoCode.max_activations,
             or_(PromoCode.valid_until == None, PromoCode.valid_until > now),
         )
@@ -71,6 +73,7 @@ async def get_all_active_promo_codes(
         select(PromoCode)
         .where(
             PromoCode.is_active == True,
+            PromoCode.archived_at == None,
             or_(PromoCode.valid_until == None, PromoCode.valid_until > datetime.now(timezone.utc)),
         )
         .order_by(PromoCode.created_at.desc())
@@ -85,7 +88,13 @@ async def get_all_promo_codes_with_details(
     session: AsyncSession, limit: int = 50, offset: int = 0
 ) -> List[PromoCode]:
     """Get all promo codes (active and inactive) with pagination for management"""
-    stmt = select(PromoCode).order_by(PromoCode.created_at.desc()).limit(limit).offset(offset)
+    stmt = (
+        select(PromoCode)
+        .where(PromoCode.archived_at == None)
+        .order_by(PromoCode.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
@@ -94,7 +103,7 @@ async def get_promo_codes_count(session: AsyncSession) -> int:
     """Get total count of all promo codes"""
     from sqlalchemy import func
 
-    stmt = select(func.count(PromoCode.promo_code_id))
+    stmt = select(func.count(PromoCode.promo_code_id)).where(PromoCode.archived_at == None)
     result = await session.execute(stmt)
     return result.scalar_one()
 
@@ -105,6 +114,10 @@ async def get_promo_activations_by_code_id(
     """Get activation history for a specific promo code with optional pagination."""
     stmt = (
         select(PromoCodeActivation)
+        .options(
+            selectinload(PromoCodeActivation.user),
+            selectinload(PromoCodeActivation.payment),
+        )
         .where(PromoCodeActivation.promo_code_id == promo_code_id)
         .order_by(PromoCodeActivation.activated_at.desc())
         .offset(offset)
@@ -126,6 +139,12 @@ async def count_promo_activations_by_code_id(session: AsyncSession, promo_code_i
     return result.scalar_one()
 
 
+async def count_payments_by_promo_code_id(session: AsyncSession, promo_code_id: int) -> int:
+    stmt = select(func.count()).select_from(Payment).where(Payment.promo_code_id == promo_code_id)
+    result = await session.execute(stmt)
+    return int(result.scalar_one() or 0)
+
+
 async def update_promo_code(
     session: AsyncSession, promo_id: int, update_data: Dict[str, Any]
 ) -> Optional[PromoCode]:
@@ -143,10 +162,14 @@ async def delete_promo_code(session: AsyncSession, promo_id: int) -> Optional[Pr
     promo = await get_promo_code_by_id(session, promo_id)
     if not promo:
         return None
-    # First, delete related activations due to foreign key constraint
-    activations = await get_promo_activations_by_code_id(session, promo_id)
-    for activation in activations:
-        await session.delete(activation)
+    activations_count = await count_promo_activations_by_code_id(session, promo_id)
+    payments_count = await count_payments_by_promo_code_id(session, promo_id)
+    if activations_count > 0 or payments_count > 0:
+        promo.is_active = False
+        promo.archived_at = datetime.now(timezone.utc)
+        await session.flush()
+        await session.refresh(promo)
+        return promo
 
     await session.delete(promo)
     await session.flush()
@@ -156,19 +179,24 @@ async def delete_promo_code(session: AsyncSession, promo_id: int) -> Optional[Pr
 async def increment_promo_code_usage(
     session: AsyncSession, promo_code_id: int
 ) -> Optional[PromoCode]:
-    promo = await get_promo_code_by_id(session, promo_code_id)
+    stmt = (
+        update(PromoCode)
+        .where(
+            PromoCode.promo_code_id == promo_code_id,
+            PromoCode.current_activations < PromoCode.max_activations,
+        )
+        .values(current_activations=PromoCode.current_activations + 1)
+        .returning(PromoCode.promo_code_id)
+    )
+    result = await session.execute(stmt)
+    updated_id = result.scalar_one_or_none()
+    if updated_id is None:
+        logging.warning("Promo code ID %s already reached max activations.", promo_code_id)
+        return None
+    promo = await get_promo_code_by_id(session, int(updated_id))
     if promo:
-        if promo.current_activations < promo.max_activations:
-            promo.current_activations += 1
-            await session.flush()
-            await session.refresh(promo)
-            return promo
-        else:
-            logging.warning(
-                f"Promo code {promo.code} (ID: {promo_code_id}) already reached max activations."
-            )
-            return None
-    return None
+        await session.refresh(promo)
+    return promo
 
 
 async def get_user_activation_for_promo(
@@ -187,7 +215,23 @@ async def get_user_activation_for_promo(
 
 
 async def record_promo_activation(
-    session: AsyncSession, promo_code_id: int, user_id: int, payment_id: Optional[int] = None
+    session: AsyncSession,
+    promo_code_id: int,
+    user_id: int,
+    payment_id: Optional[int] = None,
+    *,
+    effect_summary: Optional[str] = None,
+    bonus_days: Optional[int] = None,
+    discount_percent: Optional[float] = None,
+    duration_multiplier: Optional[float] = None,
+    traffic_multiplier: Optional[float] = None,
+    applies_to: Optional[str] = None,
+    base_amount: Optional[float] = None,
+    discount_amount: Optional[float] = None,
+    charged_months: Optional[int] = None,
+    charged_gb: Optional[float] = None,
+    granted_days: Optional[int] = None,
+    granted_gb: Optional[float] = None,
 ) -> Optional[PromoCodeActivation]:
     existing_activation = await get_user_activation_for_promo(session, promo_code_id, user_id)
     if existing_activation:
@@ -218,6 +262,18 @@ async def record_promo_activation(
         "promo_code_id": promo_code_id,
         "user_id": user_id,
         "payment_id": payment_id,
+        "effect_summary": effect_summary,
+        "bonus_days": bonus_days,
+        "discount_percent": discount_percent,
+        "duration_multiplier": duration_multiplier,
+        "traffic_multiplier": traffic_multiplier,
+        "applies_to": applies_to,
+        "base_amount": base_amount,
+        "discount_amount": discount_amount,
+        "charged_months": charged_months,
+        "charged_gb": charged_gb,
+        "granted_days": granted_days,
+        "granted_gb": granted_gb,
         "activated_at": datetime.now(timezone.utc),
     }
     new_activation = PromoCodeActivation(**activation_data)
@@ -228,3 +284,139 @@ async def record_promo_activation(
         f"Promo code {promo_code_id} activated by user {user_id}. Activation ID: {new_activation.activation_id}"  # noqa: E501
     )
     return new_activation
+
+
+async def consume_promo_activation(
+    session: AsyncSession,
+    promo_code_id: int,
+    user_id: int,
+    payment_id: Optional[int] = None,
+    *,
+    enforce_limit: bool = True,
+    effect_summary: Optional[str] = None,
+    bonus_days: Optional[int] = None,
+    discount_percent: Optional[float] = None,
+    duration_multiplier: Optional[float] = None,
+    traffic_multiplier: Optional[float] = None,
+    applies_to: Optional[str] = None,
+    base_amount: Optional[float] = None,
+    discount_amount: Optional[float] = None,
+    charged_months: Optional[int] = None,
+    charged_gb: Optional[float] = None,
+    granted_days: Optional[int] = None,
+    granted_gb: Optional[float] = None,
+) -> Optional[PromoCodeActivation]:
+    """Atomically increment usage and record the activation in one transaction.
+
+    ``enforce_limit=False`` is used only for already-created invoices: those
+    rows carry their own frozen checkout terms and are honored even if the
+    code later expires, is disabled, or reaches the configured limit.
+    """
+    existing_activation = await get_user_activation_for_promo(session, promo_code_id, user_id)
+    if existing_activation:
+        existing_payment_id = int(getattr(existing_activation, "payment_id", 0) or 0)
+        if payment_id is not None and existing_payment_id == int(payment_id):
+            return existing_activation
+        logging.info(
+            "User %s has already activated promo code %s. Activation ID: %s",
+            user_id,
+            promo_code_id,
+            existing_activation.activation_id,
+        )
+        return None
+
+    update_conditions = [PromoCode.promo_code_id == promo_code_id]
+    if enforce_limit:
+        update_conditions.append(PromoCode.current_activations < PromoCode.max_activations)
+    stmt = (
+        update(PromoCode)
+        .where(and_(*update_conditions))
+        .values(current_activations=PromoCode.current_activations + 1)
+        .returning(PromoCode.promo_code_id)
+    )
+    result = await session.execute(stmt)
+    updated_id = result.scalar_one_or_none()
+    if updated_id is None:
+        logging.warning("Promo code ID %s cannot be consumed.", promo_code_id)
+        return None
+
+    activation_data = {
+        "promo_code_id": promo_code_id,
+        "user_id": user_id,
+        "payment_id": payment_id,
+        "effect_summary": effect_summary,
+        "bonus_days": bonus_days,
+        "discount_percent": discount_percent,
+        "duration_multiplier": duration_multiplier,
+        "traffic_multiplier": traffic_multiplier,
+        "applies_to": applies_to,
+        "base_amount": base_amount,
+        "discount_amount": discount_amount,
+        "charged_months": charged_months,
+        "charged_gb": charged_gb,
+        "granted_days": granted_days,
+        "granted_gb": granted_gb,
+        "activated_at": datetime.now(timezone.utc),
+    }
+    activation = PromoCodeActivation(**activation_data)
+    session.add(activation)
+    await session.flush()
+    await session.refresh(activation)
+    return activation
+
+
+async def release_promo_activation(
+    session: AsyncSession,
+    promo_code_id: int,
+    user_id: int,
+    payment_id: Optional[int] = None,
+) -> bool:
+    conditions = [
+        PromoCodeActivation.promo_code_id == promo_code_id,
+        PromoCodeActivation.user_id == user_id,
+    ]
+    if payment_id is not None:
+        conditions.append(PromoCodeActivation.payment_id == payment_id)
+    result = await session.execute(select(PromoCodeActivation).where(and_(*conditions)).limit(1))
+    activation = result.scalar_one_or_none()
+    if activation is None:
+        return False
+    await session.execute(
+        delete(PromoCodeActivation).where(
+            PromoCodeActivation.activation_id == activation.activation_id
+        )
+    )
+    await session.execute(
+        update(PromoCode)
+        .where(PromoCode.promo_code_id == promo_code_id)
+        .values(
+            current_activations=case(
+                (PromoCode.current_activations > 0, PromoCode.current_activations - 1),
+                else_=0,
+            )
+        )
+    )
+    await session.flush()
+    return True
+
+
+async def user_has_pending_payment_with_promo(
+    session: AsyncSession,
+    user_id: int,
+    promo_code_id: int,
+    *,
+    exclude_payment_id: Optional[int] = None,
+) -> bool:
+    status = func.lower(Payment.status)
+    conditions = [
+        Payment.user_id == user_id,
+        Payment.promo_code_id == promo_code_id,
+        or_(
+            status.like("pending%"),
+            status.in_(("created", "new", "waiting_for_capture")),
+        ),
+    ]
+    if exclude_payment_id is not None:
+        conditions.append(Payment.payment_id != exclude_payment_id)
+    result = await session.execute(select(Payment.payment_id).where(and_(*conditions)).limit(1))
+    return result.scalar_one_or_none() is not None

@@ -527,6 +527,19 @@ a {
   gap: 8px;
 }
 
+.promo-checkout-handoff {
+  display: grid;
+  gap: 9px;
+  margin-top: 10px;
+}
+
+.promo-checkout-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .traffic-meta {
   display: flex;
   align-items: center;
@@ -3034,6 +3047,10 @@ a {
 
   .copy-row,
   .email-row {
+    grid-template-columns: 1fr;
+  }
+
+  .promo-checkout-actions {
     grid-template-columns: 1fr;
   }
 }

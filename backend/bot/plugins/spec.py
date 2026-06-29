@@ -38,10 +38,12 @@ if TYPE_CHECKING:
 
     from bot.app.factories.core_services import PanelService
     from bot.middlewares.i18n import JsonI18n
+    from bot.services.audience_segmentation import AudienceSegmentationService
     from bot.services.email_auth_service import EmailAuthService
     from bot.services.entitlements import EntitlementsProvider
     from bot.services.lknpd_service import LknpdService
     from bot.services.notification_service import NotificationService
+    from bot.services.outbound_messaging import OutboundMessagingService
     from bot.services.panel_webhook_service import PanelWebhookService
     from bot.services.promo_code_service import PromoCodeService
     from bot.services.referral_service import ReferralService
@@ -174,6 +176,20 @@ class PluginContext:
     def lknpd_service(self) -> "LknpdService | None":
         return cast("LknpdService | None", self.services.get("lknpd_service"))
 
+    @property
+    def audience_segmentation_service(self) -> "AudienceSegmentationService | None":
+        return cast(
+            "AudienceSegmentationService | None",
+            self.services.get("audience_segmentation_service"),
+        )
+
+    @property
+    def outbound_messaging_service(self) -> "OutboundMessagingService | None":
+        return cast(
+            "OutboundMessagingService | None",
+            self.services.get("outbound_messaging_service"),
+        )
+
     def _required_service(self, key: str) -> object:
         service = self.services.get(key)
         if service is None:
@@ -254,3 +270,6 @@ class Plugin:
         The default core provider exposes an empty feature set.
         """
         return None
+
+    from bot.services.audience_segmentation import AudienceSegmentationService
+    from bot.services.outbound_messaging import OutboundMessagingService

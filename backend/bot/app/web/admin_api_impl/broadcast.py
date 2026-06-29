@@ -23,6 +23,11 @@ from bot.app.web.route_contracts import (
     ok_envelope_with,
     register_contract,
 )
+from bot.services.audience_segmentation import (
+    AUDIENCE_ACTIVE_NEVER_CONNECTED,
+    AUDIENCE_TARGETS,
+    AudienceSegmentationService,
+)
 from bot.utils import MessageContent, send_message_via_queue
 from bot.utils.message_queue import get_queue_manager
 from bot.utils.ttl_cache import AsyncTTLCache
@@ -42,15 +47,8 @@ from .schemas import AdminBroadcastBody
 
 logger = logging.getLogger(__name__)
 
-BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED = "active_never_connected"
-BROADCAST_TARGETS = {
-    "all",
-    "active",
-    "inactive",
-    "expired",
-    "never",
-    BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED,
-}
+BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED = AUDIENCE_ACTIVE_NEVER_CONNECTED
+BROADCAST_TARGETS = AUDIENCE_TARGETS
 PANEL_ACTIVITY_LOOKUP_CONCURRENCY = 10
 _ADMIN_BROADCAST_AUDIENCE_COUNT_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
 
@@ -72,6 +70,16 @@ register_contract(
 def _resolve_panel_service(request: web.Request) -> Any:
     subscription_service = get_optional_subscription_service(request)
     return getattr(subscription_service, "panel_service", None)
+
+
+def _resolve_audience_service(request: web.Request) -> AudienceSegmentationService:
+    service = request.app.get("audience_segmentation_service")
+    if isinstance(service, AudienceSegmentationService):
+        return service
+    return AudienceSegmentationService(
+        get_session_factory(request),
+        panel_service=_resolve_panel_service(request),
+    )
 
 
 async def _active_subscription_panel_uuids_by_user(
@@ -225,27 +233,17 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
     if not queue_manager:
         return _error(503, "queue_unavailable")
 
+    if (
+        target == BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED
+        and _resolve_panel_service(request) is None
+    ):
+        return _error(503, "panel_service_unavailable")
+
+    audience_service = _resolve_audience_service(request)
+    user_ids = await audience_service.resolve_user_ids(target)
+
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
-        if target == BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED:
-            panel_service = _resolve_panel_service(request)
-            if panel_service is None:
-                return _error(503, "panel_service_unavailable")
-            user_ids = await _user_ids_with_active_subscription_never_connected(
-                session,
-                panel_service,
-            )
-        elif target == "active":
-            user_ids = await user_dal.get_user_ids_with_active_subscription(session)
-        elif target == "inactive":
-            user_ids = await user_dal.get_user_ids_without_active_subscription(session)
-        elif target == "expired":
-            user_ids = await user_dal.get_user_ids_with_expired_subscription(session)
-        elif target == "never":
-            user_ids = await user_dal.get_user_ids_without_any_subscription(session)
-        else:
-            user_ids = await user_dal.get_all_active_user_ids_for_broadcast(session)
-
         sent = 0
         failed = 0
         for uid in user_ids:
@@ -280,12 +278,16 @@ async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Res
     _require_admin_user_id(request)
 
     settings: Settings = get_settings(request)
-    async_session_factory: sessionmaker = get_session_factory(request)
-    panel_service = _resolve_panel_service(request)
-    counts = await _load_broadcast_audience_counts(
-        settings,
-        async_session_factory,
-        panel_service,
-    )
+    service = request.app.get("audience_segmentation_service")
+    if isinstance(service, AudienceSegmentationService):
+        counts = await service.counts()
+    else:
+        async_session_factory: sessionmaker = get_session_factory(request)
+        panel_service = _resolve_panel_service(request)
+        counts = await _load_broadcast_audience_counts(
+            settings,
+            async_session_factory,
+            panel_service,
+        )
 
     return _ok({"counts": counts})

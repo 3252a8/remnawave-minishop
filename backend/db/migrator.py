@@ -1191,6 +1191,125 @@ def _migration_0037_add_referral_welcome_bonus_marker(connection: Connection) ->
         )
 
 
+def _migration_0038_extend_promo_code_effects(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns_info = inspector.get_columns("promo_codes")
+    columns: Set[str] = {col["name"] for col in columns_info}
+    statements: List[str] = []
+
+    if "discount_percent" not in columns:
+        statements.append("ALTER TABLE promo_codes ADD COLUMN discount_percent NUMERIC(5, 2)")
+    if "duration_multiplier" not in columns:
+        statements.append("ALTER TABLE promo_codes ADD COLUMN duration_multiplier NUMERIC(6, 3)")
+    if "traffic_multiplier" not in columns:
+        statements.append("ALTER TABLE promo_codes ADD COLUMN traffic_multiplier NUMERIC(6, 3)")
+    if "applies_to" not in columns:
+        statements.append(
+            "ALTER TABLE promo_codes ADD COLUMN applies_to VARCHAR(32) NOT NULL DEFAULT 'all'"
+        )
+    if "min_subscription_months" not in columns:
+        statements.append("ALTER TABLE promo_codes ADD COLUMN min_subscription_months INTEGER")
+    if "min_traffic_gb" not in columns:
+        statements.append("ALTER TABLE promo_codes ADD COLUMN min_traffic_gb NUMERIC(10, 2)")
+    if "origin" not in columns:
+        statements.append(
+            "ALTER TABLE promo_codes ADD COLUMN origin VARCHAR(32) NOT NULL DEFAULT 'admin'"
+        )
+
+    for stmt in statements:
+        connection.execute(text(stmt))
+
+    created_by = next(
+        (col for col in columns_info if col["name"] == "created_by_admin_id"),
+        None,
+    )
+    if (
+        created_by is not None
+        and created_by.get("nullable") is False
+        and connection.dialect.name == "postgresql"
+    ):
+        connection.execute(
+            text("ALTER TABLE promo_codes ALTER COLUMN created_by_admin_id DROP NOT NULL")
+        )
+
+
+def _migration_0039_add_promo_activation_effect_snapshots(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: Set[str] = {col["name"] for col in inspector.get_columns("promo_code_activations")}
+    statements: List[str] = []
+
+    if "effect_summary" not in columns:
+        statements.append("ALTER TABLE promo_code_activations ADD COLUMN effect_summary VARCHAR")
+    if "bonus_days" not in columns:
+        statements.append("ALTER TABLE promo_code_activations ADD COLUMN bonus_days INTEGER")
+    if "discount_percent" not in columns:
+        statements.append(
+            "ALTER TABLE promo_code_activations ADD COLUMN discount_percent NUMERIC(5, 2)"
+        )
+    if "duration_multiplier" not in columns:
+        statements.append(
+            "ALTER TABLE promo_code_activations ADD COLUMN duration_multiplier NUMERIC(6, 3)"
+        )
+    if "traffic_multiplier" not in columns:
+        statements.append(
+            "ALTER TABLE promo_code_activations ADD COLUMN traffic_multiplier NUMERIC(6, 3)"
+        )
+    if "applies_to" not in columns:
+        statements.append("ALTER TABLE promo_code_activations ADD COLUMN applies_to VARCHAR(32)")
+
+    for stmt in statements:
+        connection.execute(text(stmt))
+
+
+def _migration_0040_add_code_checkout_snapshots(connection: Connection) -> None:
+    inspector = inspect(connection)
+    payment_columns: Set[str] = {col["name"] for col in inspector.get_columns("payments")}
+    activation_columns: Set[str] = {
+        col["name"] for col in inspector.get_columns("promo_code_activations")
+    }
+    code_columns: Set[str] = {col["name"] for col in inspector.get_columns("promo_codes")}
+    statements: List[str] = []
+
+    payment_additions = {
+        "promo_effect_summary": "VARCHAR",
+        "promo_bonus_days": "INTEGER",
+        "promo_discount_percent": "NUMERIC(5, 2)",
+        "promo_duration_multiplier": "NUMERIC(6, 3)",
+        "promo_traffic_multiplier": "NUMERIC(6, 3)",
+        "promo_applies_to": "VARCHAR(32)",
+        "promo_min_subscription_months": "INTEGER",
+        "promo_min_traffic_gb": "NUMERIC(10, 2)",
+        "checkout_base_amount": "DOUBLE PRECISION",
+        "checkout_discount_amount": "DOUBLE PRECISION",
+        "checkout_charged_months": "INTEGER",
+        "checkout_charged_gb": "DOUBLE PRECISION",
+        "checkout_quoted_at": "TIMESTAMPTZ",
+    }
+    for column, column_type in payment_additions.items():
+        if column not in payment_columns:
+            statements.append(f"ALTER TABLE payments ADD COLUMN {column} {column_type}")
+
+    activation_additions = {
+        "base_amount": "DOUBLE PRECISION",
+        "discount_amount": "DOUBLE PRECISION",
+        "charged_months": "INTEGER",
+        "charged_gb": "DOUBLE PRECISION",
+        "granted_days": "INTEGER",
+        "granted_gb": "DOUBLE PRECISION",
+    }
+    for column, column_type in activation_additions.items():
+        if column not in activation_columns:
+            statements.append(
+                f"ALTER TABLE promo_code_activations ADD COLUMN {column} {column_type}"
+            )
+
+    if "archived_at" not in code_columns:
+        statements.append("ALTER TABLE promo_codes ADD COLUMN archived_at TIMESTAMPTZ")
+
+    for stmt in statements:
+        connection.execute(text(stmt))
+
+
 MIGRATIONS: List[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
@@ -1376,6 +1495,21 @@ MIGRATIONS: List[Migration] = [
         id="0037_add_referral_welcome_bonus_marker",
         description="Track when a user claimed the referral welcome bonus to prevent repeat grants",
         upgrade=_migration_0037_add_referral_welcome_bonus_marker,
+    ),
+    Migration(
+        id="0038_extend_promo_code_effects",
+        description="Extend bonus code effects and attribution fields",
+        upgrade=_migration_0038_extend_promo_code_effects,
+    ),
+    Migration(
+        id="0039_add_promo_activation_effect_snapshots",
+        description="Snapshot code effects on activation records",
+        upgrade=_migration_0039_add_promo_activation_effect_snapshots,
+    ),
+    Migration(
+        id="0040_add_code_checkout_snapshots",
+        description="Snapshot code checkout terms and archive used codes safely",
+        upgrade=_migration_0040_add_code_checkout_snapshots,
     ),
 ]
 

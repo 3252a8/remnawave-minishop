@@ -91,6 +91,7 @@ export type DeviceTopupOptionsResponse = GetResponse<"/api/devices/topup-options
 export type PaymentCreateResponse = PostResponse<"/api/payments">;
 export type PaymentStatusResponse = GetResponse<"/api/payments/{payment_id}">;
 export type PromoApplyResponse = PostResponse<"/api/promo/apply">;
+export type PromoQuoteResponse = PostResponse<"/api/subscription/quote-promo">;
 export type ReferralWelcomeBonusResponse = PostResponse<"/api/referral/welcome-bonus/claim">;
 export type SubscriptionGuidesResponse = GetResponse<"/api/subscription-guides">;
 export type PublicSubscriptionGuidesResponse =
@@ -126,6 +127,7 @@ export type TariffChangeOptionsPath = "/tariffs/change-options";
 export type TariffChangePath = "/tariffs/change";
 export type TariffChangePaymentPath = "/tariffs/change-payment";
 export type SubscriptionAutoRenewPath = "/subscription/auto-renew";
+export type SubscriptionPromoQuotePath = "/subscription/quote-promo";
 export type ReferralWelcomeBonusClaimPath = "/referral/welcome-bonus/claim";
 export type PromoApplyPath = "/promo/apply";
 export type TrialActivatePath = "/trial/activate";
@@ -291,6 +293,10 @@ export function buildTariffChangePaymentPath(): TariffChangePaymentPath {
 
 export function buildSubscriptionAutoRenewPath(): SubscriptionAutoRenewPath {
   return "/subscription/auto-renew";
+}
+
+export function buildSubscriptionPromoQuotePath(): SubscriptionPromoQuotePath {
+  return "/subscription/quote-promo";
 }
 
 export function buildReferralWelcomeBonusClaimPath(): ReferralWelcomeBonusClaimPath {
@@ -521,6 +527,18 @@ export type AdminPromoPath = BuiltApiPath<"/api/admin/promos/{promo_id}">;
 export function buildAdminPromoPath(promoId: string | number): AdminPromoPath {
   return builtApiPath<"/api/admin/promos/{promo_id}">(
     `/admin/promos/${encodeURIComponent(String(promoId))}`
+  );
+}
+
+export type AdminPromoActivationsPath = BuiltApiPath<"/api/admin/promos/{promo_id}/activations">;
+export function buildAdminPromoActivationsPath(
+  promoId: string | number,
+  params?: URLSearchParams
+): AdminPromoActivationsPath {
+  const base = `/admin/promos/${encodeURIComponent(String(promoId))}/activations`;
+  const query = params?.toString();
+  return builtApiPath<"/api/admin/promos/{promo_id}/activations">(
+    query ? `${base}?${query}` : base
   );
 }
 

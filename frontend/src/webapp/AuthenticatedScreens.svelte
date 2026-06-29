@@ -70,6 +70,7 @@
     openInstallOrConnect: Action;
     openLinkEmailDialog: Action;
     openPaymentModal: Action;
+    openPromoCheckout: Action;
     openPremiumTopupModal: Action;
     openRegularTopupModal: Action;
     openSetPasswordDialog: Action;
@@ -84,6 +85,8 @@
     profileEmail?: string;
     profileTelegramId?: string;
     promoBusy?: boolean;
+    promoCheckoutCode?: string;
+    promoCheckoutSummary?: string;
     promoCode?: string;
     promoFieldError?: string;
     promoIsError?: boolean;
@@ -176,6 +179,7 @@
     openInstallOrConnect,
     openLinkEmailDialog,
     openPaymentModal,
+    openPromoCheckout,
     openPremiumTopupModal,
     openRegularTopupModal,
     openSetPasswordDialog,
@@ -190,6 +194,8 @@
     profileEmail = "",
     profileTelegramId = "",
     promoBusy = false,
+    promoCheckoutCode = "",
+    promoCheckoutSummary = "",
     promoCode = "",
     promoFieldError = "",
     promoIsError = false,
@@ -322,11 +328,14 @@
       {referralOneBonusPerReferee}
       {referralWelcomeBonusDays}
       {promoCode}
+      {promoCheckoutCode}
+      {promoCheckoutSummary}
       {promoFieldError}
       {promoBusy}
       {promoIsError}
       {promoStatus}
       {applyPromo}
+      {openPromoCheckout}
       setPromoCode={setPromoCode as any}
       {clearPromoFieldError}
       copyText={copyText as any}

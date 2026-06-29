@@ -15,6 +15,8 @@ export type ActionsState = {
   promoStatus: string;
   promoIsError: boolean;
   promoFieldError: string;
+  promoCheckoutCode: string;
+  promoCheckoutSummary: string;
   trialBusy: boolean;
   trialActivationResult: Extract<TrialActivateResponse, { ok: true }> | null;
   trialActivationError: string;
@@ -25,12 +27,14 @@ type ActionsStoreDeps = {
   showToast: (message: string) => void;
   loadData: (options?: LoadDataOptions & Record<string, unknown>) => Promise<unknown>;
   maybeShowActivationSuccessDialog: (context?: Record<string, unknown>) => Promise<boolean>;
+  startCheckoutPromo?: (code: string) => void;
 };
 export type ActionsStore = ActionsState & {
   setPromoCode(value: string): void;
   setPromoFieldError(value: string): void;
   clearPromoFieldError(): void;
   applyPromo(): Promise<void>;
+  openPromoCheckout(): void;
   claimReferralWelcomeBonus(): Promise<void>;
   activateTrial(): Promise<void>;
 };
@@ -49,6 +53,7 @@ export function createActionsStore({
   showToast,
   loadData,
   maybeShowActivationSuccessDialog,
+  startCheckoutPromo = () => {},
 }: ActionsStoreDeps) {
   const state = $state<ActionsStore>({
     promoCode: "",
@@ -56,6 +61,8 @@ export function createActionsStore({
     promoStatus: "",
     promoIsError: false,
     promoFieldError: "",
+    promoCheckoutCode: "",
+    promoCheckoutSummary: "",
     trialBusy: false,
     trialActivationResult: null,
     trialActivationError: "",
@@ -63,6 +70,7 @@ export function createActionsStore({
     setPromoFieldError,
     clearPromoFieldError,
     applyPromo,
+    openPromoCheckout,
     claimReferralWelcomeBonus,
     activateTrial,
   });
@@ -120,6 +128,8 @@ export function createActionsStore({
     state.promoFieldError = "";
     state.promoBusy = true;
     state.promoStatus = "";
+    state.promoCheckoutCode = "";
+    state.promoCheckoutSummary = "";
     try {
       const payload: PostPayload<"/api/promo/apply"> = { code };
       const response = await api(buildPromoApplyPath(), {
@@ -127,9 +137,20 @@ export function createActionsStore({
         body: JSON.stringify(payload),
       });
       const responsePayload = unwrap(response);
+      const payloadRecord = asRecord(responsePayload);
+      if (payloadRecord.requires_checkout === true) {
+        const summary = stringField(payloadRecord.effect_summary);
+        state.promoCheckoutCode = stringField(payloadRecord.code) || code;
+        state.promoCheckoutSummary = summary;
+        state.promoStatus =
+          summary || t("promo_code_requires_checkout", {}, "Apply this code at checkout.");
+        state.promoIsError = false;
+        return;
+      }
       state.promoCode = "";
-      state.promoStatus = responsePayload.end_date_text
-        ? t("wa_promo_activated_until", { date: responsePayload.end_date_text })
+      const endDateText = stringField(payloadRecord.end_date_text);
+      state.promoStatus = endDateText
+        ? t("wa_promo_activated_until", { date: endDateText })
         : t("wa_promo_activated");
       state.promoIsError = false;
       await loadData({ fresh: true });
@@ -141,6 +162,12 @@ export function createActionsStore({
     } finally {
       state.promoBusy = false;
     }
+  }
+
+  function openPromoCheckout() {
+    const code = String(state.promoCheckoutCode || state.promoCode || "").trim();
+    if (!code) return;
+    startCheckoutPromo(code);
   }
 
   async function claimReferralWelcomeBonus() {
