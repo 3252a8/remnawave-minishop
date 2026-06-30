@@ -209,6 +209,8 @@ class AdminUserTariffBody(HttpBodyModel):
 class PromoOut(HttpResponseModel):
     id: int
     code: str
+    bot_link: str | None = None
+    webapp_link: str | None = None
     bonus_days: int
     discount_percent: float | None = None
     duration_multiplier: float | None = None
@@ -227,11 +229,19 @@ class PromoOut(HttpResponseModel):
     created_by_admin_id: int | None = None
 
     @classmethod
-    def from_orm_promo(cls, promo: Any) -> "PromoOut":
+    def from_orm_promo(
+        cls,
+        promo: Any,
+        *,
+        bot_link: str | None = None,
+        webapp_link: str | None = None,
+    ) -> "PromoOut":
         effects = PromoEffects.from_model(promo)
         return cls(
             id=int(promo.promo_code_id),
             code=promo.code,
+            bot_link=bot_link,
+            webapp_link=webapp_link,
             bonus_days=int(promo.bonus_days),
             discount_percent=effects.discount_percent,
             duration_multiplier=(

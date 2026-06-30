@@ -3243,6 +3243,11 @@
   text-decoration: underline;
 }
 
+.admin-link-row-url-muted {
+  color: var(--admin-muted);
+  font-family: inherit;
+}
+
 .admin-meta-truncate {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6985,6 +6990,12 @@
   margin-right: auto;
 }
 
+.admin-promo-link-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 @media (max-width: 720px) {
   .admin-promos-table-wrap .admin-promos-table {
     min-width: 0;
@@ -7047,7 +7058,8 @@
   }
 
   .admin-promo-basics-section,
-  .admin-promo-eligibility-section {
+  .admin-promo-eligibility-section,
+  .admin-promo-links-section {
     grid-column: 1;
   }
 

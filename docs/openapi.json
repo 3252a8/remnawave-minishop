@@ -3000,6 +3000,18 @@
             "title": "Bonus Requires Payment",
             "type": "boolean"
           },
+          "bot_link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bot Link"
+          },
           "code": {
             "title": "Code",
             "type": "string"
@@ -3125,6 +3137,18 @@
             ],
             "default": null,
             "title": "Valid Until"
+          },
+          "webapp_link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Webapp Link"
           }
         },
         "required": [

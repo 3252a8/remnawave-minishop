@@ -5,6 +5,7 @@ from aiohttp import web
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
+    get_bot_username,
     get_session_factory,
     get_settings,
 )
@@ -18,6 +19,8 @@ from .auth import (
     _require_admin_user_id,
 )
 from .common import (
+    _build_admin_promo_bot_link,
+    _build_admin_promo_webapp_link,
     _error,
     _ok,
 )
@@ -77,6 +80,19 @@ register_contract(
 )
 
 
+def _serialize_promo_for_request(request: web.Request, promo: Any) -> dict[str, Any]:
+    settings = get_settings(request)
+    code = str(getattr(promo, "code", "") or "")
+    return PromoOut.from_orm_promo(
+        promo,
+        bot_link=_build_admin_promo_bot_link(get_bot_username(request), code),
+        webapp_link=_build_admin_promo_webapp_link(
+            settings.SUBSCRIPTION_MINI_APP_URL,
+            code,
+        ),
+    ).model_dump(mode="json")
+
+
 async def admin_promos_list_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     async_session_factory: sessionmaker = get_session_factory(request)
@@ -89,7 +105,7 @@ async def admin_promos_list_route(request: web.Request) -> web.Response:
         total = await promo_code_dal.get_promo_codes_count(session)
     return _ok(
         {
-            "promos": [PromoOut.from_orm_promo(p).model_dump(mode="json") for p in promos],
+            "promos": [_serialize_promo_for_request(request, p) for p in promos],
             "page": page,
             "page_size": page_size,
             "total": int(total or 0),
@@ -129,7 +145,7 @@ async def admin_promo_create_route(request: web.Request) -> web.Response:
                 return _error(409, "duplicate_code")
             return _error(400, str(exc) or "invalid_effects")
         await session.commit()
-    return _ok({"promo": PromoOut.from_orm_promo(promo).model_dump(mode="json")})
+    return _ok({"promo": _serialize_promo_for_request(request, promo)})
 
 
 async def admin_promo_update_route(request: web.Request) -> web.Response:
@@ -211,7 +227,7 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
         promo = await promo_code_dal.update_promo_code(session, promo_id, update_data)
         await session.commit()
         await session.refresh(promo)
-    return _ok({"promo": PromoOut.from_orm_promo(promo).model_dump(mode="json")})
+    return _ok({"promo": _serialize_promo_for_request(request, promo)})
 
 
 async def admin_promo_activations_route(request: web.Request) -> web.Response:

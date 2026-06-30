@@ -2833,6 +2833,11 @@ export interface components {
        * @default false
        */
       bonus_requires_payment: boolean;
+      /**
+       * Bot Link
+       * @default null
+       */
+      bot_link: string | null;
       /** Code */
       code: string;
       /**
@@ -2887,6 +2892,11 @@ export interface components {
        * @default null
        */
       valid_until: string | null;
+      /**
+       * Webapp Link
+       * @default null
+       */
+      webapp_link: string | null;
     };
     /** PromoUpdateBody */
     PromoUpdateBody: {

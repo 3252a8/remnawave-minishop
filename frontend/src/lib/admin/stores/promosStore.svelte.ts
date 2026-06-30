@@ -1,4 +1,5 @@
 import { adminErrorMessage } from "../errors.js";
+import { copyTextToClipboard } from "../../webapp/clipboard.js";
 import {
   unwrap,
   type ApiResponse,
@@ -82,6 +83,7 @@ export type PromosStore = PromosState & {
   openEditPromo: (promo: Promo) => void;
   closeEditPromo: () => void;
   updateEditDraft: (fields: Partial<PromoPatch>) => void;
+  copyToClipboard: (text: string | null | undefined, successMessage?: string) => Promise<void>;
   openActivations: (promo: Promo) => Promise<void>;
   closeActivations: () => void;
   loadActivations: (page?: number) => Promise<void>;
@@ -390,6 +392,15 @@ export function createPromosStore({
     state.promoEditDraft = { ...state.promoEditDraft, ...fields };
   }
 
+  async function copyToClipboard(
+    text: string | null | undefined,
+    successMessage = at("link_copied", {}, "Скопировано")
+  ): Promise<void> {
+    if (!text) return;
+    await copyTextToClipboard(text);
+    onToast(successMessage);
+  }
+
   async function openActivations(promo: Promo): Promise<void> {
     state.promoActivationsPromo = promo;
     state.promoActivationsOpen = true;
@@ -456,6 +467,7 @@ export function createPromosStore({
     openEditPromo,
     closeEditPromo,
     updateEditDraft,
+    copyToClipboard,
     openActivations,
     closeActivations,
     loadActivations,

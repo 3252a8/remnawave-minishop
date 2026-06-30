@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getPromosStore } from "$lib/admin/context";
   import { Checkbox, Input, Tabs } from "$components/ui/index.js";
-  import { FileText, Sliders, Trash2 } from "$components/ui/icons.js";
+  import { Copy, ExternalLink, FileText, Sliders, Trash2 } from "$components/ui/icons.js";
   import { onMount } from "svelte";
   import Dialog from "$components/ui/dialog.svelte";
   import {
@@ -488,6 +488,12 @@
   function updateEditNumber(field: keyof PromoPatch, value: string): void {
     promosStore.updateEditDraft({ [field]: nullableNumber(value) } as Partial<PromoPatch>);
   }
+
+  function openPromoLink(link: string | null | undefined): void {
+    const target = String(link || "").trim();
+    if (!target || typeof window === "undefined") return;
+    window.open(target, "_blank", "noopener,noreferrer");
+  }
 </script>
 
 <div class="admin-table-wrap admin-promos-table-wrap">
@@ -922,6 +928,113 @@
                       >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
                     >
                   {/if}
+                </div>
+              </div>
+            </section>
+
+            <section
+              class="admin-editor-section admin-promo-editor-section admin-promo-links-section"
+            >
+              <header class="admin-editor-section-head">
+                <div class="admin-editor-section-title">
+                  <strong>{at("promo_section_links", {}, "Ссылки")}</strong>
+                </div>
+              </header>
+              <div class="admin-link-list admin-promo-link-list">
+                <div class="admin-link-row">
+                  <div class="admin-link-row-meta">
+                    <span class="admin-link-row-label">
+                      {at("promo_link_bot", {}, "Telegram-бот")}
+                    </span>
+                    {#if promoEditing.bot_link}
+                      <a
+                        class="admin-link-row-url"
+                        href={promoEditing.bot_link}
+                        target="_blank"
+                        rel="noopener"
+                      >
+                        {promoEditing.bot_link}
+                      </a>
+                    {:else}
+                      <span class="admin-link-row-url admin-link-row-url-muted">
+                        {at("promo_link_unavailable", {}, "Недоступно")}
+                      </span>
+                    {/if}
+                  </div>
+                  <div class="admin-promo-link-actions">
+                    <AdminButton
+                      size="icon"
+                      variant="icon"
+                      title={at("open", {}, "Открыть")}
+                      aria-label={at("open", {}, "Открыть")}
+                      disabled={!promoEditing.bot_link}
+                      onclick={() => openPromoLink(promoEditing.bot_link)}
+                    >
+                      <ExternalLink size={14} />
+                    </AdminButton>
+                    <AdminButton
+                      size="icon"
+                      variant="icon"
+                      title={at("copy", {}, "Скопировать")}
+                      aria-label={at("copy", {}, "Скопировать")}
+                      disabled={!promoEditing.bot_link}
+                      onclick={() =>
+                        promosStore.copyToClipboard(
+                          promoEditing.bot_link,
+                          at("promo_link_copied", {}, "Ссылка скопирована")
+                        )}
+                    >
+                      <Copy size={14} />
+                    </AdminButton>
+                  </div>
+                </div>
+
+                <div class="admin-link-row">
+                  <div class="admin-link-row-meta">
+                    <span class="admin-link-row-label">
+                      {at("promo_link_webapp", {}, "Веб-приложение")}
+                    </span>
+                    {#if promoEditing.webapp_link}
+                      <a
+                        class="admin-link-row-url"
+                        href={promoEditing.webapp_link}
+                        target="_blank"
+                        rel="noopener"
+                      >
+                        {promoEditing.webapp_link}
+                      </a>
+                    {:else}
+                      <span class="admin-link-row-url admin-link-row-url-muted">
+                        {at("promo_link_unavailable", {}, "Недоступно")}
+                      </span>
+                    {/if}
+                  </div>
+                  <div class="admin-promo-link-actions">
+                    <AdminButton
+                      size="icon"
+                      variant="icon"
+                      title={at("open", {}, "Открыть")}
+                      aria-label={at("open", {}, "Открыть")}
+                      disabled={!promoEditing.webapp_link}
+                      onclick={() => openPromoLink(promoEditing.webapp_link)}
+                    >
+                      <ExternalLink size={14} />
+                    </AdminButton>
+                    <AdminButton
+                      size="icon"
+                      variant="icon"
+                      title={at("copy", {}, "Скопировать")}
+                      aria-label={at("copy", {}, "Скопировать")}
+                      disabled={!promoEditing.webapp_link}
+                      onclick={() =>
+                        promosStore.copyToClipboard(
+                          promoEditing.webapp_link,
+                          at("promo_link_copied", {}, "Ссылка скопирована")
+                        )}
+                    >
+                      <Copy size={14} />
+                    </AdminButton>
+                  </div>
                 </div>
               </div>
             </section>

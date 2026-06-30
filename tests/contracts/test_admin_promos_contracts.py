@@ -59,6 +59,7 @@ def _settings():
     return SimpleNamespace(
         PROMO_DURATION_MULTIPLIER_MAX=12.0,
         PROMO_TRAFFIC_MULTIPLIER_MAX=12.0,
+        SUBSCRIPTION_MINI_APP_URL=None,
     )
 
 
@@ -79,6 +80,24 @@ def test_promo_response_model_matches_legacy_serializer():
     assert PromoOut.from_orm_promo(promo).model_dump(mode="json") == common_module._serialize_promo(
         promo
     )
+
+
+def test_promo_response_can_include_application_links():
+    promo = _promo(code="SAVE20")
+    request = _FakeRequest(
+        {},
+        app={
+            "bot_username": "shop_bot",
+            "settings": SimpleNamespace(
+                SUBSCRIPTION_MINI_APP_URL="https://app.example.com/webapp?lang=ru",
+            ),
+        },
+    )
+
+    payload = promos_module._serialize_promo_for_request(request, promo)
+
+    assert payload["bot_link"] == "https://t.me/shop_bot?start=promo_SAVE20"
+    assert payload["webapp_link"] == "https://app.example.com/webapp?lang=ru&startapp=promo_SAVE20"
 
 
 def test_promo_create_rejects_malformed_json():
