@@ -6720,3 +6720,343 @@
     width: auto;
   }
 }
+
+/* Promo section */
+
+.admin-promos-table-wrap .admin-promos-table {
+  min-width: 900px;
+}
+
+.admin-promo-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-height: 34px;
+  vertical-align: middle;
+}
+
+.admin-promo-actions .admin-btn {
+  flex: 0 0 auto;
+  margin-left: 0;
+}
+
+.admin-promos-table-wrap .admin-promo-activations-btn.admin-btn {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 8px;
+  font-family: var(--font-mono);
+}
+
+.admin-promos-table-wrap .admin-promo-toggle-btn.admin-btn {
+  height: 34px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+}
+
+.dialog-card.admin-dialog.admin-promo-dialog {
+  width: min(1040px, calc(100vw - 32px));
+  inline-size: min(1040px, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(100%, 780px);
+}
+
+.dialog-card.admin-dialog.admin-promo-edit-dialog {
+  width: min(1240px, calc(100vw - 32px));
+  inline-size: min(1240px, calc(100vw - 32px));
+}
+
+.admin-promo-dialog > .dialog-body-scroll,
+.admin-promo-dialog .dialog-body-scroll > .scroll-area__viewport,
+.admin-promo-dialog .dialog-body-scroll > .scroll-area__viewport > div {
+  box-sizing: border-box;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+.dialog-card.admin-dialog.admin-promo-edit-dialog > .dialog-body-scroll,
+.dialog-card.admin-dialog.admin-promo-edit-dialog .dialog-body-scroll > .scroll-area__viewport {
+  height: 100%;
+  min-height: 0;
+}
+
+.dialog-card.admin-dialog.admin-promo-edit-dialog
+  .dialog-body-scroll
+  > .scroll-area__viewport
+  > div {
+  height: 100%;
+  min-height: 0 !important;
+}
+
+.admin-promo-config-block {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.admin-promo-block-head,
+.admin-promo-block-title,
+.admin-editor-section-title {
+  min-width: 0;
+}
+
+.admin-promo-block-title,
+.admin-editor-section-title {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-promo-block-title small,
+.admin-editor-section-title small {
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.admin-promo-check-row {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  gap: 8px;
+  color: var(--admin-text);
+}
+
+.admin-promo-edit-body {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+}
+
+.admin-promo-tabs-root {
+  flex: 1 1 auto;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+}
+
+.admin-promo-tabs-root .admin-tabs-list {
+  flex: 0 0 auto;
+}
+
+.admin-promo-settings-tab,
+.admin-promo-activations-tab {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.admin-promo-settings-tab {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
+  overflow: hidden;
+  padding-right: 0;
+}
+
+.admin-promo-activations-tab {
+  overflow: hidden;
+}
+
+.admin-promo-settings-grid {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.admin-promo-edit-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface-2);
+  min-width: 0;
+}
+
+.admin-promo-edit-summary-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-promo-edit-summary-main span,
+.admin-promo-edit-summary-uses {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-promo-edit-summary-main strong {
+  color: var(--admin-text);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 750;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-promo-edit-summary-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.admin-promo-tab-dirty-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warning, #f59e0b) 18%, transparent);
+  color: color-mix(in srgb, var(--warning, #f59e0b) 72%, var(--admin-text));
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.admin-promo-editor-section {
+  gap: 10px;
+}
+
+.admin-promo-editor-section.is-dirty {
+  border-color: color-mix(in srgb, var(--warning, #f59e0b) 70%, var(--admin-border));
+  background: color-mix(in srgb, var(--warning, #f59e0b) 6%, var(--admin-surface-2));
+}
+
+.admin-promo-editor-section .admin-editor-section-head {
+  min-height: 20px;
+}
+
+.admin-promo-field-shell {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.admin-promo-field-shell.is-dirty {
+  border-color: color-mix(in srgb, var(--warning, #f59e0b) 64%, var(--admin-border));
+  background: color-mix(in srgb, var(--warning, #f59e0b) 7%, transparent);
+}
+
+.admin-promo-field-shell .admin-badge {
+  justify-self: start;
+}
+
+.admin-promo-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-promo-field-shell .admin-field-label {
+  gap: 4px;
+}
+
+.admin-promo-dialog-actions {
+  align-items: center;
+}
+
+.admin-promo-dialog-actions .admin-unsaved-hint {
+  margin-right: auto;
+}
+
+@media (max-width: 720px) {
+  .admin-promos-table-wrap .admin-promos-table {
+    min-width: 0;
+  }
+
+  .dialog-card.admin-dialog.admin-promo-dialog,
+  .dialog-card.admin-dialog.admin-promo-edit-dialog {
+    width: min(100%, calc(100vw - 24px));
+    inline-size: min(100%, calc(100vw - 24px));
+    height: auto;
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .admin-promo-edit-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-promo-edit-summary-meta {
+    justify-content: flex-start;
+  }
+
+  .admin-promo-dialog-actions .admin-unsaved-hint {
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .admin-promo-edit-body,
+  .admin-promo-tabs-root {
+    height: auto;
+    max-height: none;
+  }
+
+  .admin-promo-settings-tab {
+    overflow: visible;
+  }
+
+  .admin-promo-settings-grid {
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .admin-promo-fields-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 721px) {
+  .dialog-card.admin-dialog.admin-promo-edit-dialog {
+    height: min(100%, 780px);
+    block-size: min(100%, 780px);
+  }
+}
+
+@media (min-width: 980px) {
+  .admin-promo-settings-grid {
+    grid-template-columns: minmax(0, 0.95fr) minmax(430px, 1.05fr);
+    align-items: start;
+  }
+
+  .admin-promo-basics-section,
+  .admin-promo-eligibility-section {
+    grid-column: 1;
+  }
+
+  .admin-promo-effect-section {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .admin-promo-editor-section {
+    padding: 10px;
+  }
+
+  .admin-promo-edit-summary {
+    padding: 10px 12px;
+  }
+
+  .admin-promo-check-row {
+    min-height: 34px;
+  }
+}

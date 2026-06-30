@@ -17,7 +17,6 @@
   import PromoActivationsPanel from "./promos/PromoActivationsPanel.svelte";
   import PromoCreateDialog from "./promos/PromoCreateDialog.svelte";
   import PromoEffectSelector from "./promos/PromoEffectSelector.svelte";
-  import "./promos/PromosSection.css";
   import type { PromosStore } from "../../lib/admin/stores/promosStore";
   import type { components } from "../../lib/api/openapi.generated";
 
