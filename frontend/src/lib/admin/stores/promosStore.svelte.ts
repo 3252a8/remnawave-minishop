@@ -11,6 +11,7 @@ import {
   buildAdminPromoPath,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
+import { snapshotForPayload } from "./snapshotForPayload.svelte";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
 type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
@@ -210,7 +211,7 @@ export function createPromosStore({
   }
 
   async function createPromo(): Promise<void> {
-    const draft = normalizeEffectPayload(state.promoDraft);
+    const draft = normalizeEffectPayload(snapshotForPayload(state.promoDraft));
 
     const res = (await api(buildAdminPromosPath(), {
       method: "POST",
@@ -228,10 +229,10 @@ export function createPromosStore({
   }
 
   async function savePromo(): Promise<void> {
-    const promo = state.promoEditing;
+    const promo = snapshotForPayload(state.promoEditing);
     if (!promo) return;
     const path = buildAdminPromoPath(promo.id);
-    const draft = normalizeEffectPayload(state.promoEditDraft);
+    const draft = normalizeEffectPayload(snapshotForPayload(state.promoEditDraft));
     const res = (await api(path, {
       method: "PATCH",
       body: JSON.stringify(draft),
@@ -249,8 +250,9 @@ export function createPromosStore({
   }
 
   async function togglePromo(promo: Promo): Promise<void> {
-    const path = buildAdminPromoPath(promo.id);
-    const body = { is_active: !promo.is_active } satisfies Partial<PromoPatch>;
+    const promoSnapshot = snapshotForPayload(promo);
+    const path = buildAdminPromoPath(promoSnapshot.id);
+    const body = { is_active: !promoSnapshot.is_active } satisfies Partial<PromoPatch>;
     const res = (await api(path, {
       method: "PATCH",
       body: JSON.stringify(body),

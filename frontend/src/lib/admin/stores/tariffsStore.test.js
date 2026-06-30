@@ -38,6 +38,12 @@ function catalog(tariffs) {
   };
 }
 
+function transientPrices(amount) {
+  const transient = { provider: { amount }, handler: () => {} };
+  transient.self = transient;
+  return transient;
+}
+
 describe("tariffsStore", () => {
   it("persists edited period price and regular traffic limit for an existing tariff", async () => {
     const originalTariff = periodTariff();
@@ -94,15 +100,12 @@ describe("tariffsStore", () => {
     const { store } = makeStore(api);
     store.updateState({ tariffsCatalog: catalog([periodTariff()]) });
 
-    const transient = { provider: { amount: 99 }, handler: () => {} };
-    transient.self = transient;
-
     store.openEditTariff(periodTariff());
     store.addDraftRow("hwidRows", {
       count: "2",
       price: "99",
       stars: "",
-      prices: transient,
+      prices: transientPrices(99),
     });
     await store.saveTariffDraft();
 
@@ -119,6 +122,92 @@ describe("tariffsStore", () => {
           prices: { provider: { amount: 99 } },
         },
       ],
+    });
+  });
+
+  it("persists topup and premium package rows with transient pricing metadata", async () => {
+    const api = vi.fn(async (_path, options = {}) => {
+      const body = JSON.parse(options.body);
+      return {
+        ok: true,
+        exists: true,
+        path: "data/tariffs.json",
+        provider_currency_support: [],
+        catalog: body.catalog,
+      };
+    });
+    const { store } = makeStore(api);
+    store.updateState({ tariffsCatalog: catalog([periodTariff()]) });
+
+    store.openEditTariff(periodTariff());
+    store.addDraftRow("topupRows", {
+      gb: "20",
+      price: "150",
+      stars: "75",
+      prices: transientPrices(150),
+      stars_prices: transientPrices(75),
+    });
+    store.addDraftRow("premiumTopupRows", {
+      gb: "30",
+      price: "250",
+      stars: "125",
+      prices: transientPrices(250),
+      stars_prices: transientPrices(125),
+    });
+    await store.saveTariffDraft();
+
+    expect(api).toHaveBeenCalledWith("/admin/tariffs", {
+      method: "PUT",
+      body: expect.any(String),
+    });
+    const body = JSON.parse(api.mock.calls[0][1].body);
+    expect(body.catalog.tariffs[0].topup_packages).toEqual({
+      rub: [{ gb: 20, price: 150, prices: { provider: { amount: 150 } } }],
+      stars: [{ gb: 20, price: 75, prices: { provider: { amount: 75 } } }],
+    });
+    expect(body.catalog.tariffs[0].premium_topup_packages).toEqual({
+      rub: [{ gb: 30, price: 250, prices: { provider: { amount: 250 } } }],
+      stars: [{ gb: 30, price: 125, prices: { provider: { amount: 125 } } }],
+    });
+  });
+
+  it("persists traffic package rows with transient pricing metadata", async () => {
+    const api = vi.fn(async (_path, options = {}) => {
+      const body = JSON.parse(options.body);
+      return {
+        ok: true,
+        exists: true,
+        path: "data/tariffs.json",
+        provider_currency_support: [],
+        catalog: body.catalog,
+      };
+    });
+    const { store } = makeStore(api);
+    const trafficTariff = periodTariff({
+      key: "traffic",
+      billing_model: "traffic",
+      traffic_packages: { rub: [], stars: [] },
+    });
+    store.updateState({ tariffsCatalog: catalog([trafficTariff]) });
+
+    store.openEditTariff(trafficTariff);
+    store.addDraftRow("trafficRows", {
+      gb: "100",
+      price: "399",
+      stars: "199",
+      prices: transientPrices(399),
+      stars_prices: transientPrices(199),
+    });
+    await store.saveTariffDraft();
+
+    expect(api).toHaveBeenCalledWith("/admin/tariffs", {
+      method: "PUT",
+      body: expect.any(String),
+    });
+    const body = JSON.parse(api.mock.calls[0][1].body);
+    expect(body.catalog.tariffs[0].traffic_packages).toEqual({
+      rub: [{ gb: 100, price: 399, prices: { provider: { amount: 399 } } }],
+      stars: [{ gb: 100, price: 199, prices: { provider: { amount: 199 } } }],
     });
   });
 });

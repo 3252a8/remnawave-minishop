@@ -14,6 +14,7 @@ import {
 } from "../../webapp/publicApi";
 import { withRoutePrefix } from "../../webapp/routes.js";
 import { adminErrorMessage } from "../errors.js";
+import { snapshotForPayload } from "./snapshotForPayload.svelte";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string };
 type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
@@ -190,7 +191,19 @@ export function createAdminSupportStore({
   }
 
   function getSnapshot() {
-    return state;
+    return snapshotForPayload({
+      tickets: state.tickets,
+      stats: state.stats,
+      filters: state.filters,
+      loading: state.loading,
+      openedTicketId: state.openedTicketId,
+      openedTicket: state.openedTicket,
+      messages: state.messages,
+      userSnapshot: state.userSnapshot,
+      detailLoading: state.detailLoading,
+      sending: state.sending,
+      composerInternalNote: state.composerInternalNote,
+    });
   }
 
   function updateState(updater: (snapshot: AdminSupportState) => AdminSupportState): void {
@@ -351,7 +364,7 @@ export function createAdminSupportStore({
       return;
     }
     try {
-      const payload: TicketReplyPayload = { body, is_internal_note: internal };
+      const payload: TicketReplyPayload = snapshotForPayload({ body, is_internal_note: internal });
       const res = (await api(buildAdminSupportTicketMessagesPath(current), {
         method: "POST",
         body: JSON.stringify(payload),
@@ -386,7 +399,7 @@ export function createAdminSupportStore({
     if (!current) return;
     const res = (await api(buildAdminSupportTicketPath(current), {
       method: "PATCH",
-      body: JSON.stringify(updates),
+      body: JSON.stringify(snapshotForPayload(updates)),
     })) as AdminSupportTicketPatchResponse | AdminErrorResponse;
     if (res?.ok) {
       const payload = unwrap(res);

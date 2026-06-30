@@ -16,6 +16,7 @@ import {
   normalizeCurrencyKey,
   normalizeUuidList,
 } from "../tariffDraft.js";
+import { snapshotForPayload } from "./snapshotForPayload.svelte";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
 type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
@@ -266,7 +267,7 @@ export function createTariffsStore({
     const currentPath = state.tariffsPath;
 
     try {
-      const payload: TariffsSavePayload = { catalog: nextCatalog };
+      const payload: TariffsSavePayload = { catalog: snapshotForPayload(nextCatalog) };
       const res = (await api(buildAdminTariffsPath(), {
         method: "PUT",
         body: JSON.stringify(payload),
@@ -328,19 +329,21 @@ export function createTariffsStore({
 
   async function saveTariffDraft(): Promise<void> {
     const s = readState();
-    const tariff = tariffFromDraft(s.tariffDraft, s.tariffsCatalog.default_currency || "rub");
+    const catalog = snapshotForPayload(s.tariffsCatalog);
+    const draft = snapshotForPayload(s.tariffDraft);
+    const tariff = tariffFromDraft(draft, catalog.default_currency || "rub");
     if (!tariff.key) {
       flash(at("tariff_error_key_required", {}, "Укажите ключ тарифа"));
       return;
     }
-    const existing = (s.tariffsCatalog.tariffs || []).find(
+    const existing = (catalog.tariffs || []).find(
       (item) => item.key === tariff.key && item.key !== s.tariffEditingKey
     );
     if (existing) {
       flash(at("tariff_error_key_exists", {}, "Тариф с таким ключом уже есть"));
       return;
     }
-    const current = s.tariffsCatalog.tariffs || [];
+    const current = catalog.tariffs || [];
     const tariffs = s.tariffEditingKey
       ? current.map((item) => (item.key === s.tariffEditingKey ? tariff : item))
       : [...current, tariff];
@@ -350,19 +353,18 @@ export function createTariffsStore({
       return;
     }
     const currentDefault =
-      s.tariffsCatalog.default_tariff === s.tariffEditingKey
-        ? tariff.key
-        : s.tariffsCatalog.default_tariff;
+      catalog.default_tariff === s.tariffEditingKey ? tariff.key : catalog.default_tariff;
     const defaultTariff = enabledKeys.includes(currentDefault) ? currentDefault : enabledKeys[0];
     await persistTariffs(
-      { ...cloneCatalog(s.tariffsCatalog), default_tariff: defaultTariff, tariffs },
+      { ...cloneCatalog(catalog), default_tariff: defaultTariff, tariffs },
       at("tariff_saved", {}, "Тариф сохранён")
     );
   }
 
   async function toggleTariffEnabled(tariff: Tariff): Promise<void> {
     const s = readState();
-    const tariffs = (s.tariffsCatalog.tariffs || []).map((item) =>
+    const catalog = snapshotForPayload(s.tariffsCatalog);
+    const tariffs = (catalog.tariffs || []).map((item) =>
       item.key === tariff.key ? { ...item, enabled: item.enabled === false } : item
     );
     const enabledKeys = tariffs.filter((item) => item.enabled !== false).map((item) => item.key);
@@ -370,20 +372,21 @@ export function createTariffsStore({
       flash(at("tariff_error_min_enabled", {}, "Должен остаться хотя бы один включённый тариф"));
       return;
     }
-    const defaultTariff = enabledKeys.includes(s.tariffsCatalog.default_tariff)
-      ? s.tariffsCatalog.default_tariff
+    const defaultTariff = enabledKeys.includes(catalog.default_tariff)
+      ? catalog.default_tariff
       : enabledKeys[0];
     await persistTariffs(
-      { ...cloneCatalog(s.tariffsCatalog), default_tariff: defaultTariff, tariffs },
+      { ...cloneCatalog(catalog), default_tariff: defaultTariff, tariffs },
       at("tariff_status_updated", {}, "Статус тарифа обновлён")
     );
   }
 
   async function setDefaultTariff(key: string): Promise<void> {
     const s = readState();
-    if (!key || key === s.tariffsCatalog.default_tariff) return;
+    const catalog = snapshotForPayload(s.tariffsCatalog);
+    if (!key || key === catalog.default_tariff) return;
     await persistTariffs(
-      { ...cloneCatalog(s.tariffsCatalog), default_tariff: key },
+      { ...cloneCatalog(catalog), default_tariff: key },
       at("tariff_default_updated", {}, "Тариф по умолчанию обновлён")
     );
   }
@@ -395,9 +398,10 @@ export function createTariffsStore({
       return;
     }
     const s = readState();
-    if (currency === normalizeCurrencyKey(s.tariffsCatalog.default_currency || "rub")) return;
+    const catalog = snapshotForPayload(s.tariffsCatalog);
+    if (currency === normalizeCurrencyKey(catalog.default_currency || "rub")) return;
     await persistTariffs(
-      { ...cloneCatalog(s.tariffsCatalog), default_currency: currency },
+      { ...cloneCatalog(catalog), default_currency: currency },
       at("tariff_currency_updated", {}, "Валюта оплаты обновлена")
     );
   }
@@ -406,7 +410,8 @@ export function createTariffsStore({
     const s = readState();
     const target = s.tariffDeleteTarget;
     if (!target) return;
-    const tariffs = (s.tariffsCatalog.tariffs || []).filter((item) => item.key !== target.key);
+    const catalog = snapshotForPayload(s.tariffsCatalog);
+    const tariffs = (catalog.tariffs || []).filter((item) => item.key !== target.key);
     const enabledKeys = tariffs.filter((item) => item.enabled !== false).map((item) => item.key);
     if (!enabledKeys.length) {
       flash(
@@ -414,11 +419,11 @@ export function createTariffsStore({
       );
       return;
     }
-    const defaultTariff = enabledKeys.includes(s.tariffsCatalog.default_tariff)
-      ? s.tariffsCatalog.default_tariff
+    const defaultTariff = enabledKeys.includes(catalog.default_tariff)
+      ? catalog.default_tariff
       : enabledKeys[0];
     await persistTariffs(
-      { ...cloneCatalog(s.tariffsCatalog), default_tariff: defaultTariff, tariffs },
+      { ...cloneCatalog(catalog), default_tariff: defaultTariff, tariffs },
       at("tariff_deleted", {}, "Тариф удалён")
     );
   }

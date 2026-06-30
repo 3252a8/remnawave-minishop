@@ -1,6 +1,7 @@
 import { adminErrorMessage } from "../errors.js";
 import { userDisplayName } from "../users.js";
 import { withRoutePrefix } from "../../webapp/routes.js";
+import { snapshotForPayload } from "./snapshotForPayload.svelte";
 import {
   buildAdminUserActionPath,
   buildAdminUserLogsPath,
@@ -35,6 +36,7 @@ export type { AdminUser } from "./usersStoreState";
 export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersStoreOptions) {
   const initialState = createInitialUsersState();
   const state = $state<AdminStoreState>({ ...initialState });
+  const stateKeys = Object.keys(initialState) as Array<keyof AdminStoreState>;
 
   let _activeRef = "stats"; // fallback if active isn't tracked
   let _pathContext: PathContext = null;
@@ -44,6 +46,12 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
     const next = updater(state);
     if (next === state) return;
     Object.assign(state, next);
+  }
+
+  function readStateSnapshot(): AdminStoreState {
+    return snapshotForPayload(
+      Object.fromEntries(stateKeys.map((key) => [key, state[key]])) as AdminStoreState
+    );
   }
 
   function _openingUserModalState(
@@ -179,11 +187,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
 
   async function loadUsers() {
     applyState((s) => ({ ...s, usersLoading: true }));
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
 
     try {
       const params = new URLSearchParams({
@@ -260,11 +264,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function refreshOpenedUserDetail(options: SnapshotOptions = {}) {
-    let snapshot: AdminStoreState | undefined;
-    applyState((st) => {
-      snapshot = st;
-      return st;
-    });
+    const snapshot = readStateSnapshot();
     const userId = Number(snapshot?.openedUser?.user_id || 0);
     if (!userId) return null;
     const requestId = _openUserRequestId;
@@ -296,11 +296,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function loadUserLogs(page: number) {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     const userId = s.openedUser.user_id;
     const targetPage = Number.isFinite(page) ? Math.max(0, Math.floor(page)) : s.userLogsPage || 0;
@@ -341,11 +337,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function openUserReferrals(page = 0) {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     const userId = s.openedUser.user_id;
     const targetPage = Number.isFinite(page) ? Math.max(0, Math.floor(page)) : 0;
@@ -409,11 +401,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   function requestBanToggle() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     if (s.openedUser.is_banned) {
       applyBanToggle(false);
@@ -423,11 +411,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function applyBanToggle(banned: boolean) {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     const openedUser = s.openedUser;
     if (!openedUser) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
@@ -458,11 +442,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function sendUserMessage() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser || !s.userMessageDraft.trim()) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
@@ -491,11 +471,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function previewUserMessage() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser || !s.userMessageDraft.trim()) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
@@ -514,11 +490,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function sendTelegramProfileLink() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
@@ -545,11 +517,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function extendUser() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     const days = Number(s.userExtendDays);
     if (!days || days <= 0) return;
@@ -579,11 +547,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function changeUserTariff() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser || !s.userTariffActionKey) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
@@ -609,11 +573,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function resetTrialUser() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
@@ -638,11 +598,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function savePremiumTrafficOverride() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
@@ -680,11 +636,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function saveRegularTrafficOverride() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
@@ -725,11 +677,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function saveHwidDeviceLimit() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
@@ -776,11 +724,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function grantTraffic() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     const gbRaw = s.grantTrafficGbDraft;
     const gb = Number(gbRaw);
@@ -828,11 +772,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function deleteUser() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     const openedUser = s.openedUser;
     if (!openedUser) return;
     applyState((st) => ({ ...st, userActionBusy: true }));

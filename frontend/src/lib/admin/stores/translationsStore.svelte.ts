@@ -7,6 +7,7 @@ import {
   type GetResponse,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
+import { snapshotForPayload } from "./snapshotForPayload.svelte";
 
 type AdminErrorResponse = {
   ok?: false;
@@ -233,7 +234,7 @@ export function createTranslationsStore({
   async function saveTranslations(
     onTranslationsSaved?: (payload: TranslationsSavedPayload) => void | Promise<void>
   ): Promise<boolean> {
-    const dirty = state.translationsDirty;
+    const dirty = snapshotForPayload(state.translationsDirty);
     if (!Object.keys(dirty).length) return true;
 
     updateState((s) => ({ ...s, translationsSaving: true }));

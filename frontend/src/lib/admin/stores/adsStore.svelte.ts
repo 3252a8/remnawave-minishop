@@ -11,6 +11,7 @@ import {
   buildAdminAdTogglePath,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
+import { snapshotForPayload } from "./snapshotForPayload.svelte";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
 type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
@@ -77,7 +78,7 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
   }
 
   async function createAd(): Promise<void> {
-    const draft = state.adDraft;
+    const draft = snapshotForPayload(state.adDraft);
     if (!draft.source.trim() || !draft.start_param.trim()) return;
 
     const res = (await api(buildAdminAdsPath(), {
@@ -96,8 +97,9 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
   }
 
   async function toggleAd(ad: Ad): Promise<void> {
-    const path = buildAdminAdTogglePath(ad.id);
-    const body = { is_active: !ad.is_active } satisfies Partial<AdToggleBody>;
+    const adSnapshot = snapshotForPayload(ad);
+    const path = buildAdminAdTogglePath(adSnapshot.id);
+    const body = { is_active: !adSnapshot.is_active } satisfies Partial<AdToggleBody>;
     const res = (await api(path, {
       method: "POST",
       body: JSON.stringify(body),
