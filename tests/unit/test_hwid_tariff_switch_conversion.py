@@ -189,6 +189,93 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(change_payload["converted_hwid_value_rub"], 50)
         self.assertEqual(change_payload["converted_hwid_days"], 7)
 
+    async def test_admin_assign_converts_trial_subscription_to_admin_tariff(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _settings(tmpdir)
+            service = _service(settings)
+            user = SimpleNamespace(
+                user_id=42,
+                telegram_id=42,
+                panel_user_uuid="panel-user",
+                email=None,
+                username="u",
+                first_name="U",
+                last_name="L",
+            )
+            sub = SimpleNamespace(
+                subscription_id=11,
+                user_id=42,
+                panel_user_uuid="panel-user",
+                panel_subscription_uuid="panel-sub",
+                tariff_key="basic",
+                start_date=datetime(2099, 1, 1, tzinfo=timezone.utc),
+                end_date=datetime(2099, 1, 8, tzinfo=timezone.utc),
+                duration_months=0,
+                provider="trial",
+                status_from_panel="ACTIVE",
+                effective_monthly_price_rub=0,
+                premium_topup_balance_bytes=0,
+                premium_topup_used_bytes=0,
+                premium_used_bytes=0,
+                topup_balance_bytes=0,
+                regular_bonus_bytes=0,
+                regular_unlimited_override=False,
+                traffic_used_bytes=0,
+                extra_hwid_devices=0,
+                hwid_device_limit=3,
+            )
+            updated = SimpleNamespace(**{**sub.__dict__, "tariff_key": "pro"})
+            updated.provider = "admin"
+            updated.status_from_panel = "ACTIVE"
+            updated.duration_months = 1
+            updated.hwid_device_limit = 5
+            updated.extra_hwid_devices = 0
+            updated.traffic_limit_bytes = 200 * (1024**3)
+            updated.premium_is_limited = False
+            updated.effective_monthly_price_rub = 200
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.user_dal.get_user_by_id",
+                    AsyncMock(return_value=user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.tariff_dal.sum_active_hwid_devices",
+                    AsyncMock(return_value=0),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.update_subscription",
+                    AsyncMock(return_value=updated),
+                ) as update_subscription,
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.deactivate_other_active_subscriptions",
+                    AsyncMock(),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.tariff_dal.create_tariff_change",
+                    AsyncMock(),
+                ),
+            ):
+                result = await service.switch_tariff_without_payment(
+                    AsyncMock(),
+                    user_id=42,
+                    target_tariff_key="pro",
+                    mode="admin_assign",
+                )
+
+        self.assertEqual(result["tariff_key"], "pro")
+        update_data = update_subscription.await_args.args[2]
+        self.assertEqual(update_data["tariff_key"], "pro")
+        self.assertEqual(update_data["provider"], "admin")
+        self.assertEqual(update_data["status_from_panel"], "ACTIVE")
+        self.assertEqual(update_data["duration_months"], 1)
+        self.assertFalse(update_data["skip_notifications"])
+        self.assertFalse(update_data["suppress_early_expiry_notifications"])
+
     async def test_paid_switch_records_payment_id_in_single_tariff_change(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _settings(tmpdir)
