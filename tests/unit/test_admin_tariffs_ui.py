@@ -29,5 +29,10 @@ def test_tariff_cards_show_regular_traffic_limit():
     facts_start = source.index('class="admin-tariff-facts"')
     facts_block = source[facts_start : source.index("</div>", facts_start)]
 
+    assert "function tariffGbLimitLabel(" in source
     assert "tariff_regular_traffic" in facts_block
     assert "tariffMonthlyTrafficLimit(tariff)" in facts_block
+    assert "tariffPremiumTrafficLimit(tariff)" in facts_block
+    assert "tariffDeviceLimit(tariff)" in facts_block
+    assert "premium_monthly_gb || 0" not in facts_block
+    assert "tariff.hwid_device_limit ??" not in facts_block

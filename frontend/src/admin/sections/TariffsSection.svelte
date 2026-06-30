@@ -127,13 +127,36 @@
       .join(" · ");
   }
 
+  function tariffUnlimitedLabel(): string {
+    return at("tariff_traffic_unlimited", {}, "Безлимит");
+  }
+
+  function tariffGbLimitLabel(value: unknown): string {
+    const gb = Number(value || 0);
+    if (!Number.isFinite(gb) || gb <= 0) {
+      return tariffUnlimitedLabel();
+    }
+    return `${gb} GB`;
+  }
+
   function tariffMonthlyTrafficLimit(tariff: Tariff): string {
     if (tariff.billing_model === "traffic") return "—";
-    const monthlyGb = Number(tariff.monthly_gb || 0);
-    if (!Number.isFinite(monthlyGb) || monthlyGb <= 0) {
-      return at("tariff_traffic_unlimited", {}, "Безлимит");
+    return tariffGbLimitLabel(tariff.monthly_gb);
+  }
+
+  function tariffPremiumTrafficLimit(tariff: Tariff): string {
+    if (!(tariff.premium_squad_uuids || []).length) return "—";
+    return tariffGbLimitLabel(tariff.premium_monthly_gb);
+  }
+
+  function tariffDeviceLimit(tariff: Tariff): string {
+    const rawLimit = tariff.hwid_device_limit;
+    if (rawLimit === null || rawLimit === undefined) return "env";
+    const limit = Number(rawLimit);
+    if (Number.isFinite(limit) && limit === 0) {
+      return tariffUnlimitedLabel();
     }
-    return `${monthlyGb} GB`;
+    return String(rawLimit);
   }
 
   function boolValue(
@@ -472,15 +495,10 @@
                     {tariffMonthlyTrafficLimit(tariff)}</span
                   >
                   <span
-                    >{at("tariff_premium", {}, "Premium")}: {(tariff.premium_squad_uuids || [])
-                      .length
-                      ? `${tariff.premium_monthly_gb || 0} GB`
-                      : "—"}</span
+                    >{at("tariff_premium", {}, "Premium")}:
+                    {tariffPremiumTrafficLimit(tariff)}</span
                   >
-                  <span
-                    >{at("tariff_devices", {}, "Устройства")}: {tariff.hwid_device_limit ??
-                      "env"}</span
-                  >
+                  <span>{at("tariff_devices", {}, "Устройства")}: {tariffDeviceLimit(tariff)}</span>
                 </div>
                 <div class="admin-tariff-actions">
                   <AdminButton
