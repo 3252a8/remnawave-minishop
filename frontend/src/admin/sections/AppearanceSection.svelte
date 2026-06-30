@@ -448,6 +448,18 @@
     themesStore.setThemeHomeLogoScale(DEFAULT_THEME_KEY, mode, value);
   }
 
+  function applyUploadedAppearanceField(
+    key: string,
+    value: unknown,
+    persisted: boolean | undefined
+  ): void {
+    if (persisted === false) {
+      settingsStore.markDirty(key, value);
+      return;
+    }
+    settingsStore.setFieldValue(key, value);
+  }
+
   function homeLogoScale(theme: ThemeEntry, mode: LogoMode): number {
     return Number(themesStore.resolveThemeHomeLogoScale(theme, mode)) || 0;
   }
@@ -502,14 +514,15 @@
     }
     themesStore.uploadLogoFile(file).then((uploaded) => {
       const uploadedUrl = uploaded?.logoUrl || "";
+      const persisted = uploaded?.persisted;
       if (!uploadedUrl) {
         pendingLogoPreviewUrl = "";
         clearPendingObjectUrl();
         return;
       }
-      settingsStore.setFieldValue("WEBAPP_LOGO_URL", uploadedUrl);
+      applyUploadedAppearanceField("WEBAPP_LOGO_URL", uploadedUrl, persisted);
       if (uploaded?.faviconUrl) {
-        settingsStore.setFieldValue("WEBAPP_LOGO_FAVICON_URL", uploaded.faviconUrl);
+        applyUploadedAppearanceField("WEBAPP_LOGO_FAVICON_URL", uploaded.faviconUrl, persisted);
       }
       if (logoFileInput) logoFileInput.value = "";
     });
@@ -518,12 +531,13 @@
   function uploadLogoFromUrl(): void {
     themesStore.uploadLogoUrl(logoSourceUrl).then((uploaded) => {
       const uploadedUrl = uploaded?.logoUrl || "";
+      const persisted = uploaded?.persisted;
       if (!uploadedUrl) return;
       setPendingLogoPreview(uploadedUrl);
       logoSourceUrl = "";
-      settingsStore.setFieldValue("WEBAPP_LOGO_URL", uploadedUrl);
+      applyUploadedAppearanceField("WEBAPP_LOGO_URL", uploadedUrl, persisted);
       if (uploaded?.faviconUrl) {
-        settingsStore.setFieldValue("WEBAPP_LOGO_FAVICON_URL", uploaded.faviconUrl);
+        applyUploadedAppearanceField("WEBAPP_LOGO_FAVICON_URL", uploaded.faviconUrl, persisted);
       }
     });
   }
@@ -538,13 +552,14 @@
     }
     themesStore.uploadFaviconFile(file).then((uploaded) => {
       const uploadedUrl = uploaded?.faviconUrl || "";
+      const persisted = uploaded?.persisted;
       if (!uploadedUrl) {
         pendingFaviconPreviewUrl = "";
         clearPendingFaviconObjectUrl();
         return;
       }
-      settingsStore.setFieldValue("WEBAPP_FAVICON_URL", uploadedUrl);
-      settingsStore.setFieldValue("WEBAPP_FAVICON_USE_CUSTOM", true);
+      applyUploadedAppearanceField("WEBAPP_FAVICON_URL", uploadedUrl, persisted);
+      applyUploadedAppearanceField("WEBAPP_FAVICON_USE_CUSTOM", true, persisted);
       faviconUseCustomDraft = true;
       if (faviconFileInput) faviconFileInput.value = "";
     });
@@ -553,11 +568,12 @@
   function uploadFaviconFromUrl(): void {
     themesStore.uploadFaviconUrl(faviconSourceUrl).then((uploaded) => {
       const uploadedUrl = uploaded?.faviconUrl || "";
+      const persisted = uploaded?.persisted;
       if (!uploadedUrl) return;
       setPendingFaviconPreview(uploadedUrl);
       faviconSourceUrl = "";
-      settingsStore.setFieldValue("WEBAPP_FAVICON_URL", uploadedUrl);
-      settingsStore.setFieldValue("WEBAPP_FAVICON_USE_CUSTOM", true);
+      applyUploadedAppearanceField("WEBAPP_FAVICON_URL", uploadedUrl, persisted);
+      applyUploadedAppearanceField("WEBAPP_FAVICON_USE_CUSTOM", true, persisted);
       faviconUseCustomDraft = true;
     });
   }

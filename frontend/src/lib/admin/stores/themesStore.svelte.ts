@@ -36,8 +36,8 @@ type ThemesStoreOptions = {
 };
 type SaveThemesOptions = { silent?: boolean };
 type TokenOptions = { raw?: boolean; variant?: string | null };
-type LogoUploadResult = { logoUrl: string; faviconUrl: string };
-type FaviconUploadResult = { faviconUrl: string };
+type LogoUploadResult = { logoUrl: string; faviconUrl: string; persisted?: boolean };
+type FaviconUploadResult = { faviconUrl: string; persisted?: boolean };
 export type ThemesStore = ThemesState & {
   loadThemes: () => Promise<void>;
   saveThemes: (options?: SaveThemesOptions) => Promise<boolean>;
@@ -359,7 +359,11 @@ export function createThemesStore({
       });
       if (data?.ok) {
         flash(at("appearance_logo_uploaded_pending", {}, "Логотип загружен и применен."));
-        return { logoUrl: String(data.logo_url || ""), faviconUrl: String(data.favicon_url || "") };
+        return {
+          logoUrl: String(data.logo_url || ""),
+          faviconUrl: String(data.favicon_url || ""),
+          persisted: data.persisted,
+        };
       }
       flash(
         adminErrorMessage(
@@ -385,7 +389,11 @@ export function createThemesStore({
       });
       if (data?.ok) {
         flash(at("appearance_logo_uploaded_pending", {}, "Логотип загружен и применен."));
-        return { logoUrl: String(data.logo_url || ""), faviconUrl: String(data.favicon_url || "") };
+        return {
+          logoUrl: String(data.logo_url || ""),
+          faviconUrl: String(data.favicon_url || ""),
+          persisted: data.persisted,
+        };
       }
       flash(
         adminErrorMessage(
@@ -412,7 +420,7 @@ export function createThemesStore({
       });
       if (data?.ok) {
         flash(at("appearance_favicon_uploaded_pending", {}, "Favicon загружена и применена."));
-        return { faviconUrl: String(data.favicon_url || "") };
+        return { faviconUrl: String(data.favicon_url || ""), persisted: data.persisted };
       }
       flash(
         adminErrorMessage(
@@ -438,7 +446,7 @@ export function createThemesStore({
       });
       if (data?.ok) {
         flash(at("appearance_favicon_uploaded_pending", {}, "Favicon загружена и применена."));
-        return { faviconUrl: String(data.favicon_url || "") };
+        return { faviconUrl: String(data.favicon_url || ""), persisted: data.persisted };
       }
       flash(
         adminErrorMessage(
