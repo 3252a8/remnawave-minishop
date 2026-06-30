@@ -357,10 +357,81 @@ async function exerciseDialogTabs(
   }
 }
 
+async function assertMobileExtendTariffSelectDoesNotTapThrough(
+  page: Page,
+  userDialog: Locator,
+  phase: string
+): Promise<void> {
+  await page.setViewportSize(MOBILE_VIEWPORT);
+
+  const actionsTab = userDialog.locator(".admin-tabs-trigger").nth(3);
+  await actionsTab.click();
+  const actionsPanel = userDialog.locator(".admin-actions-tab");
+  await expect(actionsPanel).toBeVisible();
+
+  await page.evaluate(() => {
+    const trackedWindow = window as typeof window & {
+      __adminResetTrialClickGuardAttached?: boolean;
+      __adminResetTrialClicks?: number;
+    };
+    trackedWindow.__adminResetTrialClicks = 0;
+    if (trackedWindow.__adminResetTrialClickGuardAttached) return;
+    trackedWindow.__adminResetTrialClickGuardAttached = true;
+    document.addEventListener(
+      "click",
+      (event) => {
+        const target = event.target;
+        if (target instanceof Element && target.closest(".admin-reset-trial-btn")) {
+          trackedWindow.__adminResetTrialClicks = (trackedWindow.__adminResetTrialClicks ?? 0) + 1;
+        }
+      },
+      true
+    );
+  });
+
+  const resetTrialButton = actionsPanel.locator(".admin-reset-trial-btn");
+  await expect(resetTrialButton).toBeVisible();
+  await expect(resetTrialButton).toBeEnabled();
+
+  const extendTariffTrigger = actionsPanel.locator(".admin-user-extend-tariff-select");
+  await expect(extendTariffTrigger).toBeVisible();
+  await expect(extendTariffTrigger).toBeEnabled();
+  await extendTariffTrigger.click();
+
+  const selectContent = page.locator(".admin-select-content:visible").last();
+  await expect(selectContent).toBeVisible();
+
+  const items = selectContent.locator(".admin-select-item");
+  const itemCount = await items.count();
+  expect(itemCount, `${phase}: extend tariff select should expose choices`).toBeGreaterThan(1);
+
+  const targetItem = items.nth(Math.min(2, itemCount - 1));
+  await expect(targetItem).toBeVisible();
+  const targetLabel = (await targetItem.locator("span").first().innerText()).trim();
+  const itemReceivesPointer = await targetItem.evaluate((item) => {
+    const rect = item.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    return Boolean(hit && (hit === item || item.contains(hit)));
+  });
+  expect(itemReceivesPointer, `${phase}: select option must receive pointer events`).toBe(true);
+
+  await targetItem.click();
+  await expect(extendTariffTrigger).toContainText(targetLabel);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const trackedWindow = window as typeof window & { __adminResetTrialClicks?: number };
+        return trackedWindow.__adminResetTrialClicks ?? 0;
+      })
+    )
+    .toBe(0);
+}
+
 async function openUserDetailFromCurrentSection(
   page: Page,
   setPhase: (value: string) => void,
-  phasePrefix: string
+  phasePrefix: string,
+  options: { checkMobileTariffTapThrough?: boolean } = {}
 ): Promise<void> {
   const userDialog = page.locator(".dialog-card.admin-user-dialog");
   setPhase(`${phasePrefix}:user-card`);
@@ -395,6 +466,15 @@ async function openUserDetailFromCurrentSection(
   const actionsPanel = userDialog.locator(".admin-actions-tab");
   await expect(actionsPanel).toBeVisible();
   await assertFormFieldsNamed(page, `${phasePrefix}:user-actions`);
+
+  if (options.checkMobileTariffTapThrough) {
+    setPhase(`${phasePrefix}:mobile-extend-tariff-select`);
+    await assertMobileExtendTariffSelectDoesNotTapThrough(
+      page,
+      userDialog,
+      `${phasePrefix}:mobile-extend-tariff-select`
+    );
+  }
 
   setPhase(`${phasePrefix}:message-confirm`);
   await actionsPanel.locator("textarea").fill("E2E smoke message");
@@ -641,7 +721,10 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
 
   setPhase("admin-users:row-card");
   await page.locator("tr[data-user-id]").first().click();
-  await openUserDetailFromCurrentSection(page, setPhase, "admin-users");
+  await openUserDetailFromCurrentSection(page, setPhase, "admin-users", {
+    checkMobileTariffTapThrough: true,
+  });
+  await page.setViewportSize(DESKTOP_VIEWPORT);
 
   setPhase("admin-payments:payment-dialog");
   await openAdminSection(page, "payments");

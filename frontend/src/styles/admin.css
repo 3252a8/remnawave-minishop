@@ -4443,7 +4443,8 @@
 }
 
 .admin-select-content {
-  z-index: 90;
+  /* Portaled select content lives outside .dialog and must win hit-testing over it. */
+  z-index: 260;
   min-width: var(--bits-select-anchor-width);
   max-width: calc(100vw - 24px);
   max-height: var(--bits-select-content-available-height, 320px);
