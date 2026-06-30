@@ -2,6 +2,7 @@ import { DEV_MOCK } from "./previewMock.js";
 import { DEMO_DATASET } from "./demoDataset.js";
 import SETTINGS_MANIFEST_SECTIONS from "./settingsManifest.generated.json";
 import { withDemoAvatar, withDemoAvatarDetail, withDemoAvatarTicket } from "./demoAvatars.js";
+import { structuredCloneSafe } from "../safeClone.js";
 import { readJsonScript } from "./browser.js";
 
 const DEMO_LANGUAGE_STORAGE_KEY = "rw_minishop_demo_language";
@@ -49,11 +50,7 @@ const DEMO_TRANSLATION_GROUP_RULES = [
 ];
 
 function defaultClone(value) {
-  try {
-    return structuredClone(value);
-  } catch {
-    return JSON.parse(JSON.stringify(value));
-  }
+  return structuredCloneSafe(value);
 }
 
 function readDemoI18nMessages() {

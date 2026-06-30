@@ -79,4 +79,46 @@ describe("tariffsStore", () => {
     expect(onTariffsSaved).toHaveBeenCalledWith(body.catalog);
     expect(toasts).toEqual(["tariff_saved"]);
   });
+
+  it("persists HWID package rows even when transient UI data is not cloneable", async () => {
+    const api = vi.fn(async (_path, options = {}) => {
+      const body = JSON.parse(options.body);
+      return {
+        ok: true,
+        exists: true,
+        path: "data/tariffs.json",
+        provider_currency_support: [],
+        catalog: body.catalog,
+      };
+    });
+    const { store } = makeStore(api);
+    store.updateState({ tariffsCatalog: catalog([periodTariff()]) });
+
+    const transient = { provider: { amount: 99 }, handler: () => {} };
+    transient.self = transient;
+
+    store.openEditTariff(periodTariff());
+    store.addDraftRow("hwidRows", {
+      count: "2",
+      price: "99",
+      stars: "",
+      prices: transient,
+    });
+    await store.saveTariffDraft();
+
+    expect(api).toHaveBeenCalledWith("/admin/tariffs", {
+      method: "PUT",
+      body: expect.any(String),
+    });
+    const body = JSON.parse(api.mock.calls[0][1].body);
+    expect(body.catalog.tariffs[0].hwid_device_packages).toEqual({
+      rub: [
+        {
+          count: 2,
+          price: 99,
+          prices: { provider: { amount: 99 } },
+        },
+      ],
+    });
+  });
 });
