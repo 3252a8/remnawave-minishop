@@ -15,15 +15,14 @@
   import { AttentionDot } from "$components/ui/index.js";
   import { LanguageSelect } from "$components/patterns/webapp/index.js";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
-
-  type AnyRecord = Record<string, any>;
-  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-  type VoidAction = () => void;
-  type LanguageOption = {
-    value: string;
-    label: string;
-    flag?: string;
-  };
+  import type {
+    LanguageOption,
+    OpenLinkAction,
+    StringAction,
+    Translate,
+    UserProfile,
+    VoidAction,
+  } from "$lib/webapp/types.js";
 
   type Props = {
     currentLang?: string;
@@ -48,7 +47,7 @@
     telegramNotificationsStartLink?: string;
     telegramNotificationsStatus?: string;
     telegramProfileName?: string;
-    user?: AnyRecord;
+    user?: UserProfile;
     userAgreementUrl?: string;
     userLanguage?: string;
     showLogout?: boolean;
@@ -56,12 +55,12 @@
     openTelegramNotificationsBot?: VoidAction;
     logout?: VoidAction;
     openAdminPanel?: VoidAction;
-    openExternalLink?: (url: string) => void;
+    openExternalLink?: OpenLinkAction;
     openLinkEmailDialog?: VoidAction;
     openSetPasswordDialog?: VoidAction;
     setLanguageMenuOpen?: (open: boolean) => void;
     t?: Translate;
-    updateAccountLanguage?: (language: string) => void;
+    updateAccountLanguage?: StringAction;
   };
 
   let {

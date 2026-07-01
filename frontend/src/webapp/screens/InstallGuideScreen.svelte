@@ -27,9 +27,20 @@
     renderInstallQrDataUrl,
     resolveInstallButtonAction,
   } from "$lib/webapp/installGuideRuntime.js";
+  import {
+    asInstallGuidesConfig,
+    asString,
+    asWebappRecord,
+    installPlatformsFromConfig,
+    type CopyTextAction,
+    type InstallGuideButton,
+    type OpenLinkAction,
+    type SubscriptionView,
+    type Translate,
+    type UserProfile,
+    type VoidAction,
+  } from "$lib/webapp/types.js";
 
-  type AnyRecord = Record<string, any>;
-  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type HeightStageAnimator = {
     animate(update: () => void): void;
     destroy(): void;
@@ -62,13 +73,13 @@
   }: {
     currentLang?: string;
     telegramPlatform?: string;
-    user?: AnyRecord;
-    subscription?: AnyRecord;
-    goHome?: () => void;
+    user?: UserProfile;
+    subscription?: SubscriptionView;
+    goHome?: VoidAction;
     openConnectLink?: (url?: string) => void;
-    openExternalLink?: (url: string) => void;
-    openAppLink?: ((url: string) => void) | null;
-    copyText?: (text: string, message?: string) => Promise<void>;
+    openExternalLink?: OpenLinkAction;
+    openAppLink?: OpenLinkAction | null;
+    copyText?: CopyTextAction;
     t?: Translate;
     publicMode?: boolean;
   } = $props();
@@ -100,12 +111,8 @@
 
   onDestroy(() => installStageAnimator.destroy());
 
-  const config = $derived((installGuidesStore?.config || null) as AnyRecord | null);
-  const platforms = $derived(
-    Object.entries((config?.platforms || {}) as Record<string, AnyRecord>)
-      .filter(([, platform]) => Array.isArray(platform?.apps) && platform.apps.length)
-      .map(([key, platform]) => ({ key, ...platform }) as AnyRecord & { key: string })
-  );
+  const config = $derived(asInstallGuidesConfig(installGuidesStore?.config));
+  const platforms = $derived(installPlatformsFromConfig(config));
   const platformOptions = $derived(
     platforms.map((platform) => ({
       value: platform.key,
@@ -145,14 +152,17 @@
   const installStageStyle = $derived(
     `${stageHeightStyle} --motion-stage-duration:${STAGE_HEIGHT_ANIMATION_MS}ms;`
   );
-  const guideSubscription = $derived(installGuidesStore?.subscription || subscription || {});
-  const finalSubscriptionLink = $derived(
-    guideSubscription?.config_link ||
-      guideSubscription?.connect_url ||
-      subscription?.config_link ||
-      ""
+  const guideSubscription = $derived(
+    asWebappRecord(installGuidesStore?.subscription || subscription)
   );
-  const shareUrl = $derived(guideSubscription?.share_url || subscription?.install_share_url || "");
+  const finalSubscriptionLink = $derived(
+    asString(guideSubscription.config_link) ||
+      asString(guideSubscription.connect_url) ||
+      asString(subscription?.config_link)
+  );
+  const shareUrl = $derived(
+    asString(guideSubscription.share_url) || asString(subscription?.install_share_url)
+  );
   $effect(() => {
     if (finalSubscriptionLink === lastQrValue) return;
     lastQrValue = finalSubscriptionLink;
@@ -210,7 +220,7 @@
     (openAppLink || openExternalLink)(url);
   }
 
-  async function handleButton(button: AnyRecord) {
+  async function handleButton(button: InstallGuideButton) {
     const action = resolveInstallButtonAction(button, { subscription, user });
     if (action.kind === "copy") {
       await copyText(

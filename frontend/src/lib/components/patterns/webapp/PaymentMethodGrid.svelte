@@ -1,8 +1,10 @@
 <script lang="ts">
+  import type { Component } from "svelte";
   import * as Icons from "$components/ui/icons.js";
+  import type { PaymentMethod, StringAction, Translate } from "$lib/webapp/types.js";
 
-  type AnyRecord = Record<string, any>;
-  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  type IconComponent = Component<{ size?: number | string }>;
+  const iconRegistry: Record<string, unknown> = Icons;
 
   let {
     methods = [],
@@ -10,22 +12,27 @@
     t = (key) => key,
     onSelect = () => {},
   }: {
-    methods?: AnyRecord[];
+    methods?: PaymentMethod[];
     selectedMethod?: string;
     t?: Translate;
-    onSelect?: (id: string) => void;
+    onSelect?: StringAction;
   } = $props();
 
-  function methodTitle(method: AnyRecord) {
-    return method?.name || t("wa_method_other_title");
+  function methodId(method: PaymentMethod): string {
+    return String(method?.id || "");
   }
 
-  function methodIcon(method: AnyRecord) {
+  function methodTitle(method: PaymentMethod) {
+    return typeof method?.name === "string" && method.name ? method.name : t("wa_method_other_title");
+  }
+
+  function methodIcon(method: PaymentMethod): IconComponent | null {
     const iconName = String(method?.icon || "").trim();
-    return iconName ? (Icons as AnyRecord)[iconName] || null : null;
+    const icon = iconName ? iconRegistry[iconName] : null;
+    return typeof icon === "function" ? (icon as IconComponent) : null;
   }
 
-  function disabledTitle(method: AnyRecord) {
+  function disabledTitle(method: PaymentMethod) {
     if (!method?.disabled || !method?.min_amount || !method?.min_currency) return "";
     return `Minimum ${method.min_amount} ${method.min_currency}`;
   }
@@ -38,14 +45,15 @@
 >
   {#each methods as method}
     {@const Icon = methodIcon(method)}
+    {@const id = methodId(method)}
     <button
-      class:active={selectedMethod === method.id}
+      class:active={selectedMethod === id}
       class:disabled={method.disabled}
       class="method-card"
       disabled={method.disabled}
       title={disabledTitle(method)}
       type="button"
-      onclick={() => !method.disabled && onSelect(method.id)}
+      onclick={() => !method.disabled && onSelect(id)}
     >
       <span class="method-card-main">
         {#if Icon}

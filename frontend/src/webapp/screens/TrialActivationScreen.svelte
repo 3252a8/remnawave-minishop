@@ -15,19 +15,23 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { formatTrafficGb } from "../../lib/webapp/formatters.js";
-
-  type AnyRecord = Record<string, any>;
-  type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-  type VoidAction = () => void;
+  import type {
+    AppSettings,
+    BrandConfig,
+    SubscriptionView,
+    Translate,
+    TrialActivationResult,
+    VoidAction,
+  } from "$lib/webapp/types.js";
 
   type Props = {
-    appSettings?: AnyRecord;
-    brand?: AnyRecord;
+    appSettings?: AppSettings;
+    brand?: BrandConfig;
     brandTitle?: string;
-    subscription?: AnyRecord;
+    subscription?: SubscriptionView;
     trialBusy?: boolean;
     linkTelegramBusy?: boolean;
-    trialResult?: AnyRecord | null;
+    trialResult?: TrialActivationResult | null;
     trialError?: string;
     activateTrial?: VoidAction;
     linkTelegramAndActivateTrial?: VoidAction;

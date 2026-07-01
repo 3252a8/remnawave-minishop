@@ -129,16 +129,12 @@
     "allowlist": [],
     "allowed_counts": {
       "frontend/src/App.svelte": 33,
-      "frontend/src/lib/components/patterns/webapp/PaymentMethodGrid.svelte": 7,
       "frontend/src/webapp/AppModeContent.svelte": 19,
       "frontend/src/webapp/AuthenticatedDialogs.svelte": 10,
-      "frontend/src/webapp/AuthenticatedScreens.svelte": 12,
+      "frontend/src/webapp/AuthenticatedScreens.svelte": 11,
       "frontend/src/webapp/PaymentDialogs.svelte": 33,
       "frontend/src/webapp/TariffDialogs.svelte": 24,
-      "frontend/src/webapp/screens/HomeScreen.svelte": 23,
-      "frontend/src/webapp/screens/InstallGuideScreen.svelte": 8,
-      "frontend/src/webapp/screens/SettingsScreen.svelte": 3,
-      "frontend/src/webapp/screens/TrialActivationScreen.svelte": 6
+      "frontend/src/webapp/screens/HomeScreen.svelte": 23
     }
   },
   "frontend_api_calls": {

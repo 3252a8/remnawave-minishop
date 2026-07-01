@@ -12,6 +12,7 @@
   import SupportScreen from "./screens/SupportScreen.svelte";
   import SupportTicketScreen from "./screens/SupportTicketScreen.svelte";
   import TrialActivationScreen from "./screens/TrialActivationScreen.svelte";
+  import type { TrialActivationResult } from "$lib/webapp/types.js";
 
   type AnyRecord = Record<string, any>;
   type Action = (...args: any[]) => any;
@@ -116,7 +117,7 @@
     toggleAutoRenew: Action;
     trafficMode?: boolean;
     trialActivationError?: string;
-    trialActivationResult?: AnyRecord | null;
+    trialActivationResult?: TrialActivationResult | null;
     trialBusy?: boolean;
     user?: AnyRecord;
     userAgreementUrl?: string;
