@@ -72,6 +72,12 @@ class TariffWorkerRegularMixin:
         async def _user_lang(self, session: AsyncSession, user_id: int) -> str: ...
         def _period_tariff_traffic_strategy(self) -> str: ...
         def _usage_placeholders(self, used_bytes: int, limit_bytes: int) -> dict: ...
+        def _panel_next_traffic_reset_at(
+            self,
+            panel_user_data: Optional[dict[str, Any]],
+            *,
+            now: Optional[datetime] = None,
+        ) -> Optional[datetime]: ...
         def _traffic_next_reset_note(
             self,
             translate: Callable[..., str],
@@ -80,6 +86,7 @@ class TariffWorkerRegularMixin:
             period_start_at: Optional[datetime],
             reset_available_bytes: int,
             user_lang: str,
+            next_reset_at: Optional[datetime] = None,
         ) -> str: ...
         def _traffic_topup_markup(
             self, user_lang: str, kind: str
@@ -226,6 +233,7 @@ class TariffWorkerRegularMixin:
                     )
                     sub.period_start_at = warning_period_start
                 if not trial_premium_subscription:
+                    panel_next_reset_at = self._panel_next_traffic_reset_at(panel_data, now=now)
                     await self._sync_hwid_device_limit(session, sub, tariff, panel_data)
                     await self._maybe_warn_or_throttle(
                         session,
@@ -236,6 +244,7 @@ class TariffWorkerRegularMixin:
                         warning_period_start=warning_period_start
                         if tariff.billing_model == "period"
                         else None,
+                        next_reset_at=panel_next_reset_at,
                     )
 
                 await self._sync_premium_squad_limit(
@@ -555,6 +564,7 @@ class TariffWorkerRegularMixin:
         limit: Optional[int],
         *,
         warning_period_start: Optional[datetime] = None,
+        next_reset_at: Optional[datetime] = None,
     ) -> None:
         if bool(getattr(sub, "regular_unlimited_override", False)):
             return
@@ -601,6 +611,7 @@ class TariffWorkerRegularMixin:
                 period_start_at=warning_period_start if tariff.billing_model == "period" else None,
                 reset_available_bytes=limit_val,
                 user_lang=user_lang,
+                next_reset_at=next_reset_at,
             )
             if level < 100:
                 text = _(

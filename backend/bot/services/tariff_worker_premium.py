@@ -68,7 +68,14 @@ class TariffWorkerPremiumMixin:
             period_start_at: Optional[datetime],
             reset_available_bytes: int,
             user_lang: str,
+            next_reset_at: Optional[datetime] = None,
         ) -> str: ...
+        def _panel_next_traffic_reset_at(
+            self,
+            panel_user_data: Optional[dict[str, Any]],
+            *,
+            now: Optional[datetime] = None,
+        ) -> Optional[datetime]: ...
         def _traffic_topup_markup(
             self, user_lang: str, kind: str
         ) -> Optional[InlineKeyboardMarkup]: ...
@@ -182,6 +189,8 @@ class TariffWorkerPremiumMixin:
         if premium_used is None:
             return
 
+        panel_next_reset_at = self._panel_next_traffic_reset_at(panel_user_dict, now=now)
+
         # Consume paid top-up balance only for overflow beyond baseline+bonus.
         # Admin-granted bonus is "spent" against usage first along with baseline,
         # so the user's paid top-up survives longer.
@@ -267,6 +276,7 @@ class TariffWorkerPremiumMixin:
                 premium_used,
                 premium_limit,
                 premium_period_start,
+                next_reset_at=panel_next_reset_at,
             )
         if not panel_needs_update:
             if not premium_unlimited_override and not is_trial_premium_tariff:
@@ -631,6 +641,8 @@ class TariffWorkerPremiumMixin:
         used: int,
         limit: int,
         period_start_at: datetime,
+        *,
+        next_reset_at: Optional[datetime] = None,
     ) -> None:
         if limit <= 0:
             return
@@ -679,6 +691,7 @@ class TariffWorkerPremiumMixin:
                 period_start_at=period_start_at,
                 reset_available_bytes=self._premium_next_period_available_bytes(sub, tariff),
                 user_lang=user_lang,
+                next_reset_at=next_reset_at,
             )
             text = _(
                 "traffic_warning_premium_depleted",
@@ -770,6 +783,7 @@ class TariffWorkerPremiumMixin:
                 period_start_at=period_start_at,
                 reset_available_bytes=self._premium_next_period_available_bytes(sub, tariff),
                 user_lang=user_lang,
+                next_reset_at=next_reset_at,
             )
             text = _(
                 "traffic_warning_premium_almost",

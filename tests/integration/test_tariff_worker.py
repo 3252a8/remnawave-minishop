@@ -102,6 +102,51 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(premium.text, "Top up premium traffic")
         self.assertEqual(premium.web_app.url, "https://app.example.com?topup=premium")
 
+    def test_panel_last_reset_drives_future_reset_note_date(self):
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(USER_TRAFFIC_STRATEGY="MONTH"),
+            session_factory=SimpleNamespace(),
+            panel_service=SimpleNamespace(),
+            subscription_service=SimpleNamespace(),
+        )
+
+        next_reset_at = worker._panel_next_traffic_reset_at(
+            {
+                "trafficLimitStrategy": "MONTH",
+                "lastTrafficResetAt": "2026-04-01T00:00:00Z",
+            },
+            now=datetime(2026, 7, 1, 12, tzinfo=timezone.utc),
+        )
+        note = worker._traffic_next_reset_note(
+            lambda key, **kwargs: "{reset_date} {reset_available}".format(**kwargs),
+            kind="premium",
+            period_start_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
+            reset_available_bytes=1024,
+            user_lang="en",
+            next_reset_at=next_reset_at,
+        )
+
+        self.assertEqual(next_reset_at, datetime(2026, 8, 1, tzinfo=timezone.utc))
+        self.assertEqual(note, "2026-08-01 1.0 KB")
+
+    def test_no_reset_strategy_omits_reset_note(self):
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(USER_TRAFFIC_STRATEGY="NO_RESET"),
+            session_factory=SimpleNamespace(),
+            panel_service=SimpleNamespace(),
+            subscription_service=SimpleNamespace(),
+        )
+
+        note = worker._traffic_next_reset_note(
+            lambda key, **kwargs: "{reset_date} {reset_available}".format(**kwargs),
+            kind="premium",
+            period_start_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
+            reset_available_bytes=1024,
+            user_lang="en",
+        )
+
+        self.assertEqual(note, "")
+
     async def test_regular_reset_notice_sent_after_previous_period_warning(self):
         bot = AsyncMock()
         worker = TariffTrafficWorker(
