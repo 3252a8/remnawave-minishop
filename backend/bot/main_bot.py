@@ -33,6 +33,7 @@ from bot.infra.redis import close_redis
 from bot.plugins import PluginContext, run_setup
 from bot.routers import build_root_router
 from bot.services.event_reactions import register_core_reactions
+from bot.services.message_log_notifier import configure_message_log_notifier
 from bot.utils.message_queue import init_queue_manager
 from config.settings import Settings
 
@@ -324,6 +325,7 @@ async def on_shutdown_configured(dispatcher: Dispatcher):
 async def run_bot(settings_param: Settings):
     runtime = await build_runtime_bootstrap(settings_param)
     bot = runtime.bot
+    configure_message_log_notifier(settings_param, bot)
     i18n_instance = runtime.i18n
     local_async_session_factory = runtime.session_factory
     dp = build_dispatcher(

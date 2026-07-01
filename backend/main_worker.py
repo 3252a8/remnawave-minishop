@@ -35,6 +35,7 @@ from bot.plugins import (
 )
 from bot.services.backup_worker import BackupWorker
 from bot.services.event_reactions import register_core_reactions
+from bot.services.message_log_notifier import configure_message_log_notifier
 from bot.services.subscription_notification_worker import SubscriptionNotificationWorker
 from bot.services.tariff_worker import TariffTrafficWorker
 from bot.utils.message_queue import init_queue_manager
@@ -43,6 +44,7 @@ from config.settings import Settings, get_settings
 
 async def _build_worker_context(settings: Settings) -> PluginContext:
     runtime = await build_runtime_bootstrap(settings)
+    configure_message_log_notifier(settings, runtime.bot)
     bot_username = "your_bot_username"
     try:
         bot_info = await runtime.bot.get_me()

@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.dal import message_log_dal
 
+from .message_log_notifier import notify_message_log
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,17 +40,16 @@ async def log_user_message_delivery(
         parts.append(clean_content)
 
     try:
-        await message_log_dal.create_message_log_no_commit(
-            session,
-            {
-                "user_id": None,
-                "event_type": clean_event,
-                "content": " | ".join(parts)[:4000],
-                "is_admin_event": False,
-                "target_user_id": int(target_user_id) if target_user_id is not None else None,
-                "timestamp": timestamp or datetime.now(timezone.utc),
-            },
-        )
+        payload = {
+            "user_id": None,
+            "event_type": clean_event,
+            "content": " | ".join(parts)[:4000],
+            "is_admin_event": False,
+            "target_user_id": int(target_user_id) if target_user_id is not None else None,
+            "timestamp": timestamp or datetime.now(timezone.utc),
+        }
+        await message_log_dal.create_message_log_no_commit(session, payload)
+        await notify_message_log(payload)
     except Exception:
         logger.exception(
             "Failed to add outbound message audit log for user %s event %s",
