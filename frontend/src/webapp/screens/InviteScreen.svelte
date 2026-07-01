@@ -31,6 +31,9 @@
     referralBonusDetails.filter((bonus) => !Array.isArray(bonus.details))
   );
   const usesTariffBonusSummaries = $derived(tariffBonusSummaries.length > 0);
+  const promoEffectStatus = $derived(
+    !promoIsError && promoStatus ? String(promoStatus).trim() : ""
+  );
 
   function daysRange(minDays, maxDays) {
     return t("wa_referral_bonus_range_days", {
@@ -144,7 +147,7 @@
       <Ticket size={18} />
       <span>{t("wa_activate_promo_title")}</span>
     </h3>
-    <div class="copy-row">
+    <div class="copy-row promo-apply-row">
       <div class="field-error-wrap">
         <Tooltip.Root open={Boolean(promoFieldError)}>
           <Input
@@ -168,11 +171,17 @@
           {/if}
         </Tooltip.Root>
       </div>
-      <Button variant="outline" onclick={applyPromo} disabled={promoBusy}>
-        {t("wa_activate")}
-      </Button>
+      {#if promoEffectStatus}
+        <span class="checkout-promo-discount-marker promo-status-chip" title={promoEffectStatus}>
+          {promoEffectStatus}
+        </span>
+      {:else}
+        <Button variant="outline" onclick={applyPromo} disabled={promoBusy}>
+          {t("wa_activate")}
+        </Button>
+      {/if}
     </div>
-    {#if promoStatus && !(promoIsError && promoFieldError)}
+    {#if promoStatus && (promoIsError ? !promoFieldError : !promoEffectStatus)}
       <StatusMessage error={promoIsError}>{promoStatus}</StatusMessage>
     {/if}
   </Card>

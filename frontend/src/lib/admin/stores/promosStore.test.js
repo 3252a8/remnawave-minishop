@@ -111,4 +111,27 @@ describe("promosStore", () => {
     expect(store.promoActivations).toEqual([row]);
     expect(store.promoActivationsTotal).toBe(1);
   });
+
+  it("keeps create and edit dialogs mutually exclusive", async () => {
+    const api = vi.fn().mockResolvedValue({ ok: true, activations: [], total: 0 });
+    const { store } = makeStore(api);
+    const row = promo();
+
+    store.openEditPromo(row);
+    expect(store.promoEditOpen).toBe(true);
+
+    store.setCreateOpen(true);
+    expect(store.promoCreateOpen).toBe(true);
+    expect(store.promoEditOpen).toBe(false);
+    expect(store.promoEditing).toBeNull();
+
+    store.openEditPromo(row);
+    expect(store.promoCreateOpen).toBe(false);
+    expect(store.promoEditOpen).toBe(true);
+
+    await store.openActivations(row);
+    store.setCreateOpen(true);
+    expect(store.promoActivationsOpen).toBe(false);
+    expect(store.promoActivations).toEqual([]);
+  });
 });

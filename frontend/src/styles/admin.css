@@ -6772,7 +6772,10 @@
   width: min(1040px, calc(100vw - 32px));
   inline-size: min(1040px, calc(100vw - 32px));
   max-width: none;
-  max-height: min(100%, 780px);
+  max-height: min(
+    calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)),
+    780px
+  );
 }
 
 .dialog-card.admin-dialog.admin-promo-edit-dialog {
@@ -6843,6 +6846,10 @@
   height: 100%;
   min-height: 0;
   min-width: 0;
+}
+
+.admin-promo-create-body {
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 .admin-promo-tabs-root {
@@ -7005,7 +7012,11 @@
   .dialog-card.admin-dialog.admin-promo-edit-dialog {
     width: min(100%, calc(100vw - 24px));
     inline-size: min(100%, calc(100vw - 24px));
-    height: auto;
+    height: min(
+      calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)),
+      780px
+    );
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     padding: 14px;
     border-radius: 18px;
   }
@@ -7026,16 +7037,17 @@
 
   .admin-promo-edit-body,
   .admin-promo-tabs-root {
-    height: auto;
-    max-height: none;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
   }
 
   .admin-promo-settings-tab {
-    overflow: visible;
+    overflow: hidden;
   }
 
   .admin-promo-settings-grid {
-    overflow: visible;
+    overflow: auto;
     padding-right: 0;
   }
 

@@ -377,6 +377,7 @@ export function createPromosStore({
   }
 
   function openEditPromo(promo: Promo): void {
+    state.promoCreateOpen = false;
     state.promoEditing = promo;
     state.promoEditDraft = promoToPatchDraft(promo);
     state.promoEditOpen = true;
@@ -451,6 +452,10 @@ export function createPromosStore({
   }
 
   function setCreateOpen(open: boolean): void {
+    if (open) {
+      closeEditPromo();
+      closeActivations();
+    }
     state.promoCreateOpen = open;
   }
 

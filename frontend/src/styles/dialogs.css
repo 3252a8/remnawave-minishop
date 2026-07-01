@@ -148,7 +148,7 @@
   grid-template-columns: minmax(0, 1fr) minmax(94px, auto);
   gap: 8px;
   align-items: center;
-  min-height: 40px;
+  min-height: 46px;
 }
 
 .checkout-promo-input-wrap {
@@ -199,13 +199,13 @@
 .checkout-promo-action {
   display: grid;
   min-width: 0;
-  height: 40px;
+  height: 46px;
   align-items: stretch;
 }
 
 .checkout-promo-action .btn {
-  height: 40px;
-  min-height: 40px;
+  height: 46px;
+  min-height: 46px;
 }
 
 .checkout-promo-discount-marker {
@@ -214,7 +214,7 @@
   justify-content: center;
   max-width: 176px;
   min-width: 94px;
-  height: 40px;
+  height: 46px;
   padding: 0 12px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--accent) 54%, var(--border));
