@@ -7,6 +7,7 @@ import {
   type ApiResponse,
   type PostPayload,
 } from "../../webapp/publicApi";
+import { snapshotForPayload } from "./snapshotForPayload.svelte";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
 type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
@@ -122,7 +123,10 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
   function writeStoredCounts(counts: BroadcastCounts, loadedAt: number): void {
     try {
       if (typeof window === "undefined" || !window.sessionStorage) return;
-      window.sessionStorage.setItem(COUNTS_STORAGE_KEY, JSON.stringify({ counts, loadedAt }));
+      window.sessionStorage.setItem(
+        COUNTS_STORAGE_KEY,
+        JSON.stringify(snapshotForPayload({ counts, loadedAt }))
+      );
     } catch {
       // Ignore storage quota/privacy errors; in-memory counts still work.
     }
@@ -165,8 +169,10 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
   }
 
   async function runBroadcast(): Promise<void> {
-    const text = state.broadcastText;
-    const target = state.broadcastTarget;
+    const { target, text } = snapshotForPayload({
+      target: state.broadcastTarget,
+      text: state.broadcastText,
+    });
     updateState((s) => ({ ...s, broadcastBusy: true, broadcastResult: null }));
 
     try {

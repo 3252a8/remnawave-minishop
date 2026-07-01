@@ -562,7 +562,7 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
         async def flush(self):
             return None
 
-    def test_auth_response_sets_cookies_and_does_not_return_session_token(self):
+    def test_auth_response_sets_cookies_and_returns_session_token_fallback(self):
         settings = SimpleNamespace(
             WEBAPP_SESSION_SECRET="session-secret",
             WEBAPP_SESSION_TTL_SECONDS=3600,
@@ -578,7 +578,7 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["csrf_token"], "csrf-token")
-        self.assertNotIn("token", payload)
+        self.assertEqual(payload["token"], "raw-session-token")
         self.assertEqual(response.cookies["rw_webapp_session"].value, "raw-session-token")
         self.assertTrue(response.cookies["rw_webapp_session"]["httponly"])
         self.assertEqual(response.cookies["rw_webapp_csrf"].value, "csrf-token")

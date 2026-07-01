@@ -51,6 +51,7 @@
 
 .dialog-body-scroll > .scroll-area__viewport {
   display: grid;
+  overscroll-behavior: contain;
 }
 
 .dialog-head {
@@ -141,6 +142,91 @@
   height: 1px;
   width: 100%;
   background: var(--border);
+}
+
+.checkout-promo-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(94px, auto);
+  gap: 8px;
+  align-items: center;
+  min-height: 46px;
+}
+
+.checkout-promo-input-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.checkout-promo-row .input.checkout-promo-input {
+  width: 100%;
+  min-width: 0;
+  padding-right: 38px;
+}
+
+.checkout-promo-row.is-applied .input.checkout-promo-input {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+  color: var(--text);
+  font-weight: 750;
+}
+
+.checkout-promo-row.is-error .input.checkout-promo-input {
+  border-color: color-mix(in srgb, var(--danger, #ef4444) 72%, var(--border));
+}
+
+.checkout-promo-clear {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.checkout-promo-clear:hover,
+.checkout-promo-clear:focus-visible {
+  background: color-mix(in srgb, var(--muted) 20%, transparent);
+  color: var(--text);
+  outline: none;
+}
+
+.checkout-promo-action {
+  display: grid;
+  min-width: 0;
+  height: 46px;
+  align-items: stretch;
+}
+
+.checkout-promo-action .btn {
+  height: 46px;
+  min-height: 46px;
+}
+
+.checkout-promo-discount-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 176px;
+  min-width: 94px;
+  height: 46px;
+  padding: 0 12px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 54%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .payment-submit-button {

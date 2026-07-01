@@ -170,6 +170,7 @@ def _subscription_lifecycle_title(
     *,
     days_left: Optional[int],
     hours_before: Optional[int],
+    hours_after: Optional[int],
 ) -> str:
     if notification_key == "before_2d_autorenew":
         return _lifecycle_text(i18n, lang, "email_subscription_lifecycle_subject_autorenew")
@@ -183,6 +184,13 @@ def _subscription_lifecycle_title(
             lang,
             "email_subscription_lifecycle_subject_before_hours",
             hours=hours_before,
+        )
+    if hours_after is not None:
+        return _lifecycle_text(
+            i18n,
+            lang,
+            "email_subscription_lifecycle_subject_expired_after_hours",
+            hours=hours_after,
         )
     return _lifecycle_text(
         i18n,
@@ -203,6 +211,7 @@ def render_subscription_lifecycle_notification(
     mirrored_from_telegram: bool = False,
     days_left: Optional[int] = None,
     hours_before: Optional[int] = None,
+    hours_after: Optional[int] = None,
     i18n: Optional[JsonI18n] = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
@@ -217,6 +226,7 @@ def render_subscription_lifecycle_notification(
         notification_key,
         days_left=days_left,
         hours_before=hours_before,
+        hours_after=hours_after,
     )
     intro_key = (
         "email_subscription_lifecycle_intro_mirrored"

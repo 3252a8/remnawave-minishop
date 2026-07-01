@@ -41,6 +41,14 @@ WEBAPP_APPEARANCE_SETTING_KEYS = frozenset(
     }
 )
 
+WEBAPP_APPEARANCE_ASSET_URL_SETTING_KEYS = frozenset(
+    {
+        "WEBAPP_LOGO_URL",
+        "WEBAPP_FAVICON_URL",
+        "WEBAPP_LOGO_FAVICON_URL",
+    }
+)
+
 WEBAPP_DEVICE_PAYLOAD_SETTING_KEYS = frozenset(
     {
         "MY_DEVICES_SECTION_ENABLED",
@@ -218,7 +226,12 @@ async def refresh_webapp_runtime_after_settings_change(
         set_webapp_logo_cache(app, None)
         from bot.app.web.admin_api_impl.themes import prune_unused_appearance_assets
 
-        prune_unused_appearance_assets(settings)
+        extra_keep_urls = [
+            str(value)
+            for key, value in (updates or {}).items()
+            if key in WEBAPP_APPEARANCE_ASSET_URL_SETTING_KEYS and value
+        ]
+        prune_unused_appearance_assets(settings, extra_keep_urls=extra_keep_urls)
 
 
 __all__ = [

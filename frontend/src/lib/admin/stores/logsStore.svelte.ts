@@ -7,9 +7,11 @@ import {
   type GetResponse,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
+import { createAdminPerfSpan } from "../adminPerfMarks";
+import { fetchAdminQuery, type AdminQueryClient, type AdminQueryKey } from "./adminQueryCache";
+import { defineRawStateProperty } from "./rawStateProperty";
 
 const LOGS_QUERY_KEY = ["admin", "logs"] as const;
-const LOGS_STALE_MS = 30 * 1000;
 const LOGS_PAGE_SIZE = 50;
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
@@ -22,15 +24,6 @@ type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: st
 type LogEntry = components["schemas"]["LogOut"];
 type LogsResponse = GetResponse<"/api/admin/logs">;
 type LogsQueryKey = readonly [string, string, { page: number; filter: string }];
-type LogsQueryClient = {
-  invalidateQueries: (options: { queryKey: LogsQueryKey }) => Promise<unknown>;
-  fetchQuery: (options: {
-    queryKey: LogsQueryKey;
-    queryFn: () => Promise<LogsResponse>;
-    retry: false;
-    staleTime: number;
-  }) => Promise<LogsResponse>;
-};
 type LogsState = {
   logs: LogEntry[];
   logsTotal: number;
@@ -43,7 +36,7 @@ type LogsStoreOptions = {
   api: AdminApi;
   at?: TranslateFn;
   onToast?: ToastFn;
-  queryClient?: LogsQueryClient | null;
+  queryClient?: AdminQueryClient | null;
 };
 export type LogsStore = LogsState & {
   loadLogs: (options?: { refresh?: boolean }) => Promise<void>;
@@ -70,13 +63,20 @@ export function createLogsStore({
   onToast = () => {},
   queryClient = null,
 }: LogsStoreOptions): LogsStore {
-  const state = $state<LogsState>({
-    logs: [],
+  let logs = $state.raw<LogEntry[]>([]);
+  const state = $state<Omit<LogsState, "logs">>({
     logsTotal: 0,
     logsPage: 0,
     logsUserFilter: "",
     logsLoading: false,
     logsError: "",
+  });
+  const store = Object.create(state) as LogsStore;
+  defineRawStateProperty(store, "logs", {
+    get: () => logs,
+    set: (value) => {
+      logs = value;
+    },
   });
 
   let requestSeq = 0;
@@ -111,29 +111,30 @@ export function createLogsStore({
   }
 
   async function queryLogs(page: number, filter: string, refresh: boolean): Promise<LogsResponse> {
-    if (!queryClient) return requestLogs(page, filter);
-    const queryKey = logsQueryKey(page, filter);
-    if (refresh) await queryClient.invalidateQueries({ queryKey });
-    return queryClient.fetchQuery({
-      queryKey,
+    return fetchAdminQuery({
+      queryClient,
+      queryKey: logsQueryKey(page, filter) satisfies AdminQueryKey,
       queryFn: () => requestLogs(page, filter),
-      retry: false,
-      staleTime: LOGS_STALE_MS,
+      refresh,
     });
   }
 
   async function loadLogs({ refresh = false }: { refresh?: boolean } = {}): Promise<void> {
     const seq = ++requestSeq;
+    const perf = createAdminPerfSpan("logs");
     state.logsLoading = true;
     const currentPage = state.logsPage;
     const filter = state.logsUserFilter.trim();
 
     try {
       const data = await queryLogs(currentPage, filter, refresh);
+      perf.apiResponse();
       if (seq === requestSeq) {
-        state.logs = data.logs || [];
+        logs = data.logs || [];
         state.logsTotal = data.total || 0;
         state.logsError = "";
+        perf.stateAssign();
+        void perf.renderSettled();
       }
     } catch (error) {
       const message = loadErrorMessage(error);
@@ -157,7 +158,7 @@ export function createLogsStore({
     state.logsUserFilter = filter;
   }
 
-  return Object.assign(state, {
+  return Object.assign(store, {
     loadLogs,
     setPage,
     setFilter,

@@ -1,9 +1,9 @@
 <script lang="ts">
+  import { getSettingsStore } from "$lib/admin/context";
   import { Input, Textarea } from "$components/ui/index.js";
   import { Save, X } from "$components/ui/icons.js";
   import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
   import { Switch } from "$components/ui/primitives.js";
-  import { getContext } from "svelte";
   import {
     DISPOSABLE_EMAIL_DOMAINS_PLACEHOLDER,
     REFERRAL_RULE_KEYS,
@@ -17,11 +17,7 @@
     valueForKey as resolveValueForKey,
     type SettingsDirtyState,
   } from "$lib/admin/tariffSettings";
-  import type {
-    SettingField,
-    SettingsSavedPayload,
-    SettingsStore,
-  } from "$lib/admin/stores/settingsStore";
+  import type { SettingField, SettingsSavedPayload } from "$lib/admin/stores/settingsStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
@@ -39,7 +35,7 @@
     onSettingsSaved?: (payload: SettingsSavedPayload) => void | Promise<void>;
   } = $props();
 
-  const settingsStore = getContext<SettingsStore>("settingsStore");
+  const settingsStore = getSettingsStore();
 
   const referralDirtyCount = $derived(
     REFERRAL_SETTING_KEYS.filter((key) => Boolean(settingsDirty[key])).length
@@ -234,6 +230,11 @@
             <div class="admin-setting-control">
               <div class="admin-setting-switch">
                 <Switch.Root
+                  aria-label={at(
+                    "tariffs_referral_without_telegram",
+                    {},
+                    "Начислять welcome bonus без Telegram"
+                  )}
                   checked={boolValue(
                     "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
                     settingsDirty,
@@ -325,6 +326,11 @@
             <div class="admin-setting-control">
               <div class="admin-setting-switch">
                 <Switch.Root
+                  aria-label={at(
+                    "tariffs_referral_one_bonus_per_referee",
+                    {},
+                    "Бонусы только за первый платёж приглашённого"
+                  )}
                   checked={boolValue(
                     "REFERRAL_ONE_BONUS_PER_REFEREE",
                     settingsDirty,

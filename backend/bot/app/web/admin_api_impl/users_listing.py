@@ -1,5 +1,6 @@
 import hashlib
 import json
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 from aiohttp import web
@@ -287,11 +288,14 @@ async def _bulk_user_statuses(
     )
     rows = (await session.execute(stmt)).all()
     out: Dict[int, Dict[str, Optional[str]]] = {}
+    now = datetime.now(timezone.utc)
     for uid, panel_status, is_active, end_date in rows:
         if uid in out:
             continue
-        if is_active:
+        if is_active and (end_date is None or end_date > now):
             status = (panel_status or "active").lower()
+        elif end_date and end_date <= now:
+            status = "expired"
         else:
             status = (panel_status or "expired").lower()
         out[uid] = {

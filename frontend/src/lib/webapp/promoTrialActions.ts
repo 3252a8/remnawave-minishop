@@ -2,6 +2,7 @@ type PromoTrialStore = {
   activateTrial: () => unknown;
   applyPromo: () => unknown;
   clearPromoFieldError: () => void;
+  openPromoCheckout: () => void;
   setPromoCode: (value: string) => void;
 };
 
@@ -22,6 +23,10 @@ export function createPromoTrialActions({ actionsStore }: PromoTrialActionDeps) 
     actionsStore.clearPromoFieldError();
   }
 
+  function openPromoCheckout() {
+    actionsStore.openPromoCheckout();
+  }
+
   function activateTrial() {
     return actionsStore.activateTrial();
   }
@@ -30,6 +35,7 @@ export function createPromoTrialActions({ actionsStore }: PromoTrialActionDeps) 
     activateTrial,
     applyPromo,
     clearPromoFieldError,
+    openPromoCheckout,
     setPromoCode,
   };
 }

@@ -2,8 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 // Deterministic mock-smoke suite for the Svelte webapp. It drives the
 // docs-demo build (mockApi, no backend/network), so it is the standing UI
-// regression gate for the runes migration: boot, every nav switch, the
-// tariff-change modal, admin lazy-load, and zero console errors.
+// regression gate for the runes migration: boot, every nav switch, webapp
+// dialogs, core admin sections, admin dialogs, dialog tabs, disclosure panels,
+// activation handoff, and zero console errors.
 //
 // The webServer rebuilds the demo runtime from the current source before
 // serving it, so the suite always exercises the latest code. Set
@@ -17,6 +18,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
+  timeout: 120_000,
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? [["html", { open: "never" }], ["list"]] : "list",
   use: {

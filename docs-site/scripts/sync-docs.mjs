@@ -19,6 +19,7 @@ const descriptions = {
   'configuration/env-vars.md': 'Полный справочник переменных окружения Remnawave Minishop.',
   'features/core.md': 'Пользовательские и админские сценарии Remnawave Minishop.',
   'features/payments.md': 'Платежные провайдеры, кнопки оплаты и webhook-обработка.',
+  'features/promocodes.md': 'Промокоды: бонусные дни, скидки, множители, checkout-активация и история применений.',
   'features/subscriptions.md': 'Тарифы на срок и по трафику, premium-сквады, HWID-устройства и жизненный цикл подписки.',
   'features/notifications.md': 'Каналы Telegram и email для пользовательских, админских и сервисных уведомлений Remnawave Minishop.',
   'features/tariffs.md': 'Каталог тарифов, модели на срок/по трафику, premium-сквады и HWID-устройства.',

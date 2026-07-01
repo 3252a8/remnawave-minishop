@@ -16,6 +16,9 @@
     "format:check:js": "npm --prefix frontend run format:check",
     "format:check": "npm run format:check:py && npm run format:check:js",
     "bench:bot": "python scripts/perf_benchmarks.py",
+    "dev:stand:use": "node scripts/use_dev_stand_preset.mjs",
+    "dev:stand:use:2.7.4": "node scripts/use_dev_stand_preset.mjs 2.7.4",
+    "dev:stand:use:2.8.0": "node scripts/use_dev_stand_preset.mjs 2.8.0",
     "dev:stand:config": "docker compose --env-file .env.remnawave-dev -f docker-compose-dev.yml -f docker-compose.remnawave-dev.yml --profile seed config --quiet",
     "dev:stand:up": "docker compose --env-file .env.remnawave-dev -f docker-compose-dev.yml -f docker-compose.remnawave-dev.yml --profile seed up -d --build postgres redis remnawave-db remnawave-redis remnawave remnawave-dev-seed remnawave-subscription-page migrate dev-seed backend frontend",
     "dev:stand:down": "docker compose --env-file .env.remnawave-dev -f docker-compose-dev.yml -f docker-compose.remnawave-dev.yml --profile seed down",
@@ -26,7 +29,8 @@
     "typecheck:py": "python -m mypy --explicit-package-bases backend/config backend/db backend/bot/infra backend/bot/middlewares backend/bot/utils backend/bot/plugins backend/bot/keyboards backend/bot/payment_providers backend/bot/services backend/bot/handlers backend/bot/app/factories backend/bot/app/controllers backend/bot/app/web backend/main_backend.py backend/main_worker.py",
     "check:architecture": "python scripts/check_architecture.py",
     "check:backend": "python scripts/check_architecture.py && npm test && npm run lint:py && npm run format:check:py && npm run typecheck:py",
-    "check:frontend": "npm --prefix frontend run check && npm --prefix frontend run test && npm --prefix frontend run build",
+    "check:e2e": "npm --prefix frontend run test:e2e",
+    "check:frontend": "npm --prefix frontend run check && npm --prefix frontend run test && npm --prefix frontend run build && npm run check:e2e",
     "check:quick": "npm run lint && npm test && npm run build:webapp",
     "check": "npm run check:backend && npm run check:frontend"
   }

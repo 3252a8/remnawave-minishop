@@ -27,13 +27,18 @@ export function appendStylesheetOnce(id: string, href: string) {
   });
 }
 
-export function appendScriptOnce(id: string, src: string) {
+type ScriptLoadOptions = {
+  type?: string;
+};
+
+export function appendScriptOnce(id: string, src: string, options: ScriptLoadOptions = {}) {
   if (!src || document.getElementById(id)) return Promise.resolve();
   return new Promise<void>((resolve, reject) => {
     const script = document.createElement("script");
     script.id = id;
     script.src = src;
     script.async = true;
+    if (options.type) script.type = options.type;
     script.onload = () => resolve();
     script.onerror = () => {
       script.remove();
@@ -53,13 +58,18 @@ export async function appendStylesheetWithFallback(id: string, href: string, fal
   }
 }
 
-export async function appendScriptWithFallback(id: string, src: string, fallbackName: string) {
+export async function appendScriptWithFallback(
+  id: string,
+  src: string,
+  fallbackName: string,
+  options: ScriptLoadOptions = {}
+) {
   const fallbackSrc = resolveWebappAssetPath("", fallbackName);
   try {
-    await appendScriptOnce(id, src);
+    await appendScriptOnce(id, src, options);
   } catch (error) {
     if (!fallbackSrc || src === fallbackSrc) throw error;
-    await appendScriptOnce(id, fallbackSrc);
+    await appendScriptOnce(id, fallbackSrc, options);
   }
 }
 

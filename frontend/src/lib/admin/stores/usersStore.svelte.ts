@@ -1,49 +1,121 @@
 import { adminErrorMessage } from "../errors.js";
+import { createAdminPerfSpan } from "../adminPerfMarks";
 import { userDisplayName } from "../users.js";
 import { withRoutePrefix } from "../../webapp/routes.js";
+import { snapshotForPayload } from "./snapshotForPayload.svelte";
+import { defineRawStateProperty } from "./rawStateProperty";
+import { AdminUsersError, createUsersStoreQueries } from "./usersStoreQueries";
 import {
   buildAdminUserActionPath,
-  buildAdminUserLogsPath,
   buildAdminUserPath,
   buildAdminPaymentsPath,
   buildAdminPaymentsUserPath,
-  buildAdminUserReferralsPath,
   buildAdminUsersPath,
 } from "../../webapp/publicApi";
 import {
-  USER_LOGS_PAGE_SIZE,
   USERS_PAGE_SIZE,
   closedUserModalState,
   createInitialUsersState,
-  type AdminErrorResponse,
-  type AdminLogsResponse,
   type AdminStoreState,
   type AdminSubscription,
   type AdminUser,
   type AdminUserDetail,
-  type AdminUserDetailResponse,
-  type AdminUserReferralsResponse,
-  type AdminUsersListResponse,
   type OpenUserOptions,
   type PathContext,
   type SnapshotOptions,
+  type UserLogRow,
   type UsersStoreOptions,
 } from "./usersStoreState";
 
 export type { AdminUser } from "./usersStoreState";
 
-export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersStoreOptions) {
-  const initialState = createInitialUsersState();
-  const state = $state<AdminStoreState>({ ...initialState });
+type RawUsersState = Pick<AdminStoreState, "users" | "userReferrals" | "userLogs">;
+type ProxiedUsersState = Omit<AdminStoreState, keyof RawUsersState>;
+
+export function createUsersStore({
+  api,
+  onToast,
+  at,
+  routePrefix = "",
+  queryClient = null,
+}: UsersStoreOptions) {
+  const {
+    users: initialUsers,
+    userReferrals: initialUserReferrals,
+    userLogs: initialUserLogs,
+    ...initialProxiedState
+  } = createInitialUsersState();
+  let users = $state.raw<AdminUser[]>(initialUsers);
+  let userReferrals = $state.raw<AdminUser[]>(initialUserReferrals);
+  let userLogs = $state.raw<UserLogRow[]>(initialUserLogs);
+  const state = $state<ProxiedUsersState>({ ...initialProxiedState });
+  const stateKeys = Object.keys(initialProxiedState) as Array<keyof ProxiedUsersState>;
+  const store = Object.create(state) as AdminStoreState;
+  defineRawStateProperty(store, "users", {
+    get: () => users,
+    set: (value) => {
+      users = value;
+    },
+  });
+  defineRawStateProperty(store, "userReferrals", {
+    get: () => userReferrals,
+    set: (value) => {
+      userReferrals = value;
+    },
+  });
+  defineRawStateProperty(store, "userLogs", {
+    get: () => userLogs,
+    set: (value) => {
+      userLogs = value;
+    },
+  });
 
   let _activeRef = "stats"; // fallback if active isn't tracked
   let _pathContext: PathContext = null;
   let _openUserRequestId = 0;
+  let _loadUsersRequestId = 0;
+  const {
+    invalidateUsersQueries,
+    loadUserErrorMessage,
+    queryUserDetail,
+    queryUserLogs,
+    queryUserReferrals,
+    queryUsers,
+  } = createUsersStoreQueries({ api, at, queryClient });
 
   function applyState(updater: (snapshot: AdminStoreState) => AdminStoreState): void {
-    const next = updater(state);
-    if (next === state) return;
-    Object.assign(state, next);
+    const current = readCurrentState();
+    const next = updater(current);
+    if (next === current) return;
+    assignState(next);
+  }
+
+  function assignState(next: Partial<AdminStoreState>): void {
+    const {
+      users: nextUsers,
+      userReferrals: nextUserReferrals,
+      userLogs: nextUserLogs,
+      ...nextState
+    } = next;
+    if (nextUsers !== undefined && nextUsers !== users) users = nextUsers;
+    if (nextUserReferrals !== undefined && nextUserReferrals !== userReferrals) {
+      userReferrals = nextUserReferrals;
+    }
+    if (nextUserLogs !== undefined && nextUserLogs !== userLogs) userLogs = nextUserLogs;
+    Object.assign(state, nextState);
+  }
+
+  function readCurrentState(): AdminStoreState {
+    return {
+      ...(Object.fromEntries(stateKeys.map((key) => [key, state[key]])) as ProxiedUsersState),
+      users,
+      userReferrals,
+      userLogs,
+    } satisfies AdminStoreState;
+  }
+
+  function readStateSnapshot(): AdminStoreState {
+    return snapshotForPayload(readCurrentState());
   }
 
   function _openingUserModalState(
@@ -177,38 +249,31 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
     window.history.pushState(null, "", `${target}${window.location.search}${window.location.hash}`);
   }
 
-  async function loadUsers() {
+  async function loadUsers({ refresh = false }: { refresh?: boolean } = {}) {
+    const requestId = ++_loadUsersRequestId;
+    const perf = createAdminPerfSpan("users");
     applyState((s) => ({ ...s, usersLoading: true }));
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
 
     try {
-      const params = new URLSearchParams({
-        page: String(s.usersPage),
-        page_size: String(USERS_PAGE_SIZE),
-      });
-      if (s.usersQuery.trim()) params.set("q", s.usersQuery.trim());
-      if (s.usersFilter && s.usersFilter !== "all") params.set("filter", s.usersFilter);
-      if (s.usersPanelStatus && s.usersPanelStatus !== "all")
-        params.set("panel_status", s.usersPanelStatus);
-      if (s.usersPremiumTraffic && s.usersPremiumTraffic !== "all") {
-        params.set("premium_traffic", s.usersPremiumTraffic);
-      }
-      if (s.usersSort) params.set("sort", s.usersSort);
-      const data = (await api(buildAdminUsersPath(params))) as
-        AdminUsersListResponse | AdminErrorResponse;
-      if (data?.ok) {
+      const data = await queryUsers(s, refresh);
+      perf.apiResponse();
+      if (requestId === _loadUsersRequestId) {
         applyState((st) => ({
           ...st,
           users: data.users || [],
           usersTotal: data.total || (data.users || []).length,
         }));
+        perf.stateAssign();
+        void perf.renderSettled();
       }
+    } catch (error) {
+      const message = loadUserErrorMessage(error);
+      if (message) onToast(message);
     } finally {
-      applyState((st) => ({ ...st, usersLoading: false }));
+      if (requestId === _loadUsersRequestId) {
+        applyState((st) => ({ ...st, usersLoading: false }));
+      }
     }
   }
 
@@ -231,14 +296,13 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
 
     if (!opts.skipPush) _pushUserPath(userId);
     try {
-      const res = (await api(buildAdminUserPath(userId))) as
-        AdminUserDetailResponse | AdminErrorResponse;
-      if (res?.ok) {
-        applyState((s) => {
-          if (!_isCurrentUserRequest(s, requestId, userId)) return s;
-          return _applyUserDetailSnapshot(s, res);
-        });
-      } else {
+      const res = await queryUserDetail(userId);
+      applyState((s) => {
+        if (!_isCurrentUserRequest(s, requestId, userId)) return s;
+        return _applyUserDetailSnapshot(s, res);
+      });
+    } catch (error) {
+      if (error instanceof AdminUsersError) {
         let shouldClearPath = false;
         let shouldShowError = false;
         applyState((s) => {
@@ -248,8 +312,10 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
           _pathContext = null;
           return { ...s, ...closedUserModalState() };
         });
-        if (shouldShowError) onToast(adminErrorMessage(res, at, "load_failed"));
+        if (shouldShowError) onToast(adminErrorMessage(error.payload, at, "load_failed"));
         if (shouldClearPath && !opts.skipPush) _pushUserPath(null);
+      } else {
+        onToast(loadUserErrorMessage(error));
       }
     } finally {
       applyState((s) => {
@@ -260,25 +326,25 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function refreshOpenedUserDetail(options: SnapshotOptions = {}) {
-    let snapshot: AdminStoreState | undefined;
-    applyState((st) => {
-      snapshot = st;
-      return st;
-    });
+    const snapshot = readStateSnapshot();
     const userId = Number(snapshot?.openedUser?.user_id || 0);
     if (!userId) return null;
     const requestId = _openUserRequestId;
-    const res = (await api(buildAdminUserPath(userId))) as
-      AdminUserDetailResponse | AdminErrorResponse;
-    if (res?.ok) {
+    try {
+      const res = await queryUserDetail(userId, true);
       applyState((s) => {
         if (!_isCurrentUserRequest(s, requestId, userId)) return s;
         return _applyUserDetailSnapshot(s, res, options);
       });
       return res;
+    } catch (error) {
+      if (error instanceof AdminUsersError) {
+        onToast(adminErrorMessage(error.payload, at, "load_failed"));
+        return error.payload;
+      }
+      onToast(loadUserErrorMessage(error));
+      return null;
     }
-    onToast(adminErrorMessage(res, at, "load_failed"));
-    return res;
   }
 
   function closeUser(opts: OpenUserOptions = {}) {
@@ -296,11 +362,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function loadUserLogs(page: number) {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     const userId = s.openedUser.user_id;
     const targetPage = Number.isFinite(page) ? Math.max(0, Math.floor(page)) : s.userLogsPage || 0;
@@ -311,25 +373,21 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
       userLogsUserId: userId,
     }));
     try {
-      const params = new URLSearchParams({
-        page: String(targetPage),
-        page_size: String(USER_LOGS_PAGE_SIZE),
-        user_id: String(userId),
+      const data = await queryUserLogs(userId, targetPage);
+      applyState((st) => {
+        if (!st.openedUser || st.openedUser.user_id !== userId) return st;
+        return {
+          ...st,
+          userLogs: data.logs || [],
+          userLogsTotal: Number(data.total || 0),
+          userLogsLoaded: true,
+        };
       });
-      const data = (await api(buildAdminUserLogsPath(params))) as
-        AdminLogsResponse | AdminErrorResponse;
-      if (data?.ok) {
-        applyState((st) => {
-          if (!st.openedUser || st.openedUser.user_id !== userId) return st;
-          return {
-            ...st,
-            userLogs: data.logs || [],
-            userLogsTotal: Number(data.total || 0),
-            userLogsLoaded: true,
-          };
-        });
-      } else if (data?.error) {
-        onToast(adminErrorMessage(data, at));
+    } catch (error) {
+      if (error instanceof AdminUsersError) {
+        onToast(adminErrorMessage(error.payload, at));
+      } else {
+        onToast(loadUserErrorMessage(error));
       }
     } finally {
       applyState((st) => ({ ...st, userLogsLoading: false }));
@@ -341,11 +399,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function openUserReferrals(page = 0) {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     const userId = s.openedUser.user_id;
     const targetPage = Number.isFinite(page) ? Math.max(0, Math.floor(page)) : 0;
@@ -356,26 +410,24 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
       userReferralsPage: targetPage,
     }));
     try {
-      const params = new URLSearchParams({
-        page: String(targetPage),
-        page_size: String(s.userReferralsPageSize || USERS_PAGE_SIZE),
+      const pageSize = s.userReferralsPageSize || USERS_PAGE_SIZE;
+      const data = await queryUserReferrals(userId, targetPage, pageSize);
+      applyState((st) => {
+        if (!st.openedUser || st.openedUser.user_id !== userId) return st;
+        return {
+          ...st,
+          userReferrals: data.invitees || [],
+          userReferralsTotal: Number(data.total || 0),
+          userReferralsPage: Number(data.page || 0),
+          userReferralsPageSize: Number(data.page_size || st.userReferralsPageSize),
+          userReferralsInviter: data.inviter || null,
+        };
       });
-      const data = (await api(buildAdminUserReferralsPath(userId, params))) as
-        AdminUserReferralsResponse | AdminErrorResponse;
-      if (data?.ok) {
-        applyState((st) => {
-          if (!st.openedUser || st.openedUser.user_id !== userId) return st;
-          return {
-            ...st,
-            userReferrals: data.invitees || [],
-            userReferralsTotal: Number(data.total || 0),
-            userReferralsPage: Number(data.page || 0),
-            userReferralsPageSize: Number(data.page_size || st.userReferralsPageSize),
-            userReferralsInviter: data.inviter || null,
-          };
-        });
-      } else if (data?.error) {
-        onToast(adminErrorMessage(data, at));
+    } catch (error) {
+      if (error instanceof AdminUsersError) {
+        onToast(adminErrorMessage(error.payload, at));
+      } else {
+        onToast(loadUserErrorMessage(error));
       }
     } finally {
       applyState((st) => ({ ...st, userReferralsLoading: false }));
@@ -409,11 +461,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   function requestBanToggle() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     if (s.openedUser.is_banned) {
       applyBanToggle(false);
@@ -423,11 +471,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function applyBanToggle(banned: boolean) {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     const openedUser = s.openedUser;
     if (!openedUser) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
@@ -437,6 +481,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
         body: JSON.stringify({ banned }),
       });
       if (res?.ok) {
+        invalidateUsersQueries(openedUser.user_id);
         applyState((st) => {
           const updatedUser: AdminUser = { ...openedUser, is_banned: banned };
           return {
@@ -458,11 +503,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function sendUserMessage() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser || !s.userMessageDraft.trim()) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
@@ -471,6 +512,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
         body: JSON.stringify({ text: s.userMessageDraft }),
       });
       if (res?.ok) {
+        invalidateUsersQueries(s.openedUser.user_id);
         onToast(at("message_sent", {}, "Отправлено"));
         applyState((st) => ({
           ...st,
@@ -491,11 +533,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function previewUserMessage() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser || !s.userMessageDraft.trim()) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
@@ -514,11 +552,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function sendTelegramProfileLink() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
@@ -529,6 +563,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
         }
       );
       if (res?.ok) {
+        invalidateUsersQueries(s.openedUser.user_id);
         onToast(at("user_tg_profile_link_sent", {}, "Ссылка отправлена в Telegram"));
       } else {
         onToast(
@@ -545,11 +580,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function extendUser() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     const days = Number(s.userExtendDays);
     if (!days || days <= 0) return;
@@ -565,6 +596,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
         body: JSON.stringify(body),
       });
       if (res?.ok) {
+        invalidateUsersQueries(s.openedUser.user_id);
         onToast(at("subscription_extended", { days }, `Продлено на ${days} д.`));
         await refreshOpenedUserDetail({
           resetPremium: false,
@@ -579,11 +611,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function changeUserTariff() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser || !s.userTariffActionKey) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
@@ -592,6 +620,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
         body: JSON.stringify({ tariff_key: s.userTariffActionKey }),
       });
       if (res?.ok) {
+        invalidateUsersQueries(s.openedUser.user_id);
         onToast(at("user_tariff_saved", {}, "Tariff saved"));
         await refreshOpenedUserDetail({
           resetPremium: false,
@@ -599,7 +628,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
           resetHwid: false,
           resetGrant: false,
         });
-        if (_activeRef === "users") await loadUsers();
+        if (_activeRef === "users") await loadUsers({ refresh: true });
       } else {
         onToast(adminErrorMessage(res, at));
       }
@@ -609,11 +638,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function resetTrialUser() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
@@ -621,6 +646,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
         method: "POST",
       });
       if (res?.ok) {
+        invalidateUsersQueries(s.openedUser.user_id);
         onToast(at("trial_reset", {}, "Триал сброшен"));
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
@@ -630,7 +656,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
           resetHwid: false,
           resetGrant: false,
         });
-        if (_activeRef === "users") await loadUsers();
+        if (_activeRef === "users") await loadUsers({ refresh: true });
       } else onToast(adminErrorMessage(res, at));
     } finally {
       applyState((st) => ({ ...st, userActionBusy: false }));
@@ -638,11 +664,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function savePremiumTrafficOverride() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
@@ -663,6 +685,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
         }),
       });
       if (res?.ok) {
+        invalidateUsersQueries(s.openedUser.user_id);
         onToast(at("premium_override_saved", {}, "Премиум-оверрайд сохранён"));
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
@@ -680,11 +703,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function saveRegularTrafficOverride() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
@@ -708,6 +727,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
         }
       );
       if (res?.ok) {
+        invalidateUsersQueries(s.openedUser.user_id);
         onToast(at("regular_override_saved", {}, "Оверрайд основного трафика сохранён"));
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
@@ -725,11 +745,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function saveHwidDeviceLimit() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
@@ -759,6 +775,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
         }),
       });
       if (res?.ok) {
+        invalidateUsersQueries(s.openedUser.user_id);
         onToast(at("hwid_limit_saved", {}, "Лимит устройств сохранён"));
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
@@ -776,11 +793,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function grantTraffic() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     if (!s.openedUser) return;
     const gbRaw = s.grantTrafficGbDraft;
     const gb = Number(gbRaw);
@@ -799,6 +812,7 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
         body: JSON.stringify({ kind, gb }),
       });
       if (res?.ok) {
+        invalidateUsersQueries(s.openedUser.user_id);
         onToast(
           kind === "premium"
             ? at(
@@ -828,17 +842,14 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
   }
 
   async function deleteUser() {
-    let s = initialState;
-    applyState((st) => {
-      s = st;
-      return st;
-    });
+    const s = readStateSnapshot();
     const openedUser = s.openedUser;
     if (!openedUser) return;
     applyState((st) => ({ ...st, userActionBusy: true }));
     try {
       const res = await api(buildAdminUserPath(openedUser.user_id), { method: "DELETE" });
       if (res?.ok) {
+        invalidateUsersQueries(openedUser.user_id);
         onToast(at("user_deleted", {}, "Удален"));
         applyState((st) => ({
           ...st,
@@ -853,10 +864,10 @@ export function createUsersStore({ api, onToast, at, routePrefix = "" }: UsersSt
 
   function updateState(updates: Partial<AdminStoreState>) {
     if (!Object.keys(updates).length) return;
-    Object.assign(state, updates);
+    assignState(updates);
   }
 
-  return Object.assign(state, {
+  return Object.assign(store, {
     updateState,
     setActive,
     loadUsers,

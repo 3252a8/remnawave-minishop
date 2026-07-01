@@ -11,6 +11,8 @@ import {
   buildAdminAdTogglePath,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
+import { snapshotForPayload } from "./snapshotForPayload.svelte";
+import { defineRawStateProperty } from "./rawStateProperty";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
 type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
@@ -54,12 +56,19 @@ function isOkResponse<T extends { ok: true }>(response: T | AdminErrorResponse):
 const defaultAdDraft = (): AdDraft => ({ source: "", start_param: "", cost: 0 });
 
 export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore {
-  const state = $state<AdsState>({
-    ads: [],
+  let ads = $state.raw<Ad[]>([]);
+  const state = $state<Omit<AdsState, "ads">>({
     adsTotals: null,
     adsLoading: false,
     adCreateOpen: false,
     adDraft: defaultAdDraft(),
+  });
+  const store = Object.create(state) as AdsStore;
+  defineRawStateProperty(store, "ads", {
+    get: () => ads,
+    set: (value) => {
+      ads = value;
+    },
   });
 
   async function loadAds(): Promise<void> {
@@ -68,7 +77,7 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
       const data = (await api(buildAdminAdsPath())) as AdsListResponse | AdminErrorResponse;
       if (isOkResponse(data)) {
         const payload = unwrap(data);
-        state.ads = payload.campaigns || [];
+        ads = payload.campaigns || [];
         state.adsTotals = payload.totals || {};
       }
     } finally {
@@ -77,7 +86,7 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
   }
 
   async function createAd(): Promise<void> {
-    const draft = state.adDraft;
+    const draft = snapshotForPayload(state.adDraft);
     if (!draft.source.trim() || !draft.start_param.trim()) return;
 
     const res = (await api(buildAdminAdsPath(), {
@@ -96,14 +105,15 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
   }
 
   async function toggleAd(ad: Ad): Promise<void> {
-    const path = buildAdminAdTogglePath(ad.id);
-    const body = { is_active: !ad.is_active } satisfies Partial<AdToggleBody>;
+    const adSnapshot = snapshotForPayload(ad);
+    const path = buildAdminAdTogglePath(adSnapshot.id);
+    const body = { is_active: !adSnapshot.is_active } satisfies Partial<AdToggleBody>;
     const res = (await api(path, {
       method: "POST",
       body: JSON.stringify(body),
     })) as AdToggleResponse | AdminErrorResponse;
     if (isOkResponse(res)) {
-      state.ads = state.ads.map((c) => (c.id === ad.id ? { ...c, is_active: !ad.is_active } : c));
+      ads = ads.map((c) => (c.id === ad.id ? { ...c, is_active: !ad.is_active } : c));
     } else {
       onToast(adminErrorMessage(res, at));
     }
@@ -113,7 +123,7 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
     const path = buildAdminAdPath(ad.id);
     const res = (await api(path, { method: "DELETE" })) as AdDeleteResponse | AdminErrorResponse;
     if (isOkResponse(res)) {
-      state.ads = state.ads.filter((c) => c.id !== ad.id);
+      ads = ads.filter((c) => c.id !== ad.id);
       onToast(at("ad_deleted", {}, "Кампания удалена"));
     } else {
       onToast(adminErrorMessage(res, at));
@@ -128,7 +138,7 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
     state.adDraft = { ...state.adDraft, ...fields };
   }
 
-  return Object.assign(state, {
+  return Object.assign(store, {
     loadAds,
     createAd,
     toggleAd,

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getContext, onMount } from "svelte";
+  import { getSupportStore } from "$lib/webapp/context";
+  import { onMount } from "svelte";
   import { fade, slide } from "svelte/transition";
   import { Check, ChevronsUpDown, LifeBuoy, MessageSquarePlus } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
@@ -13,7 +14,6 @@
     supportDraftScope,
     writeSupportDraft,
   } from "$lib/webapp/supportDrafts.js";
-  import type { SupportStore } from "$lib/webapp/stores/supportStore";
 
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SupportCategory = "billing" | "technical" | "account" | "other";
@@ -41,7 +41,7 @@
     user?: Record<string, unknown>;
   } = $props();
 
-  const supportStore = getContext("supportStore") as SupportStore;
+  const supportStore = getSupportStore();
   let subject = $state("");
   let body = $state("");
   let category = $state<SupportCategory>("other");

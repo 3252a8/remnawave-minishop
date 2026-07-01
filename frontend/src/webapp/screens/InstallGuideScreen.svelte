@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getContext, onDestroy, onMount } from "svelte";
+  import { getInstallGuidesStore } from "$lib/webapp/context";
+  import { onDestroy, onMount } from "svelte";
   import QRCode from "qrcode";
   import {
     ArrowLeft,
@@ -26,7 +27,6 @@
     renderInstallQrDataUrl,
     resolveInstallButtonAction,
   } from "$lib/webapp/installGuideRuntime.js";
-  import type { InstallGuidesStore } from "$lib/webapp/stores/installGuidesStore";
 
   type AnyRecord = Record<string, any>;
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -73,7 +73,7 @@
     publicMode?: boolean;
   } = $props();
 
-  const installGuidesStore = getContext("installGuidesStore") as InstallGuidesStore;
+  const installGuidesStore = getInstallGuidesStore();
   const STAGE_HEIGHT_ANIMATION_MS = 360;
   const CARD_STAGGER_MS = 46;
   const QR_DELAY_EXTRA_MS = 90;

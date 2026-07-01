@@ -10,6 +10,8 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, sessionmaker
 
+from bot.infra import events
+from bot.infra.event_payloads import SubscriptionExpiredPayload, SubscriptionLapsedPayload
 from bot.infra.redis import redis_lock
 from bot.keyboards.inline.user_keyboards import get_subscribe_only_markup
 from bot.middlewares.i18n import JsonI18n
@@ -146,12 +148,26 @@ class SubscriptionNotificationWorker:
                     getattr(sub, "user_id", None),
                 )
                 continue
-            await self.lifecycle_notifications.send_stage(
+            delivery = await self.lifecycle_notifications.send_stage(
                 session,
                 sub,
                 stage,
                 sent_at=now,
             )
+            if delivery.any_sent and stage.key in {"expired", "expired_24h_after"}:
+                payload_cls = (
+                    SubscriptionExpiredPayload
+                    if stage.key == "expired"
+                    else SubscriptionLapsedPayload
+                )
+                await events.emit_model(
+                    payload_cls(
+                        user_id=int(getattr(sub, "user_id", 0) or 0),
+                        subscription_id=getattr(sub, "subscription_id", None),
+                        tariff_key=getattr(sub, "tariff_key", None),
+                        end_date=self._as_utc(getattr(sub, "end_date", None)),
+                    )
+                )
 
     def _superseded_by_active_subscription(
         self,

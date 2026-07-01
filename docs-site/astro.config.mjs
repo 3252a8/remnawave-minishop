@@ -81,6 +81,7 @@ export default defineConfig({
           items: [
             { label: 'Основные', slug: 'features/core' },
             { label: 'Платежи', slug: 'features/payments' },
+            { label: 'Промокоды', slug: 'features/promocodes' },
             { label: 'Подписки', slug: 'features/subscriptions' },
             { label: 'Уведомления', slug: 'features/notifications' },
             { label: 'Тарифы', slug: 'features/tariffs' },

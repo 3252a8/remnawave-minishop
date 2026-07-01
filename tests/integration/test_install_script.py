@@ -284,6 +284,9 @@ def test_shell_installer_autodetects_egames_panel_credentials():
     assert "FRONT_END_DOMAIN" in script
     assert "WEBHOOK_SECRET_HEADER" in script
     assert "select token from api_tokens" in script
+    assert "select uuid::text from api_tokens" in script
+    assert "JWT_API_TOKENS_SECRET" in script
+    assert "make_panel_api_jwt" in script
     assert "Нашел API-ключ Remnawave Panel" in script
     assert "Нашел заголовок Cookie обратного прокси eGames" in script
 

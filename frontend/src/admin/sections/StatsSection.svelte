@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getPaymentsStore, getStatsStore } from "$lib/admin/context";
   import {
     Activity,
     FileText,
@@ -9,7 +10,7 @@
     User,
     Zap,
   } from "$components/ui/icons.js";
-  import { getContext, onMount } from "svelte";
+  import { onMount, type ComponentType, type SvelteComponent } from "svelte";
 
   import Badge from "$components/ui/badge.svelte";
   import { ScrollArea } from "$components/ui/index.js";
@@ -20,7 +21,6 @@
     AdminBadge,
     AdminButton,
     AdminEmptyState,
-    AdminRevenueChart,
     AdminRevenueCustomRangePopover,
     AdminSectionHeader,
     AdminTable,
@@ -48,8 +48,8 @@
     type RevenueKpis,
     type RevenuePoint,
   } from "$lib/admin/statsDerivations";
-  import type { PaymentOut, PaymentsStore } from "$lib/admin/stores/paymentsStore";
-  import type { StatsState, StatsStore } from "$lib/admin/stores/statsStore";
+  import type { PaymentOut } from "$lib/admin/stores/paymentsStore";
+  import type { StatsState } from "$lib/admin/stores/statsStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type FormatterFn = (value: unknown, currency?: string) => string;
@@ -58,6 +58,7 @@
   type RevenueGranularity = "day" | "week" | "month";
   type RevenueRangeMode = "preset" | "custom";
   type IsoRange = { from: string; to: string };
+  type DynamicComponent = ComponentType<SvelteComponent<Record<string, unknown>>>;
 
   let {
     at,
@@ -75,8 +76,8 @@
     onOpenUserCard?: (userId: unknown) => void;
   } = $props();
 
-  const paymentsStore = getContext<PaymentsStore>("paymentsStore");
-  const statsStore = getContext<StatsStore>("statsStore");
+  const paymentsStore = getPaymentsStore();
+  const statsStore = getStatsStore();
 
   const statsState = $derived(statsStore);
   const rawStats: StatsState["stats"] = $derived(statsState.stats);
@@ -112,6 +113,7 @@
   let revenueCustomIso = $state<IsoRange | null>(null);
   let revenueGranularity = $state<RevenueGranularity>("day");
   let revenueCustomPopoverOpen = $state(false);
+  let AdminRevenueChartComponent = $state<DynamicComponent | null>(null);
 
   const dailySeries: RevenuePoint[] = $derived(
     Array.isArray(fin.daily_series) ? fin.daily_series : []
@@ -138,6 +140,17 @@
   const chartRangeSum = $derived(
     revenueChartSeries.reduce((a, p) => a + (Number(p.amount) || 0), 0)
   );
+
+  function loadRevenueChart(): void {
+    if (AdminRevenueChartComponent) return;
+    void import("$components/patterns/admin/AdminRevenueChart.svelte").then((module) => {
+      AdminRevenueChartComponent = module.default as unknown as DynamicComponent;
+    });
+  }
+
+  $effect(() => {
+    if (revenueChartSeries.length) loadRevenueChart();
+  });
 
   function setRevenuePresetDays(days: number): void {
     const next = Number(days);
@@ -624,14 +637,21 @@
               {/if}
             </div>
             <div class="admin-revenue-svg-frame admin-revenue-svg-frame--chart">
-              <AdminRevenueChart
-                series={revenueChartSeries}
-                plotHeight={REVENUE_CHART_MAX_CSS_HEIGHT}
-                {fmtMoney}
-                {currency}
-                legendTimeLabel={at("stats_revenue_chart_uplot_time", {}, "Time")}
-                legendValueLabel={at("stats_revenue_chart_uplot_value", {}, "Value")}
-              />
+              {#if AdminRevenueChartComponent}
+                <AdminRevenueChartComponent
+                  series={revenueChartSeries}
+                  plotHeight={REVENUE_CHART_MAX_CSS_HEIGHT}
+                  {fmtMoney}
+                  {currency}
+                  legendTimeLabel={at("stats_revenue_chart_uplot_time", {}, "Time")}
+                  legendValueLabel={at("stats_revenue_chart_uplot_value", {}, "Value")}
+                />
+              {:else}
+                <span
+                  class="admin-skeleton admin-revenue-chart-skeleton"
+                  style={`height:${REVENUE_CHART_MAX_CSS_HEIGHT}px`}
+                ></span>
+              {/if}
             </div>
           {:else}
             <p class="admin-muted">{at("stats_revenue_no_chart", {}, "")}</p>

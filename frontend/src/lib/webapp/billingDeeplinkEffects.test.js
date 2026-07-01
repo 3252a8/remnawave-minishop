@@ -5,11 +5,15 @@ import { createBillingDeeplinkEffects } from "./billingDeeplinkEffects.js";
 function makeEffects(overrides = {}) {
   const deps = {
     billingStore: {
+      applyCheckoutPromo: vi.fn(),
       openPaymentModal: vi.fn(),
       openTopupModal: vi.fn(),
+      setCheckoutPromoInput: vi.fn(),
     },
+    readCheckoutPromoDeeplink: vi.fn(() => ""),
     readRenewalDeeplink: vi.fn(() => null),
     setHomeRoute: vi.fn(),
+    stripCheckoutPromoQueryFromUrl: vi.fn(),
     stripRenewalLoginQueryFromUrl: vi.fn(),
     stripTopupQueryFromUrl: vi.fn(),
     ...overrides,
@@ -101,5 +105,29 @@ describe("createBillingDeeplinkEffects", () => {
     expect(deps.billingStore.openPaymentModal).toHaveBeenCalledOnce();
     expect(deps.setHomeRoute).toHaveBeenCalledOnce();
     expect(deps.stripRenewalLoginQueryFromUrl).toHaveBeenCalledOnce();
+  });
+
+  it("prefills checkout code and opens default checkout from a code deeplink", () => {
+    const { deps, effects } = makeEffects({
+      readCheckoutPromoDeeplink: vi.fn(() => "SAVE10"),
+    });
+
+    effects.applyPostLoadBillingDeeplinks({
+      defaultMethod: "card",
+      plans: [{ tariff_key: "pro", is_default_tariff: true }],
+      search: "?startapp=promo_SAVE10",
+      subscription: { active: false },
+    });
+
+    expect(deps.billingStore.setCheckoutPromoInput).toHaveBeenCalledWith("SAVE10");
+    expect(deps.setHomeRoute).toHaveBeenCalledOnce();
+    expect(deps.billingStore.openPaymentModal).toHaveBeenCalledOnce();
+    expect(deps.billingStore.openPaymentModal.mock.calls[0][6]).toEqual({
+      preferCheckout: true,
+      preferredTariffKey: "",
+      selectDefaultTariff: true,
+    });
+    expect(deps.billingStore.applyCheckoutPromo).toHaveBeenCalledOnce();
+    expect(deps.stripCheckoutPromoQueryFromUrl).toHaveBeenCalledOnce();
   });
 });

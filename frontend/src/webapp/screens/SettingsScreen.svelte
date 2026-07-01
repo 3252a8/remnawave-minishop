@@ -139,7 +139,12 @@
   {#if isAdmin}
     <div class="settings-admin-block">
       <div class="settings-divider" aria-hidden="true"></div>
-      <button class="settings-row settings-row-admin" type="button" onclick={openAdminPanel}>
+      <button
+        data-webapp-action="open-admin-panel"
+        class="settings-row settings-row-admin"
+        type="button"
+        onclick={openAdminPanel}
+      >
         <Shield size={21} />
         <span>
           <strong>{t("wa_settings_admin_panel", {}, "Админ-панель")}</strong>
@@ -180,6 +185,7 @@
         </span>
         {#if emailAuthEnabled && user?.email_verified}
           <Button
+            data-webapp-action="open-set-password"
             variant="secondary"
             size="sm"
             class="settings-inline-action"
@@ -193,6 +199,7 @@
       </div>
     {:else if emailAuthEnabled}
       <button
+        data-webapp-action="open-link-email"
         class="settings-row attention-wrap"
         type="button"
         onclick={openLinkEmailDialog}

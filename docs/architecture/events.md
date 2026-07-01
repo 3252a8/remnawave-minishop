@@ -114,6 +114,9 @@ Core reactions: `CoreEventReactions.on_payment_succeeded`
 | `months` | `int | None` | `None` |
 | `traffic_gb` | `float | None` | `None` |
 | `purchased_hwid_devices` | `int | None` | `None` |
+| `promo_code_id` | `int | None` | `None` |
+| `base_amount` | `float | None` | `None` |
+| `discount_amount` | `float | None` | `None` |
 | `end_date` | `datetime | None` | `None` |
 | `is_auto_renew` | `bool` | required |
 
@@ -175,6 +178,21 @@ Core reactions: none
 | `months` | `int | None` | `None` |
 | `payment_db_id` | `int | None` | `None` |
 
+## `subscription.expired`
+
+Payload model: `SubscriptionExpiredPayload`
+
+Emitters: `backend/bot/services/subscription_notification_worker.py`
+
+Core reactions: none
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `user_id` | `int` | required |
+| `subscription_id` | `int | None` | `None` |
+| `tariff_key` | `str | None` | `None` |
+| `end_date` | `datetime | None` | `None` |
+
 ## `subscription.extended`
 
 Payload model: `SubscriptionExtendedPayload`
@@ -192,6 +210,21 @@ Core reactions: none
 | `provider` | `str | None` | `None` |
 | `months` | `int | None` | `None` |
 | `payment_db_id` | `int | None` | `None` |
+
+## `subscription.lapsed`
+
+Payload model: `SubscriptionLapsedPayload`
+
+Emitters: `backend/bot/services/subscription_notification_worker.py`
+
+Core reactions: none
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `user_id` | `int` | required |
+| `subscription_id` | `int | None` | `None` |
+| `tariff_key` | `str | None` | `None` |
+| `end_date` | `datetime | None` | `None` |
 
 ## `support.ticket_created`
 

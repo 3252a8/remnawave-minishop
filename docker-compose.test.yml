@@ -1,6 +1,6 @@
 services:
   test-postgres:
-    image: postgres:17
+    image: postgres:17.6
     environment:
       POSTGRES_USER: app_user
       POSTGRES_PASSWORD: app_password

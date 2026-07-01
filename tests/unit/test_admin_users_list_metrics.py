@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -85,6 +86,48 @@ class AdminUsersListMetricsTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("payments_total_amount", sql)
         self.assertIn("order by coalesce", sql)
         self.assertIn("desc", sql)
+
+    async def test_active_panel_filter_requires_live_unbanned_subscription(self):
+        session = SimpleNamespace(
+            execute=AsyncMock(side_effect=[FakeResult([]), FakeResult(scalar_value=0)])
+        )
+
+        await users_module._filter_and_sort_users(
+            session,
+            query="",
+            filter_value="all",
+            panel_status="active",
+            premium_traffic="all",
+            sort_value="created_desc",
+            page=0,
+            page_size=25,
+        )
+
+        sql = _compile_sql(session.execute.await_args_list[0].args[0])
+        self.assertIn("users.is_banned is false", sql)
+        self.assertIn("subscriptions.is_active is true", sql)
+        self.assertIn("subscriptions.end_date >", sql)
+
+    async def test_bulk_user_statuses_treats_expired_active_rows_as_expired(self):
+        now = datetime.now(timezone.utc)
+        session = SimpleNamespace(
+            execute=AsyncMock(
+                return_value=FakeResult(
+                    [
+                        (101, "ACTIVE", True, now - timedelta(days=1)),
+                        (202, "ACTIVE", True, now + timedelta(days=1)),
+                        (303, None, False, now - timedelta(days=1)),
+                    ]
+                )
+            )
+        )
+
+        result = await users_module._bulk_user_statuses(session, [101, 202, 303, 404])
+
+        self.assertEqual(result[101]["status"], "expired")
+        self.assertEqual(result[202]["status"], "active")
+        self.assertEqual(result[303]["status"], "expired")
+        self.assertEqual(result[404]["status"], "bot_only")
 
     async def test_filter_sort_users_supports_referral_and_subscription_sorts(self):
         for sort_value, expected_alias in (

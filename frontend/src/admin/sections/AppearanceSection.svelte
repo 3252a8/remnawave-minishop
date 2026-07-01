@@ -1,9 +1,10 @@
 <script lang="ts">
+  import { getSettingsStore, getThemesStore } from "$lib/admin/context";
   import { FileText, RefreshCw, Save } from "$components/ui/icons.js";
   import { AdminBadge, AdminButton, AdminEmptyState } from "$components/patterns/admin/index.js";
   import { FileInput, Input } from "$components/ui/index.js";
   import { Switch } from "$components/ui/primitives.js";
-  import { getContext, onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
 
   import {
     firstFontFamily,
@@ -34,9 +35,7 @@
     SettingsDirtyEntry,
     SettingsSavedPayload,
     SettingsSection,
-    SettingsStore,
   } from "$lib/admin/stores/settingsStore";
-  import type { ThemesStore } from "$lib/admin/stores/themesStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SettingsDirtyState = Record<string, SettingsDirtyEntry>;
@@ -58,8 +57,8 @@
     appFaviconUseCustom?: boolean;
   } = $props();
 
-  const settingsStore = getContext<SettingsStore>("settingsStore");
-  const themesStore = getContext<ThemesStore>("themesStore");
+  const settingsStore = getSettingsStore();
+  const themesStore = getThemesStore();
   const APPEARANCE_SETTING_KEYS = new Set([
     "SUBSCRIPTION_MINI_APP_URL",
     "WEBAPP_PRIMARY_COLOR",
@@ -448,6 +447,18 @@
     themesStore.setThemeHomeLogoScale(DEFAULT_THEME_KEY, mode, value);
   }
 
+  function applyUploadedAppearanceField(
+    key: string,
+    value: unknown,
+    persisted: boolean | undefined
+  ): void {
+    if (persisted === false) {
+      settingsStore.markDirty(key, value);
+      return;
+    }
+    settingsStore.setFieldValue(key, value);
+  }
+
   function homeLogoScale(theme: ThemeEntry, mode: LogoMode): number {
     return Number(themesStore.resolveThemeHomeLogoScale(theme, mode)) || 0;
   }
@@ -502,14 +513,15 @@
     }
     themesStore.uploadLogoFile(file).then((uploaded) => {
       const uploadedUrl = uploaded?.logoUrl || "";
+      const persisted = uploaded?.persisted;
       if (!uploadedUrl) {
         pendingLogoPreviewUrl = "";
         clearPendingObjectUrl();
         return;
       }
-      settingsStore.setFieldValue("WEBAPP_LOGO_URL", uploadedUrl);
+      applyUploadedAppearanceField("WEBAPP_LOGO_URL", uploadedUrl, persisted);
       if (uploaded?.faviconUrl) {
-        settingsStore.setFieldValue("WEBAPP_LOGO_FAVICON_URL", uploaded.faviconUrl);
+        applyUploadedAppearanceField("WEBAPP_LOGO_FAVICON_URL", uploaded.faviconUrl, persisted);
       }
       if (logoFileInput) logoFileInput.value = "";
     });
@@ -518,12 +530,13 @@
   function uploadLogoFromUrl(): void {
     themesStore.uploadLogoUrl(logoSourceUrl).then((uploaded) => {
       const uploadedUrl = uploaded?.logoUrl || "";
+      const persisted = uploaded?.persisted;
       if (!uploadedUrl) return;
       setPendingLogoPreview(uploadedUrl);
       logoSourceUrl = "";
-      settingsStore.setFieldValue("WEBAPP_LOGO_URL", uploadedUrl);
+      applyUploadedAppearanceField("WEBAPP_LOGO_URL", uploadedUrl, persisted);
       if (uploaded?.faviconUrl) {
-        settingsStore.setFieldValue("WEBAPP_LOGO_FAVICON_URL", uploaded.faviconUrl);
+        applyUploadedAppearanceField("WEBAPP_LOGO_FAVICON_URL", uploaded.faviconUrl, persisted);
       }
     });
   }
@@ -538,13 +551,14 @@
     }
     themesStore.uploadFaviconFile(file).then((uploaded) => {
       const uploadedUrl = uploaded?.faviconUrl || "";
+      const persisted = uploaded?.persisted;
       if (!uploadedUrl) {
         pendingFaviconPreviewUrl = "";
         clearPendingFaviconObjectUrl();
         return;
       }
-      settingsStore.setFieldValue("WEBAPP_FAVICON_URL", uploadedUrl);
-      settingsStore.setFieldValue("WEBAPP_FAVICON_USE_CUSTOM", true);
+      applyUploadedAppearanceField("WEBAPP_FAVICON_URL", uploadedUrl, persisted);
+      applyUploadedAppearanceField("WEBAPP_FAVICON_USE_CUSTOM", true, persisted);
       faviconUseCustomDraft = true;
       if (faviconFileInput) faviconFileInput.value = "";
     });
@@ -553,11 +567,12 @@
   function uploadFaviconFromUrl(): void {
     themesStore.uploadFaviconUrl(faviconSourceUrl).then((uploaded) => {
       const uploadedUrl = uploaded?.faviconUrl || "";
+      const persisted = uploaded?.persisted;
       if (!uploadedUrl) return;
       setPendingFaviconPreview(uploadedUrl);
       faviconSourceUrl = "";
-      settingsStore.setFieldValue("WEBAPP_FAVICON_URL", uploadedUrl);
-      settingsStore.setFieldValue("WEBAPP_FAVICON_USE_CUSTOM", true);
+      applyUploadedAppearanceField("WEBAPP_FAVICON_URL", uploadedUrl, persisted);
+      applyUploadedAppearanceField("WEBAPP_FAVICON_USE_CUSTOM", true, persisted);
       faviconUseCustomDraft = true;
     });
   }
@@ -615,35 +630,8 @@
     activateDefaultTheme();
   }
 
-  function isThemeControlTarget(target: EventTarget | null | undefined): boolean {
-    return (
-      target instanceof Element &&
-      Boolean(target.closest("button,input,label,.admin-theme-card-option,.ui-range-input"))
-    );
-  }
-
-  function selectDefaultTheme(event: MouseEvent | KeyboardEvent | null = null): void {
-    if (isThemeControlTarget(event?.target)) return;
-    activateDefaultTheme();
-  }
-
-  function handleDefaultThemeKeydown(event: KeyboardEvent): void {
-    if (isThemeControlTarget(event?.target)) return;
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    activateDefaultTheme();
-  }
-
-  function selectTheme(theme: ThemeEntry, event: MouseEvent | KeyboardEvent | null = null): void {
-    if (isThemeControlTarget(event?.target)) return;
+  function selectTheme(theme: ThemeEntry): void {
     if (!themesSaving) themesStore.setCurrentTheme(theme.key);
-  }
-
-  function handleThemeKeydown(event: KeyboardEvent, theme: ThemeEntry): void {
-    if (isThemeControlTarget(event?.target)) return;
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    selectTheme(theme);
   }
 
   function clonePreviewCatalog(catalog: ThemeCatalog = themesCatalog): ThemeCatalog {
@@ -821,6 +809,11 @@
           <section class="appearance-control-card">
             <label class="appearance-switch">
               <Switch.Root
+                aria-label={at(
+                  "appearance_use_custom_favicon",
+                  {},
+                  "Использовать отдельную favicon"
+                )}
                 bind:checked={faviconUseCustomDraft}
                 onCheckedChange={setCustomFavicon}
                 class="admin-switch-root"
@@ -921,8 +914,6 @@
             {isDefaultVariantDirty}
             {defaultVariantTitle}
             {themeDescription}
-            {selectDefaultTheme}
-            {handleDefaultThemeKeydown}
             {activateDefaultThemeFromClick}
             {setDefaultVariantFromSwitch}
             {previewDefaultVariantFromClick}
@@ -968,7 +959,6 @@
             {themeLogoScaleInputHandler}
             {previewThemeClickHandler}
             {selectTheme}
-            {handleThemeKeydown}
           />
         {/if}
       </div>

@@ -13,6 +13,9 @@ from bot.app.web import admin_api
 from bot.app.web.admin_api_impl import settings as admin_settings_routes
 from bot.plugins import Plugin, PluginContext, register, reset_plugins, run_setup
 from bot.services.entitlements import (
+    MARKETING_CAMPAIGNS_ENTITLEMENT,
+    MARKETING_WINBACK_ENTITLEMENT,
+    RESERVED_ENTITLEMENT_KEYS,
     DefaultEntitlements,
     active_entitlements_source,
     features,
@@ -73,6 +76,14 @@ def test_default_entitlements_are_empty():
     assert features() == set()
     assert has_feature("admin.extra") is False
     assert active_entitlements_source() == "core"
+
+
+def test_marketing_entitlement_keys_are_reserved_only():
+    assert RESERVED_ENTITLEMENT_KEYS == {
+        MARKETING_WINBACK_ENTITLEMENT,
+        MARKETING_CAMPAIGNS_ENTITLEMENT,
+    }
+    assert features().isdisjoint(RESERVED_ENTITLEMENT_KEYS)
 
 
 def test_plugin_entitlements_provider_becomes_active():

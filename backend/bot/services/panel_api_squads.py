@@ -12,6 +12,9 @@ def _json_dict(value: object) -> Optional[Dict[str, Any]]:
     return value if isinstance(value, dict) else None
 
 
+_HAPP_ENCRYPT_UNAVAILABLE = False
+
+
 class PanelApiSquadMutationMixin:
     if TYPE_CHECKING:
 
@@ -127,6 +130,11 @@ class PanelApiSquadMutationMixin:
 
         Returns the encrypted link string or None if encryption failed.
         """
+        global _HAPP_ENCRYPT_UNAVAILABLE
+
+        if _HAPP_ENCRYPT_UNAVAILABLE:
+            logging.info("Skipping happ crypt4 encryption: panel endpoint is unavailable.")
+            return None
         payload = {"linkToEncrypt": link_to_encrypt}
         response_data = await self._request(
             "POST", "/system/tools/happ/encrypt", json=payload, log_full_response=False
@@ -135,5 +143,13 @@ class PanelApiSquadMutationMixin:
             response = _json_dict(response_data.get("response"))
             encrypted_link = response.get("encryptedLink") if response is not None else None
             return encrypted_link if isinstance(encrypted_link, str) else None
+        status_code = response_data.get("status_code") if isinstance(response_data, dict) else None
+        if status_code in {404, 410}:
+            _HAPP_ENCRYPT_UNAVAILABLE = True
+            logging.warning(
+                "Panel happ crypt4 encryption endpoint is unavailable; raw subscription "
+                "links will be used as fallback."
+            )
+            return None
         logging.error(f"Failed to encrypt happ link. Response: {response_data}")
         return None

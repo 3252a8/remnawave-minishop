@@ -10,7 +10,7 @@ x-app-environment: &app_environment
 
 services:
   postgres:
-    image: postgres:17
+    image: postgres:17.6
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}

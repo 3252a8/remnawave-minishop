@@ -23,6 +23,7 @@ from .asset_paths import (
 from .assets import (
     admin_css_asset_route,
     admin_js_asset_route,
+    admin_js_chunk_asset_route,
     app_deeplink_route,
     bootstrap_route,
     css_asset_route,
@@ -57,6 +58,7 @@ from .billing import (
     create_payment_route,
     device_topup_options_route,
     payment_status_route,
+    quote_promo_route,
     subscription_auto_renew_route,
     tariff_change_options_route,
     tariff_change_payment_route,
@@ -149,6 +151,10 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get(r"/webapp-theme-assets/{path:.+}", theme_asset_route)
     app.router.add_get("/subscription_webapp.min.{asset_hash}.js", js_asset_route)
     app.router.add_get("/subscription_webapp.js", js_asset_route)
+    app.router.add_get(
+        r"/subscription_webapp_admin.{chunk_name:[A-Za-z0-9_-]+}.{asset_hash:[A-Za-z0-9_-]+}.js",
+        admin_js_chunk_asset_route,
+    )
     app.router.add_get("/subscription_webapp_admin.min.{asset_hash}.js", admin_js_asset_route)
     app.router.add_get("/subscription_webapp_admin.js", admin_js_asset_route)
     app.router.add_post("/api/auth/telegram/nonce", telegram_oauth_nonce_route)
@@ -181,6 +187,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/promo/apply", apply_promo_route)
     app.router.add_post("/api/trial/activate", activate_trial_route)
     app.router.add_post("/api/subscription/auto-renew", subscription_auto_renew_route)
+    app.router.add_post("/api/subscription/quote-promo", quote_promo_route)
     app.router.add_get("/api/devices", devices_route)
     app.router.add_post("/api/devices/disconnect", disconnect_device_route)
     app.router.add_get("/api/devices/topup-options", device_topup_options_route)

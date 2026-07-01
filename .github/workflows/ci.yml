@@ -55,6 +55,8 @@ jobs:
       - name: Svelte typecheck
         run: npm run check:svelte
         working-directory: frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
 
       - name: Check generated API types are in sync
         run: |
@@ -72,8 +74,9 @@ jobs:
 
   # Deterministic Playwright mock-smoke against the docs-demo build (mockApi, no
   # backend). Kept in its own job so a flake never blocks the lint/typecheck/unit
-  # signal. Covers boot + every nav switch + tariff modal + admin lazy-load +
-  # zero console errors.
+  # signal. Covers boot, every nav switch, webapp dialogs, core admin sections,
+  # admin dialogs, dialog tabs, disclosure panels, activation handoff, and zero
+  # console errors.
   webapp-e2e:
     name: Webapp e2e smoke
     runs-on: ubuntu-latest
@@ -137,7 +140,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17
+        image: postgres:17.6
         env:
           POSTGRES_USER: app_user
           POSTGRES_PASSWORD: app_password

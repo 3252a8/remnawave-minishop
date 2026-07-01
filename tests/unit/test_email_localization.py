@@ -191,6 +191,7 @@ def _all_rendered_email_variants(language: str) -> list[EmailContent]:
         {"notification_key": "before_2d_autorenew"},
         {"notification_key": "expired"},
         {"notification_key": "expired_24h_after"},
+        {"notification_key": "expired_72h_after", "hours_after": 72},
         {"notification_key": "before_days", "days_left": 3},
         {"notification_key": "before_hours", "hours_before": 6},
     )

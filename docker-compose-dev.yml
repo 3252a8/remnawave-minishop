@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:17
+    image: postgres:17.6
     container_name: remnawave-minishop-postgres
     env_file:
       - ${APP_ENV_FILE:-.env}

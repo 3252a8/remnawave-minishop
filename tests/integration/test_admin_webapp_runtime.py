@@ -63,4 +63,7 @@ class AdminWebappRuntimeTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertIsNone(request.app["webapp_logo_cache"])
-        prune_mock.assert_called_once_with(settings)
+        prune_mock.assert_called_once_with(
+            settings,
+            extra_keep_urls=["/webapp-uploaded-logo/logo.png"],
+        )

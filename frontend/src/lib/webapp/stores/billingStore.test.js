@@ -3,11 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import { createBillingStore } from "./billingStore.ts";
 
 function makeBillingStore(overrides = {}) {
+  const { billing: billingOverrides, ...depOverrides } = overrides;
   const billing = {
     fetchTopupOptions: vi.fn(),
     fetchDeviceTopupOptions: vi.fn(),
     fetchTariffChangeOptions: vi.fn(),
     postPayment: vi.fn(),
+    quotePromo: vi.fn(),
     postTariffChange: vi.fn(),
     postTariffChangePayment: vi.fn(),
     planPaymentBody: vi.fn((plan, method, options) => ({ plan, method, options })),
@@ -15,7 +17,7 @@ function makeBillingStore(overrides = {}) {
     deviceTopupPaymentBody: vi.fn((plan, method, tariffKey) => ({ plan, method, tariffKey })),
     changePaymentBody: vi.fn((action, target, method) => ({ action, target, method })),
     fetchPaymentStatus: vi.fn(),
-    ...overrides.billing,
+    ...billingOverrides,
   };
   const deps = {
     billing,
@@ -23,7 +25,7 @@ function makeBillingStore(overrides = {}) {
     t: (key) => key,
     showToast: vi.fn(),
     openExternalLink: vi.fn(),
-    ...overrides,
+    ...depOverrides,
   };
   return { store: createBillingStore(deps), deps, billing };
 }
@@ -76,6 +78,69 @@ describe("billingStore", () => {
         selectedTopupPlan: { id: "topup-1" },
       })
     );
+  });
+
+  it("applies checkout code quote and includes it in payment creation", async () => {
+    const { store, billing } = makeBillingStore({
+      billing: {
+        postPayment: vi.fn().mockResolvedValue({
+          ok: true,
+          action: "invoice_sent",
+          payment_id: "pay-1",
+        }),
+        quotePromo: vi.fn().mockResolvedValue({
+          ok: true,
+          valid: true,
+          code: "SAVE10",
+          effect_summary: "-10%",
+          discount_percent: 10,
+          applies_to: "subscription",
+          min_subscription_months: null,
+          min_traffic_gb: null,
+          effective_amount: 90,
+        }),
+      },
+    });
+
+    store.openPaymentModal(
+      true,
+      false,
+      [{ key: "pro", is_default: true }],
+      { active: false },
+      [{ id: "plan-1", tariff_key: "pro" }],
+      "card",
+      { selectDefaultTariff: true, preferCheckout: true }
+    );
+    store.setCheckoutPromoInput("SAVE10");
+
+    await store.applyCheckoutPromo();
+    await store.createPayment();
+
+    expect(billing.quotePromo).toHaveBeenCalledWith({
+      plan: { id: "plan-1", tariff_key: "pro" },
+      method: "card",
+      options: { renewHwidDevices: false },
+      promo_code: "SAVE10",
+    });
+    expect(store).toMatchObject({
+      checkoutPromoInput: "SAVE10",
+      checkoutPromoAppliedCode: "SAVE10",
+      checkoutPromoPriceText: "90.00",
+      checkoutPromoStatus: "-10%",
+      checkoutPromoDiscountPercent: 10,
+      checkoutPromoAppliesTo: "subscription",
+    });
+    expect(billing.planPaymentBody).toHaveBeenLastCalledWith(
+      { id: "plan-1", tariff_key: "pro" },
+      "card",
+      {
+        promoCode: "SAVE10",
+        renewHwidDevices: false,
+      }
+    );
+
+    store.clearCheckoutPromo();
+    expect(store.checkoutPromoAppliedCode).toBe("");
   });
 
   it("applies no-payment tariff changes and refreshes data", async () => {

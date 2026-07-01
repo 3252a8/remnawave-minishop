@@ -78,8 +78,6 @@
     isDefaultVariantDirty,
     defaultVariantTitle,
     themeDescription,
-    selectDefaultTheme,
-    handleDefaultThemeKeydown,
     activateDefaultThemeFromClick,
     setDefaultVariantFromSwitch,
     previewDefaultVariantFromClick,
@@ -114,8 +112,6 @@
     isDefaultVariantDirty: () => boolean;
     defaultVariantTitle: (variant: unknown) => string;
     themeDescription: (theme: ThemeEntry) => string;
-    selectDefaultTheme: (event: MouseEvent | KeyboardEvent | null) => void;
-    handleDefaultThemeKeydown: (event: KeyboardEvent) => void;
     activateDefaultThemeFromClick: (event: MouseEvent) => void;
     setDefaultVariantFromSwitch: (checked: boolean) => void;
     previewDefaultVariantFromClick: (event: MouseEvent) => void;
@@ -169,17 +165,20 @@
   </header>
   {#if defaultTheme}
     <section
-      role="button"
-      tabindex={themesSaving ? -1 : 0}
       class="default-theme-editor"
       class:is-current={defaultThemeIsCurrent}
       class:is-disabled={themesSaving}
       class:is-dirty={isThemeDirty(defaultTheme)}
-      aria-pressed={defaultThemeIsCurrent}
-      aria-disabled={themesSaving}
-      onclick={(event) => selectDefaultTheme(event)}
-      onkeydown={(event) => handleDefaultThemeKeydown(event)}
+      aria-current={defaultThemeIsCurrent ? "true" : undefined}
     >
+      <button
+        type="button"
+        class="theme-card-select-hitbox"
+        aria-label={at("appearance_use_default_theme", {}, "Выбрать тему по-умолчанию")}
+        aria-pressed={defaultThemeIsCurrent}
+        disabled={themesSaving || defaultThemeIsCurrent}
+        onclick={activateDefaultThemeFromClick}
+      ></button>
       <div class="default-theme-head">
         <div>
           <div class="default-theme-title">
@@ -211,6 +210,7 @@
           <label class="appearance-switch appearance-mode-switch">
             <span>{at("appearance_default_dark", {}, "Dark")}</span>
             <Switch.Root
+              aria-label={at("appearance_default_variant", {}, "Вариант темы по умолчанию")}
               checked={defaultVariant === "light"}
               onCheckedChange={setDefaultVariantFromSwitch}
               class="admin-switch-root"
@@ -226,7 +226,10 @@
         </div>
       </div>
 
-      <div class="appearance-preset-row" aria-label="Default theme presets">
+      <div
+        class="appearance-preset-row"
+        aria-label={at("appearance_default_presets", {}, "Пресеты темы по умолчанию")}
+      >
         {#each DEFAULT_THEME_PRESETS[defaultVariant] || [] as preset (preset.id)}
           <button
             type="button"
@@ -491,6 +494,16 @@
                     class="appearance-token-reset"
                     size="sm"
                     variant="ghost"
+                    title={at(
+                      "appearance_reset_token",
+                      { label: tokenLabel },
+                      `Сбросить ${tokenLabel}`
+                    )}
+                    aria-label={at(
+                      "appearance_reset_token",
+                      { label: tokenLabel },
+                      `Сбросить ${tokenLabel}`
+                    )}
                     onclick={() => resetDefaultToken(tokenKey)}
                   >
                     <RefreshCw size={12} />

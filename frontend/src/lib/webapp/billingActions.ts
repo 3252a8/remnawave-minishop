@@ -2,6 +2,7 @@ import {
   buildDeviceTopupOptionsPath,
   buildPaymentStatusPath,
   buildPaymentsPath,
+  buildSubscriptionPromoQuotePath,
   buildSubscriptionAutoRenewPath,
   buildTariffChangeOptionsPath,
   buildTariffChangePath,
@@ -20,6 +21,7 @@ import type {
   PaymentCreateResponse,
   PaymentStatusResponse,
   PostPayload,
+  PromoQuoteResponse,
   SubscriptionAutoRenewResponse,
   TariffChangeOptionsResponse,
   TariffChangePaymentResponse,
@@ -38,6 +40,7 @@ export type BillingActions = {
   fetchTariffChangeOptions(): Promise<TariffChangeOptionsResponse>;
   postPayment(body: PostPayload<"/api/payments">): Promise<PaymentCreateResponse>;
   fetchPaymentStatus(paymentId: string | number): Promise<PaymentStatusResponse>;
+  quotePromo(body: PostPayload<"/api/subscription/quote-promo">): Promise<PromoQuoteResponse>;
   postTariffChange(body: PostPayload<"/api/tariffs/change">): Promise<TariffChangeResponse>;
   postTariffChangePayment(
     body: PostPayload<"/api/tariffs/change-payment">
@@ -46,17 +49,19 @@ export type BillingActions = {
   planPaymentBody(
     plan: BillingPlan,
     method: string,
-    options?: { renewHwidDevices?: boolean }
+    options?: { renewHwidDevices?: boolean; promoCode?: string | null }
   ): PostPayload<"/api/payments">;
   topupPaymentBody(
     plan: BillingPlan,
     method: string,
-    fallbackTariffKey?: string | null
+    fallbackTariffKey?: string | null,
+    promoCode?: string | null
   ): PostPayload<"/api/payments">;
   deviceTopupPaymentBody(
     plan: BillingPlan,
     method: string,
-    fallbackTariffKey?: string | null
+    fallbackTariffKey?: string | null,
+    promoCode?: string | null
   ): PostPayload<"/api/payments">;
   changePaymentBody(
     action: BillingAction,
@@ -84,6 +89,12 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
 
   async function fetchPaymentStatus(paymentId: string | number): Promise<PaymentStatusResponse> {
     return api(buildPaymentStatusPath(paymentId));
+  }
+
+  async function quotePromo(
+    body: PostPayload<"/api/subscription/quote-promo">
+  ): Promise<PromoQuoteResponse> {
+    return api(buildSubscriptionPromoQuotePath(), { method: "POST", body: JSON.stringify(body) });
   }
 
   async function postTariffChange(
@@ -114,7 +125,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
   function planPaymentBody(
     plan: BillingPlan,
     method: string,
-    options: { renewHwidDevices?: boolean } = {}
+    options: { renewHwidDevices?: boolean; promoCode?: string | null } = {}
   ): PostPayload<"/api/payments"> {
     const body: WebappRecord = {
       months: plan.months,
@@ -125,13 +136,15 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     };
     setOptionalString(body, "tariff_key", plan.tariff_key);
     setOptionalString(body, "sale_mode", plan.sale_mode);
+    setOptionalString(body, "promo_code", options.promoCode);
     return body as PostPayload<"/api/payments">;
   }
 
   function topupPaymentBody(
     plan: BillingPlan,
     method: string,
-    fallbackTariffKey?: string | null
+    fallbackTariffKey?: string | null,
+    promoCode?: string | null
   ): PostPayload<"/api/payments"> {
     const body: WebappRecord = {
       months: plan.months,
@@ -140,13 +153,15 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
       method,
     };
     setOptionalString(body, "tariff_key", plan.tariff_key || fallbackTariffKey);
+    setOptionalString(body, "promo_code", promoCode);
     return body as PostPayload<"/api/payments">;
   }
 
   function deviceTopupPaymentBody(
     plan: BillingPlan,
     method: string,
-    fallbackTariffKey?: string | null
+    fallbackTariffKey?: string | null,
+    promoCode?: string | null
   ): PostPayload<"/api/payments"> {
     const body: WebappRecord = {
       months: plan.device_count || plan.months,
@@ -155,6 +170,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
       method,
     };
     setOptionalString(body, "tariff_key", plan.tariff_key || fallbackTariffKey);
+    setOptionalString(body, "promo_code", promoCode);
     return body as PostPayload<"/api/payments">;
   }
 
@@ -190,6 +206,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     fetchDeviceTopupOptions,
     fetchTariffChangeOptions,
     postPayment,
+    quotePromo,
     fetchPaymentStatus,
     postTariffChange,
     postTariffChangePayment,

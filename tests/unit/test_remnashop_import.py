@@ -17,6 +17,7 @@ from scripts.import_legacy import (
     remnashop_pricing_currency,
     remnashop_row_telegram_id,
     remnashop_sale_mode,
+    remnashop_subscription_provider,
     remnashop_traffic_gb_to_bytes,
     remnashop_transaction_status,
 )
@@ -109,6 +110,14 @@ def test_remnashop_status_and_sale_mode_mapping_matches_current_payment_model():
     assert remnashop_sale_mode("NEW", {"type": "DEVICES"}) == "hwid_devices"
     assert remnashop_sale_mode("RENEW") == "subscription"
     assert remnashop_sale_mode("CHANGE") == "tariff_upgrade"
+
+
+def test_remnashop_subscription_provider_parses_string_booleans():
+    for value in (False, 0, "0", "false", "False", "off", "", None):
+        assert remnashop_subscription_provider(value) == "remnashop"
+
+    for value in (True, 1, "1", "true", "yes", "on"):
+        assert remnashop_subscription_provider(value) == "trial"
 
 
 def test_remnashop_plan_months_prefers_snapshot_then_dates():

@@ -108,7 +108,12 @@
         </p>
       {/if}
       {#if subscription?.active && subscription?.max_devices !== 0 && subscription?.can_topup_devices}
-        <Button variant="secondary" class="wide" onclick={openDeviceTopupModal}>
+        <Button
+          data-webapp-action="open-device-topup"
+          variant="secondary"
+          class="wide"
+          onclick={openDeviceTopupModal}
+        >
           <Plus size={17} />
           {t("wa_buy_hwid_devices")}
         </Button>
@@ -173,6 +178,7 @@
           </div>
           {#if device.can_disconnect}
             <Button
+              data-webapp-action="open-device-disconnect"
               variant="outline"
               class="wide device-disconnect-button"
               onclick={() => openDeviceDisconnectDialog(device)}

@@ -14,20 +14,6 @@ import {
   UsersRound,
 } from "$components/ui/icons.js";
 
-import AdsSection from "./AdsSection.svelte";
-import AppearanceSection from "./AppearanceSection.svelte";
-import BackupsSection from "./BackupsSection.svelte";
-import BroadcastSection from "./BroadcastSection.svelte";
-import LogsSection from "./LogsSection.svelte";
-import PaymentsSection from "./PaymentsSection.svelte";
-import PromosSection from "./PromosSection.svelte";
-import SettingsSection from "./SettingsSection.svelte";
-import StatsSection from "./StatsSection.svelte";
-import SupportSection from "./SupportSection.svelte";
-import TariffsSection from "./TariffsSection.svelte";
-import TranslationsSection from "./TranslationsSection.svelte";
-import UsersSection from "./UsersSection.svelte";
-
 export interface AdminSectionDescriptor {
   id: string;
   group: string;
@@ -39,7 +25,8 @@ export interface AdminSectionDescriptor {
   subtitleI18nKey: string;
   fallbackSubtitle: string;
   icon: unknown;
-  component: unknown;
+  component?: unknown;
+  loadComponent?: () => Promise<unknown>;
   feature?: string;
 }
 
@@ -67,7 +54,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     subtitleI18nKey: "section_stats_subtitle",
     fallbackSubtitle: "Аудитория, доходы, панель Remnawave и последние платежи",
     icon: LayoutDashboard,
-    component: StatsSection,
+    loadComponent: () => import("./StatsSection.svelte").then((module) => module.default),
   },
   {
     id: "users",
@@ -80,7 +67,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     subtitleI18nKey: "section_users_subtitle",
     fallbackSubtitle: "Поиск, баны и действия над аккаунтами",
     icon: UsersRound,
-    component: UsersSection,
+    loadComponent: () => import("./UsersSection.svelte").then((module) => module.default),
   },
   {
     id: "payments",
@@ -93,7 +80,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     subtitleI18nKey: "section_payments_subtitle",
     fallbackSubtitle: "История транзакций и экспорт",
     icon: CreditCard,
-    component: PaymentsSection,
+    loadComponent: () => import("./PaymentsSection.svelte").then((module) => module.default),
   },
   {
     id: "promos",
@@ -106,7 +93,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     subtitleI18nKey: "section_promos_subtitle",
     fallbackSubtitle: "Создание и управление кодами",
     icon: Tag,
-    component: PromosSection,
+    loadComponent: () => import("./PromosSection.svelte").then((module) => module.default),
   },
   {
     id: "ads",
@@ -119,7 +106,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     subtitleI18nKey: "section_ads_subtitle",
     fallbackSubtitle: "UTM-источники и атрибуция",
     icon: Sparkles,
-    component: AdsSection,
+    loadComponent: () => import("./AdsSection.svelte").then((module) => module.default),
   },
   {
     id: "broadcast",
@@ -132,7 +119,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     subtitleI18nKey: "section_broadcast_subtitle",
     fallbackSubtitle: "Массовая отправка сообщений в Telegram",
     icon: Megaphone,
-    component: BroadcastSection,
+    loadComponent: () => import("./BroadcastSection.svelte").then((module) => module.default),
   },
   {
     id: "logs",
@@ -145,7 +132,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     subtitleI18nKey: "section_logs_subtitle",
     fallbackSubtitle: "События пользователей и админ-действия",
     icon: FileText,
-    component: LogsSection,
+    loadComponent: () => import("./LogsSection.svelte").then((module) => module.default),
   },
   {
     id: "support",
@@ -158,7 +145,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     subtitleI18nKey: "section_support_subtitle",
     fallbackSubtitle: "Инбокс тикетов и ответы пользователям",
     icon: LifeBuoy,
-    component: SupportSection,
+    loadComponent: () => import("./SupportSection.svelte").then((module) => module.default),
   },
   {
     id: "tariffs",
@@ -171,7 +158,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     subtitleI18nKey: "section_tariffs_subtitle",
     fallbackSubtitle: "Каталог продаж, периоды, пакеты и лимиты",
     icon: Coins,
-    component: TariffsSection,
+    loadComponent: () => import("./TariffsSection.svelte").then((module) => module.default),
   },
   {
     id: "appearance",
@@ -184,7 +171,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     subtitleI18nKey: "section_appearance_subtitle",
     fallbackSubtitle: "Логотип, темы и акцентные цвета Mini App",
     icon: Paintbrush,
-    component: AppearanceSection,
+    loadComponent: () => import("./AppearanceSection.svelte").then((module) => module.default),
   },
   {
     id: "translations",
@@ -197,7 +184,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     subtitleI18nKey: "section_translations_subtitle",
     fallbackSubtitle: "Оверрайды строк локализации из базы данных и data/locales-overrides.json",
     icon: Languages,
-    component: TranslationsSection,
+    loadComponent: () => import("./TranslationsSection.svelte").then((module) => module.default),
   },
   {
     id: "backups",
@@ -210,7 +197,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     subtitleI18nKey: "section_backups_subtitle",
     fallbackSubtitle: "Архивы, загрузка и восстановление БД/compose",
     icon: Database,
-    component: BackupsSection,
+    loadComponent: () => import("./BackupsSection.svelte").then((module) => module.default),
   },
   {
     id: "settings",
@@ -223,7 +210,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     subtitleI18nKey: "section_settings_subtitle",
     fallbackSubtitle: "Оверрайды над .env, применяются мгновенно",
     icon: Sliders,
-    component: SettingsSection,
+    loadComponent: () => import("./SettingsSection.svelte").then((module) => module.default),
   },
 ];
 
@@ -241,5 +228,5 @@ function extensionSections(): AdminSectionDescriptor[] {
 }
 
 export const ADMIN_SECTIONS = [...CORE_ADMIN_SECTIONS, ...extensionSections()]
-  .filter((section) => section?.id && section?.component)
+  .filter((section) => section?.id && (section?.component || section?.loadComponent))
   .sort((a, b) => a.group.localeCompare(b.group) || a.order - b.order || a.id.localeCompare(b.id));

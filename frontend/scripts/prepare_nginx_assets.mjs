@@ -77,6 +77,12 @@ async function copyRuntimeAsset({ hashedName, stableName }) {
   if (gzipCopied && hashedName !== stableName) {
     await linkOrCopy(gzipName, `${stableName}.gz`);
   }
+
+  const brotliName = `${hashedName}.br`;
+  const brotliCopied = await copyIfExists(brotliName);
+  if (brotliCopied && hashedName !== stableName) {
+    await linkOrCopy(brotliName, `${stableName}.br`);
+  }
 }
 
 function prepareIndexHtml(rawHtml, { cssName, jsName }) {
@@ -88,9 +94,7 @@ function prepareIndexHtml(rawHtml, { cssName, jsName }) {
   const lines = html.split("\n");
   const output = lines
     .map((line) =>
-      line.includes("WEBAPP_JS_SCRIPT")
-        ? `    <script src="/${jsName}" type="module"></script>`
-        : line
+      line.includes("WEBAPP_JS_SCRIPT") ? `    <script src="/${jsName}" defer></script>` : line
     )
     .filter(
       (line) =>
@@ -102,6 +106,24 @@ function prepareIndexHtml(rawHtml, { cssName, jsName }) {
     )
     .join("\n");
   return output.endsWith("\n") ? output : `${output}\n`;
+}
+
+function isAdminChunkName(name) {
+  return (
+    /^subscription_webapp_admin\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.js$/.test(name) &&
+    name !== "subscription_webapp_admin.js" &&
+    !name.startsWith("subscription_webapp_admin.min.")
+  );
+}
+
+async function copyAdminChunkAssets(entries) {
+  const chunkNames = entries.filter(isAdminChunkName).sort();
+  await Promise.all(
+    chunkNames.map((chunkName) =>
+      copyRuntimeAsset({ hashedName: chunkName, stableName: chunkName })
+    )
+  );
+  return chunkNames;
 }
 
 async function main() {
@@ -136,6 +158,7 @@ async function main() {
     copyRuntimeAsset({ hashedName: adminJsName, stableName: "subscription_webapp_admin.js" }),
     copyRuntimeAsset({ hashedName: adminCssName, stableName: "subscription_webapp_admin.css" }),
   ]);
+  const adminChunkNames = await copyAdminChunkAssets(entries);
 
   const indexTemplate = await readFile(path.join(templatesDir, "subscription_webapp.html"), "utf8");
   await writeFile(
@@ -145,7 +168,7 @@ async function main() {
   );
 
   console.log(
-    `Prepared nginx assets in ${path.relative(repoRoot, outDir)}: ${mainJsName}, ${mainCssName}, ${adminJsName}, ${adminCssName}`
+    `Prepared nginx assets in ${path.relative(repoRoot, outDir)}: ${mainJsName}, ${mainCssName}, ${adminJsName}, ${adminCssName}, ${adminChunkNames.length} admin chunks`
   );
 }
 

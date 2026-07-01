@@ -4,8 +4,10 @@
 
   type InputProps = Omit<
     HTMLInputAttributes,
+    | "id"
     | "value"
     | "type"
+    | "name"
     | "placeholder"
     | "inputmode"
     | "maxlength"
@@ -17,8 +19,10 @@
     | "onfocus"
     | "onblur"
   > & {
+    id?: string;
     value?: string | number;
     type?: HTMLInputAttributes["type"];
+    name?: string;
     placeholder?: string;
     inputmode?: string | null | undefined;
     maxlength?: HTMLInputAttributes["maxlength"];
@@ -36,8 +40,10 @@
   type FocusEventWithTarget = FocusEvent & { currentTarget: EventTarget & HTMLInputElement };
 
   let {
+    id = "",
     value = $bindable(""),
     type = "text",
+    name = undefined,
     placeholder = "",
     inputmode = undefined,
     maxlength = undefined,
@@ -51,6 +57,8 @@
     ...rest
   }: InputProps = $props();
 
+  const fallbackId = `ui-input-${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
+  const inputId = $derived(id || fallbackId);
   const inputmodeAttr = $derived(inputmode as HTMLInputAttributes["inputmode"]);
 
   function forwardKeydown(event: KeyboardEventWithTarget) {
@@ -71,6 +79,7 @@
 </script>
 
 <input
+  id={inputId}
   bind:value
   class={cn("input", className)}
   onkeydown={forwardKeydown}
@@ -78,6 +87,7 @@
   onfocus={forwardFocus}
   onblur={forwardBlur}
   {type}
+  {name}
   {placeholder}
   inputmode={inputmodeAttr}
   {maxlength}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getTariffsStore, getUsersStore } from "$lib/admin/context";
   import { Separator, Tabs } from "$components/ui/primitives.js";
   import Dialog from "$components/ui/dialog.svelte";
   import UserActionsTab from "./user-detail/UserActionsTab.svelte";
@@ -6,11 +7,10 @@
   import UserLogsTab from "./user-detail/UserLogsTab.svelte";
   import { AdminBadge, AdminButton, AdminTrafficCard } from "$components/patterns/admin/index.js";
   import { Copy, ExternalLink, UsersRound } from "$components/ui/icons.js";
-  import { getContext } from "svelte";
   import { TableHandler } from "@vincjo/datatables";
 
-  import type { Tariff, TariffsStore } from "$lib/admin/stores/tariffsStore";
-  import type { AdminUser, UsersStore } from "$lib/admin/stores/usersStore";
+  import type { Tariff } from "$lib/admin/stores/tariffsStore";
+  import type { AdminUser } from "$lib/admin/stores/usersStore";
   import "./UserDetailModal.css";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -22,8 +22,8 @@
   type HwidDraftState = { key: string; valid: boolean };
   type UserLogRow = Record<string, unknown> & { log_id?: number | string };
 
-  const usersStore = getContext<UsersStore>("usersStore");
-  const tariffsStore = getContext<TariffsStore>("tariffsStore");
+  const usersStore = getUsersStore();
+  const tariffsStore = getTariffsStore();
   const userLogsTable = new TableHandler<UserLogRow>();
   const userReferralsTable = new TableHandler<AdminUser>();
 
@@ -543,6 +543,7 @@
               <span>{at("user_label_invited_users", {}, "Приглашённые")}</span>
               <strong>{referralInviteesTotal}</strong>
               <AdminButton
+                data-admin-action="open-user-referrals"
                 size="sm"
                 variant="ghost"
                 disabled={referralInviteesTotal <= 0}

@@ -1,6 +1,5 @@
 import html
 import logging
-from collections.abc import Sized
 from datetime import datetime
 from typing import Any, Optional, Union
 
@@ -36,6 +35,42 @@ from .core_common import (
     _shorten_hwid_for_display,
     router,
 )
+
+
+def _devices_list_from_panel_response(devices: Any) -> list[dict[str, Any]]:
+    if isinstance(devices, dict):
+        response = devices.get("response")
+        if isinstance(response, dict):
+            raw_devices = response.get("devices")
+        elif isinstance(response, list):
+            raw_devices = response
+        else:
+            raw_devices = devices.get("devices")
+            if raw_devices is None:
+                raw_devices = devices.get("data")
+    else:
+        raw_devices = devices
+
+    if not isinstance(raw_devices, list):
+        return []
+    return [device for device in raw_devices if isinstance(device, dict)]
+
+
+def _devices_count_from_panel_response(devices: Any) -> Optional[int]:
+    if devices is None:
+        return None
+    if isinstance(devices, dict):
+        response = devices.get("response")
+        response_dict = response if isinstance(response, dict) else devices
+        total_value = response_dict.get("total")
+        if isinstance(total_value, int):
+            return total_value
+        devices_value = response_dict.get("devices")
+        if isinstance(devices_value, int):
+            return devices_value
+        if isinstance(devices_value, list):
+            return len(devices_value)
+    return len(_devices_list_from_panel_response(devices))
 
 
 async def my_subscription_command_handler(
@@ -304,22 +339,8 @@ async def my_subscription_command_handler(
                     devices_response = await panel_service.get_user_devices(user_uuid)
                 except Exception:
                     logging.exception("Failed to load devices for user %s", user_uuid)
-            if devices_response:
-                devices_count: Optional[int] = None
-                if isinstance(devices_response, dict):
-                    devices_list = devices_response.get("devices")
-                    if isinstance(devices_list, list):
-                        devices_count = len(devices_list)
-                    elif isinstance(devices_list, int):
-                        devices_count = devices_list
-                    elif isinstance(devices_list, Sized):
-                        devices_count = len(devices_list)
-                    if devices_count is None:
-                        total_value = devices_response.get("total")
-                        if isinstance(total_value, int):
-                            devices_count = total_value
-                elif isinstance(devices_response, list):
-                    devices_count = len(devices_response)
+            if devices_response is not None:
+                devices_count = _devices_count_from_panel_response(devices_response)
                 if devices_count is not None:
                     current_devices_display = str(devices_count)
             devices_button_text = get_text(
@@ -492,7 +513,7 @@ async def my_devices_command_handler(
         return
 
     devices = await panel_service.get_user_devices(active.get("user_id")) if active else None
-    if not devices:
+    if devices is None:
         if isinstance(event, types.CallbackQuery):
             try:
                 await event.answer(get_text("no_devices_found"), show_alert=True)
@@ -502,11 +523,7 @@ async def my_devices_command_handler(
             await target.answer(get_text("no_devices_found"))
         return
 
-    devices_list_raw: list[Any] = []
-    if isinstance(devices, dict):
-        devices_list_raw = devices.get("devices") or []
-    elif isinstance(devices, list):
-        devices_list_raw = devices
+    devices_list_raw = _devices_list_from_panel_response(devices)
 
     max_devices_value = active.get("max_devices")
     max_devices_display = get_text("devices_unlimited_label")

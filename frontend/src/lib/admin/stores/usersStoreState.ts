@@ -110,6 +110,7 @@ export type UsersStoreOptions = {
   onToast: ToastFn;
   at: TranslateFn;
   routePrefix?: string;
+  queryClient?: import("./adminQueryCache").AdminQueryClient | null;
 };
 
 export function createInitialUsersState(): AdminStoreState {

@@ -36,12 +36,24 @@ def _tariffs_config_payload() -> dict:
 class _FormatI18n:
     def gettext(self, _lang, key, **kwargs):
         templates = {
-            "traffic_reset_regular_notification": "regular reset {available} {used} {limit_total}",
-            "traffic_reset_premium_notification": (
-                "premium reset {available} {used} {limit_total}\n{servers}"
+            "traffic_reset_regular_notification": "regular reset {limit_total}",
+            "traffic_reset_premium_notification": ("premium reset {limit_total}\n{servers}"),
+            "traffic_warning_regular_almost": "regular almost {left_pct} {limit_total}",
+            "traffic_warning_regular_depleted": "regular depleted {limit_total}",
+            "traffic_warning_premium_almost": (
+                "premium almost {left_pct} {limit_total}\n{servers}"
             ),
+            "traffic_warning_premium_depleted": "premium depleted {limit_total}\n{servers}",
             "traffic_warning_premium_generic_servers": "premium servers",
             "traffic_warning_premium_servers_more": "and {count} more",
+            "traffic_warning_regular_next_reset_note": (
+                "regular next {reset_date} {reset_available}"
+            ),
+            "traffic_warning_premium_next_reset_note": (
+                "premium next {reset_date} {reset_available}"
+            ),
+            "traffic_warn_btn_topup_webapp_regular": "Top up traffic",
+            "traffic_warn_btn_topup_webapp_premium": "Top up premium traffic",
         }
         return templates.get(key, key).format(**kwargs)
 
@@ -108,6 +120,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         worker._user_lang = AsyncMock(return_value="en")
         session = AsyncMock()
         current_period = datetime(2026, 6, 1, tzinfo=timezone.utc)
+        previous_period = datetime(2026, 5, 1, tzinfo=timezone.utc)
         sub = SimpleNamespace(subscription_id=10, user_id=123, traffic_used_bytes=1)
 
         with (
@@ -135,6 +148,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 used=1,
                 limit=100,
                 period_start_at=current_period,
+                previous_period_start=previous_period,
             )
 
         create_warning.assert_awaited_once()
@@ -145,7 +159,8 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         bot.send_message.assert_awaited_once()
         sent_text = bot.send_message.await_args.args[1]
         self.assertIn("regular reset", sent_text)
-        self.assertIn("99 B", sent_text)
+        self.assertIn("100 B", sent_text)
+        self.assertNotIn("99 B", sent_text)
 
     async def test_regular_reset_notice_skips_when_current_period_already_near_limit(self):
         bot = AsyncMock()
@@ -174,10 +189,98 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 used=85,
                 limit=100,
                 period_start_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+                previous_period_start=datetime(2026, 5, 1, tzinfo=timezone.utc),
             )
 
         has_warning.assert_not_awaited()
         bot.send_message.assert_not_awaited()
+
+    async def test_regular_reset_notice_skips_same_period_limit_increase(self):
+        bot = AsyncMock()
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(
+                DEFAULT_LANGUAGE="en",
+                email_auth_configured=False,
+                tariff_traffic_warning_levels=[85],
+            ),
+            session_factory=SimpleNamespace(),
+            panel_service=SimpleNamespace(),
+            subscription_service=SimpleNamespace(),
+            bot=bot,
+            i18n=_FormatI18n(),
+        )
+        session = AsyncMock()
+
+        with patch(
+            "bot.services.tariff_worker_regular.tariff_dal.has_warning_level_between",
+            new=AsyncMock(),
+        ) as has_warning:
+            await worker._maybe_send_regular_reset_notice(
+                session,
+                SimpleNamespace(subscription_id=10, user_id=123),
+                _PeriodTariff(),
+                used=int(817.2 * (1024**3)),
+                limit=1000 * (1024**3),
+                period_start_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+                previous_period_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            )
+
+        has_warning.assert_not_awaited()
+        bot.send_message.assert_not_awaited()
+
+    async def test_regular_warning_mentions_next_reset_and_regular_limit(self):
+        bot = AsyncMock()
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(
+                DEFAULT_LANGUAGE="ru",
+                SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
+                email_auth_configured=False,
+                tariff_traffic_warning_levels=[85],
+            ),
+            session_factory=SimpleNamespace(),
+            panel_service=SimpleNamespace(),
+            subscription_service=SimpleNamespace(),
+            bot=bot,
+            i18n=_FormatI18n(),
+        )
+        worker._user_lang = AsyncMock(return_value="ru")
+        worker._send_traffic_warning_email = AsyncMock()
+        sub = SimpleNamespace(
+            subscription_id=12,
+            user_id=123,
+            traffic_used_bytes=90,
+            traffic_limit_bytes=200,
+            is_throttled=False,
+        )
+
+        with (
+            patch(
+                "bot.services.tariff_worker_regular.tariff_dal.get_warning",
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.services.tariff_worker_regular.tariff_dal.create_warning",
+                new=AsyncMock(),
+            ),
+            patch(
+                "bot.services.tariff_worker_regular.log_user_message_delivery",
+                new=AsyncMock(),
+            ),
+        ):
+            await worker._maybe_warn_or_throttle(
+                AsyncMock(),
+                sub,
+                _PeriodTariff(),
+                used=180,
+                limit=200,
+                warning_period_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            )
+
+        bot.send_message.assert_awaited_once()
+        sent_text = bot.send_message.await_args.args[1]
+        self.assertIn("regular next 01.07.2026 200 B", sent_text)
+        email_text = worker._send_traffic_warning_email.await_args.kwargs["message_text"]
+        self.assertIn("regular next 01.07.2026 200 B", email_text)
 
     async def test_premium_reset_notice_waits_for_restored_panel_access(self):
         settings = SimpleNamespace(
@@ -260,6 +363,65 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("premium reset", sent_text)
         self.assertIn("Premium A", sent_text)
 
+    async def test_premium_warning_mentions_next_reset_and_premium_limit(self):
+        bot = AsyncMock()
+        subscription_service = SimpleNamespace(
+            premium_access_for_tariff=AsyncMock(
+                return_value={"node_labels": ["Premium A"], "squad_labels": []}
+            )
+        )
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(
+                DEFAULT_LANGUAGE="en",
+                SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
+                email_auth_configured=False,
+                tariff_traffic_warning_levels=[85],
+            ),
+            session_factory=SimpleNamespace(),
+            panel_service=SimpleNamespace(),
+            subscription_service=subscription_service,
+            bot=bot,
+            i18n=_FormatI18n(),
+        )
+        worker._user_lang = AsyncMock(return_value="en")
+        worker._send_traffic_warning_email = AsyncMock()
+        sub = SimpleNamespace(
+            subscription_id=13,
+            user_id=123,
+            premium_baseline_bytes=200,
+            premium_topup_balance_bytes=80,
+            premium_bonus_bytes=0,
+        )
+
+        with (
+            patch(
+                "bot.services.tariff_worker_premium.tariff_dal.get_warning",
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.services.tariff_worker_premium.tariff_dal.create_warning",
+                new=AsyncMock(),
+            ),
+            patch(
+                "bot.services.tariff_worker_premium.log_user_message_delivery",
+                new=AsyncMock(),
+            ),
+        ):
+            await worker._maybe_warn_premium_squad_limit(
+                AsyncMock(),
+                sub,
+                _PremiumTariff(),
+                used=270,
+                limit=300,
+                period_start_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            )
+
+        bot.send_message.assert_awaited_once()
+        sent_text = bot.send_message.await_args.args[1]
+        self.assertIn("premium next 2026-07-01 280 B", sent_text)
+        email_text = worker._send_traffic_warning_email.await_args.kwargs["message_text"]
+        self.assertIn("premium next 2026-07-01 280 B", email_text)
+
     async def test_db_tick_retries_deadlock_once(self):
         class FakeSession:
             def __init__(self):
@@ -317,7 +479,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(TariffTrafficWorker._is_retryable_db_exception(WrappedDbError(PgError())))
         self.assertFalse(TariffTrafficWorker._is_retryable_db_exception(RuntimeError("plain")))
 
-    async def test_period_tariff_uses_panel_month_strategy_without_resetting(self):
+    async def test_period_tariff_uses_configured_strategy_without_resetting(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "tariffs.json"
             config_path.write_text(json.dumps(_tariffs_config_payload()), encoding="utf-8")
@@ -328,6 +490,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 POSTGRES_USER="app_user",
                 POSTGRES_PASSWORD="app_password",
                 TARIFFS_CONFIG_PATH=str(config_path),
+                USER_TRAFFIC_STRATEGY="NO_RESET",
             )
             panel_service = AsyncMock(spec=PanelApiService)
             panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
@@ -354,13 +517,13 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             tariff = settings.tariffs_config.require("standard")
 
             await worker._ensure_period_reset_strategy(
-                sub, tariff, sub.traffic_limit_bytes, "NO_RESET"
+                sub, tariff, sub.traffic_limit_bytes, "MONTH"
             )
 
             panel_service.update_user_details_on_panel.assert_awaited_once()
             panel_service.reset_user_traffic.assert_not_awaited()
             update_payload = panel_service.update_user_details_on_panel.await_args.args[1]
-            self.assertEqual(update_payload["trafficLimitStrategy"], "MONTH")
+            self.assertEqual(update_payload["trafficLimitStrategy"], "NO_RESET")
             self.assertEqual(update_payload["trafficLimitBytes"], sub.traffic_limit_bytes)
             self.assertNotIn("status", update_payload)
 
@@ -641,6 +804,79 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(sub.premium_topup_balance_bytes, int(1.5 * (1024**3)))
             self.assertEqual(sub.premium_topup_used_bytes, 0)
             self.assertEqual(sub.premium_period_start_at, datetime(2026, 6, 1, tzinfo=timezone.utc))
+
+    async def test_premium_no_reset_keeps_period_usage_after_month_boundary(self):
+        payload = _tariffs_config_payload()
+        payload["tariffs"][0]["premium_squad_uuids"] = ["premium-squad"]
+        payload["tariffs"][0]["premium_monthly_gb"] = 1
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "tariffs.json"
+            config_path.write_text(json.dumps(payload), encoding="utf-8")
+
+            settings = Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                TARIFFS_CONFIG_PATH=str(config_path),
+                TARIFF_TRAFFIC_WARNING_LEVELS="101",
+                USER_TRAFFIC_STRATEGY="NO_RESET",
+            )
+            panel_service = AsyncMock(spec=PanelApiService)
+            panel_service.get_internal_squad_accessible_nodes = AsyncMock(
+                return_value=[{"uuid": "node-1"}]
+            )
+            panel_service.get_node_users_bandwidth_stats = AsyncMock(
+                return_value={
+                    "topUsers": [
+                        {
+                            "username": "tg_123",
+                            "total": 2 * (1024**3),
+                        }
+                    ]
+                }
+            )
+            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            subscription_service = SubscriptionService(settings, panel_service)
+            worker = TariffTrafficWorker(
+                settings=settings,
+                session_factory=SimpleNamespace(),
+                panel_service=panel_service,
+                subscription_service=subscription_service,
+            )
+            sub = SimpleNamespace(
+                subscription_id=1,
+                user_id=123,
+                panel_user_uuid="panel-uuid",
+                start_date=datetime(2026, 5, 15, 12, tzinfo=timezone.utc),
+                premium_baseline_bytes=1 * (1024**3),
+                premium_topup_balance_bytes=2 * (1024**3),
+                premium_topup_used_bytes=int(0.25 * (1024**3)),
+                premium_used_bytes=1 * (1024**3),
+                premium_is_limited=False,
+                premium_period_start_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+                premium_unlimited_override=False,
+                premium_bonus_bytes=0,
+            )
+            tariff = settings.tariffs_config.require("standard")
+
+            await worker._sync_premium_squad_limit(
+                AsyncMock(),
+                sub,
+                tariff,
+                datetime(2026, 7, 2, tzinfo=timezone.utc),
+                panel_username="tg_123",
+            )
+
+            stats_call = panel_service.get_node_users_bandwidth_stats.await_args
+            self.assertEqual(stats_call.args[0], "node-1")
+            self.assertEqual(stats_call.kwargs["start"], "2026-05-15")
+            self.assertEqual(stats_call.kwargs["end"], "2026-07-02")
+            self.assertEqual(sub.premium_period_start_at, sub.start_date)
+            self.assertEqual(sub.premium_topup_balance_bytes, int(1.25 * (1024**3)))
+            self.assertEqual(sub.premium_topup_used_bytes, 1 * (1024**3))
+            self.assertFalse(sub.premium_is_limited)
+            panel_service.update_user_details_on_panel.assert_not_awaited()
 
     async def test_premium_topup_ledger_repairs_missing_balance_before_limiting(self):
         payload = _tariffs_config_payload()

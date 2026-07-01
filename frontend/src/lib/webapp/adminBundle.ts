@@ -123,7 +123,8 @@ export function createAdminBundle({
       await appendScriptWithFallback(
         "subscription-webapp-admin-js",
         jsSrc,
-        "subscription_webapp_admin.js"
+        "subscription_webapp_admin.js",
+        { type: "module" }
       );
       const loaded = readBundleApi();
       if (!loaded) throw new Error("admin_bundle_missing_mount");

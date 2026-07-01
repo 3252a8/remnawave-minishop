@@ -20,6 +20,7 @@
 - [Справочник `.env`](../configuration/env-vars.md) — все ключи платежных провайдеров.
 - [Админ-панель](admin-panel.md) — UI-настройки платежей.
 - [Тарифы](tariffs.md) — цены, Telegram Stars и сценарии покупки.
+- [Промокоды](promocodes.md) — скидки, множители и checkout-активация.
 - [Логи](../troubleshooting/logs.md) — проверка webhook и создания платежных ссылок.
 
 ## Webhook URL провайдеров

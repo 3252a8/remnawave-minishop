@@ -68,6 +68,8 @@ def test_open_app_route_uses_fallback_screen_without_auth_flow():
     screen_source = _read("frontend/src/webapp/screens/AppLaunchScreen.svelte")
 
     assert "loadBootstrap().finally" in main_source
+    assert "BOOTSTRAP_TIMEOUT_MS" in main_source
+    assert "controller.abort()" in main_source
     assert "AppModeContent" in app_source
     assert "AppLaunchScreen" in app_mode_source
     assert 'mode: isAppLaunchRoute ? "appLaunch"' in app_source

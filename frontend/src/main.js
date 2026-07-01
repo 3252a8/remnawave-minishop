@@ -4,6 +4,7 @@ import App from "./App.svelte";
 import "./styles.css";
 
 const PUBLIC_INSTALL_PRELOAD_KEY = "__RW_PUBLIC_INSTALL_PRELOAD__";
+const BOOTSTRAP_TIMEOUT_MS = 4000;
 
 function publicInstallTokenFromPath(pathname = window.location.pathname) {
   const match = String(pathname || "").match(/^\/s\/([a-f0-9]{32})\/?$/i);
@@ -27,10 +28,17 @@ function startPublicInstallPreload() {
 
 async function loadBootstrap() {
   if (document.getElementById("webapp-config")) return;
+  const controller = typeof AbortController === "undefined" ? null : new AbortController();
+  const timeoutId = controller
+    ? window.setTimeout(() => {
+        controller.abort();
+      }, BOOTSTRAP_TIMEOUT_MS)
+    : 0;
   try {
     const response = await fetch("/api/bootstrap?i18n_scope=webapp", {
       credentials: "include",
       headers: { Accept: "application/json" },
+      signal: controller?.signal,
     });
     if (!response.ok) return;
     const payload = await response.json();
@@ -46,6 +54,8 @@ async function loadBootstrap() {
     }
   } catch (_error) {
     void _error;
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
   }
 }
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getUsersStore } from "$lib/admin/context";
   import { Tabs } from "$components/ui/primitives.js";
   import { ScrollArea } from "$components/ui/index.js";
   import {
@@ -10,8 +11,7 @@
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
   import { RefreshCw } from "$components/ui/icons.js";
-  import { getContext } from "svelte";
-  import type { AdminUser, UsersStore } from "$lib/admin/stores/usersStore";
+  import type { AdminUser } from "$lib/admin/stores/usersStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type DateFormatter = (value: unknown) => string;
@@ -42,7 +42,7 @@
     userLogsLoaded = false,
   }: Props = $props();
 
-  const usersStore = getContext<UsersStore>("usersStore");
+  const usersStore = getUsersStore();
 </script>
 
 <Tabs.Content value="logs" class="admin-tabs-content admin-user-logs-tab">

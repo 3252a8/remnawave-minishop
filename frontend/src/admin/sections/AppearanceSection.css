@@ -184,6 +184,37 @@
   opacity: 0.58;
 }
 
+.theme-card-select-hitbox {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.theme-card-select-hitbox:disabled {
+  cursor: default;
+}
+
+.theme-card-select-hitbox:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  outline-offset: 2px;
+}
+
+.default-theme-actions,
+.appearance-preset-row,
+.default-theme-grid,
+.default-theme-token-grid,
+.admin-theme-card-option,
+.appearance-theme-actions,
+.admin-theme-card-check {
+  position: relative;
+  z-index: 2;
+}
+
 .default-theme-head {
   display: flex;
   align-items: flex-start;

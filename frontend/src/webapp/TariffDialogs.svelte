@@ -21,8 +21,15 @@
     EmptyCard,
     PaymentMethodGrid,
   } from "$components/patterns/webapp/index.js";
+  import CheckoutPromoRow from "./CheckoutPromoRow.svelte";
 
   type AnyRecord = Record<string, any>;
+  type DeviceTopupPlan = {
+    device_count?: number | string | null;
+    months?: number | string | null;
+    subtitle?: string | null;
+    valid_until_text?: string | null;
+  };
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type VoidAction = () => void;
 
@@ -35,6 +42,17 @@
     closeTariffChangeConfirm = () => {},
     closeTariffChangeModal = () => {},
     closeTopupModal = () => {},
+    checkoutPromoAppliedCode = "",
+    checkoutPromoInput = $bindable(""),
+    checkoutPromoIsError = false,
+    checkoutPromoPriceText = "",
+    checkoutPromoStatus = "",
+    checkoutPromoDiscountPercent = 0,
+    checkoutPromoAppliesTo = "all",
+    checkoutPromoMinSubscriptionMonths = null,
+    checkoutPromoMinTrafficGb = null,
+    applyCheckoutPromo = () => {},
+    clearCheckoutPromo = () => {},
     createDeviceTopupPayment = () => {},
     createTopupPayment = () => {},
     deviceTopupModalOpen = $bindable(false),
@@ -64,6 +82,17 @@
     closeTariffChangeConfirm?: VoidAction;
     closeTariffChangeModal?: VoidAction;
     closeTopupModal?: VoidAction;
+    checkoutPromoAppliedCode?: string;
+    checkoutPromoInput?: string;
+    checkoutPromoIsError?: boolean;
+    checkoutPromoPriceText?: string;
+    checkoutPromoStatus?: string;
+    checkoutPromoDiscountPercent?: number;
+    checkoutPromoAppliesTo?: string;
+    checkoutPromoMinSubscriptionMonths?: number | null;
+    checkoutPromoMinTrafficGb?: number | null;
+    applyCheckoutPromo?: VoidAction;
+    clearCheckoutPromo?: VoidAction;
     createDeviceTopupPayment?: VoidAction;
     createTopupPayment?: VoidAction;
     deviceTopupModalOpen?: boolean;
@@ -88,6 +117,74 @@
 
   function priceLabel(plan: AnyRecord | null) {
     return priceLabelFn(plan, selectedMethod);
+  }
+  function checkoutPlanPriceLabel(plan: AnyRecord | null) {
+    const promoPrice = checkoutPromoPriceParts(plan);
+    if (promoPrice) return promoPrice.discounted;
+    if (checkoutPromoAppliedCode && checkoutPromoPriceText) return checkoutPromoPriceText;
+    return priceLabel(plan);
+  }
+  function checkoutPromoDiscount() {
+    const value = Number(checkoutPromoDiscountPercent || 0);
+    if (!checkoutPromoAppliedCode || !Number.isFinite(value) || value <= 0) return 0;
+    return Math.min(100, value);
+  }
+  function planSaleModeBase(plan: AnyRecord | null) {
+    const fallback =
+      Number(plan?.device_count || 0) > 0
+        ? "hwid_devices"
+        : Number(plan?.traffic_gb || 0) > 0
+          ? "traffic_topup"
+          : "subscription";
+    const saleMode = String(plan?.sale_mode || fallback).toLowerCase();
+    if (["traffic", "traffic_package"].includes(saleMode)) return "traffic";
+    if (["topup", "premium_topup"].includes(saleMode)) return "traffic_topup";
+    if (["hwid_device", "hwid_devices", "hwid_devices_renewal"].includes(saleMode)) return "hwid";
+    return "subscription";
+  }
+  function checkoutPromoScopeMatches(plan: AnyRecord | null) {
+    const scope = String(checkoutPromoAppliesTo || "all").toLowerCase();
+    const base = planSaleModeBase(plan);
+    return scope === "all" || scope === base;
+  }
+  function checkoutPromoThresholdMatches(plan: AnyRecord | null) {
+    const base = planSaleModeBase(plan);
+    const minMonths = Number(checkoutPromoMinSubscriptionMonths || 0);
+    const minTrafficGb = Number(checkoutPromoMinTrafficGb || 0);
+    if (base === "subscription" && minMonths > 0) {
+      return Number(plan?.months || 0) >= minMonths;
+    }
+    if ((base === "traffic" || base === "traffic_topup") && minTrafficGb > 0) {
+      return Number(plan?.traffic_gb || plan?.months || 0) >= minTrafficGb;
+    }
+    return true;
+  }
+  function checkoutPromoAffectsPlan(plan: AnyRecord | null) {
+    return (
+      checkoutPromoDiscount() > 0 &&
+      checkoutPromoScopeMatches(plan) &&
+      checkoutPromoThresholdMatches(plan)
+    );
+  }
+  function discountedCheckoutPlan(plan: AnyRecord | null) {
+    const discount = checkoutPromoDiscount();
+    if (!plan || discount <= 0) return plan;
+    const multiplier = Math.max(0, 1 - discount / 100);
+    const next: AnyRecord = { ...plan };
+    if (Number(plan.price || 0) > 0) {
+      next.price = Math.round(Number(plan.price || 0) * multiplier * 100) / 100;
+    }
+    if (Number(plan.stars_price || 0) > 0) {
+      next.stars_price = Math.max(1, Math.round(Number(plan.stars_price || 0) * multiplier));
+    }
+    return next;
+  }
+  function checkoutPromoPriceParts(plan: AnyRecord | null) {
+    if (!checkoutPromoAffectsPlan(plan)) return null;
+    return {
+      base: priceLabel(plan),
+      discounted: priceLabel(discountedCheckoutPlan(plan)),
+    };
   }
   function planKey(plan: AnyRecord | null) {
     return planKeyFn(plan);
@@ -154,7 +251,7 @@
       });
     }
     if (mode === "buy_period") {
-      return `${action?.title || ""} · ${priceLabel(action)}`;
+      return `${action?.title || ""} - ${priceLabel(action)}`;
     }
     return action?.title || mode;
   }
@@ -189,7 +286,7 @@
       t(
         "wa_topup_carryover",
         {},
-        "Докупленный трафик не сгорает: сначала расходуется месячный лимит, затем докупленный остаток."
+        "Purchased traffic does not expire: monthly allowance is spent first, then the purchased balance."
       ),
     ];
   }
@@ -201,13 +298,13 @@
       : "";
   }
 
-  function deviceTopupPlanTitle(plan: AnyRecord) {
+  function deviceTopupPlanTitle(plan: DeviceTopupPlan) {
     return t("wa_hwid_devices_package", {
       count: Number(plan?.device_count || plan?.months || 0),
     });
   }
 
-  function deviceTopupPlanHint(plan: AnyRecord) {
+  function deviceTopupPlanHint(plan: DeviceTopupPlan) {
     if (plan?.valid_until_text) {
       return t("wa_hwid_devices_active_until", { date: plan.valid_until_text });
     }
@@ -244,6 +341,10 @@
       return premiumTitleFn({ ...subscription, ...(topupOptions || {}) }, t);
     return t("wa_topup_traffic");
   }
+
+  function checkoutPromoBlock(plan: unknown | null) {
+    return Boolean(plan || checkoutPromoAppliedCode || checkoutPromoStatus);
+  }
 </script>
 
 <Dialog
@@ -252,7 +353,7 @@
   description={tariffChangeModalDescription()}
   closeLabel={t("wa_close")}
   onclose={closeTariffChangeModal}
-  class="payment-dialog-card"
+  class="payment-dialog-card webapp-tariff-change-dialog"
 >
   <div class="payment-dialog-body">
     {#if !changeOptions}
@@ -356,7 +457,7 @@
   description={t("wa_tariff_change_confirm_desc")}
   closeLabel={t("wa_close")}
   onclose={closeTariffChangeConfirm}
-  class="payment-dialog-card"
+  class="payment-dialog-card webapp-tariff-change-confirm-dialog"
 >
   <div class="payment-dialog-body">
     <Card class="confirm-summary-card">
@@ -393,7 +494,7 @@
   description={topupModalDescription()}
   closeLabel={t("wa_close")}
   onclose={closeTopupModal}
-  class="payment-dialog-card"
+  class="payment-dialog-card webapp-topup-dialog"
 >
   <div class="payment-dialog-body">
     {#if !topupOptions}
@@ -401,6 +502,7 @@
     {:else if topupOptions?.plans?.length}
       <div class="option-list">
         {#each topupOptions.plans as plan}
+          {@const promoPrice = checkoutPromoPriceParts(plan)}
           <button
             class:active={planKey(selectedTopupPlan) === planKey(plan)}
             class="option-row plan-row"
@@ -414,7 +516,14 @@
               {/if}
             </span>
             <span class="option-row-meta">
-              <em>{priceLabel(plan)}</em>
+              {#if promoPrice}
+                <span class="promo-price-pair">
+                  <s>{promoPrice.base}</s>
+                  <b>{promoPrice.discounted}</b>
+                </span>
+              {:else}
+                <em>{priceLabel(plan)}</em>
+              {/if}
               {#if planUnitHint(plan)}
                 <small>{planUnitHint(plan)}</small>
               {/if}
@@ -436,13 +545,26 @@
         {t}
         onSelect={(id) => (selectedMethod = id)}
       />
+      {#if checkoutPromoBlock(selectedTopupPlan)}
+        <CheckoutPromoRow
+          inputId="webapp-topup-checkout-code"
+          inputName="webapp-topup-checkout-code"
+          bind:value={checkoutPromoInput}
+          appliedCode={checkoutPromoAppliedCode}
+          isError={checkoutPromoIsError}
+          status={checkoutPromoStatus}
+          onApply={applyCheckoutPromo}
+          onClear={clearCheckoutPromo}
+          {t}
+        />
+      {/if}
       <Button
         class="wide bottom-action payment-submit-button"
         onclick={createTopupPayment}
         disabled={!selectedTopupPlan || !topupPaymentMethodSelected || payBusy}
       >
         {t("wa_buy_traffic")}
-        {selectedTopupPlan ? priceLabel(selectedTopupPlan) : ""}
+        {selectedTopupPlan ? checkoutPlanPriceLabel(selectedTopupPlan) : ""}
         <LockKeyhole size={17} />
       </Button>
     {:else}
@@ -457,7 +579,7 @@
   description={deviceTopupModalDescription()}
   closeLabel={t("wa_close")}
   onclose={closeDeviceTopupModal}
-  class="payment-dialog-card"
+  class="payment-dialog-card webapp-device-topup-dialog"
 >
   <div class="payment-dialog-body">
     {#if !deviceTopupOptions}
@@ -475,6 +597,7 @@
       {/if}
       <div class="option-list">
         {#each deviceTopupOptions.plans as plan}
+          {@const promoPrice = checkoutPromoPriceParts(plan)}
           <button
             class:active={planKey(selectedDeviceTopupPlan) === planKey(plan)}
             class="option-row plan-row"
@@ -486,7 +609,14 @@
               <small>{deviceTopupPlanHint(plan)}</small>
             </span>
             <span class="option-row-meta">
-              <em>{priceLabel(plan)}</em>
+              {#if promoPrice}
+                <span class="promo-price-pair">
+                  <s>{promoPrice.base}</s>
+                  <b>{promoPrice.discounted}</b>
+                </span>
+              {:else}
+                <em>{priceLabel(plan)}</em>
+              {/if}
               {#if planKey(selectedDeviceTopupPlan) === planKey(plan)}
                 <CheckCircle2 size={18} />
               {/if}
@@ -500,13 +630,26 @@
         {t}
         onSelect={(id) => (selectedMethod = id)}
       />
+      {#if checkoutPromoBlock(selectedDeviceTopupPlan)}
+        <CheckoutPromoRow
+          inputId="webapp-device-topup-checkout-code"
+          inputName="webapp-device-topup-checkout-code"
+          bind:value={checkoutPromoInput}
+          appliedCode={checkoutPromoAppliedCode}
+          isError={checkoutPromoIsError}
+          status={checkoutPromoStatus}
+          onApply={applyCheckoutPromo}
+          onClear={clearCheckoutPromo}
+          {t}
+        />
+      {/if}
       <Button
         class="wide bottom-action payment-submit-button"
         onclick={createDeviceTopupPayment}
         disabled={!selectedDeviceTopupPlan || !devicePaymentMethodSelected || payBusy}
       >
         {t("wa_pay")}
-        {selectedDeviceTopupPlan ? priceLabel(selectedDeviceTopupPlan) : ""}
+        {selectedDeviceTopupPlan ? checkoutPlanPriceLabel(selectedDeviceTopupPlan) : ""}
         <LockKeyhole size={17} />
       </Button>
     {:else}

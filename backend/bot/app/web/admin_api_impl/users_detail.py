@@ -446,8 +446,12 @@ def _user_panel_status_condition(panel_status: str) -> ColumnElement[bool] | Non
         Subscription.status_from_panel.is_(None), Subscription.status_from_panel == ""
     )
     if status == "active":
-        status_cond = or_(
-            normalized_status == "active", blank_status & Subscription.is_active.is_(True)
+        now = datetime.now(timezone.utc)
+        status_cond = and_(
+            User.is_banned.is_(False),
+            Subscription.is_active.is_(True),
+            Subscription.end_date > now,
+            or_(normalized_status == "active", blank_status),
         )
     elif status == "expired":
         now = datetime.now(timezone.utc)
@@ -479,7 +483,13 @@ def _user_panel_status_condition(panel_status: str) -> ColumnElement[bool] | Non
         )
         return and_(expired_exists, ~active_exists)
     else:
-        status_cond = normalized_status == "limited"
+        now = datetime.now(timezone.utc)
+        status_cond = and_(
+            User.is_banned.is_(False),
+            Subscription.is_active.is_(True),
+            Subscription.end_date > now,
+            normalized_status == "limited",
+        )
 
     return (
         select(Subscription.subscription_id)

@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 from aiogram import Bot, F, types
 from aiogram.filters import Command
@@ -27,7 +27,11 @@ from .core_common import (
     _recurring_service_for_subscription,
     router,
 )
-from .core_status import my_devices_command_handler, my_subscription_command_handler
+from .core_status import (
+    _devices_list_from_panel_response,
+    my_devices_command_handler,
+    my_subscription_command_handler,
+)
 
 
 @router.callback_query(F.data.startswith("disconnect_device:"))
@@ -68,15 +72,11 @@ async def disconnect_device_handler(
         return
 
     devices = await panel_service.get_user_devices(active.get("user_id"))
-    if not devices:
+    if devices is None:
         await callback.answer(get_text("no_devices_found"), show_alert=True)
         return
 
-    devices_list_raw: list[Any] = []
-    if isinstance(devices, dict):
-        devices_list_raw = devices.get("devices") or []
-    elif isinstance(devices, list):
-        devices_list_raw = devices
+    devices_list_raw = _devices_list_from_panel_response(devices)
 
     hwid = None
     for device in devices_list_raw:

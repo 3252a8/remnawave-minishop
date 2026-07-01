@@ -52,6 +52,7 @@
   class:active
   class="support-inbox-row"
   type="button"
+  data-ticket-id={ticket?.ticket_id}
   data-status={ticket?.status}
   data-priority={ticket?.priority}
   onclick={() => onOpen(ticket)}

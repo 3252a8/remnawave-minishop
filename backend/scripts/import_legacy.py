@@ -688,6 +688,10 @@ def remnashop_sale_mode(purchase_type: Any, plan_snapshot: Any = None) -> str:
     return source_type.lower() or "subscription"
 
 
+def remnashop_subscription_provider(is_trial: Any) -> str:
+    return "trial" if _truthy(is_trial) else SOURCE
+
+
 def remnashop_months_from_plan_snapshot(
     plan_snapshot: Any,
     *,
@@ -2009,7 +2013,7 @@ class RemnashopImporter:
                 "is_active": status in {"ACTIVE", "LIMITED"} and expire_at > now,
                 "status_from_panel": status,
                 "traffic_limit_bytes": traffic_limit_bytes,
-                "provider": "trial" if bool(row.get("is_trial")) else SOURCE,
+                "provider": remnashop_subscription_provider(row.get("is_trial")),
                 "skip_notifications": True,
                 "auto_renew_enabled": False,
                 "tariff_key": remnashop_tariff_key(plan_snapshot, self.tariff_map),

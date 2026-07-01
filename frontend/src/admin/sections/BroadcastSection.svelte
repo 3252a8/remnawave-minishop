@@ -1,15 +1,15 @@
 <script lang="ts">
+  import { getBroadcastStore } from "$lib/admin/context";
   import { Textarea } from "$components/ui/index.js";
   import { Send } from "$components/ui/icons.js";
-  import { getContext, onMount } from "svelte";
+  import { onMount } from "svelte";
   import { Label } from "$components/ui/primitives.js";
   import { AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
-  import type { BroadcastStore } from "../../lib/admin/stores/broadcastStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
   let { at }: { at: TranslateFn } = $props();
-  const broadcastStore = getContext<BroadcastStore>("broadcastStore");
+  const broadcastStore = getBroadcastStore();
 
   const broadcastTarget = $derived(broadcastStore.broadcastTarget);
   const broadcastText = $derived(broadcastStore.broadcastText);

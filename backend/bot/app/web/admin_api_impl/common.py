@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
-from urllib.parse import parse_qsl, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from aiohttp import web
 
@@ -11,7 +11,7 @@ from config.settings import Settings
 from config.tariffs_config import TariffsConfig
 from db.models import AdCampaign, MessageLog, Payment, PromoCode, Subscription, User
 
-from .schemas import AdminSubscriptionOut, AdminUserOut, AdOut, LogOut, PaymentOut
+from .schemas import AdminSubscriptionOut, AdminUserOut, AdOut, LogOut, PaymentOut, PromoOut
 
 
 def _ok(payload: Dict[str, Any], **extra: Any) -> web.Response:
@@ -340,19 +340,7 @@ def _serialize_payment(payment: Payment) -> Dict[str, Any]:
 
 
 def _serialize_promo(promo: PromoCode) -> Dict[str, Any]:
-    return {
-        "id": int(promo.promo_code_id),
-        "code": promo.code,
-        "bonus_days": int(promo.bonus_days),
-        "max_activations": int(promo.max_activations),
-        "current_activations": int(promo.current_activations or 0),
-        "is_active": bool(promo.is_active),
-        "valid_until": promo.valid_until.isoformat() if promo.valid_until else None,
-        "created_at": promo.created_at.isoformat() if promo.created_at else None,
-        "created_by_admin_id": int(promo.created_by_admin_id)
-        if promo.created_by_admin_id
-        else None,
-    }
+    return cast(Dict[str, Any], PromoOut.from_orm_promo(promo).model_dump(mode="json"))
 
 
 def _serialize_ad(campaign: AdCampaign, totals: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -490,3 +478,22 @@ def _build_admin_webapp_referral_link(
     query["ref"] = f"u{referral_code}"
     new_query = "&".join(f"{k}={v}" for k, v in query.items())
     return urlunsplit((parts.scheme, parts.netloc, parts.path, new_query, parts.fragment))
+
+
+def _build_admin_promo_bot_link(bot_username: Optional[str], code: Optional[str]) -> Optional[str]:
+    username = str(bot_username or "").strip().lstrip("@")
+    normalized_code = str(code or "").strip()
+    if not username or username == "your_bot_username" or not normalized_code:
+        return None
+    return f"https://t.me/{quote(username, safe='')}?start=promo_{quote(normalized_code, safe='')}"
+
+
+def _build_admin_promo_webapp_link(base_url: Optional[str], code: Optional[str]) -> Optional[str]:
+    raw = str(base_url or "").strip()
+    normalized_code = str(code or "").strip()
+    if not raw or not normalized_code:
+        return None
+    parts = urlsplit(raw)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["startapp"] = f"promo_{normalized_code}"
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))

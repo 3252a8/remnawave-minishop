@@ -103,6 +103,17 @@
   setPasswordPending={accountStore.setPasswordPending}
   setPasswordResendCooldown={accountStore.setPasswordResendCooldown}
   setPasswordStatus={accountStore.setPasswordStatus}
+  bind:checkoutPromoInput={billingStore.checkoutPromoInput}
+  checkoutPromoAppliedCode={billingStore.checkoutPromoAppliedCode}
+  checkoutPromoIsError={billingStore.checkoutPromoIsError}
+  checkoutPromoPriceText={billingStore.checkoutPromoPriceText}
+  checkoutPromoStatus={billingStore.checkoutPromoStatus}
+  checkoutPromoDiscountPercent={billingStore.checkoutPromoDiscountPercent}
+  checkoutPromoAppliesTo={billingStore.checkoutPromoAppliesTo}
+  checkoutPromoMinSubscriptionMonths={billingStore.checkoutPromoMinSubscriptionMonths}
+  checkoutPromoMinTrafficGb={billingStore.checkoutPromoMinTrafficGb}
+  applyCheckoutPromo={billingStore.applyCheckoutPromo}
+  clearCheckoutPromo={billingStore.clearCheckoutPromo}
   {hasMultipleTariffs}
   {methods}
   payBusy={billingStore.payBusy}
@@ -145,6 +156,17 @@
   closeTariffChangeConfirm={billingStore.closeTariffChangeConfirm}
   closeTariffChangeModal={billingStore.closeTariffChangeModal}
   closeTopupModal={billingStore.closeTopupModal}
+  bind:checkoutPromoInput={billingStore.checkoutPromoInput}
+  checkoutPromoAppliedCode={billingStore.checkoutPromoAppliedCode}
+  checkoutPromoIsError={billingStore.checkoutPromoIsError}
+  checkoutPromoPriceText={billingStore.checkoutPromoPriceText}
+  checkoutPromoStatus={billingStore.checkoutPromoStatus}
+  checkoutPromoDiscountPercent={billingStore.checkoutPromoDiscountPercent}
+  checkoutPromoAppliesTo={billingStore.checkoutPromoAppliesTo}
+  checkoutPromoMinSubscriptionMonths={billingStore.checkoutPromoMinSubscriptionMonths}
+  checkoutPromoMinTrafficGb={billingStore.checkoutPromoMinTrafficGb}
+  applyCheckoutPromo={billingStore.applyCheckoutPromo}
+  clearCheckoutPromo={billingStore.clearCheckoutPromo}
   createDeviceTopupPayment={billingStore.createDeviceTopupPayment}
   createTopupPayment={billingStore.createTopupPayment}
   deviceTopupOptions={billingStore.deviceTopupOptions}
@@ -176,7 +198,7 @@
       )}
   closeLabel={t("wa_close")}
   onclose={closeActivationSuccessDialog}
-  class="activation-success-dialog"
+  class="activation-success-dialog webapp-activation-success-dialog"
 >
   {#snippet titleIcon()}
     <CheckCircle2 size={23} />

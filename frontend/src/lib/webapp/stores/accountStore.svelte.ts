@@ -97,6 +97,14 @@ function stringField(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+function setSessionFromAuthResponse(
+  response: { token?: unknown; csrf_token?: unknown },
+  setToken: (token: string, csrfToken?: string) => void
+) {
+  const csrfToken = stringField(response.csrf_token);
+  if (csrfToken) setToken(stringField(response.token), csrfToken);
+}
+
 const buildTelegramOAuthUrl = buildTelegramOAuthStartUrl as (
   purpose?: string,
   tg?: unknown
@@ -461,8 +469,7 @@ export function createAccountStore({
         body: JSON.stringify(payload),
       });
       if (!response?.ok) throw response;
-      const csrfToken = stringField(unwrap(response).csrf_token);
-      if (csrfToken) setToken("", csrfToken);
+      setSessionFromAuthResponse(unwrap(response), setToken);
       await loadData();
       closeLinkEmailDialog();
       showToast(t("wa_settings_linked"));
@@ -548,8 +555,7 @@ export function createAccountStore({
         body: JSON.stringify(payload),
       });
       if (!response?.ok) throw response;
-      const csrfToken = stringField(unwrap(response).csrf_token);
-      if (csrfToken) setToken("", csrfToken);
+      setSessionFromAuthResponse(unwrap(response), setToken);
       await loadData();
       showToast(t("wa_settings_linked"));
     } catch (error: unknown) {
@@ -598,8 +604,7 @@ export function createAccountStore({
         body: JSON.stringify(payload),
       });
       if (!response?.ok) throw response;
-      const csrfToken = stringField(unwrap(response).csrf_token);
-      if (csrfToken) setToken("", csrfToken);
+      setSessionFromAuthResponse(unwrap(response), setToken);
       await loadData({ fresh: true, preserveView: true });
       showToast(t("wa_settings_linked"));
     } catch (error: unknown) {
@@ -634,8 +639,7 @@ export function createAccountStore({
         body: JSON.stringify(payload),
       });
       if (!response?.ok) throw response;
-      const csrfToken = stringField(unwrap(response).csrf_token);
-      if (csrfToken) setToken("", csrfToken);
+      setSessionFromAuthResponse(unwrap(response), setToken);
       await loadData({ fresh: true, preserveView: true });
       const handled = await continueTelegramLinkPendingAction();
       if (!handled) {

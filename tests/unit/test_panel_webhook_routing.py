@@ -110,6 +110,53 @@ class HandleWebhookQueueingTests(unittest.IsolatedAsyncioTestCase):
         # event_id combines event name with the strongest available identifier.
         self.assertEqual(entry["event_id"], "user.expires_in_24_hours:99")
 
+    async def test_enqueues_new_expiration_event_with_signed_hours_meta(self):
+        service = _make_service()
+        captured: List[dict] = []
+
+        async def fake_enqueue(settings, provider, payload, *, event_id=None):
+            captured.append({"provider": provider, "payload": payload, "event_id": event_id})
+            return True
+
+        body = json.dumps(
+            {
+                "event": "user.expiration",
+                "data": {
+                    "user": {"telegramId": 99, "uuid": "abc"},
+                    "_meta": {"expiration": -12},
+                },
+            }
+        ).encode()
+
+        with patch.object(pws, "enqueue_webhook_event", fake_enqueue):
+            response = await service.handle_webhook(body, _sign(body))
+
+        self.assertEqual(response.status, 200)
+        entry = captured[0]
+        self.assertEqual(entry["payload"]["event"], "user.expiration")
+        self.assertEqual(entry["payload"]["user"], {"telegramId": 99, "uuid": "abc"})
+        self.assertEqual(entry["payload"]["meta"], {"expiration": -12})
+        self.assertEqual(entry["event_id"], "user.expiration:99:expiration:-12")
+
+    async def test_expiration_event_id_keeps_different_offsets_distinct(self):
+        service = _make_service()
+        self.assertEqual(
+            service._webhook_event_id(
+                "user.expiration",
+                {"telegramId": 99, "uuid": "abc"},
+                {"expiration": -1},
+            ),
+            "user.expiration:99:expiration:-1",
+        )
+        self.assertEqual(
+            service._webhook_event_id(
+                "user.expiration",
+                {"telegramId": 99, "uuid": "abc"},
+                {"expiration": 72},
+            ),
+            "user.expiration:99:expiration:72",
+        )
+
     async def test_falls_back_to_background_task_when_redis_unavailable(self):
         service = _make_service()
         background_seen: List[Any] = []
@@ -117,8 +164,8 @@ class HandleWebhookQueueingTests(unittest.IsolatedAsyncioTestCase):
         async def fake_enqueue(*args, **kwargs):
             return False
 
-        async def fake_handle_event(event_name, user_payload):
-            background_seen.append((event_name, user_payload))
+        async def fake_handle_event(event_name, user_payload, *, meta=None):
+            background_seen.append((event_name, user_payload, meta))
 
         body = json.dumps({"name": "user.expired", "payload": {"telegramId": 7}}).encode()
 
@@ -131,7 +178,44 @@ class HandleWebhookQueueingTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(0)
 
         self.assertEqual(response.status, 200)
-        self.assertEqual(background_seen, [("user.expired", {"telegramId": 7})])
+        self.assertEqual(background_seen, [("user.expired", {"telegramId": 7}, {})])
+
+
+class ExpirationStageMappingTests(unittest.TestCase):
+    def test_legacy_offsets_keep_legacy_notification_stages(self):
+        stage = pws.PanelWebhookService._stage_for_event(
+            "user.expiration",
+            {"uuid": "abc"},
+            {"expiration": -72},
+        )
+
+        self.assertIsNotNone(stage)
+        self.assertEqual(stage.key, "before_3d")
+        self.assertEqual(stage.message_key, "subscription_72h_notification")
+
+    def test_custom_negative_offset_uses_hours_before_notification(self):
+        stage = pws.PanelWebhookService._stage_for_event(
+            "user.expiration",
+            {"uuid": "abc"},
+            {"expiration": "-12"},
+        )
+
+        self.assertIsNotNone(stage)
+        self.assertEqual(stage.key, "before_12h")
+        self.assertEqual(stage.message_key, "subscription_hours_notification")
+        self.assertEqual(stage.hours_before, 12)
+
+    def test_custom_positive_offset_uses_hours_after_notification(self):
+        stage = pws.PanelWebhookService._stage_for_event(
+            "user.expiration",
+            {"uuid": "abc"},
+            {"expiration": 72},
+        )
+
+        self.assertIsNotNone(stage)
+        self.assertEqual(stage.key, "expired_72h_after")
+        self.assertEqual(stage.message_key, "subscription_expired_hours_ago_notification")
+        self.assertEqual(stage.hours_after, 72)
 
 
 class _FakeSessionContext:

@@ -19,12 +19,14 @@ from .panel_identity import PanelIdentityMixin
 from .payments import PaymentContextMixin
 from .renewal import RenewalMixin
 from .tariffs import TariffMixin
+from .topups import TopupMixin
 from .traffic import TrafficMixin
 from .trial import TrialSubscriptionMixin
 
 
 class SubscriptionService(
     TrialSubscriptionMixin,
+    TopupMixin,
     TrafficMixin,
     HwidDeviceMixin,
     SubscriptionLifecycleMixin,

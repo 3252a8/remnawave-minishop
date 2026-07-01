@@ -94,6 +94,42 @@ class AdminUserDeleteRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(session.committed)
         self.assertFalse(session.rolled_back)
 
+    async def test_returns_success_when_post_commit_invalidation_fails(self):
+        session = FakeSession()
+        request = self._request(session)
+        user = SimpleNamespace(user_id=42, panel_user_uuid=None)
+
+        with (
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
+            patch.object(admin_users.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+            patch.object(
+                admin_users.user_dal,
+                "get_panel_user_uuids_for_user",
+                AsyncMock(return_value=[]),
+            ),
+            patch.object(
+                admin_users.user_dal,
+                "delete_user_and_relations",
+                AsyncMock(return_value=True),
+            ),
+            patch.object(
+                admin_users.message_log_dal,
+                "create_message_log_no_commit",
+                AsyncMock(),
+            ),
+            patch.object(
+                users_actions,
+                "_invalidate_after_admin_user_mutation",
+                AsyncMock(side_effect=RuntimeError("redis unavailable")),
+            ),
+        ):
+            response = await admin_users.admin_user_delete_route(request)
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(json.loads(response.text)["ok"], True)
+        self.assertTrue(session.committed)
+        self.assertFalse(session.rolled_back)
+
     async def test_aborts_when_panel_service_is_unavailable_for_panel_user(self):
         session = FakeSession()
         request = self._request(session)

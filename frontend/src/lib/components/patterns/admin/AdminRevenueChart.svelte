@@ -1,5 +1,5 @@
 <script>
-  import { onMount, tick } from "svelte";
+  import { tick } from "svelte";
   import uPlot from "uplot";
   import "uplot/dist/uPlot.min.css";
 
@@ -159,13 +159,14 @@
 
   let rafId = 0;
 
-  onMount(() => {
+  function attachChartHost(node) {
+    hostEl = node;
     rafId = requestAnimationFrame(() => {
       void tick().then(() => {
         scheduleSync();
-        if (!hostEl || typeof ResizeObserver === "undefined") return;
+        if (hostEl !== node || typeof ResizeObserver === "undefined") return;
         resizeObserver = new ResizeObserver(() => scheduleSync());
-        resizeObserver.observe(hostEl);
+        resizeObserver.observe(node);
       });
     });
     return () => {
@@ -176,8 +177,9 @@
       plot?.destroy();
       plot = undefined;
       builtLegendSig = "";
+      if (hostEl === node) hostEl = undefined;
     };
-  });
+  }
 
   $effect(() => {
     if (!hostEl) return;
@@ -191,4 +193,4 @@
   });
 </script>
 
-<div class="admin-revenue-uplot-host" bind:this={hostEl}></div>
+<div class="admin-revenue-uplot-host" {@attach attachChartHost}></div>

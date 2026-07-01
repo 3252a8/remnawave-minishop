@@ -13,6 +13,7 @@ import {
   type ApiResponse,
   type ApiClient,
 } from "../../webapp/publicApi";
+import { snapshotForPayload } from "./snapshotForPayload.svelte";
 
 export type ThemesState = {
   themesCatalog: ThemeCatalog;
@@ -36,8 +37,8 @@ type ThemesStoreOptions = {
 };
 type SaveThemesOptions = { silent?: boolean };
 type TokenOptions = { raw?: boolean; variant?: string | null };
-type LogoUploadResult = { logoUrl: string; faviconUrl: string };
-type FaviconUploadResult = { faviconUrl: string };
+type LogoUploadResult = { logoUrl: string; faviconUrl: string; persisted?: boolean };
+type FaviconUploadResult = { faviconUrl: string; persisted?: boolean };
 export type ThemesStore = ThemesState & {
   loadThemes: () => Promise<void>;
   saveThemes: (options?: SaveThemesOptions) => Promise<boolean>;
@@ -67,7 +68,9 @@ function asTokenMap(value: unknown): TokenMap {
 }
 
 function cloneCatalog(catalog: unknown): ThemeCatalog {
-  return JSON.parse(JSON.stringify(catalog || { default_theme: "dark", themes: [] }));
+  return JSON.parse(
+    JSON.stringify(snapshotForPayload(catalog || { default_theme: "dark", themes: [] }))
+  );
 }
 
 const HOME_LOGO_SCALE_TOKEN = {
@@ -188,8 +191,8 @@ function catalogFingerprint(catalog: unknown): string {
 }
 
 function withCatalogState(state: ThemesStore, nextCatalog: ThemeCatalog): ThemesStore {
-  const themesCatalog = normalizeThemeCatalog(nextCatalog);
-  const savedThemesCatalog = normalizeThemeCatalog(state.savedThemesCatalog);
+  const themesCatalog = normalizeThemeCatalog(snapshotForPayload(nextCatalog));
+  const savedThemesCatalog = normalizeThemeCatalog(snapshotForPayload(state.savedThemesCatalog));
   return {
     ...state,
     themesCatalog,
@@ -320,7 +323,7 @@ export function createThemesStore({
 
   async function saveThemes(options: SaveThemesOptions = {}): Promise<boolean> {
     const silent = Boolean(options.silent);
-    const catalog = normalizeThemeCatalog(state.themesCatalog);
+    const catalog = normalizeThemeCatalog(snapshotForPayload(state.themesCatalog));
     updateState((s) => ({ ...s, themesCatalog: catalog, themesSaving: true }));
     try {
       const data = await api(buildAdminThemesPath(), {
@@ -359,7 +362,11 @@ export function createThemesStore({
       });
       if (data?.ok) {
         flash(at("appearance_logo_uploaded_pending", {}, "Логотип загружен и применен."));
-        return { logoUrl: String(data.logo_url || ""), faviconUrl: String(data.favicon_url || "") };
+        return {
+          logoUrl: String(data.logo_url || ""),
+          faviconUrl: String(data.favicon_url || ""),
+          persisted: data.persisted,
+        };
       }
       flash(
         adminErrorMessage(
@@ -385,7 +392,11 @@ export function createThemesStore({
       });
       if (data?.ok) {
         flash(at("appearance_logo_uploaded_pending", {}, "Логотип загружен и применен."));
-        return { logoUrl: String(data.logo_url || ""), faviconUrl: String(data.favicon_url || "") };
+        return {
+          logoUrl: String(data.logo_url || ""),
+          faviconUrl: String(data.favicon_url || ""),
+          persisted: data.persisted,
+        };
       }
       flash(
         adminErrorMessage(
@@ -412,7 +423,7 @@ export function createThemesStore({
       });
       if (data?.ok) {
         flash(at("appearance_favicon_uploaded_pending", {}, "Favicon загружена и применена."));
-        return { faviconUrl: String(data.favicon_url || "") };
+        return { faviconUrl: String(data.favicon_url || ""), persisted: data.persisted };
       }
       flash(
         adminErrorMessage(
@@ -438,7 +449,7 @@ export function createThemesStore({
       });
       if (data?.ok) {
         flash(at("appearance_favicon_uploaded_pending", {}, "Favicon загружена и применена."));
-        return { faviconUrl: String(data.favicon_url || "") };
+        return { faviconUrl: String(data.favicon_url || ""), persisted: data.persisted };
       }
       flash(
         adminErrorMessage(

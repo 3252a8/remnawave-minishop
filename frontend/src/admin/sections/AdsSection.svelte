@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { getAdsStore } from "$lib/admin/context";
   import { Input } from "$components/ui/index.js";
   import { Trash2 } from "$components/ui/icons.js";
-  import { getContext, onMount } from "svelte";
+  import { onMount } from "svelte";
   import Dialog from "$components/ui/dialog.svelte";
   import {
     AdminBadge,
@@ -13,7 +14,6 @@
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
   import { TableHandler } from "@vincjo/datatables";
-  import type { AdsStore } from "../../lib/admin/stores/adsStore";
   import type { components } from "../../lib/api/openapi.generated";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -29,7 +29,7 @@
   } = $props();
 
   const ADS_PAGE_SIZE = 10;
-  const adsStore = getContext<AdsStore>("adsStore");
+  const adsStore = getAdsStore();
   const adsTable = new TableHandler<Ad>([], { rowsPerPage: ADS_PAGE_SIZE });
 
   const ads = $derived(adsStore.ads as Ad[]);
@@ -118,7 +118,13 @@
               <AdminButton size="sm" onclick={() => adsStore.toggleAd(ad)}>
                 {ad.is_active ? at("btn_disable", {}, "Выкл") : at("btn_enable", {}, "Вкл")}
               </AdminButton>
-              <AdminButton size="sm" variant="danger" onclick={() => adsStore.deleteAd(ad)}>
+              <AdminButton
+                size="sm"
+                variant="danger"
+                title={at("btn_delete", {}, "Удалить")}
+                aria-label={at("btn_delete", {}, "Удалить")}
+                onclick={() => adsStore.deleteAd(ad)}
+              >
                 <Trash2 size={13} />
               </AdminButton>
             </td>
@@ -147,7 +153,7 @@
   title={at("ad_create_title", {}, "Новая кампания")}
   closeLabel={at("close", {}, "Закрыть")}
   onclose={() => adsStore.setCreateOpen(false)}
-  class="admin-dialog admin-dialog-compact"
+  class="admin-dialog admin-dialog-compact admin-ad-dialog"
 >
   <div class="admin-form" data-dialog-content>
     <div class="admin-dialog-form-section">

@@ -16,6 +16,7 @@
     "allowlist": [
       "backend/bot/app/web/templates/*.js",
       "backend/db/migrator.py",
+      "frontend/src/admin/sections/PromosSection.svelte",
       "frontend/src/lib/api/openapi.generated.ts",
       "frontend/src/lib/webapp/demoDataset.js",
       "frontend/src/lib/webapp/mockApi.js",
@@ -132,8 +133,8 @@
       "frontend/src/webapp/AppModeContent.svelte": 18,
       "frontend/src/webapp/AuthenticatedDialogs.svelte": 9,
       "frontend/src/webapp/AuthenticatedScreens.svelte": 13,
-      "frontend/src/webapp/PaymentDialogs.svelte": 26,
-      "frontend/src/webapp/TariffDialogs.svelte": 18,
+      "frontend/src/webapp/PaymentDialogs.svelte": 33,
+      "frontend/src/webapp/TariffDialogs.svelte": 24,
       "frontend/src/webapp/screens/HomeScreen.svelte": 23,
       "frontend/src/webapp/screens/InstallGuideScreen.svelte": 8,
       "frontend/src/webapp/screens/SettingsScreen.svelte": 3,

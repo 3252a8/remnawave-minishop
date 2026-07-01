@@ -110,6 +110,13 @@ async def _load_devices_payload(
             "error": "devices_load_failed",
             "message": "Failed to load devices",
         }
+    if devices_response is None:
+        return {
+            "ok": False,
+            "status": 502,
+            "error": "devices_load_failed",
+            "message": "Failed to load devices",
+        }
 
     devices = _normalize_devices_response(devices_response)
     max_devices = _coerce_int_or_none(active.get("max_devices")) if active else None
@@ -224,7 +231,13 @@ def _shorten_hwid_for_display(hwid: Optional[str], max_length: int = 24) -> str:
 
 def _normalize_devices_response(devices_response: Any) -> List[Dict[str, Any]]:
     if isinstance(devices_response, dict):
-        devices = devices_response.get("devices") or []
+        response = devices_response.get("response")
+        if isinstance(response, dict):
+            devices = response.get("devices") or []
+        elif isinstance(response, list):
+            devices = response
+        else:
+            devices = devices_response.get("devices") or devices_response.get("data") or []
     else:
         devices = devices_response or []
     if not isinstance(devices, list):

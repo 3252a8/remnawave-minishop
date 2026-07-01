@@ -9,8 +9,13 @@ import {
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
 import { adminErrorMessage } from "../errors.js";
+import { createAdminPerfSpan } from "../adminPerfMarks";
+import { defineRawStateProperty } from "./rawStateProperty";
+import { fetchAdminQuery, type AdminQueryClient, type AdminQueryKey } from "./adminQueryCache";
 
 const PAYMENTS_PAGE_SIZE = 25;
+const PAYMENTS_QUERY_KEY = ["admin", "payments"] as const;
+const PAYMENT_DETAIL_QUERY_KEY = ["admin", "payments", "detail"] as const;
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
 type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
@@ -42,10 +47,11 @@ type PaymentsStoreOptions = {
   onToast?: ToastFn;
   at?: TranslateFn;
   routePrefix?: string;
+  queryClient?: AdminQueryClient | null;
 };
 export type PaymentsStore = PaymentsState & {
   setActive: (section: string) => void;
-  loadPayments: () => Promise<void>;
+  loadPayments: (options?: { refresh?: boolean }) => Promise<void>;
   setPage: (page: number) => void;
   openPayment: (
     paymentOrId: AdminPayment | PaymentOut | number | string,
@@ -63,20 +69,37 @@ function hasPaymentId(value: unknown): value is AdminPayment | PaymentOut {
   return Boolean(value && typeof value === "object" && "payment_id" in value);
 }
 
+class AdminPaymentsError extends Error {
+  payload: AdminErrorResponse;
+
+  constructor(message: string, payload: AdminErrorResponse) {
+    super(message);
+    this.payload = payload;
+  }
+}
+
 export function createPaymentsStore({
   api,
   onToast = () => {},
   at = (key, _params, fallback) => fallback || key,
   routePrefix = "",
+  queryClient = null,
 }: PaymentsStoreOptions): PaymentsStore {
-  const state = $state<PaymentsState>({
-    payments: [],
+  let payments = $state.raw<PaymentOut[]>([]);
+  const state = $state<Omit<PaymentsState, "payments">>({
     paymentsTotal: 0,
     paymentsPage: 0,
     paymentsLoading: false,
     openedPaymentId: null,
     openedPayment: null,
     paymentDetailLoading: false,
+  });
+  const store = Object.create(state) as PaymentsStore;
+  defineRawStateProperty(store, "payments", {
+    get: () => payments,
+    set: (value) => {
+      payments = value;
+    },
   });
 
   let active = "stats";
@@ -96,23 +119,75 @@ export function createPaymentsStore({
     window.history.pushState(null, "", `${target}${window.location.search}${window.location.hash}`);
   }
 
-  async function loadPayments(): Promise<void> {
+  function paymentsListQueryKey(page: number): AdminQueryKey {
+    return [
+      PAYMENTS_QUERY_KEY[0],
+      PAYMENTS_QUERY_KEY[1],
+      {
+        page,
+      },
+    ];
+  }
+
+  async function requestPayments(page: number): Promise<PaymentsListResponse> {
+    const data = (await api(
+      buildAdminPaymentsPath(
+        new URLSearchParams({
+          page: String(page),
+          page_size: String(PAYMENTS_PAGE_SIZE),
+        })
+      )
+    )) as PaymentsListResponse | AdminErrorResponse;
+    if (!isOkResponse(data)) {
+      throw new AdminPaymentsError(adminErrorMessage(data, at, "load_failed"), data);
+    }
+    return data;
+  }
+
+  function paymentDetailQueryKey(paymentId: number): AdminQueryKey {
+    return [
+      PAYMENT_DETAIL_QUERY_KEY[0],
+      PAYMENT_DETAIL_QUERY_KEY[1],
+      PAYMENT_DETAIL_QUERY_KEY[2],
+      paymentId,
+    ];
+  }
+
+  async function requestPaymentDetail(paymentId: number): Promise<PaymentDetailResponse> {
+    const res = (await api(buildAdminPaymentPath(paymentId))) as
+      PaymentDetailResponse | AdminErrorResponse;
+    if (!isOkResponse(res)) {
+      throw new AdminPaymentsError(
+        adminErrorMessage(res, at, at("payment_load_failed", {}, "Не удалось загрузить платёж")),
+        res
+      );
+    }
+    return res;
+  }
+
+  async function loadPayments({ refresh = false }: { refresh?: boolean } = {}): Promise<void> {
     state.paymentsLoading = true;
     const currentPage = state.paymentsPage;
+    const perf = createAdminPerfSpan("payments");
 
     try {
-      const data = (await api(
-        buildAdminPaymentsPath(
-          new URLSearchParams({
-            page: String(currentPage),
-            page_size: String(PAYMENTS_PAGE_SIZE),
-          })
-        )
-      )) as PaymentsListResponse | AdminErrorResponse;
-      if (isOkResponse(data)) {
-        const result = unwrap(data);
-        state.payments = result.payments || [];
-        state.paymentsTotal = result.total || 0;
+      const data = await fetchAdminQuery({
+        queryClient,
+        queryKey: paymentsListQueryKey(currentPage),
+        queryFn: () => requestPayments(currentPage),
+        refresh,
+      });
+      perf.apiResponse();
+      const result = unwrap(data);
+      payments = result.payments || [];
+      state.paymentsTotal = result.total || 0;
+      perf.stateAssign();
+      void perf.renderSettled();
+    } catch (error) {
+      if (error instanceof AdminPaymentsError) {
+        onToast(adminErrorMessage(error.payload, at, "load_failed"));
+      } else {
+        onToast(error instanceof Error ? error.message : String(error || "load_failed"));
       }
     } finally {
       state.paymentsLoading = false;
@@ -143,8 +218,11 @@ export function createPaymentsStore({
     if (!opts.skipPush) pushPaymentPath(paymentId);
 
     try {
-      const path = buildAdminPaymentPath(paymentId);
-      const res = (await api(path)) as PaymentDetailResponse | AdminErrorResponse;
+      const res = await fetchAdminQuery({
+        queryClient,
+        queryKey: paymentDetailQueryKey(paymentId),
+        queryFn: () => requestPaymentDetail(paymentId),
+      });
       if (isOkResponse(res)) {
         const result = unwrap(res);
         state.openedPayment = result.payment || state.openedPayment;
@@ -156,6 +234,15 @@ export function createPaymentsStore({
         state.openedPayment = null;
         if (!opts.skipPush) pushPaymentPath(null);
       }
+    } catch (error) {
+      if (error instanceof AdminPaymentsError) {
+        onToast(adminErrorMessage(error.payload, at, "load_failed"));
+      } else {
+        onToast(error instanceof Error ? error.message : String(error || "load_failed"));
+      }
+      state.openedPaymentId = null;
+      state.openedPayment = null;
+      if (!opts.skipPush) pushPaymentPath(null);
     } finally {
       state.paymentDetailLoading = false;
     }
@@ -181,7 +268,7 @@ export function createPaymentsStore({
     }
   }
 
-  return Object.assign(state, {
+  return Object.assign(store, {
     setActive,
     loadPayments,
     setPage,

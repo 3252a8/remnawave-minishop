@@ -56,6 +56,7 @@ python -m mypy --explicit-package-bases backend/config backend/db backend/bot/in
 npm run check        # eslint + svelte-check + prettier --check
 npm run test         # Vitest unit-тесты helper'ов и store'ов
 npm run build        # vite build должен проходить после type-only изменений
+npm run test:e2e     # Playwright docs-demo smoke: webapp+админка, окна, вкладки, zero console errors
 ```
 
 **У сгенерированных артефактов есть drift-guard — регенерируй, не правь руками:**

@@ -91,6 +91,7 @@ export type DeviceTopupOptionsResponse = GetResponse<"/api/devices/topup-options
 export type PaymentCreateResponse = PostResponse<"/api/payments">;
 export type PaymentStatusResponse = GetResponse<"/api/payments/{payment_id}">;
 export type PromoApplyResponse = PostResponse<"/api/promo/apply">;
+export type PromoQuoteResponse = PostResponse<"/api/subscription/quote-promo">;
 export type ReferralWelcomeBonusResponse = PostResponse<"/api/referral/welcome-bonus/claim">;
 export type SubscriptionGuidesResponse = GetResponse<"/api/subscription-guides">;
 export type PublicSubscriptionGuidesResponse =
@@ -126,6 +127,7 @@ export type TariffChangeOptionsPath = "/tariffs/change-options";
 export type TariffChangePath = "/tariffs/change";
 export type TariffChangePaymentPath = "/tariffs/change-payment";
 export type SubscriptionAutoRenewPath = "/subscription/auto-renew";
+export type SubscriptionPromoQuotePath = "/subscription/quote-promo";
 export type ReferralWelcomeBonusClaimPath = "/referral/welcome-bonus/claim";
 export type PromoApplyPath = "/promo/apply";
 export type TrialActivatePath = "/trial/activate";
@@ -146,6 +148,7 @@ export type MockApi = (
 type ApiClientOptions = {
   apiBase?: string;
   csrfCookieName?: string;
+  getAuthToken?: () => string;
   getCsrfToken?: () => string;
   onUnauthorized?: () => void;
   mockApi?: MockApi | null;
@@ -291,6 +294,10 @@ export function buildTariffChangePaymentPath(): TariffChangePaymentPath {
 
 export function buildSubscriptionAutoRenewPath(): SubscriptionAutoRenewPath {
   return "/subscription/auto-renew";
+}
+
+export function buildSubscriptionPromoQuotePath(): SubscriptionPromoQuotePath {
+  return "/subscription/quote-promo";
 }
 
 export function buildReferralWelcomeBonusClaimPath(): ReferralWelcomeBonusClaimPath {
@@ -524,6 +531,18 @@ export function buildAdminPromoPath(promoId: string | number): AdminPromoPath {
   );
 }
 
+export type AdminPromoActivationsPath = BuiltApiPath<"/api/admin/promos/{promo_id}/activations">;
+export function buildAdminPromoActivationsPath(
+  promoId: string | number,
+  params?: URLSearchParams
+): AdminPromoActivationsPath {
+  const base = `/admin/promos/${encodeURIComponent(String(promoId))}/activations`;
+  const query = params?.toString();
+  return builtApiPath<"/api/admin/promos/{promo_id}/activations">(
+    query ? `${base}?${query}` : base
+  );
+}
+
 export type AdminAdsPath = "/admin/ads";
 export function buildAdminAdsPath(): AdminAdsPath {
   return "/admin/ads";
@@ -581,6 +600,7 @@ export function unwrap<T extends { ok: boolean }>(response: T): Extract<T, { ok:
 export function createApiClient({
   apiBase = "",
   csrfCookieName = "rw_webapp_csrf",
+  getAuthToken = () => "",
   getCsrfToken = () => "",
   onUnauthorized = () => {},
   mockApi = null,
@@ -599,6 +619,10 @@ export function createApiClient({
     const headers = new Headers(options.headers);
 
     const csrf = getCsrfToken() || readCookie(csrfCookieName) || "";
+    const authToken = getAuthToken();
+    if (authToken && !headers.has("Authorization")) {
+      headers.set("Authorization", `Bearer ${authToken}`);
+    }
     if (csrf && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
       headers.set("X-CSRF-Token", csrf);
     }

@@ -34,6 +34,10 @@ from .panel_api_service import PanelApiService
 if TYPE_CHECKING:
     from bot.services.subscription_service_impl.core import SubscriptionService
 
+EXPIRATION_EVENT = "user.expiration"
+EXPIRED_EVENT = "user.expired"
+EXPIRED_24H_AFTER_EVENT = "user.expired_24_hours_ago"
+
 EVENT_MAP = {
     "user.expires_in_72_hours": SubscriptionNotificationStage(
         key="before_3d",
@@ -54,10 +58,16 @@ EVENT_MAP = {
 ACTIONABLE_EVENTS = frozenset(
     {
         *EVENT_MAP.keys(),
-        "user.expired",
-        "user.expired_24_hours_ago",
+        EXPIRATION_EVENT,
+        EXPIRED_EVENT,
+        EXPIRED_24H_AFTER_EVENT,
     }
 )
+_LEGACY_EXPIRATION_HOURS_TO_EVENT = {
+    -72: "user.expires_in_72_hours",
+    -48: "user.expires_in_48_hours",
+    -24: "user.expires_in_24_hours",
+}
 
 
 class PanelWebhookService:
@@ -139,7 +149,12 @@ class PanelWebhookService:
             )
         )
 
-    async def handle_event(self, event_name: str, user_payload: dict[str, Any]) -> None:
+    async def handle_event(
+        self,
+        event_name: str,
+        user_payload: dict[str, Any],
+        meta: Optional[dict[str, Any]] = None,
+    ) -> None:
         await events.emit_model(
             PanelWebhookReceivedPayload(
                 event=event_name,
@@ -155,6 +170,15 @@ class PanelWebhookService:
             logging.info(
                 "Panel webhook event %s ignored: event is not used for subscription "
                 "notifications; %s",
+                event_name,
+                self._payload_log_context(user_payload),
+            )
+            return
+
+        stage = self._stage_for_event(event_name, user_payload, meta)
+        if stage is None:
+            logging.warning(
+                "Panel webhook event %s ignored: expiration metadata is missing or invalid; %s",
                 event_name,
                 self._payload_log_context(user_payload),
             )
@@ -194,6 +218,7 @@ class PanelWebhookService:
                     int(telegram_id),
                     lang,
                     db_user,
+                    meta=meta,
                 )
                 return
 
@@ -219,43 +244,15 @@ class PanelWebhookService:
                 )
                 return
 
-            if event_name in EVENT_MAP:
-                stage = EVENT_MAP[event_name]
+            if self._is_before_expiration_stage(stage):
                 days_left = int(stage.days_left or 0)
                 hwid_renewal_note = await self._hwid_renewal_note(internal_user_id, lang)
-                if days_left == 1:
-                    # Trigger auto-renew via SubscriptionService (wired in at factory)
-                    try:
-                        subscription_service = getattr(self, "subscription_service", None)
-                        if subscription_service:
-                            async with self.async_session_factory() as renewal_session:
-                                active_sub = (
-                                    await subscription_dal.get_active_subscription_by_user_id(
-                                        renewal_session,
-                                        internal_user_id,
-                                    )
-                                )
-                                if (
-                                    active_sub
-                                    and active_sub.auto_renew_enabled
-                                    and active_sub.provider == "yookassa"
-                                ):
-                                    try:
-                                        ok = await subscription_service.charge_subscription_renewal(
-                                            renewal_session,
-                                            active_sub,
-                                        )
-                                        # If initiation succeeded, suppress the 24h reminder by returning early  # noqa: E501
-                                        if ok:
-                                            await renewal_session.commit()
-                                            return
-                                        await renewal_session.rollback()
-                                    except Exception:
-                                        await renewal_session.rollback()
-                                        logging.exception("Auto-renew attempt (24h) failed")
-                    except Exception:
-                        logging.exception("Auto-renew trigger (24h) failed pre-check")
-                if days_left <= self.settings.SUBSCRIPTION_NOTIFY_DAYS_BEFORE:
+                if self._is_autorenew_charge_stage(stage) and await self._try_autorenew_charge(
+                    internal_user_id,
+                    stage.key,
+                ):
+                    return
+                if self._should_send_before_expiration_stage(stage):
                     # For 48h, auto-renew users get a cancel button instead.
                     if days_left == 2:
                         active_sub = await subscription_dal.get_active_subscription_by_user_id(
@@ -300,33 +297,25 @@ class PanelWebhookService:
                         end_date_text=end_date_text,
                     )
                     await session.commit()
-            elif event_name == "user.expired":
+            elif stage.key == "expired":
                 if self.settings.SUBSCRIPTION_NOTIFY_ON_EXPIRE:
                     await self.lifecycle_notifications.send_stage(
                         session,
                         sub,
-                        SubscriptionNotificationStage(
-                            key="expired",
-                            message_key="subscription_expired_notification",
-                            days_left=0,
-                        ),
+                        stage,
                         user=db_user,
                         telegram_markup=markup,
                         end_date_text=end_date_text,
                     )
                     await session.commit()
             elif (
-                event_name == "user.expired_24_hours_ago"
+                self._is_after_expiration_stage(stage)
                 and self.settings.SUBSCRIPTION_NOTIFY_AFTER_EXPIRE
             ):
                 await self.lifecycle_notifications.send_stage(
                     session,
                     sub,
-                    SubscriptionNotificationStage(
-                        key="expired_24h_after",
-                        message_key="subscription_expired_yesterday_notification",
-                        days_left=0,
-                    ),
+                    stage,
                     user=db_user,
                     telegram_markup=markup,
                     end_date_text=end_date_text,
@@ -340,40 +329,198 @@ class PanelWebhookService:
         user_id: int,
         lang: str,
         db_user: Optional[User],
+        *,
+        meta: Optional[dict[str, Any]] = None,
     ) -> None:
         first_name = getattr(db_user, "first_name", None) or f"User {user_id}"
         markup = get_subscribe_only_markup(lang, self.i18n, self.settings)
-        if event_name in EVENT_MAP:
-            stage = EVENT_MAP[event_name]
+        stage = self._stage_for_event(event_name, user_payload, meta)
+        if stage is None:
+            return
+
+        kwargs: dict[str, object] = {
+            "user_name": first_name,
+            "end_date": self._payload_expire_date(user_payload),
+        }
+        if stage.hours_before is not None:
+            kwargs["hours"] = stage.hours_before
+        elif stage.hours_after is not None:
+            kwargs["hours"] = stage.hours_after
+
+        if self._is_before_expiration_stage(stage):
+            if not self._should_send_before_expiration_stage(stage):
+                return
             await self._send_message(
                 user_id,
                 lang,
                 stage.message_key,
                 reply_markup=markup,
-                user_name=first_name,
-                end_date=self._payload_expire_date(user_payload),
+                **kwargs,
             )
-        elif event_name == "user.expired" and self.settings.SUBSCRIPTION_NOTIFY_ON_EXPIRE:
+        elif stage.key == "expired" and self.settings.SUBSCRIPTION_NOTIFY_ON_EXPIRE:
             await self._send_message(
                 user_id,
                 lang,
-                "subscription_expired_notification",
+                stage.message_key,
                 reply_markup=markup,
-                user_name=first_name,
-                end_date=self._payload_expire_date(user_payload),
+                **kwargs,
             )
         elif (
-            event_name == "user.expired_24_hours_ago"
+            self._is_after_expiration_stage(stage)
             and self.settings.SUBSCRIPTION_NOTIFY_AFTER_EXPIRE
         ):
             await self._send_message(
                 user_id,
                 lang,
-                "subscription_expired_yesterday_notification",
+                stage.message_key,
                 reply_markup=markup,
-                user_name=first_name,
-                end_date=self._payload_expire_date(user_payload),
+                **kwargs,
             )
+
+    @classmethod
+    def _stage_for_event(
+        cls,
+        event_name: str,
+        user_payload: dict[str, Any],
+        meta: Optional[dict[str, Any]] = None,
+    ) -> Optional[SubscriptionNotificationStage]:
+        if event_name in EVENT_MAP:
+            return EVENT_MAP[event_name]
+        if event_name == EXPIRED_EVENT:
+            return SubscriptionNotificationStage(
+                key="expired",
+                message_key="subscription_expired_notification",
+                days_left=0,
+            )
+        if event_name == EXPIRED_24H_AFTER_EVENT:
+            return cls._expired_after_stage(24)
+        if event_name != EXPIRATION_EVENT:
+            return None
+
+        expiration_hours = cls._expiration_hours(meta, user_payload)
+        if expiration_hours is None or expiration_hours == 0:
+            return None
+        legacy_event = _LEGACY_EXPIRATION_HOURS_TO_EVENT.get(expiration_hours)
+        if legacy_event:
+            return EVENT_MAP[legacy_event]
+        if expiration_hours == 24:
+            return cls._expired_after_stage(24)
+        if expiration_hours < 0:
+            hours_before = abs(expiration_hours)
+            return SubscriptionNotificationStage(
+                key=f"before_{hours_before}h",
+                message_key="subscription_hours_notification",
+                hours_before=hours_before,
+            )
+        return cls._expired_after_stage(expiration_hours)
+
+    @staticmethod
+    def _expired_after_stage(hours_after: int) -> SubscriptionNotificationStage:
+        if hours_after == 24:
+            return SubscriptionNotificationStage(
+                key="expired_24h_after",
+                message_key="subscription_expired_yesterday_notification",
+                days_left=0,
+                hours_after=24,
+            )
+        return SubscriptionNotificationStage(
+            key=f"expired_{hours_after}h_after",
+            message_key="subscription_expired_hours_ago_notification",
+            days_left=0,
+            hours_after=hours_after,
+        )
+
+    @staticmethod
+    def _is_before_expiration_stage(stage: SubscriptionNotificationStage) -> bool:
+        return bool(stage.hours_before is not None or int(stage.days_left or 0) > 0)
+
+    @staticmethod
+    def _is_after_expiration_stage(stage: SubscriptionNotificationStage) -> bool:
+        return stage.key.startswith("expired_") and stage.key != "expired"
+
+    @staticmethod
+    def _is_autorenew_charge_stage(stage: SubscriptionNotificationStage) -> bool:
+        if int(stage.days_left or 0) == 1:
+            return True
+        return bool(stage.hours_before is not None and 0 < stage.hours_before <= 24)
+
+    def _should_send_before_expiration_stage(
+        self,
+        stage: SubscriptionNotificationStage,
+    ) -> bool:
+        if stage.hours_before is not None:
+            return True
+        return int(stage.days_left or 0) <= self.settings.SUBSCRIPTION_NOTIFY_DAYS_BEFORE
+
+    async def _try_autorenew_charge(self, internal_user_id: int, stage_key: str) -> bool:
+        # SubscriptionService is wired by the factory after both services are built.
+        try:
+            subscription_service = getattr(self, "subscription_service", None)
+            if not subscription_service:
+                return False
+            async with self.async_session_factory() as renewal_session:
+                active_sub = await subscription_dal.get_active_subscription_by_user_id(
+                    renewal_session,
+                    internal_user_id,
+                )
+                if not (
+                    active_sub
+                    and active_sub.auto_renew_enabled
+                    and active_sub.provider == "yookassa"
+                ):
+                    return False
+                try:
+                    ok = await subscription_service.charge_subscription_renewal(
+                        renewal_session,
+                        active_sub,
+                    )
+                    if ok:
+                        await renewal_session.commit()
+                        return True
+                    await renewal_session.rollback()
+                except Exception:
+                    await renewal_session.rollback()
+                    logging.exception("Auto-renew attempt (%s) failed", stage_key)
+        except Exception:
+            logging.exception("Auto-renew trigger (%s) failed pre-check", stage_key)
+        return False
+
+    @classmethod
+    def _expiration_hours(
+        cls,
+        meta: Optional[dict[str, Any]],
+        user_payload: dict[str, Any],
+    ) -> Optional[int]:
+        for source in (meta, user_payload):
+            if not isinstance(source, dict):
+                continue
+            for key in ("expiration", "expirationHours", "hours"):
+                value = cls._coerce_int(source.get(key))
+                if value is not None:
+                    return value
+        return None
+
+    @staticmethod
+    def _coerce_int(value: object) -> Optional[int]:
+        if value is None or isinstance(value, bool):
+            return None
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return int(value) if value.is_integer() else None
+        if isinstance(value, str):
+            text = value.strip()
+            if not text:
+                return None
+            try:
+                return int(text)
+            except ValueError:
+                try:
+                    parsed = float(text)
+                except ValueError:
+                    return None
+                return int(parsed) if parsed.is_integer() else None
+        return None
 
     async def _user_for_payload(
         self,
@@ -550,11 +697,17 @@ class PanelWebhookService:
             payload = json.loads(raw_body.decode())
         except Exception:
             return web.Response(status=400, text="bad_request")
+        if not isinstance(payload, dict):
+            return web.Response(status=400, text="bad_request")
 
         event_name = payload.get("name") or payload.get("event")
-        user_data = payload.get("payload") or payload.get("data", {})
-        if isinstance(user_data, dict) and "user" in user_data:
-            user_data = user_data.get("user") or user_data
+        event_data = payload.get("payload") or payload.get("data", {})
+        event_data_dict = event_data if isinstance(event_data, dict) else {}
+        meta = self._webhook_meta(payload, event_data_dict)
+        user_data = event_data_dict
+        if "user" in event_data_dict:
+            nested_user = event_data_dict.get("user")
+            user_data = nested_user if isinstance(nested_user, dict) else event_data_dict
 
         telegram_id = user_data.get("telegramId") if isinstance(user_data, dict) else None
 
@@ -567,25 +720,66 @@ class PanelWebhookService:
             telegram_id if telegram_id is not None else "N/A",
         )
 
+        queued_payload: dict[str, object] = {"event": event_name, "user": user_data}
+        if meta:
+            queued_payload["meta"] = meta
         queued = await enqueue_webhook_event(
             self.settings,
             "panel",
-            {"event": event_name, "user": user_data},
-            event_id=(
-                f"{event_name}:{telegram_id or user_data.get('uuid') or user_data.get('shortUuid')}"
-            ),
+            queued_payload,
+            event_id=self._webhook_event_id(str(event_name), user_data, meta),
         )
         if not queued:
             asyncio.create_task(
-                self._run_event_in_background(event_name, user_data),
+                self._run_event_in_background(str(event_name), user_data, meta),
                 name=f"panel_event_{event_name}",
             )
         return web.Response(status=200, text="ok")
 
-    async def _run_event_in_background(self, event_name: str, user_payload: dict[str, Any]) -> None:
+    @classmethod
+    def _webhook_meta(
+        cls,
+        payload: dict[str, Any],
+        event_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        meta: dict[str, Any] = {}
+        for source in (payload, event_data):
+            for key in ("meta", "_meta"):
+                raw = source.get(key)
+                if isinstance(raw, dict):
+                    meta.update(raw)
+        return meta
+
+    @classmethod
+    def _webhook_event_id(
+        cls,
+        event_name: str,
+        user_payload: dict[str, Any],
+        meta: Optional[dict[str, Any]] = None,
+    ) -> str:
+        subject = (
+            cls._payload_telegram_id(user_payload)
+            or user_payload.get("uuid")
+            or user_payload.get("userUuid")
+            or user_payload.get("shortUuid")
+            or "unknown"
+        )
+        event_id = f"{event_name}:{subject}"
+        if event_name == EXPIRATION_EVENT:
+            expiration_hours = cls._expiration_hours(meta, user_payload)
+            if expiration_hours is not None:
+                event_id = f"{event_id}:expiration:{expiration_hours}"
+        return event_id
+
+    async def _run_event_in_background(
+        self,
+        event_name: str,
+        user_payload: dict[str, Any],
+        meta: Optional[dict[str, Any]] = None,
+    ) -> None:
         async with self._event_semaphore:
             try:
-                await self.handle_event(event_name, user_payload)
+                await self.handle_event(event_name, user_payload, meta=meta)
             except Exception:
                 logging.exception(
                     "Panel webhook background handler failed for event %s", event_name

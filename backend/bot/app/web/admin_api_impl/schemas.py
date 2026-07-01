@@ -22,30 +22,77 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, cast
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
+from bot.services.promo_effects import PromoEffects, summarize_effects, validate_effects
 
 
 class PromoCreateBody(HttpBodyModel):
-    code: str
-    bonus_days: int = Field(gt=0)
+    code: str | None = None
+    bonus_days: int = Field(default=0, ge=0)
+    discount_percent: float | None = Field(default=None, gt=0, le=100)
+    duration_multiplier: float | None = Field(default=None, ge=1)
+    traffic_multiplier: float | None = Field(default=None, ge=1)
+    bonus_requires_payment: bool = False
+    applies_to: str = "all"
+    min_subscription_months: int | None = Field(default=None, gt=0)
+    min_traffic_gb: float | None = Field(default=None, gt=0)
     max_activations: int = Field(gt=0)
     valid_days: Any = None
+    origin: str = "admin"
 
     @field_validator("code", mode="before")
     @classmethod
-    def _normalize_code(cls, value: Any) -> str:
+    def _normalize_code(cls, value: Any) -> str | None:
         code = str(value or "").strip().upper()
-        if not code:
-            raise ValueError("empty_code")
-        return code
+        return code or None
+
+    @field_validator("applies_to", "origin", mode="before")
+    @classmethod
+    def _normalize_text(cls, value: Any) -> str:
+        return str(value or "").strip().lower()
+
+    @model_validator(mode="after")
+    def _validate_effects(self) -> "PromoCreateBody":
+        validate_effects(self.to_effects())
+        return self
+
+    def to_effects(self) -> PromoEffects:
+        return PromoEffects(
+            bonus_days=int(self.bonus_days or 0),
+            discount_percent=self.discount_percent,
+            duration_multiplier=float(self.duration_multiplier or 1.0),
+            traffic_multiplier=float(self.traffic_multiplier or 1.0),
+            bonus_requires_payment=bool(self.bonus_requires_payment),
+            applies_to=self.applies_to or "all",
+            min_subscription_months=self.min_subscription_months,
+            min_traffic_gb=self.min_traffic_gb,
+        )
 
 
 class PromoUpdateBody(HttpBodyModel):
     is_active: Any = None
-    bonus_days: int | None = Field(default=None, gt=0)
+    bonus_days: int | None = Field(default=None, ge=0)
+    discount_percent: float | None = Field(default=None, gt=0, le=100)
+    duration_multiplier: float | None = Field(default=None, ge=1)
+    traffic_multiplier: float | None = Field(default=None, ge=1)
+    bonus_requires_payment: bool | None = None
+    applies_to: str | None = None
+    min_subscription_months: int | None = Field(default=None, gt=0)
+    min_traffic_gb: float | None = Field(default=None, gt=0)
     max_activations: int | None = Field(default=None, gt=0)
+    origin: str | None = None
+    valid_until: datetime | None = None
+    clear_valid_until: Any = None
+
+    @field_validator("applies_to", "origin", mode="before")
+    @classmethod
+    def _normalize_optional_text(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+        text = str(value or "").strip().lower()
+        return text or None
 
 
 def _strip_text(value: Any) -> str:
@@ -162,7 +209,18 @@ class AdminUserTariffBody(HttpBodyModel):
 class PromoOut(HttpResponseModel):
     id: int
     code: str
+    bot_link: str | None = None
+    webapp_link: str | None = None
     bonus_days: int
+    discount_percent: float | None = None
+    duration_multiplier: float | None = None
+    traffic_multiplier: float | None = None
+    bonus_requires_payment: bool = False
+    applies_to: str
+    min_subscription_months: int | None = None
+    min_traffic_gb: float | None = None
+    origin: str
+    effect_summary: str
     max_activations: int
     current_activations: int
     is_active: bool
@@ -171,11 +229,33 @@ class PromoOut(HttpResponseModel):
     created_by_admin_id: int | None = None
 
     @classmethod
-    def from_orm_promo(cls, promo: Any) -> "PromoOut":
+    def from_orm_promo(
+        cls,
+        promo: Any,
+        *,
+        bot_link: str | None = None,
+        webapp_link: str | None = None,
+    ) -> "PromoOut":
+        effects = PromoEffects.from_model(promo)
         return cls(
             id=int(promo.promo_code_id),
             code=promo.code,
+            bot_link=bot_link,
+            webapp_link=webapp_link,
             bonus_days=int(promo.bonus_days),
+            discount_percent=effects.discount_percent,
+            duration_multiplier=(
+                effects.duration_multiplier if effects.duration_multiplier != 1.0 else None
+            ),
+            traffic_multiplier=(
+                effects.traffic_multiplier if effects.traffic_multiplier != 1.0 else None
+            ),
+            bonus_requires_payment=bool(effects.bonus_requires_payment),
+            applies_to=effects.applies_to,
+            min_subscription_months=effects.min_subscription_months,
+            min_traffic_gb=effects.min_traffic_gb,
+            origin=str(getattr(promo, "origin", None) or "admin"),
+            effect_summary=summarize_effects(effects),
             max_activations=int(promo.max_activations),
             current_activations=int(promo.current_activations or 0),
             is_active=bool(promo.is_active),
@@ -272,6 +352,128 @@ def _display_label(
 def _payment_user_display_label(loaded_user: Any, payment_user_id: int) -> str:
     label = _display_label(loaded_user, payment_user_id)
     return label or str(payment_user_id)
+
+
+def _float_or_none(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _first_float_or_none(*values: Any) -> float | None:
+    for value in values:
+        parsed = _float_or_none(value)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+class PromoActivationOut(HttpResponseModel):
+    activation_id: int
+    promo_id: int
+    user_id: int
+    user_label: str
+    telegram_id: int | None = None
+    activated_at: datetime | None = None
+    payment_id: int | None = None
+    payment_amount: float | None = None
+    payment_currency: str | None = None
+    payment_status: str | None = None
+    payment_provider: str | None = None
+    payment_sale_mode: str | None = None
+    payment_description: str | None = None
+    payment_created_at: datetime | None = None
+    effect_summary: str | None = None
+    bonus_days: int | None = None
+    discount_percent: float | None = None
+    duration_multiplier: float | None = None
+    traffic_multiplier: float | None = None
+    applies_to: str | None = None
+    base_amount: float | None = None
+    discount_amount: float | None = None
+    charged_months: int | None = None
+    charged_gb: float | None = None
+    granted_days: int | None = None
+    granted_gb: float | None = None
+
+    @classmethod
+    def from_orm_activation(cls, activation: Any) -> "PromoActivationOut":
+        loaded_user = activation.__dict__.get("user")
+        loaded_payment = activation.__dict__.get("payment")
+        user_label = _display_label(loaded_user, int(activation.user_id)) or str(activation.user_id)
+        telegram_id = None
+        if loaded_user is not None and getattr(loaded_user, "telegram_id", None) is not None:
+            try:
+                telegram_id = int(loaded_user.telegram_id)
+            except (TypeError, ValueError):
+                telegram_id = None
+        return cls(
+            activation_id=int(activation.activation_id),
+            promo_id=int(activation.promo_code_id),
+            user_id=int(activation.user_id),
+            user_label=user_label,
+            telegram_id=telegram_id,
+            activated_at=activation.activated_at,
+            payment_id=int(activation.payment_id) if activation.payment_id else None,
+            payment_amount=(
+                float(loaded_payment.amount)
+                if loaded_payment is not None and loaded_payment.amount is not None
+                else None
+            ),
+            payment_currency=loaded_payment.currency if loaded_payment is not None else None,
+            payment_status=loaded_payment.status if loaded_payment is not None else None,
+            payment_provider=loaded_payment.provider if loaded_payment is not None else None,
+            payment_sale_mode=loaded_payment.sale_mode if loaded_payment is not None else None,
+            payment_description=loaded_payment.description if loaded_payment is not None else None,
+            payment_created_at=loaded_payment.created_at if loaded_payment is not None else None,
+            effect_summary=getattr(activation, "effect_summary", None),
+            bonus_days=(
+                int(activation.bonus_days)
+                if getattr(activation, "bonus_days", None) is not None
+                else None
+            ),
+            discount_percent=_float_or_none(getattr(activation, "discount_percent", None)),
+            duration_multiplier=_float_or_none(getattr(activation, "duration_multiplier", None)),
+            traffic_multiplier=_float_or_none(getattr(activation, "traffic_multiplier", None)),
+            applies_to=getattr(activation, "applies_to", None),
+            base_amount=_first_float_or_none(
+                getattr(activation, "base_amount", None),
+                getattr(loaded_payment, "checkout_base_amount", None)
+                if loaded_payment is not None
+                else None,
+            ),
+            discount_amount=_first_float_or_none(
+                getattr(activation, "discount_amount", None),
+                getattr(loaded_payment, "checkout_discount_amount", None)
+                if loaded_payment is not None
+                else None,
+            ),
+            charged_months=(
+                int(getattr(activation, "charged_months", 0) or 0)
+                if getattr(activation, "charged_months", None) is not None
+                else (
+                    int(getattr(loaded_payment, "checkout_charged_months", 0) or 0)
+                    if loaded_payment is not None
+                    and getattr(loaded_payment, "checkout_charged_months", None) is not None
+                    else None
+                )
+            ),
+            charged_gb=_first_float_or_none(
+                getattr(activation, "charged_gb", None),
+                getattr(loaded_payment, "checkout_charged_gb", None)
+                if loaded_payment is not None
+                else None,
+            ),
+            granted_days=(
+                int(getattr(activation, "granted_days", 0) or 0)
+                if getattr(activation, "granted_days", None) is not None
+                else None
+            ),
+            granted_gb=_float_or_none(getattr(activation, "granted_gb", None)),
+        )
 
 
 class PaymentOut(HttpResponseModel):

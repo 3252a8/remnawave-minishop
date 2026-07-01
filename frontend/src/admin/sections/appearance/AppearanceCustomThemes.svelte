@@ -29,7 +29,6 @@
     themeLogoScaleInputHandler,
     previewThemeClickHandler,
     selectTheme,
-    handleThemeKeydown,
   }: {
     at: TranslateFn;
     customThemes?: ThemeEntry[];
@@ -58,8 +57,7 @@
     themeLogoScaleSelectHandler: (theme: ThemeEntry, mode: LogoMode) => SelectCallback;
     themeLogoScaleInputHandler: (theme: ThemeEntry, mode: LogoMode) => (event: Event) => void;
     previewThemeClickHandler: (theme: ThemeEntry) => (event: MouseEvent) => void;
-    selectTheme: (theme: ThemeEntry, event: MouseEvent | KeyboardEvent | null) => void;
-    handleThemeKeydown: (event: KeyboardEvent, theme: ThemeEntry) => void;
+    selectTheme: (theme: ThemeEntry) => void;
   } = $props();
 </script>
 
@@ -87,17 +85,25 @@
       {#each customThemes as theme (theme.key)}
         {@const isCurrent = theme.key === activeKey}
         <div
-          role="button"
-          tabindex={themesSaving ? -1 : 0}
           class="admin-theme-card"
           class:is-current={isCurrent}
           class:is-disabled={theme.enabled === false}
           class:is-dirty={isThemeDirty(theme)}
-          aria-pressed={isCurrent}
-          aria-disabled={themesSaving}
-          onclick={(event) => selectTheme(theme, event)}
-          onkeydown={(event) => handleThemeKeydown(event, theme)}
+          aria-current={isCurrent ? "true" : undefined}
+          data-theme-key={theme.key}
         >
+          <button
+            type="button"
+            class="theme-card-select-hitbox"
+            aria-label={at(
+              "appearance_use_theme_named",
+              { title: themeTitle(theme) },
+              `Выбрать ${themeTitle(theme)}`
+            )}
+            aria-pressed={isCurrent}
+            disabled={themesSaving || isCurrent}
+            onclick={() => selectTheme(theme)}
+          ></button>
           <span class="admin-theme-card-main">
             <span class="admin-theme-card-title">
               <strong>{themeTitle(theme)}</strong>

@@ -6,7 +6,11 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock
 
 import bot.app.web.subscription_webapp  # noqa: F401
-from bot.app.web.webapp.devices import _load_devices_payload, _serialize_device
+from bot.app.web.webapp.devices import (
+    _load_devices_payload,
+    _normalize_devices_response,
+    _serialize_device,
+)
 
 
 def test_serialize_device_matches_contract():
@@ -65,6 +69,12 @@ def test_device_serializer_accepts_datetime_created_at():
     json.dumps(payload)
 
 
+def test_normalize_devices_response_accepts_panel_response_object():
+    payload = {"response": {"total": 1, "devices": [{"hwid": "abcdef123456"}]}}
+
+    assert _normalize_devices_response(payload) == [{"hwid": "abcdef123456"}]
+
+
 class WebAppDevicesPayloadTests(IsolatedAsyncioTestCase):
     async def test_load_devices_payload_returns_empty_payload_without_subscription(self):
         panel_service = SimpleNamespace(get_user_devices=AsyncMock())
@@ -109,3 +119,42 @@ class WebAppDevicesPayloadTests(IsolatedAsyncioTestCase):
         self.assertEqual(payload["payload"]["current_devices"], 1)
         self.assertEqual(payload["payload"]["devices"][0]["display_name"], "Laptop")
         panel_service.get_user_devices.assert_awaited_once_with("panel-user")
+
+    async def test_load_devices_payload_reports_panel_none_as_error(self):
+        panel_service = SimpleNamespace(get_user_devices=AsyncMock(return_value=None))
+        subscription_service = SimpleNamespace(
+            get_active_subscription_details=AsyncMock(
+                return_value={
+                    "user_id": "panel-user",
+                    "end_date": datetime(2099, 1, 2, tzinfo=timezone.utc),
+                    "max_devices": 3,
+                }
+            ),
+            panel_service=panel_service,
+        )
+
+        payload = await _load_devices_payload(subscription_service, AsyncMock(), 42)
+
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["status"], 502)
+        self.assertEqual(payload["error"], "devices_load_failed")
+
+    async def test_load_devices_payload_keeps_empty_devices_list_successful(self):
+        panel_service = SimpleNamespace(get_user_devices=AsyncMock(return_value=[]))
+        subscription_service = SimpleNamespace(
+            get_active_subscription_details=AsyncMock(
+                return_value={
+                    "user_id": "panel-user",
+                    "end_date": datetime(2099, 1, 2, tzinfo=timezone.utc),
+                    "max_devices": 3,
+                }
+            ),
+            panel_service=panel_service,
+        )
+
+        payload = await _load_devices_payload(subscription_service, AsyncMock(), 42)
+
+        self.assertTrue(payload["ok"])
+        self.assertTrue(payload["payload"]["subscription_active"])
+        self.assertEqual(payload["payload"]["current_devices"], 0)
+        self.assertEqual(payload["payload"]["devices"], [])

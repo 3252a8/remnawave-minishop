@@ -6,6 +6,7 @@ import logging
 import re
 import shutil
 import socket
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Dict, Optional, cast
 from urllib.parse import urlsplit
@@ -226,20 +227,29 @@ def _favicon_digest(url: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
-def prune_unused_appearance_assets(settings: Settings) -> None:
+def prune_unused_appearance_assets(
+    settings: Settings,
+    *,
+    extra_keep_urls: Iterable[str] | None = None,
+) -> None:
+    extra_urls = tuple(str(url or "") for url in (extra_keep_urls or ()) if url)
     keep_logos = {
         filename
-        for filename in [
-            _uploaded_logo_filename(settings.WEBAPP_LOGO_URL),
-        ]
+        for filename in (
+            _uploaded_logo_filename(url) for url in (settings.WEBAPP_LOGO_URL, *extra_urls)
+        )
         if filename
     }
     keep_favicons = {
         digest
-        for digest in [
-            _favicon_digest(settings.WEBAPP_FAVICON_URL),
-            _favicon_digest(settings.WEBAPP_LOGO_FAVICON_URL),
-        ]
+        for digest in (
+            _favicon_digest(url)
+            for url in (
+                settings.WEBAPP_FAVICON_URL,
+                settings.WEBAPP_LOGO_FAVICON_URL,
+                *extra_urls,
+            )
+        )
         if digest
     }
 

@@ -3,11 +3,13 @@ import {
   resolveTopupDeeplinkKind,
   type RenewalPaymentConfig,
 } from "./billingDeeplinks.js";
+import { buildTariffCatalog } from "./tariffs.js";
 import type { BillingPlan } from "./tariffs.js";
 
 type WebappRecord = Record<string, unknown>;
 
 type BillingDeeplinkStore = {
+  applyCheckoutPromo?: () => Promise<void>;
   openPaymentModal: (
     tariffMode: boolean,
     singleTariffMode: boolean,
@@ -18,12 +20,15 @@ type BillingDeeplinkStore = {
     options: RenewalPaymentConfig["options"]
   ) => void;
   openTopupModal: (kind: "premium" | "regular", defaultMethod: string) => void;
+  setCheckoutPromoInput?: (value: string) => void;
 };
 
 export type BillingDeeplinkEffectsDeps = {
   billingStore: BillingDeeplinkStore;
+  readCheckoutPromoDeeplink?: () => string;
   readRenewalDeeplink: () => { tariffKey: string } | null;
   setHomeRoute: () => void;
+  stripCheckoutPromoQueryFromUrl?: () => void;
   stripRenewalLoginQueryFromUrl: () => void;
   stripTopupQueryFromUrl: () => void;
 };
@@ -37,8 +42,10 @@ export type ApplyPostLoadBillingDeeplinksInput = {
 
 export function createBillingDeeplinkEffects({
   billingStore,
+  readCheckoutPromoDeeplink = () => "",
   readRenewalDeeplink,
   setHomeRoute,
+  stripCheckoutPromoQueryFromUrl = () => {},
   stripRenewalLoginQueryFromUrl,
   stripTopupQueryFromUrl,
 }: BillingDeeplinkEffectsDeps) {
@@ -48,10 +55,12 @@ export function createBillingDeeplinkEffects({
     search,
     subscription,
   }: ApplyPostLoadBillingDeeplinksInput): void {
+    let openedBillingDeeplink = false;
     const topupDeeplinkKind = resolveTopupDeeplinkKind({ plans, search, subscription });
     if (topupDeeplinkKind) {
       billingStore.openTopupModal(topupDeeplinkKind, defaultMethod);
       stripTopupQueryFromUrl();
+      openedBillingDeeplink = true;
     }
 
     const renewalDeep = readRenewalDeeplink();
@@ -73,6 +82,30 @@ export function createBillingDeeplinkEffects({
         renewalPayment.options
       );
       stripRenewalLoginQueryFromUrl();
+      openedBillingDeeplink = true;
+    }
+
+    const checkoutPromoCode = readCheckoutPromoDeeplink();
+    if (checkoutPromoCode) {
+      billingStore.setCheckoutPromoInput?.(checkoutPromoCode);
+      if (!openedBillingDeeplink) {
+        setHomeRoute();
+        billingStore.openPaymentModal(
+          true,
+          true,
+          buildTariffCatalog(plans),
+          subscription,
+          plans,
+          defaultMethod,
+          {
+            preferCheckout: true,
+            preferredTariffKey: "",
+            selectDefaultTariff: true,
+          }
+        );
+      }
+      void billingStore.applyCheckoutPromo?.();
+      stripCheckoutPromoQueryFromUrl();
     }
   }
 

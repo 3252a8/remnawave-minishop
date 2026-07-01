@@ -55,7 +55,7 @@ export default defineConfig(({ command, mode }) => {
       lib: {
         entry: path.resolve(__dirname, entry),
         name: isAdminBuild ? "SubscriptionWebAppAdmin" : "SubscriptionWebApp",
-        formats: ["iife"],
+        formats: [isAdminBuild ? "es" : "iife"],
         fileName: () => `${outputBase}.js`,
         cssFileName: outputBase,
       },
@@ -64,6 +64,20 @@ export default defineConfig(({ command, mode }) => {
           pluginTimings: false,
         },
         output: {
+          chunkFileNames: isAdminBuild
+            ? "subscription_webapp_admin.[name].[hash].js"
+            : undefined,
+          manualChunks: isAdminBuild
+            ? (id) => {
+                const normalizedId = id.split(path.sep).join("/");
+                if (normalizedId.includes("/node_modules/uplot/")) {
+                  return "admin-chart";
+                }
+                if (normalizedId.includes("/node_modules/")) {
+                  return "admin-vendor";
+                }
+              }
+            : undefined,
           assetFileNames: (assetInfo) => {
             if (assetInfo.name && assetInfo.name.endsWith(".css")) {
               return `${outputBase}.css`;

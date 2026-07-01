@@ -733,7 +733,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("/webapp-default-logo.webp", nginx_conf)
         self.assertIn("proxy_pass http://backend:8081;", nginx_conf)
 
-    def test_frontend_nginx_proxies_shell_routes_for_dynamic_head(self):
+    def test_frontend_nginx_serves_shell_routes_from_static_index(self):
         nginx_conf = Path("deploy/docker/frontend/nginx.conf").read_text(encoding="utf-8")
         marker = 'location ~ "^/(?:$|login/password$|home$|install$|trial$|s/[a-f0-9]{32}$'
 
@@ -741,8 +741,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         start = nginx_conf.index(marker)
         shell_block = nginx_conf[start : nginx_conf.index("\n\n", start)]
 
-        self.assertIn("proxy_pass http://backend:8081;", shell_block)
-        self.assertIn("proxy_set_header Host $host;", shell_block)
+        self.assertIn("try_files /index.html =404;", shell_block)
+        self.assertNotIn("proxy_pass http://backend:8081;", shell_block)
         self.assertIn("devices$", shell_block)
         self.assertIn("admin(?:/.*)?$", shell_block)
 
@@ -785,12 +785,15 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             favicons.mkdir()
             (uploads / "logo-1111111111111111.png").write_bytes(b"keep")
             (uploads / "logo-2222222222222222.png").write_bytes(b"remove")
+            (uploads / "logo-3333333333333333.png").write_bytes(b"keep-extra")
             (favicons / "aaaaaaaaaaaaaaaa").mkdir()
             (favicons / "bbbbbbbbbbbbbbbb").mkdir()
             (favicons / "cccccccccccccccc").mkdir()
+            (favicons / "dddddddddddddddd").mkdir()
             (favicons / "aaaaaaaaaaaaaaaa" / "icon-180.png").write_bytes(b"keep")
             (favicons / "bbbbbbbbbbbbbbbb" / "icon-180.png").write_bytes(b"keep")
             (favicons / "cccccccccccccccc" / "icon-180.png").write_bytes(b"remove")
+            (favicons / "dddddddddddddddd" / "icon-180.png").write_bytes(b"keep-extra")
             settings = SimpleNamespace(
                 WEBAPP_LOGO_URL="/webapp-uploaded-logo/logo-1111111111111111.png",
                 WEBAPP_FAVICON_URL="/webapp-favicon/aaaaaaaaaaaaaaaa/icon-180.png",
@@ -801,13 +804,21 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 patch.object(admin_themes, "WEBAPP_UPLOADED_LOGO_DIR", uploads),
                 patch.object(admin_themes, "WEBAPP_FAVICON_DIR", favicons),
             ):
-                admin_themes.prune_unused_appearance_assets(settings)
+                admin_themes.prune_unused_appearance_assets(
+                    settings,
+                    extra_keep_urls=[
+                        "/webapp-uploaded-logo/logo-3333333333333333.png",
+                        "/webapp-favicon/dddddddddddddddd/icon-180.png",
+                    ],
+                )
 
             self.assertTrue((uploads / "logo-1111111111111111.png").exists())
             self.assertFalse((uploads / "logo-2222222222222222.png").exists())
+            self.assertTrue((uploads / "logo-3333333333333333.png").exists())
             self.assertTrue((favicons / "aaaaaaaaaaaaaaaa").exists())
             self.assertTrue((favicons / "bbbbbbbbbbbbbbbb").exists())
             self.assertFalse((favicons / "cccccccccccccccc").exists())
+            self.assertTrue((favicons / "dddddddddddddddd").exists())
 
     async def test_persist_appearance_upload_writes_overrides_and_clears_caches(self):
         settings = SimpleNamespace()
@@ -843,7 +854,10 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(request.app["webapp_settings_cache"], {"ts": 0.0, "data": {}})
         self.assertIsNone(request.app["webapp_logo_cache"])
-        prune_mock.assert_called_once_with(settings)
+        prune_mock.assert_called_once_with(
+            settings,
+            extra_keep_urls=["/webapp-uploaded-logo/logo-1111111111111111.png"],
+        )
 
     def test_initial_theme_head_markup_includes_css_and_tokens(self):
         cfg = builtin_webapp_themes_config("#123456")

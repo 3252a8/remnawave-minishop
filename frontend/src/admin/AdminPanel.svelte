@@ -1,27 +1,23 @@
 <script lang="ts">
   import { QueryClient } from "@tanstack/svelte-query";
-  import {
-    ArrowLeft,
-    Check,
-    ChevronsUpDown,
-    Download,
-    Globe2,
-    Menu,
-    Plus,
-    RefreshCw,
-    Save,
-  } from "$components/ui/icons.js";
-  import { onMount, setContext } from "svelte";
+  import { ArrowLeft, Check, ChevronsUpDown, Globe2, Menu } from "$components/ui/icons.js";
+  import { onMount } from "svelte";
+  import { MediaQuery } from "svelte/reactivity";
+  import { prefersReducedMotion } from "svelte/motion";
   import { fade } from "svelte/transition";
   import { Select } from "$components/ui/primitives.js";
   import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
 
   import BrandMark from "$lib/webapp/BrandMark.svelte";
-  import PaymentDetailModal from "./sections/PaymentDetailModal.svelte";
-  import TariffEditorModal from "./sections/TariffEditorModal.svelte";
-  import UserDetailModal from "./sections/UserDetailModal.svelte";
+  import AdminHeaderActions from "./AdminHeaderActions.svelte";
+  import AdminLazyModals from "./AdminLazyModals.svelte";
   import { ADMIN_SECTION_GROUPS, ADMIN_SECTIONS } from "./sections/registry";
   import ConfigAlertsBanner from "./ConfigAlertsBanner.svelte";
+  import {
+    createAdminSectionComponentLoader,
+    dynamicComponent,
+    type DynamicComponent,
+  } from "./adminLazyComponents";
   import { createAdsStore } from "../lib/admin/stores/adsStore.js";
   import { createBackupsStore } from "../lib/admin/stores/backupsStore.js";
   import { createBroadcastStore } from "../lib/admin/stores/broadcastStore.js";
@@ -61,12 +57,27 @@
     withRoutePrefix,
   } from "../lib/webapp/routes.js";
   import { buildAdminPaymentsExportPath } from "../lib/webapp/publicApi";
+  import {
+    setAdsStore,
+    setAdminSupportStore,
+    setBackupsStore,
+    setBroadcastStore,
+    setHealthStore,
+    setLogsStore,
+    setPaymentsStore,
+    setPromosStore,
+    setSettingsStore,
+    setStatsStore,
+    setTariffsStore,
+    setThemesStore,
+    setTranslationsStore,
+    setUsersStore,
+  } from "../lib/admin/context";
   import type { AdminSectionDescriptor } from "./sections/registry";
   import type { SettingsSavedPayload } from "../lib/admin/stores/settingsStore";
   import type { TariffsCatalog } from "../lib/admin/stores/tariffsStore";
   import type { TranslationsSavedPayload } from "../lib/admin/stores/translationsStore";
   import type { AdminUser } from "../lib/admin/stores/usersStore";
-  import type { ComponentType, SvelteComponent } from "svelte";
 
   type AdminApi = Parameters<typeof createAdsStore>[0]["api"] &
     Parameters<typeof createThemesStore>[0]["api"];
@@ -83,7 +94,6 @@
     items: Array<AdminSectionDescriptor & { label: string }>;
   };
   type PanelStatusBadge = { label: string; variant: "success" | "danger" | "warning" | "muted" };
-  type DynamicComponent = ComponentType<SvelteComponent<Record<string, unknown>>>;
 
   let {
     api,
@@ -239,8 +249,9 @@
     }
   });
 
+  const compactQuery = new MediaQuery("max-width: 720px", false);
   let sidebarOpen = $state(false);
-  let isCompact = $state(false);
+  const isCompact = $derived(compactQuery.current);
   let dismissedUserRouteKey = $state("");
   let lastUserRouteKey = $state("");
   let adminLanguageMenuOpen = $state(false);
@@ -252,20 +263,25 @@
     isCompact && (adminLanguageMenuOpen || adminLanguageClickGuard)
   );
 
-  function readReduceMotion() {
-    return (
-      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    );
-  }
-
-  let reduceMotion = $state(readReduceMotion());
-
   function flash(text: string): void {
     onToast(text);
   }
 
-  function dynamicComponent(component: unknown): DynamicComponent {
-    return component as DynamicComponent;
+  function sectionFade() {
+    return { duration: prefersReducedMotion.current ? 0 : 200 };
+  }
+
+  function sidebarBackdropFade() {
+    return { duration: prefersReducedMotion.current ? 0 : 180 };
+  }
+
+  const sectionComponentLoader = createAdminSectionComponentLoader();
+  let sectionLoadToken = 0;
+  let activeSectionComponent = $state<DynamicComponent | null>(null);
+  let activeSectionLoading = $state(false);
+
+  function warmSectionComponent(section: AdminSectionDescriptor): void {
+    sectionComponentLoader.warm(section);
   }
 
   const adminQueryClient = new QueryClient({
@@ -293,9 +309,20 @@
     onToast: flash,
     at,
     routePrefix: stableRoutePrefix,
+    queryClient: adminQueryClient,
   });
-  const promosStore = createPromosStore({ api: stableApi, onToast: flash, at });
-  const statsStore = createStatsStore({ api: stableApi, onToast: flash, at });
+  const promosStore = createPromosStore({
+    api: stableApi,
+    onToast: flash,
+    at,
+    queryClient: adminQueryClient,
+  });
+  const statsStore = createStatsStore({
+    api: stableApi,
+    onToast: flash,
+    at,
+    queryClient: adminQueryClient,
+  });
   const supportStore = createAdminSupportStore({
     api: stableApi,
     onToast: flash,
@@ -320,22 +347,23 @@
     onToast: flash,
     at,
     routePrefix: stableRoutePrefix,
+    queryClient: adminQueryClient,
   });
 
-  setContext("promosStore", promosStore);
-  setContext("adsStore", adsStore);
-  setContext("healthStore", healthStore);
-  setContext("backupsStore", backupsStore);
-  setContext("broadcastStore", broadcastStore);
-  setContext("logsStore", logsStore);
-  setContext("paymentsStore", paymentsStore);
-  setContext("statsStore", statsStore);
-  setContext("adminSupportStore", supportStore);
-  setContext("settingsStore", settingsStore);
-  setContext("usersStore", usersStore);
-  setContext("tariffsStore", tariffsStore);
-  setContext("themesStore", themesStore);
-  setContext("translationsStore", translationsStore);
+  setPromosStore(promosStore);
+  setAdsStore(adsStore);
+  setHealthStore(healthStore);
+  setBackupsStore(backupsStore);
+  setBroadcastStore(broadcastStore);
+  setLogsStore(logsStore);
+  setPaymentsStore(paymentsStore);
+  setStatsStore(statsStore);
+  setAdminSupportStore(supportStore);
+  setSettingsStore(settingsStore);
+  setUsersStore(usersStore);
+  setTariffsStore(tariffsStore);
+  setThemesStore(themesStore);
+  setTranslationsStore(translationsStore);
 
   $effect(() => {
     usersStore.setActive(active);
@@ -364,6 +392,30 @@
   );
 
   const gravatarCache = createGravatarCache(() => usersStore.updateState({}));
+
+  $effect(() => {
+    const section = activeSection;
+    const token = ++sectionLoadToken;
+    activeSectionComponent = null;
+    if (!section) {
+      activeSectionLoading = false;
+      return;
+    }
+    activeSectionLoading = true;
+    void sectionComponentLoader
+      .load(section)
+      .then((component) => {
+        if (token !== sectionLoadToken) return;
+        activeSectionComponent = component;
+      })
+      .catch((error: unknown) => {
+        if (token !== sectionLoadToken) return;
+        flash(error instanceof Error ? error.message : String(error || "section_load_failed"));
+      })
+      .finally(() => {
+        if (token === sectionLoadToken) activeSectionLoading = false;
+      });
+  });
 
   function setActive(id: string): void {
     const next = normalizeSection(id);
@@ -580,11 +632,6 @@
     }
   }
 
-  let compactMql: MediaQueryList | null = null;
-  function onCompactChange(event: MediaQueryListEvent | MediaQueryList): void {
-    isCompact = Boolean(event?.matches);
-  }
-
   function clearAdminLanguageClickGuard(): void {
     if (adminLanguageClickGuardTimer) {
       window.clearTimeout(adminLanguageClickGuardTimer);
@@ -626,22 +673,6 @@
 
   onMount(() => {
     adminQueryClient.mount();
-    reduceMotion = readReduceMotion();
-    let motionMql: MediaQueryList | null = null;
-    const onMotionChange = (): void => {
-      reduceMotion = readReduceMotion();
-    };
-    if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
-      motionMql = window.matchMedia("(prefers-reduced-motion: reduce)");
-      reduceMotion = motionMql.matches;
-      motionMql.addEventListener("change", onMotionChange);
-    }
-    if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
-      compactMql = window.matchMedia("(max-width: 720px)");
-      isCompact = compactMql.matches;
-      if (compactMql.addEventListener) compactMql.addEventListener("change", onCompactChange);
-      else if (compactMql.addListener) compactMql.addListener(onCompactChange);
-    }
     if (typeof window !== "undefined") {
       window.addEventListener("popstate", onPopState);
     }
@@ -655,21 +686,12 @@
         ? window.setInterval(() => void healthStore.loadHealth(), 5 * 60 * 1000)
         : null;
     return () => {
-      if (motionMql) motionMql.removeEventListener("change", onMotionChange);
-      if (compactMql) {
-        if (compactMql.removeEventListener)
-          compactMql.removeEventListener("change", onCompactChange);
-        else if (compactMql.removeListener) compactMql.removeListener(onCompactChange);
-      }
       if (typeof window !== "undefined") window.removeEventListener("popstate", onPopState);
       if (healthTimer !== null) window.clearInterval(healthTimer);
       adminQueryClient.unmount();
       clearAdminLanguageClickGuard();
     };
   });
-
-  const sectionFade = $derived(reduceMotion ? { duration: 0 } : { duration: 200 });
-  const sidebarBackdropFade = $derived(reduceMotion ? { duration: 0 } : { duration: 180 });
 
   $effect(() => {
     const currentUserRouteKey = userRouteKey();
@@ -722,8 +744,8 @@
       type="button"
       class="admin-sidebar-backdrop"
       aria-label={at("close_menu", {}, "Закрыть меню")}
-      in:fade={sidebarBackdropFade}
-      out:fade={sidebarBackdropFade}
+      in:fade={sidebarBackdropFade()}
+      out:fade={sidebarBackdropFade()}
       onclick={() => (sidebarOpen = false)}
     ></button>
   {/if}
@@ -763,6 +785,9 @@
             type="button"
             class="admin-nav-item"
             class:active={active === item.id}
+            data-admin-section={item.id}
+            onfocus={() => warmSectionComponent(item)}
+            onpointerenter={() => warmSectionComponent(item)}
             onclick={() => setActive(item.id)}
           >
             <NavIcon size={16} />
@@ -856,89 +881,35 @@
           {#if meta.subtitle}<small>{meta.subtitle}</small>{/if}
         </div>
       </div>
-      <div class="admin-header-actions">
-        {#if active === "stats"}
-          <AdminButton onclick={statsStore.triggerSync} disabled={syncBusy}>
-            <RefreshCw size={14} />
-            {syncBusy
-              ? at("btn_syncing", {}, "Синхронизация...")
-              : at("btn_sync", {}, "Синхронизировать")}
-          </AdminButton>
-        {/if}
-        {#if active === "payments"}
-          <AdminButton onclick={exportPayments}>
-            <Download size={14} /> CSV
-          </AdminButton>
-        {/if}
-        {#if active === "promos"}
-          <AdminButton variant="primary" onclick={() => promosStore.setCreateOpen(true)}>
-            <Plus size={14} />
-            {at("btn_create", {}, "Создать")}
-          </AdminButton>
-        {/if}
-        {#if active === "ads"}
-          <AdminButton variant="primary" onclick={() => adsStore.setCreateOpen(true)}>
-            <Plus size={14} />
-            {at("btn_campaign", {}, "Кампания")}
-          </AdminButton>
-        {/if}
-        {#if active === "tariffs"}
-          <AdminButton variant="primary" onclick={tariffsStore.openCreateTariff}>
-            <Plus size={14} />
-            {at("btn_tariff", {}, "Тариф")}
-          </AdminButton>
-        {/if}
-        {#if active === "settings"}
-          {#if dirtyCount}
-            <AdminBadge variant="warning"
-              >{at(
-                "settings_dirty_count",
-                { count: dirtyCount },
-                "Изменений: " + dirtyCount
-              )}</AdminBadge
-            >
-          {/if}
-          <AdminButton
-            variant="primary"
-            onclick={() => settingsStore.saveSettings(onSettingsSaved)}
-            disabled={!dirtyCount || settingsSaving}
-          >
-            <Save size={14} />
-            {settingsSaving
-              ? at("btn_saving", {}, "Сохранение...")
-              : at("btn_save", {}, "Сохранить")}
-          </AdminButton>
-        {/if}
-        {#if active === "translations"}
-          {#if translationsDirtyCount}
-            <AdminBadge variant="warning"
-              >{at(
-                "settings_dirty_count",
-                { count: translationsDirtyCount },
-                "Изменений: " + translationsDirtyCount
-              )}</AdminBadge
-            >
-          {/if}
-          <AdminButton
-            variant="primary"
-            onclick={() => translationsStore.saveTranslations(onTranslationsSaved)}
-            disabled={!translationsDirtyCount || translationsSaving}
-          >
-            <Save size={14} />
-            {translationsSaving
-              ? at("btn_saving", {}, "Сохранение...")
-              : at("btn_save", {}, "Сохранить")}
-          </AdminButton>
-        {/if}
-      </div>
+      <AdminHeaderActions
+        {active}
+        {at}
+        {dirtyCount}
+        {settingsSaving}
+        {syncBusy}
+        {translationsDirtyCount}
+        {translationsSaving}
+        onCreateAd={() => adsStore.setCreateOpen(true)}
+        onCreateCode={() => promosStore.setCreateOpen(true)}
+        onCreateTariff={tariffsStore.openCreateTariff}
+        onExportPayments={exportPayments}
+        onSaveSettings={() => settingsStore.saveSettings(onSettingsSaved)}
+        onSaveTranslations={() => translationsStore.saveTranslations(onTranslationsSaved)}
+        onSyncStats={statsStore.triggerSync}
+      />
     </header>
 
     <main class="admin-main">
       <ConfigAlertsBanner {at} section={active} onNavigate={setActive} />
       {#key active}
-        <div class="admin-section-stage" in:fade={sectionFade} out:fade={sectionFade}>
-          {#if activeSection}
-            {@const ActiveSectionComponent = dynamicComponent(activeSection.component)}
+        <div
+          class="admin-section-stage"
+          data-admin-active-section={active}
+          in:fade={sectionFade()}
+          out:fade={sectionFade()}
+        >
+          {#if activeSectionComponent}
+            {@const ActiveSectionComponent = activeSectionComponent}
             <ActiveSectionComponent
               {at}
               {brand}
@@ -963,6 +934,12 @@
               onSettingsPathChange={(path: SettingsPath) => (settingsPath = path)}
               initialTicketId={readSupportTicketIdFromPath()}
             />
+          {:else if activeSectionLoading}
+            <div class="admin-section-loading" aria-busy="true" aria-live="polite">
+              <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span>
+              <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"></span>
+              <span class="admin-skeleton admin-skeleton-line"></span>
+            </div>
           {/if}
         </div>
       {/key}
@@ -970,31 +947,22 @@
   </section>
 </div>
 
-<TariffEditorModal {at} />
-
-<PaymentDetailModal
-  {at}
-  {fmtDate}
-  {fmtMoney}
-  {paymentStatusVariant}
-  onOpenUserCard={openPaymentUserCard}
-/>
-
-<UserDetailModal
+<AdminLazyModals
   {at}
   {fmtDate}
   {fmtDateShort}
   {fmtMoney}
-  {resolvedAvatarUrl}
-  {userDisplayName}
-  {userSecondaryName}
-  {userInitials}
-  {userTelegramProfileLink}
-  {userTelegramProfileLinkKind}
   {openTelegramProfileLink}
   {paymentStatusVariant}
-  {trafficPercentValue}
+  {resolvedAvatarUrl}
   {trafficLeftLabel}
   {trafficOfLabel}
-  onClose={closeUserCard}
+  {trafficPercentValue}
+  {userDisplayName}
+  {userInitials}
+  {userSecondaryName}
+  {userTelegramProfileLink}
+  {userTelegramProfileLinkKind}
+  onCloseUser={closeUserCard}
+  onOpenPaymentUserCard={openPaymentUserCard}
 />

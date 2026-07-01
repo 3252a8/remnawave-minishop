@@ -122,7 +122,7 @@ services:
       - remnawave-shop
 
   postgres:
-    image: postgres:17
+    image: postgres:17.6
     container_name: remnawave-minishop-postgres
     restart: unless-stopped
     environment:

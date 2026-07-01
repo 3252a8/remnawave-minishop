@@ -1,7 +1,7 @@
 import logging
 import time
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
@@ -58,7 +58,17 @@ class TariffWorkerPremiumMixin:
         PREMIUM_RESET_NOTICE_LEVEL: int
 
         async def _user_lang(self, session: AsyncSession, user_id: int) -> str: ...
+        def _period_tariff_traffic_strategy(self) -> str: ...
         def _usage_placeholders(self, used_bytes: int, limit_bytes: int) -> dict: ...
+        def _traffic_next_reset_note(
+            self,
+            translate: Callable[..., str],
+            *,
+            kind: str,
+            period_start_at: Optional[datetime],
+            reset_available_bytes: int,
+            user_lang: str,
+        ) -> str: ...
         def _traffic_topup_markup(
             self, user_lang: str, kind: str
         ) -> Optional[InlineKeyboardMarkup]: ...
@@ -118,13 +128,22 @@ class TariffWorkerPremiumMixin:
                 sub.premium_is_limited = False
             return
 
-        premium_period_start = month_start(now)
+        premium_period_start = self.subscription_service._premium_accounting_period_start(
+            sub,
+            now,
+        )
         is_trial_premium_tariff = bool(getattr(tariff, "key", "") == "trial")
         previous_premium_period_start = getattr(sub, "premium_period_start_at", None)
         same_period = self._same_premium_period(
             previous_premium_period_start,
             premium_period_start,
         )
+        if (
+            self._period_tariff_traffic_strategy() == "NO_RESET"
+            and previous_premium_period_start is not None
+            and premium_period_start != month_start(now)
+        ):
+            same_period = True
         premium_baseline = int(tariff.premium_monthly_bytes or 0)
         premium_topup_balance = int(sub.premium_topup_balance_bytes or 0)
         premium_topup_used = (
@@ -151,7 +170,7 @@ class TariffWorkerPremiumMixin:
             logging.warning("Premium squads for tariff %s have no accessible nodes", tariff.key)
             return
 
-        start_date = now.date().replace(day=1).isoformat()
+        start_date = premium_period_start.date().isoformat()
         end_date = now.date().isoformat()
         premium_used = await self._premium_usage_for_user(
             sub.panel_user_uuid,
@@ -308,6 +327,8 @@ class TariffWorkerPremiumMixin:
         period_start_at: datetime,
         previous_period_start: Optional[datetime],
     ) -> None:
+        if self._period_tariff_traffic_strategy() == "NO_RESET":
+            return
         if not self._traffic_notice_channels_available():
             return
         if not self._traffic_reset_notice_is_reassuring(used, limit):
@@ -413,6 +434,8 @@ class TariffWorkerPremiumMixin:
         if value is None:
             return False
         try:
+            if month_start(premium_period_start) != premium_period_start:
+                return bool(value == premium_period_start)
             return bool(month_start(value) == premium_period_start)
         except Exception:
             return False
@@ -581,6 +604,17 @@ class TariffWorkerPremiumMixin:
         return text
 
     @staticmethod
+    def _premium_next_period_available_bytes(sub: Subscription, tariff: _PremiumTariff) -> int:
+        baseline = int(
+            getattr(sub, "premium_baseline_bytes", 0)
+            or getattr(tariff, "premium_monthly_bytes", 0)
+            or 0
+        )
+        topup_balance = int(getattr(sub, "premium_topup_balance_bytes", 0) or 0)
+        bonus = int(getattr(sub, "premium_bonus_bytes", 0) or 0)
+        return max(0, baseline) + max(0, topup_balance) + max(0, bonus)
+
+    @staticmethod
     def _fmt_bytes(value: int) -> str:
         size = float(max(0, int(value or 0)))
         for unit in ("B", "KB", "MB", "GB", "TB"):
@@ -639,12 +673,21 @@ class TariffWorkerPremiumMixin:
             else:
                 servers = _("traffic_warning_premium_generic_servers")
             usage = self._usage_placeholders(used_val, limit_val)
+            reset_note = self._traffic_next_reset_note(
+                _,
+                kind="premium",
+                period_start_at=period_start_at,
+                reset_available_bytes=self._premium_next_period_available_bytes(sub, tariff),
+                user_lang=user_lang,
+            )
             text = _(
                 "traffic_warning_premium_depleted",
                 tariff_name=hd.quote(str(tariff.name(user_lang))),
                 servers=servers,
                 **usage,
             )
+            if reset_note:
+                text = f"{text}\n\n{reset_note}"
             warning_key = "traffic_warning_premium_depleted"
             audit_content = (
                 f"kind=premium warning_key={warning_key} "
@@ -721,6 +764,13 @@ class TariffWorkerPremiumMixin:
                 servers = _("traffic_warning_premium_generic_servers")
             left_pct = max(0, 100 - int(level))
             usage = self._usage_placeholders(used_val, limit_val)
+            reset_note = self._traffic_next_reset_note(
+                _,
+                kind="premium",
+                period_start_at=period_start_at,
+                reset_available_bytes=self._premium_next_period_available_bytes(sub, tariff),
+                user_lang=user_lang,
+            )
             text = _(
                 "traffic_warning_premium_almost",
                 tariff_name=hd.quote(str(tariff.name(user_lang))),
@@ -728,6 +778,8 @@ class TariffWorkerPremiumMixin:
                 servers=servers,
                 **usage,
             )
+            if reset_note:
+                text = f"{text}\n\n{reset_note}"
             warning_key = "traffic_warning_premium_almost"
             audit_content = (
                 f"kind=premium warning_key={warning_key} level={int(level)} "

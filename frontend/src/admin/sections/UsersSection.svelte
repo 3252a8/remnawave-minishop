@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getUsersStore } from "$lib/admin/context";
   import { Input } from "$components/ui/index.js";
   import {
     ArrowDown,
@@ -19,11 +20,12 @@
     AdminSelect,
     AdminTable,
     AdminTableSkeleton,
+    VirtualTableRows,
   } from "$components/patterns/admin/index.js";
-  import { getContext, onMount } from "svelte";
+  import { onMount } from "svelte";
   import { trafficOfLabel } from "../../lib/admin/format.js";
   import { TableHandler } from "@vincjo/datatables";
-  import type { AdminUser, UsersStore } from "../../lib/admin/stores/usersStore";
+  import type { AdminUser } from "../../lib/admin/stores/usersStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SelectOption = { value: string; label: string };
@@ -71,7 +73,7 @@
     userSecondaryName = () => "",
   }: UsersSectionProps = $props();
 
-  const usersStore = getContext<UsersStore>("usersStore");
+  const usersStore = getUsersStore();
   const usersTable = new TableHandler<AdminUser>();
   const usersState = $derived(usersStore);
   const users = $derived(usersState.users);
@@ -545,8 +547,13 @@
           {/each}
         </tr>
       </thead>
-      <tbody>
-        {#each usersTable.rows as user (user.user_id)}
+      <VirtualTableRows
+        rows={usersTable.rows}
+        colspan={8}
+        rowHeight={76}
+        getKey={(user) => user.user_id}
+      >
+        {#snippet children(user)}
           {@const avatar = resolvedAvatarUrl(user)}
           {@const badge = panelStatusBadge(user)}
           <tr
@@ -637,8 +644,8 @@
               {fmtDateShort(user.registration_date)}
             </td>
           </tr>
-        {/each}
-      </tbody>
+        {/snippet}
+      </VirtualTableRows>
     </AdminTable>
   {/if}
 </div>

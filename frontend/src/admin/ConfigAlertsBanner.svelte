@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { getContext } from "svelte";
+  import { getHealthStore } from "$lib/admin/context";
   import { RefreshCw, TriangleAlert } from "$components/ui/icons.js";
   import { AdminButton } from "$components/patterns/admin/index.js";
-  import type { HealthAlert, HealthStore } from "../lib/admin/stores/healthStore";
+  import type { HealthAlert } from "../lib/admin/stores/healthStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
@@ -16,7 +16,7 @@
     onNavigate?: (section: string) => void;
   } = $props();
 
-  const healthStore = getContext<HealthStore>("healthStore");
+  const healthStore = getHealthStore();
 
   const MESSAGE_FALLBACKS: Record<string, string> = {
     data_dir_missing:

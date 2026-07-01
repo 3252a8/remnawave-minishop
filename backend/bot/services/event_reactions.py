@@ -14,7 +14,7 @@ from bot.plugins import PluginContext
 from bot.services.email_templates import render_account_merged
 from bot.services.notification_service import NotificationService
 from bot.services.user_email_notifications import send_user_notification_email
-from db.dal import payment_dal, subscription_dal, user_dal
+from db.dal import payment_dal, promo_code_dal, subscription_dal, user_dal
 from db.models import Payment, Subscription, User
 
 logger = logging.getLogger(__name__)
@@ -320,6 +320,30 @@ class CoreEventReactions:
             return False
         return _has_superseding_success(payment, successful_payments)
 
+    async def _release_payment_promo_activation(self, payment: Any, user_id: Any) -> None:
+        promo_code_id = _int_or_none(getattr(payment, "promo_code_id", None))
+        payment_id = _int_or_none(getattr(payment, "payment_id", None))
+        event_user_id = _int_or_none(user_id)
+        if promo_code_id is None or payment_id is None or event_user_id is None:
+            return
+        if self.ctx.session_factory is None:
+            return
+        try:
+            async with self.ctx.session_factory() as session:
+                released = await promo_code_dal.release_promo_activation(
+                    session,
+                    promo_code_id,
+                    event_user_id,
+                    payment_id=payment_id,
+                )
+                if released:
+                    await session.commit()
+        except Exception:
+            logger.exception(
+                "Failed to release code activation for payment %s.",
+                payment_id,
+            )
+
     async def on_trial_activated(self, event_name: str, payload: Dict[str, Any]) -> None:
         del event_name
         user_id = payload.get("user_id")
@@ -495,9 +519,13 @@ class CoreEventReactions:
     async def on_payment_canceled(self, event_name: str, payload: Dict[str, Any]) -> None:
         del event_name
         user_id = payload.get("user_id")
-        if user_id is None or self.ctx.bot is None:
+        if user_id is None:
             return
         payment = await self._load_payment(payload.get("payment_db_id"))
+        if payment is not None:
+            await self._release_payment_promo_activation(payment, user_id)
+        if self.ctx.bot is None:
+            return
         if payment is not None and await self._payment_failure_is_superseded(payment, user_id):
             logger.info(
                 "Suppressing canceled payment notification for user %s payment %s: "

@@ -11,6 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
 from bot.middlewares.i18n import JsonI18n
+from bot.services.promo_effects import (
+    ALLOWED_PROMO_SCOPES,
+    PromoEffects,
+    summarize_effects,
+    validate_effects,
+)
 from bot.states.admin_states import AdminStates
 from bot.utils.callback_answer import callback_data, callback_message
 from config.settings import Settings
@@ -18,6 +24,190 @@ from db.dal import promo_code_dal
 from db.models import PromoCode
 
 router = Router(name="promo_manage_router")
+
+PROMO_EDIT_FIELD_LABELS = {
+    "bonus_days": "Bonus days",
+    "discount_percent": "Discount %",
+    "duration_multiplier": "Duration multiplier",
+    "traffic_multiplier": "Traffic multiplier",
+    "applies_to": "Scope",
+    "min_subscription_months": "Min months",
+    "min_traffic_gb": "Min GB",
+    "max_activations": "Max uses",
+    "valid_until": "Validity days",
+}
+PROMO_EFFECT_FIELDS = {
+    "bonus_days",
+    "discount_percent",
+    "duration_multiplier",
+    "traffic_multiplier",
+}
+
+
+def _none_like(value: str) -> bool:
+    return value.strip().lower() in {"", "0", "none", "null", "unlimited", "forever", "indefinite"}
+
+
+def _optional_float(value: str) -> float | None:
+    if _none_like(value):
+        return None
+    return float(value)
+
+
+def _optional_int(value: str) -> int | None:
+    if _none_like(value):
+        return None
+    return int(value)
+
+
+def _number_text(value: Any) -> str:
+    if value is None:
+        return "-"
+    number = float(value)
+    if number.is_integer():
+        return str(int(number))
+    return f"{number:g}"
+
+
+def _money_text(amount: Any, currency: str | None) -> str:
+    if amount is None:
+        return "-"
+    suffix = f" {currency}" if currency else ""
+    return f"{float(amount):.2f}{suffix}"
+
+
+def _promo_effects_for_update(promo: PromoCode, update_data: dict[str, Any]) -> PromoEffects:
+    payload = {
+        "bonus_days": promo.bonus_days,
+        "discount_percent": promo.discount_percent,
+        "duration_multiplier": promo.duration_multiplier,
+        "traffic_multiplier": promo.traffic_multiplier,
+        "applies_to": promo.applies_to,
+        "min_subscription_months": promo.min_subscription_months,
+        "min_traffic_gb": promo.min_traffic_gb,
+    }
+    payload.update(update_data)
+    effects = PromoEffects.from_payload(payload)
+    validate_effects(effects)
+    return effects
+
+
+def _single_effect_update(field: str, update_data: dict[str, Any]) -> None:
+    if field not in PROMO_EFFECT_FIELDS:
+        return
+    if field == "bonus_days" and int(update_data.get("bonus_days") or 0) > 0:
+        update_data.update(
+            {
+                "discount_percent": None,
+                "duration_multiplier": None,
+                "traffic_multiplier": None,
+            }
+        )
+    elif field == "discount_percent" and float(update_data.get("discount_percent") or 0) > 0:
+        update_data.update(
+            {
+                "bonus_days": 0,
+                "duration_multiplier": None,
+                "traffic_multiplier": None,
+            }
+        )
+    elif field == "duration_multiplier" and float(update_data.get("duration_multiplier") or 1) > 1:
+        update_data.update(
+            {
+                "bonus_days": 0,
+                "discount_percent": None,
+                "traffic_multiplier": None,
+            }
+        )
+    elif field == "traffic_multiplier" and float(update_data.get("traffic_multiplier") or 1) > 1:
+        update_data.update(
+            {
+                "bonus_days": 0,
+                "discount_percent": None,
+                "duration_multiplier": None,
+            }
+        )
+
+
+def _threshold_text(effects: PromoEffects) -> str:
+    parts: list[str] = []
+    if effects.min_subscription_months:
+        parts.append(f"from {effects.min_subscription_months} months")
+    if effects.min_traffic_gb:
+        parts.append(f"from {effects.min_traffic_gb:g} GB")
+    return ", ".join(parts) or "-"
+
+
+def _activation_effect_text(activation: Any) -> str:
+    if activation.effect_summary:
+        return str(activation.effect_summary)
+    effects = PromoEffects.from_model(activation)
+    return summarize_effects(effects)
+
+
+def _activation_grant_text(activation: Any) -> str:
+    parts: list[str] = []
+    if activation.granted_days:
+        parts.append(f"+{activation.granted_days} days")
+    if activation.granted_gb is not None:
+        if activation.charged_gb is not None:
+            charged = _number_text(activation.charged_gb)
+            granted = _number_text(activation.granted_gb)
+            parts.append(f"{charged} -> {granted} GB")
+        else:
+            parts.append(f"{_number_text(activation.granted_gb)} GB")
+    return ", ".join(parts) or "-"
+
+
+def _activation_line(activation: Any) -> str:
+    payment = getattr(activation, "payment", None)
+    payment_id = activation.payment_id or getattr(payment, "payment_id", None)
+    payment_status = getattr(payment, "status", None)
+    payment_provider = getattr(payment, "provider", None)
+    currency = getattr(payment, "currency", None)
+    amount = getattr(payment, "amount", None)
+    base_amount = activation.base_amount
+    discount_amount = activation.discount_amount
+    if base_amount is None:
+        base_amount = getattr(payment, "checkout_base_amount", None)
+    if discount_amount is None:
+        discount_amount = getattr(payment, "checkout_discount_amount", None)
+    payment_text = f"payment #{payment_id}" if payment_id else "standalone"
+    if payment_status:
+        payment_text = f"{payment_text} {payment_status}"
+    if payment_provider:
+        payment_text = f"{payment_text}/{payment_provider}"
+    return " | ".join(
+        [
+            f"User {activation.user_id}",
+            activation.activated_at.strftime("%d.%m.%Y %H:%M"),
+            payment_text,
+            f"amount {_money_text(amount, currency)}",
+            f"base {_money_text(base_amount, currency)}",
+            f"discount {_money_text(discount_amount, currency)}",
+            f"grant {_activation_grant_text(activation)}",
+            f"effect {_activation_effect_text(activation)}",
+        ]
+    )
+
+
+def _active_promo_list_line(
+    promo: PromoCode,
+    i18n: JsonI18n,
+    current_lang: str,
+    gettext: Any,
+) -> str:
+    status = get_promo_status_emoji_and_text(promo, i18n, current_lang)[0]
+    validity = (
+        promo.valid_until.strftime("%d.%m.%Y")
+        if promo.valid_until
+        else gettext("admin_promo_valid_indefinitely")
+    )
+    effects = summarize_effects(PromoEffects.from_model(promo))
+    return (
+        f"{status} <code>{promo.code}</code> | {effects} | "
+        f"{promo.current_activations}/{promo.max_activations} | {validity}"
+    )
 
 
 def get_promo_status_emoji_and_text(
@@ -51,11 +241,15 @@ async def get_promo_detail_text_and_keyboard(
         validity = promo.valid_until.strftime("%d.%m.%Y %H:%M")
 
     created = promo.created_at.strftime("%d.%m.%Y %H:%M") if promo.created_at else "N/A"
+    effects = PromoEffects.from_model(promo)
 
     text = "\n".join(
         [
             _("admin_promo_card_title", code=promo.code),
             _("admin_promo_card_bonus_days", days=promo.bonus_days),
+            f"Effect: {summarize_effects(effects)}",
+            f"Scope: {effects.applies_to}",
+            f"Eligibility: {_threshold_text(effects)}",
             _(
                 "admin_promo_card_activations",
                 current=promo.current_activations,
@@ -115,10 +309,7 @@ async def view_promo_codes_handler(
         if not promo_models
         else "\n".join(
             [_("admin_active_promos_list_header"), ""]
-            + [
-                f"{get_promo_status_emoji_and_text(p, i18n, current_lang)[0]} <code>{p.code}</code> | 🎁 {p.bonus_days}д | 📊 {p.current_activations}/{p.max_activations} | ⏰ {p.valid_until.strftime('%d.%m.%Y') if p.valid_until else _('admin_promo_valid_indefinitely')}"  # noqa: E501
-                for p in promo_models
-            ]
+            + [_active_promo_list_line(p, i18n, current_lang, _) for p in promo_models]
         )
     )
 
@@ -331,16 +522,7 @@ async def promo_activations_handler(
             text = _("admin_promo_no_activations", code=promo.code)
         else:
             text = _("admin_promo_activations_header", code=promo.code) + "\n\n"
-            text += "\n".join(
-                [
-                    _(
-                        "admin_promo_activation_item",
-                        user_id=a.user_id,
-                        date=a.activated_at.strftime("%d.%m.%Y %H:%M"),
-                    )
-                    for a in activations
-                ]
-            )
+            text += "\n".join([_activation_line(a) for a in activations])
 
         nav_buttons = []
         if page > 0:
@@ -404,9 +586,48 @@ async def promo_export_activations_handler(
 
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["User ID", "Activation Date"])
+        writer.writerow(
+            [
+                "User ID",
+                "Activation Date",
+                "Payment ID",
+                "Payment Status",
+                "Provider",
+                "Amount",
+                "Currency",
+                "Base Amount",
+                "Discount Amount",
+                "Charged Months",
+                "Charged GB",
+                "Granted Days",
+                "Granted GB",
+                "Effect",
+            ]
+        )
         for act in activations:
-            writer.writerow([act.user_id, act.activated_at.strftime("%Y-%m-%d %H:%M:%S")])
+            payment = getattr(act, "payment", None)
+            writer.writerow(
+                [
+                    act.user_id,
+                    act.activated_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    act.payment_id or "",
+                    getattr(payment, "status", "") or "",
+                    getattr(payment, "provider", "") or "",
+                    getattr(payment, "amount", "") or "",
+                    getattr(payment, "currency", "") or "",
+                    act.base_amount
+                    if act.base_amount is not None
+                    else getattr(payment, "checkout_base_amount", "") or "",
+                    act.discount_amount
+                    if act.discount_amount is not None
+                    else getattr(payment, "checkout_discount_amount", "") or "",
+                    act.charged_months or "",
+                    act.charged_gb or "",
+                    act.granted_days or "",
+                    act.granted_gb or "",
+                    _activation_effect_text(act),
+                ]
+            )
 
         output.seek(0)
         file = types.BufferedInputFile(
@@ -451,6 +672,13 @@ async def promo_export_all_handler(
         writer.writerow(
             [
                 i18n.gettext(export_lang, "admin_promo_csv_code"),
+                "Effect",
+                "Scope",
+                "Discount %",
+                "Duration Multiplier",
+                "Traffic Multiplier",
+                "Min Months",
+                "Min GB",
                 i18n.gettext(export_lang, "admin_promo_csv_bonus_days"),
                 i18n.gettext(export_lang, "admin_promo_csv_max_activations"),
                 i18n.gettext(export_lang, "admin_promo_csv_current_activations"),
@@ -465,10 +693,18 @@ async def promo_export_all_handler(
         for promo in all_promos:
             # Определяем статус
             status_emoji, status_text = get_promo_status_emoji_and_text(promo, i18n, export_lang)
+            effects = PromoEffects.from_model(promo)
 
             # Формируем данные для CSV
             row = [
                 promo.code,
+                summarize_effects(effects),
+                effects.applies_to,
+                effects.discount_percent or "",
+                effects.duration_multiplier,
+                effects.traffic_multiplier,
+                effects.min_subscription_months or "",
+                effects.min_traffic_gb or "",
                 promo.bonus_days,
                 promo.max_activations,
                 promo.current_activations,
@@ -547,6 +783,38 @@ async def promo_edit_select_handler(
     )
     builder.row(
         InlineKeyboardButton(
+            text="Discount %",
+            callback_data=f"promo_edit_field:discount_percent:{promo_id}",
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="Duration x",
+            callback_data=f"promo_edit_field:duration_multiplier:{promo_id}",
+        ),
+        InlineKeyboardButton(
+            text="Traffic x",
+            callback_data=f"promo_edit_field:traffic_multiplier:{promo_id}",
+        ),
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="Scope",
+            callback_data=f"promo_edit_field:applies_to:{promo_id}",
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="Min months",
+            callback_data=f"promo_edit_field:min_subscription_months:{promo_id}",
+        ),
+        InlineKeyboardButton(
+            text="Min GB",
+            callback_data=f"promo_edit_field:min_traffic_gb:{promo_id}",
+        ),
+    )
+    builder.row(
+        InlineKeyboardButton(
             text=_("admin_promo_edit_max_activations"),
             callback_data=f"promo_edit_field:max_activations:{promo_id}",
         )
@@ -587,8 +855,19 @@ async def promo_edit_field_handler(
         "max_activations": "admin_promo_prompt_max_activations",
         "valid_until": "admin_promo_prompt_validity_days",
     }
+    prompt = (
+        _(prompts[field])
+        if field in prompts
+        else f"Send new value for {PROMO_EDIT_FIELD_LABELS.get(field, field)}"
+    )
+    if field == "applies_to":
+        prompt += f"\nAllowed: {', '.join(sorted(ALLOWED_PROMO_SCOPES))}"
+    elif field in {"discount_percent", "min_subscription_months", "min_traffic_gb"}:
+        prompt += "\nUse 0 or none to clear."
+    elif field in {"duration_multiplier", "traffic_multiplier"}:
+        prompt += "\nUse 1 or none to reset."
     await state.set_state(AdminStates.waiting_for_promo_edit_details)
-    await callback_message(callback).edit_text(_(prompts.get(field, "error_occurred_try_again")))
+    await callback_message(callback).edit_text(prompt)
     await callback.answer()
 
 
@@ -614,17 +893,48 @@ async def process_promo_edit_details(
     try:
         value = (message.text or "").strip()
         update_data: dict[str, Any] = {}
+        promo = await promo_code_dal.get_promo_code_by_id(session, promo_id)
+        if not promo:
+            await message.answer(_("admin_promo_not_found"))
+            await state.clear()
+            return
 
         if field == "bonus_days":
             update_data["bonus_days"] = int(value)
+            if update_data["bonus_days"] < 0:
+                raise ValueError
+        elif field == "discount_percent":
+            update_data["discount_percent"] = _optional_float(value)
+        elif field == "duration_multiplier":
+            update_data["duration_multiplier"] = _optional_float(value)
+        elif field == "traffic_multiplier":
+            update_data["traffic_multiplier"] = _optional_float(value)
+        elif field == "applies_to":
+            scope = value.lower()
+            if scope not in ALLOWED_PROMO_SCOPES:
+                raise ValueError
+            update_data["applies_to"] = scope
+        elif field == "min_subscription_months":
+            update_data["min_subscription_months"] = _optional_int(value)
+        elif field == "min_traffic_gb":
+            update_data["min_traffic_gb"] = _optional_float(value)
         elif field == "max_activations":
             update_data["max_activations"] = int(value)
+            if update_data["max_activations"] < int(promo.current_activations or 0):
+                raise ValueError
         elif field == "valid_until":
-            if value.lower() in ["0", "вечно", "бессрочно", "indefinite"]:
+            if _none_like(value):
                 update_data["valid_until"] = None
             else:
                 days = int(value)
+                if days <= 0:
+                    raise ValueError
                 update_data["valid_until"] = datetime.now(timezone.utc) + timedelta(days=days)
+        else:
+            raise ValueError
+
+        _single_effect_update(field, update_data)
+        _promo_effects_for_update(promo, update_data)
 
         if await promo_code_dal.update_promo_code(session, promo_id, update_data):
             await session.commit()

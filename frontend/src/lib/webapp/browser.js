@@ -1,3 +1,5 @@
+export { structuredCloneSafe } from "../safeClone.js";
+
 export function readJsonScript(id) {
   const node = document.getElementById(id);
   if (!node || !node.textContent) return null;
@@ -6,14 +8,6 @@ export function readJsonScript(id) {
   } catch (error) {
     console.warn(`Failed to parse JSON config from #${id}`, error);
     return null;
-  }
-}
-
-export function structuredCloneSafe(value) {
-  try {
-    return structuredClone(value);
-  } catch {
-    return JSON.parse(JSON.stringify(value));
   }
 }
 

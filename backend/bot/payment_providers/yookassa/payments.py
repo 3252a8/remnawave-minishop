@@ -71,6 +71,8 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
             )
         if amounts.tariff_key:
             metadata["tariff_key"] = amounts.tariff_key
+        if ctx.promo_code_id is not None:
+            metadata["promo_code_id"] = str(ctx.promo_code_id)
         response = await service.create_payment(
             amount=ctx.price,
             currency=currency,

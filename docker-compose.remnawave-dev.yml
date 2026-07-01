@@ -16,7 +16,7 @@ services:
       - "127.0.0.1:${DEV_POSTGRES_PORT:-6768}:5432"
 
   remnawave:
-    image: remnawave/backend:${REMNAWAVE_DEV_VERSION:-2.7.4}
+    image: remnawave/backend:${REMNAWAVE_DEV_VERSION:-2.8.0}
     container_name: remnawave-dev-panel
     hostname: remnawave
     restart: unless-stopped
@@ -38,9 +38,12 @@ services:
       IS_DOCS_ENABLED: "true"
       METRICS_USER: admin
       METRICS_PASS: ${REMNAWAVE_DEV_METRICS_PASS:-admin}
-      WEBHOOK_ENABLED: "false"
+      WEBHOOK_ENABLED: "${REMNAWAVE_DEV_WEBHOOK_ENABLED:-false}"
       WEBHOOK_URL: http://backend:8080/webhook/panel
       WEBHOOK_SECRET_HEADER: ${PANEL_WEBHOOK_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      EXPIRATION_NOTIFICATIONS_ENABLED: "${REMNAWAVE_DEV_EXPIRATION_NOTIFICATIONS_ENABLED:-true}"
+      EXPIRATION_NOTIFICATIONS: "${REMNAWAVE_DEV_EXPIRATION_NOTIFICATIONS:-[-72,-48,-24,24]}"
+      SERVICE_DISABLE_SRH_RECORDS: "${REMNAWAVE_DEV_SERVICE_DISABLE_SRH_RECORDS:-false}"
     volumes:
       - remnawave-dev-valkey-socket:/var/run/valkey
     networks:
@@ -102,7 +105,7 @@ services:
       retries: 10
 
   remnawave-subscription-page:
-    image: remnawave/subscription-page:${REMNAWAVE_SUBSCRIPTION_PAGE_VERSION:-7.2.4}
+    image: remnawave/subscription-page:${REMNAWAVE_SUBSCRIPTION_PAGE_VERSION:-7.2.6}
     container_name: remnawave-dev-subscription-page
     hostname: remnawave-subscription-page
     restart: unless-stopped
@@ -122,7 +125,7 @@ services:
         condition: service_completed_successfully
 
   remnawave-dev-seed:
-    image: postgres:17
+    image: postgres:17.6
     container_name: remnawave-dev-seed
     profiles:
       - seed
@@ -142,7 +145,7 @@ services:
         condition: service_healthy
 
   dev-seed:
-    image: postgres:17
+    image: postgres:17.6
     container_name: remnawave-minishop-dev-seed
     profiles:
       - seed
@@ -165,10 +168,10 @@ services:
 
 volumes:
   remnawave-minishop-db-data:
-    name: remnawave-minishop-runes-dev-db-data
+    name: ${DEV_MINISHOP_DB_VOLUME:-remnawave-minishop-runes-dev-db-data}
   remnawave-minishop-redis-data:
-    name: remnawave-minishop-runes-dev-redis-data
+    name: ${DEV_MINISHOP_REDIS_VOLUME:-remnawave-minishop-runes-dev-redis-data}
   remnawave-dev-db-data:
-    name: remnawave-dev-db-data
+    name: ${REMNAWAVE_DEV_DB_VOLUME:-remnawave-dev-db-data}
   remnawave-dev-valkey-socket:
-    name: remnawave-dev-valkey-socket
+    name: ${REMNAWAVE_DEV_VALKEY_SOCKET_VOLUME:-remnawave-dev-valkey-socket}

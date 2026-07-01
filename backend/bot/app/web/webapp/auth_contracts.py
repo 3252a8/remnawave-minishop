@@ -3,6 +3,8 @@ from __future__ import annotations
 from bot.app.web.route_contracts import (
     BOOLEAN_SCHEMA,
     INTEGER_SCHEMA,
+    NULLABLE_INTEGER_SCHEMA,
+    NULLABLE_NUMBER_SCHEMA,
     NULLABLE_STRING_SCHEMA,
     STRING_SCHEMA,
     RouteContract,
@@ -70,6 +72,12 @@ AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
             {
                 "end_date": NULLABLE_STRING_SCHEMA,
                 "end_date_text": NULLABLE_STRING_SCHEMA,
+                "requires_checkout": BOOLEAN_SCHEMA,
+                "code": STRING_SCHEMA,
+                "effect_summary": STRING_SCHEMA,
+                "applies_to": STRING_SCHEMA,
+                "min_subscription_months": NULLABLE_INTEGER_SCHEMA,
+                "min_traffic_gb": NULLABLE_NUMBER_SCHEMA,
             },
             required=[],
         ),

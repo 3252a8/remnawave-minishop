@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getContext, onMount } from "svelte";
+  import { getPaymentsStore } from "$lib/admin/context";
+  import { onMount } from "svelte";
   import {
     AdminBadge,
     AdminButton,
@@ -7,10 +8,11 @@
     AdminPagination,
     AdminTable,
     AdminTableSkeleton,
+    VirtualTableRows,
   } from "$components/patterns/admin/index.js";
   import { FileText, User } from "$components/ui/icons.js";
   import { TableHandler } from "@vincjo/datatables";
-  import type { PaymentOut, PaymentsStore } from "../../lib/admin/stores/paymentsStore";
+  import type { PaymentOut } from "../../lib/admin/stores/paymentsStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
@@ -28,7 +30,7 @@
     onOpenUserCard?: (userId: number) => void;
   } = $props();
 
-  const paymentsStore = getContext<PaymentsStore>("paymentsStore");
+  const paymentsStore = getPaymentsStore();
   const paymentsTable = new TableHandler<PaymentOut>();
   const PAYMENTS_PAGE_SIZE = 25;
   const payments = $derived(paymentsStore.payments as PaymentOut[]);
@@ -131,8 +133,13 @@
           <th>{at("date", {}, "Дата")}</th>
         </tr>
       </thead>
-      <tbody>
-        {#each paymentsTable.rows as p (p.payment_id)}
+      <VirtualTableRows
+        rows={paymentsTable.rows}
+        colspan={10}
+        rowHeight={62}
+        getKey={(p) => p.payment_id}
+      >
+        {#snippet children(p)}
           <tr>
             <td class="admin-cell-id" data-label="ID">
               <AdminButton
@@ -187,8 +194,8 @@
             </td>
             <td data-label={at("date", {}, "Дата")}>{fmtDate(p.created_at)}</td>
           </tr>
-        {/each}
-      </tbody>
+        {/snippet}
+      </VirtualTableRows>
     </AdminTable>
   {/if}
 </div>

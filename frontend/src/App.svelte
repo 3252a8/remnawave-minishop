@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, setContext, tick } from "svelte";
+  import { onMount, tick } from "svelte";
   import { Toaster, toast as sonnerToast } from "svelte-sonner";
   import { createAuthStore } from "./lib/webapp/stores/authStore";
   import { createBillingStore } from "./lib/webapp/stores/billingStore";
@@ -34,7 +34,9 @@
   import {
     currentSearchParams,
     hasEmailCodeLoginDeeplink,
+    readCheckoutPromoDeeplink,
     readRenewalDeeplink,
+    stripCheckoutPromoQueryFromUrl,
     stripRenewalLoginQueryFromUrl,
     stripTopupQueryFromUrl,
   } from "./lib/webapp/deeplinks";
@@ -42,6 +44,15 @@
   import { createDocsDemoRouter } from "./lib/webapp/docsDemoRoutes.js";
   import { createUiChrome } from "./lib/webapp/uiChrome";
   import { createEmailAvatarSync } from "./lib/webapp/emailAvatarSync.js";
+  import {
+    setAccountStore,
+    setActionsStore,
+    setAuthStore,
+    setBillingStore,
+    setDevicesStore,
+    setInstallGuidesStore,
+    setSupportStore,
+  } from "./lib/webapp/context";
   import { createBillingDeeplinkEffects } from "./lib/webapp/billingDeeplinkEffects.js";
   import { createWebappSectionContext } from "./lib/webapp/webappSectionContext";
   import { readThemePreviewDraft, syncThemeGoogleFonts } from "./lib/webapp/themeStyle.js";
@@ -254,6 +265,7 @@
   const dataClient = createWebappDataClient({
     apiBase: CFG.apiBase,
     csrfCookieName: CSRF_COOKIE_NAME,
+    getAuthToken: () => shellState.token,
     getCsrfToken: () => shellState.csrfToken,
     onUnauthorized: () => {
       clearToken();
@@ -324,12 +336,14 @@
   });
   const { applyPostLoadBillingDeeplinks } = createBillingDeeplinkEffects({
     billingStore,
+    readCheckoutPromoDeeplink,
     readRenewalDeeplink,
     setHomeRoute: () => {
       shellState.activeTab = "home";
       shellState.screen = "home";
       syncAppSectionPath("home", true);
     },
+    stripCheckoutPromoQueryFromUrl,
     stripRenewalLoginQueryFromUrl,
     stripTopupQueryFromUrl,
   });
@@ -354,6 +368,25 @@
     showToast,
     loadData,
     maybeShowActivationSuccessDialog,
+    startCheckoutPromo: (code) => {
+      shellState.activeTab = "home";
+      shellState.screen = "home";
+      syncAppSectionPath("home", true);
+      billingStore.setCheckoutPromoInput(code);
+      billingStore.openPaymentModal(
+        tariffMode,
+        singleTariffMode,
+        tariffCatalog,
+        subscription,
+        plans,
+        String(methods?.[0]?.id || ""),
+        {
+          preferCheckout: true,
+          selectDefaultTariff: true,
+        }
+      );
+      void billingStore.applyCheckoutPromo();
+    },
   });
   const authRuntime = createAuthRuntime({
     authStore,
@@ -428,13 +461,13 @@
     claimReferralWelcomeBonus: () => actionsStore.claimReferralWelcomeBonus(),
   });
 
-  setContext("authStore", authStore);
-  setContext("billingStore", billingStore);
-  setContext("devicesStore", devicesStore);
-  setContext("supportStore", supportStore);
-  setContext("installGuidesStore", installGuidesStore);
-  setContext("actionsStore", actionsStore);
-  setContext("accountStore", accountStore);
+  setAuthStore(authStore);
+  setBillingStore(billingStore);
+  setDevicesStore(devicesStore);
+  setSupportStore(supportStore);
+  setInstallGuidesStore(installGuidesStore);
+  setActionsStore(actionsStore);
+  setAccountStore(accountStore);
 
   const authState = $derived(authStore);
   const authStatus = $derived(authState.authStatus);

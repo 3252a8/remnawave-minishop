@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
@@ -15,6 +15,7 @@ from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.date_utils import add_months, month_start
 from config.settings import Settings
+from config.traffic_strategy import canonical_traffic_limit_strategy
 from db.dal import tariff_dal, user_dal
 from db.models import Subscription
 
@@ -69,7 +70,17 @@ class TariffWorkerRegularMixin:
             panel_view: str = "unknown",
         ) -> None: ...
         async def _user_lang(self, session: AsyncSession, user_id: int) -> str: ...
+        def _period_tariff_traffic_strategy(self) -> str: ...
         def _usage_placeholders(self, used_bytes: int, limit_bytes: int) -> dict: ...
+        def _traffic_next_reset_note(
+            self,
+            translate: Callable[..., str],
+            *,
+            kind: str,
+            period_start_at: Optional[datetime],
+            reset_available_bytes: int,
+            user_lang: str,
+        ) -> str: ...
         def _traffic_topup_markup(
             self, user_lang: str, kind: str
         ) -> Optional[InlineKeyboardMarkup]: ...
@@ -202,6 +213,7 @@ class TariffWorkerRegularMixin:
                     sub.status_from_panel = panel_status
 
                 if not trial_premium_subscription and tariff.billing_model == "period":
+                    previous_regular_period_start = getattr(sub, "period_start_at", None)
                     await self._ensure_period_reset_strategy(sub, tariff, limit, panel_strategy)
                     await self._maybe_send_regular_reset_notice(
                         session,
@@ -210,7 +222,9 @@ class TariffWorkerRegularMixin:
                         used,
                         limit,
                         warning_period_start,
+                        previous_period_start=previous_regular_period_start,
                     )
+                    sub.period_start_at = warning_period_start
                 if not trial_premium_subscription:
                     await self._sync_hwid_device_limit(session, sub, tariff, panel_data)
                     await self._maybe_warn_or_throttle(
@@ -336,6 +350,15 @@ class TariffWorkerRegularMixin:
             )
         return {}
 
+    @staticmethod
+    def _same_regular_period(value: Optional[datetime], period_start: datetime) -> bool:
+        if value is None:
+            return False
+        try:
+            return bool(month_start(value) == period_start)
+        except Exception:
+            return False
+
     async def _ensure_period_reset_strategy(
         self,
         sub: Subscription,
@@ -343,7 +366,8 @@ class TariffWorkerRegularMixin:
         limit: Optional[int],
         panel_strategy: Optional[str],
     ) -> None:
-        if str(panel_strategy or "").upper() == "MONTH":
+        target_strategy = self._period_tariff_traffic_strategy()
+        if canonical_traffic_limit_strategy(panel_strategy) == target_strategy:
             return
         rb = int(getattr(sub, "regular_bonus_bytes", 0) or 0)
         if bool(getattr(sub, "regular_unlimited_override", False)):
@@ -365,7 +389,7 @@ class TariffWorkerRegularMixin:
             panel_user_uuid=sub.panel_user_uuid,
             expire_at=sub.end_date,
             traffic_limit_bytes=traffic_limit_bytes,
-            traffic_limit_strategy="MONTH",
+            traffic_limit_strategy=target_strategy,
         )
         payload["activeInternalSquads"] = self.subscription_service._panel_squads_for_tariff(
             tariff,
@@ -441,7 +465,11 @@ class TariffWorkerRegularMixin:
         used: Optional[int],
         limit: Optional[int],
         period_start_at: datetime,
+        *,
+        previous_period_start: Optional[datetime],
     ) -> None:
+        if self._period_tariff_traffic_strategy() == "NO_RESET":
+            return
         if not self._traffic_notice_channels_available():
             return
         if bool(getattr(sub, "regular_unlimited_override", False)):
@@ -453,11 +481,13 @@ class TariffWorkerRegularMixin:
         if not self._traffic_reset_notice_is_reassuring(used_val, limit_val):
             return
 
-        previous_period_start = add_months(period_start_at, -1)
+        expected_previous_period = add_months(period_start_at, -1)
+        if not self._same_regular_period(previous_period_start, expected_previous_period):
+            return
         was_warned_previous_period = await tariff_dal.has_warning_level_between(
             session,
             subscription_id=sub.subscription_id,
-            period_start_at=previous_period_start,
+            period_start_at=expected_previous_period,
             min_level=0,
             max_level=100,
         )
@@ -565,6 +595,13 @@ class TariffWorkerRegularMixin:
             left_pct = max(0, 100 - level)
             tariff_name = hd.quote(str(tariff.name(user_lang)))
             usage = self._usage_placeholders(used_val, limit_val)
+            reset_note = self._traffic_next_reset_note(
+                _,
+                kind="regular",
+                period_start_at=warning_period_start if tariff.billing_model == "period" else None,
+                reset_available_bytes=limit_val,
+                user_lang=user_lang,
+            )
             if level < 100:
                 text = _(
                     "traffic_warning_regular_almost",
@@ -580,6 +617,8 @@ class TariffWorkerRegularMixin:
                     **usage,
                 )
                 subject_key = "email_traffic_warning_regular_depleted_subject"
+            if reset_note:
+                text = f"{text}\n\n{reset_note}"
             warning_key = (
                 "traffic_warning_regular_almost"
                 if level < 100

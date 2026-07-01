@@ -17,6 +17,10 @@ import unittest
 from pathlib import Path
 
 DOCKERFILE_PATH = Path(__file__).resolve().parents[2] / "deploy" / "docker" / "Dockerfile"
+DOCKERIGNORE_PATH = Path(__file__).resolve().parents[2] / ".dockerignore"
+NGINX_CONF_PATH = (
+    Path(__file__).resolve().parents[2] / "deploy" / "docker" / "frontend" / "nginx.conf"
+)
 
 
 class DockerWebappAssetTests(unittest.TestCase):
@@ -45,6 +49,23 @@ class DockerWebappAssetTests(unittest.TestCase):
 
     def test_frontend_builder_builds_the_webapp_assets(self) -> None:
         self.assertIn("npm run build:webapp", self.dockerfile)
+
+    def test_docker_context_ignores_local_admin_split_chunks(self) -> None:
+        dockerignore = DOCKERIGNORE_PATH.read_text(encoding="utf-8")
+
+        for pattern in (
+            "bot/app/web/templates/subscription_webapp_admin.*.*.js",
+            "backend/bot/app/web/templates/subscription_webapp_admin.*.*.js",
+        ):
+            self.assertIn(pattern, dockerignore)
+
+    def test_frontend_nginx_serves_admin_split_chunks_immutably(self) -> None:
+        nginx_conf = NGINX_CONF_PATH.read_text(encoding="utf-8")
+
+        self.assertIn(
+            r"^/subscription_webapp_admin\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.js$",
+            nginx_conf,
+        )
 
     def test_worker_stage_does_not_copy_webapp_assets(self) -> None:
         # The worker runs background jobs and never serves the web shell, so it

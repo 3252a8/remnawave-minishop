@@ -77,6 +77,55 @@ def test_payment_success_payload_builder_backfills_purchase_units():
     assert payload["end_date"] == "2026-01-02T03:04:00+00:00"
 
 
+def test_payment_success_snapshot_backfills_checkout_amounts_from_payment():
+    payment = SimpleNamespace(
+        amount=75.0,
+        currency="RUB",
+        provider="wata",
+        sale_mode="subscription@standard",
+        subscription_duration_months=1,
+        checkout_base_amount=100.0,
+        checkout_discount_amount=25.0,
+    )
+
+    snapshot = resolve_payment_success_snapshot(
+        {
+            "user_id": 42,
+            "payment_db_id": 5,
+            "sale_mode": "subscription@standard",
+        },
+        payment,
+    )
+
+    assert snapshot.base_amount == 100.0
+    assert snapshot.discount_amount == 25.0
+
+
+def test_payment_success_snapshot_keeps_explicit_zero_discount():
+    payment = SimpleNamespace(
+        amount=100.0,
+        currency="RUB",
+        provider="wata",
+        sale_mode="subscription@standard",
+        subscription_duration_months=1,
+        checkout_base_amount=100.0,
+        checkout_discount_amount=25.0,
+    )
+
+    snapshot = resolve_payment_success_snapshot(
+        {
+            "user_id": 42,
+            "payment_db_id": 5,
+            "sale_mode": "subscription@standard",
+            "discount_amount": 0,
+        },
+        payment,
+    )
+
+    assert snapshot.base_amount == 100.0
+    assert snapshot.discount_amount == 0.0
+
+
 def test_plugin_purchase_resolver_extends_payment_snapshot():
     def resolver(ctx):
         if ctx.payload.get("extra_seats"):

@@ -65,6 +65,7 @@
   <div class="support-user-context-actions">
     <AdminButton
       class="support-user-card-btn"
+      data-admin-action="open-support-user-card"
       variant="ghost"
       size="icon"
       disabled={!canOpenUser}

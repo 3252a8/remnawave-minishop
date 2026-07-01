@@ -122,6 +122,9 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             return None
         before_tariff_key = sub.tariff_key
         now = datetime.now(timezone.utc)
+        trial_provider = str(getattr(sub, "provider", "") or "").strip().lower() == "trial"
+        trial_status = str(getattr(sub, "status_from_panel", "") or "").strip().upper() == "TRIAL"
+        convert_trial_admin_assignment = mode == "admin_assign" and (trial_provider or trial_status)
         if mode == "admin_assign":
             options = dict(self.calculate_tariff_switch_options(sub, target))
         else:
@@ -150,6 +153,15 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             "premium_topup_used_bytes": premium_topup_used,
             "premium_is_limited": bool(premium_limit > 0 and premium_used >= premium_limit),
         }
+        if convert_trial_admin_assignment:
+            update_data.update(
+                {
+                    "provider": "admin",
+                    "status_from_panel": "ACTIVE",
+                    "skip_notifications": False,
+                    "suppress_early_expiry_notifications": False,
+                }
+            )
         converted_bytes = None
         base_hwid_limit = self._base_hwid_limit_for_tariff(target)
         try:
@@ -183,6 +195,8 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             update_data["effective_monthly_price_rub"] = target.period_price(
                 1, default_currency_key_for_settings(self.settings)
             ) or target.min_period_price(default_currency_key_for_settings(self.settings))
+            if convert_trial_admin_assignment and not getattr(sub, "duration_months", None):
+                update_data["duration_months"] = 1
             if mode == "recalc_days" and options.get("recalc_days") is not None:
                 update_data["end_date"] = now + timedelta(days=int(options["recalc_days"]))
         else:
@@ -219,6 +233,8 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                     "skip_notifications": True,
                 }
             )
+            if convert_trial_admin_assignment:
+                update_data["duration_months"] = None
 
         updated = await subscription_dal.update_subscription(
             session, sub.subscription_id, update_data
@@ -230,7 +246,11 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             expire_at=updated.end_date,
             status="ACTIVE",
             traffic_limit_bytes=updated.traffic_limit_bytes,
-            traffic_limit_strategy="NO_RESET" if target.billing_model == "traffic" else "MONTH",
+            traffic_limit_strategy=(
+                "NO_RESET"
+                if target.billing_model == "traffic"
+                else self._period_tariff_traffic_strategy()
+            ),
             hwid_device_limit=self._effective_hwid_limit(base_hwid_limit, extra_hwid_devices),
         )
         panel_payload["activeInternalSquads"] = self._panel_squads_for_tariff(
@@ -253,6 +273,13 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 updated_panel,
             )
             return None
+        panel_subscription_uuid = str(getattr(updated, "panel_subscription_uuid", "") or "").strip()
+        if panel_subscription_uuid:
+            await subscription_dal.deactivate_other_active_subscriptions(
+                session,
+                db_user.panel_user_uuid,
+                panel_subscription_uuid,
+            )
         if converted_bytes:
             await tariff_dal.create_traffic_topup(
                 session,

@@ -17,6 +17,7 @@ from bot.keyboards.inline.admin_keyboards import (
     get_back_to_admin_panel_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.services.promo_effects import PROMO_APPLIES_TO_SUBSCRIPTION
 from bot.states.admin_states import AdminStates
 from bot.utils.callback_answer import callback_message, message_bot
 from config.settings import Settings
@@ -344,6 +345,7 @@ async def create_bulk_promo_codes_final(
                 promo_data = {
                     "code": promo_code,
                     "bonus_days": data["bonus_days"],
+                    "applies_to": PROMO_APPLIES_TO_SUBSCRIPTION,
                     "max_activations": data["max_activations"],
                     "current_activations": 0,
                     "is_active": True,

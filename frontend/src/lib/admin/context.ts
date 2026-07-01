@@ -1,0 +1,31 @@
+import { createContext } from "svelte";
+
+import type { AdsStore } from "./stores/adsStore";
+import type { BackupsStore } from "./stores/backupsStore";
+import type { BroadcastStore } from "./stores/broadcastStore";
+import type { HealthStore } from "./stores/healthStore";
+import type { LogsStore } from "./stores/logsStore";
+import type { PaymentsStore } from "./stores/paymentsStore";
+import type { PromosStore } from "./stores/promosStore";
+import type { SettingsStore } from "./stores/settingsStore";
+import type { StatsStore } from "./stores/statsStore";
+import type { AdminSupportStore } from "./stores/supportStore";
+import type { TariffsStore } from "./stores/tariffsStore";
+import type { ThemesStore } from "./stores/themesStore";
+import type { TranslationsStore } from "./stores/translationsStore";
+import type { UsersStore } from "./stores/usersStore";
+
+export const [getPromosStore, setPromosStore] = createContext<PromosStore>();
+export const [getAdsStore, setAdsStore] = createContext<AdsStore>();
+export const [getHealthStore, setHealthStore] = createContext<HealthStore>();
+export const [getBackupsStore, setBackupsStore] = createContext<BackupsStore>();
+export const [getBroadcastStore, setBroadcastStore] = createContext<BroadcastStore>();
+export const [getLogsStore, setLogsStore] = createContext<LogsStore>();
+export const [getPaymentsStore, setPaymentsStore] = createContext<PaymentsStore>();
+export const [getStatsStore, setStatsStore] = createContext<StatsStore>();
+export const [getAdminSupportStore, setAdminSupportStore] = createContext<AdminSupportStore>();
+export const [getSettingsStore, setSettingsStore] = createContext<SettingsStore>();
+export const [getUsersStore, setUsersStore] = createContext<UsersStore>();
+export const [getTariffsStore, setTariffsStore] = createContext<TariffsStore>();
+export const [getThemesStore, setThemesStore] = createContext<ThemesStore>();
+export const [getTranslationsStore, setTranslationsStore] = createContext<TranslationsStore>();

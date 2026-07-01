@@ -13,6 +13,15 @@ from ._typing import SubscriptionServiceMixinContract
 
 
 class PanelIdentityMixin(SubscriptionServiceMixinContract):
+    @staticmethod
+    def _coerce_panel_int(value: Any) -> Optional[int]:
+        if value is None or isinstance(value, bool):
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
     def _extract_panel_traffic_details(
         self, panel_user_data: Dict[str, Any]
     ) -> Tuple[Optional[int], Optional[int], Optional[str]]:
@@ -24,19 +33,14 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
         strategy = panel_user_data.get("trafficLimitStrategy")
         if strategy is None:
             strategy = traffic_stats.get("trafficLimitStrategy")
-        return used, limit, strategy
+        return self._coerce_panel_int(used), self._coerce_panel_int(limit), strategy
 
     def _extract_lifetime_used_traffic(self, panel_user_data: Dict[str, Any]) -> Optional[int]:
         traffic_stats = panel_user_data.get("userTraffic") or {}
         lifetime = traffic_stats.get("lifetimeUsedTrafficBytes")
         if lifetime is None:
             lifetime = panel_user_data.get("lifetimeUsedTrafficBytes")
-        try:
-            if lifetime is None:
-                return None
-            return int(lifetime)
-        except (TypeError, ValueError):
-            return None
+        return self._coerce_panel_int(lifetime)
 
     async def _notify_admin_panel_user_creation_failed(self, user_id: int) -> None:
         if not self.bot or not self.i18n or not self.settings.ADMIN_IDS:

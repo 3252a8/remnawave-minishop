@@ -167,6 +167,68 @@ class SubscriptionServiceCalculationTests(unittest.TestCase):
             28 * GIB,
         )
 
+
+class SubscriptionServicePremiumAccessTests(unittest.IsolatedAsyncioTestCase):
+    async def test_premium_access_hides_hidden_and_disabled_hosts(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            service = _make_service(settings)
+            tariff = settings.tariffs_config.require("standard")
+            service.panel_service.get_internal_squads = AsyncMock(
+                return_value=[
+                    {
+                        "uuid": "premium-squad",
+                        "name": "Premium",
+                        "inbounds": [
+                            {"uuid": "in-visible"},
+                            {"uuid": "in-hidden"},
+                            {"uuid": "in-disabled"},
+                        ],
+                    },
+                    {
+                        "uuid": "shared-squad",
+                        "name": "Shared Premium",
+                        "inbounds": [{"uuid": "in-shared"}],
+                    },
+                ]
+            )
+            service.panel_service.get_internal_squad = AsyncMock(return_value=None)
+            service.panel_service.get_internal_squad_accessible_nodes = AsyncMock(return_value=[])
+            service.panel_service.get_hosts = AsyncMock(
+                return_value=[
+                    {
+                        "remark": "Visible Premium",
+                        "inbound": {"configProfileInboundUuid": "in-visible"},
+                        "isHidden": False,
+                        "isDisabled": False,
+                    },
+                    {
+                        "remark": "Hidden Premium",
+                        "inbound": {"configProfileInboundUuid": "in-hidden"},
+                        "isHidden": True,
+                        "isDisabled": False,
+                    },
+                    {
+                        "remark": "Disabled Premium",
+                        "inboundUuid": "in-disabled",
+                        "isHidden": False,
+                        "isDisabled": True,
+                    },
+                    {
+                        "remark": "Shared Visible",
+                        "configProfileInboundUuid": "in-shared",
+                    },
+                ]
+            )
+
+            access = await service.premium_access_for_tariff(tariff)
+
+            self.assertEqual(access["node_labels"], ["Visible Premium", "Shared Visible"])
+            self.assertNotIn("Hidden Premium", access["node_labels"])
+            self.assertNotIn("Disabled Premium", access["node_labels"])
+
+
+class SubscriptionServicePanelPayloadTests(unittest.TestCase):
     def test_build_panel_update_payload_preserves_panel_contract_fields(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(
@@ -205,10 +267,10 @@ class SubscriptionServiceCalculationTests(unittest.TestCase):
                 service._extract_panel_traffic_details(
                     {
                         "userTraffic": {
-                            "usedTrafficBytes": 15,
+                            "usedTrafficBytes": "15",
                             "trafficLimitStrategy": "MONTH",
                         },
-                        "trafficLimitBytes": 100,
+                        "trafficLimitBytes": 100.0,
                     }
                 ),
                 (15, 100, "MONTH"),
@@ -823,7 +885,7 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
 
             panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(panel_payload["trafficLimitBytes"], 100 * GIB)
-            self.assertEqual(panel_payload["trafficLimitStrategy"], "MONTH")
+            self.assertEqual(panel_payload["trafficLimitStrategy"], "NO_RESET")
             self.assertEqual(panel_payload["hwidDeviceLimit"], 3)
             self.assertEqual(
                 panel_payload["activeInternalSquads"],
@@ -1201,7 +1263,7 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
 
             panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(panel_payload["trafficLimitBytes"], 207 * GIB)
-            self.assertEqual(panel_payload["trafficLimitStrategy"], "MONTH")
+            self.assertEqual(panel_payload["trafficLimitStrategy"], "NO_RESET")
             self.assertEqual(panel_payload["hwidDeviceLimit"], 7)
             self.assertEqual(panel_payload["activeInternalSquads"], ["plus-squad", "plus-premium"])
             self.assertEqual(panel_payload["externalSquadUuid"], "external-squad")

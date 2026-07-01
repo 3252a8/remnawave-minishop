@@ -1,5 +1,12 @@
 <script>
-  import { CircleQuestionMark, Copy, Gift, Ticket, TriangleAlert } from "$components/ui/icons.js";
+  import {
+    CircleQuestionMark,
+    Copy,
+    Gift,
+    Ticket,
+    TriangleAlert,
+    X,
+  } from "$components/ui/icons.js";
   import { Tooltip } from "$components/ui/primitives.js";
 
   import Button from "$components/ui/button.svelte";
@@ -31,12 +38,22 @@
     referralBonusDetails.filter((bonus) => !Array.isArray(bonus.details))
   );
   const usesTariffBonusSummaries = $derived(tariffBonusSummaries.length > 0);
+  const promoCodeText = $derived(String(promoCode || ""));
+  const hasPromoCode = $derived(Boolean(promoCodeText.trim()));
+  const promoEffectStatus = $derived(
+    !promoIsError && hasPromoCode && promoStatus ? String(promoStatus).trim() : ""
+  );
 
   function daysRange(minDays, maxDays) {
     return t("wa_referral_bonus_range_days", {
       min: Number(minDays || 0),
       max: Number(maxDays || 0),
     });
+  }
+
+  function clearPromoCode() {
+    setPromoCode("");
+    clearPromoFieldError();
   }
 </script>
 
@@ -144,18 +161,39 @@
       <Ticket size={18} />
       <span>{t("wa_activate_promo_title")}</span>
     </h3>
-    <div class="copy-row">
-      <div class="field-error-wrap">
+    <div class="copy-row promo-apply-row">
+      <div
+        class="field-error-wrap promo-code-input-wrap"
+        class:promo-input-has-clear={hasPromoCode}
+        class:promo-input-has-error={Boolean(promoFieldError)}
+      >
         <Tooltip.Root open={Boolean(promoFieldError)}>
           <Input
             value={promoCode}
             placeholder="PROMO2026"
-            class={promoFieldError ? "input-error" : ""}
+            readonly={Boolean(promoEffectStatus)}
+            class={[
+              "promo-code-input",
+              promoFieldError ? "input-error" : "",
+              promoEffectStatus ? "is-applied" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
             oninput={(event) => {
               setPromoCode(event.currentTarget.value);
               clearPromoFieldError();
             }}
           />
+          {#if hasPromoCode}
+            <button
+              class="checkout-promo-clear promo-code-clear"
+              type="button"
+              onclick={clearPromoCode}
+              aria-label={t("wa_remove")}
+            >
+              <X size={14} />
+            </button>
+          {/if}
           {#if promoFieldError}
             <Tooltip.Trigger class="field-error-trigger" aria-label={promoFieldError}>
               <span class="field-error-icon" aria-hidden="true"><TriangleAlert size={18} /></span>
@@ -168,11 +206,17 @@
           {/if}
         </Tooltip.Root>
       </div>
-      <Button variant="outline" onclick={applyPromo} disabled={promoBusy}>
-        {t("wa_activate")}
-      </Button>
+      {#if promoEffectStatus}
+        <span class="checkout-promo-discount-marker promo-status-chip" title={promoEffectStatus}>
+          {promoEffectStatus}
+        </span>
+      {:else}
+        <Button variant="outline" onclick={applyPromo} disabled={promoBusy}>
+          {t("wa_activate")}
+        </Button>
+      {/if}
     </div>
-    {#if promoStatus && !(promoIsError && promoFieldError)}
+    {#if promoStatus && (promoIsError ? !promoFieldError : !promoEffectStatus)}
       <StatusMessage error={promoIsError}>{promoStatus}</StatusMessage>
     {/if}
   </Card>

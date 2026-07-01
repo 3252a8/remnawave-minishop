@@ -9,7 +9,8 @@ import { transform } from "esbuild";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..");
-const JS_MINIFY_TARGET = "es2020";
+const DEFAULT_JS_MINIFY_TARGET = "es2020";
+const ADMIN_JS_MINIFY_TARGET = "es2022";
 const templatesDir = path.join(repoRoot, "backend", "bot", "app", "web", "templates");
 const JS_BUILDS = [
   {
@@ -21,6 +22,7 @@ const JS_BUILDS = [
   {
     sourcePath: path.join(templatesDir, "subscription_webapp_admin.js"),
     outputPrefix: "subscription_webapp_admin.min",
+    minifyTarget: ADMIN_JS_MINIFY_TARGET,
   },
 ];
 const CSS_BUILDS = [
@@ -99,6 +101,7 @@ async function writePrecompressedAssets(outputPath, body) {
 async function buildJsAsset({
   sourcePath,
   outputPrefix,
+  minifyTarget = DEFAULT_JS_MINIFY_TARGET,
   stripDevMock = false,
   stripFallbackI18nPayload = false,
 }) {
@@ -119,7 +122,7 @@ async function buildJsAsset({
     legalComments: "none",
     loader: "js",
     minify: true,
-    target: JS_MINIFY_TARGET,
+    target: minifyTarget,
   });
 
   const code = `${result.code.replace(/[ \t]+$/gm, "").trimEnd()}\n`;

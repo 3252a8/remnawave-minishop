@@ -324,6 +324,7 @@
           </div>
           {#if canChangeTariff}
             <Button
+              data-webapp-action="open-tariff-change"
               class="status-tariff-action"
               variant="secondary"
               onclick={openTariffChangeModal}
@@ -373,6 +374,7 @@
         <Card compact class={regularTrafficCardClass(subscription)}>
           {#if regularTrafficTopupBarClickable}
             <button
+              data-webapp-action="open-regular-topup"
               class="card-click-target"
               type="button"
               onclick={openRegularTopupModal}
@@ -401,6 +403,7 @@
         >
           {#if premiumTrafficTopupBarClickable}
             <button
+              data-webapp-action="open-premium-topup"
               class="card-click-target"
               type="button"
               onclick={openPremiumTopupModal}
@@ -570,6 +573,7 @@
         </Button>
       {/if}
       <Button
+        data-webapp-action="open-payment"
         class={`wide${subscription.active ? " subscription-renew-action" : ""}`}
         variant={subscription.active ? "secondary" : "default"}
         onclick={openPaymentModal}
@@ -582,13 +586,23 @@
         {primaryPayActionLabel()}
       </Button>
       {#if regularTrafficTopupUnlocked && regularTrafficLimitVisible(subscription)}
-        <Button class="wide" variant="secondary" onclick={openRegularTopupModal}>
+        <Button
+          data-webapp-action="open-regular-topup"
+          class="wide"
+          variant="secondary"
+          onclick={openRegularTopupModal}
+        >
           <Database size={18} />
           {t("wa_add_traffic")}
         </Button>
       {/if}
       {#if premiumTrafficTopupUnlocked && premiumTrafficAvailable(subscription) && premiumTrafficLimitVisible(subscription)}
-        <Button class="wide" variant="secondary" onclick={openPremiumTopupModal}>
+        <Button
+          data-webapp-action="open-premium-topup"
+          class="wide"
+          variant="secondary"
+          onclick={openPremiumTopupModal}
+        >
           <Database size={18} />
           {t("wa_add_traffic_premium", { target: premiumTitle(subscription) })}
         </Button>

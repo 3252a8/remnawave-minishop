@@ -3,8 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, TypeAlias
 
+from bot.services.audience_segmentation import AudienceSegmentationService
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.notification_service import NotificationService
+from bot.services.outbound_messaging import OutboundMessagingService
 from bot.services.panel_api_service import PanelApiService
 from bot.services.panel_dry_run_api_service import PanelDryRunApiService
 from bot.services.panel_webhook_service import PanelWebhookService
@@ -27,6 +29,8 @@ class CoreServices:
     email_auth_service: EmailAuthService
     support_service: SupportService
     panel_webhook_service: PanelWebhookService
+    audience_segmentation_service: AudienceSegmentationService
+    outbound_messaging_service: OutboundMessagingService
     payment_services: PaymentServices
 
     def as_dict(self) -> Dict[str, object]:
@@ -39,5 +43,7 @@ class CoreServices:
             "email_auth_service": self.email_auth_service,
             "support_service": self.support_service,
             "panel_webhook_service": self.panel_webhook_service,
+            "audience_segmentation_service": self.audience_segmentation_service,
+            "outbound_messaging_service": self.outbound_messaging_service,
             **self.payment_services,
         }

@@ -2,6 +2,7 @@
   import { X } from "$components/ui/icons.js";
   import { cn } from "$lib/utils.js";
   import { cubicOut } from "svelte/easing";
+  import { prefersReducedMotion } from "svelte/motion";
   import { fade, fly } from "svelte/transition";
   import Button from "./button.svelte";
   import ScrollArea from "./scroll-area.svelte";
@@ -29,45 +30,80 @@
     children,
   } = $props();
 
-  function readReduceMotion() {
-    return (
-      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    );
+  function backdropTransition() {
+    return prefersReducedMotion.current ? { duration: 0 } : { duration: 200 };
   }
 
-  let reduceMotion = $state(readReduceMotion());
+  function cardIn() {
+    return prefersReducedMotion.current
+      ? { duration: 0, y: 0 }
+      : { duration: 260, y: 16, easing: cubicOut };
+  }
+
+  function cardOut() {
+    return prefersReducedMotion.current
+      ? { duration: 0, y: 0 }
+      : { duration: 200, y: 10, easing: cubicOut };
+  }
+
+  function stopScrollPropagation(event) {
+    event.stopPropagation();
+    if (event.target instanceof Element && event.target.closest(".dialog-body-scroll")) return;
+    event.preventDefault();
+  }
+
+  function readScrollLockCount(body) {
+    const count = Number(body.dataset.dialogScrollLockCount || "0");
+    return Number.isFinite(count) ? count : 0;
+  }
+
+  function lockBodyScroll() {
+    if (typeof document === "undefined") return () => {};
+    const { body } = document;
+    const count = readScrollLockCount(body);
+    if (count === 0) {
+      body.dataset.dialogPreviousOverflow = body.style.overflow;
+      body.style.overflow = "hidden";
+    }
+    body.dataset.dialogScrollLockCount = String(count + 1);
+
+    return () => {
+      const nextCount = Math.max(0, readScrollLockCount(body) - 1);
+      if (nextCount > 0) {
+        body.dataset.dialogScrollLockCount = String(nextCount);
+        return;
+      }
+      body.style.overflow = body.dataset.dialogPreviousOverflow || "";
+      delete body.dataset.dialogPreviousOverflow;
+      delete body.dataset.dialogScrollLockCount;
+    };
+  }
 
   $effect(() => {
-    reduceMotion = readReduceMotion();
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const handler = () => {
-      reduceMotion = mq.matches;
-    };
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    if (!open) return;
+    return lockBodyScroll();
   });
-
-  const backdropTransition = $derived(reduceMotion ? { duration: 0 } : { duration: 200 });
-  const cardIn = $derived(
-    reduceMotion ? { duration: 0, y: 0 } : { duration: 260, y: 16, easing: cubicOut }
-  );
-  const cardOut = $derived(
-    reduceMotion ? { duration: 0, y: 0 } : { duration: 200, y: 10, easing: cubicOut }
-  );
 </script>
 
 {#if open}
-  <div class="dialog" role="dialog" aria-modal="true" aria-label={title}>
+  <div
+    class="dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-label={title}
+    tabindex="-1"
+    onwheel={stopScrollPropagation}
+    ontouchmove={stopScrollPropagation}
+  >
     <button
       class="dialog-backdrop"
       type="button"
       aria-label={closeLabel}
       onclick={onclose}
-      in:fade={backdropTransition}
-      out:fade={backdropTransition}
+      in:fade={backdropTransition()}
+      out:fade={backdropTransition()}
     ></button>
-    <section class={cn("dialog-card", className)} in:fly={cardIn} out:fly={cardOut}>
+    <section class={cn("dialog-card", className)} in:fly={cardIn()} out:fly={cardOut()}>
       <div class="dialog-head">
         <div class:dialog-title-with-icon={titleIcon} class="dialog-title-block">
           {#if titleIcon}

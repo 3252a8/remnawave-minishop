@@ -24,6 +24,33 @@ def _json_dict_list(value: object) -> Optional[List[Dict[str, Any]]]:
     return [item for item in value if isinstance(item, dict)]
 
 
+def _panel_users_batch(value: object) -> Optional[List[Dict[str, Any]]]:
+    if isinstance(value, list):
+        return _json_dict_list(value)
+    if isinstance(value, dict):
+        for key in ("users", "items", "data"):
+            batch = _json_dict_list(value.get(key))
+            if batch is not None:
+                return batch
+    return None
+
+
+def _panel_users_next_cursor(value: object) -> Optional[str]:
+    if not isinstance(value, dict):
+        return None
+    for key in ("nextCursor", "next_cursor"):
+        cursor = value.get(key)
+        if cursor:
+            return str(cursor)
+    pagination = value.get("pagination")
+    if isinstance(pagination, dict):
+        for key in ("nextCursor", "next_cursor"):
+            cursor = pagination.get(key)
+            if cursor:
+                return str(cursor)
+    return None
+
+
 class PanelApiUsersMixin:
     settings: Settings
     _all_users_cache: AsyncTTLCache
@@ -78,20 +105,76 @@ class PanelApiUsersMixin:
         self, page_size: Optional[int] = None, log_responses: bool = False
     ) -> Optional[List[Dict[str, Any]]]:
         resolved_page_size = self._resolve_all_users_page_size(page_size)
-        users = await self._fetch_all_panel_users_pages(
+        users = await self._fetch_all_panel_users_stream_pages(
             page_size=resolved_page_size,
             log_responses=log_responses,
         )
+        if users is None:
+            users = await self._fetch_all_panel_users_pages(
+                page_size=resolved_page_size,
+                log_responses=log_responses,
+            )
         if users is None and resolved_page_size != 100:
             logging.warning(
                 "Panel API users fetch failed with page size %s; retrying with page size 100.",
                 resolved_page_size,
             )
-            users = await self._fetch_all_panel_users_pages(
+            users = await self._fetch_all_panel_users_stream_pages(
                 page_size=100,
                 log_responses=log_responses,
             )
+            if users is None:
+                users = await self._fetch_all_panel_users_pages(
+                    page_size=100,
+                    log_responses=log_responses,
+                )
         return users
+
+    async def _fetch_all_panel_users_stream_pages(
+        self, page_size: int, log_responses: bool = False
+    ) -> Optional[List[Dict[str, Any]]]:
+        all_users: List[Dict[str, Any]] = []
+        cursor: Optional[str] = None
+        seen_cursors: set[str] = set()
+        page_delay = self._resolve_all_users_page_delay()
+        while True:
+            params: Dict[str, Any] = {"size": page_size}
+            if cursor:
+                params["cursor"] = cursor
+            response_data = await self._request(
+                "GET", "/users/stream", params=params, log_full_response=log_responses
+            )
+
+            if not response_data or response_data.get("error"):
+                logging.info(
+                    "Panel API users stream fetch is unavailable; falling back to legacy "
+                    "/users pagination. Response: %s",
+                    response_data,
+                )
+                return None
+            response = response_data.get("response")
+            users_batch = _panel_users_batch(response)
+            if users_batch is None:
+                logging.warning(
+                    "Panel API users stream returned an unsupported response shape: %s",
+                    response_data,
+                )
+                return None
+            if not users_batch:
+                break
+            all_users.extend(users_batch)
+            next_cursor = _panel_users_next_cursor(response)
+            if not next_cursor:
+                break
+            if next_cursor in seen_cursors:
+                logging.warning("Panel API users stream returned a repeated cursor; stopping.")
+                break
+            seen_cursors.add(next_cursor)
+            cursor = next_cursor
+            if page_delay:
+                await asyncio.sleep(page_delay)
+        logging.info("Fetched %s users from panel API stream.", len(all_users))
+        return all_users
 
     async def _fetch_all_panel_users_pages(
         self, page_size: int, log_responses: bool = False
@@ -111,9 +194,7 @@ class PanelApiUsersMixin:
                 )
                 return None
             response = response_data.get("response")
-            users_batch = (
-                _json_dict_list(response.get("users") if isinstance(response, dict) else []) or []
-            )
+            users_batch = _panel_users_batch(response) or []
             if not users_batch:
                 break
             all_users.extend(users_batch)

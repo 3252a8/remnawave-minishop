@@ -69,6 +69,20 @@ async def admin_js_asset_route(request: web.Request) -> web.Response:
     return await _js_asset_route(request, base_name="subscription_webapp_admin")
 
 
+async def admin_js_chunk_asset_route(request: web.Request) -> web.Response:
+    chunk_name = request.match_info.get("chunk_name", "")
+    asset_hash = request.match_info.get("asset_hash", "")
+    filename = f"subscription_webapp_admin.{chunk_name}.{asset_hash}.js"
+    response = await _serve_template_asset(
+        request,
+        filename,
+        "application/javascript",
+        allow_precompressed=True,
+    )
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
+
+
 async def _js_asset_route(request: web.Request, *, base_name: str) -> web.Response:
     asset_hash = request.match_info.get("asset_hash")
     filename = f"{base_name}.min.{asset_hash}.js" if asset_hash else f"{base_name}.js"

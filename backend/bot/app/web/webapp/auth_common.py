@@ -250,6 +250,7 @@ def _build_webapp_auth_response(
 ) -> web.Response:
     response_payload = dict(payload)
     response_payload["ok"] = True
+    response_payload["token"] = token
     csrf_value = csrf_token or secrets.token_hex(32)
     response_payload["csrf_token"] = csrf_value
     response = json_response(response_payload)

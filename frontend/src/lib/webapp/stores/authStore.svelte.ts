@@ -92,6 +92,16 @@ function stringField(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+function setSessionFromAuthResponse(
+  response: { token?: unknown; csrf_token?: unknown },
+  setToken: (token: string, csrfToken?: string) => void
+): boolean {
+  const csrfToken = stringField(response.csrf_token);
+  if (!csrfToken) return false;
+  setToken(stringField(response.token), csrfToken);
+  return true;
+}
+
 const buildTelegramOAuthUrl = buildTelegramOAuthStartUrl as (
   purpose?: string,
   tg?: unknown
@@ -286,12 +296,11 @@ export function createAuthStore({
         payload as PostPayload<"/api/auth/email/magic">
       );
       if (response.ok) {
-        const csrfToken = stringField(unwrap(response).csrf_token);
-        if (!csrfToken) {
+        const responsePayload = unwrap(response);
+        if (!setSessionFromAuthResponse(responsePayload, setToken)) {
           setAuthStatus(t("wa_auth_login_confirm_failed"), true);
           return false;
         }
-        setToken("", csrfToken);
         clearPendingEmailCode();
         clearAuthQuery();
         await loadData();
@@ -339,12 +348,11 @@ export function createAuthStore({
         }
       );
       if (response.ok) {
-        const csrfToken = stringField(unwrap(response).csrf_token);
-        if (!csrfToken) {
+        const responsePayload = unwrap(response);
+        if (!setSessionFromAuthResponse(responsePayload, setToken)) {
           setAuthStatus(t("wa_auth_telegram_not_confirmed"), true);
           return false;
         }
-        setToken("", csrfToken);
         clearPendingEmailCode();
         clearAuthQuery();
         setAuthStatus("");
@@ -456,9 +464,8 @@ export function createAuthStore({
         password,
       } as PostPayload<"/api/auth/email/password">);
       if (!response.ok) throw response;
-      const csrfToken = stringField(unwrap(response).csrf_token);
-      if (!csrfToken) throw response;
-      setToken("", csrfToken);
+      const responsePayload = unwrap(response);
+      if (!setSessionFromAuthResponse(responsePayload, setToken)) throw response;
       clearPendingEmailCode();
       await loadData();
       setAuthStatus("");
@@ -495,9 +502,8 @@ export function createAuthStore({
         payload as PostPayload<"/api/auth/email/verify">
       );
       if (!response.ok) throw response;
-      const csrfToken = stringField(unwrap(response).csrf_token);
-      if (!csrfToken) throw response;
-      setToken("", csrfToken);
+      const responsePayload = unwrap(response);
+      if (!setSessionFromAuthResponse(responsePayload, setToken)) throw response;
       clearPendingEmailCode();
       await loadData();
       setAuthStatus("");

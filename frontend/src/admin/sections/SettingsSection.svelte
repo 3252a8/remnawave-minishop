@@ -1,8 +1,10 @@
 <script lang="ts">
+  import { getSettingsStore } from "$lib/admin/context";
   import { ColorInput, FileInput, Input, Textarea } from "$components/ui/index.js";
-  import { Check, ChevronRight, Copy, Eye, EyeOff, FileText, X } from "$components/ui/icons.js";
+  import { Check, Copy, Eye, EyeOff, FileText, X } from "$components/ui/icons.js";
   import * as UiIcons from "$components/ui/icons.js";
-  import { Accordion, Switch } from "$components/ui/primitives.js";
+  import { Switch } from "$components/ui/primitives.js";
+  import SettingsDisclosureTrigger from "./settings/SettingsDisclosureTrigger.svelte";
   import SettingsIconPicker from "./settings/SettingsIconPicker.svelte";
   import {
     AdminBadge,
@@ -10,7 +12,8 @@
     AdminEmptyState,
     AdminSelect,
   } from "$components/patterns/admin/index.js";
-  import { getContext, onDestroy, onMount, tick } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
+  import { prefersReducedMotion } from "svelte/motion";
   import { withRoutePrefix } from "$lib/webapp/routes.js";
   import {
     SETTINGS_SECTION_IDS_HIDDEN_IN_GENERAL_SETTINGS,
@@ -27,13 +30,18 @@
     settingsSubsectionAnchorKey,
     settingsSubsectionRoute,
   } from "$lib/admin/settingsSections";
+  import {
+    settingsDirtyCountLabel,
+    settingsFieldsCountLabel,
+    settingsOverriddenCountLabel,
+    settingsParamsCountLabel,
+  } from "./settings/disclosureLabels";
   import type { ComponentType, SvelteComponent } from "svelte";
   import type {
     SettingField,
     SettingsDirtyEntry,
     SettingsSavedPayload,
     SettingsSection,
-    SettingsStore,
   } from "$lib/admin/stores/settingsStore";
   import type {
     AdminSettingField,
@@ -70,7 +78,7 @@
     onSettingsPathChange?: (path: SettingsPath) => void;
   } = $props();
 
-  const settingsStore = getContext<SettingsStore>("settingsStore");
+  const settingsStore = getSettingsStore();
 
   const rawSettingsSections = $derived((settingsStore.settingsSections || []) as SettingsSection[]);
   const settingsSections = $derived(rawSettingsSections as AdminSettingsSection[]);
@@ -199,8 +207,26 @@
     updateSettingsRoute(settingsSubsectionRoute(sectionId, openedGroup));
   }
 
-  function settingsSubsectionOpenHandler(sectionId: string): (value: string[]) => void {
-    return (value: string[]) => handleSettingsSubsectionsOpenChange(sectionId, value);
+  function settingsDisclosureId(...parts: string[]): string {
+    return `admin-settings-${parts
+      .map((part) => String(part || "").replace(/[^a-z0-9_-]+/gi, "-"))
+      .filter(Boolean)
+      .join("-")}`;
+  }
+
+  function toggleSettingsSection(sectionId: string): void {
+    const next = settingsOpenSections.includes(sectionId)
+      ? settingsOpenSections.filter((id) => id !== sectionId)
+      : [...settingsOpenSections, sectionId];
+    handleSettingsSectionsOpenChange(next);
+  }
+
+  function toggleSettingsSubsection(sectionId: string, groupId: string): void {
+    const current = settingsOpenSubsections[sectionId] || [];
+    const next = current.includes(groupId)
+      ? current.filter((id) => id !== groupId)
+      : [...current, groupId];
+    handleSettingsSubsectionsOpenChange(sectionId, next);
   }
 
   function findSettingsAnchor(anchorKey: string): HTMLElement | null {
@@ -209,14 +235,6 @@
       Array.from(document.querySelectorAll<HTMLElement>("[data-settings-anchor]")).find(
         (element) => element.dataset.settingsAnchor === anchorKey
       ) || null
-    );
-  }
-
-  function prefersReducedMotion(): boolean {
-    return (
-      typeof window !== "undefined" &&
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
     );
   }
 
@@ -324,7 +342,7 @@
     armSettingsAnchorScrollCancel();
     scheduleSettingsAnchorScrollFrame(() => {
       scheduleSettingsAnchorScrollFrame(() => {
-        scrollSettingsAnchorIntoView(anchorKey, prefersReducedMotion() ? "auto" : "smooth", {
+        scrollSettingsAnchorIntoView(anchorKey, prefersReducedMotion.current ? "auto" : "smooth", {
           focus: true,
         });
         for (const delay of [180, 360]) {
@@ -673,7 +691,6 @@
     </div>
   {/if}
 {/snippet}
-
 {#snippet renderField(field: AdminSettingField)}
   {@const revealed = isSecretRevealed(field.key)}
   <div class="admin-setting" class:is-overridden={isOverridden(field)}>
@@ -696,6 +713,7 @@
       {#if field.type === "bool"}
         <div class="admin-setting-switch">
           <Switch.Root
+            aria-label={fieldLabelText(field)}
             checked={Boolean(valueFor(field))}
             onCheckedChange={(checked) => setBoolField(field, checked)}
             class="admin-switch-root"
@@ -877,109 +895,86 @@
       {/if}
     </div>
   </div>
-  <Accordion.Root
-    type="multiple"
-    value={settingsOpenSections}
-    onValueChange={handleSettingsSectionsOpenChange}
-    class="admin-accordion"
-  >
+  <div class="admin-accordion">
     {#each visibleSettingsSections as section}
       {@const dirtyInSection = section.fields.filter((f) => Boolean(settingsDirty[f.key])).length}
       {@const overriddenInSection = section.fields.filter((f) => isOverridden(f)).length}
-      <Accordion.Item value={section.id} class="admin-accordion-item admin-card">
-        <Accordion.Header class="admin-accordion-header">
-          <Accordion.Trigger
-            class="admin-accordion-trigger"
-            data-settings-anchor={settingsSectionAnchorKey(section.id)}
-          >
-            <span class="admin-accordion-title">{sectionTitle(section.id)}</span>
-            <span class="admin-accordion-meta">
-              {at(
-                "settings_params_count",
-                { count: section.fields.length },
-                `${section.fields.length} параметров`
-              )}{#if overriddenInSection}
-                · {at(
-                  "settings_overridden_count",
-                  { count: overriddenInSection },
-                  `${overriddenInSection} override`
-                )}{/if}{#if dirtyInSection}
-                · {at(
-                  "settings_dirty_count",
-                  { count: dirtyInSection },
-                  `${dirtyInSection} изм.`
-                )}{/if}
-            </span>
-            <ChevronRight size={16} class="admin-accordion-chev" />
-          </Accordion.Trigger>
-        </Accordion.Header>
-        <Accordion.Content class="admin-accordion-content">
+      {@const sectionIsOpen = settingsOpenSections.includes(section.id)}
+      {@const sectionContentId = settingsDisclosureId("section", section.id)}
+      <section class="admin-accordion-item admin-card">
+        <SettingsDisclosureTrigger
+          anchorKey={settingsSectionAnchorKey(section.id)}
+          contentId={sectionContentId}
+          countLabel={settingsParamsCountLabel(at, section.fields.length)}
+          dirtyLabel={settingsDirtyCountLabel(at, dirtyInSection)}
+          onToggle={() => toggleSettingsSection(section.id)}
+          open={sectionIsOpen}
+          overriddenLabel={settingsOverriddenCountLabel(at, overriddenInSection)}
+          title={sectionTitle(section.id)}
+        />
+        {#if sectionIsOpen}
           {@const groups = groupSectionFields(section)}
           {@const rootGroup = groups.find((g) => !g.label)}
           {@const labelGroups = groups.filter((g) => g.label)}
-          <div class="admin-settings-fields">
-            {#if rootGroup}
-              {#if rootGroup.webhook}
-                {@render renderWebhookHint(rootGroup.webhook)}
+          <div id={sectionContentId} class="admin-accordion-content" data-state="open">
+            <div class="admin-settings-fields">
+              {#if rootGroup}
+                {#if rootGroup.webhook}
+                  {@render renderWebhookHint(rootGroup.webhook)}
+                {/if}
+                {@render renderGroupedFields(section, rootGroup)}
               {/if}
-              {@render renderGroupedFields(section, rootGroup)}
-            {/if}
-            {#if labelGroups.length}
-              <Accordion.Root
-                type="multiple"
-                value={settingsOpenSubsections[section.id] || []}
-                onValueChange={settingsSubsectionOpenHandler(section.id)}
-                class="admin-subsection-accordion"
-              >
-                {#each labelGroups as group}
-                  {@const subDirty = group.fields.filter((f) =>
-                    Boolean(settingsDirty[f.key])
-                  ).length}
-                  {@const subOverridden = group.fields.filter((f) => isOverridden(f)).length}
-                  <Accordion.Item value={group.id} class="admin-settings-subsection">
-                    <Accordion.Header class="admin-accordion-header">
-                      <Accordion.Trigger
-                        class="admin-settings-subsection-trigger"
-                        data-settings-anchor={settingsSubsectionAnchorKey(section.id, group.id)}
-                      >
-                        <strong>{subsectionTitle(group)}</strong>
-                        <span class="admin-settings-subsection-meta">
-                          {at(
-                            "settings_fields_count",
-                            { count: group.fields.length },
-                            `${group.fields.length} полей`
-                          )}{#if subOverridden}
-                            · {at(
-                              "settings_overridden_count",
-                              { count: subOverridden },
-                              `${subOverridden} override`
-                            )}{/if}{#if subDirty}
-                            · {at(
-                              "settings_dirty_count",
-                              { count: subDirty },
-                              `${subDirty} изм.`
-                            )}{/if}
-                        </span>
-                        <ChevronRight size={14} class="admin-accordion-chev" />
-                      </Accordion.Trigger>
-                    </Accordion.Header>
-                    <Accordion.Content class="admin-accordion-content">
-                      <div class="admin-settings-subsection-body">
-                        {#if group.webhook}
-                          {@render renderWebhookHint(group.webhook)}
-                        {/if}
-                        {@render renderGroupedFields(section, group)}
-                      </div>
-                    </Accordion.Content>
-                  </Accordion.Item>
-                {/each}
-              </Accordion.Root>
-            {/if}
+              {#if labelGroups.length}
+                <div class="admin-subsection-accordion">
+                  {#each labelGroups as group}
+                    {@const subDirty = group.fields.filter((f) =>
+                      Boolean(settingsDirty[f.key])
+                    ).length}
+                    {@const subOverridden = group.fields.filter((f) => isOverridden(f)).length}
+                    {@const subsectionIsOpen = (settingsOpenSubsections[section.id] || []).includes(
+                      group.id
+                    )}
+                    {@const subsectionContentId = settingsDisclosureId(
+                      "subsection",
+                      section.id,
+                      group.id
+                    )}
+                    <section class="admin-settings-subsection">
+                      <SettingsDisclosureTrigger
+                        anchorKey={settingsSubsectionAnchorKey(section.id, group.id)}
+                        contentId={subsectionContentId}
+                        countLabel={settingsFieldsCountLabel(at, group.fields.length)}
+                        dirtyLabel={settingsDirtyCountLabel(at, subDirty)}
+                        level="subsection"
+                        onToggle={() => toggleSettingsSubsection(section.id, group.id)}
+                        open={subsectionIsOpen}
+                        overriddenLabel={settingsOverriddenCountLabel(at, subOverridden)}
+                        title={subsectionTitle(group)}
+                      />
+                      {#if subsectionIsOpen}
+                        <div
+                          id={subsectionContentId}
+                          class="admin-accordion-content"
+                          data-state="open"
+                        >
+                          <div class="admin-settings-subsection-body">
+                            {#if group.webhook}
+                              {@render renderWebhookHint(group.webhook)}
+                            {/if}
+                            {@render renderGroupedFields(section, group)}
+                          </div>
+                        </div>
+                      {/if}
+                    </section>
+                  {/each}
+                </div>
+              {/if}
+            </div>
           </div>
-        </Accordion.Content>
-      </Accordion.Item>
+        {/if}
+      </section>
     {/each}
-  </Accordion.Root>
+  </div>
 {/if}
 
 <SettingsIconPicker

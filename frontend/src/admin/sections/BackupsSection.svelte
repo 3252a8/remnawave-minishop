@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getContext, onMount } from "svelte";
+  import { getBackupsStore } from "$lib/admin/context";
+  import { onMount } from "svelte";
   import {
     AdminBadge,
     AdminButton,
@@ -20,11 +21,7 @@
   } from "$components/ui/icons.js";
   import { Tooltip } from "$components/ui/primitives.js";
   import { TableHandler } from "@vincjo/datatables";
-  import type {
-    BackupArchive,
-    BackupRestoreResult,
-    BackupsStore,
-  } from "../../lib/admin/stores/backupsStore";
+  import type { BackupArchive, BackupRestoreResult } from "../../lib/admin/stores/backupsStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
@@ -38,7 +35,7 @@
 
   const BACKUPS_PAGE_SIZE = 10;
   const backupsTable = new TableHandler<BackupArchive>([], { rowsPerPage: BACKUPS_PAGE_SIZE });
-  const backupsStore = getContext<BackupsStore>("backupsStore");
+  const backupsStore = getBackupsStore();
 
   let selectedName = $state("");
   let restoreDatabase = $state(true);

@@ -5,11 +5,13 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.utils.date_utils import month_start
 from config.tariffs_config import (
     Tariff,
     TariffsConfig,
     default_currency_key_for_settings,
 )
+from config.traffic_strategy import normalize_traffic_limit_strategy
 from db.dal import tariff_dal
 from db.models import Subscription
 
@@ -122,6 +124,43 @@ class TariffMixin(SubscriptionServiceMixinContract):
             return 0
         return int(tariff.premium_monthly_bytes + max(0, topup_balance_bytes))
 
+    def _period_tariff_traffic_strategy(self) -> str:
+        return normalize_traffic_limit_strategy(
+            getattr(self.settings, "USER_TRAFFIC_STRATEGY", "MONTH"),
+            default="MONTH",
+        )
+
+    def _premium_accounting_period_start(self, sub: Any, now: datetime) -> datetime:
+        if self._period_tariff_traffic_strategy() == "NO_RESET":
+            sub_start = self._aware_utc(getattr(sub, "start_date", None))
+            if sub_start is not None:
+                if sub_start <= now:
+                    return sub_start
+                previous_period_start = self._aware_utc(
+                    getattr(sub, "premium_period_start_at", None)
+                )
+                if previous_period_start is not None and previous_period_start <= now:
+                    return previous_period_start
+        return month_start(now)
+
+    def _same_premium_accounting_period(
+        self,
+        sub: Any,
+        premium_period_start: datetime,
+        now: datetime,
+    ) -> bool:
+        current_period_start = self._aware_utc(getattr(sub, "premium_period_start_at", None))
+        if current_period_start is None:
+            return False
+        if current_period_start == premium_period_start:
+            return True
+        no_reset_anchor = self._aware_utc(getattr(sub, "start_date", None))
+        return bool(
+            self._period_tariff_traffic_strategy() == "NO_RESET"
+            and no_reset_anchor is not None
+            and no_reset_anchor <= now
+        )
+
     @staticmethod
     def _premium_effective_limit_bytes(
         premium_baseline_bytes: int,
@@ -224,11 +263,23 @@ class TariffMixin(SubscriptionServiceMixinContract):
                         detail.get("name") or detail.get("title") or squad_uuid_str
                     )
 
+        def _host_is_user_visible(host: Dict[str, Any]) -> bool:
+            return not bool(
+                host.get("isHidden")
+                or host.get("is_hidden")
+                or host.get("hidden")
+                or host.get("isDisabled")
+                or host.get("is_disabled")
+                or host.get("disabled")
+            )
+
         hosts_by_inbound: Dict[str, List[Dict[str, Any]]] = {}
         try:
             hosts = await self.panel_service.get_hosts() or []
             for host in hosts:
                 if not isinstance(host, dict):
+                    continue
+                if not _host_is_user_visible(host):
                     continue
                 inbound_raw = host.get("inbound")
                 inbound_field: Dict[str, Any] = inbound_raw if isinstance(inbound_raw, dict) else {}

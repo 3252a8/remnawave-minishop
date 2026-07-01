@@ -122,6 +122,20 @@ class WebAppPaymentContext:
     hwid_pricing_period_months: Optional[int] = None
     hwid_proration_ratio: Optional[float] = None
     hwid_full_price: Optional[float] = None
+    promo_code_id: Optional[int] = None
+    promo_effect_summary: Optional[str] = None
+    promo_bonus_days: Optional[int] = None
+    promo_discount_percent: Optional[float] = None
+    promo_duration_multiplier: Optional[float] = None
+    promo_traffic_multiplier: Optional[float] = None
+    promo_applies_to: Optional[str] = None
+    promo_min_subscription_months: Optional[int] = None
+    promo_min_traffic_gb: Optional[float] = None
+    checkout_base_amount: Optional[float] = None
+    checkout_discount_amount: Optional[float] = None
+    checkout_charged_months: Optional[int] = None
+    checkout_charged_gb: Optional[float] = None
+    checkout_quoted_at: Optional[Any] = None
 
 
 @dataclass(frozen=True)

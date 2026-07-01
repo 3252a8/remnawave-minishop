@@ -370,6 +370,10 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
                     AsyncMock(return_value=updated),
                 ),
                 patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.deactivate_other_active_subscriptions",
+                    AsyncMock(),
+                ) as deactivate_other,
+                patch(
                     "bot.services.subscription_service_impl.lifecycle.tariff_dal.create_tariff_change",
                     AsyncMock(),
                 ) as create_change,
@@ -384,23 +388,26 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
                     target_tariff_key="premium",
                     mode=mode,
                 )
-            return result, create_change
+            return result, create_change, deactivate_other
 
     async def test_returns_none_when_panel_returns_none(self):
-        result, create_change = await self._run(panel_response=None)
+        result, create_change, deactivate_other = await self._run(panel_response=None)
         self.assertIsNone(result)
         # tariff_changes audit row must NOT be inserted on panel failure.
         create_change.assert_not_awaited()
+        deactivate_other.assert_not_awaited()
 
     async def test_returns_none_when_panel_returns_error_dict(self):
-        result, create_change = await self._run(panel_response={"error": True})
+        result, create_change, deactivate_other = await self._run(panel_response={"error": True})
         self.assertIsNone(result)
         create_change.assert_not_awaited()
+        deactivate_other.assert_not_awaited()
 
     async def test_returns_payload_when_panel_succeeds(self):
-        result, create_change = await self._run(panel_response={"ok": True})
+        result, create_change, deactivate_other = await self._run(panel_response={"ok": True})
         self.assertIsNotNone(result)
         self.assertEqual(result["tariff_key"], "premium")
+        self.assertEqual(deactivate_other.await_args.args[1:], ("panel-uuid", "panel-sub"))
         create_change.assert_awaited_once()
 
 

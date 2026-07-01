@@ -113,6 +113,21 @@ async function copyRuntimeAsset(name) {
   await copyFile(path.join(templatesDir, name), path.join(runtimeDir, name));
 }
 
+function isAdminChunkName(name) {
+  return (
+    /^subscription_webapp_admin\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.js$/.test(
+      name,
+    ) && !name.startsWith("subscription_webapp_admin.min.")
+  );
+}
+
+async function copyAdminChunks() {
+  const entries = await readdir(templatesDir);
+  const chunkNames = entries.filter(isAdminChunkName).sort();
+  await Promise.all(chunkNames.map((name) => copyRuntimeAsset(name)));
+  return chunkNames;
+}
+
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -200,6 +215,7 @@ await Promise.all([
   copyRuntimeAsset("subscription_webapp_docs_demo.css"),
   copyRuntimeAsset("subscription_webapp_admin.js"),
   copyRuntimeAsset("subscription_webapp_admin.css"),
+  copyAdminChunks(),
   copyDirectory(
     path.join(templatesDir, "default-brand"),
     path.join(runtimeDir, "default-brand"),

@@ -25,6 +25,7 @@ from .billing_payments import (
     _sale_mode_is_traffic,
     _sale_mode_tariff_key,
     create_payment_route,
+    quote_promo_route,
 )
 from .billing_status import (
     _payment_status_can_be_refreshed,
@@ -63,6 +64,7 @@ __all__ = [
     "message_log_dal",
     "payment_dal",
     "payment_status_route",
+    "quote_promo_route",
     "subscription_auto_renew_route",
     "subscription_dal",
     "tariff_change_options_route",

@@ -59,7 +59,13 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
             "/users/by-email",
         )
         self.assertEqual(_endpoint_log_label("/users/by-telegram-id/42"), "/users/by-telegram-id")
+        self.assertEqual(_endpoint_log_label("/users/stream?size=1000"), "/users/stream")
         self.assertEqual(_endpoint_log_label("/users/some-uuid/actions/enable"), "/users")
+        self.assertEqual(_endpoint_log_label("/hwid/devices/stats"), "/hwid/devices/stats")
+        self.assertEqual(
+            _endpoint_log_label("/hwid/devices/top-users?size=10"),
+            "/hwid/devices/top-users",
+        )
         self.assertEqual(
             _endpoint_log_label("/internal-squads/squad-uuid/bulk-actions/add-users"),
             "/internal-squads",
@@ -281,6 +287,93 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(service._request.await_count, 3)
 
+    async def test_get_user_devices_accepts_remnawave_devices_object(self):
+        service = self._make_service()
+        service._request = AsyncMock(
+            return_value={
+                "response": {
+                    "total": 1,
+                    "devices": [{"hwid": "device-1", "deviceModel": "Laptop"}],
+                }
+            }
+        )
+
+        result = await service.get_user_devices("user-uuid")
+
+        self.assertEqual(result, [{"hwid": "device-1", "deviceModel": "Laptop"}])
+
+    async def test_get_user_devices_keeps_empty_panel_devices_list(self):
+        service = self._make_service()
+        service._request = AsyncMock(return_value={"response": {"total": 0, "devices": []}})
+
+        result = await service.get_user_devices("user-uuid")
+
+        self.assertEqual(result, [])
+
+    async def test_get_hwid_devices_stats_returns_by_platform_by_app(self):
+        service = self._make_service()
+        panel_payload = {
+            "byPlatform": [{"platform": "ios", "count": 2, "byApp": [{"app": "Happ", "count": 2}]}],
+            "stats": {
+                "totalUniqueDevices": 2,
+                "totalHwidDevices": 2,
+                "averageHwidDevicesPerUser": 1,
+            },
+        }
+        service._request = AsyncMock(return_value={"response": panel_payload})
+
+        result = await service.get_hwid_devices_stats()
+
+        self.assertEqual(result, panel_payload)
+        service._request.assert_awaited_once_with(
+            "GET",
+            "/hwid/devices/stats",
+            log_full_response=False,
+        )
+
+    async def test_get_hwid_devices_top_users_uses_panel_endpoint(self):
+        service = self._make_service()
+        panel_payload = {"users": [{"userId": 2, "devicesCount": 3}]}
+        service._request = AsyncMock(return_value={"response": panel_payload})
+
+        result = await service.get_hwid_devices_top_users(start=5, size=20)
+
+        self.assertEqual(result, panel_payload)
+        service._request.assert_awaited_once_with(
+            "GET",
+            "/hwid/devices/top-users",
+            params={"start": 5, "size": 20},
+            log_full_response=False,
+        )
+
+    async def test_restart_node_sends_force_restart_body(self):
+        service = self._make_service()
+        service._request = AsyncMock(return_value={"response": {"ok": True}})
+
+        result = await service.restart_node("node-uuid", force_restart=True)
+
+        self.assertTrue(result)
+        service._request.assert_awaited_once_with(
+            "POST",
+            "/nodes/node-uuid/actions/restart",
+            json={"forceRestart": True},
+            log_full_response=False,
+        )
+
+    async def test_restart_all_nodes_sends_force_restart_body(self):
+        service = self._make_service()
+        service._request = AsyncMock(return_value={"response": {"ok": True}})
+
+        result = await service.restart_all_nodes(force_restart=False)
+
+        self.assertTrue(result)
+        service._request.assert_awaited_once_with(
+            "POST",
+            "/nodes/actions/restart-all",
+            json={"forceRestart": False},
+            log_full_response=False,
+        )
+
     async def test_get_subscription_page_config_by_short_uuid_uses_panel_endpoint(self):
         service = self._make_service()
         panel_payload = {"config": {"version": "1"}}
@@ -354,6 +447,76 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(get_calls, 2)
 
+    async def test_get_all_panel_users_uses_stream_cursor_pagination(self):
+        service = self._make_service()
+        calls = []
+
+        async def fake_request(method, endpoint, **kwargs):
+            calls.append((endpoint, kwargs.get("params") or {}))
+            params = kwargs.get("params") or {}
+            if endpoint == "/users/stream" and not params.get("cursor"):
+                return {
+                    "response": {
+                        "users": [{"uuid": "user-1"}],
+                        "nextCursor": "cursor-2",
+                    }
+                }
+            if endpoint == "/users/stream" and params.get("cursor") == "cursor-2":
+                return {"response": {"users": [{"uuid": "user-2"}]}}
+            return {"error": True, "status_code": 500}
+
+        service._request = AsyncMock(side_effect=fake_request)
+
+        users = await service.get_all_panel_users()
+
+        self.assertEqual(users, [{"uuid": "user-1"}, {"uuid": "user-2"}])
+        self.assertEqual(
+            calls,
+            [
+                ("/users/stream", {"size": 1000}),
+                ("/users/stream", {"size": 1000, "cursor": "cursor-2"}),
+            ],
+        )
+
+    async def test_get_all_panel_users_falls_back_to_legacy_when_stream_is_missing(self):
+        service = self._make_service()
+        calls = []
+
+        async def fake_request(method, endpoint, **kwargs):
+            calls.append(endpoint)
+            if endpoint == "/users/stream":
+                return {"error": True, "status_code": 404}
+            return {"response": {"users": [{"uuid": "legacy-user"}]}}
+
+        service._request = AsyncMock(side_effect=fake_request)
+
+        users = await service.get_all_panel_users()
+
+        self.assertEqual(users, [{"uuid": "legacy-user"}])
+        self.assertEqual(calls, ["/users/stream", "/users"])
+
+    async def test_get_all_panel_users_falls_back_when_stream_is_legacy_uuid_route(self):
+        service = self._make_service()
+        calls = []
+
+        async def fake_request(method, endpoint, **kwargs):
+            calls.append(endpoint)
+            if endpoint == "/users/stream":
+                return {
+                    "error": True,
+                    "status_code": 400,
+                    "message": "Validation failed",
+                    "errors": [{"validation": "uuid", "path": ["uuid"]}],
+                }
+            return {"response": {"users": [{"uuid": "legacy-user"}]}}
+
+        service._request = AsyncMock(side_effect=fake_request)
+
+        users = await service.get_all_panel_users()
+
+        self.assertEqual(users, [{"uuid": "legacy-user"}])
+        self.assertEqual(calls, ["/users/stream", "/users"])
+
     async def test_get_all_panel_users_falls_back_to_100_when_large_page_fails(self):
         service = self._make_service()
         requested_sizes = []
@@ -371,7 +534,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         users = await service.get_all_panel_users()
 
         self.assertEqual(users, [{"uuid": "user-uuid"}])
-        self.assertEqual(requested_sizes, [1000, 100])
+        self.assertEqual(requested_sizes, [1000, 1000, 100])
 
 
 if __name__ == "__main__":

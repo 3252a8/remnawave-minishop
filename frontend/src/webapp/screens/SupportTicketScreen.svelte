@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getContext, tick } from "svelte";
+  import { getSupportStore } from "$lib/webapp/context";
+  import { tick } from "svelte";
   import { Badge, Button, ScrollArea, Skeleton } from "$components/ui/index.js";
   import Card from "$components/ui/card.svelte";
   import { ArrowLeft } from "$components/ui/icons.js";
@@ -10,7 +11,6 @@
     supportDraftScope,
     writeSupportDraft,
   } from "$lib/webapp/supportDrafts.js";
-  import type { SupportStore } from "$lib/webapp/stores/supportStore";
 
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type MessageRecord = Record<string, unknown> & {
@@ -40,7 +40,7 @@
     userInitials = "",
   }: Props = $props();
 
-  const supportStore = getContext("supportStore") as SupportStore;
+  const supportStore = getSupportStore();
   let reply = $state("");
   let messagesScrollEl = $state<HTMLElement | null>(null);
   let lastMessageKey = $state("");

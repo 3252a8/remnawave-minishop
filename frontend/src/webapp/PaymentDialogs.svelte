@@ -19,6 +19,7 @@
     PaymentMethodGrid,
     StatusMessage,
   } from "$components/patterns/webapp/index.js";
+  import CheckoutPromoRow from "./CheckoutPromoRow.svelte";
   import {
     planKey as planKeyFn,
     planDisplayTitle as planDisplayTitleFn,
@@ -32,6 +33,10 @@
   } from "../lib/webapp/tariffs.js";
 
   type AnyRecord = Record<string, any>;
+  type DeviceToDisconnect = {
+    display_name?: string | null;
+    index?: number | string | null;
+  };
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type VoidAction = () => void;
 
@@ -82,7 +87,18 @@
     closeLinkEmailDialog = () => {},
     closePaymentModal = () => {},
     closeSetPasswordDialog = () => {},
+    checkoutPromoAppliedCode = "",
+    checkoutPromoInput = $bindable(""),
+    checkoutPromoIsError = false,
+    checkoutPromoPriceText = "",
+    checkoutPromoStatus = "",
+    checkoutPromoDiscountPercent = 0,
+    checkoutPromoAppliesTo = "all",
+    checkoutPromoMinSubscriptionMonths = null,
+    checkoutPromoMinTrafficGb = null,
+    applyCheckoutPromo = () => {},
     backToTariffList = () => {},
+    clearCheckoutPromo = () => {},
     continueWithSelectedTariff = () => {},
     requestLinkEmailCode = () => {},
     requestSetPasswordCode = () => {},
@@ -95,7 +111,7 @@
     createPayment?: VoidAction;
     deviceConfirmOpen?: boolean;
     deviceDisconnectBusy?: boolean;
-    deviceToDisconnect?: AnyRecord | null;
+    deviceToDisconnect?: DeviceToDisconnect | null;
     disconnectDevice?: VoidAction;
     linkEmailBusy?: boolean;
     linkEmailCode?: string;
@@ -138,7 +154,18 @@
     closeLinkEmailDialog?: VoidAction;
     closePaymentModal?: VoidAction;
     closeSetPasswordDialog?: VoidAction;
+    checkoutPromoAppliedCode?: string;
+    checkoutPromoInput?: string;
+    checkoutPromoIsError?: boolean;
+    checkoutPromoPriceText?: string;
+    checkoutPromoStatus?: string;
+    checkoutPromoDiscountPercent?: number;
+    checkoutPromoAppliesTo?: string;
+    checkoutPromoMinSubscriptionMonths?: number | null;
+    checkoutPromoMinTrafficGb?: number | null;
+    applyCheckoutPromo?: VoidAction;
     backToTariffList?: VoidAction;
+    clearCheckoutPromo?: VoidAction;
     continueWithSelectedTariff?: VoidAction;
     requestLinkEmailCode?: VoidAction;
     requestSetPasswordCode?: VoidAction;
@@ -184,6 +211,74 @@
   }
   function paymentPriceLabel(plan: AnyRecord | null) {
     return priceLabelFn(planWithSelectedHwidRenewal(plan), selectedMethod);
+  }
+  function checkoutPaymentPriceLabel(plan: AnyRecord | null) {
+    const promoPrice = checkoutPromoPriceParts(planWithSelectedHwidRenewal(plan));
+    if (promoPrice) return promoPrice.discounted;
+    if (checkoutPromoAppliedCode && checkoutPromoPriceText) return checkoutPromoPriceText;
+    return paymentPriceLabel(plan);
+  }
+  function checkoutPromoDiscount() {
+    const value = Number(checkoutPromoDiscountPercent || 0);
+    if (!checkoutPromoAppliedCode || !Number.isFinite(value) || value <= 0) return 0;
+    return Math.min(100, value);
+  }
+  function planSaleModeBase(plan: AnyRecord | null) {
+    const fallback =
+      Number(plan?.device_count || 0) > 0
+        ? "hwid_devices"
+        : Number(plan?.traffic_gb || 0) > 0
+          ? "traffic"
+          : "subscription";
+    const saleMode = String(plan?.sale_mode || fallback).toLowerCase();
+    if (["traffic", "traffic_package"].includes(saleMode)) return "traffic";
+    if (["topup", "premium_topup"].includes(saleMode)) return "traffic_topup";
+    if (["hwid_device", "hwid_devices", "hwid_devices_renewal"].includes(saleMode)) return "hwid";
+    return "subscription";
+  }
+  function checkoutPromoScopeMatches(plan: AnyRecord | null) {
+    const scope = String(checkoutPromoAppliesTo || "all").toLowerCase();
+    const base = planSaleModeBase(plan);
+    return scope === "all" || scope === base;
+  }
+  function checkoutPromoThresholdMatches(plan: AnyRecord | null) {
+    const base = planSaleModeBase(plan);
+    const minMonths = Number(checkoutPromoMinSubscriptionMonths || 0);
+    const minTrafficGb = Number(checkoutPromoMinTrafficGb || 0);
+    if (base === "subscription" && minMonths > 0) {
+      return Number(plan?.months || 0) >= minMonths;
+    }
+    if ((base === "traffic" || base === "traffic_topup") && minTrafficGb > 0) {
+      return Number(plan?.traffic_gb || plan?.months || 0) >= minTrafficGb;
+    }
+    return true;
+  }
+  function checkoutPromoAffectsPlan(plan: AnyRecord | null) {
+    return (
+      checkoutPromoDiscount() > 0 &&
+      checkoutPromoScopeMatches(plan) &&
+      checkoutPromoThresholdMatches(plan)
+    );
+  }
+  function discountedCheckoutPlan(plan: AnyRecord | null) {
+    const discount = checkoutPromoDiscount();
+    if (!plan || discount <= 0) return plan;
+    const multiplier = Math.max(0, 1 - discount / 100);
+    const next: AnyRecord = { ...plan };
+    if (Number(plan.price || 0) > 0) {
+      next.price = Math.round(Number(plan.price || 0) * multiplier * 100) / 100;
+    }
+    if (Number(plan.stars_price || 0) > 0) {
+      next.stars_price = Math.max(1, Math.round(Number(plan.stars_price || 0) * multiplier));
+    }
+    return next;
+  }
+  function checkoutPromoPriceParts(plan: AnyRecord | null) {
+    if (!checkoutPromoAffectsPlan(plan)) return null;
+    return {
+      base: priceLabelFn(plan, selectedMethod),
+      discounted: priceLabelFn(discountedCheckoutPlan(plan), selectedMethod),
+    };
   }
   const selectedPlanForPayment = $derived(planWithSelectedHwidRenewal(selectedPlan));
   const paymentMethods = $derived(methodsForPlan(methods, selectedPlanForPayment));
@@ -254,6 +349,10 @@
     return tariffLimitLabelFn(tariff, { t });
   }
 
+  function checkoutPromoBlock() {
+    return Boolean(checkoutPromoAppliedCode || checkoutPromoStatus || selectedPlan);
+  }
+
   function paymentTitle() {
     if (singleTariffMode) {
       return selectedTariff?.billing_model === "traffic"
@@ -292,7 +391,7 @@
   description={paymentDescription()}
   closeLabel={t("wa_close")}
   onclose={closePaymentModal}
-  class="payment-dialog-card"
+  class="payment-dialog-card webapp-payment-dialog"
 >
   <div class="payment-dialog-body">
     {#if tariffMode && !singleTariffMode && paymentStep === "tariff"}
@@ -385,6 +484,7 @@
         {/if}
         <div class="period-grid period-grid-two-columns">
           {#each selectedTariffPlans as plan}
+            {@const promoPrice = checkoutPromoPriceParts(plan)}
             <button
               class:active={planKey(selectedPlan) === planKey(plan)}
               class="period-card"
@@ -392,7 +492,14 @@
               onclick={() => (selectedPlan = plan)}
             >
               <strong>{planSubtitle(plan) || planDisplayTitle(plan)}</strong>
-              <span>{priceLabel(plan)}</span>
+              {#if promoPrice}
+                <span class="promo-price-pair">
+                  <s>{promoPrice.base}</s>
+                  <b>{promoPrice.discounted}</b>
+                </span>
+              {:else}
+                <span>{priceLabel(plan)}</span>
+              {/if}
               {#if planUnitHint(plan)}
                 <small>{planUnitHint(plan)}</small>
               {/if}
@@ -413,13 +520,24 @@
         {:else}
           <EmptyCard>{t("wa_payment_methods_not_configured")}</EmptyCard>
         {/if}
+        {#if checkoutPromoBlock()}
+          <CheckoutPromoRow
+            bind:value={checkoutPromoInput}
+            appliedCode={checkoutPromoAppliedCode}
+            isError={checkoutPromoIsError}
+            status={checkoutPromoStatus}
+            onApply={applyCheckoutPromo}
+            onClear={clearCheckoutPromo}
+            {t}
+          />
+        {/if}
         <Button
           class="wide bottom-action payment-submit-button"
           onclick={createPayment}
           disabled={!selectedPlan || !paymentMethodSelected || payBusy}
         >
           {t("wa_pay")}
-          {selectedPlan ? paymentPriceLabel(selectedPlan) : ""}
+          {selectedPlan ? checkoutPaymentPriceLabel(selectedPlan) : ""}
           <LockKeyhole size={17} />
         </Button>
       {:else}
@@ -473,6 +591,7 @@
       {/if}
       <div class="period-grid period-grid-two-columns">
         {#each plans as plan}
+          {@const promoPrice = checkoutPromoPriceParts(plan)}
           <button
             class:active={planKey(selectedPlan) === planKey(plan)}
             class="period-card"
@@ -483,7 +602,14 @@
             {#if planSubtitle(plan)}
               <em>{planSubtitle(plan)}</em>
             {/if}
-            <span>{priceLabel(plan)}</span>
+            {#if promoPrice}
+              <span class="promo-price-pair">
+                <s>{promoPrice.base}</s>
+                <b>{promoPrice.discounted}</b>
+              </span>
+            {:else}
+              <span>{priceLabel(plan)}</span>
+            {/if}
             {#if planUnitHint(plan)}
               <small>{planUnitHint(plan)}</small>
             {/if}
@@ -504,13 +630,24 @@
       {:else}
         <EmptyCard>{t("wa_payment_methods_not_configured")}</EmptyCard>
       {/if}
+      {#if checkoutPromoBlock()}
+        <CheckoutPromoRow
+          bind:value={checkoutPromoInput}
+          appliedCode={checkoutPromoAppliedCode}
+          isError={checkoutPromoIsError}
+          status={checkoutPromoStatus}
+          onApply={applyCheckoutPromo}
+          onClear={clearCheckoutPromo}
+          {t}
+        />
+      {/if}
       <Button
         class="wide bottom-action payment-submit-button"
         onclick={createPayment}
         disabled={!selectedPlan || !paymentMethodSelected || payBusy}
       >
         {t("wa_pay")}
-        {selectedPlan ? paymentPriceLabel(selectedPlan) : ""}
+        {selectedPlan ? checkoutPaymentPriceLabel(selectedPlan) : ""}
         <LockKeyhole size={17} />
       </Button>
     {/if}
@@ -527,7 +664,7 @@
   })}
   closeLabel={t("wa_close")}
   onclose={closeDeviceDisconnectDialog}
-  class="payment-dialog-card"
+  class="payment-dialog-card webapp-device-disconnect-dialog"
 >
   <div class="payment-dialog-body">
     <Button
@@ -556,7 +693,7 @@
   description={t("wa_password_modal_desc")}
   closeLabel={t("wa_close")}
   onclose={closeSetPasswordDialog}
-  class="payment-dialog-card"
+  class="payment-dialog-card webapp-set-password-dialog"
 >
   <div class="payment-dialog-body">
     <Input
@@ -591,7 +728,11 @@
 </Dialog>
 
 {#if setPasswordOpen && setPasswordPending}
-  <div class="email-code-fullscreen" role="dialog" aria-modal="true">
+  <div
+    class="email-code-fullscreen webapp-set-password-code-dialog"
+    role="dialog"
+    aria-modal="true"
+  >
     <EmailCodeScreen
       bind:code={setPasswordCode}
       email={setPasswordEmail || ""}
@@ -608,7 +749,7 @@
 {/if}
 
 {#if linkEmailOpen && linkEmailPending}
-  <div class="email-code-fullscreen" role="dialog" aria-modal="true">
+  <div class="email-code-fullscreen webapp-link-email-code-dialog" role="dialog" aria-modal="true">
     <EmailCodeScreen
       bind:code={linkEmailCode}
       email={linkEmailPending}
@@ -630,7 +771,7 @@
   description={t("wa_link_email_modal_desc")}
   closeLabel={t("wa_close")}
   onclose={closeLinkEmailDialog}
-  class="payment-dialog-card"
+  class="payment-dialog-card webapp-link-email-dialog"
 >
   <div class="payment-dialog-body">
     <div class="field-error-wrap">

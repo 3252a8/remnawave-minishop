@@ -17,7 +17,7 @@ describe("tariffDraft", () => {
     expect(normalizeCurrencyKey("XTR")).toBe("stars");
     expect(normalizeCurrencyKey("***", "usd")).toBe("usd");
 
-    const source = { default_currency: "RUR", tariffs: [{ key: "base" }] };
+    const source = new Proxy({ default_currency: "RUR", tariffs: [{ key: "base" }] }, {});
     const cloned = cloneCatalog(source);
     cloned.tariffs[0].key = "changed";
 

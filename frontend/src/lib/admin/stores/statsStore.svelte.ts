@@ -8,6 +8,8 @@ import {
   buildAdminStatsPath,
   buildAdminSyncPath,
 } from "../../webapp/publicApi";
+import { defineRawStateProperty } from "./rawStateProperty";
+import { fetchAdminQuery, invalidateAdminQuery, type AdminQueryClient } from "./adminQueryCache";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
 type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
@@ -28,9 +30,10 @@ type StatsStoreOptions = {
   api: AdminApi;
   onToast: ToastFn;
   at: TranslateFn;
+  queryClient?: AdminQueryClient | null;
 };
 export type StatsStore = StatsState & {
-  loadStats: () => Promise<void>;
+  loadStats: (options?: { refresh?: boolean }) => Promise<void>;
   triggerSync: () => Promise<void>;
 };
 
@@ -38,25 +41,61 @@ function isOkResponse<T extends { ok: true }>(response: T | AdminErrorResponse):
   return response.ok === true;
 }
 
-export function createStatsStore({ api, onToast, at }: StatsStoreOptions): StatsStore {
-  const state = $state<StatsState>({
-    stats: null,
+const STATS_QUERY_KEY = ["admin", "stats"] as const;
+
+class AdminStatsError extends Error {
+  payload: AdminErrorResponse;
+
+  constructor(message: string, payload: AdminErrorResponse) {
+    super(message);
+    this.payload = payload;
+  }
+}
+
+export function createStatsStore({
+  api,
+  onToast,
+  at,
+  queryClient = null,
+}: StatsStoreOptions): StatsStore {
+  let stats = $state.raw<StatsResponse | null>(null);
+  const state = $state<Omit<StatsState, "stats">>({
     statsLoading: false,
     statsError: "",
     syncBusy: false,
   });
+  const store = Object.create(state) as StatsStore;
+  defineRawStateProperty(store, "stats", {
+    get: () => stats,
+    set: (value) => {
+      stats = value;
+    },
+  });
 
-  async function loadStats(): Promise<void> {
+  async function requestStats(): Promise<StatsResponse> {
+    const data = (await api(buildAdminStatsPath())) as StatsResponse | AdminErrorResponse;
+    if (!isOkResponse(data)) {
+      throw new AdminStatsError(adminErrorMessage(data, at, "load_failed"), data);
+    }
+    return data;
+  }
+
+  async function loadStats({ refresh = false }: { refresh?: boolean } = {}): Promise<void> {
     state.statsLoading = true;
     state.statsError = "";
     try {
-      const data = (await api(buildAdminStatsPath())) as StatsResponse | AdminErrorResponse;
-      if (!isOkResponse(data)) {
-        state.statsError = adminErrorMessage(data, at, "load_failed");
-      } else {
-        state.stats = unwrap(data);
-      }
+      const data = await fetchAdminQuery({
+        queryClient,
+        queryKey: STATS_QUERY_KEY,
+        queryFn: requestStats,
+        refresh,
+      });
+      stats = unwrap(data);
     } catch (e: unknown) {
+      if (e instanceof AdminStatsError) {
+        state.statsError = adminErrorMessage(e.payload, at, "load_failed");
+        return;
+      }
       state.statsError = e instanceof Error ? e.message : String(e);
     } finally {
       state.statsLoading = false;
@@ -71,8 +110,9 @@ export function createStatsStore({ api, onToast, at }: StatsStoreOptions): Stats
       const res = (await api(buildAdminSyncPath(), { method: "POST" })) as
         SyncResponse | AdminErrorResponse;
       if (isOkResponse(res)) {
+        invalidateAdminQuery(queryClient, STATS_QUERY_KEY);
         onToast(at("sync_started", {}, "Синхронизация запущена"));
-        await loadStats();
+        await loadStats({ refresh: true });
       } else {
         onToast(adminErrorMessage(res, at, at("sync_error", {}, "Ошибка синхронизации")));
       }
@@ -81,7 +121,7 @@ export function createStatsStore({ api, onToast, at }: StatsStoreOptions): Stats
     }
   }
 
-  return Object.assign(state, {
+  return Object.assign(store, {
     loadStats,
     triggerSync,
   });

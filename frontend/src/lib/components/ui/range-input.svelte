@@ -1,23 +1,27 @@
 <script lang="ts">
-  import type { Slider as SliderPrimitive } from "bits-ui";
+  import type { HTMLInputAttributes } from "svelte/elements";
   import { cn } from "$lib/utils.js";
-  import { Slider } from "./primitives.js";
 
   type NumericInput = number | string | undefined;
   type RangeInputProps = Omit<
-    SliderPrimitive.RootProps,
+    HTMLInputAttributes,
+    | "id"
     | "type"
     | "value"
+    | "name"
     | "min"
     | "max"
     | "step"
     | "disabled"
-    | "children"
+    | "oninput"
+    | "onchange"
     | "onValueChange"
     | "onValueCommit"
     | "class"
   > & {
+    id?: string;
     value?: number | string;
+    name?: string;
     min?: NumericInput;
     max?: NumericInput;
     step?: NumericInput;
@@ -29,7 +33,9 @@
   };
 
   let {
+    id = "",
     value = $bindable(0),
+    name = undefined,
     min = undefined,
     max = undefined,
     step = undefined,
@@ -41,25 +47,47 @@
     ...rest
   }: RangeInputProps = $props();
 
+  const fallbackId = `ui-range-input-${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
+  const inputId = $derived(id || fallbackId);
   const sliderMin = $derived(min === undefined ? undefined : Number(min));
   const sliderMax = $derived(max === undefined ? undefined : Number(max));
   const sliderStep = $derived(step === undefined ? undefined : Number(step));
   const sliderValue = $derived(normalizeSliderValue(value, sliderMin ?? 0));
+  const sliderProgress = $derived(progressPercent(sliderValue, sliderMin, sliderMax));
 
-  function normalizeSliderValue(next: number | string | number[], fallback = 0): number {
-    const raw = Array.isArray(next) ? next[0] : next;
+  function normalizeSliderValue(next: number | string | undefined, fallback = 0): number {
+    const raw = next;
     const numeric = Number(raw);
     return Number.isFinite(numeric) ? numeric : fallback;
   }
 
-  function handleValueChange(next: number | number[]): void {
-    const normalized = normalizeSliderValue(next, sliderMin ?? 0);
+  function progressPercent(
+    next: number,
+    minValue: number | undefined,
+    maxValue: number | undefined
+  ): number {
+    const low = Number.isFinite(minValue) ? Number(minValue) : 0;
+    const high = Number.isFinite(maxValue) ? Number(maxValue) : 100;
+    if (high <= low) return 0;
+    const percent = ((next - low) / (high - low)) * 100;
+    return Math.min(100, Math.max(0, percent));
+  }
+
+  function readEventValue(event: Event): number {
+    const target = event.currentTarget as HTMLInputElement | null;
+    return normalizeSliderValue(target?.value, sliderMin ?? 0);
+  }
+
+  function handleInput(event: Event): void {
+    const normalized = readEventValue(event);
     value = normalized;
     callValueCallback(onValueChange, normalized);
   }
 
-  function handleValueCommit(next: number | number[]): void {
-    callValueCallback(onValueCommit, normalizeSliderValue(next, sliderMin ?? 0));
+  function handleChange(event: Event): void {
+    const normalized = readEventValue(event);
+    value = normalized;
+    callValueCallback(onValueCommit, normalized);
   }
 
   function callValueCallback(callback: unknown, next: number): void {
@@ -69,52 +97,72 @@
   }
 </script>
 
-<Slider.Root
+<input
+  id={inputId}
   class={cn("ui-range-input", className)}
-  type="single"
+  type="range"
+  {name}
   value={sliderValue}
   min={sliderMin}
   max={sliderMax}
   step={sliderStep}
   {disabled}
-  onValueChange={handleValueChange}
-  onValueCommit={handleValueCommit}
+  aria-label={ariaLabel}
+  style={`--range-progress:${sliderProgress}%`}
+  oninput={handleInput}
+  onchange={handleChange}
   {...rest}
->
-  <Slider.Range class="ui-range-input__range" />
-  <Slider.Thumb class="ui-range-input__thumb" index={0} aria-label={ariaLabel} />
-</Slider.Root>
+/>
 
 <style>
   :global(.ui-range-input) {
-    position: relative;
-    display: flex;
-    align-items: center;
+    appearance: none;
     width: 100%;
     height: 18px;
-    touch-action: none;
-    user-select: none;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
   }
 
-  :global(.ui-range-input::before) {
-    content: "";
-    position: absolute;
-    right: 0;
-    left: 0;
+  :global(.ui-range-input::-webkit-slider-runnable-track) {
+    height: 5px;
+    border-radius: 999px;
+    background: linear-gradient(
+      90deg,
+      var(--accent) 0 var(--range-progress, 0%),
+      color-mix(in srgb, var(--admin-border-strong, var(--border)) 70%, transparent)
+        var(--range-progress, 0%) 100%
+    );
+  }
+
+  :global(.ui-range-input::-moz-range-track) {
     height: 5px;
     border-radius: 999px;
     background: color-mix(in srgb, var(--admin-border-strong, var(--border)) 70%, transparent);
   }
 
-  :global(.ui-range-input__range) {
-    position: absolute;
+  :global(.ui-range-input::-moz-range-progress) {
     height: 5px;
     border-radius: 999px;
     background: var(--accent);
   }
 
-  :global(.ui-range-input__thumb) {
-    display: block;
+  :global(.ui-range-input::-webkit-slider-thumb) {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    margin-top: -5.5px;
+    border: 2px solid var(--accent);
+    border-radius: 999px;
+    background: var(--admin-surface, var(--panel));
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.24);
+    outline: none;
+    transition:
+      box-shadow 0.14s ease,
+      transform 0.14s ease;
+  }
+
+  :global(.ui-range-input::-moz-range-thumb) {
     width: 16px;
     height: 16px;
     border: 2px solid var(--accent);
@@ -127,15 +175,17 @@
       transform 0.14s ease;
   }
 
-  :global(.ui-range-input__thumb:hover) {
+  :global(.ui-range-input:hover::-webkit-slider-thumb),
+  :global(.ui-range-input:hover::-moz-range-thumb) {
     transform: scale(1.05);
   }
 
-  :global(.ui-range-input__thumb:focus-visible) {
+  :global(.ui-range-input:focus-visible::-webkit-slider-thumb),
+  :global(.ui-range-input:focus-visible::-moz-range-thumb) {
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 24%, transparent);
   }
 
-  :global(.ui-range-input[data-disabled]) {
+  :global(.ui-range-input:disabled) {
     opacity: 0.5;
     cursor: not-allowed;
   }

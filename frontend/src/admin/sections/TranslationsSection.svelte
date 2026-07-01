@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { getTranslationsStore } from "$lib/admin/context";
   import { Input, Textarea } from "$components/ui/index.js";
   import { ChevronRight, Languages, Plus, Search, X } from "$components/ui/icons.js";
   import { AdminBadge, AdminButton, AdminEmptyState } from "$components/patterns/admin/index.js";
-  import { getContext, onDestroy, onMount, untrack } from "svelte";
+  import { onDestroy, onMount, untrack } from "svelte";
   import { slide } from "svelte/transition";
   import type {
     TranslationDirtyEntry,
@@ -11,7 +12,6 @@
     TranslationItem,
     TranslationLanguage,
     TranslationsSavedPayload,
-    TranslationsStore,
     TranslationValue,
   } from "../../lib/admin/stores/translationsStore";
 
@@ -31,7 +31,7 @@
 
   let { at, onTranslationsSaved }: TranslationsSectionProps = $props();
 
-  const translationsStore = getContext<TranslationsStore>("translationsStore");
+  const translationsStore = getTranslationsStore();
   const AUDIENCE_ORDER = ["user", "internal"];
   const AUDIENCE_FILTERS = ["all", ...AUDIENCE_ORDER];
   const translationGroups = $derived(translationsStore.translationGroups as TranslationGroup[]);
@@ -446,6 +446,7 @@
     <button
       type="button"
       class="admin-translation-locale-toggle"
+      data-admin-translation-locale={localeId}
       aria-expanded={expanded}
       onclick={() => toggleLocaleEditor(item, lang)}
     >
@@ -595,6 +596,7 @@
       <button
         type="button"
         class:is-active={audienceFilter === option}
+        data-admin-translation-audience={option}
         onclick={() => {
           audienceFilter = option;
           openGroups = [];
@@ -645,6 +647,7 @@
                   <button
                     type="button"
                     class="admin-accordion-trigger"
+                    data-admin-translation-group={panelId}
                     data-state={groupOpen ? "open" : "closed"}
                     aria-expanded={groupOpen}
                     onclick={() => toggleGroup(panelId)}

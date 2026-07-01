@@ -639,6 +639,44 @@ normalize_panel_api_url() {
     esac
 }
 
+make_panel_api_jwt() {
+    token_uuid="$1"
+    jwt_secret="$2"
+    [ -n "$token_uuid" ] && [ -n "$jwt_secret" ] || return 1
+    command -v python3 >/dev/null 2>&1 || return 1
+
+    PANEL_JWT_UUID="$token_uuid" PANEL_JWT_SECRET="$jwt_secret" python3 - <<'PY'
+import base64
+import hashlib
+import hmac
+import json
+import os
+
+
+def b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).decode("ascii").rstrip("=")
+
+
+token_uuid = os.environ["PANEL_JWT_UUID"]
+secret = os.environ["PANEL_JWT_SECRET"].encode("utf-8")
+header = b64url(json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode())
+payload = b64url(
+    json.dumps(
+        {
+            "uuid": token_uuid,
+            "username": None,
+            "role": "API",
+            "iat": 0,
+            "exp": 9999999999,
+        },
+        separators=(",", ":"),
+    ).encode()
+)
+signature = b64url(hmac.new(secret, f"{header}.{payload}".encode("ascii"), hashlib.sha256).digest())
+print(f"{header}.{payload}.{signature}")
+PY
+}
+
 detect_panel_api_url() {
     value=$(detect_remnashop_env_value REMNAWAVE_HOST || true)
     if [ -n "$value" ]; then
@@ -667,7 +705,18 @@ detect_panel_api_key() {
 
     container=$(detect_remnawave_db_container || true)
     [ -n "$container" ] || return 1
-    docker exec "$container" sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select token from api_tokens order by created_at desc limit 1;"' 2>/dev/null
+    value=$(docker exec "$container" sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select token from api_tokens order by created_at desc limit 1;"' 2>/dev/null || true)
+    if [ -n "$value" ]; then
+        printf '%s' "$value"
+        return 0
+    fi
+
+    value=$(docker exec "$container" sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select uuid::text from api_tokens order by created_at desc limit 1;"' 2>/dev/null || true)
+    [ -n "$value" ] || return 1
+    panel_env=$(detect_egames_panel_env || true)
+    [ -n "$panel_env" ] && [ -f "$panel_env" ] || return 1
+    jwt_secret=$(env_file_get JWT_API_TOKENS_SECRET "$panel_env")
+    make_panel_api_jwt "$value" "$jwt_secret"
 }
 
 detect_panel_api_cookie() {

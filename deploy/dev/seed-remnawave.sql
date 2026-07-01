@@ -1,15 +1,51 @@
-DELETE FROM api_tokens
-WHERE token = 'dev-token-placeholder';
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+            AND table_name = 'api_tokens'
+            AND column_name = 'token'
+    ) THEN
+        EXECUTE $sql$
+            DELETE FROM api_tokens
+            WHERE uuid = '30000000-0000-4000-8000-000000000001'
+                OR token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1dWlkIjoiMzAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwidXNlcm5hbWUiOm51bGwsInJvbGUiOiJBUEkiLCJpYXQiOjAsImV4cCI6OTk5OTk5OTk5OX0.ILbG2DvyxMN6m7zGXYmaUTd1gbZsRDJHFYLc_yZQjgY'
+        $sql$;
 
-INSERT INTO api_tokens (uuid, token, token_name)
-VALUES (
-    '30000000-0000-4000-8000-000000000001',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1dWlkIjoiMzAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwidXNlcm5hbWUiOm51bGwsInJvbGUiOiJBUEkiLCJpYXQiOjAsImV4cCI6OTk5OTk5OTk5OX0.ILbG2DvyxMN6m7zGXYmaUTd1gbZsRDJHFYLc_yZQjgY',
-    'Mini Shop local QA token'
-)
-ON CONFLICT (token) DO UPDATE SET
-    token_name = EXCLUDED.token_name,
-    updated_at = now();
+        EXECUTE $sql$
+            INSERT INTO api_tokens (uuid, token, token_name)
+            VALUES (
+                '30000000-0000-4000-8000-000000000001',
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1dWlkIjoiMzAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwidXNlcm5hbWUiOm51bGwsInJvbGUiOiJBUEkiLCJpYXQiOjAsImV4cCI6OTk5OTk5OTk5OX0.ILbG2DvyxMN6m7zGXYmaUTd1gbZsRDJHFYLc_yZQjgY',
+                'Mini Shop local QA token'
+            )
+            ON CONFLICT (token) DO UPDATE SET
+                token_name = EXCLUDED.token_name,
+                updated_at = now()
+        $sql$;
+    ELSE
+        EXECUTE $sql$
+            DELETE FROM api_tokens
+            WHERE uuid = '30000000-0000-4000-8000-000000000001'
+        $sql$;
+
+        EXECUTE $sql$
+            INSERT INTO api_tokens (uuid, name, scopes, expire_at)
+            VALUES (
+                '30000000-0000-4000-8000-000000000001',
+                'Mini Shop local QA token',
+                ARRAY['*'],
+                now() + interval '99999 days'
+            )
+            ON CONFLICT (uuid) DO UPDATE SET
+                name = EXCLUDED.name,
+                scopes = EXCLUDED.scopes,
+                expire_at = EXCLUDED.expire_at,
+                updated_at = now()
+        $sql$;
+    END IF;
+END $$;
 
 WITH upserted_users AS (
     INSERT INTO users (
@@ -118,6 +154,249 @@ SELECT default_squad.uuid, upserted_users.t_id
 FROM default_squad
 CROSS JOIN upserted_users
 ON CONFLICT DO NOTHING;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+            AND table_name = 'hwid_user_devices'
+    ) THEN
+        RETURN;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+            AND table_name = 'hwid_user_devices'
+            AND column_name = 'user_id'
+    ) THEN
+        EXECUTE $sql$
+            WITH seed_devices (
+                username,
+                hwid,
+                platform,
+                os_version,
+                device_model,
+                user_agent,
+                request_ip,
+                age_minutes
+            ) AS (
+                VALUES
+                    (
+                        'runes_admin',
+                        'dev-hwid-admin-ios-01',
+                        'ios',
+                        '17.5',
+                        'iPhone 15 Pro',
+                        'Happ/2.8.0 (iOS 17.5)',
+                        '198.51.100.11',
+                        90
+                    ),
+                    (
+                        'runes_admin',
+                        'dev-hwid-admin-macos-02',
+                        'macos',
+                        '14.5',
+                        'MacBook Pro',
+                        'Happ/2.8.0 (macOS 14.5)',
+                        '198.51.100.12',
+                        80
+                    ),
+                    (
+                        'runes_active',
+                        'dev-hwid-active-android-01',
+                        'android',
+                        '14',
+                        'Pixel 8',
+                        'Happ/2.8.0 (Android 14)',
+                        '198.51.100.21',
+                        70
+                    ),
+                    (
+                        'runes_active',
+                        'dev-hwid-active-windows-02',
+                        'windows',
+                        '11',
+                        'Surface Laptop',
+                        'NekoBox/4.0 (Windows 11)',
+                        '198.51.100.22',
+                        60
+                    ),
+                    (
+                        'runes_active',
+                        'dev-hwid-active-linux-03',
+                        'linux',
+                        '6.8',
+                        'ThinkPad T14',
+                        'Hiddify/2.0 (Linux)',
+                        '198.51.100.23',
+                        50
+                    ),
+                    (
+                        'runes_expired',
+                        'dev-hwid-expired-android-01',
+                        'android',
+                        '13',
+                        'Galaxy S23',
+                        'Happ/2.7.4 (Android 13)',
+                        '198.51.100.31',
+                        40
+                    )
+            ),
+            resolved AS (
+                SELECT
+                    users.t_id AS user_id,
+                    seed_devices.hwid,
+                    seed_devices.platform,
+                    seed_devices.os_version,
+                    seed_devices.device_model,
+                    seed_devices.user_agent,
+                    seed_devices.request_ip,
+                    seed_devices.age_minutes
+                FROM seed_devices
+                JOIN users ON users.username = seed_devices.username
+            )
+            INSERT INTO hwid_user_devices (
+                hwid,
+                user_id,
+                platform,
+                os_version,
+                device_model,
+                user_agent,
+                request_ip,
+                created_at,
+                updated_at
+            )
+            SELECT
+                hwid,
+                user_id,
+                platform,
+                os_version,
+                device_model,
+                user_agent,
+                request_ip,
+                now() - (age_minutes || ' minutes')::interval,
+                now()
+            FROM resolved
+            ON CONFLICT (hwid, user_id) DO UPDATE SET
+                platform = EXCLUDED.platform,
+                os_version = EXCLUDED.os_version,
+                device_model = EXCLUDED.device_model,
+                user_agent = EXCLUDED.user_agent,
+                request_ip = EXCLUDED.request_ip,
+                updated_at = now()
+        $sql$;
+    ELSE
+        EXECUTE $sql$
+            WITH seed_devices (
+                username,
+                hwid,
+                platform,
+                os_version,
+                device_model,
+                user_agent,
+                age_minutes
+            ) AS (
+                VALUES
+                    (
+                        'runes_admin',
+                        'dev-hwid-admin-ios-01',
+                        'ios',
+                        '17.5',
+                        'iPhone 15 Pro',
+                        'Happ/2.8.0 (iOS 17.5)',
+                        90
+                    ),
+                    (
+                        'runes_admin',
+                        'dev-hwid-admin-macos-02',
+                        'macos',
+                        '14.5',
+                        'MacBook Pro',
+                        'Happ/2.8.0 (macOS 14.5)',
+                        80
+                    ),
+                    (
+                        'runes_active',
+                        'dev-hwid-active-android-01',
+                        'android',
+                        '14',
+                        'Pixel 8',
+                        'Happ/2.8.0 (Android 14)',
+                        70
+                    ),
+                    (
+                        'runes_active',
+                        'dev-hwid-active-windows-02',
+                        'windows',
+                        '11',
+                        'Surface Laptop',
+                        'NekoBox/4.0 (Windows 11)',
+                        60
+                    ),
+                    (
+                        'runes_active',
+                        'dev-hwid-active-linux-03',
+                        'linux',
+                        '6.8',
+                        'ThinkPad T14',
+                        'Hiddify/2.0 (Linux)',
+                        50
+                    ),
+                    (
+                        'runes_expired',
+                        'dev-hwid-expired-android-01',
+                        'android',
+                        '13',
+                        'Galaxy S23',
+                        'Happ/2.7.4 (Android 13)',
+                        40
+                    )
+            ),
+            resolved AS (
+                SELECT
+                    users.uuid AS user_uuid,
+                    seed_devices.hwid,
+                    seed_devices.platform,
+                    seed_devices.os_version,
+                    seed_devices.device_model,
+                    seed_devices.user_agent,
+                    seed_devices.age_minutes
+                FROM seed_devices
+                JOIN users ON users.username = seed_devices.username
+            )
+            INSERT INTO hwid_user_devices (
+                hwid,
+                user_uuid,
+                platform,
+                os_version,
+                device_model,
+                user_agent,
+                created_at,
+                updated_at
+            )
+            SELECT
+                hwid,
+                user_uuid,
+                platform,
+                os_version,
+                device_model,
+                user_agent,
+                now() - (age_minutes || ' minutes')::interval,
+                now()
+            FROM resolved
+            ON CONFLICT (hwid, user_uuid) DO UPDATE SET
+                platform = EXCLUDED.platform,
+                os_version = EXCLUDED.os_version,
+                device_model = EXCLUDED.device_model,
+                user_agent = EXCLUDED.user_agent,
+                updated_at = now()
+        $sql$;
+    END IF;
+END $$;
 
 INSERT INTO user_traffic (
     t_id,

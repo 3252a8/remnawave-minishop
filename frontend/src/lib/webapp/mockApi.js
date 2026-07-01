@@ -2,6 +2,7 @@ import { DEV_MOCK } from "./previewMock.js";
 import { DEMO_DATASET } from "./demoDataset.js";
 import SETTINGS_MANIFEST_SECTIONS from "./settingsManifest.generated.json";
 import { withDemoAvatar, withDemoAvatarDetail, withDemoAvatarTicket } from "./demoAvatars.js";
+import { structuredCloneSafe } from "../safeClone.js";
 import { readJsonScript } from "./browser.js";
 
 const DEMO_LANGUAGE_STORAGE_KEY = "rw_minishop_demo_language";
@@ -49,11 +50,7 @@ const DEMO_TRANSLATION_GROUP_RULES = [
 ];
 
 function defaultClone(value) {
-  try {
-    return structuredClone(value);
-  } catch {
-    return JSON.parse(JSON.stringify(value));
-  }
+  return structuredCloneSafe(value);
 }
 
 function readDemoI18nMessages() {
@@ -1083,6 +1080,17 @@ function applyDemoSettingToMock(key, value) {
   }
 }
 
+function persistDemoSetting(key, value) {
+  demoSettingsChanges.set(key, { value, deleted: false });
+  applyDemoSettingToMock(key, value);
+}
+
+function persistDemoSettings(updates) {
+  for (const [key, value] of Object.entries(updates || {})) {
+    persistDemoSetting(key, value);
+  }
+}
+
 function userSnapshotForTicket(ticket) {
   const detail = DEMO_DATASET.adminUserDetails?.[String(ticket?.user_id)] || {};
   const user = detail.user || ticket?.user || {};
@@ -1311,10 +1319,7 @@ function demoApiResponse(path, cleanPath, options, context) {
   if (cleanPath === "/admin/settings" && method === "PATCH") {
     const body = jsonBody(options);
     for (const key of body.deletes || []) demoSettingsChanges.set(key, { deleted: true });
-    for (const [key, value] of Object.entries(body.updates || {})) {
-      demoSettingsChanges.set(key, { value, deleted: false });
-      applyDemoSettingToMock(key, value);
-    }
+    persistDemoSettings(body.updates);
     return {
       ok: true,
       applied: Object.keys(body.updates || {}).length,
@@ -1975,16 +1980,29 @@ export async function mockApi(path, options = {}, context = {}) {
     };
   }
   if (path === "/admin/appearance/logo") {
+    const logoUrl = "/webapp-uploaded-logo/logo-0000000000000000.png";
+    const faviconUrl = "/webapp-favicon/0000000000000000/icon-180.png";
+    persistDemoSettings({
+      WEBAPP_LOGO_URL: logoUrl,
+      WEBAPP_LOGO_FAVICON_URL: faviconUrl,
+    });
     return {
       ok: true,
-      logo_url: "/webapp-uploaded-logo/logo-0000000000000000.png",
-      favicon_url: "/webapp-favicon/0000000000000000/icon-180.png",
+      logo_url: logoUrl,
+      favicon_url: faviconUrl,
+      persisted: true,
     };
   }
   if (path === "/admin/appearance/favicon") {
+    const faviconUrl = "/webapp-favicon/1111111111111111/icon-180.png";
+    persistDemoSettings({
+      WEBAPP_FAVICON_URL: faviconUrl,
+      WEBAPP_FAVICON_USE_CUSTOM: true,
+    });
     return {
       ok: true,
-      favicon_url: "/webapp-favicon/1111111111111111/icon-180.png",
+      favicon_url: faviconUrl,
+      persisted: true,
       variants: {
         32: "/webapp-favicon/1111111111111111/icon-32.png",
         apple_touch: "/webapp-favicon/1111111111111111/apple-touch-icon.png",

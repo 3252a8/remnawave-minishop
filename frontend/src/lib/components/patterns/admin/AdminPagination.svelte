@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ArrowRight, ChevronLeft, ChevronRight } from "$components/ui/icons.js";
   import AdminButton from "./AdminButton.svelte";
+  import Input from "$components/ui/input.svelte";
 
   type AdminTableLike = {
     currentPage?: number;
@@ -221,7 +222,8 @@
     >
       <label class="admin-pagination-jump-label">
         <span>{jumpLabel}</span>
-        <input
+        <Input
+          name="admin-pagination-jump"
           class="admin-pagination-jump-input"
           type="number"
           min="1"

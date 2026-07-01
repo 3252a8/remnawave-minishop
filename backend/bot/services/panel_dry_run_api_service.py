@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 _USER_ACTION_RE = re.compile(
     r"^/users/(?P<user_uuid>[^/]+)/actions/(?P<action>enable|disable|reset-traffic)$"
 )
+_NODE_RESTART_RE = re.compile(r"^/nodes/(?P<node_uuid>[^/]+)/actions/restart$")
 _INTERNAL_SQUAD_BULK_RE = re.compile(
     r"^/internal-squads/(?P<squad_uuid>[^/]+)/bulk-actions/"
     r"(?P<action>add-users|remove-users)$"
@@ -306,6 +307,13 @@ class PanelDryRunApiService(PanelApiService):
             self._validate_non_empty_string(data.get("hwid"), "hwid", validation)
             await self._validate_remote_user(user_uuid, validation)
             return validation
+        if method == "POST" and (match := _NODE_RESTART_RE.match(endpoint)):
+            self._validate_non_empty_string(match.group("node_uuid"), "node uuid", validation)
+            self._validate_bool(data.get("forceRestart"), "forceRestart", validation)
+            return validation
+        if method == "POST" and endpoint == "/nodes/actions/restart-all":
+            self._validate_bool(data.get("forceRestart"), "forceRestart", validation)
+            return validation
         if match := _INTERNAL_SQUAD_BULK_RE.match(endpoint):
             squad_uuid = match.group("squad_uuid")
             self._validate_non_empty_string(squad_uuid, "squad uuid", validation)
@@ -543,6 +551,11 @@ class PanelDryRunApiService(PanelApiService):
             validation.add(f"{name} must be > 0.")
 
     @staticmethod
+    def _validate_bool(value: Any, name: str, validation: _DryRunValidation) -> None:
+        if not isinstance(value, bool):
+            validation.add(f"{name} must be a boolean.")
+
+    @staticmethod
     def _validate_datetime(value: Any, name: str, validation: _DryRunValidation) -> None:
         if not isinstance(value, str) or not value.strip():
             validation.add(f"{name} must be an ISO datetime string.")
@@ -579,6 +592,14 @@ class PanelDryRunApiService(PanelApiService):
             return {"uuid": endpoint.removeprefix("/users/"), "deleted": True, "dryRun": True}
         if method == "POST" and endpoint == "/hwid/devices/delete":
             return {"userUuid": data.get("userUuid"), "hwid": data.get("hwid"), "dryRun": True}
+        if method == "POST" and (match := _NODE_RESTART_RE.match(endpoint)):
+            return {
+                "uuid": match.group("node_uuid"),
+                "forceRestart": data.get("forceRestart"),
+                "dryRun": True,
+            }
+        if method == "POST" and endpoint == "/nodes/actions/restart-all":
+            return {"forceRestart": data.get("forceRestart"), "dryRun": True}
         if match := _INTERNAL_SQUAD_BULK_RE.match(endpoint):
             return {
                 "squadUuid": match.group("squad_uuid"),

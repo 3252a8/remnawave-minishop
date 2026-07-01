@@ -1069,6 +1069,37 @@ a {
   font-weight: 850;
 }
 
+.promo-price-pair {
+  display: inline-flex;
+  max-width: none;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.promo-price-pair s,
+.promo-price-pair b {
+  flex: 0 0 auto;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.promo-price-pair s {
+  color: var(--muted);
+  font-size: 0.72em;
+  font-weight: 750;
+  opacity: 0.62;
+  text-decoration-thickness: 1px;
+}
+
+.promo-price-pair b {
+  color: var(--accent);
+  font-size: 0.9em;
+  font-weight: 900;
+}
+
 .period-card em {
   color: var(--muted);
   font-size: 10px;
@@ -1195,6 +1226,14 @@ a {
   overflow-wrap: anywhere;
 }
 
+.option-row-meta .promo-price-pair {
+  justify-content: flex-end;
+  max-width: 100%;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .option-row-meta small {
   color: var(--muted);
   font-size: 10px;
@@ -1207,6 +1246,18 @@ a {
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent),
     inset 0 1px 0 var(--inset-highlight);
+}
+
+@media (min-width: 461px) {
+  .payment-dialog-card {
+    width: min(100%, 640px);
+  }
+
+  .option-row-meta {
+    flex: 1 0 max-content;
+    min-width: max-content;
+    max-width: 64%;
+  }
 }
 
 .tariff-row {
@@ -1543,9 +1594,43 @@ a {
   align-items: center;
 }
 
+.promo-apply-row {
+  grid-template-columns: minmax(0, 1fr) minmax(94px, auto);
+}
+
+.promo-apply-row .promo-status-chip {
+  max-width: 176px;
+  justify-self: stretch;
+}
+
 .field-error-wrap {
   position: relative;
   min-width: 0;
+}
+
+.promo-code-input-wrap .input.promo-code-input {
+  width: 100%;
+  min-width: 0;
+  padding-right: 38px;
+}
+
+.promo-code-input-wrap.promo-input-has-clear.promo-input-has-error .input.promo-code-input {
+  padding-right: 68px;
+}
+
+.promo-code-input-wrap .input.promo-code-input.is-applied {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+  color: var(--text);
+  font-weight: 750;
+}
+
+.promo-code-input-wrap .promo-code-clear {
+  z-index: 1;
+}
+
+.promo-code-input-wrap.promo-input-has-clear .field-error-trigger {
+  right: 40px;
 }
 
 .field-error-icon {
@@ -3035,6 +3120,38 @@ a {
   .copy-row,
   .email-row {
     grid-template-columns: 1fr;
+  }
+
+  .copy-row.promo-apply-row {
+    grid-template-columns: minmax(0, 1fr) minmax(94px, auto);
+  }
+
+  .promo-apply-row .promo-status-chip {
+    max-width: 138px;
+  }
+
+  .period-card .promo-price-pair,
+  .option-row-meta .promo-price-pair {
+    flex-direction: column;
+    gap: 2px;
+    white-space: normal;
+  }
+
+  .period-card .promo-price-pair {
+    align-items: center;
+  }
+
+  .option-row-meta .promo-price-pair {
+    align-items: flex-end;
+  }
+
+  .promo-price-pair s,
+  .promo-price-pair b {
+    max-width: 100%;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 

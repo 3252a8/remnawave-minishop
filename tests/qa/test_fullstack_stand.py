@@ -275,6 +275,7 @@ def test_remnawave_versions_are_pinned_and_healthy(client: httpx.Client) -> None
     lock = json.loads(lock_path.read_text(encoding="utf-8"))
 
     assert f"REMNAWAVE_DEV_VERSION={lock['remnawave_panel']}" in env_example
+    assert f"REMNAWAVE_NODE_VERSION={lock['remnawave_node']}" in env_example
     assert f"REMNAWAVE_SUBSCRIPTION_PAGE_VERSION={lock['subscription_page']}" in env_example
 
     frontend = httpx.get(FRONTEND_URL, timeout=10.0)

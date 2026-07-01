@@ -33,6 +33,7 @@ class SubscriptionNotificationStage:
     message_key: str
     days_left: Optional[int] = None
     hours_before: Optional[int] = None
+    hours_after: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,8 @@ class SubscriptionLifecycleNotificationService:
         }
         if stage.hours_before is not None:
             kwargs["hours"] = stage.hours_before
+        elif stage.hours_after is not None:
+            kwargs["hours"] = stage.hours_after
 
         message_text = self.i18n.gettext(lang, stage.message_key, **kwargs)
         email_kwargs = {**kwargs, "user_name": email_user_name}
@@ -258,6 +261,7 @@ class SubscriptionLifecycleNotificationService:
                 mirrored_from_telegram=telegram_sent,
                 days_left=stage.days_left,
                 hours_before=stage.hours_before,
+                hours_after=stage.hours_after,
                 i18n=self.i18n,
             )
             email_service = self.email_service or EmailAuthService(self.settings, self.i18n)

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getUsersStore } from "$lib/admin/context";
   import { ScrollArea } from "$components/ui/index.js";
   import Dialog from "$components/ui/dialog.svelte";
   import {
@@ -9,8 +10,7 @@
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
   import { ExternalLink, Send, Trash2, UserMinus } from "$components/ui/icons.js";
-  import { getContext } from "svelte";
-  import type { AdminUser, UsersStore } from "$lib/admin/stores/usersStore";
+  import type { AdminUser } from "$lib/admin/stores/usersStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type DateFormatter = (value: unknown) => string;
@@ -64,7 +64,7 @@
     userActionBusy = false,
   }: Props = $props();
 
-  const usersStore = getContext<UsersStore>("usersStore");
+  const usersStore = getUsersStore();
 </script>
 
 <Dialog
@@ -192,7 +192,7 @@
     : ""}
   closeLabel={at("close", {}, "Закрыть")}
   onclose={() => usersStore.updateState({ userMessageConfirmOpen: false })}
-  class="admin-dialog"
+  class="admin-dialog admin-user-message-confirm-dialog"
 >
   <ScrollArea class="admin-confirm-message-preview" maxHeight="min(280px, 45vh)">
     {userMessageDraft}
@@ -224,7 +224,7 @@
     : ""}
   closeLabel={at("close", {}, "Закрыть")}
   onclose={() => usersStore.updateState({ userBanConfirmOpen: false })}
-  class="admin-dialog"
+  class="admin-dialog admin-user-ban-confirm-dialog"
 >
   <div class="admin-dialog-actions">
     <AdminButton onclick={() => usersStore.updateState({ userBanConfirmOpen: false })}
@@ -251,7 +251,7 @@
   )}
   closeLabel={at("close", {}, "Закрыть")}
   onclose={() => usersStore.updateState({ userDeleteOpen: false })}
-  class="admin-dialog"
+  class="admin-dialog admin-user-delete-dialog"
 >
   <div class="admin-form-row">
     <AdminButton onclick={() => usersStore.updateState({ userDeleteOpen: false })}

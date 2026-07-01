@@ -98,9 +98,16 @@ class WebAppPaymentCreatePayload(BaseModel):
     tariff_key: Optional[OptionalTariffKeyString] = None
     sale_mode: Optional[SaleModeString] = None
     renew_hwid_devices: Optional[bool] = None
+    promo_code: Optional[ShortCodeString] = None
     description: Optional[LongTextString] = None
     comment: Optional[LongTextString] = None
     note: Optional[LongTextString] = None
+
+
+class WebAppPromoQuotePayload(WebAppPaymentCreatePayload):
+    model_config = ConfigDict(extra="ignore")
+
+    promo_code: ShortCodeString
 
 
 class WebAppAutoRenewPayload(BaseModel):

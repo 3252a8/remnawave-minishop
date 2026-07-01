@@ -32,13 +32,14 @@
     <div class="support-admin-note-toggle">
       <Switch.Root
         id="support-internal-note"
+        aria-labelledby="support-internal-note-label"
         checked={internal}
         onCheckedChange={onToggleInternal}
         class="admin-switch-root"
       >
         <Switch.Thumb class="admin-switch-thumb" />
       </Switch.Root>
-      <label for="support-internal-note">
+      <label id="support-internal-note-label" for="support-internal-note">
         <Lock size={14} />
         <span>{at("support_internal_note", {}, "Внутренняя заметка")}</span>
       </label>

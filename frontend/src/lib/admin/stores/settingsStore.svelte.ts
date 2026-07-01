@@ -7,6 +7,7 @@ import {
   type GetResponse,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
+import { snapshotForPayload } from "./snapshotForPayload.svelte";
 
 type AdminErrorResponse = {
   ok?: false;
@@ -185,7 +186,7 @@ export function createSettingsStore({ api, onToast, at }: SettingsStoreOptions):
   async function saveSettings(
     onSettingsSaved?: (payload: SettingsSavedPayload) => void | Promise<void>
   ): Promise<boolean> {
-    const dirty = state.settingsDirty;
+    const dirty = snapshotForPayload(state.settingsDirty);
     if (!Object.keys(dirty).length) return true;
 
     updateState((s) => ({ ...s, settingsSaving: true }));

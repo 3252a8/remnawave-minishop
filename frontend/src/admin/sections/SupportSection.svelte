@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getContext, onMount, tick } from "svelte";
+  import { getAdminSupportStore } from "$lib/admin/context";
+  import { onMount, tick } from "svelte";
   import {
     AdminButton,
     AdminSelect,
@@ -13,7 +14,6 @@
   import { Search } from "$components/ui/icons.js";
   import { Input, ScrollArea, Skeleton } from "$components/ui/index.js";
   import type {
-    AdminSupportStore,
     SupportFilters,
     SupportMessage,
     SupportTicket,
@@ -38,7 +38,7 @@
     onOpenUserCard?: (userId: number | string | undefined) => void;
   } = $props();
 
-  const supportStore = getContext<AdminSupportStore>("adminSupportStore");
+  const supportStore = getAdminSupportStore();
   let reply = $state("");
   let messagesScrollEl = $state<HTMLElement | null>(null);
   let lastMessageScrollKey = $state("");

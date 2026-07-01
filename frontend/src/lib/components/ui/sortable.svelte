@@ -2,6 +2,7 @@
   import { draggable } from "@neodrag/svelte";
   import { flip } from "svelte/animate";
   import { cubicOut } from "svelte/easing";
+  import { prefersReducedMotion } from "svelte/motion";
   import { cn } from "$lib/utils.js";
   import { GripVertical } from "./icons.js";
 
@@ -33,12 +34,7 @@
 
   const flipConfig = {
     duration(distance) {
-      if (
-        typeof window !== "undefined" &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      ) {
-        return 0;
-      }
+      if (prefersReducedMotion.current) return 0;
       return Math.min(220, 110 + distance * 0.35);
     },
     easing: cubicOut,

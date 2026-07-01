@@ -30,6 +30,7 @@ bot/app/web/templates/subscription_webapp.*.css.gz
 bot/app/web/templates/subscription_webapp_admin.css
 bot/app/web/templates/subscription_webapp_admin.js
 bot/app/web/templates/subscription_webapp_admin.min.*.js
+bot/app/web/templates/subscription_webapp_admin.*.*.js
 bot/app/web/templates/subscription_webapp_admin.*.css
 bot/app/web/templates/subscription_webapp_admin.min.*.js.br
 bot/app/web/templates/subscription_webapp_admin.min.*.js.gz
@@ -51,6 +52,7 @@ backend/bot/app/web/templates/subscription_webapp.*.css.gz
 backend/bot/app/web/templates/subscription_webapp_admin.css
 backend/bot/app/web/templates/subscription_webapp_admin.js
 backend/bot/app/web/templates/subscription_webapp_admin.min.*.js
+backend/bot/app/web/templates/subscription_webapp_admin.*.*.js
 backend/bot/app/web/templates/subscription_webapp_admin.*.css
 backend/bot/app/web/templates/subscription_webapp_admin.min.*.js.br
 backend/bot/app/web/templates/subscription_webapp_admin.min.*.js.gz

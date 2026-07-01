@@ -24,6 +24,7 @@ from bot.utils.install_links import (
     append_install_share_link_text,
     ensure_user_install_guide_links,
 )
+from bot.utils.mini_app_url import subscription_mini_app_checkout_code_url
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
 from db.dal import user_dal
@@ -379,7 +380,7 @@ async def start_command_handler(
     # Auto-apply promo code if provided via start parameter
     if promo_code_to_apply:
         try:
-            from bot.services.promo_code_service import PromoCodeService
+            from bot.services.promo_code_service import PromoCheckoutRequired, PromoCodeService
 
             promo_code_service = PromoCodeService(
                 settings, subscription_service, message_bot(message), i18n
@@ -388,6 +389,41 @@ async def start_command_handler(
             success, result = await promo_code_service.apply_promo_code(
                 session, user_id, promo_code_to_apply, current_lang
             )
+
+            if success and isinstance(result, PromoCheckoutRequired):
+                await session.commit()
+                checkout_url = subscription_mini_app_checkout_code_url(
+                    settings,
+                    result.code or promo_code_to_apply,
+                )
+                if checkout_url:
+                    keyboard = types.InlineKeyboardMarkup(
+                        inline_keyboard=[
+                            [
+                                types.InlineKeyboardButton(
+                                    text=_("open_mini_app"),
+                                    web_app=types.WebAppInfo(url=checkout_url),
+                                )
+                            ]
+                        ]
+                    )
+                    await message.answer(
+                        _(
+                            "promo_code_requires_checkout",
+                            effect=result.effect_summary,
+                        ),
+                        reply_markup=keyboard,
+                        parse_mode="HTML",
+                    )
+                    return
+                await message.answer(
+                    _(
+                        "promo_code_requires_checkout",
+                        effect=result.effect_summary,
+                    ),
+                    parse_mode="HTML",
+                )
+                return
 
             if success:
                 await session.commit()

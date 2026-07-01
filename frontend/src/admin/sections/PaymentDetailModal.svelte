@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getContext } from "svelte";
+  import { getPaymentsStore } from "$lib/admin/context";
   import {
     CalendarDays,
     Copy,
@@ -11,7 +11,7 @@
   } from "$components/ui/icons.js";
   import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
   import Dialog from "$components/ui/dialog.svelte";
-  import type { AdminPayment, PaymentsStore } from "../../lib/admin/stores/paymentsStore";
+  import type { AdminPayment } from "../../lib/admin/stores/paymentsStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type MetaRow = {
@@ -34,7 +34,7 @@
     onOpenUserCard?: (userId: number) => void;
   } = $props();
 
-  const paymentsStore = getContext<PaymentsStore>("paymentsStore");
+  const paymentsStore = getPaymentsStore();
   const closePayment = (): void => paymentsStore.closePayment();
   const openedPaymentId = $derived(paymentsStore.openedPaymentId as number | null);
   const openedPayment = $derived(paymentsStore.openedPayment as AdminPayment | null);

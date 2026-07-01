@@ -313,7 +313,14 @@ async def admin_user_delete_route(request: web.Request) -> web.Response:
             },
         )
         await session.commit()
-    await _invalidate_after_admin_user_mutation(settings, target_id)
+    try:
+        await _invalidate_after_admin_user_mutation(settings, target_id)
+    except Exception:
+        logger.warning(
+            "Admin user delete committed but post-delete cache invalidation failed for user %s",
+            target_id,
+            exc_info=True,
+        )
     return _ok({})
 
 
