@@ -1600,6 +1600,31 @@ a {
   min-width: 0;
 }
 
+.promo-code-input-wrap .input.promo-code-input {
+  width: 100%;
+  min-width: 0;
+  padding-right: 38px;
+}
+
+.promo-code-input-wrap.promo-input-has-clear.promo-input-has-error .input.promo-code-input {
+  padding-right: 68px;
+}
+
+.promo-code-input-wrap .input.promo-code-input.is-applied {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+  color: var(--text);
+  font-weight: 750;
+}
+
+.promo-code-input-wrap .promo-code-clear {
+  z-index: 1;
+}
+
+.promo-code-input-wrap.promo-input-has-clear .field-error-trigger {
+  right: 40px;
+}
+
 .field-error-icon {
   color: var(--danger);
   pointer-events: none;

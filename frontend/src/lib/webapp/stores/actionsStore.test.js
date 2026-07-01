@@ -38,4 +38,28 @@ describe("actionsStore", () => {
     expect(deps.loadData).not.toHaveBeenCalled();
     expect(deps.startCheckoutPromo).toHaveBeenCalledWith("SAVE10");
   });
+
+  it("clears stale promo result state when promo input changes", async () => {
+    const { store } = makeActionsStore({
+      api: vi.fn().mockResolvedValue({
+        ok: true,
+        requires_checkout: true,
+        code: "SAVE10",
+        effect_summary: "-10%",
+      }),
+    });
+
+    store.setPromoCode("SAVE10");
+    await store.applyPromo();
+    store.setPromoCode("");
+
+    expect(store).toMatchObject({
+      promoCheckoutCode: "",
+      promoCheckoutSummary: "",
+      promoCode: "",
+      promoFieldError: "",
+      promoIsError: false,
+      promoStatus: "",
+    });
+  });
 });

@@ -77,6 +77,11 @@ export function createActionsStore({
 
   function setPromoCode(value: string) {
     state.promoCode = value;
+    state.promoStatus = "";
+    state.promoIsError = false;
+    state.promoFieldError = "";
+    state.promoCheckoutCode = "";
+    state.promoCheckoutSummary = "";
   }
 
   function setPromoFieldError(value: string) {
