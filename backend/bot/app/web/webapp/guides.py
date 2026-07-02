@@ -150,19 +150,27 @@ async def _subscription_guides_status_shared(app: web.Application) -> dict[str, 
     now = time.monotonic()
 
     cached = cache.get("status")
-    if cached is not None and cache.get("fingerprint") == fingerprint:
-        if cached.get("enabled") or now - float(cache.get("ts", 0.0)) < (
-            SUBSCRIPTION_GUIDES_CACHE_ERROR_TTL_SECONDS
-        ):
-            return cached
+    if (
+        cached is not None
+        and cache.get("fingerprint") == fingerprint
+        and (
+            cached.get("enabled")
+            or now - float(cache.get("ts", 0.0)) < SUBSCRIPTION_GUIDES_CACHE_ERROR_TTL_SECONDS
+        )
+    ):
+        return cached
 
     async with lock:
         cached = cache.get("status")
-        if cached is not None and cache.get("fingerprint") == fingerprint:
-            if cached.get("enabled") or now - float(cache.get("ts", 0.0)) < (
-                SUBSCRIPTION_GUIDES_CACHE_ERROR_TTL_SECONDS
-            ):
-                return cached
+        if (
+            cached is not None
+            and cache.get("fingerprint") == fingerprint
+            and (
+                cached.get("enabled")
+                or now - float(cache.get("ts", 0.0)) < SUBSCRIPTION_GUIDES_CACHE_ERROR_TTL_SECONDS
+            )
+        ):
+            return cached
 
         status = await _load_subscription_guides_status(app, settings)
         cache["fingerprint"] = fingerprint

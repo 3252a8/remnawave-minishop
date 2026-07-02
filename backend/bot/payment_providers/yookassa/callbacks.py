@@ -1,3 +1,4 @@
+import contextlib
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -125,17 +126,13 @@ async def _initiate_yk_payment(
             f"Failed to create payment record in DB for user {user_id}: {e_db_payment}",
             exc_info=True,
         )
-        try:
+        with contextlib.suppress(Exception):
             await message.edit_text(get_text("error_creating_payment_record"))
-        except Exception:
-            pass
         return False
 
     if not db_payment_record:
-        try:
+        with contextlib.suppress(Exception):
             await message.edit_text(get_text("error_creating_payment_record"))
-        except Exception:
-            pass
         return False
 
     yookassa_metadata = {
@@ -208,7 +205,7 @@ async def _initiate_yk_payment(
                     card_last4=display_last4,
                     card_network=display_network,
                 )
-                try:
+                with contextlib.suppress(Exception):
                     await user_billing_dal.upsert_user_payment_method(
                         session,
                         user_id=user_id,
@@ -218,8 +215,6 @@ async def _initiate_yk_payment(
                         card_network=display_network,
                         set_default=save_payment_method,
                     )
-                except Exception:
-                    pass
                 await session.commit()
         except Exception:
             await session.rollback()
@@ -247,10 +242,8 @@ async def _initiate_yk_payment(
                 f"Failed to update payment record {db_payment_record.payment_id} with YK ID: {e_db_update_ykid}",  # noqa: E501
                 exc_info=True,
             )
-            try:
+            with contextlib.suppress(Exception):
                 await message.edit_text(get_text("error_payment_gateway_link_failed"))
-            except Exception:
-                pass
             return False
 
         try:
@@ -273,7 +266,7 @@ async def _initiate_yk_payment(
             )
         except Exception as e_edit:
             logging.warning(f"Edit message for payment link failed: {e_edit}. Sending new one.")
-            try:
+            with contextlib.suppress(Exception):
                 await message.answer(
                     get_text(
                         key="payment_link_message_traffic"
@@ -291,8 +284,6 @@ async def _initiate_yk_payment(
                     ),
                     disable_web_page_preview=False,
                 )
-            except Exception:
-                pass
         return True
 
     if payment_response_yk and payment_method_id:
@@ -319,10 +310,8 @@ async def _initiate_yk_payment(
                 f"Failed to update saved-card payment record {db_payment_record.payment_id}: {e_db_update_saved}",  # noqa: E501
                 exc_info=True,
             )
-            try:
+            with contextlib.suppress(Exception):
                 await message.edit_text(get_text("error_payment_gateway"))
-            except Exception:
-                pass
             return False
 
         message_text = get_text("yookassa_autopay_charge_initiated")
@@ -333,13 +322,11 @@ async def _initiate_yk_payment(
             )
         except Exception as e_edit:
             logging.warning(f"Failed to notify about saved-card charge start: {e_edit}")
-            try:
+            with contextlib.suppress(Exception):
                 await message.answer(
                     message_text,
                     reply_markup=get_back_to_main_menu_markup(current_lang, i18n),
                 )
-            except Exception:
-                pass
         return True
 
     try:
@@ -356,10 +343,8 @@ async def _initiate_yk_payment(
     logging.error(
         f"Failed to create payment in YooKassa for user {user_id}, payment_db_id {db_payment_record.payment_id}. Response: {payment_response_yk}"  # noqa: E501
     )
-    try:
+    with contextlib.suppress(Exception):
         await message.edit_text(get_text("error_payment_gateway"))
-    except Exception:
-        pass
     return False
 
 
@@ -374,16 +359,12 @@ async def _yookassa_available_to_callback_user(
         require_configured=False,
     ):
         return True
-    try:
+    with contextlib.suppress(Exception):
         await callback.answer(get_text("payment_service_unavailable_alert"), show_alert=True)
-    except Exception:
-        pass
     message = callback_message_or_none(callback)
     if message is not None:
-        try:
+        with contextlib.suppress(Exception):
             await message.edit_text(get_text("payment_service_unavailable"))
-        except Exception:
-            pass
     return False
 
 
@@ -401,10 +382,8 @@ async def pay_yk_callback_handler(
 
     message = callback_message_or_none(callback)
     if not i18n or message is None:
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     if not await _yookassa_available_to_callback_user(callback, settings, get_text):
@@ -413,10 +392,8 @@ async def pay_yk_callback_handler(
     if not yookassa_service or not yookassa_service.configured:
         logging.error("YooKassa service is not configured or unavailable.")
         await message.edit_text(get_text("payment_service_unavailable"))
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("payment_service_unavailable_alert"), show_alert=True)
-        except Exception:
-            pass
         return
 
     callback_data = callback.data or ""
@@ -424,19 +401,15 @@ async def pay_yk_callback_handler(
         _, data_payload = callback_data.split(":", 1)
     except ValueError:
         logging.error(f"Invalid pay_yk data in callback: {callback_data}")
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     parsed = _parse_offer_payload(data_payload)
     if not parsed:
         logging.error(f"Invalid pay_yk payload structure: {callback_data}")
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     months, price_rub, sale_mode = parsed
@@ -479,7 +452,7 @@ async def pay_yk_callback_handler(
             )
         except Exception as e_edit:
             logging.warning(f"Failed to show autopay choice: {e_edit}. Sending new message.")
-            try:
+            with contextlib.suppress(Exception):
                 await message.answer(
                     get_text("yookassa_autopay_flow_prompt"),
                     reply_markup=get_yk_autopay_choice_keyboard(
@@ -494,12 +467,8 @@ async def pay_yk_callback_handler(
                         ),
                     ),
                 )
-            except Exception:
-                pass
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer()
-        except Exception:
-            pass
         return
 
     quoted_parts, hwid_quote = await quote_hwid_callback_parts(
@@ -510,10 +479,8 @@ async def pay_yk_callback_handler(
         currency=default_currency_key_for_settings(settings),
     )
     if not quoted_parts:
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
     months = quoted_parts.months
     price_rub = quoted_parts.price
@@ -535,10 +502,8 @@ async def pay_yk_callback_handler(
         sale_mode=sale_mode,
         hwid_quote=hwid_quote,
     )
-    try:
+    with contextlib.suppress(Exception):
         await callback.answer()
-    except Exception:
-        pass
 
 
 @router.callback_query(F.data.startswith("pay_yk_new:"))
@@ -555,10 +520,8 @@ async def pay_yk_new_card_handler(
 
     message = callback_message_or_none(callback)
     if not i18n or message is None:
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     if not await _yookassa_available_to_callback_user(callback, settings, get_text):
@@ -566,14 +529,10 @@ async def pay_yk_new_card_handler(
 
     if not yookassa_service or not yookassa_service.configured:
         logging.error("YooKassa service unavailable for pay_yk_new.")
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("payment_service_unavailable_alert"), show_alert=True)
-        except Exception:
-            pass
-        try:
+        with contextlib.suppress(Exception):
             await message.edit_text(get_text("payment_service_unavailable"))
-        except Exception:
-            pass
         return
 
     callback_data = callback.data or ""
@@ -581,19 +540,15 @@ async def pay_yk_new_card_handler(
         _, data_payload = callback_data.split(":", 1)
     except ValueError:
         logging.error(f"Invalid pay_yk_new data in callback: {callback_data}")
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     parsed = _parse_offer_payload(data_payload)
     if not parsed:
         logging.error(f"Invalid pay_yk_new payload structure: {callback_data}")
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     months, price_rub, sale_mode = parsed
@@ -606,10 +561,8 @@ async def pay_yk_new_card_handler(
         currency=default_currency_key_for_settings(settings),
     )
     if not quoted_parts:
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
     months = quoted_parts.months
     price_rub = quoted_parts.price
@@ -641,10 +594,8 @@ async def pay_yk_new_card_handler(
         sale_mode=sale_mode,
         hwid_quote=hwid_quote,
     )
-    try:
+    with contextlib.suppress(Exception):
         await callback.answer()
-    except Exception:
-        pass
 
 
 @router.callback_query(F.data.startswith("pay_yk_saved_list:"))
@@ -661,10 +612,8 @@ async def pay_yk_saved_list_handler(
 
     message = callback_message_or_none(callback)
     if not i18n or message is None:
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     if not await _yookassa_available_to_callback_user(callback, settings, get_text):
@@ -675,19 +624,15 @@ async def pay_yk_saved_list_handler(
         _, data_payload = callback_data.split(":", 1)
     except ValueError:
         logging.error(f"Invalid pay_yk_saved_list data: {callback_data}")
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     parsed_saved_list = _parse_saved_list_payload(data_payload)
     if not parsed_saved_list:
         logging.error(f"pay_yk_saved_list payload missing components: {callback_data}")
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
     months, price_rub, page, sale_mode = parsed_saved_list
 
@@ -697,10 +642,8 @@ async def pay_yk_saved_list_handler(
         and not settings.traffic_sale_mode
     )
     if not autopay_enabled:
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     user_id = callback.from_user.id
@@ -730,7 +673,7 @@ async def pay_yk_saved_list_handler(
             )
         except Exception as e_edit:
             logging.warning(f"Failed to display no-saved-card notice: {e_edit}")
-            try:
+            with contextlib.suppress(Exception):
                 await message.answer(
                     get_text("yookassa_autopay_no_saved_cards"),
                     reply_markup=get_yk_autopay_choice_keyboard(
@@ -745,12 +688,8 @@ async def pay_yk_saved_list_handler(
                         ),
                     ),
                 )
-            except Exception:
-                pass
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer()
-        except Exception:
-            pass
         return
 
     cards: list[tuple[str, str]] = []
@@ -779,7 +718,7 @@ async def pay_yk_saved_list_handler(
         )
     except Exception as e_edit:
         logging.warning(f"Failed to display saved card list: {e_edit}")
-        try:
+        with contextlib.suppress(Exception):
             await message.answer(
                 get_text("yookassa_autopay_choose_saved_card"),
                 reply_markup=get_yk_saved_cards_keyboard(
@@ -792,12 +731,8 @@ async def pay_yk_saved_list_handler(
                     sale_mode=sale_mode,
                 ),
             )
-        except Exception:
-            pass
-    try:
+    with contextlib.suppress(Exception):
         await callback.answer()
-    except Exception:
-        pass
 
 
 @router.callback_query(F.data.startswith("pay_yk_use_saved:"))
@@ -814,10 +749,8 @@ async def pay_yk_use_saved_handler(
 
     message = callback_message_or_none(callback)
     if not i18n or message is None:
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     if not await _yookassa_available_to_callback_user(callback, settings, get_text):
@@ -825,14 +758,10 @@ async def pay_yk_use_saved_handler(
 
     if not yookassa_service or not yookassa_service.configured:
         logging.error("YooKassa service unavailable for pay_yk_use_saved.")
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("payment_service_unavailable_alert"), show_alert=True)
-        except Exception:
-            pass
-        try:
+        with contextlib.suppress(Exception):
             await message.edit_text(get_text("payment_service_unavailable"))
-        except Exception:
-            pass
         return
 
     callback_data = callback.data or ""
@@ -840,19 +769,15 @@ async def pay_yk_use_saved_handler(
         _, data_payload = callback_data.split(":", 1)
     except ValueError:
         logging.error(f"Invalid pay_yk_use_saved data: {callback_data}")
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     parts = data_payload.split(":")
     if len(parts) < 3:
         logging.error(f"pay_yk_use_saved payload missing components: {callback_data}")
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     try:
@@ -861,10 +786,8 @@ async def pay_yk_use_saved_handler(
         sale_mode = parts[3] if len(parts) > 3 else "subscription"
     except (ValueError, IndexError):
         logging.error(f"pay_yk_use_saved months/price parsing error: {callback_data}")
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     autopay_enabled = bool(
@@ -873,10 +796,8 @@ async def pay_yk_use_saved_handler(
         and not settings.traffic_sale_mode
     )
     if not autopay_enabled:
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     method_identifier = parts[2]
@@ -892,10 +813,8 @@ async def pay_yk_use_saved_handler(
         currency=default_currency_key_for_settings(settings),
     )
     if not quoted_parts:
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
     months = quoted_parts.months
     price_rub = quoted_parts.price
@@ -910,10 +829,9 @@ async def pay_yk_use_saved_handler(
 
     selected_method = None
     for method in saved_methods:
-        if method_identifier.isdigit():
-            if method.method_id == int(method_identifier):
-                selected_method = method
-                break
+        if method_identifier.isdigit() and method.method_id == int(method_identifier):
+            selected_method = method
+            break
         if method.provider_payment_method_id == method_identifier:
             selected_method = method
             break
@@ -922,10 +840,8 @@ async def pay_yk_use_saved_handler(
         logging.warning(
             f"Selected payment method not found for user {user_id}: {method_identifier}"
         )
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     currency_code_for_yk = default_payment_currency_code_for_settings(settings)
@@ -951,7 +867,5 @@ async def pay_yk_use_saved_handler(
         sale_mode=sale_mode,
         hwid_quote=hwid_quote,
     )
-    try:
+    with contextlib.suppress(Exception):
         await callback.answer()
-    except Exception:
-        pass

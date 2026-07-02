@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import logging
 import time
@@ -233,10 +234,8 @@ class PanelApiCoreMixin:
         current_params = kwargs.get("params")
         url_with_params_for_log = url_for_request
         if current_params:
-            try:
+            with contextlib.suppress(Exception):
                 url_with_params_for_log += "?" + urlencode(current_params)
-            except Exception:
-                pass
 
         json_payload_for_log = (
             kwargs.get("json") if method.upper() in ["POST", "PATCH", "PUT"] else None

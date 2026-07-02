@@ -266,9 +266,7 @@ class PanelDryRunApiService(PanelApiService):
     def _should_intercept(method: str, endpoint: str) -> bool:
         if method in PanelApiService._SAFE_METHODS:
             return False
-        if method == "POST" and endpoint in _LIVE_POST_ENDPOINTS:
-            return False
-        return True
+        return not (method == "POST" and endpoint in _LIVE_POST_ENDPOINTS)
 
     async def _validate_dry_run_request(
         self,

@@ -495,10 +495,9 @@ class WataService(HttpClientMixin):
             return True
 
         transaction_id = _wata_transaction_id(payload)
-        if transaction_id and provider_payment_id and transaction_id == provider_payment_id:
-            return True
-
-        return False
+        return bool(
+            transaction_id and provider_payment_id and transaction_id == provider_payment_id
+        )
 
     async def _find_transaction_for_payment(
         self,

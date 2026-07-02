@@ -66,12 +66,14 @@ class ConfigureLoggingTests(unittest.TestCase):
     def test_configure_logging_does_not_swallow_subsequent_logs(self):
         buffer = io.StringIO()
         # Reset state, then replace stdout briefly so we can capture handler output.
-        with patch.dict(os.environ, {"LOG_LEVEL": "INFO"}, clear=False):
-            with patch.object(sys, "stdout", buffer):
-                app_logging.configure_logging()
-                logging.getLogger("test.module").info("payload-marker")
-                for handler in logging.getLogger().handlers:
-                    handler.flush()
+        with (
+            patch.dict(os.environ, {"LOG_LEVEL": "INFO"}, clear=False),
+            patch.object(sys, "stdout", buffer),
+        ):
+            app_logging.configure_logging()
+            logging.getLogger("test.module").info("payload-marker")
+            for handler in logging.getLogger().handlers:
+                handler.flush()
         self.assertIn("payload-marker", buffer.getvalue())
         self.assertIn("INFO", buffer.getvalue())
 

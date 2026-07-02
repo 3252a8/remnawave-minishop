@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import time
 from collections.abc import Awaitable, Callable
@@ -115,7 +116,5 @@ async def _mark_profile_sync_checked(settings: Settings, telegram_id: int) -> No
 
     _LOCAL_PROFILE_SYNC_CHECKS[telegram_id] = time.monotonic() + ttl_seconds
     key = redis_key(settings, "cache", "profile-sync", telegram_id)
-    try:
+    with contextlib.suppress(Exception):
         await cache_set_json(settings, key, {"checked": True}, ttl_seconds)
-    except Exception:
-        pass

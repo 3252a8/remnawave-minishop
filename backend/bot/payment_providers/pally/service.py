@@ -24,6 +24,8 @@ if TYPE_CHECKING:
 else:
     ReferralService = object
     SubscriptionService = object
+import contextlib
+
 from config.settings import Settings
 from config.tariffs_config import (
     default_currency_key_for_settings,
@@ -487,12 +489,10 @@ class PallyService(HttpClientMixin):
         out_sum = payload.get("OutSum") or payload.get("out_sum")
         commission = payload.get("Commission") or payload.get("commission")
         if out_sum is not None and commission is not None:
-            try:
+            with contextlib.suppress(InvalidOperation, ValueError, TypeError):
                 candidates.append(
                     format_decimal_amount(out_sum) - format_decimal_amount(commission)
                 )
-            except (InvalidOperation, ValueError, TypeError):
-                pass
 
         expected = format_decimal_amount(getattr(payment, "amount", 0))
         for candidate in candidates:

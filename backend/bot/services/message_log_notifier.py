@@ -27,10 +27,7 @@ def message_log_chat_enabled(settings: Settings) -> bool:
 
 
 def _compact(value: object, max_length: int) -> str:
-    if isinstance(value, datetime):
-        text = value.isoformat()
-    else:
-        text = " ".join(str(value or "").split())
+    text = value.isoformat() if isinstance(value, datetime) else " ".join(str(value or "").split())
     if len(text) <= max_length:
         return text
     return f"{text[: max_length - 1]}..."

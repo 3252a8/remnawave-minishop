@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 
 from aiogram import Bot, F, Router, types
@@ -163,13 +164,11 @@ async def change_broadcast_target_handler(
     await state.get_data()
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     confirmation_prompt = _("admin_broadcast_confirm_prompt_short")
-    try:
+    with contextlib.suppress(Exception):
         await callback_message(callback).edit_text(
             confirmation_prompt,
             reply_markup=get_broadcast_confirmation_keyboard(current_lang, i18n, target=new_target),
         )
-    except Exception:
-        pass
     await callback.answer()
 
 

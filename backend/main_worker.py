@@ -64,37 +64,36 @@ async def _handle_yookassa_event(ctx: PluginContext, payload: dict[str, Any]) ->
     session_factory = ctx.require_session_factory()
     bot = ctx.require_bot()
     i18n = ctx.require_i18n()
-    async with payment_processing_lock:
-        async with session_factory() as session:
-            if payload.get("event") == YOOKASSA_EVENT_PAYMENT_SUCCEEDED:
-                event_payload = await process_successful_payment(
-                    session,
-                    bot,
-                    payment_payload,
-                    i18n,
-                    ctx.settings,
-                    ctx.require_panel_service(),
-                    ctx.require_subscription_service(),
-                    ctx.require_referral_service(),
-                    ctx.lknpd_service,
+    async with payment_processing_lock, session_factory() as session:
+        if payload.get("event") == YOOKASSA_EVENT_PAYMENT_SUCCEEDED:
+            event_payload = await process_successful_payment(
+                session,
+                bot,
+                payment_payload,
+                i18n,
+                ctx.settings,
+                ctx.require_panel_service(),
+                ctx.require_subscription_service(),
+                ctx.require_referral_service(),
+                ctx.lknpd_service,
+            )
+            await session.commit()
+            if event_payload:
+                await emit_yookassa_success_events(event_payload)
+        elif payload.get("event") == YOOKASSA_EVENT_PAYMENT_CANCELED:
+            event_payload = await process_cancelled_payment(
+                session,
+                bot,
+                payment_payload,
+                i18n,
+                ctx.settings,
+            )
+            await session.commit()
+            if event_payload:
+                await events.emit_model(
+                    PaymentCanceledPayload.model_validate(event_payload),
+                    exclude_unset=True,
                 )
-                await session.commit()
-                if event_payload:
-                    await emit_yookassa_success_events(event_payload)
-            elif payload.get("event") == YOOKASSA_EVENT_PAYMENT_CANCELED:
-                event_payload = await process_cancelled_payment(
-                    session,
-                    bot,
-                    payment_payload,
-                    i18n,
-                    ctx.settings,
-                )
-                await session.commit()
-                if event_payload:
-                    await events.emit_model(
-                        PaymentCanceledPayload.model_validate(event_payload),
-                        exclude_unset=True,
-                    )
 
 
 async def _handle_panel_event(ctx: PluginContext, payload: dict[str, Any]) -> None:

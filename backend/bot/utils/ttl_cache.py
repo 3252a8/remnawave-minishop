@@ -43,9 +43,7 @@ class AsyncTTLCache:
     def _is_cacheable(value: Any) -> bool:
         if value is None:
             return False
-        if isinstance(value, dict) and value.get("error"):
-            return False
-        return True
+        return not (isinstance(value, dict) and value.get("error"))
 
     async def get_or_load(self, key: str, loader: Callable[[], Awaitable[Any]]) -> Any:
         cached = self.get_fresh(key)

@@ -19,6 +19,7 @@ can never delay, block or crash the worker.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import platform
 import uuid
@@ -105,10 +106,8 @@ class TelemetryWorker:
         return max(1, int(self.settings.TELEMETRY_INTERVAL_HOURS or 24)) * 3600
 
     async def _sleep(self, seconds: float) -> None:
-        try:
+        with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(self._stopped.wait(), timeout=seconds)
-        except TimeoutError:
-            pass
 
     async def _beacon_tick(self) -> None:
         # A short-lived lock keeps a single beacon per interval even when the
@@ -209,13 +208,15 @@ class TelemetryWorker:
         url = str(self.settings.TELEMETRY_ENDPOINT or "").strip().rstrip("/") + "/capture/"
         timeout = aiohttp.ClientTimeout(total=HTTP_TIMEOUT_SECONDS)
         try:
-            async with aiohttp.ClientSession(timeout=timeout) as http:
-                async with http.post(url, json=payload) as resp:
-                    if resp.status >= 400:
-                        body = (await resp.text())[:200]
-                        logger.warning("Telemetry beacon rejected: HTTP %s %s", resp.status, body)
-                    else:
-                        logger.debug("Telemetry beacon delivered (HTTP %s)", resp.status)
+            async with (
+                aiohttp.ClientSession(timeout=timeout) as http,
+                http.post(url, json=payload) as resp,
+            ):
+                if resp.status >= 400:
+                    body = (await resp.text())[:200]
+                    logger.warning("Telemetry beacon rejected: HTTP %s %s", resp.status, body)
+                else:
+                    logger.debug("Telemetry beacon delivered (HTTP %s)", resp.status)
         except Exception:
             # Never let telemetry surface as an error to operators.
             logger.debug("Telemetry beacon delivery failed", exc_info=True)

@@ -1,3 +1,5 @@
+import contextlib
+
 from aiogram import F, types
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -46,10 +48,8 @@ async def display_subscription_options(
     if not i18n:
         err_msg = "Language service error."
         if isinstance(event, types.CallbackQuery):
-            try:
+            with contextlib.suppress(Exception):
                 await event.answer(err_msg, show_alert=True)
-            except Exception:
-                pass
         elif isinstance(event, types.Message):
             await event.answer(err_msg)
         return
@@ -153,10 +153,8 @@ async def display_subscription_options(
             await target_message_obj.edit_text(text_content, reply_markup=reply_markup)
         except Exception:
             await target_message_obj.answer(text_content, reply_markup=reply_markup)
-        try:
+        with contextlib.suppress(Exception):
             await event.answer()
-        except Exception:
-            pass
     else:
         await event.answer(text_content, reply_markup=reply_markup)
 

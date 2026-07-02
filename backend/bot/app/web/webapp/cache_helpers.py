@@ -26,7 +26,7 @@ def _changed_setting_keys(
     updates: Mapping[str, Any] | None = None,
     deletes: Sequence[Any] | None = None,
 ) -> set[str]:
-    keys = {str(key) for key in (updates or {}).keys()}
+    keys = {str(key) for key in (updates or {})}
     keys.update(str(key) for key in (deletes or []) if key is not None)
     return keys
 

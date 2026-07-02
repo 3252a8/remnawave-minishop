@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import re
@@ -465,10 +466,8 @@ def _write_webapp_theme_file(path: Path, theme: WebappTheme) -> None:
         tmp_path.replace(path)
     except PermissionError:
         if tmp_path.exists():
-            try:
+            with contextlib.suppress(OSError):
                 tmp_path.unlink()
-            except OSError:
-                pass
         path.write_text(payload, encoding="utf-8")
 
 

@@ -161,7 +161,7 @@ async def yookassa_webhook_route(request: web.Request) -> web.Response:
             if queued:
                 return web.Response(status=200, text="queued")
 
-        async with payment_processing_lock:
+        async with payment_processing_lock:  # noqa: SIM117 - keep webhook payment lock and DB transaction scopes separate.
             async with async_session_factory() as session:
                 try:
                     if notification_object.event == YOOKASSA_EVENT_PAYMENT_SUCCEEDED:

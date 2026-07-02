@@ -1,3 +1,4 @@
+import contextlib
 import logging
 from datetime import datetime
 from typing import Any
@@ -279,10 +280,8 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
 
         panel_telegram_id_int = None
         if panel_telegram_id_from_api is not None:
-            try:
+            with contextlib.suppress(ValueError):
                 panel_telegram_id_int = int(panel_telegram_id_from_api)
-            except ValueError:
-                pass
 
         if (
             panel_user_obj_from_api

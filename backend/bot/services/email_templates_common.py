@@ -405,10 +405,7 @@ def _cta_button_html(*, label: str, url: str, accent: str) -> str:
 
 def _format_amount(amount: float, currency: str) -> str:
     rounded = round(float(amount), 2)
-    if rounded.is_integer():
-        body = f"{int(rounded)}"
-    else:
-        body = f"{rounded:.2f}"
+    body = f"{int(rounded)}" if rounded.is_integer() else f"{rounded:.2f}"
     suffix = (currency or "").strip()
     return f"{body} {suffix}".strip()
 

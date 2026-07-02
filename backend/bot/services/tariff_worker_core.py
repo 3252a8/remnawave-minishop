@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 import time
 from collections.abc import Awaitable, Callable
@@ -272,15 +273,9 @@ class TariffWorkerCoreMixin:
         if normalized_strategy == "NO_RESET":
             return None
         current = now or datetime.now(UTC)
-        if current.tzinfo is None:
-            current = current.replace(tzinfo=UTC)
-        else:
-            current = current.astimezone(UTC)
+        current = current.replace(tzinfo=UTC) if current.tzinfo is None else current.astimezone(UTC)
         anchor = period_start_at
-        if anchor.tzinfo is None:
-            anchor = anchor.replace(tzinfo=UTC)
-        else:
-            anchor = anchor.astimezone(UTC)
+        anchor = anchor.replace(tzinfo=UTC) if anchor.tzinfo is None else anchor.astimezone(UTC)
 
         candidate = self._advance_traffic_reset(anchor, normalized_strategy)
         if now is None:
@@ -489,13 +484,11 @@ class TariffWorkerCoreMixin:
                         )
             except Exception:
                 logging.exception("TariffTrafficWorker tick failed")
-            try:
+            with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(
                     self._stopped.wait(),
                     timeout=self.settings.TARIFF_WORKER_TICK_SECONDS,
                 )
-            except TimeoutError:
-                pass
 
     def stop(self) -> None:
         self._stopped.set()

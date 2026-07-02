@@ -203,15 +203,14 @@ class LknpdClient:
             )
 
             # Handle 401 with token refresh
-            if response.status_code == 401 and retry_on_401:
-                if await self._refresh_token():
-                    headers = {**self.DEFAULT_HEADERS, **self._get_auth_headers()}
-                    response = await client.request(
-                        method,
-                        url,
-                        json=json_data,
-                        headers=headers,
-                    )
+            if response.status_code == 401 and retry_on_401 and await self._refresh_token():
+                headers = {**self.DEFAULT_HEADERS, **self._get_auth_headers()}
+                response = await client.request(
+                    method,
+                    url,
+                    json=json_data,
+                    headers=headers,
+                )
 
             return response
 

@@ -79,10 +79,10 @@ def test_default_entitlements_are_empty():
 
 
 def test_marketing_entitlement_keys_are_reserved_only():
-    assert RESERVED_ENTITLEMENT_KEYS == {
+    assert {
         MARKETING_WINBACK_ENTITLEMENT,
         MARKETING_CAMPAIGNS_ENTITLEMENT,
-    }
+    } == RESERVED_ENTITLEMENT_KEYS
     assert features().isdisjoint(RESERVED_ENTITLEMENT_KEYS)
 
 

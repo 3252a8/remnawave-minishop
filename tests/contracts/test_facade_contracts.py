@@ -212,15 +212,17 @@ def test_monkeypatch_targets_avoid_facade_imports() -> None:
                 continue
             func = node.func
             is_patch_call = False
-            if isinstance(func, ast.Name) and func.id == "patch":
-                is_patch_call = True
-            elif isinstance(func, ast.Attribute) and func.attr == "patch":
-                is_patch_call = True
-            elif (
-                isinstance(func, ast.Attribute)
-                and func.attr == "setattr"
-                and isinstance(func.value, ast.Name)
-                and func.value.id == "monkeypatch"
+            if (
+                isinstance(func, ast.Name)
+                and func.id == "patch"
+                or isinstance(func, ast.Attribute)
+                and func.attr == "patch"
+                or (
+                    isinstance(func, ast.Attribute)
+                    and func.attr == "setattr"
+                    and isinstance(func.value, ast.Name)
+                    and func.value.id == "monkeypatch"
+                )
             ):
                 is_patch_call = True
 

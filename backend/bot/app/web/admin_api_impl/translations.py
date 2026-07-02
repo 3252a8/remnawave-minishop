@@ -105,8 +105,8 @@ def _admin_translations_payload(
     language_items = _locale_languages(i18n, overrides)
     languages = [item["code"] for item in language_items]
     all_keys = sorted(
-        {key for messages in base_data.values() for key in messages.keys()}
-        | {key for _, key in override_meta.keys()}
+        {key for messages in base_data.values() for key in messages}
+        | {key for _, key in override_meta}
     )
 
     groups_by_id = {

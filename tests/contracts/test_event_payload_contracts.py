@@ -46,7 +46,7 @@ UTC_TEXT = "2026-01-02T03:04:05+00:00"
     ],
 )
 def test_event_payload_names_match_bus_constants(model_cls, event_name):
-    assert model_cls.EVENT_NAME == event_name
+    assert event_name == model_cls.EVENT_NAME
 
 
 def test_every_event_constant_has_exactly_one_payload_model():

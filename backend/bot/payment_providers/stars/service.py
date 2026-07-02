@@ -1,3 +1,4 @@
+import contextlib
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -310,11 +311,9 @@ async def pay_stars_callback_handler(
 
 @router.pre_checkout_query()
 async def handle_pre_checkout_query(query: types.PreCheckoutQuery) -> None:
-    try:
+    # Nothing else to do here; Telegram will show an error if not answered.
+    with contextlib.suppress(Exception):
         await query.answer(ok=True)
-    except Exception:
-        # Nothing else to do here; Telegram will show an error if not answered
-        pass
 
 
 @router.message(F.successful_payment)

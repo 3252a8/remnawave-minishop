@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 import time
 from datetime import UTC, datetime, timedelta
@@ -90,10 +91,8 @@ class SubscriptionNotificationWorker:
                         )
             except Exception:
                 logging.exception("SubscriptionNotificationWorker tick failed")
-            try:
+            with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self._stopped.wait(), timeout=self._tick_seconds())
-            except TimeoutError:
-                pass
 
     def stop(self) -> None:
         self._stopped.set()

@@ -298,19 +298,22 @@ async def process_successful_payment(
                     yk_payment_id_from_hook,
                 )
             return None
-        if sale_mode_base == "subscription" and hwid_devices_count > 0:
-            if (
+        if (
+            sale_mode_base == "subscription"
+            and hwid_devices_count > 0
+            and (
                 not hwid_valid_from
                 or not hwid_valid_until
                 or hwid_valid_from >= hwid_valid_until
                 or hwid_full_price is None
-            ):
-                logging.error(
-                    "YooKassa subscription+HWID payment %s has invalid HWID metadata: %s",
-                    yk_payment_id_from_hook,
-                    metadata,
-                )
-                return None
+            )
+        ):
+            logging.error(
+                "YooKassa subscription+HWID payment %s has invalid HWID metadata: %s",
+                yk_payment_id_from_hook,
+                metadata,
+            )
+            return None
 
         # If this is an auto-renewal (no payment_db_id in metadata), ensure a payment record exists
         if payment_db_id is None and auto_renew_subscription_id_str:

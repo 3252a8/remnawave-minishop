@@ -425,10 +425,7 @@ async def _filter_and_sort_users(
         stmt = stmt.order_by(subscription_expires_expr.desc().nullslast(), User.user_id.desc())
     else:
         order = sort_map.get(sort_key, sort_map["registered_desc"])
-        if isinstance(order, tuple):
-            stmt = stmt.order_by(*order)
-        else:
-            stmt = stmt.order_by(order)
+        stmt = stmt.order_by(*order) if isinstance(order, tuple) else stmt.order_by(order)
 
     stmt = stmt.offset(max(page, 0) * max(page_size, 1)).limit(max(page_size, 1))
 

@@ -1,3 +1,4 @@
+import contextlib
 import logging
 
 from aiogram import Bot, F, types
@@ -99,14 +100,12 @@ async def verify_channel_subscription_callback(
             if fallback_bot:
                 await fallback_bot.send_message(callback.from_user.id, welcome_text)
 
-    try:
+    with contextlib.suppress(Exception):
         await safe_answer_callback(
             callback,
             _(key="channel_subscription_verified_success"),
             show_alert=True,
         )
-    except Exception:
-        pass
 
     await send_main_menu(
         callback, settings, i18n_data, subscription_service, session, is_edit=bool(callback.message)

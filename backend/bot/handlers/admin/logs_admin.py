@@ -1,3 +1,4 @@
+import contextlib
 import csv
 import io
 import logging
@@ -283,10 +284,8 @@ async def process_user_id_for_logs_handler(
     user_model_for_logs: User | None = None
 
     if input_text.isdigit() or (input_text.startswith("-") and input_text[1:].isdigit()):
-        try:
+        with contextlib.suppress(ValueError):
             user_model_for_logs = await user_dal.get_user_by_id(session, int(input_text))
-        except ValueError:
-            pass
     elif EMAIL_REGEX.match(input_text):
         user_model_for_logs = await user_dal.get_user_by_email(session, input_text)
     elif input_text.startswith("@") and USERNAME_REGEX.match(input_text[1:]):

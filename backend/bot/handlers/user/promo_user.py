@@ -131,23 +131,22 @@ async def process_promo_code_input(
         )
 
     response_to_user_text = ""
-    if is_suspicious:
+    if is_suspicious and settings.LOG_SUSPICIOUS_ACTIVITY:
         # Send notification through NotificationService if enabled
-        if settings.LOG_SUSPICIOUS_ACTIVITY:
-            try:
-                from bot.services.notification_service import NotificationService
+        try:
+            from bot.services.notification_service import NotificationService
 
-                notification_service = NotificationService(bot, settings, i18n)
-                db_user = await user_dal.get_user_by_id(session, user.id)
-                await notification_service.notify_suspicious_promo_attempt(
-                    user_id=user.id,
-                    username=user.username,
-                    first_name=user.first_name,
-                    email=getattr(db_user, "email", None) if db_user else None,
-                    suspicious_input=code_input,
-                )
-            except Exception as e:
-                logging.error(f"Failed to send suspicious promo notification: {e}")
+            notification_service = NotificationService(bot, settings, i18n)
+            db_user = await user_dal.get_user_by_id(session, user.id)
+            await notification_service.notify_suspicious_promo_attempt(
+                user_id=user.id,
+                username=user.username,
+                first_name=user.first_name,
+                email=getattr(db_user, "email", None) if db_user else None,
+                suspicious_input=code_input,
+            )
+        except Exception as e:
+            logging.error(f"Failed to send suspicious promo notification: {e}")
 
     success, result = await promo_code_service.apply_promo_code(
         session, user.id, code_input, current_lang

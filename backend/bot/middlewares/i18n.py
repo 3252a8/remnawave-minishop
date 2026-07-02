@@ -188,7 +188,7 @@ def _valid_locale_keys_by_language(
     locales_data: dict[str, dict[str, str]],
 ) -> dict[str, set[str]]:
     return {
-        lang: {str(key) for key in messages.keys()}
+        lang: {str(key) for key in messages}
         for lang, messages in locales_data.items()
         if isinstance(messages, dict)
     }

@@ -1,3 +1,4 @@
+import contextlib
 import logging
 
 from aiogram import types
@@ -59,15 +60,11 @@ async def send_main_menu(
         logging.error(f"i18n_instance missing in send_main_menu for user {user_id}")
         err_msg_fallback = "Error: Language service unavailable. Please try again later."
         if isinstance(target_event, types.CallbackQuery):
-            try:
+            with contextlib.suppress(Exception):
                 await target_event.answer(err_msg_fallback, show_alert=True)
-            except Exception:
-                pass
         elif isinstance(target_event, types.Message):
-            try:
+            with contextlib.suppress(Exception):
                 await target_event.answer(err_msg_fallback)
-            except Exception:
-                pass
         return
 
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)

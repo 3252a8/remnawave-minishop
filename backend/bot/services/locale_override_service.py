@@ -605,9 +605,8 @@ async def load_locale_overrides(
     if errors:
         logger.warning("Skipping invalid DB locale override entries: %s", errors)
     try:
-        async with async_session_factory() as session:
-            async with session.begin():
-                changed = await _replace_db_overrides(session, normalized, updated_by=None)
+        async with async_session_factory() as session, session.begin():
+            changed = await _replace_db_overrides(session, normalized, updated_by=None)
         if changed:
             logger.info("Canonicalized %s DB locale override rows", changed)
     except Exception as exc:
@@ -689,9 +688,8 @@ async def update_locale_overrides(
     if not file_written and file_state.exists and file_state.readable:
         return {"ok": False, "errors": {"_file": "write_failed"}}
 
-    async with async_session_factory() as session:
-        async with session.begin():
-            await _replace_db_overrides(session, desired, updated_by=actor_id)
+    async with async_session_factory() as session, session.begin():
+        await _replace_db_overrides(session, desired, updated_by=actor_id)
 
     i18n.set_locale_overrides(desired)
     if file_written:

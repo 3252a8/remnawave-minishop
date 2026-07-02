@@ -1,3 +1,4 @@
+import contextlib
 import logging
 from typing import Any
 
@@ -66,10 +67,8 @@ async def payment_methods_manage(
     await message.edit_text(
         text, reply_markup=get_payment_methods_list_keyboard(cards, 0, current_lang, i18n)
     )
-    try:
+    with contextlib.suppress(Exception):
         await callback.answer()
-    except Exception:
-        pass
 
 
 @router.callback_query(F.data == "pm:bind")
@@ -118,10 +117,8 @@ async def payment_method_bind(
         _("payment_methods_title"),
         reply_markup=get_bind_url_keyboard(resp["confirmation_url"], current_lang, i18n),
     )
-    try:
+    with contextlib.suppress(Exception):
         await callback.answer()
-    except Exception:
-        pass
 
 
 @router.callback_query(F.data.startswith("pm:delete_confirm"))
@@ -148,10 +145,8 @@ async def payment_method_delete_confirm(
         _("payment_method_delete_confirm"),
         reply_markup=get_payment_method_delete_confirm_keyboard(pm_id, current_lang, i18n),
     )
-    try:
+    with contextlib.suppress(Exception):
         await callback.answer()
-    except Exception:
-        pass
 
 
 @router.callback_query(F.data.startswith("pm:delete"))
@@ -219,17 +214,13 @@ async def payment_method_delete(
             f"{msg}\n\n{text}",
             reply_markup=get_payment_methods_list_keyboard(cards, 0, current_lang, i18n),
         )
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer()
-        except Exception:
-            pass
         return
     except Exception:
         await session.rollback()
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(_("error_try_again"), show_alert=True)
-        except Exception:
-            pass
 
 
 @router.callback_query(F.data.startswith("pm:view"))
@@ -302,10 +293,8 @@ async def payment_method_view(
                 str(sel.method_id), current_lang, i18n
             ),
         )
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer()
-        except Exception:
-            pass
         return
 
     added_at = (
@@ -338,10 +327,8 @@ async def payment_method_view(
             billing.yookassa_payment_method_id, current_lang, i18n
         ),
     )
-    try:
+    with contextlib.suppress(Exception):
         await callback.answer()
-    except Exception:
-        pass
 
 
 @router.callback_query(F.data.startswith("pm:history"))
@@ -494,7 +481,5 @@ async def payment_methods_list(
     await message.edit_text(
         text, reply_markup=get_payment_methods_list_keyboard(cards, page, current_lang, i18n)
     )
-    try:
+    with contextlib.suppress(Exception):
         await callback.answer()
-    except Exception:
-        pass

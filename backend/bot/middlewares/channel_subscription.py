@@ -1,3 +1,4 @@
+import contextlib
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, cast
@@ -130,10 +131,8 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
         keyboard: InlineKeyboardMarkup | None,
         data: dict[str, Any],
     ) -> None:
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(prompt_text, show_alert=True)
-        except Exception:
-            pass
 
         if callback.message:
             try:

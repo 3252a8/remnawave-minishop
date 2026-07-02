@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -106,14 +107,12 @@ async def edit_or_answer(
         return
     except Exception as exc:
         logging.warning("%s: failed to edit message (%s), sending new one.", log_prefix, exc)
-    try:
+    with contextlib.suppress(Exception):
         await message.answer(
             text,
             reply_markup=reply_markup,
             disable_web_page_preview=disable_web_page_preview,
         )
-    except Exception:
-        pass
 
 
 def describe_payment(translator: Translator, parts: PaymentCallbackParts) -> str:
@@ -246,10 +245,8 @@ async def notify_service_unavailable(
     )
     message = callback_message_or_none(callback)
     if message is not None:
-        try:
+        with contextlib.suppress(Exception):
             await message.edit_text(translator("payment_service_unavailable"))
-        except Exception:
-            pass
 
 
 async def notify_callback_parse_error(
@@ -267,10 +264,8 @@ async def notify_payment_record_failure(
     """Both error_creating_payment_record + error_try_again shown after DB failure."""
     message = callback_message_or_none(callback)
     if message is not None:
-        try:
+        with contextlib.suppress(Exception):
             await message.edit_text(translator("error_creating_payment_record"))
-        except Exception:
-            pass
     await safe_callback_answer(callback, translator("error_try_again"), show_alert=True)
 
 
@@ -281,10 +276,8 @@ async def notify_payment_gateway_failure(
     """``error_payment_gateway`` shown both inline and as alert."""
     message = callback_message_or_none(callback)
     if message is not None:
-        try:
+        with contextlib.suppress(Exception):
             await message.edit_text(translator("error_payment_gateway"))
-        except Exception:
-            pass
     await safe_callback_answer(
         callback,
         translator("error_payment_gateway"),

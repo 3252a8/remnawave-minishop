@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import hashlib
 import logging
 import time
@@ -285,10 +286,8 @@ async def _quietly_answer_callback(update: Update) -> None:
     callback = update.callback_query
     if not callback:
         return
-    try:
+    with contextlib.suppress(Exception):
         await callback.answer()
-    except Exception:
-        pass
 
 
 def _mark_dropped(data: dict[str, Any]) -> None:

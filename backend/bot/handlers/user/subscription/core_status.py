@@ -1,3 +1,4 @@
+import contextlib
 import html
 import logging
 from datetime import UTC, datetime
@@ -116,10 +117,8 @@ async def my_subscription_command_handler(
         kb = InlineKeyboardMarkup(inline_keyboard=[[buy_button], *back_markup.inline_keyboard])
 
         if isinstance(event, types.CallbackQuery):
-            try:
+            with contextlib.suppress(Exception):
                 await event.answer()
-            except Exception:
-                pass
             try:
                 await callback_message(event).edit_text(text, reply_markup=kb)
             except Exception:
@@ -445,10 +444,8 @@ async def my_subscription_command_handler(
     markup = InlineKeyboardMarkup(inline_keyboard=kb)
 
     if isinstance(event, types.CallbackQuery):
-        try:
+        with contextlib.suppress(Exception):
             await event.answer()
-        except Exception:
-            pass
         try:
             await callback_message(event).edit_text(
                 text, reply_markup=markup, parse_mode="HTML", disable_web_page_preview=True
@@ -489,10 +486,8 @@ async def my_devices_command_handler(
 
     if not settings.MY_DEVICES_SECTION_ENABLED:
         if isinstance(event, types.CallbackQuery):
-            try:
+            with contextlib.suppress(Exception):
                 await event.answer(get_text("my_devices_feature_disabled"), show_alert=True)
-            except Exception:
-                pass
         else:
             await target.answer(get_text("my_devices_feature_disabled"))
         return
@@ -503,10 +498,8 @@ async def my_devices_command_handler(
     if not active or not active.get("user_id"):
         message = get_text("subscription_not_active")
         if isinstance(event, types.CallbackQuery):
-            try:
+            with contextlib.suppress(Exception):
                 await event.answer(message, show_alert=True)
-            except Exception:
-                pass
         else:
             await target.answer(message)
         return
@@ -514,10 +507,8 @@ async def my_devices_command_handler(
     devices = await panel_service.get_user_devices(active.get("user_id")) if active else None
     if devices is None:
         if isinstance(event, types.CallbackQuery):
-            try:
+            with contextlib.suppress(Exception):
                 await event.answer(get_text("no_devices_found"), show_alert=True)
-            except Exception:
-                pass
         else:
             await target.answer(get_text("no_devices_found"))
         return
@@ -620,10 +611,8 @@ async def my_devices_command_handler(
     markup = InlineKeyboardMarkup(inline_keyboard=kb)
 
     if isinstance(event, types.CallbackQuery):
-        try:
+        with contextlib.suppress(Exception):
             await event.answer()
-        except Exception:
-            pass
         try:
             await callback_message(event).edit_text(text, reply_markup=markup)
         except Exception:

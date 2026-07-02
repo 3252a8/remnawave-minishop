@@ -271,10 +271,7 @@ def _remnashop_panel_api_url(value: Any) -> str | None:
     if not host:
         return None
     if "://" not in host:
-        if "." in host:
-            host = f"https://{host}"
-        else:
-            host = f"http://{host}:3000"
+        host = f"https://{host}" if "." in host else f"http://{host}:3000"
     if not host.rstrip("/").endswith("/api"):
         host = f"{host.rstrip('/')}/api"
     return host
@@ -1865,12 +1862,16 @@ class RemnashopImporter:
                         target.telegram_notifications_status = "blocked"
                         target.telegram_notifications_checked_at = datetime.now(UTC)
                         target.telegram_notifications_blocked_at = datetime.now(UTC)
-                    if referral_code and len(referral_code) <= 64 and not target.referral_code:
-                        if not await self._source_referral_code_conflicts(
+                    if (
+                        referral_code
+                        and len(referral_code) <= 64
+                        and not target.referral_code
+                        and not await self._source_referral_code_conflicts(
                             referral_code,
                             int(target.user_id),
-                        ):
-                            target.referral_code = referral_code
+                        )
+                    ):
+                        target.referral_code = referral_code
                     self.summary["users"]["updated"] += 1
             else:
                 new_referral_code = None

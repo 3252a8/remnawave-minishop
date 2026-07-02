@@ -197,9 +197,10 @@ async def _csrf_protection_middleware(request: web.Request, handler: Handler) ->
     settings: Settings = get_settings(request)
     header = request.headers.get("Authorization", "")
     prefix = "Bearer "
-    if header.startswith(prefix):
-        if verify_webapp_session_token(settings, header[len(prefix) :].strip()):
-            return await handler(request)
+    if header.startswith(prefix) and verify_webapp_session_token(
+        settings, header[len(prefix) :].strip()
+    ):
+        return await handler(request)
 
     if (
         request.method in WEBAPP_STATE_CHANGING_METHODS

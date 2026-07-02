@@ -28,8 +28,5 @@ def add_months(base_dt: datetime, months_to_add: int) -> datetime:
 def month_start(base_dt: datetime | None = None) -> datetime:
     """Return the first instant of the month in UTC for a datetime."""
     moment = base_dt or datetime.now(UTC)
-    if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=UTC)
-    else:
-        moment = moment.astimezone(UTC)
+    moment = moment.replace(tzinfo=UTC) if moment.tzinfo is None else moment.astimezone(UTC)
     return datetime(moment.year, moment.month, 1, tzinfo=UTC)

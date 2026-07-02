@@ -1,3 +1,4 @@
+import contextlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -372,10 +373,8 @@ def _write_tariffs_config_file(path: Path, config: TariffsConfig) -> None:
         # unwritable while the mounted tariffs.json itself is writable.
         # Fall back to updating the existing file in-place.
         if tmp_path.exists():
-            try:
+            with contextlib.suppress(OSError):
                 tmp_path.unlink()
-            except OSError:
-                pass
         path.write_text(payload, encoding="utf-8")
 
 

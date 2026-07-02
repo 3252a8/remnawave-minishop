@@ -356,39 +356,39 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
             answer=AsyncMock(),
         )
 
-        with self.assertLogs(level="ERROR") as captured_logs:
-            with (
-                patch(
-                    "bot.payment_providers.shared.callbacks.safe_store_provider_payment_id",
-                    AsyncMock(return_value=True),
-                ) as store_id,
-                patch(
-                    "bot.payment_providers.shared.callbacks.render_payment_link",
-                    AsyncMock(),
-                ) as render_link,
-                patch(
-                    "bot.payment_providers.shared.callbacks.safe_mark_failed_creation",
-                    AsyncMock(),
-                ) as mark_failed,
-                patch(
-                    "bot.payment_providers.shared.callbacks.notify_payment_gateway_failure",
-                    AsyncMock(),
-                ),
-            ):
-                await render_link_or_fail(
-                    callback,
-                    translator=lambda key, **kwargs: key,
-                    current_lang="ru",
-                    i18n=None,
-                    parts=SimpleNamespace(),
-                    session=session,
-                    payment=payment,
-                    api_success=True,
-                    payment_url=None,
-                    provider_payment_id="transaction-77",
-                    provider_response={"error": "missing_redirect"},
-                    log_prefix="Platega",
-                )
+        with (
+            self.assertLogs(level="ERROR") as captured_logs,
+            patch(
+                "bot.payment_providers.shared.callbacks.safe_store_provider_payment_id",
+                AsyncMock(return_value=True),
+            ) as store_id,
+            patch(
+                "bot.payment_providers.shared.callbacks.render_payment_link",
+                AsyncMock(),
+            ) as render_link,
+            patch(
+                "bot.payment_providers.shared.callbacks.safe_mark_failed_creation",
+                AsyncMock(),
+            ) as mark_failed,
+            patch(
+                "bot.payment_providers.shared.callbacks.notify_payment_gateway_failure",
+                AsyncMock(),
+            ),
+        ):
+            await render_link_or_fail(
+                callback,
+                translator=lambda key, **kwargs: key,
+                current_lang="ru",
+                i18n=None,
+                parts=SimpleNamespace(),
+                session=session,
+                payment=payment,
+                api_success=True,
+                payment_url=None,
+                provider_payment_id="transaction-77",
+                provider_response={"error": "missing_redirect"},
+                log_prefix="Platega",
+            )
 
         store_id.assert_not_awaited()
         render_link.assert_not_awaited()
@@ -403,26 +403,26 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
         session = AsyncMock()
         failed_response = object()
 
-        with self.assertLogs(level="ERROR") as captured_logs:
-            with (
-                patch(
-                    "bot.payment_providers.shared.webapp.mark_payment_failed_creation",
-                    AsyncMock(),
-                ) as mark_failed,
-                patch(
-                    "bot.payment_providers.shared.webapp.payment_failed",
-                    return_value=failed_response,
-                ),
-            ):
-                response = await finalize_webapp_link_payment(
-                    session=session,
-                    payment=payment,
-                    api_success=False,
-                    payment_url=None,
-                    provider_payment_id=None,
-                    provider_response={"status": 400, "message": "invalid_amount"},
-                    log_prefix="Wata",
-                )
+        with (
+            self.assertLogs(level="ERROR") as captured_logs,
+            patch(
+                "bot.payment_providers.shared.webapp.mark_payment_failed_creation",
+                AsyncMock(),
+            ) as mark_failed,
+            patch(
+                "bot.payment_providers.shared.webapp.payment_failed",
+                return_value=failed_response,
+            ),
+        ):
+            response = await finalize_webapp_link_payment(
+                session=session,
+                payment=payment,
+                api_success=False,
+                payment_url=None,
+                provider_payment_id=None,
+                provider_response={"status": 400, "message": "invalid_amount"},
+                log_prefix="Wata",
+            )
 
         self.assertIs(response, failed_response)
         mark_failed.assert_awaited_once_with(session, 88)

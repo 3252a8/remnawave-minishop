@@ -208,10 +208,7 @@ def normalize_payment_currency_code(value: Any, default: str = "RUB") -> str:
 def parse_supported_currency_codes(value: Any) -> tuple[str, ...]:
     if value is None:
         return ()
-    if isinstance(value, str):
-        raw_items = value.replace(";", ",").split(",")
-    else:
-        raw_items = list(value)
+    raw_items = value.replace(";", ",").split(",") if isinstance(value, str) else list(value)
     currencies: list[str] = []
     seen: set[str] = set()
     for item in raw_items:
@@ -418,9 +415,7 @@ class PaymentProviderSpec:
         )
         if not (public_enabled or admin_only_visible):
             return False
-        if require_configured and app is not None and not self.is_service_configured(app):
-            return False
-        return True
+        return not (require_configured and app is not None and not self.is_service_configured(app))
 
     def is_visible_for_user(
         self,

@@ -10,6 +10,7 @@ the dashboard stays fast and external APIs are not hammered.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
@@ -108,10 +109,8 @@ def _dir_is_writable(path: Path) -> bool:
         probe.unlink()
         return True
     except OSError:
-        try:
+        with contextlib.suppress(OSError):
             probe.unlink()
-        except OSError:
-            pass
         return False
 
 

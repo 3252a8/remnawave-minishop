@@ -191,9 +191,10 @@ def _detect_logo_extension(body: bytes, content_type: str = "", filename: str = 
         head = body[:512].lstrip().lower()
         if head.startswith(b"<svg") or b"<svg" in head:
             return ".svg"
-    if content_type == "image/x-icon" or suffix == ".ico":
-        if body.startswith(b"\x00\x00\x01\x00"):
-            return ".ico"
+    if (content_type == "image/x-icon" or suffix == ".ico") and body.startswith(
+        b"\x00\x00\x01\x00"
+    ):
+        return ".ico"
     return suffix if suffix in WEBAPP_LOGO_UPLOAD_CONTENT_TYPES else None
 
 
@@ -427,25 +428,25 @@ async def _fetch_logo_from_url(url: str) -> tuple[bytes, str, str]:
         raise ValueError("logo URL must resolve to a public address")
 
     timeout = ClientTimeout(total=5)
-    async with ClientSession(timeout=timeout, headers={"User-Agent": "Mozilla/5.0"}) as session:
-        async with session.get(
+    async with (
+        ClientSession(timeout=timeout, headers={"User-Agent": "Mozilla/5.0"}) as session,
+        session.get(
             url,
             allow_redirects=False,
             headers={"Accept": "image/avif,image/webp,image/svg+xml,image/png,image/*,*/*;q=0.8"},
-        ) as response:
-            if response.status != 200:
-                raise ValueError(f"logo URL returned HTTP {response.status}")
-            content_type = (
-                (response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
-            )
-            if content_type and not content_type.startswith("image/"):
-                raise ValueError("logo URL returned non-image content")
-            body = bytearray()
-            async for chunk in response.content.iter_chunked(64 * 1024):
-                body.extend(chunk)
-                if len(body) > WEBAPP_LOGO_MAX_BYTES:
-                    raise ValueError("logo must be up to 2 MiB")
-            return bytes(body), content_type, Path(parsed.path).name
+        ) as response,
+    ):
+        if response.status != 200:
+            raise ValueError(f"logo URL returned HTTP {response.status}")
+        content_type = (response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+        if content_type and not content_type.startswith("image/"):
+            raise ValueError("logo URL returned non-image content")
+        body = bytearray()
+        async for chunk in response.content.iter_chunked(64 * 1024):
+            body.extend(chunk)
+            if len(body) > WEBAPP_LOGO_MAX_BYTES:
+                raise ValueError("logo must be up to 2 MiB")
+        return bytes(body), content_type, Path(parsed.path).name
 
 
 async def admin_appearance_logo_upload_route(request: web.Request) -> web.Response:

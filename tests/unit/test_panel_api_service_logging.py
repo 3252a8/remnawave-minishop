@@ -81,9 +81,11 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
 
         service._get_session = AsyncMock(return_value=SimpleNamespace(request=fake_request))
 
-        with patch("bot.services.panel_api_service.asyncio.sleep", new=AsyncMock()):
-            with self.assertLogs(level="INFO") as captured:
-                result = await service._request("GET", "/users/by-email/user@example.com")
+        with (
+            patch("bot.services.panel_api_service.asyncio.sleep", new=AsyncMock()),
+            self.assertLogs(level="INFO") as captured,
+        ):
+            result = await service._request("GET", "/users/by-email/user@example.com")
 
         self.assertTrue(result["error"])
         joined = "\n".join(captured.output)

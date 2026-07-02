@@ -1,3 +1,4 @@
+import contextlib
 import logging
 from datetime import datetime
 
@@ -37,25 +38,22 @@ async def request_trial_confirmation_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     if not i18n or not callback.message:
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(_("error_occurred_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
-    if settings.TRIAL_ENABLED:
-        if not await subscription_service.has_trial_blocking_subscription(session, user_id):
-            pass
+    if settings.TRIAL_ENABLED and not await subscription_service.has_trial_blocking_subscription(
+        session, user_id
+    ):
+        pass
 
     if not settings.TRIAL_ENABLED:
         await callback_message(callback).edit_text(
             _("trial_feature_disabled"),
             reply_markup=get_main_menu_inline_keyboard(current_lang, i18n, settings, False),
         )
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer()
-        except Exception:
-            pass
         return
 
     if await subscription_service.has_trial_blocking_subscription(session, user_id):
@@ -63,10 +61,8 @@ async def request_trial_confirmation_handler(
             _("trial_already_had_subscription_or_trial"),
             reply_markup=get_main_menu_inline_keyboard(current_lang, i18n, settings, False),
         )
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer()
-        except Exception:
-            pass
         return
 
     # Directly activate trial without confirmation
@@ -80,10 +76,8 @@ async def request_trial_confirmation_handler(
     install_share_url = None
 
     if activation_result and activation_result.get("activated"):
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(_("trial_activated_alert"), show_alert=True)
-        except Exception:
-            pass
 
         end_date_obj = activation_result.get("end_date")
         config_link_display_for_trial, connect_button_url_for_trial = await prepare_config_links(
@@ -132,10 +126,8 @@ async def request_trial_confirmation_handler(
             else "trial_activation_failed"
         )
         final_message_text_in_chat = _(message_key_from_service)
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(final_message_text_in_chat, show_alert=True)
-        except Exception:
-            pass
         if (
             settings.TRIAL_ENABLED
             and not await subscription_service.has_trial_blocking_subscription(session, user_id)
@@ -192,27 +184,21 @@ async def confirm_activate_trial_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     if not i18n or not callback.message:
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(_("error_occurred_try_again"), show_alert=True)
-        except Exception:
-            pass
         return
 
     if not settings.TRIAL_ENABLED:
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(_("trial_feature_disabled"), show_alert=True)
-        except Exception:
-            pass
 
         await send_main_menu(
             callback, settings, i18n_data, subscription_service, session, is_edit=True
         )
         return
     if await subscription_service.has_trial_blocking_subscription(session, user_id):
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(_("trial_already_had_subscription_or_trial"), show_alert=True)
-        except Exception:
-            pass
         await send_main_menu(
             callback, settings, i18n_data, subscription_service, session, is_edit=True
         )
@@ -228,10 +214,8 @@ async def confirm_activate_trial_handler(
     install_share_url = None
 
     if activation_result and activation_result.get("activated"):
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(_("trial_activated_alert"), show_alert=True)
-        except Exception:
-            pass
 
         end_date_obj = activation_result.get("end_date")
         config_link_display_for_trial, connect_button_url_for_trial = await prepare_config_links(
@@ -269,10 +253,8 @@ async def confirm_activate_trial_handler(
             else "trial_activation_failed"
         )
         final_message_text_in_chat = _(message_key_from_service)
-        try:
+        with contextlib.suppress(Exception):
             await callback.answer(final_message_text_in_chat, show_alert=True)
-        except Exception:
-            pass
         if (
             settings.TRIAL_ENABLED
             and not await subscription_service.has_trial_blocking_subscription(session, user_id)

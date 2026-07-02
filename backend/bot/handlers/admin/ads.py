@@ -1,3 +1,4 @@
+import contextlib
 import logging
 
 from aiogram import F, Router, types
@@ -53,10 +54,8 @@ async def show_ads_menu(
             i18n, current_lang, campaigns, current_page, total_pages
         )
     await callback_message(callback).edit_text(text, reply_markup=reply_markup)
-    try:
+    with contextlib.suppress(Exception):
         await callback.answer()
-    except Exception:
-        pass
 
 
 @router.callback_query(F.data.startswith("admin_ads:page:"))
@@ -297,10 +296,8 @@ async def ads_create_start(
 
     await state.set_state(AdminStates.waiting_for_ad_source)
     await callback_message(callback).edit_text(_("admin_ads_create_source_prompt"))
-    try:
+    with contextlib.suppress(Exception):
         await callback.answer()
-    except Exception:
-        pass
 
 
 @router.message(

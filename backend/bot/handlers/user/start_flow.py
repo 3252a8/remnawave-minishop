@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import re
 from datetime import UTC, datetime
@@ -353,10 +354,8 @@ async def start_command_handler(
                 await session.commit()
         except Exception as e_attr:
             logging.error(f"Failed to attribute user {user_id} to ad '{ad_start_param}': {e_attr}")
-            try:
+            with contextlib.suppress(Exception):
                 await session.rollback()
-            except Exception:
-                pass
 
     if not await ensure_required_channel_subscription(
         message, settings, i18n, current_lang, session, db_user

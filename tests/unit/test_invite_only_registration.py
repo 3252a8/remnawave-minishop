@@ -184,9 +184,9 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
                     side_effect=RegistrationInviteRequiredError(RegistrationInviteStatus.MISSING)
                 ),
             ),
+            self.assertRaises(web.HTTPFound) as raised,
         ):
-            with self.assertRaises(web.HTTPFound) as raised:
-                await auth_oauth.telegram_oauth_callback_route(request)
+            await auth_oauth.telegram_oauth_callback_route(request)
 
         self.assertIn("telegram_auth=invite_required", raised.exception.location)
 

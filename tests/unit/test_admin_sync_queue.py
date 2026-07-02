@@ -112,9 +112,9 @@ class AdminSyncQueueTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(sync_module, "enqueue_webhook_event", fake_enqueue),
             patch.object(sync_module, "_require_admin_user_id", side_effect=deny),
+            self.assertRaises(web.HTTPForbidden),
         ):
-            with self.assertRaises(web.HTTPForbidden):
-                await sync_module.admin_sync_route(_FakeRequest(_make_settings()))
+            await sync_module.admin_sync_route(_FakeRequest(_make_settings()))
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -1,3 +1,4 @@
+import contextlib
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -111,15 +112,11 @@ async def ensure_required_channel_subscription(
             )
             error_text = translate("channel_subscription_check_failed")
             if isinstance(event, types.CallbackQuery):
-                try:
+                with contextlib.suppress(Exception):
                     await event.answer(error_text, show_alert=True)
-                except Exception:
-                    pass
                 if message_obj:
-                    try:
+                    with contextlib.suppress(Exception):
                         await message_obj.answer(error_text)
-                    except Exception:
-                        pass
             else:
                 await event.answer(error_text)
             return False
@@ -136,15 +133,11 @@ async def ensure_required_channel_subscription(
         )
         error_text = translate("channel_subscription_check_failed")
         if isinstance(event, types.CallbackQuery):
-            try:
+            with contextlib.suppress(Exception):
                 await event.answer(error_text, show_alert=True)
-            except Exception:
-                pass
             if message_obj:
-                try:
+                with contextlib.suppress(Exception):
                     await message_obj.answer(error_text)
-                except Exception:
-                    pass
         else:
             await event.answer(error_text)
         return False
@@ -157,15 +150,11 @@ async def ensure_required_channel_subscription(
         )
         error_text = translate("channel_subscription_check_failed")
         if isinstance(event, types.CallbackQuery):
-            try:
+            with contextlib.suppress(Exception):
                 await event.answer(error_text, show_alert=True)
-            except Exception:
-                pass
             if message_obj:
-                try:
+                with contextlib.suppress(Exception):
                     await message_obj.answer(error_text)
-                except Exception:
-                    pass
         else:
             await event.answer(error_text)
         return False
@@ -214,14 +203,10 @@ async def ensure_required_channel_subscription(
                     edit_error,
                 )
         if keyboard is None and message_obj:
-            try:
+            with contextlib.suppress(Exception):
                 await message_obj.answer(prompt_text)
-            except Exception:
-                pass
-        try:
+        with contextlib.suppress(Exception):
             await event.answer(prompt_text, show_alert=True)
-        except Exception:
-            pass
     else:
         await event.answer(prompt_text, reply_markup=keyboard)
 

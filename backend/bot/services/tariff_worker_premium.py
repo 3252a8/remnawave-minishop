@@ -206,10 +206,7 @@ class TariffWorkerPremiumMixin:
                 premium_baseline + premium_topup_balance + premium_topup_used + premium_bonus
             )
 
-        if premium_unlimited_override:
-            should_limit = False
-        else:
-            should_limit = premium_used >= premium_limit
+        should_limit = False if premium_unlimited_override else premium_used >= premium_limit
         access_state_changed = bool(sub.premium_is_limited) != should_limit
         desired_squads = self.subscription_service._panel_squads_for_tariff(
             tariff,

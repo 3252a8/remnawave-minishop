@@ -357,17 +357,13 @@ class PanelWebhookService:
                 reply_markup=markup,
                 **kwargs,
             )
-        elif stage.key == "expired" and self.settings.SUBSCRIPTION_NOTIFY_ON_EXPIRE:
-            await self._send_message(
-                user_id,
-                lang,
-                stage.message_key,
-                reply_markup=markup,
-                **kwargs,
-            )
         elif (
-            self._is_after_expiration_stage(stage)
-            and self.settings.SUBSCRIPTION_NOTIFY_AFTER_EXPIRE
+            stage.key == "expired"
+            and self.settings.SUBSCRIPTION_NOTIFY_ON_EXPIRE
+            or (
+                self._is_after_expiration_stage(stage)
+                and self.settings.SUBSCRIPTION_NOTIFY_AFTER_EXPIRE
+            )
         ):
             await self._send_message(
                 user_id,
@@ -641,7 +637,7 @@ class PanelWebhookService:
         panel_uuid = PanelWebhookService._payload_panel_uuid(user_payload)
         email = PanelWebhookService._mask_email(str(user_payload.get("email") or "").strip())
         expire_at = str(user_payload.get("expireAt") or "").strip()
-        payload_keys = ",".join(sorted(str(key) for key in user_payload.keys())) or "none"
+        payload_keys = ",".join(sorted(str(key) for key in user_payload)) or "none"
         return (
             f"telegramId={telegram_id or 'N/A'} "
             f"panel_uuid={panel_uuid or 'N/A'} "
