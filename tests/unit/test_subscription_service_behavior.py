@@ -1478,7 +1478,7 @@ class SubscriptionServiceActiveDetailsTests(unittest.IsolatedAsyncioTestCase):
                     AsyncMock(),
                 ) as update_user,
                 patch(
-                    "bot.services.subscription_service_impl.lifecycle.logging.warning",
+                    "bot.services.subscription_service_impl.lifecycle_details.logger.warning",
                 ) as warning_log,
             ):
                 result = await service.get_active_subscription_details(session, user_id=42)
