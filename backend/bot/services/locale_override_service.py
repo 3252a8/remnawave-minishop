@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -449,7 +450,7 @@ def _valid_languages(i18n: JsonI18n) -> set[str]:
     return set((i18n.base_locales_data or i18n.locales_data or {}).keys())
 
 
-def _valid_keys_by_language(i18n: JsonI18n) -> Dict[str, set[str]]:
+def _valid_keys_by_language(i18n: JsonI18n) -> dict[str, set[str]]:
     source = i18n.base_locales_data or i18n.locales_data or {}
     return {
         lang: {str(key) for key in messages}
@@ -458,7 +459,7 @@ def _valid_keys_by_language(i18n: JsonI18n) -> Dict[str, set[str]]:
     }
 
 
-def _normalize_for_i18n(i18n: JsonI18n, payload: object) -> tuple[LocaleOverrides, Dict[str, str]]:
+def _normalize_for_i18n(i18n: JsonI18n, payload: object) -> tuple[LocaleOverrides, dict[str, str]]:
     overrides, errors = normalize_locale_overrides_payload(
         payload,
         valid_languages=_valid_languages(i18n),
@@ -473,13 +474,13 @@ def _normalize_for_i18n(i18n: JsonI18n, payload: object) -> tuple[LocaleOverride
     return normalized, {str(key): str(value) for key, value in errors.items()}
 
 
-def _flatten(overrides: LocaleOverrides) -> Iterable[Tuple[str, str, str]]:
+def _flatten(overrides: LocaleOverrides) -> Iterable[tuple[str, str, str]]:
     for lang, messages in overrides.items():
         for key, value in messages.items():
             yield lang, key, value
 
 
-def _flat_map(overrides: LocaleOverrides) -> Dict[Tuple[str, str], str]:
+def _flat_map(overrides: LocaleOverrides) -> dict[tuple[str, str], str]:
     return {(lang, key): value for lang, key, value in _flatten(overrides)}
 
 
@@ -540,11 +541,11 @@ async def _replace_db_overrides(
     session: AsyncSession,
     desired_overrides: LocaleOverrides,
     *,
-    updated_by: Optional[int] = None,
+    updated_by: int | None = None,
 ) -> int:
     current = _flat_map(await locale_overrides_dal.get_all_overrides(session))
     desired = _flat_map(desired_overrides)
-    changes: Dict[Tuple[str, str], Tuple[bool, str]] = {}
+    changes: dict[tuple[str, str], tuple[bool, str]] = {}
 
     for identity, value in desired.items():
         if current.get(identity) != value:
@@ -629,15 +630,15 @@ async def update_locale_overrides(
     i18n: JsonI18n,
     async_session_factory: sessionmaker,
     *,
-    updates: Dict[str, Dict[str, Any]],
-    deletes: Optional[List[Dict[str, str]]] = None,
-    actor_id: Optional[int] = None,
+    updates: dict[str, dict[str, Any]],
+    deletes: list[dict[str, str]] | None = None,
+    actor_id: int | None = None,
     overrides_path: Path = LOCALE_OVERRIDES_PATH,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     deletes = list(deletes or [])
     normalized_updates, errors = _normalize_for_i18n(i18n, updates)
 
-    normalized_deletes: List[Tuple[str, str]] = []
+    normalized_deletes: list[tuple[str, str]] = []
     valid_languages = _valid_languages(i18n)
     valid_keys = {key for keys in _valid_keys_by_language(i18n).values() for key in keys}
     for item in deletes:
@@ -721,8 +722,8 @@ def audience_for_locale_key(key: str) -> str:
     return "user"
 
 
-def locale_group_catalog() -> List[Dict[str, Any]]:
-    catalog: List[Dict[str, Any]] = []
+def locale_group_catalog() -> list[dict[str, Any]]:
+    catalog: list[dict[str, Any]] = []
     for group in [*LOCALE_GROUPS, DEFAULT_LOCALE_GROUP]:
         item = {key: value for key, value in group.items() if key != "prefixes"}
         item["title_key"] = f"translations_group_{item['id']}"

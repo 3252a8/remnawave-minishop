@@ -26,8 +26,9 @@ signature.
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any
 
 from bot.infra.event_payloads import EventPayload
 
@@ -51,9 +52,9 @@ PANEL_WEBHOOK_RECEIVED = "panel.webhook_received"
 
 #: Handlers receive ``(event_name, payload)`` so one subscriber can serve
 #: several events.
-EventHandler = Callable[[str, Dict[str, Any]], Awaitable[None]]
+EventHandler = Callable[[str, dict[str, Any]], Awaitable[None]]
 
-_subscribers: Dict[str, List[EventHandler]] = {}
+_subscribers: dict[str, list[EventHandler]] = {}
 
 
 def subscribe(event_name: str, handler: EventHandler) -> None:
@@ -73,12 +74,12 @@ def reset_subscribers() -> None:
     _subscribers.clear()
 
 
-def iso(value: Optional[datetime]) -> Optional[str]:
+def iso(value: datetime | None) -> str | None:
     """Format a datetime payload value as ISO-8601 (or pass None through)."""
     return value.isoformat() if isinstance(value, datetime) else None
 
 
-async def emit(event_name: str, payload: Dict[str, Any]) -> None:
+async def emit(event_name: str, payload: dict[str, Any]) -> None:
     """Deliver ``payload`` to every subscriber of ``event_name``.
 
     Never raises: subscriber errors are logged and the remaining subscribers

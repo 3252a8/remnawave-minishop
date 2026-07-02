@@ -1,5 +1,3 @@
-from typing import Dict, List, Optional
-
 from pydantic import BaseModel
 
 
@@ -14,12 +12,12 @@ class DBSettings(BaseModel):
 class EmailSettings(BaseModel):
     smtp_host: str
     smtp_port: int
-    smtp_fallback_ports: Optional[str]
+    smtp_fallback_ports: str | None
     smtp_timeout_seconds: int
-    smtp_username: Optional[str]
-    smtp_password: Optional[str]
-    smtp_from_email: Optional[str]
-    smtp_from_name: Optional[str]
+    smtp_username: str | None
+    smtp_password: str | None
+    smtp_from_email: str | None
+    smtp_from_name: str | None
     smtp_starttls: bool
     smtp_use_ssl: bool
     email_code_ttl_seconds: int
@@ -33,10 +31,10 @@ class EmailSettings(BaseModel):
 class WebAppSettings(BaseModel):
     title: str
     primary_color: str
-    logo_url: Optional[str]
+    logo_url: str | None
     favicon_use_custom: bool
-    favicon_url: Optional[str]
-    logo_favicon_url: Optional[str]
+    favicon_url: str | None
+    logo_favicon_url: str | None
     session_ttl_seconds: int
     session_secret: str
     webhook_secret_token: str
@@ -45,25 +43,25 @@ class WebAppSettings(BaseModel):
     server_host: str
     server_port: int
     enabled: bool
-    trusted_proxies: List[str]
+    trusted_proxies: list[str]
 
 
 class PaymentSettings(BaseModel):
     default_currency_symbol: str
     payment_request_timeout_seconds: float
-    payment_methods_order: List[str]
-    subscription_options: Dict[int, float]
-    stars_subscription_options: Dict[int, int]
-    traffic_packages: Dict[float, float]
-    stars_traffic_packages: Dict[float, int]
+    payment_methods_order: list[str]
+    subscription_options: dict[int, float]
+    stars_subscription_options: dict[int, int]
+    traffic_packages: dict[float, float]
+    stars_traffic_packages: dict[float, int]
     traffic_sale_mode: bool
 
 
 class CompatibilitySettings(BaseModel):
     remnashop_referral_code_compat_enabled: bool
     remnashop_promo_code_compat_enabled: bool
-    remnashop_imported_at: Optional[str]
-    remnashop_notes: Optional[str]
+    remnashop_imported_at: str | None
+    remnashop_notes: str | None
 
 
 class RegistrationSettings(BaseModel):
@@ -71,10 +69,10 @@ class RegistrationSettings(BaseModel):
 
 
 class PanelSettings(BaseModel):
-    api_url: Optional[str]
-    api_key: Optional[str]
-    api_cookie: Optional[str]
-    webhook_secret: Optional[str]
+    api_url: str | None
+    api_key: str | None
+    api_cookie: str | None
+    webhook_secret: str | None
     write_mode: str
     dry_run_enabled: bool
     api_total_timeout_seconds: float
@@ -84,7 +82,7 @@ class PanelSettings(BaseModel):
 
 
 class SupportSettings(BaseModel):
-    link: Optional[str]
+    link: str | None
     tickets_enabled: bool
     ticket_max_body_length: int
     ticket_max_subject_length: int
@@ -95,14 +93,14 @@ class SupportSettings(BaseModel):
 
 
 class ReferralSettings(BaseModel):
-    bonus_days_inviter_1_month: Optional[int]
-    bonus_days_inviter_3_months: Optional[int]
-    bonus_days_inviter_6_months: Optional[int]
-    bonus_days_inviter_12_months: Optional[int]
-    bonus_days_referee_1_month: Optional[int]
-    bonus_days_referee_3_months: Optional[int]
-    bonus_days_referee_6_months: Optional[int]
-    bonus_days_referee_12_months: Optional[int]
+    bonus_days_inviter_1_month: int | None
+    bonus_days_inviter_3_months: int | None
+    bonus_days_inviter_6_months: int | None
+    bonus_days_inviter_12_months: int | None
+    bonus_days_referee_1_month: int | None
+    bonus_days_referee_3_months: int | None
+    bonus_days_referee_6_months: int | None
+    bonus_days_referee_12_months: int | None
     one_bonus_per_referee: bool
     welcome_bonus_days: int
     welcome_bonus_without_telegram_enabled: bool

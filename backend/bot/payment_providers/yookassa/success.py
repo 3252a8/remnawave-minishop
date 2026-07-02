@@ -1,7 +1,7 @@
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,11 +91,11 @@ async def emit_yookassa_success_events(event_payload: dict) -> None:
         await send_success_message_to_user(**deferred_success_message)
 
 
-def _metadata_value_present(value: Optional[Any]) -> bool:
+def _metadata_value_present(value: Any | None) -> bool:
     return value is not None and str(value).strip() != ""
 
 
-def _metadata_int(value: Optional[Any]) -> Optional[int]:
+def _metadata_int(value: Any | None) -> int | None:
     if not _metadata_value_present(value):
         return None
     try:
@@ -104,7 +104,7 @@ def _metadata_int(value: Optional[Any]) -> Optional[int]:
         return None
 
 
-def _metadata_float(value: Optional[Any]) -> Optional[float]:
+def _metadata_float(value: Any | None) -> float | None:
     if not _metadata_value_present(value):
         return None
     try:
@@ -113,7 +113,7 @@ def _metadata_float(value: Optional[Any]) -> Optional[float]:
         return None
 
 
-def _metadata_datetime(value: Optional[Any]) -> Optional[datetime]:
+def _metadata_datetime(value: Any | None) -> datetime | None:
     if not _metadata_value_present(value):
         return None
     try:
@@ -121,17 +121,17 @@ def _metadata_datetime(value: Optional[Any]) -> Optional[datetime]:
     except (TypeError, ValueError):
         return None
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
+        return parsed.replace(tzinfo=UTC)
     return parsed
 
 
 def _resolve_yookassa_activation_amounts(
     *,
     sale_mode_base: str,
-    subscription_months_raw: Optional[Any],
-    traffic_gb_raw: Optional[Any],
-    hwid_devices_raw: Optional[Any],
-) -> tuple[float, float, int, int, Optional[float]]:
+    subscription_months_raw: Any | None,
+    traffic_gb_raw: Any | None,
+    hwid_devices_raw: Any | None,
+) -> tuple[float, float, int, int, float | None]:
     subscription_months = float(subscription_months_raw or 0)
     traffic_amount_gb = (
         float(traffic_gb_raw or 0)
@@ -176,8 +176,8 @@ async def process_successful_payment(
     panel_service: PanelApiService,
     subscription_service: SubscriptionService,
     referral_service: ReferralService,
-    lknpd_service: Optional[LknpdService] = None,
-) -> Optional[dict[str, Any]]:
+    lknpd_service: LknpdService | None = None,
+) -> dict[str, Any] | None:
     metadata_raw = payment_info_from_webhook.get("metadata")
     metadata = metadata_raw if isinstance(metadata_raw, dict) else {}
     user_id_str = metadata.get("user_id")
@@ -565,7 +565,7 @@ async def process_successful_payment(
             )
         if deferred_events:
             payment_succeeded_payload[DEFERRED_EVENTS_KEY] = deferred_events
-        applied_referee_bonus_days_from_referral: Optional[int] = None
+        applied_referee_bonus_days_from_referral: int | None = None
         if referral_bonus_info and referral_bonus_info.get("referee_new_end_date"):
             final_end_date_for_user = referral_bonus_info["referee_new_end_date"]
             applied_referee_bonus_days_from_referral = referral_bonus_info.get(
@@ -606,7 +606,7 @@ async def process_successful_payment(
                     item_name=receipt_item_name,
                     amount=payment_value,
                     quantity=1.0,
-                    operation_time=datetime.now(timezone.utc),
+                    operation_time=datetime.now(UTC),
                 )
             except Exception:
                 logging.exception(
@@ -705,7 +705,7 @@ async def process_cancelled_payment(
     payment_info_from_webhook: dict[str, Any],
     i18n: JsonI18n,
     settings: Settings,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
 
     metadata_raw = payment_info_from_webhook.get("metadata")
     metadata = metadata_raw if isinstance(metadata_raw, dict) else {}

@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from aiogram import Bot, F, Router, types
 from aiogram.filters import Command
@@ -41,7 +40,7 @@ async def admin_panel_command_handler(
     i18n_data: dict,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         logging.error("i18n missing in admin_panel_command_handler")
         await message.answer("Language service error.")
@@ -70,7 +69,7 @@ async def admin_panel_actions_callback_handler(
     action = action_parts[1]
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         logging.error("i18n missing in admin_panel_actions_callback_handler")
         await callback.answer("Language error.", show_alert=True)
@@ -193,7 +192,7 @@ async def admin_section_handler(
 ) -> None:
     section = callback_data(callback).split(":")[1]
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await callback.answer("Language error.", show_alert=True)
         return
@@ -246,7 +245,7 @@ async def admin_section_handler(
 async def show_queue_status_handler(callback: types.CallbackQuery, i18n_data: dict) -> None:
     """Show message queue status to admin"""
     current_lang = i18n_data.get("current_language", "ru")
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error processing request.", show_alert=True)
         return

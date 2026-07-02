@@ -1,7 +1,8 @@
 import logging
 import time
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Protocol
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
@@ -45,12 +46,12 @@ class TariffWorkerPremiumMixin:
     settings: Settings
     panel_service: PanelApiService
     subscription_service: SubscriptionService
-    bot: Optional[Bot]
-    i18n: Optional[JsonI18n]
+    bot: Bot | None
+    i18n: JsonI18n | None
     _premium_nodes_cache: dict[tuple[str, ...], dict[str, Any]]
     _premium_node_usage_tick_cache: dict[
         tuple[str, str, str],
-        Optional[dict[str, dict[Any, int]]],
+        dict[str, dict[Any, int]] | None,
     ]
     _premium_squad_match_cache: dict[tuple[str, tuple[str, ...]], float]
 
@@ -65,20 +66,20 @@ class TariffWorkerPremiumMixin:
             translate: Callable[..., str],
             *,
             kind: str,
-            period_start_at: Optional[datetime],
+            period_start_at: datetime | None,
             reset_available_bytes: int,
             user_lang: str,
-            next_reset_at: Optional[datetime] = None,
+            next_reset_at: datetime | None = None,
         ) -> str: ...
         def _panel_next_traffic_reset_at(
             self,
-            panel_user_data: Optional[dict[str, Any]],
+            panel_user_data: dict[str, Any] | None,
             *,
-            now: Optional[datetime] = None,
-        ) -> Optional[datetime]: ...
+            now: datetime | None = None,
+        ) -> datetime | None: ...
         def _traffic_topup_markup(
             self, user_lang: str, kind: str
-        ) -> Optional[InlineKeyboardMarkup]: ...
+        ) -> InlineKeyboardMarkup | None: ...
         async def _send_traffic_warning_email(
             self,
             session: AsyncSession,
@@ -113,8 +114,8 @@ class TariffWorkerPremiumMixin:
         tariff: _PremiumTariff,
         now: datetime,
         *,
-        panel_username: Optional[str] = None,
-        panel_user_dict: Optional[dict[str, Any]] = None,
+        panel_username: str | None = None,
+        panel_user_dict: dict[str, Any] | None = None,
         panel_view: str = "unknown",
     ) -> None:
         if not getattr(tariff, "premium_squad_uuids", None):
@@ -335,7 +336,7 @@ class TariffWorkerPremiumMixin:
         used: int,
         limit: int,
         period_start_at: datetime,
-        previous_period_start: Optional[datetime],
+        previous_period_start: datetime | None,
     ) -> None:
         if self._period_tariff_traffic_strategy() == "NO_RESET":
             return
@@ -425,7 +426,7 @@ class TariffWorkerPremiumMixin:
     async def _get_full_panel_user_for_squad_confirmation(
         self,
         panel_user_uuid: str,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         try:
             panel_user = await self.panel_service.get_user_by_uuid(
                 panel_user_uuid,
@@ -440,7 +441,7 @@ class TariffWorkerPremiumMixin:
             return None
 
     @staticmethod
-    def _same_premium_period(value: Optional[datetime], premium_period_start: datetime) -> bool:
+    def _same_premium_period(value: datetime | None, premium_period_start: datetime) -> bool:
         if value is None:
             return False
         try:
@@ -490,7 +491,7 @@ class TariffWorkerPremiumMixin:
         session: AsyncSession,
         subscription_id: int,
         premium_period_start: datetime,
-    ) -> Optional[int]:
+    ) -> int | None:
         if not subscription_id or not isinstance(session, AsyncSession):
             return None
         try:
@@ -529,13 +530,13 @@ class TariffWorkerPremiumMixin:
     @classmethod
     def _panel_active_squad_uuid_set(
         cls,
-        panel_user_dict: Optional[dict],
+        panel_user_dict: dict | None,
     ) -> tuple[bool, set[str]]:
         current_known, current_raw = cls._panel_active_squads_raw(panel_user_dict)
         return current_known, cls._internal_squad_uuid_set(current_raw)
 
     @staticmethod
-    def _panel_active_squads_raw(panel_user_dict: Optional[dict]) -> tuple[bool, Any]:
+    def _panel_active_squads_raw(panel_user_dict: dict | None) -> tuple[bool, Any]:
         if not isinstance(panel_user_dict, dict):
             return False, None
         for key in (
@@ -554,7 +555,7 @@ class TariffWorkerPremiumMixin:
         sub: Subscription,
         panel_uuid: str,
         update_payload: dict[str, Any],
-        current_panel_user: Optional[dict],
+        current_panel_user: dict | None,
         reasons: list[str],
         panel_view: str,
     ) -> None:
@@ -572,11 +573,9 @@ class TariffWorkerPremiumMixin:
             ",".join(reasons),
             fields,
             "activeInternalSquads",
-            "activeInternalSquads:%s->%s"
-            % (
-                self._format_squad_uuid_set(current_set if current_known else None),
-                self._format_squad_uuid_set(desired_set),
-            ),
+            "activeInternalSquads:"
+            f"{self._format_squad_uuid_set(current_set if current_known else None)}"
+            f"->{self._format_squad_uuid_set(desired_set)}",
         )
 
     @staticmethod
@@ -602,7 +601,7 @@ class TariffWorkerPremiumMixin:
         return out
 
     @staticmethod
-    def _format_squad_uuid_set(value: Optional[set[str]]) -> str:
+    def _format_squad_uuid_set(value: set[str] | None) -> str:
         if value is None:
             return "missing"
         values = sorted(str(item) for item in value)
@@ -642,7 +641,7 @@ class TariffWorkerPremiumMixin:
         limit: int,
         period_start_at: datetime,
         *,
-        next_reset_at: Optional[datetime] = None,
+        next_reset_at: datetime | None = None,
     ) -> None:
         if limit <= 0:
             return
@@ -833,7 +832,7 @@ class TariffWorkerPremiumMixin:
     async def _premium_node_uuids_for_tariff(self, tariff: _PremiumTariff) -> list[str]:
         cache_key = tuple(sorted(tariff.premium_squad_uuids or []))
         cached = self._premium_nodes_cache.get(cache_key)
-        now_ts = datetime.now(timezone.utc).timestamp()
+        now_ts = datetime.now(UTC).timestamp()
         cached_nodes = cached.get("nodes") if cached else None
         cached_ts = cached.get("ts") if cached else None
         if cached and cached_nodes is not None and now_ts - float(cached_ts or 0) < 600:
@@ -861,8 +860,8 @@ class TariffWorkerPremiumMixin:
         start_date: str,
         end_date: str,
         *,
-        panel_username: Optional[str] = None,
-    ) -> Optional[int]:
+        panel_username: str | None = None,
+    ) -> int | None:
         total = 0
         found = False
         username = (panel_username or "").strip() or None
@@ -900,7 +899,7 @@ class TariffWorkerPremiumMixin:
         node_uuid: str,
         start_date: str,
         end_date: str,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         stats_cache_key = (node_uuid, start_date, end_date)
         if stats_cache_key not in self._premium_node_usage_tick_cache:
             stats = await self.panel_service.get_node_users_bandwidth_stats(
@@ -914,7 +913,7 @@ class TariffWorkerPremiumMixin:
         return self._premium_node_usage_tick_cache.get(stats_cache_key)
 
     @staticmethod
-    def _build_premium_usage_lookup(stats: Optional[dict]) -> Optional[dict]:
+    def _build_premium_usage_lookup(stats: dict | None) -> dict | None:
         if not isinstance(stats, dict):
             return None
         entries = stats.get("topUsers") or stats.get("usersStats") or stats.get("users") or []

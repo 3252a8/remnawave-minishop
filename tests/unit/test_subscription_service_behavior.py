@@ -1,7 +1,7 @@
 import json
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -239,7 +239,7 @@ class SubscriptionServicePanelPayloadTests(unittest.TestCase):
                 USER_TRAFFIC_STRATEGY="MONTH",
             )
             service = _make_service(settings)
-            expire_at = datetime(2026, 5, 13, 12, 34, 56, 789000, tzinfo=timezone.utc)
+            expire_at = datetime(2026, 5, 13, 12, 34, 56, 789000, tzinfo=UTC)
 
             payload = service._build_panel_update_payload(
                 panel_user_uuid="panel-uuid",
@@ -739,7 +739,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 return_value={"subscriptionUrl": "https://panel/sub", "shortUuid": "short"}
             )
             service._send_payment_success_email = AsyncMock()
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             current_end = now + timedelta(days=20)
             current_sub = SimpleNamespace(
                 subscription_id=10,
@@ -844,7 +844,7 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
             )
             updated_sub = SimpleNamespace(
                 subscription_id=10,
-                end_date=datetime.now(timezone.utc) + timedelta(days=7),
+                end_date=datetime.now(UTC) + timedelta(days=7),
                 traffic_limit_bytes=100 * GIB,
                 tariff_key="standard",
                 hwid_device_limit=3,
@@ -909,7 +909,7 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
             )
             active_sub = SimpleNamespace(
                 subscription_id=10,
-                end_date=datetime.now(timezone.utc) + timedelta(days=5),
+                end_date=datetime.now(UTC) + timedelta(days=5),
                 traffic_limit_bytes=100 * GIB,
                 tariff_key="standard",
             )
@@ -977,7 +977,7 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
                 return {"uuid": panel_uuid, "expireAt": payload["expireAt"]}
 
             service.panel_service.get_user_by_uuid = AsyncMock(side_effect=get_panel_user)
-            current_end = datetime.now(timezone.utc) + timedelta(days=5)
+            current_end = datetime.now(UTC) + timedelta(days=5)
             active_sub = SimpleNamespace(
                 subscription_id=10,
                 end_date=current_end,
@@ -1031,7 +1031,7 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
             service._get_or_create_panel_user_link_details = AsyncMock(
                 return_value=("panel-user", "short-uuid", "short", False)
             )
-            current_end = datetime.now(timezone.utc) + timedelta(days=5)
+            current_end = datetime.now(UTC) + timedelta(days=5)
             service.panel_service.update_user_details_on_panel = AsyncMock(
                 return_value={
                     "uuid": "panel-user",
@@ -1047,7 +1047,7 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
                 tariff_key="standard",
                 is_active=True,
                 status_from_panel="ACTIVE",
-                last_notification_sent=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                last_notification_sent=datetime(2026, 1, 1, tzinfo=UTC),
             )
             updated_sub = SimpleNamespace(
                 **{**active_sub.__dict__, "end_date": current_end + timedelta(days=3)}
@@ -1114,7 +1114,7 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
             )
             active_sub = SimpleNamespace(
                 subscription_id=10,
-                end_date=datetime.now(timezone.utc) + timedelta(days=5),
+                end_date=datetime.now(UTC) + timedelta(days=5),
                 traffic_limit_bytes=100 * GIB,
                 tariff_key="standard",
             )
@@ -1181,7 +1181,7 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
             service.panel_service.update_user_details_on_panel = AsyncMock(
                 side_effect=_echo_panel_expiry
             )
-            current_end = datetime.now(timezone.utc) + timedelta(days=5)
+            current_end = datetime.now(UTC) + timedelta(days=5)
             active_sub = SimpleNamespace(
                 subscription_id=10,
                 end_date=current_end,
@@ -1293,7 +1293,7 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
             service._get_or_create_panel_user_link_details = AsyncMock(
                 return_value=("panel-user", "short-uuid", "short", False)
             )
-            current_end = datetime.now(timezone.utc) + timedelta(days=5)
+            current_end = datetime.now(UTC) + timedelta(days=5)
             service.panel_service.update_user_details_on_panel = AsyncMock(
                 return_value={
                     "uuid": "panel-user",
@@ -1408,7 +1408,7 @@ class SubscriptionServiceActiveDetailsTests(unittest.IsolatedAsyncioTestCase):
             user_id=42,
             panel_user_uuid="panel-user",
             panel_subscription_uuid="short-uuid",
-            end_date=datetime.now(timezone.utc) + timedelta(days=10),
+            end_date=datetime.now(UTC) + timedelta(days=10),
             is_active=True,
             status_from_panel="ACTIVE",
             traffic_limit_bytes=1000,
@@ -1547,7 +1547,7 @@ class SubscriptionServiceActiveDetailsTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
             service = _make_service(settings)
-            active_until = datetime(2099, 1, 2, 3, 4, tzinfo=timezone.utc)
+            active_until = datetime(2099, 1, 2, 3, 4, tzinfo=UTC)
             service.panel_service.get_user_by_uuid_lookup = AsyncMock(
                 return_value={
                     "ok": True,
@@ -1621,7 +1621,7 @@ class SubscriptionDalPayloadTests(unittest.TestCase):
                 "user_id": 42,
                 "panel_user_uuid": "panel-user",
                 "panel_subscription_uuid": "panel-sub",
-                "end_date": datetime(2026, 1, 1, tzinfo=timezone.utc),
+                "end_date": datetime(2026, 1, 1, tzinfo=UTC),
                 "traffic_limit_strategy": "WEEK",
             }
         )

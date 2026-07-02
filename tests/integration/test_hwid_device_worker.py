@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -52,7 +52,7 @@ class HwidDeviceWorkerTests(unittest.IsolatedAsyncioTestCase):
         sub = SimpleNamespace(
             subscription_id=11,
             panel_user_uuid="panel-user",
-            end_date=datetime(2099, 1, 1, tzinfo=timezone.utc),
+            end_date=datetime(2099, 1, 1, tzinfo=UTC),
             hwid_device_limit=3,
             extra_hwid_devices=2,
         )

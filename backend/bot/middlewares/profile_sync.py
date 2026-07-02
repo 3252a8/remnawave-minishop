@@ -1,6 +1,7 @@
 import logging
 import time
-from typing import Any, Awaitable, Callable, Dict, Optional, cast
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
@@ -12,19 +13,19 @@ from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
 from db.dal import user_dal
 
-_LOCAL_PROFILE_SYNC_CHECKS: Dict[int, float] = {}
+_LOCAL_PROFILE_SYNC_CHECKS: dict[int, float] = {}
 
 
 class ProfileSyncMiddleware(BaseMiddleware):
     async def __call__(
         self,
-        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
         event: TelegramObject,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> Any:
-        session = cast(Optional[AsyncSession], data.get("session"))
-        tg_user: Optional[TgUser] = data.get("event_from_user")
-        settings: Optional[Settings] = data.get("settings")
+        session = cast(AsyncSession | None, data.get("session"))
+        tg_user: TgUser | None = data.get("event_from_user")
+        settings: Settings | None = data.get("settings")
 
         if session and tg_user:
             if settings and await _profile_sync_recently_checked(settings, int(tg_user.id)):
@@ -35,7 +36,7 @@ class ProfileSyncMiddleware(BaseMiddleware):
                 if not db_user:
                     db_user = await user_dal.get_user_by_id(session, tg_user.id)
                 if db_user:
-                    update_payload: Dict[str, Any] = {}
+                    update_payload: dict[str, Any] = {}
                     sanitized_username = sanitize_username(tg_user.username)
                     sanitized_first_name = sanitize_display_name(tg_user.first_name)
                     sanitized_last_name = sanitize_display_name(tg_user.last_name)

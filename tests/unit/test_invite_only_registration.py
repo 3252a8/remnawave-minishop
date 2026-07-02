@@ -1,6 +1,6 @@
 import json
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -224,7 +224,7 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
         )
         user = SimpleNamespace(
             user_id=42,
-            email_verified_at=datetime.now(timezone.utc),
+            email_verified_at=datetime.now(UTC),
             is_banned=False,
             telegram_id=None,
             referred_by_id=None,
@@ -285,7 +285,7 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
         created_user = SimpleNamespace(
             user_id=100,
             email="new@example.com",
-            email_verified_at=datetime.now(timezone.utc),
+            email_verified_at=datetime.now(UTC),
             is_banned=False,
             telegram_id=None,
             referred_by_id=7,
@@ -362,7 +362,7 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
         created_user = SimpleNamespace(
             user_id=100,
             email="new@example.com",
-            email_verified_at=datetime.now(timezone.utc),
+            email_verified_at=datetime.now(UTC),
             is_banned=False,
             telegram_id=None,
             referred_by_id=7,

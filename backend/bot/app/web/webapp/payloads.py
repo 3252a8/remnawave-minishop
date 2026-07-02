@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Literal, Optional, cast
+from typing import Annotated, Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, EmailStr, StringConstraints, field_validator
 
@@ -38,14 +38,14 @@ class WebAppEmailCodePayload(WebAppEmailPayload):
 
 
 class WebAppEmailRequestPayload(WebAppEmailPayload):
-    language: Optional[str] = None
-    referral_code: Optional[str] = None
-    start_param: Optional[str] = None
+    language: str | None = None
+    referral_code: str | None = None
+    start_param: str | None = None
 
 
 class WebAppEmailCodeAuthPayload(WebAppEmailCodePayload):
-    referral_code: Optional[str] = None
-    start_param: Optional[str] = None
+    referral_code: str | None = None
+    start_param: str | None = None
 
 
 class WebAppEmailPasswordPayload(WebAppEmailPayload):
@@ -67,8 +67,8 @@ class WebAppEmailMagicPayload(BaseModel):
 
 
 class WebAppEmailMagicAuthPayload(WebAppEmailMagicPayload):
-    referral_code: Optional[str] = None
-    start_param: Optional[str] = None
+    referral_code: str | None = None
+    start_param: str | None = None
 
 
 class WebAppTelegramAuthPayload(BaseModel):
@@ -78,8 +78,8 @@ class WebAppTelegramAuthPayload(BaseModel):
     id_token: str = ""
     nonce: str = ""
     auth_data: Any = None
-    referral_code: Optional[str] = None
-    start_param: Optional[str] = None
+    referral_code: str | None = None
+    start_param: str | None = None
 
 
 class WebAppPromoApplyPayload(BaseModel):
@@ -95,13 +95,13 @@ class WebAppPaymentCreatePayload(BaseModel):
     months: Any = None
     traffic_gb: Any = None
     device_count: Any = None
-    tariff_key: Optional[OptionalTariffKeyString] = None
-    sale_mode: Optional[SaleModeString] = None
-    renew_hwid_devices: Optional[bool] = None
-    promo_code: Optional[ShortCodeString] = None
-    description: Optional[LongTextString] = None
-    comment: Optional[LongTextString] = None
-    note: Optional[LongTextString] = None
+    tariff_key: OptionalTariffKeyString | None = None
+    sale_mode: SaleModeString | None = None
+    renew_hwid_devices: bool | None = None
+    promo_code: ShortCodeString | None = None
+    description: LongTextString | None = None
+    comment: LongTextString | None = None
+    note: LongTextString | None = None
 
 
 class WebAppPromoQuotePayload(WebAppPaymentCreatePayload):
@@ -178,7 +178,7 @@ class AdminTicketReplyPayload(TicketReplyPayload):
 class AdminTicketPatchPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    status: Optional[SupportStatus] = None
-    priority: Optional[SupportPriority] = None
-    category: Optional[SupportCategory] = None
-    assigned_admin_id: Optional[int] = None
+    status: SupportStatus | None = None
+    priority: SupportPriority | None = None
+    category: SupportCategory | None = None
+    assigned_admin_id: int | None = None

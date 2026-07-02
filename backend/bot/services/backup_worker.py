@@ -5,10 +5,10 @@ import shutil
 import subprocess
 import tempfile
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Iterable, Optional
 
 from aiogram import Bot
 from aiogram.types import FSInputFile
@@ -89,7 +89,7 @@ class BackupWorker:
     SETTINGS_REFRESH_SECONDS = 60
 
     def __init__(
-        self, settings: Settings, bot: Bot, session_factory: Optional[sessionmaker] = None
+        self, settings: Settings, bot: Bot, session_factory: sessionmaker | None = None
     ) -> None:
         self.settings = settings
         self.bot = bot
@@ -148,7 +148,7 @@ class BackupWorker:
         return result
 
     async def create_backup(self, *, backup_type: str = "scheduled") -> BackupResult:
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         stamp = backup_filename_timestamp()
         archive_name = f"{BACKUP_FILENAME_PREFIX}{stamp}.zip"
         backup_dir, archive_path = await asyncio.to_thread(
@@ -175,7 +175,7 @@ class BackupWorker:
             if self.settings.BACKUP_COMPOSE_ENABLED:
                 compose_files_count = self._stage_compose_source(staging_dir / "compose", warnings)
 
-            completed_at = datetime.now(timezone.utc)
+            completed_at = datetime.now(UTC)
             manifest = {
                 "app": BACKUP_APP_ID,
                 "format_version": BACKUP_FORMAT_VERSION,
@@ -325,7 +325,7 @@ class BackupWorker:
         return DEFAULT_COMPOSE_EXCLUDED_DIRS | set(configured)
 
     @staticmethod
-    def _split_csv(value: Optional[str]) -> list[str]:
+    def _split_csv(value: str | None) -> list[str]:
         if not value:
             return []
         return [item.strip() for item in value.split(",") if item.strip()]
@@ -363,11 +363,11 @@ class BackupWorker:
             except OSError:
                 logging.exception("Failed to delete old backup archive %s", archive)
 
-    def _target_chat_id(self) -> Optional[int]:
+    def _target_chat_id(self) -> int | None:
         value = self.settings.BACKUP_CHAT_ID or self.settings.LOG_CHAT_ID
         return int(value) if value is not None else None
 
-    def _target_thread_id(self) -> Optional[int]:
+    def _target_thread_id(self) -> int | None:
         value = self.settings.BACKUP_THREAD_ID or self.settings.LOG_THREAD_ID
         return int(value) if value is not None else None
 
@@ -459,9 +459,9 @@ class BackupWorker:
         return max(0.0, interval_seconds - remainder)
 
     async def _sleep_until_next_slot(self, delay_seconds: float, interval_seconds: int) -> bool:
-        deadline = datetime.now(timezone.utc) + timedelta(seconds=delay_seconds)
+        deadline = datetime.now(UTC) + timedelta(seconds=delay_seconds)
         while True:
-            remaining = (deadline - datetime.now(timezone.utc)).total_seconds()
+            remaining = (deadline - datetime.now(UTC)).total_seconds()
             if remaining <= 0:
                 return True
             await asyncio.sleep(min(remaining, self.SETTINGS_REFRESH_SECONDS))

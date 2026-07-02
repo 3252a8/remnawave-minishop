@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
@@ -46,9 +46,9 @@ logger = logging.getLogger(__name__)
 def _password_login_failure_response(
     *,
     status: int = 401,
-    retry_after: Optional[int] = None,
+    retry_after: int | None = None,
 ) -> web.Response:
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "ok": False,
         "error": "password_login_failed",
         "fallback": "email_code",
@@ -76,11 +76,11 @@ async def email_password_auth_route(request: web.Request) -> web.Response:
 
     email = password_payload.email
     password = str(password_payload.password or "")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     async_session_factory: sessionmaker = get_session_factory(request)
-    authenticated_user_id: Optional[int] = None
-    authenticated_telegram_id: Optional[int] = None
+    authenticated_user_id: int | None = None
+    authenticated_telegram_id: int | None = None
     async with async_session_factory() as session:
         try:
             throttle = await security_dal.check_throttle(
@@ -217,12 +217,12 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
                     session,
                     email=email,
                     language_code=_normalize_language(settings.DEFAULT_LANGUAGE),
-                    email_verified_at=datetime.now(timezone.utc),
+                    email_verified_at=datetime.now(UTC),
                     referred_by_id=invite_check.referrer_user_id,
                 )
                 created_user = True
             elif not db_user.email_verified_at:
-                db_user.email_verified_at = datetime.now(timezone.utc)
+                db_user.email_verified_at = datetime.now(UTC)
 
             referral_applied = await _apply_referral_to_existing_user(
                 request,
@@ -270,7 +270,7 @@ async def email_auth_magic_route(request: web.Request) -> web.Response:
     email_service: EmailAuthService = get_email_auth_service(request)
     async_session_factory: sessionmaker = get_session_factory(request)
     created_user = False
-    verified_email: Optional[str] = None
+    verified_email: str | None = None
 
     async with async_session_factory() as session:
         try:
@@ -308,12 +308,12 @@ async def email_auth_magic_route(request: web.Request) -> web.Response:
                     session,
                     email=verified_email,
                     language_code=_normalize_language(settings.DEFAULT_LANGUAGE),
-                    email_verified_at=datetime.now(timezone.utc),
+                    email_verified_at=datetime.now(UTC),
                     referred_by_id=invite_check.referrer_user_id,
                 )
                 created_user = True
             elif not db_user.email_verified_at:
-                db_user.email_verified_at = datetime.now(timezone.utc)
+                db_user.email_verified_at = datetime.now(UTC)
 
             referral_applied = await _apply_referral_to_existing_user(
                 request,
@@ -359,8 +359,8 @@ async def _request_email_code(
     email: str,
     purpose: str,
     language_code: str,
-    target_user_id: Optional[int],
-    referral_param: Optional[str] = None,
+    target_user_id: int | None,
+    referral_param: str | None = None,
 ) -> web.Response:
     email_service: EmailAuthService = get_email_auth_service(request)
     async_session_factory: sessionmaker = get_session_factory(request)
@@ -388,7 +388,7 @@ async def _request_email_code(
                     status=status,
                 )
             await session.commit()
-            payload: Dict[str, Any] = {"ok": True}
+            payload: dict[str, Any] = {"ok": True}
             if result.code:
                 payload["code"] = result.code
                 payload["email_code"] = result.code

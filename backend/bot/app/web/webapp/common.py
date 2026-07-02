@@ -3,8 +3,8 @@ import hashlib
 import io
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple, TypeVar, cast
+from datetime import UTC, datetime
+from typing import Any, TypeVar, cast
 
 from aiogram import Bot
 from aiohttp import web
@@ -49,7 +49,7 @@ def _json_error(status: int, code: str, message: str) -> web.Response:
 
 async def _invalidate_webapp_user_caches(
     settings: Settings,
-    *user_ids: Optional[int],
+    *user_ids: int | None,
     include_devices: bool = False,
 ) -> None:
     await _invalidate_user_payload_caches(settings, *user_ids, include_devices=include_devices)
@@ -90,15 +90,15 @@ def _validation_error_response(exc: ValidationError) -> web.Response:
 
 def _validate_model_payload(
     model_cls: type[BaseModel],
-    payload: Dict[str, Any],
-) -> tuple[Optional[BaseModel], Optional[web.Response]]:
+    payload: dict[str, Any],
+) -> tuple[BaseModel | None, web.Response | None]:
     try:
         return model_cls.model_validate(payload), None
     except ValidationError as exc:
         return None, _validation_error_response(exc)
 
 
-async def _parse_model_payload(
+async def _parse_model_payload[BodyModelT: BaseModel](
     request: web.Request,
     model_cls: type[BodyModelT],
 ) -> BodyModelT:
@@ -112,7 +112,7 @@ async def _parse_model_payload(
     )
 
 
-def _resolve_telegram_bot_id(bot_token: str) -> Optional[int]:
+def _resolve_telegram_bot_id(bot_token: str) -> int | None:
     token_prefix = str(bot_token or "").strip().split(":", 1)[0]
     if not token_prefix.isdigit():
         return None
@@ -122,7 +122,7 @@ def _resolve_telegram_bot_id(bot_token: str) -> Optional[int]:
         return None
 
 
-def _resolve_telegram_oauth_client_id(settings: Settings) -> Optional[int]:
+def _resolve_telegram_oauth_client_id(settings: Settings) -> int | None:
     configured_client_id = settings.TELEGRAM_OAUTH_CLIENT_ID
     if configured_client_id:
         try:
@@ -132,7 +132,7 @@ def _resolve_telegram_oauth_client_id(settings: Settings) -> Optional[int]:
     return _resolve_telegram_bot_id(settings.BOT_TOKEN)
 
 
-def _resolve_telegram_oauth_request_access(settings: Settings) -> List[str]:
+def _resolve_telegram_oauth_request_access(settings: Settings) -> list[str]:
     raw_value = str(settings.TELEGRAM_OAUTH_REQUEST_ACCESS or "")
     allowed = {"write", "phone"}
     scopes = []
@@ -143,7 +143,7 @@ def _resolve_telegram_oauth_request_access(settings: Settings) -> List[str]:
     return scopes
 
 
-def _extract_authenticated_user_id(request: web.Request) -> Optional[int]:
+def _extract_authenticated_user_id(request: web.Request) -> int | None:
     from bot.app.web.session import extract_authenticated_user_id
 
     user_id = extract_authenticated_user_id(request)
@@ -160,19 +160,19 @@ def _require_user_id(request: web.Request) -> int:
     return user_id
 
 
-def _normalize_language(lang: Optional[str]) -> str:
+def _normalize_language(lang: str | None) -> str:
     value = normalize_locale_language_code(lang, prefer_known_base=False)
     return value if is_valid_locale_language_code(value) else "ru"
 
 
-def _format_webapp_datetime(value: Optional[datetime]) -> Optional[str]:
+def _format_webapp_datetime(value: datetime | None) -> str | None:
     if not value:
         return None
-    normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    normalized = value if value.tzinfo else value.replace(tzinfo=UTC)
     return normalized.strftime("%d.%m.%Y %H:%M")
 
 
-def _telegram_id_for_user(user: User) -> Optional[int]:
+def _telegram_id_for_user(user: User) -> int | None:
     telegram_id = getattr(user, "telegram_id", None)
     if telegram_id:
         return int(telegram_id)
@@ -182,24 +182,24 @@ def _telegram_id_for_user(user: User) -> Optional[int]:
     return None
 
 
-def _telegram_avatar_is_stale(avatar: Optional[UserTelegramAvatar]) -> bool:
+def _telegram_avatar_is_stale(avatar: UserTelegramAvatar | None) -> bool:
     if not avatar or not avatar.updated_at:
         return True
     updated_at = avatar.updated_at
     if updated_at.tzinfo is None:
-        updated_at = updated_at.replace(tzinfo=timezone.utc)
+        updated_at = updated_at.replace(tzinfo=UTC)
     is_stale = (
-        datetime.now(timezone.utc) - updated_at
+        datetime.now(UTC) - updated_at
     ).total_seconds() >= WEBAPP_TELEGRAM_AVATAR_REFRESH_SECONDS
     return bool(is_stale)
 
 
-def _telegram_avatar_url(avatar: Optional[UserTelegramAvatar]) -> str:
+def _telegram_avatar_url(avatar: UserTelegramAvatar | None) -> str:
     if not avatar:
         return ""
     updated_at = avatar.updated_at
     if updated_at and updated_at.tzinfo is None:
-        updated_at = updated_at.replace(tzinfo=timezone.utc)
+        updated_at = updated_at.replace(tzinfo=UTC)
     version = (
         int(updated_at.timestamp())
         if updated_at
@@ -208,7 +208,7 @@ def _telegram_avatar_url(avatar: Optional[UserTelegramAvatar]) -> str:
     return f"/api/account/avatar?v={version}"
 
 
-def _select_compact_telegram_photo_size(sizes: List[Any]) -> Optional[Any]:
+def _select_compact_telegram_photo_size(sizes: list[Any]) -> Any | None:
     if not sizes:
         return None
     suitable = [size for size in sizes if int(getattr(size, "width", 0) or 0) >= 160]
@@ -223,7 +223,7 @@ def _select_compact_telegram_photo_size(sizes: List[Any]) -> Optional[Any]:
     )
 
 
-def _telegram_file_content_type(file_path: Optional[str]) -> str:
+def _telegram_file_content_type(file_path: str | None) -> str:
     path = str(file_path or "").lower()
     if path.endswith(".png"):
         return "image/png"
@@ -234,7 +234,7 @@ def _telegram_file_content_type(file_path: Optional[str]) -> str:
 
 async def _fetch_compact_telegram_avatar(
     bot: Bot, telegram_id: int
-) -> Optional[Tuple[bytes, str, Optional[str]]]:
+) -> tuple[bytes, str, str | None] | None:
     photos = await bot.get_user_profile_photos(user_id=telegram_id, limit=1)
     if not photos or not photos.photos:
         return None
@@ -263,7 +263,7 @@ async def _ensure_cached_telegram_avatar(
     request: web.Request,
     session: AsyncSession,
     user: User,
-) -> Optional[UserTelegramAvatar]:
+) -> UserTelegramAvatar | None:
     avatar = await user_dal.get_user_telegram_avatar(session, int(user.user_id))
     telegram_id = _telegram_id_for_user(user)
     if not telegram_id:
@@ -315,7 +315,7 @@ def _format_remaining(seconds: int, lang: str) -> str:
     return f"{max(1, minutes)} мин."
 
 
-def _coerce_int_or_none(value: Optional[Any]) -> Optional[int]:
+def _coerce_int_or_none(value: Any | None) -> int | None:
     if value is None:
         return None
     try:
@@ -324,7 +324,7 @@ def _coerce_int_or_none(value: Optional[Any]) -> Optional[int]:
         return None
 
 
-def _format_bytes(value: Optional[Any], *, zero_as_unlimited: bool = False) -> str:
+def _format_bytes(value: Any | None, *, zero_as_unlimited: bool = False) -> str:
     if value is None:
         return "N/A"
     try:
@@ -376,7 +376,7 @@ def _hwid_devices_payment_description(device_count: int, lang: str) -> str:
     return f"Докупка устройств HWID +{device_count}"
 
 
-def _resolve_numeric_option_key(options: Dict[Any, Any], target: float) -> Optional[Any]:
+def _resolve_numeric_option_key(options: dict[Any, Any], target: float) -> Any | None:
     for key in options:
         try:
             if abs(float(key) - float(target)) < 0.000001:

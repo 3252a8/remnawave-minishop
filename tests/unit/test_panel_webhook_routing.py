@@ -15,7 +15,7 @@ import hmac
 import json
 import unittest
 from types import SimpleNamespace
-from typing import Any, List
+from typing import Any
 from unittest.mock import patch
 
 from bot.services import panel_webhook_service as pws
@@ -84,7 +84,7 @@ class HandleWebhookSecurityTests(unittest.IsolatedAsyncioTestCase):
 class HandleWebhookQueueingTests(unittest.IsolatedAsyncioTestCase):
     async def test_enqueues_to_redis_and_returns_ok(self):
         service = _make_service()
-        captured: List[dict] = []
+        captured: list[dict] = []
 
         async def fake_enqueue(settings, provider, payload, *, event_id=None):
             captured.append({"provider": provider, "payload": payload, "event_id": event_id})
@@ -112,7 +112,7 @@ class HandleWebhookQueueingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_enqueues_new_expiration_event_with_signed_hours_meta(self):
         service = _make_service()
-        captured: List[dict] = []
+        captured: list[dict] = []
 
         async def fake_enqueue(settings, provider, payload, *, event_id=None):
             captured.append({"provider": provider, "payload": payload, "event_id": event_id})
@@ -159,7 +159,7 @@ class HandleWebhookQueueingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_falls_back_to_background_task_when_redis_unavailable(self):
         service = _make_service()
-        background_seen: List[Any] = []
+        background_seen: list[Any] = []
 
         async def fake_enqueue(*args, **kwargs):
             return False
@@ -287,7 +287,7 @@ class HandleEventSupersessionTests(unittest.IsolatedAsyncioTestCase):
         service = _make_service()
         service.async_session_factory = _FakeSessionFactory()
         service.i18n = SimpleNamespace(gettext=lambda lang, key, **kwargs: key)
-        sent: List[Any] = []
+        sent: list[Any] = []
 
         async def fake_user_for_payload(session, user_payload):
             return SimpleNamespace(user_id=123, language_code="ru")

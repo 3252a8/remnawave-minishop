@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
-from typing import Any, List, Mapping, Optional
+from typing import Any
 
 from pydantic import Field, field_validator
 from pydantic_settings import SettingsConfigDict
@@ -63,8 +64,8 @@ def _metadata_pairs(
     metadata: Mapping[str, Any],
     *,
     prefix: str = "metadata",
-) -> List[tuple[str, str]]:
-    pairs: List[tuple[str, str]] = []
+) -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
     for key, value in metadata.items():
         if value is None:
             continue
@@ -83,7 +84,7 @@ def _encode_saved_method(customer_id: str, payment_method_id: str) -> str:
     return f"{customer_id}|{payment_method_id}"
 
 
-def _decode_saved_method(value: Any) -> tuple[Optional[str], Optional[str]]:
+def _decode_saved_method(value: Any) -> tuple[str | None, str | None]:
     text = str(value or "").strip()
     if not text:
         return None, None
@@ -102,11 +103,11 @@ class StripeConfig(ProviderEnvConfig):
     )
 
     ENABLED: bool = Field(default=False)
-    SECRET_KEY: Optional[str] = None
-    WEBHOOK_SECRET: Optional[str] = None
+    SECRET_KEY: str | None = None
+    WEBHOOK_SECRET: str | None = None
     BASE_URL: str = Field(default="https://api.stripe.com")
-    RETURN_URL: Optional[str] = None
-    CANCEL_URL: Optional[str] = None
+    RETURN_URL: str | None = None
+    CANCEL_URL: str | None = None
     PAYMENT_METHOD_TYPES: str = Field(default="card")
     SUPPORTED_CURRENCIES: str = Field(default="")
     RECURRING_ENABLED: bool = Field(default=False)
@@ -128,7 +129,7 @@ class StripeConfig(ProviderEnvConfig):
 
     @property
     def payment_method_types_list(self) -> tuple[str, ...]:
-        values: List[str] = []
+        values: list[str] = []
         for item in (self.PAYMENT_METHOD_TYPES or "").replace(";", ",").split(","):
             value = item.strip().lower()
             if value and value not in values:
@@ -148,9 +149,9 @@ class StripePresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None

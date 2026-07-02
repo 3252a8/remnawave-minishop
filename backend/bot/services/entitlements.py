@@ -8,7 +8,8 @@ feature is gated or advertised.
 from __future__ import annotations
 
 import logging
-from typing import Iterable, Protocol
+from collections.abc import Iterable
+from typing import Protocol
 
 logger = logging.getLogger(__name__)
 

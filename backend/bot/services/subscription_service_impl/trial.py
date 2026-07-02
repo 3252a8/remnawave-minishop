@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +14,7 @@ from ._typing import SubscriptionServiceMixinContract
 class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
     async def activate_trial_subscription(
         self, session: AsyncSession, user_id: int
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         if not self.settings.TRIAL_ENABLED or self.settings.TRIAL_DURATION_DAYS <= 0:
             return {
                 "eligible": False,
@@ -53,7 +53,7 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
                 "message_key": "trial_activation_failed_panel_link",
             }
 
-        start_date = datetime.now(timezone.utc)
+        start_date = datetime.now(UTC)
         end_date = start_date + timedelta(days=self.settings.TRIAL_DURATION_DAYS)
 
         await subscription_dal.deactivate_other_active_subscriptions(

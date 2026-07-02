@@ -5,9 +5,9 @@ import json
 import logging
 import re
 import socket
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 from urllib.parse import urlsplit
 
 from aiohttp import ClientSession, ClientTimeout, web
@@ -40,15 +40,15 @@ from .constants import (
     WEBAPP_THEME_ASSET_CONTENT_TYPES,
 )
 
-_TEXT_FILE_CACHE: Dict[tuple[str, bool], tuple[int, int, str]] = {}
-_BINARY_FILE_CACHE: Dict[str, tuple[int, int, bytes]] = {}
-_GZIP_BODY_CACHE: Dict[str, bytes] = {}
-_ASSET_NAME_CACHE: Dict[tuple[str, str], tuple[float, str]] = {}
-_I18N_PAYLOAD_CACHE: Dict[tuple[int, str, tuple[tuple[str, int, int], ...]], Dict[str, Any]] = {}
+_TEXT_FILE_CACHE: dict[tuple[str, bool], tuple[int, int, str]] = {}
+_BINARY_FILE_CACHE: dict[str, tuple[int, int, bytes]] = {}
+_GZIP_BODY_CACHE: dict[str, bytes] = {}
+_ASSET_NAME_CACHE: dict[tuple[str, str], tuple[float, str]] = {}
+_I18N_PAYLOAD_CACHE: dict[tuple[int, str, tuple[tuple[str, int, int], ...]], dict[str, Any]] = {}
 _ASSET_NAME_CACHE_TTL_SECONDS = 30.0
 WEBAPP_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
-_SHARED_HTTP_SESSION: Optional[ClientSession] = None
+_SHARED_HTTP_SESSION: ClientSession | None = None
 _SHARED_HTTP_SESSION_LOCK = asyncio.Lock()
 logger = logging.getLogger(__name__)
 
@@ -96,7 +96,7 @@ def _webapp_logo_cache_key(logo_url: str) -> str:
     return hashlib.sha256(logo_url.encode("utf-8")).hexdigest()
 
 
-def _webapp_logo_disk_paths(logo_url: str) -> Tuple[Path, Path]:
+def _webapp_logo_disk_paths(logo_url: str) -> tuple[Path, Path]:
     cache_key = _webapp_logo_cache_key(logo_url)
     return WEBAPP_LOGO_CACHE_DIR / f"{cache_key}.bin", WEBAPP_LOGO_CACHE_DIR / f"{cache_key}.json"
 
@@ -106,7 +106,7 @@ def _is_proxyable_webapp_logo_url(logo_url: str) -> bool:
     return parsed_logo_url.scheme == "https" and bool(parsed_logo_url.hostname)
 
 
-def _uploaded_webapp_logo_filename(logo_url: str) -> Optional[str]:
+def _uploaded_webapp_logo_filename(logo_url: str) -> str | None:
     parsed_logo_url = urlsplit(str(logo_url or ""))
     path = parsed_logo_url.path if parsed_logo_url.scheme or parsed_logo_url.netloc else logo_url
     prefix = f"{WEBAPP_UPLOADED_LOGO_PATH}/"
@@ -167,7 +167,7 @@ async def webapp_logo_route(request: web.Request) -> web.Response:
         raise web.HTTPNotFound(text="webapp_logo_not_proxied")
 
     source_logo_url = raw_logo_url
-    logo_cache: Optional[Tuple[str, bytes, str]] = get_webapp_logo_cache(request.app)
+    logo_cache: tuple[str, bytes, str] | None = get_webapp_logo_cache(request.app)
     if logo_cache is None or logo_cache[0] != source_logo_url:
         cache_lock: asyncio.Lock = get_webapp_logo_cache_lock(request.app)
         async with cache_lock:
@@ -364,7 +364,7 @@ async def _warm_webapp_logo_cache(app: web.Application) -> None:
 
     cache_lock: asyncio.Lock = get_webapp_logo_cache_lock(app)
     async with cache_lock:
-        logo_cache: Optional[Tuple[str, bytes, str]] = get_webapp_logo_cache(app)
+        logo_cache: tuple[str, bytes, str] | None = get_webapp_logo_cache(app)
         if logo_cache and logo_cache[0] == raw_logo_url:
             return
         loaded_logo = await _load_or_fetch_webapp_logo(raw_logo_url)
@@ -374,7 +374,7 @@ async def _warm_webapp_logo_cache(app: web.Application) -> None:
         )
 
 
-async def _load_or_fetch_webapp_logo(logo_url: str) -> Optional[Tuple[bytes, str]]:
+async def _load_or_fetch_webapp_logo(logo_url: str) -> tuple[bytes, str] | None:
     disk_logo = await asyncio.to_thread(_read_webapp_logo_from_disk, logo_url)
     if disk_logo:
         return disk_logo
@@ -385,7 +385,7 @@ async def _load_or_fetch_webapp_logo(logo_url: str) -> Optional[Tuple[bytes, str
     return fetched_logo
 
 
-def _read_webapp_logo_from_disk(logo_url: str) -> Optional[Tuple[bytes, str]]:
+def _read_webapp_logo_from_disk(logo_url: str) -> tuple[bytes, str] | None:
     body_path, meta_path = _webapp_logo_disk_paths(logo_url)
     try:
         metadata = json.loads(meta_path.read_text(encoding="utf-8"))
@@ -403,7 +403,7 @@ def _read_webapp_logo_from_disk(logo_url: str) -> Optional[Tuple[bytes, str]]:
     return body, content_type
 
 
-def _write_webapp_logo_to_disk(logo_url: str, logo: Tuple[bytes, str]) -> None:
+def _write_webapp_logo_to_disk(logo_url: str, logo: tuple[bytes, str]) -> None:
     body, content_type = logo
     if not body or len(body) > WEBAPP_LOGO_MAX_BYTES:
         return
@@ -417,7 +417,7 @@ def _write_webapp_logo_to_disk(logo_url: str, logo: Tuple[bytes, str]) -> None:
                 {
                     "source_url": logo_url,
                     "content_type": content_type,
-                    "cached_at": datetime.now(timezone.utc).isoformat(),
+                    "cached_at": datetime.now(UTC).isoformat(),
                     "bytes": len(body),
                 },
                 ensure_ascii=False,
@@ -429,7 +429,7 @@ def _write_webapp_logo_to_disk(logo_url: str, logo: Tuple[bytes, str]) -> None:
         logger.warning("Failed to write WEBAPP_LOGO_URL cache: %s", exc)
 
 
-async def _fetch_webapp_logo(logo_url: str) -> Optional[Tuple[bytes, str]]:
+async def _fetch_webapp_logo(logo_url: str) -> tuple[bytes, str] | None:
     """Fetch and cache the configured logo on the server side."""
     try:
         session = await _get_shared_http_session()

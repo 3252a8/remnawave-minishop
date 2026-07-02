@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 from bot.app.web.admin_api_impl.common import _serialize_payment
@@ -19,7 +19,7 @@ def _payment(**overrides):
         "tariff_key": "standard",
         "purchased_gb": 12.5,
         "purchased_hwid_devices": 2,
-        "created_at": datetime(2026, 1, 2, 3, 4, tzinfo=timezone.utc),
+        "created_at": datetime(2026, 1, 2, 3, 4, tzinfo=UTC),
         "user": SimpleNamespace(
             user_id=42,
             telegram_id=42,

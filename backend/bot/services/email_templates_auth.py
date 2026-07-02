@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import html
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from bot.middlewares.i18n import JsonI18n
@@ -31,10 +31,10 @@ def render_login_code(
     settings: Settings,
     *,
     code: str,
-    language_code: Optional[str],
-    magic_link: Optional[str] = None,
+    language_code: str | None,
+    magic_link: str | None = None,
     purpose: str = "login",
-    i18n: Optional[JsonI18n] = None,
+    i18n: JsonI18n | None = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language_code, settings)
@@ -107,11 +107,11 @@ def render_login_code(
 def render_account_merged(
     settings: Settings,
     *,
-    language_code: Optional[str],
-    primary_user_id: Optional[int],
-    removed_user_id: Optional[int],
+    language_code: str | None,
+    primary_user_id: int | None,
+    removed_user_id: int | None,
     final_end_date_text: str,
-    i18n: Optional[JsonI18n] = None,
+    i18n: JsonI18n | None = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language_code, settings)

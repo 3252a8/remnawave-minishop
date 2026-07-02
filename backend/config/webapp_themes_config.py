@@ -6,7 +6,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -36,70 +36,70 @@ class ThemeTokens(BaseModel):
     model_config = {"extra": "ignore"}
 
     color_scheme: ColorScheme = "dark"
-    style_preset: Optional[str] = None
-    accent: Optional[str] = None
-    bg: Optional[str] = None
-    panel: Optional[str] = None
-    panel_2: Optional[str] = None
-    panel_3: Optional[str] = None
-    border: Optional[str] = None
-    border_strong: Optional[str] = None
-    text: Optional[str] = None
-    muted: Optional[str] = None
-    dim: Optional[str] = None
-    danger: Optional[str] = None
-    danger_text: Optional[str] = None
-    danger_soft: Optional[str] = None
-    danger_border: Optional[str] = None
-    success: Optional[str] = None
-    success_text: Optional[str] = None
-    success_soft: Optional[str] = None
-    success_border: Optional[str] = None
-    warning: Optional[str] = None
-    warning_text: Optional[str] = None
-    warning_soft: Optional[str] = None
-    warning_border: Optional[str] = None
-    info: Optional[str] = None
-    info_text: Optional[str] = None
-    info_soft: Optional[str] = None
-    info_border: Optional[str] = None
-    blue: Optional[str] = None
-    radius: Optional[str] = None
-    accent_contrast: Optional[str] = None
-    surface_sheen: Optional[str] = None
-    surface_sheen_soft: Optional[str] = None
-    surface_hover: Optional[str] = None
-    surface_muted: Optional[str] = None
-    surface_subtle: Optional[str] = None
-    surface_subtle_border: Optional[str] = None
-    overlay_scrim: Optional[str] = None
-    nav_bg: Optional[str] = None
-    rail_bg: Optional[str] = None
-    shadow_soft: Optional[str] = None
-    shadow_strong: Optional[str] = None
-    shadow_popover: Optional[str] = None
-    inset_highlight: Optional[str] = None
-    font_sans: Optional[str] = None
-    font_logo: Optional[str] = None
-    font_mono: Optional[str] = None
-    home_logo_scale: Optional[int] = None
-    home_logo_scale_desktop: Optional[int] = None
-    home_logo_scale_mobile: Optional[int] = None
-    admin_bg: Optional[str] = None
-    admin_surface: Optional[str] = None
-    admin_surface_2: Optional[str] = None
-    admin_elev: Optional[str] = None
-    admin_border: Optional[str] = None
-    admin_border_strong: Optional[str] = None
-    admin_text: Optional[str] = None
-    admin_muted: Optional[str] = None
-    admin_dim: Optional[str] = None
-    admin_chart_stroke: Optional[str] = None
-    admin_chart_fill: Optional[str] = None
+    style_preset: str | None = None
+    accent: str | None = None
+    bg: str | None = None
+    panel: str | None = None
+    panel_2: str | None = None
+    panel_3: str | None = None
+    border: str | None = None
+    border_strong: str | None = None
+    text: str | None = None
+    muted: str | None = None
+    dim: str | None = None
+    danger: str | None = None
+    danger_text: str | None = None
+    danger_soft: str | None = None
+    danger_border: str | None = None
+    success: str | None = None
+    success_text: str | None = None
+    success_soft: str | None = None
+    success_border: str | None = None
+    warning: str | None = None
+    warning_text: str | None = None
+    warning_soft: str | None = None
+    warning_border: str | None = None
+    info: str | None = None
+    info_text: str | None = None
+    info_soft: str | None = None
+    info_border: str | None = None
+    blue: str | None = None
+    radius: str | None = None
+    accent_contrast: str | None = None
+    surface_sheen: str | None = None
+    surface_sheen_soft: str | None = None
+    surface_hover: str | None = None
+    surface_muted: str | None = None
+    surface_subtle: str | None = None
+    surface_subtle_border: str | None = None
+    overlay_scrim: str | None = None
+    nav_bg: str | None = None
+    rail_bg: str | None = None
+    shadow_soft: str | None = None
+    shadow_strong: str | None = None
+    shadow_popover: str | None = None
+    inset_highlight: str | None = None
+    font_sans: str | None = None
+    font_logo: str | None = None
+    font_mono: str | None = None
+    home_logo_scale: int | None = None
+    home_logo_scale_desktop: int | None = None
+    home_logo_scale_mobile: int | None = None
+    admin_bg: str | None = None
+    admin_surface: str | None = None
+    admin_surface_2: str | None = None
+    admin_elev: str | None = None
+    admin_border: str | None = None
+    admin_border_strong: str | None = None
+    admin_text: str | None = None
+    admin_muted: str | None = None
+    admin_dim: str | None = None
+    admin_chart_stroke: str | None = None
+    admin_chart_fill: str | None = None
 
     @field_validator("accent")
     @classmethod
-    def _normalize_accent_hex(cls, value: Optional[str]) -> Optional[str]:
+    def _normalize_accent_hex(cls, value: str | None) -> str | None:
         if value is None:
             return None
         raw = str(value).strip()
@@ -115,7 +115,7 @@ class ThemeTokens(BaseModel):
 
     @field_validator("home_logo_scale", "home_logo_scale_desktop", "home_logo_scale_mobile")
     @classmethod
-    def _normalize_home_logo_scale(cls, value: Optional[int]) -> Optional[int]:
+    def _normalize_home_logo_scale(cls, value: int | None) -> int | None:
         if value is None:
             return None
         scale = int(value)
@@ -130,31 +130,31 @@ class WebappTheme(BaseModel):
     model_config = {"extra": "ignore"}
 
     key: str = Field(min_length=1, max_length=64)
-    names: Dict[str, str] = Field(default_factory=dict)
+    names: dict[str, str] = Field(default_factory=dict)
     enabled: bool = True
     default: bool = False
     use_primary_accent: bool = True
     use_in_admin: bool = True
-    css_file: Optional[str] = None
+    css_file: str | None = None
     assets_version: int = 1
-    active_variant: Optional[ColorScheme] = None
-    variants: Dict[str, ThemeTokens] = Field(default_factory=dict)
-    variant_alias_for: Optional[str] = None
+    active_variant: ColorScheme | None = None
+    variants: dict[str, ThemeTokens] = Field(default_factory=dict)
+    variant_alias_for: str | None = None
     hidden: bool = False
     tokens: ThemeTokens = Field(default_factory=ThemeTokens)
 
     @field_validator("variant_alias_for")
     @classmethod
-    def _normalize_variant_alias_for(cls, value: Optional[str]) -> Optional[str]:
+    def _normalize_variant_alias_for(cls, value: str | None) -> str | None:
         safe_key = _safe_theme_key(value or "")
         return safe_key
 
     @field_validator("variants", mode="before")
     @classmethod
-    def _normalize_variants(cls, value: Any) -> Dict[str, Any]:
+    def _normalize_variants(cls, value: Any) -> dict[str, Any]:
         if not isinstance(value, dict):
             return {}
-        out: Dict[str, Any] = {}
+        out: dict[str, Any] = {}
         for raw_key, raw_tokens in value.items():
             key = str(raw_key or "").strip().lower()
             if key in {"dark", "light"}:
@@ -168,7 +168,7 @@ class WebappThemesConfig(BaseModel):
     model_config = {"extra": "ignore"}
 
     default_theme: str = "dark"
-    themes: List[WebappTheme] = Field(default_factory=list)
+    themes: list[WebappTheme] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _validate_default_and_keys(self) -> WebappThemesConfig:
@@ -179,13 +179,13 @@ class WebappThemesConfig(BaseModel):
             raise ValueError("default_theme must match a theme key")
         return self
 
-    def theme_by_key(self, key: str) -> Optional[WebappTheme]:
+    def theme_by_key(self, key: str) -> WebappTheme | None:
         for theme in self.themes:
             if theme.key == key:
                 return theme
         return None
 
-    def enabled_themes(self) -> List[WebappTheme]:
+    def enabled_themes(self) -> list[WebappTheme]:
         return [theme for theme in self.themes if theme.enabled]
 
 
@@ -194,7 +194,7 @@ THEME_DESCRIPTOR_FILENAME = "theme.json"
 DEFAULT_THEMES_SOURCE_DIR = Path(__file__).resolve().parents[1] / "bot" / "app" / "web" / "themes"
 
 
-def _safe_theme_key(value: str) -> Optional[str]:
+def _safe_theme_key(value: str) -> str | None:
     key = str(value or "").strip()
     if re.fullmatch(r"[A-Za-z0-9_-]{1,64}", key):
         return key
@@ -212,9 +212,9 @@ def _theme_file_path(theme_dir: str | Path, key: str) -> Path:
     return _theme_dir_path(theme_dir, key) / THEME_DESCRIPTOR_FILENAME
 
 
-def default_webapp_theme_css_files() -> Dict[str, str]:
+def default_webapp_theme_css_files() -> dict[str, str]:
     """Read default theme CSS from repository files."""
-    out: Dict[str, str] = {}
+    out: dict[str, str] = {}
     for key in DEFAULT_THEME_KEYS:
         source_dir = DEFAULT_THEMES_SOURCE_DIR / key
         for source_path in sorted(source_dir.rglob("*.css")):
@@ -232,7 +232,7 @@ def default_webapp_theme_css_files() -> Dict[str, str]:
     return out
 
 
-def default_webapp_theme_asset_file(rel_path: str | Path) -> Optional[tuple[bytes, str]]:
+def default_webapp_theme_asset_file(rel_path: str | Path) -> tuple[bytes, str] | None:
     """Read a default theme asset from the repository theme folder."""
     relative = Path(rel_path)
     if relative.is_absolute() or len(relative.parts) < 2 or ".." in relative.parts:
@@ -248,9 +248,9 @@ def default_webapp_theme_asset_file(rel_path: str | Path) -> Optional[tuple[byte
         return None
 
 
-def default_webapp_theme_descriptors() -> Dict[str, Dict[str, Any]]:
+def default_webapp_theme_descriptors() -> dict[str, dict[str, Any]]:
     """Read default theme descriptors from repository files."""
-    out: Dict[str, Dict[str, Any]] = {}
+    out: dict[str, dict[str, Any]] = {}
     for key in DEFAULT_THEME_KEYS:
         source_path = DEFAULT_THEMES_SOURCE_DIR / key / THEME_DESCRIPTOR_FILENAME
         try:
@@ -271,7 +271,7 @@ def default_webapp_theme_descriptors() -> Dict[str, Dict[str, Any]]:
     return out
 
 
-def _theme_from_descriptor(path: Path, raw: Any) -> Optional[WebappTheme]:
+def _theme_from_descriptor(path: Path, raw: Any) -> WebappTheme | None:
     if not isinstance(raw, dict):
         logger.warning("Ignoring theme descriptor %s: expected JSON object", path)
         return None
@@ -291,7 +291,7 @@ def _theme_from_descriptor(path: Path, raw: Any) -> Optional[WebappTheme]:
         return None
 
 
-def load_webapp_theme_file(path: str | Path) -> Optional[WebappTheme]:
+def load_webapp_theme_file(path: str | Path) -> WebappTheme | None:
     theme_path = Path(path).expanduser()
     try:
         raw = json.loads(theme_path.read_text(encoding="utf-8"))
@@ -301,11 +301,11 @@ def load_webapp_theme_file(path: str | Path) -> Optional[WebappTheme]:
     return _theme_from_descriptor(theme_path, raw)
 
 
-def load_webapp_theme_dir(theme_dir: str | Path) -> List[WebappTheme]:
+def load_webapp_theme_dir(theme_dir: str | Path) -> list[WebappTheme]:
     root = Path(theme_dir).expanduser()
     if not root.exists():
         return []
-    themes_by_key: Dict[str, WebappTheme] = {}
+    themes_by_key: dict[str, WebappTheme] = {}
     for path in sorted(root.glob(f"*/{THEME_DESCRIPTOR_FILENAME}")):
         if path.parent.name.startswith("_"):
             continue
@@ -319,7 +319,7 @@ def load_webapp_theme_dir(theme_dir: str | Path) -> List[WebappTheme]:
     return list(themes_by_key.values())
 
 
-def _tokens_to_json(tokens: ThemeTokens | Dict[str, Any] | None) -> Dict[str, Any]:
+def _tokens_to_json(tokens: ThemeTokens | dict[str, Any] | None) -> dict[str, Any]:
     if tokens is None:
         return {}
     if isinstance(tokens, ThemeTokens):
@@ -329,14 +329,14 @@ def _tokens_to_json(tokens: ThemeTokens | Dict[str, Any] | None) -> Dict[str, An
     return {}
 
 
-def _variant_key(value: Any) -> Optional[ColorScheme]:
+def _variant_key(value: Any) -> ColorScheme | None:
     raw = str(value or "").strip().lower()
     if raw in {"dark", "light"}:
         return raw  # type: ignore[return-value]
     return None
 
 
-def _theme_active_variant(theme: WebappTheme, variant: Any = None) -> Optional[ColorScheme]:
+def _theme_active_variant(theme: WebappTheme, variant: Any = None) -> ColorScheme | None:
     requested = _variant_key(variant)
     if requested and requested in theme.variants:
         return requested
@@ -369,14 +369,14 @@ def _theme_with_variant(theme: WebappTheme, variant: ColorScheme) -> WebappTheme
     return WebappTheme.model_validate(data)
 
 
-def _find_theme_data(themes: List[Any], key: str) -> Optional[Dict[str, Any]]:
+def _find_theme_data(themes: list[Any], key: str) -> dict[str, Any] | None:
     for theme in themes:
         if isinstance(theme, dict) and str(theme.get("key") or "") == key:
             return theme
     return None
 
 
-def _normalize_legacy_light_alias_data(data: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_legacy_light_alias_data(data: dict[str, Any]) -> dict[str, Any]:
     themes = data.get("themes", [])
     if not isinstance(themes, list):
         return data
@@ -429,7 +429,7 @@ def _theme_sort_key(theme: WebappTheme, index: int) -> tuple[int, int]:
     return (priority, index)
 
 
-def _sorted_themes(themes: List[WebappTheme]) -> List[WebappTheme]:
+def _sorted_themes(themes: list[WebappTheme]) -> list[WebappTheme]:
     return [
         theme
         for _, theme in sorted(
@@ -440,8 +440,8 @@ def _sorted_themes(themes: List[WebappTheme]) -> List[WebappTheme]:
 
 
 def _themes_config_from_list(
-    default_theme: Optional[str],
-    themes: List[WebappTheme],
+    default_theme: str | None,
+    themes: list[WebappTheme],
 ) -> WebappThemesConfig:
     keys = {theme.key for theme in themes}
     descriptor_default = next(
@@ -621,10 +621,10 @@ def write_webapp_theme_dir(
             logger.warning("Could not delete removed webapp theme descriptor %s: %s", path, exc)
 
 
-def _strip_default_theme_admin_tokens(theme_data: Dict[str, Any]) -> bool:
+def _strip_default_theme_admin_tokens(theme_data: dict[str, Any]) -> bool:
     """Remove legacy default-theme admin palette overrides."""
     changed = False
-    token_sets: List[Dict[str, Any]] = []
+    token_sets: list[dict[str, Any]] = []
     tokens = theme_data.get("tokens")
     if isinstance(tokens, dict):
         token_sets.append(tokens)
@@ -735,7 +735,7 @@ def ensure_webapp_core_themes(
 def builtin_webapp_themes_config(primary_accent: str) -> WebappThemesConfig:
     """Default catalog backed by repository theme descriptor files."""
     accent = (primary_accent or "#00fe7a").strip() or "#00fe7a"
-    themes: List[WebappTheme] = []
+    themes: list[WebappTheme] = []
     descriptors = default_webapp_theme_descriptors()
     for key in DEFAULT_THEME_KEYS:
         raw = descriptors.get(key)
@@ -754,7 +754,7 @@ def builtin_webapp_themes_config(primary_accent: str) -> WebappThemesConfig:
 
 
 def apply_webapp_theme_env_overrides(
-    config: WebappThemesConfig, env_default_theme: Optional[str]
+    config: WebappThemesConfig, env_default_theme: str | None
 ) -> WebappThemesConfig:
     """If WEBAPP_DEFAULT_THEME is set and matches a theme key, override the default theme."""
     raw = (env_default_theme or "").strip()
@@ -780,7 +780,7 @@ def resolved_webapp_themes_catalog(
     *,
     theme_dir: str | Path,
     primary_accent: str,
-    env_default_theme: Optional[str],
+    env_default_theme: str | None,
 ) -> WebappThemesConfig:
     """Load themes from WEBAPP_THEMES_DIR, seeding defaults when possible."""
     ensure_default_webapp_theme_descriptor_files(theme_dir)
@@ -832,8 +832,8 @@ def effective_webapp_theme_tokens(theme: WebappTheme, primary_accent: str) -> Th
 
 def resolve_webapp_theme_selection(
     config: WebappThemesConfig,
-    theme_key: Optional[str] = None,
-) -> Optional[WebappTheme]:
+    theme_key: str | None = None,
+) -> WebappTheme | None:
     """Resolve a requested/default theme, including legacy variant aliases."""
     raw_key = str(theme_key or "").strip()
     if raw_key == LEGACY_LIGHT_THEME_KEY:
@@ -841,7 +841,7 @@ def resolve_webapp_theme_selection(
         if dark is not None and dark.enabled:
             return _theme_with_variant(dark, "light")
 
-    theme: Optional[WebappTheme] = None
+    theme: WebappTheme | None = None
     if raw_key:
         theme = config.theme_by_key(raw_key)
         if theme is not None and not theme.enabled:
@@ -874,7 +874,7 @@ def effective_webapp_theme_accent(
     config: WebappThemesConfig,
     primary_accent: str,
     *,
-    theme_key: Optional[str] = None,
+    theme_key: str | None = None,
 ) -> str:
     """Return the accent color users see for the selected/default Web App theme."""
     try:
@@ -889,9 +889,9 @@ def effective_webapp_theme_accent(
     return tokens.accent or fallback
 
 
-def public_theme_payload(theme: WebappTheme, primary_accent: str) -> Dict[str, object]:
+def public_theme_payload(theme: WebappTheme, primary_accent: str) -> dict[str, object]:
     tokens = effective_webapp_theme_tokens(theme, primary_accent)
-    payload: Dict[str, object] = {
+    payload: dict[str, object] = {
         "key": theme.key,
         "names": dict(theme.names),
         "enabled": bool(theme.enabled),
@@ -912,7 +912,7 @@ def public_theme_payload(theme: WebappTheme, primary_accent: str) -> Dict[str, o
 
 def public_themes_catalog_payload(
     config: WebappThemesConfig, primary_accent: str, *, enabled_only: bool = False
-) -> Dict[str, object]:
+) -> dict[str, object]:
     themes = [
         theme
         for theme in config.themes

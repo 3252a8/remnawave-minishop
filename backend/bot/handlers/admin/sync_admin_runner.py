@@ -1,6 +1,6 @@
 import logging
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import cast
 
 from sqlalchemy import or_, update
@@ -204,7 +204,7 @@ async def _perform_sync_impl(
                                 "telegram_id": telegram_id_from_panel,
                                 "email": email_from_panel,
                                 "email_verified_at": (
-                                    datetime.now(timezone.utc) if email_from_panel else None
+                                    datetime.now(UTC) if email_from_panel else None
                                 ),
                                 "username": None,  # Username will be updated when user interacts with bot  # noqa: E501
                                 "first_name": None,  # Panel doesn't provide this info
@@ -464,12 +464,12 @@ async def _perform_sync_impl(
                 if lifetime_used is not None and _should_update_lifetime_used_traffic(
                     existing_user,
                     lifetime_used,
-                    now=datetime.now(timezone.utc),
+                    now=datetime.now(UTC),
                     settings=settings,
                     is_duplicate_panel_identity=is_duplicate_panel_identity,
                 ):
                     existing_user.lifetime_used_traffic_bytes = lifetime_used
-                    existing_user.lifetime_used_traffic_synced_at = datetime.now(timezone.utc)
+                    existing_user.lifetime_used_traffic_synced_at = datetime.now(UTC)
                     user_was_updated = True
                     _append_unique(user_update_reasons, "lifetime_traffic_synced")
 
@@ -626,7 +626,7 @@ async def _perform_sync_impl(
                                     created_sub
                                 )
                                 if created_sub.is_active and created_sub.end_date > datetime.now(
-                                    timezone.utc
+                                    UTC
                                 ):
                                     active_subscriptions_by_user_panel[
                                         (int(created_sub.user_id), created_sub.panel_user_uuid)

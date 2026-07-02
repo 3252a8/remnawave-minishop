@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aiohttp import web
 
@@ -78,7 +78,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     )
 
 
-async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
     service = app_optional(ctx.request, "stripe_service", StripeService)
     if not service or not service.configured:
         return None

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aiohttp import web
 
@@ -20,7 +20,7 @@ from .common import (
 )
 
 
-def _traffic_percent(used: Optional[int], limit: Optional[int]) -> int:
+def _traffic_percent(used: int | None, limit: int | None) -> int:
     used_val = int(used or 0)
     limit_val = int(limit or 0)
     if limit_val <= 0:
@@ -31,12 +31,12 @@ def _traffic_percent(used: Optional[int], limit: Optional[int]) -> int:
 def _serialize_topup_packages(
     settings: Settings,
     tariff: Any,
-    packages: Optional[Any],
+    packages: Any | None,
     lang: str,
     *,
     sale_mode: str = "topup",
     title_prefix: str = "",
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     default_currency = default_currency_key_for_settings(settings)
     default_currency_code = payment_currency_code(default_currency)
     currency_packages = {
@@ -47,14 +47,14 @@ def _serialize_topup_packages(
         float(package.gb): int(float(package.price))
         for package in (packages.stars if packages else [])
     }
-    plans: List[Dict[str, Any]] = []
+    plans: list[dict[str, Any]] = []
     for traffic_gb in sorted(set(currency_packages) | set(stars_packages)):
         price = currency_packages.get(traffic_gb)
         stars_price = stars_packages.get(traffic_gb)
         if price is None and (stars_price is None or int(stars_price) <= 0):
             continue
         traffic_value = float(traffic_gb)
-        plan: Dict[str, Any] = {
+        plan: dict[str, Any] = {
             "id": f"{tariff.key}:{sale_mode}:{_format_number_for_payload(traffic_value)}",
             "tariff_key": tariff.key,
             "tariff_name": tariff.name(lang),
@@ -78,9 +78,9 @@ def _serialize_topup_packages(
 def _serialize_hwid_device_packages(
     settings: Settings,
     tariff: Any,
-    packages: Optional[Any],
+    packages: Any | None,
     lang: str,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     default_currency = default_currency_key_for_settings(settings)
     default_currency_code = payment_currency_code(default_currency)
     currency_packages = {
@@ -91,13 +91,13 @@ def _serialize_hwid_device_packages(
         int(package.count): int(float(package.price))
         for package in (packages.stars if packages else [])
     }
-    plans: List[Dict[str, Any]] = []
+    plans: list[dict[str, Any]] = []
     for count in sorted(set(currency_packages) | set(stars_packages)):
         price = currency_packages.get(count)
         stars_price = stars_packages.get(count)
         if price is None and (stars_price is None or int(stars_price) <= 0):
             continue
-        plan: Dict[str, Any] = {
+        plan: dict[str, Any] = {
             "id": f"{tariff.key}:hwid:{count}",
             "tariff_key": tariff.key,
             "tariff_name": tariff.name(lang),
@@ -120,12 +120,12 @@ def _serialize_tariff_change_target(
     settings: Settings,
     config: Any,
     tariff: Any,
-    options: Dict[str, Any],
+    options: dict[str, Any],
     lang: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     default_currency = default_currency_key_for_settings(settings)
     default_currency_code = payment_currency_code(default_currency)
-    actions: List[Dict[str, Any]] = []
+    actions: list[dict[str, Any]] = []
     mode = str(options.get("mode") or "")
     if mode == "period_to_period":
         actions.append(
@@ -208,10 +208,10 @@ def _serialize_payment_methods(
     lang: str = "ru",
     *,
     is_admin: bool = False,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     from bot.payment_providers import get_provider_spec, resolve_provider_presentation
 
-    methods: List[Dict[str, Any]] = []
+    methods: list[dict[str, Any]] = []
     payment_currency = default_payment_currency_code_for_settings(settings)
     for method in settings.payment_methods_order:
         method = method.lower()

@@ -2,7 +2,8 @@ import asyncio
 import functools
 import hmac
 import logging
-from typing import Any, Awaitable, Callable, Optional, cast
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 from aiogram import Bot, Dispatcher
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
@@ -100,8 +101,8 @@ async def build_and_start_web_app(
     settings: Settings,
     async_session_factory: sessionmaker,
     *,
-    after_webhooks_started: Optional[Callable[[], Awaitable[None]]] = None,
-    plugin_context: Optional[PluginContext] = None,
+    after_webhooks_started: Callable[[], Awaitable[None]] | None = None,
+    plugin_context: PluginContext | None = None,
 ) -> None:
     app = web.Application()
     _inject_shared_instances(app, dp, bot, settings, async_session_factory)

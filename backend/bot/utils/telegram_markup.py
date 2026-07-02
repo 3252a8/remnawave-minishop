@@ -1,5 +1,3 @@
-from typing import Optional
-
 from aiogram import types
 
 PROFILE_BUTTON_ERROR_CODES = ("BUTTON_USER_INVALID", "BUTTON_USER_PRIVACY_RESTRICTED")
@@ -7,8 +5,8 @@ TG_USER_LINK_PREFIX = "tg://user?id="
 
 
 def remove_profile_link_buttons(
-    markup: Optional[types.InlineKeyboardMarkup],
-) -> Optional[types.InlineKeyboardMarkup]:
+    markup: types.InlineKeyboardMarkup | None,
+) -> types.InlineKeyboardMarkup | None:
     """Remove buttons that point to tg://user links to avoid privacy-related errors."""
     inline_keyboard = getattr(markup, "inline_keyboard", None)
     if not markup or not inline_keyboard:

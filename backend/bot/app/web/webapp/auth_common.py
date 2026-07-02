@@ -3,7 +3,7 @@ import hashlib
 import hmac
 import ipaddress
 import secrets
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import urlsplit
 
 from aiohttp import web
@@ -55,7 +55,7 @@ def _public_webapp_base_url(settings: Settings, request: web.Request) -> str:
     return f"{scheme}://{host}".rstrip("/")
 
 
-def _first_header_value(value: Optional[str]) -> str:
+def _first_header_value(value: str | None) -> str:
     if not value:
         return ""
     return value.split(",", 1)[0].strip()
@@ -73,7 +73,7 @@ def _telegram_oauth_callback_url(settings: Settings, request: web.Request) -> st
     return f"{_public_webapp_base_url(settings, request)}/auth/telegram/callback"
 
 
-def _telegram_oauth_redirect_url(path: str = "/", *, status: Optional[str] = None) -> str:
+def _telegram_oauth_redirect_url(path: str = "/", *, status: str | None = None) -> str:
     target_path = path if path.startswith("/") else "/"
     if target_path not in {"/", "/settings"}:
         target_path = "/"
@@ -86,7 +86,7 @@ def _telegram_oauth_redirect_url(path: str = "/", *, status: Optional[str] = Non
 def _set_telegram_oauth_state_cookie(
     response: web.StreamResponse,
     settings: Settings,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
 ) -> None:
     try:
         login_token_ttl_seconds = int(settings.webapp_settings.login_token_ttl_seconds)
@@ -119,7 +119,7 @@ def _clear_telegram_oauth_state_cookie(response: web.StreamResponse) -> None:
 def _read_telegram_oauth_state_payload(
     request: web.Request,
     state_token: str,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     settings: Settings = get_settings(request)
     signed_payload = request.cookies.get(WEBAPP_TELEGRAM_OAUTH_STATE_COOKIE_NAME, "")
     payload = verify_signed_telegram_oauth_state(settings, signed_payload)
@@ -168,7 +168,7 @@ def _hash_email_password(password: str) -> str:
     )
 
 
-def _verify_email_password(password: str, stored_hash: Optional[str]) -> bool:
+def _verify_email_password(password: str, stored_hash: str | None) -> bool:
     if not stored_hash:
         return False
     try:
@@ -243,10 +243,10 @@ def _clear_webapp_auth_cookies(response: web.StreamResponse) -> None:
 
 def _build_webapp_auth_response(
     settings: Settings,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     *,
     token: str,
-    csrf_token: Optional[str] = None,
+    csrf_token: str | None = None,
 ) -> web.Response:
     response_payload = dict(payload)
     response_payload["ok"] = True
@@ -267,7 +267,7 @@ def _email_only_telegram_required_reason(
     user: User,
     *,
     without_telegram_enabled_attr: str,
-) -> Optional[str]:
+) -> str | None:
     if _user_has_linked_telegram(user):
         return None
     if is_disposable_email(getattr(user, "email", None), settings):
@@ -277,7 +277,7 @@ def _email_only_telegram_required_reason(
     return None
 
 
-def _trial_telegram_required_reason(settings: Settings, user: User) -> Optional[str]:
+def _trial_telegram_required_reason(settings: Settings, user: User) -> str | None:
     return _email_only_telegram_required_reason(
         settings,
         user,
@@ -288,7 +288,7 @@ def _trial_telegram_required_reason(settings: Settings, user: User) -> Optional[
 def _referral_welcome_telegram_required_reason(
     settings: Settings,
     user: User,
-) -> Optional[str]:
+) -> str | None:
     return _email_only_telegram_required_reason(
         settings,
         user,
@@ -304,7 +304,7 @@ def _panel_description_for_user(user: User) -> str:
     )
 
 
-def _telegram_photo_url_value(telegram_user: Dict[str, Any]) -> Optional[str]:
+def _telegram_photo_url_value(telegram_user: dict[str, Any]) -> str | None:
     raw_value = telegram_user.get("photo_url")
     if not raw_value:
         return None
@@ -312,14 +312,14 @@ def _telegram_photo_url_value(telegram_user: Dict[str, Any]) -> Optional[str]:
     return value or None
 
 
-def _remnashop_referral_compat_enabled(settings: Optional[Settings]) -> bool:
+def _remnashop_referral_compat_enabled(settings: Settings | None) -> bool:
     if settings is None:
         return False
     return bool(settings.compatibility_settings.remnashop_referral_code_compat_enabled)
 
 
 def _strip_referral_param_prefix(
-    raw: Optional[str],
+    raw: str | None,
     *,
     preserve_current_u_prefix: bool,
 ) -> str:
@@ -329,13 +329,13 @@ def _strip_referral_param_prefix(
     )
 
 
-def _normalize_referral_param(raw: Optional[str]) -> Optional[str]:
+def _normalize_referral_param(raw: str | None) -> str | None:
     return normalize_webapp_referral_param(raw)
 
 
 def _referral_param_lookup_candidates(
-    raw: Optional[str],
+    raw: str | None,
     *,
     remnashop_compat: bool,
-) -> List[str]:
+) -> list[str]:
     return webapp_referral_lookup_candidates(raw, remnashop_compat=remnashop_compat)

@@ -2,7 +2,7 @@ import base64
 import logging
 import secrets
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 from urllib.parse import urlencode
 
 from aiohttp import ClientTimeout, web
@@ -88,14 +88,14 @@ async def _exchange_telegram_oauth_code(
     code: str,
     code_verifier: str,
     redirect_uri: str,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     settings: Settings = get_settings(request)
     client_id = _resolve_telegram_oauth_client_id(settings)
     client_secret = str(settings.TELEGRAM_OAUTH_CLIENT_SECRET or "").strip()
     if not client_id or not client_secret or not code or not code_verifier:
         return None
 
-    credentials = base64.b64encode(f"{client_id}:{client_secret}".encode("utf-8")).decode("ascii")
+    credentials = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode("ascii")
     session = await _get_shared_http_session()
     try:
         async with session.post(
@@ -202,7 +202,7 @@ async def telegram_oauth_start_route(request: web.Request) -> web.Response:
 async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
 
-    def redirect(path: str = "/", status: Optional[str] = None) -> web.HTTPFound:
+    def redirect(path: str = "/", status: str | None = None) -> web.HTTPFound:
         response = web.HTTPFound(_telegram_oauth_redirect_url(path, status=status))
         _clear_telegram_oauth_state_cookie(response)
         return response
@@ -235,12 +235,12 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
     purpose = str(state.get("purpose") or "login")
     redirect_path = "/settings" if purpose == "link" else "/"
     async_session_factory: sessionmaker = get_session_factory(request)
-    final_user_id: Optional[int] = None
-    source_user_id_for_cache: Optional[int] = None
-    linked_user_for_panel: Optional[User] = None
-    link_source_panel_uuid: Optional[str] = None
-    link_final_panel_uuid: Optional[str] = None
-    link_merge_notice: Optional[Dict[str, Any]] = None
+    final_user_id: int | None = None
+    source_user_id_for_cache: int | None = None
+    linked_user_for_panel: User | None = None
+    link_source_panel_uuid: str | None = None
+    link_final_panel_uuid: str | None = None
+    link_merge_notice: dict[str, Any] | None = None
     async with async_session_factory() as session:
         try:
             if purpose == "link":
@@ -340,8 +340,8 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
 
 async def _validate_telegram_auth_payload(
     request: web.Request,
-    payload: Dict[str, Any],
-) -> Optional[Dict[str, Any]]:
+    payload: dict[str, Any],
+) -> dict[str, Any] | None:
     settings: Settings = get_settings(request)
     init_data = str(payload.get("init_data") or "")
     if init_data:
@@ -394,7 +394,7 @@ async def auth_token_route(request: web.Request) -> web.Response:
         return rate_limit_response
 
     async_session_factory: sessionmaker = get_session_factory(request)
-    authenticated_user_id: Optional[int] = None
+    authenticated_user_id: int | None = None
     async with async_session_factory() as session:
         try:
             db_user = await _ensure_user_from_telegram(

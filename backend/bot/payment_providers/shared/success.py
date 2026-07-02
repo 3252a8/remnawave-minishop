@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,9 +44,9 @@ async def resolve_user_language(
     session: AsyncSession,
     *,
     user_id: int,
-    db_user: Optional[User],
+    db_user: User | None,
     settings: Any,
-) -> tuple[Optional[User], str]:
+) -> tuple[User | None, str]:
     """Return the loaded user and the language to use for messaging."""
     if db_user is None:
         db_user = await user_dal.get_user_by_id(session, user_id)
@@ -59,7 +59,7 @@ async def resolve_user_language(
 async def resolve_inviter_name(
     session: AsyncSession,
     translator: Translator,
-    db_user: Optional[User],
+    db_user: User | None,
 ) -> str:
     """Return a display name for the user's inviter, or the localized placeholder."""
     placeholder = translator("friend_placeholder")
@@ -84,15 +84,15 @@ class SuccessMessage:
     translator: Translator
     sale_mode: str
     months: Any
-    base_end_date: Optional[datetime]
-    final_end_date: Optional[datetime]
+    base_end_date: datetime | None
+    final_end_date: datetime | None
     applied_referee_bonus_days: int = 0
     applied_promo_bonus_days: int = 0
-    inviter_name: Optional[str] = None
+    inviter_name: str | None = None
     fallback_date_text: str = ""
 
 
-def _fmt_date(dt: Optional[datetime], fallback: str) -> str:
+def _fmt_date(dt: datetime | None, fallback: str) -> str:
     return dt.strftime("%Y-%m-%d") if dt else fallback
 
 
@@ -147,7 +147,7 @@ def append_hwid_renewal_note(
     translator: Translator,
     *,
     count: Any,
-    valid_until: Optional[datetime],
+    valid_until: datetime | None,
 ) -> str:
     try:
         count_int = int(count or 0)
@@ -169,7 +169,7 @@ def append_hwid_renewed_note(
     translator: Translator,
     *,
     count: Any,
-    valid_until: Optional[datetime],
+    valid_until: datetime | None,
 ) -> str:
     try:
         count_int = int(count or 0)
@@ -194,9 +194,9 @@ async def send_success_message_to_user(
     language: str,
     i18n: Any,
     settings: Any,
-    config_link_display: Optional[str],
-    connect_button_url: Optional[str],
-    install_share_url: Optional[str] = None,
+    config_link_display: str | None,
+    connect_button_url: str | None,
+    install_share_url: str | None = None,
     include_keyboard: bool = True,
     log_prefix: str = "payment_providers",
 ) -> None:
@@ -242,33 +242,33 @@ class PaymentSuccessRequest:
 
     sale_mode: str
     months: Any
-    traffic_amount: Optional[float]
+    traffic_amount: float | None
 
     provider_subscription: str
     provider_notification: str
 
-    db_user: Optional[User] = None
+    db_user: User | None = None
     log_prefix: str = "payment_providers"
     activation_extra_kwargs: dict = field(default_factory=dict)
     skip_keyboard: bool = False
     skip_user_notification: bool = False
-    text_prefix: Optional[str] = None
+    text_prefix: str | None = None
 
 
 @dataclass
 class PaymentSuccessOutcome:
-    activation: Optional[dict]
-    referral_bonus: Optional[dict]
-    final_end_date: Optional[datetime]
+    activation: dict | None
+    referral_bonus: dict | None
+    final_end_date: datetime | None
     applied_referee_bonus_days: int
     applied_promo_bonus_days: int
-    db_user: Optional[User]
+    db_user: User | None
     language: str
 
 
 async def finalize_successful_payment(
     req: PaymentSuccessRequest,
-) -> Optional[PaymentSuccessOutcome]:
+) -> PaymentSuccessOutcome | None:
     """Activate the subscription, apply referral bonus, notify user, and emit events.
 
     Returns ``None`` if the activation pipeline failed mid-way (errors are
@@ -409,7 +409,7 @@ async def finalize_successful_payment(
         else req.traffic_amount
     )
 
-    inviter_name: Optional[str] = None
+    inviter_name: str | None = None
     if referral_bonus and referral_bonus.get("referee_new_end_date"):
         final_end_date = referral_bonus["referee_new_end_date"]
         applied_referee_bonus_days = referral_bonus.get("referee_bonus_applied_days", 0) or 0

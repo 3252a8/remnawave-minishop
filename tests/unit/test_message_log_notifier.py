@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -28,7 +28,7 @@ def test_format_message_log_notification_omits_raw_update_preview():
             "event_type": "callback:buy",
             "content": "buy:monthly",
             "raw_update_preview": "SECRET RAW PAYLOAD",
-            "timestamp": datetime(2026, 5, 31, tzinfo=timezone.utc),
+            "timestamp": datetime(2026, 5, 31, tzinfo=UTC),
         }
     )
 

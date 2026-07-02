@@ -2,9 +2,9 @@ import hmac
 import json
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
 from aiohttp import web
@@ -80,8 +80,8 @@ class PaykillaService(HttpClientMixin):
         self.subscription_service = subscription_service
         self.referral_service = referral_service
         self._default_return_url = default_return_url
-        self._exchange_rate_cache: Dict[tuple[str, str], tuple[float, Decimal]] = {}
-        self._currency_cache: tuple[float, List[Dict[str, Any]]] = (0, [])
+        self._exchange_rate_cache: dict[tuple[str, str], tuple[float, Decimal]] = {}
+        self._currency_cache: tuple[float, list[dict[str, Any]]] = (0, [])
 
         self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
         if not self.configured:
@@ -179,7 +179,7 @@ class PaykillaService(HttpClientMixin):
         cache[cache_key] = (now, rate)
         return rate
 
-    async def _paykilla_currencies(self) -> List[Dict[str, Any]]:
+    async def _paykilla_currencies(self) -> list[dict[str, Any]]:
         cache_seconds = int(self.config.EXCHANGE_RATE_CACHE_SECONDS)
         now = time.time()
         cached_at, cached_data = getattr(self, "_currency_cache", (0, []))
@@ -213,7 +213,7 @@ class PaykillaService(HttpClientMixin):
         self._currency_cache = (now, response_data)
         return response_data
 
-    async def _currency_info_for(self, currency: str) -> Optional[Dict[str, Any]]:
+    async def _currency_info_for(self, currency: str) -> dict[str, Any] | None:
         currency = normalize_payment_currency_code(currency)
         for item in await self._paykilla_currencies():
             if not isinstance(item, dict):
@@ -224,7 +224,7 @@ class PaykillaService(HttpClientMixin):
 
     async def _invoice_amount_bounds_error(
         self, *, amount: Decimal, currency: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         info = await self._currency_info_for(currency)
         if not info:
             return None
@@ -269,7 +269,7 @@ class PaykillaService(HttpClientMixin):
 
     async def _configured_minimum_error(
         self, *, amount: float, payment_currency: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         min_amount = _config_min_payment_amount(self.config)
         if min_amount <= 0:
             return None
@@ -297,12 +297,12 @@ class PaykillaService(HttpClientMixin):
         *,
         payment_db_id: int,
         amount: Any,
-        currency: Optional[str],
+        currency: str | None,
         description: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         currency_code = normalize_payment_currency_code(currency or self.currency)
         invoice_text = _invoice_text(getattr(self.settings, "WEBAPP_TITLE", None), payment_db_id)
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "type": _invoice_type_for(self.config, currency_code),
             "purpose": invoice_text,
             "currency": currency_code,
@@ -314,9 +314,7 @@ class PaykillaService(HttpClientMixin):
             "description": invoice_text,
         }
         if self.config.LIFETIME_SECONDS:
-            expires_at = datetime.now(timezone.utc) + timedelta(
-                seconds=int(self.config.LIFETIME_SECONDS)
-            )
+            expires_at = datetime.now(UTC) + timedelta(seconds=int(self.config.LIFETIME_SECONDS))
             body["expiredAt"] = expires_at.isoformat().replace("+00:00", "Z")
         return body
 
@@ -325,10 +323,10 @@ class PaykillaService(HttpClientMixin):
         *,
         payment_db_id: int,
         amount: float,
-        currency: Optional[str],
+        currency: str | None,
         description: str,
-        url_callback: Optional[str] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        url_callback: str | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             logging.error("PaykillaService is not configured. Cannot create payment link.")
             return False, {"message": "service_not_configured"}
@@ -426,7 +424,7 @@ class PaykillaService(HttpClientMixin):
             logging.exception("Paykilla create_payment_link: request failed.")
             return False, {"message": str(exc)}
 
-    async def get_invoice_details(self, invoice_id: str) -> Tuple[bool, Dict[str, Any]]:
+    async def get_invoice_details(self, invoice_id: str) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             return False, {"message": "service_not_configured"}
 
@@ -468,7 +466,7 @@ class PaykillaService(HttpClientMixin):
             logging.exception("Paykilla get_invoice_details request failed: id=%s", invoice_id)
             return False, {"message": str(exc)}
 
-    async def try_reuse_pending_invoice(self, payment: Any) -> Optional[str]:
+    async def try_reuse_pending_invoice(self, payment: Any) -> str | None:
         invoice_id = str(getattr(payment, "provider_payment_id", None) or "").strip()
         if not invoice_id:
             return None
@@ -484,7 +482,7 @@ class PaykillaService(HttpClientMixin):
             return None
         return f"{self.widget_url}/{invoice_id}"
 
-    def _webhook_url_for_request(self, request: web.Request) -> Optional[str]:
+    def _webhook_url_for_request(self, request: web.Request) -> str | None:
         configured = self.config.full_webhook_url(getattr(self.settings, "WEBHOOK_BASE_URL", None))
         if configured:
             return configured

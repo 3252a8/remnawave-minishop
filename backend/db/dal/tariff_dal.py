@@ -1,6 +1,6 @@
 import inspect
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +14,7 @@ async def create_traffic_topup(
     session: AsyncSession,
     *,
     subscription_id: int,
-    payment_id: Optional[int],
+    payment_id: int | None,
     purchased_bytes: int,
     kind: str,
 ) -> TrafficTopup:
@@ -34,8 +34,8 @@ async def sum_traffic_topups(
     session: AsyncSession,
     *,
     subscription_id: int,
-    kinds: Optional[List[str]] = None,
-    created_at_gte: Optional[datetime] = None,
+    kinds: list[str] | None = None,
+    created_at_gte: datetime | None = None,
 ) -> int:
     conditions = [TrafficTopup.subscription_id == subscription_id]
     if kinds:
@@ -52,16 +52,16 @@ async def create_hwid_device_purchase(
     session: AsyncSession,
     *,
     subscription_id: int,
-    payment_id: Optional[int],
+    payment_id: int | None,
     purchased_devices: int,
-    valid_from: Optional[datetime] = None,
-    valid_until: Optional[datetime] = None,
+    valid_from: datetime | None = None,
+    valid_until: datetime | None = None,
 ) -> HwidDevicePurchase:
     record = HwidDevicePurchase(
         subscription_id=subscription_id,
         payment_id=payment_id,
         purchased_devices=purchased_devices,
-        valid_from=valid_from or datetime.now(timezone.utc),
+        valid_from=valid_from or datetime.now(UTC),
         valid_until=valid_until,
     )
     session.add(record)
@@ -70,7 +70,7 @@ async def create_hwid_device_purchase(
     return record
 
 
-def _hwid_active_conditions(subscription_id: int, at: datetime) -> List[Any]:
+def _hwid_active_conditions(subscription_id: int, at: datetime) -> list[Any]:
     return [
         HwidDevicePurchase.subscription_id == subscription_id,
         HwidDevicePurchase.purchased_devices > 0,
@@ -89,9 +89,9 @@ async def sum_active_hwid_devices(
     session: AsyncSession,
     *,
     subscription_id: int,
-    at: Optional[datetime] = None,
+    at: datetime | None = None,
 ) -> int:
-    at = at or datetime.now(timezone.utc)
+    at = at or datetime.now(UTC)
     result = await session.execute(
         select(func.coalesce(func.sum(HwidDevicePurchase.purchased_devices), 0)).where(
             and_(*_hwid_active_conditions(subscription_id, at))
@@ -104,9 +104,9 @@ async def get_hwid_device_entitlement_summary(
     session: AsyncSession,
     *,
     subscription_id: int,
-    at: Optional[datetime] = None,
-) -> Dict[str, Any]:
-    at = at or datetime.now(timezone.utc)
+    at: datetime | None = None,
+) -> dict[str, Any]:
+    at = at or datetime.now(UTC)
     active_result = await session.execute(
         select(
             func.coalesce(func.sum(HwidDevicePurchase.purchased_devices), 0),
@@ -134,9 +134,9 @@ async def get_hwid_device_value_entries(
     session: AsyncSession,
     *,
     subscription_id: int,
-    at: Optional[datetime] = None,
-) -> List[Dict[str, Any]]:
-    at = at or datetime.now(timezone.utc)
+    at: datetime | None = None,
+) -> list[dict[str, Any]]:
+    at = at or datetime.now(UTC)
     result = await session.execute(
         select(
             HwidDevicePurchase.purchase_id,
@@ -176,13 +176,13 @@ async def get_hwid_device_value_entries(
 async def expire_hwid_device_purchases(
     session: AsyncSession,
     *,
-    purchase_ids: List[int],
-    at: Optional[datetime] = None,
+    purchase_ids: list[int],
+    at: datetime | None = None,
 ) -> int:
     ids = [int(item) for item in purchase_ids if item is not None]
     if not ids:
         return 0
-    at = at or datetime.now(timezone.utc)
+    at = at or datetime.now(UTC)
     result = await session.execute(
         update(HwidDevicePurchase)
         .where(HwidDevicePurchase.purchase_id.in_(ids))
@@ -193,7 +193,7 @@ async def expire_hwid_device_purchases(
 
 def _normalize_aware_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
+        return value.replace(tzinfo=UTC)
     return value
 
 
@@ -201,16 +201,16 @@ async def extend_hwid_device_purchases_for_subscription_bonus(
     session: AsyncSession,
     *,
     subscription_id: int,
-    at: Optional[datetime] = None,
-    subscription_end_before: Optional[datetime] = None,
+    at: datetime | None = None,
+    subscription_end_before: datetime | None = None,
     delta: timedelta,
 ) -> int:
     if delta.total_seconds() <= 0:
         return 0
-    at = _normalize_aware_utc(at or datetime.now(timezone.utc))
+    at = _normalize_aware_utc(at or datetime.now(UTC))
     end_before = _normalize_aware_utc(subscription_end_before) if subscription_end_before else None
 
-    target_records: List[HwidDevicePurchase] = []
+    target_records: list[HwidDevicePurchase] = []
     if end_before:
         tail_result = await session.execute(
             select(HwidDevicePurchase).where(
@@ -250,7 +250,7 @@ async def extend_hwid_device_purchases_for_subscription_bonus(
 
 async def create_tariff_change(
     session: AsyncSession,
-    change_data: Dict[str, Any],
+    change_data: dict[str, Any],
 ) -> TariffChange:
     record = TariffChange(**change_data)
     session.add(record)
@@ -263,10 +263,10 @@ async def get_warning(
     session: AsyncSession,
     *,
     subscription_id: int,
-    period_start_at: Optional[datetime],
+    period_start_at: datetime | None,
     level: int,
-    traffic_limit_bytes: Optional[int] = None,
-) -> Optional[TrafficWarning]:
+    traffic_limit_bytes: int | None = None,
+) -> TrafficWarning | None:
     """Return an existing traffic warning row if one was already recorded.
 
     For traffic-style billing ``period_start_at`` is NULL. Do **not** match on
@@ -292,7 +292,7 @@ async def has_warning_level_between(
     session: AsyncSession,
     *,
     subscription_id: int,
-    period_start_at: Optional[datetime],
+    period_start_at: datetime | None,
     min_level: int,
     max_level: int,
 ) -> bool:
@@ -316,9 +316,9 @@ async def create_warning(
     session: AsyncSession,
     *,
     subscription_id: int,
-    period_start_at: Optional[datetime],
+    period_start_at: datetime | None,
     level: int,
-    traffic_limit_bytes: Optional[int],
+    traffic_limit_bytes: int | None,
 ) -> TrafficWarning:
     record = TrafficWarning(
         subscription_id=subscription_id,
@@ -341,7 +341,7 @@ async def clear_period_warnings(session: AsyncSession, subscription_id: int) -> 
 
 async def get_tariff_changes_for_subscription(
     session: AsyncSession, subscription_id: int
-) -> List[TariffChange]:
+) -> list[TariffChange]:
     result = await session.execute(
         select(TariffChange)
         .where(TariffChange.subscription_id == subscription_id)

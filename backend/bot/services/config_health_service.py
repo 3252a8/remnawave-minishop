@@ -16,7 +16,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from bot.app.web.context import get_app_bot, get_app_panel_service, get_app_settings
 from bot.utils.request_security import ip_in_allowlist
@@ -82,13 +82,13 @@ ALL_MESSAGE_KEYS = (
 class ConfigAlert:
     id: str
     severity: str
-    sections: Tuple[str, ...]
-    params: Dict[str, Any] = field(default_factory=dict)
+    sections: tuple[str, ...]
+    params: dict[str, Any] = field(default_factory=dict)
     # Locale key suffix; defaults to ``id``. Per-provider alerts carry ids
     # like ``provider_not_configured:wata`` but share one message key.
-    message_key: Optional[str] = None
+    message_key: str | None = None
 
-    def as_payload(self) -> Dict[str, Any]:
+    def as_payload(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "severity": self.severity,
@@ -120,8 +120,8 @@ def _resolve_data_path(value: str) -> Path:
     return path if path.is_absolute() else APP_ROOT / path
 
 
-def data_dir_alerts(settings: Any, app_root: Path = APP_ROOT) -> List[ConfigAlert]:
-    alerts: List[ConfigAlert] = []
+def data_dir_alerts(settings: Any, app_root: Path = APP_ROOT) -> list[ConfigAlert]:
+    alerts: list[ConfigAlert] = []
     data_dir = app_root / "data"
     if not data_dir.is_dir():
         return [
@@ -155,8 +155,8 @@ def data_dir_alerts(settings: Any, app_root: Path = APP_ROOT) -> List[ConfigAler
     return alerts
 
 
-def config_file_alerts(settings: Any) -> List[ConfigAlert]:
-    alerts: List[ConfigAlert] = []
+def config_file_alerts(settings: Any) -> list[ConfigAlert]:
+    alerts: list[ConfigAlert] = []
 
     tariffs_path = _resolve_data_path(str(settings.TARIFFS_CONFIG_PATH or "data/tariffs.json"))
     if tariffs_path.is_file():
@@ -214,10 +214,10 @@ def config_file_alerts(settings: Any) -> List[ConfigAlert]:
 # ─── Settings checks ───────────────────────────────────────────────
 
 
-def payment_provider_alerts(settings: Any, app: Any) -> List[ConfigAlert]:
+def payment_provider_alerts(settings: Any, app: Any) -> list[ConfigAlert]:
     from bot.payment_providers import iter_provider_specs
 
-    alerts: List[ConfigAlert] = []
+    alerts: list[ConfigAlert] = []
     any_enabled = False
     seen_services: set = set()
     for spec in iter_provider_specs():
@@ -264,8 +264,8 @@ def payment_provider_alerts(settings: Any, app: Any) -> List[ConfigAlert]:
     return alerts
 
 
-def settings_alerts(settings: Any) -> List[ConfigAlert]:
-    alerts: List[ConfigAlert] = []
+def settings_alerts(settings: Any) -> list[ConfigAlert]:
+    alerts: list[ConfigAlert] = []
 
     mini_app_url = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     if not mini_app_url:
@@ -311,7 +311,7 @@ def settings_alerts(settings: Any) -> List[ConfigAlert]:
     return alerts
 
 
-def proxy_alerts(request: Any, settings: Any) -> List[ConfigAlert]:
+def proxy_alerts(request: Any, settings: Any) -> list[ConfigAlert]:
     """Warn when the admin request itself came through an untrusted proxy.
 
     In that case provider webhooks with IP allowlists will see the proxy
@@ -337,7 +337,7 @@ def proxy_alerts(request: Any, settings: Any) -> List[ConfigAlert]:
 # ─── Network checks (cached) ───────────────────────────────────────
 
 
-async def telegram_alerts(bot: Any, settings: Any) -> List[ConfigAlert]:
+async def telegram_alerts(bot: Any, settings: Any) -> list[ConfigAlert]:
     if bot is None:
         return []
     try:
@@ -360,7 +360,7 @@ async def telegram_alerts(bot: Any, settings: Any) -> List[ConfigAlert]:
             )
         ]
 
-    alerts: List[ConfigAlert] = []
+    alerts: list[ConfigAlert] = []
     actual_url = str(getattr(info, "url", "") or "")
     base_url = str(settings.WEBHOOK_BASE_URL or "").rstrip("/")
     expected_url = f"{base_url}{settings.telegram_webhook_path}" if base_url else ""
@@ -384,7 +384,7 @@ async def telegram_alerts(bot: Any, settings: Any) -> List[ConfigAlert]:
 
     pending = int(getattr(info, "pending_update_count", 0) or 0)
     last_error_date = getattr(info, "last_error_date", None)
-    last_error_ts: Optional[float] = None
+    last_error_ts: float | None = None
     if last_error_date is not None:
         last_error_ts = (
             last_error_date.timestamp()
@@ -417,7 +417,7 @@ async def telegram_alerts(bot: Any, settings: Any) -> List[ConfigAlert]:
     return alerts
 
 
-async def panel_alerts(panel_service: Any, settings: Any) -> List[ConfigAlert]:
+async def panel_alerts(panel_service: Any, settings: Any) -> list[ConfigAlert]:
     panel_settings = settings.panel_settings
     if not panel_settings.api_url or not panel_settings.api_key:
         return [
@@ -450,12 +450,12 @@ async def panel_alerts(panel_service: Any, settings: Any) -> List[ConfigAlert]:
 
 # ─── Aggregation ───────────────────────────────────────────────────
 
-_network_cache: Dict[int, Tuple[float, List[ConfigAlert]]] = {}
+_network_cache: dict[int, tuple[float, list[ConfigAlert]]] = {}
 _network_cache_lock = asyncio.Lock()
 
 
-def local_alerts(request: Any, settings: Any, app: Any) -> List[ConfigAlert]:
-    alerts: List[ConfigAlert] = []
+def local_alerts(request: Any, settings: Any, app: Any) -> list[ConfigAlert]:
+    alerts: list[ConfigAlert] = []
     for collect in (
         lambda: data_dir_alerts(settings),
         lambda: config_file_alerts(settings),
@@ -470,7 +470,7 @@ def local_alerts(request: Any, settings: Any, app: Any) -> List[ConfigAlert]:
     return alerts
 
 
-async def network_alerts(app: Any, settings: Any, *, refresh: bool = False) -> List[ConfigAlert]:
+async def network_alerts(app: Any, settings: Any, *, refresh: bool = False) -> list[ConfigAlert]:
     cache_key = id(settings)
     now = time.monotonic()
     if not refresh:
@@ -489,7 +489,7 @@ async def network_alerts(app: Any, settings: Any, *, refresh: bool = False) -> L
             panel_alerts(get_app_panel_service(app), settings),
             return_exceptions=True,
         )
-        alerts: List[ConfigAlert] = []
+        alerts: list[ConfigAlert] = []
         for result in results:
             if isinstance(result, BaseException):
                 logger.exception("Network config health check failed", exc_info=result)
@@ -499,7 +499,7 @@ async def network_alerts(app: Any, settings: Any, *, refresh: bool = False) -> L
         return alerts
 
 
-async def collect_config_alerts(request: Any, *, refresh: bool = False) -> List[Dict[str, Any]]:
+async def collect_config_alerts(request: Any, *, refresh: bool = False) -> list[dict[str, Any]]:
     app = request.app
     settings = get_app_settings(app)
     alerts = local_alerts(request, settings, app)

@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -39,7 +39,7 @@ APP_ROOT = Path(__file__).resolve().parents[3]
 APPEARANCE_OVERRIDES_BACKUP_PATH = APP_ROOT / "data" / "webapp-logo" / "appearance-settings.json"
 
 
-def _resolve_attribute_name(settings: Settings, key: str) -> Optional[str]:
+def _resolve_attribute_name(settings: Settings, key: str) -> str | None:
     """Resolve the actual attribute name on the Settings model.
 
     Some settings expose their env name via ``alias`` (e.g. MONTH_1_ENABLED is
@@ -109,7 +109,7 @@ def _apply_value(settings: Settings, key: str, value: Any) -> bool:
         return False
 
 
-def apply_overrides(settings: Settings, overrides: Dict[str, Any]) -> int:
+def apply_overrides(settings: Settings, overrides: dict[str, Any]) -> int:
     applied = 0
     for key, raw_value in overrides.items():
         field = get_field_by_key(key)
@@ -126,9 +126,9 @@ def apply_overrides(settings: Settings, overrides: Dict[str, Any]) -> int:
 
 
 def _normalize_exclusive_provider_toggles(
-    updates: Dict[str, Any],
+    updates: dict[str, Any],
     deletes: list,
-) -> tuple[Dict[str, Any], list]:
+) -> tuple[dict[str, Any], list]:
     """When a provider is enabled for admins only, turn off its public toggle."""
 
     from bot.payment_providers import provider_admin_only_pairs
@@ -152,8 +152,8 @@ def _normalize_exclusive_provider_toggles(
     return normalized, normalized_deletes
 
 
-def _appearance_snapshot(settings: Settings) -> Dict[str, Any]:
-    snapshot: Dict[str, Any] = {}
+def _appearance_snapshot(settings: Settings) -> dict[str, Any]:
+    snapshot: dict[str, Any] = {}
     logo_url = settings.WEBAPP_LOGO_URL
     logo_favicon_url = settings.WEBAPP_LOGO_FAVICON_URL
     favicon_url = settings.WEBAPP_FAVICON_URL
@@ -171,7 +171,7 @@ def _appearance_snapshot(settings: Settings) -> Dict[str, Any]:
     return snapshot
 
 
-def _read_appearance_backup() -> Dict[str, Any]:
+def _read_appearance_backup() -> dict[str, Any]:
     try:
         payload = json.loads(APPEARANCE_OVERRIDES_BACKUP_PATH.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -183,7 +183,7 @@ def _read_appearance_backup() -> Dict[str, Any]:
         return {}
     raw_values = payload.get("settings")
     values: dict[str, Any] = raw_values if isinstance(raw_values, dict) else payload
-    restored: Dict[str, Any] = {}
+    restored: dict[str, Any] = {}
     for key, value in values.items():
         if key not in APPEARANCE_OVERRIDE_KEYS:
             continue
@@ -260,7 +260,7 @@ async def refresh_overrides_from_db(
     settings: Settings,
     async_session_factory: sessionmaker,
     *,
-    keys: Optional[set[str]] = None,
+    keys: set[str] | None = None,
 ) -> int:
     """Refresh already-known runtime overrides without startup restore side effects."""
 
@@ -289,18 +289,18 @@ async def update_overrides(
     settings: Settings,
     async_session_factory: sessionmaker,
     *,
-    updates: Dict[str, Any],
-    deletes: Optional[list] = None,
-    actor_id: Optional[int] = None,
-) -> Dict[str, Any]:
+    updates: dict[str, Any],
+    deletes: list | None = None,
+    actor_id: int | None = None,
+) -> dict[str, Any]:
     """Persist + apply a batch of changes coming from the admin UI."""
 
     deletes = list(deletes or [])
-    coerced_updates: Dict[str, Any] = {}
-    errors: Dict[str, str] = {}
+    coerced_updates: dict[str, Any] = {}
+    errors: dict[str, str] = {}
 
     for key, raw in updates.items():
-        field: Optional[SettingField] = get_field_by_key(key)
+        field: SettingField | None = get_field_by_key(key)
         if not field:
             errors[key] = "unknown_setting"
             continue

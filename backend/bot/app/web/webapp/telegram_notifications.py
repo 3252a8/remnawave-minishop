@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
@@ -34,7 +34,7 @@ async def _probe_telegram_notifications_for_user_id(
     user_id: int,
     *,
     force: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     settings: Settings = get_settings(request)
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:

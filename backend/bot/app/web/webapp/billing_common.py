@@ -1,8 +1,8 @@
 import html
 import logging
 import re
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from aiohttp import web
 
@@ -40,20 +40,20 @@ def _localized_webapp_message(request: web.Request, lang: str, key: str) -> str:
     return key
 
 
-def _billing_iso_datetime(value: Optional[Any]) -> Optional[str]:
+def _billing_iso_datetime(value: Any | None) -> str | None:
     if not value:
         return None
     if isinstance(value, datetime):
-        normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        normalized = value if value.tzinfo else value.replace(tzinfo=UTC)
         return normalized.isoformat()
     return str(value)
 
 
-def _billing_datetime_text(value: Optional[Any]) -> Optional[str]:
+def _billing_datetime_text(value: Any | None) -> str | None:
     if not value:
         return None
     if isinstance(value, datetime):
-        normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        normalized = value if value.tzinfo else value.replace(tzinfo=UTC)
         return normalized.strftime("%d.%m.%Y %H:%M")
     text = str(value)
     try:
@@ -63,7 +63,7 @@ def _billing_datetime_text(value: Optional[Any]) -> Optional[str]:
         return text
 
 
-def _parse_positive_int_units(value: Any) -> Optional[int]:
+def _parse_positive_int_units(value: Any) -> int | None:
     if isinstance(value, bool):
         return None
     try:

@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from aiogram import Bot, F, types
 from aiogram.filters import Command
@@ -45,7 +44,7 @@ async def disconnect_device_handler(
     bot: Bot,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     if not settings.MY_DEVICES_SECTION_ENABLED:
@@ -114,7 +113,7 @@ async def toggle_autorenew_handler(
     bot: Bot,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     try:
@@ -182,7 +181,7 @@ async def confirm_autorenew_handler(
     bot: Bot,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     try:
@@ -255,7 +254,7 @@ async def autorenew_cancel_from_webhook_button(
     bot: Bot,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     # Disable auto-renew on the active subscription

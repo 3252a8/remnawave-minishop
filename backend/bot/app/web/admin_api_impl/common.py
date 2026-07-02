@@ -1,7 +1,7 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, cast
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from aiohttp import web
@@ -14,7 +14,7 @@ from db.models import AdCampaign, MessageLog, Payment, PromoCode, Subscription, 
 from .schemas import AdminSubscriptionOut, AdminUserOut, AdOut, LogOut, PaymentOut, PromoOut
 
 
-def _ok(payload: Dict[str, Any], **extra: Any) -> web.Response:
+def _ok(payload: dict[str, Any], **extra: Any) -> web.Response:
     body = {"ok": True, **payload, **extra}
     return json_response(body)
 
@@ -30,10 +30,10 @@ def _error_payload(
     status: int,
     code: str,
     *,
-    errors: Dict[str, Any] | None = None,
+    errors: dict[str, Any] | None = None,
     message: str = "",
 ) -> web.Response:
-    body: Dict[str, Any] = {"ok": False, "error": code}
+    body: dict[str, Any] = {"ok": False, "error": code}
     if message:
         body["message"] = message
     if errors:
@@ -74,7 +74,7 @@ _PANEL_TRAFFIC_USED_KEYS = (
 )
 
 
-def _panel_user_payload(panel_user_data: Any) -> Dict[str, Any]:
+def _panel_user_payload(panel_user_data: Any) -> dict[str, Any]:
     if not isinstance(panel_user_data, dict):
         return {}
     response = panel_user_data.get("response")
@@ -86,7 +86,7 @@ def _panel_user_payload(panel_user_data: Any) -> Dict[str, Any]:
     return panel_user_data
 
 
-def _coerce_panel_datetime(value: Any) -> Optional[str]:
+def _coerce_panel_datetime(value: Any) -> str | None:
     if value is None or value is False:
         return None
     if isinstance(value, datetime):
@@ -96,7 +96,7 @@ def _coerce_panel_datetime(value: Any) -> Optional[str]:
             return None
         seconds = float(value) / 1000.0 if value > 10_000_000_000 else float(value)
         try:
-            return datetime.fromtimestamp(seconds, tz=timezone.utc).isoformat()
+            return datetime.fromtimestamp(seconds, tz=UTC).isoformat()
         except (OSError, OverflowError, ValueError):
             return None
     text = str(value).strip()
@@ -111,7 +111,7 @@ def _coerce_panel_datetime(value: Any) -> Optional[str]:
     return parsed.isoformat()
 
 
-def _coerce_panel_int(value: Any) -> Optional[int]:
+def _coerce_panel_int(value: Any) -> int | None:
     try:
         if value is None or value == "":
             return None
@@ -120,8 +120,8 @@ def _coerce_panel_int(value: Any) -> Optional[int]:
         return None
 
 
-def _panel_nested_dicts(panel_user: Dict[str, Any], keys: Tuple[str, ...]) -> List[Dict[str, Any]]:
-    out: List[Dict[str, Any]] = []
+def _panel_nested_dicts(panel_user: dict[str, Any], keys: tuple[str, ...]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
     for key in keys:
         value = panel_user.get(key)
         if isinstance(value, dict):
@@ -129,7 +129,7 @@ def _panel_nested_dicts(panel_user: Dict[str, Any], keys: Tuple[str, ...]) -> Li
     return out
 
 
-def _panel_user_connection_containers(panel_user: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _panel_user_connection_containers(panel_user: dict[str, Any]) -> list[dict[str, Any]]:
     traffic_containers = _panel_nested_dicts(panel_user, _PANEL_TRAFFIC_OBJECT_KEYS)
     marker_containers = _panel_nested_dicts(
         panel_user,
@@ -142,7 +142,7 @@ def _panel_user_connection_containers(panel_user: Dict[str, Any]) -> List[Dict[s
     return [panel_user, *traffic_containers, *marker_containers]
 
 
-def _panel_user_last_connected_at(panel_user_data: Any) -> Optional[str]:
+def _panel_user_last_connected_at(panel_user_data: Any) -> str | None:
     panel_user = _panel_user_payload(panel_user_data)
     if not panel_user:
         return None
@@ -154,7 +154,7 @@ def _panel_user_last_connected_at(panel_user_data: Any) -> Optional[str]:
     return None
 
 
-def _panel_user_positive_traffic_bytes(panel_user: Dict[str, Any]) -> bool:
+def _panel_user_positive_traffic_bytes(panel_user: dict[str, Any]) -> bool:
     containers = [panel_user, *_panel_nested_dicts(panel_user, _PANEL_TRAFFIC_OBJECT_KEYS)]
     for container in containers:
         for key in _PANEL_TRAFFIC_USED_KEYS:
@@ -164,7 +164,7 @@ def _panel_user_positive_traffic_bytes(panel_user: Dict[str, Any]) -> bool:
     return False
 
 
-def _panel_user_has_connection_marker(panel_user: Dict[str, Any]) -> bool:
+def _panel_user_has_connection_marker(panel_user: dict[str, Any]) -> bool:
     for container in _panel_user_connection_containers(panel_user):
         for key in _PANEL_CONNECTION_MARKER_KEYS:
             if key in container:
@@ -176,7 +176,7 @@ def _panel_user_has_connection_marker(panel_user: Dict[str, Any]) -> bool:
     return False
 
 
-def _panel_user_has_connected_marker_value(panel_user: Dict[str, Any]) -> bool:
+def _panel_user_has_connected_marker_value(panel_user: dict[str, Any]) -> bool:
     for container in _panel_user_connection_containers(panel_user):
         for key in (*_PANEL_LAST_CONNECTED_KEYS, "firstConnectedAt", "first_connected_at"):
             if _coerce_panel_datetime(container.get(key)):
@@ -196,7 +196,7 @@ def _panel_user_has_connected_marker_value(panel_user: Dict[str, Any]) -> bool:
     return False
 
 
-def _panel_user_connection_activity(panel_user_data: Any) -> Dict[str, Any]:
+def _panel_user_connection_activity(panel_user_data: Any) -> dict[str, Any]:
     panel_user = _panel_user_payload(panel_user_data)
     last_connected_at = _panel_user_last_connected_at(panel_user)
     if not panel_user:
@@ -210,8 +210,8 @@ def _panel_user_connection_activity(panel_user_data: Any) -> Dict[str, Any]:
     return {"status": "unknown", "last_connected_at": None}
 
 
-def _serialize_user(user: User) -> Dict[str, Any]:
-    return cast(Dict[str, Any], AdminUserOut.from_orm_user(user).model_dump(mode="json"))
+def _serialize_user(user: User) -> dict[str, Any]:
+    return cast(dict[str, Any], AdminUserOut.from_orm_user(user).model_dump(mode="json"))
 
 
 def _premium_limit_bytes_from_subscription(sub: Subscription) -> int:
@@ -224,7 +224,7 @@ def _premium_limit_bytes_from_subscription(sub: Subscription) -> int:
     )
 
 
-def _premium_traffic_list_payload(sub: Optional[Subscription]) -> Dict[str, Any]:
+def _premium_traffic_list_payload(sub: Subscription | None) -> dict[str, Any]:
     """Premium traffic column when subscription has a finite premium quota (bytes > 0).
 
     Note: ``Subscription.premium_is_limited`` in the DB means *quota exhausted* for panel
@@ -262,14 +262,14 @@ def _premium_traffic_list_payload(sub: Optional[Subscription]) -> Dict[str, Any]
     }
 
 
-def _serialize_subscription(sub: Subscription) -> Dict[str, Any]:
+def _serialize_subscription(sub: Subscription) -> dict[str, Any]:
     return cast(
-        Dict[str, Any],
+        dict[str, Any],
         AdminSubscriptionOut.from_orm_subscription(sub).model_dump(mode="json"),
     )
 
 
-def _payment_traffic_gb_split(payment: Payment) -> Tuple[Optional[float], Optional[float]]:
+def _payment_traffic_gb_split(payment: Payment) -> tuple[float | None, float | None]:
     """For traffic purchases: ``(regular_gb, premium_gb)``. Other payments → (None, None)."""
     if payment.purchased_gb is None:
         return None, None
@@ -290,13 +290,13 @@ def _payment_traffic_gb_split(payment: Payment) -> Tuple[Optional[float], Option
 
 def _user_display_label(
     loaded_user: Any,
-    fallback_user_id: Optional[int],
+    fallback_user_id: int | None,
     *,
-    first_name: Optional[str] = None,
-    last_name: Optional[str] = None,
-    username: Optional[str] = None,
-    email: Optional[str] = None,
-) -> Optional[str]:
+    first_name: str | None = None,
+    last_name: str | None = None,
+    username: str | None = None,
+    email: str | None = None,
+) -> str | None:
     """Human-facing name: TG profile name, else email, else user id."""
     tid = getattr(loaded_user, "telegram_id", None)
     if loaded_user is not None and tid is not None:
@@ -335,28 +335,28 @@ def _payment_user_display_label(loaded_user: Any, payment_user_id: int) -> str:
     return str(payment_user_id)
 
 
-def _serialize_payment(payment: Payment) -> Dict[str, Any]:
-    return cast(Dict[str, Any], PaymentOut.from_orm_payment(payment).model_dump(mode="json"))
+def _serialize_payment(payment: Payment) -> dict[str, Any]:
+    return cast(dict[str, Any], PaymentOut.from_orm_payment(payment).model_dump(mode="json"))
 
 
-def _serialize_promo(promo: PromoCode) -> Dict[str, Any]:
-    return cast(Dict[str, Any], PromoOut.from_orm_promo(promo).model_dump(mode="json"))
+def _serialize_promo(promo: PromoCode) -> dict[str, Any]:
+    return cast(dict[str, Any], PromoOut.from_orm_promo(promo).model_dump(mode="json"))
 
 
-def _serialize_ad(campaign: AdCampaign, totals: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    return cast(Dict[str, Any], AdOut.from_orm_ad(campaign, totals).model_dump(mode="json"))
+def _serialize_ad(campaign: AdCampaign, totals: dict[str, Any] | None = None) -> dict[str, Any]:
+    return cast(dict[str, Any], AdOut.from_orm_ad(campaign, totals).model_dump(mode="json"))
 
 
-def _serialize_log(entry: MessageLog) -> Dict[str, Any]:
-    return cast(Dict[str, Any], LogOut.from_orm_log(entry).model_dump(mode="json"))
+def _serialize_log(entry: MessageLog) -> dict[str, Any]:
+    return cast(dict[str, Any], LogOut.from_orm_log(entry).model_dump(mode="json"))
 
 
 def _tariffs_config_path(settings: Settings) -> Path:
     return Path(settings.TARIFFS_CONFIG_PATH).expanduser()
 
 
-def _tariffs_config_payload(config: TariffsConfig) -> Dict[str, Any]:
-    return cast(Dict[str, Any], config.model_dump(mode="json", exclude_none=True))
+def _tariffs_config_payload(config: TariffsConfig) -> dict[str, Any]:
+    return cast(dict[str, Any], config.model_dump(mode="json", exclude_none=True))
 
 
 def _write_tariffs_config_file(path: Path, config: TariffsConfig) -> None:
@@ -379,16 +379,16 @@ def _write_tariffs_config_file(path: Path, config: TariffsConfig) -> None:
         path.write_text(payload, encoding="utf-8")
 
 
-def _webapp_themes_catalog_payload(config: Any) -> Dict[str, Any]:
-    return cast(Dict[str, Any], config.model_dump(mode="json", exclude_none=True))
+def _webapp_themes_catalog_payload(config: Any) -> dict[str, Any]:
+    return cast(dict[str, Any], config.model_dump(mode="json", exclude_none=True))
 
 
-def _panel_node_uuid_key(node: Dict[str, Any]) -> str:
+def _panel_node_uuid_key(node: dict[str, Any]) -> str:
     uid = node.get("nodeUuid") or node.get("node_uuid") or node.get("uuid") or node.get("id")
     return str(uid).strip().lower() if uid else ""
 
 
-def _panel_node_users_online(node: Dict[str, Any]) -> Optional[int]:
+def _panel_node_users_online(node: dict[str, Any]) -> int | None:
     uo = node.get("usersOnline")
     if uo is None:
         uo = node.get("users_online")
@@ -406,10 +406,10 @@ def _panel_node_users_online(node: Dict[str, Any]) -> Optional[int]:
         return None
 
 
-def _panel_nodes_online_by_uuid(nodes_payload: Any) -> Dict[str, int]:
+def _panel_nodes_online_by_uuid(nodes_payload: Any) -> dict[str, int]:
     """Build node_uuid(lower) -> usersOnline from GET /system/stats/nodes payload."""
-    out: Dict[str, int] = {}
-    raw_list: Optional[List[Any]] = None
+    out: dict[str, int] = {}
+    raw_list: list[Any] | None = None
     if isinstance(nodes_payload, list):
         raw_list = nodes_payload
     elif isinstance(nodes_payload, dict):
@@ -432,8 +432,8 @@ def _panel_nodes_online_by_uuid(nodes_payload: Any) -> Dict[str, int]:
 
 def _enrich_bandwidth_nodes_with_online(
     bw: Any,
-    online_by_uuid: Dict[str, int],
-    online_by_name: Optional[Dict[str, int]] = None,
+    online_by_uuid: dict[str, int],
+    online_by_name: dict[str, int] | None = None,
 ) -> None:
     """Attach usersOnline to topNodes/series (UUID and optional node name)."""
     if not isinstance(bw, dict):
@@ -464,8 +464,8 @@ def _enrich_bandwidth_nodes_with_online(
 
 
 def _build_admin_webapp_referral_link(
-    base_url: Optional[str], referral_code: Optional[str]
-) -> Optional[str]:
+    base_url: str | None, referral_code: str | None
+) -> str | None:
     """Mirror of ``subscription_webapp._build_webapp_referral_link``.
 
     Kept local to avoid a cross-module import cycle (subscription_webapp
@@ -480,7 +480,7 @@ def _build_admin_webapp_referral_link(
     return urlunsplit((parts.scheme, parts.netloc, parts.path, new_query, parts.fragment))
 
 
-def _build_admin_promo_bot_link(bot_username: Optional[str], code: Optional[str]) -> Optional[str]:
+def _build_admin_promo_bot_link(bot_username: str | None, code: str | None) -> str | None:
     username = str(bot_username or "").strip().lstrip("@")
     normalized_code = str(code or "").strip()
     if not username or username == "your_bot_username" or not normalized_code:
@@ -488,7 +488,7 @@ def _build_admin_promo_bot_link(bot_username: Optional[str], code: Optional[str]
     return f"https://t.me/{quote(username, safe='')}?start=promo_{quote(normalized_code, safe='')}"
 
 
-def _build_admin_promo_webapp_link(base_url: Optional[str], code: Optional[str]) -> Optional[str]:
+def _build_admin_promo_webapp_link(base_url: str | None, code: str | None) -> str | None:
     raw = str(base_url or "").strip()
     normalized_code = str(code or "").strip()
     if not raw or not normalized_code:

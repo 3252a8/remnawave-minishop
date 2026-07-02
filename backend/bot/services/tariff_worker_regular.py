@@ -1,7 +1,8 @@
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Protocol
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
@@ -46,18 +47,18 @@ class TariffWorkerRegularMixin:
     settings: Settings
     panel_service: PanelApiService
     subscription_service: SubscriptionService
-    bot: Optional[Bot]
-    i18n: Optional[JsonI18n]
+    bot: Bot | None
+    i18n: JsonI18n | None
     _premium_node_usage_tick_cache: dict[
         tuple[str, str, str],
-        Optional[dict[str, dict[Any, int]]],
+        dict[str, dict[Any, int]] | None,
     ]
 
     if TYPE_CHECKING:
         REGULAR_RESET_NOTICE_LEVEL: int
 
         def _is_trial_subscription(self, sub: Subscription) -> bool: ...
-        def _trial_premium_tariff(self) -> Optional[Any]: ...
+        def _trial_premium_tariff(self) -> Any | None: ...
         async def _sync_premium_squad_limit(
             self,
             session: AsyncSession,
@@ -65,8 +66,8 @@ class TariffWorkerRegularMixin:
             tariff: Any,
             now: datetime,
             *,
-            panel_username: Optional[str] = None,
-            panel_user_dict: Optional[dict] = None,
+            panel_username: str | None = None,
+            panel_user_dict: dict | None = None,
             panel_view: str = "unknown",
         ) -> None: ...
         async def _user_lang(self, session: AsyncSession, user_id: int) -> str: ...
@@ -74,23 +75,23 @@ class TariffWorkerRegularMixin:
         def _usage_placeholders(self, used_bytes: int, limit_bytes: int) -> dict: ...
         def _panel_next_traffic_reset_at(
             self,
-            panel_user_data: Optional[dict[str, Any]],
+            panel_user_data: dict[str, Any] | None,
             *,
-            now: Optional[datetime] = None,
-        ) -> Optional[datetime]: ...
+            now: datetime | None = None,
+        ) -> datetime | None: ...
         def _traffic_next_reset_note(
             self,
             translate: Callable[..., str],
             *,
             kind: str,
-            period_start_at: Optional[datetime],
+            period_start_at: datetime | None,
             reset_available_bytes: int,
             user_lang: str,
-            next_reset_at: Optional[datetime] = None,
+            next_reset_at: datetime | None = None,
         ) -> str: ...
         def _traffic_topup_markup(
             self, user_lang: str, kind: str
-        ) -> Optional[InlineKeyboardMarkup]: ...
+        ) -> InlineKeyboardMarkup | None: ...
         async def _send_traffic_warning_email(
             self,
             session: AsyncSession,
@@ -119,7 +120,7 @@ class TariffWorkerRegularMixin:
         ) -> None: ...
 
     async def traffic_period_tick(self, session: AsyncSession) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         self._premium_node_usage_tick_cache = {}
         warning_period_start = month_start(now)
         tracked_subscriptions_filter = Subscription.tariff_key.is_not(None)
@@ -260,7 +261,7 @@ class TariffWorkerRegularMixin:
     async def _prefetch_panel_users_by_uuid(
         self,
         subs: list[Subscription],
-    ) -> Optional[dict[str, dict]]:
+    ) -> dict[str, dict] | None:
         threshold = int(
             getattr(
                 self.settings,
@@ -302,7 +303,7 @@ class TariffWorkerRegularMixin:
         session: AsyncSession,
         sub: Subscription,
         *,
-        panel_users_by_uuid: Optional[dict[str, dict]],
+        panel_users_by_uuid: dict[str, dict] | None,
         semaphore: asyncio.Semaphore,
         confirmed_missing: bool,
     ) -> dict:
@@ -360,7 +361,7 @@ class TariffWorkerRegularMixin:
         return {}
 
     @staticmethod
-    def _same_regular_period(value: Optional[datetime], period_start: datetime) -> bool:
+    def _same_regular_period(value: datetime | None, period_start: datetime) -> bool:
         if value is None:
             return False
         try:
@@ -372,8 +373,8 @@ class TariffWorkerRegularMixin:
         self,
         sub: Subscription,
         tariff: _RegularTariff,
-        limit: Optional[int],
-        panel_strategy: Optional[str],
+        limit: int | None,
+        panel_strategy: str | None,
     ) -> None:
         target_strategy = self._period_tariff_traffic_strategy()
         if canonical_traffic_limit_strategy(panel_strategy) == target_strategy:
@@ -423,7 +424,7 @@ class TariffWorkerRegularMixin:
         active_extra = await tariff_dal.sum_active_hwid_devices(
             session,
             subscription_id=sub.subscription_id,
-            at=datetime.now(timezone.utc),
+            at=datetime.now(UTC),
         )
         update_data = {}
         if sub.hwid_device_limit != base_hwid_limit:
@@ -471,11 +472,11 @@ class TariffWorkerRegularMixin:
         session: AsyncSession,
         sub: Subscription,
         tariff: _RegularTariff,
-        used: Optional[int],
-        limit: Optional[int],
+        used: int | None,
+        limit: int | None,
         period_start_at: datetime,
         *,
-        previous_period_start: Optional[datetime],
+        previous_period_start: datetime | None,
     ) -> None:
         if self._period_tariff_traffic_strategy() == "NO_RESET":
             return
@@ -560,11 +561,11 @@ class TariffWorkerRegularMixin:
         session: AsyncSession,
         sub: Subscription,
         tariff: _RegularTariff,
-        used: Optional[int],
-        limit: Optional[int],
+        used: int | None,
+        limit: int | None,
         *,
-        warning_period_start: Optional[datetime] = None,
-        next_reset_at: Optional[datetime] = None,
+        warning_period_start: datetime | None = None,
+        next_reset_at: datetime | None = None,
     ) -> None:
         if bool(getattr(sub, "regular_unlimited_override", False)):
             return

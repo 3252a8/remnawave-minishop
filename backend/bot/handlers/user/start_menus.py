@@ -1,5 +1,4 @@
 import logging
-from typing import Optional, Union
 
 from aiogram import types
 from aiogram.utils.text_decorations import html_decoration as hd
@@ -38,7 +37,7 @@ async def should_show_trial_button(
 
 
 async def send_main_menu(
-    target_event: Union[types.Message, types.CallbackQuery],
+    target_event: types.Message | types.CallbackQuery,
     settings: Settings,
     i18n_data: dict,
     subscription_service: SubscriptionService,
@@ -46,7 +45,7 @@ async def send_main_menu(
     is_edit: bool = False,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
 
     event_user = (
         target_event.from_user
@@ -86,7 +85,7 @@ async def send_main_menu(
         user_id=user_id,
     )
 
-    target_message_obj: Optional[types.Message] = None
+    target_message_obj: types.Message | None = None
     if isinstance(target_event, types.Message):
         target_message_obj = target_event
     elif isinstance(target_event, types.CallbackQuery) and target_event.message:
@@ -129,7 +128,7 @@ async def send_main_menu(
 
 
 async def send_bot_interface_menu(
-    target_event: Union[types.Message, types.CallbackQuery],
+    target_event: types.Message | types.CallbackQuery,
     settings: Settings,
     i18n_data: dict,
     subscription_service: SubscriptionService,
@@ -137,7 +136,7 @@ async def send_bot_interface_menu(
     is_edit: bool = False,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
 
     if not i18n:
         logging.error("i18n_instance missing in send_bot_interface_menu.")
@@ -160,7 +159,7 @@ async def send_bot_interface_menu(
         current_lang, i18n, settings, show_trial_button_in_menu
     )
 
-    target_message_obj: Optional[types.Message] = None
+    target_message_obj: types.Message | None = None
     if isinstance(target_event, types.Message):
         target_message_obj = target_event
     elif isinstance(target_event, types.CallbackQuery) and target_event.message:

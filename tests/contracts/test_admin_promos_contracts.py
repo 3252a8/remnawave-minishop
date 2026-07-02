@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -47,8 +47,8 @@ def _promo(**overrides):
         "max_activations": 3,
         "current_activations": 1,
         "is_active": True,
-        "valid_until": datetime(2026, 1, 8, tzinfo=timezone.utc),
-        "created_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+        "valid_until": datetime(2026, 1, 8, tzinfo=UTC),
+        "created_at": datetime(2026, 1, 1, tzinfo=UTC),
         "created_by_admin_id": 100,
     }
     values.update(overrides)
@@ -393,7 +393,7 @@ def test_promo_update_can_clear_valid_until():
 
 
 def test_promo_update_accepts_explicit_valid_until():
-    expires_at = datetime(2026, 2, 1, 12, 0, tzinfo=timezone.utc)
+    expires_at = datetime(2026, 2, 1, 12, 0, tzinfo=UTC)
 
     async def run():
         session = _FakeSession()
@@ -447,7 +447,7 @@ def test_promo_activations_route_returns_user_and_payment_context():
             provider="yookassa",
             sale_mode="subscription@standard",
             description="Subscription",
-            created_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 2, tzinfo=UTC),
             checkout_base_amount=100.0,
             checkout_discount_amount=20.0,
             checkout_charged_months=3,
@@ -457,7 +457,7 @@ def test_promo_activations_route_returns_user_and_payment_context():
             activation_id=9,
             promo_code_id=5,
             user_id=42,
-            activated_at=datetime(2026, 1, 3, tzinfo=timezone.utc),
+            activated_at=datetime(2026, 1, 3, tzinfo=UTC),
             payment_id=77,
             user=user,
             payment=payment,

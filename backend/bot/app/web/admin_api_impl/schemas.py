@@ -54,7 +54,7 @@ class PromoCreateBody(HttpBodyModel):
         return str(value or "").strip().lower()
 
     @model_validator(mode="after")
-    def _validate_effects(self) -> "PromoCreateBody":
+    def _validate_effects(self) -> PromoCreateBody:
         validate_effects(self.to_effects())
         return self
 
@@ -235,7 +235,7 @@ class PromoOut(HttpResponseModel):
         *,
         bot_link: str | None = None,
         webapp_link: str | None = None,
-    ) -> "PromoOut":
+    ) -> PromoOut:
         effects = PromoEffects.from_model(promo)
         return cls(
             id=int(promo.promo_code_id),
@@ -280,7 +280,7 @@ class AdminPanelSyncOut(HttpResponseModel):
     subscriptions_synced: int
 
     @classmethod
-    def from_sync_status(cls, sync_status: Any) -> "AdminPanelSyncOut":
+    def from_sync_status(cls, sync_status: Any) -> AdminPanelSyncOut:
         return cls(
             status=sync_status.status if sync_status else "never_run",
             last_sync_time=sync_status.last_sync_time
@@ -400,7 +400,7 @@ class PromoActivationOut(HttpResponseModel):
     granted_gb: float | None = None
 
     @classmethod
-    def from_orm_activation(cls, activation: Any) -> "PromoActivationOut":
+    def from_orm_activation(cls, activation: Any) -> PromoActivationOut:
         loaded_user = activation.__dict__.get("user")
         loaded_payment = activation.__dict__.get("payment")
         user_label = _display_label(loaded_user, int(activation.user_id)) or str(activation.user_id)
@@ -497,7 +497,7 @@ class PaymentOut(HttpResponseModel):
     created_at: datetime | None = None
 
     @classmethod
-    def from_orm_payment(cls, payment: Any) -> "PaymentOut":
+    def from_orm_payment(cls, payment: Any) -> PaymentOut:
         telegram_id = None
         loaded_user = payment.__dict__.get("user")
         user_label = _payment_user_display_label(loaded_user, int(payment.user_id))
@@ -538,7 +538,7 @@ class PaymentDetailOut(PaymentOut):
     updated_at: datetime | None = None
 
     @classmethod
-    def from_orm_payment_detail(cls, payment: Any) -> "PaymentDetailOut":
+    def from_orm_payment_detail(cls, payment: Any) -> PaymentDetailOut:
         payload = PaymentOut.from_orm_payment(payment).model_dump(mode="json")
         payload.update(
             {
@@ -571,7 +571,7 @@ class AdminUserOut(HttpResponseModel):
     referred_by_id: int | None = None
 
     @classmethod
-    def from_orm_user(cls, user: Any) -> "AdminUserOut":
+    def from_orm_user(cls, user: Any) -> AdminUserOut:
         return cls(
             user_id=int(user.user_id),
             telegram_id=int(user.telegram_id) if user.telegram_id else None,
@@ -608,7 +608,7 @@ class AdminUserTrialOut(HttpResponseModel):
     last_reset_at: str | None = None
 
     @classmethod
-    def from_orm_trial(cls, user: Any, trial_subs: Any) -> "AdminUserTrialOut":
+    def from_orm_trial(cls, user: Any, trial_subs: Any) -> AdminUserTrialOut:
         first_trial_sub = trial_subs[0] if trial_subs else None
         latest_trial_sub = trial_subs[-1] if trial_subs else None
         first_start = getattr(first_trial_sub, "start_date", None)
@@ -661,7 +661,7 @@ class AdminSubscriptionOut(HttpResponseModel):
     is_throttled: bool
 
     @classmethod
-    def from_orm_subscription(cls, sub: Any) -> "AdminSubscriptionOut":
+    def from_orm_subscription(cls, sub: Any) -> AdminSubscriptionOut:
         premium_bonus_bytes = int(getattr(sub, "premium_bonus_bytes", 0) or 0)
         regular_bonus_bytes = int(getattr(sub, "regular_bonus_bytes", 0) or 0)
         premium_limit_bytes = (
@@ -739,7 +739,7 @@ class AdOut(HttpResponseModel):
     stats: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
-    def from_orm_ad(cls, campaign: Any, totals: dict[str, Any] | None = None) -> "AdOut":
+    def from_orm_ad(cls, campaign: Any, totals: dict[str, Any] | None = None) -> AdOut:
         return cls(
             id=int(campaign.ad_campaign_id),
             source=campaign.source,
@@ -794,7 +794,7 @@ class LogOut(HttpResponseModel):
     timestamp: datetime | None = None
 
     @classmethod
-    def from_orm_log(cls, entry: Any) -> "LogOut":
+    def from_orm_log(cls, entry: Any) -> LogOut:
         author_user = entry.__dict__.get("author_user")
         target_user = entry.__dict__.get("target_user")
         user_id = int(entry.user_id) if entry.user_id is not None else None

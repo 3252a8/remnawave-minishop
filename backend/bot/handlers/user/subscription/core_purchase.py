@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 from aiogram import F, types
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,14 +32,14 @@ from .core_common import (
 
 
 async def display_subscription_options(
-    event: Union[types.Message, types.CallbackQuery],
+    event: types.Message | types.CallbackQuery,
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession,
     back_callback: str = "main_action:back_to_main",
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
 
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 

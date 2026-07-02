@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
@@ -29,27 +30,27 @@ SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_KEY = "SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABL
 
 class NotificationSupportMixin:
     if TYPE_CHECKING:
-        settings: "Settings"
-        i18n: Optional["JsonI18n"]
+        settings: Settings
+        i18n: JsonI18n | None
         session_factory: Any
-        email_auth_service: Optional["EmailAuthService"]
+        email_auth_service: EmailAuthService | None
         bot_username: str
         bot: Bot
 
         async def _send_to_admins(
             self,
             message: str,
-            reply_markup: Optional[InlineKeyboardMarkup] = None,
+            reply_markup: InlineKeyboardMarkup | None = None,
         ) -> None: ...
 
         async def _send_to_log_channel(
             self,
             message: str,
-            thread_id: Optional[int] = None,
-            reply_markup: Optional[InlineKeyboardMarkup] = None,
+            thread_id: int | None = None,
+            reply_markup: InlineKeyboardMarkup | None = None,
         ) -> None: ...
 
-    def _support_webapp_url(self, path: str) -> Optional[str]:
+    def _support_webapp_url(self, path: str) -> str | None:
         base_url = str(getattr(self.settings, "SUBSCRIPTION_MINI_APP_URL", "") or "").strip()
         if not base_url:
             return None
@@ -79,7 +80,7 @@ class NotificationSupportMixin:
             return InlineKeyboardButton(text=text, web_app=WebAppInfo(url=webapp_url))
         return InlineKeyboardButton(text=text, url=webapp_url or fallback_url)
 
-    def _support_text(self, language: Optional[str], key: str, fallback: str) -> str:
+    def _support_text(self, language: str | None, key: str, fallback: str) -> str:
         if not self.i18n:
             return fallback
         return self.i18n.gettext(language or self.settings.DEFAULT_LANGUAGE, key) or fallback
@@ -104,7 +105,7 @@ class NotificationSupportMixin:
         return display
 
     @staticmethod
-    def _support_snapshot_rows(snapshot: Optional[dict[str, object]]) -> list[tuple[str, str]]:
+    def _support_snapshot_rows(snapshot: dict[str, object] | None) -> list[tuple[str, str]]:
         if not snapshot:
             return []
         rows = []
@@ -193,7 +194,7 @@ class NotificationSupportMixin:
                 rows.append(profile_row)
         return InlineKeyboardMarkup(inline_keyboard=rows)
 
-    def _support_log_thread_id(self) -> Optional[int]:
+    def _support_log_thread_id(self) -> int | None:
         return getattr(self.settings, "LOG_SUPPORT_THREAD_ID", None)
 
     def _support_thread_is_configured(self) -> bool:
@@ -314,7 +315,7 @@ class NotificationSupportMixin:
         user: User,
         snapshot: dict[str, object],
         *,
-        unread_count: Optional[int] = None,
+        unread_count: int | None = None,
         send_telegram: bool = True,
         send_email: bool = True,
     ) -> None:

@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aiogram import F, Router, types
 from aiohttp import web
@@ -61,7 +61,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     return await run_webapp_payment(_DESCRIPTOR, ctx)
 
 
-async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
     return await run_reuse_webapp_payment(_DESCRIPTOR, ctx, payment)
 
 
@@ -399,7 +399,7 @@ async def _create_payment(service: PaykillaService, req: CreatePaymentRequest) -
     )
 
 
-async def _reuse_payment(service: PaykillaService, payment: Any) -> Optional[str]:
+async def _reuse_payment(service: PaykillaService, payment: Any) -> str | None:
     return await service.try_reuse_pending_invoice(payment)
 
 

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Iterable
 
 from bot.services.promo_effects import PromoEffects
 from bot.utils.date_utils import add_months

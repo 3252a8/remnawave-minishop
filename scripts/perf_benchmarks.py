@@ -5,6 +5,7 @@ import asyncio
 import json
 import sys
 import time
+from datetime import UTC
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -119,9 +120,9 @@ async def bench_panel_user_prefetch(users: int) -> dict:
 
 async def bench_panel_sync_startup(users: int) -> dict:
     end_date = "2026-06-20T12:00:00+00:00"
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    parsed_end_date = datetime.fromisoformat(end_date).astimezone(timezone.utc)
+    parsed_end_date = datetime.fromisoformat(end_date).astimezone(UTC)
     started = time.perf_counter()
     subscription_writes = 0
     description_patches = 0

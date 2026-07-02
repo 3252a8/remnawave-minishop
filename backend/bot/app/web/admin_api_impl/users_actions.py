@@ -1,6 +1,5 @@
 import logging
 from html import escape as html_escape
-from typing import Optional
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiohttp import web
@@ -491,7 +490,7 @@ async def admin_user_hwid_device_limit_route(request: web.Request) -> web.Respon
     limit_raw = body.hwid_device_limit if body.hwid_device_limit is not None else body.limit
 
     if unlimited:
-        hwid_device_limit: Optional[int] = 0
+        hwid_device_limit: int | None = 0
     elif use_default or limit_raw is None or limit_raw == "":
         hwid_device_limit = None
     else:

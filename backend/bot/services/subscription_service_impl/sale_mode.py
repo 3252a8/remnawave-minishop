@@ -10,7 +10,6 @@ worth isolating and unit-testing on its own.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -18,12 +17,12 @@ class SaleModeContext:
     """Parsed sale-mode token: the base activation mode plus an optional tariff key."""
 
     base: str
-    tariff_key: Optional[str]
+    tariff_key: str | None
 
 
 def parse_sale_mode_context(
     sale_mode: str,
-    explicit_tariff_key: Optional[str] = None,
+    explicit_tariff_key: str | None = None,
 ) -> SaleModeContext:
     """Split a raw ``sale_mode`` token into its base mode and tariff key.
 

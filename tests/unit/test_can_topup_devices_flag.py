@@ -18,9 +18,9 @@ These tests pin the visibility contract:
 import json
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 # Importing the facade populates ``webapp.serializers`` with helpers like
 # ``_format_remaining`` that come from ``_runtime`` via the facade init dance.
@@ -30,7 +30,7 @@ from config.settings import Settings
 
 
 def _tariffs_payload(*, hwid_rub=None, hwid_stars=None, has_premium=False) -> dict:
-    tariff: Dict[str, Any] = {
+    tariff: dict[str, Any] = {
         "key": "standard",
         "names": {"en": "Standard"},
         "descriptions": {"en": "Base"},
@@ -57,7 +57,7 @@ def _tariffs_payload(*, hwid_rub=None, hwid_stars=None, has_premium=False) -> di
 
 
 def _traffic_tariffs_payload(*, hwid_rub=None) -> dict:
-    tariff: Dict[str, Any] = {
+    tariff: dict[str, Any] = {
         "key": "traffic",
         "names": {"en": "Traffic"},
         "descriptions": {"en": "Traffic"},
@@ -72,8 +72,8 @@ def _traffic_tariffs_payload(*, hwid_rub=None) -> dict:
     return {"default_tariff": "traffic", "tariffs": [tariff]}
 
 
-def _make_settings(tmpdir: str, payload: Optional[dict] = None, **overrides: Any) -> Settings:
-    values: Dict[str, Any] = {
+def _make_settings(tmpdir: str, payload: dict | None = None, **overrides: Any) -> Settings:
+    values: dict[str, Any] = {
         "_env_file": None,
         "BOT_TOKEN": "token",
         "POSTGRES_USER": "u",
@@ -87,12 +87,12 @@ def _make_settings(tmpdir: str, payload: Optional[dict] = None, **overrides: Any
     return Settings(**values)
 
 
-def _active(**overrides) -> Dict[str, Any]:
+def _active(**overrides) -> dict[str, Any]:
     """Build a minimal ``active`` dict shaped like ``get_active_subscription_details``."""
-    base: Dict[str, Any] = {
+    base: dict[str, Any] = {
         "tariff_key": "standard",
         "status_from_panel": "ACTIVE",
-        "end_date": datetime.now(timezone.utc) + timedelta(days=30),
+        "end_date": datetime.now(UTC) + timedelta(days=30),
         "traffic_limit_bytes": 0,
         "traffic_used_bytes": 0,
         "premium_baseline_bytes": 0,

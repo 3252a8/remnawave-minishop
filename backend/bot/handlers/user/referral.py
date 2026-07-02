@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Callable, Optional, Union
+from collections.abc import Callable
+from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from aiogram import Bot, F, Router, types
@@ -16,7 +17,7 @@ router = Router(name="user_referral_router")
 
 
 async def referral_command_handler(
-    event: Union[types.Message, types.CallbackQuery],
+    event: types.Message | types.CallbackQuery,
     settings: Settings,
     i18n_data: dict,
     referral_service: ReferralService,
@@ -25,7 +26,7 @@ async def referral_command_handler(
     back_callback: str = "main_action:back_to_main",
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
 
     target_message_obj = event.message if isinstance(event, types.CallbackQuery) else event
     if not target_message_obj:
@@ -145,7 +146,7 @@ async def referral_action_handler(
 ) -> None:
     action = callback_data(callback).split(":")[1]
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await callback.answer("Language service error.", show_alert=True)
         return
@@ -202,8 +203,8 @@ def _period_bonus_text(
     translator: Translator,
     *,
     months: int,
-    inviter_days: Optional[int],
-    referee_days: Optional[int],
+    inviter_days: int | None,
+    referee_days: int | None,
 ) -> str:
     return translator(
         "referral_bonus_per_period",
@@ -217,8 +218,8 @@ def _period_bonus_text(
     )
 
 
-def _tariff_period_bonus_entries(tariff: Any) -> list[dict[str, Optional[int]]]:
-    entries: list[dict[str, Optional[int]]] = []
+def _tariff_period_bonus_entries(tariff: Any) -> list[dict[str, int | None]]:
+    entries: list[dict[str, int | None]] = []
     for months in sorted(int(month) for month in getattr(tariff, "enabled_periods", [])):
         inviter_days = tariff.referral_inviter_bonus_days(months)
         referee_days = tariff.referral_referee_bonus_days(months)
@@ -234,8 +235,8 @@ def _tariff_period_bonus_entries(tariff: Any) -> list[dict[str, Optional[int]]]:
     return entries
 
 
-def _legacy_period_bonus_entries(settings: Settings) -> list[dict[str, Optional[int]]]:
-    entries: list[dict[str, Optional[int]]] = []
+def _legacy_period_bonus_entries(settings: Settings) -> list[dict[str, int | None]]:
+    entries: list[dict[str, int | None]] = []
     for months, _price in sorted(settings.subscription_options.items()):
         inviter_days = settings.referral_bonus_inviter.get(months)
         referee_days = settings.referral_bonus_referee.get(months)
@@ -321,9 +322,7 @@ def _build_referral_bonus_details_text(
     )
 
 
-def _build_webapp_referral_link(
-    base_url: Optional[str], referral_code: Optional[str]
-) -> Optional[str]:
+def _build_webapp_referral_link(base_url: str | None, referral_code: str | None) -> str | None:
     if not base_url or not referral_code:
         return None
     parts = urlsplit(base_url)
@@ -344,7 +343,7 @@ async def _generate_webapp_referral_link(
     session: AsyncSession,
     settings: Settings,
     inviter_user_id: int,
-) -> Optional[str]:
+) -> str | None:
     if not settings.SUBSCRIPTION_MINI_APP_URL:
         return None
     db_user = await user_dal.get_user_by_id(session, inviter_user_id)

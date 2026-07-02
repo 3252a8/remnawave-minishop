@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
@@ -8,7 +8,7 @@ from bot.services.promo_code_service import PromoCheckoutRequired, PromoCodeServ
 
 class PromoCodeServiceTests(IsolatedAsyncioTestCase):
     async def test_apply_promo_passes_default_tariff_for_new_bonus_subscription(self):
-        end_date = datetime(2026, 1, 8, tzinfo=timezone.utc)
+        end_date = datetime(2026, 1, 8, tzinfo=UTC)
         settings = SimpleNamespace(
             MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED=False,
             BRUTE_FORCE_LOCK_SECONDS=60,

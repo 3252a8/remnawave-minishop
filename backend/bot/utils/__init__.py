@@ -1,7 +1,7 @@
 # Bot utilities package
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from aiogram import Bot, types
 
@@ -14,8 +14,8 @@ class MessageContent:
     """Класс для хранения информации о контенте сообщения"""
 
     content_type: str
-    file_id: Optional[str] = None
-    text: Optional[str] = None
+    file_id: str | None = None
+    text: str | None = None
 
 
 # Словари поддерживаемых параметров для каждого типа сообщения
@@ -138,7 +138,7 @@ SUPPORTED_PARAMS = {
 }
 
 
-def filter_kwargs(content_type: str, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def filter_kwargs(content_type: str, kwargs: dict[str, Any]) -> dict[str, Any]:
     """Фильтрует kwargs, оставляя только поддерживаемые параметры для данного типа сообщения"""
     supported = SUPPORTED_PARAMS.get(content_type, set())
     return {k: v for k, v in kwargs.items() if k in supported}

@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import Field, field_validator
 from pydantic_settings import SettingsConfigDict
@@ -18,10 +18,10 @@ class YooKassaConfig(ProviderEnvConfig):
     )
 
     ENABLED: bool = Field(default=True)
-    SHOP_ID: Optional[str] = None
-    SECRET_KEY: Optional[str] = None
-    RETURN_URL: Optional[str] = None
-    DEFAULT_RECEIPT_EMAIL: Optional[str] = None
+    SHOP_ID: str | None = None
+    SECRET_KEY: str | None = None
+    RETURN_URL: str | None = None
+    DEFAULT_RECEIPT_EMAIL: str | None = None
     VAT_CODE: int = Field(default=1)
     PAYMENT_MODE: str = Field(default="full_prepayment")
     PAYMENT_SUBJECT: str = Field(default="service")
@@ -60,9 +60,9 @@ class YooKassaPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None

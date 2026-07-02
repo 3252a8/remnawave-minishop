@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from aiogram import Bot
 
@@ -27,7 +26,7 @@ class OutboundMessagingService:
         *,
         user_id: int,
         text: str,
-        parse_mode: Optional[str] = "HTML",
+        parse_mode: str | None = "HTML",
         disable_web_page_preview: bool = True,
         event_type: str = "outbound_message_sent",
     ) -> bool:
@@ -47,7 +46,7 @@ class OutboundMessagingService:
                 channel="telegram_queue",
                 recipient=str(user_id),
                 content=text[:4096],
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
             )
             return True
 
@@ -74,6 +73,6 @@ class OutboundMessagingService:
             channel="telegram",
             recipient=str(user_id),
             content=text[:4096],
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
         return True

@@ -1,7 +1,7 @@
 import logging
 import math
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,19 +25,19 @@ class TariffMixin(SubscriptionServiceMixinContract):
 
     @staticmethod
     def _far_future() -> datetime:
-        return datetime(2099, 1, 1, tzinfo=timezone.utc)
+        return datetime(2099, 1, 1, tzinfo=UTC)
 
-    def _tariffs_config(self) -> Optional[TariffsConfig]:
+    def _tariffs_config(self) -> TariffsConfig | None:
         config = getattr(self.settings, "tariffs_config", None)
         return config if isinstance(config, TariffsConfig) else None
 
-    def _default_tariff(self) -> Optional[Tariff]:
+    def _default_tariff(self) -> Tariff | None:
         config = self._tariffs_config()
         return config.default if config else None
 
     def _resolve_tariff(
-        self, tariff_key: Optional[str], billing_model: Optional[str] = None
-    ) -> Optional[Tariff]:
+        self, tariff_key: str | None, billing_model: str | None = None
+    ) -> Tariff | None:
         config = self._tariffs_config()
         if not config:
             return None
@@ -50,10 +50,10 @@ class TariffMixin(SubscriptionServiceMixinContract):
 
     def _panel_squads_for_tariff(
         self,
-        tariff: Optional[Tariff],
+        tariff: Tariff | None,
         *,
         include_premium: bool = True,
-    ) -> Optional[List[str]]:
+    ) -> list[str] | None:
         if tariff:
             squads = list(tariff.squad_uuids or [])
             if include_premium:
@@ -70,7 +70,7 @@ class TariffMixin(SubscriptionServiceMixinContract):
             premium_squads.update(str(uuid) for uuid in (tariff.premium_squad_uuids or []))
         return premium_squads
 
-    def _trial_panel_squad_uuids(self) -> List[str]:
+    def _trial_panel_squad_uuids(self) -> list[str]:
         squads = self.settings.parsed_trial_squad_uuids
         if not squads:
             squads = self.settings.parsed_user_squad_uuids or []
@@ -84,11 +84,11 @@ class TariffMixin(SubscriptionServiceMixinContract):
             )
         )
 
-    def _trial_all_panel_squad_uuids(self) -> List[str]:
+    def _trial_all_panel_squad_uuids(self) -> list[str]:
         squads = [*self._trial_panel_squad_uuids(), *self._trial_premium_squad_uuids()]
         return list(dict.fromkeys(str(uuid) for uuid in squads if str(uuid or "").strip()))
 
-    def _trial_premium_squad_uuids(self) -> List[str]:
+    def _trial_premium_squad_uuids(self) -> list[str]:
         squads = self.settings.parsed_trial_premium_squad_uuids or []
         return list(dict.fromkeys(str(uuid) for uuid in squads if str(uuid or "").strip()))
 
@@ -99,7 +99,7 @@ class TariffMixin(SubscriptionServiceMixinContract):
 
     def _traffic_limit_for_period_tariff(
         self,
-        tariff: Optional[Tariff],
+        tariff: Tariff | None,
         topup_balance_bytes: int = 0,
         regular_bonus_bytes: int = 0,
         regular_unlimited_override: bool = False,
@@ -117,9 +117,7 @@ class TariffMixin(SubscriptionServiceMixinContract):
             traffic_used_bytes=traffic_used_bytes,
         )
 
-    def _premium_limit_for_tariff(
-        self, tariff: Optional[Tariff], topup_balance_bytes: int = 0
-    ) -> int:
+    def _premium_limit_for_tariff(self, tariff: Tariff | None, topup_balance_bytes: int = 0) -> int:
         if not tariff:
             return 0
         return int(tariff.premium_monthly_bytes + max(0, topup_balance_bytes))
@@ -194,12 +192,12 @@ class TariffMixin(SubscriptionServiceMixinContract):
             return 0
         return floor
 
-    async def premium_access_for_tariff(self, tariff: Optional[Tariff]) -> Dict[str, Any]:
+    async def premium_access_for_tariff(self, tariff: Tariff | None) -> dict[str, Any]:
         if not tariff or not tariff.premium_squad_uuids:
             return {"squad_uuids": [], "squad_labels": [], "node_labels": []}
 
         cache_key = tuple(sorted(str(uuid) for uuid in tariff.premium_squad_uuids))
-        now_ts = datetime.now(timezone.utc).timestamp()
+        now_ts = datetime.now(UTC).timestamp()
         cached = self._premium_access_cache.get(cache_key)
         if cached and now_ts - float(cached.get("ts", 0)) < 600:
             return {
@@ -208,8 +206,8 @@ class TariffMixin(SubscriptionServiceMixinContract):
                 "node_labels": list(cached.get("node_labels") or []),
             }
 
-        def _extract_inbound_uuids(squad_obj: Dict[str, Any]) -> List[str]:
-            collected: List[str] = []
+        def _extract_inbound_uuids(squad_obj: dict[str, Any]) -> list[str]:
+            collected: list[str] = []
             for field in ("inbounds", "internalInbounds", "configProfileInbounds"):
                 value = squad_obj.get(field)
                 if not isinstance(value, list):
@@ -228,8 +226,8 @@ class TariffMixin(SubscriptionServiceMixinContract):
                         collected.append(ib_uuid)
             return collected
 
-        squad_name_map: Dict[str, str] = {}
-        squad_inbound_map: Dict[str, List[str]] = {}
+        squad_name_map: dict[str, str] = {}
+        squad_inbound_map: dict[str, list[str]] = {}
         try:
             squads = await self.panel_service.get_internal_squads() or []
             for squad in squads:
@@ -263,7 +261,7 @@ class TariffMixin(SubscriptionServiceMixinContract):
                         detail.get("name") or detail.get("title") or squad_uuid_str
                     )
 
-        def _host_is_user_visible(host: Dict[str, Any]) -> bool:
+        def _host_is_user_visible(host: dict[str, Any]) -> bool:
             return not bool(
                 host.get("isHidden")
                 or host.get("is_hidden")
@@ -273,7 +271,7 @@ class TariffMixin(SubscriptionServiceMixinContract):
                 or host.get("disabled")
             )
 
-        hosts_by_inbound: Dict[str, List[Dict[str, Any]]] = {}
+        hosts_by_inbound: dict[str, list[dict[str, Any]]] = {}
         try:
             hosts = await self.panel_service.get_hosts() or []
             for host in hosts:
@@ -282,7 +280,7 @@ class TariffMixin(SubscriptionServiceMixinContract):
                 if not _host_is_user_visible(host):
                     continue
                 inbound_raw = host.get("inbound")
-                inbound_field: Dict[str, Any] = inbound_raw if isinstance(inbound_raw, dict) else {}
+                inbound_field: dict[str, Any] = inbound_raw if isinstance(inbound_raw, dict) else {}
                 inbound_uuid = (
                     host.get("inboundUuid")
                     or host.get("inbound_uuid")
@@ -305,7 +303,7 @@ class TariffMixin(SubscriptionServiceMixinContract):
         except Exception:
             logging.debug("Failed to load hosts for premium display", exc_info=True)
 
-        def _host_remark(host: Dict[str, Any]) -> str:
+        def _host_remark(host: dict[str, Any]) -> str:
             for key in ("remark", "name", "label", "title"):
                 value = host.get(key)
                 if value is None:
@@ -315,11 +313,11 @@ class TariffMixin(SubscriptionServiceMixinContract):
                     return candidate
             return ""
 
-        node_labels: List[str] = []
+        node_labels: list[str] = []
         for squad_uuid in tariff.premium_squad_uuids:
             squad_uuid_str = str(squad_uuid)
             inbound_uuids = squad_inbound_map.get(squad_uuid_str) or []
-            host_labels_for_squad: List[str] = []
+            host_labels_for_squad: list[str] = []
             for inbound_uuid in inbound_uuids:
                 for host in hosts_by_inbound.get(inbound_uuid, []):
                     remark = _host_remark(host)
@@ -377,7 +375,7 @@ class TariffMixin(SubscriptionServiceMixinContract):
             squad_name_map.get(str(uuid), f"{str(uuid)[:8]}...")
             for uuid in tariff.premium_squad_uuids
         ]
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "ts": now_ts,
             "squad_uuids": list(tariff.premium_squad_uuids),
             "squad_labels": list(dict.fromkeys(squad_labels)),
@@ -390,14 +388,14 @@ class TariffMixin(SubscriptionServiceMixinContract):
             "node_labels": list(payload["node_labels"]),
         }
 
-    def _base_hwid_limit_for_tariff(self, tariff: Optional[Tariff]) -> Optional[int]:
+    def _base_hwid_limit_for_tariff(self, tariff: Tariff | None) -> int | None:
         if tariff and tariff.hwid_device_limit is not None:
             return int(tariff.hwid_device_limit)
         value = self.settings.USER_HWID_DEVICE_LIMIT
         return int(value) if value is not None else None
 
     @staticmethod
-    def _effective_hwid_limit(base_limit: Optional[int], extra_devices: int = 0) -> Optional[int]:
+    def _effective_hwid_limit(base_limit: int | None, extra_devices: int = 0) -> int | None:
         if base_limit is None:
             return 0
         base_int = max(0, int(base_limit))
@@ -407,11 +405,11 @@ class TariffMixin(SubscriptionServiceMixinContract):
 
     def calculate_tariff_switch_options(
         self, sub: Subscription, target_tariff: Tariff
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         current_tariff = (
             self._resolve_tariff(sub.tariff_key) if sub.tariff_key else self._default_tariff()
         )
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         remaining_days = max(0, (sub.end_date - now).days) if sub.end_date else 0
         effective = float(sub.effective_monthly_price_rub or 0)
         current_model = current_tariff.billing_model if current_tariff else "period"
@@ -466,11 +464,11 @@ class TariffMixin(SubscriptionServiceMixinContract):
         }
 
     @staticmethod
-    def _aware_utc(value: Optional[datetime]) -> Optional[datetime]:
+    def _aware_utc(value: datetime | None) -> datetime | None:
         if value is None:
             return None
         if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
+            return value.replace(tzinfo=UTC)
         return value
 
     async def _hwid_conversion_credit(
@@ -479,14 +477,14 @@ class TariffMixin(SubscriptionServiceMixinContract):
         sub: Subscription,
         *,
         at: datetime,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         entries = await tariff_dal.get_hwid_device_value_entries(
             session,
             subscription_id=sub.subscription_id,
             at=at,
         )
         value_rub = 0.0
-        purchase_ids: List[int] = []
+        purchase_ids: list[int] = []
         skipped_devices = 0
         for entry in entries:
             currency = str(entry.get("currency") or "").upper()
@@ -522,9 +520,9 @@ class TariffMixin(SubscriptionServiceMixinContract):
         session: AsyncSession,
         sub: Subscription,
         target_tariff: Tariff,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         options = dict(self.calculate_tariff_switch_options(sub, target_tariff))
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         credit = await self._hwid_conversion_credit(session, sub, at=now)
         value_rub = float(credit.get("value_rub") or 0)
         options["converted_hwid_value_rub"] = round(value_rub, 2)

@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import Any, Dict, Optional, cast
+from typing import Any, cast
 
 from bot.infra.redis import get_redis, redis_key
 from config.settings import Settings
@@ -16,9 +16,9 @@ def webhook_queue_key(settings: Settings) -> str:
 async def enqueue_webhook_event(
     settings: Settings,
     provider: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     *,
-    event_id: Optional[str] = None,
+    event_id: str | None = None,
 ) -> bool:
     redis = await get_redis(settings)
     if redis is None:
@@ -45,7 +45,7 @@ async def enqueue_webhook_event(
         return False
 
 
-async def pop_webhook_event(settings: Settings, timeout_seconds: int = 5) -> Optional[dict]:
+async def pop_webhook_event(settings: Settings, timeout_seconds: int = 5) -> dict | None:
     redis = await get_redis(settings)
     if redis is None:
         return None

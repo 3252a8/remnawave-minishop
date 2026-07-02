@@ -440,8 +440,7 @@ def test_docs_email_preview_generator_renders_real_template_html():
         cwd=REPO_ROOT,
         check=True,
         encoding="utf-8",
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         text=True,
     )
     previews = json.loads(result.stdout)

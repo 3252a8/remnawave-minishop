@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import ipaddress
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 from aiohttp import web
 
 
-def parse_ip_entries(raw_values: Optional[Sequence[str] | str]) -> list[ipaddress._BaseNetwork]:
+def parse_ip_entries(raw_values: Sequence[str] | str | None) -> list[ipaddress._BaseNetwork]:
     if raw_values is None:
         return []
     if isinstance(raw_values, str):
@@ -25,7 +25,7 @@ def parse_ip_entries(raw_values: Optional[Sequence[str] | str]) -> list[ipaddres
     return parsed
 
 
-def _parse_ip(value: Optional[str]) -> Optional[ipaddress._BaseAddress]:
+def _parse_ip(value: str | None) -> ipaddress._BaseAddress | None:
     if not value:
         return None
     try:
@@ -47,7 +47,7 @@ def _forwarded_ips(header_value: str) -> list[ipaddress._BaseAddress]:
 def _forwarded_client_ip(
     forwarded_ips: Sequence[ipaddress._BaseAddress],
     trusted_networks: Sequence[ipaddress._BaseNetwork],
-) -> Optional[str]:
+) -> str | None:
     for forwarded_ip in reversed(forwarded_ips):
         if not any(forwarded_ip in network for network in trusted_networks):
             return str(forwarded_ip)
@@ -59,8 +59,8 @@ def _forwarded_client_ip(
 def request_client_ip(
     request: web.Request,
     *,
-    trusted_proxies: Optional[Sequence[str] | str] = None,
-) -> Optional[str]:
+    trusted_proxies: Sequence[str] | str | None = None,
+) -> str | None:
     remote_ip = _parse_ip(request.remote or "")
     forwarded_ips = _forwarded_ips(request.headers.get("X-Forwarded-For", ""))
 
@@ -79,9 +79,7 @@ def request_client_ip(
     return None
 
 
-def ip_in_allowlist(
-    ip_value: Optional[str], allowed_entries: Optional[Sequence[str] | str]
-) -> bool:
+def ip_in_allowlist(ip_value: str | None, allowed_entries: Sequence[str] | str | None) -> bool:
     parsed_ip = _parse_ip(ip_value)
     if parsed_ip is None:
         return False

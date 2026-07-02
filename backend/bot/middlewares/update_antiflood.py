@@ -3,8 +3,9 @@ import hashlib
 import logging
 import time
 from collections import defaultdict, deque
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Deque, Dict, Optional, cast
+from typing import Any, cast
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject, Update
@@ -56,8 +57,8 @@ class UpdateAntiFloodMiddleware(BaseMiddleware):
         self,
         settings: Settings,
         *,
-        default_rule: Optional[RateLimitRule] = None,
-        action_rules: Optional[Dict[str, RateLimitRule]] = None,
+        default_rule: RateLimitRule | None = None,
+        action_rules: dict[str, RateLimitRule] | None = None,
     ) -> None:
         super().__init__()
         self.settings = settings
@@ -70,15 +71,15 @@ class UpdateAntiFloodMiddleware(BaseMiddleware):
             ),
         )
         self.action_rules = action_rules or _default_action_rules(settings)
-        self._local_buckets: Dict[str, Deque[float]] = defaultdict(deque)
-        self._local_cooldowns: Dict[str, float] = {}
+        self._local_buckets: dict[str, deque[float]] = defaultdict(deque)
+        self._local_cooldowns: dict[str, float] = {}
         self._local_lock = asyncio.Lock()
 
     async def __call__(
         self,
-        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
         event: TelegramObject,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> Any:
         update = cast(Update, event)
 
@@ -201,7 +202,7 @@ class UpdateAntiFloodMiddleware(BaseMiddleware):
         return False
 
 
-def _update_actor_key(update: Update) -> Optional[str]:
+def _update_actor_key(update: Update) -> str | None:
     user_id = None
     chat_id = None
 
@@ -222,7 +223,7 @@ def _update_actor_key(update: Update) -> Optional[str]:
     return None
 
 
-def _message_or_callback_chat_type(update: Update) -> Optional[str]:
+def _message_or_callback_chat_type(update: Update) -> str | None:
     if update.message and update.message.chat:
         return str(update.message.chat.type)
     if (
@@ -250,7 +251,7 @@ def _update_action_key(update: Update) -> str:
     return "updates"
 
 
-def _update_action_cooldown(update: Update, settings: Settings) -> Optional[tuple[str, int]]:
+def _update_action_cooldown(update: Update, settings: Settings) -> tuple[str, int] | None:
     if not bool(settings.TELEGRAM_ACTION_COOLDOWN_ENABLED):
         return None
     if not update.callback_query or not update.callback_query.from_user:
@@ -290,12 +291,12 @@ async def _quietly_answer_callback(update: Update) -> None:
         pass
 
 
-def _mark_dropped(data: Dict[str, Any]) -> None:
+def _mark_dropped(data: dict[str, Any]) -> None:
     data["antiflood_dropped"] = True
     data["skip_action_log"] = True
 
 
-def _default_action_rules(settings: Settings) -> Dict[str, RateLimitRule]:
+def _default_action_rules(settings: Settings) -> dict[str, RateLimitRule]:
     window_seconds = int(settings.TELEGRAM_ANTIFLOOD_WINDOW_SECONDS or DEFAULT_WINDOW_SECONDS)
     return {
         "message": RateLimitRule(

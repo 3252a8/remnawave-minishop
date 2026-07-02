@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
@@ -10,8 +10,8 @@ from bot.payment_providers.stars import service as stars
 
 class InvoiceProviderHwidMetadataTests(IsolatedAsyncioTestCase):
     async def test_cryptopay_subscription_hwid_quote_records_device_count(self):
-        valid_from = datetime(2099, 2, 1, tzinfo=timezone.utc)
-        valid_until = datetime(2099, 3, 1, tzinfo=timezone.utc)
+        valid_from = datetime(2099, 2, 1, tzinfo=UTC)
+        valid_until = datetime(2099, 3, 1, tzinfo=UTC)
         hwid_quote = {
             "device_count": 2,
             "valid_from": valid_from,
@@ -77,8 +77,8 @@ class InvoiceProviderHwidMetadataTests(IsolatedAsyncioTestCase):
         assert provider_payload["hwid_devices"] == 2
 
     async def test_stars_subscription_hwid_quote_records_device_count(self):
-        valid_from = datetime(2099, 2, 1, tzinfo=timezone.utc)
-        valid_until = datetime(2099, 3, 1, tzinfo=timezone.utc)
+        valid_from = datetime(2099, 2, 1, tzinfo=UTC)
+        valid_until = datetime(2099, 3, 1, tzinfo=UTC)
         hwid_quote = {
             "device_count": 1,
             "valid_from": valid_from,

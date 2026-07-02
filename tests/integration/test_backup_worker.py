@@ -3,7 +3,7 @@ import json
 import os
 import re
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -191,7 +191,7 @@ def test_backup_worker_caption_lists_and_truncates_warning_details(tmp_path):
     settings = _settings(tmp_path, tmp_path / "compose")
     worker = _FakePgDumpBackupWorker(settings, _FakeBot())
     result = SimpleNamespace(
-        completed_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(UTC),
         db_dump_included=True,
         compose_files_count=0,
         size_bytes=1024,

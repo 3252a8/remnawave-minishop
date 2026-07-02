@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,9 +57,9 @@ logger = logging.getLogger(__name__)
 class BasePaymentQuote:
     payment_units: int | float
     price: float
-    stars_price: Optional[int]
+    stars_price: int | None
     sale_mode: str
-    traffic_gb_for_payment: Optional[float]
+    traffic_gb_for_payment: float | None
     default_currency_code: str
 
 
@@ -195,17 +195,17 @@ async def _resolve_base_payment_quote(
     method: str,
     settings: Settings,
     subscription_service: SubscriptionService,
-) -> tuple[Optional[BasePaymentQuote], Optional[web.Response]]:
+) -> tuple[BasePaymentQuote | None, web.Response | None]:
     cached = _get_cached_webapp_settings(request)
     tariffs_config = settings.tariffs_config
     default_currency = default_currency_key_for_settings(settings)
     default_currency_code = payment_currency_code(default_currency)
     traffic_mode = bool(settings.traffic_sale_mode)
     sale_mode = "subscription"
-    traffic_gb_for_payment: Optional[float] = None
+    traffic_gb_for_payment: float | None = None
     requested_sale_mode = _sale_mode_base(str(payment_payload.sale_mode or ""))
-    price: Optional[float] = None
-    stars_price: Optional[int] = None
+    price: float | None = None
+    stars_price: int | None = None
     payment_units: int | float
 
     if tariffs_config and requested_sale_mode == "hwid_devices_renewal":
@@ -464,8 +464,8 @@ async def create_payment_route(request: web.Request) -> web.Response:
     default_currency_code = payment_currency_code(default_currency)
     traffic_mode = bool(settings.traffic_sale_mode)
     sale_mode = "subscription"
-    traffic_gb_for_payment: Optional[float] = None
-    hwid_quote: Optional[Dict[str, Any]] = None
+    traffic_gb_for_payment: float | None = None
+    hwid_quote: dict[str, Any] | None = None
     requested_sale_mode = _sale_mode_base(str(payment_payload.sale_mode or ""))
     payment_units: int | float
 
@@ -749,15 +749,15 @@ async def _create_subscription_payment(
     method: str,
     months: Any,
     price: float,
-    stars_price: Optional[int],
+    stars_price: int | None,
     lang: str,
-    currency: Optional[str] = None,
+    currency: str | None = None,
     sale_mode: str = "subscription",
-    traffic_gb: Optional[float] = None,
+    traffic_gb: float | None = None,
     is_admin: bool = False,
-    hwid_quote: Optional[Dict[str, Any]] = None,
-    promo_code_id: Optional[int] = None,
-    promo_result: Optional[CheckoutPromoResult] = None,
+    hwid_quote: dict[str, Any] | None = None,
+    promo_code_id: int | None = None,
+    promo_result: CheckoutPromoResult | None = None,
 ) -> web.Response:
     settings: Settings = get_settings(request)
     payment_currency = (currency or default_payment_currency_code_for_settings(settings)).upper()

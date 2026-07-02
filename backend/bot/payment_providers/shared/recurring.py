@@ -19,8 +19,9 @@ The renewal worker discovers such services through
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Optional, Protocol
+from typing import Any, Protocol
 
 
 @dataclass(frozen=True)
@@ -43,7 +44,7 @@ class RecurringChargeContext:
     sale_mode: str
     description: str
     metadata: Mapping[str, str] = field(default_factory=dict)
-    hwid_quote: Optional[Mapping[str, Any]] = None
+    hwid_quote: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -56,21 +57,21 @@ class RecurringChargeResult:
     """
 
     initiated: bool
-    provider_payment_id: Optional[str] = None
-    status: Optional[str] = None
-    message: Optional[str] = None
+    provider_payment_id: str | None = None
+    status: str | None = None
+    message: str | None = None
 
     @classmethod
-    def failed(cls, message: Optional[str] = None) -> "RecurringChargeResult":
+    def failed(cls, message: str | None = None) -> RecurringChargeResult:
         return cls(initiated=False, message=message)
 
     @classmethod
     def ok(
         cls,
         *,
-        provider_payment_id: Optional[str] = None,
-        status: Optional[str] = None,
-    ) -> "RecurringChargeResult":
+        provider_payment_id: str | None = None,
+        status: str | None = None,
+    ) -> RecurringChargeResult:
         return cls(initiated=True, provider_payment_id=provider_payment_id, status=status)
 
 

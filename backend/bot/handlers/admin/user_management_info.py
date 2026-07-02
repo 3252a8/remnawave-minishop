@@ -1,6 +1,5 @@
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from aiogram import F, types
 from aiogram.fsm.context import FSMContext
@@ -319,7 +318,7 @@ async def handle_delete_user_prompt(
 async def _log_admin_user_deletion(
     session: AsyncSession,
     admin_id: int,
-    admin_user: Optional[types.User],
+    admin_user: types.User | None,
     target_user_id: int,
 ) -> None:
     """Store audit log for successful deletion."""
@@ -335,7 +334,7 @@ async def _log_admin_user_deletion(
                 "raw_update_preview": None,
                 "is_admin_event": True,
                 "target_user_id": target_user_id,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
         )
     except Exception as e:
@@ -359,7 +358,7 @@ async def process_delete_user_confirmation_handler(
 ) -> None:
     """Confirm and execute destructive user deletion."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         await state.clear()

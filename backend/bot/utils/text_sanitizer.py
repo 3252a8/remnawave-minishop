@@ -1,6 +1,5 @@
 import re
 import unicodedata
-from typing import Optional
 
 _OBFUSCATION_CHARS = " .\\-/\\\\•﹒٫＿․·∙‧ꞏ‒–—﹘﹣⁻−"
 
@@ -15,24 +14,12 @@ _URL_PATTERNS = [
 
 _OBFUSCATED_DOMAIN_PATTERNS = [
     re.compile(
-        r"(?i)[tт][\s{}\u2022]*[\.{}\u2022]*[\s{}\u2022]*[mм][eе]".format(
-            re.escape(_OBFUSCATION_CHARS),
-            re.escape(_OBFUSCATION_CHARS),
-            re.escape(_OBFUSCATION_CHARS),
-        )
+        rf"(?i)[tт][\s{re.escape(_OBFUSCATION_CHARS)}\u2022]*[\.{re.escape(_OBFUSCATION_CHARS)}\u2022]*[\s{re.escape(_OBFUSCATION_CHARS)}\u2022]*[mм][eе]"
     ),
     re.compile(
-        r"(?i)[tт][{}\s]*[eе][{}\s]*[lłl1i|][{}\s]*[eе]"
-        r"[{}\s]*[gɢgqг][{}\s]*[rр][{}\s]*[aа]"
-        r"[{}\s]*(?:[mм]|rn)".format(
-            re.escape(_OBFUSCATION_CHARS),
-            re.escape(_OBFUSCATION_CHARS),
-            re.escape(_OBFUSCATION_CHARS),
-            re.escape(_OBFUSCATION_CHARS),
-            re.escape(_OBFUSCATION_CHARS),
-            re.escape(_OBFUSCATION_CHARS),
-            re.escape(_OBFUSCATION_CHARS),
-        )
+        rf"(?i)[tт][{re.escape(_OBFUSCATION_CHARS)}\s]*[eе][{re.escape(_OBFUSCATION_CHARS)}\s]*[lłl1i|][{re.escape(_OBFUSCATION_CHARS)}\s]*[eе]"
+        rf"[{re.escape(_OBFUSCATION_CHARS)}\s]*[gɢgqг][{re.escape(_OBFUSCATION_CHARS)}\s]*[rр][{re.escape(_OBFUSCATION_CHARS)}\s]*[aа]"
+        rf"[{re.escape(_OBFUSCATION_CHARS)}\s]*(?:[mм]|rn)"
     ),
     re.compile(r"(?i)t\.me\S*"),
 ]
@@ -146,7 +133,7 @@ _NORMALIZED_BANNED_TOKENS = {
 _USERNAME_PLACEHOLDER = "клиент"
 
 
-def looks_like_broken_panel_text(value: Optional[str]) -> bool:
+def looks_like_broken_panel_text(value: str | None) -> bool:
     if value is None:
         return False
 
@@ -171,9 +158,9 @@ def looks_like_broken_panel_text(value: Optional[str]) -> bool:
 
 
 def panel_description_from_profile(
-    username: Optional[str],
-    first_name: Optional[str],
-    last_name: Optional[str],
+    username: str | None,
+    first_name: str | None,
+    last_name: str | None,
 ) -> str:
     lines = []
     for value in (username, first_name, last_name):
@@ -212,7 +199,7 @@ def _remove_patterns(value: str) -> str:
     return updated
 
 
-def _finalize(value: str) -> Optional[str]:
+def _finalize(value: str) -> str | None:
     compacted = re.sub(r"\s+", " ", value)
     compacted = compacted.strip(" \t\r\n-_.,/\\")
     compacted = compacted.strip()
@@ -225,7 +212,7 @@ def _finalize(value: str) -> Optional[str]:
     return compacted
 
 
-def sanitize_display_name(value: Optional[str]) -> Optional[str]:
+def sanitize_display_name(value: str | None) -> str | None:
     if value is None:
         return None
     clean = value.replace("@", " ")
@@ -233,7 +220,7 @@ def sanitize_display_name(value: Optional[str]) -> Optional[str]:
     return _finalize(clean)
 
 
-def sanitize_username(value: Optional[str]) -> Optional[str]:
+def sanitize_username(value: str | None) -> str | None:
     if value is None:
         return None
     clean = unicodedata.normalize("NFKC", str(value))
@@ -249,7 +236,7 @@ def sanitize_username(value: Optional[str]) -> Optional[str]:
     return None
 
 
-def username_for_display(username: Optional[str], with_at: bool = False) -> str:
+def username_for_display(username: str | None, with_at: bool = False) -> str:
     sanitized = sanitize_username(username)
     if not sanitized:
         return _USERNAME_PLACEHOLDER
@@ -257,8 +244,8 @@ def username_for_display(username: Optional[str], with_at: bool = False) -> str:
 
 
 def display_name_or_fallback(
-    first_name: Optional[str],
-    fallback: Optional[str] = None,
+    first_name: str | None,
+    fallback: str | None = None,
 ) -> str:
     sanitized = sanitize_display_name(first_name)
     if sanitized:

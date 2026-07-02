@@ -2,7 +2,7 @@
 import logging
 import math
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession

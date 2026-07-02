@@ -77,7 +77,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         service = self._make_service()
 
         def fake_request(*_args, **_kwargs):
-            raise asyncio.TimeoutError()
+            raise TimeoutError()
 
         service._get_session = AsyncMock(return_value=SimpleNamespace(request=fake_request))
 

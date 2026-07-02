@@ -16,17 +16,12 @@ note.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
-    Coroutine,
-    Dict,
-    List,
-    Optional,
     TypeVar,
     cast,
 )
@@ -70,13 +65,13 @@ class WorkerTaskSpec:
     """
 
     name: str
-    factory: Callable[["PluginContext"], Coroutine[Any, Any, None]]
-    enabled: Optional[Callable[["Settings"], bool]] = None
+    factory: Callable[[PluginContext], Coroutine[Any, Any, None]]
+    enabled: Callable[[Settings], bool] | None = None
 
 
 #: Handler for one webhook-queue event; receives the context and the raw
 #: event payload dict popped from the queue.
-QueueHandler = Callable[["PluginContext", Dict[str, Any]], Awaitable[None]]
+QueueHandler = Callable[["PluginContext", dict[str, Any]], Awaitable[None]]
 T = TypeVar("T")
 
 
@@ -89,24 +84,24 @@ class PluginContext:
     unset. Hooks must tolerate ``None`` for optional fields.
     """
 
-    settings: "Settings"
-    session_factory: Optional["sessionmaker"] = None
-    bot: Optional["Bot"] = None
-    i18n: Optional["JsonI18n"] = None
-    dispatcher: Optional["Dispatcher"] = None
-    services: Dict[str, object] = field(default_factory=dict)
+    settings: Settings
+    session_factory: sessionmaker | None = None
+    bot: Bot | None = None
+    i18n: JsonI18n | None = None
+    dispatcher: Dispatcher | None = None
+    services: dict[str, object] = field(default_factory=dict)
 
-    def require_session_factory(self) -> "sessionmaker":
+    def require_session_factory(self) -> sessionmaker:
         if self.session_factory is None:
             raise RuntimeError("Plugin context has no session factory")
         return self.session_factory
 
-    def require_bot(self) -> "Bot":
+    def require_bot(self) -> Bot:
         if self.bot is None:
             raise RuntimeError("Plugin context has no bot")
         return self.bot
 
-    def require_i18n(self) -> "JsonI18n":
+    def require_i18n(self) -> JsonI18n:
         if self.i18n is None:
             raise RuntimeError("Plugin context has no i18n instance")
         return self.i18n
@@ -129,62 +124,62 @@ class PluginContext:
         return service
 
     @property
-    def panel_service(self) -> "PanelService | None":
+    def panel_service(self) -> PanelService | None:
         return cast("PanelService | None", self.services.get("panel_service"))
 
-    def require_panel_service(self) -> "PanelService":
+    def require_panel_service(self) -> PanelService:
         return cast("PanelService", self._required_service("panel_service"))
 
     @property
-    def subscription_service(self) -> "SubscriptionService | None":
+    def subscription_service(self) -> SubscriptionService | None:
         return cast("SubscriptionService | None", self.services.get("subscription_service"))
 
-    def require_subscription_service(self) -> "SubscriptionService":
+    def require_subscription_service(self) -> SubscriptionService:
         return cast("SubscriptionService", self._required_service("subscription_service"))
 
     @property
-    def referral_service(self) -> "ReferralService | None":
+    def referral_service(self) -> ReferralService | None:
         return cast("ReferralService | None", self.services.get("referral_service"))
 
-    def require_referral_service(self) -> "ReferralService":
+    def require_referral_service(self) -> ReferralService:
         return cast("ReferralService", self._required_service("referral_service"))
 
     @property
-    def promo_code_service(self) -> "PromoCodeService | None":
+    def promo_code_service(self) -> PromoCodeService | None:
         return cast("PromoCodeService | None", self.services.get("promo_code_service"))
 
     @property
-    def notification_service(self) -> "NotificationService | None":
+    def notification_service(self) -> NotificationService | None:
         return cast("NotificationService | None", self.services.get("notification_service"))
 
     @property
-    def email_auth_service(self) -> "EmailAuthService | None":
+    def email_auth_service(self) -> EmailAuthService | None:
         return cast("EmailAuthService | None", self.services.get("email_auth_service"))
 
     @property
-    def support_service(self) -> "SupportService | None":
+    def support_service(self) -> SupportService | None:
         return cast("SupportService | None", self.services.get("support_service"))
 
     @property
-    def panel_webhook_service(self) -> "PanelWebhookService | None":
+    def panel_webhook_service(self) -> PanelWebhookService | None:
         return cast("PanelWebhookService | None", self.services.get("panel_webhook_service"))
 
-    def require_panel_webhook_service(self) -> "PanelWebhookService":
+    def require_panel_webhook_service(self) -> PanelWebhookService:
         return cast("PanelWebhookService", self._required_service("panel_webhook_service"))
 
     @property
-    def lknpd_service(self) -> "LknpdService | None":
+    def lknpd_service(self) -> LknpdService | None:
         return cast("LknpdService | None", self.services.get("lknpd_service"))
 
     @property
-    def audience_segmentation_service(self) -> "AudienceSegmentationService | None":
+    def audience_segmentation_service(self) -> AudienceSegmentationService | None:
         return cast(
             "AudienceSegmentationService | None",
             self.services.get("audience_segmentation_service"),
         )
 
     @property
-    def outbound_messaging_service(self) -> "OutboundMessagingService | None":
+    def outbound_messaging_service(self) -> OutboundMessagingService | None:
         return cast(
             "OutboundMessagingService | None",
             self.services.get("outbound_messaging_service"),
@@ -218,8 +213,8 @@ class Plugin:
         self,
         ctx: PluginContext,
         *,
-        user_root: "Router",
-        admin_root: "Router",
+        user_root: Router,
+        admin_root: Router,
     ) -> None:
         """Register aiogram routers.
 
@@ -228,18 +223,18 @@ class Plugin:
         by the admin filter, so routers included there only see admin updates.
         """
 
-    def setup_web(self, ctx: PluginContext, app: "web.Application", *, scope: str) -> None:
+    def setup_web(self, ctx: PluginContext, app: web.Application, *, scope: str) -> None:
         """Register aiohttp routes.
 
         Called once per web application after the core routes are registered.
         ``scope`` is :data:`WEB_SCOPE_WEBHOOKS` or :data:`WEB_SCOPE_WEBAPP`.
         """
 
-    def worker_tasks(self, ctx: PluginContext) -> List[WorkerTaskSpec]:
+    def worker_tasks(self, ctx: PluginContext) -> list[WorkerTaskSpec]:
         """Return background tasks to run in the worker process."""
         return []
 
-    def queue_handlers(self, ctx: PluginContext) -> Dict[str, QueueHandler]:
+    def queue_handlers(self, ctx: PluginContext) -> dict[str, QueueHandler]:
         """Return webhook-queue handlers keyed by event provider name.
 
         Provider names already handled by the core (or another plugin) are
@@ -247,7 +242,7 @@ class Plugin:
         """
         return {}
 
-    def migrations(self) -> List["Migration"]:
+    def migrations(self) -> list[Migration]:
         """Return the plugin's database migration chain.
 
         Every migration id must be prefixed with ``"<plugin name>."`` (e.g.
@@ -257,13 +252,13 @@ class Plugin:
         """
         return []
 
-    def locales_dir(self) -> Optional[Path]:
+    def locales_dir(self) -> Path | None:
         """Return a directory with extra locale JSON files (same layout as
         the core ``locales/`` directory). Plugin keys never override keys
         already defined by the core locales."""
         return None
 
-    def entitlements_provider(self) -> Optional["EntitlementsProvider"]:
+    def entitlements_provider(self) -> EntitlementsProvider | None:
         """Return a feature entitlement provider for this process.
 
         When several plugins return providers, the last active plugin wins.

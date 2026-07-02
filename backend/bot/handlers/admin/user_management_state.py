@@ -1,6 +1,5 @@
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from aiogram import Bot, F, types
 from aiogram.exceptions import TelegramBadRequest
@@ -49,7 +48,7 @@ async def process_subscription_days_handler(
 ) -> None:
     """Process subscription days input"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -146,7 +145,7 @@ async def process_direct_message_handler(
 ) -> None:
     """Process direct message to user"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -251,7 +250,7 @@ async def ban_user_prompt_handler(
 ) -> None:
     """Prompt admin to enter user ID or username to ban"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error preparing ban prompt.", show_alert=True)
         return
@@ -282,7 +281,7 @@ async def unban_user_prompt_handler(
 ) -> None:
     """Prompt admin to enter user ID or username to unban"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error preparing unban prompt.", show_alert=True)
         return
@@ -313,7 +312,7 @@ async def view_banned_users_handler(
 ) -> None:
     """Display list of banned users"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error preparing banned users list.", show_alert=True)
         return
@@ -357,7 +356,7 @@ async def process_ban_user_handler(
 ) -> None:
     """Process user ban input"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -407,7 +406,7 @@ async def process_unban_user_handler(
 ) -> None:
     """Process user unban input"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -457,7 +456,7 @@ async def process_premium_override_bonus_handler(
 ) -> None:
     """Read bonus GB and apply premium override (non-unlimited path)."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -506,7 +505,7 @@ async def process_premium_override_bonus_handler(
                 "content": f"unlimited=False bonus_bytes={int(bonus_bytes)}",
                 "is_admin_event": True,
                 "target_user_id": target_user_id,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
         )
         await session.commit()
@@ -566,7 +565,7 @@ async def process_hwid_device_limit_handler(
 ) -> None:
     """Read explicit HWID device limit and apply it."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -618,7 +617,7 @@ async def process_hwid_device_limit_handler(
                 ),
                 "is_admin_event": True,
                 "target_user_id": target_user_id,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
         )
         await session.commit()
@@ -676,7 +675,7 @@ async def process_traffic_grant_gb_handler(
 ) -> None:
     """Read GB amount and apply admin grant of regular or premium traffic."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -725,7 +724,7 @@ async def process_traffic_grant_gb_handler(
                 "content": f"kind={kind} gb={gb_value:g}",
                 "is_admin_event": True,
                 "target_user_id": target_user_id,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
         )
         await session.commit()
@@ -798,7 +797,7 @@ async def user_card_from_list_handler(
         return
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await callback.answer("Language service error", show_alert=True)
         return

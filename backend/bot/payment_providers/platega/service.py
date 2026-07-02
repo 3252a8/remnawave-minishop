@@ -1,7 +1,7 @@
 import hmac
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot, F, Router, types
 from aiohttp import web
@@ -79,8 +79,8 @@ class PlategaConfig(ProviderEnvConfig):
 
     ENABLED: bool = Field(default=False)
     BASE_URL: str = Field(default="https://app.platega.io")
-    MERCHANT_ID: Optional[str] = None
-    SECRET: Optional[str] = None
+    MERCHANT_ID: str | None = None
+    SECRET: str | None = None
     PAYMENT_METHOD: int = Field(default=2)
     SBP_ENABLED: bool = Field(default=False)
     SBP_ADMIN_ONLY_ENABLED: bool = Field(default=False)
@@ -88,8 +88,8 @@ class PlategaConfig(ProviderEnvConfig):
     CRYPTO_ADMIN_ONLY_ENABLED: bool = Field(default=False)
     SBP_METHOD: int = Field(default=2)
     CRYPTO_METHOD: int = Field(default=13)
-    RETURN_URL: Optional[str] = None
-    FAILED_URL: Optional[str] = None
+    RETURN_URL: str | None = None
+    FAILED_URL: str | None = None
     SUPPORTED_CURRENCIES: str = Field(default="RUB")
 
     @field_validator("MERCHANT_ID", "SECRET", "RETURN_URL", "FAILED_URL", mode="before")
@@ -119,12 +119,12 @@ class PlategaSbpPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
 class PlategaCryptoPresentation(ProviderEnvConfig):
@@ -135,12 +135,12 @@ class PlategaCryptoPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
 class PlategaService(HttpClientMixin):
@@ -196,11 +196,11 @@ class PlategaService(HttpClientMixin):
         return (self.config.BASE_URL or "https://app.platega.io").rstrip("/")
 
     @property
-    def merchant_id(self) -> Optional[str]:
+    def merchant_id(self) -> str | None:
         return self.config.MERCHANT_ID
 
     @property
-    def secret(self) -> Optional[str]:
+    def secret(self) -> str | None:
         return self.config.SECRET
 
     @property
@@ -224,7 +224,7 @@ class PlategaService(HttpClientMixin):
         return self.config.FAILED_URL or self.return_url
 
     @property
-    def _auth_headers(self) -> Dict[str, str]:
+    def _auth_headers(self) -> dict[str, str]:
         return {
             "X-MerchantId": self.merchant_id or "",
             "X-Secret": self.secret or "",
@@ -235,11 +235,11 @@ class PlategaService(HttpClientMixin):
         self,
         *,
         amount: float,
-        currency: Optional[str],
+        currency: str | None,
         description: str,
-        payload: Optional[str] = None,
-        payment_method: Optional[int] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        payload: str | None = None,
+        payment_method: int | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             logging.error("PlategaService is not configured. Cannot create transaction.")
             return False, {"message": "service_not_configured"}
@@ -259,7 +259,7 @@ class PlategaService(HttpClientMixin):
         url = f"{self.base_url}/transaction/process"
         method_id = int(payment_method if payment_method is not None else self.payment_method)
 
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "paymentMethod": method_id,
             "paymentDetails": {"amount": float(amount), "currency": currency_code},
             "description": description,
@@ -290,7 +290,7 @@ class PlategaService(HttpClientMixin):
             log_prefix="Platega create_transaction",
         )
 
-    async def get_transaction(self, transaction_id: str) -> Tuple[bool, Dict[str, Any]]:
+    async def get_transaction(self, transaction_id: str) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             return False, {"message": "service_not_configured"}
 
@@ -325,7 +325,7 @@ class PlategaService(HttpClientMixin):
         user_id: int,
         sale_mode: str,
         variant: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         transaction_id = str(getattr(payment, "provider_payment_id", None) or "").strip()
         payment_url = str(getattr(payment, "provider_payment_url", None) or "").strip()
         if not transaction_id or not payment_url:
@@ -491,9 +491,7 @@ async def platega_webhook_route(request: web.Request) -> web.Response:
 router = Router(name="user_subscription_payments_platega_router")
 
 
-def _resolve_platega_variant(
-    callback_prefix: str, config: PlategaConfig
-) -> Optional[Tuple[str, int]]:
+def _resolve_platega_variant(callback_prefix: str, config: PlategaConfig) -> tuple[str, int] | None:
     """Map the callback prefix to (variant, payment_method_id) or ``None`` if disabled."""
     if callback_prefix == "pay_platega_crypto":
         if not (config.CRYPTO_ENABLED or config.CRYPTO_ADMIN_ONLY_ENABLED):
@@ -526,7 +524,7 @@ async def pay_platega_callback_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     from ..shared import make_translator
 
     translator = make_translator(i18n, current_lang)
@@ -772,7 +770,7 @@ async def create_crypto_webapp_payment(ctx: WebAppPaymentContext) -> web.Respons
     return await _create_webapp_payment(ctx, "platega_crypto")
 
 
-async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
     service = app_optional(ctx.request, "platega_service", PlategaService)
     if not service or not service.configured:
         return None

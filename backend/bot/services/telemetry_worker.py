@@ -22,7 +22,7 @@ import asyncio
 import logging
 import platform
 import uuid
-from typing import Any, Dict, List
+from typing import Any
 
 import aiohttp
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -107,7 +107,7 @@ class TelemetryWorker:
     async def _sleep(self, seconds: float) -> None:
         try:
             await asyncio.wait_for(self._stopped.wait(), timeout=seconds)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass
 
     async def _beacon_tick(self) -> None:
@@ -151,7 +151,7 @@ class TelemetryWorker:
         )
         return installation_id
 
-    def _enabled_payment_providers(self) -> List[str]:
+    def _enabled_payment_providers(self) -> list[str]:
         try:
             from bot.payment_providers import iter_provider_specs
 
@@ -165,7 +165,7 @@ class TelemetryWorker:
             logger.debug("Telemetry: failed to enumerate payment providers", exc_info=True)
             return []
 
-    async def _build_payload(self, session: AsyncSession, installation_id: str) -> Dict[str, Any]:
+    async def _build_payload(self, session: AsyncSession, installation_id: str) -> dict[str, Any]:
         try:
             user_count = await user_dal.count_all_users(session)
         except Exception:
@@ -205,7 +205,7 @@ class TelemetryWorker:
             "properties": properties,
         }
 
-    async def _send(self, payload: Dict[str, Any]) -> None:
+    async def _send(self, payload: dict[str, Any]) -> None:
         url = str(self.settings.TELEMETRY_ENDPOINT or "").strip().rstrip("/") + "/capture/"
         timeout = aiohttp.ClientTimeout(total=HTTP_TIMEOUT_SECONDS)
         try:

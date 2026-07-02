@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
@@ -39,7 +39,7 @@ class _SessionFactory:
 class WebAppTrialActivationTests(IsolatedAsyncioTestCase):
     async def test_email_only_trial_activation_is_written_to_admin_logs(self):
         session = _Session()
-        end_date = datetime(2026, 1, 9, 3, 4, tzinfo=timezone.utc)
+        end_date = datetime(2026, 1, 9, 3, 4, tzinfo=UTC)
         settings = settings_stub(
             TRIAL_ENABLED=True,
             TRIAL_DURATION_DAYS=7,

@@ -3,14 +3,10 @@ from __future__ import annotations
 import logging
 import re
 import secrets
+from collections.abc import Callable
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Dict,
-    Generic,
-    List,
-    Optional,
     Protocol,
     TypeVar,
     overload,
@@ -38,12 +34,12 @@ _Owner = TypeVar("_Owner")
 
 if TYPE_CHECKING:
 
-    class _ComputedField(Generic[_T]):
+    class _ComputedField[T]:
         @overload
         def __get__(self, obj: None, owner: type[_Owner]) -> property: ...
 
         @overload
-        def __get__(self, obj: _Owner, owner: type[_Owner] | None = None) -> _T: ...
+        def __get__(self, obj: _Owner, owner: type[_Owner] | None = None) -> T: ...
 
         def __get__(
             self,
@@ -51,7 +47,7 @@ if TYPE_CHECKING:
             owner: type[object] | None = None,
         ) -> object: ...
 
-    def computed_field(func: Callable[[Any], _T]) -> _ComputedField[_T]: ...
+    def computed_field[T](func: Callable[[Any], T]) -> _ComputedField[T]: ...
 
     class _SettingsFieldsProtocol(Protocol):
         POSTGRES_USER: str
@@ -61,12 +57,12 @@ if TYPE_CHECKING:
         POSTGRES_DB: str
         SMTP_HOST: str
         SMTP_PORT: int
-        SMTP_FALLBACK_PORTS: Optional[str]
+        SMTP_FALLBACK_PORTS: str | None
         SMTP_TIMEOUT_SECONDS: int
-        SMTP_USERNAME: Optional[str]
-        SMTP_PASSWORD: Optional[str]
-        SMTP_FROM_EMAIL: Optional[str]
-        SMTP_FROM_NAME: Optional[str]
+        SMTP_USERNAME: str | None
+        SMTP_PASSWORD: str | None
+        SMTP_FROM_EMAIL: str | None
+        SMTP_FROM_NAME: str | None
         SMTP_STARTTLS: bool
         SMTP_USE_SSL: bool
         EMAIL_CODE_TTL_SECONDS: int
@@ -77,10 +73,10 @@ if TYPE_CHECKING:
         BRUTE_FORCE_LOCK_SECONDS: int
         WEBAPP_TITLE: str
         WEBAPP_PRIMARY_COLOR: str
-        WEBAPP_LOGO_URL: Optional[str]
+        WEBAPP_LOGO_URL: str | None
         WEBAPP_FAVICON_USE_CUSTOM: bool
-        WEBAPP_FAVICON_URL: Optional[str]
-        WEBAPP_LOGO_FAVICON_URL: Optional[str]
+        WEBAPP_FAVICON_URL: str | None
+        WEBAPP_LOGO_FAVICON_URL: str | None
         WEBAPP_SESSION_TTL_SECONDS: int
         WEBAPP_SESSION_SECRET: str
         WEBHOOK_SECRET_TOKEN: str
@@ -93,10 +89,10 @@ if TYPE_CHECKING:
         PAYMENT_REQUEST_TIMEOUT_SECONDS: float
         ADMIN_IDS_STR: str
         PANEL_WRITE_MODE: str
-        PANEL_API_URL: Optional[str]
-        PANEL_API_KEY: Optional[str]
-        PANEL_API_COOKIE: Optional[str]
-        PANEL_WEBHOOK_SECRET: Optional[str]
+        PANEL_API_URL: str | None
+        PANEL_API_KEY: str | None
+        PANEL_API_COOKIE: str | None
+        PANEL_WEBHOOK_SECRET: str | None
         PANEL_API_TOTAL_TIMEOUT_SECONDS: float
         PANEL_API_CONNECT_TIMEOUT_SECONDS: float
         PANEL_API_SOCK_CONNECT_TIMEOUT_SECONDS: float
@@ -106,44 +102,44 @@ if TYPE_CHECKING:
         QA_PAYMENT_ENABLED: bool
         QA_PAYMENT_ADMIN_ONLY_ENABLED: bool
         QA_PAYMENT_SECRET: str
-        TRIAL_TRAFFIC_LIMIT_GB: Optional[float]
-        TRIAL_PREMIUM_TRAFFIC_LIMIT_GB: Optional[float]
-        USER_TRAFFIC_LIMIT_GB: Optional[float]
-        USER_SQUAD_UUIDS: Optional[str]
-        TRIAL_SQUAD_UUIDS: Optional[str]
-        TRIAL_PREMIUM_SQUAD_UUIDS: Optional[str]
+        TRIAL_TRAFFIC_LIMIT_GB: float | None
+        TRIAL_PREMIUM_TRAFFIC_LIMIT_GB: float | None
+        USER_TRAFFIC_LIMIT_GB: float | None
+        USER_SQUAD_UUIDS: str | None
+        TRIAL_SQUAD_UUIDS: str | None
+        TRIAL_PREMIUM_SQUAD_UUIDS: str | None
         DISPOSABLE_EMAIL_DOMAINS: str
-        USER_EXTERNAL_SQUAD_UUID: Optional[str]
-        TRUSTED_PROXIES: Optional[str]
-        WEBHOOK_BASE_URL: Optional[str]
+        USER_EXTERNAL_SQUAD_UUID: str | None
+        TRUSTED_PROXIES: str | None
+        WEBHOOK_BASE_URL: str | None
         MONTH_1_ENABLED: bool
-        RUB_PRICE_1_MONTH: Optional[int]
+        RUB_PRICE_1_MONTH: int | None
         MONTH_3_ENABLED: bool
-        RUB_PRICE_3_MONTHS: Optional[int]
+        RUB_PRICE_3_MONTHS: int | None
         MONTH_6_ENABLED: bool
-        RUB_PRICE_6_MONTHS: Optional[int]
+        RUB_PRICE_6_MONTHS: int | None
         MONTH_12_ENABLED: bool
-        RUB_PRICE_12_MONTHS: Optional[int]
+        RUB_PRICE_12_MONTHS: int | None
         STARS_ENABLED: bool
         STARS_ADMIN_ONLY_ENABLED: bool
-        STARS_PRICE_1_MONTH: Optional[int]
-        STARS_PRICE_3_MONTHS: Optional[int]
-        STARS_PRICE_6_MONTHS: Optional[int]
-        STARS_PRICE_12_MONTHS: Optional[int]
-        TRAFFIC_PACKAGES: Optional[str]
-        STARS_TRAFFIC_PACKAGES: Optional[str]
+        STARS_PRICE_1_MONTH: int | None
+        STARS_PRICE_3_MONTHS: int | None
+        STARS_PRICE_6_MONTHS: int | None
+        STARS_PRICE_12_MONTHS: int | None
+        TRAFFIC_PACKAGES: str | None
+        STARS_TRAFFIC_PACKAGES: str | None
         TARIFF_TRAFFIC_WARNING_LEVELS: str
         TARIFFS_CONFIG_PATH: str
-        WEBAPP_DEFAULT_THEME: Optional[str]
+        WEBAPP_DEFAULT_THEME: str | None
         WEBAPP_THEMES_DIR: str
-        REFERRAL_BONUS_DAYS_INVITER_1_MONTH: Optional[int]
-        REFERRAL_BONUS_DAYS_INVITER_3_MONTHS: Optional[int]
-        REFERRAL_BONUS_DAYS_INVITER_6_MONTHS: Optional[int]
-        REFERRAL_BONUS_DAYS_INVITER_12_MONTHS: Optional[int]
-        REFERRAL_BONUS_DAYS_REFEREE_1_MONTH: Optional[int]
-        REFERRAL_BONUS_DAYS_REFEREE_3_MONTHS: Optional[int]
-        REFERRAL_BONUS_DAYS_REFEREE_6_MONTHS: Optional[int]
-        REFERRAL_BONUS_DAYS_REFEREE_12_MONTHS: Optional[int]
+        REFERRAL_BONUS_DAYS_INVITER_1_MONTH: int | None
+        REFERRAL_BONUS_DAYS_INVITER_3_MONTHS: int | None
+        REFERRAL_BONUS_DAYS_INVITER_6_MONTHS: int | None
+        REFERRAL_BONUS_DAYS_INVITER_12_MONTHS: int | None
+        REFERRAL_BONUS_DAYS_REFEREE_1_MONTH: int | None
+        REFERRAL_BONUS_DAYS_REFEREE_3_MONTHS: int | None
+        REFERRAL_BONUS_DAYS_REFEREE_6_MONTHS: int | None
+        REFERRAL_BONUS_DAYS_REFEREE_12_MONTHS: int | None
         REFERRAL_ONE_BONUS_PER_REFEREE: bool
         REFERRAL_WELCOME_BONUS_DAYS: int
         REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED: bool
@@ -151,9 +147,9 @@ if TYPE_CHECKING:
         LEGACY_REFS: bool
         MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED: bool
         MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED: bool
-        MIGRATION_REMNASHOP_IMPORTED_AT: Optional[str]
-        MIGRATION_REMNASHOP_NOTES: Optional[str]
-        SUPPORT_LINK: Optional[str]
+        MIGRATION_REMNASHOP_IMPORTED_AT: str | None
+        MIGRATION_REMNASHOP_NOTES: str | None
+        SUPPORT_LINK: str | None
         SUPPORT_TICKETS_ENABLED: bool
         SUPPORT_TICKET_MAX_BODY_LENGTH: int
         SUPPORT_TICKET_MAX_SUBJECT_LENGTH: int
@@ -161,7 +157,7 @@ if TYPE_CHECKING:
         SUPPORT_ADMIN_EMAIL_NOTIFICATIONS_ENABLED: bool
         SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS: int
         SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS: int
-        PAYMENT_METHODS_ORDER: Optional[str]
+        PAYMENT_METHODS_ORDER: str | None
         SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED: bool
         DEFAULT_LANGUAGE: str
         SUBSCRIPTION_PURCHASE_DESCRIPTION_EN: str
@@ -177,7 +173,7 @@ else:
         pass
 
 
-def _split_csv(value: Optional[str]) -> List[str]:
+def _split_csv(value: str | None) -> list[str]:
     if not value:
         return []
     return [item.strip() for item in re.split(r"[,;\r\n]+", value) if item.strip()]
@@ -313,7 +309,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         )
 
     @computed_field
-    def ADMIN_IDS(self) -> List[int]:
+    def ADMIN_IDS(self) -> list[int]:
         if self.ADMIN_IDS_STR:
             try:
                 return [
@@ -329,8 +325,8 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return []
 
     @computed_field
-    def PRIMARY_ADMIN_ID(self) -> Optional[int]:
-        ids = self.ADMIN_IDS
+    def PRIMARY_ADMIN_ID(self) -> int | None:
+        ids: list[int] = self.ADMIN_IDS
         return ids[0] if ids else None
 
     @computed_field
@@ -369,13 +365,13 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return int(self.USER_TRAFFIC_LIMIT_GB * (1024**3))
 
     @computed_field
-    def parsed_user_squad_uuids(self) -> Optional[List[str]]:
+    def parsed_user_squad_uuids(self) -> list[str] | None:
         if self.USER_SQUAD_UUIDS:
             return [uuid.strip() for uuid in self.USER_SQUAD_UUIDS.split(",") if uuid.strip()]
         return None
 
     @computed_field
-    def parsed_trial_squad_uuids(self) -> Optional[List[str]]:
+    def parsed_trial_squad_uuids(self) -> list[str] | None:
         if self.TRIAL_SQUAD_UUIDS:
             trial_squads = [
                 uuid.strip() for uuid in self.TRIAL_SQUAD_UUIDS.split(",") if uuid.strip()
@@ -385,7 +381,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return self.parsed_user_squad_uuids
 
     @computed_field
-    def parsed_trial_premium_squad_uuids(self) -> Optional[List[str]]:
+    def parsed_trial_premium_squad_uuids(self) -> list[str] | None:
         if self.TRIAL_PREMIUM_SQUAD_UUIDS:
             premium_squads = [
                 uuid.strip() for uuid in self.TRIAL_PREMIUM_SQUAD_UUIDS.split(",") if uuid.strip()
@@ -395,8 +391,8 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return None
 
     @computed_field
-    def disposable_email_domains(self) -> List[str]:
-        domains: List[str] = []
+    def disposable_email_domains(self) -> list[str]:
+        domains: list[str] = []
         for domain in _split_csv(self.DISPOSABLE_EMAIL_DOMAINS):
             normalized = domain.strip().lower().lstrip("@.")
             if normalized and normalized not in domains:
@@ -404,7 +400,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return domains
 
     @computed_field
-    def parsed_user_external_squad_uuid(self) -> Optional[str]:
+    def parsed_user_external_squad_uuid(self) -> str | None:
         if self.USER_EXTERNAL_SQUAD_UUID:
             cleaned = self.USER_EXTERNAL_SQUAD_UUID.strip()
             if cleaned:
@@ -412,7 +408,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return None
 
     @computed_field
-    def trusted_proxies(self) -> List[str]:
+    def trusted_proxies(self) -> list[str]:
         return _split_csv(self.TRUSTED_PROXIES)
 
     @computed_field
@@ -424,15 +420,15 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return "/webhook/panel"
 
     @computed_field
-    def panel_full_webhook_url(self) -> Optional[str]:
+    def panel_full_webhook_url(self) -> str | None:
         base = self.WEBHOOK_BASE_URL
         if base:
             return f"{base.rstrip('/')}{self.panel_webhook_path}"
         return None
 
     @computed_field
-    def subscription_options(self) -> Dict[int, float]:
-        options: Dict[int, float] = {}
+    def subscription_options(self) -> dict[int, float]:
+        options: dict[int, float] = {}
 
         if self.MONTH_1_ENABLED and self.RUB_PRICE_1_MONTH is not None:
             options[1] = float(self.RUB_PRICE_1_MONTH)
@@ -445,8 +441,8 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return options
 
     @computed_field
-    def stars_subscription_options(self) -> Dict[int, int]:
-        options: Dict[int, int] = {}
+    def stars_subscription_options(self) -> dict[int, int]:
+        options: dict[int, int] = {}
         stars_enabled = self.STARS_ENABLED or self.STARS_ADMIN_ONLY_ENABLED
         if stars_enabled and self.MONTH_1_ENABLED and self.STARS_PRICE_1_MONTH is not None:
             options[1] = self.STARS_PRICE_1_MONTH
@@ -459,11 +455,11 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return options
 
     @computed_field
-    def traffic_packages(self) -> Dict[float, float]:
+    def traffic_packages(self) -> dict[float, float]:
         """
         Mapping of traffic size in GB to price in the default currency.
         """
-        packages: Dict[float, float] = {}
+        packages: dict[float, float] = {}
         raw = (self.TRAFFIC_PACKAGES or "").strip()
         if not raw:
             return packages
@@ -483,11 +479,11 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return packages
 
     @computed_field
-    def stars_traffic_packages(self) -> Dict[float, int]:
+    def stars_traffic_packages(self) -> dict[float, int]:
         """
         Mapping of traffic size in GB to price in Telegram Stars.
         """
-        packages: Dict[float, int] = {}
+        packages: dict[float, int] = {}
         raw = (self.STARS_TRAFFIC_PACKAGES or "").strip()
         if not raw:
             return packages
@@ -514,8 +510,8 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return bool(self.traffic_packages or self.stars_traffic_packages)
 
     @computed_field
-    def tariff_traffic_warning_levels(self) -> List[int]:
-        levels: List[int] = []
+    def tariff_traffic_warning_levels(self) -> list[int]:
+        levels: list[int] = []
         for part in (self.TARIFF_TRAFFIC_WARNING_LEVELS or "").split(","):
             chunk = part.strip()
             if not chunk:
@@ -530,7 +526,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return sorted(levels) or [85, 90, 95]
 
     @computed_field
-    def tariffs_config(self) -> Optional[TariffsConfig]:
+    def tariffs_config(self) -> TariffsConfig | None:
         return load_tariffs_config(self.TARIFFS_CONFIG_PATH)
 
     @computed_field
@@ -567,8 +563,8 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return None
 
     @computed_field
-    def referral_bonus_inviter(self) -> Dict[int, int]:
-        bonuses: Dict[int, int] = {}
+    def referral_bonus_inviter(self) -> dict[int, int]:
+        bonuses: dict[int, int] = {}
         if self.REFERRAL_BONUS_DAYS_INVITER_1_MONTH is not None:
             bonuses[1] = self.REFERRAL_BONUS_DAYS_INVITER_1_MONTH
         if self.REFERRAL_BONUS_DAYS_INVITER_3_MONTHS is not None:
@@ -580,8 +576,8 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return bonuses
 
     @computed_field
-    def referral_bonus_referee(self) -> Dict[int, int]:
-        bonuses: Dict[int, int] = {}
+    def referral_bonus_referee(self) -> dict[int, int]:
+        bonuses: dict[int, int] = {}
         if self.REFERRAL_BONUS_DAYS_REFEREE_1_MONTH is not None:
             bonuses[1] = self.REFERRAL_BONUS_DAYS_REFEREE_1_MONTH
         if self.REFERRAL_BONUS_DAYS_REFEREE_3_MONTHS is not None:
@@ -607,7 +603,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return bool(bundle.config.autopayments_active)
 
     @computed_field
-    def payment_methods_order(self) -> List[str]:
+    def payment_methods_order(self) -> list[str]:
         """
         Ordered list of payment providers to show in the subscription payment keyboard.
 
@@ -621,7 +617,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         from bot.payment_providers import iter_provider_specs
 
         all_specs = list(iter_provider_specs())
-        spec_ids: List[str] = []
+        spec_ids: list[str] = []
         seen_ids: set = set()
         for spec in all_specs:
             if spec.id not in seen_ids:
@@ -653,7 +649,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         if not self.PAYMENT_METHODS_ORDER:
             return default_order
 
-        methods: List[str] = []
+        methods: list[str] = []
         for item in self.PAYMENT_METHODS_ORDER.split(","):
             slug = item.strip().lower()
             if not slug:
@@ -674,7 +670,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
                 methods.append(sid)
         return methods or default_order
 
-    def subscription_purchase_description(self, language: Optional[str] = None) -> str:
+    def subscription_purchase_description(self, language: str | None = None) -> str:
         if not self.SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED:
             return ""
         lang = (language or self.DEFAULT_LANGUAGE or "ru").split("-")[0].lower()
@@ -705,8 +701,8 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         )
 
     @computed_field
-    def smtp_ports_to_try(self) -> List[int]:
-        ports: List[int] = []
+    def smtp_ports_to_try(self) -> list[int]:
+        ports: list[int] = []
 
         def add_port(value: Any) -> None:
             try:

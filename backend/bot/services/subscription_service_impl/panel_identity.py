@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +14,7 @@ from ._typing import SubscriptionServiceMixinContract
 
 class PanelIdentityMixin(SubscriptionServiceMixinContract):
     @staticmethod
-    def _coerce_panel_int(value: Any) -> Optional[int]:
+    def _coerce_panel_int(value: Any) -> int | None:
         if value is None or isinstance(value, bool):
             return None
         try:
@@ -23,8 +23,8 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             return None
 
     def _extract_panel_traffic_details(
-        self, panel_user_data: Dict[str, Any]
-    ) -> Tuple[Optional[int], Optional[int], Optional[str]]:
+        self, panel_user_data: dict[str, Any]
+    ) -> tuple[int | None, int | None, str | None]:
         traffic_stats = panel_user_data.get("userTraffic") or {}
         used = traffic_stats.get("usedTrafficBytes")
         if used is None:
@@ -35,7 +35,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             strategy = traffic_stats.get("trafficLimitStrategy")
         return self._coerce_panel_int(used), self._coerce_panel_int(limit), strategy
 
-    def _extract_lifetime_used_traffic(self, panel_user_data: Dict[str, Any]) -> Optional[int]:
+    def _extract_lifetime_used_traffic(self, panel_user_data: dict[str, Any]) -> int | None:
         traffic_stats = panel_user_data.get("userTraffic") or {}
         lifetime = traffic_stats.get("lifetimeUsedTrafficBytes")
         if lifetime is None:
@@ -56,7 +56,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     f"Failed to notify admin {admin_id} about panel user creation failure: {e}"
                 )
 
-    def _telegram_id_for_panel(self, db_user: User) -> Optional[int]:
+    def _telegram_id_for_panel(self, db_user: User) -> int | None:
         if db_user.telegram_id:
             return int(db_user.telegram_id)
         if db_user.user_id and int(db_user.user_id) > 0:
@@ -79,8 +79,8 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             )
         )
 
-    def _panel_identity_payload_for_user(self, db_user: User) -> Dict[str, Any]:
-        payload: Dict[str, Any] = {}
+    def _panel_identity_payload_for_user(self, db_user: User) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
         telegram_id = self._telegram_id_for_panel(db_user)
         if telegram_id:
             payload["telegramId"] = telegram_id
@@ -89,8 +89,8 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
         return payload
 
     async def _get_or_create_panel_user_link_details(
-        self, session: AsyncSession, user_id: int, db_user: Optional[User] = None
-    ) -> Tuple[Optional[str], Optional[str], Optional[str], bool]:
+        self, session: AsyncSession, user_id: int, db_user: User | None = None
+    ) -> tuple[str | None, str | None, str | None, bool]:
         if not db_user:
             db_user = await user_dal.get_user_by_id(session, user_id)
 
@@ -318,16 +318,16 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
     def _build_panel_update_payload(
         self,
         *,
-        panel_user_uuid: Optional[str] = None,
-        expire_at: Optional[datetime] = None,
-        status: Optional[str] = None,
-        traffic_limit_bytes: Optional[int] = None,
+        panel_user_uuid: str | None = None,
+        expire_at: datetime | None = None,
+        status: str | None = None,
+        traffic_limit_bytes: int | None = None,
         include_uuid: bool = True,
-        traffic_limit_strategy: Optional[str] = None,
-        hwid_device_limit: Optional[int] = None,
+        traffic_limit_strategy: str | None = None,
+        hwid_device_limit: int | None = None,
         include_default_squads: bool = True,
-    ) -> Dict[str, Any]:
-        payload: Dict[str, Any] = {}
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
         if include_uuid and panel_user_uuid:
             payload["uuid"] = panel_user_uuid
         if expire_at is not None:

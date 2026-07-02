@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Mapping, Optional, cast
+from collections.abc import Iterable, Mapping
+from typing import Any, cast
 
 from . import (
     cloudpayments,
@@ -55,15 +56,15 @@ PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
 # Keyed by ``service_key`` because multiple SPECs (Platega SBP / Platega Crypto)
 # can share the same backing service. Per-SPEC presentation overrides live in
 # ``_provider_presentations`` instead, indexed by ``spec.id``.
-_provider_configs: Dict[str, ProviderConfigBundle] = {}
-_provider_presentations: Dict[str, Any] = {}
+_provider_configs: dict[str, ProviderConfigBundle] = {}
+_provider_presentations: dict[str, Any] = {}
 
 
 def iter_provider_specs() -> Iterable[PaymentProviderSpec]:
     return PAYMENT_PROVIDER_SPECS
 
 
-def get_provider_spec(method: str) -> Optional[PaymentProviderSpec]:
+def get_provider_spec(method: str) -> PaymentProviderSpec | None:
     normalized = str(method or "").strip().lower()
     for spec in PAYMENT_PROVIDER_SPECS:
         if normalized in spec.method_ids:
@@ -71,7 +72,7 @@ def get_provider_spec(method: str) -> Optional[PaymentProviderSpec]:
     return None
 
 
-def build_provider_configs(*, force: bool = False) -> Dict[str, ProviderConfigBundle]:
+def build_provider_configs(*, force: bool = False) -> dict[str, ProviderConfigBundle]:
     """Instantiate per-provider BaseSettings models declared on each SPEC.
 
     Returns a mapping ``service_key`` → ``ProviderConfigBundle(config, presentation)``.
@@ -92,10 +93,10 @@ def build_provider_configs(*, force: bool = False) -> Dict[str, ProviderConfigBu
     from .base import provider_env_file
 
     env_file = provider_env_file()
-    init_kwargs: Dict[str, Any] = {"_env_file": env_file}
+    init_kwargs: dict[str, Any] = {"_env_file": env_file}
 
-    bundles: Dict[str, ProviderConfigBundle] = {}
-    presentations: Dict[str, Any] = {}
+    bundles: dict[str, ProviderConfigBundle] = {}
+    presentations: dict[str, Any] = {}
     seen_services: set[str] = set()
     for spec in PAYMENT_PROVIDER_SPECS:
         if spec.presentation_class is not None:
@@ -117,7 +118,7 @@ def build_provider_configs(*, force: bool = False) -> Dict[str, ProviderConfigBu
     return bundles
 
 
-def get_spec_presentation(spec_id: str) -> Optional[Any]:
+def get_spec_presentation(spec_id: str) -> Any | None:
     return _provider_presentations.get(spec_id)
 
 
@@ -125,13 +126,13 @@ def current_provider_configs() -> Mapping[str, ProviderConfigBundle]:
     return _provider_configs
 
 
-def get_provider_bundle(service_key: Optional[str]) -> Optional[ProviderConfigBundle]:
+def get_provider_bundle(service_key: str | None) -> ProviderConfigBundle | None:
     if not service_key:
         return None
     return _provider_configs.get(service_key)
 
 
-def _setting_value(source: Any, key: str) -> Optional[str]:
+def _setting_value(source: Any, key: str) -> str | None:
     if source is None:
         return None
     value = getattr(source, key, None)
@@ -145,13 +146,13 @@ def _presentation_setting(spec: PaymentProviderSpec, suffix: str) -> str:
     return f"PAYMENT_{spec.settings_key}_{suffix}"
 
 
-def _normalize_language(language: Optional[str], settings: Any = None) -> str:
+def _normalize_language(language: str | None, settings: Any = None) -> str:
     value = language or (settings.DEFAULT_LANGUAGE if settings is not None else None) or "ru"
     normalized = str(value).strip().lower().split("-", 1)[0].split("_", 1)[0]
     return normalized or "ru"
 
 
-def _presentation_attr(suffix: str, language: Optional[str] = None) -> str:
+def _presentation_attr(suffix: str, language: str | None = None) -> str:
     """Attribute name on a provider's presentation BaseSettings model.
 
     Mirrors the legacy ``PAYMENT_<ID>_<suffix>`` env name, but without the
@@ -166,8 +167,8 @@ def _provider_presentation_value(
     spec: PaymentProviderSpec,
     suffix: str,
     *,
-    language: Optional[str] = None,
-) -> Optional[str]:
+    language: str | None = None,
+) -> str | None:
     presentation = _provider_presentations.get(spec.id)
     if presentation is None:
         bundle = _provider_configs.get(spec.service_key) if spec.service_key else None
@@ -183,7 +184,7 @@ def _localized_setting_value(
     spec: PaymentProviderSpec,
     suffix: str,
     language: str,
-) -> Optional[str]:
+) -> str | None:
     # 1) Per-provider presentation model (new pattern) takes priority.
     provider_value = _provider_presentation_value(spec, suffix, language=language)
     if provider_value is not None:
@@ -199,7 +200,7 @@ def _bare_setting_value(
     settings: Any,
     spec: PaymentProviderSpec,
     suffix: str,
-) -> Optional[str]:
+) -> str | None:
     provider_value = _provider_presentation_value(spec, suffix)
     if provider_value is not None:
         return provider_value
@@ -207,10 +208,10 @@ def _bare_setting_value(
 
 
 def _localized_default(
-    values: Optional[Mapping[str, str]],
+    values: Mapping[str, str] | None,
     language: str,
-    fallback: Optional[str],
-) -> Optional[str]:
+    fallback: str | None,
+) -> str | None:
     if not values:
         return fallback
     return (
@@ -226,7 +227,7 @@ def resolve_provider_presentation(
     spec: PaymentProviderSpec,
     settings: Any = None,
     *,
-    language: Optional[str] = None,
+    language: str | None = None,
 ) -> PaymentProviderPresentation:
     lang = _normalize_language(language, settings)
     webapp_label = (
@@ -262,7 +263,7 @@ def provider_telegram_button_text(
     spec: PaymentProviderSpec,
     settings: Any,
     *,
-    language: Optional[str] = None,
+    language: str | None = None,
 ) -> str:
     presentation = resolve_provider_presentation(spec, settings, language=language)
     if presentation.telegram_emoji:
@@ -301,8 +302,8 @@ def iter_service_specs() -> Iterable[PaymentProviderSpec]:
         yield spec
 
 
-def build_provider_services(ctx: ServiceFactoryContext) -> Dict[str, object]:
-    services: Dict[str, object] = {}
+def build_provider_services(ctx: ServiceFactoryContext) -> dict[str, object]:
+    services: dict[str, object] = {}
     for spec in iter_service_specs():
         service_key = spec.service_key
         create_service = spec.create_service
@@ -314,14 +315,14 @@ def build_provider_services(ctx: ServiceFactoryContext) -> Dict[str, object]:
 
 def recurring_provider_services(
     services: Mapping[str, object],
-) -> Dict[str, RecurringProviderService]:
+) -> dict[str, RecurringProviderService]:
     """Map ``provider_key`` to service for every recurring-capable provider.
 
     Keyed by ``provider_key`` because that is what ``Subscription.provider``
     stores, so the renewal worker can resolve the service straight from a
     subscription row without knowing about service-key naming.
     """
-    recurring: Dict[str, RecurringProviderService] = {}
+    recurring: dict[str, RecurringProviderService] = {}
     for spec in PAYMENT_PROVIDER_SPECS:
         if not spec.supports_recurring or not spec.service_key:
             continue
@@ -331,13 +332,13 @@ def recurring_provider_services(
     return recurring
 
 
-def provider_supports_recurring(provider: Optional[str]) -> bool:
+def provider_supports_recurring(provider: str | None) -> bool:
     spec = get_provider_spec(provider or "")
     return bool(spec and spec.supports_recurring)
 
 
-def provider_label_map(settings: Any = None, language: Optional[str] = None) -> Dict[str, str]:
-    labels: Dict[str, str] = {}
+def provider_label_map(settings: Any = None, language: str | None = None) -> dict[str, str]:
+    labels: dict[str, str] = {}
     for spec in PAYMENT_PROVIDER_SPECS:
         presentation = resolve_provider_presentation(
             spec,
@@ -351,8 +352,8 @@ def provider_label_map(settings: Any = None, language: Optional[str] = None) -> 
     return labels
 
 
-def provider_emoji_map(settings: Any = None) -> Dict[str, str]:
-    emojis: Dict[str, str] = {}
+def provider_emoji_map(settings: Any = None) -> dict[str, str]:
+    emojis: dict[str, str] = {}
     for spec in PAYMENT_PROVIDER_SPECS:
         emoji = resolve_provider_presentation(spec, settings).telegram_emoji
         emojis.setdefault(spec.provider_key, emoji)
@@ -361,7 +362,7 @@ def provider_emoji_map(settings: Any = None) -> Dict[str, str]:
     return emojis
 
 
-def pending_statuses() -> List[str]:
+def pending_statuses() -> list[str]:
     statuses = ["pending"]
     for spec in PAYMENT_PROVIDER_SPECS:
         if spec.pending_status not in statuses:
@@ -381,7 +382,7 @@ def iter_provider_manifest_fields() -> Iterable[tuple[PaymentProviderSpec, Provi
             yield spec, admin_only_field
 
 
-def find_manifest_owner(key: str) -> Optional[tuple[PaymentProviderSpec, ProviderManifestField]]:
+def find_manifest_owner(key: str) -> tuple[PaymentProviderSpec, ProviderManifestField] | None:
     """Find which provider owns a manifest key (if any)."""
     for spec, field in iter_provider_manifest_fields():
         if field.key == key:
@@ -391,7 +392,7 @@ def find_manifest_owner(key: str) -> Optional[tuple[PaymentProviderSpec, Provide
 
 def provider_admin_only_manifest_field(
     spec: PaymentProviderSpec,
-) -> Optional[ProviderManifestField]:
+) -> ProviderManifestField | None:
     if spec.config_class is None:
         return None
 
@@ -416,8 +417,8 @@ def provider_admin_only_manifest_field(
     )
 
 
-def provider_admin_only_pairs() -> List[tuple[str, str]]:
-    pairs: List[tuple[str, str]] = []
+def provider_admin_only_pairs() -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
     seen: set[tuple[str, str]] = set()
     for spec in PAYMENT_PROVIDER_SPECS:
         pair = (spec.enabled_field_key, spec.admin_only_field_key)
@@ -428,7 +429,7 @@ def provider_admin_only_pairs() -> List[tuple[str, str]]:
     return pairs
 
 
-def _webhook_spec_for(spec: PaymentProviderSpec) -> Optional[PaymentProviderSpec]:
+def _webhook_spec_for(spec: PaymentProviderSpec) -> PaymentProviderSpec | None:
     if spec.webhook_path and spec.webhook_route:
         return spec
     if not spec.service_key:
@@ -443,7 +444,7 @@ def _webhook_spec_for(spec: PaymentProviderSpec) -> Optional[PaymentProviderSpec
     return None
 
 
-def provider_webhook_metadata(spec: PaymentProviderSpec) -> Optional[Dict[str, Any]]:
+def provider_webhook_metadata(spec: PaymentProviderSpec) -> dict[str, Any] | None:
     """Return admin-manifest webhook metadata for a provider SPEC.
 
     Some visible payment buttons share one backing service and webhook route
@@ -471,7 +472,7 @@ def provider_webhook_metadata(spec: PaymentProviderSpec) -> Optional[Dict[str, A
 def manifest_field_default(
     spec: PaymentProviderSpec,
     manifest_field: ProviderManifestField,
-) -> Optional[str]:
+) -> str | None:
     """Resolve the SPEC-declared default for a presentation manifest field.
 
     Used by the admin UI to render a placeholder/hint that shows users what

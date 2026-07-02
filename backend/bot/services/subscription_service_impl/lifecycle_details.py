@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +13,7 @@ from ._typing import SubscriptionServiceMixinContract
 class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
     async def get_active_subscription_details(
         self, session: AsyncSession, user_id: int
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or not db_user.panel_user_uuid:
             logging.info(
@@ -106,7 +106,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                 update_payload_local["panel_subscription_uuid"] = panel_sub_uuid_from_panel
 
             is_active_based_on_panel = panel_status == "ACTIVE" and (
-                panel_expire_dt > datetime.now(timezone.utc) if panel_expire_dt else False
+                panel_expire_dt > datetime.now(UTC) if panel_expire_dt else False
             )
             if local_active_sub.is_active != is_active_based_on_panel:
                 update_payload_local["is_active"] = is_active_based_on_panel
@@ -185,7 +185,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             if local_active_sub
             else False
         )
-        hwid_entitlement_summary: Dict[str, Any] = {}
+        hwid_entitlement_summary: dict[str, Any] = {}
         active_extra_hwid_devices = (
             int(local_active_sub.extra_hwid_devices or 0) if local_active_sub else 0
         )
@@ -194,7 +194,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                 hwid_entitlement_summary = await tariff_dal.get_hwid_device_entitlement_summary(
                     session,
                     subscription_id=local_active_sub.subscription_id,
-                    at=datetime.now(timezone.utc),
+                    at=datetime.now(UTC),
                 )
                 active_extra_hwid_devices = int(hwid_entitlement_summary.get("active_devices") or 0)
                 if active_extra_hwid_devices != int(local_active_sub.extra_hwid_devices or 0):
@@ -302,16 +302,14 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
 
     async def get_subscriptions_ending_soon(
         self, session: AsyncSession, days_threshold: int
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         subs_models_with_users = await subscription_dal.get_subscriptions_near_expiration(
             session, days_threshold
         )
         results = []
         for sub_model in subs_models_with_users:
             if sub_model.user and sub_model.end_date and not sub_model.skip_notifications:
-                days_left = (sub_model.end_date - datetime.now(timezone.utc)).total_seconds() / (
-                    24 * 3600
-                )
+                days_left = (sub_model.end_date - datetime.now(UTC)).total_seconds() / (24 * 3600)
                 results.append(
                     {
                         "user_id": sub_model.user_id,

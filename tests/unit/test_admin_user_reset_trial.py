@@ -1,6 +1,6 @@
 import json
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -78,8 +78,8 @@ class AdminUserResetTrialRouteTests(unittest.IsolatedAsyncioTestCase):
 
 class AdminUserTrialPresentationTests(unittest.TestCase):
     def test_trial_subscription_serializes_display_label(self):
-        start_at = datetime(2026, 1, 2, 3, 4, tzinfo=timezone.utc)
-        end_at = datetime(2026, 1, 9, 3, 4, tzinfo=timezone.utc)
+        start_at = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
+        end_at = datetime(2026, 1, 9, 3, 4, tzinfo=UTC)
         sub = SimpleNamespace(
             subscription_id=7,
             panel_user_uuid="panel-user",
@@ -115,15 +115,15 @@ class AdminUserTrialPresentationTests(unittest.TestCase):
         self.assertIsNone(payload["tariff_key"])
 
     def test_trial_summary_includes_usage_dates_and_reset_marker(self):
-        first_at = datetime(2026, 1, 2, 3, 4, tzinfo=timezone.utc)
-        latest_at = datetime(2026, 2, 3, 4, 5, tzinfo=timezone.utc)
-        latest_end = datetime(2026, 2, 10, 4, 5, tzinfo=timezone.utc)
-        reset_at = datetime(2026, 3, 1, tzinfo=timezone.utc)
+        first_at = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
+        latest_at = datetime(2026, 2, 3, 4, 5, tzinfo=UTC)
+        latest_end = datetime(2026, 2, 10, 4, 5, tzinfo=UTC)
+        reset_at = datetime(2026, 3, 1, tzinfo=UTC)
         user = SimpleNamespace(trial_eligibility_reset_at=reset_at)
         trial_subs = [
             SimpleNamespace(
                 start_date=first_at,
-                end_date=datetime(2026, 1, 9, tzinfo=timezone.utc),
+                end_date=datetime(2026, 1, 9, tzinfo=UTC),
             ),
             SimpleNamespace(start_date=latest_at, end_date=latest_end, is_active=True),
         ]

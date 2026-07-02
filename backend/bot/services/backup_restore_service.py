@@ -11,9 +11,9 @@ import tempfile
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
@@ -82,11 +82,11 @@ class BackupArchiveInfo:
     path: Path
     size_bytes: int
     modified_at: datetime
-    created_at: Optional[str] = None
-    created_at_local: Optional[str] = None
+    created_at: str | None = None
+    created_at_local: str | None = None
     has_database: bool = False
     has_compose: bool = False
-    database_name: Optional[str] = None
+    database_name: str | None = None
     compose_files_count: int = 0
     warnings: list[str] = field(default_factory=list)
     manifest: dict[str, Any] = field(default_factory=dict)
@@ -114,8 +114,8 @@ class BackupRestoreResult:
     completed_at: datetime
     database_restored: bool = False
     compose_files_restored: int = 0
-    compose_target_dir: Optional[str] = None
-    compose_pre_restore_archive: Optional[str] = None
+    compose_target_dir: str | None = None
+    compose_pre_restore_archive: str | None = None
     database_migrations_applied: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
@@ -194,7 +194,7 @@ class BackupRestoreService:
             name=archive_path.name,
             path=archive_path,
             size_bytes=int(stat.st_size),
-            modified_at=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
+            modified_at=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
             created_at=str(manifest.get("created_at") or "") or None,
             created_at_local=str(manifest.get("created_at_local") or "") or None,
             has_database=has_database,
@@ -244,7 +244,7 @@ class BackupRestoreService:
 
         archive_path = self.archive_path_for_name(archive_name)
         self._validate_archive_for_restore(archive_path)
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         warnings: list[str] = []
 
         with tempfile.TemporaryDirectory(
@@ -262,8 +262,8 @@ class BackupRestoreService:
                 if restore_compose and not compose_members:
                     raise BackupArchiveError("Archive does not contain compose files")
 
-                compose_target_dir: Optional[Path] = None
-                compose_pre_restore_archive: Optional[Path] = None
+                compose_target_dir: Path | None = None
+                compose_pre_restore_archive: Path | None = None
                 if restore_compose:
                     compose_target_dir = self._compose_restore_target_dir()
                     self._assert_compose_target_writable(compose_target_dir)
@@ -288,7 +288,7 @@ class BackupRestoreService:
         return BackupRestoreResult(
             archive_name=archive_path.name,
             started_at=started_at,
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
             database_restored=database_restored,
             compose_files_restored=compose_files_restored,
             compose_target_dir=str(compose_target_dir) if compose_target_dir else None,
@@ -416,7 +416,7 @@ class BackupRestoreService:
                 f"Compose restore directory is not writable: {target_dir}"
             ) from exc
 
-    def _snapshot_current_compose(self, target_dir: Path) -> Optional[Path]:
+    def _snapshot_current_compose(self, target_dir: Path) -> Path | None:
         stamp = backup_filename_timestamp()
         archive_path = self._unique_archive_path(f"{COMPOSE_PRE_RESTORE_PREFIX}{stamp}.zip")
         excluded_dirs = self._compose_excluded_dirs()
@@ -440,7 +440,7 @@ class BackupRestoreService:
             if files_count <= 0:
                 return None
 
-            completed_at = datetime.now(timezone.utc)
+            completed_at = datetime.now(UTC)
             manifest = {
                 "app": BACKUP_APP_ID,
                 "format_version": BACKUP_FORMAT_VERSION,
@@ -525,7 +525,7 @@ class BackupRestoreService:
             shutil.copyfileobj(source, target)
         return dump_path
 
-    def _find_database_dump_member(self, archive: zipfile.ZipFile) -> Optional[zipfile.ZipInfo]:
+    def _find_database_dump_member(self, archive: zipfile.ZipFile) -> zipfile.ZipInfo | None:
         candidates = [
             item
             for item in archive.infolist()
@@ -685,7 +685,7 @@ class BackupRestoreService:
         return defaults | set(configured)
 
     @staticmethod
-    def _split_csv(value: Optional[str]) -> list[str]:
+    def _split_csv(value: str | None) -> list[str]:
         if not value:
             return []
         return [item.strip() for item in value.split(",") if item.strip()]

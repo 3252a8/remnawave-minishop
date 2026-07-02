@@ -242,7 +242,7 @@ def test_signature_accepts_valid_base64_hmac():
 
 def test_signature_accepts_url_decoded_hmac_variant():
     service = _make_service()
-    body = "InvoiceId=1&Description=Auto+renewal+%D1%82%D0%B5%D1%81%D1%82".encode("utf-8")
+    body = b"InvoiceId=1&Description=Auto+renewal+%D1%82%D0%B5%D1%81%D1%82"
     decoded = unquote_plus(body.decode("utf-8")).encode("utf-8")
 
     assert service.verify_signature(body, _hmac_b64(decoded, "api-secret"))

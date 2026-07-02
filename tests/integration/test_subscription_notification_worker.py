@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 from bot.services.subscription_notification_worker import SubscriptionNotificationWorker
@@ -33,7 +33,7 @@ def _sub(end_date, *, suppress_early_expiry_notifications=False, user_id=123, su
 
 
 def test_stage_prefers_hour_reminder_over_day_backlog():
-    now = datetime(2026, 5, 28, 12, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 28, 12, tzinfo=UTC)
     stage = _worker().stage_for_subscription(_sub(now + timedelta(hours=2, minutes=30)), now)
 
     assert stage.key == "before_3h"
@@ -42,7 +42,7 @@ def test_stage_prefers_hour_reminder_over_day_backlog():
 
 
 def test_stage_uses_most_imminent_day_reminder():
-    now = datetime(2026, 5, 28, 12, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 28, 12, tzinfo=UTC)
     stage = _worker().stage_for_subscription(_sub(now + timedelta(hours=23)), now)
 
     assert stage.key == "before_1d"
@@ -50,7 +50,7 @@ def test_stage_uses_most_imminent_day_reminder():
 
 
 def test_stage_sends_expired_during_first_day_after_end():
-    now = datetime(2026, 5, 28, 12, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 28, 12, tzinfo=UTC)
     stage = _worker().stage_for_subscription(_sub(now - timedelta(hours=1)), now)
 
     assert stage.key == "expired"
@@ -58,7 +58,7 @@ def test_stage_sends_expired_during_first_day_after_end():
 
 
 def test_stage_sends_yesterday_notice_only_after_first_day():
-    now = datetime(2026, 5, 28, 12, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 28, 12, tzinfo=UTC)
     stage = _worker().stage_for_subscription(_sub(now - timedelta(hours=25)), now)
 
     assert stage.key == "expired_24h_after"
@@ -66,14 +66,14 @@ def test_stage_sends_yesterday_notice_only_after_first_day():
 
 
 def test_promo_subscription_skips_day_before_reminders():
-    now = datetime(2026, 5, 28, 12, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 28, 12, tzinfo=UTC)
     sub = _sub(now + timedelta(hours=23), suppress_early_expiry_notifications=True)
 
     assert _worker().stage_for_subscription(sub, now) is None
 
 
 def test_promo_subscription_still_gets_hours_before_reminder():
-    now = datetime(2026, 5, 28, 12, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 28, 12, tzinfo=UTC)
     sub = _sub(now + timedelta(hours=2, minutes=30), suppress_early_expiry_notifications=True)
     stage = _worker().stage_for_subscription(sub, now)
 
@@ -82,7 +82,7 @@ def test_promo_subscription_still_gets_hours_before_reminder():
 
 
 def test_promo_subscription_still_gets_expiry_notice():
-    now = datetime(2026, 5, 28, 12, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 28, 12, tzinfo=UTC)
     sub = _sub(now - timedelta(hours=1), suppress_early_expiry_notifications=True)
     stage = _worker().stage_for_subscription(sub, now)
 
@@ -91,7 +91,7 @@ def test_promo_subscription_still_gets_expiry_notice():
 
 
 def test_expired_row_superseded_when_user_has_newer_active_subscription():
-    now = datetime(2026, 5, 28, 12, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 28, 12, tzinfo=UTC)
     sub = _sub(now - timedelta(hours=25), user_id=555, subscription_id=244)
     # The user renewed into another active row that runs well into the future.
     latest_active = {555: now + timedelta(days=29)}
@@ -100,7 +100,7 @@ def test_expired_row_superseded_when_user_has_newer_active_subscription():
 
 
 def test_single_live_row_is_not_treated_as_superseded():
-    now = datetime(2026, 5, 28, 12, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 28, 12, tzinfo=UTC)
     sub = _sub(now + timedelta(hours=23), user_id=555, subscription_id=244)
     # The only active coverage is this very row, so the "ending soon" reminder
     # must still go out.
@@ -110,7 +110,7 @@ def test_single_live_row_is_not_treated_as_superseded():
 
 
 def test_expired_row_without_other_coverage_is_not_superseded():
-    now = datetime(2026, 5, 28, 12, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 28, 12, tzinfo=UTC)
     sub = _sub(now - timedelta(hours=25), user_id=555, subscription_id=244)
 
     assert _worker()._superseded_by_active_subscription(sub, {}, now) is False

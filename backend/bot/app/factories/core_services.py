@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, TypeAlias
 
 from bot.services.audience_segmentation import AudienceSegmentationService
 from bot.services.email_auth_service import EmailAuthService
@@ -15,8 +14,8 @@ from bot.services.referral_service import ReferralService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.support_service import SupportService
 
-PanelService: TypeAlias = PanelApiService | PanelDryRunApiService
-PaymentServices: TypeAlias = Dict[str, object]
+type PanelService = PanelApiService | PanelDryRunApiService
+type PaymentServices = dict[str, object]
 
 
 @dataclass(frozen=True)
@@ -33,7 +32,7 @@ class CoreServices:
     outbound_messaging_service: OutboundMessagingService
     payment_services: PaymentServices
 
-    def as_dict(self) -> Dict[str, object]:
+    def as_dict(self) -> dict[str, object]:
         return {
             "panel_service": self.panel_service,
             "subscription_service": self.subscription_service,

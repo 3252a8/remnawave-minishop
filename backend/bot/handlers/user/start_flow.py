@@ -1,7 +1,6 @@
 import logging
 import re
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from aiogram import F, types
 from aiogram.filters import CommandStart
@@ -61,17 +60,17 @@ async def start_command_handler(
     subscription_service: SubscriptionService,
     referral_service: ReferralService,
     session: AsyncSession,
-    ref_match: Optional[re.Match] = None,
-    promo_match: Optional[re.Match] = None,
-    page_ref_match: Optional[re.Match] = None,
-    ad_param_match: Optional[re.Match] = None,
-    admin_user_match: Optional[re.Match] = None,
-    ticket_match: Optional[re.Match] = None,
-    notifications_match: Optional[re.Match] = None,
+    ref_match: re.Match | None = None,
+    promo_match: re.Match | None = None,
+    page_ref_match: re.Match | None = None,
+    ad_param_match: re.Match | None = None,
+    admin_user_match: re.Match | None = None,
+    ticket_match: re.Match | None = None,
+    notifications_match: re.Match | None = None,
 ) -> None:
     await state.clear()
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     user = message_from_user(message)
@@ -152,11 +151,11 @@ async def start_command_handler(
             )
             return
 
-    referred_by_user_id: Optional[int] = None
-    raw_ref_value: Optional[str] = None
-    promo_code_to_apply: Optional[str] = None
+    referred_by_user_id: int | None = None
+    raw_ref_value: str | None = None
+    promo_code_to_apply: str | None = None
     should_open_referral_from_start = False
-    ad_start_param: Optional[str] = None
+    ad_start_param: str | None = None
     notifications_start_requested = bool(notifications_match)
 
     if ref_match:
@@ -176,7 +175,7 @@ async def start_command_handler(
     sanitized_username = sanitize_username(user.username)
     sanitized_first_name = sanitize_display_name(user.first_name)
     sanitized_last_name = sanitize_display_name(user.last_name)
-    notification_status_now = datetime.now(timezone.utc)
+    notification_status_now = datetime.now(UTC)
 
     db_user = await user_dal.get_user_by_id(session, user_id)
     is_existing_user = db_user is not None
@@ -210,7 +209,7 @@ async def start_command_handler(
             "last_name": sanitized_last_name,
             "language_code": current_lang,
             "referred_by_id": referred_by_user_id,
-            "registration_date": datetime.now(timezone.utc),
+            "registration_date": datetime.now(UTC),
             "telegram_notifications_status": TELEGRAM_NOTIFICATIONS_ENABLED,
             "telegram_notifications_checked_at": notification_status_now,
             "telegram_notifications_enabled_at": notification_status_now,
@@ -256,7 +255,7 @@ async def start_command_handler(
                             # Mark the welcome bonus as claimed so it cannot be
                             # re-granted later (e.g. via the WebApp claim route
                             # once this grant expires).
-                            db_user.referral_welcome_bonus_claimed_at = datetime.now(timezone.utc)
+                            db_user.referral_welcome_bonus_claimed_at = datetime.now(UTC)
                             await session.commit()
                             await events.emit_model(
                                 ReferralBonusGrantedPayload(

@@ -1,5 +1,4 @@
 import logging
-from typing import List, Optional
 
 from sqlalchemy import func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from ..models import MessageLog
 
 
-async def create_message_log(session: AsyncSession, log_data: dict) -> Optional[MessageLog]:
+async def create_message_log(session: AsyncSession, log_data: dict) -> MessageLog | None:
 
     try:
         log_entry = await create_message_log_no_commit(session, log_data)
@@ -22,7 +21,7 @@ async def create_message_log(session: AsyncSession, log_data: dict) -> Optional[
         return None
 
 
-async def get_all_message_logs(session: AsyncSession, limit: int, offset: int) -> List[MessageLog]:
+async def get_all_message_logs(session: AsyncSession, limit: int, offset: int) -> list[MessageLog]:
     stmt = (
         select(MessageLog)
         .options(selectinload(MessageLog.author_user), selectinload(MessageLog.target_user))
@@ -42,7 +41,7 @@ async def count_all_message_logs(session: AsyncSession) -> int:
 
 async def get_user_message_logs(
     session: AsyncSession, user_id_to_search: int, limit: int, offset: int
-) -> List[MessageLog]:
+) -> list[MessageLog]:
     stmt = (
         select(MessageLog)
         .options(selectinload(MessageLog.author_user), selectinload(MessageLog.target_user))

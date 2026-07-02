@@ -1,7 +1,7 @@
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from aiohttp import web
@@ -69,7 +69,7 @@ __all__ = [
 ]
 
 
-async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, Any]:
+async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, Any]:
     settings: Settings = get_settings(request)
     async_session_factory: sessionmaker = get_session_factory(request)
     subscription_service: SubscriptionService = get_subscription_service(request)
@@ -87,7 +87,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
 
         active = await subscription_service.get_active_subscription_details(session, user_id)
         referral_code = await user_dal.ensure_referral_code(session, db_user)
-        referral_service: Optional[ReferralService] = get_referral_service(request)
+        referral_service: ReferralService | None = get_referral_service(request)
         bot_username = get_bot_username(request)
         referral_link = None
         if referral_service and bot_username:
@@ -260,15 +260,15 @@ async def _build_user_payload(request: web.Request, user_id: int) -> Dict[str, A
     }
 
 
-def _legacy_referral_bonus_periods(settings: Settings) -> List[int]:
+def _legacy_referral_bonus_periods(settings: Settings) -> list[int]:
     if settings.traffic_sale_mode:
         return []
 
     return sorted(int(months) for months in settings.subscription_options)
 
 
-def _serialize_tariff_period_referral_bonus_details(tariff: Any, lang: str) -> List[Dict[str, Any]]:
-    details: List[Dict[str, Any]] = []
+def _serialize_tariff_period_referral_bonus_details(tariff: Any, lang: str) -> list[dict[str, Any]]:
+    details: list[dict[str, Any]] = []
     for months in sorted(int(month) for month in tariff.enabled_periods):
         inviter_days = tariff.referral_inviter_bonus_days(months)
         friend_days = tariff.referral_referee_bonus_days(months)
@@ -288,7 +288,7 @@ def _serialize_tariff_period_referral_bonus_details(tariff: Any, lang: str) -> L
     return details
 
 
-def _serialize_tariff_referral_bonus_details(settings: Settings, lang: str) -> List[Dict[str, Any]]:
+def _serialize_tariff_referral_bonus_details(settings: Settings, lang: str) -> list[dict[str, Any]]:
     tariffs_config = settings.tariffs_config
     if not tariffs_config:
         return []
@@ -303,7 +303,7 @@ def _serialize_tariff_referral_bonus_details(settings: Settings, lang: str) -> L
             else []
         )
 
-    summaries: List[Dict[str, Any]] = []
+    summaries: list[dict[str, Any]] = []
     for tariff in period_tariffs:
         details = _serialize_tariff_period_referral_bonus_details(tariff, lang)
         if not details:
@@ -327,11 +327,11 @@ def _serialize_tariff_referral_bonus_details(settings: Settings, lang: str) -> L
     return summaries
 
 
-def _serialize_referral_bonus_details(settings: Settings, lang: str) -> List[Dict[str, Any]]:
+def _serialize_referral_bonus_details(settings: Settings, lang: str) -> list[dict[str, Any]]:
     if settings.tariffs_config:
         return _serialize_tariff_referral_bonus_details(settings, lang)
 
-    details: List[Dict[str, Any]] = []
+    details: list[dict[str, Any]] = []
     for months in _legacy_referral_bonus_periods(settings):
         inviter_days = settings.referral_bonus_inviter.get(months)
         friend_days = settings.referral_bonus_referee.get(months)
@@ -349,9 +349,9 @@ def _serialize_referral_bonus_details(settings: Settings, lang: str) -> List[Dic
 
 
 def _build_webapp_referral_link(
-    base_url: Optional[str],
-    referral_code: Optional[str],
-) -> Optional[str]:
+    base_url: str | None,
+    referral_code: str | None,
+) -> str | None:
     if not base_url or not referral_code:
         return None
     parts = urlsplit(base_url)
@@ -371,12 +371,12 @@ def _build_webapp_referral_link(
 def _serialize_subscription(
     request_or_settings: Any,
     settings_or_active: Any,
-    active_or_local_sub: Optional[Any] = None,
-    local_sub_or_lang: Optional[Any] = None,
-    lang: Optional[str] = None,
+    active_or_local_sub: Any | None = None,
+    local_sub_or_lang: Any | None = None,
+    lang: str | None = None,
     *,
-    install_share_token: Optional[str] = None,
-) -> Dict[str, Any]:
+    install_share_token: str | None = None,
+) -> dict[str, Any]:
     if lang is None:
         request = None
         settings = request_or_settings
@@ -404,13 +404,13 @@ def _serialize_subscription(
 
     end_date = active.get("end_date")
     if end_date and end_date.tzinfo is None:
-        end_date = end_date.replace(tzinfo=timezone.utc)
+        end_date = end_date.replace(tzinfo=UTC)
 
     seconds_left = 0
     if end_date:
         seconds_left = max(
             0,
-            int((end_date - datetime.now(timezone.utc)).total_seconds()),
+            int((end_date - datetime.now(UTC)).total_seconds()),
         )
 
     can_topup_regular_traffic = False
@@ -447,10 +447,10 @@ def _serialize_subscription(
     ).strip()
     extra_hwid_valid_until = active.get("extra_hwid_devices_valid_until")
     if extra_hwid_valid_until and extra_hwid_valid_until.tzinfo is None:
-        extra_hwid_valid_until = extra_hwid_valid_until.replace(tzinfo=timezone.utc)
+        extra_hwid_valid_until = extra_hwid_valid_until.replace(tzinfo=UTC)
     extra_hwid_next_valid_from = active.get("extra_hwid_devices_next_valid_from")
     if extra_hwid_next_valid_from and extra_hwid_next_valid_from.tzinfo is None:
-        extra_hwid_next_valid_from = extra_hwid_next_valid_from.replace(tzinfo=timezone.utc)
+        extra_hwid_next_valid_from = extra_hwid_next_valid_from.replace(tzinfo=UTC)
     extra_hwid_count = _coerce_int_or_none(active.get("extra_hwid_devices")) or 0
     device_topup_renewal_available = bool(
         extra_hwid_count > 0
@@ -554,20 +554,20 @@ def _serialize_subscription(
     }
 
 
-def _webapp_iso_datetime(value: Optional[Any]) -> Optional[str]:
+def _webapp_iso_datetime(value: Any | None) -> str | None:
     if not value:
         return None
     if isinstance(value, datetime):
-        normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        normalized = value if value.tzinfo else value.replace(tzinfo=UTC)
         return normalized.isoformat()
     return str(value)
 
 
-def _webapp_datetime_text(value: Optional[Any]) -> Optional[str]:
+def _webapp_datetime_text(value: Any | None) -> str | None:
     if not value:
         return None
     if isinstance(value, datetime):
-        normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        normalized = value if value.tzinfo else value.replace(tzinfo=UTC)
         return normalized.strftime("%d.%m.%Y %H:%M")
     return str(value)
 
@@ -578,9 +578,9 @@ async def _attach_hwid_renewal_quotes_to_plans(
     *,
     user_id: int,
     settings: Settings,
-    active: Optional[Dict[str, Any]],
-    local_sub: Optional[Any],
-    plans: List[Dict[str, Any]],
+    active: dict[str, Any] | None,
+    local_sub: Any | None,
+    plans: list[dict[str, Any]],
 ) -> None:
     quote_method = getattr(subscription_service, "quote_hwid_device_renewal_for_subscription", None)
     if not callable(quote_method):
@@ -651,10 +651,10 @@ async def _attach_hwid_renewal_quotes_to_plans(
 
 
 def _build_install_share_link(
-    request: Optional[web.Request],
+    request: web.Request | None,
     settings: Settings,
     share_token: str,
-) -> Optional[str]:
+) -> str | None:
     share_token = subscription_dal.normalize_install_share_token(share_token)
     if not share_token or request is None:
         return None
@@ -678,11 +678,11 @@ def _serialize_plans(
     settings: Settings,
     lang: str,
     *,
-    subscription_options: Optional[Dict[int, float]] = None,
-    stars_subscription_options: Optional[Dict[int, int]] = None,
-    traffic_packages: Optional[Dict[float, float]] = None,
-    stars_traffic_packages: Optional[Dict[float, int]] = None,
-) -> List[Dict[str, Any]]:
+    subscription_options: dict[int, float] | None = None,
+    stars_subscription_options: dict[int, int] | None = None,
+    traffic_packages: dict[float, float] | None = None,
+    stars_traffic_packages: dict[float, int] | None = None,
+) -> list[dict[str, Any]]:
     tariffs_config = settings.tariffs_config
     if tariffs_config:
         default_currency = default_currency_key_for_settings(settings)
@@ -747,7 +747,7 @@ def _serialize_plans(
                 # Preserve the configured package order (default-currency list first,
                 # then any Stars-only volumes) so admins can reorder via drag & drop.
                 # Matches the bot keyboard, which iterates the package list as-is.
-                ordered_gb: List[float] = []
+                ordered_gb: list[float] = []
                 for traffic_gb in list(currency_packages) + list(stars_packages):
                     if traffic_gb not in ordered_gb:
                         ordered_gb.append(traffic_gb)

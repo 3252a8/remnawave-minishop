@@ -1,7 +1,7 @@
 import hashlib
 import json
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple, cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 from aiohttp import web
 from sqlalchemy import select
@@ -74,7 +74,7 @@ async def _load_admin_users_list_payload(
     panel_status: str,
     premium_traffic: str,
     sort_value: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     cache = _admin_users_list_cache(settings)
     cache_key = _admin_users_list_cache_key(
         page=page,
@@ -97,7 +97,7 @@ async def _load_admin_users_list_payload(
             sort_value=sort_value,
         )
     return cast(
-        Dict[str, Any],
+        dict[str, Any],
         await cache.get_or_load(
             cache_key,
             lambda: _load_admin_users_list_payload_uncached(
@@ -124,7 +124,7 @@ async def _load_admin_users_list_payload_uncached(
     panel_status: str,
     premium_traffic: str,
     sort_value: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     async with async_session_factory() as session:
         users, total = await _filter_and_sort_users(
             session,
@@ -174,7 +174,7 @@ async def _load_admin_users_list_payload_uncached(
     }
 
 
-def _admin_users_list_cache(settings: Settings) -> Optional[AsyncTTLCache]:
+def _admin_users_list_cache(settings: Settings) -> AsyncTTLCache | None:
     ttl_seconds = int(settings.ADMIN_USERS_LIST_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return None
@@ -207,7 +207,7 @@ async def _invalidate_admin_users_list_cache(settings: Settings) -> None:
 
 async def _invalidate_after_admin_user_mutation(
     settings: Settings,
-    user_id: Optional[int] = None,
+    user_id: int | None = None,
     *,
     include_devices: bool = True,
 ) -> None:
@@ -220,14 +220,14 @@ async def _invalidate_after_admin_user_mutation(
         )
 
 
-def _enabled_admin_tariffs(settings: Settings) -> List[Any]:
+def _enabled_admin_tariffs(settings: Settings) -> list[Any]:
     config = settings.tariffs_config
     if not config:
         return []
     return list(getattr(config, "enabled_tariffs", []) or [])
 
 
-def _enabled_admin_period_tariffs(settings: Settings) -> List[Any]:
+def _enabled_admin_period_tariffs(settings: Settings) -> list[Any]:
     return [
         tariff
         for tariff in _enabled_admin_tariffs(settings)
@@ -240,7 +240,7 @@ def _resolve_admin_period_tariff_key(
     explicit_tariff_key: Any,
     *,
     allow_legacy_without_tariffs: bool = False,
-) -> Tuple[Optional[str], Optional[str]]:
+) -> tuple[str | None, str | None]:
     config = settings.tariffs_config
     if not config:
         return (None, None) if allow_legacy_without_tariffs else (None, "tariffs_not_configured")
@@ -265,8 +265,8 @@ def _resolve_admin_period_tariff_key(
 
 
 async def _bulk_user_statuses(
-    session: AsyncSession, user_ids: List[int]
-) -> Dict[int, Dict[str, Optional[str]]]:
+    session: AsyncSession, user_ids: list[int]
+) -> dict[int, dict[str, str | None]]:
     """Return active subscription status for a batch of users.
 
     Returns the panel status (active/expired/limited/disabled) when an active
@@ -287,8 +287,8 @@ async def _bulk_user_statuses(
         .order_by(Subscription.is_active.desc(), Subscription.end_date.desc().nullslast())
     )
     rows = (await session.execute(stmt)).all()
-    out: Dict[int, Dict[str, Optional[str]]] = {}
-    now = datetime.now(timezone.utc)
+    out: dict[int, dict[str, str | None]] = {}
+    now = datetime.now(UTC)
     for uid, panel_status, is_active, end_date in rows:
         if uid in out:
             continue

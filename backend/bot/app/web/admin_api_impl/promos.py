@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
@@ -121,7 +121,7 @@ async def admin_promo_create_route(request: web.Request) -> web.Response:
     valid_until = None
     if body.valid_days:
         try:
-            valid_until = datetime.now(timezone.utc) + timedelta(days=int(body.valid_days))
+            valid_until = datetime.now(UTC) + timedelta(days=int(body.valid_days))
         except (TypeError, ValueError):
             return _error(400, "invalid_valid_days")
 
@@ -152,7 +152,7 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     promo_id = int(request.match_info["promo_id"])
     body = await parse_body_or_400(request, PromoUpdateBody)
-    update_data: Dict[str, Any] = {}
+    update_data: dict[str, Any] = {}
     fields_set = body.model_fields_set
     if "is_active" in fields_set:
         update_data["is_active"] = bool(body.is_active)

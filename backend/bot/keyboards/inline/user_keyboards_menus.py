@@ -1,5 +1,3 @@
-from typing import Optional
-
 from aiogram.types import InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
@@ -32,7 +30,7 @@ def get_main_menu_inline_keyboard(
     settings: Settings,
     show_trial_button: bool = False,
     *,
-    user_id: Optional[int] = None,
+    user_id: int | None = None,
     is_admin: bool = False,
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -155,8 +153,8 @@ def get_bot_interface_inline_keyboard(
 def get_information_links_keyboard(
     lang: str,
     i18n_instance: JsonI18n,
-    privacy_policy_url: Optional[str],
-    user_agreement_url: Optional[str],
+    privacy_policy_url: str | None,
+    user_agreement_url: str | None,
     back_callback: str = "main_action:back_to_main",
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)

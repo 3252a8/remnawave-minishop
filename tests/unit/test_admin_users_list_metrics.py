@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -109,7 +109,7 @@ class AdminUsersListMetricsTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("subscriptions.end_date >", sql)
 
     async def test_bulk_user_statuses_treats_expired_active_rows_as_expired(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         session = SimpleNamespace(
             execute=AsyncMock(
                 return_value=FakeResult(

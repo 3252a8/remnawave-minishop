@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,7 +31,7 @@ async def _sync_panel_identity_for_user(
     request: web.Request,
     user: User,
     *,
-    expire_at: Optional[datetime] = None,
+    expire_at: datetime | None = None,
 ) -> bool:
     if not user.panel_user_uuid:
         return False
@@ -39,7 +39,7 @@ async def _sync_panel_identity_for_user(
     if not subscription_service or not subscription_service.panel_service:
         return False
 
-    payload: Dict[str, Any] = {}
+    payload: dict[str, Any] = {}
     telegram_id = _telegram_id_for_user(user)
     if telegram_id:
         payload["telegramId"] = telegram_id
@@ -47,9 +47,9 @@ async def _sync_panel_identity_for_user(
         payload["email"] = user.email
     if expire_at is not None:
         if expire_at.tzinfo is None:
-            expire_at = expire_at.replace(tzinfo=timezone.utc)
+            expire_at = expire_at.replace(tzinfo=UTC)
         payload["expireAt"] = expire_at.isoformat(timespec="milliseconds").replace("+00:00", "Z")
-        if expire_at > datetime.now(timezone.utc):
+        if expire_at > datetime.now(UTC):
             payload["status"] = "ACTIVE"
 
     try:
@@ -79,8 +79,8 @@ async def _sync_panel_identity_for_user(
 async def _delete_merged_source_panel_user(
     request: web.Request,
     *,
-    source_panel_uuid: Optional[str],
-    final_panel_uuid: Optional[str],
+    source_panel_uuid: str | None,
+    final_panel_uuid: str | None,
 ) -> bool:
     if not source_panel_uuid or not final_panel_uuid or source_panel_uuid == final_panel_uuid:
         return True
@@ -109,9 +109,9 @@ async def _sync_merged_panel_identity_for_user(
     request: web.Request,
     user: User,
     *,
-    source_panel_uuid: Optional[str],
-    final_panel_uuid: Optional[str],
-    expire_at: Optional[datetime] = None,
+    source_panel_uuid: str | None,
+    final_panel_uuid: str | None,
+    expire_at: datetime | None = None,
 ) -> bool:
     # Remnawave keeps email/telegramId unique. Remove the losing panel identity
     # before patching the surviving one so merged accounts can accept both IDs.
@@ -128,9 +128,9 @@ async def _build_account_merge_notice(
     *,
     merged_user: User,
     source_user_id: int,
-    source_panel_uuid: Optional[str],
+    source_panel_uuid: str | None,
     settings: Settings,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     merged_subscription = None
     if merged_user.panel_user_uuid:
         merged_subscription = await subscription_dal.get_active_subscription_by_user_id(
@@ -146,7 +146,7 @@ async def _build_account_merge_notice(
 
     final_end_date = merged_subscription.end_date if merged_subscription else None
     if final_end_date and final_end_date.tzinfo is None:
-        final_end_date = final_end_date.replace(tzinfo=timezone.utc)
+        final_end_date = final_end_date.replace(tzinfo=UTC)
 
     return {
         "merged": True,
@@ -162,7 +162,7 @@ async def _build_account_merge_notice(
 
 def _apply_telegram_profile_to_user(
     user: User,
-    telegram_user: Dict[str, Any],
+    telegram_user: dict[str, Any],
     settings: Settings,
 ) -> None:
     language_code = _normalize_language(
@@ -184,7 +184,7 @@ async def _link_telegram_to_user(
     session: AsyncSession,
     *,
     current_user_id: int,
-    telegram_user: Dict[str, Any],
+    telegram_user: dict[str, Any],
     settings: Settings,
     merge_reason: str = "telegram_link",
     merge_send_user_email: bool = False,
@@ -233,7 +233,7 @@ async def _link_telegram_to_user(
                 "first_name": sanitize_display_name(telegram_user.get("first_name")),
                 "last_name": sanitize_display_name(telegram_user.get("last_name")),
                 "language_code": language_code,
-                "registration_date": current_user.registration_date or datetime.now(timezone.utc),
+                "registration_date": current_user.registration_date or datetime.now(UTC),
             },
             registered_via=None,
         )

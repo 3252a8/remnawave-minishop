@@ -1,11 +1,12 @@
-from typing import Any, Callable, Optional, Tuple
+from collections.abc import Callable
+from typing import Any
 
 
 def _format_value(val: float) -> str:
     return str(int(val)) if float(val).is_integer() else f"{val:g}"
 
 
-def _parse_offer_payload(payload: str) -> Optional[Tuple[float, float, str]]:
+def _parse_offer_payload(payload: str) -> tuple[float, float, str] | None:
     try:
         parts = payload.split(":")
         value = float(parts[0])
@@ -16,7 +17,7 @@ def _parse_offer_payload(payload: str) -> Optional[Tuple[float, float, str]]:
         return None
 
 
-def _parse_saved_list_payload(payload: str) -> Optional[Tuple[float, float, int, str]]:
+def _parse_saved_list_payload(payload: str) -> tuple[float, float, int, str] | None:
     parts = payload.split(":")
     if len(parts) < 2:
         return None
@@ -37,7 +38,7 @@ def _parse_saved_list_payload(payload: str) -> Optional[Tuple[float, float, int,
     return months, price, page, sale_mode
 
 
-def _metadata_iso(value: Any) -> Optional[str]:
+def _metadata_iso(value: Any) -> str | None:
     if value is None:
         return None
     isoformat = getattr(value, "isoformat", None)
@@ -48,13 +49,13 @@ def _metadata_iso(value: Any) -> Optional[str]:
 
 
 def _format_saved_payment_method_title(
-    get_text: Callable[..., str], network: Optional[str], last4: Optional[str], is_default: bool
+    get_text: Callable[..., str], network: str | None, last4: str | None, is_default: bool
 ) -> str:
-    def _is_yoomoney_network(name: Optional[str]) -> bool:
+    def _is_yoomoney_network(name: str | None) -> bool:
         s = (name or "").lower()
         return "yoomoney" in s or "yoo money" in s or "yoo-money" in s
 
-    def _extract_last4(text: str) -> Optional[str]:
+    def _extract_last4(text: str) -> str | None:
         digits = "".join(ch for ch in text if ch.isdigit())
         return digits[-4:] if len(digits) >= 4 else None
 

@@ -1,5 +1,3 @@
-from typing import Optional, Tuple
-
 from config.settings import Settings
 
 BOT_MENU_CONTEXT = "bot"
@@ -9,26 +7,26 @@ HWID_RENEWAL_TOKEN = "hwid_renewal"
 def telegram_bot_menu_enabled_for_user(
     settings: Settings,
     *,
-    user_id: Optional[int] = None,
+    user_id: int | None = None,
     is_admin: bool = False,
 ) -> bool:
     """Return whether the legacy in-bot interface should be available."""
     return not bool(settings.TELEGRAM_BOT_MENU_DISABLED)
 
 
-def sale_mode_tokens(sale_mode: Optional[str]) -> Tuple[str, ...]:
+def sale_mode_tokens(sale_mode: str | None) -> tuple[str, ...]:
     if not sale_mode or "|" not in sale_mode:
         return ()
     return tuple(token.strip() for token in str(sale_mode).split("|")[1:] if token.strip())
 
 
-def callback_context_from_back_callback(back_callback: Optional[str]) -> Optional[str]:
+def callback_context_from_back_callback(back_callback: str | None) -> str | None:
     if back_callback == "main_action:bot_interface":
         return BOT_MENU_CONTEXT
     return None
 
 
-def sale_mode_with_callback_context(sale_mode: str, context: Optional[str]) -> str:
+def sale_mode_with_callback_context(sale_mode: str, context: str | None) -> str:
     sale_mode = sale_mode or "subscription"
     if not context or context in sale_mode_tokens(sale_mode):
         return sale_mode
@@ -53,31 +51,31 @@ def sale_mode_without_token(sale_mode: str, token: str) -> str:
     return "|".join([base, *kept])
 
 
-def sale_mode_has_token(sale_mode: Optional[str], token: str) -> bool:
+def sale_mode_has_token(sale_mode: str | None, token: str) -> bool:
     return str(token or "").strip() in sale_mode_tokens(sale_mode)
 
 
-def callback_context_from_sale_mode(sale_mode: Optional[str]) -> Optional[str]:
+def callback_context_from_sale_mode(sale_mode: str | None) -> str | None:
     tokens = sale_mode_tokens(sale_mode)
     return BOT_MENU_CONTEXT if BOT_MENU_CONTEXT in tokens else None
 
 
-def callback_suffix_for_context(context: Optional[str]) -> str:
+def callback_suffix_for_context(context: str | None) -> str:
     return f":{context}" if context else ""
 
 
-def subscription_options_callback(context: Optional[str]) -> str:
+def subscription_options_callback(context: str | None) -> str:
     return "main_action:bot_subscribe" if context == BOT_MENU_CONTEXT else "main_action:subscribe"
 
 
-def tariff_purchase_back_callback(context: Optional[str]) -> str:
+def tariff_purchase_back_callback(context: str | None) -> str:
     if context == BOT_MENU_CONTEXT:
         return "main_action:bot_interface"
     return subscription_options_callback(context)
 
 
 def payment_methods_back_callback(
-    value: str, sale_mode: str = "subscription", price: Optional[float] = None
+    value: str, sale_mode: str = "subscription", price: float | None = None
 ) -> str:
     sale_mode = sale_mode or "subscription"
     context = callback_context_from_sale_mode(sale_mode)

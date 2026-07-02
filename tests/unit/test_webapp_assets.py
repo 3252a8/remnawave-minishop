@@ -5,7 +5,7 @@ import json
 import os
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -923,7 +923,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         avatar = SimpleNamespace(
             user_id=123,
             image_bytes=b"avatar",
-            updated_at=datetime(2026, 5, 6, 12, 0, tzinfo=timezone.utc),
+            updated_at=datetime(2026, 5, 6, 12, 0, tzinfo=UTC),
         )
 
         self.assertEqual(

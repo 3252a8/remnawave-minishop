@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import Optional
 
 from .lknpd_client import LknpdApiError, LknpdClient, PaymentType
 
@@ -9,8 +8,8 @@ from .lknpd_client import LknpdApiError, LknpdClient, PaymentType
 class LknpdService:
     def __init__(
         self,
-        inn: Optional[str],
-        password: Optional[str],
+        inn: str | None,
+        password: str | None,
         api_url: str = "https://lknpd.nalog.ru/api",
     ) -> None:
         self.inn = inn.strip() if inn else None
@@ -43,8 +42,8 @@ class LknpdService:
         item_name: str,
         amount: float,
         quantity: float = 1.0,
-        operation_time: Optional[datetime] = None,
-    ) -> Optional[str]:
+        operation_time: datetime | None = None,
+    ) -> str | None:
         if not self.configured:
             return None
         if not await self._ensure_authenticated():

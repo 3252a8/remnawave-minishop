@@ -8,7 +8,7 @@ import secrets
 import subprocess
 import time
 from collections import deque
-from typing import Any, Dict, Optional
+from typing import Any
 from urllib.parse import quote
 
 from aiohttp import web
@@ -143,12 +143,12 @@ from .constants import (
 )
 from .response_helpers import json_response
 
-_TEXT_FILE_CACHE: Dict[tuple[str, bool], tuple[int, int, str]] = {}
-_I18N_PAYLOAD_CACHE: Dict[tuple[int, str, tuple[tuple[str, int, int], ...]], Dict[str, Any]] = {}
+_TEXT_FILE_CACHE: dict[tuple[str, bool], tuple[int, int, str]] = {}
+_I18N_PAYLOAD_CACHE: dict[tuple[int, str, tuple[tuple[str, int, int], ...]], dict[str, Any]] = {}
 _ASSET_NAME_CACHE_TTL_SECONDS = 30.0
 WEBAPP_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
-_APP_VERSION_CACHE: Optional[str] = None
+_APP_VERSION_CACHE: str | None = None
 logger = logging.getLogger(__name__)
 
 
@@ -214,7 +214,7 @@ async def _csrf_protection_middleware(request: web.Request, handler: Handler) ->
     return await handler(request)
 
 
-def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
+def _get_cached_webapp_settings(request: web.Request) -> dict[str, Any]:
     settings: Settings = get_settings(request)
     cache = get_webapp_settings_cache(request)
     now = time.monotonic()
@@ -279,7 +279,7 @@ async def _enforce_webapp_rate_limit(
     *,
     user_id: int,
     action: str,
-) -> Optional[web.Response]:
+) -> web.Response | None:
     settings: Settings = get_settings(request)
     ip_address = (
         request_client_ip(request, trusted_proxies=settings.trusted_proxies)
@@ -312,7 +312,7 @@ async def _enforce_webapp_rate_limit(
     except Exception as exc:
         logger.warning("Redis webapp rate limiter unavailable; using local fallback: %s", exc)
 
-    buckets: Dict[str, deque[float]] = get_webapp_rate_limit_buckets(request)
+    buckets: dict[str, deque[float]] = get_webapp_rate_limit_buckets(request)
     lock: asyncio.Lock = get_webapp_rate_limit_lock(request)
     now = time.monotonic()
 
@@ -356,7 +356,7 @@ def _normalize_i18n_scope(raw_scope: object) -> str:
 
 
 def _i18n_cache_fingerprint(
-    locales_data: Dict[str, Any],
+    locales_data: dict[str, Any],
 ) -> tuple[tuple[str, int, int], ...]:
     return tuple(
         sorted(
@@ -367,7 +367,7 @@ def _i18n_cache_fingerprint(
     )
 
 
-def _filter_webapp_i18n_payload(locales_data: object, scope: str = "webapp") -> Dict[str, Any]:
+def _filter_webapp_i18n_payload(locales_data: object, scope: str = "webapp") -> dict[str, Any]:
     if not isinstance(locales_data, dict):
         return {}
 
@@ -377,11 +377,11 @@ def _filter_webapp_i18n_payload(locales_data: object, scope: str = "webapp") -> 
     if cached is not None:
         return cached
 
-    payload: Dict[str, Any] = {}
+    payload: dict[str, Any] = {}
     for lang, messages in locales_data.items():
         if not isinstance(messages, dict):
             continue
-        filtered: Dict[str, Any] = {}
+        filtered: dict[str, Any] = {}
         for key, value in messages.items():
             key_text = str(key)
             is_bootstrap_key = _is_webapp_bootstrap_i18n_key(key_text)
@@ -396,7 +396,7 @@ def _filter_webapp_i18n_payload(locales_data: object, scope: str = "webapp") -> 
     return payload
 
 
-def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
+def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
     settings: Settings = get_settings(request)
     cached = _get_cached_webapp_settings(request)
     webapp_settings = settings.webapp_settings
@@ -430,7 +430,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
                     break
             if not replaced:
                 payload_themes.insert(0, preview_payload)
-    i18n_instance: Optional[object] = get_i18n(request)
+    i18n_instance: object | None = get_i18n(request)
     i18n_scope = _normalize_i18n_scope(request.query.get("i18n_scope") or "webapp")
     if i18n_instance and hasattr(i18n_instance, "reload_overrides_from_file"):
         i18n_instance.reload_overrides_from_file()
@@ -479,7 +479,7 @@ async def bootstrap_route(request: web.Request) -> web.Response:
 
 
 async def i18n_route(request: web.Request) -> web.Response:
-    i18n_instance: Optional[object] = get_i18n(request)
+    i18n_instance: object | None = get_i18n(request)
     if i18n_instance and hasattr(i18n_instance, "reload_overrides_from_file"):
         i18n_instance.reload_overrides_from_file()
     scope = _normalize_i18n_scope(request.query.get("scope") or "webapp")
@@ -685,10 +685,10 @@ async def app_deeplink_route(request: web.Request) -> web.Response:
     return response
 
 
-def _app_deeplink_i18n_payload(request: web.Request, lang: str) -> Dict[str, str]:
-    i18n_instance: Optional[object] = get_i18n(request)
+def _app_deeplink_i18n_payload(request: web.Request, lang: str) -> dict[str, str]:
+    i18n_instance: object | None = get_i18n(request)
     gettext = getattr(i18n_instance, "gettext", None)
-    payload: Dict[str, str] = {}
+    payload: dict[str, str] = {}
     for payload_key, i18n_key in APP_DEEPLINK_I18N_KEYS.items():
         fallback = APP_DEEPLINK_I18N_FALLBACKS[i18n_key]
         value = ""

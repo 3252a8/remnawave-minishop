@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -146,7 +146,7 @@ def test_panel_identity_match_accepts_list_description_without_email():
 
 
 def test_panel_identity_payload_with_expiry_excludes_description_updates():
-    expire_at = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc)
+    expire_at = datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
     user = SimpleNamespace(
         email="linked@example.com",
         telegram_id=42,
@@ -366,7 +366,7 @@ def test_panel_identity_view_fetches_full_user_to_clean_legacy_description_email
 
 
 def test_subscription_update_delta_skips_unchanged_fields():
-    end_date = datetime(2026, 5, 20, 12, 0, tzinfo=timezone.utc)
+    end_date = datetime(2026, 5, 20, 12, 0, tzinfo=UTC)
     subscription = Subscription(
         user_id=1,
         panel_user_uuid="panel-1",
@@ -392,7 +392,7 @@ def test_subscription_update_delta_skips_unchanged_fields():
 
 
 def test_subscription_update_delta_returns_only_changed_fields():
-    end_date = datetime(2026, 5, 20, 12, 0, tzinfo=timezone.utc)
+    end_date = datetime(2026, 5, 20, 12, 0, tzinfo=UTC)
     subscription = Subscription(
         user_id=1,
         panel_user_uuid="panel-1",
@@ -420,7 +420,7 @@ def test_subscription_update_delta_returns_only_changed_fields():
 
 
 def test_lifetime_traffic_update_waits_for_time_window_for_small_delta():
-    now = datetime(2026, 5, 20, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 20, 12, 0, tzinfo=UTC)
     settings = SimpleNamespace(
         PANEL_SYNC_LIFETIME_TRAFFIC_MIN_INTERVAL_SECONDS=3600,
         PANEL_SYNC_LIFETIME_TRAFFIC_MIN_DELTA_BYTES=100 * 1024 * 1024,
@@ -445,7 +445,7 @@ def test_lifetime_traffic_update_waits_for_time_window_for_small_delta():
 
 
 def test_lifetime_traffic_update_allows_large_delta_and_skips_duplicate_panel_identity():
-    now = datetime(2026, 5, 20, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 20, 12, 0, tzinfo=UTC)
     settings = SimpleNamespace(
         PANEL_SYNC_LIFETIME_TRAFFIC_MIN_INTERVAL_SECONDS=3600,
         PANEL_SYNC_LIFETIME_TRAFFIC_MIN_DELTA_BYTES=100 * 1024 * 1024,
@@ -471,7 +471,7 @@ def test_lifetime_traffic_update_allows_large_delta_and_skips_duplicate_panel_id
 
 
 def test_absorb_duplicate_panel_identity_extends_kept_user_and_deletes_duplicate():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     target_sub = SimpleNamespace(
         subscription_id=10,
         user_id=42,

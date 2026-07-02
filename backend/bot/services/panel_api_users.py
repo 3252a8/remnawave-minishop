@@ -1,8 +1,8 @@
 import asyncio
 import logging
 import re
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
@@ -14,17 +14,17 @@ from config.traffic_strategy import normalize_traffic_limit_strategy
 # label keeps only the constant prefix. Longest prefixes first so e.g.
 
 
-def _json_dict(value: object) -> Optional[Dict[str, Any]]:
+def _json_dict(value: object) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
-def _json_dict_list(value: object) -> Optional[List[Dict[str, Any]]]:
+def _json_dict_list(value: object) -> list[dict[str, Any]] | None:
     if not isinstance(value, list):
         return None
     return [item for item in value if isinstance(item, dict)]
 
 
-def _panel_users_batch(value: object) -> Optional[List[Dict[str, Any]]]:
+def _panel_users_batch(value: object) -> list[dict[str, Any]] | None:
     if isinstance(value, list):
         return _json_dict_list(value)
     if isinstance(value, dict):
@@ -35,7 +35,7 @@ def _panel_users_batch(value: object) -> Optional[List[Dict[str, Any]]]:
     return None
 
 
-def _panel_users_next_cursor(value: object) -> Optional[str]:
+def _panel_users_next_cursor(value: object) -> str | None:
     if not isinstance(value, dict):
         return None
     for key in ("nextCursor", "next_cursor"):
@@ -60,12 +60,12 @@ class PanelApiUsersMixin:
 
         async def _request(
             self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
-        ) -> Optional[Dict[str, Any]]: ...
+        ) -> dict[str, Any] | None: ...
         async def _invalidate_user_cache(self, user_uuid: str) -> None: ...
         async def _invalidate_devices_cache(self, user_uuid: str) -> None: ...
         async def _invalidate_all_users_cache(self) -> None: ...
 
-    def _resolve_all_users_page_size(self, page_size: Optional[int] = None) -> int:
+    def _resolve_all_users_page_size(self, page_size: int | None = None) -> int:
         raw_value = (
             page_size
             if page_size is not None
@@ -86,8 +86,8 @@ class PanelApiUsersMixin:
         return value if value > 0 else 0.0
 
     async def get_all_panel_users(
-        self, page_size: Optional[int] = None, log_responses: bool = False
-    ) -> Optional[List[Dict[str, Any]]]:
+        self, page_size: int | None = None, log_responses: bool = False
+    ) -> list[dict[str, Any]] | None:
         resolved_page_size = self._resolve_all_users_page_size(page_size)
         if log_responses or self._all_users_cache.ttl_seconds <= 0:
             return await self._get_all_panel_users_uncached(
@@ -102,8 +102,8 @@ class PanelApiUsersMixin:
         return _json_dict_list(cached)
 
     async def _get_all_panel_users_uncached(
-        self, page_size: Optional[int] = None, log_responses: bool = False
-    ) -> Optional[List[Dict[str, Any]]]:
+        self, page_size: int | None = None, log_responses: bool = False
+    ) -> list[dict[str, Any]] | None:
         resolved_page_size = self._resolve_all_users_page_size(page_size)
         users = await self._fetch_all_panel_users_stream_pages(
             page_size=resolved_page_size,
@@ -132,13 +132,13 @@ class PanelApiUsersMixin:
 
     async def _fetch_all_panel_users_stream_pages(
         self, page_size: int, log_responses: bool = False
-    ) -> Optional[List[Dict[str, Any]]]:
-        all_users: List[Dict[str, Any]] = []
-        cursor: Optional[str] = None
+    ) -> list[dict[str, Any]] | None:
+        all_users: list[dict[str, Any]] = []
+        cursor: str | None = None
         seen_cursors: set[str] = set()
         page_delay = self._resolve_all_users_page_delay()
         while True:
-            params: Dict[str, Any] = {"size": page_size}
+            params: dict[str, Any] = {"size": page_size}
             if cursor:
                 params["cursor"] = cursor
             response_data = await self._request(
@@ -178,8 +178,8 @@ class PanelApiUsersMixin:
 
     async def _fetch_all_panel_users_pages(
         self, page_size: int, log_responses: bool = False
-    ) -> Optional[List[Dict[str, Any]]]:
-        all_users: List[Dict[str, Any]] = []
+    ) -> list[dict[str, Any]] | None:
+        all_users: list[dict[str, Any]] = []
         start_offset = 0
         page_delay = self._resolve_all_users_page_delay()
         while True:
@@ -208,7 +208,7 @@ class PanelApiUsersMixin:
 
     async def get_user_by_uuid(
         self, user_uuid: str, log_response: bool = False
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         if log_response or self._users_cache.ttl_seconds <= 0:
             return await self._get_user_by_uuid_uncached(user_uuid, log_response=log_response)
         cached = await self._users_cache.get_or_load(
@@ -219,7 +219,7 @@ class PanelApiUsersMixin:
 
     async def _get_user_by_uuid_uncached(
         self, user_uuid: str, log_response: bool = False
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         lookup = await self.get_user_by_uuid_lookup(user_uuid, log_response=log_response)
         user = lookup.get("user")
         if lookup.get("ok") and isinstance(user, dict):
@@ -227,14 +227,14 @@ class PanelApiUsersMixin:
         return None
 
     @staticmethod
-    def _panel_response_details(response_data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    def _panel_response_details(response_data: dict[str, Any] | None) -> dict[str, Any]:
         if not isinstance(response_data, dict):
             return {}
         details = response_data.get("details")
         return details if isinstance(details, dict) else {}
 
     @classmethod
-    def _panel_response_error_code(cls, response_data: Optional[Dict[str, Any]]) -> Optional[str]:
+    def _panel_response_error_code(cls, response_data: dict[str, Any] | None) -> str | None:
         if not isinstance(response_data, dict):
             return None
         details = cls._panel_response_details(response_data)
@@ -247,7 +247,7 @@ class PanelApiUsersMixin:
         return str(error_code) if error_code else None
 
     @classmethod
-    def _panel_response_message(cls, response_data: Optional[Dict[str, Any]]) -> Optional[str]:
+    def _panel_response_message(cls, response_data: dict[str, Any] | None) -> str | None:
         if not isinstance(response_data, dict):
             return None
         details = cls._panel_response_details(response_data)
@@ -263,7 +263,7 @@ class PanelApiUsersMixin:
         return message[:500] if message else None
 
     @classmethod
-    def _is_user_not_found_response(cls, response_data: Optional[Dict[str, Any]]) -> bool:
+    def _is_user_not_found_response(cls, response_data: dict[str, Any] | None) -> bool:
         if not isinstance(response_data, dict):
             return False
         status_code = response_data.get("status_code")
@@ -275,7 +275,7 @@ class PanelApiUsersMixin:
     @classmethod
     def _describe_user_lookup_failure(
         cls,
-        response_data: Optional[Dict[str, Any]],
+        response_data: dict[str, Any] | None,
         *,
         not_found: bool,
     ) -> str:
@@ -297,7 +297,7 @@ class PanelApiUsersMixin:
 
     async def get_user_by_uuid_lookup(
         self, user_uuid: str, log_response: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetch a panel user and preserve whether a miss was confirmed.
 
         ``get_user_by_uuid`` historically returned ``None`` both for a real
@@ -331,12 +331,12 @@ class PanelApiUsersMixin:
     async def get_user(
         self,
         *,
-        uuid: Optional[str] = None,
-        telegram_id: Optional[int] = None,
-        username: Optional[str] = None,
-        email: Optional[str] = None,
+        uuid: str | None = None,
+        telegram_id: int | None = None,
+        username: str | None = None,
+        email: str | None = None,
         log_response: bool = False,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         if uuid:
             return await self.get_user_by_uuid(uuid, log_response=log_response)
 
@@ -352,11 +352,11 @@ class PanelApiUsersMixin:
 
     async def get_users_by_filter(
         self,
-        telegram_id: Optional[int] = None,
-        username: Optional[str] = None,
-        email: Optional[str] = None,
+        telegram_id: int | None = None,
+        username: str | None = None,
+        email: str | None = None,
         log_response: bool = False,
-    ) -> Optional[List[Dict[str, Any]]]:
+    ) -> list[dict[str, Any]] | None:
 
         response_data = None
         filter_used_log = "No filter specified"
@@ -422,19 +422,19 @@ class PanelApiUsersMixin:
     async def create_panel_user(
         self,
         username_on_panel: str,
-        telegram_id: Optional[int] = None,
-        email: Optional[str] = None,
+        telegram_id: int | None = None,
+        email: str | None = None,
         default_expire_days: int = 1,
         default_traffic_limit_bytes: int = 0,
         default_traffic_limit_strategy: str = "NO_RESET",
-        hwid_device_limit: Optional[int] = None,
-        specific_squad_uuids: Optional[List[str]] = None,
-        external_squad_uuid: Optional[str] = None,
-        description: Optional[str] = None,
-        tag: Optional[str] = None,
+        hwid_device_limit: int | None = None,
+        specific_squad_uuids: list[str] | None = None,
+        external_squad_uuid: str | None = None,
+        description: str | None = None,
+        tag: str | None = None,
         status: str = "ACTIVE",
         log_response: bool = False,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
 
         username_is_valid = (
             3 <= len(username_on_panel) <= 36
@@ -450,11 +450,11 @@ class PanelApiUsersMixin:
                 "errorCode": "VALIDATION_ERROR_USERNAME",
             }
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expire_at_dt = now + timedelta(days=default_expire_days)
         expire_at_iso = expire_at_dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "username": username_on_panel,
             "status": status.upper(),
             "expireAt": expire_at_iso,
@@ -504,8 +504,8 @@ class PanelApiUsersMixin:
         return response
 
     async def update_user_details_on_panel(
-        self, user_uuid: str, update_payload: Dict[str, Any], log_response: bool = False
-    ) -> Optional[Dict[str, Any]]:
+        self, user_uuid: str, update_payload: dict[str, Any], log_response: bool = False
+    ) -> dict[str, Any] | None:
         if "uuid" not in update_payload:
             update_payload["uuid"] = user_uuid
         if "trafficLimitStrategy" in update_payload:

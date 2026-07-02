@@ -3,8 +3,8 @@ import hashlib
 import hmac
 import json
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
@@ -153,7 +153,7 @@ class PanelWebhookService:
         self,
         event_name: str,
         user_payload: dict[str, Any],
-        meta: Optional[dict[str, Any]] = None,
+        meta: dict[str, Any] | None = None,
     ) -> None:
         await events.emit_model(
             PanelWebhookReceivedPayload(
@@ -328,9 +328,9 @@ class PanelWebhookService:
         user_payload: dict,
         user_id: int,
         lang: str,
-        db_user: Optional[User],
+        db_user: User | None,
         *,
-        meta: Optional[dict[str, Any]] = None,
+        meta: dict[str, Any] | None = None,
     ) -> None:
         first_name = getattr(db_user, "first_name", None) or f"User {user_id}"
         markup = get_subscribe_only_markup(lang, self.i18n, self.settings)
@@ -382,8 +382,8 @@ class PanelWebhookService:
         cls,
         event_name: str,
         user_payload: dict[str, Any],
-        meta: Optional[dict[str, Any]] = None,
-    ) -> Optional[SubscriptionNotificationStage]:
+        meta: dict[str, Any] | None = None,
+    ) -> SubscriptionNotificationStage | None:
         if event_name in EVENT_MAP:
             return EVENT_MAP[event_name]
         if event_name == EXPIRED_EVENT:
@@ -488,9 +488,9 @@ class PanelWebhookService:
     @classmethod
     def _expiration_hours(
         cls,
-        meta: Optional[dict[str, Any]],
+        meta: dict[str, Any] | None,
         user_payload: dict[str, Any],
-    ) -> Optional[int]:
+    ) -> int | None:
         for source in (meta, user_payload):
             if not isinstance(source, dict):
                 continue
@@ -501,7 +501,7 @@ class PanelWebhookService:
         return None
 
     @staticmethod
-    def _coerce_int(value: object) -> Optional[int]:
+    def _coerce_int(value: object) -> int | None:
         if value is None or isinstance(value, bool):
             return None
         if isinstance(value, int):
@@ -526,7 +526,7 @@ class PanelWebhookService:
         self,
         session: AsyncSession,
         user_payload: dict,
-    ) -> Optional[User]:
+    ) -> User | None:
         telegram_id = self._payload_telegram_id(user_payload)
         if telegram_id:
             user = await user_dal.get_user_by_telegram_id(session, telegram_id)
@@ -550,17 +550,17 @@ class PanelWebhookService:
     async def _superseded_by_newer_subscription(
         self,
         session: AsyncSession,
-        sub: Optional[Subscription],
+        sub: Subscription | None,
     ) -> bool:
         if sub is None:
             return False
         user_id = getattr(sub, "user_id", None)
         if user_id is None:
             return False
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         sub_end = getattr(sub, "end_date", None)
         if sub_end is not None and sub_end.tzinfo is None:
-            sub_end = sub_end.replace(tzinfo=timezone.utc)
+            sub_end = sub_end.replace(tzinfo=UTC)
         after = max(now, sub_end) if sub_end is not None else now
         return bool(
             await subscription_dal.user_has_active_subscription_after(
@@ -575,8 +575,8 @@ class PanelWebhookService:
         self,
         session: AsyncSession,
         user_payload: dict,
-        db_user: Optional[User],
-    ) -> Optional[Subscription]:
+        db_user: User | None,
+    ) -> Subscription | None:
         conditions = []
         if db_user:
             conditions.append(Subscription.user_id == db_user.user_id)
@@ -614,7 +614,7 @@ class PanelWebhookService:
         return result.scalars().first()
 
     @staticmethod
-    def _payload_telegram_id(user_payload: dict) -> Optional[int]:
+    def _payload_telegram_id(user_payload: dict) -> int | None:
         raw = user_payload.get("telegramId")
         try:
             value = int(raw or 0)
@@ -661,7 +661,7 @@ class PanelWebhookService:
         return f"{visible}***@{domain}"
 
     @staticmethod
-    def _payload_expire_datetime(user_payload: dict) -> Optional[datetime]:
+    def _payload_expire_datetime(user_payload: dict) -> datetime | None:
         raw = str(user_payload.get("expireAt") or "").strip()
         if not raw:
             return None
@@ -673,12 +673,10 @@ class PanelWebhookService:
             except ValueError:
                 return None
         if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
-        return value.astimezone(timezone.utc)
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
 
-    async def handle_webhook(
-        self, raw_body: bytes, signature_header: Optional[str]
-    ) -> web.Response:
+    async def handle_webhook(self, raw_body: bytes, signature_header: str | None) -> web.Response:
         if not self.settings.PANEL_WEBHOOK_SECRET:
             return web.Response(status=401, text="unauthorized")
 
@@ -755,7 +753,7 @@ class PanelWebhookService:
         cls,
         event_name: str,
         user_payload: dict[str, Any],
-        meta: Optional[dict[str, Any]] = None,
+        meta: dict[str, Any] | None = None,
     ) -> str:
         subject = (
             cls._payload_telegram_id(user_payload)
@@ -775,7 +773,7 @@ class PanelWebhookService:
         self,
         event_name: str,
         user_payload: dict[str, Any],
-        meta: Optional[dict[str, Any]] = None,
+        meta: dict[str, Any] | None = None,
     ) -> None:
         async with self._event_semaphore:
             try:

@@ -1,7 +1,7 @@
 import csv
 import io
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from aiogram import F, Router, types
 from aiogram.filters import StateFilter
@@ -216,7 +216,7 @@ def get_promo_status_emoji_and_text(
     """Determine promo code status and return emoji + text"""
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
-    if promo.valid_until and promo.valid_until < datetime.now(timezone.utc):
+    if promo.valid_until and promo.valid_until < datetime.now(UTC):
         return "⏰", _("admin_promo_status_expired")
     elif promo.current_activations >= promo.max_activations:
         return "🔄", _("admin_promo_status_used_up")
@@ -228,7 +228,7 @@ def get_promo_status_emoji_and_text(
 
 async def get_promo_detail_text_and_keyboard(
     promo_id: int, session: AsyncSession, i18n: JsonI18n, current_lang: str
-) -> tuple[Optional[str], Optional[types.InlineKeyboardMarkup]]:
+) -> tuple[str | None, types.InlineKeyboardMarkup | None]:
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     promo = await promo_code_dal.get_promo_code_by_id(session, promo_id)
     if not promo:
@@ -297,7 +297,7 @@ async def view_promo_codes_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error processing request.", show_alert=True)
         return
@@ -327,7 +327,7 @@ async def promo_management_handler(
     page: int = 0,
 ) -> None:
     current_lang = i18n_data.get("current_language", "ru")
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error processing request.", show_alert=True)
         return
@@ -421,7 +421,7 @@ async def promo_management_pagination_handler(
 async def promo_detail_handler(
     callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         await callback.answer("Error processing request.", show_alert=True)
@@ -449,7 +449,7 @@ async def promo_detail_handler(
 async def promo_toggle_handler(
     callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         await callback.answer("Language service error.", show_alert=True)
@@ -492,7 +492,7 @@ async def promo_toggle_handler(
 async def promo_activations_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         await callback.answer("Error processing request.", show_alert=True)
@@ -564,7 +564,7 @@ async def promo_activations_handler(
 async def promo_export_activations_handler(
     callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         await callback.answer("Error processing request.", show_alert=True)
@@ -647,7 +647,7 @@ async def promo_export_activations_handler(
 async def promo_export_all_handler(
     callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         await callback.answer("Error processing request.", show_alert=True)
@@ -723,7 +723,7 @@ async def promo_export_all_handler(
         output.seek(0)
 
         # Создаем файл для отправки
-        filename = f"promo_codes_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"promo_codes_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.csv"
         file = types.BufferedInputFile(
             output.getvalue().encode("utf-8-sig"),  # BOM для корректного отображения в Excel
             filename=filename,
@@ -740,7 +740,7 @@ async def promo_export_all_handler(
 async def promo_delete_handler(
     callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         await callback.answer("Language service error.", show_alert=True)
@@ -767,7 +767,7 @@ async def promo_delete_handler(
 async def promo_edit_select_handler(
     callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         return
@@ -841,7 +841,7 @@ async def promo_edit_select_handler(
 async def promo_edit_field_handler(
     callback: types.CallbackQuery, state: FSMContext, i18n_data: dict, session: AsyncSession
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         return
@@ -875,7 +875,7 @@ async def promo_edit_field_handler(
 async def process_promo_edit_details(
     message: types.Message, state: FSMContext, session: AsyncSession, i18n_data: dict
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not message or not current_lang:
         return
@@ -929,7 +929,7 @@ async def process_promo_edit_details(
                 days = int(value)
                 if days <= 0:
                     raise ValueError
-                update_data["valid_until"] = datetime.now(timezone.utc) + timedelta(days=days)
+                update_data["valid_until"] = datetime.now(UTC) + timedelta(days=days)
         else:
             raise ValueError
 

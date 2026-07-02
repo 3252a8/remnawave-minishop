@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import html
-from typing import TYPE_CHECKING, Optional, Sequence, Tuple
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from bot.middlewares.i18n import JsonI18n
@@ -27,15 +28,15 @@ from .email_templates_common import (
 
 def _support_email(
     settings: Settings,
-    i18n: Optional[JsonI18n],
-    language: Optional[str],
+    i18n: JsonI18n | None,
+    language: str | None,
     *,
     subject: str,
     heading: str,
     intro: str,
-    rows: Sequence[Tuple[str, str]],
+    rows: Sequence[tuple[str, str]],
     body_preview: str,
-    ticket_url: Optional[str],
+    ticket_url: str | None,
     cta_label: str,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
@@ -80,15 +81,15 @@ def _support_email(
 
 def render_support_new_ticket_admin(
     settings: Settings,
-    i18n: Optional[JsonI18n],
-    language: Optional[str],
+    i18n: JsonI18n | None,
+    language: str | None,
     *,
     ticket_id: int,
     user_display: str,
     subject: str,
     body_preview: str,
-    snapshot_rows: Sequence[Tuple[str, str]],
-    ticket_url: Optional[str],
+    snapshot_rows: Sequence[tuple[str, str]],
+    ticket_url: str | None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language, settings)
@@ -114,15 +115,15 @@ def render_support_new_ticket_admin(
 
 def render_support_user_reply_admin(
     settings: Settings,
-    i18n: Optional[JsonI18n],
-    language: Optional[str],
+    i18n: JsonI18n | None,
+    language: str | None,
     *,
     ticket_id: int,
     user_display: str,
     subject: str,
     body_preview: str,
-    snapshot_rows: Sequence[Tuple[str, str]],
-    ticket_url: Optional[str],
+    snapshot_rows: Sequence[tuple[str, str]],
+    ticket_url: str | None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language, settings)
@@ -148,13 +149,13 @@ def render_support_user_reply_admin(
 
 def render_support_admin_reply_user(
     settings: Settings,
-    i18n: Optional[JsonI18n],
-    language: Optional[str],
+    i18n: JsonI18n | None,
+    language: str | None,
     *,
     ticket_id: int,
     subject: str,
     body_preview: str,
-    ticket_url: Optional[str],
+    ticket_url: str | None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language, settings)
@@ -177,13 +178,13 @@ def render_support_admin_reply_user(
 
 def render_support_ticket_closed_user(
     settings: Settings,
-    i18n: Optional[JsonI18n],
-    language: Optional[str],
+    i18n: JsonI18n | None,
+    language: str | None,
     *,
     ticket_id: int,
     subject: str,
     body_preview: str = "",
-    ticket_url: Optional[str],
+    ticket_url: str | None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language, settings)

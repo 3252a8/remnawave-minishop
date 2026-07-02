@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot, F, Router, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
@@ -58,12 +58,12 @@ class StarsPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
 class StarsService:
@@ -89,8 +89,8 @@ class StarsService:
         stars_price: int,
         description: str,
         sale_mode: str = "subscription",
-        hwid_quote: Optional[dict[str, Any]] = None,
-    ) -> Optional[int]:
+        hwid_quote: dict[str, Any] | None = None,
+    ) -> int | None:
         amounts = payment_record_amounts(
             months=months,
             sale_mode=sale_mode,
@@ -224,7 +224,7 @@ async def pay_stars_callback_handler(
     stars_service: StarsService,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)
 
     if not i18n or not callback.message:

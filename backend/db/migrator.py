@@ -1,6 +1,7 @@
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Dict, List, Set
+from typing import TYPE_CHECKING
 
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
@@ -33,8 +34,8 @@ def _ensure_migrations_table(connection: Connection) -> None:
 
 def _migration_0001_add_channel_subscription_fields(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
-    statements: List[str] = []
+    columns: set[str] = {col["name"] for col in inspector.get_columns("users")}
+    statements: list[str] = []
 
     if "channel_subscription_verified" not in columns:
         statements.append("ALTER TABLE users ADD COLUMN channel_subscription_verified BOOLEAN")
@@ -51,7 +52,7 @@ def _migration_0001_add_channel_subscription_fields(connection: Connection) -> N
 
 def _migration_0002_add_referral_code(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("users")}
 
     if "referral_code" not in columns:
         connection.execute(text("ALTER TABLE users ADD COLUMN referral_code VARCHAR(16)"))
@@ -96,7 +97,7 @@ def _migration_0002_add_referral_code(connection: Connection) -> None:
 
 def _migration_0003_normalize_referral_codes(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("users")}
     if "referral_code" not in columns:
         return
 
@@ -114,7 +115,7 @@ def _migration_0003_normalize_referral_codes(connection: Connection) -> None:
 
 def _migration_0004_add_lifetime_used_traffic(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("users")}
     if "lifetime_used_traffic_bytes" in columns:
         return
 
@@ -123,7 +124,7 @@ def _migration_0004_add_lifetime_used_traffic(connection: Connection) -> None:
 
 def _migration_0005_add_email_auth_fields(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("users")}
 
     if "email" not in columns:
         connection.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR"))
@@ -235,7 +236,7 @@ def _migration_0006_add_security_throttles(connection: Connection) -> None:
 
 def _migration_0007_add_telegram_photo_url(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("users")}
     if "telegram_photo_url" in columns:
         return
 
@@ -244,7 +245,7 @@ def _migration_0007_add_telegram_photo_url(connection: Connection) -> None:
 
 def _migration_0008_add_email_verification_code_status(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("email_verification_codes")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("email_verification_codes")}
 
     if "status" not in columns:
         connection.execute(
@@ -275,7 +276,7 @@ def _migration_0008_add_email_verification_code_status(connection: Connection) -
 
 def _migration_0010_add_email_magic_token_hash(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("email_verification_codes")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("email_verification_codes")}
 
     if "magic_token_hash" not in columns:
         connection.execute(
@@ -320,8 +321,8 @@ def _migration_0011_add_user_telegram_avatars(connection: Connection) -> None:
 def _migration_0012_add_tariffs_schema(connection: Connection) -> None:
     inspector = inspect(connection)
 
-    sub_columns: Set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
-    sub_statements: List[str] = []
+    sub_columns: set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+    sub_statements: list[str] = []
     if "tariff_key" not in sub_columns:
         sub_statements.append("ALTER TABLE subscriptions ADD COLUMN tariff_key VARCHAR")
     if "tier_baseline_bytes" not in sub_columns:
@@ -373,8 +374,8 @@ def _migration_0012_add_tariffs_schema(connection: Connection) -> None:
     for stmt in sub_statements:
         connection.execute(text(stmt))
 
-    payment_columns: Set[str] = {col["name"] for col in inspector.get_columns("payments")}
-    payment_statements: List[str] = []
+    payment_columns: set[str] = {col["name"] for col in inspector.get_columns("payments")}
+    payment_statements: list[str] = []
     if "sale_mode" not in payment_columns:
         payment_statements.append("ALTER TABLE payments ADD COLUMN sale_mode VARCHAR")
     if "tariff_key" not in payment_columns:
@@ -509,8 +510,8 @@ def _migration_0009_add_composite_indexes(connection: Connection) -> None:
 
 def _migration_0014_add_premium_squad_traffic_fields(connection: Connection) -> None:
     inspector = inspect(connection)
-    sub_columns: Set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
-    statements: List[str] = []
+    sub_columns: set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+    statements: list[str] = []
     if "premium_baseline_bytes" not in sub_columns:
         statements.append(
             "ALTER TABLE subscriptions ADD COLUMN premium_baseline_bytes BIGINT NOT NULL DEFAULT 0"
@@ -546,8 +547,8 @@ def _migration_0014_add_premium_squad_traffic_fields(connection: Connection) -> 
 
 def _migration_0015_add_premium_topup_carryover_fields(connection: Connection) -> None:
     inspector = inspect(connection)
-    sub_columns: Set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
-    statements: List[str] = []
+    sub_columns: set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+    statements: list[str] = []
     if "premium_topup_used_bytes" not in sub_columns:
         statements.append(
             "ALTER TABLE subscriptions ADD COLUMN premium_topup_used_bytes BIGINT NOT NULL DEFAULT 0"  # noqa: E501
@@ -562,8 +563,8 @@ def _migration_0015_add_premium_topup_carryover_fields(connection: Connection) -
 
 def _migration_0016_add_message_logs_admin_fields(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("message_logs")}
-    statements: List[str] = []
+    columns: set[str] = {col["name"] for col in inspector.get_columns("message_logs")}
+    statements: list[str] = []
 
     if "is_admin_event" not in columns:
         statements.append(
@@ -587,8 +588,8 @@ def _migration_0016_add_message_logs_admin_fields(connection: Connection) -> Non
 def _migration_0018_add_premium_admin_overrides(connection: Connection) -> None:
     """Per-subscription overrides letting admins gift extra premium traffic or unlimited access."""
     inspector = inspect(connection)
-    sub_columns: Set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
-    statements: List[str] = []
+    sub_columns: set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+    statements: list[str] = []
     if "premium_unlimited_override" not in sub_columns:
         statements.append(
             "ALTER TABLE subscriptions ADD COLUMN premium_unlimited_override BOOLEAN NOT NULL DEFAULT FALSE"  # noqa: E501
@@ -609,7 +610,7 @@ def _migration_0018_add_premium_admin_overrides(connection: Connection) -> None:
 
 def _migration_0021_add_regular_unlimited_override(connection: Connection) -> None:
     inspector = inspect(connection)
-    sub_columns: Set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+    sub_columns: set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
     if "regular_unlimited_override" not in sub_columns:
         connection.execute(
             text(
@@ -627,7 +628,7 @@ def _migration_0021_add_regular_unlimited_override(connection: Connection) -> No
 def _migration_0020_add_regular_bonus_bytes(connection: Connection) -> None:
     """Admin-granted extra bytes on main (non-premium) traffic limit, like premium_bonus_bytes."""
     inspector = inspect(connection)
-    sub_columns: Set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+    sub_columns: set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
     if "regular_bonus_bytes" not in sub_columns:
         connection.execute(
             text(
@@ -651,7 +652,7 @@ def _migration_0019_clear_subscription_months_for_non_subscription_payments(
     table_names = set(inspector.get_table_names())
     if "payments" not in table_names:
         return
-    pay_columns: Set[str] = {col["name"] for col in inspector.get_columns("payments")}
+    pay_columns: set[str] = {col["name"] for col in inspector.get_columns("payments")}
     if "subscription_duration_months" not in pay_columns or "sale_mode" not in pay_columns:
         return
     connection.execute(
@@ -678,8 +679,8 @@ def _migration_0017_reconcile_legacy_admin_api_schema(connection: Connection) ->
 
     table_names = set(inspector.get_table_names())
     if "subscriptions" in table_names:
-        sub_columns: Set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
-        sub_statements: List[str] = []
+        sub_columns: set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+        sub_statements: list[str] = []
         if "tariff_key" not in sub_columns:
             sub_statements.append("ALTER TABLE subscriptions ADD COLUMN tariff_key VARCHAR")
         if "tier_baseline_bytes" not in sub_columns:
@@ -716,8 +717,8 @@ def _migration_0017_reconcile_legacy_admin_api_schema(connection: Connection) ->
             connection.execute(text(stmt))
 
     if "payments" in table_names:
-        pay_columns: Set[str] = {col["name"] for col in inspector.get_columns("payments")}
-        pay_statements: List[str] = []
+        pay_columns: set[str] = {col["name"] for col in inspector.get_columns("payments")}
+        pay_statements: list[str] = []
         if "sale_mode" not in pay_columns:
             pay_statements.append("ALTER TABLE payments ADD COLUMN sale_mode VARCHAR")
         if "tariff_key" not in pay_columns:
@@ -730,8 +731,8 @@ def _migration_0017_reconcile_legacy_admin_api_schema(connection: Connection) ->
             connection.execute(text(stmt))
 
     if "message_logs" in table_names:
-        msg_columns: Set[str] = {col["name"] for col in inspector.get_columns("message_logs")}
-        msg_statements: List[str] = []
+        msg_columns: set[str] = {col["name"] for col in inspector.get_columns("message_logs")}
+        msg_statements: list[str] = []
         if "is_admin_event" not in msg_columns:
             msg_statements.append(
                 "ALTER TABLE message_logs ADD COLUMN is_admin_event BOOLEAN NOT NULL DEFAULT FALSE"
@@ -765,7 +766,7 @@ def _migration_0022_add_indexes_for_admin_reports(connection: Connection) -> Non
 
 def _migration_0023_add_email_password_auth_fields(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("users")}
 
     if "password_hash" not in columns:
         connection.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR"))
@@ -818,7 +819,7 @@ def _migration_0024_add_support_tickets(connection: Connection) -> None:
     )
 
     inspector = inspect(connection)
-    ticket_columns: Set[str] = {col["name"] for col in inspector.get_columns("support_tickets")}
+    ticket_columns: set[str] = {col["name"] for col in inspector.get_columns("support_tickets")}
     ticket_column_sql = {
         "user_id": "BIGINT NOT NULL REFERENCES users(user_id)",
         "subject": "VARCHAR(160) NOT NULL DEFAULT ''",
@@ -843,7 +844,7 @@ def _migration_0024_add_support_tickets(connection: Connection) -> None:
                 text(f"ALTER TABLE support_tickets ADD COLUMN {column} {definition}")
             )
 
-    message_columns: Set[str] = {
+    message_columns: set[str] = {
         col["name"] for col in inspector.get_columns("support_ticket_messages")
     }
     message_column_sql = {
@@ -881,7 +882,7 @@ def _migration_0024_add_support_tickets(connection: Connection) -> None:
 
 def _migration_0025_add_support_notification_timestamps(connection: Connection) -> None:
     inspector = inspect(connection)
-    ticket_columns: Set[str] = {col["name"] for col in inspector.get_columns("support_tickets")}
+    ticket_columns: set[str] = {col["name"] for col in inspector.get_columns("support_tickets")}
     column_sql = {
         "admin_last_notified_at": "TIMESTAMPTZ NULL",
         "admin_last_emailed_at": "TIMESTAMPTZ NULL",
@@ -895,7 +896,7 @@ def _migration_0025_add_support_notification_timestamps(connection: Connection) 
 
 def _migration_0026_add_lifetime_traffic_synced_at(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("users")}
     if "lifetime_used_traffic_synced_at" not in columns:
         connection.execute(
             text("ALTER TABLE users ADD COLUMN lifetime_used_traffic_synced_at TIMESTAMPTZ")
@@ -904,7 +905,7 @@ def _migration_0026_add_lifetime_traffic_synced_at(connection: Connection) -> No
 
 def _migration_0027_add_subscription_install_share_token(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
 
     if "install_share_token" not in columns:
         connection.execute(
@@ -945,7 +946,7 @@ def _migration_0029_add_hwid_device_purchase_validity(connection: Connection) ->
     if "hwid_device_purchases" not in table_names or "subscriptions" not in table_names:
         return
 
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("hwid_device_purchases")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("hwid_device_purchases")}
     if "valid_from" not in columns:
         connection.execute(
             text("ALTER TABLE hwid_device_purchases ADD COLUMN valid_from TIMESTAMPTZ")
@@ -1007,7 +1008,7 @@ def _migration_0030_add_hwid_pricing_metadata(connection: Connection) -> None:
     inspector = inspect(connection)
     table_names = set(inspector.get_table_names())
     if "payments" in table_names:
-        payment_columns: Set[str] = {col["name"] for col in inspector.get_columns("payments")}
+        payment_columns: set[str] = {col["name"] for col in inspector.get_columns("payments")}
         payment_additions = {
             "hwid_valid_from": "TIMESTAMPTZ",
             "hwid_valid_until": "TIMESTAMPTZ",
@@ -1020,7 +1021,7 @@ def _migration_0030_add_hwid_pricing_metadata(connection: Connection) -> None:
                 connection.execute(text(f"ALTER TABLE payments ADD COLUMN {column} {ddl_type}"))
 
     if "tariff_changes" in table_names:
-        change_columns: Set[str] = {col["name"] for col in inspector.get_columns("tariff_changes")}
+        change_columns: set[str] = {col["name"] for col in inspector.get_columns("tariff_changes")}
         change_additions = {
             "converted_hwid_value_rub": "NUMERIC",
             "converted_hwid_days": "INTEGER",
@@ -1069,7 +1070,7 @@ def _migration_0031_add_subscription_notifications(connection: Connection) -> No
 
 def _migration_0032_add_telegram_notification_status(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("users")}
     additions = {
         "telegram_notifications_status": "VARCHAR(32) NOT NULL DEFAULT 'unknown'",
         "telegram_notifications_checked_at": "TIMESTAMPTZ",
@@ -1083,7 +1084,7 @@ def _migration_0032_add_telegram_notification_status(connection: Connection) -> 
 
 def _migration_0033_add_trial_eligibility_reset_marker(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("users")}
     if "trial_eligibility_reset_at" not in columns:
         connection.execute(
             text("ALTER TABLE users ADD COLUMN trial_eligibility_reset_at TIMESTAMPTZ")
@@ -1165,7 +1166,7 @@ def _migration_0034_add_legacy_import_compatibility(connection: Connection) -> N
 
 def _migration_0035_add_subscription_promo_expiry_flag(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
     if "suppress_early_expiry_notifications" not in columns:
         connection.execute(
             text(
@@ -1177,14 +1178,14 @@ def _migration_0035_add_subscription_promo_expiry_flag(connection: Connection) -
 
 def _migration_0036_add_provider_payment_url(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("payments")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("payments")}
     if "provider_payment_url" not in columns:
         connection.execute(text("ALTER TABLE payments ADD COLUMN provider_payment_url VARCHAR"))
 
 
 def _migration_0037_add_referral_welcome_bonus_marker(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("users")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("users")}
     if "referral_welcome_bonus_claimed_at" not in columns:
         connection.execute(
             text("ALTER TABLE users ADD COLUMN referral_welcome_bonus_claimed_at TIMESTAMPTZ")
@@ -1194,8 +1195,8 @@ def _migration_0037_add_referral_welcome_bonus_marker(connection: Connection) ->
 def _migration_0038_extend_promo_code_effects(connection: Connection) -> None:
     inspector = inspect(connection)
     columns_info = inspector.get_columns("promo_codes")
-    columns: Set[str] = {col["name"] for col in columns_info}
-    statements: List[str] = []
+    columns: set[str] = {col["name"] for col in columns_info}
+    statements: list[str] = []
 
     if "discount_percent" not in columns:
         statements.append("ALTER TABLE promo_codes ADD COLUMN discount_percent NUMERIC(5, 2)")
@@ -1235,8 +1236,8 @@ def _migration_0038_extend_promo_code_effects(connection: Connection) -> None:
 
 def _migration_0039_add_promo_activation_effect_snapshots(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("promo_code_activations")}
-    statements: List[str] = []
+    columns: set[str] = {col["name"] for col in inspector.get_columns("promo_code_activations")}
+    statements: list[str] = []
 
     if "effect_summary" not in columns:
         statements.append("ALTER TABLE promo_code_activations ADD COLUMN effect_summary VARCHAR")
@@ -1263,12 +1264,12 @@ def _migration_0039_add_promo_activation_effect_snapshots(connection: Connection
 
 def _migration_0040_add_code_checkout_snapshots(connection: Connection) -> None:
     inspector = inspect(connection)
-    payment_columns: Set[str] = {col["name"] for col in inspector.get_columns("payments")}
-    activation_columns: Set[str] = {
+    payment_columns: set[str] = {col["name"] for col in inspector.get_columns("payments")}
+    activation_columns: set[str] = {
         col["name"] for col in inspector.get_columns("promo_code_activations")
     }
-    code_columns: Set[str] = {col["name"] for col in inspector.get_columns("promo_codes")}
-    statements: List[str] = []
+    code_columns: set[str] = {col["name"] for col in inspector.get_columns("promo_codes")}
+    statements: list[str] = []
 
     payment_additions = {
         "promo_effect_summary": "VARCHAR",
@@ -1312,7 +1313,7 @@ def _migration_0040_add_code_checkout_snapshots(connection: Connection) -> None:
 
 def _migration_0041_add_bonus_payment_mode_flag(connection: Connection) -> None:
     inspector = inspect(connection)
-    columns: Set[str] = {col["name"] for col in inspector.get_columns("promo_codes")}
+    columns: set[str] = {col["name"] for col in inspector.get_columns("promo_codes")}
     if "bonus_requires_payment" not in columns:
         connection.execute(
             text(
@@ -1330,7 +1331,7 @@ def _migration_0041_add_bonus_payment_mode_flag(connection: Connection) -> None:
         )
 
 
-MIGRATIONS: List[Migration] = [
+MIGRATIONS: list[Migration] = [
     Migration(
         id="0001_add_channel_subscription_fields",
         description="Add columns to track required channel subscription verification",
@@ -1539,7 +1540,7 @@ MIGRATIONS: List[Migration] = [
 ]
 
 
-def validate_migration_chains(chains: Dict[str, List[Migration]]) -> None:
+def validate_migration_chains(chains: dict[str, list[Migration]]) -> None:
     """Reject malformed chains before anything touches the database.
 
     Non-core namespaces must prefix every migration id with ``"<namespace>."``
@@ -1558,7 +1559,7 @@ def validate_migration_chains(chains: Dict[str, List[Migration]]) -> None:
                 )
 
 
-def run_migration_chains(connection: Connection, chains: Dict[str, List[Migration]]) -> None:
+def run_migration_chains(connection: Connection, chains: dict[str, list[Migration]]) -> None:
     """
     Apply pending migrations of every chain sequentially. Already applied
     revisions are skipped; all chains share the ``schema_migrations`` table.
@@ -1566,7 +1567,7 @@ def run_migration_chains(connection: Connection, chains: Dict[str, List[Migratio
     validate_migration_chains(chains)
     _ensure_migrations_table(connection)
 
-    applied_revisions: Set[str] = {
+    applied_revisions: set[str] = {
         row[0] for row in connection.execute(text("SELECT id FROM schema_migrations"))
     }
 
@@ -1611,6 +1612,6 @@ def run_all_migration_chains(connection: Connection, settings: "Settings") -> No
     # become an import-time dependency of the db layer.
     from bot.plugins import collect_migrations
 
-    chains: Dict[str, List[Migration]] = {CORE_MIGRATION_NAMESPACE: MIGRATIONS}
+    chains: dict[str, list[Migration]] = {CORE_MIGRATION_NAMESPACE: MIGRATIONS}
     chains.update(collect_migrations(settings))
     run_migration_chains(connection, chains)

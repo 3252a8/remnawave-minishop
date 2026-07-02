@@ -15,7 +15,7 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
 from aiohttp import web

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +21,7 @@ from .common import (
 )
 from .schemas import AdminSubscriptionOut, AdminUserOut
 
-_ADMIN_USERS_LIST_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
+_ADMIN_USERS_LIST_CACHES: dict[tuple[int, int], AsyncTTLCache] = {}
 _ADMIN_USER_MESSAGE_BODY_SCHEMA = {
     "type": "object",
     "additionalProperties": True,
@@ -94,7 +94,7 @@ _ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA = ok_envelope_with(
 )
 
 
-async def _bulk_user_avatar_keys(session: AsyncSession, user_ids: List[int]) -> Dict[int, str]:
+async def _bulk_user_avatar_keys(session: AsyncSession, user_ids: list[int]) -> dict[int, str]:
     """Return ``{user_id: cache_key}`` for users with a cached Telegram avatar."""
 
     if not user_ids:
@@ -106,7 +106,7 @@ async def _bulk_user_avatar_keys(session: AsyncSession, user_ids: List[int]) -> 
     return {int(uid): (updated_at.isoformat() if updated_at else "") for uid, updated_at in rows}
 
 
-def _serialize_admin_user_with_avatar(user: User, avatar_keys: Dict[int, str]) -> Dict[str, Any]:
+def _serialize_admin_user_with_avatar(user: User, avatar_keys: dict[int, str]) -> dict[str, Any]:
     payload = _serialize_user(user)
     user_id = int(user.user_id)
     payload["avatar_url"] = (

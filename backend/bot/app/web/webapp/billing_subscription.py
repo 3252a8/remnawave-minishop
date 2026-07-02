@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
@@ -250,7 +250,7 @@ async def activate_trial_route(request: web.Request) -> web.Response:
                     ),
                     "is_admin_event": False,
                     "target_user_id": user_id,
-                    "timestamp": datetime.now(timezone.utc),
+                    "timestamp": datetime.now(UTC),
                 },
             )
         except Exception:

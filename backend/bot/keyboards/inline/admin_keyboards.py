@@ -1,5 +1,4 @@
 import math
-from typing import List
 
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
@@ -277,7 +276,7 @@ def get_logs_pagination_keyboard(
 
 
 def get_banned_users_keyboard(
-    banned_users: List[User],
+    banned_users: list[User],
     current_page: int,
     total_banned: int,
     i18n_instance: JsonI18n,
@@ -347,7 +346,7 @@ def get_banned_users_keyboard(
 
 
 def get_users_list_keyboard(
-    users: List[User],
+    users: list[User],
     current_page: int,
     total_users: int,
     i18n_instance: JsonI18n,

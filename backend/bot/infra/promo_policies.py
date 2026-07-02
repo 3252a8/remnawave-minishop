@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import inspect as inspect_module
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Mapping
+from datetime import UTC, datetime
+from typing import Any
 
 from bot.services.promo_effects import PromoEffects
 from db.dal import promo_code_dal
@@ -28,7 +29,7 @@ class PromoRedemptionDecision:
     reason_kwargs: Mapping[str, object] = field(default_factory=dict)
 
     @classmethod
-    def allow(cls) -> "PromoRedemptionDecision":
+    def allow(cls) -> PromoRedemptionDecision:
         return cls(allowed=True)
 
     @classmethod
@@ -36,7 +37,7 @@ class PromoRedemptionDecision:
         cls,
         reason_key: str,
         **reason_kwargs: object,
-    ) -> "PromoRedemptionDecision":
+    ) -> PromoRedemptionDecision:
         return cls(allowed=False, reason_key=reason_key, reason_kwargs=reason_kwargs)
 
 
@@ -50,10 +51,10 @@ _extra_promo_redemption_policies: list[PromoRedemptionPolicy] = []
 
 async def _core_state_policy(ctx: PromoRedemptionContext) -> PromoRedemptionDecision:
     promo = ctx.promo_model
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     valid_until = getattr(promo, "valid_until", None)
     if valid_until is not None and valid_until.tzinfo is None:
-        valid_until = valid_until.replace(tzinfo=timezone.utc)
+        valid_until = valid_until.replace(tzinfo=UTC)
     if not bool(getattr(promo, "is_active", False)):
         return PromoRedemptionDecision.deny("promo_code_not_found")
     if valid_until is not None and valid_until <= now:

@@ -48,7 +48,7 @@ class SupportTicketOut(HttpResponseModel):
     closed_at: datetime | None = None
 
     @classmethod
-    def from_orm_ticket(cls, ticket: Any) -> "SupportTicketOut":
+    def from_orm_ticket(cls, ticket: Any) -> SupportTicketOut:
         return cls(
             ticket_id=int(ticket.ticket_id),
             user_id=int(ticket.user_id),
@@ -81,7 +81,7 @@ class AdminSupportUserOut(HttpResponseModel):
     registration_date: datetime | None = None
 
     @classmethod
-    def from_orm_user(cls, user: Any) -> "AdminSupportUserOut":
+    def from_orm_user(cls, user: Any) -> AdminSupportUserOut:
         return cls(
             user_id=int(user.user_id),
             telegram_id=int(user.telegram_id) if user.telegram_id is not None else None,
@@ -111,7 +111,7 @@ class SupportMessageOut(HttpResponseModel):
     read_by_admin_at: datetime | None = None
 
     @classmethod
-    def from_orm_message(cls, message: Any) -> "SupportMessageOut":
+    def from_orm_message(cls, message: Any) -> SupportMessageOut:
         return cls(
             message_id=int(message.message_id),
             ticket_id=int(message.ticket_id),
@@ -136,7 +136,7 @@ class AdminSupportMessageOut(SupportMessageOut):
         message: Any,
         *,
         author_name: str | None = None,
-    ) -> "AdminSupportMessageOut":
+    ) -> AdminSupportMessageOut:
         payload = SupportMessageOut.from_orm_message(message).model_dump()
         payload["author_name"] = author_name
         return cls.model_validate(payload)

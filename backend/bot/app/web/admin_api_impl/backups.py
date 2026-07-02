@@ -2,7 +2,7 @@ import logging
 import secrets
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, Optional, cast
+from typing import Any, cast
 
 from aiohttp import web
 from aiohttp.multipart import BodyPartReader
@@ -81,15 +81,15 @@ register_contract(
 )
 
 
-def _backup_archive_payload(archive: BackupArchiveInfo) -> Dict[str, Any]:
-    return cast(Dict[str, Any], archive.to_payload())
+def _backup_archive_payload(archive: BackupArchiveInfo) -> dict[str, Any]:
+    return cast(dict[str, Any], archive.to_payload())
 
 
 async def _read_uploaded_backup_file(request: web.Request) -> BackupArchiveInfo:
     settings: Settings = get_settings(request)
     service = BackupRestoreService(settings)
     backup_dir = service.backup_dir()
-    temp_path: Optional[Path] = None
+    temp_path: Path | None = None
 
     reader = await request.multipart()
     try:

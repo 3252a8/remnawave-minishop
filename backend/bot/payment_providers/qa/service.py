@@ -4,8 +4,9 @@ import hashlib
 import hmac
 import json
 import logging
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Any, Mapping, Optional
+from typing import Any
 
 from aiohttp import web
 from pydantic_settings import SettingsConfigDict
@@ -92,7 +93,7 @@ def _json_mapping(data: Any) -> Mapping[str, Any]:
     return data if isinstance(data, Mapping) else {}
 
 
-def _int_value(value: Any) -> Optional[int]:
+def _int_value(value: Any) -> int | None:
     if isinstance(value, bool):
         return None
     try:

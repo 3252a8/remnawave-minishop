@@ -7,8 +7,8 @@ strings, booleans, integers and floats.
 
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -25,7 +25,7 @@ def _encode(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 
-def _decode(raw: Optional[str]) -> Any:
+def _decode(raw: str | None) -> Any:
     if raw is None:
         return None
     try:
@@ -34,12 +34,12 @@ def _decode(raw: Optional[str]) -> Any:
         return raw
 
 
-async def get_all_overrides(session: AsyncSession) -> Dict[str, Any]:
+async def get_all_overrides(session: AsyncSession) -> dict[str, Any]:
     rows = (await session.execute(select(AppSettingOverride))).scalars().all()
     return {row.key: _decode(row.value) for row in rows}
 
 
-async def get_override_value(session: AsyncSession, key: str) -> Tuple[bool, Any]:
+async def get_override_value(session: AsyncSession, key: str) -> tuple[bool, Any]:
     row = (
         await session.execute(
             select(AppSettingOverride).where(AppSettingOverride.key == key).limit(1)
@@ -50,9 +50,9 @@ async def get_override_value(session: AsyncSession, key: str) -> Tuple[bool, Any
     return True, _decode(row.value)
 
 
-async def get_overrides_with_meta(session: AsyncSession) -> List[Dict[str, Any]]:
+async def get_overrides_with_meta(session: AsyncSession) -> list[dict[str, Any]]:
     rows = (await session.execute(select(AppSettingOverride))).scalars().all()
-    items: List[Dict[str, Any]] = []
+    items: list[dict[str, Any]] = []
     for row in rows:
         items.append(
             {
@@ -70,10 +70,10 @@ async def upsert_override(
     *,
     key: str,
     value: Any,
-    updated_by: Optional[int],
+    updated_by: int | None,
 ) -> None:
     encoded = _encode(value)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     stmt = (
         pg_insert(AppSettingOverride)
         .values(key=key, value=encoded, updated_at=now, updated_by=updated_by)
@@ -98,8 +98,8 @@ async def delete_override(session: AsyncSession, key: str) -> bool:
 async def bulk_apply(
     session: AsyncSession,
     *,
-    updates: Dict[str, Tuple[bool, Any]],
-    updated_by: Optional[int],
+    updates: dict[str, tuple[bool, Any]],
+    updated_by: int | None,
 ) -> None:
     """Apply a batch of changes. Each entry maps key -> (set_flag, value).
 

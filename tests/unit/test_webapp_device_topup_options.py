@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import ANY, AsyncMock, patch
@@ -31,8 +31,8 @@ class _JsonRequest(SimpleNamespace):
 
 class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
     async def test_serializes_active_hwid_validity_window(self):
-        active_until = datetime(2099, 1, 2, 3, 4, tzinfo=timezone.utc)
-        valid_from = datetime(2099, 1, 1, 3, 4, tzinfo=timezone.utc)
+        active_until = datetime(2099, 1, 2, 3, 4, tzinfo=UTC)
+        valid_from = datetime(2099, 1, 1, 3, 4, tzinfo=UTC)
         tariff = SimpleNamespace(
             key="standard",
             billing_model="period",
@@ -113,8 +113,8 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
         self.assertEqual(payload["plans"][0]["valid_until"], active_until.isoformat())
 
     async def test_offers_only_immediate_topup_when_existing_extra_expires_early(self):
-        current_extra_until = datetime(2099, 1, 16, tzinfo=timezone.utc)
-        subscription_until = datetime(2099, 2, 1, tzinfo=timezone.utc)
+        current_extra_until = datetime(2099, 1, 16, tzinfo=UTC)
+        subscription_until = datetime(2099, 2, 1, tzinfo=UTC)
         tariff = SimpleNamespace(
             key="standard",
             billing_model="period",
@@ -141,7 +141,7 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
                 }
             return {
                 "price": 50,
-                "valid_from": datetime(2099, 1, 1, tzinfo=timezone.utc),
+                "valid_from": datetime(2099, 1, 1, tzinfo=UTC),
                 "valid_until": subscription_until,
                 "proration_ratio": 1.0,
             }
@@ -233,8 +233,8 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
         )
         quote = {
             "price": 25,
-            "valid_from": datetime(2099, 1, 1, tzinfo=timezone.utc),
-            "valid_until": datetime(2099, 4, 1, tzinfo=timezone.utc),
+            "valid_from": datetime(2099, 1, 1, tzinfo=UTC),
+            "valid_until": datetime(2099, 4, 1, tzinfo=UTC),
             "pricing_period_months": 3,
             "proration_ratio": 1.0,
             "full_price": 25,
@@ -331,8 +331,8 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
         hwid_quote = {
             "price": 50,
             "device_count": 1,
-            "valid_from": datetime(2099, 1, 1, tzinfo=timezone.utc),
-            "valid_until": datetime(2099, 2, 1, tzinfo=timezone.utc),
+            "valid_from": datetime(2099, 1, 1, tzinfo=UTC),
+            "valid_until": datetime(2099, 2, 1, tzinfo=UTC),
             "pricing_period_months": 1,
             "proration_ratio": 1.0,
             "full_price": 50,

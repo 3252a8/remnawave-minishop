@@ -8,7 +8,7 @@ The DAL and panel-service interactions are mocked so the tests stay hermetic.
 import json
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -71,7 +71,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
                 subscription_id=7,
                 user_id=42,
                 panel_user_uuid="panel-uuid",
-                end_date=datetime.now(timezone.utc) + timedelta(days=10),
+                end_date=datetime.now(UTC) + timedelta(days=10),
                 tariff_key="standard",
                 hwid_device_limit=4,
                 extra_hwid_devices=0,
@@ -120,7 +120,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
                 subscription_id=7,
                 user_id=42,
                 panel_user_uuid="panel-uuid",
-                end_date=datetime.now(timezone.utc) + timedelta(days=10),
+                end_date=datetime.now(UTC) + timedelta(days=10),
                 tariff_key="standard",
                 hwid_device_limit=0,
                 extra_hwid_devices=0,
@@ -167,7 +167,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
                 subscription_id=7,
                 user_id=42,
                 panel_user_uuid="panel-uuid",
-                end_date=datetime.now(timezone.utc) + timedelta(days=10),
+                end_date=datetime.now(UTC) + timedelta(days=10),
                 tariff_key="standard",
                 hwid_device_limit=None,
                 extra_hwid_devices=0,
@@ -214,7 +214,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
                 subscription_id=7,
                 user_id=42,
                 panel_user_uuid="panel-uuid",
-                end_date=datetime.now(timezone.utc) + timedelta(days=10),
+                end_date=datetime.now(UTC) + timedelta(days=10),
                 tariff_key="standard",
                 tier_baseline_bytes=100 * (1024**3),
                 topup_balance_bytes=5 * (1024**3),
@@ -297,7 +297,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
                 subscription_id=7,
                 user_id=42,
                 panel_user_uuid="panel-uuid",
-                end_date=datetime.now(timezone.utc) + timedelta(days=10),
+                end_date=datetime.now(UTC) + timedelta(days=10),
                 tariff_key="standard",
                 tier_baseline_bytes=100 * (1024**3),
                 topup_balance_bytes=0,
@@ -358,7 +358,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
                 premium_topup_used_bytes=0,
                 premium_used_bytes=30 * (1024**3),
                 premium_is_limited=True,
-                premium_period_start_at=datetime.now(timezone.utc).replace(
+                premium_period_start_at=datetime.now(UTC).replace(
                     day=1, hour=0, minute=0, second=0, microsecond=0
                 ),
                 premium_unlimited_override=False,
@@ -440,7 +440,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
                 premium_topup_used_bytes=0,
                 premium_used_bytes=30 * (1024**3),
                 premium_is_limited=True,
-                premium_period_start_at=datetime.now(timezone.utc).replace(
+                premium_period_start_at=datetime.now(UTC).replace(
                     day=1, hour=0, minute=0, second=0, microsecond=0
                 ),
                 premium_unlimited_override=False,
@@ -524,7 +524,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
                 premium_topup_used_bytes=0,
                 premium_used_bytes=30 * (1024**3),
                 premium_is_limited=True,
-                premium_period_start_at=datetime.now(timezone.utc).replace(
+                premium_period_start_at=datetime.now(UTC).replace(
                     day=1, hour=0, minute=0, second=0, microsecond=0
                 ),
                 premium_unlimited_override=False,

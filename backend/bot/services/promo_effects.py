@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Mapping
+from typing import Any
 
 PROMO_APPLIES_TO_ALL = "all"
 PROMO_APPLIES_TO_SUBSCRIPTION = "subscription"
@@ -71,7 +72,7 @@ class PromoEffects:
     min_traffic_gb: float | None = None
 
     @classmethod
-    def from_model(cls, promo: Any) -> "PromoEffects":
+    def from_model(cls, promo: Any) -> PromoEffects:
         discount = _optional_float(getattr(promo, "discount_percent", None))
         duration_multiplier = _optional_float(getattr(promo, "duration_multiplier", None))
         traffic_multiplier = _optional_float(getattr(promo, "traffic_multiplier", None))
@@ -90,12 +91,12 @@ class PromoEffects:
         )
 
     @classmethod
-    def from_payload(cls, payload: Mapping[str, Any]) -> "PromoEffects":
+    def from_payload(cls, payload: Mapping[str, Any]) -> PromoEffects:
         model = type("PromoEffectsPayload", (), dict(payload))()
         return cls.from_model(model)
 
     @classmethod
-    def from_payment_snapshot(cls, payment: Any) -> "PromoEffects | None":
+    def from_payment_snapshot(cls, payment: Any) -> PromoEffects | None:
         summary = getattr(payment, "promo_effect_summary", None)
         has_snapshot = summary is not None or any(
             getattr(payment, attr, None) is not None

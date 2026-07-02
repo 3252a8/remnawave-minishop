@@ -1,5 +1,4 @@
 import logging
-from typing import Optional, Union
 
 from aiogram import Bot, types
 from aiogram.filters import Command
@@ -18,7 +17,7 @@ from .sync_admin_runner import perform_sync
 
 
 async def sync_command_handler(
-    message_event: Union[types.Message, types.CallbackQuery],
+    message_event: types.Message | types.CallbackQuery,
     bot: Bot,
     settings: Settings,
     i18n_data: dict,
@@ -26,7 +25,7 @@ async def sync_command_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         logging.error("i18n missing in sync_command_handler")
 
@@ -66,8 +65,8 @@ async def sync_command_handler(
 
 
 def _sync_request_target_chat_id(
-    message_event: Union[types.Message, types.CallbackQuery],
-) -> Optional[int]:
+    message_event: types.Message | types.CallbackQuery,
+) -> int | None:
     chat = getattr(message_event, "chat", None)
     if chat and getattr(chat, "id", None) is not None:
         return int(chat.id)
@@ -79,7 +78,7 @@ def _sync_request_target_chat_id(
 
 
 async def _answer_sync_request(
-    message_event: Union[types.Message, types.CallbackQuery],
+    message_event: types.Message | types.CallbackQuery,
     text: str,
     *,
     show_alert: bool = False,
@@ -96,7 +95,7 @@ async def _answer_sync_request(
 async def _enqueue_manual_panel_sync(
     settings: Settings,
     *,
-    requested_by: Optional[int],
+    requested_by: int | None,
     target_chat_id: int,
     language: str,
 ) -> bool:
@@ -114,7 +113,7 @@ async def sync_status_command_handler(
     message: types.Message, i18n_data: dict, settings: Settings, session: AsyncSession
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.answer("Language error.")
         return

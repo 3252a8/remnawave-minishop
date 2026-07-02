@@ -1,6 +1,5 @@
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from aiogram import types
 from aiogram.fsm.context import FSMContext
@@ -185,7 +184,7 @@ async def handle_add_subscription_days_prompt(
     i18n_instance: JsonI18n,
     lang: str,
     *,
-    tariff_key: Optional[str],
+    tariff_key: str | None,
 ) -> None:
     """Prompt admin to enter subscription days to add after tariff resolution."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -313,7 +312,7 @@ async def handle_change_tariff_apply(
                 "content": f"tariff={resolved_tariff_key}",
                 "is_admin_event": True,
                 "target_user_id": user.user_id,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
         )
         await session.commit()

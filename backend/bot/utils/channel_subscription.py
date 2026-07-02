@@ -1,12 +1,12 @@
 import logging
 import re
-from typing import Any, Optional
+from typing import Any
 
 _TELEGRAM_LINK_RE = re.compile(r"^(?:https?://|tg://)", re.IGNORECASE)
 _TELEGRAM_USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{5,64}$")
 
 
-def normalize_required_channel_id(value: object) -> Optional[int]:
+def normalize_required_channel_id(value: object) -> int | None:
     if value is None:
         return None
 
@@ -33,7 +33,7 @@ def normalize_required_channel_id(value: object) -> Optional[int]:
     return -int(f"100{raw_abs}")
 
 
-def normalize_required_channel_link(value: object) -> Optional[str]:
+def normalize_required_channel_link(value: object) -> str | None:
     if value is None:
         return None
 
@@ -60,7 +60,7 @@ def normalize_required_channel_link(value: object) -> Optional[str]:
     return None
 
 
-def _required_channel_link_from_chat(chat: Any) -> Optional[str]:
+def _required_channel_link_from_chat(chat: Any) -> str | None:
     username = str(getattr(chat, "username", "") or "").strip().lstrip("@")
     if username:
         return f"https://t.me/{username}"
@@ -74,9 +74,9 @@ def _required_channel_link_from_chat(chat: Any) -> Optional[str]:
 
 async def resolve_required_channel_link(
     bot: Any,
-    required_channel_id: Optional[int],
+    required_channel_id: int | None,
     configured_link: object,
-) -> Optional[str]:
+) -> str | None:
     if bot is not None and required_channel_id:
         try:
             chat = await bot.get_chat(required_channel_id)

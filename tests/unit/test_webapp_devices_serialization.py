@@ -1,6 +1,6 @@
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
@@ -38,7 +38,7 @@ class _JsonRequest:
 
 
 def test_serialize_device_matches_contract():
-    created = datetime(2099, 1, 2, 3, 4, 0, tzinfo=timezone.utc)
+    created = datetime(2099, 1, 2, 3, 4, 0, tzinfo=UTC)
     result = _serialize_device(
         {
             "hwid": "ABC123XYZ",
@@ -77,7 +77,7 @@ def test_serialize_device_without_hwid_cannot_disconnect():
 
 
 def test_device_serializer_accepts_datetime_created_at():
-    created_at = datetime(2099, 1, 2, 3, 4, tzinfo=timezone.utc)
+    created_at = datetime(2099, 1, 2, 3, 4, tzinfo=UTC)
 
     payload = _serialize_device(
         {
@@ -150,7 +150,7 @@ class WebAppDevicesPayloadTests(IsolatedAsyncioTestCase):
             get_active_subscription_details=AsyncMock(
                 return_value={
                     "user_id": "panel-user",
-                    "end_date": datetime(2099, 1, 2, tzinfo=timezone.utc),
+                    "end_date": datetime(2099, 1, 2, tzinfo=UTC),
                     "max_devices": 3,
                 }
             ),
@@ -169,7 +169,7 @@ class WebAppDevicesPayloadTests(IsolatedAsyncioTestCase):
             get_active_subscription_details=AsyncMock(
                 return_value={
                     "user_id": "panel-user",
-                    "end_date": datetime(2099, 1, 2, tzinfo=timezone.utc),
+                    "end_date": datetime(2099, 1, 2, tzinfo=UTC),
                     "max_devices": 3,
                 }
             ),

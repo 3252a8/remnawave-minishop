@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from yookassa import Configuration
 from yookassa import Payment as YooKassaPayment
@@ -28,13 +28,13 @@ from .config import YooKassaConfig
 class YooKassaService:
     def __init__(
         self,
-        shop_id: Optional[str],
-        secret_key: Optional[str],
-        configured_return_url: Optional[str],
-        bot_username_for_default_return: Optional[str] = None,
-        settings_obj: Optional[Settings] = None,
-        config: Optional[YooKassaConfig] = None,
-        subscription_service: Optional[SubscriptionService] = None,
+        shop_id: str | None,
+        secret_key: str | None,
+        configured_return_url: str | None,
+        bot_username_for_default_return: str | None = None,
+        settings_obj: Settings | None = None,
+        config: YooKassaConfig | None = None,
+        subscription_service: SubscriptionService | None = None,
     ):
 
         self.settings = settings_obj
@@ -43,7 +43,7 @@ class YooKassaService:
         self._bot_username_for_default_return = bot_username_for_default_return
         self._configured_return_url_override = configured_return_url
         # (shop_id, secret_key) currently loaded into the global SDK.
-        self._sdk_configured_for: Optional[tuple[str, str]] = None
+        self._sdk_configured_for: tuple[str, str] | None = None
 
         if not self.configured:
             if not provider_runtime_enabled(self.config):
@@ -130,14 +130,14 @@ class YooKassaService:
         amount: float,
         currency: str,
         description: str,
-        metadata: Dict[str, Any],
-        receipt_email: Optional[str] = None,
-        receipt_phone: Optional[str] = None,
+        metadata: dict[str, Any],
+        receipt_email: str | None = None,
+        receipt_phone: str | None = None,
         save_payment_method: bool = False,
-        payment_method_id: Optional[str] = None,
+        payment_method_id: str | None = None,
         capture: bool = True,
         bind_only: bool = False,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         if not self.configured:
             logging.error("YooKassa is not configured. Cannot create payment.")
             return None
@@ -197,7 +197,7 @@ class YooKassaService:
                 # Use a previously saved payment method for merchant-initiated payments
                 builder.set_payment_method_id(payment_method_id)
 
-            receipt_items_list: List[Dict[str, Any]] = [
+            receipt_items_list: list[dict[str, Any]] = [
                 {
                     "description": description[:128],
                     "quantity": "1.00",
@@ -208,7 +208,7 @@ class YooKassaService:
                 }
             ]
 
-            receipt_data_dict: Dict[str, Any] = {
+            receipt_data_dict: dict[str, Any] = {
                 "customer": customer_contact_for_receipt,
                 "items": receipt_items_list,
             }
@@ -256,7 +256,7 @@ class YooKassaService:
             logging.exception("YooKassa payment creation failed.")
             return None
 
-    async def get_payment_info(self, payment_id_in_yookassa: str) -> Optional[Dict[str, Any]]:
+    async def get_payment_info(self, payment_id_in_yookassa: str) -> dict[str, Any] | None:
         if not self.configured:
             logging.error("YooKassa is not configured. Cannot get payment info.")
             return None
@@ -273,7 +273,7 @@ class YooKassaService:
                     f"YooKassa payment info for {payment_id_in_yookassa}: Status={payment_info_yk.status}, Paid={payment_info_yk.paid}"  # noqa: E501
                 )
                 pm = getattr(payment_info_yk, "payment_method", None)
-                pm_payload: Dict[str, Any] = {}
+                pm_payload: dict[str, Any] = {}
                 if pm:
                     # Collect common fields, including id and hints for last4
                     pm_id = getattr(pm, "id", None)

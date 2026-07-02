@@ -17,7 +17,7 @@ recent fix). These tests pin that:
 import json
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -75,8 +75,8 @@ def _make_sub(*, hwid_device_limit=3, extra_hwid_devices=0):
         panel_user_uuid="panel-uuid",
         panel_subscription_uuid="panel-sub",
         tariff_key="standard",
-        end_date=datetime(2099, 1, 1, tzinfo=timezone.utc),
-        start_date=datetime(2098, 12, 1, tzinfo=timezone.utc),
+        end_date=datetime(2099, 1, 1, tzinfo=UTC),
+        start_date=datetime(2098, 12, 1, tzinfo=UTC),
         duration_months=1,
         hwid_device_limit=hwid_device_limit,
         extra_hwid_devices=extra_hwid_devices,
@@ -191,8 +191,8 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
             )
             service = _make_service(settings)
             sub = _make_sub()
-            sub.start_date = datetime(2099, 1, 1, tzinfo=timezone.utc)
-            sub.end_date = datetime(2099, 1, 31, tzinfo=timezone.utc)
+            sub.start_date = datetime(2099, 1, 1, tzinfo=UTC)
+            sub.end_date = datetime(2099, 1, 31, tzinfo=UTC)
             user = _make_user()
 
             with (
@@ -215,7 +215,7 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
                     device_count=1,
                     tariff_key="standard",
                     currency="rub",
-                    now=datetime(2099, 1, 16, tzinfo=timezone.utc),
+                    now=datetime(2099, 1, 16, tzinfo=UTC),
                 )
 
         self.assertIsNotNone(quote)
@@ -242,8 +242,8 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
             service = _make_service(settings)
             sub = _make_sub()
             sub.duration_months = 3
-            sub.start_date = datetime(2098, 7, 1, tzinfo=timezone.utc)
-            sub.end_date = datetime(2099, 1, 1, tzinfo=timezone.utc)
+            sub.start_date = datetime(2098, 7, 1, tzinfo=UTC)
+            sub.end_date = datetime(2099, 1, 1, tzinfo=UTC)
             user = _make_user()
 
             with (
@@ -266,7 +266,7 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
                     device_count=1,
                     tariff_key="standard",
                     currency="rub",
-                    now=datetime(2098, 10, 1, tzinfo=timezone.utc),
+                    now=datetime(2098, 10, 1, tzinfo=UTC),
                 )
 
         self.assertIsNotNone(quote)
@@ -286,11 +286,11 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
             )
             service = _make_service(settings)
             sub = _make_sub()
-            sub.start_date = datetime(2098, 12, 1, tzinfo=timezone.utc)
-            sub.end_date = datetime(2099, 2, 1, tzinfo=timezone.utc)
+            sub.start_date = datetime(2098, 12, 1, tzinfo=UTC)
+            sub.end_date = datetime(2099, 2, 1, tzinfo=UTC)
             user = _make_user()
-            now = datetime(2099, 1, 2, tzinfo=timezone.utc)
-            existing_extra_until = datetime(2099, 1, 17, tzinfo=timezone.utc)
+            now = datetime(2099, 1, 2, tzinfo=UTC)
+            existing_extra_until = datetime(2099, 1, 17, tzinfo=UTC)
 
             with (
                 patch(
@@ -344,7 +344,7 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
             settings = _make_settings(tmpdir, _tariffs_config_payload())
             service = _make_service(settings)
             sub = _make_sub()
-            sub.end_date = datetime(2099, 2, 1, tzinfo=timezone.utc)
+            sub.end_date = datetime(2099, 2, 1, tzinfo=UTC)
             user = _make_user()
 
             with (
@@ -361,7 +361,7 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
                     AsyncMock(
                         return_value={
                             "active_devices": 4,
-                            "active_until": datetime(2099, 1, 16, tzinfo=timezone.utc),
+                            "active_until": datetime(2099, 1, 16, tzinfo=UTC),
                         }
                     ),
                 ),
@@ -372,7 +372,7 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
                     target_tariff_key="standard",
                     months=1,
                     currency="rub",
-                    now=datetime(2099, 1, 1, tzinfo=timezone.utc),
+                    now=datetime(2099, 1, 1, tzinfo=UTC),
                 )
 
         self.assertIsNotNone(quote)
@@ -380,7 +380,7 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(quote["price"], 170)
         self.assertEqual(sorted(quote["package_counts"]), [1, 3])
         self.assertEqual(quote["valid_from"], sub.end_date)
-        self.assertEqual(quote["valid_until"], datetime(2099, 3, 1, tzinfo=timezone.utc))
+        self.assertEqual(quote["valid_until"], datetime(2099, 3, 1, tzinfo=UTC))
 
     async def test_unlimited_subscriber_returns_noop_payload(self):
         # hwid_device_limit == 0 means unlimited — top-up makes no sense and must skip.
@@ -479,11 +479,11 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
             settings = _make_settings(tmpdir, _tariffs_config_payload())
             service = _make_service(settings)
             sub = _make_sub(hwid_device_limit=3, extra_hwid_devices=0)
-            sub.end_date = datetime(2099, 3, 1, tzinfo=timezone.utc)
+            sub.end_date = datetime(2099, 3, 1, tzinfo=UTC)
             user = _make_user()
-            frozen_until = datetime(2099, 2, 1, tzinfo=timezone.utc)
+            frozen_until = datetime(2099, 2, 1, tzinfo=UTC)
             payment = SimpleNamespace(
-                hwid_valid_from=datetime(2099, 1, 1, tzinfo=timezone.utc),
+                hwid_valid_from=datetime(2099, 1, 1, tzinfo=UTC),
                 hwid_valid_until=frozen_until,
                 hwid_pricing_period_months=1,
                 hwid_proration_ratio=1.0,
@@ -535,8 +535,8 @@ class HwidDeviceTopupBehaviourTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(tmpdir, _tariffs_config_payload())
             service = _make_service(settings)
-            current_entitlement_end = datetime(2099, 1, 1, tzinfo=timezone.utc)
-            renewed_end = datetime(2099, 2, 1, tzinfo=timezone.utc)
+            current_entitlement_end = datetime(2099, 1, 1, tzinfo=UTC)
+            renewed_end = datetime(2099, 2, 1, tzinfo=UTC)
             sub = _make_sub(hwid_device_limit=3, extra_hwid_devices=2)
             sub.end_date = renewed_end
             user = _make_user()

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aiogram import F, types
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,7 +44,7 @@ async def pay_stripe_callback_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)
 
     if not i18n or not callback.message:

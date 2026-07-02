@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from aiocryptopay import AioCryptoPay, Networks
 from aiocryptopay.models.update import Update
@@ -102,7 +102,7 @@ class CryptoPayConfig(ProviderEnvConfig):
     )
 
     ENABLED: bool = Field(default=True)
-    TOKEN: Optional[str] = None
+    TOKEN: str | None = None
     NETWORK: str = Field(default="mainnet")
     CURRENCY_TYPE: str = Field(default="fiat")
     ASSET: str = Field(default="RUB")
@@ -127,12 +127,12 @@ class CryptoPayPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
 class CryptoPayService(BaseProviderService):
@@ -156,14 +156,14 @@ class CryptoPayService(BaseProviderService):
         self.async_session_factory = async_session_factory
         self.subscription_service = subscription_service
         self.referral_service = referral_service
-        self._client: Optional[AioCryptoPay] = None
-        self._client_token: Optional[str] = None
-        self._client_network: Optional[str] = None
+        self._client: AioCryptoPay | None = None
+        self._client_token: str | None = None
+        self._client_network: str | None = None
         if not self.config.TOKEN:
             logging.warning("CryptoPay token not provided. CryptoPay disabled")
 
     @property
-    def token(self) -> Optional[str]:
+    def token(self) -> str | None:
         return self.config.TOKEN
 
     @property
@@ -175,7 +175,7 @@ class CryptoPayService(BaseProviderService):
         return bool(self.configured and self.client)
 
     @property
-    def client(self) -> Optional[AioCryptoPay]:
+    def client(self) -> AioCryptoPay | None:
         # Recreate the SDK client whenever the admin changes the token / network
         # at runtime — otherwise we'd keep talking to the old account.
         token = self.config.TOKEN
@@ -208,10 +208,10 @@ class CryptoPayService(BaseProviderService):
         description: str,
         sale_mode: str = "subscription",
         url_kind: str = "bot",
-        hwid_quote: Optional[dict[str, Any]] = None,
-        hwid_device_count: Optional[int] = None,
-        currency: Optional[str] = None,
-    ) -> Optional[str]:
+        hwid_quote: dict[str, Any] | None = None,
+        hwid_device_count: int | None = None,
+        currency: str | None = None,
+    ) -> str | None:
         if not self.configured or not self.client:
             logging.error("CryptoPayService not configured")
             return None
@@ -455,7 +455,7 @@ async def pay_crypto_callback_handler(
     cryptopay_service: CryptoPayService,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)
 
     if not i18n or not callback.message:

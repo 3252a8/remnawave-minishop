@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
 
 
 @dataclass(frozen=True)
@@ -16,21 +15,21 @@ class SettingField:
     placeholder: str = ""
     optional: bool = True
     secret: bool = False
-    min: Optional[float] = None
-    max: Optional[float] = None
-    choices: Optional[Tuple[Tuple[str, str], ...]] = None
-    subsection: Optional[str] = None  # group label inside a section
-    i18n_label_key: Optional[str] = None
-    i18n_description_key: Optional[str] = None
-    i18n_subsection_key: Optional[str] = None
-    webhook_path: Optional[str] = None
+    min: float | None = None
+    max: float | None = None
+    choices: tuple[tuple[str, str], ...] | None = None
+    subsection: str | None = None  # group label inside a section
+    i18n_label_key: str | None = None
+    i18n_description_key: str | None = None
+    i18n_subsection_key: str | None = None
+    webhook_path: str | None = None
     webhook_requires_base_url: bool = False
-    webhook_provider_id: Optional[str] = None
-    webhook_hint_i18n_key: Optional[str] = None
+    webhook_provider_id: str | None = None
+    webhook_hint_i18n_key: str | None = None
     webhook_hint: str = ""
 
 
-TRAFFIC_STRATEGY_CHOICES: Tuple[Tuple[str, str], ...] = (
+TRAFFIC_STRATEGY_CHOICES: tuple[tuple[str, str], ...] = (
     ("NO_RESET", "NO_RESET"),
     ("DAY", "DAY"),
     ("WEEK", "WEEK"),
@@ -39,7 +38,7 @@ TRAFFIC_STRATEGY_CHOICES: Tuple[Tuple[str, str], ...] = (
 )
 
 
-SETTINGS_MANIFEST: List[SettingField] = [
+SETTINGS_MANIFEST: list[SettingField] = [
     # ─── General ────────────────────────────────────────────────────
     SettingField(
         "WEBAPP_TITLE",

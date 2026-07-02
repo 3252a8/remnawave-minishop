@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Optional, Union
+from datetime import UTC, datetime
+from typing import Any
 
 from aiogram import Bot, types
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramForbiddenError
@@ -26,12 +26,12 @@ from db.models import User
 
 
 async def ensure_required_channel_subscription(
-    event: Union[types.Message, types.CallbackQuery],
+    event: types.Message | types.CallbackQuery,
     settings: Settings,
-    i18n: Optional[JsonI18n],
+    i18n: JsonI18n | None,
     current_lang: str,
     session: AsyncSession,
-    db_user: Optional[User] = None,
+    db_user: User | None = None,
 ) -> bool:
     """
     Verify that the user is a member of the required channel (if configured).
@@ -43,10 +43,10 @@ async def ensure_required_channel_subscription(
 
     if isinstance(event, types.CallbackQuery):
         user_id = event.from_user.id
-        bot_instance: Optional[Bot] = getattr(event, "bot", None)
+        bot_instance: Bot | None = getattr(event, "bot", None)
         if bot_instance is None and event.message:
             bot_instance = message_bot(callback_message(event))
-        message_obj: Optional[types.Message] = callback_message(event) if event.message else None
+        message_obj: types.Message | None = callback_message(event) if event.message else None
     else:
         user_id = message_from_user(event).id
         bot_instance = event.bot if hasattr(event, "bot") else None
@@ -89,7 +89,7 @@ async def ensure_required_channel_subscription(
             return str(i18n.gettext(current_lang, key, **kwargs))
         return key
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     is_member = False
     status_value = None
 

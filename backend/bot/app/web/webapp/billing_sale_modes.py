@@ -1,11 +1,8 @@
-from typing import Optional
-
-
 def _sale_mode_base(sale_mode: str) -> str:
     return str(sale_mode or "subscription").split("@", 1)[0].split("|", 1)[0]
 
 
-def _sale_mode_tariff_key(sale_mode: str) -> Optional[str]:
+def _sale_mode_tariff_key(sale_mode: str) -> str | None:
     if "@" not in str(sale_mode or ""):
         return None
     return str(sale_mode).split("@", 1)[1].split("|", 1)[0] or None

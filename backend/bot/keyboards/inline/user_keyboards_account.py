@@ -1,5 +1,3 @@
-from typing import Optional
-
 from aiogram.types import InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
@@ -24,7 +22,7 @@ def get_referral_link_keyboard(
 
 
 def get_back_to_main_menu_markup(
-    lang: str, i18n_instance: JsonI18n, callback_data: Optional[str] = None
+    lang: str, i18n_instance: JsonI18n, callback_data: str | None = None
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -40,9 +38,9 @@ def get_back_to_main_menu_markup(
 def get_subscribe_only_markup(
     lang: str,
     i18n_instance: JsonI18n,
-    settings: Optional[Settings] = None,
+    settings: Settings | None = None,
     *,
-    tariff_key: Optional[str] = None,
+    tariff_key: str | None = None,
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -62,8 +60,8 @@ def get_subscribe_only_markup(
 
 
 def get_user_banned_keyboard(
-    support_link: Optional[str], lang: str, i18n_instance: JsonI18n
-) -> Optional[InlineKeyboardMarkup]:
+    support_link: str | None, lang: str, i18n_instance: JsonI18n
+) -> InlineKeyboardMarkup | None:
     if not support_link:
         return None
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -74,10 +72,10 @@ def get_user_banned_keyboard(
 
 def get_channel_subscription_keyboard(
     lang: str,
-    i18n_instance: Optional[JsonI18n],
-    channel_link: Optional[str],
+    i18n_instance: JsonI18n | None,
+    channel_link: str | None,
     include_check_button: bool = True,
-) -> Optional[InlineKeyboardMarkup]:
+) -> InlineKeyboardMarkup | None:
     """
     Return keyboard with buttons to open the required channel and trigger a subscription re-check.
     """
@@ -115,10 +113,10 @@ def get_connect_and_main_keyboard(
     lang: str,
     i18n_instance: JsonI18n,
     settings: Settings,
-    config_link: Optional[str],
-    connect_button_url: Optional[str] = None,
+    config_link: str | None,
+    connect_button_url: str | None = None,
     preserve_message: bool = False,
-    install_share_url: Optional[str] = None,
+    install_share_url: str | None = None,
 ) -> InlineKeyboardMarkup:
     """Keyboard with a connect button and a back to main menu button."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)

@@ -1,5 +1,4 @@
 import logging
-from typing import Optional, Union
 
 from aiogram import Bot, F, types
 from aiogram.filters import Command
@@ -45,7 +44,7 @@ async def tg_interface_command_handler(
     await state.clear()
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     db_user = await user_dal.get_user_by_id(session, message_from_user(message).id)
     if not await ensure_required_channel_subscription(
         message, settings, i18n, current_lang, session, db_user
@@ -72,7 +71,7 @@ async def verify_channel_subscription_callback(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
 
     db_user = await user_dal.get_user_by_id(session, callback.from_user.id)
 
@@ -96,7 +95,7 @@ async def verify_channel_subscription_callback(
         if callback.message:
             await callback_message(callback).answer(welcome_text)
         else:
-            fallback_bot: Optional[Bot] = getattr(callback, "bot", None)
+            fallback_bot: Bot | None = getattr(callback, "bot", None)
             if fallback_bot:
                 await fallback_bot.send_message(callback.from_user.id, welcome_text)
 
@@ -117,13 +116,13 @@ async def verify_channel_subscription_callback(
 @router.message(Command("language"))
 @router.callback_query(F.data == "main_action:language")
 async def language_command_handler(
-    event: Union[types.Message, types.CallbackQuery],
+    event: types.Message | types.CallbackQuery,
     i18n_data: dict,
     settings: Settings,
     back_callback: str = "main_action:back_to_main",
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     text_to_send = _(key="choose_language")
@@ -162,7 +161,7 @@ async def select_language_callback_handler(
     subscription_service: SubscriptionService,
     session: AsyncSession,
 ) -> None:
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await safe_answer_callback(
             callback,
@@ -349,7 +348,7 @@ async def main_action_callback_handler(
             callback, settings, i18n_data, subscription_service, session, is_edit=True
         )
     elif action in {"info", "bot_info"}:
-        i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+        i18n: JsonI18n | None = i18n_data.get("i18n_instance")
         current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
         if not i18n:
             await safe_answer_callback(
@@ -400,7 +399,7 @@ async def main_action_callback_handler(
             callback, settings, i18n_data, subscription_service, session, is_edit=False
         )
     else:
-        fallback_i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+        fallback_i18n: JsonI18n | None = i18n_data.get("i18n_instance")
         _ = lambda key, **kwargs: (
             fallback_i18n.gettext(i18n_data.get("current_language"), key, **kwargs)
             if fallback_i18n

@@ -20,10 +20,11 @@ import re
 import shlex
 import sys
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any
 from urllib.parse import unquote, urlparse
 
 from sqlalchemy import inspect, select, text
@@ -150,7 +151,7 @@ def _as_mapping(row: Any) -> dict[str, Any]:
     return dict(row._mapping if hasattr(row, "_mapping") else row)
 
 
-def _as_utc(value: Any) -> Optional[datetime]:
+def _as_utc(value: Any) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -164,11 +165,11 @@ def _as_utc(value: Any) -> Optional[datetime]:
         except ValueError:
             return None
     if result.tzinfo is None:
-        return result.replace(tzinfo=timezone.utc)
-    return result.astimezone(timezone.utc)
+        return result.replace(tzinfo=UTC)
+    return result.astimezone(UTC)
 
 
-def _to_decimal(value: Any) -> Optional[Decimal]:
+def _to_decimal(value: Any) -> Decimal | None:
     if value is None:
         return None
     try:
@@ -177,7 +178,7 @@ def _to_decimal(value: Any) -> Optional[Decimal]:
         return None
 
 
-def _to_int(value: Any) -> Optional[int]:
+def _to_int(value: Any) -> int | None:
     number = _to_decimal(value)
     if number is None:
         return None
@@ -187,7 +188,7 @@ def _to_int(value: Any) -> Optional[int]:
         return None
 
 
-def _to_float(value: Any) -> Optional[float]:
+def _to_float(value: Any) -> float | None:
     number = _to_decimal(value)
     if number is None:
         return None
@@ -197,7 +198,7 @@ def _to_float(value: Any) -> Optional[float]:
         return None
 
 
-def _split_name(name: Any) -> tuple[Optional[str], Optional[str]]:
+def _split_name(name: Any) -> tuple[str | None, str | None]:
     value = str(name or "").strip()
     if not value:
         return None, None
@@ -248,7 +249,7 @@ def parse_remnashop_env_text(text_value: str) -> dict[str, str]:
     return env
 
 
-def read_remnashop_env_file(path: Optional[str]) -> dict[str, str]:
+def read_remnashop_env_file(path: str | None) -> dict[str, str]:
     if not path:
         return {}
     return parse_remnashop_env_text(Path(path).read_text(encoding="utf-8"))
@@ -258,14 +259,14 @@ def _is_placeholder_setting_value(value: Any) -> bool:
     return isinstance(value, str) and value.strip().lower() in PLACEHOLDER_SETTING_VALUES
 
 
-def _clean_url(value: Any) -> Optional[str]:
+def _clean_url(value: Any) -> str | None:
     if _is_placeholder_setting_value(value):
         return None
     text_value = str(value or "").strip().rstrip("/")
     return text_value or None
 
 
-def _remnashop_panel_api_url(value: Any) -> Optional[str]:
+def _remnashop_panel_api_url(value: Any) -> str | None:
     host = _clean_url(value)
     if not host:
         return None
@@ -279,7 +280,7 @@ def _remnashop_panel_api_url(value: Any) -> Optional[str]:
     return host
 
 
-def _source_public_base_from_env(env: dict[str, str]) -> Optional[str]:
+def _source_public_base_from_env(env: dict[str, str]) -> str | None:
     domain = _clean_url(env.get("APP_DOMAIN"))
     if not domain:
         return None
@@ -288,7 +289,7 @@ def _source_public_base_from_env(env: dict[str, str]) -> Optional[str]:
     return domain
 
 
-def _support_link_from_username(value: Any) -> Optional[str]:
+def _support_link_from_username(value: Any) -> str | None:
     if _is_placeholder_setting_value(value):
         return None
     username = str(value or "").strip().lstrip("@")
@@ -344,7 +345,7 @@ def _normalize_gateway_type(value: Any) -> str:
     return re.sub(r"[^A-Z0-9_]+", "_", text_value).strip("_")
 
 
-def _normalize_currency(value: Any) -> Optional[str]:
+def _normalize_currency(value: Any) -> str | None:
     text_value = str(value or "").strip().upper()
     if "." in text_value:
         text_value = text_value.rsplit(".", 1)[-1]
@@ -365,7 +366,7 @@ def _is_encrypted_remnashop_value(value: Any) -> bool:
     return isinstance(value, str) and value.startswith(REMNASHOP_ENCRYPTED_PREFIX)
 
 
-def remnashop_decrypt_value(value: Any, crypt_key: Optional[str]) -> tuple[Any, bool]:
+def remnashop_decrypt_value(value: Any, crypt_key: str | None) -> tuple[Any, bool]:
     if not _is_encrypted_remnashop_value(value):
         return value, False
     if not crypt_key or Fernet is None:
@@ -379,9 +380,9 @@ def remnashop_decrypt_value(value: Any, crypt_key: Optional[str]) -> tuple[Any, 
 
 def remnashop_decrypt_recursive(
     value: Any,
-    crypt_key: Optional[str],
+    crypt_key: str | None,
     *,
-    skipped_paths: Optional[list[str]] = None,
+    skipped_paths: list[str] | None = None,
     path: str = "",
 ) -> Any:
     if isinstance(value, dict):
@@ -414,7 +415,7 @@ def _provider_mapping_result(
     gateway_type: str,
     provider_ids: Iterable[str],
     overrides: dict[str, Any],
-    warnings: Optional[list[str]] = None,
+    warnings: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
         "source_type": gateway_type,
@@ -428,7 +429,7 @@ def _provider_mapping_result(
 def remnashop_payment_gateway_overrides(
     row: dict[str, Any],
     *,
-    crypt_key: Optional[str] = None,
+    crypt_key: str | None = None,
 ) -> dict[str, Any]:
     gateway_type = _normalize_gateway_type(row.get("type"))
     if gateway_type not in SUPPORTED_REMNASHOP_PROVIDER_TYPES:
@@ -554,7 +555,7 @@ def remnashop_payment_gateway_overrides(
     return _provider_mapping_result(gateway_type, [], overrides, warnings)
 
 
-def _target_webhook_url(base_url: Optional[str], path: str) -> Optional[str]:
+def _target_webhook_url(base_url: str | None, path: str) -> str | None:
     base = _clean_url(base_url)
     if not base:
         return None
@@ -563,9 +564,9 @@ def _target_webhook_url(base_url: Optional[str], path: str) -> Optional[str]:
 
 def remnashop_post_migration_actions(
     *,
-    target_webhook_base_url: Optional[str],
+    target_webhook_base_url: str | None,
     imported_provider_ids: Iterable[str],
-    source_env: Optional[dict[str, str]] = None,
+    source_env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     provider_ids = list(dict.fromkeys(imported_provider_ids))
     payment_actions = []
@@ -619,7 +620,7 @@ def _listish(value: Any) -> list[Any]:
     return [value]
 
 
-def remnashop_traffic_gb_to_bytes(value: Any) -> Optional[int]:
+def remnashop_traffic_gb_to_bytes(value: Any) -> int | None:
     number = _to_decimal(value)
     if number is None:
         return None
@@ -668,7 +669,7 @@ def remnashop_plan_type(plan_snapshot: Any) -> str:
     return re.sub(r"[^A-Z0-9_]+", "_", text_value).strip("_")
 
 
-def remnashop_purchased_gb(plan_snapshot: Any) -> Optional[float]:
+def remnashop_purchased_gb(plan_snapshot: Any) -> float | None:
     if remnashop_plan_type(plan_snapshot) != "TRAFFIC":
         return None
     data = _jsonish(plan_snapshot)
@@ -676,7 +677,7 @@ def remnashop_purchased_gb(plan_snapshot: Any) -> Optional[float]:
     return value if value and value > 0 else None
 
 
-def remnashop_purchased_hwid_devices(plan_snapshot: Any) -> Optional[int]:
+def remnashop_purchased_hwid_devices(plan_snapshot: Any) -> int | None:
     if remnashop_plan_type(plan_snapshot) != "DEVICES":
         return None
     value = _to_int(_jsonish(plan_snapshot).get("device_limit"))
@@ -706,7 +707,7 @@ def remnashop_months_from_plan_snapshot(
     *,
     created_at: Any = None,
     expire_at: Any = None,
-) -> Optional[int]:
+) -> int | None:
     data = _jsonish(plan_snapshot)
     for key in ("duration_months", "months", "month"):
         months = _to_int(data.get(key))
@@ -725,7 +726,7 @@ def remnashop_months_from_plan_snapshot(
     return None
 
 
-def remnashop_tariff_key(plan_snapshot: Any, tariff_map: dict[str, str]) -> Optional[str]:
+def remnashop_tariff_key(plan_snapshot: Any, tariff_map: dict[str, str]) -> str | None:
     data = _jsonish(plan_snapshot)
     candidates = [
         data.get("id"),
@@ -742,11 +743,11 @@ def remnashop_tariff_key(plan_snapshot: Any, tariff_map: dict[str, str]) -> Opti
 
 def remnashop_row_telegram_id(
     row: dict[str, Any],
-    user_telegram_by_id: Optional[dict[int, int]] = None,
+    user_telegram_by_id: dict[int, int] | None = None,
     *,
     user_id_key: str = "user_id",
     telegram_id_key: str = "user_telegram_id",
-) -> Optional[int]:
+) -> int | None:
     telegram_id = _to_int(row.get(telegram_id_key))
     if telegram_id is None and telegram_id_key != "telegram_id":
         telegram_id = _to_int(row.get("telegram_id"))
@@ -759,7 +760,7 @@ def remnashop_row_telegram_id(
     return _to_int(user_telegram_by_id.get(user_id))
 
 
-def remnashop_days_to_months(days: Any) -> Optional[int]:
+def remnashop_days_to_months(days: Any) -> int | None:
     value = _to_int(days)
     if value is None or value <= 0:
         return None
@@ -810,7 +811,7 @@ def _remnashop_currency_key(value: Any) -> str:
     return normalize_currency_key(normalized)
 
 
-def _remnashop_price_value(value: Any) -> Optional[float]:
+def _remnashop_price_value(value: Any) -> float | None:
     price = _to_float(value)
     if price is None or price < 0:
         return None
@@ -886,7 +887,7 @@ def remnashop_build_tariff_catalog(
     warnings: list[str] = []
     used_keys: set[str] = set()
     tariffs: list[dict[str, Any]] = []
-    default_tariff: Optional[str] = None
+    default_tariff: str | None = None
     default_currency_key = _remnashop_currency_key(default_currency) or "rub"
     if default_currency_key == "stars":
         default_currency_key = "rub"
@@ -1102,7 +1103,7 @@ def _provider_value(gateway_type: Any) -> str:
     return value or "remnashop"
 
 
-def _extract_panel_subscription_uuid(url: Any, panel_user_uuid: Optional[str]) -> Optional[str]:
+def _extract_panel_subscription_uuid(url: Any, panel_user_uuid: str | None) -> str | None:
     value = str(url or "")
     if not value:
         return None
@@ -1150,10 +1151,10 @@ class RemnashopImporter:
         created_by_admin_id: int,
         tariff_map: dict[str, str],
         write_admin_compat_overrides: bool,
-        source_env: Optional[dict[str, str]] = None,
-        source_crypt_key: Optional[str] = None,
-        target_webhook_base_url: Optional[str] = None,
-        tariffs_config_path: Optional[str] = None,
+        source_env: dict[str, str] | None = None,
+        source_crypt_key: str | None = None,
+        target_webhook_base_url: str | None = None,
+        tariffs_config_path: str | None = None,
     ) -> None:
         self.source = source
         self.target = target
@@ -1171,12 +1172,12 @@ class RemnashopImporter:
         self.tariffs_config_path = tariffs_config_path or "data/tariffs.json"
         self.tables: set[str] = set()
         self.source_columns: dict[str, set[str]] = {}
-        self.source_user_telegram_by_id: Optional[dict[int, int]] = None
+        self.source_user_telegram_by_id: dict[int, int] | None = None
         self.user_map: dict[int, int] = {}
         self.source_plans: list[dict[str, Any]] = []
         self.source_plan_durations: list[dict[str, Any]] = []
         self.source_plan_prices: list[dict[str, Any]] = []
-        self.generated_tariff_catalog: Optional[dict[str, Any]] = None
+        self.generated_tariff_catalog: dict[str, Any] | None = None
         self.imported_payment_provider_ids: list[str] = []
         self.summary: dict[str, Any] = {
             "source": SOURCE,
@@ -1281,7 +1282,7 @@ class RemnashopImporter:
         )
         return [_as_mapping(row) for row in result.mappings().all()]
 
-    async def _fetch_one(self, table: str) -> Optional[dict[str, Any]]:
+    async def _fetch_one(self, table: str) -> dict[str, Any] | None:
         rows = await self._fetch_rows(table, order_by="")
         return rows[0] if rows else None
 
@@ -1308,7 +1309,7 @@ class RemnashopImporter:
         *,
         user_id_key: str = "user_id",
         telegram_id_key: str = "user_telegram_id",
-    ) -> Optional[int]:
+    ) -> int | None:
         telegram_id = remnashop_row_telegram_id(
             row,
             user_id_key=user_id_key,
@@ -1361,7 +1362,7 @@ class RemnashopImporter:
                 panel_by_tg[telegram_id] = panel_uuid
         return panel_by_tg
 
-    async def _target_user_for_telegram(self, telegram_id: Any) -> Optional[User]:
+    async def _target_user_for_telegram(self, telegram_id: Any) -> User | None:
         normalized = _to_int(telegram_id)
         if normalized is None:
             return None
@@ -1392,9 +1393,9 @@ class RemnashopImporter:
         model: Any,
         *,
         username: Any,
-        first_name: Optional[str],
-        last_name: Optional[str],
-        language: Optional[str],
+        first_name: str | None,
+        last_name: str | None,
+        language: str | None,
     ) -> None:
         if self._can_overwrite():
             self._assign_if_allowed(model, "username", username)
@@ -1412,9 +1413,9 @@ class RemnashopImporter:
         source_id: Any,
         target_table: str,
         target_id: Any,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         source_id_value = str(source_id)
         target_id_value = str(target_id)
         stmt = (
@@ -1444,7 +1445,7 @@ class RemnashopImporter:
         )
         await self.target.execute(stmt)
 
-    async def _get_mapping(self, entity_type: str, source_id: Any) -> Optional[LegacyImportMapping]:
+    async def _get_mapping(self, entity_type: str, source_id: Any) -> LegacyImportMapping | None:
         stmt = select(LegacyImportMapping).where(
             LegacyImportMapping.source == SOURCE,
             LegacyImportMapping.entity_type == entity_type,
@@ -1468,7 +1469,7 @@ class RemnashopImporter:
             )
             return False
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
         stmt = (
             pg_insert(AppSettingOverride)
@@ -1668,7 +1669,7 @@ class RemnashopImporter:
         else:
             self.summary["tariffs"]["generation_skipped"] += 1
 
-    def _merged_tariff_catalog(self, existing_catalog: Optional[dict[str, Any]]) -> dict[str, Any]:
+    def _merged_tariff_catalog(self, existing_catalog: dict[str, Any] | None) -> dict[str, Any]:
         generated = json.loads(_json_dumps(self.generated_tariff_catalog or {}))
         if not existing_catalog or self.on_conflict == "overwrite":
             return generated
@@ -1709,12 +1710,12 @@ class RemnashopImporter:
             "tariffs": merged_tariffs,
         }
 
-    async def write_generated_tariff_catalog(self) -> Optional[str]:
+    async def write_generated_tariff_catalog(self) -> str | None:
         if not self.generated_tariff_catalog:
             return None
 
         catalog_path = Path(self.tariffs_config_path)
-        existing_catalog: Optional[dict[str, Any]] = None
+        existing_catalog: dict[str, Any] | None = None
         if await _path_exists(catalog_path):
             try:
                 decoded = json.loads(await _path_read_text(catalog_path, encoding="utf-8"))
@@ -1772,7 +1773,7 @@ class RemnashopImporter:
                 f"{len(code)} символов"
             )
             return
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         stmt = (
             pg_insert(LegacyReferralCode)
             .values(
@@ -1838,7 +1839,7 @@ class RemnashopImporter:
             first_name, last_name = _split_name(row.get("name"))
             panel_uuid = panel_by_tg.get(telegram_id)
             referral_code = str(row.get("referral_code") or "").strip() or None
-            created_at = _as_utc(row.get("created_at")) or datetime.now(timezone.utc)
+            created_at = _as_utc(row.get("created_at")) or datetime.now(UTC)
             language = str(row.get("language") or "ru").strip().lower()[:8] or "ru"
 
             existing = await self._target_user_for_telegram(telegram_id)
@@ -1862,8 +1863,8 @@ class RemnashopImporter:
                         target.is_banned = False
                     if bool(row.get("is_bot_blocked")):
                         target.telegram_notifications_status = "blocked"
-                        target.telegram_notifications_checked_at = datetime.now(timezone.utc)
-                        target.telegram_notifications_blocked_at = datetime.now(timezone.utc)
+                        target.telegram_notifications_checked_at = datetime.now(UTC)
+                        target.telegram_notifications_blocked_at = datetime.now(UTC)
                     if referral_code and len(referral_code) <= 64 and not target.referral_code:
                         if not await self._source_referral_code_conflicts(
                             referral_code,
@@ -1897,10 +1898,10 @@ class RemnashopImporter:
                         "telegram_notifications_status": "blocked"
                         if bool(row.get("is_bot_blocked"))
                         else "unknown",
-                        "telegram_notifications_checked_at": datetime.now(timezone.utc)
+                        "telegram_notifications_checked_at": datetime.now(UTC)
                         if bool(row.get("is_bot_blocked"))
                         else None,
-                        "telegram_notifications_blocked_at": datetime.now(timezone.utc)
+                        "telegram_notifications_blocked_at": datetime.now(UTC)
                         if bool(row.get("is_bot_blocked"))
                         else None,
                     },
@@ -1972,7 +1973,7 @@ class RemnashopImporter:
 
     async def import_subscriptions(self) -> None:
         rows = await self._fetch_rows("subscriptions", order_by="id")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for row in rows:
             user = await self._target_user_for_telegram(await self._source_row_telegram_id(row))
             if not user:
@@ -1988,7 +1989,7 @@ class RemnashopImporter:
 
             source_id = row.get("id")
             mapping = await self._get_mapping("subscription", source_id)
-            existing: Optional[Subscription] = None
+            existing: Subscription | None = None
             if mapping and str(mapping.target_id).isdigit():
                 existing = await self.target.get(Subscription, int(mapping.target_id))
 
@@ -2242,7 +2243,7 @@ class RemnashopImporter:
                 by_code[code].append(mapping)
         return by_code
 
-    def _promo_bonus_days(self, row: dict[str, Any]) -> Optional[int]:
+    def _promo_bonus_days(self, row: dict[str, Any]) -> int | None:
         reward_type = str(row.get("reward_type") or "").strip().upper()
         if reward_type == "DURATION":
             return _to_int(row.get("reward"))
@@ -2272,8 +2273,7 @@ class RemnashopImporter:
                 .values(
                     promo_code_id=promo.promo_code_id,
                     user_id=user.user_id,
-                    activated_at=_as_utc(activation.get("activated_at"))
-                    or datetime.now(timezone.utc),
+                    activated_at=_as_utc(activation.get("activated_at")) or datetime.now(UTC),
                 )
                 .on_conflict_do_nothing(
                     index_elements=[
@@ -2375,7 +2375,7 @@ class RemnashopImporter:
         self.summary["settings"]["captured"] += 1
 
     async def _write_admin_overrides(self) -> None:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         plain_summary = self._plain_summary()
         await self._upsert_setting_override(
             "MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED",
@@ -2399,7 +2399,7 @@ def parse_only(value: str) -> set[str]:
     return {item.strip().lower() for item in value.split(",") if item.strip()}
 
 
-def parse_tariff_map(value: Optional[str]) -> dict[str, str]:
+def parse_tariff_map(value: str | None) -> dict[str, str]:
     if not value:
         return {}
     path = Path(value)

@@ -6,8 +6,9 @@ import copy
 import hashlib
 import json
 import re
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
+from typing import Any
 from urllib.parse import urlsplit
 
 
@@ -109,7 +110,7 @@ UNSAFE_SVG_RE = re.compile(
     r"|(data\s*:)",
     re.IGNORECASE,
 )
-_CONFIG_CACHE: Dict[Tuple[str, str], Dict[str, Any]] = {}
+_CONFIG_CACHE: dict[tuple[str, str], dict[str, Any]] = {}
 PANEL_CONFIG_KEYS = (
     "config",
     "subscriptionPageConfig",
@@ -120,7 +121,7 @@ PANEL_CONFIG_KEYS = (
 PANEL_WRAPPER_KEYS = ("response", "data", "result", *PANEL_CONFIG_KEYS)
 
 
-def validate_subscription_guides_config_text(raw: str) -> Dict[str, Any]:
+def validate_subscription_guides_config_text(raw: str) -> dict[str, Any]:
     """Parse and validate a v1 subscription guides config JSON string."""
 
     try:
@@ -156,14 +157,14 @@ def ensure_subscription_guides_config_file(settings: Any) -> Path:
     return path
 
 
-def subscription_guides_admin_config_json(settings: Any) -> Tuple[str, str]:
+def subscription_guides_admin_config_json(settings: Any) -> tuple[str, str]:
     admin_json = str(settings.SUBSCRIPTION_PAGE_CONFIG_JSON or "").strip()
     if admin_json:
         return admin_json, "admin_json"
     return "", "empty"
 
 
-def load_subscription_guides_config(settings: Any) -> Tuple[Dict[str, Any], str]:
+def load_subscription_guides_config(settings: Any) -> tuple[dict[str, Any], str]:
     """Load the enabled guides config from admin JSON or a configured file path."""
 
     source, raw = _read_config_source(settings)
@@ -177,7 +178,7 @@ def load_subscription_guides_config(settings: Any) -> Tuple[Dict[str, Any], str]
     return config, source
 
 
-def subscription_guides_status(settings: Any) -> Dict[str, Any]:
+def subscription_guides_status(settings: Any) -> dict[str, Any]:
     """Return a safe status payload for user-facing guide availability checks."""
 
     if not bool(settings.SUBSCRIPTION_GUIDES_ENABLED):
@@ -214,7 +215,7 @@ def validate_panel_subscription_guides_config(
     payload: Any,
     *,
     allow_default_when_missing: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     config = extract_subscription_guides_config_from_panel(payload)
     if config is None:
         if allow_default_when_missing and panel_subscription_page_allowed(payload):
@@ -229,7 +230,7 @@ def panel_subscription_page_allowed(payload: Any) -> bool:
     return bool(candidate and candidate.get("webpageAllowed") is True)
 
 
-def validate_subscription_guides_config(payload: Any) -> Dict[str, Any]:
+def validate_subscription_guides_config(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, Mapping):
         raise SubscriptionGuidesConfigError("Config root must be an object")
     if payload.get("version") != "1":
@@ -257,7 +258,7 @@ def validate_subscription_guides_config(payload: Any) -> Dict[str, Any]:
     }
 
 
-def _read_config_source(settings: Any) -> Tuple[str, str]:
+def _read_config_source(settings: Any) -> tuple[str, str]:
     admin_json = str(settings.SUBSCRIPTION_PAGE_CONFIG_JSON or "").strip()
     json_override_enabled = bool(settings.SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED)
     if admin_json and json_override_enabled:
@@ -309,7 +310,7 @@ def _looks_like_v1_config(value: Mapping[str, Any]) -> bool:
     )
 
 
-def _find_panel_response_object(value: Any, seen: set[int]) -> Optional[Mapping[str, Any]]:
+def _find_panel_response_object(value: Any, seen: set[int]) -> Mapping[str, Any] | None:
     if not isinstance(value, Mapping):
         return None
 
@@ -341,7 +342,7 @@ def _validate_locales(value: Any) -> list[str]:
     return locales
 
 
-def _validate_branding(value: Any) -> Dict[str, str]:
+def _validate_branding(value: Any) -> dict[str, str]:
     data = _require_object(value, "brandingSettings")
     result = {
         "title": _require_text(data, "title", "brandingSettings.title"),
@@ -353,7 +354,7 @@ def _validate_branding(value: Any) -> Dict[str, str]:
     return result
 
 
-def _validate_ui_config(value: Any) -> Dict[str, str]:
+def _validate_ui_config(value: Any) -> dict[str, str]:
     data = _require_object(value, "uiConfig")
     subscription_info = _require_text(
         data,
@@ -379,7 +380,7 @@ def _validate_ui_config(value: Any) -> Dict[str, str]:
     }
 
 
-def _validate_base_settings(value: Any) -> Dict[str, Any]:
+def _validate_base_settings(value: Any) -> dict[str, Any]:
     data = value if isinstance(value, Mapping) else {}
     return {
         "metaTitle": _optional_text(data, "metaTitle") or "Subscription",
@@ -389,9 +390,9 @@ def _validate_base_settings(value: Any) -> Dict[str, Any]:
     }
 
 
-def _validate_base_translations(value: Any, locales: Iterable[str]) -> Dict[str, Dict[str, str]]:
+def _validate_base_translations(value: Any, locales: Iterable[str]) -> dict[str, dict[str, str]]:
     data = _require_object(value, "baseTranslations")
-    result: Dict[str, Dict[str, str]] = {}
+    result: dict[str, dict[str, str]] = {}
     for key in BASE_TRANSLATION_KEYS:
         result[key] = _validate_locale_strings(
             data.get(key),
@@ -401,11 +402,11 @@ def _validate_base_translations(value: Any, locales: Iterable[str]) -> Dict[str,
     return result
 
 
-def _validate_svg_library(value: Any) -> Dict[str, str]:
+def _validate_svg_library(value: Any) -> dict[str, str]:
     data = _require_object(value, "svgLibrary")
     if not data:
         raise SubscriptionGuidesConfigError("svgLibrary must not be empty")
-    result: Dict[str, str] = {}
+    result: dict[str, str] = {}
     for key, raw_svg in data.items():
         svg_key = str(key or "").strip()
         if not SVG_KEY_RE.fullmatch(svg_key):
@@ -418,11 +419,11 @@ def _validate_platforms(
     value: Any,
     locales: Iterable[str],
     svg_library: Mapping[str, str],
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     data = _require_object(value, "platforms")
     if not data:
         raise SubscriptionGuidesConfigError("platforms must not be empty")
-    result: Dict[str, Dict[str, Any]] = {}
+    result: dict[str, dict[str, Any]] = {}
     for platform_key, raw_platform in data.items():
         key = str(platform_key or "").strip()
         if key not in ALLOWED_PLATFORMS:
@@ -451,10 +452,10 @@ def _validate_apps(
     locales: Iterable[str],
     svg_library: Mapping[str, str],
     path: str,
-) -> list[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     if not isinstance(value, list) or not value:
         raise SubscriptionGuidesConfigError(f"{path} must be a non-empty array")
-    apps: list[Dict[str, Any]] = []
+    apps: list[dict[str, Any]] = []
     for index, raw_app in enumerate(value):
         app_path = f"{path}[{index}]"
         app = _require_object(raw_app, app_path)
@@ -487,10 +488,10 @@ def _validate_blocks(
     locales: Iterable[str],
     svg_library: Mapping[str, str],
     path: str,
-) -> list[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     if not isinstance(value, list) or not value:
         raise SubscriptionGuidesConfigError(f"{path} must be a non-empty array")
-    blocks: list[Dict[str, Any]] = []
+    blocks: list[dict[str, Any]] = []
     for index, raw_block in enumerate(value):
         block_path = f"{path}[{index}]"
         block = _require_object(raw_block, block_path)
@@ -531,12 +532,12 @@ def _validate_buttons(
     locales: Iterable[str],
     svg_library: Mapping[str, str],
     path: str,
-) -> list[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     if value is None:
         return []
     if not isinstance(value, list):
         raise SubscriptionGuidesConfigError(f"{path} must be an array")
-    buttons: list[Dict[str, Any]] = []
+    buttons: list[dict[str, Any]] = []
     for index, raw_button in enumerate(value):
         button_path = f"{path}[{index}]"
         button = _require_object(raw_button, button_path)
@@ -566,9 +567,9 @@ def _validate_buttons(
     return buttons
 
 
-def _validate_locale_strings(value: Any, locales: Iterable[str], path: str) -> Dict[str, str]:
+def _validate_locale_strings(value: Any, locales: Iterable[str], path: str) -> dict[str, str]:
     data = _require_object(value, path)
-    result: Dict[str, str] = {}
+    result: dict[str, str] = {}
     for locale in locales:
         text = data.get(locale)
         if not isinstance(text, str) or not text.strip():
@@ -581,7 +582,7 @@ def _validate_localized_or_text(
     value: Any,
     locales: Iterable[str],
     path: str,
-) -> str | Dict[str, str]:
+) -> str | dict[str, str]:
     if isinstance(value, str):
         text = value.strip()
         if text:
@@ -598,7 +599,7 @@ def _validate_svg_icon_key(value: Any, svg_library: Mapping[str, str], path: str
     return key
 
 
-def _optional_svg_icon_key(value: Any, svg_library: Mapping[str, str], path: str) -> Optional[str]:
+def _optional_svg_icon_key(value: Any, svg_library: Mapping[str, str], path: str) -> str | None:
     key = _string_value(value)
     if not key:
         return None

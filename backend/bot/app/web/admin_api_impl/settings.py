@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
@@ -69,7 +69,7 @@ async def admin_settings_get_route(request: web.Request) -> web.Response:
 
     fields = manifest_payload()
     webhook_base_url = str(settings.WEBHOOK_BASE_URL or "").strip().rstrip("/")
-    sections: Dict[str, Dict[str, Any]] = {}
+    sections: dict[str, dict[str, Any]] = {}
     for field in fields:
         key = field["key"]
         section_id = field["section"]

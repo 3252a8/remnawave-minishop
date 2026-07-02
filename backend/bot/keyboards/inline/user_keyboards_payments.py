@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
@@ -33,17 +33,17 @@ def _provider_filter_currency_code(settings: Settings, display_currency: str) ->
 def get_payment_method_keyboard(
     months: int,
     price: float,
-    stars_price: Optional[int],
+    stars_price: int | None,
     currency_symbol_val: str,
     lang: str,
     i18n_instance: JsonI18n,
     settings: Settings,
     sale_mode: str = "subscription",
-    back_callback: Optional[str] = None,
-    user_id: Optional[int] = None,
-    is_admin: Optional[bool] = None,
-    hwid_renewal_quote: Optional[Dict[str, Any]] = None,
-    hwid_renewal_stars_quote: Optional[Dict[str, Any]] = None,
+    back_callback: str | None = None,
+    user_id: int | None = None,
+    is_admin: bool | None = None,
+    hwid_renewal_quote: dict[str, Any] | None = None,
+    hwid_renewal_stars_quote: dict[str, Any] | None = None,
     hwid_renewal_selected: bool = True,
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -123,7 +123,7 @@ def get_payment_url_keyboard(
     payment_url: str,
     lang: str,
     i18n_instance: JsonI18n,
-    back_callback: Optional[str] = None,
+    back_callback: str | None = None,
     back_text_key: str = "back_to_main_menu_button",
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -146,7 +146,7 @@ def get_yk_autopay_choice_keyboard(
     i18n_instance: JsonI18n,
     has_saved_cards: bool = True,
     sale_mode: str = "subscription",
-    back_callback: Optional[str] = None,
+    back_callback: str | None = None,
 ) -> InlineKeyboardMarkup:
     """Keyboard for choosing between saved card charge or new card payment when auto-renew is enabled."""  # noqa: E501
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -181,7 +181,7 @@ def get_yk_autopay_choice_keyboard(
 
 
 def get_yk_saved_cards_keyboard(
-    cards: List[Tuple[str, str]],
+    cards: list[tuple[str, str]],
     months: int,
     price: float,
     lang: str,
@@ -212,7 +212,7 @@ def get_yk_saved_cards_keyboard(
             )
         )
 
-    nav_buttons: List[InlineKeyboardButton] = []
+    nav_buttons: list[InlineKeyboardButton] = []
     if start > 0:
         nav_buttons.append(
             InlineKeyboardButton(
@@ -246,7 +246,7 @@ def get_yk_saved_cards_keyboard(
 
 
 def get_payment_methods_list_keyboard(
-    cards: List[Tuple[str, str]],
+    cards: list[tuple[str, str]],
     page: int,
     lang: str,
     i18n_instance: JsonI18n,
@@ -266,7 +266,7 @@ def get_payment_methods_list_keyboard(
         builder.row(InlineKeyboardButton(text=title, callback_data=f"pm:view:{pm_id}"))
 
     # Pagination controls if needed
-    nav_buttons: List[InlineKeyboardButton] = []
+    nav_buttons: list[InlineKeyboardButton] = []
     if start > 0:
         nav_buttons.append(InlineKeyboardButton(text="⬅️", callback_data=f"pm:list:{page - 1}"))
     if end < total:

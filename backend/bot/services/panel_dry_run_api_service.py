@@ -4,7 +4,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from config.settings import Settings
 from config.traffic_strategy import (
@@ -88,7 +88,7 @@ _UNKNOWN_ENDPOINT = "<other>"
 
 @dataclass
 class _DryRunValidation:
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -103,11 +103,11 @@ class PanelDryRunApiService(PanelApiService):
 
     def __init__(self, settings: Settings) -> None:
         super().__init__(settings)
-        self._synthetic_users: Dict[str, Dict[str, Any]] = {}
+        self._synthetic_users: dict[str, dict[str, Any]] = {}
 
     async def _request(
         self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         method_upper = method.upper()
         normalized_endpoint = self._normalize_endpoint(endpoint)
         if not self._should_intercept(method_upper, normalized_endpoint):
@@ -251,7 +251,7 @@ class PanelDryRunApiService(PanelApiService):
         endpoint: str,
         payload: Any,
         *,
-        errors: Optional[List[str]] = None,
+        errors: list[str] | None = None,
     ) -> None:
         logger.info(
             "[PANEL DRY-RUN %s] would %s %s payload=%s%s",
@@ -332,7 +332,7 @@ class PanelDryRunApiService(PanelApiService):
 
     async def _validate_create_user_payload(
         self,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         validation: _DryRunValidation,
     ) -> None:
         username = self._validate_non_empty_string(payload.get("username"), "username", validation)
@@ -357,7 +357,7 @@ class PanelDryRunApiService(PanelApiService):
 
     async def _validate_update_user_payload(
         self,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         validation: _DryRunValidation,
     ) -> None:
         user_uuid = self._validate_non_empty_string(payload.get("uuid"), "uuid", validation)
@@ -375,7 +375,7 @@ class PanelDryRunApiService(PanelApiService):
 
     def _validate_user_mutation_payload(
         self,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         validation: _DryRunValidation,
         *,
         require_uuid: bool,
@@ -425,9 +425,9 @@ class PanelDryRunApiService(PanelApiService):
 
     async def _validate_remote_user(
         self,
-        user_uuid: Optional[str],
+        user_uuid: str | None,
         validation: _DryRunValidation,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         if not user_uuid or not self._remote_validation_enabled:
             return self._synthetic_users.get(str(user_uuid or ""))
         user = self._synthetic_users.get(str(user_uuid))
@@ -444,7 +444,7 @@ class PanelDryRunApiService(PanelApiService):
 
     async def _validate_remote_squads(
         self,
-        squad_uuids: List[str],
+        squad_uuids: list[str],
         validation: _DryRunValidation,
     ) -> None:
         if not squad_uuids or not self._remote_validation_enabled:
@@ -468,7 +468,7 @@ class PanelDryRunApiService(PanelApiService):
 
     async def _validate_create_uniqueness(
         self,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         validation: _DryRunValidation,
     ) -> None:
         checks = (
@@ -497,7 +497,7 @@ class PanelDryRunApiService(PanelApiService):
         value: Any,
         name: str,
         validation: _DryRunValidation,
-    ) -> Optional[str]:
+    ) -> str | None:
         if not isinstance(value, str) or not value.strip():
             validation.add(f"{name} must be a non-empty string.")
             return None
@@ -510,7 +510,7 @@ class PanelDryRunApiService(PanelApiService):
         validation: _DryRunValidation,
         *,
         required: bool = True,
-    ) -> List[str]:
+    ) -> list[str]:
         if value is None:
             if required:
                 validation.add(f"{name} must be a list of strings.")
@@ -577,7 +577,7 @@ class PanelDryRunApiService(PanelApiService):
         method: str,
         endpoint: str,
         payload: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         data = payload if isinstance(payload, dict) else {}
         if method == "POST" and endpoint == "/users":
             return self._dry_run_create_user_response(data)
@@ -609,7 +609,7 @@ class PanelDryRunApiService(PanelApiService):
             }
         return {"dryRun": True}
 
-    def _dry_run_create_user_response(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def _dry_run_create_user_response(self, payload: dict[str, Any]) -> dict[str, Any]:
         identity = ":".join(
             str(payload.get(key) or "") for key in ("username", "telegramId", "email")
         )
@@ -626,7 +626,7 @@ class PanelDryRunApiService(PanelApiService):
         self._synthetic_users[user_uuid] = response
         return response
 
-    async def _dry_run_patch_user_response(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _dry_run_patch_user_response(self, payload: dict[str, Any]) -> dict[str, Any]:
         user_uuid = str(payload.get("uuid") or "")
         existing = self._synthetic_users.get(user_uuid)
         if not existing and self._remote_validation_enabled:
@@ -640,8 +640,8 @@ class PanelDryRunApiService(PanelApiService):
         return response
 
     @staticmethod
-    def _dry_run_user_action_response(user_uuid: str, action: str) -> Dict[str, Any]:
-        response: Dict[str, Any] = {"uuid": user_uuid, "action": action, "dryRun": True}
+    def _dry_run_user_action_response(user_uuid: str, action: str) -> dict[str, Any]:
+        response: dict[str, Any] = {"uuid": user_uuid, "action": action, "dryRun": True}
         if action == "enable":
             response["status"] = "ACTIVE"
         elif action == "disable":
@@ -650,7 +650,7 @@ class PanelDryRunApiService(PanelApiService):
             response["userTraffic"] = {"usedTrafficBytes": 0}
         return response
 
-    def _subscription_url(self, short_uuid: str) -> Optional[str]:
+    def _subscription_url(self, short_uuid: str) -> str | None:
         panel_api_url = self.settings.panel_settings.api_url
         if not panel_api_url:
             return None

@@ -1,5 +1,4 @@
 import logging
-from typing import List, Optional
 
 from aiogram import Bot, Router
 from aiogram.types import (
@@ -28,7 +27,7 @@ async def inline_query_handler(
 ) -> None:
     """Handle inline queries for referral links and admin statistics"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
@@ -36,7 +35,7 @@ async def inline_query_handler(
     user_id = inline_query.from_user.id
     query = inline_query.query.lower().strip()
 
-    results: List[InlineQueryResultUnion] = []
+    results: list[InlineQueryResultUnion] = []
 
     # Check if user is admin
     is_admin = user_id in settings.ADMIN_IDS if settings.ADMIN_IDS else False
@@ -86,7 +85,7 @@ async def create_referral_result(
     lang: str,
     settings: Settings,
     session: AsyncSession,
-) -> Optional[InlineQueryResultArticle]:
+) -> InlineQueryResultArticle | None:
     """Create referral link result for inline query"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 
@@ -125,10 +124,10 @@ async def create_referral_result(
 
 async def create_admin_stats_results(
     session: AsyncSession, i18n_instance: JsonI18n, lang: str, settings: Settings
-) -> List[InlineQueryResultUnion]:
+) -> list[InlineQueryResultUnion]:
     """Create admin statistics results for inline query"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
-    results: List[InlineQueryResultUnion] = []
+    results: list[InlineQueryResultUnion] = []
 
     try:
         # Quick user stats
@@ -158,7 +157,7 @@ async def create_admin_stats_results(
 
 async def create_user_stats_result(
     session: AsyncSession, i18n_instance: JsonI18n, lang: str, settings: Settings
-) -> Optional[InlineQueryResultArticle]:
+) -> InlineQueryResultArticle | None:
     """Create user statistics result"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 
@@ -201,7 +200,7 @@ async def create_user_stats_result(
 
 async def create_financial_stats_result(
     session: AsyncSession, i18n_instance: JsonI18n, lang: str, settings: Settings
-) -> Optional[InlineQueryResultArticle]:
+) -> InlineQueryResultArticle | None:
     """Create financial statistics result"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 
@@ -238,7 +237,7 @@ async def create_financial_stats_result(
 
 async def create_system_stats_result(
     session: AsyncSession, i18n_instance: JsonI18n, lang: str, settings: Settings
-) -> Optional[InlineQueryResultArticle]:
+) -> InlineQueryResultArticle | None:
     """Create panel statistics result with system/nodes/bandwidth info"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 

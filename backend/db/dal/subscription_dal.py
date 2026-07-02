@@ -1,8 +1,8 @@
 import logging
 import re
 import secrets
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import and_, delete, func, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +16,7 @@ from ._sqlalchemy import rowcount
 INSTALL_SHARE_TOKEN_BYTES = 16
 
 
-def _subscription_model_payload(sub_payload: Dict[str, Any]) -> Dict[str, Any]:
+def _subscription_model_payload(sub_payload: dict[str, Any]) -> dict[str, Any]:
     model_columns = Subscription.__mapper__.columns.keys()
     filtered_payload = {key: value for key, value in sub_payload.items() if key in model_columns}
     ignored_keys = sorted(set(sub_payload) - set(filtered_payload))
@@ -26,12 +26,12 @@ def _subscription_model_payload(sub_payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def get_active_subscription_by_user_id(
-    session: AsyncSession, user_id: int, panel_user_uuid: Optional[str] = None
-) -> Optional[Subscription]:
+    session: AsyncSession, user_id: int, panel_user_uuid: str | None = None
+) -> Subscription | None:
     stmt = select(Subscription).where(
         Subscription.user_id == user_id,
         Subscription.is_active == True,
-        Subscription.end_date > datetime.now(timezone.utc),
+        Subscription.end_date > datetime.now(UTC),
     )
     if panel_user_uuid:
         stmt = stmt.where(Subscription.panel_user_uuid == panel_user_uuid)
@@ -45,7 +45,7 @@ async def user_has_active_subscription_after(
     user_id: int,
     after: datetime,
     *,
-    exclude_subscription_id: Optional[int] = None,
+    exclude_subscription_id: int | None = None,
 ) -> bool:
     """Return True when the user has an active subscription ending after ``after``.
 
@@ -53,7 +53,7 @@ async def user_has_active_subscription_after(
     once the user is already covered by a newer (e.g. renewed) subscription.
     """
     if after.tzinfo is None:
-        after = after.replace(tzinfo=timezone.utc)
+        after = after.replace(tzinfo=UTC)
     stmt = select(Subscription.subscription_id).where(
         Subscription.user_id == user_id,
         Subscription.is_active == True,
@@ -70,8 +70,8 @@ async def get_latest_active_end_dates(
     session: AsyncSession,
     user_ids: Any,
     *,
-    now: Optional[datetime] = None,
-) -> Dict[int, datetime]:
+    now: datetime | None = None,
+) -> dict[int, datetime]:
     """Map each user id to the latest end_date among their active live subscriptions.
 
     Only subscriptions that are still active (``is_active`` and ``end_date`` in the
@@ -82,7 +82,7 @@ async def get_latest_active_end_dates(
     if not unique_ids:
         return {}
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
     stmt = (
         select(Subscription.user_id, func.max(Subscription.end_date))
         .where(
@@ -98,7 +98,7 @@ async def get_latest_active_end_dates(
 
 async def get_subscription_by_panel_subscription_uuid(
     session: AsyncSession, panel_sub_uuid: str
-) -> Optional[Subscription]:
+) -> Subscription | None:
     stmt = select(Subscription).where(Subscription.panel_subscription_uuid == panel_sub_uuid)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
@@ -114,7 +114,7 @@ def normalize_install_share_token(value: Any) -> str:
 async def get_subscription_by_install_share_token(
     session: AsyncSession,
     token: str,
-) -> Optional[Subscription]:
+) -> Subscription | None:
     normalized = normalize_install_share_token(token)
     if not normalized:
         return None
@@ -180,7 +180,7 @@ async def ensure_install_share_token(
 
 async def get_active_subscriptions_for_user(
     session: AsyncSession, user_id: int
-) -> List[Subscription]:
+) -> list[Subscription]:
     """Get all active subscriptions for a user."""
     stmt = (
         select(Subscription)
@@ -192,8 +192,8 @@ async def get_active_subscriptions_for_user(
 
 
 async def update_subscription(
-    session: AsyncSession, subscription_id: int, update_data: Dict[str, Any]
-) -> Optional[Subscription]:
+    session: AsyncSession, subscription_id: int, update_data: dict[str, Any]
+) -> Subscription | None:
     sub = await session.get(Subscription, subscription_id)
     if sub:
         for key, value in update_data.items():
@@ -205,7 +205,7 @@ async def update_subscription(
 
 async def set_auto_renew(
     session: AsyncSession, subscription_id: int, enabled: bool
-) -> Optional[Subscription]:
+) -> Subscription | None:
     """Toggle auto_renew_enabled for a subscription."""
     return await update_subscription(session, subscription_id, {"auto_renew_enabled": enabled})
 
@@ -219,9 +219,9 @@ async def set_user_subscriptions_cancelled_with_grace(
     skip future notifications to reduce noise after cancellation.
     Returns number of updated rows.
     """
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
-    grace_end = datetime.now(timezone.utc) + timedelta(days=grace_days)
+    grace_end = datetime.now(UTC) + timedelta(days=grace_days)
     stmt = (
         update(Subscription)
         .where(Subscription.user_id == user_id, Subscription.is_active == True)
@@ -235,7 +235,7 @@ async def set_user_subscriptions_cancelled_with_grace(
     return rowcount(result)
 
 
-async def upsert_subscription(session: AsyncSession, sub_payload: Dict[str, Any]) -> Subscription:
+async def upsert_subscription(session: AsyncSession, sub_payload: dict[str, Any]) -> Subscription:
     panel_sub_uuid = sub_payload.get("panel_subscription_uuid")
     if not panel_sub_uuid:
         raise ValueError("panel_subscription_uuid is required for upsert.")
@@ -275,7 +275,7 @@ async def upsert_subscription(session: AsyncSession, sub_payload: Dict[str, Any]
 
 
 async def deactivate_other_active_subscriptions(
-    session: AsyncSession, panel_user_uuid: str, current_panel_subscription_uuid: Optional[str]
+    session: AsyncSession, panel_user_uuid: str, current_panel_subscription_uuid: str | None
 ) -> None:
     stmt = (
         update(Subscription)
@@ -323,7 +323,7 @@ async def delete_all_user_subscriptions(session: AsyncSession, user_id: int) -> 
 
 async def update_subscription_end_date(
     session: AsyncSession, subscription_id: int, new_end_date: datetime
-) -> Optional[Subscription]:
+) -> Subscription | None:
 
     return await update_subscription(
         session,
@@ -344,7 +344,7 @@ async def has_any_subscription_for_user(session: AsyncSession, user_id: int) -> 
 
 
 async def has_trial_blocking_subscription_for_user(session: AsyncSession, user_id: int) -> bool:
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     reset_at = (
         select(User.trial_eligibility_reset_at).where(User.user_id == user_id).scalar_subquery()
     )
@@ -367,8 +367,8 @@ async def has_trial_blocking_subscription_for_user(session: AsyncSession, user_i
 
 async def get_subscriptions_near_expiration(
     session: AsyncSession, days_threshold: int
-) -> List[Subscription]:
-    now_utc = datetime.now(timezone.utc)
+) -> list[Subscription]:
+    now_utc = datetime.now(UTC)
     threshold_date = now_utc + timedelta(days=days_threshold)
 
     stmt = (
@@ -393,7 +393,7 @@ async def get_subscriptions_near_expiration(
 
 async def update_subscription_notification_time(
     session: AsyncSession, subscription_id: int, notification_time: datetime
-) -> Optional[Subscription]:
+) -> Subscription | None:
     return await update_subscription(
         session, subscription_id, {"last_notification_sent": notification_time}
     )
@@ -421,10 +421,10 @@ async def record_subscription_notification(
     subscription_id: int,
     notification_key: str,
     *,
-    sent_at: Optional[datetime] = None,
+    sent_at: datetime | None = None,
 ) -> None:
     if sent_at is None:
-        sent_at = datetime.now(timezone.utc)
+        sent_at = datetime.now(UTC)
     existing = await has_subscription_notification(session, subscription_id, notification_key)
     if existing:
         return
@@ -440,10 +440,10 @@ async def record_subscription_notification(
 
 async def find_subscription_for_notification_update(
     session: AsyncSession, user_id: int, subscription_end_date_to_match: datetime
-) -> Optional[Subscription]:
+) -> Subscription | None:
 
     if subscription_end_date_to_match.tzinfo is None:
-        subscription_end_date_to_match = subscription_end_date_to_match.replace(tzinfo=timezone.utc)
+        subscription_end_date_to_match = subscription_end_date_to_match.replace(tzinfo=UTC)
 
     stmt = (
         select(Subscription)

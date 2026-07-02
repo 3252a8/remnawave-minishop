@@ -1,8 +1,9 @@
 import base64
 import json
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
 from aiohttp import web
@@ -78,7 +79,7 @@ class WataService(HttpClientMixin):
         self.subscription_service = subscription_service
         self.referral_service = referral_service
         self._default_return_url = default_return_url
-        self._cached_public_key_pem: Dict[str, Optional[str]] = {}
+        self._cached_public_key_pem: dict[str, str | None] = {}
 
         self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
         if not self.configured:
@@ -104,8 +105,8 @@ class WataService(HttpClientMixin):
             return self.config.crypto_runtime_enabled
         return self.config.fiat_runtime_enabled
 
-    def iter_enabled_profiles(self) -> Tuple[WataTerminalProfile, ...]:
-        profiles: List[WataTerminalProfile] = []
+    def iter_enabled_profiles(self) -> tuple[WataTerminalProfile, ...]:
+        profiles: list[WataTerminalProfile] = []
         for provider in (WATA_PROVIDER, WATA_CRYPTO_PROVIDER):
             profile = self.profile_for_method(provider)
             if self.profile_enabled(provider):
@@ -115,7 +116,7 @@ class WataService(HttpClientMixin):
     def profile_for_terminal_public_id(
         self,
         terminal_public_id: Any,
-    ) -> Optional[WataTerminalProfile]:
+    ) -> WataTerminalProfile | None:
         normalized = _normalize_terminal_public_id(terminal_public_id)
         if not normalized:
             return None
@@ -145,7 +146,7 @@ class WataService(HttpClientMixin):
         return self.config.WEBHOOK_VERIFY_SIGNATURE
 
     @property
-    def _public_key_pem(self) -> Optional[str]:
+    def _public_key_pem(self) -> str | None:
         profile = self.profile_for_method(WATA_PROVIDER)
         return profile.public_key or self._cached_public_key_pem.get(profile.provider)
 
@@ -161,8 +162,8 @@ class WataService(HttpClientMixin):
 
     def _auth_headers(
         self,
-        profile: Optional[WataTerminalProfile] = None,
-    ) -> Dict[str, str]:
+        profile: WataTerminalProfile | None = None,
+    ) -> dict[str, str]:
         resolved = profile or self.profile_for_method(WATA_PROVIDER)
         return {
             "Authorization": f"Bearer {resolved.api_token}",
@@ -174,10 +175,10 @@ class WataService(HttpClientMixin):
         *,
         payment_db_id: int,
         amount: float,
-        currency: Optional[str],
+        currency: str | None,
         description: str,
         method: Any = WATA_PROVIDER,
-    ) -> Tuple[bool, Dict[str, Any]]:
+    ) -> tuple[bool, dict[str, Any]]:
         profile = self.profile_for_method(method)
         if not self.profile_enabled(profile.provider):
             logging.error(
@@ -197,10 +198,10 @@ class WataService(HttpClientMixin):
             }
 
         session = await self._get_session()
-        expires_at = (
-            datetime.now(timezone.utc) + timedelta(minutes=profile.link_ttl_minutes)
-        ).replace(microsecond=0)
-        body: Dict[str, Any] = {
+        expires_at = (datetime.now(UTC) + timedelta(minutes=profile.link_ttl_minutes)).replace(
+            microsecond=0
+        )
+        body: dict[str, Any] = {
             "amount": float(format_decimal_amount(amount)),
             "currency": currency_code,
             "description": description,
@@ -222,10 +223,10 @@ class WataService(HttpClientMixin):
         self,
         url: str,
         *,
-        params: Optional[Mapping[str, Any]] = None,
+        params: Mapping[str, Any] | None = None,
         log_prefix: str,
-        profile: Optional[WataTerminalProfile] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        profile: WataTerminalProfile | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         resolved_profile = profile or self.profile_for_method(WATA_PROVIDER)
         if not self.profile_enabled(resolved_profile.provider):
             logging.error(
@@ -268,15 +269,15 @@ class WataService(HttpClientMixin):
         self,
         payment_link_id: str,
         *,
-        profile: Optional[WataTerminalProfile] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        profile: WataTerminalProfile | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         return await self._get_json(
             f"{self.base_url}/links/{payment_link_id}",
             log_prefix="Wata get_payment_link",
             profile=profile,
         )
 
-    async def try_reuse_pending_link(self, payment: Any) -> Optional[str]:
+    async def try_reuse_pending_link(self, payment: Any) -> str | None:
         """Return the existing payment link URL if it's still usable; else None.
 
         Used to avoid creating duplicate Wata links each time a user re-clicks
@@ -321,7 +322,7 @@ class WataService(HttpClientMixin):
                     expiration_raw,
                 )
                 return None
-            if exp_dt <= datetime.now(timezone.utc):
+            if exp_dt <= datetime.now(UTC):
                 return None
 
         return first_value(data, "url", "paymentUrl", "payment_url")
@@ -330,8 +331,8 @@ class WataService(HttpClientMixin):
         self,
         transaction_id: str,
         *,
-        profile: Optional[WataTerminalProfile] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        profile: WataTerminalProfile | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         return await self._get_json(
             f"{self.base_url}/transactions/{transaction_id}",
             log_prefix="Wata get_transaction",
@@ -341,13 +342,13 @@ class WataService(HttpClientMixin):
     async def search_transactions(
         self,
         *,
-        order_id: Optional[str] = None,
-        payment_link_id: Optional[str] = None,
-        status: Optional[str] = None,
+        order_id: str | None = None,
+        payment_link_id: str | None = None,
+        status: str | None = None,
         limit: int = 5,
-        profile: Optional[WataTerminalProfile] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
-        params: Dict[str, Any] = {
+        profile: WataTerminalProfile | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
+        params: dict[str, Any] = {
             "skipCount": 0,
             "maxResultCount": max(1, min(int(limit or 5), 1000)),
         }
@@ -366,8 +367,8 @@ class WataService(HttpClientMixin):
 
     async def _get_public_key_pem(
         self,
-        profile: Optional[WataTerminalProfile] = None,
-    ) -> Optional[str]:
+        profile: WataTerminalProfile | None = None,
+    ) -> str | None:
         resolved_profile = profile or self.profile_for_method(WATA_PROVIDER)
         if resolved_profile.public_key:
             value = resolved_profile.public_key
@@ -427,7 +428,7 @@ class WataService(HttpClientMixin):
         raw_body: bytes,
         signature_header: str,
         *,
-        profile: Optional[WataTerminalProfile] = None,
+        profile: WataTerminalProfile | None = None,
     ) -> bool:
         if not signature_header:
             return False
@@ -452,7 +453,7 @@ class WataService(HttpClientMixin):
                 return True
         return False
 
-    def _profile_hint_from_raw_body(self, raw_body: bytes) -> Optional[WataTerminalProfile]:
+    def _profile_hint_from_raw_body(self, raw_body: bytes) -> WataTerminalProfile | None:
         try:
             payload = json.loads(raw_body.decode("utf-8"))
         except Exception:
@@ -483,7 +484,7 @@ class WataService(HttpClientMixin):
         payload: Mapping[str, Any],
         payment: Any,
         *,
-        provider_payment_id: Optional[str],
+        provider_payment_id: str | None,
     ) -> bool:
         order_id = str(payload.get("orderId") or "").strip()
         if order_id and order_id == str(payment.payment_id):
@@ -504,7 +505,7 @@ class WataService(HttpClientMixin):
         payment: Any,
         *,
         status: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         profile = self.profile_for_payment(payment)
         if not self.profile_enabled(profile.provider):
             return None
@@ -537,7 +538,7 @@ class WataService(HttpClientMixin):
         payload: Mapping[str, Any],
         *,
         log_prefix: str,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         current = await payment_dal.get_payment_by_db_id(session, payment.payment_id)
         if current:
             payment = current
@@ -620,7 +621,7 @@ class WataService(HttpClientMixin):
         *,
         log_prefix: str,
         notify_user: bool,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         transaction_id = _wata_transaction_id(payload) or str(payment.payment_id)
         try:
             await payment_dal.update_provider_payment_and_status(
@@ -652,21 +653,21 @@ class WataService(HttpClientMixin):
     def _local_payment_link_ttl_expired(self, payment: Any) -> bool:
         profile = self.profile_for_payment(payment)
         created_at = getattr(payment, "created_at", None)
-        created_dt: Optional[datetime]
+        created_dt: datetime | None
         if isinstance(created_at, datetime):
             created_dt = (
-                created_at.replace(tzinfo=timezone.utc)
+                created_at.replace(tzinfo=UTC)
                 if created_at.tzinfo is None
-                else created_at.astimezone(timezone.utc)
+                else created_at.astimezone(UTC)
             )
         else:
             created_dt = _parse_wata_datetime(created_at)
         if created_dt is None:
             return False
         expires_at = created_dt + timedelta(minutes=profile.link_ttl_minutes)
-        return expires_at <= datetime.now(timezone.utc)
+        return expires_at <= datetime.now(UTC)
 
-    async def _expired_link_payload_for_payment(self, payment: Any) -> Optional[Mapping[str, Any]]:
+    async def _expired_link_payload_for_payment(self, payment: Any) -> Mapping[str, Any] | None:
         profile = self.profile_for_payment(payment)
         if not self.profile_enabled(profile.provider):
             return None
@@ -685,7 +686,7 @@ class WataService(HttpClientMixin):
         expiration_dt = _parse_wata_datetime(expiration_raw)
         if expiration_dt is None:
             return None
-        if expiration_dt > datetime.now(timezone.utc):
+        if expiration_dt > datetime.now(UTC):
             return None
         return data
 
@@ -696,7 +697,7 @@ class WataService(HttpClientMixin):
         payload: Mapping[str, Any],
         *,
         log_prefix: str,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         provider_payment_id = (
             first_value(payload, "id", "paymentLinkId", "payment_link_id")
             or getattr(payment, "provider_payment_id", None)

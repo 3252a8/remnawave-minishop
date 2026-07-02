@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 REMNAWAVE_TRAFFIC_LIMIT_STRATEGIES = frozenset(
     {
@@ -22,7 +22,7 @@ _TRAFFIC_LIMIT_STRATEGY_ALIASES = {
 }
 
 
-def normalize_traffic_limit_strategy(value: Any, *, default: Optional[str] = "NO_RESET") -> str:
+def normalize_traffic_limit_strategy(value: Any, *, default: str | None = "NO_RESET") -> str:
     fallback = ""
     if default is not None:
         fallback = str(default or "NO_RESET").strip().upper().replace("-", "_") or "NO_RESET"
@@ -40,7 +40,7 @@ def normalize_traffic_limit_strategy(value: Any, *, default: Optional[str] = "NO
     return strategy
 
 
-def canonical_traffic_limit_strategy(value: Any) -> Optional[str]:
+def canonical_traffic_limit_strategy(value: Any) -> str | None:
     strategy = _traffic_limit_strategy_key(value)
     if not strategy:
         return None

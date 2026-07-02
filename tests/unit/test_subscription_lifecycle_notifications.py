@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 
@@ -85,7 +85,7 @@ def _subscription(**overrides):
     data = {
         "subscription_id": 42,
         "user_id": 123,
-        "end_date": datetime(2026, 6, 1, tzinfo=timezone.utc),
+        "end_date": datetime(2026, 6, 1, tzinfo=UTC),
         "tariff_key": "standard",
         "provider": "yookassa",
         "status_from_panel": "ACTIVE",

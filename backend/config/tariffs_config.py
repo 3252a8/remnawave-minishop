@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, RootModel, ValidationError, model_validator
 
@@ -64,8 +64,8 @@ class TrafficPackage(BaseModel):
 class HwidDevicePackage(BaseModel):
     count: int
     price: float
-    prices: Dict[str, float] = Field(default_factory=dict)
-    min_price: Optional[float] = None
+    prices: dict[str, float] = Field(default_factory=dict)
+    min_price: float | None = None
 
     @model_validator(mode="after")
     def validate_values(self) -> "HwidDevicePackage":
@@ -73,7 +73,7 @@ class HwidDevicePackage(BaseModel):
             raise ValueError("device package count must be greater than zero")
         if self.price < 0:
             raise ValueError("device package price must be non-negative")
-        normalized_prices: Dict[str, float] = {}
+        normalized_prices: dict[str, float] = {}
         for period, value in (self.prices or {}).items():
             period_key = str(period).strip()
             if not period_key:
@@ -100,8 +100,8 @@ class HwidDevicePackage(BaseModel):
         return float(self.price) * months_int
 
 
-class PackageSet(RootModel[Dict[str, List[TrafficPackage]]]):
-    root: Dict[str, List[TrafficPackage]] = Field(default_factory=dict)
+class PackageSet(RootModel[dict[str, list[TrafficPackage]]]):
+    root: dict[str, list[TrafficPackage]] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
@@ -110,7 +110,7 @@ class PackageSet(RootModel[Dict[str, List[TrafficPackage]]]):
             return {}
         if not isinstance(data, dict):
             return data
-        normalized: Dict[str, Any] = {}
+        normalized: dict[str, Any] = {}
         for currency, packages in data.items():
             key = normalize_currency_key(currency, default="")
             if not key:
@@ -118,19 +118,19 @@ class PackageSet(RootModel[Dict[str, List[TrafficPackage]]]):
             normalized[key] = packages or []
         return normalized
 
-    def for_currency(self, currency: Currency) -> List[TrafficPackage]:
+    def for_currency(self, currency: Currency) -> list[TrafficPackage]:
         return list(self.root.get(normalize_currency_key(currency), []) or [])
 
     @property
-    def rub(self) -> List[TrafficPackage]:
+    def rub(self) -> list[TrafficPackage]:
         return self.for_currency("rub")
 
     @property
-    def stars(self) -> List[TrafficPackage]:
+    def stars(self) -> list[TrafficPackage]:
         return self.for_currency("stars")
 
     @property
-    def non_stars_currencies(self) -> List[str]:
+    def non_stars_currencies(self) -> list[str]:
         return [
             currency for currency, packages in self.root.items() if currency != "stars" and packages
         ]
@@ -139,8 +139,8 @@ class PackageSet(RootModel[Dict[str, List[TrafficPackage]]]):
         return any(bool(packages) for packages in self.root.values())
 
 
-class HwidDevicePackageSet(RootModel[Dict[str, List[HwidDevicePackage]]]):
-    root: Dict[str, List[HwidDevicePackage]] = Field(default_factory=dict)
+class HwidDevicePackageSet(RootModel[dict[str, list[HwidDevicePackage]]]):
+    root: dict[str, list[HwidDevicePackage]] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
@@ -149,7 +149,7 @@ class HwidDevicePackageSet(RootModel[Dict[str, List[HwidDevicePackage]]]):
             return {}
         if not isinstance(data, dict):
             return data
-        normalized: Dict[str, Any] = {}
+        normalized: dict[str, Any] = {}
         for currency, packages in data.items():
             key = normalize_currency_key(currency, default="")
             if not key:
@@ -157,15 +157,15 @@ class HwidDevicePackageSet(RootModel[Dict[str, List[HwidDevicePackage]]]):
             normalized[key] = packages or []
         return normalized
 
-    def for_currency(self, currency: Currency) -> List[HwidDevicePackage]:
+    def for_currency(self, currency: Currency) -> list[HwidDevicePackage]:
         return list(self.root.get(normalize_currency_key(currency), []) or [])
 
     @property
-    def rub(self) -> List[HwidDevicePackage]:
+    def rub(self) -> list[HwidDevicePackage]:
         return self.for_currency("rub")
 
     @property
-    def stars(self) -> List[HwidDevicePackage]:
+    def stars(self) -> list[HwidDevicePackage]:
         return self.for_currency("stars")
 
     def has_any(self) -> bool:
@@ -174,30 +174,30 @@ class HwidDevicePackageSet(RootModel[Dict[str, List[HwidDevicePackage]]]):
 
 class Tariff(BaseModel):
     key: str
-    names: Dict[str, str] = Field(default_factory=dict)
-    descriptions: Dict[str, str] = Field(default_factory=dict)
-    premium_names: Dict[str, str] = Field(default_factory=dict)
-    squad_uuids: List[str] = Field(default_factory=list)
+    names: dict[str, str] = Field(default_factory=dict)
+    descriptions: dict[str, str] = Field(default_factory=dict)
+    premium_names: dict[str, str] = Field(default_factory=dict)
+    squad_uuids: list[str] = Field(default_factory=list)
     billing_model: BillingModel
     enabled: bool = True
 
-    monthly_gb: Optional[float] = None
-    prices: Dict[str, Dict[str, float]] = Field(default_factory=dict)
-    prices_rub: Dict[str, float] = Field(default_factory=dict)
-    prices_stars: Dict[str, float] = Field(default_factory=dict)
-    referral_bonus_days_inviter: Dict[str, int] = Field(default_factory=dict)
-    referral_bonus_days_referee: Dict[str, int] = Field(default_factory=dict)
-    enabled_periods: List[int] = Field(default_factory=list)
-    topup_packages: Optional[PackageSet] = None
+    monthly_gb: float | None = None
+    prices: dict[str, dict[str, float]] = Field(default_factory=dict)
+    prices_rub: dict[str, float] = Field(default_factory=dict)
+    prices_stars: dict[str, float] = Field(default_factory=dict)
+    referral_bonus_days_inviter: dict[str, int] = Field(default_factory=dict)
+    referral_bonus_days_referee: dict[str, int] = Field(default_factory=dict)
+    enabled_periods: list[int] = Field(default_factory=list)
+    topup_packages: PackageSet | None = None
 
-    traffic_packages: Optional[PackageSet] = None
-    conversion_rate_per_gb: Optional[float] = None
-    conversion_rate_rub_per_gb: Optional[float] = None
-    hwid_device_limit: Optional[int] = None
-    hwid_device_packages: Optional[HwidDevicePackageSet] = None
-    premium_squad_uuids: List[str] = Field(default_factory=list)
-    premium_monthly_gb: Optional[float] = None
-    premium_topup_packages: Optional[PackageSet] = None
+    traffic_packages: PackageSet | None = None
+    conversion_rate_per_gb: float | None = None
+    conversion_rate_rub_per_gb: float | None = None
+    hwid_device_limit: int | None = None
+    hwid_device_packages: HwidDevicePackageSet | None = None
+    premium_squad_uuids: list[str] = Field(default_factory=list)
+    premium_monthly_gb: float | None = None
+    premium_topup_packages: PackageSet | None = None
 
     @model_validator(mode="after")
     def validate_tariff(self) -> "Tariff":
@@ -274,10 +274,10 @@ class Tariff(BaseModel):
 
     def _normalize_period_price_map(
         self,
-        values: Dict[str, float],
+        values: dict[str, float],
         field_name: str,
-    ) -> Dict[str, float]:
-        normalized: Dict[str, float] = {}
+    ) -> dict[str, float]:
+        normalized: dict[str, float] = {}
         for period, value in (values or {}).items():
             try:
                 months = int(float(str(period).strip()))
@@ -293,9 +293,9 @@ class Tariff(BaseModel):
 
     def _normalize_prices_by_currency(
         self,
-        values: Dict[str, Dict[str, float]],
-    ) -> Dict[str, Dict[str, float]]:
-        normalized: Dict[str, Dict[str, float]] = {}
+        values: dict[str, dict[str, float]],
+    ) -> dict[str, dict[str, float]]:
+        normalized: dict[str, dict[str, float]] = {}
         for currency, price_map in (values or {}).items():
             key = normalize_currency_key(currency, default="")
             if not key:
@@ -304,9 +304,9 @@ class Tariff(BaseModel):
         return normalized
 
     def _normalize_referral_bonus_map(
-        self, values: Dict[str, int], field_name: str
-    ) -> Dict[str, int]:
-        normalized: Dict[str, int] = {}
+        self, values: dict[str, int], field_name: str
+    ) -> dict[str, int]:
+        normalized: dict[str, int] = {}
         for period, days in (values or {}).items():
             try:
                 months = int(float(str(period).strip()))
@@ -336,20 +336,20 @@ class Tariff(BaseModel):
             return 0
         return int(float(self.monthly_gb) * (1024**3))
 
-    def period_price(self, months: int, currency: Currency = "rub") -> Optional[float]:
+    def period_price(self, months: int, currency: Currency = "rub") -> float | None:
         source = self.prices.get(normalize_currency_key(currency), {})
         value = source.get(str(months))
         return float(value) if value is not None else None
 
-    def referral_inviter_bonus_days(self, months: int) -> Optional[int]:
+    def referral_inviter_bonus_days(self, months: int) -> int | None:
         value = self.referral_bonus_days_inviter.get(str(int(months)))
         return int(value) if value is not None else None
 
-    def referral_referee_bonus_days(self, months: int) -> Optional[int]:
+    def referral_referee_bonus_days(self, months: int) -> int | None:
         value = self.referral_bonus_days_referee.get(str(int(months)))
         return int(value) if value is not None else None
 
-    def min_period_price(self, currency: Currency = "rub") -> Optional[float]:
+    def min_period_price(self, currency: Currency = "rub") -> float | None:
         key = normalize_currency_key(currency)
         source = self.prices.get(key, {})
         prices = [
@@ -359,14 +359,14 @@ class Tariff(BaseModel):
         ]
         return min(prices) if prices else None
 
-    def min_period_price_rub(self) -> Optional[float]:
+    def min_period_price_rub(self) -> float | None:
         return self.min_period_price("rub")
 
-    def min_traffic_package(self, currency: Currency = "rub") -> Optional[TrafficPackage]:
+    def min_traffic_package(self, currency: Currency = "rub") -> TrafficPackage | None:
         packages = self.traffic_packages.for_currency(currency) if self.traffic_packages else []
         return min(packages, key=lambda pkg: pkg.price) if packages else None
 
-    def min_traffic_package_rub(self) -> Optional[TrafficPackage]:
+    def min_traffic_package_rub(self) -> TrafficPackage | None:
         return self.min_traffic_package("rub")
 
     def currency_per_gb_for_conversion(self, currency: Currency = "rub") -> float:
@@ -402,8 +402,8 @@ class Tariff(BaseModel):
 class TariffsConfig(BaseModel):
     default_tariff: str
     default_currency: str = DEFAULT_TARIFF_CURRENCY
-    topup_packages_default: Optional[PackageSet] = None
-    tariffs: List[Tariff]
+    topup_packages_default: PackageSet | None = None
+    tariffs: list[Tariff]
 
     @model_validator(mode="after")
     def validate_config(self) -> "TariffsConfig":
@@ -422,10 +422,10 @@ class TariffsConfig(BaseModel):
         return self
 
     @property
-    def enabled_tariffs(self) -> List[Tariff]:
+    def enabled_tariffs(self) -> list[Tariff]:
         return [tariff for tariff in self.tariffs if tariff.enabled]
 
-    def get(self, key: str) -> Optional[Tariff]:
+    def get(self, key: str) -> Tariff | None:
         return next((tariff for tariff in self.tariffs if tariff.key == key), None)
 
     def require(self, key: str) -> Tariff:
@@ -442,13 +442,13 @@ class TariffsConfig(BaseModel):
     def default_payment_currency_code(self) -> str:
         return payment_currency_code(self.default_currency)
 
-    def topup_packages_for(self, tariff: Tariff) -> Optional[PackageSet]:
+    def topup_packages_for(self, tariff: Tariff) -> PackageSet | None:
         if tariff.billing_model == "traffic":
             return tariff.traffic_packages
         return tariff.topup_packages
 
 
-def load_tariffs_config(path: str | Path) -> Optional[TariffsConfig]:
+def load_tariffs_config(path: str | Path) -> TariffsConfig | None:
     config_path = Path(path)
     if not config_path.exists():
         return None

@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Awaitable, Callable, Optional
+from collections.abc import Awaitable, Callable
 
 from aiogram import Dispatcher
 from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
@@ -40,8 +40,8 @@ from config.settings import Settings
 TELEGRAM_STARTUP_RETRY_DELAY_SECONDS = 2.0
 
 
-def _telegram_command_language_codes(settings: Settings) -> list[Optional[str]]:
-    language_codes: list[Optional[str]] = [None]
+def _telegram_command_language_codes(settings: Settings) -> list[str | None]:
+    language_codes: list[str | None] = [None]
     for code in (settings.DEFAULT_LANGUAGE, "ru", "en"):
         normalized = str(code or "").strip().lower()
         if normalized and normalized not in language_codes:
@@ -49,7 +49,7 @@ def _telegram_command_language_codes(settings: Settings) -> list[Optional[str]]:
     return language_codes
 
 
-def redact_token(value: str, token: Optional[str]) -> str:
+def redact_token(value: str, token: str | None) -> str:
     if not value or not token:
         return value
     return value.replace(token, "***")
@@ -70,7 +70,7 @@ async def _run_telegram_startup_step(
     step: Callable[[], Awaitable[object]],
     unexpected_log_message: str,
     *,
-    attempts: Optional[int] = None,
+    attempts: int | None = None,
     retry_delay_seconds: float = TELEGRAM_STARTUP_RETRY_DELAY_SECONDS,
 ) -> bool:
     attempt = 1
@@ -118,7 +118,7 @@ async def _run_telegram_startup_step(
 async def register_all_routers(
     dp: Dispatcher,
     settings: Settings,
-    plugin_context: Optional[PluginContext] = None,
+    plugin_context: PluginContext | None = None,
 ):
     dp.include_router(build_root_router(settings, plugin_context))
     logging.info("All application routers registered.")

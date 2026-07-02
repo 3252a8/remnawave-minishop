@@ -1,7 +1,6 @@
 """Persistent overrides for localization strings."""
 
-from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -12,17 +11,17 @@ from db.models import LocaleOverride
 from ._sqlalchemy import rowcount
 
 
-async def get_all_overrides(session: AsyncSession) -> Dict[str, Dict[str, str]]:
+async def get_all_overrides(session: AsyncSession) -> dict[str, dict[str, str]]:
     rows = (await session.execute(select(LocaleOverride))).scalars().all()
-    result: Dict[str, Dict[str, str]] = {}
+    result: dict[str, dict[str, str]] = {}
     for row in rows:
         result.setdefault(row.lang, {})[row.key] = row.value
     return result
 
 
-async def get_overrides_with_meta(session: AsyncSession) -> List[Dict[str, object]]:
+async def get_overrides_with_meta(session: AsyncSession) -> list[dict[str, object]]:
     rows = (await session.execute(select(LocaleOverride))).scalars().all()
-    items: List[Dict[str, object]] = []
+    items: list[dict[str, object]] = []
     for row in rows:
         items.append(
             {
@@ -42,9 +41,9 @@ async def upsert_override(
     lang: str,
     key: str,
     value: str,
-    updated_by: Optional[int],
+    updated_by: int | None,
 ) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     stmt = (
         pg_insert(LocaleOverride)
         .values(lang=lang, key=key, value=value, updated_at=now, updated_by=updated_by)
@@ -72,8 +71,8 @@ async def delete_override(session: AsyncSession, *, lang: str, key: str) -> bool
 async def bulk_apply(
     session: AsyncSession,
     *,
-    updates: Dict[Tuple[str, str], Tuple[bool, str]],
-    updated_by: Optional[int],
+    updates: dict[tuple[str, str], tuple[bool, str]],
+    updated_by: int | None,
 ) -> None:
     for (lang, key), (set_flag, value) in updates.items():
         if set_flag:

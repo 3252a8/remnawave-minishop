@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,11 +44,11 @@ logger = logging.getLogger(__name__)
 
 async def _resolve_referrer_id(
     session: AsyncSession,
-    raw_referral_param: Optional[str],
+    raw_referral_param: str | None,
     *,
-    current_user_id: Optional[int],
-    settings: Optional[Settings] = None,
-) -> Optional[int]:
+    current_user_id: int | None,
+    settings: Settings | None = None,
+) -> int | None:
     if settings is None:
         return None
     return await resolve_referrer_user_id(
@@ -64,7 +64,7 @@ async def _apply_referral_to_existing_user(
     request: web.Request,
     session: AsyncSession,
     user: User,
-    raw_referral_param: Optional[str],
+    raw_referral_param: str | None,
 ) -> bool:
     if not raw_referral_param or user.referred_by_id is not None:
         return False
@@ -98,8 +98,8 @@ async def _apply_referral_welcome_bonus_if_needed(
     request: web.Request,
     session: AsyncSession,
     user: User,
-    raw_referral_param: Optional[str],
-) -> Optional[datetime]:
+    raw_referral_param: str | None,
+) -> datetime | None:
     if not raw_referral_param or not user.referred_by_id:
         return None
 
@@ -114,7 +114,7 @@ async def _grant_referral_welcome_bonus_if_eligible(
     request: web.Request,
     session: AsyncSession,
     user: User,
-) -> Optional[datetime]:
+) -> datetime | None:
     if not user.referred_by_id:
         return None
 
@@ -151,7 +151,7 @@ async def _grant_referral_welcome_bonus_if_eligible(
         # Persisted together with the grant on the caller's commit (the extend
         # call does not commit on its own), so the bonus and its claimed-marker
         # stay atomic.
-        user.referral_welcome_bonus_claimed_at = datetime.now(timezone.utc)
+        user.referral_welcome_bonus_claimed_at = datetime.now(UTC)
         await events.emit_model(
             ReferralBonusGrantedPayload(
                 referee_user_id=int(user.user_id),
@@ -166,10 +166,10 @@ async def _grant_referral_welcome_bonus_if_eligible(
     return end_date
 
 
-def _webapp_datetime_text(value: Optional[datetime]) -> Optional[str]:
+def _webapp_datetime_text(value: datetime | None) -> str | None:
     if not value:
         return None
-    normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    normalized = value if value.tzinfo else value.replace(tzinfo=UTC)
     return normalized.strftime("%d.%m.%Y %H:%M")
 
 
@@ -229,10 +229,10 @@ async def referral_welcome_bonus_claim_route(request: web.Request) -> web.Respon
 
 async def _ensure_user_from_telegram(
     session: AsyncSession,
-    telegram_user: Dict[str, Any],
+    telegram_user: dict[str, Any],
     settings: Settings,
     *,
-    referral_param: Optional[str] = None,
+    referral_param: str | None = None,
 ) -> User:
     user_id = int(telegram_user["id"])
     telegram_language_code = _normalize_language(
@@ -270,7 +270,7 @@ async def _ensure_user_from_telegram(
                 **profile_data,
                 "language_code": telegram_language_code,
                 "referred_by_id": invite_check.referrer_user_id,
-                "registration_date": datetime.now(timezone.utc),
+                "registration_date": datetime.now(UTC),
             },
         )
         db_user._webapp_created = bool(created)

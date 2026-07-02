@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, cast
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
@@ -68,13 +68,13 @@ register_contract(
 
 def _locale_languages(
     i18n: JsonI18n,
-    overrides: Optional[List[Dict[str, Any]]] = None,
-) -> List[Dict[str, Any]]:
+    overrides: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
     base_languages = set((i18n.base_locales_data or {}).keys())
     override_languages = {str(entry.get("lang") or "") for entry in overrides or []}
     override_languages.update((i18n.locale_overrides or {}).keys())
     return cast(
-        List[Dict[str, Any]],
+        list[dict[str, Any]],
         locale_language_options(
             base_languages | override_languages,
             base_languages=base_languages,
@@ -82,8 +82,8 @@ def _locale_languages(
     )
 
 
-def _locale_override_meta_map(overrides: List[Dict[str, Any]]) -> Dict[Tuple[str, str], Dict]:
-    result: Dict[Tuple[str, str], Dict] = {}
+def _locale_override_meta_map(overrides: list[dict[str, Any]]) -> dict[tuple[str, str], dict]:
+    result: dict[tuple[str, str], dict] = {}
     for entry in overrides:
         lang = str(entry.get("lang") or "")
         raw_key = str(entry.get("key") or "")
@@ -97,8 +97,8 @@ def _locale_override_meta_map(overrides: List[Dict[str, Any]]) -> Dict[Tuple[str
 
 def _admin_translations_payload(
     i18n: JsonI18n,
-    overrides: List[Dict[str, Any]],
-) -> Dict[str, Any]:
+    overrides: list[dict[str, Any]],
+) -> dict[str, Any]:
     base_data = i18n.base_locales_data or i18n.locales_data or {}
     effective_data = i18n.locales_data or {}
     override_meta = _locale_override_meta_map(overrides)
@@ -118,7 +118,7 @@ def _admin_translations_payload(
     }
 
     for key in all_keys:
-        values: Dict[str, Dict[str, Any]] = {}
+        values: dict[str, dict[str, Any]] = {}
         for lang in languages:
             meta = override_meta.get((lang, key))
             fallback_base = base_data.get(i18n.default_lang, {}).get(key, "")
@@ -155,7 +155,7 @@ def _admin_translations_payload(
 
 async def admin_translations_get_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
-    i18n: Optional[JsonI18n] = get_i18n(request)
+    i18n: JsonI18n | None = get_i18n(request)
     if i18n is None:
         return _error(503, "i18n_unavailable")
     async_session_factory: sessionmaker = get_session_factory(request)
@@ -169,7 +169,7 @@ async def admin_translations_get_route(request: web.Request) -> web.Response:
 
 async def admin_translations_patch_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
-    i18n: Optional[JsonI18n] = get_i18n(request)
+    i18n: JsonI18n | None = get_i18n(request)
     if i18n is None:
         return _error(503, "i18n_unavailable")
     async_session_factory: sessionmaker = get_session_factory(request)

@@ -2,7 +2,7 @@ import json
 import tempfile
 import time
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -265,7 +265,7 @@ class TelegramAlertsTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_recent_delivery_error_with_pending_update_reported(self):
         info = self._webhook_info(
-            last_error_date=datetime.now(timezone.utc),
+            last_error_date=datetime.now(UTC),
             last_error_message="SSL error",
             pending_update_count=1,
         )
@@ -276,7 +276,7 @@ class TelegramAlertsTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_recent_delivery_error_without_pending_update_not_reported(self):
         info = self._webhook_info(
-            last_error_date=datetime.now(timezone.utc),
+            last_error_date=datetime.now(UTC),
             last_error_message="Connection refused",
             pending_update_count=0,
         )

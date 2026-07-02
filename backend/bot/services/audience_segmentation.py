@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -90,7 +90,7 @@ class AudienceSegmentationService:
             return counts
 
     async def _active_subscription_panel_uuids_by_user(self, session: Any) -> dict[int, list[str]]:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         stmt = (
             select(Subscription.user_id, Subscription.panel_user_uuid)
             .join(User, Subscription.user_id == User.user_id)

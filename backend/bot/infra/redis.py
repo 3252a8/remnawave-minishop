@@ -2,8 +2,9 @@ import asyncio
 import json
 import logging
 import secrets
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Optional
+from typing import Any
 
 from config.settings import Settings
 
@@ -15,7 +16,7 @@ except ModuleNotFoundError:  # pragma: no cover - local dev environments may not
 
 logger = logging.getLogger(__name__)
 
-_redis: Optional[Any] = None
+_redis: Any | None = None
 
 
 def redis_key(settings: Settings, *parts: object) -> str:
@@ -24,7 +25,7 @@ def redis_key(settings: Settings, *parts: object) -> str:
     return ":".join([prefix, *clean])
 
 
-async def get_redis(settings: Settings) -> Optional[Any]:
+async def get_redis(settings: Settings) -> Any | None:
     global _redis
     if not settings.REDIS_URL:
         return None
@@ -139,5 +140,5 @@ async def redis_lock(
 async def sleep_or_stop(stop_event: asyncio.Event, seconds: float) -> None:
     try:
         await asyncio.wait_for(stop_event.wait(), timeout=seconds)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return

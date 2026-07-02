@@ -1,8 +1,9 @@
 import asyncio
 import logging
 import time
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
@@ -87,8 +88,8 @@ class TariffWorkerCoreMixin:
         session_factory: sessionmaker,
         panel_service: PanelApiService,
         subscription_service: SubscriptionService,
-        bot: Optional[Bot] = None,
-        i18n: Optional[JsonI18n] = None,
+        bot: Bot | None = None,
+        i18n: JsonI18n | None = None,
     ):
         self.settings = settings
         self.session_factory = session_factory
@@ -100,7 +101,7 @@ class TariffWorkerCoreMixin:
         self._premium_nodes_cache: dict[tuple[str, ...], dict[str, Any]] = {}
         self._premium_node_usage_tick_cache: dict[
             tuple[str, str, str],
-            Optional[dict[str, dict[Any, int]]],
+            dict[str, dict[Any, int]] | None,
         ] = {}
         self._premium_squad_match_cache: dict[tuple[str, tuple[str, ...]], float] = {}
 
@@ -145,10 +146,10 @@ class TariffWorkerCoreMixin:
         translate: Callable[..., str],
         *,
         kind: str,
-        period_start_at: Optional[datetime],
+        period_start_at: datetime | None,
         reset_available_bytes: int,
         user_lang: str,
-        next_reset_at: Optional[datetime] = None,
+        next_reset_at: datetime | None = None,
     ) -> str:
         reset_at = next_reset_at
         if reset_at is None:
@@ -173,10 +174,10 @@ class TariffWorkerCoreMixin:
 
     def _panel_next_traffic_reset_at(
         self,
-        panel_user_data: Optional[dict[str, Any]],
+        panel_user_data: dict[str, Any] | None,
         *,
-        now: Optional[datetime] = None,
-    ) -> Optional[datetime]:
+        now: datetime | None = None,
+    ) -> datetime | None:
         if not isinstance(panel_user_data, dict):
             return None
         traffic_stats = panel_user_data.get("userTraffic")
@@ -231,7 +232,7 @@ class TariffWorkerCoreMixin:
         cls,
         payload: dict[str, Any],
         keys: tuple[str, ...],
-    ) -> Optional[datetime]:
+    ) -> datetime | None:
         for key in keys:
             parsed = cls._parse_panel_datetime(payload.get(key))
             if parsed is not None:
@@ -239,7 +240,7 @@ class TariffWorkerCoreMixin:
         return None
 
     @staticmethod
-    def _parse_panel_datetime(value: Any) -> Optional[datetime]:
+    def _parse_panel_datetime(value: Any) -> datetime | None:
         if isinstance(value, datetime):
             parsed = value
         elif isinstance(value, str):
@@ -255,31 +256,31 @@ class TariffWorkerCoreMixin:
         else:
             return None
         if parsed.tzinfo is None:
-            return parsed.replace(tzinfo=timezone.utc)
-        return parsed.astimezone(timezone.utc)
+            return parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(UTC)
 
     def _next_traffic_reset_after(
         self,
-        period_start_at: Optional[datetime],
+        period_start_at: datetime | None,
         strategy: str,
         *,
-        now: Optional[datetime] = None,
-    ) -> Optional[datetime]:
+        now: datetime | None = None,
+    ) -> datetime | None:
         if period_start_at is None:
             return None
         normalized_strategy = normalize_traffic_limit_strategy(strategy, default="MONTH")
         if normalized_strategy == "NO_RESET":
             return None
-        current = now or datetime.now(timezone.utc)
+        current = now or datetime.now(UTC)
         if current.tzinfo is None:
-            current = current.replace(tzinfo=timezone.utc)
+            current = current.replace(tzinfo=UTC)
         else:
-            current = current.astimezone(timezone.utc)
+            current = current.astimezone(UTC)
         anchor = period_start_at
         if anchor.tzinfo is None:
-            anchor = anchor.replace(tzinfo=timezone.utc)
+            anchor = anchor.replace(tzinfo=UTC)
         else:
-            anchor = anchor.astimezone(timezone.utc)
+            anchor = anchor.astimezone(UTC)
 
         candidate = self._advance_traffic_reset(anchor, normalized_strategy)
         if now is None:
@@ -307,7 +308,7 @@ class TariffWorkerCoreMixin:
     def _format_traffic_reset_date(value: datetime, user_lang: str) -> str:
         reset_at = value
         if reset_at.tzinfo is not None:
-            reset_at = reset_at.astimezone(timezone.utc)
+            reset_at = reset_at.astimezone(UTC)
         lang = str(user_lang or "").lower()
         if lang.startswith("ru"):
             return reset_at.strftime("%d.%m.%Y")
@@ -398,7 +399,7 @@ class TariffWorkerCoreMixin:
             audit_content=f"{audit_content} subject_key={subject_key} warning_key={warning_key}",
         )
 
-    def _traffic_topup_markup(self, user_lang: str, kind: str) -> Optional[InlineKeyboardMarkup]:
+    def _traffic_topup_markup(self, user_lang: str, kind: str) -> InlineKeyboardMarkup | None:
         if not self.bot:
             return None
 
@@ -493,7 +494,7 @@ class TariffWorkerCoreMixin:
                     self._stopped.wait(),
                     timeout=self.settings.TARIFF_WORKER_TICK_SECONDS,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
 
     def stop(self) -> None:
@@ -567,7 +568,7 @@ class TariffWorkerCoreMixin:
         status = str(getattr(sub, "status_from_panel", "") or "").strip().upper()
         return provider == "trial" or status == "TRIAL"
 
-    def _trial_premium_tariff(self) -> Optional[_TrialPremiumTariff]:
+    def _trial_premium_tariff(self) -> _TrialPremiumTariff | None:
         premium_squads = self.subscription_service._trial_premium_squad_uuids()
         premium_baseline = self.subscription_service._trial_premium_baseline_bytes()
         if not premium_squads or premium_baseline <= 0:

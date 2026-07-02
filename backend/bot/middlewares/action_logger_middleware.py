@@ -1,6 +1,7 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Dict, Optional, cast
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+from typing import Any, cast
 
 from aiogram import BaseMiddleware, Bot
 from aiogram.types import CallbackQuery, Message, TelegramObject, Update, User
@@ -11,7 +12,7 @@ from config.settings import Settings
 from db.dal import message_log_dal, user_dal
 
 
-def _source_chat_id(update: Update) -> Optional[int]:
+def _source_chat_id(update: Update) -> int | None:
     if update.message:
         return update.message.chat.id
     if update.callback_query and update.callback_query.message:
@@ -29,9 +30,9 @@ class ActionLoggerMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
         event: TelegramObject,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> Any:
 
         result = await handler(event, data)
@@ -41,14 +42,14 @@ class ActionLoggerMiddleware(BaseMiddleware):
         update = cast(Update, event)
 
         session: AsyncSession = data["session"]
-        event_user: Optional[User] = data.get("event_from_user")
+        event_user: User | None = data.get("event_from_user")
 
-        user_id: Optional[int] = None
-        telegram_username: Optional[str] = None
-        telegram_first_name: Optional[str] = None
-        content: Optional[str] = None
+        user_id: int | None = None
+        telegram_username: str | None = None
+        telegram_first_name: str | None = None
+        content: str | None = None
         is_admin_event_flag: bool = False
-        target_user_id_for_log: Optional[int] = None
+        target_user_id_for_log: int | None = None
 
         if event_user:
             user_id = event_user.id
@@ -105,7 +106,7 @@ class ActionLoggerMiddleware(BaseMiddleware):
                 "raw_update_preview": raw_update_snippet,
                 "is_admin_event": is_admin_event_flag,
                 "target_user_id": target_user_id_for_log,
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             }
             try:
                 await message_log_dal.create_message_log_no_commit(session, log_payload)

@@ -4,8 +4,9 @@ import hashlib
 import hmac
 import json
 import logging
+from collections.abc import Mapping
 from decimal import InvalidOperation
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qsl
 
 from aiogram import Bot, F, Router, types
@@ -87,18 +88,18 @@ class PallyConfig(ProviderEnvConfig):
     )
 
     ENABLED: bool = Field(default=False)
-    API_TOKEN: Optional[str] = None
-    SIGNATURE_TOKEN: Optional[str] = None
-    SHOP_ID: Optional[str] = None
+    API_TOKEN: str | None = None
+    SIGNATURE_TOKEN: str | None = None
+    SHOP_ID: str | None = None
     BASE_URL: str = Field(default="https://pally.info/api/v1")
-    RETURN_URL: Optional[str] = None
-    SUCCESS_URL: Optional[str] = None
-    FAIL_URL: Optional[str] = None
-    TTL_SECONDS: Optional[int] = None
-    PAYER_PAYS_COMMISSION: Optional[bool] = None
-    PAYMENT_METHOD: Optional[str] = None
-    LOCALE: Optional[str] = None
-    NAME: Optional[str] = None
+    RETURN_URL: str | None = None
+    SUCCESS_URL: str | None = None
+    FAIL_URL: str | None = None
+    TTL_SECONDS: int | None = None
+    PAYER_PAYS_COMMISSION: bool | None = None
+    PAYMENT_METHOD: str | None = None
+    LOCALE: str | None = None
+    NAME: str | None = None
 
     @field_validator("TTL_SECONDS", mode="before")
     @classmethod
@@ -129,7 +130,7 @@ class PallyConfig(ProviderEnvConfig):
 
     @field_validator("PAYMENT_METHOD")
     @classmethod
-    def _normalize_payment_method(cls, v: Any) -> Optional[str]:
+    def _normalize_payment_method(cls, v: Any) -> str | None:
         if v is None:
             return None
         method = str(v).strip().upper()
@@ -141,7 +142,7 @@ class PallyConfig(ProviderEnvConfig):
 
     @field_validator("LOCALE")
     @classmethod
-    def _normalize_locale(cls, v: Any) -> Optional[str]:
+    def _normalize_locale(cls, v: Any) -> str | None:
         if v is None:
             return None
         locale = str(v).strip().lower().split("-", 1)[0].split("_", 1)[0]
@@ -160,12 +161,12 @@ class PallyPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
 def _payload_success(status: int, payload: Mapping[str, Any]) -> bool:
@@ -183,23 +184,23 @@ def _response_error(payload: Mapping[str, Any]) -> Any:
     return payload.get("message") or payload.get("error") or payload.get("errors") or payload
 
 
-def _bool_form_value(value: Optional[bool]) -> Optional[str]:
+def _bool_form_value(value: bool | None) -> str | None:
     if value is None:
         return None
     return "1" if value else "0"
 
 
-def _status_value(payload: Optional[Mapping[str, Any]]) -> str:
+def _status_value(payload: Mapping[str, Any] | None) -> str:
     if not payload:
         return ""
     return str(payload.get("status") or payload.get("Status") or "").strip().lower()
 
 
-def _bill_id_value(payload: Optional[Mapping[str, Any]]) -> Optional[str]:
+def _bill_id_value(payload: Mapping[str, Any] | None) -> str | None:
     return first_value(payload, "bill_id", "billId", "id", "TrsId", "trs_id")
 
 
-def _payment_page_url(payload: Optional[Mapping[str, Any]]) -> Optional[str]:
+def _payment_page_url(payload: Mapping[str, Any] | None) -> str | None:
     return first_value(
         payload,
         "link_page_url",
@@ -274,18 +275,18 @@ class PallyService(HttpClientMixin):
         return self.config.RETURN_URL or f"https://t.me/{self._default_return_url}"
 
     @property
-    def ttl_seconds(self) -> Optional[int]:
+    def ttl_seconds(self) -> int | None:
         if self.config.TTL_SECONDS is None:
             return None
         return max(1, int(self.config.TTL_SECONDS))
 
-    def _auth_headers(self) -> Dict[str, str]:
+    def _auth_headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Bearer {self.api_token}",
             "Accept": "application/json",
         }
 
-    async def _post_form(self, path: str, body: Dict[str, Any]) -> Tuple[bool, Dict[str, Any]]:
+    async def _post_form(self, path: str, body: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             logging.error("PallyService is not configured. Cannot call %s.", path)
             return False, {"message": "service_not_configured"}
@@ -326,8 +327,8 @@ class PallyService(HttpClientMixin):
         self,
         path: str,
         *,
-        params: Optional[Mapping[str, Any]] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        params: Mapping[str, Any] | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             return False, {"message": "service_not_configured"}
 
@@ -372,10 +373,10 @@ class PallyService(HttpClientMixin):
         *,
         payment_db_id: int,
         amount: float,
-        currency: Optional[str],
-        description: Optional[str] = None,
-        language: Optional[str] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        currency: str | None,
+        description: str | None = None,
+        language: str | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             logging.error("PallyService is not configured. Cannot create bill.")
             return False, {"message": "service_not_configured"}
@@ -396,7 +397,7 @@ class PallyService(HttpClientMixin):
             if locale not in {"ru", "en"}:
                 locale = None
 
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "amount": str(format_decimal_amount(amount)),
             "shop_id": self.shop_id,
             "order_id": str(payment_db_id),
@@ -424,12 +425,12 @@ class PallyService(HttpClientMixin):
 
         return await self._post_form("/bill/create", body)
 
-    async def get_bill_status(self, bill_id: str) -> Tuple[bool, Dict[str, Any]]:
+    async def get_bill_status(self, bill_id: str) -> tuple[bool, dict[str, Any]]:
         if not bill_id:
             return False, {"message": "missing_bill_id"}
         return await self._get_json("/bill/status", params={"id": bill_id})
 
-    async def try_reuse_pending_bill(self, payment: Any) -> Optional[str]:
+    async def try_reuse_pending_bill(self, payment: Any) -> str | None:
         provider_payment_id = str(getattr(payment, "provider_payment_id", None) or "").strip()
         payment_url = str(getattr(payment, "provider_payment_url", None) or "").strip()
         if not provider_payment_id or not payment_url:
@@ -450,11 +451,11 @@ class PallyService(HttpClientMixin):
             return None
         return payment_url
 
-    def calculate_signature(self, out_sum: Any, inv_id: Any) -> Optional[str]:
+    def calculate_signature(self, out_sum: Any, inv_id: Any) -> str | None:
         token = self.signature_token
         if not token:
             return None
-        raw = f"{out_sum}:{inv_id}:{token}".encode("utf-8")
+        raw = f"{out_sum}:{inv_id}:{token}".encode()
         try:
             digest = hashlib.md5(raw, usedforsecurity=False)
         except TypeError:  # pragma: no cover - Python without usedforsecurity
@@ -507,7 +508,7 @@ class PallyService(HttpClientMixin):
                 return True
         return False
 
-    async def _parse_webhook_payload(self, request: web.Request) -> Dict[str, Any]:
+    async def _parse_webhook_payload(self, request: web.Request) -> dict[str, Any]:
         raw_body = await request.read()
         try:
             text = raw_body.decode("utf-8")
@@ -682,7 +683,7 @@ async def pay_pally_callback_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)
 
     if not i18n or not callback.message:
@@ -853,7 +854,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     )
 
 
-async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
     service = app_optional(ctx.request, "pally_service", PallyService)
     if not service or not service.configured:
         return None

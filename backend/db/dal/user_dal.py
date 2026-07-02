@@ -5,8 +5,8 @@
 import logging
 import secrets
 import string
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import String, and_, cast, delete, func, or_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -118,13 +118,13 @@ async def ensure_referral_code(session: AsyncSession, user: User) -> str:
     return referral_code
 
 
-async def get_user_by_id(session: AsyncSession, user_id: int) -> Optional[User]:
+async def get_user_by_id(session: AsyncSession, user_id: int) -> User | None:
     stmt = select(User).where(User.user_id == user_id)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
 
-async def get_referrer_for_user(session: AsyncSession, user: User) -> Optional[User]:
+async def get_referrer_for_user(session: AsyncSession, user: User) -> User | None:
     referred_by_id = getattr(user, "referred_by_id", None)
     if referred_by_id is None:
         return None
@@ -137,7 +137,7 @@ async def get_users_referred_by(
     *,
     limit: int = 50,
     offset: int = 0,
-) -> List[User]:
+) -> list[User]:
     safe_limit = max(1, min(500, int(limit or 50)))
     safe_offset = max(0, int(offset or 0))
     stmt = (
@@ -157,14 +157,14 @@ async def count_users_referred_by(session: AsyncSession, user_id: int) -> int:
     return int(result.scalar_one() or 0)
 
 
-async def get_user_by_username(session: AsyncSession, username: str) -> Optional[User]:
+async def get_user_by_username(session: AsyncSession, username: str) -> User | None:
     clean_username = username.lstrip("@").lower()
     stmt = select(User).where(func.lower(User.username) == clean_username)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
 
-async def get_user_by_email(session: AsyncSession, email: str) -> Optional[User]:
+async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
     clean_email = (email or "").strip().lower()
     if not clean_email:
         return None
@@ -173,7 +173,7 @@ async def get_user_by_email(session: AsyncSession, email: str) -> Optional[User]
     return result.scalar_one_or_none()
 
 
-async def get_user_by_telegram_id(session: AsyncSession, telegram_id: int) -> Optional[User]:
+async def get_user_by_telegram_id(session: AsyncSession, telegram_id: int) -> User | None:
     stmt = select(User).where(User.telegram_id == telegram_id)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
@@ -182,7 +182,7 @@ async def get_user_by_telegram_id(session: AsyncSession, telegram_id: int) -> Op
 async def get_user_telegram_avatar(
     session: AsyncSession,
     user_id: int,
-) -> Optional[UserTelegramAvatar]:
+) -> UserTelegramAvatar | None:
     stmt = select(UserTelegramAvatar).where(UserTelegramAvatar.user_id == user_id)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
@@ -192,7 +192,7 @@ async def upsert_user_telegram_avatar(
     session: AsyncSession,
     *,
     user_id: int,
-    file_unique_id: Optional[str],
+    file_unique_id: str | None,
     content_type: str,
     image_bytes: bytes,
 ) -> UserTelegramAvatar:
@@ -204,7 +204,7 @@ async def upsert_user_telegram_avatar(
             content_type=content_type,
             image_bytes=image_bytes,
             size_bytes=len(image_bytes),
-            updated_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(UTC),
         )
         session.add(avatar)
     else:
@@ -212,13 +212,13 @@ async def upsert_user_telegram_avatar(
         avatar.content_type = content_type
         avatar.image_bytes = image_bytes
         avatar.size_bytes = len(image_bytes)
-        avatar.updated_at = datetime.now(timezone.utc)
+        avatar.updated_at = datetime.now(UTC)
     await session.flush()
     await session.refresh(avatar)
     return avatar
 
 
-async def get_user_by_panel_uuid(session: AsyncSession, panel_uuid: str) -> Optional[User]:
+async def get_user_by_panel_uuid(session: AsyncSession, panel_uuid: str) -> User | None:
     stmt = select(User).where(User.panel_user_uuid == panel_uuid)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
@@ -229,10 +229,10 @@ async def get_user_by_panel_uuid(session: AsyncSession, panel_uuid: str) -> Opti
 
 async def create_user(
     session: AsyncSession,
-    user_data: Dict[str, Any],
+    user_data: dict[str, Any],
     *,
-    registered_via: Optional[str] = "auto",
-) -> Tuple[User, bool]:
+    registered_via: str | None = "auto",
+) -> tuple[User, bool]:
     """Create a user if not exists in a race-safe way.
 
     Returns a tuple of (user, created_flag).
@@ -247,7 +247,7 @@ async def create_user(
     """
 
     if "registration_date" not in user_data:
-        user_data["registration_date"] = datetime.now(timezone.utc)
+        user_data["registration_date"] = datetime.now(UTC)
 
     if not user_data.get("referral_code"):
         user_data["referral_code"] = await generate_unique_referral_code(session)
@@ -307,10 +307,10 @@ async def create_email_user(
     *,
     email: str,
     language_code: str,
-    email_verified_at: Optional[datetime] = None,
-    referred_by_id: Optional[int] = None,
-    registered_via: Optional[str] = "email",
-) -> Tuple[User, bool]:
+    email_verified_at: datetime | None = None,
+    referred_by_id: int | None = None,
+    registered_via: str | None = "email",
+) -> tuple[User, bool]:
     normalized_email = (email or "").strip().lower()
     user_id = await generate_unique_email_user_id(session)
     return await create_user(
@@ -318,10 +318,10 @@ async def create_email_user(
         {
             "user_id": user_id,
             "email": normalized_email,
-            "email_verified_at": email_verified_at or datetime.now(timezone.utc),
+            "email_verified_at": email_verified_at or datetime.now(UTC),
             "language_code": language_code,
             "referred_by_id": referred_by_id,
-            "registration_date": datetime.now(timezone.utc),
+            "registration_date": datetime.now(UTC),
         },
         registered_via=registered_via,
     )
@@ -331,9 +331,9 @@ async def mark_trial_eligibility_reset(
     session: AsyncSession,
     user_id: int,
     *,
-    reset_at: Optional[datetime] = None,
-) -> Optional[datetime]:
-    reset_at = reset_at or datetime.now(timezone.utc)
+    reset_at: datetime | None = None,
+) -> datetime | None:
+    reset_at = reset_at or datetime.now(UTC)
     stmt = update(User).where(User.user_id == user_id).values(trial_eligibility_reset_at=reset_at)
     result = await session.execute(stmt)
     if rowcount(result) <= 0:
@@ -350,7 +350,7 @@ async def _has_active_panel_subscription(
             Subscription.user_id == user_id,
             Subscription.panel_user_uuid == panel_user_uuid,
             Subscription.is_active == True,
-            Subscription.end_date > datetime.now(timezone.utc),
+            Subscription.end_date > datetime.now(UTC),
         )
         .limit(1)
     )
@@ -361,17 +361,17 @@ async def _has_active_panel_subscription(
 async def _get_latest_subscription_for_user(
     session: AsyncSession,
     user_id: int,
-    panel_user_uuid: Optional[str] = None,
+    panel_user_uuid: str | None = None,
     *,
     active_only: bool = False,
-) -> Optional[Subscription]:
+) -> Subscription | None:
     stmt = select(Subscription).where(Subscription.user_id == user_id)
     if panel_user_uuid is not None:
         stmt = stmt.where(Subscription.panel_user_uuid == panel_user_uuid)
     if active_only:
         stmt = stmt.where(
             Subscription.is_active == True,
-            Subscription.end_date > datetime.now(timezone.utc),
+            Subscription.end_date > datetime.now(UTC),
         )
     stmt = stmt.order_by(Subscription.end_date.desc(), Subscription.subscription_id.desc()).limit(1)
     result = await session.execute(stmt)
@@ -381,8 +381,8 @@ async def _get_latest_subscription_for_user(
 async def _get_active_subscription_for_user(
     session: AsyncSession,
     user_id: int,
-    panel_user_uuid: Optional[str] = None,
-) -> Optional[Subscription]:
+    panel_user_uuid: str | None = None,
+) -> Subscription | None:
     return await _get_latest_subscription_for_user(
         session,
         user_id,
@@ -425,7 +425,7 @@ async def merge_users(
     target_panel_uuid = target.panel_user_uuid
     panel_uuid_to_keep = target_panel_uuid or source_panel_uuid
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     source_active_sub = await _get_active_subscription_for_user(
         session, source_user_id, source_panel_uuid
     )
@@ -449,11 +449,11 @@ async def merge_users(
     ):
         source_end = source_active_sub.end_date
         if source_end.tzinfo is None:
-            source_end = source_end.replace(tzinfo=timezone.utc)
+            source_end = source_end.replace(tzinfo=UTC)
 
         target_end = target_anchor_sub.end_date
         if target_end.tzinfo is None:
-            target_end = target_end.replace(tzinfo=timezone.utc)
+            target_end = target_end.replace(tzinfo=UTC)
 
         source_remaining = max(timedelta(0), source_end - now)
         if source_remaining > timedelta(0):
@@ -632,7 +632,7 @@ async def merge_users(
             .values(user_id=target_user_id)
         )
 
-    subscription_update_values: Dict[str, Any] = {"user_id": target_user_id}
+    subscription_update_values: dict[str, Any] = {"user_id": target_user_id}
     if panel_uuid_to_keep:
         subscription_update_values["panel_user_uuid"] = panel_uuid_to_keep
     await session.execute(
@@ -702,7 +702,7 @@ async def get_user_by_referral_code(
     referral_code: str,
     *,
     include_legacy: bool = False,
-) -> Optional[User]:
+) -> User | None:
     normalized = referral_code.strip()
     if not normalized:
         return None
@@ -754,8 +754,8 @@ async def get_user_by_referral_code(
 
 
 async def update_user(
-    session: AsyncSession, user_id: int, update_data: Dict[str, Any]
-) -> Optional[User]:
+    session: AsyncSession, user_id: int, update_data: dict[str, Any]
+) -> User | None:
     user = await get_user_by_id(session, user_id)
     if user:
         for key, value in update_data.items():
@@ -771,7 +771,7 @@ async def update_user_language(session: AsyncSession, user_id: int, lang_code: s
     return rowcount(result) > 0
 
 
-async def get_banned_users(session: AsyncSession) -> List[User]:
+async def get_banned_users(session: AsyncSession) -> list[User]:
     """Get all banned users"""
     stmt = select(User).where(User.is_banned == True).order_by(User.registration_date.desc())
     result = await session.execute(stmt)
@@ -780,7 +780,7 @@ async def get_banned_users(session: AsyncSession) -> List[User]:
 
 async def get_all_users_paginated(
     session: AsyncSession, *, page: int = 0, page_size: int = 15
-) -> List[User]:
+) -> list[User]:
     """Return a slice of users ordered by newest registration first."""
     safe_page = max(page, 0)
     safe_page_size = max(page_size, 1)
@@ -805,8 +805,8 @@ async def get_panel_user_uuids_for_user(
     session: AsyncSession,
     user_id: int,
     *,
-    user: Optional[User] = None,
-) -> List[str]:
+    user: User | None = None,
+) -> list[str]:
     """Return every Remnawave user UUID linked to a bot user.
 
     The canonical UUID normally lives on ``users.panel_user_uuid``, but older
@@ -816,7 +816,7 @@ async def get_panel_user_uuids_for_user(
     if user is None:
         user = await get_user_by_id(session, user_id)
 
-    panel_uuids: List[str] = []
+    panel_uuids: list[str] = []
     seen: set[str] = set()
 
     def add_uuid(value: Any) -> None:

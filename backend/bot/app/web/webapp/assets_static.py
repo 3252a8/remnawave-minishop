@@ -3,7 +3,7 @@ import hashlib
 import re
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from aiohttp import web
 
@@ -16,11 +16,11 @@ from .asset_paths import ASSET_DIR
 from .constants import ROBOTS_TX
 from .response_helpers import json_response
 
-_TEXT_FILE_CACHE: Dict[tuple[str, bool], tuple[int, int, str]] = {}
-_BINARY_FILE_CACHE: Dict[str, tuple[int, int, bytes]] = {}
-_GZIP_BODY_CACHE: Dict[str, bytes] = {}
-_ASSET_NAME_CACHE: Dict[tuple[str, str], tuple[float, str]] = {}
-_I18N_PAYLOAD_CACHE: Dict[tuple[int, str, tuple[tuple[str, int, int], ...]], Dict[str, Any]] = {}
+_TEXT_FILE_CACHE: dict[tuple[str, bool], tuple[int, int, str]] = {}
+_BINARY_FILE_CACHE: dict[str, tuple[int, int, bytes]] = {}
+_GZIP_BODY_CACHE: dict[str, bytes] = {}
+_ASSET_NAME_CACHE: dict[tuple[str, str], tuple[float, str]] = {}
+_I18N_PAYLOAD_CACHE: dict[tuple[int, str, tuple[tuple[str, int, int], ...]], dict[str, Any]] = {}
 _ASSET_NAME_CACHE_TTL_SECONDS = 30.0
 WEBAPP_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
@@ -152,7 +152,7 @@ def _precompressed_template_asset_response(
     request: web.Request,
     path: Path,
     content_type: str,
-) -> Optional[web.Response]:
+) -> web.Response | None:
     for encoding, suffix in (("br", ".br"), ("gzip", ".gz")):
         if not _request_accepts_encoding(request, encoding):
             continue
@@ -326,7 +326,7 @@ def _stable_asset_name_with_version(filename: str) -> str:
     return f"{filename}?v={version}"
 
 
-def _get_cached_asset_name(kind: str) -> Optional[str]:
+def _get_cached_asset_name(kind: str) -> str | None:
     key = (str(ASSET_DIR.resolve()), kind)
     cached = _ASSET_NAME_CACHE.get(key)
     if not cached:

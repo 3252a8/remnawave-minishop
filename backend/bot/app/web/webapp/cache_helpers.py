@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import Any, Awaitable, Callable, Optional, cast
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from typing import Any, cast
 
 from aiohttp import web
 
@@ -91,7 +91,7 @@ def _webapp_user_payload_cache(
     settings: Settings,
     namespace: str,
     ttl_seconds: int,
-) -> Optional[AsyncTTLCache]:
+) -> AsyncTTLCache | None:
     ttl = max(0, int(ttl_seconds or 0))
     if ttl <= 0:
         return None
@@ -133,12 +133,12 @@ def invalidate_local_webapp_user_payload(
 
 def invalidate_all_local_webapp_user_payloads(
     settings: Settings,
-    namespace: Optional[str] = None,
+    namespace: str | None = None,
     *,
-    include_devices: Optional[bool] = None,
+    include_devices: bool | None = None,
 ) -> None:
     if include_devices is not None:
-        namespaces: Optional[set[str]] = set(_payload_namespaces(include_devices))
+        namespaces: set[str] | None = set(_payload_namespaces(include_devices))
     elif namespace is not None:
         namespaces = {namespace}
     else:
@@ -154,7 +154,7 @@ def invalidate_all_local_webapp_user_payloads(
 
 async def invalidate_webapp_user_caches(
     settings: Settings,
-    *user_ids: Optional[int],
+    *user_ids: int | None,
     include_devices: bool = False,
     include_me: bool = True,
 ) -> None:

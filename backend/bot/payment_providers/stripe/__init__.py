@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from db.dal import payment_dal, user_billing_dal
 
@@ -41,7 +41,7 @@ def create_service(ctx: ServiceFactoryContext) -> StripeService:
     )
 
 
-def _supported_currencies(config: Any) -> Optional[tuple[str, ...]]:
+def _supported_currencies(config: Any) -> tuple[str, ...] | None:
     values = parse_supported_currency_codes(getattr(config, "SUPPORTED_CURRENCIES", None))
     return values or None
 

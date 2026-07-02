@@ -8,7 +8,7 @@ import logging
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 import httpx
@@ -16,14 +16,14 @@ import httpx
 logger = logging.getLogger(__name__)
 
 
-class PaymentType(str, Enum):
+class PaymentType(StrEnum):
     """Payment type for income registration."""
 
     CASH = "CASH"
     WIRE = "WIRE"
 
 
-class IncomeType(str, Enum):
+class IncomeType(StrEnum):
     """Income source type."""
 
     FROM_INDIVIDUAL = "FROM_INDIVIDUAL"

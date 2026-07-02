@@ -8,7 +8,8 @@ by the worker itself.
 
 from __future__ import annotations
 
-from typing import Any, Coroutine, List
+from collections.abc import Coroutine
+from typing import Any
 
 from bot.plugins.spec import Plugin, PluginContext, WorkerTaskSpec
 
@@ -23,5 +24,5 @@ class TelemetryPlugin(Plugin):
     name = "telemetry"
     version = "1.0.0"
 
-    def worker_tasks(self, ctx: PluginContext) -> List[WorkerTaskSpec]:
+    def worker_tasks(self, ctx: PluginContext) -> list[WorkerTaskSpec]:
         return [WorkerTaskSpec(name="TelemetryWorker", factory=_telemetry_task)]

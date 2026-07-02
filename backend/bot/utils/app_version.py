@@ -20,14 +20,13 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 # ``/app`` in the container (parent of ``/app/backend``); repo root in dev.
 # Matches where the Dockerfile drops .build-version / .build-tag / .build-commit.
 APP_ROOT = Path(__file__).resolve().parents[3]
 
-_APP_VERSION_CACHE: Optional[str] = None
-_APP_BUILD_PROVENANCE_CACHE: Optional[str] = None
+_APP_VERSION_CACHE: str | None = None
+_APP_BUILD_PROVENANCE_CACHE: str | None = None
 
 BUILD_PROVENANCE_OFFICIAL = "official"
 BUILD_PROVENANCE_CUSTOM = "custom"

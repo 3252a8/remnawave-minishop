@@ -1,5 +1,3 @@
-from typing import Optional
-
 from aiogram import F, Router
 
 from bot.filters.admin_filter import AdminFilter
@@ -12,7 +10,7 @@ from config.settings import Settings
 
 def build_root_router(
     settings: Settings,
-    plugin_context: Optional[PluginContext] = None,
+    plugin_context: PluginContext | None = None,
 ) -> Router:
     root = Router(name="root")
 

@@ -1,7 +1,7 @@
 import html
 import logging
-from datetime import datetime, timezone
-from typing import Any, Optional, Union
+from datetime import UTC, datetime
+from typing import Any
 
 from aiogram import Bot, F, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
@@ -56,7 +56,7 @@ def _devices_list_from_panel_response(devices: Any) -> list[dict[str, Any]]:
     return [device for device in raw_devices if isinstance(device, dict)]
 
 
-def _devices_count_from_panel_response(devices: Any) -> Optional[int]:
+def _devices_count_from_panel_response(devices: Any) -> int | None:
     if devices is None:
         return None
     if isinstance(devices, dict):
@@ -74,7 +74,7 @@ def _devices_count_from_panel_response(devices: Any) -> Optional[int]:
 
 
 async def my_subscription_command_handler(
-    event: Union[types.Message, types.CallbackQuery],
+    event: types.Message | types.CallbackQuery,
     i18n_data: dict,
     settings: Settings,
     panel_service: PanelApiService,
@@ -129,13 +129,13 @@ async def my_subscription_command_handler(
         return
 
     end_date = active.get("end_date")
-    days_left = (end_date.date() - datetime.now(timezone.utc).date()).days if end_date else 0
+    days_left = (end_date.date() - datetime.now(UTC).date()).days if end_date else 0
     traffic_mode = bool(settings.traffic_sale_mode)
     config_link_display = active.get("config_link")
     connect_button_url = active.get("connect_button_url")
     config_link_value = config_link_display or get_text("config_link_not_available")
 
-    def _fmt_gb(val: Optional[float]) -> str:
+    def _fmt_gb(val: float | None) -> str:
         if val is None:
             return str(get_text("traffic_na"))
         try:
@@ -146,7 +146,7 @@ async def my_subscription_command_handler(
             pass
         return str(val)
 
-    def _format_traffic_period(strategy: Optional[str]) -> Optional[str]:
+    def _format_traffic_period(strategy: str | None) -> str | None:
         if not strategy:
             return None
         strategy_upper = str(strategy).upper()
@@ -159,7 +159,7 @@ async def my_subscription_command_handler(
         label_key = key_map.get(strategy_upper)
         return get_text(label_key) if label_key else strategy_upper
 
-    def _format_used_with_period(used_display: str, period_label: Optional[str]) -> str:
+    def _format_used_with_period(used_display: str, period_label: str | None) -> str:
         if not period_label:
             return used_display
         return str(
@@ -469,7 +469,7 @@ async def my_subscription_command_handler(
 
 @router.callback_query(F.data == "main_action:my_devices")
 async def my_devices_command_handler(
-    event: Union[types.Message, types.CallbackQuery],
+    event: types.Message | types.CallbackQuery,
     i18n_data: dict,
     settings: Settings,
     panel_service: PanelApiService,

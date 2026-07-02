@@ -4,8 +4,8 @@ import hmac
 import json
 import logging
 import time
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qsl
 
 from aiogram import Bot, F, Router, types
@@ -71,13 +71,13 @@ class FreeKassaConfig(ProviderEnvConfig):
     )
 
     ENABLED: bool = Field(default=False)
-    MERCHANT_ID: Optional[str] = None
-    FIRST_SECRET: Optional[str] = None
-    SECOND_SECRET: Optional[str] = None
+    MERCHANT_ID: str | None = None
+    FIRST_SECRET: str | None = None
+    SECOND_SECRET: str | None = None
     PAYMENT_URL: str = Field(default="https://pay.freekassa.net/")
-    API_KEY: Optional[str] = None
-    PAYMENT_IP: Optional[str] = None
-    PAYMENT_METHOD_ID: Optional[int] = None
+    API_KEY: str | None = None
+    PAYMENT_IP: str | None = None
+    PAYMENT_METHOD_ID: int | None = None
     TRUSTED_IPS: str = Field(default="168.119.157.136,168.119.60.227,178.154.197.79,51.250.54.238")
 
     @field_validator("PAYMENT_METHOD_ID", mode="before")
@@ -120,12 +120,12 @@ class FreeKassaPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
 class FreeKassaService(HttpClientMixin):
@@ -169,23 +169,23 @@ class FreeKassaService(HttpClientMixin):
         return bool(provider_runtime_enabled(self.config) and self.shop_id and self.api_key)
 
     @property
-    def shop_id(self) -> Optional[str]:
+    def shop_id(self) -> str | None:
         return self.config.MERCHANT_ID
 
     @property
-    def api_key(self) -> Optional[str]:
+    def api_key(self) -> str | None:
         return self.config.API_KEY
 
     @property
-    def second_secret(self) -> Optional[str]:
+    def second_secret(self) -> str | None:
         return self.config.SECOND_SECRET
 
     @property
-    def server_ip(self) -> Optional[str]:
+    def server_ip(self) -> str | None:
         return self.config.PAYMENT_IP
 
     @property
-    def payment_method_id(self) -> Optional[int]:
+    def payment_method_id(self) -> int | None:
         return self.config.PAYMENT_METHOD_ID
 
     async def create_order(
@@ -195,12 +195,12 @@ class FreeKassaService(HttpClientMixin):
         user_id: int,
         months: float,
         amount: float,
-        currency: Optional[str],
-        email: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        payment_method_id: Optional[int] = None,
-        extra_params: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        currency: str | None,
+        email: str | None = None,
+        ip_address: str | None = None,
+        payment_method_id: int | None = None,
+        extra_params: dict[str, Any] | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             logging.error("FreeKassaService is not configured. Cannot create order.")
             return False, {"message": "service_not_configured"}
@@ -225,7 +225,7 @@ class FreeKassaService(HttpClientMixin):
         if shop_id is None:
             return False, {"message": "missing_shop_id"}
 
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "shopId": int(shop_id),
             "nonce": await self._generate_nonce(),
             "paymentId": str(payment_db_id),
@@ -261,15 +261,15 @@ class FreeKassaService(HttpClientMixin):
         self,
         *,
         payment_id: int,
-        order_status: Optional[int] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        order_status: int | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             return False, {"message": "service_not_configured"}
         shop_id = self.shop_id
         if shop_id is None:
             return False, {"message": "missing_shop_id"}
 
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "shopId": int(shop_id),
             "nonce": await self._generate_nonce(),
             "paymentId": str(payment_id),
@@ -287,7 +287,7 @@ class FreeKassaService(HttpClientMixin):
             is_success=lambda status, data: status == 200 and (data or {}).get("type") == "success",
         )
 
-    async def try_reuse_pending_order(self, payment: Any) -> Optional[str]:
+    async def try_reuse_pending_order(self, payment: Any) -> str | None:
         order_hash = str(getattr(payment, "provider_payment_id", None) or "").strip()
         if not order_hash:
             return None
@@ -324,7 +324,7 @@ class FreeKassaService(HttpClientMixin):
             self._last_nonce = candidate
             return candidate
 
-    def _sign_payload(self, payload: Dict[str, Any]) -> str:
+    def _sign_payload(self, payload: dict[str, Any]) -> str:
         if not self.api_key:
             raise RuntimeError("FreeKassa API key is not configured.")
         items = [
@@ -370,7 +370,7 @@ class FreeKassaService(HttpClientMixin):
             logging.exception("FreeKassa webhook: failed to read request body.")
             return web.Response(status=400, text="bad_request")
 
-        payload_dict: Dict[str, Any] = {}
+        payload_dict: dict[str, Any] = {}
         if raw_body:
             try:
                 if request.content_type.startswith("application/json"):
@@ -387,7 +387,7 @@ class FreeKassaService(HttpClientMixin):
             except Exception:
                 payload_dict = {}
 
-        def _get(key: str, default: Optional[str] = None) -> Optional[str]:
+        def _get(key: str, default: str | None = None) -> str | None:
             return payload_dict.get(key) or payload_dict.get(key.lower()) or default
 
         merchant_id = _get("MERCHANT_ID")
@@ -460,7 +460,7 @@ class FreeKassaService(HttpClientMixin):
             )
             months = payment_units_for_activation(payment, sale_mode)
 
-            success_prefix: Optional[str] = None
+            success_prefix: str | None = None
             if provider_payment_id:
                 # FreeKassa-specific: prepend "Order N from YYYY-MM-DD" to the success text.
                 # ``i18n`` is resolved inside ``finalize_successful_payment`` per user language,
@@ -471,7 +471,7 @@ class FreeKassaService(HttpClientMixin):
                 success_prefix = translator(
                     "free_kassa_order_full",
                     order_id=provider_payment_id,
-                    date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                    date=datetime.now(UTC).strftime("%Y-%m-%d"),
                 )
 
             outcome = await finalize_successful_payment(
@@ -545,7 +545,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     return await run_webapp_payment(_DESCRIPTOR, ctx)
 
 
-async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
     return await run_reuse_webapp_payment(_DESCRIPTOR, ctx, payment)
 
 
@@ -721,7 +721,7 @@ async def _create_payment(service: FreeKassaService, req: CreatePaymentRequest) 
     )
 
 
-async def _reuse_payment(service: FreeKassaService, payment: Any) -> Optional[str]:
+async def _reuse_payment(service: FreeKassaService, payment: Any) -> str | None:
     return await service.try_reuse_pending_order(payment)
 
 
@@ -745,7 +745,7 @@ def _callback_lead_text(
     req: CreatePaymentRequest,
     response_data: dict,
     translator: Any,
-) -> Optional[str]:
+) -> str | None:
     location = first_value(response_data, "location")
     if not location:
         return None
@@ -756,7 +756,7 @@ def _callback_lead_text(
     return translator(
         "free_kassa_order_info",
         order_id=order_id_display,
-        date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        date=datetime.now(UTC).strftime("%Y-%m-%d"),
     )
 
 

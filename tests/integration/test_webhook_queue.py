@@ -3,7 +3,7 @@ import json
 import time
 import unittest
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from unittest.mock import patch
 
 from bot.infra import redis as redis_infra
@@ -14,9 +14,9 @@ class FakeRedis:
     """Minimal async stand-in for redis.asyncio.Redis used by tests."""
 
     def __init__(self) -> None:
-        self._kv: Dict[str, str] = {}
-        self._ttl: Dict[str, float] = {}
-        self._lists: Dict[str, List[str]] = {}
+        self._kv: dict[str, str] = {}
+        self._ttl: dict[str, float] = {}
+        self._lists: dict[str, list[str]] = {}
 
     async def set(
         self,
@@ -24,7 +24,7 @@ class FakeRedis:
         value: str,
         *,
         nx: bool = False,
-        ex: Optional[int] = None,
+        ex: int | None = None,
     ) -> bool:
         self._expire_if_due(key)
         if nx and key in self._kv:
@@ -36,7 +36,7 @@ class FakeRedis:
             self._ttl.pop(key, None)
         return True
 
-    async def get(self, key: str) -> Optional[str]:
+    async def get(self, key: str) -> str | None:
         self._expire_if_due(key)
         return self._kv.get(key)
 
@@ -59,7 +59,7 @@ class FakeRedis:
         return len(bucket)
 
     # Keep `timeout` to mirror redis.asyncio.Redis.brpop used by the queue code.
-    async def brpop(self, key: str, timeout: int = 0) -> Optional[Tuple[str, str]]:  # noqa: ASYNC109
+    async def brpop(self, key: str, timeout: int = 0) -> tuple[str, str] | None:  # noqa: ASYNC109
         bucket = self._lists.get(key)
         if bucket:
             return key, bucket.pop()
@@ -92,7 +92,7 @@ class FakeRedis:
 
 
 def _make_settings(**overrides: Any) -> SimpleNamespace:
-    base: Dict[str, Any] = {
+    base: dict[str, Any] = {
         "REDIS_URL": "redis://redis:6379/0",
         "REDIS_KEY_PREFIX": "remnawave-tg-shop",
         "WEBHOOK_QUEUE_NAME": "webhook-events",

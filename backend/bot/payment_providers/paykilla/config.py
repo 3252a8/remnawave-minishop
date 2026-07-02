@@ -5,7 +5,7 @@ import logging
 import re
 import time
 from decimal import ROUND_CEILING, Decimal, InvalidOperation
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -112,7 +112,7 @@ _CYRILLIC_TO_LATIN = str.maketrans(
         "я": "ya",
     }
 )
-_SYNC_EXCHANGE_RATE_CACHE: Dict[tuple[str, str, str], tuple[float, Decimal]] = {}
+_SYNC_EXCHANGE_RATE_CACHE: dict[tuple[str, str, str], tuple[float, Decimal]] = {}
 
 
 class PaykillaConfig(ProviderEnvConfig):
@@ -127,11 +127,11 @@ class PaykillaConfig(ProviderEnvConfig):
     )
 
     ENABLED: bool = Field(default=False)
-    API_KEY: Optional[str] = Field(
+    API_KEY: str | None = Field(
         default=None,
         validation_alias=AliasChoices("PAYKILLA_API_KEY", "PAYKILLA_V2_API_KEY"),
     )
-    SECRET_KEY: Optional[str] = Field(
+    SECRET_KEY: str | None = Field(
         default=None,
         validation_alias=AliasChoices("PAYKILLA_SECRET_KEY", "PAYKILLA_V2_SECRET_KEY"),
     )
@@ -142,7 +142,7 @@ class PaykillaConfig(ProviderEnvConfig):
     WIDGET_URL: str = Field(default="https://gopay.paykilla.com")
     CURRENCY: str = Field(default="USD")
     INVOICE_CURRENCIES: str = Field(default=PAYKILLA_DEFAULT_INVOICE_CURRENCIES)
-    INVOICE_TYPE: Optional[str] = None
+    INVOICE_TYPE: str | None = None
     PAYMENT_CURRENCIES: str = Field(default=PAYKILLA_DEFAULT_PAYMENT_CURRENCIES)
     SUPPORTED_CURRENCIES: str = Field(default=PAYKILLA_DEFAULT_SUPPORTED_CURRENCIES)
     LIFETIME_SECONDS: int = Field(default=3600)
@@ -154,7 +154,7 @@ class PaykillaConfig(ProviderEnvConfig):
     MIN_PAYMENT_AMOUNT: float = Field(default=PAYKILLA_DEFAULT_MIN_PAYMENT_AMOUNT)
     MIN_PAYMENT_CURRENCY: str = Field(default=PAYKILLA_DEFAULT_MIN_PAYMENT_CURRENCY)
     VERIFY_WEBHOOK_SIGNATURE: bool = Field(default=True)
-    WEBHOOK_URL: Optional[str] = None
+    WEBHOOK_URL: str | None = None
     TRUSTED_IPS: str = Field(default="")
 
     @field_validator("LIFETIME_SECONDS", mode="before")
@@ -233,7 +233,7 @@ class PaykillaConfig(ProviderEnvConfig):
     def webhook_path(self) -> str:
         return "/webhook/paykilla"
 
-    def full_webhook_url(self, base: Optional[str]) -> Optional[str]:
+    def full_webhook_url(self, base: str | None) -> str | None:
         if self.WEBHOOK_URL:
             return self.WEBHOOK_URL.rstrip("/")
         if not base:
@@ -241,7 +241,7 @@ class PaykillaConfig(ProviderEnvConfig):
         return f"{base.rstrip('/')}{self.webhook_path}"
 
     @property
-    def trusted_ips_list(self) -> List[str]:
+    def trusted_ips_list(self) -> list[str]:
         return [item.strip() for item in (self.TRUSTED_IPS or "").split(",") if item.strip()]
 
 
@@ -255,12 +255,12 @@ class PaykillaPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
 def _normalize_paykilla_text(value: Any) -> str:
@@ -289,7 +289,7 @@ def _invoice_text(title: Any, payment_db_id: int) -> str:
     )
 
 
-def _payment_currencies(config: PaykillaConfig) -> List[str]:
+def _payment_currencies(config: PaykillaConfig) -> list[str]:
     currencies = list(parse_supported_currency_codes(config.PAYMENT_CURRENCIES))
     return currencies or list(parse_supported_currency_codes(PAYKILLA_DEFAULT_PAYMENT_CURRENCIES))
 
@@ -317,7 +317,7 @@ def _invoice_type_for(config: PaykillaConfig, currency: str) -> str:
     return "FIAT_BASED" if currency in _FIAT_CURRENCIES else "FIXED_AMOUNT"
 
 
-def _sign_query(timestamp_ms: int, recv_window_ms: int, secret_key: str) -> Tuple[str, str]:
+def _sign_query(timestamp_ms: int, recv_window_ms: int, secret_key: str) -> tuple[str, str]:
     query = urlencode(
         [
             ("timestamp", str(timestamp_ms)),
@@ -336,7 +336,7 @@ def _webhook_signature(
     raw_body: bytes,
     secret_key: str,
 ) -> str:
-    message = f"{timestamp}{method.upper()}{url}".encode("utf-8") + raw_body
+    message = f"{timestamp}{method.upper()}{url}".encode() + raw_body
     return hmac.new(secret_key.encode("utf-8"), message, hashlib.sha256).hexdigest()
 
 
@@ -347,18 +347,18 @@ def _signature_preview(signature: str) -> str:
     return f"{signature[:6]}...{signature[-6:]}"
 
 
-def _response_invoice_data(response_data: Dict[str, Any]) -> Dict[str, Any]:
+def _response_invoice_data(response_data: dict[str, Any]) -> dict[str, Any]:
     data = response_data.get("data") if isinstance(response_data, dict) else None
     if isinstance(data, dict) and data.get("id"):
         return data
     return response_data if isinstance(response_data, dict) else {}
 
 
-def _debug_invoice_body(body: Dict[str, Any]) -> str:
+def _debug_invoice_body(body: dict[str, Any]) -> str:
     return json.dumps(body, ensure_ascii=True, sort_keys=True)
 
 
-def _decimal_from_api(value: Any) -> Optional[Decimal]:
+def _decimal_from_api(value: Any) -> Decimal | None:
     try:
         decimal_value = Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError):
@@ -393,7 +393,7 @@ def _exchange_rate_url_for(
 
 def _exchange_rate_sync(
     config: PaykillaConfig, source_currency: str, target_currency: str
-) -> Optional[Decimal]:
+) -> Decimal | None:
     source_currency = normalize_payment_currency_code(source_currency)
     target_currency = normalize_payment_currency_code(target_currency)
     if source_currency == target_currency:
@@ -434,7 +434,7 @@ def _exchange_rate_sync(
 
 def _min_payment_threshold_for_currency(
     config: PaykillaConfig, payment_currency: Any
-) -> Optional[Decimal]:
+) -> Decimal | None:
     min_amount = _config_min_payment_amount(config)
     if min_amount <= 0:
         return None
@@ -450,7 +450,7 @@ def _min_payment_threshold_for_currency(
 
 def _paykilla_payment_minimum_metadata(
     config: PaykillaConfig, payment_currency: Any
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     payment_currency = normalize_payment_currency_code(payment_currency)
     threshold = _min_payment_threshold_for_currency(config, payment_currency)
     if threshold is None:

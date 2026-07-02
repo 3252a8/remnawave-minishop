@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock
@@ -41,7 +41,7 @@ class WebAppReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
         subscription_service.extend_active_subscription_days.assert_not_awaited()
 
     async def test_linked_telegram_allows_disposable_email_referral_welcome_bonus(self):
-        end_date = datetime(2026, 1, 9, 3, 4, tzinfo=timezone.utc)
+        end_date = datetime(2026, 1, 9, 3, 4, tzinfo=UTC)
         settings = settings_stub(
             REFERRAL_WELCOME_BONUS_DAYS=3,
             REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED=True,
@@ -96,7 +96,7 @@ class WebAppReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
             referred_by_id=7,
             telegram_id=123456,
             email="person@example.com",
-            referral_welcome_bonus_claimed_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            referral_welcome_bonus_claimed_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
         session = SimpleNamespace()
         subscription_service = SimpleNamespace(

@@ -1,5 +1,5 @@
 # ruff: noqa: F401,F403,F405,I001
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 
 
 from aiohttp import web
@@ -23,6 +23,4 @@ async def admin_health_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     refresh = str(request.query.get("refresh", "")).strip().lower() in {"1", "true", "yes"}
     alerts = await collect_config_alerts(request, refresh=refresh)
-    return _ok(
-        AdminHealthOut(alerts=alerts, checked_at=datetime.now(timezone.utc)).model_dump(mode="json")
-    )
+    return _ok(AdminHealthOut(alerts=alerts, checked_at=datetime.now(UTC)).model_dump(mode="json"))

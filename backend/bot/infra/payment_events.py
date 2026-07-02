@@ -9,8 +9,9 @@ payment snapshot, and plugins may register extra purchase resolvers.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Mapping, Optional, cast
+from typing import Any, cast
 
 from bot.infra.event_payloads import PaymentSucceededPayload
 
@@ -27,8 +28,8 @@ class PaymentPurchase:
     kind: str
     amount: float
     unit: str
-    scope: Optional[str] = None
-    label_key: Optional[str] = None
+    scope: str | None = None
+    label_key: str | None = None
     label_kwargs: Mapping[str, Any] = field(default_factory=dict)
     sort_order: int = 100
 
@@ -41,29 +42,29 @@ class PaymentPurchaseContext:
     payment: Any
     sale_mode: str
     sale_mode_base: str
-    tariff_key: Optional[str]
+    tariff_key: str | None
 
 
 @dataclass(frozen=True)
 class PaymentSuccessSnapshot:
     """Normalized view of a ``PAYMENT_SUCCEEDED`` payload."""
 
-    user_id: Optional[int]
-    payment_db_id: Optional[int]
+    user_id: int | None
+    payment_db_id: int | None
     amount: float
     currency: str
     provider: str
     notification_provider: str
     sale_mode: str
     sale_mode_base: str
-    tariff_key: Optional[str]
+    tariff_key: str | None
     months: int
-    traffic_gb: Optional[float]
+    traffic_gb: float | None
     traffic_is_premium: bool
-    purchased_hwid_devices: Optional[int]
-    promo_code_id: Optional[int]
-    base_amount: Optional[float]
-    discount_amount: Optional[float]
+    purchased_hwid_devices: int | None
+    promo_code_id: int | None
+    base_amount: float | None
+    discount_amount: float | None
     purchases: tuple[PaymentPurchase, ...]
 
 
@@ -76,13 +77,13 @@ def sale_mode_base(sale_mode: Any) -> str:
     return str(sale_mode or "").split("@", 1)[0].split("|", 1)[0]
 
 
-def sale_mode_tariff_key(sale_mode: Any) -> Optional[str]:
+def sale_mode_tariff_key(sale_mode: Any) -> str | None:
     if "@" not in str(sale_mode or ""):
         return None
     return str(sale_mode).split("@", 1)[1].split("|", 1)[0] or None
 
 
-def _optional_float(value: Any) -> Optional[float]:
+def _optional_float(value: Any) -> float | None:
     if value is None:
         return None
     try:
@@ -94,7 +95,7 @@ def _optional_float(value: Any) -> Optional[float]:
         return None
 
 
-def _first_optional_float(*values: Any) -> Optional[float]:
+def _first_optional_float(*values: Any) -> float | None:
     for value in values:
         parsed = _optional_float(value)
         if parsed is not None:
@@ -102,7 +103,7 @@ def _first_optional_float(*values: Any) -> Optional[float]:
     return None
 
 
-def _optional_positive_int(value: Any) -> Optional[int]:
+def _optional_positive_int(value: Any) -> int | None:
     number = _optional_float(value)
     if number is None or not number.is_integer():
         return None
@@ -110,7 +111,7 @@ def _optional_positive_int(value: Any) -> Optional[int]:
     return parsed if parsed > 0 else None
 
 
-def _optional_int(value: Any) -> Optional[int]:
+def _optional_int(value: Any) -> int | None:
     number = _optional_float(value)
     if number is None:
         return None
@@ -217,9 +218,9 @@ def resolve_payment_purchases(
 
 def payment_purchases_from_legacy_fields(
     *,
-    traffic_gb: Optional[float] = None,
+    traffic_gb: float | None = None,
     traffic_is_premium: bool = False,
-    purchased_hwid_devices: Optional[int] = None,
+    purchased_hwid_devices: int | None = None,
 ) -> tuple[PaymentPurchase, ...]:
     sale_mode = "premium_topup" if traffic_is_premium else "topup"
     payload = {
@@ -305,17 +306,17 @@ def build_payment_succeeded_payload(
     amount: float,
     currency: str,
     sale_mode: str,
-    tariff_key: Optional[str],
-    months: Optional[int],
-    traffic_gb: Optional[float],
-    end_date: Optional[str],
+    tariff_key: str | None,
+    months: int | None,
+    traffic_gb: float | None,
+    end_date: str | None,
     is_auto_renew: bool,
     payment: Any = None,
-    activation: Optional[Mapping[str, Any]] = None,
-    purchased_hwid_devices: Optional[int] = None,
-    promo_code_id: Optional[int] = None,
-    base_amount: Optional[float] = None,
-    discount_amount: Optional[float] = None,
+    activation: Mapping[str, Any] | None = None,
+    purchased_hwid_devices: int | None = None,
+    promo_code_id: int | None = None,
+    base_amount: float | None = None,
+    discount_amount: float | None = None,
 ) -> dict[str, Any]:
     activation = activation or {}
     payload: dict[str, Any] = {

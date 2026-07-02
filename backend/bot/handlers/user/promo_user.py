@@ -1,7 +1,6 @@
 import logging
 import re
 from datetime import datetime
-from typing import Optional
 
 from aiogram import Bot, F, Router, types
 from aiogram.fsm.context import FSMContext
@@ -46,7 +45,7 @@ async def prompt_promo_code_input(
     back_callback: str = "main_action:back_to_main",
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await safe_answer_callback(callback, "Language service error.", show_alert=True)
         return
@@ -105,7 +104,7 @@ async def process_promo_code_input(
     )
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
 
     if not i18n or not promo_code_service:
         logging.error("Dependencies (i18n or PromoCodeService) missing in process_promo_code_input")
@@ -254,7 +253,7 @@ async def cancel_promo_input_via_button(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         logging.error("i18n missing in cancel_promo_input_via_button")
         await safe_answer_callback(callback, "Language error", show_alert=True)

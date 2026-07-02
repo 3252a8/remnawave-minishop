@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -23,7 +23,7 @@ from bot.infra.event_payloads import (
     UserRegisteredPayload,
 )
 
-UTC_DT = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+UTC_DT = datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
 UTC_TEXT = "2026-01-02T03:04:05+00:00"
 
 

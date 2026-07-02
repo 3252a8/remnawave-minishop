@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aiohttp import web
 
@@ -109,7 +109,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
         return payment_failed()
 
 
-async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
     service = app_optional(ctx.request, "yookassa_service", YooKassaService)
     if not service or not service.configured:
         return None

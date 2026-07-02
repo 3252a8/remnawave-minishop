@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +13,7 @@ from ._typing import SubscriptionServiceMixinContract
 
 
 class RenewalMixin(SubscriptionServiceMixinContract):
-    def recurring_service_for(self, provider: Optional[str]) -> RecurringProviderService | None:
+    def recurring_service_for(self, provider: str | None) -> RecurringProviderService | None:
         """Resolve a provider service that can charge a saved payment method."""
         provider_key = str(provider or "").strip().lower()
         if not provider_key:

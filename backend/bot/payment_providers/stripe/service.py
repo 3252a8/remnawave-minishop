@@ -5,7 +5,8 @@ import hmac
 import json
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, Tuple
+from collections.abc import Iterable, Mapping
+from typing import TYPE_CHECKING, Any
 
 from aiohttp import ClientError, web
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -113,7 +114,7 @@ class StripeService(HttpClientMixin):
     def cancel_url(self) -> str:
         return self.config.CANCEL_URL or self.return_url
 
-    def _headers(self, *, idempotency_key: Optional[str] = None) -> Dict[str, str]:
+    def _headers(self, *, idempotency_key: str | None = None) -> dict[str, str]:
         headers = {
             "Authorization": f"Bearer {self.secret_key}",
             "Content-Type": "application/x-www-form-urlencoded",
@@ -127,9 +128,9 @@ class StripeService(HttpClientMixin):
         endpoint: str,
         data: Iterable[tuple[str, Any]],
         *,
-        idempotency_key: Optional[str] = None,
+        idempotency_key: str | None = None,
         log_prefix: str,
-    ) -> Tuple[bool, Dict[str, Any]]:
+    ) -> tuple[bool, dict[str, Any]]:
         session = await self._get_session()
         try:
             async with session.post(
@@ -160,7 +161,7 @@ class StripeService(HttpClientMixin):
             logging.exception("%s: Stripe request failed.", log_prefix)
             return False, {"message": str(exc)}
 
-    async def _get_json(self, endpoint: str, *, log_prefix: str) -> Tuple[bool, Dict[str, Any]]:
+    async def _get_json(self, endpoint: str, *, log_prefix: str) -> tuple[bool, dict[str, Any]]:
         session = await self._get_session()
         try:
             async with session.get(
@@ -199,7 +200,7 @@ class StripeService(HttpClientMixin):
         currency: str,
         description: str,
         metadata: Mapping[str, Any],
-    ) -> Tuple[bool, Dict[str, Any]]:
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             return False, {"message": "service_not_configured"}
 
@@ -215,7 +216,7 @@ class StripeService(HttpClientMixin):
             "payment_db_id": str(payment_db_id),
             "source": str(metadata.get("source") or "bot"),
         }
-        form: List[tuple[str, Any]] = [
+        form: list[tuple[str, Any]] = [
             ("mode", "payment"),
             ("success_url", self.return_url),
             ("cancel_url", self.cancel_url),
@@ -252,7 +253,7 @@ class StripeService(HttpClientMixin):
         currency: str,
         description: str,
         metadata: Mapping[str, Any],
-    ) -> Tuple[bool, Dict[str, Any]]:
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             return False, {"message": "service_not_configured"}
         currency_code = normalize_payment_currency_code(currency)
@@ -267,7 +268,7 @@ class StripeService(HttpClientMixin):
             "payment_db_id": str(payment_db_id),
             "source": "auto_renew",
         }
-        form: List[tuple[str, Any]] = [
+        form: list[tuple[str, Any]] = [
             ("amount", minor_amount),
             ("currency", currency_code.lower()),
             ("customer", customer_id),
@@ -285,7 +286,7 @@ class StripeService(HttpClientMixin):
             log_prefix="Stripe create_off_session_payment_intent",
         )
 
-    async def retrieve_payment_intent(self, payment_intent_id: str) -> Optional[Dict[str, Any]]:
+    async def retrieve_payment_intent(self, payment_intent_id: str) -> dict[str, Any] | None:
         payment_intent_id = str(payment_intent_id or "").strip()
         if not payment_intent_id or not self.configured:
             return None
@@ -295,7 +296,7 @@ class StripeService(HttpClientMixin):
         )
         return data if success else None
 
-    async def retrieve_payment_method(self, payment_method_id: str) -> Optional[Dict[str, Any]]:
+    async def retrieve_payment_method(self, payment_method_id: str) -> dict[str, Any] | None:
         payment_method_id = str(payment_method_id or "").strip()
         if not payment_method_id or not self.configured:
             return None
@@ -382,7 +383,7 @@ class StripeService(HttpClientMixin):
 
         return RecurringChargeResult.ok(provider_payment_id=provider_payment_id, status=status)
 
-    async def try_reuse_pending_payment(self, payment: Any) -> Optional[str]:
+    async def try_reuse_pending_payment(self, payment: Any) -> str | None:
         return str(getattr(payment, "provider_payment_url", None) or "").strip() or None
 
     def verify_signature(self, raw_body: bytes, header_value: str) -> bool:
@@ -390,8 +391,8 @@ class StripeService(HttpClientMixin):
         if not secret:
             logging.error("Stripe webhook: no webhook secret configured.")
             return False
-        timestamp: Optional[int] = None
-        signatures: List[str] = []
+        timestamp: int | None = None
+        signatures: list[str] = []
         for item in str(header_value or "").split(","):
             key, sep, value = item.partition("=")
             if not sep:
@@ -418,7 +419,7 @@ class StripeService(HttpClientMixin):
         *,
         payment: Any,
         payment_intent: Mapping[str, Any],
-        fallback_customer_id: Optional[str] = None,
+        fallback_customer_id: str | None = None,
     ) -> None:
         if not self.recurring_active:
             return
@@ -444,7 +445,7 @@ class StripeService(HttpClientMixin):
             set_default=True,
         )
 
-    def _payment_db_id_from_object(self, obj: Mapping[str, Any]) -> Optional[str]:
+    def _payment_db_id_from_object(self, obj: Mapping[str, Any]) -> str | None:
         metadata_raw = obj.get("metadata")
         metadata: Mapping[str, Any] = metadata_raw if isinstance(metadata_raw, dict) else {}
         payment_db_id = metadata.get("payment_db_id") or obj.get("client_reference_id")
@@ -454,7 +455,7 @@ class StripeService(HttpClientMixin):
         self,
         event_type: str,
         obj: Mapping[str, Any],
-    ) -> tuple[Optional[Mapping[str, Any]], Optional[str], Optional[str]]:
+    ) -> tuple[Mapping[str, Any] | None, str | None, str | None]:
         if event_type == "payment_intent.succeeded":
             return obj, str(obj.get("id") or "").strip() or None, None
         payment_intent_id = str(obj.get("payment_intent") or "").strip()

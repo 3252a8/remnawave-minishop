@@ -4,7 +4,6 @@ import string
 from dataclasses import dataclass
 from datetime import datetime
 from html import escape as html_escape
-from typing import Tuple
 
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -120,7 +119,7 @@ class PromoCodeService:
         user_id: int,
         code_input: str,
         user_lang: str,
-    ) -> Tuple[bool, datetime | str | PromoCheckoutRequired]:
+    ) -> tuple[bool, datetime | str | PromoCheckoutRequired]:
         _ = lambda k, **kw: self.i18n.gettext(user_lang, k, **kw)
         preserve_case = bool(
             getattr(self.settings, "MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED", False)

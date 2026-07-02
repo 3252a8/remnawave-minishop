@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from aiogram import Bot
@@ -31,9 +31,9 @@ from db.models import Subscription, User
 class SubscriptionNotificationStage:
     key: str
     message_key: str
-    days_left: Optional[int] = None
-    hours_before: Optional[int] = None
-    hours_after: Optional[int] = None
+    days_left: int | None = None
+    hours_before: int | None = None
+    hours_after: int | None = None
 
 
 @dataclass(frozen=True)
@@ -53,7 +53,7 @@ class SubscriptionLifecycleNotificationService:
         bot: Bot,
         i18n: JsonI18n,
         *,
-        email_service: Optional[EmailAuthService] = None,
+        email_service: EmailAuthService | None = None,
     ) -> None:
         self.settings = settings
         self.bot = bot
@@ -66,14 +66,14 @@ class SubscriptionLifecycleNotificationService:
         sub: Subscription,
         stage: SubscriptionNotificationStage,
         *,
-        user: Optional[User] = None,
-        telegram_markup: Optional[InlineKeyboardMarkup] = None,
+        user: User | None = None,
+        telegram_markup: InlineKeyboardMarkup | None = None,
         extra_text: str = "",
-        end_date_text: Optional[str] = None,
-        sent_at: Optional[datetime] = None,
+        end_date_text: str | None = None,
+        sent_at: datetime | None = None,
     ) -> SubscriptionNotificationDelivery:
         if sent_at is None:
-            sent_at = datetime.now(timezone.utc)
+            sent_at = datetime.now(UTC)
 
         resolved_user = user or getattr(sub, "user", None)
         lang = getattr(resolved_user, "language_code", None) or self.settings.DEFAULT_LANGUAGE
@@ -146,11 +146,11 @@ class SubscriptionLifecycleNotificationService:
         session: AsyncSession,
         sub: Subscription,
         stage: SubscriptionNotificationStage,
-        user: Optional[User],
+        user: User | None,
         *,
         lang: str,
         message_text: str,
-        markup: Optional[InlineKeyboardMarkup],
+        markup: InlineKeyboardMarkup | None,
         sent_at: datetime,
     ) -> bool:
         chat_id = self._telegram_chat_id(user, getattr(sub, "user_id", None))
@@ -232,7 +232,7 @@ class SubscriptionLifecycleNotificationService:
         session: AsyncSession,
         sub: Subscription,
         stage: SubscriptionNotificationStage,
-        user: Optional[User],
+        user: User | None,
         *,
         lang: str,
         message_text: str,
@@ -322,23 +322,23 @@ class SubscriptionLifecycleNotificationService:
         return f"{stage_key}:{channel}"
 
     @staticmethod
-    def _email_recipient(user: Optional[User]) -> str:
+    def _email_recipient(user: User | None) -> str:
         return str(getattr(user, "email", "") or "").strip().lower() if user else ""
 
     @staticmethod
-    def _telegram_display_name(user: Optional[User], fallback_user_id: int) -> str:
+    def _telegram_display_name(user: User | None, fallback_user_id: int) -> str:
         return str(getattr(user, "first_name", "") or "").strip() or f"User {fallback_user_id}"
 
     @staticmethod
     def _email_display_name(
-        user: Optional[User],
+        user: User | None,
         *,
         recipient_email: str,
         fallback: str,
     ) -> str:
         return str(getattr(user, "first_name", "") or "").strip() or recipient_email or fallback
 
-    def _renewal_dashboard_url(self, recipient_email: str, sub: Subscription) -> Optional[str]:
+    def _renewal_dashboard_url(self, recipient_email: str, sub: Subscription) -> str | None:
         base_url = (self.settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
         if not base_url:
             return None
@@ -380,7 +380,7 @@ class SubscriptionLifecycleNotificationService:
         return str(getattr(sub, "tariff_key", "") or "").strip()
 
     @staticmethod
-    def _telegram_chat_id(user: Optional[User], fallback_user_id: Optional[int]) -> Optional[int]:
+    def _telegram_chat_id(user: User | None, fallback_user_id: int | None) -> int | None:
         for candidate in (getattr(user, "telegram_id", None), fallback_user_id):
             try:
                 chat_id = int(candidate or 0)
@@ -391,9 +391,9 @@ class SubscriptionLifecycleNotificationService:
         return None
 
     @staticmethod
-    def _as_utc(value: Optional[datetime]) -> Optional[datetime]:
+    def _as_utc(value: datetime | None) -> datetime | None:
         if value is None:
             return None
         if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
-        return value.astimezone(timezone.utc)
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)

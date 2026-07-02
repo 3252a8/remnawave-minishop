@@ -15,7 +15,7 @@ import json
 import logging
 from importlib import metadata
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Set
+from typing import TYPE_CHECKING
 
 from .spec import ENTRY_POINT_GROUP, Plugin, PluginContext, QueueHandler, WorkerTaskSpec
 
@@ -29,9 +29,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_builtin_plugins: Optional[List[Plugin]] = None
-_discovered_plugins: Optional[List[Plugin]] = None
-_registered_plugins: List[Plugin] = []
+_builtin_plugins: list[Plugin] | None = None
+_discovered_plugins: list[Plugin] | None = None
+_registered_plugins: list[Plugin] = []
 
 
 def register(plugin: Plugin) -> None:
@@ -69,8 +69,8 @@ def _coerce_plugin(loaded: object, entry_point_name: str) -> Plugin:
     return loaded
 
 
-def _discover(settings: "Settings") -> List[Plugin]:
-    plugins: List[Plugin] = []
+def _discover(settings: Settings) -> list[Plugin]:
+    plugins: list[Plugin] = []
     try:
         entry_points = metadata.entry_points(group=ENTRY_POINT_GROUP)
     except Exception:
@@ -88,7 +88,7 @@ def _discover(settings: "Settings") -> List[Plugin]:
     return plugins
 
 
-def _get_builtin_plugins() -> List[Plugin]:
+def _get_builtin_plugins() -> list[Plugin]:
     """Built-in plugins ship with the application and are always active;
     PLUGINS_ENABLED only gates externally installed plugins."""
     global _builtin_plugins
@@ -99,7 +99,7 @@ def _get_builtin_plugins() -> List[Plugin]:
     return _builtin_plugins
 
 
-def get_plugins(settings: "Settings") -> List[Plugin]:
+def get_plugins(settings: Settings) -> list[Plugin]:
     """Return active plugins: built-ins, then entry-point and registered ones."""
     global _discovered_plugins
     builtin = _get_builtin_plugins()
@@ -119,7 +119,7 @@ def get_plugins(settings: "Settings") -> List[Plugin]:
 
 
 def _run_hook(
-    settings: "Settings", plugin: Plugin, hook_name: str, *args: object, **kwargs: object
+    settings: Settings, plugin: Plugin, hook_name: str, *args: object, **kwargs: object
 ) -> None:
     try:
         getattr(plugin, hook_name)(*args, **kwargs)
@@ -160,7 +160,7 @@ def configure_entitlements(ctx: PluginContext) -> None:
     set_entitlements_provider(provider, source=source)
 
 
-def setup_bot_plugins(ctx: PluginContext, *, user_root: "Router", admin_root: "Router") -> None:
+def setup_bot_plugins(ctx: PluginContext, *, user_root: Router, admin_root: Router) -> None:
     """Let every plugin register its aiogram routers."""
     for plugin in get_plugins(ctx.settings):
         _run_hook(
@@ -173,15 +173,15 @@ def setup_bot_plugins(ctx: PluginContext, *, user_root: "Router", admin_root: "R
         )
 
 
-def setup_web_plugins(ctx: PluginContext, app: "web.Application", *, scope: str) -> None:
+def setup_web_plugins(ctx: PluginContext, app: web.Application, *, scope: str) -> None:
     """Let every plugin register its aiohttp routes on ``app``."""
     for plugin in get_plugins(ctx.settings):
         _run_hook(ctx.settings, plugin, "setup_web", ctx, app, scope=scope)
 
 
-def collect_worker_tasks(ctx: PluginContext) -> List[WorkerTaskSpec]:
+def collect_worker_tasks(ctx: PluginContext) -> list[WorkerTaskSpec]:
     """Gather background task specs from every plugin."""
-    specs: List[WorkerTaskSpec] = []
+    specs: list[WorkerTaskSpec] = []
     for plugin in get_plugins(ctx.settings):
         try:
             specs.extend(plugin.worker_tasks(ctx) or [])
@@ -195,15 +195,15 @@ def collect_worker_tasks(ctx: PluginContext) -> List[WorkerTaskSpec]:
 def collect_queue_handlers(
     ctx: PluginContext,
     *,
-    reserved: Set[str],
-) -> Dict[str, QueueHandler]:
+    reserved: set[str],
+) -> dict[str, QueueHandler]:
     """Gather webhook-queue handlers from plugins.
 
     ``reserved`` holds provider names already taken by the core; a plugin
     handler that clashes with a reserved or previously collected name is
     rejected (fatal in strict mode).
     """
-    handlers: Dict[str, QueueHandler] = {}
+    handlers: dict[str, QueueHandler] = {}
     for plugin in get_plugins(ctx.settings):
         try:
             contributed = plugin.queue_handlers(ctx) or {}
@@ -226,9 +226,9 @@ def collect_queue_handlers(
     return handlers
 
 
-def collect_migrations(settings: "Settings") -> Dict[str, List["Migration"]]:
+def collect_migrations(settings: Settings) -> dict[str, list[Migration]]:
     """Gather migration chains from plugins keyed by plugin name."""
-    chains: Dict[str, List["Migration"]] = {}
+    chains: dict[str, list[Migration]] = {}
     for plugin in get_plugins(settings):
         try:
             migrations = list(plugin.migrations() or [])
@@ -249,8 +249,8 @@ def collect_migrations(settings: "Settings") -> Dict[str, List["Migration"]]:
     return chains
 
 
-def _read_locales_dir(path: Path) -> Dict[str, Dict[str, str]]:
-    locales: Dict[str, Dict[str, str]] = {}
+def _read_locales_dir(path: Path) -> dict[str, dict[str, str]]:
+    locales: dict[str, dict[str, str]] = {}
     for file in sorted(path.glob("*.json")):
         try:
             data = json.loads(file.read_text(encoding="utf-8"))
@@ -264,7 +264,7 @@ def _read_locales_dir(path: Path) -> Dict[str, Dict[str, str]]:
     return locales
 
 
-def apply_plugin_locales(settings: "Settings", i18n: "JsonI18n") -> None:
+def apply_plugin_locales(settings: Settings, i18n: JsonI18n) -> None:
     """Merge plugin locale files into the i18n catalog.
 
     Plugin keys never override core keys; runtime overrides (DB/file) are

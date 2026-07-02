@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Dict, List, Optional
+from datetime import UTC
+from typing import Any
 
 from sqlalchemy import Date, and_, case, cast, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +23,7 @@ def _would_overwrite_succeeded_payment(current_status: Any, new_status: Any) -> 
     )
 
 
-async def create_payment_record(session: AsyncSession, payment_data: Dict[str, Any]) -> Payment:
+async def create_payment_record(session: AsyncSession, payment_data: dict[str, Any]) -> Payment:
 
     from .user_dal import get_user_by_id
 
@@ -47,7 +48,7 @@ async def create_payment_record(session: AsyncSession, payment_data: Dict[str, A
 
 async def get_payment_by_provider_payment_id(
     session: AsyncSession, provider_payment_id: str
-) -> Optional[Payment]:
+) -> Payment | None:
     """Fetch a payment by provider-specific identifier."""
     stmt = select(Payment).where(Payment.provider_payment_id == provider_payment_id)
     result = await session.execute(stmt)
@@ -64,15 +65,15 @@ async def ensure_payment_with_provider_id(
     description: str,
     provider: str,
     provider_payment_id: str,
-    sale_mode: Optional[str] = None,
-    tariff_key: Optional[str] = None,
-    purchased_gb: Optional[float] = None,
-    purchased_hwid_devices: Optional[int] = None,
-    hwid_valid_from: Optional[Any] = None,
-    hwid_valid_until: Optional[Any] = None,
-    hwid_pricing_period_months: Optional[int] = None,
-    hwid_proration_ratio: Optional[float] = None,
-    hwid_full_price: Optional[float] = None,
+    sale_mode: str | None = None,
+    tariff_key: str | None = None,
+    purchased_gb: float | None = None,
+    purchased_hwid_devices: int | None = None,
+    hwid_valid_from: Any | None = None,
+    hwid_valid_until: Any | None = None,
+    hwid_pricing_period_months: int | None = None,
+    hwid_proration_ratio: float | None = None,
+    hwid_full_price: float | None = None,
 ) -> Payment:
     """Idempotently create a payment record for a provider event.
 
@@ -84,7 +85,7 @@ async def ensure_payment_with_provider_id(
         return existing
 
     pending_status = f"pending_{provider}" if provider else "pending"
-    payment_payload: Dict[str, Any] = {
+    payment_payload: dict[str, Any] = {
         "user_id": user_id,
         "amount": float(amount),
         "currency": currency,
@@ -111,7 +112,7 @@ async def ensure_payment_with_provider_id(
     return await create_payment_record(session, payment_payload)
 
 
-async def get_payment_by_db_id(session: AsyncSession, payment_db_id: int) -> Optional[Payment]:
+async def get_payment_by_db_id(session: AsyncSession, payment_db_id: int) -> Payment | None:
 
     stmt = (
         select(Payment)
@@ -129,16 +130,16 @@ async def find_recent_pending_provider_payment(
     provider: str,
     pending_status: str,
     amount: float,
-    currency: Optional[str],
-    sale_mode: Optional[str],
-    months: Optional[int],
-    purchased_gb: Optional[float],
-    purchased_hwid_devices: Optional[int],
-    tariff_key: Optional[str] = None,
-    promo_code_id: Optional[int] = None,
-    promo_effect_summary: Optional[str] = None,
-    since_minutes: Optional[int] = None,
-) -> Optional[Payment]:
+    currency: str | None,
+    sale_mode: str | None,
+    months: int | None,
+    purchased_gb: float | None,
+    purchased_hwid_devices: int | None,
+    tariff_key: str | None = None,
+    promo_code_id: int | None = None,
+    promo_effect_summary: str | None = None,
+    since_minutes: int | None = None,
+) -> Payment | None:
     """Return the most recent pending payment matching the given tariff parameters.
 
     Used to reuse an existing provider payment link instead of creating a new one
@@ -149,7 +150,7 @@ async def find_recent_pending_provider_payment(
     alias so legacy rows (e.g. Platega ``PENDING`` or YooKassa ``pending``) stay
     reusable after provider APIs overwrite the internal pending status.
     """
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     conditions = [
         Payment.user_id == user_id,
@@ -162,7 +163,7 @@ async def find_recent_pending_provider_payment(
         func.abs(Payment.amount - float(amount)) < 0.01,
     ]
     if since_minutes is not None:
-        cutoff = datetime.now(timezone.utc) - timedelta(minutes=max(1, since_minutes))
+        cutoff = datetime.now(UTC) - timedelta(minutes=max(1, since_minutes))
         conditions.append(Payment.created_at >= cutoff)
     if currency is not None:
         conditions.append(func.upper(Payment.currency) == str(currency).strip().upper())
@@ -201,8 +202,8 @@ async def find_recent_pending_provider_payment(
 
 
 async def update_payment_status_by_db_id(
-    session: AsyncSession, payment_db_id: int, new_status: str, yk_payment_id: Optional[str] = None
-) -> Optional[Payment]:
+    session: AsyncSession, payment_db_id: int, new_status: str, yk_payment_id: str | None = None
+) -> Payment | None:
     payment = await get_payment_by_db_id(session, payment_db_id)
     if payment:
         preserve_succeeded = _would_overwrite_succeeded_payment(payment.status, new_status)
@@ -228,7 +229,7 @@ async def update_payment_status_by_db_id(
 
 async def get_recent_payment_logs_with_user(
     session: AsyncSession, limit: int = 20, offset: int = 0
-) -> List[Payment]:
+) -> list[Payment]:
     stmt = (
         select(Payment)
         .options(joinedload(Payment.user))
@@ -248,7 +249,7 @@ async def get_payments_count(session: AsyncSession) -> int:
     return result.scalar() or 0
 
 
-async def get_all_succeeded_payments_with_user(session: AsyncSession) -> List[Payment]:
+async def get_all_succeeded_payments_with_user(session: AsyncSession) -> list[Payment]:
     """Get all successful payments with user data for export."""
     stmt = (
         select(Payment)
@@ -261,7 +262,7 @@ async def get_all_succeeded_payments_with_user(session: AsyncSession) -> List[Pa
 
 
 async def count_user_succeeded_payments(
-    session: AsyncSession, user_id: int, exclude_payment_id: Optional[int] = None
+    session: AsyncSession, user_id: int, exclude_payment_id: int | None = None
 ) -> int:
     """Count succeeded payments for a specific user.
 
@@ -283,8 +284,8 @@ async def get_user_succeeded_payments_after(
     after: Any,
     *,
     limit: int = 20,
-    exclude_payment_id: Optional[int] = None,
-) -> List[Payment]:
+    exclude_payment_id: int | None = None,
+) -> list[Payment]:
     """Return succeeded payments that could supersede an older checkout."""
 
     conditions = [Payment.user_id == user_id, Payment.status == "succeeded"]
@@ -309,8 +310,8 @@ async def update_provider_payment_and_status(
     payment_db_id: int,
     provider_payment_id: str,
     new_status: str,
-    provider_payment_url: Optional[str] = None,
-) -> Optional[Payment]:
+    provider_payment_url: str | None = None,
+) -> Payment | None:
     payment = await get_payment_by_db_id(session, payment_db_id)
     if payment:
         preserve_succeeded = _would_overwrite_succeeded_payment(payment.status, new_status)
@@ -337,11 +338,11 @@ async def update_provider_payment_and_status(
     return payment
 
 
-async def _daily_revenue_series_utc(session: AsyncSession, days: int = 14) -> List[Dict[str, Any]]:
+async def _daily_revenue_series_utc(session: AsyncSession, days: int = 14) -> list[dict[str, Any]]:
     """Succeeded payment totals per calendar day (UTC) for the last `days` days."""
-    from datetime import date, datetime, timedelta, timezone
+    from datetime import date, datetime, timedelta
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     range_start = today_start - timedelta(days=days - 1)
 
@@ -358,25 +359,25 @@ async def _daily_revenue_series_utc(session: AsyncSession, days: int = 14) -> Li
         .order_by(day_col)
     )
     result = await session.execute(stmt)
-    by_day: Dict[date, float] = {}
+    by_day: dict[date, float] = {}
     for row in result.all():
         d_key = row[0]
         if isinstance(d_key, datetime):
             d_key = d_key.date()
         by_day[d_key] = float(row[1] or 0)
 
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for i in range(days):
         d = (range_start + timedelta(days=i)).date()
         out.append({"date": d.isoformat(), "amount": float(by_day.get(d, 0.0) or 0.0)})
     return out
 
 
-async def get_financial_statistics(session: AsyncSession) -> Dict[str, Any]:
+async def get_financial_statistics(session: AsyncSession) -> dict[str, Any]:
     """Get comprehensive financial statistics."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     week_start = today_start - timedelta(days=7)
     month_start = today_start - timedelta(days=30)

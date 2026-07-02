@@ -4,7 +4,7 @@ import base64
 import hashlib
 import hmac
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qsl, unquote_plus
 
 from aiogram import Bot, F, Router, types
@@ -107,11 +107,11 @@ class CloudPaymentsConfig(ProviderEnvConfig):
     )
 
     ENABLED: bool = Field(default=False)
-    PUBLIC_ID: Optional[str] = None
-    API_SECRET: Optional[str] = None
+    PUBLIC_ID: str | None = None
+    API_SECRET: str | None = None
     BASE_URL: str = Field(default="https://api.cloudpayments.ru")
-    RETURN_URL: Optional[str] = None
-    FAILED_URL: Optional[str] = None
+    RETURN_URL: str | None = None
+    FAILED_URL: str | None = None
     RECURRING_ENABLED: bool = Field(default=False)
     VERIFY_WEBHOOK_SIGNATURE: bool = Field(default=True)
     TRUSTED_IPS: str = Field(default="")
@@ -134,7 +134,7 @@ class CloudPaymentsConfig(ProviderEnvConfig):
         return "/webhook/cloudpayments"
 
     @property
-    def trusted_ips_list(self) -> List[str]:
+    def trusted_ips_list(self) -> list[str]:
         return [item.strip() for item in (self.TRUSTED_IPS or "").split(",") if item.strip()]
 
 
@@ -148,12 +148,12 @@ class CloudPaymentsPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
 def _cloudpayments_order_success(status: int, data: Any) -> bool:
@@ -231,10 +231,8 @@ class CloudPaymentsService(HttpClientMixin):
         """Token charges are available only when explicitly enabled."""
         return bool(self.configured and self.config.RECURRING_ENABLED)
 
-    def _auth_headers(self) -> Dict[str, str]:
-        token = base64.b64encode(f"{self.public_id}:{self.api_secret}".encode("utf-8")).decode(
-            "ascii"
-        )
+    def _auth_headers(self) -> dict[str, str]:
+        token = base64.b64encode(f"{self.public_id}:{self.api_secret}".encode()).decode("ascii")
         return {
             "Authorization": f"Basic {token}",
             "Content-Type": "application/json",
@@ -244,12 +242,12 @@ class CloudPaymentsService(HttpClientMixin):
         self,
         *,
         payment_db_id: int,
-        user_id: Optional[int],
+        user_id: int | None,
         amount: float,
-        currency: Optional[str],
+        currency: str | None,
         description: str,
-        email: Optional[str] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        email: str | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             logging.error("CloudPaymentsService is not configured. Cannot create order.")
             return False, {"message": "service_not_configured"}
@@ -264,7 +262,7 @@ class CloudPaymentsService(HttpClientMixin):
                 "supported_currencies": list(CLOUDPAYMENTS_SUPPORTED_CURRENCIES),
             }
 
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "Amount": float(format_decimal_amount(amount)),
             "Currency": currency_code,
             "Description": description[:248] if description else "Payment",
@@ -299,10 +297,10 @@ class CloudPaymentsService(HttpClientMixin):
         user_id: int,
         token: str,
         amount: float,
-        currency: Optional[str],
+        currency: str | None,
         description: str,
-        metadata: Optional[Dict[str, str]] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
+        metadata: dict[str, str] | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             logging.error("CloudPaymentsService is not configured. Cannot charge token.")
             return False, {"message": "service_not_configured"}
@@ -317,7 +315,7 @@ class CloudPaymentsService(HttpClientMixin):
                 "supported_currencies": list(CLOUDPAYMENTS_SUPPORTED_CURRENCIES),
             }
 
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "Amount": float(format_decimal_amount(amount)),
             "Currency": currency_code,
             "Description": description[:248] if description else "Payment",
@@ -437,7 +435,7 @@ class CloudPaymentsService(HttpClientMixin):
             status=status,
         )
 
-    async def try_reuse_pending_payment(self, payment: Any) -> Optional[str]:
+    async def try_reuse_pending_payment(self, payment: Any) -> str | None:
         """Return the existing order URL when the local payment is still pending.
 
         CloudPayments order links stay valid until they are paid or expire, and
@@ -540,7 +538,7 @@ class CloudPaymentsService(HttpClientMixin):
             for key, value in parse_qsl(raw_body.decode("utf-8"), keep_blank_values=True)
         }
 
-        def _get(*keys: str) -> Optional[str]:
+        def _get(*keys: str) -> str | None:
             for key in keys:
                 value = payload.get(key) or payload.get(key.lower())
                 if value:
@@ -694,7 +692,7 @@ async def pay_cloudpayments_callback_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)
 
     if not i18n or not callback.message:
@@ -873,7 +871,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     )
 
 
-async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
     service = app_optional(ctx.request, "cloudpayments_service", CloudPaymentsService)
     if not service or not service.configured:
         return None

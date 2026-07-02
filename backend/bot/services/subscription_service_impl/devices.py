@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 import math
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,11 +17,11 @@ from ._typing import SubscriptionServiceMixinContract
 
 class HwidDeviceMixin(SubscriptionServiceMixinContract):
     @staticmethod
-    def _as_aware_utc(value: Optional[datetime]) -> Optional[datetime]:
+    def _as_aware_utc(value: datetime | None) -> datetime | None:
         if value is None:
             return None
         if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
+            return value.replace(tzinfo=UTC)
         return value
 
     async def _active_hwid_extra_devices_for_sub(
@@ -29,13 +29,13 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         session: AsyncSession,
         sub: Subscription,
         *,
-        at: Optional[datetime] = None,
+        at: datetime | None = None,
     ) -> int:
         try:
             active_devices = await tariff_dal.sum_active_hwid_devices(
                 session,
                 subscription_id=sub.subscription_id,
-                at=at or datetime.now(timezone.utc),
+                at=at or datetime.now(UTC),
             )
             return int(active_devices)
         except Exception:
@@ -49,7 +49,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         self,
         session: AsyncSession,
         user_id: int,
-    ) -> Optional[int]:
+    ) -> int | None:
         """Push the current local HWID device limit override to the panel."""
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or not db_user.panel_user_uuid:
@@ -95,7 +95,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         *,
         renewal: bool,
         now: datetime,
-    ) -> Optional[Tuple[datetime, datetime, Dict[str, Any]]]:
+    ) -> tuple[datetime, datetime, dict[str, Any]] | None:
         valid_until = self._as_aware_utc(getattr(sub, "end_date", None))
         if not valid_until or valid_until <= now:
             return None
@@ -123,7 +123,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         return math.ceil(float(value) * 100) / 100
 
     @staticmethod
-    def _find_hwid_package(tariff: Tariff, device_count: int, currency: str) -> Optional[Any]:
+    def _find_hwid_package(tariff: Tariff, device_count: int, currency: str) -> Any | None:
         package_set = tariff.hwid_device_packages
         if not package_set:
             return None
@@ -137,7 +137,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         device_count: int,
         period_months: int,
         currency: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         package_set = tariff.hwid_device_packages
         if not package_set:
             return None
@@ -157,9 +157,9 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         if not packages:
             return None
 
-        best: Dict[int, tuple[float, List[Any]]] = {0: (0.0, [])}
+        best: dict[int, tuple[float, list[Any]]] = {0: (0.0, [])}
         for count in range(1, target_count + 1):
-            best_for_count: Optional[tuple[float, List[Any]]] = None
+            best_for_count: tuple[float, list[Any]] | None = None
             for package in packages:
                 package_count = int(package.count)
                 previous = best.get(count - package_count)
@@ -197,7 +197,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         valid_until: datetime,
         now: datetime,
         currency: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         period_months = max(1, int(getattr(sub, "duration_months", None) or 1))
         full_price = float(package.price_for_period(period_months))
         basis_seconds = max(1.0, float(period_months * 30 * 24 * 60 * 60))
@@ -230,11 +230,11 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         *,
         user_id: int,
         device_count: int,
-        tariff_key: Optional[str] = None,
+        tariff_key: str | None = None,
         renewal: bool = False,
         currency: str = "rub",
-        now: Optional[datetime] = None,
-    ) -> Optional[Dict[str, Any]]:
+        now: datetime | None = None,
+    ) -> dict[str, Any] | None:
         try:
             purchased_devices = int(device_count)
         except (TypeError, ValueError):
@@ -266,7 +266,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         if not package:
             return None
 
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         window = await self._hwid_topup_validity_window(
             session,
             sub,
@@ -304,8 +304,8 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         target_tariff_key: str,
         months: int,
         currency: str = "rub",
-        now: Optional[datetime] = None,
-    ) -> Optional[Dict[str, Any]]:
+        now: datetime | None = None,
+    ) -> dict[str, Any] | None:
         try:
             period_months = int(months)
         except (TypeError, ValueError):
@@ -322,7 +322,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         if not sub or not sub.end_date:
             return None
 
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         subscription_end = self._as_aware_utc(sub.end_date)
         if not subscription_end or subscription_end <= now:
             return None
@@ -378,9 +378,9 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         payment_amount: float,
         payment_db_id: int,
         provider: str = "yookassa",
-        tariff_key: Optional[str] = None,
+        tariff_key: str | None = None,
         renewal: bool = False,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         try:
             purchased_devices = int(device_count)
         except (TypeError, ValueError):
@@ -446,7 +446,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
                 "purchased_hwid_devices": 0,
             }
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
         entitlement_summary = await tariff_dal.get_hwid_device_entitlement_summary(
             session,

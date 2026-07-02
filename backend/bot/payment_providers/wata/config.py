@@ -1,6 +1,7 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, List, Mapping, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 
 from pydantic import Field, field_validator
 from pydantic_settings import SettingsConfigDict
@@ -34,7 +35,7 @@ def _clamp_wata_link_ttl_minutes(value: Any, *, default: int) -> int:
     return min(_WATA_LINK_MAX_TTL_MINUTES, max(_WATA_LINK_MIN_TTL_MINUTES, minutes))
 
 
-def _parse_wata_datetime(raw: Any) -> Optional[datetime]:
+def _parse_wata_datetime(raw: Any) -> datetime | None:
     if not raw:
         return None
     try:
@@ -43,8 +44,8 @@ def _parse_wata_datetime(raw: Any) -> Optional[datetime]:
             iso_value = iso_value[:-1] + "+00:00"
         parsed = datetime.fromisoformat(iso_value)
         if parsed.tzinfo is None:
-            return parsed.replace(tzinfo=timezone.utc)
-        return parsed.astimezone(timezone.utc)
+            return parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(UTC)
     except (TypeError, ValueError):
         return None
 
@@ -53,7 +54,7 @@ def _wata_success_status(status: int, _body: Any) -> bool:
     return 200 <= status < 300
 
 
-def _normalized_wata_status(payload: Optional[Mapping[str, Any]]) -> str:
+def _normalized_wata_status(payload: Mapping[str, Any] | None) -> str:
     if not payload:
         return ""
     return (
@@ -68,11 +69,11 @@ def _normalized_wata_status(payload: Optional[Mapping[str, Any]]) -> str:
     )
 
 
-def _wata_transaction_id(payload: Optional[Mapping[str, Any]]) -> Optional[str]:
+def _wata_transaction_id(payload: Mapping[str, Any] | None) -> str | None:
     return first_value(payload, "transactionId", "id")
 
 
-def _wata_payment_link_id(payload: Optional[Mapping[str, Any]]) -> Optional[str]:
+def _wata_payment_link_id(payload: Mapping[str, Any] | None) -> str | None:
     return first_value(payload, "paymentLinkId", "payment_link_id")
 
 
@@ -93,11 +94,11 @@ class WataTerminalProfile:
     api_token: str
     terminal_id: str = ""
     terminal_public_id: str = ""
-    return_url: Optional[str] = None
-    failed_url: Optional[str] = None
+    return_url: str | None = None
+    failed_url: str | None = None
     link_ttl_minutes: int = _WATA_LINK_DEFAULT_TTL_MINUTES
-    public_key: Optional[str] = None
-    supported_currencies: Tuple[str, ...] = WATA_SUPPORTED_CURRENCIES
+    public_key: str | None = None
+    supported_currencies: tuple[str, ...] = WATA_SUPPORTED_CURRENCIES
 
     @property
     def configured(self) -> bool:
@@ -117,26 +118,26 @@ class WataConfig(ProviderEnvConfig):
     )
 
     ENABLED: bool = Field(default=False)
-    API_TOKEN: Optional[str] = None
-    TERMINAL_ID: Optional[str] = None
-    TERMINAL_PUBLIC_ID: Optional[str] = None
+    API_TOKEN: str | None = None
+    TERMINAL_ID: str | None = None
+    TERMINAL_PUBLIC_ID: str | None = None
     BASE_URL: str = Field(default="https://api.wata.pro/api/h2h")
-    RETURN_URL: Optional[str] = None
-    FAILED_URL: Optional[str] = None
+    RETURN_URL: str | None = None
+    FAILED_URL: str | None = None
     LINK_TTL_MINUTES: int = Field(default=_WATA_LINK_DEFAULT_TTL_MINUTES)
     SUPPORTED_CURRENCIES: str = Field(default=_WATA_SUPPORTED_CURRENCIES_DEFAULT)
     CRYPTO_ENABLED: bool = Field(default=False)
     CRYPTO_ADMIN_ONLY_ENABLED: bool = Field(default=False)
-    CRYPTO_API_TOKEN: Optional[str] = None
-    CRYPTO_TERMINAL_ID: Optional[str] = None
-    CRYPTO_TERMINAL_PUBLIC_ID: Optional[str] = None
-    CRYPTO_RETURN_URL: Optional[str] = None
-    CRYPTO_FAILED_URL: Optional[str] = None
-    CRYPTO_LINK_TTL_MINUTES: Optional[int] = None
-    CRYPTO_PUBLIC_KEY: Optional[str] = None
-    CRYPTO_SUPPORTED_CURRENCIES: Optional[str] = None
+    CRYPTO_API_TOKEN: str | None = None
+    CRYPTO_TERMINAL_ID: str | None = None
+    CRYPTO_TERMINAL_PUBLIC_ID: str | None = None
+    CRYPTO_RETURN_URL: str | None = None
+    CRYPTO_FAILED_URL: str | None = None
+    CRYPTO_LINK_TTL_MINUTES: int | None = None
+    CRYPTO_PUBLIC_KEY: str | None = None
+    CRYPTO_SUPPORTED_CURRENCIES: str | None = None
     WEBHOOK_VERIFY_SIGNATURE: bool = Field(default=True)
-    PUBLIC_KEY: Optional[str] = None
+    PUBLIC_KEY: str | None = None
     TRUSTED_IPS: str = Field(default="62.84.126.140,51.250.106.150")
 
     @field_validator("LINK_TTL_MINUTES", mode="before")
@@ -146,7 +147,7 @@ class WataConfig(ProviderEnvConfig):
 
     @field_validator("CRYPTO_LINK_TTL_MINUTES", mode="before")
     @classmethod
-    def _clamp_optional_link_ttl_minutes(cls, v: Any) -> Optional[int]:
+    def _clamp_optional_link_ttl_minutes(cls, v: Any) -> int | None:
         if v is None or (isinstance(v, str) and not v.strip()):
             return None
         return _clamp_wata_link_ttl_minutes(v, default=_WATA_LINK_DEFAULT_TTL_MINUTES)
@@ -178,7 +179,7 @@ class WataConfig(ProviderEnvConfig):
         return "/webhook/wata"
 
     @property
-    def trusted_ips_list(self) -> List[str]:
+    def trusted_ips_list(self) -> list[str]:
         return [item.strip() for item in (self.TRUSTED_IPS or "").split(",") if item.strip()]
 
     def profile_for_method(self, method: Any) -> WataTerminalProfile:
@@ -245,12 +246,12 @@ class WataPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
 class WataCryptoPresentation(ProviderEnvConfig):
@@ -261,9 +262,9 @@ class WataCryptoPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None

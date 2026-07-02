@@ -4,8 +4,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import and_, case, desc, func, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +19,7 @@ CLOSED_STATUSES = {"resolved", "closed"}
 _UNSET = object()
 
 
-def _status_condition(status: Optional[str]) -> Any:
+def _status_condition(status: str | None) -> Any:
     normalized = (status or "").strip().lower()
     if not normalized or normalized in {"all", "any"}:
         return None
@@ -38,7 +38,7 @@ async def create_ticket(
     priority: str,
     first_message_body: str,
 ) -> SupportTicket:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     ticket = SupportTicket(
         user_id=user_id,
         subject=subject,
@@ -72,17 +72,17 @@ async def add_message(
     session: AsyncSession,
     ticket_id: int,
     author_role: str,
-    author_user_id: Optional[int],
+    author_user_id: int | None,
     body: str,
     is_internal_note: bool = False,
-) -> Optional[SupportTicketMessage]:
+) -> SupportTicketMessage | None:
     stmt = select(SupportTicket).where(SupportTicket.ticket_id == ticket_id).with_for_update()
     result = await session.execute(stmt)
     ticket = result.scalar_one_or_none()
     if not ticket:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     message = SupportTicketMessage(
         ticket_id=ticket_id,
         author_role=author_role,
@@ -114,8 +114,8 @@ async def record_admin_notification(
     session: AsyncSession,
     ticket_id: int,
     *,
-    notified_at: Optional[datetime] = None,
-    emailed_at: Optional[datetime] = None,
+    notified_at: datetime | None = None,
+    emailed_at: datetime | None = None,
 ) -> None:
     values = {}
     if notified_at is not None:
@@ -135,7 +135,7 @@ async def get_ticket(
     ticket_id: int,
     *,
     include_internal: bool = False,
-) -> tuple[Optional[SupportTicket], list[SupportTicketMessage]]:
+) -> tuple[SupportTicket | None, list[SupportTicketMessage]]:
     stmt = (
         select(SupportTicket)
         .where(SupportTicket.ticket_id == ticket_id)
@@ -163,7 +163,7 @@ async def list_user_tickets(
     *,
     limit: int,
     offset: int,
-    status_filter: Optional[str] = None,
+    status_filter: str | None = None,
 ) -> list[SupportTicket]:
     stmt = select(SupportTicket).where(SupportTicket.user_id == user_id)
     status_cond = _status_condition(status_filter)
@@ -181,11 +181,11 @@ async def list_user_tickets(
 async def list_admin_tickets(
     session: AsyncSession,
     *,
-    status: Optional[str] = None,
-    priority: Optional[str] = None,
-    category: Optional[str] = None,
-    assigned_admin_id: Optional[int] = None,
-    search: Optional[str] = None,
+    status: str | None = None,
+    priority: str | None = None,
+    category: str | None = None,
+    assigned_admin_id: int | None = None,
+    search: str | None = None,
     sort: str = "updated_desc",
     limit: int,
     offset: int,
@@ -261,7 +261,7 @@ async def user_ticket_counts(session: AsyncSession, user_id: int) -> dict:
 
 
 async def mark_read(session: AsyncSession, ticket_id: int, role: str) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if role == "user":
         await session.execute(
             update(SupportTicket)
@@ -304,16 +304,16 @@ async def update_ticket(
     session: AsyncSession,
     ticket_id: int,
     *,
-    status: Optional[str] = None,
-    priority: Optional[str] = None,
-    category: Optional[str] = None,
+    status: str | None = None,
+    priority: str | None = None,
+    category: str | None = None,
     assigned_admin_id: object = _UNSET,
-    closed_by_admin_id: Optional[int] = None,
-) -> Optional[SupportTicket]:
+    closed_by_admin_id: int | None = None,
+) -> SupportTicket | None:
     ticket = await session.get(SupportTicket, ticket_id)
     if not ticket:
         return None
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if status is not None:
         ticket.status = status
         if status == "closed":
@@ -369,7 +369,7 @@ async def count_recent_tickets_for_user(
     user_id: int,
     window_seconds: int,
 ) -> int:
-    cutoff = datetime.now(timezone.utc) - timedelta(seconds=max(1, int(window_seconds)))
+    cutoff = datetime.now(UTC) - timedelta(seconds=max(1, int(window_seconds)))
     stmt = (
         select(func.count())
         .select_from(SupportTicket)

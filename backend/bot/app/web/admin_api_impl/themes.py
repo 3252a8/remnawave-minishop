@@ -8,7 +8,7 @@ import shutil
 import socket
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Dict, Optional, cast
+from typing import Any, cast
 from urllib.parse import urlsplit
 
 from aiohttp import ClientSession, ClientTimeout, web
@@ -136,9 +136,9 @@ WEBAPP_LOGO_UPLOAD_CONTENT_TYPES = {
 }
 
 
-def _theme_payload_for_version_compare(theme: Any) -> Dict[str, Any]:
+def _theme_payload_for_version_compare(theme: Any) -> dict[str, Any]:
     if hasattr(theme, "model_dump"):
-        data = cast(Dict[str, Any], theme.model_dump(mode="json", exclude_none=True))
+        data = cast(dict[str, Any], theme.model_dump(mode="json", exclude_none=True))
     elif isinstance(theme, dict):
         data = dict(theme)
     else:
@@ -174,9 +174,7 @@ def _bump_theme_asset_versions(
     return WebappThemesConfig.model_validate(data)
 
 
-def _detect_logo_extension(
-    body: bytes, content_type: str = "", filename: str = ""
-) -> Optional[str]:
+def _detect_logo_extension(body: bytes, content_type: str = "", filename: str = "") -> str | None:
     content_type = (content_type or "").split(";", 1)[0].strip().lower()
     suffix = Path(filename or "").suffix.lower()
     if content_type == "image/png" or body.startswith(b"\x89PNG\r\n\x1a\n"):
@@ -212,7 +210,7 @@ def _write_uploaded_logo(body: bytes, content_type: str = "", filename: str = ""
     return f"{WEBAPP_UPLOADED_LOGO_PATH}/{safe_name}"
 
 
-def _uploaded_logo_filename(url: str) -> Optional[str]:
+def _uploaded_logo_filename(url: str) -> str | None:
     parsed = urlsplit(str(url or ""))
     path = parsed.path if parsed.scheme or parsed.netloc else str(url or "")
     prefix = f"{WEBAPP_UPLOADED_LOGO_PATH}/"
@@ -224,7 +222,7 @@ def _uploaded_logo_filename(url: str) -> Optional[str]:
     return None
 
 
-def _favicon_digest(url: str) -> Optional[str]:
+def _favicon_digest(url: str) -> str | None:
     parsed = urlsplit(str(url or ""))
     path = parsed.path if parsed.scheme or parsed.netloc else str(url or "")
     match = re.fullmatch(
@@ -281,7 +279,7 @@ def prune_unused_appearance_assets(
 
 async def _persist_appearance_upload(
     request: web.Request,
-    updates: Dict[str, Any],
+    updates: dict[str, Any],
     actor_id: int,
 ) -> bool:
     settings: Settings = get_settings(request)
@@ -311,7 +309,7 @@ def _image_to_square_icon(source: Image.Image, size: int) -> Image.Image:
     return canvas
 
 
-def _write_favicon_set(body: bytes, content_type: str = "", filename: str = "") -> Dict[str, Any]:
+def _write_favicon_set(body: bytes, content_type: str = "", filename: str = "") -> dict[str, Any]:
     if not body or len(body) > WEBAPP_LOGO_MAX_BYTES:
         raise ValueError("favicon source must be a non-empty image up to 2 MiB")
 
@@ -338,8 +336,8 @@ def _write_favicon_set(body: bytes, content_type: str = "", filename: str = "") 
     if source.width < 1 or source.height < 1 or source.width > 8192 or source.height > 8192:
         raise ValueError("favicon source dimensions are not supported")
 
-    variants: Dict[str, str] = {}
-    png_icons: Dict[int, Image.Image] = {}
+    variants: dict[str, str] = {}
+    png_icons: dict[int, Image.Image] = {}
     for size in WEBAPP_FAVICON_SIZES:
         icon = _image_to_square_icon(source, size)
         png_icons[size] = icon

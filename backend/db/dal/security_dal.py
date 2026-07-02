@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Optional, cast
+from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from sqlalchemy import case, delete, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -16,18 +16,18 @@ PROMO_CODE_APPLY_SCOPE = "promo_code_apply"
 @dataclass(frozen=True)
 class ThrottleDecision:
     locked: bool
-    retry_after: Optional[int] = None
+    retry_after: int | None = None
 
 
-def _utc_now(value: Optional[datetime] = None) -> datetime:
+def _utc_now(value: datetime | None = None) -> datetime:
     if value is None:
-        value = datetime.now(timezone.utc)
+        value = datetime.now(UTC)
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
-def _retry_after_seconds(locked_until: Optional[datetime], now: datetime) -> Optional[int]:
+def _retry_after_seconds(locked_until: datetime | None, now: datetime) -> int | None:
     if not locked_until:
         return None
     locked_until = _utc_now(locked_until)
@@ -40,7 +40,7 @@ async def get_throttle_state(
     *,
     scope: str,
     identifier: str,
-) -> Optional[SecurityThrottle]:
+) -> SecurityThrottle | None:
     stmt = (
         select(SecurityThrottle)
         .where(
@@ -58,14 +58,14 @@ async def check_throttle(
     *,
     scope: str,
     identifier: str,
-    now: Optional[datetime] = None,
+    now: datetime | None = None,
 ) -> ThrottleDecision:
     now = _utc_now(now)
     row = await get_throttle_state(session, scope=scope, identifier=identifier)
     if not row or not row.locked_until:
         return ThrottleDecision(locked=False)
 
-    locked_until = _utc_now(cast(Optional[datetime], row.locked_until))
+    locked_until = _utc_now(cast(datetime | None, row.locked_until))
     if locked_until <= now:
         return ThrottleDecision(locked=False)
 
@@ -83,7 +83,7 @@ async def record_throttle_failure(
     max_failures: int,
     window_seconds: int,
     lock_seconds: int,
-    now: Optional[datetime] = None,
+    now: datetime | None = None,
 ) -> ThrottleDecision:
     now = _utc_now(now)
     max_failures = max(1, int(max_failures))

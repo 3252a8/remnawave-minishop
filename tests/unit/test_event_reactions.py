@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import ANY, AsyncMock, patch
@@ -87,7 +87,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         events.reset_subscribers()
 
     async def test_trial_activation_event_notifies_and_invalidates(self):
-        end_date = datetime(2026, 1, 9, 3, 4, tzinfo=timezone.utc)
+        end_date = datetime(2026, 1, 9, 3, 4, tzinfo=UTC)
         notification_service = SimpleNamespace(notify_trial_activation=AsyncMock())
         ctx = _context(notification_service=notification_service)
         user = SimpleNamespace(username="alice", email="alice@example.test")
@@ -515,7 +515,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             tariff_key="standard",
             subscription_duration_months=3,
             purchased_hwid_devices=2,
-            created_at=datetime(2026, 1, 9, 12, 0, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 9, 12, 0, tzinfo=UTC),
         )
 
         with (
@@ -587,7 +587,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             sale_mode="premium_topup@standard",
             tariff_key="standard",
             purchased_gb=10.0,
-            created_at=datetime(2026, 1, 9, 12, 0, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 9, 12, 0, tzinfo=UTC),
         )
 
         with (
@@ -630,14 +630,14 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         bot = SimpleNamespace(send_message=AsyncMock())
         email = AsyncMock()
         ctx = _context(bot=bot)
-        created_at = datetime(2026, 1, 9, 9, 0, tzinfo=timezone.utc)
+        created_at = datetime(2026, 1, 9, 9, 0, tzinfo=UTC)
         canceled_payment = SimpleNamespace(
             payment_id=10,
             user_id=42,
             status="canceled",
             provider="platega",
             created_at=created_at,
-            updated_at=datetime(2026, 1, 9, 13, 0, tzinfo=timezone.utc),
+            updated_at=datetime(2026, 1, 9, 13, 0, tzinfo=UTC),
             sale_mode="subscription@standard",
             subscription_duration_months=1,
         )
@@ -646,8 +646,8 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             user_id=42,
             status="succeeded",
             provider="platega",
-            created_at=datetime(2026, 1, 9, 9, 10, tzinfo=timezone.utc),
-            updated_at=datetime(2026, 1, 9, 9, 20, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 9, 9, 10, tzinfo=UTC),
+            updated_at=datetime(2026, 1, 9, 9, 20, tzinfo=UTC),
             sale_mode="subscription@standard",
             subscription_duration_months=3,
         )
@@ -685,22 +685,22 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         email = AsyncMock()
         ctx = _context(bot=bot)
         user = SimpleNamespace(language_code="ru", email="alice@example.test")
-        created_at = datetime(2026, 1, 9, 12, 0, tzinfo=timezone.utc)
+        created_at = datetime(2026, 1, 9, 12, 0, tzinfo=UTC)
         canceled_payment = SimpleNamespace(
             payment_id=20,
             user_id=42,
             status="failed",
             provider="platega",
             created_at=created_at,
-            updated_at=datetime(2026, 1, 9, 13, 0, tzinfo=timezone.utc),
+            updated_at=datetime(2026, 1, 9, 13, 0, tzinfo=UTC),
         )
         older_success = SimpleNamespace(
             payment_id=19,
             user_id=42,
             status="succeeded",
             provider="platega",
-            created_at=datetime(2026, 1, 8, 10, 0, tzinfo=timezone.utc),
-            updated_at=datetime(2026, 1, 8, 10, 5, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 8, 10, 0, tzinfo=UTC),
+            updated_at=datetime(2026, 1, 8, 10, 5, tzinfo=UTC),
         )
 
         with (
@@ -735,7 +735,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             user_id=42,
             status="succeeded",
             provider="platega",
-            created_at=datetime(2026, 1, 9, 12, 0, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 9, 12, 0, tzinfo=UTC),
         )
 
         with (
@@ -765,7 +765,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         email = AsyncMock()
         ctx = _context(bot=bot)
         inviter = SimpleNamespace(language_code="en", email="inviter@example.test")
-        end_date = datetime(2026, 1, 9, tzinfo=timezone.utc)
+        end_date = datetime(2026, 1, 9, tzinfo=UTC)
 
         with (
             patch.object(
@@ -803,7 +803,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         )
 
     async def test_account_merged_event_notifies_admin_and_optional_email(self):
-        final_end_date = datetime(2026, 1, 9, 3, 4, tzinfo=timezone.utc)
+        final_end_date = datetime(2026, 1, 9, 3, 4, tzinfo=UTC)
         notification_service = SimpleNamespace(notify_account_merged=AsyncMock())
         email_service = SimpleNamespace(send_rendered_email=AsyncMock())
         ctx = _context(

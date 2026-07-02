@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from typing import Optional
 
 from aiogram import Bot, F, Router, types
 from aiogram.exceptions import TelegramBadRequest
@@ -36,7 +35,7 @@ async def broadcast_message_prompt_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         logging.error("i18n missing in broadcast_message_prompt_handler")
         await callback.answer("Language service error.", show_alert=True)
@@ -71,7 +70,7 @@ async def process_broadcast_message_handler(
     bot: Bot,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         logging.error("i18n missing in process_broadcast_message_handler")
         await message.reply("Language service error.")
@@ -150,7 +149,7 @@ async def change_broadcast_target_handler(
     settings: Settings,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error updating selection.", show_alert=True)
         return
@@ -183,7 +182,7 @@ async def cancel_broadcast_at_prompt_stage(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error cancelling.", show_alert=True)
         return
@@ -218,7 +217,7 @@ async def confirm_broadcast_callback_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error processing broadcast confirmation.", show_alert=True)
         return

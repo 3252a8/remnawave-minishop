@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
@@ -25,12 +25,12 @@ TELEGRAM_NOTIFICATION_STATUSES = {
 }
 
 
-def normalize_telegram_notification_status(value: Optional[str]) -> str:
+def normalize_telegram_notification_status(value: str | None) -> str:
     status = str(value or "").strip().lower()
     return status if status in TELEGRAM_NOTIFICATION_STATUSES else TELEGRAM_NOTIFICATIONS_UNKNOWN
 
 
-def telegram_notifications_enabled(user: Optional[User]) -> bool:
+def telegram_notifications_enabled(user: User | None) -> bool:
     return (
         bool(getattr(user, "telegram_id", None))
         and normalize_telegram_notification_status(
@@ -40,7 +40,7 @@ def telegram_notifications_enabled(user: Optional[User]) -> bool:
     )
 
 
-def telegram_notifications_need_prompt(user: Optional[User]) -> bool:
+def telegram_notifications_need_prompt(user: User | None) -> bool:
     status = normalize_telegram_notification_status(
         getattr(user, "telegram_notifications_status", None)
     )
@@ -50,14 +50,14 @@ def telegram_notifications_need_prompt(user: Optional[User]) -> bool:
     }
 
 
-def telegram_notifications_start_link(bot_username: Optional[str]) -> Optional[str]:
+def telegram_notifications_start_link(bot_username: str | None) -> str | None:
     username = str(bot_username or "").strip().lstrip("@")
     if not username or username == "your_bot_username":
         return None
     return f"https://t.me/{username}?start=notifications"
 
 
-def telegram_notification_status_from_error(exc: Exception) -> Optional[str]:
+def telegram_notification_status_from_error(exc: Exception) -> str | None:
     if isinstance(exc, TelegramForbiddenError):
         return TELEGRAM_NOTIFICATIONS_BLOCKED
     if not isinstance(exc, TelegramBadRequest):
@@ -91,11 +91,11 @@ async def mark_telegram_notifications_status(
     user_id: int,
     status: str,
     *,
-    telegram_id: Optional[int] = None,
-    checked_at: Optional[datetime] = None,
-) -> Optional[User]:
+    telegram_id: int | None = None,
+    checked_at: datetime | None = None,
+) -> User | None:
     normalized = normalize_telegram_notification_status(status)
-    now = checked_at or datetime.now(timezone.utc)
+    now = checked_at or datetime.now(UTC)
     update_data: dict[str, Any] = {
         "telegram_notifications_status": normalized,
         "telegram_notifications_checked_at": now,
@@ -113,7 +113,7 @@ async def mark_telegram_notifications_status(
 async def mark_telegram_notifications_enabled_for_telegram_user(
     session: AsyncSession,
     telegram_id: int,
-) -> Optional[User]:
+) -> User | None:
     db_user = await user_dal.get_user_by_telegram_id(session, telegram_id)
     if not db_user:
         db_user = await user_dal.get_user_by_id(session, telegram_id)
@@ -132,9 +132,9 @@ async def probe_telegram_notifications(
     session: AsyncSession,
     bot: Bot,
     settings: Settings,
-    i18n: Optional[JsonI18n],
+    i18n: JsonI18n | None,
     user: User,
-    bot_username: Optional[str] = None,
+    bot_username: str | None = None,
     force: bool = False,
 ) -> dict[str, Any]:
     telegram_id = getattr(user, "telegram_id", None)

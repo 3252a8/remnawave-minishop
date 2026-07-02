@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
@@ -7,7 +5,7 @@ from sqlalchemy.sql import func
 from db.models import UserBilling, UserPaymentMethod
 
 
-async def get_user_billing(session: AsyncSession, user_id: int) -> Optional[UserBilling]:
+async def get_user_billing(session: AsyncSession, user_id: int) -> UserBilling | None:
     stmt = select(UserBilling).where(UserBilling.user_id == user_id)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
@@ -18,8 +16,8 @@ async def upsert_yk_payment_method(
     *,
     user_id: int,
     payment_method_id: str,
-    card_last4: Optional[str] = None,
-    card_network: Optional[str] = None,
+    card_last4: str | None = None,
+    card_network: str | None = None,
 ) -> UserBilling:
     existing = await get_user_billing(session, user_id)
     if existing:
@@ -62,8 +60,8 @@ async def upsert_user_payment_method(
     user_id: int,
     provider_payment_method_id: str,
     provider: str = "yookassa",
-    card_last4: Optional[str] = None,
-    card_network: Optional[str] = None,
+    card_last4: str | None = None,
+    card_network: str | None = None,
     set_default: bool = False,
 ) -> UserPaymentMethod:
     provider = str(provider or "yookassa").strip().lower() or "yookassa"
@@ -72,7 +70,7 @@ async def upsert_user_payment_method(
         UserPaymentMethod.provider_payment_method_id == provider_payment_method_id,
     )
     result = await session.execute(existing_stmt)
-    existing: Optional[UserPaymentMethod] = result.scalar_one_or_none()
+    existing: UserPaymentMethod | None = result.scalar_one_or_none()
     if existing:
         existing.card_last4 = card_last4
         existing.card_network = card_network
@@ -115,8 +113,8 @@ async def upsert_user_payment_method(
 
 
 async def list_user_payment_methods(
-    session: AsyncSession, user_id: int, provider: Optional[str] = None
-) -> List[UserPaymentMethod]:
+    session: AsyncSession, user_id: int, provider: str | None = None
+) -> list[UserPaymentMethod]:
     stmt = select(UserPaymentMethod).where(UserPaymentMethod.user_id == user_id)
     if provider:
         stmt = stmt.where(UserPaymentMethod.provider == provider)
@@ -127,7 +125,7 @@ async def list_user_payment_methods(
 
 async def get_user_default_payment_method(
     session: AsyncSession, user_id: int, provider: str = "yookassa"
-) -> Optional[UserPaymentMethod]:
+) -> UserPaymentMethod | None:
     provider = str(provider or "yookassa").strip().lower() or "yookassa"
     stmt = select(UserPaymentMethod).where(
         UserPaymentMethod.user_id == user_id,
@@ -188,7 +186,7 @@ async def delete_user_payment_method_by_provider_id(
         UserPaymentMethod.provider_payment_method_id == provider_payment_method_id,
     )
     result = await session.execute(stmt)
-    method: Optional[UserPaymentMethod] = result.scalar_one_or_none()
+    method: UserPaymentMethod | None = result.scalar_one_or_none()
     if not method:
         return False
     await session.delete(method)

@@ -16,11 +16,11 @@ from bot.app.web.route_contracts import RouteContract, ok_envelope_for, register
 from bot.utils.message_queue import get_queue_manager
 from config.settings import Settings
 from config.tariffs_config import default_payment_currency_code_for_settings
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, UTC
 from db.dal import panel_sync_dal, payment_dal, user_dal
 from .schemas import AdminMeOut, AdminPanelSyncOut, AdminStatsOut, PaymentOut
 from sqlalchemy.orm import sessionmaker
-from typing import Any, Dict, Optional
+from typing import Any
 import logging
 from .auth import _require_admin_user_id
 from .common import (
@@ -33,8 +33,8 @@ from bot.utils.ttl_cache import AsyncTTLCache
 
 logger = logging.getLogger(__name__)
 
-_ADMIN_PANEL_STATS_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
-_ADMIN_DB_STATS_CACHES: Dict[tuple[int, int], AsyncTTLCache] = {}
+_ADMIN_PANEL_STATS_CACHES: dict[tuple[int, int], AsyncTTLCache] = {}
+_ADMIN_DB_STATS_CACHES: dict[tuple[int, int], AsyncTTLCache] = {}
 
 
 register_contract(
@@ -84,12 +84,12 @@ async def admin_stats_route(request: web.Request) -> web.Response:
 async def _load_admin_db_stats(
     settings: Settings,
     async_session_factory: sessionmaker,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     cache = _admin_db_stats_cache(settings)
     if cache is None:
         return await _load_admin_db_stats_uncached(async_session_factory)
     return cast(
-        Dict[str, Any],
+        dict[str, Any],
         await cache.get_or_load(
             "db",
             lambda: _load_admin_db_stats_uncached(async_session_factory),
@@ -97,7 +97,7 @@ async def _load_admin_db_stats(
     )
 
 
-async def _load_admin_db_stats_uncached(async_session_factory: sessionmaker) -> Dict[str, Any]:
+async def _load_admin_db_stats_uncached(async_session_factory: sessionmaker) -> dict[str, Any]:
     async with async_session_factory() as session:
         user_stats = await user_dal.get_enhanced_user_statistics(session)
         financial_stats = await payment_dal.get_financial_statistics(session)
@@ -112,7 +112,7 @@ async def _load_admin_db_stats_uncached(async_session_factory: sessionmaker) -> 
     }
 
 
-def _admin_db_stats_cache(settings: Settings) -> Optional[AsyncTTLCache]:
+def _admin_db_stats_cache(settings: Settings) -> AsyncTTLCache | None:
     ttl_seconds = int(settings.ADMIN_DB_STATS_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return None
@@ -132,17 +132,17 @@ async def _load_admin_panel_stats(
     request: web.Request,
     settings: Settings,
     panel_service: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     cache = _admin_panel_stats_cache(settings)
     if cache is None:
         return await _load_admin_panel_stats_uncached(panel_service)
     return cast(
-        Dict[str, Any],
+        dict[str, Any],
         await cache.get_or_load("panel", lambda: _load_admin_panel_stats_uncached(panel_service)),
     )
 
 
-def _admin_panel_stats_cache(settings: Settings) -> Optional[AsyncTTLCache]:
+def _admin_panel_stats_cache(settings: Settings) -> AsyncTTLCache | None:
     ttl_seconds = int(settings.ADMIN_PANEL_STATS_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return None
@@ -158,9 +158,9 @@ def _admin_panel_stats_cache(settings: Settings) -> Optional[AsyncTTLCache]:
     return cache
 
 
-async def _load_admin_panel_stats_uncached(panel_service: Any) -> Dict[str, Any]:
+async def _load_admin_panel_stats_uncached(panel_service: Any) -> dict[str, Any]:
     try:
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
         start_d = today - timedelta(days=7)
         system, bandwidth, nodes, nodes_bw, lookups = await asyncio.gather(
             _safe_panel_call(panel_service.get_system_stats(), "system stats"),
@@ -177,7 +177,7 @@ async def _load_admin_panel_stats_uncached(panel_service: Any) -> Dict[str, Any]
             _safe_panel_call(panel_service.get_nodes_online_lookups(), "nodes online lookups"),
         )
 
-        panel_body: Dict[str, Any] = {
+        panel_body: dict[str, Any] = {
             "system": system or {},
             "bandwidth": bandwidth or {},
             "nodes": nodes or {},

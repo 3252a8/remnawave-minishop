@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from aiogram import F, Router, types
 from aiogram.filters import StateFilter
@@ -23,7 +22,7 @@ async def show_ads_menu(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     if not i18n or not callback.message:
@@ -65,7 +64,7 @@ async def ads_list_pagination(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
     if not i18n or not callback.message:
         await callback.answer("Language error.", show_alert=True)
@@ -104,7 +103,7 @@ async def show_ad_card(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
     if not i18n or not callback.message:
         await callback.answer("Language error.", show_alert=True)
@@ -154,7 +153,7 @@ async def ads_delete_prompt(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Language error.", show_alert=True)
         return
@@ -189,7 +188,7 @@ async def ads_delete_cancel(
 ) -> None:
     # Return to the ad card view
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
     if not i18n or not callback.message:
         await callback.answer("Language error.", show_alert=True)
@@ -240,7 +239,7 @@ async def ads_delete_confirm(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
     if not i18n or not callback.message:
         await callback.answer("Language error.", show_alert=True)
@@ -289,7 +288,7 @@ async def ads_create_start(
     from bot.states.admin_states import AdminStates
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     if not i18n or not callback.message:
@@ -328,7 +327,7 @@ async def ads_create_flow(
         return
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     if current_state == AdminStates.waiting_for_ad_source.state:

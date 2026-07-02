@@ -1,6 +1,5 @@
 import hashlib
 import logging
-from typing import Optional, Tuple
 
 from bot.services.panel_api_service import PanelApiService
 from bot.utils.ttl_cache import AsyncTTLCache
@@ -9,7 +8,7 @@ from config.settings import Settings
 _CRYPT4_LINK_CACHES: dict[tuple[int, int], AsyncTTLCache] = {}
 
 
-async def _encrypt_raw_link(settings: Settings, raw_link: str) -> Optional[str]:
+async def _encrypt_raw_link(settings: Settings, raw_link: str) -> str | None:
     """Encrypt the raw subscription URL using the panel's happ crypt4 API."""
     async with PanelApiService(settings) as panel_service:
         encrypted_link = await panel_service.encrypt_happ_link(raw_link)
@@ -18,7 +17,7 @@ async def _encrypt_raw_link(settings: Settings, raw_link: str) -> Optional[str]:
     return None
 
 
-def _crypt4_link_cache(settings: Settings) -> Optional[AsyncTTLCache]:
+def _crypt4_link_cache(settings: Settings) -> AsyncTTLCache | None:
     ttl_seconds = int(settings.CRYPT4_LINK_CACHE_TTL_SECONDS or 0)
     if ttl_seconds <= 0:
         return None
@@ -34,7 +33,7 @@ def _crypt4_link_cache(settings: Settings) -> Optional[AsyncTTLCache]:
     return cache
 
 
-async def _encrypt_raw_link_cached(settings: Settings, raw_link: str) -> Optional[str]:
+async def _encrypt_raw_link_cached(settings: Settings, raw_link: str) -> str | None:
     cache = _crypt4_link_cache(settings)
     if cache is None:
         return await _encrypt_raw_link(settings, raw_link)
@@ -44,8 +43,8 @@ async def _encrypt_raw_link_cached(settings: Settings, raw_link: str) -> Optiona
 
 
 async def prepare_config_links(
-    settings: Settings, raw_link: Optional[str]
-) -> Tuple[Optional[str], Optional[str]]:
+    settings: Settings, raw_link: str | None
+) -> tuple[str | None, str | None]:
     """
     Build the user-facing connection key and the URL for the connect button.
 

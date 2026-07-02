@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional, Tuple
+from typing import Any
 
 from aiogram import F, Router, types
 from aiohttp import web
@@ -73,7 +73,7 @@ async def pay_wata_callback_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     translator = make_translator(i18n, current_lang)
 
     if not i18n or not callback.message:
@@ -239,7 +239,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     )
 
 
-async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
     service = app_optional(ctx.request, "wata_service", WataService)
     profile = service.profile_for_method(ctx.method) if service else None
     if not service or not profile or not service.profile_enabled(profile.provider):
@@ -548,7 +548,7 @@ def _wata_crypto_admin_only_enabled(source: Any) -> bool:
     ) and _wata_profile_configured(source, WATA_CRYPTO_PROVIDER)
 
 
-def _wata_supported_currencies(source: Any, provider: str) -> Tuple[str, ...]:
+def _wata_supported_currencies(source: Any, provider: str) -> tuple[str, ...]:
     if isinstance(source, WataConfig):
         return source.profile_for_method(provider).supported_currencies
     return WATA_SUPPORTED_CURRENCIES

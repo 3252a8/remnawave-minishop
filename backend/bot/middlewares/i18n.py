@@ -3,8 +3,9 @@ import logging
 import os
 import re
 import time
+from collections.abc import Awaitable, Callable, Iterable
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject, User
@@ -13,10 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config.settings import Settings
 from db.dal import user_dal
 
-LocaleOverrides = Dict[str, Dict[str, str]]
+LocaleOverrides = dict[str, dict[str, str]]
 
 _LOCALE_LANGUAGE_CODE_RE = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
-LANGUAGE_LABELS: Dict[str, str] = {
+LANGUAGE_LABELS: dict[str, str] = {
     "ru": "Русский",
     "en": "English",
     "de": "Deutsch",
@@ -26,7 +27,7 @@ LANGUAGE_LABELS: Dict[str, str] = {
     "tr": "Türkçe",
     "uk": "Українська",
 }
-LANGUAGE_FLAGS: Dict[str, str] = {
+LANGUAGE_FLAGS: dict[str, str] = {
     "ru": "🇷🇺",
     "en": "🇬🇧",
     "de": "🇩🇪",
@@ -37,7 +38,7 @@ LANGUAGE_FLAGS: Dict[str, str] = {
     "uk": "🇺🇦",
 }
 DEFAULT_LANGUAGE_ORDER = ("ru", "en")
-LOCALE_KEY_ALIASES: Dict[str, str] = {
+LOCALE_KEY_ALIASES: dict[str, str] = {
     "admin_apply": "wa_apply",
     "admin_ads_col_status": "admin_status",
     "admin_ad_label_source": "admin_ads_col_source",
@@ -117,7 +118,7 @@ LOCALE_KEY_ALIASES: Dict[str, str] = {
 
 def resolve_locale_key(key: object) -> str:
     value = str(key or "").strip()
-    seen: Set[str] = set()
+    seen: set[str] = set()
     while value in LOCALE_KEY_ALIASES and value not in seen:
         seen.add(value)
         value = LOCALE_KEY_ALIASES[value]
@@ -130,7 +131,7 @@ def is_valid_locale_language_code(value: str) -> bool:
 
 def normalize_locale_language_code(
     raw: object,
-    valid_languages: Optional[Set[str]] = None,
+    valid_languages: set[str] | None = None,
     *,
     prefer_known_base: bool = True,
 ) -> str:
@@ -144,7 +145,7 @@ def normalize_locale_language_code(
     return value
 
 
-def _normalize_language_code(raw: object, valid_languages: Optional[Set[str]] = None) -> str:
+def _normalize_language_code(raw: object, valid_languages: set[str] | None = None) -> str:
     return normalize_locale_language_code(raw, valid_languages)
 
 
@@ -158,7 +159,7 @@ def locale_language_flag(code: object) -> str:
     return LANGUAGE_FLAGS.get(value, "🏳️")
 
 
-def sort_locale_language_codes(codes: Iterable[object]) -> List[str]:
+def sort_locale_language_codes(codes: Iterable[object]) -> list[str]:
     normalized = {normalize_locale_language_code(code, prefer_known_base=False) for code in codes}
     normalized = {code for code in normalized if code and is_valid_locale_language_code(code)}
     preferred = [code for code in DEFAULT_LANGUAGE_ORDER if code in normalized]
@@ -170,7 +171,7 @@ def locale_language_options(
     codes: Iterable[object],
     *,
     base_languages: Iterable[object] = (),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     base_set = set(sort_locale_language_codes(base_languages))
     return [
         {
@@ -184,8 +185,8 @@ def locale_language_options(
 
 
 def _valid_locale_keys_by_language(
-    locales_data: Dict[str, Dict[str, str]],
-) -> Dict[str, Set[str]]:
+    locales_data: dict[str, dict[str, str]],
+) -> dict[str, set[str]]:
     return {
         lang: {str(key) for key in messages.keys()}
         for lang, messages in locales_data.items()
@@ -196,11 +197,11 @@ def _valid_locale_keys_by_language(
 def normalize_locale_overrides_payload(
     payload: object,
     *,
-    valid_languages: Optional[Iterable[str]] = None,
-    valid_keys_by_language: Optional[Dict[str, Set[str]]] = None,
+    valid_languages: Iterable[str] | None = None,
+    valid_keys_by_language: dict[str, set[str]] | None = None,
     allow_extra_languages: bool = False,
-    key_aliases: Optional[Dict[str, str]] = None,
-) -> Tuple[LocaleOverrides, Dict[str, str]]:
+    key_aliases: dict[str, str] | None = None,
+) -> tuple[LocaleOverrides, dict[str, str]]:
     """Normalize a user/admin supplied locale override JSON payload.
 
     The canonical shape is ``{"ru": {"welcome": "..."}, "en": {...}}``.
@@ -223,19 +224,19 @@ def normalize_locale_overrides_payload(
 
     def resolve_payload_key(raw_key: str) -> str:
         value = raw_key
-        seen: Set[str] = set()
+        seen: set[str] = set()
         while value in aliases and value not in seen:
             seen.add(value)
             value = aliases[value]
         return value
 
-    all_valid_keys: Set[str] = set()
+    all_valid_keys: set[str] = set()
     if valid_keys_by_language:
         for keys in valid_keys_by_language.values():
             all_valid_keys.update(str(key) for key in keys)
 
     overrides: LocaleOverrides = {}
-    errors: Dict[str, str] = {}
+    errors: dict[str, str] = {}
 
     for raw_lang, raw_messages in raw_payload.items():
         lang = normalize_locale_language_code(
@@ -262,7 +263,7 @@ def normalize_locale_overrides_payload(
             continue
 
         lang_keys = valid_keys_by_language.get(lang, set()) if valid_keys_by_language else set()
-        bucket: Dict[str, str] = {}
+        bucket: dict[str, str] = {}
         for raw_key, raw_value in raw_messages.items():
             raw_key_text = str(raw_key or "").strip()
             key = resolve_payload_key(raw_key_text)
@@ -296,17 +297,17 @@ class JsonI18n:
         path: str,
         default: str = "en",
         domain: str = "bot",
-        overrides_path: Optional[str] = None,
+        overrides_path: str | None = None,
     ) -> None:
         self.domain = domain
         self.path = path
         self.default_lang = default
-        self.base_locales_data: Dict[str, Dict[str, str]] = {}
+        self.base_locales_data: dict[str, dict[str, str]] = {}
         self.locale_overrides: LocaleOverrides = {}
-        self.locales_data: Dict[str, Dict[str, str]] = {}
-        self._overrides_path: Optional[Path] = None
-        self._overrides_file_mtime_ns: Optional[int] = None
-        self._overrides_file_content: Optional[str] = None
+        self.locales_data: dict[str, dict[str, str]] = {}
+        self._overrides_path: Path | None = None
+        self._overrides_file_mtime_ns: int | None = None
+        self._overrides_file_content: str | None = None
         self._overrides_file_next_check = 0.0
         self._overrides_file_check_interval_seconds = 1.0
         self._load_locales()
@@ -321,13 +322,13 @@ class JsonI18n:
         if not os.path.isdir(self.path):
             logging.error(f"Locales path not found or not a directory: {self.path}")
             return
-        loaded: Dict[str, Dict[str, str]] = {}
+        loaded: dict[str, dict[str, str]] = {}
         for item in os.listdir(self.path):
             if item.endswith(".json"):
                 lang_code = item.split(".")[0]
                 file_path = os.path.join(self.path, item)
                 try:
-                    with open(file_path, "r", encoding="utf-8") as f:
+                    with open(file_path, encoding="utf-8") as f:
                         data = json.load(f)
                     if isinstance(data, dict):
                         loaded[lang_code] = {
@@ -354,7 +355,7 @@ class JsonI18n:
         self._rebuild_effective_locales()
 
     def _rebuild_effective_locales(self) -> None:
-        effective: Dict[str, Dict[str, str]] = {}
+        effective: dict[str, dict[str, str]] = {}
         for lang, messages in self.base_locales_data.items():
             merged = dict(messages)
             merged.update(self.locale_overrides.get(lang, {}))
@@ -372,10 +373,10 @@ class JsonI18n:
             effective[lang] = merged
         self.locales_data = effective
 
-    def _valid_keys_by_language(self) -> Dict[str, Set[str]]:
+    def _valid_keys_by_language(self) -> dict[str, set[str]]:
         return _valid_locale_keys_by_language(self.base_locales_data)
 
-    def language_options(self) -> List[Dict[str, Any]]:
+    def language_options(self) -> list[dict[str, Any]]:
         self.reload_overrides_from_file()
         return locale_language_options(
             self.locales_data.keys(),
@@ -384,15 +385,15 @@ class JsonI18n:
 
     def merge_base_locales(
         self,
-        additions: Dict[str, Dict[str, str]],
+        additions: dict[str, dict[str, str]],
         *,
         source: str = "plugin",
-    ) -> List[str]:
+    ) -> list[str]:
         """Merge extra locale keys into the base catalog without overriding
         existing core keys. Returns the list of skipped ``lang.key`` entries.
         Runtime overrides stay layered on top via the usual rebuild."""
         added = 0
-        skipped: List[str] = []
+        skipped: list[str] = []
         for lang, messages in additions.items():
             if not isinstance(messages, dict):
                 continue
@@ -419,7 +420,7 @@ class JsonI18n:
             self._rebuild_effective_locales()
         return skipped
 
-    def set_locale_overrides(self, overrides: object) -> Dict[str, str]:
+    def set_locale_overrides(self, overrides: object) -> dict[str, str]:
         normalized, errors = normalize_locale_overrides_payload(
             overrides,
             valid_languages=set(self.base_locales_data.keys()),
@@ -505,7 +506,7 @@ class JsonI18n:
         logging.info("Locale overrides reloaded from %s", self._overrides_path)
         return True
 
-    def gettext(self, lang_code: Optional[str], key: str, **kwargs: object) -> str:
+    def gettext(self, lang_code: str | None, key: str, **kwargs: object) -> str:
         self.reload_overrides_from_file()
         lookup_key = resolve_locale_key(key)
 
@@ -570,7 +571,7 @@ class JsonI18n:
             return text
 
 
-_i18n_instance_singleton: Optional[JsonI18n] = None
+_i18n_instance_singleton: JsonI18n | None = None
 
 
 def get_i18n_instance(path: str = "locales", default: str = "en", domain: str = "bot") -> JsonI18n:
@@ -595,12 +596,12 @@ class I18nMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
         event: TelegramObject,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> Any:
         session: AsyncSession = data["session"]
-        event_user: Optional[User] = data.get("event_from_user")
+        event_user: User | None = data.get("event_from_user")
 
         current_language = self.i18n.default_lang
 

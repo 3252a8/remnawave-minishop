@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Awaitable, Callable, Dict, Optional, Union, cast
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 from aiogram import BaseMiddleware, Bot
 from aiogram.exceptions import (
@@ -25,14 +26,14 @@ class BanCheckMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
         event: TelegramObject,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> Any:
         update = cast(Update, event)
 
         session: AsyncSession = data["session"]
-        event_user: Optional[User] = data.get("event_from_user")
+        event_user: User | None = data.get("event_from_user")
         bot_instance: Bot = data["bot"]
 
         if not event_user:
@@ -58,12 +59,12 @@ class BanCheckMiddleware(BaseMiddleware):
             current_lang = i18n_data_from_event.get(
                 "current_language", self.settings.DEFAULT_LANGUAGE
             )
-            i18n_to_use: Optional[JsonI18n] = i18n_data_from_event.get(
+            i18n_to_use: JsonI18n | None = i18n_data_from_event.get(
                 "i18n_instance", self.i18n_main_instance
             )
 
             ban_message_text = "You are banned. Please contact support."
-            keyboard: Optional[InlineKeyboardMarkup] = None
+            keyboard: InlineKeyboardMarkup | None = None
             support_link = self.settings.support_settings.link
 
             if i18n_to_use:
@@ -77,7 +78,7 @@ class BanCheckMiddleware(BaseMiddleware):
                 builder.button(text="Support", url=support_link)
                 keyboard = builder.as_markup()
 
-            actual_event_object: Optional[Union[Message, CallbackQuery]] = None
+            actual_event_object: Message | CallbackQuery | None = None
             if update.message:
                 actual_event_object = update.message
             elif update.callback_query:

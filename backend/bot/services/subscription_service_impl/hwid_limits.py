@@ -11,13 +11,12 @@ directly-testable decision.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass(frozen=True)
 class HwidDeviceLimits:
     """Resolved HWID device limits for one subscription."""
 
-    base: Optional[int]
+    base: int | None
     extra: int
-    effective: Optional[int]
+    effective: int | None

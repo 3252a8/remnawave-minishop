@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,9 +11,9 @@ from config.settings import Settings
 
 
 def _translate(
-    i18n: Optional[JsonI18n],
+    i18n: JsonI18n | None,
     language: str,
-    key: Optional[str],
+    key: str | None,
     fallback: str = "",
     **kwargs: Any,
 ) -> str:
@@ -28,18 +28,18 @@ def _translate(
 async def send_user_notification_email(
     *,
     settings: Settings,
-    i18n: Optional[JsonI18n],
+    i18n: JsonI18n | None,
     user: Any,
     subject_key: str,
     message_text: str,
-    dashboard_url: Optional[str] = None,
+    dashboard_url: str | None = None,
     cta_label_key: str = "email_user_notification_cta",
-    subject_kwargs: Optional[dict[str, Any]] = None,
-    heading_key: Optional[str] = None,
-    intro_key: Optional[str] = None,
-    session: Optional[AsyncSession] = None,
-    audit_event_type: Optional[str] = None,
-    audit_content: Optional[str] = None,
+    subject_kwargs: dict[str, Any] | None = None,
+    heading_key: str | None = None,
+    intro_key: str | None = None,
+    session: AsyncSession | None = None,
+    audit_event_type: str | None = None,
+    audit_content: str | None = None,
 ) -> bool:
     if not settings.email_auth_configured:
         return False

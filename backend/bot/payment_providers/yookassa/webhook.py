@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
 from aiohttp import web
@@ -128,7 +128,7 @@ async def yookassa_webhook_route(request: web.Request) -> web.Response:
                 logging.exception("Failed to serialize YooKassa payment_method from webhook")
                 pm_dict = None
 
-        payment_dict_for_processing: Dict[str, Any] = {
+        payment_dict_for_processing: dict[str, Any] = {
             "id": str(payment_data_from_notification.id),
             "status": str(payment_data_from_notification.status),
             "paid": bool(payment_data_from_notification.paid),

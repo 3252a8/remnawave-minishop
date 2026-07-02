@@ -3,7 +3,7 @@ import hashlib
 import html
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import quote
 
 from aiohttp import web
@@ -30,11 +30,11 @@ from .constants import (
     WEBAPP_THEME_CSS_MAX_BYTES,
 )
 
-_TEXT_FILE_CACHE: Dict[tuple[str, bool], tuple[int, int, str]] = {}
-_BINARY_FILE_CACHE: Dict[str, tuple[int, int, bytes]] = {}
-_GZIP_BODY_CACHE: Dict[str, bytes] = {}
-_ASSET_NAME_CACHE: Dict[tuple[str, str], tuple[float, str]] = {}
-_I18N_PAYLOAD_CACHE: Dict[tuple[int, str, tuple[tuple[str, int, int], ...]], Dict[str, Any]] = {}
+_TEXT_FILE_CACHE: dict[tuple[str, bool], tuple[int, int, str]] = {}
+_BINARY_FILE_CACHE: dict[str, tuple[int, int, bytes]] = {}
+_GZIP_BODY_CACHE: dict[str, bytes] = {}
+_ASSET_NAME_CACHE: dict[tuple[str, str], tuple[float, str]] = {}
+_I18N_PAYLOAD_CACHE: dict[tuple[int, str, tuple[tuple[str, int, int], ...]], dict[str, Any]] = {}
 _ASSET_NAME_CACHE_TTL_SECONDS = 30.0
 WEBAPP_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
@@ -116,11 +116,11 @@ def _load_theme_binary_asset(
     return body, content_type, etag
 
 
-def _safe_theme_css_relative_path(raw_path: str) -> Optional[Path]:
+def _safe_theme_css_relative_path(raw_path: str) -> Path | None:
     return _safe_theme_relative_path(raw_path, allowed_suffixes={".css"}, max_length=180)
 
 
-def _safe_theme_asset_relative_path(raw_path: str) -> Optional[Path]:
+def _safe_theme_asset_relative_path(raw_path: str) -> Path | None:
     return _safe_theme_relative_path(
         raw_path,
         allowed_suffixes=set(WEBAPP_THEME_ASSET_CONTENT_TYPES),
@@ -133,7 +133,7 @@ def _safe_theme_relative_path(
     *,
     allowed_suffixes: set[str],
     max_length: int,
-) -> Optional[Path]:
+) -> Path | None:
     value = str(raw_path or "").replace("\\", "/").strip().lstrip("/")
     if not value or len(value) > max_length or "\x00" in value:
         return None
@@ -261,7 +261,7 @@ def _not_modified_response(
     *,
     cache_control: str,
     etag: str,
-    vary: Optional[str] = None,
+    vary: str | None = None,
 ) -> web.Response:
     response = web.Response(status=304)
     response.headers["Cache-Control"] = cache_control
@@ -391,7 +391,7 @@ def _initial_theme_for_request(request: web.Request, catalog: Any) -> Any:
     return theme
 
 
-def _initial_theme_tokens(theme: Any, primary_color: str) -> Dict[str, Any]:
+def _initial_theme_tokens(theme: Any, primary_color: str) -> dict[str, Any]:
     if theme is None:
         return {}
 
@@ -404,7 +404,7 @@ def _initial_theme_tokens(theme: Any, primary_color: str) -> Dict[str, Any]:
         return tokens_payload if isinstance(tokens_payload, dict) else {}
 
 
-def _initial_theme_declarations(tokens: Dict[str, Any]) -> List[str]:
+def _initial_theme_declarations(tokens: dict[str, Any]) -> list[str]:
     declarations = []
     for token_key, css_name in _INITIAL_THEME_TOKEN_CSS_MAP.items():
         if token_key in _INITIAL_THEME_LOGO_SCALE_TOKENS:

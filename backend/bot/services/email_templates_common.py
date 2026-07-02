@@ -13,9 +13,10 @@ import html
 import io
 import re
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Protocol, Sequence, Tuple
+from typing import TYPE_CHECKING, Protocol
 from urllib.parse import urlsplit
 
 if TYPE_CHECKING:
@@ -53,7 +54,7 @@ _EMAIL_LOGO_SAFE_RASTER_EXTENSIONS = {".gif", ".ico", ".jpg", ".jpeg", ".png", "
 
 
 class _GettextProvider(Protocol):
-    def gettext(self, lang_code: Optional[str], key: str, **kwargs: object) -> str: ...
+    def gettext(self, lang_code: str | None, key: str, **kwargs: object) -> str: ...
 
 
 def _uploaded_logo_dir() -> Path:
@@ -77,16 +78,16 @@ class EmailContent:
     subject: str
     text: str
     html: str
-    inline_images: Tuple[EmailInlineImage, ...] = ()
+    inline_images: tuple[EmailInlineImage, ...] = ()
 
 
 @dataclass(frozen=True)
 class _EmailLayout:
     html: str
-    inline_images: Tuple[EmailInlineImage, ...] = ()
+    inline_images: tuple[EmailInlineImage, ...] = ()
 
 
-def _safe_color(value: Optional[str]) -> str:
+def _safe_color(value: str | None) -> str:
     if not value:
         return _DEFAULT_ACCENT
     candidate = value.strip()
@@ -108,7 +109,7 @@ def _theme_accent(settings: Settings) -> str:
         return primary
 
 
-def _public_logo_url(settings: Settings) -> Optional[str]:
+def _public_logo_url(settings: Settings) -> str | None:
     """Email recipients can't reach the in-app /webapp-logo proxy, so only a
     stored public https URL can be used directly. Anything else is dropped."""
     raw = (settings.WEBAPP_LOGO_URL or "").strip()
@@ -120,7 +121,7 @@ def _public_logo_url(settings: Settings) -> Optional[str]:
     return raw
 
 
-def _uploaded_logo_filename(url: str) -> Optional[str]:
+def _uploaded_logo_filename(url: str) -> str | None:
     parsed = urlsplit(str(url or ""))
     path = parsed.path if parsed.scheme or parsed.netloc else str(url or "")
     prefix = f"{_WEBAPP_UPLOADED_LOGO_PATH}/"
@@ -130,7 +131,7 @@ def _uploaded_logo_filename(url: str) -> Optional[str]:
     return filename if _UPLOADED_LOGO_RE.fullmatch(filename) else None
 
 
-def _inline_uploaded_logo(settings: Settings) -> Optional[EmailInlineImage]:
+def _inline_uploaded_logo(settings: Settings) -> EmailInlineImage | None:
     filename = _uploaded_logo_filename((settings.WEBAPP_LOGO_URL or "").strip())
     if not filename:
         return None
@@ -166,7 +167,7 @@ def _email_logo_payload(
     filename: str,
     content_type: str,
     body: bytes,
-) -> Optional[Tuple[str, bytes]]:
+) -> tuple[str, bytes] | None:
     suffix = Path(filename).suffix.lower()
     if suffix == ".svg":
         return None
@@ -178,7 +179,7 @@ def _email_logo_payload(
     return content_type, body
 
 
-def _email_safe_raster_logo_to_png(body: bytes) -> Optional[bytes]:
+def _email_safe_raster_logo_to_png(body: bytes) -> bytes | None:
     try:
         from PIL import Image, ImageOps, UnidentifiedImageError
     except ImportError:
@@ -222,7 +223,7 @@ def _crop_transparent_logo_padding(image: PILImage) -> PILImage:
     return image.crop(bbox) if bbox else image
 
 
-def _hex_to_rgba(value: str) -> Tuple[int, int, int, int]:
+def _hex_to_rgba(value: str) -> tuple[int, int, int, int]:
     normalized = str(value or "#000000").strip().lstrip("#")
     if len(normalized) == 3:
         normalized = "".join(ch * 2 for ch in normalized)
@@ -236,7 +237,7 @@ def _hex_to_rgba(value: str) -> Tuple[int, int, int, int]:
     )
 
 
-def _email_logo(settings: Settings) -> Tuple[Optional[str], Tuple[EmailInlineImage, ...]]:
+def _email_logo(settings: Settings) -> tuple[str | None, tuple[EmailInlineImage, ...]]:
     inline_logo = _inline_uploaded_logo(settings)
     if inline_logo:
         return f"cid:{inline_logo.content_id}", (inline_logo,)
@@ -253,12 +254,12 @@ def _brand_title(settings: Settings) -> str:
     return title or "Subscription"
 
 
-def _normalize_lang(language_code: Optional[str], settings: Settings) -> str:
+def _normalize_lang(language_code: str | None, settings: Settings) -> str:
     value = str(language_code or settings.DEFAULT_LANGUAGE or "ru").strip().lower()
     return value.replace("_", "-") or "ru"
 
 
-def _resolve_i18n(i18n: Optional[_GettextProvider]) -> _GettextProvider:
+def _resolve_i18n(i18n: _GettextProvider | None) -> _GettextProvider:
     if i18n is not None:
         return i18n
     from bot.middlewares.i18n import get_i18n_instance
@@ -287,7 +288,7 @@ def _layout(
     intro_html: str,
     body_html: str,
     footer_html: str,
-    accent: Optional[str] = None,
+    accent: str | None = None,
 ) -> _EmailLayout:
     accent = _safe_color(accent) if accent else _theme_accent(settings)
     brand_title = html.escape(_brand_title(settings))
@@ -365,7 +366,7 @@ def _email_content(*, subject: str, text: str, layout: _EmailLayout) -> EmailCon
     )
 
 
-def _info_rows_html(rows: Sequence[Tuple[str, str]]) -> str:
+def _info_rows_html(rows: Sequence[tuple[str, str]]) -> str:
     if not rows:
         return ""
     last = len(rows) - 1
@@ -412,7 +413,7 @@ def _format_amount(amount: float, currency: str) -> str:
     return f"{body} {suffix}".strip()
 
 
-def _format_traffic(traffic_gb: Optional[float]) -> str:
+def _format_traffic(traffic_gb: float | None) -> str:
     if traffic_gb is None:
         return "—"
     value = float(traffic_gb)

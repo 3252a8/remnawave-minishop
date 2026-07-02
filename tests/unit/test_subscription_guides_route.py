@@ -1,7 +1,7 @@
 import asyncio
 import json
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -512,7 +512,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
             panel_user_uuid="panel-user",
             install_share_token=share_token,
             is_active=True,
-            end_date=datetime.now(timezone.utc) + timedelta(days=3),
+            end_date=datetime.now(UTC) + timedelta(days=3),
         )
 
         with patch.object(
@@ -573,7 +573,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
             panel_user_uuid="panel-user",
             install_share_token=share_token,
             is_active=True,
-            end_date=datetime.now(timezone.utc) + timedelta(days=3),
+            end_date=datetime.now(UTC) + timedelta(days=3),
         )
         get_sub = AsyncMock(return_value=local_sub)
 
@@ -644,7 +644,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
             panel_user_uuid="panel-user",
             install_share_token=share_token,
             is_active=False,
-            end_date=datetime.now(timezone.utc) + timedelta(days=3),
+            end_date=datetime.now(UTC) + timedelta(days=3),
         )
 
         with patch.object(

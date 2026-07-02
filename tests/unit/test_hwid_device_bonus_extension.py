@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -19,7 +19,7 @@ class _ScalarResult:
 
 class HwidDeviceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
     async def test_extends_tail_purchase_when_it_covers_subscription_end(self):
-        subscription_end = datetime(2099, 2, 1, tzinfo=timezone.utc)
+        subscription_end = datetime(2099, 2, 1, tzinfo=UTC)
         future_purchase = SimpleNamespace(
             valid_until=subscription_end,
         )
@@ -31,7 +31,7 @@ class HwidDeviceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
         updated = await tariff_dal.extend_hwid_device_purchases_for_subscription_bonus(
             session,
             subscription_id=10,
-            at=datetime(2099, 1, 1, tzinfo=timezone.utc),
+            at=datetime(2099, 1, 1, tzinfo=UTC),
             subscription_end_before=subscription_end,
             delta=timedelta(days=7),
         )
@@ -42,7 +42,7 @@ class HwidDeviceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(session.execute.await_count, 1)
 
     async def test_extends_active_purchase_when_no_tail_purchase_exists(self):
-        active_until = datetime(2099, 1, 16, tzinfo=timezone.utc)
+        active_until = datetime(2099, 1, 16, tzinfo=UTC)
         active_purchase = SimpleNamespace(valid_until=active_until)
         session = SimpleNamespace(
             execute=AsyncMock(
@@ -57,8 +57,8 @@ class HwidDeviceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
         updated = await tariff_dal.extend_hwid_device_purchases_for_subscription_bonus(
             session,
             subscription_id=10,
-            at=datetime(2099, 1, 1, tzinfo=timezone.utc),
-            subscription_end_before=datetime(2099, 2, 1, tzinfo=timezone.utc),
+            at=datetime(2099, 1, 1, tzinfo=UTC),
+            subscription_end_before=datetime(2099, 2, 1, tzinfo=UTC),
             delta=timedelta(days=7),
         )
 

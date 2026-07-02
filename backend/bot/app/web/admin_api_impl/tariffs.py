@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from aiohttp import web
 from pydantic import ValidationError
@@ -132,11 +132,11 @@ async def admin_tariffs_save_route(request: web.Request) -> web.Response:
 def _provider_currency_support_payload(
     settings: Settings,
     app: web.Application,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     from bot.payment_providers import iter_provider_specs, resolve_provider_presentation
 
     default_currency = default_payment_currency_code_for_settings(settings)
-    providers: List[Dict[str, Any]] = []
+    providers: list[dict[str, Any]] = []
     for spec in iter_provider_specs():
         presentation = resolve_provider_presentation(spec, settings)
         supported = spec.supported_currency_codes(settings)
@@ -179,7 +179,7 @@ def _provider_currency_support_label(spec: Any) -> str:
     return str(spec.label or spec.id)
 
 
-def _provider_settings_path(spec: Any) -> List[str]:
+def _provider_settings_path(spec: Any) -> list[str]:
     if spec.id == "platega_sbp":
         return ["payments", "platega", "sbp"]
     if spec.id == "platega_crypto":

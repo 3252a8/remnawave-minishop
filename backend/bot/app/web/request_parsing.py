@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from typing import Callable, NoReturn, TypeVar
+from collections.abc import Callable
+from typing import NoReturn, TypeVar
 
 from aiohttp import web
 from pydantic import BaseModel, ValidationError
@@ -39,7 +40,7 @@ def _validation_error_summary(exc: ValidationError) -> str:
     return "; ".join(messages) or "Invalid payload"
 
 
-async def parse_body(
+async def parse_body[BodyModelT: BaseModel](
     request: web.Request,
     model_cls: type[BodyModelT],
 ) -> tuple[BodyModelT | None, web.Response | None]:
@@ -58,7 +59,7 @@ async def parse_body(
         return None, _error(400, "invalid_payload", _validation_error_summary(exc))
 
 
-async def parse_body_or_400(
+async def parse_body_or_400[BodyModelT: BaseModel](
     request: web.Request,
     model_cls: type[BodyModelT],
     *,

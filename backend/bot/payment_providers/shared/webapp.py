@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,10 +24,10 @@ async def finalize_webapp_link_payment(
     session: AsyncSession,
     payment: Payment,
     api_success: bool,
-    payment_url: Optional[str],
-    provider_payment_id: Optional[str] = None,
-    provider_response: Optional[Any] = None,
-    new_status: Optional[str] = None,
+    payment_url: str | None,
+    provider_payment_id: str | None = None,
+    provider_response: Any | None = None,
+    new_status: str | None = None,
     log_prefix: str,
 ) -> web.Response:
     """The trailing "persist id → return link or fail" used by every link-style webapp creator.

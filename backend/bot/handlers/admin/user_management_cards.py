@@ -1,6 +1,7 @@
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any
 
 from aiogram import types
 from aiogram.exceptions import TelegramBadRequest
@@ -34,7 +35,7 @@ from .user_management_common import (
 
 
 def get_user_card_keyboard(
-    user_id: int, i18n_instance: JsonI18n, lang: str, referrer_id: Optional[int] = None
+    user_id: int, i18n_instance: JsonI18n, lang: str, referrer_id: int | None = None
 ) -> InlineKeyboardBuilder:
     """Generate keyboard for user management actions"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -126,12 +127,12 @@ async def _send_with_profile_link_fallback(
     sender: Callable[..., Awaitable[Any]],
     *,
     text: str,
-    markup: Optional[types.InlineKeyboardMarkup],
+    markup: types.InlineKeyboardMarkup | None,
     user_id: int,
-    parse_mode: Optional[str] = "HTML",
+    parse_mode: str | None = "HTML",
 ) -> None:
     """Send text with markup and fallback if Telegram rejects tg://user buttons."""
-    send_kwargs: Dict[str, Any] = {"text": text, "reply_markup": markup}
+    send_kwargs: dict[str, Any] = {"text": text, "reply_markup": markup}
     if parse_mode is not None:
         send_kwargs["parse_mode"] = parse_mode
 
@@ -157,10 +158,10 @@ async def format_user_card(
     subscription_service: SubscriptionService,
     i18n_instance: JsonI18n,
     lang: str,
-    referral_service: Optional[ReferralService] = None,
+    referral_service: ReferralService | None = None,
     *,
-    settings: Optional[Settings] = None,
-    bot_username: Optional[str] = None,
+    settings: Settings | None = None,
+    bot_username: str | None = None,
 ) -> str:
     """Format user information as a detailed card"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)

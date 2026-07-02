@@ -1,6 +1,6 @@
 import json
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -212,7 +212,7 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["telegramId"], 42)
 
     async def test_merged_panel_identity_reactivates_expired_target_with_transferred_time(self):
-        expire_at = datetime.now(timezone.utc) + timedelta(days=30)
+        expire_at = datetime.now(UTC) + timedelta(days=30)
         panel_service = SimpleNamespace(
             delete_user_from_panel=AsyncMock(return_value=True),
             update_user_details_on_panel=AsyncMock(return_value={"uuid": "panel-target"}),

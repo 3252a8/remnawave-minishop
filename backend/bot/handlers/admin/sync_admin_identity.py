@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,7 +91,7 @@ async def _prefetch_sync_indexes(
             .where(
                 Subscription.panel_user_uuid.in_(panel_uuids),
                 Subscription.is_active.is_(True),
-                Subscription.end_date > datetime.now(timezone.utc),
+                Subscription.end_date > datetime.now(UTC),
             )
             .order_by(Subscription.end_date.desc())
         )
@@ -111,7 +111,7 @@ async def _prefetch_sync_indexes(
     }
 
 
-def _extract_lifetime_used_traffic_bytes(panel_user_data: dict) -> Optional[int]:
+def _extract_lifetime_used_traffic_bytes(panel_user_data: dict) -> int | None:
     user_traffic = panel_user_data.get("userTraffic") or {}
     raw_value = (
         user_traffic.get("lifetimeUsedTrafficBytes") if isinstance(user_traffic, dict) else None
@@ -131,7 +131,7 @@ async def _bind_panel_email_to_user(
     session: AsyncSession,
     *,
     existing_user: User,
-    email_from_panel: Optional[str],
+    email_from_panel: str | None,
     panel_uuid: str,
 ) -> tuple[User, bool]:
     """Bind panel email to a local user without violating the unique email index.
@@ -145,7 +145,7 @@ async def _bind_panel_email_to_user(
 
     if existing_user.email == email_from_panel:
         if not existing_user.email_verified_at:
-            existing_user.email_verified_at = datetime.now(timezone.utc)
+            existing_user.email_verified_at = datetime.now(UTC)
             return existing_user, True
         return existing_user, False
 
@@ -167,7 +167,7 @@ async def _bind_panel_email_to_user(
                 if not merged_user.email:
                     merged_user.email = email_from_panel
                 if not merged_user.email_verified_at:
-                    merged_user.email_verified_at = datetime.now(timezone.utc)
+                    merged_user.email_verified_at = datetime.now(UTC)
                 logging.info(
                     "Merged email-only user %s into user %s while binding panel email %s for panel UUID %s.",  # noqa: E501
                     user_with_email.user_id,
@@ -197,7 +197,7 @@ async def _bind_panel_email_to_user(
         return existing_user, False
 
     existing_user.email = email_from_panel
-    existing_user.email_verified_at = datetime.now(timezone.utc)
+    existing_user.email_verified_at = datetime.now(UTC)
     logging.info(
         "Bound panel email %s to local user %s for panel UUID %s.",
         email_from_panel,
@@ -249,7 +249,7 @@ def _panel_identity_payload_with_expiry(
 ) -> dict[str, Any]:
     payload = _panel_identity_fields_update_payload(user)
     payload["expireAt"] = expire_at.isoformat(timespec="milliseconds").replace("+00:00", "Z")
-    if expire_at > datetime.now(timezone.utc):
+    if expire_at > datetime.now(UTC):
         payload["status"] = "ACTIVE"
     return payload
 
@@ -260,7 +260,7 @@ async def _absorb_duplicate_panel_identity(
     panel_service: PanelApiService,
     existing_user: User,
     keep_panel_uuid: str,
-    keep_panel_user: Optional[dict[str, Any]],
+    keep_panel_user: dict[str, Any] | None,
     duplicate_panel_user: dict[str, Any],
     settings: Settings,
     subscriptions_by_panel_uuid: dict[str, Subscription],
@@ -273,7 +273,7 @@ async def _absorb_duplicate_panel_identity(
     subscriptions_created = 0
     subscriptions_updated = 0
     panel_patches = 0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     duplicate_expire_at = _panel_expire_at(duplicate_panel_user)
     duplicate_status = str(duplicate_panel_user.get("status") or "").upper()
     duplicate_is_active = bool(
@@ -289,7 +289,7 @@ async def _absorb_duplicate_panel_identity(
             (int(existing_user.user_id), keep_panel_uuid)
         )
 
-    final_end_date: Optional[datetime] = None
+    final_end_date: datetime | None = None
     if duplicate_is_active and duplicate_expire_at:
         source_remaining = max(timedelta(0), duplicate_expire_at - now)
         if target_sub:

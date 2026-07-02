@@ -1,5 +1,6 @@
 import re
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 from aiogram import Bot, Router
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,7 +18,7 @@ USERNAME_REGEX = re.compile(r"^[a-zA-Z0-9_]{5,32}$")
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-async def _resolve_bot_username(bot: Optional[Bot]) -> Optional[str]:
+async def _resolve_bot_username(bot: Bot | None) -> str | None:
     """Best-effort resolution of the running bot's @username (cached by aiogram)."""
     if bot is None:
         return None
@@ -28,7 +29,7 @@ async def _resolve_bot_username(bot: Optional[Bot]) -> Optional[str]:
         return None
 
 
-def _format_traffic_period(strategy: Optional[str], get_text: Callable[..., str]) -> Optional[str]:
+def _format_traffic_period(strategy: str | None, get_text: Callable[..., str]) -> str | None:
     if not strategy:
         return None
     strategy_upper = str(strategy).upper()
@@ -43,7 +44,7 @@ def _format_traffic_period(strategy: Optional[str], get_text: Callable[..., str]
 
 
 def _format_used_with_period(
-    get_text: Callable[..., str], used_display: str, period_label: Optional[str]
+    get_text: Callable[..., str], used_display: str, period_label: str | None
 ) -> str:
     if not period_label:
         return used_display
@@ -55,7 +56,7 @@ def _format_used_with_period(
 async def _find_user_by_admin_input(
     session: AsyncSession,
     input_text: str,
-) -> Optional[User]:
+) -> User | None:
     if input_text.isdigit() or (input_text.startswith("-") and input_text[1:].isdigit()):
         try:
             return await user_dal.get_user_by_id(session, int(input_text))
@@ -70,9 +71,7 @@ async def _find_user_by_admin_input(
     return None
 
 
-def _admin_user_reference_label(
-    user: Optional[User], fallback_user_id: Optional[int] = None
-) -> str:
+def _admin_user_reference_label(user: User | None, fallback_user_id: int | None = None) -> str:
     if user is None:
         return f"ID {fallback_user_id}" if fallback_user_id is not None else "N/A"
 
@@ -112,8 +111,8 @@ def _enabled_admin_period_tariffs(settings: Settings) -> list:
 
 def _resolve_admin_period_tariff_key(
     settings: Settings,
-    explicit_tariff_key: Optional[str] = None,
-) -> tuple[Optional[str], Optional[str]]:
+    explicit_tariff_key: str | None = None,
+) -> tuple[str | None, str | None]:
     config = settings.tariffs_config
     if not config:
         return None, None

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
-from typing import Any, Callable, Optional
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,7 +37,7 @@ def decimal_amounts_equal(left: Any, right: Any, places: int = 2) -> bool:
     return format_decimal_amount(left, places) == format_decimal_amount(right, places)
 
 
-def parse_positive_int_units(value: Any) -> Optional[int]:
+def parse_positive_int_units(value: Any) -> int | None:
     """Return a positive integer only when the input represents whole units exactly."""
     if isinstance(value, bool):
         return None
@@ -61,7 +62,7 @@ def build_payment_description(
     *,
     months: Any,
     sale_mode: str,
-    human_value: Optional[str] = None,
+    human_value: str | None = None,
 ) -> str:
     """Render the standard user-visible payment description.
 
@@ -89,7 +90,7 @@ def build_payment_record_payload(
     months: Any,
     provider: str,
     sale_mode: str,
-    hwid_quote: Optional[dict] = None,
+    hwid_quote: dict | None = None,
 ) -> dict:
     """Assemble the payment-record dict that every callback handler used to inline.
 
@@ -134,9 +135,9 @@ def build_payment_record_payload(
 @dataclass(frozen=True)
 class PaymentRecordAmounts:
     months: int
-    purchased_gb: Optional[float]
-    purchased_hwid_devices: Optional[int]
-    tariff_key: Optional[str]
+    purchased_gb: float | None
+    purchased_hwid_devices: int | None
+    tariff_key: str | None
     traffic_sale: bool
     hwid_devices_sale: bool
 
@@ -153,7 +154,7 @@ def sale_mode_is_hwid_devices(sale_mode: str) -> bool:
     return sale_mode_base(sale_mode) in {"hwid_device", "hwid_devices", "hwid_devices_renewal"}
 
 
-def sale_mode_tariff_key(sale_mode: str) -> Optional[str]:
+def sale_mode_tariff_key(sale_mode: str) -> str | None:
     if "@" not in str(sale_mode or ""):
         return None
     return str(sale_mode).split("@", 1)[1].split("|", 1)[0] or None
@@ -168,8 +169,8 @@ def payment_record_amounts(
     *,
     months: Any,
     sale_mode: str,
-    traffic_gb: Optional[float] = None,
-    hwid_device_count: Optional[int] = None,
+    traffic_gb: float | None = None,
+    hwid_device_count: int | None = None,
 ) -> PaymentRecordAmounts:
     traffic_sale = sale_mode_is_traffic(sale_mode)
     hwid_devices_sale = sale_mode_is_hwid_devices(sale_mode)
@@ -222,7 +223,7 @@ def payment_failed(message: str = "Failed to create payment") -> web.Response:
 def payment_link_response(
     *,
     payment_url: str,
-    payment_id: Optional[int],
+    payment_id: int | None,
     action: str = "open_link",
 ) -> web.Response:
     return web.json_response(
@@ -245,29 +246,29 @@ async def create_base_payment_record(
     description: str,
     months: int,
     provider: str,
-    sale_mode: Optional[str] = None,
-    tariff_key: Optional[str] = None,
-    purchased_gb: Optional[float] = None,
-    purchased_hwid_devices: Optional[int] = None,
-    hwid_valid_from: Optional[Any] = None,
-    hwid_valid_until: Optional[Any] = None,
-    hwid_pricing_period_months: Optional[int] = None,
-    hwid_proration_ratio: Optional[float] = None,
-    hwid_full_price: Optional[float] = None,
-    promo_code_id: Optional[int] = None,
-    promo_effect_summary: Optional[str] = None,
-    promo_bonus_days: Optional[int] = None,
-    promo_discount_percent: Optional[float] = None,
-    promo_duration_multiplier: Optional[float] = None,
-    promo_traffic_multiplier: Optional[float] = None,
-    promo_applies_to: Optional[str] = None,
-    promo_min_subscription_months: Optional[int] = None,
-    promo_min_traffic_gb: Optional[float] = None,
-    checkout_base_amount: Optional[float] = None,
-    checkout_discount_amount: Optional[float] = None,
-    checkout_charged_months: Optional[int] = None,
-    checkout_charged_gb: Optional[float] = None,
-    checkout_quoted_at: Optional[Any] = None,
+    sale_mode: str | None = None,
+    tariff_key: str | None = None,
+    purchased_gb: float | None = None,
+    purchased_hwid_devices: int | None = None,
+    hwid_valid_from: Any | None = None,
+    hwid_valid_until: Any | None = None,
+    hwid_pricing_period_months: int | None = None,
+    hwid_proration_ratio: float | None = None,
+    hwid_full_price: float | None = None,
+    promo_code_id: int | None = None,
+    promo_effect_summary: str | None = None,
+    promo_bonus_days: int | None = None,
+    promo_discount_percent: float | None = None,
+    promo_duration_multiplier: float | None = None,
+    promo_traffic_multiplier: float | None = None,
+    promo_applies_to: str | None = None,
+    promo_min_subscription_months: int | None = None,
+    promo_min_traffic_gb: float | None = None,
+    checkout_base_amount: float | None = None,
+    checkout_discount_amount: float | None = None,
+    checkout_charged_months: int | None = None,
+    checkout_charged_gb: float | None = None,
+    checkout_quoted_at: Any | None = None,
 ) -> Payment:
     payment = await payment_dal.create_payment_record(
         session,
@@ -361,8 +362,8 @@ async def reusable_webapp_payment_response(
     ctx: WebAppPaymentContext,
     provider_spec: Any,
     *,
-    since_minutes: Optional[int] = None,
-) -> Optional[web.Response]:
+    since_minutes: int | None = None,
+) -> web.Response | None:
     resolver = getattr(provider_spec, "reuse_webapp_payment", None)
     if resolver is None:
         return None

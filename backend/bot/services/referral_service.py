@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional, Protocol
+from typing import Any, Protocol
 
 from aiogram import Bot
 from sqlalchemy import text
@@ -20,7 +20,7 @@ class _SubscriptionServiceLike(Protocol):
         session: Any,
         user_id: int,
         user_model: Any,
-    ) -> tuple[Optional[str], Optional[int], Optional[int], Optional[int]]: ...
+    ) -> tuple[str | None, int | None, int | None, int | None]: ...
 
     async def extend_active_subscription_days(
         self,
@@ -28,7 +28,7 @@ class _SubscriptionServiceLike(Protocol):
         user_id: int,
         bonus_days: int,
         reason: str,
-    ) -> Optional[datetime]: ...
+    ) -> datetime | None: ...
 
 
 class ReferralService:
@@ -49,16 +49,16 @@ class ReferralService:
         session: AsyncSession,
         referee_user_id: int,
         purchased_subscription_months: int,
-        current_payment_db_id: Optional[int] = None,
+        current_payment_db_id: int | None = None,
         skip_if_active_before_payment: bool = True,
-        tariff_key: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        tariff_key: str | None = None,
+    ) -> dict[str, Any]:
 
-        referee_final_end_date: Optional[datetime] = None
-        referee_bonus_applied_days: Optional[int] = None
+        referee_final_end_date: datetime | None = None
+        referee_bonus_applied_days: int | None = None
         inviter_bonus_successfully_applied = False
-        inviter_bonus_end_date: Optional[datetime] = None
-        inviter_bonus_kind: Optional[str] = None
+        inviter_bonus_end_date: datetime | None = None
+        inviter_bonus_kind: str | None = None
 
         try:
             referee_user_model = await user_dal.get_user_by_id(session, referee_user_id)
@@ -250,8 +250,8 @@ class ReferralService:
         self,
         purchased_subscription_months: int,
         *,
-        tariff_key: Optional[str] = None,
-    ) -> tuple[Optional[int], Optional[int]]:
+        tariff_key: str | None = None,
+    ) -> tuple[int | None, int | None]:
         months = int(purchased_subscription_months)
         tariffs_config = getattr(self.settings, "tariffs_config", None)
         if tariff_key and tariffs_config:
@@ -277,7 +277,7 @@ class ReferralService:
 
     async def generate_referral_link(
         self, session: AsyncSession, bot_username: str, inviter_user_id: int
-    ) -> Optional[str]:
+    ) -> str | None:
         try:
             user = await user_dal.get_user_by_id(session, inviter_user_id)
             if not user:

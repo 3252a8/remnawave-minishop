@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import html
-from typing import TYPE_CHECKING, Optional, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from bot.middlewares.i18n import JsonI18n
@@ -29,20 +29,20 @@ from .email_templates_common import (
 
 
 class _GettextProvider(Protocol):
-    def gettext(self, lang_code: Optional[str], key: str, **kwargs: object) -> str: ...
+    def gettext(self, lang_code: str | None, key: str, **kwargs: object) -> str: ...
 
 
 def render_user_notification(
     settings: Settings,
     *,
-    language_code: Optional[str],
+    language_code: str | None,
     subject: str,
     message_text: str,
-    dashboard_url: Optional[str] = None,
-    cta_label: Optional[str] = None,
-    heading: Optional[str] = None,
-    intro: Optional[str] = None,
-    i18n: Optional[JsonI18n] = None,
+    dashboard_url: str | None = None,
+    cta_label: str | None = None,
+    heading: str | None = None,
+    intro: str | None = None,
+    i18n: JsonI18n | None = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language_code, settings)
@@ -97,11 +97,11 @@ def render_user_notification(
 def render_subscription_expiring(
     settings: Settings,
     *,
-    language_code: Optional[str],
+    language_code: str | None,
     days_left: int,
     end_date_text: str,
-    dashboard_url: Optional[str],
-    i18n: Optional[JsonI18n] = None,
+    dashboard_url: str | None,
+    i18n: JsonI18n | None = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language_code, settings)
@@ -168,9 +168,9 @@ def _subscription_lifecycle_title(
     lang: str,
     notification_key: str,
     *,
-    days_left: Optional[int],
-    hours_before: Optional[int],
-    hours_after: Optional[int],
+    days_left: int | None,
+    hours_before: int | None,
+    hours_after: int | None,
 ) -> str:
     if notification_key == "before_2d_autorenew":
         return _lifecycle_text(i18n, lang, "email_subscription_lifecycle_subject_autorenew")
@@ -203,16 +203,16 @@ def _subscription_lifecycle_title(
 def render_subscription_lifecycle_notification(
     settings: Settings,
     *,
-    language_code: Optional[str],
+    language_code: str | None,
     notification_key: str,
     message_text: str,
     end_date_text: str,
-    dashboard_url: Optional[str],
+    dashboard_url: str | None,
     mirrored_from_telegram: bool = False,
-    days_left: Optional[int] = None,
-    hours_before: Optional[int] = None,
-    hours_after: Optional[int] = None,
-    i18n: Optional[JsonI18n] = None,
+    days_left: int | None = None,
+    hours_before: int | None = None,
+    hours_after: int | None = None,
+    i18n: JsonI18n | None = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language_code, settings)

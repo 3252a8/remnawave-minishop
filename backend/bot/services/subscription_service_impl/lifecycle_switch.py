@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +17,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         self,
         db_user: User,
         local_active_sub: Subscription,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         panel_sub_id = str(local_active_sub.panel_subscription_uuid or "").strip()
         config_link_raw = (
             await self.panel_service.get_subscription_link(panel_sub_id) if panel_sub_id else None
@@ -106,8 +106,8 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         user_id: int,
         target_tariff_key: str,
         mode: str,
-        payment_id: Optional[int] = None,
-    ) -> Optional[Dict[str, Any]]:
+        payment_id: int | None = None,
+    ) -> dict[str, Any] | None:
         config = self._tariffs_config()
         if not config:
             return None
@@ -121,7 +121,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         if not sub:
             return None
         before_tariff_key = sub.tariff_key
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         trial_provider = str(getattr(sub, "provider", "") or "").strip().lower() == "trial"
         trial_status = str(getattr(sub, "status_from_panel", "") or "").strip().upper() == "TRIAL"
         convert_trial_admin_assignment = mode == "admin_assign" and (trial_provider or trial_status)
@@ -145,7 +145,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             premium_topup_used,
         )
         premium_used = int(sub.premium_used_bytes or 0)
-        update_data: Dict[str, Any] = {
+        update_data: dict[str, Any] = {
             "tariff_key": target.key,
             "is_throttled": False,
             "premium_baseline_bytes": premium_baseline,

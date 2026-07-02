@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from aiogram import F, Router, types
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,7 +23,7 @@ async def select_subscription_period_callback_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     if not i18n or not callback.message:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -86,7 +86,7 @@ def test_unsubscribe_stops_delivery():
 
 
 def test_iso_formats_datetimes():
-    value = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+    value = datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
     assert events.iso(value) == "2026-01-02T03:04:05+00:00"
     assert events.iso(None) is None
 

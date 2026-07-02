@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -126,8 +126,8 @@ def test_remnashop_plan_months_prefers_snapshot_then_dates():
     assert (
         remnashop_months_from_plan_snapshot(
             {},
-            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
-            expire_at=datetime(2026, 4, 1, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            expire_at=datetime(2026, 4, 1, tzinfo=UTC),
         )
         == 3
     )

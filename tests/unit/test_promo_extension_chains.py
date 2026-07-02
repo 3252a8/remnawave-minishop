@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -75,8 +75,8 @@ def test_price_chain_applies_core_discount_and_registered_modifier():
 
 def test_grant_chain_applies_core_bonus_and_registered_modifier():
     seen: list[str] = []
-    period_start = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    base_period_end = datetime(2026, 2, 1, tzinfo=timezone.utc)
+    period_start = datetime(2026, 1, 1, tzinfo=UTC)
+    base_period_end = datetime(2026, 2, 1, tzinfo=UTC)
 
     def plugin_modifier(ctx: GrantContext):
         seen.append(ctx.sale_mode_base)
@@ -128,7 +128,7 @@ def test_redemption_policy_chain_invokes_registered_policy(monkeypatch):
                 promo_model=SimpleNamespace(
                     promo_code_id=5,
                     is_active=True,
-                    valid_until=datetime.now(timezone.utc) + timedelta(days=1),
+                    valid_until=datetime.now(UTC) + timedelta(days=1),
                     current_activations=0,
                     max_activations=10,
                 ),

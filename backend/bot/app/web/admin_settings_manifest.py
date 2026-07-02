@@ -9,7 +9,7 @@ the API, even by an admin.
 from __future__ import annotations
 
 import re
-from typing import Any, List, Optional
+from typing import Any
 
 from bot.app.web.admin_settings_manifest_fields import SETTINGS_MANIFEST, SettingField
 
@@ -34,24 +34,24 @@ def _provider_field_to_setting_field(spec: Any, manifest_field: Any) -> SettingF
     )
 
 
-def aggregated_manifest() -> List[SettingField]:
+def aggregated_manifest() -> list[SettingField]:
     """SETTINGS_MANIFEST + per-provider fragments declared in provider SPECs."""
     from bot.payment_providers import iter_provider_manifest_fields  # local to avoid cycle
 
-    fields: List[SettingField] = list(SETTINGS_MANIFEST)
+    fields: list[SettingField] = list(SETTINGS_MANIFEST)
     for spec, manifest_field in iter_provider_manifest_fields():
         fields.append(_provider_field_to_setting_field(spec, manifest_field))
     return fields
 
 
-def get_field_by_key(key: str) -> Optional[SettingField]:
+def get_field_by_key(key: str) -> SettingField | None:
     for field in aggregated_manifest():
         if field.key == key:
             return field
     return None
 
 
-def manifest_keys() -> List[str]:
+def manifest_keys() -> list[str]:
     return [f.key for f in aggregated_manifest()]
 
 
@@ -116,7 +116,7 @@ def _i18n_slug(value: str) -> str:
     return slug or "default"
 
 
-def manifest_payload() -> List[dict]:
+def manifest_payload() -> list[dict]:
     """Serialize the manifest for the admin UI.
 
     For provider presentation fields we resolve the SPEC-declared default
@@ -153,7 +153,7 @@ def manifest_payload() -> List[dict]:
         for public_key, admin_key in provider_admin_only_pairs()
         for key, opposite in ((public_key, admin_key), (admin_key, public_key))
     }
-    items: List[dict] = []
+    items: list[dict] = []
     for field in aggregated_manifest():
         auto_label_i18n_key = f"admin_settings_field_{field.key.lower()}_label"
         auto_description_i18n_key = f"admin_settings_field_{field.key.lower()}_description"
@@ -163,8 +163,8 @@ def manifest_payload() -> List[dict]:
             else None
         )
 
-        default_value: Optional[str] = None
-        webhook_metadata: Optional[dict] = None
+        default_value: str | None = None
+        webhook_metadata: dict | None = None
         owner = find_manifest_owner(field.key)
         if owner is not None:
             spec, manifest_field = owner

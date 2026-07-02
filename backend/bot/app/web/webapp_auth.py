@@ -6,7 +6,7 @@ import json
 import logging
 import secrets
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 from urllib.parse import parse_qsl
 
 from config.settings import Settings
@@ -67,7 +67,7 @@ def create_webapp_session_token(settings: Settings, user_id: int) -> str:
     return f"{payload_part}.{_urlsafe_b64encode(signature)}"
 
 
-def verify_webapp_session_token(settings: Settings, token: str) -> Optional[int]:
+def verify_webapp_session_token(settings: Settings, token: str) -> int | None:
     if not token or "." not in token:
         return None
 
@@ -136,7 +136,7 @@ def verify_telegram_oauth_nonce(settings: Settings, nonce: str) -> bool:
 
 def create_signed_telegram_oauth_state(
     settings: Settings,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     *,
     ttl_seconds: int = 600,
 ) -> str:
@@ -160,7 +160,7 @@ def create_signed_telegram_oauth_state(
 def verify_signed_telegram_oauth_state(
     settings: Settings,
     state: str,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     if not state or "." not in state:
         return None
 
@@ -193,7 +193,7 @@ async def validate_telegram_oauth_id_token(
     client_id: int,
     expected_nonce: str,
     max_age_seconds: int,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Validate Telegram OIDC ID token and return a Telegram-like user payload."""
 
     if not id_token or not client_id or not expected_nonce:
@@ -269,7 +269,7 @@ def validate_telegram_webapp_init_data(
     bot_token: str,
     *,
     max_age_seconds: int,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Validate Telegram Mini App initData and return the trusted user payload."""
 
     try:
@@ -323,7 +323,7 @@ def validate_telegram_login_widget_data(
     bot_token: str,
     *,
     max_age_seconds: int,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Validate Telegram Login Widget data and return the trusted user payload."""
 
     try:

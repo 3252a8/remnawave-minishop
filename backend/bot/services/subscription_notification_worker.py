@@ -1,8 +1,7 @@
 import asyncio
 import logging
 import time
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from aiogram import Bot
 from aiogram.utils.text_decorations import html_decoration as hd
@@ -93,7 +92,7 @@ class SubscriptionNotificationWorker:
                 logging.exception("SubscriptionNotificationWorker tick failed")
             try:
                 await asyncio.wait_for(self._stopped.wait(), timeout=self._tick_seconds())
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
 
     def stop(self) -> None:
@@ -112,7 +111,7 @@ class SubscriptionNotificationWorker:
     async def expiry_tick(self, session: AsyncSession) -> None:
         if not getattr(self.settings, "SUBSCRIPTION_NOTIFICATIONS_ENABLED", True):
             return
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         lower = now - EXPIRED_AFTER_NOTIFICATION_WINDOW
         upper = now + self._max_before_window()
         result = await session.execute(
@@ -191,7 +190,7 @@ class SubscriptionNotificationWorker:
         self,
         sub: Subscription,
         now: datetime,
-    ) -> Optional[SubscriptionNotificationStage]:
+    ) -> SubscriptionNotificationStage | None:
         end_date = self._as_utc(getattr(sub, "end_date", None))
         if end_date is None:
             return None
@@ -259,7 +258,7 @@ class SubscriptionNotificationWorker:
     async def trial_traffic_tick(self, session: AsyncSession) -> None:
         if not getattr(self.settings, "SUBSCRIPTION_NOTIFICATIONS_ENABLED", True):
             return
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         result = await session.execute(
             select(Subscription)
             .where(
@@ -340,7 +339,7 @@ class SubscriptionNotificationWorker:
                     sent_at=now,
                 )
 
-    async def _panel_user(self, sub: Subscription) -> Optional[dict]:
+    async def _panel_user(self, sub: Subscription) -> dict | None:
         panel_uuid = str(getattr(sub, "panel_user_uuid", "") or "").strip()
         if not panel_uuid:
             return None
@@ -447,12 +446,12 @@ class SubscriptionNotificationWorker:
         return max(timedelta(days=min(days_before, 3)), timedelta(hours=hours_before))
 
     @staticmethod
-    def _as_utc(value: Optional[datetime]) -> Optional[datetime]:
+    def _as_utc(value: datetime | None) -> datetime | None:
         if value is None:
             return None
         if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
-        return value.astimezone(timezone.utc)
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
 
     @staticmethod
     def _fmt_bytes(value: int) -> str:

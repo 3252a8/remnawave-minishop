@@ -6,11 +6,11 @@ import re
 import secrets
 import smtplib
 import ssl
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 from email.utils import formataddr, formatdate, make_msgid
-from typing import Optional, Sequence
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,33 +37,33 @@ class SmtpAttempt:
 @dataclass(frozen=True)
 class EmailCodeRequestResult:
     ok: bool
-    error: Optional[str] = None
-    retry_after: Optional[int] = None
-    code: Optional[str] = None
-    magic_link: Optional[str] = None
+    error: str | None = None
+    retry_after: int | None = None
+    code: str | None = None
+    magic_link: str | None = None
 
 
 @dataclass(frozen=True)
 class EmailCodeVerifyResult:
     ok: bool
-    error: Optional[str] = None
-    retry_after: Optional[int] = None
+    error: str | None = None
+    retry_after: int | None = None
 
 
 @dataclass(frozen=True)
 class EmailMagicVerifyResult:
     ok: bool
-    error: Optional[str] = None
-    email: Optional[str] = None
-    purpose: Optional[str] = None
-    target_user_id: Optional[int] = None
+    error: str | None = None
+    email: str | None = None
+    purpose: str | None = None
+    target_user_id: int | None = None
 
 
 def normalize_email(value: str) -> str:
     return (value or "").strip().lower()
 
 
-def email_domain(value: Optional[str]) -> str:
+def email_domain(value: str | None) -> str:
     email = normalize_email(value or "")
     if "@" not in email:
         return ""
@@ -79,7 +79,7 @@ def _split_disposable_domain_values(value: str) -> list[str]:
     return [item.strip() for item in re.split(r"[,;\s]+", value or "") if item.strip()]
 
 
-def is_disposable_email(value: Optional[str], settings: Settings) -> bool:
+def is_disposable_email(value: str | None, settings: Settings) -> bool:
     domain = email_domain(value)
     if not domain:
         return False
@@ -96,13 +96,13 @@ def is_disposable_email(value: Optional[str], settings: Settings) -> bool:
     return False
 
 
-def _email_throttle_identifier(email: str, purpose: str, target_user_id: Optional[int]) -> str:
+def _email_throttle_identifier(email: str, purpose: str, target_user_id: int | None) -> str:
     target_part = "none" if target_user_id is None else str(target_user_id)
     return f"{purpose}:{target_part}:{email}"
 
 
 class EmailAuthService:
-    def __init__(self, settings: Settings, i18n: Optional[JsonI18n] = None):
+    def __init__(self, settings: Settings, i18n: JsonI18n | None = None):
         self.settings = settings
         self.i18n = i18n
 
@@ -137,7 +137,7 @@ class EmailAuthService:
             b"remnawave-tg-shop-email-code",
             hashlib.sha256,
         ).digest()
-        payload = f"{purpose}:{email}:{code}".encode("utf-8")
+        payload = f"{purpose}:{email}:{code}".encode()
         return hmac.new(secret, payload, hashlib.sha256).hexdigest()
 
     def _hash_magic_token(self, token: str) -> str:
@@ -153,8 +153,8 @@ class EmailAuthService:
         *,
         token: str,
         purpose: str,
-        referral_param: Optional[str] = None,
-    ) -> Optional[str]:
+        referral_param: str | None = None,
+    ) -> str | None:
         base_url = (self.settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
         if not base_url:
             return None
@@ -184,8 +184,8 @@ class EmailAuthService:
         email: str,
         purpose: str,
         language_code: str,
-        target_user_id: Optional[int] = None,
-        referral_param: Optional[str] = None,
+        target_user_id: int | None = None,
+        referral_param: str | None = None,
     ) -> EmailCodeRequestResult:
         normalized_email = normalize_email(email)
         if not self.settings.email_auth_configured:
@@ -193,7 +193,7 @@ class EmailAuthService:
         if not is_valid_email(normalized_email):
             return EmailCodeRequestResult(ok=False, error="invalid_email")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         throttle = await security_dal.check_throttle(
             session,
             scope=security_dal.EMAIL_CODE_VERIFY_SCOPE,
@@ -216,7 +216,7 @@ class EmailAuthService:
         if latest_code and latest_code.created_at:
             created_at = latest_code.created_at
             if created_at.tzinfo is None:
-                created_at = created_at.replace(tzinfo=timezone.utc)
+                created_at = created_at.replace(tzinfo=UTC)
             resend_after = max(1, int(self.settings.EMAIL_CODE_RESEND_SECONDS))
             elapsed = int((now - created_at).total_seconds())
             if elapsed < resend_after and latest_code.consumed_at is None:
@@ -310,14 +310,14 @@ class EmailAuthService:
         email: str,
         purpose: str,
         code: str,
-        target_user_id: Optional[int] = None,
+        target_user_id: int | None = None,
     ) -> EmailCodeVerifyResult:
         normalized_email = normalize_email(email)
         normalized_code = re.sub(r"\D", "", code or "")
         if not is_valid_email(normalized_email):
             return EmailCodeVerifyResult(ok=False, error="invalid_code")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         throttle_identifier = _email_throttle_identifier(
             normalized_email,
             purpose,
@@ -347,7 +347,7 @@ class EmailAuthService:
 
         expires_at = latest_code.expires_at
         if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
+            expires_at = expires_at.replace(tzinfo=UTC)
         if expires_at < now:
             return EmailCodeVerifyResult(ok=False, error="expired_code")
 
@@ -413,8 +413,8 @@ class EmailAuthService:
         *,
         email: str,
         purpose: str,
-        target_user_id: Optional[int],
-    ) -> Optional[EmailVerificationCode]:
+        target_user_id: int | None,
+    ) -> EmailVerificationCode | None:
         stmt = (
             select(EmailVerificationCode)
             .where(
@@ -436,13 +436,13 @@ class EmailAuthService:
         *,
         token: str,
         purpose: str,
-        target_user_id: Optional[int] = None,
+        target_user_id: int | None = None,
     ) -> EmailMagicVerifyResult:
         if not token:
             return EmailMagicVerifyResult(ok=False, error="invalid_token")
 
         token_hash = self._hash_magic_token(token)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         stmt = (
             select(EmailVerificationCode)
             .where(
@@ -461,7 +461,7 @@ class EmailAuthService:
 
         expires_at = record.expires_at
         if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
+            expires_at = expires_at.replace(tzinfo=UTC)
         if expires_at < now:
             return EmailMagicVerifyResult(ok=False, error="expired_token")
 
@@ -490,7 +490,7 @@ class EmailAuthService:
         email: str,
         code: str,
         language_code: str,
-        magic_link: Optional[str] = None,
+        magic_link: str | None = None,
         purpose: str = "login",
     ) -> None:
         await asyncio.to_thread(
@@ -508,7 +508,7 @@ class EmailAuthService:
         email: str,
         subject: str,
         body: str,
-        html_body: Optional[str] = None,
+        html_body: str | None = None,
         inline_images: Sequence[EmailInlineImage] = (),
     ) -> None:
         await asyncio.to_thread(
@@ -540,7 +540,7 @@ class EmailAuthService:
         email: str,
         code: str,
         language_code: str,
-        magic_link: Optional[str] = None,
+        magic_link: str | None = None,
         purpose: str = "login",
     ) -> None:
         content = render_login_code(
@@ -564,7 +564,7 @@ class EmailAuthService:
         smtp_host = self.settings.SMTP_HOST
         timeout = max(5, int(self.settings.SMTP_TIMEOUT_SECONDS))
         attempts = self._smtp_attempts()
-        last_error: Optional[BaseException] = None
+        last_error: BaseException | None = None
 
         for attempt_number, attempt in enumerate(attempts, start=1):
             try:
@@ -608,7 +608,7 @@ class EmailAuthService:
         email: str,
         subject: str,
         body: str,
-        html_body: Optional[str] = None,
+        html_body: str | None = None,
         inline_images: Sequence[EmailInlineImage] = (),
     ) -> None:
         message = self._build_email_message(
@@ -623,7 +623,7 @@ class EmailAuthService:
         smtp_host = self.settings.SMTP_HOST
         timeout = max(5, int(self.settings.SMTP_TIMEOUT_SECONDS))
         attempts = self._smtp_attempts()
-        last_error: Optional[BaseException] = None
+        last_error: BaseException | None = None
 
         for attempt_number, attempt in enumerate(attempts, start=1):
             try:
@@ -667,7 +667,7 @@ class EmailAuthService:
         email: str,
         subject: str,
         body: str,
-        html_body: Optional[str] = None,
+        html_body: str | None = None,
         inline_images: Sequence[EmailInlineImage] = (),
     ) -> EmailMessage:
         message = EmailMessage()

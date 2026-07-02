@@ -3,8 +3,8 @@ import hashlib
 import json
 import logging
 import time
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import quote, urlsplit, urlunsplit
 
 from aiohttp import web
@@ -59,10 +59,10 @@ def _subscription_guides_json_dumps(data: Any) -> str:
 
 
 def _subscription_guides_json_response(
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     *,
     status: int = 200,
-    cache_control: Optional[str] = None,
+    cache_control: str | None = None,
 ) -> web.Response:
     response = json_response(payload, status=status, dumps=_subscription_guides_json_dumps)
     if cache_control:
@@ -142,7 +142,7 @@ async def public_subscription_guides_route(request: web.Request) -> web.Response
     )
 
 
-async def _subscription_guides_status_shared(app: web.Application) -> Dict[str, Any]:
+async def _subscription_guides_status_shared(app: web.Application) -> dict[str, Any]:
     settings: Settings = get_app_settings(app)
     cache = get_or_create_subscription_guides_config_cache(app)
     lock: asyncio.Lock = get_or_create_subscription_guides_config_lock(app)
@@ -174,10 +174,10 @@ async def _subscription_guides_status_shared(app: web.Application) -> Dict[str, 
 async def _subscription_guides_status_for_request(
     request: web.Request,
     *,
-    user_id: Optional[int] = None,
-    panel_short_uuid: Optional[str] = None,
-    panel_user_uuid: Optional[str] = None,
-) -> Dict[str, Any]:
+    user_id: int | None = None,
+    panel_short_uuid: str | None = None,
+    panel_user_uuid: str | None = None,
+) -> dict[str, Any]:
     settings: Settings = get_settings(request)
     if not _subscription_guides_should_try_resolved_panel_config(settings):
         return await _subscription_guides_status_shared(request.app)
@@ -206,7 +206,7 @@ async def _subscription_guides_status_for_request(
 async def _load_subscription_guides_status(
     app: web.Application,
     settings: Settings,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     if not bool(settings.SUBSCRIPTION_GUIDES_ENABLED):
         return {"enabled": False, "config": None, "source": None, "error": None}
 
@@ -224,7 +224,7 @@ async def _load_subscription_guides_status(
 async def _subscription_guides_status_from_panel_config(
     app: web.Application,
     settings: Settings,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     panel_service = _panel_service_from_app(app)
     if panel_service is None:
         return {
@@ -265,9 +265,9 @@ async def _subscription_guides_status_from_panel_short_uuid_cached(
     settings: Settings,
     short_uuid: str,
     *,
-    panel_user_uuid: Optional[str] = None,
-    request_headers: Optional[Dict[str, str]] = None,
-) -> Dict[str, Any]:
+    panel_user_uuid: str | None = None,
+    request_headers: dict[str, str] | None = None,
+) -> dict[str, Any]:
     ttl_seconds = max(
         0,
         int(settings.SUBSCRIPTION_GUIDES_RESOLVED_CACHE_TTL_SECONDS or 0),
@@ -319,9 +319,9 @@ async def _subscription_guides_status_from_panel_short_uuid(
     settings: Settings,
     short_uuid: str,
     *,
-    panel_user_uuid: Optional[str] = None,
-    request_headers: Optional[Dict[str, str]] = None,
-) -> Dict[str, Any]:
+    panel_user_uuid: str | None = None,
+    request_headers: dict[str, str] | None = None,
+) -> dict[str, Any]:
     panel_service = _panel_service_from_app(app)
     get_config = getattr(panel_service, "get_subscription_page_config_by_short_uuid", None)
     if not callable(get_config):
@@ -377,7 +377,7 @@ async def _panel_subscription_page_config_by_uuid_cached(
     app: web.Application,
     settings: Settings,
     config_uuid: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     config_uuid = str(config_uuid or "").strip()
     if not config_uuid:
         raise SubscriptionGuidesConfigError("Panel subscription page config UUID is empty")
@@ -413,7 +413,7 @@ async def _panel_subscription_page_config_by_uuid_cached(
 async def _load_panel_subscription_page_config_by_uuid(
     app: web.Application,
     config_uuid: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     panel_service = _panel_service_from_app(app)
     get_config_by_uuid = getattr(panel_service, "get_subscription_page_config_by_uuid", None)
     if not callable(get_config_by_uuid):
@@ -490,7 +490,7 @@ def _subscription_guides_response_config(config: Any) -> Any:
     return compact_config
 
 
-def _subscription_guides_referenced_svg_keys(config: Dict[str, Any]) -> set[str]:
+def _subscription_guides_referenced_svg_keys(config: dict[str, Any]) -> set[str]:
     keys: set[str] = set()
 
     def add(value: Any) -> None:
@@ -529,7 +529,7 @@ async def _default_panel_subscription_page_config_uuid(panel_service: Any) -> st
     if not configs:
         return ""
 
-    candidates: list[Dict[str, Any]] = configs
+    candidates: list[dict[str, Any]] = configs
     for item in candidates:
         uuid = str(item.get("uuid") or "").strip()
         if uuid == PANEL_DEFAULT_SUBPAGE_CONFIG_UUID:
@@ -583,7 +583,7 @@ async def _warm_panel_subscription_page_configs(app: web.Application) -> None:
                 )
 
 
-def _panel_subscription_page_config_items(payload: Any) -> list[Dict[str, Any]]:
+def _panel_subscription_page_config_items(payload: Any) -> list[dict[str, Any]]:
     if isinstance(payload, list):
         return [item for item in payload if isinstance(item, dict)]
     if not isinstance(payload, dict):
@@ -602,7 +602,7 @@ def _panel_subscription_page_config_items(payload: Any) -> list[Dict[str, Any]]:
 async def _active_panel_subscription_context_for_user(
     request: web.Request,
     user_id: int,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     panel_service = _panel_service_from_app(request.app)
     get_user = getattr(panel_service, "get_user_by_uuid", None)
     if not callable(get_user):
@@ -643,7 +643,7 @@ async def _active_panel_subscription_context_for_user(
 async def _public_subscription_payload_cached(
     request: web.Request,
     share_token: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     settings: Settings = get_settings(request)
     ttl_seconds = max(
         0,
@@ -680,7 +680,7 @@ async def _public_subscription_payload_cached(
 async def _public_subscription_payload_uncached(
     request: web.Request,
     share_token: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     settings: Settings = get_settings(request)
     panel_service = _panel_service_from_app(request.app)
     raw_link = ""
@@ -721,7 +721,7 @@ async def _public_subscription_payload_uncached(
     }
 
 
-def _public_subscription_payload_fingerprint(request: web.Request) -> Tuple[str, ...]:
+def _public_subscription_payload_fingerprint(request: web.Request) -> tuple[str, ...]:
     settings: Settings = get_settings(request)
     headers = request.headers
     host = headers.get("X-Forwarded-Host") or headers.get("Host") or request.host
@@ -737,7 +737,7 @@ def _public_subscription_payload_fingerprint(request: web.Request) -> Tuple[str,
 
 
 def _panel_service_from_app(app: web.Application) -> Any:
-    subscription_service: Optional[SubscriptionService] = get_app_optional_subscription_service(app)
+    subscription_service: SubscriptionService | None = get_app_optional_subscription_service(app)
     panel_service = (
         getattr(subscription_service, "panel_service", None) if subscription_service else None
     )
@@ -756,7 +756,7 @@ def _panel_short_uuid_from_user(panel_user: Any) -> str:
 
 async def _external_squad_subpage_config_uuid_for_panel_user(
     panel_service: Any,
-    panel_user_uuid: Optional[str],
+    panel_user_uuid: str | None,
 ) -> str:
     user_uuid = str(panel_user_uuid or "").strip()
     if not user_uuid:
@@ -803,7 +803,7 @@ def _panel_external_squad_uuid_from_user(panel_user: Any) -> str:
     return ""
 
 
-def _looks_like_panel_subscription_page_config(payload: Dict[str, Any]) -> bool:
+def _looks_like_panel_subscription_page_config(payload: dict[str, Any]) -> bool:
     return "config" in payload or "viewPosition" in payload or "webpageAllowed" in payload
 
 
@@ -820,7 +820,7 @@ def _subscription_guides_should_try_resolved_panel_config(settings: Settings) ->
     )
 
 
-def _subscription_guides_settings_fingerprint(settings: Settings) -> Tuple[Any, ...]:
+def _subscription_guides_settings_fingerprint(settings: Settings) -> tuple[Any, ...]:
     admin_json = str(settings.SUBSCRIPTION_PAGE_CONFIG_JSON or "")
     return (
         bool(settings.SUBSCRIPTION_GUIDES_ENABLED),
@@ -834,7 +834,7 @@ def _subscription_guides_settings_fingerprint(settings: Settings) -> Tuple[Any, 
     )
 
 
-def _subscription_guides_request_headers_fingerprint(headers: Dict[str, str]) -> Tuple[str, ...]:
+def _subscription_guides_request_headers_fingerprint(headers: dict[str, str]) -> tuple[str, ...]:
     return (
         str(headers.get("host") or "").strip().lower(),
         str(headers.get("x-forwarded-host") or "").strip().lower(),
@@ -842,19 +842,19 @@ def _subscription_guides_request_headers_fingerprint(headers: Dict[str, str]) ->
     )
 
 
-def _prune_subscription_guides_resolved_cache(cache: Dict[Any, Any]) -> None:
+def _prune_subscription_guides_resolved_cache(cache: dict[Any, Any]) -> None:
     overflow = len(cache) - SUBSCRIPTION_GUIDES_RESOLVED_CACHE_MAX_ITEMS
     for key in list(cache.keys())[: max(0, overflow)]:
         cache.pop(key, None)
 
 
-def _prune_subscription_guides_panel_config_cache(cache: Dict[Any, Any]) -> None:
+def _prune_subscription_guides_panel_config_cache(cache: dict[Any, Any]) -> None:
     overflow = len(cache) - SUBSCRIPTION_GUIDES_RESOLVED_CACHE_MAX_ITEMS
     for key in list(cache.keys())[: max(0, overflow)]:
         cache.pop(key, None)
 
 
-def _prune_subscription_guides_public_subscription_cache(cache: Dict[Any, Any]) -> None:
+def _prune_subscription_guides_public_subscription_cache(cache: dict[Any, Any]) -> None:
     overflow = len(cache) - SUBSCRIPTION_GUIDES_RESOLVED_CACHE_MAX_ITEMS
     for key in list(cache.keys())[: max(0, overflow)]:
         cache.pop(key, None)
@@ -863,11 +863,9 @@ def _prune_subscription_guides_public_subscription_cache(cache: Dict[Any, Any]) 
 def _local_subscription_is_publicly_active(subscription: Any) -> bool:
     end_date = getattr(subscription, "end_date", None)
     if end_date and end_date.tzinfo is None:
-        end_date = end_date.replace(tzinfo=timezone.utc)
+        end_date = end_date.replace(tzinfo=UTC)
     return bool(
-        getattr(subscription, "is_active", False)
-        and end_date
-        and end_date > datetime.now(timezone.utc)
+        getattr(subscription, "is_active", False) and end_date and end_date > datetime.now(UTC)
     )
 
 
@@ -889,7 +887,7 @@ def _public_install_url(request: web.Request, share_token: str) -> str:
     return f"{base.rstrip('/')}/s/{quote(share_token)}"
 
 
-def _subscription_page_request_headers(request: web.Request) -> Dict[str, str]:
+def _subscription_page_request_headers(request: web.Request) -> dict[str, str]:
     headers = request.headers
     host = headers.get("X-Forwarded-Host") or headers.get("Host") or request.host
     proto = headers.get("X-Forwarded-Proto") or request.scheme or "https"

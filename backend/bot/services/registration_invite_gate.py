@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Literal, Optional
+from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,7 +31,7 @@ class RegistrationInviteRequiredError(PermissionError):
 class RegistrationInviteCheck:
     enabled: bool
     status: RegistrationInviteStatus
-    referrer_user_id: Optional[int] = None
+    referrer_user_id: int | None = None
 
     @property
     def allowed(self) -> bool:
@@ -45,7 +45,7 @@ class RegistrationInviteCheck:
 @dataclass(frozen=True)
 class _ReferralLookupResult:
     status: RegistrationInviteStatus
-    referrer_user_id: Optional[int] = None
+    referrer_user_id: int | None = None
 
 
 def registration_invite_only_enabled(settings: Settings) -> bool:
@@ -70,7 +70,7 @@ def _legacy_refs_enabled(settings: Settings) -> bool:
 
 
 def strip_referral_param_prefix(
-    raw: Optional[str],
+    raw: str | None,
     *,
     preserve_current_u_prefix: bool,
 ) -> str:
@@ -86,7 +86,7 @@ def strip_referral_param_prefix(
     return value
 
 
-def normalize_webapp_referral_param(raw: Optional[str]) -> Optional[str]:
+def normalize_webapp_referral_param(raw: str | None) -> str | None:
     value = strip_referral_param_prefix(raw, preserve_current_u_prefix=False)
     if not value:
         return None
@@ -100,7 +100,7 @@ def normalize_webapp_referral_param(raw: Optional[str]) -> Optional[str]:
 
 
 def webapp_referral_lookup_candidates(
-    raw: Optional[str],
+    raw: str | None,
     *,
     remnashop_compat: bool,
 ) -> list[str]:
@@ -119,7 +119,7 @@ def webapp_referral_lookup_candidates(
 
 
 def telegram_start_referral_lookup_candidates(
-    raw_ref_value: Optional[str],
+    raw_ref_value: str | None,
     *,
     remnashop_compat: bool,
 ) -> list[str]:
@@ -146,7 +146,7 @@ def _unique_nonempty(candidates: list[str]) -> list[str]:
     return unique
 
 
-def _is_self_referrer(user: User, current_user_id: Optional[int]) -> bool:
+def _is_self_referrer(user: User, current_user_id: int | None) -> bool:
     return current_user_id is not None and int(user.user_id) == int(current_user_id)
 
 
@@ -154,8 +154,8 @@ async def _lookup_referrer_by_user_id(
     session: AsyncSession,
     raw_user_id: str,
     *,
-    current_user_id: Optional[int],
-) -> tuple[Optional[int], bool]:
+    current_user_id: int | None,
+) -> tuple[int | None, bool]:
     ref_user = await user_dal.get_user_by_id(session, int(raw_user_id))
     if not ref_user:
         return None, False
@@ -168,9 +168,9 @@ async def _lookup_referrer_by_code(
     session: AsyncSession,
     code: str,
     *,
-    current_user_id: Optional[int],
+    current_user_id: int | None,
     include_legacy: bool,
-) -> tuple[Optional[int], bool]:
+) -> tuple[int | None, bool]:
     ref_user = await user_dal.get_user_by_referral_code(
         session,
         code,
@@ -185,10 +185,10 @@ async def _lookup_referrer_by_code(
 
 async def _lookup_referrer(
     session: AsyncSession,
-    raw_referral_param: Optional[str],
+    raw_referral_param: str | None,
     *,
     settings: Settings,
-    current_user_id: Optional[int],
+    current_user_id: int | None,
     source: ReferralLookupSource,
 ) -> _ReferralLookupResult:
     value = str(raw_referral_param or "").strip()
@@ -265,12 +265,12 @@ async def _lookup_referrer(
 
 async def resolve_referrer_user_id(
     session: AsyncSession,
-    raw_referral_param: Optional[str],
+    raw_referral_param: str | None,
     *,
     settings: Settings,
-    current_user_id: Optional[int],
+    current_user_id: int | None,
     source: ReferralLookupSource = "webapp",
-) -> Optional[int]:
+) -> int | None:
     lookup = await _lookup_referrer(
         session,
         raw_referral_param,
@@ -283,10 +283,10 @@ async def resolve_referrer_user_id(
 
 async def evaluate_registration_invite(
     session: AsyncSession,
-    raw_referral_param: Optional[str],
+    raw_referral_param: str | None,
     *,
     settings: Settings,
-    current_user_id: Optional[int],
+    current_user_id: int | None,
     source: ReferralLookupSource = "webapp",
 ) -> RegistrationInviteCheck:
     lookup = await _lookup_referrer(

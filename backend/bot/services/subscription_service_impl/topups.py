@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,8 +21,8 @@ class TopupMixin(SubscriptionServiceMixinContract):
         payment_amount: float,
         payment_db_id: int,
         provider: str = "yookassa",
-        promo_code_id_from_payment: Optional[int] = None,
-    ) -> Optional[Dict[str, Any]]:
+        promo_code_id_from_payment: int | None = None,
+    ) -> dict[str, Any] | None:
         tariff = self._resolve_tariff(tariff_key)
         if tariff.billing_model == "traffic":
             return await self._activate_traffic_package(
@@ -173,8 +173,8 @@ class TopupMixin(SubscriptionServiceMixinContract):
         payment_amount: float,
         payment_db_id: int,
         provider: str = "yookassa",
-        promo_code_id_from_payment: Optional[int] = None,
-    ) -> Optional[Dict[str, Any]]:
+        promo_code_id_from_payment: int | None = None,
+    ) -> dict[str, Any] | None:
         tariff = self._resolve_tariff(tariff_key)
         if not tariff or not tariff.premium_squad_uuids:
             logging.error(
@@ -235,7 +235,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
             return None
 
         purchase_bytes = self.gb_to_bytes(granted_gb)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         premium_period_start = self._premium_accounting_period_start(sub, now)
         same_period = self._same_premium_accounting_period(sub, premium_period_start, now)
         previous_topup_used = int(sub.premium_topup_used_bytes or 0) if same_period else 0
@@ -321,7 +321,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
         session: AsyncSession,
         user_id: int,
         traffic_gb: float,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Credit regular traffic to a user as if they purchased a top-up."""
         try:
             gb_value = float(traffic_gb)
@@ -409,7 +409,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
         session: AsyncSession,
         user_id: int,
         traffic_gb: float,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Credit premium-squad traffic to a user as if they purchased a premium top-up."""
         try:
             gb_value = float(traffic_gb)
@@ -437,7 +437,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
             return None
 
         purchase_bytes = self.gb_to_bytes(gb_value)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         premium_period_start = self._premium_accounting_period_start(sub, now)
         same_period = self._same_premium_accounting_period(sub, premium_period_start, now)
         previous_topup_used = int(sub.premium_topup_used_bytes or 0) if same_period else 0
@@ -514,7 +514,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
     async def _sync_panel_squads_if_needed(
         self,
         panel_user_uuid: str,
-        desired_squads: List[str],
+        desired_squads: list[str],
         *,
         user_id: int,
         source: str,
@@ -543,8 +543,8 @@ class TopupMixin(SubscriptionServiceMixinContract):
     async def _panel_squads_match(
         self,
         panel_user_uuid: str,
-        desired_squads: List[str],
-    ) -> tuple[Optional[bool], Optional[set[str]]]:
+        desired_squads: list[str],
+    ) -> tuple[bool | None, set[str] | None]:
         try:
             panel_user = await self.panel_service.get_user_by_uuid(
                 panel_user_uuid,
@@ -564,7 +564,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
     @classmethod
     def _panel_active_squad_uuid_set(
         cls,
-        panel_user: Optional[dict],
+        panel_user: dict | None,
     ) -> tuple[bool, set[str]]:
         if not isinstance(panel_user, dict):
             return False, set()
@@ -606,7 +606,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
         source: str,
         user_id: int,
         panel_uuid: str,
-        current_set: Optional[set[str]],
+        current_set: set[str] | None,
         desired_set: set[str],
     ) -> None:
         logging.info(
@@ -617,15 +617,11 @@ class TopupMixin(SubscriptionServiceMixinContract):
             user_id,
             user_id,
             panel_uuid,
-            "activeInternalSquads:%s->%s"
-            % (
-                self._format_panel_squad_set(current_set),
-                self._format_panel_squad_set(desired_set),
-            ),
+            f"activeInternalSquads:{self._format_panel_squad_set(current_set)}->{self._format_panel_squad_set(desired_set)}",
         )
 
     @staticmethod
-    def _format_panel_squad_set(value: Optional[set[str]]) -> str:
+    def _format_panel_squad_set(value: set[str] | None) -> str:
         if value is None:
             return "missing"
         values = sorted(str(item) for item in value)

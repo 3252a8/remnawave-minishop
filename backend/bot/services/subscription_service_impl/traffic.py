@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,7 +19,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         self,
         session: AsyncSession,
         sub: Subscription,
-        tariff: Optional[Tariff],
+        tariff: Tariff | None,
     ) -> HwidDeviceLimits:
         base = (
             int(sub.hwid_device_limit)
@@ -38,10 +38,10 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         payment_amount: float,
         payment_db_id: int,
         provider: str = "yookassa",
-        tariff_key: Optional[str] = None,
+        tariff_key: str | None = None,
         sale_mode: str = "traffic",
-        promo_code_id_from_payment: Optional[int] = None,
-    ) -> Optional[Dict[str, Any]]:
+        promo_code_id_from_payment: int | None = None,
+    ) -> dict[str, Any] | None:
         """Activate or extend a traffic-based package instead of a time-based subscription."""
         tariff = self._resolve_tariff(tariff_key, "traffic") if self._tariffs_config() else None
         charged_gb = float(traffic_gb)
@@ -126,7 +126,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         new_balance = remaining_bytes + purchase_bytes
         new_limit = int(current_used or 0) + new_balance
 
-        start_date = datetime.now(timezone.utc)
+        start_date = datetime.now(UTC)
         # Set a far-future expiry to satisfy panel requirements; keep the latest known expiry if it's further.  # noqa: E501
         far_future = self._far_future()
         final_end_date = far_future

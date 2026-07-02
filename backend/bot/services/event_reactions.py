@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Iterable, Optional
+from collections.abc import Callable, Iterable
+from datetime import UTC, datetime
+from typing import Any
 
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 from bot.infra import events
@@ -23,22 +24,22 @@ _registered_handlers: list[tuple[str, events.EventHandler]] = []
 _ACCOUNT_MERGE_NOTIFY_REASONS = {"email_link", "telegram_link", "login"}
 
 
-def _parse_datetime(value: Any) -> Optional[datetime]:
+def _parse_datetime(value: Any) -> datetime | None:
     if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return value if value.tzinfo else value.replace(tzinfo=UTC)
     if not value:
         return None
     try:
         parsed = datetime.fromisoformat(str(value))
     except (TypeError, ValueError):
         return None
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
-def _format_webapp_datetime(value: Optional[datetime]) -> str:
+def _format_webapp_datetime(value: datetime | None) -> str:
     if not value:
         return ""
-    normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    normalized = value if value.tzinfo else value.replace(tzinfo=UTC)
     return normalized.strftime("%d.%m.%Y %H:%M")
 
 
@@ -52,7 +53,7 @@ def _truthy(value: Any) -> bool:
     return bool(value)
 
 
-def _payment_status_timestamp(payment: Any) -> Optional[datetime]:
+def _payment_status_timestamp(payment: Any) -> datetime | None:
     """Best-effort time when a payment reached its current status."""
 
     updated_at = _parse_datetime(getattr(payment, "updated_at", None))
@@ -62,7 +63,7 @@ def _payment_status_timestamp(payment: Any) -> Optional[datetime]:
     return updated_at or created_at
 
 
-def _int_or_none(value: Any) -> Optional[int]:
+def _int_or_none(value: Any) -> int | None:
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -96,7 +97,7 @@ def _format_plain_amount(value: float) -> str:
     return f"{amount:g}"
 
 
-def _tariff_display_name(settings: Any, tariff_key: Optional[str], language: str) -> str:
+def _tariff_display_name(settings: Any, tariff_key: str | None, language: str) -> str:
     if not tariff_key:
         return ""
     cfg = settings.tariffs_config
@@ -143,7 +144,7 @@ def _format_failed_payment_purchase(
 def _failed_payment_provider_detail(
     settings: Any,
     payment: Any,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     language: str,
 ) -> str:
     provider = str(
@@ -191,7 +192,7 @@ def _format_failed_payment_details(
     settings: Any,
     language: str,
     payment: Any,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
 ) -> str:
     snapshot = resolve_payment_success_snapshot(
         payload,
@@ -240,7 +241,7 @@ class CoreEventReactions:
     def __init__(self, ctx: PluginContext) -> None:
         self.ctx = ctx
 
-    def _notification_service(self) -> Optional[NotificationService]:
+    def _notification_service(self) -> NotificationService | None:
         service = self.ctx.notification_service
         if service is not None:
             return service
@@ -254,7 +255,7 @@ class CoreEventReactions:
             email_auth_service=self.ctx.email_auth_service,
         )
 
-    async def _load_user(self, user_id: Any) -> Optional[User]:
+    async def _load_user(self, user_id: Any) -> User | None:
         if self.ctx.session_factory is None or user_id is None:
             return None
         try:
@@ -264,7 +265,7 @@ class CoreEventReactions:
             logger.exception("Failed to load user %s for event reaction.", user_id)
             return None
 
-    async def _load_payment(self, payment_db_id: Any) -> Optional[Payment]:
+    async def _load_payment(self, payment_db_id: Any) -> Payment | None:
         if self.ctx.session_factory is None or payment_db_id is None:
             return None
         try:
@@ -275,8 +276,8 @@ class CoreEventReactions:
             return None
 
     async def _load_active_subscription(
-        self, user_id: Any, panel_user_uuid: Optional[str] = None
-    ) -> Optional[Subscription]:
+        self, user_id: Any, panel_user_uuid: str | None = None
+    ) -> Subscription | None:
         if self.ctx.session_factory is None or user_id is None:
             return None
         try:
@@ -344,14 +345,14 @@ class CoreEventReactions:
                 payment_id,
             )
 
-    async def on_trial_activated(self, event_name: str, payload: Dict[str, Any]) -> None:
+    async def on_trial_activated(self, event_name: str, payload: dict[str, Any]) -> None:
         del event_name
         user_id = payload.get("user_id")
         if user_id is None:
             return
         user = await self._load_user(user_id)
         service = self._notification_service()
-        end_date = _parse_datetime(payload.get("end_date")) or datetime.now(timezone.utc)
+        end_date = _parse_datetime(payload.get("end_date")) or datetime.now(UTC)
         if service is not None:
             try:
                 await service.notify_trial_activation(
@@ -372,7 +373,7 @@ class CoreEventReactions:
         except Exception:
             logger.exception("Failed to invalidate trial caches for user %s.", user_id)
 
-    async def on_user_registered(self, event_name: str, payload: Dict[str, Any]) -> None:
+    async def on_user_registered(self, event_name: str, payload: dict[str, Any]) -> None:
         del event_name
         if payload.get("registered_via") == "panel_sync":
             return
@@ -406,7 +407,7 @@ class CoreEventReactions:
         except Exception:
             logger.exception("Failed to react to user registration for user %s.", user_id)
 
-    async def on_promo_code_applied(self, event_name: str, payload: Dict[str, Any]) -> None:
+    async def on_promo_code_applied(self, event_name: str, payload: dict[str, Any]) -> None:
         del event_name
         user_id = payload.get("user_id")
         if user_id is None:
@@ -426,7 +427,7 @@ class CoreEventReactions:
         except Exception:
             logger.exception("Failed to react to promo activation for user %s.", user_id)
 
-    async def on_account_email_linked(self, event_name: str, payload: Dict[str, Any]) -> None:
+    async def on_account_email_linked(self, event_name: str, payload: dict[str, Any]) -> None:
         del event_name
         if not _truthy(payload.get("first_link")):
             return
@@ -449,7 +450,7 @@ class CoreEventReactions:
         except Exception:
             logger.exception("Failed to react to email link for user %s.", user_id)
 
-    async def on_account_telegram_linked(self, event_name: str, payload: Dict[str, Any]) -> None:
+    async def on_account_telegram_linked(self, event_name: str, payload: dict[str, Any]) -> None:
         del event_name
         if not _truthy(payload.get("first_link")):
             return
@@ -472,7 +473,7 @@ class CoreEventReactions:
         except Exception:
             logger.exception("Failed to react to Telegram link for user %s.", user_id)
 
-    async def on_payment_succeeded(self, event_name: str, payload: Dict[str, Any]) -> None:
+    async def on_payment_succeeded(self, event_name: str, payload: dict[str, Any]) -> None:
         del event_name
         user_id = payload.get("user_id")
         if user_id is None:
@@ -516,7 +517,7 @@ class CoreEventReactions:
         except Exception:
             logger.exception("Failed to invalidate payment caches for user %s.", user_id)
 
-    async def on_payment_canceled(self, event_name: str, payload: Dict[str, Any]) -> None:
+    async def on_payment_canceled(self, event_name: str, payload: dict[str, Any]) -> None:
         del event_name
         user_id = payload.get("user_id")
         if user_id is None:
@@ -576,7 +577,7 @@ class CoreEventReactions:
                 dashboard_url=(getattr(self.ctx.settings, "SUBSCRIPTION_MINI_APP_URL", "") or None),
             )
 
-    async def on_referral_bonus_granted(self, event_name: str, payload: Dict[str, Any]) -> None:
+    async def on_referral_bonus_granted(self, event_name: str, payload: dict[str, Any]) -> None:
         del event_name
         if not _truthy(payload.get("inviter_bonus_applied")):
             return
@@ -621,7 +622,7 @@ class CoreEventReactions:
             dashboard_url=(getattr(self.ctx.settings, "SUBSCRIPTION_MINI_APP_URL", "") or None),
         )
 
-    async def on_account_merged(self, event_name: str, payload: Dict[str, Any]) -> None:
+    async def on_account_merged(self, event_name: str, payload: dict[str, Any]) -> None:
         del event_name
         reason = str(payload.get("reason") or "")
         if reason not in _ACCOUNT_MERGE_NOTIFY_REASONS:

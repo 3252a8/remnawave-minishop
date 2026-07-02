@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from config.settings import Settings
@@ -25,7 +24,7 @@ def append_query_params(base_url: str, params: dict[str, str]) -> str:
     return urlunsplit((parts.scheme, parts.netloc, parts.path, query, parts.fragment))
 
 
-def subscription_mini_app_topup_url(settings: Settings, kind: str) -> Optional[str]:
+def subscription_mini_app_topup_url(settings: Settings, kind: str) -> str | None:
     """Return Mini App URL that opens the traffic top-up flow for ``kind`` (``regular`` or ``premium``)."""  # noqa: E501
     base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     if not base:
@@ -35,8 +34,8 @@ def subscription_mini_app_topup_url(settings: Settings, kind: str) -> Optional[s
 
 
 def subscription_mini_app_renew_url(
-    settings: Settings, tariff_key: Optional[str] = None
-) -> Optional[str]:
+    settings: Settings, tariff_key: str | None = None
+) -> str | None:
     """Return Mini App URL that opens the subscription renewal checkout."""
     base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     if not base:
@@ -48,7 +47,7 @@ def subscription_mini_app_renew_url(
     return append_query_params(base, params)
 
 
-def subscription_mini_app_checkout_code_url(settings: Settings, code: str) -> Optional[str]:
+def subscription_mini_app_checkout_code_url(settings: Settings, code: str) -> str | None:
     """Return Mini App URL that opens checkout with a prefilled code."""
     base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     normalized_code = str(code or "").strip()
@@ -57,7 +56,7 @@ def subscription_mini_app_checkout_code_url(settings: Settings, code: str) -> Op
     return append_query_params(base, {"startapp": f"promo_{normalized_code}"})
 
 
-def subscription_mini_app_path_url(settings: Settings, path: str) -> Optional[str]:
+def subscription_mini_app_path_url(settings: Settings, path: str) -> str | None:
     """Return a Mini App URL with ``path`` appended to the configured app base."""
     base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     if not base:
@@ -66,17 +65,17 @@ def subscription_mini_app_path_url(settings: Settings, path: str) -> Optional[st
     return f"{base.rstrip('/')}{normalized_path}"
 
 
-def subscription_mini_app_install_url(settings: Settings) -> Optional[str]:
+def subscription_mini_app_install_url(settings: Settings) -> str | None:
     """Return the personal embedded install guide URL."""
     return subscription_mini_app_path_url(settings, "/install")
 
 
-def subscription_mini_app_trial_url(settings: Settings) -> Optional[str]:
+def subscription_mini_app_trial_url(settings: Settings) -> str | None:
     """Return the trial activation URL inside the Mini App."""
     return subscription_mini_app_path_url(settings, "/trial")
 
 
-def subscription_public_install_url(settings: Settings, share_token: str) -> Optional[str]:
+def subscription_public_install_url(settings: Settings, share_token: str) -> str | None:
     """Return the public install guide URL for a normalized share token."""
     token = normalize_install_share_token(share_token)
     base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()

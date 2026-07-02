@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Dict, Literal, Optional
+from typing import Annotated, Any, Literal
 
 from aiohttp import web
 from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
@@ -57,12 +57,10 @@ class AdminTicketReplyPayload(BaseModel):
 class AdminTicketPatchPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    status: Optional[Literal["open", "awaiting_user", "awaiting_admin", "resolved", "closed"]] = (
-        None
-    )
-    priority: Optional[Literal["low", "normal", "high", "urgent"]] = None
-    category: Optional[Literal["billing", "technical", "account", "other"]] = None
-    assigned_admin_id: Optional[int] = None
+    status: Literal["open", "awaiting_user", "awaiting_admin", "resolved", "closed"] | None = None
+    priority: Literal["low", "normal", "high", "urgent"] | None = None
+    category: Literal["billing", "technical", "account", "other"] | None = None
+    assigned_admin_id: int | None = None
 
 
 register_contract(
@@ -144,11 +142,11 @@ def _invalid_request_payload_response(_exc: Exception) -> web.Response:
     return _error(400, "invalid_request", "Invalid request")
 
 
-def _support_ticket_payload(ticket: SupportTicket) -> Dict[str, Any]:
+def _support_ticket_payload(ticket: SupportTicket) -> dict[str, Any]:
     return SupportTicketOut.from_orm_ticket(ticket).model_dump(mode="json")
 
 
-def _user_display_name(user: Optional[User]) -> Optional[str]:
+def _user_display_name(user: User | None) -> str | None:
     if not user:
         return None
     name = " ".join(
@@ -160,8 +158,8 @@ def _user_display_name(user: Optional[User]) -> Optional[str]:
 def _support_message_payload(
     message: SupportTicketMessage,
     *,
-    authors: Optional[Dict[int, Any]] = None,
-) -> Dict[str, Any]:
+    authors: dict[int, Any] | None = None,
+) -> dict[str, Any]:
     author = authors.get(message.author_user_id) if authors and message.author_user_id else None
     return AdminSupportMessageOut.from_orm_message(
         message,
@@ -169,7 +167,7 @@ def _support_message_payload(
     ).model_dump(mode="json")
 
 
-def _admin_support_user_payload(user: Optional[User]) -> Dict[str, Any]:
+def _admin_support_user_payload(user: User | None) -> dict[str, Any]:
     if not user:
         return {}
     return AdminSupportUserOut.from_orm_user(user).model_dump(mode="json")

@@ -1,7 +1,7 @@
 import hashlib
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
@@ -112,13 +112,13 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
     code = str(email_payload.code or "")
     email_service: EmailAuthService = get_email_auth_service(request)
     async_session_factory: sessionmaker = get_session_factory(request)
-    merge_notice: Optional[Dict[str, Any]] = None
-    source_panel_uuid: Optional[str] = None
+    merge_notice: dict[str, Any] | None = None
+    source_panel_uuid: str | None = None
     final_user_id = user_id
-    final_telegram_id: Optional[int] = None
-    final_username: Optional[str] = None
-    final_first_name: Optional[str] = None
-    final_panel_uuid: Optional[str] = None
+    final_telegram_id: int | None = None
+    final_username: str | None = None
+    final_first_name: str | None = None
+    final_panel_uuid: str | None = None
     should_notify_email_linked = False
 
     async with async_session_factory() as session:
@@ -169,7 +169,7 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
                     settings=settings,
                 )
             current_user.email = email
-            current_user.email_verified_at = datetime.now(timezone.utc)
+            current_user.email_verified_at = datetime.now(UTC)
             if not merge_notice:
                 await _sync_panel_identity_for_user(request, current_user)
             await session.commit()
@@ -214,7 +214,7 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
     await _invalidate_webapp_user_caches(settings, user_id, final_user_id, include_devices=True)
 
     token = create_webapp_session_token(settings, int(final_user_id))
-    response_payload: Dict[str, Any] = {"ok": True}
+    response_payload: dict[str, Any] = {"ok": True}
     if merge_notice:
         response_payload["account_merge"] = merge_notice
         response_payload["user_id"] = final_user_id
@@ -290,7 +290,7 @@ async def account_password_confirm_route(request: web.Request) -> web.Response:
                 )
 
             db_user.password_hash = _hash_email_password(str(password_payload.password))
-            db_user.password_set_at = datetime.now(timezone.utc)
+            db_user.password_set_at = datetime.now(UTC)
             await session.flush()
             await session.commit()
         except Exception:
@@ -312,14 +312,14 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
         return _json_error(401, "invalid_auth", "Invalid Telegram auth data")
 
     async_session_factory: sessionmaker = get_session_factory(request)
-    merge_notice: Optional[Dict[str, Any]] = None
-    source_panel_uuid: Optional[str] = None
+    merge_notice: dict[str, Any] | None = None
+    source_panel_uuid: str | None = None
     final_user_id = user_id
-    final_telegram_id: Optional[int] = None
-    final_email: Optional[str] = None
-    final_username: Optional[str] = None
-    final_first_name: Optional[str] = None
-    final_panel_uuid: Optional[str] = None
+    final_telegram_id: int | None = None
+    final_email: str | None = None
+    final_username: str | None = None
+    final_first_name: str | None = None
+    final_panel_uuid: str | None = None
     should_notify_telegram_linked = False
     async with async_session_factory() as session:
         try:
@@ -397,7 +397,7 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
     await _probe_telegram_notifications_for_user_id(request, int(final_user_id))
 
     token = create_webapp_session_token(settings, int(final_user_id))
-    response_payload: Dict[str, Any] = {
+    response_payload: dict[str, Any] = {
         "ok": True,
         "user_id": int(final_user_id),
         "telegram_id": final_telegram_id,
@@ -487,7 +487,7 @@ async def account_language_route(request: web.Request) -> web.Response:
     return json_response({"ok": True, "language": language})
 
 
-def _telegram_photo_url_value(telegram_user: Dict[str, Any]) -> Optional[str]:
+def _telegram_photo_url_value(telegram_user: dict[str, Any]) -> str | None:
     raw_value = telegram_user.get("photo_url")
     if not raw_value:
         return None

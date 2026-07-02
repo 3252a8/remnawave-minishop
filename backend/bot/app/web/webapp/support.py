@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
@@ -24,11 +24,11 @@ from .payloads import (
 from .response_helpers import json_response
 
 
-def _support_ticket_payload(ticket: SupportTicket) -> Dict[str, Any]:
+def _support_ticket_payload(ticket: SupportTicket) -> dict[str, Any]:
     return SupportTicketOut.from_orm_ticket(ticket).model_dump(mode="json")
 
 
-def _support_message_payload(message: SupportTicketMessage) -> Dict[str, Any]:
+def _support_message_payload(message: SupportTicketMessage) -> dict[str, Any]:
     return SupportMessageOut.from_orm_message(message).model_dump(mode="json")
 
 

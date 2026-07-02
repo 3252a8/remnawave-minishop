@@ -1,5 +1,5 @@
 import logging
-from typing import Any, List, Optional
+from typing import Any
 
 from aiogram import F, types
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +33,7 @@ async def payment_methods_manage(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not settings.yookassa_autopayments_active:
         try:
             _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -51,7 +51,7 @@ async def payment_methods_manage(
 
     get_text = _
     methods = await list_user_payment_methods(session, callback.from_user.id)
-    cards: List[tuple] = []
+    cards: list[tuple] = []
 
     for m in methods:
         title = _format_saved_payment_method_title(
@@ -81,7 +81,7 @@ async def payment_method_bind(
     yookassa_service: YooKassaService,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not settings.yookassa_autopayments_active:
         try:
             _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -129,7 +129,7 @@ async def payment_method_delete_confirm(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict[str, Any]
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not settings.yookassa_autopayments_active:
         try:
             _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -162,7 +162,7 @@ async def payment_method_delete(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not settings.yookassa_autopayments_active:
         try:
             _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -240,7 +240,7 @@ async def payment_method_view(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not settings.yookassa_autopayments_active:
         try:
             _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -353,7 +353,7 @@ async def payment_method_history(
     yookassa_service: YooKassaService,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not settings.yookassa_autopayments_active:
         try:
             _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -370,7 +370,7 @@ async def payment_method_history(
     payments = await payment_dal.get_recent_payment_logs_with_user(session, limit=30, offset=0)
     user_payments = [p for p in payments if p.user_id == callback.from_user.id]
 
-    selected_pm_provider_id: Optional[str] = None
+    selected_pm_provider_id: str | None = None
     pm_filter_requested: bool = False
     callback_data = callback.data or ""
     try:
@@ -394,7 +394,7 @@ async def payment_method_history(
         user_payments = []
 
     if selected_pm_provider_id:
-        filtered: List[Payment] = []
+        filtered: list[Payment] = []
         for p in user_payments:
             if p.provider != "yookassa":
                 continue
@@ -465,7 +465,7 @@ async def payment_methods_list(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
     message = callback_message_or_none(callback)
     if message is None:
@@ -474,7 +474,7 @@ async def payment_methods_list(
 
     from db.dal.user_billing_dal import list_user_payment_methods
 
-    cards: List[tuple] = []
+    cards: list[tuple] = []
     methods = await list_user_payment_methods(session, callback.from_user.id)
     for m in methods:
         title = _format_saved_payment_method_title(

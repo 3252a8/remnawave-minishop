@@ -1,6 +1,7 @@
 import asyncio
 import time
-from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 
 class AsyncTTLCache:
@@ -9,18 +10,18 @@ class AsyncTTLCache:
     Concurrent get_or_load() calls for the same key share one loader execution.
     """
 
-    def __init__(self, ttl_seconds: float, settings: Any = None, namespace: Optional[str] = None):
+    def __init__(self, ttl_seconds: float, settings: Any = None, namespace: str | None = None):
         self.ttl_seconds = ttl_seconds
         self.settings = settings
         self.namespace = namespace
-        self._data: Dict[str, Tuple[float, Any]] = {}
-        self._locks: Dict[str, asyncio.Lock] = {}
-        self._inflight: Dict[str, asyncio.Task] = {}
+        self._data: dict[str, tuple[float, Any]] = {}
+        self._locks: dict[str, asyncio.Lock] = {}
+        self._inflight: dict[str, asyncio.Task] = {}
 
     def _is_fresh(self, expires_at: float) -> bool:
         return time.monotonic() < expires_at
 
-    def get_fresh(self, key: str) -> Optional[Any]:
+    def get_fresh(self, key: str) -> Any | None:
         entry = self._data.get(key)
         if entry is None:
             return None
@@ -29,7 +30,7 @@ class AsyncTTLCache:
             return None
         return value
 
-    def get_stale(self, key: str) -> Optional[Any]:
+    def get_stale(self, key: str) -> Any | None:
         entry = self._data.get(key)
         if entry is None:
             return None
@@ -100,13 +101,13 @@ class AsyncTTLCache:
                     pass
         return value
 
-    def invalidate(self, key: Optional[str] = None) -> None:
+    def invalidate(self, key: str | None = None) -> None:
         if key is None:
             self._data.clear()
             return
         self._data.pop(key, None)
 
-    async def invalidate_remote(self, key: Optional[str] = None) -> None:
+    async def invalidate_remote(self, key: str | None = None) -> None:
         self.invalidate(key)
         if self.settings is None or not self.namespace:
             return

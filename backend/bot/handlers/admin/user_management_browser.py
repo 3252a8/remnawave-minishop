@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from aiogram import Bot, F, types
 from aiogram.fsm.context import FSMContext
@@ -66,7 +65,7 @@ async def users_list_handler(
 ) -> None:
     """Display paginated list of all users"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error preparing user list.", show_alert=True)
         return
@@ -109,7 +108,7 @@ async def user_search_prompt_handler(
 ) -> None:
     """Display search prompt for user management"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error preparing search.", show_alert=True)
         return
@@ -142,7 +141,7 @@ async def process_user_search_handler(
 ) -> None:
     """Process user search input and display user card"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -212,7 +211,7 @@ async def user_action_handler(
         return
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await callback.answer("Language service error.", show_alert=True)
         return

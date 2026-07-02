@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 from bot.services import message_audit
@@ -8,7 +8,7 @@ from bot.services import message_audit
 class MessageAuditTests(unittest.IsolatedAsyncioTestCase):
     async def test_log_user_message_delivery_adds_targeted_log(self):
         calls = []
-        sent_at = datetime(2026, 5, 31, tzinfo=timezone.utc)
+        sent_at = datetime(2026, 5, 31, tzinfo=UTC)
 
         async def fake_create(_session, payload):
             calls.append(payload)
@@ -45,7 +45,7 @@ class MessageAuditTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_log_user_message_delivery_notifies_log_chat(self):
-        sent_at = datetime(2026, 5, 31, tzinfo=timezone.utc)
+        sent_at = datetime(2026, 5, 31, tzinfo=UTC)
 
         async def fake_create(_session, _payload):
             return None

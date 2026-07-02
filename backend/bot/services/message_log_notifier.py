@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from aiogram import Bot
 from aiogram.utils.text_decorations import html_decoration as hd
@@ -15,7 +15,7 @@ _configured_settings: Settings | None = None
 _configured_bot: Bot | None = None
 
 
-def configure_message_log_notifier(settings: Settings, bot: Optional[Bot] = None) -> None:
+def configure_message_log_notifier(settings: Settings, bot: Bot | None = None) -> None:
     global _configured_settings, _configured_bot
     _configured_settings = settings
     _configured_bot = bot
@@ -89,8 +89,8 @@ def format_message_log_notification(log_payload: Mapping[str, object]) -> str:
 async def notify_message_log(
     log_payload: Mapping[str, object],
     *,
-    settings: Optional[Settings] = None,
-    bot: Optional[Bot] = None,
+    settings: Settings | None = None,
+    bot: Bot | None = None,
 ) -> None:
     resolved_settings = settings or _configured_settings
     if resolved_settings is None or not message_log_chat_enabled(resolved_settings):

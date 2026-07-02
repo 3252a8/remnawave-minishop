@@ -1,8 +1,8 @@
 import hashlib
 import hmac
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -86,8 +86,8 @@ async def _load_devices_payload(
     subscription_service: SubscriptionService,
     session: AsyncSession,
     user_id: int,
-    fallback_panel_user_uuid: Optional[str] = None,
-) -> Dict[str, Any]:
+    fallback_panel_user_uuid: str | None = None,
+) -> dict[str, Any]:
     active = await subscription_service.get_active_subscription_details(session, user_id)
     panel_user_uuid = str((active or {}).get("user_id") or fallback_panel_user_uuid or "").strip()
     if not panel_user_uuid:
@@ -137,7 +137,7 @@ async def _load_devices_payload(
     }
 
 
-def _empty_inactive_devices_payload() -> Dict[str, Any]:
+def _empty_inactive_devices_payload() -> dict[str, Any]:
     return {
         "ok": True,
         "payload": {
@@ -151,15 +151,15 @@ def _empty_inactive_devices_payload() -> Dict[str, Any]:
     }
 
 
-def _devices_subscription_is_active(active: Optional[Dict[str, Any]]) -> bool:
+def _devices_subscription_is_active(active: dict[str, Any] | None) -> bool:
     if not active:
         return False
     end_date = active.get("end_date")
     if not isinstance(end_date, datetime):
         return False
     if end_date.tzinfo is None:
-        end_date = end_date.replace(tzinfo=timezone.utc)
-    return end_date > datetime.now(timezone.utc)
+        end_date = end_date.replace(tzinfo=UTC)
+    return end_date > datetime.now(UTC)
 
 
 async def disconnect_device_route(request: web.Request) -> web.Response:
@@ -229,14 +229,14 @@ def _device_hwid_token(hwid: str) -> str:
     return hashlib.sha256(str(hwid or "").encode()).hexdigest()[:32]
 
 
-def _shorten_hwid_for_display(hwid: Optional[str], max_length: int = 24) -> str:
+def _shorten_hwid_for_display(hwid: str | None, max_length: int = 24) -> str:
     value = str(hwid or "").strip()
     if len(value) <= max_length:
         return value
     return f"{value[:8]}...{value[-6:]}"
 
 
-def _normalize_devices_response(devices_response: Any) -> List[Dict[str, Any]]:
+def _normalize_devices_response(devices_response: Any) -> list[dict[str, Any]]:
     if isinstance(devices_response, dict):
         response = devices_response.get("response")
         if isinstance(response, dict):
@@ -252,7 +252,7 @@ def _normalize_devices_response(devices_response: Any) -> List[Dict[str, Any]]:
     return [device for device in devices if isinstance(device, dict)]
 
 
-def _format_devices_limit(max_devices: Optional[int]) -> str:
+def _format_devices_limit(max_devices: int | None) -> str:
     if max_devices in (None, 0):
         return "Unlimited"
     return str(max_devices)
@@ -269,11 +269,11 @@ def _format_device_datetime(value: Any) -> str:
         return text
 
 
-def _serialize_device_datetime(value: Any) -> Optional[str]:
+def _serialize_device_datetime(value: Any) -> str | None:
     if not value:
         return None
     if isinstance(value, datetime):
-        normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        normalized = value if value.tzinfo else value.replace(tzinfo=UTC)
         return normalized.isoformat()
     return str(value)
 
@@ -293,7 +293,7 @@ class WebAppDeviceOut(HttpResponseModel):
     can_disconnect: bool
 
     @classmethod
-    def from_panel_device(cls, device: Dict[str, Any], index: int) -> "WebAppDeviceOut":
+    def from_panel_device(cls, device: dict[str, Any], index: int) -> "WebAppDeviceOut":
         hwid = str(device.get("hwid") or "").strip()
         model = str(device.get("deviceModel") or "").strip()
         platform = str(device.get("platform") or "").strip()
@@ -316,5 +316,5 @@ class WebAppDeviceOut(HttpResponseModel):
         )
 
 
-def _serialize_device(device: Dict[str, Any], index: int) -> Dict[str, Any]:
+def _serialize_device(device: dict[str, Any], index: int) -> dict[str, Any]:
     return WebAppDeviceOut.from_panel_device(device, index).model_dump(mode="json")

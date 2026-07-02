@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 from bot.services.support_service import (
@@ -29,7 +29,7 @@ def test_regular_limit_treats_unlimited_override_as_zero_limit():
 
 
 def test_support_admin_notification_decision_sends_first_unread():
-    now = datetime(2026, 5, 20, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 20, tzinfo=UTC)
     ticket = SimpleNamespace(
         unread_admin_count=1,
         admin_last_notified_at=now,
@@ -48,7 +48,7 @@ def test_support_admin_notification_decision_sends_first_unread():
 
 
 def test_support_admin_notification_decision_defaults_email_disabled():
-    now = datetime(2026, 5, 20, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 20, tzinfo=UTC)
     ticket = SimpleNamespace(
         unread_admin_count=1,
         admin_last_notified_at=None,
@@ -66,7 +66,7 @@ def test_support_admin_notification_decision_defaults_email_disabled():
 
 
 def test_support_admin_notification_decision_suppresses_fast_followups():
-    now = datetime(2026, 5, 20, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 20, tzinfo=UTC)
     ticket = SimpleNamespace(
         unread_admin_count=4,
         admin_last_notified_at=now - timedelta(seconds=60),
@@ -85,7 +85,7 @@ def test_support_admin_notification_decision_suppresses_fast_followups():
 
 
 def test_support_admin_notification_decision_uses_separate_email_cooldown():
-    now = datetime(2026, 5, 20, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 20, tzinfo=UTC)
     ticket = SimpleNamespace(
         unread_admin_count=4,
         admin_last_notified_at=now - timedelta(seconds=301),

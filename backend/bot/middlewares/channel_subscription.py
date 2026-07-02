@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Awaitable, Callable, Dict, Optional, cast
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 from aiogram import BaseMiddleware
 from aiogram.types import (
@@ -34,9 +35,9 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
         event: TelegramObject,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> Any:
         update = cast(Update, event)
 
@@ -57,7 +58,7 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
             return await handler(event, data)
 
         # Allow /start to reach the handler so the check can be re-run.
-        message_object: Optional[Message] = update.message
+        message_object: Message | None = update.message
         if message_object and message_object.text and message_object.text.startswith("/start"):
             return await handler(event, data)
 
@@ -82,10 +83,10 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
         ):
             return await handler(event, data)
 
-        i18n_payload: Dict[str, Any] = data.get("i18n_data", {})
+        i18n_payload: dict[str, Any] = data.get("i18n_data", {})
         current_lang = str(i18n_payload.get("current_language") or self.settings.DEFAULT_LANGUAGE)
         raw_i18n = i18n_payload.get("i18n_instance")
-        i18n_instance: Optional[JsonI18n] = (
+        i18n_instance: JsonI18n | None = (
             raw_i18n if isinstance(raw_i18n, JsonI18n) else self.i18n_main_instance
         )
 
@@ -127,7 +128,7 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
         callback: CallbackQuery,
         prompt_text: str,
         keyboard: InlineKeyboardMarkup | None,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> None:
         try:
             await callback.answer(prompt_text, show_alert=True)

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Tuple
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +25,7 @@ from .sale_mode import parse_sale_mode_context
 async def _active_subscription_tariff_key(
     session: AsyncSession,
     user_id: int,
-) -> Optional[str]:
+) -> str | None:
     active_user = await user_dal.get_user_by_id(session, user_id)
     active_sub = (
         await subscription_dal.get_active_subscription_by_user_id(
@@ -45,12 +45,12 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         months: int,
         payment_amount: float,
         payment_db_id: int,
-        promo_code_id_from_payment: Optional[int] = None,
+        promo_code_id_from_payment: int | None = None,
         provider: str = "yookassa",
         sale_mode: str = "subscription",
-        traffic_gb: Optional[float] = None,
-        tariff_key: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
+        traffic_gb: float | None = None,
+        tariff_key: str | None = None,
+    ) -> dict[str, Any] | None:
 
         sale_mode_context = parse_sale_mode_context(sale_mode, tariff_key)
         sale_mode_base = sale_mode_context.base
@@ -206,7 +206,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         current_active_sub = await subscription_dal.get_active_subscription_by_user_id(
             session, user_id, panel_user_uuid
         )
-        start_date = datetime.now(timezone.utc)
+        start_date = datetime.now(UTC)
         if (
             current_active_sub
             and current_active_sub.end_date
@@ -277,7 +277,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 await tariff_dal.extend_hwid_device_purchases_for_subscription_bonus(
                     session,
                     subscription_id=current_active_sub.subscription_id,
-                    at=datetime.now(timezone.utc),
+                    at=datetime.now(UTC),
                     subscription_end_before=start_date,
                     delta=timedelta(days=applied_promo_bonus_days),
                 )
@@ -317,7 +317,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 hwid_summary = await tariff_dal.get_hwid_device_entitlement_summary(
                     session,
                     subscription_id=current_active_sub.subscription_id,
-                    at=datetime.now(timezone.utc),
+                    at=datetime.now(UTC),
                 )
                 extra_hwid_devices = int(hwid_summary.get("active_devices") or 0)
                 hwid_devices_valid_until = hwid_summary.get("active_until")
@@ -490,8 +490,8 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         bonus_days: int,
         reason: str = "bonus",
         extend_hwid_devices: bool = True,
-        tariff_key: Optional[str] = None,
-    ) -> Optional[datetime]:
+        tariff_key: str | None = None,
+    ) -> datetime | None:
         reason_lower = (reason or "").lower()
         apply_main_traffic_limit = any(
             keyword in reason_lower for keyword in ("admin", "promo code", "referral", "bonus")
@@ -514,9 +514,9 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         active_sub = await subscription_dal.get_active_subscription_by_user_id(
             session, user_id, panel_uuid
         )
-        rollback_payload: Optional[Dict[str, Any]] = None
-        hwid_extension_context: Optional[Tuple[int, datetime, datetime]] = None
-        pending_tariff_change_payload: Optional[Dict[str, Any]] = None
+        rollback_payload: dict[str, Any] | None = None
+        hwid_extension_context: tuple[int, datetime, datetime] | None = None
+        pending_tariff_change_payload: dict[str, Any] | None = None
         requested_tariff = None
         if tariff_key and self._tariffs_config():
             try:
@@ -543,7 +543,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             logging.info(
                 f"No active subscription found for user {user_id}. Creating new one for {bonus_days} days."  # noqa: E501
             )
-            start_date = datetime.now(timezone.utc)
+            start_date = datetime.now(UTC)
             new_end_date_obj = start_date + timedelta(days=bonus_days)
 
             # Apply main traffic limit for admin/referral/promo bonuses, fallback to trial limit otherwise  # noqa: E501
@@ -602,7 +602,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             }
         else:
             current_end_date = active_sub.end_date
-            now_utc = datetime.now(timezone.utc)
+            now_utc = datetime.now(UTC)
             start_point_for_bonus = current_end_date if current_end_date > now_utc else now_utc
             new_end_date_obj = start_point_for_bonus + timedelta(days=bonus_days)
             rollback_payload = {
@@ -679,7 +679,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     1,
                     default_currency_key_for_settings(self.settings),
                 ) or admin_tariff.min_period_price(default_currency_key_for_settings(self.settings))
-                admin_update_data: Dict[str, Any] = {
+                admin_update_data: dict[str, Any] = {
                     "tariff_key": admin_tariff.key,
                     "tier_baseline_bytes": admin_tariff.monthly_bytes,
                     "traffic_limit_bytes": self._compute_main_traffic_limit_bytes(

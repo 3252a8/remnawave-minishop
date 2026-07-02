@@ -1,5 +1,3 @@
-from typing import Optional
-
 from aiogram import Router
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,7 +31,7 @@ async def _resolve_referrer_from_start_ref(
     *,
     settings: Settings,
     current_user_id: int,
-) -> Optional[int]:
+) -> int | None:
     return await resolve_referrer_user_id(
         session,
         raw_ref_value,

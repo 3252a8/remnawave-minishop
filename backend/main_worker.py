@@ -2,7 +2,8 @@ import asyncio
 import logging
 import sys
 import time
-from typing import Any, Coroutine, Dict, List
+from collections.abc import Coroutine
+from typing import Any
 
 from aiogram import Bot
 from dotenv import load_dotenv
@@ -58,7 +59,7 @@ async def _build_worker_context(settings: Settings) -> PluginContext:
     return ctx
 
 
-async def _handle_yookassa_event(ctx: PluginContext, payload: Dict[str, Any]) -> None:
+async def _handle_yookassa_event(ctx: PluginContext, payload: dict[str, Any]) -> None:
     payment_payload = payload.get("payment") or {}
     session_factory = ctx.require_session_factory()
     bot = ctx.require_bot()
@@ -96,7 +97,7 @@ async def _handle_yookassa_event(ctx: PluginContext, payload: Dict[str, Any]) ->
                     )
 
 
-async def _handle_panel_event(ctx: PluginContext, payload: Dict[str, Any]) -> None:
+async def _handle_panel_event(ctx: PluginContext, payload: dict[str, Any]) -> None:
     meta = payload.get("meta")
     await ctx.require_panel_webhook_service().handle_event(
         str(payload.get("event") or ""),
@@ -105,7 +106,7 @@ async def _handle_panel_event(ctx: PluginContext, payload: Dict[str, Any]) -> No
     )
 
 
-async def _handle_panel_sync_event(ctx: PluginContext, payload: Dict[str, Any]) -> None:
+async def _handle_panel_sync_event(ctx: PluginContext, payload: dict[str, Any]) -> None:
     settings = ctx.settings
     session_factory = ctx.require_session_factory()
     bot = ctx.require_bot()
@@ -136,7 +137,7 @@ async def _handle_panel_sync_event(ctx: PluginContext, payload: Dict[str, Any]) 
         )
 
 
-def _core_queue_handlers() -> Dict[str, QueueHandler]:
+def _core_queue_handlers() -> dict[str, QueueHandler]:
     return {
         "yookassa": _handle_yookassa_event,
         "panel": _handle_panel_event,
@@ -144,7 +145,7 @@ def _core_queue_handlers() -> Dict[str, QueueHandler]:
     }
 
 
-async def _webhook_consumer(ctx: PluginContext, handlers: Dict[str, QueueHandler]) -> None:
+async def _webhook_consumer(ctx: PluginContext, handlers: dict[str, QueueHandler]) -> None:
     settings = ctx.settings
     while True:
         event = await pop_webhook_event(settings)
@@ -175,8 +176,8 @@ async def _notify_queued_panel_sync_result(
     bot: Bot,
     settings: Settings,
     i18n: JsonI18n,
-    payload: Dict[str, Any],
-    sync_result: Dict[str, Any],
+    payload: dict[str, Any],
+    sync_result: dict[str, Any],
 ) -> None:
     status = sync_result.get("status")
     errors = sync_result.get("errors", [])
@@ -258,7 +259,7 @@ def _backup_worker_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
     ).run()
 
 
-def _core_worker_tasks() -> List[WorkerTaskSpec]:
+def _core_worker_tasks() -> list[WorkerTaskSpec]:
     return [
         WorkerTaskSpec(
             name="TariffTrafficWorker",

@@ -5,7 +5,7 @@ import json
 import logging
 import time
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot, F, Router, types
 from aiohttp import web
@@ -79,14 +79,14 @@ class HeleketConfig(ProviderEnvConfig):
     )
 
     ENABLED: bool = Field(default=False)
-    MERCHANT_ID: Optional[str] = None
-    API_KEY: Optional[str] = None
+    MERCHANT_ID: str | None = None
+    API_KEY: str | None = None
     BASE_URL: str = Field(default="https://api.heleket.com")
     CURRENCY: str = Field(default="RUB")
-    TO_CURRENCY: Optional[str] = None
-    NETWORK: Optional[str] = None
-    RETURN_URL: Optional[str] = None
-    SUCCESS_URL: Optional[str] = None
+    TO_CURRENCY: str | None = None
+    NETWORK: str | None = None
+    RETURN_URL: str | None = None
+    SUCCESS_URL: str | None = None
     LIFETIME_SECONDS: int = Field(default=3600)
     VERIFY_WEBHOOK_SIGNATURE: bool = Field(default=True)
     TRUSTED_IPS: str = Field(default="31.133.220.8")
@@ -122,13 +122,13 @@ class HeleketConfig(ProviderEnvConfig):
     def webhook_path(self) -> str:
         return "/webhook/heleket"
 
-    def full_webhook_url(self, base: Optional[str]) -> Optional[str]:
+    def full_webhook_url(self, base: str | None) -> str | None:
         if not base:
             return None
         return f"{base.rstrip('/')}{self.webhook_path}"
 
     @property
-    def trusted_ips_list(self) -> List[str]:
+    def trusted_ips_list(self) -> list[str]:
         return [item.strip() for item in (self.TRUSTED_IPS or "").split(",") if item.strip()]
 
 
@@ -142,16 +142,16 @@ class HeleketPresentation(ProviderEnvConfig):
         extra="ignore",
     )
 
-    WEBAPP_LABEL_RU: Optional[str] = None
-    WEBAPP_LABEL_EN: Optional[str] = None
-    WEBAPP_ICON: Optional[str] = None
-    TELEGRAM_LABEL_RU: Optional[str] = None
-    TELEGRAM_LABEL_EN: Optional[str] = None
-    TELEGRAM_EMOJI: Optional[str] = None
+    WEBAPP_LABEL_RU: str | None = None
+    WEBAPP_LABEL_EN: str | None = None
+    WEBAPP_ICON: str | None = None
+    TELEGRAM_LABEL_RU: str | None = None
+    TELEGRAM_LABEL_EN: str | None = None
+    TELEGRAM_EMOJI: str | None = None
 
 
 def _serialize_for_signature(
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     *,
     ensure_ascii: bool = False,
     escape_slashes: bool = True,
@@ -168,7 +168,7 @@ def _serialize_for_signature(
 
 
 def _compute_signature(
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     api_key: str,
     *,
     ensure_ascii: bool = False,
@@ -183,14 +183,14 @@ def _compute_signature(
     return hashlib.md5((b64 + str(api_key or "")).encode("utf-8")).hexdigest()
 
 
-def _signature_candidates(payload: Dict[str, Any], api_key: str) -> List[Tuple[str, str, str]]:
+def _signature_candidates(payload: dict[str, Any], api_key: str) -> list[tuple[str, str, str]]:
     variants = (
         ("php_unicode_slash", False, True),
         ("unicode_no_slash", False, False),
         ("ascii_slash", True, True),
         ("ascii_no_slash", True, False),
     )
-    candidates: List[Tuple[str, str, str]] = []
+    candidates: list[tuple[str, str, str]] = []
     seen: set[str] = set()
     for name, ensure_ascii, escape_slashes in variants:
         signature = _compute_signature(
@@ -271,11 +271,11 @@ class HeleketService(HttpClientMixin):
         return (self.config.CURRENCY or "RUB").upper()
 
     @property
-    def to_currency(self) -> Optional[str]:
+    def to_currency(self) -> str | None:
         return (self.config.TO_CURRENCY or "").strip() or None
 
     @property
-    def network(self) -> Optional[str]:
+    def network(self) -> str | None:
         return (self.config.NETWORK or "").strip() or None
 
     @property
@@ -299,10 +299,10 @@ class HeleketService(HttpClientMixin):
         *,
         payment_db_id: int,
         amount: float,
-        currency: Optional[str],
+        currency: str | None,
         description: str,
-        url_callback: Optional[str],
-    ) -> Tuple[bool, Dict[str, Any]]:
+        url_callback: str | None,
+    ) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             logging.error("HeleketService is not configured. Cannot create payment link.")
             return False, {"message": "service_not_configured"}
@@ -316,7 +316,7 @@ class HeleketService(HttpClientMixin):
                 "supported_currencies": list(supported),
             }
 
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "amount": str(format_decimal_amount(amount)),
             "currency": currency_code,
             "order_id": str(payment_db_id),
@@ -369,7 +369,7 @@ class HeleketService(HttpClientMixin):
             logging.exception("Heleket create_payment_link: request failed.")
             return False, {"message": str(exc)}
 
-    async def get_payment_info(self, payment_uuid: str) -> Tuple[bool, Dict[str, Any]]:
+    async def get_payment_info(self, payment_uuid: str) -> tuple[bool, dict[str, Any]]:
         if not self.configured:
             return False, {"message": "service_not_configured"}
 
@@ -406,7 +406,7 @@ class HeleketService(HttpClientMixin):
             logging.exception("Heleket get_payment_info request failed: uuid=%s", payment_uuid)
             return False, {"message": str(exc)}
 
-    async def try_reuse_pending_payment(self, payment: Any) -> Optional[str]:
+    async def try_reuse_pending_payment(self, payment: Any) -> str | None:
         payment_uuid = str(getattr(payment, "provider_payment_id", None) or "").strip()
         if not payment_uuid:
             return None
@@ -433,7 +433,7 @@ class HeleketService(HttpClientMixin):
             or None
         )
 
-    def _verify_signature(self, payload: Dict[str, Any]) -> bool:
+    def _verify_signature(self, payload: dict[str, Any]) -> bool:
         received = payload.get("sign")
         if not isinstance(received, str) or not received:
             return False
@@ -627,7 +627,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     return await run_webapp_payment(_DESCRIPTOR, ctx)
 
 
-async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> Optional[str]:
+async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str | None:
     return await run_reuse_webapp_payment(_DESCRIPTOR, ctx, payment)
 
 
@@ -701,7 +701,7 @@ async def _create_payment(service: HeleketService, req: CreatePaymentRequest) ->
     )
 
 
-async def _reuse_payment(service: HeleketService, payment: Any) -> Optional[str]:
+async def _reuse_payment(service: HeleketService, payment: Any) -> str | None:
     return await service.try_reuse_pending_payment(payment)
 
 

@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, ClassVar, Mapping, Optional, Sequence, Type
+from typing import Any, ClassVar
 
 from aiohttp import web
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-def provider_env_file() -> Optional[str]:
+def provider_env_file() -> str | None:
     """Resolve the env file every provider config should read.
 
     Tests set ``PROVIDER_ENV_FILE=""`` via conftest so per-provider
@@ -53,8 +54,8 @@ def provider_runtime_enabled(config: Any, *admin_only_attrs: str) -> bool:
 class ProviderConfigBundle:
     """Functional config + presentation overrides for a single provider."""
 
-    config: Optional[ProviderEnvConfig] = None
-    presentation: Optional[ProviderEnvConfig] = None
+    config: ProviderEnvConfig | None = None
+    presentation: ProviderEnvConfig | None = None
 
 
 @dataclass(frozen=True)
@@ -73,17 +74,17 @@ class ProviderManifestField:
     placeholder: str = ""
     secret: bool = False
     optional: bool = True
-    min: Optional[float] = None
-    max: Optional[float] = None
-    choices: Optional[Sequence[tuple[str, str]]] = None
-    subsection: Optional[str] = None
+    min: float | None = None
+    max: float | None = None
+    choices: Sequence[tuple[str, str]] | None = None
+    subsection: str | None = None
     target: str = "config"  # "config" or "presentation" — which bundle slot it writes to
-    attr: Optional[str] = (
+    attr: str | None = (
         None  # attribute name on the target model; defaults to key without env_prefix
     )
-    i18n_label_key: Optional[str] = None
-    i18n_description_key: Optional[str] = None
-    i18n_subsection_key: Optional[str] = None
+    i18n_label_key: str | None = None
+    i18n_description_key: str | None = None
+    i18n_subsection_key: str | None = None
 
 
 @dataclass(frozen=True)
@@ -97,7 +98,7 @@ class ServiceFactoryContext:
     referral_service: Any
     provider_configs: Mapping[str, ProviderConfigBundle] = field(default_factory=dict)
 
-    def config_for(self, service_key: Optional[str]) -> Optional[ProviderConfigBundle]:
+    def config_for(self, service_key: str | None) -> ProviderConfigBundle | None:
         if not service_key:
             return None
         return self.provider_configs.get(service_key)
@@ -111,31 +112,31 @@ class WebAppPaymentContext:
     method: str
     months: Any
     price: float
-    stars_price: Optional[int]
+    stars_price: int | None
     description: str
     sale_mode: str
     currency: str = "RUB"
-    traffic_gb: Optional[float] = None
-    hwid_device_count: Optional[int] = None
-    hwid_valid_from: Optional[Any] = None
-    hwid_valid_until: Optional[Any] = None
-    hwid_pricing_period_months: Optional[int] = None
-    hwid_proration_ratio: Optional[float] = None
-    hwid_full_price: Optional[float] = None
-    promo_code_id: Optional[int] = None
-    promo_effect_summary: Optional[str] = None
-    promo_bonus_days: Optional[int] = None
-    promo_discount_percent: Optional[float] = None
-    promo_duration_multiplier: Optional[float] = None
-    promo_traffic_multiplier: Optional[float] = None
-    promo_applies_to: Optional[str] = None
-    promo_min_subscription_months: Optional[int] = None
-    promo_min_traffic_gb: Optional[float] = None
-    checkout_base_amount: Optional[float] = None
-    checkout_discount_amount: Optional[float] = None
-    checkout_charged_months: Optional[int] = None
-    checkout_charged_gb: Optional[float] = None
-    checkout_quoted_at: Optional[Any] = None
+    traffic_gb: float | None = None
+    hwid_device_count: int | None = None
+    hwid_valid_from: Any | None = None
+    hwid_valid_until: Any | None = None
+    hwid_pricing_period_months: int | None = None
+    hwid_proration_ratio: float | None = None
+    hwid_full_price: float | None = None
+    promo_code_id: int | None = None
+    promo_effect_summary: str | None = None
+    promo_bonus_days: int | None = None
+    promo_discount_percent: float | None = None
+    promo_duration_multiplier: float | None = None
+    promo_traffic_multiplier: float | None = None
+    promo_applies_to: str | None = None
+    promo_min_subscription_months: int | None = None
+    promo_min_traffic_gb: float | None = None
+    checkout_base_amount: float | None = None
+    checkout_discount_amount: float | None = None
+    checkout_charged_months: int | None = None
+    checkout_charged_gb: float | None = None
+    checkout_quoted_at: Any | None = None
 
 
 @dataclass(frozen=True)
@@ -187,10 +188,10 @@ ServiceFactory = Callable[[ServiceFactoryContext], object]
 WebhookPathGetter = Callable[[Any], str]
 WebhookRoute = Callable[[Any], Awaitable[Any]]
 WebAppPaymentFactory = Callable[[WebAppPaymentContext], Awaitable[Any]]
-ReusableWebAppPaymentResolver = Callable[[WebAppPaymentContext, Any], Awaitable[Optional[str]]]
-CurrencySupportResolver = Callable[[Any], Optional[Sequence[str]]]
+ReusableWebAppPaymentResolver = Callable[[WebAppPaymentContext, Any], Awaitable[str | None]]
+CurrencySupportResolver = Callable[[Any], Sequence[str] | None]
 PaymentAmountResolver = Callable[[Any, Any, Any], bool]
-PaymentMinimumResolver = Callable[[Any, Any], Optional[Mapping[str, Any]]]
+PaymentMinimumResolver = Callable[[Any, Any], Mapping[str, Any] | None]
 
 
 def normalize_payment_currency_code(value: Any, default: str = "RUB") -> str:
@@ -229,38 +230,38 @@ class PaymentProviderSpec:
     label: str
     pending_status: str
     enabled: EnabledPredicate
-    service_key: Optional[str] = None
-    callback_prefix: Optional[str] = None
-    webapp_label: Optional[str] = None
-    webapp_labels: Optional[Mapping[str, str]] = None
-    telegram_labels: Optional[Mapping[str, str]] = None
+    service_key: str | None = None
+    callback_prefix: str | None = None
+    webapp_label: str | None = None
+    webapp_labels: Mapping[str, str] | None = None
+    telegram_labels: Mapping[str, str] | None = None
     aliases: Sequence[str] = ()
     router: Any = None
-    create_service: Optional[ServiceFactory] = None
-    webhook_path: Optional[WebhookPathGetter] = None
-    webhook_route: Optional[WebhookRoute] = None
+    create_service: ServiceFactory | None = None
+    webhook_path: WebhookPathGetter | None = None
+    webhook_route: WebhookRoute | None = None
     webhook_requires_base_url: bool = False
-    create_webapp_payment: Optional[WebAppPaymentFactory] = None
-    reuse_webapp_payment: Optional[ReusableWebAppPaymentResolver] = None
+    create_webapp_payment: WebAppPaymentFactory | None = None
+    reuse_webapp_payment: ReusableWebAppPaymentResolver | None = None
     requires_configured_service: bool = True
     price_source: str = "rub"
     emoji: str = "💳"
-    webapp_icon: Optional[str] = None
-    telegram_emoji: Optional[str] = None
-    config_class: Optional[Type[ProviderEnvConfig]] = None
-    presentation_class: Optional[Type[ProviderEnvConfig]] = None
+    webapp_icon: str | None = None
+    telegram_emoji: str | None = None
+    config_class: type[ProviderEnvConfig] | None = None
+    presentation_class: type[ProviderEnvConfig] | None = None
     manifest_fields: Sequence[ProviderManifestField] = ()
-    enabled_manifest_key: Optional[str] = None
-    admin_only_manifest_key: Optional[str] = None
+    enabled_manifest_key: str | None = None
+    admin_only_manifest_key: str | None = None
     admin_only_config_attr: str = "ADMIN_ONLY_ENABLED"
-    admin_only_enabled: Optional[EnabledPredicate] = None
+    admin_only_enabled: EnabledPredicate | None = None
     supports_recurring: bool = False
-    supported_currencies: Optional[Sequence[str]] = ("RUB",)
-    supported_currencies_resolver: Optional[CurrencySupportResolver] = None
-    payment_amount_resolver: Optional[PaymentAmountResolver] = None
-    payment_minimum_resolver: Optional[PaymentMinimumResolver] = None
+    supported_currencies: Sequence[str] | None = ("RUB",)
+    supported_currencies_resolver: CurrencySupportResolver | None = None
+    payment_amount_resolver: PaymentAmountResolver | None = None
+    payment_minimum_resolver: PaymentMinimumResolver | None = None
     currency_support_note: str = ""
-    currency_support_url: Optional[str] = None
+    currency_support_url: str | None = None
 
     @property
     def settings_key(self) -> str:
@@ -315,8 +316,8 @@ class PaymentProviderSpec:
         self,
         source: Any,
         *,
-        user_id: Optional[int] = None,
-        is_admin: Optional[bool] = None,
+        user_id: int | None = None,
+        is_admin: bool | None = None,
     ) -> bool:
         if is_admin is not None:
             return bool(is_admin)
@@ -349,7 +350,7 @@ class PaymentProviderSpec:
                 return bundle.config
         return source
 
-    def supported_currency_codes(self, source: Any = None) -> Optional[tuple[str, ...]]:
+    def supported_currency_codes(self, source: Any = None) -> tuple[str, ...] | None:
         if self.price_source == "stars":
             return ("XTR",)
         source_for_currency = self._currency_source(source)
@@ -373,7 +374,7 @@ class PaymentProviderSpec:
             return True
         return self.supports_currency(source, currency)
 
-    def payment_minimum(self, source: Any, currency: Any) -> Optional[Mapping[str, Any]]:
+    def payment_minimum(self, source: Any, currency: Any) -> Mapping[str, Any] | None:
         if self.payment_minimum_resolver is None:
             return None
         source_for_amount = self._currency_source(source)
@@ -405,8 +406,8 @@ class PaymentProviderSpec:
         source: Any,
         app: Any = None,
         *,
-        user_id: Optional[int] = None,
-        is_admin: Optional[bool] = None,
+        user_id: int | None = None,
+        is_admin: bool | None = None,
         require_configured: bool = True,
     ) -> bool:
         public_enabled = self.is_enabled(source)
@@ -426,8 +427,8 @@ class PaymentProviderSpec:
         source: Any,
         app: Any,
         *,
-        user_id: Optional[int] = None,
-        is_admin: Optional[bool] = None,
+        user_id: int | None = None,
+        is_admin: bool | None = None,
     ) -> bool:
         return self.is_available_to_user(
             source,
@@ -440,7 +441,7 @@ class PaymentProviderSpec:
     def load_router(self) -> Any:
         return self.router
 
-    def load_webhook_route(self) -> Optional[WebhookRoute]:
+    def load_webhook_route(self) -> WebhookRoute | None:
         return self.webhook_route
 
     def callback_data(
@@ -448,9 +449,9 @@ class PaymentProviderSpec:
         *,
         value: str,
         rub_price: float,
-        stars_price: Optional[int],
+        stars_price: int | None,
         sale_mode: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         if not self.callback_prefix:
             return None
         if self.price_source == "stars":
@@ -465,7 +466,7 @@ class PaymentProviderSpec:
 @dataclass(frozen=True)
 class PaymentProviderPresentation:
     webapp_label: str
-    webapp_icon: Optional[str]
+    webapp_icon: str | None
     telegram_label: str
     telegram_emoji: str
     telegram_customized: bool

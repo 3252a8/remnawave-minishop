@@ -27,7 +27,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND = ROOT / "backend"
@@ -40,7 +40,7 @@ from bot.app.web.admin_settings_manifest import manifest_payload  # noqa: E402
 OUTPUT_PATH = ROOT / "frontend" / "src" / "lib" / "webapp" / "settingsManifest.generated.json"
 
 
-def build_demo_settings_sections() -> List[Dict[str, Any]]:
+def build_demo_settings_sections() -> list[dict[str, Any]]:
     """Group the manifest into ordered sections with demo-safe field values.
 
     Mirrors :func:`bot.app.web.admin_api_impl.settings.admin_settings_get_route`
@@ -49,7 +49,7 @@ def build_demo_settings_sections() -> List[Dict[str, Any]]:
     values per field key at runtime.
     """
     fields = manifest_payload()
-    sections: Dict[str, Dict[str, Any]] = {}
+    sections: dict[str, dict[str, Any]] = {}
     for field in fields:
         section_id = field["section"]
         if section_id not in sections:
@@ -59,7 +59,7 @@ def build_demo_settings_sections() -> List[Dict[str, Any]]:
                 "fields": [],
             }
         is_secret = bool(field.get("secret"))
-        response_field: Dict[str, Any] = {
+        response_field: dict[str, Any] = {
             **field,
             "value": "",
             "overridden": False,
@@ -78,7 +78,7 @@ def build_demo_settings_sections() -> List[Dict[str, Any]]:
     return sorted(sections.values(), key=lambda section: section["order"])
 
 
-def render_json(sections: List[Dict[str, Any]]) -> str:
+def render_json(sections: list[dict[str, Any]]) -> str:
     return json.dumps(sections, ensure_ascii=False, indent=2) + "\n"
 
 

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from aiohttp import web
 
 from bot.app.web.context import (
@@ -13,7 +11,7 @@ from config.settings import Settings
 WEBAPP_SESSION_COOKIE_NAME = "rw_webapp_session"
 
 
-def extract_authenticated_user_id(request: web.Request) -> Optional[int]:
+def extract_authenticated_user_id(request: web.Request) -> int | None:
     settings: Settings = get_settings(request)
 
     auth_header = request.headers.get("Authorization", "")

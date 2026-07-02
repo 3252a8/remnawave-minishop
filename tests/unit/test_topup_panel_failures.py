@@ -15,7 +15,7 @@ the same contract on the three previously-broken paths.
 import json
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -116,7 +116,7 @@ def _make_sub(**overrides):
         premium_is_limited=False,
         premium_period_start_at=None,
         effective_monthly_price_rub=150,
-        end_date=datetime(2099, 1, 1, tzinfo=timezone.utc),
+        end_date=datetime(2099, 1, 1, tzinfo=UTC),
         is_active=True,
     )
     base.update(overrides)
@@ -342,12 +342,12 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
             service = _make_service(settings)
             sub = _make_sub(
                 tariff_key="standard",
-                end_date=datetime.now(timezone.utc) + timedelta(days=20),
+                end_date=datetime.now(UTC) + timedelta(days=20),
             )
             user = _make_user()
             updated = _make_sub(
                 tariff_key="premium",
-                end_date=datetime.now(timezone.utc) + timedelta(days=10),
+                end_date=datetime.now(UTC) + timedelta(days=10),
                 premium_is_limited=False,
                 effective_monthly_price_rub=300,
             )

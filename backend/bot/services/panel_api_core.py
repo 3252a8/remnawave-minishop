@@ -3,7 +3,7 @@ import json
 import logging
 import time
 from types import TracebackType
-from typing import Any, Dict, Optional
+from typing import Any
 from urllib.parse import urlencode
 
 import aiohttp
@@ -69,7 +69,7 @@ class PanelApiCoreMixin:
         self.base_url = self.panel_settings.api_url
         self.api_key = self.panel_settings.api_key
         self.api_cookie = self.panel_settings.api_cookie
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self.default_client_ip = "127.0.0.1"
         # Cache slow-changing reference data fetched from the panel. Errors and
         # None responses are not cached, so transient failures self-heal.
@@ -171,7 +171,7 @@ class PanelApiCoreMixin:
         """Alias for close_session for API consistency."""
         await self.close_session()
 
-    async def _prepare_headers(self) -> Dict[str, str]:
+    async def _prepare_headers(self) -> dict[str, str]:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
@@ -185,7 +185,7 @@ class PanelApiCoreMixin:
             headers["Cookie"] = str(self.api_cookie).strip()
         return headers
 
-    def _is_transient_error(self, result: Optional[Dict[str, Any]]) -> bool:
+    def _is_transient_error(self, result: dict[str, Any] | None) -> bool:
         if not isinstance(result, dict) or not result.get("error"):
             return False
         code = result.get("status_code")
@@ -195,11 +195,11 @@ class PanelApiCoreMixin:
 
     async def _request(
         self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         # Retry safe (idempotent) methods once on transient failures to absorb
         # network blips and short panel restarts without surfacing errors.
         max_attempts = 2 if method.upper() in self._SAFE_METHODS else 1
-        result: Optional[Dict[str, Any]] = None
+        result: dict[str, Any] | None = None
         for attempt in range(max_attempts):
             result = await self._request_once(method, endpoint, log_full_response, **kwargs)
             if attempt + 1 < max_attempts and self._is_transient_error(result):
@@ -219,7 +219,7 @@ class PanelApiCoreMixin:
 
     async def _request_once(
         self, method: str, endpoint: str, log_full_response: bool = False, **kwargs: Any
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         if not self.base_url:
             logging.error("Panel API URL (PANEL_API_URL) not configured in settings.")
             return {"error": True, "status_code": 0, "message": "Panel API URL not configured."}
@@ -358,7 +358,7 @@ class PanelApiCoreMixin:
                 "Panel API ClientError method=%s endpoint=%s.", method.upper(), endpoint_label
             )
             return {"error": True, "status_code": -2, "message": f"Client error: {str(e)}"}
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logging.info(
                 "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=timeout",
                 time.monotonic() - started,

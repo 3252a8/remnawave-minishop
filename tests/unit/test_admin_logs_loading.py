@@ -1,6 +1,6 @@
 import json
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -32,7 +32,7 @@ def _message_log(**overrides):
         "content": "Bot entry flow opened.",
         "is_admin_event": False,
         "target_user_id": None,
-        "timestamp": datetime(2026, 6, 18, 9, 30, tzinfo=timezone.utc),
+        "timestamp": datetime(2026, 6, 18, 9, 30, tzinfo=UTC),
         "author_user": SimpleNamespace(email="alice@example.test", telegram_id=100500),
         "target_user": None,
     }

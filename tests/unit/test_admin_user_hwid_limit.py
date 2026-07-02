@@ -1,6 +1,6 @@
 import json
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -139,7 +139,7 @@ class AdminUserHwidLimitRouteTests(unittest.IsolatedAsyncioTestCase):
 class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
     async def test_extend_route_can_skip_hwid_device_extension(self):
         session = FakeSession()
-        new_end = datetime(2099, 2, 1, tzinfo=timezone.utc)
+        new_end = datetime(2099, 2, 1, tzinfo=UTC)
         subscription_service = SimpleNamespace(
             extend_active_subscription_days=AsyncMock(return_value=new_end)
         )
@@ -175,7 +175,7 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_extend_route_extends_hwid_devices_by_default(self):
         session = FakeSession()
-        new_end = datetime(2099, 2, 1, tzinfo=timezone.utc)
+        new_end = datetime(2099, 2, 1, tzinfo=UTC)
         subscription_service = SimpleNamespace(
             extend_active_subscription_days=AsyncMock(return_value=new_end)
         )
@@ -207,7 +207,7 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_extend_route_uses_single_period_tariff_by_default(self):
         session = FakeSession()
-        new_end = datetime(2099, 2, 1, tzinfo=timezone.utc)
+        new_end = datetime(2099, 2, 1, tzinfo=UTC)
         subscription_service = SimpleNamespace(
             extend_active_subscription_days=AsyncMock(return_value=new_end)
         )

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,12 +23,12 @@ class CheckoutPromoResult:
     effects: PromoEffects
     base_amount: float
     effective_amount: float
-    effective_stars: Optional[int]
+    effective_stars: int | None
     discount_percent: float
     discount_amount: float
     effect_summary: str
-    charged_months: Optional[int]
-    charged_gb: Optional[float]
+    charged_months: int | None
+    charged_gb: float | None
     quoted_at: datetime
 
 
@@ -50,11 +50,11 @@ async def _resolve_checkout_promo(
     code_input: Any,
     sale_mode: str,
     payment_units: int | float,
-    traffic_gb: Optional[float],
+    traffic_gb: float | None,
     method: str,
     base_amount: float,
-    base_stars: Optional[int],
-) -> tuple[Optional[CheckoutPromoResult], Optional[CheckoutPromoError]]:
+    base_stars: int | None,
+) -> tuple[CheckoutPromoResult | None, CheckoutPromoError | None]:
     code = str(code_input or "").strip()
     if not code:
         return None, None
@@ -162,7 +162,7 @@ async def _resolve_checkout_promo(
             effect_summary=summarize_effects(effects),
             charged_months=months,
             charged_gb=traffic_units,
-            quoted_at=datetime.now(timezone.utc),
+            quoted_at=datetime.now(UTC),
         ),
         None,
     )

@@ -17,8 +17,9 @@ factories are referenced by ``SPEC``; only the duplicated body moves.
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Generic, Optional, Protocol, Tuple, TypeVar
+from typing import Any, Protocol, TypeVar
 
 from aiogram import types
 from aiohttp import web
@@ -68,7 +69,7 @@ class LinkFlowService(Protocol):
 ServiceT = TypeVar("ServiceT", bound=LinkFlowService)
 
 # Returned by every provider ``create_*`` call: (api_success, raw_response_dict).
-CreateResult = Tuple[bool, dict]
+CreateResult = tuple[bool, dict]
 
 
 @dataclass(frozen=True)
@@ -91,7 +92,7 @@ class CreatePaymentRequest:
 
 
 @dataclass(frozen=True)
-class LinkPaymentDescriptor(Generic[ServiceT]):
+class LinkPaymentDescriptor[ServiceT: LinkFlowService]:
     """Per-provider seams for the shared link-payment engine.
 
     ``provider_key`` / ``pending_status`` are persisted strings — never change
@@ -109,24 +110,24 @@ class LinkPaymentDescriptor(Generic[ServiceT]):
     service_app_key: str
     service_type: type[ServiceT]
     create: Callable[[ServiceT, CreatePaymentRequest], Awaitable[CreateResult]]
-    reuse: Callable[[ServiceT, Any], Awaitable[Optional[str]]]
-    extract_url: Callable[[dict], Optional[str]]
-    extract_provider_id: Callable[[dict], Optional[str]]
-    callback_currency: Optional[Callable[[ServiceT, Settings], str]] = None
-    callback_payment_allowed: Optional[Callable[[ServiceT, Settings, int, Any, str], bool]] = None
-    callback_lead_text: Optional[
-        Callable[[CreatePaymentRequest, dict, Callable[..., str]], Optional[str]]
-    ] = None
+    reuse: Callable[[ServiceT, Any], Awaitable[str | None]]
+    extract_url: Callable[[dict], str | None]
+    extract_provider_id: Callable[[dict], str | None]
+    callback_currency: Callable[[ServiceT, Settings], str] | None = None
+    callback_payment_allowed: Callable[[ServiceT, Settings, int, Any, str], bool] | None = None
+    callback_lead_text: (
+        Callable[[CreatePaymentRequest, dict, Callable[..., str]], str | None] | None
+    ) = None
     callback_reuse_enabled: bool = True
     callback_reuse_answer: bool = False
-    webapp_available: Optional[Callable[[ServiceT], bool]] = None
+    webapp_available: Callable[[ServiceT], bool] | None = None
     # Optional per-provider webapp currency policy. When unset, the webapp flow
     # uses ``ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB"`` (the
     # common case). Providers whose webapp resolution differs supply their own.
-    webapp_currency: Optional[Callable[[WebAppPaymentContext, Settings, ServiceT], str]] = None
+    webapp_currency: Callable[[WebAppPaymentContext, Settings, ServiceT], str] | None = None
 
 
-def _resolve_callback_currency(
+def _resolve_callback_currency[ServiceT: LinkFlowService](
     descriptor: LinkPaymentDescriptor[ServiceT],
     service: ServiceT,
     settings: Settings,
@@ -136,7 +137,7 @@ def _resolve_callback_currency(
     return default_payment_currency_code_for_settings(settings)
 
 
-def _resolve_webapp_currency(
+def _resolve_webapp_currency[ServiceT: LinkFlowService](
     descriptor: LinkPaymentDescriptor[ServiceT],
     ctx: WebAppPaymentContext,
     settings: Settings,
@@ -147,7 +148,7 @@ def _resolve_webapp_currency(
     return ctx.currency or settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
 
 
-def _webapp_service_available(
+def _webapp_service_available[ServiceT: LinkFlowService](
     descriptor: LinkPaymentDescriptor[ServiceT],
     service: ServiceT,
 ) -> bool:
@@ -156,7 +157,7 @@ def _webapp_service_available(
     return bool(service.configured)
 
 
-async def run_callback_payment(
+async def run_callback_payment[ServiceT: LinkFlowService](
     descriptor: LinkPaymentDescriptor[ServiceT],
     callback: types.CallbackQuery,
     settings: Settings,
@@ -308,7 +309,7 @@ async def run_callback_payment(
     )
 
 
-async def run_webapp_payment(
+async def run_webapp_payment[ServiceT: LinkFlowService](
     descriptor: LinkPaymentDescriptor[ServiceT],
     ctx: WebAppPaymentContext,
 ) -> web.Response:
@@ -355,11 +356,11 @@ async def run_webapp_payment(
     )
 
 
-async def run_reuse_webapp_payment(
+async def run_reuse_webapp_payment[ServiceT: LinkFlowService](
     descriptor: LinkPaymentDescriptor[ServiceT],
     ctx: WebAppPaymentContext,
     payment: Any,
-) -> Optional[str]:
+) -> str | None:
     """Shared body of every link provider's ``reuse_webapp_payment``."""
     service = app_optional(ctx.request, descriptor.service_app_key, descriptor.service_type)
     if not service or not service.configured:

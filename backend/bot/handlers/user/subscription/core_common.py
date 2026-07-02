@@ -1,5 +1,5 @@
 import hashlib
-from typing import Any, Optional, Protocol, cast
+from typing import Any, Protocol, cast
 
 from aiogram import Router, types
 from aiogram.types import InlineKeyboardMarkup
@@ -37,7 +37,7 @@ class _PurchaseTariff(Protocol):
     def description(self, lang: str) -> str: ...
 
 
-def _shorten_hwid_for_display(hwid: Optional[str], max_length: int = 24) -> str:
+def _shorten_hwid_for_display(hwid: str | None, max_length: int = 24) -> str:
     """Trim HWID for button text to keep within Telegram limits."""
     if not hwid:
         return "-"
@@ -47,7 +47,7 @@ def _shorten_hwid_for_display(hwid: Optional[str], max_length: int = 24) -> str:
     return f"{hwid_str[:8]}...{hwid_str[-6:]}"
 
 
-def _hwid_callback_token(hwid: Optional[str]) -> str:
+def _hwid_callback_token(hwid: str | None) -> str:
     """Stable short token for callback_data; avoids 64b limit with raw HWID."""
     hwid_str = str(hwid or "")
     return hashlib.sha256(hwid_str.encode()).hexdigest()[:32]
@@ -64,7 +64,7 @@ def _has_multiple_enabled_tariffs(settings: Settings) -> bool:
 
 def _recurring_service_for_subscription(
     subscription_service: SubscriptionService,
-    sub: Optional[Subscription],
+    sub: Subscription | None,
 ) -> object:
     provider = str(getattr(sub, "provider", "") or "").strip().lower()
     if not provider:
@@ -78,7 +78,7 @@ def _recurring_service_for_subscription(
 
 def _auto_renew_control_visible(
     subscription_service: SubscriptionService,
-    sub: Optional[Subscription],
+    sub: Subscription | None,
 ) -> bool:
     if not sub or not provider_supports_recurring(getattr(sub, "provider", None)):
         return False
@@ -92,7 +92,7 @@ def _tariff_purchase_markup(
     i18n: JsonI18n,
     settings: Settings,
     back_callback: str = "main_action:subscribe",
-    callback_context: Optional[str] = None,
+    callback_context: str | None = None,
 ) -> InlineKeyboardMarkup:
     if tariff.billing_model == "period":
         return cast(

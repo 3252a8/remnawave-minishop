@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,7 +30,7 @@ from .response_helpers import json_response
 logger = logging.getLogger(__name__)
 
 
-def _yookassa_payment_payload_for_processing(payload: Dict[str, Any]) -> Dict[str, Any]:
+def _yookassa_payment_payload_for_processing(payload: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(payload or {})
     if not isinstance(normalized.get("amount"), dict):
         amount_value = normalized.get("amount_value")

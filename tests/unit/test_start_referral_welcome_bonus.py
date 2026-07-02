@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, patch
@@ -162,7 +162,7 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
         message.answer.assert_awaited_once_with("registration_invite_required")
 
     async def test_start_referral_welcome_bonus_passes_default_tariff(self):
-        end_date = datetime(2026, 1, 9, tzinfo=timezone.utc)
+        end_date = datetime(2026, 1, 9, tzinfo=UTC)
         settings = self._settings(
             REFERRAL_WELCOME_BONUS_DAYS=3,
             referral_settings=ReferralSettings(

@@ -2,8 +2,8 @@
 # to mypy; this DAL intentionally reads loaded ORM instances.
 # mypy: disable-error-code="assignment,arg-type,operator"
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import and_, case, desc, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +13,7 @@ from sqlalchemy.orm import aliased
 from ..models import Payment, Subscription, User
 
 
-async def get_all_active_user_ids_for_broadcast(session: AsyncSession) -> List[int]:
+async def get_all_active_user_ids_for_broadcast(session: AsyncSession) -> list[int]:
     stmt = select(User.user_id).where(User.is_banned == False)
     result = await session.execute(stmt)
     return list(result.scalars().all())
@@ -25,18 +25,18 @@ async def count_all_active_users_for_broadcast(session: AsyncSession) -> int:
     return int(result.scalar_one() or 0)
 
 
-async def get_all_users_with_panel_uuid(session: AsyncSession) -> List[User]:
+async def get_all_users_with_panel_uuid(session: AsyncSession) -> list[User]:
     stmt = select(User).where(User.panel_user_uuid.is_not(None))
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
 
-async def get_enhanced_user_statistics(session: AsyncSession) -> Dict[str, Any]:
+async def get_enhanced_user_statistics(session: AsyncSession) -> dict[str, Any]:
     """Get comprehensive user statistics including active users, trial users, etc."""
     from datetime import datetime
 
     # Use timezone-aware UTC to avoid naive/aware comparison issues in SQL queries
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     user_counts_stmt = select(
@@ -145,11 +145,11 @@ async def get_enhanced_user_statistics(session: AsyncSession) -> Dict[str, Any]:
     }
 
 
-async def get_user_ids_with_active_subscription(session: AsyncSession) -> List[int]:
+async def get_user_ids_with_active_subscription(session: AsyncSession) -> list[int]:
     """Return non-banned user IDs who have any active subscription."""
     from datetime import datetime
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     stmt = (
         select(func.distinct(Subscription.user_id))
@@ -170,7 +170,7 @@ async def count_users_with_active_subscription_for_broadcast(session: AsyncSessi
     """Count non-banned users who have any active subscription."""
     from datetime import datetime
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     stmt = (
         select(func.count(func.distinct(Subscription.user_id)))
@@ -187,11 +187,11 @@ async def count_users_with_active_subscription_for_broadcast(session: AsyncSessi
     return int(result.scalar_one() or 0)
 
 
-async def get_user_ids_without_active_subscription(session: AsyncSession) -> List[int]:
+async def get_user_ids_without_active_subscription(session: AsyncSession) -> list[int]:
     """Return non-banned user IDs who do NOT have any active subscription."""
     from datetime import datetime
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     active_subs = aliased(Subscription)
 
@@ -220,7 +220,7 @@ async def count_users_without_active_subscription_for_broadcast(session: AsyncSe
     """Count non-banned users who do NOT have any active subscription."""
     from datetime import datetime
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     stmt = select(func.count(User.user_id)).where(
         User.is_banned == False,
@@ -230,7 +230,7 @@ async def count_users_without_active_subscription_for_broadcast(session: AsyncSe
     return int(result.scalar_one() or 0)
 
 
-async def get_user_ids_without_any_subscription(session: AsyncSession) -> List[int]:
+async def get_user_ids_without_any_subscription(session: AsyncSession) -> list[int]:
     """Return non-banned user IDs who never had any subscription or trial.
 
     These are users who registered but have no ``Subscription`` rows at all —
@@ -308,7 +308,7 @@ async def count_users_with_expired_subscription(session: AsyncSession) -> int:
     """Count users who have an expired subscription and no currently active subscription."""
     from datetime import datetime
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     stmt = select(func.count(User.user_id)).where(
         _expired_subscription_exists_for_user(now),
         ~_active_subscription_exists_for_user(now),
@@ -321,7 +321,7 @@ async def count_users_with_expired_subscription_for_broadcast(session: AsyncSess
     """Count non-banned users with an expired subscription and no active one."""
     from datetime import datetime
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     stmt = select(func.count(User.user_id)).where(
         User.is_banned == False,
         _expired_subscription_exists_for_user(now),
@@ -331,11 +331,11 @@ async def count_users_with_expired_subscription_for_broadcast(session: AsyncSess
     return int(result.scalar_one() or 0)
 
 
-async def get_user_ids_with_expired_subscription(session: AsyncSession) -> List[int]:
+async def get_user_ids_with_expired_subscription(session: AsyncSession) -> list[int]:
     """Return non-banned user IDs with an expired subscription and no active one."""
     from datetime import datetime
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     stmt = select(User.user_id).where(
         User.is_banned == False,
         _expired_subscription_exists_for_user(now),
@@ -349,7 +349,7 @@ async def get_top_users_by_traffic_used(
     session: AsyncSession,
     *,
     limit: int = 10,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Return top users by total used traffic across all subscriptions."""
     safe_limit = max(1, limit)
 
@@ -377,7 +377,7 @@ async def get_top_users_by_lifetime_traffic_used(
     session: AsyncSession,
     *,
     limit: int = 10,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Return top users by lifetime used traffic from panel data."""
     safe_limit = max(1, limit)
     lifetime_used = func.coalesce(User.lifetime_used_traffic_bytes, 0)
@@ -402,7 +402,7 @@ async def get_top_users_by_referrals_count(
     session: AsyncSession,
     *,
     limit: int = 10,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Return top users by number of invited users."""
     safe_limit = max(1, limit)
     referred_user = aliased(User)
@@ -431,7 +431,7 @@ async def get_top_users_by_referral_revenue(
     session: AsyncSession,
     *,
     limit: int = 10,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Return top users by total revenue brought by all invited users."""
     safe_limit = max(1, limit)
     referred_user = aliased(User)

@@ -1,7 +1,7 @@
 import json
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -63,7 +63,7 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _settings(tmpdir)
             service = _service(settings)
-            now = datetime(2099, 1, 15, tzinfo=timezone.utc)
+            now = datetime(2099, 1, 15, tzinfo=UTC)
             sub = SimpleNamespace(subscription_id=11)
 
             with patch(
@@ -110,8 +110,8 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
                 panel_user_uuid="panel-user",
                 panel_subscription_uuid="panel-sub",
                 tariff_key="basic",
-                start_date=datetime(2099, 1, 1, tzinfo=timezone.utc),
-                end_date=datetime(2099, 2, 1, tzinfo=timezone.utc),
+                start_date=datetime(2099, 1, 1, tzinfo=UTC),
+                end_date=datetime(2099, 2, 1, tzinfo=UTC),
                 effective_monthly_price_rub=100,
                 premium_topup_balance_bytes=0,
                 premium_topup_used_bytes=0,
@@ -208,8 +208,8 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
                 panel_user_uuid="panel-user",
                 panel_subscription_uuid="panel-sub",
                 tariff_key="basic",
-                start_date=datetime(2099, 1, 1, tzinfo=timezone.utc),
-                end_date=datetime(2099, 1, 8, tzinfo=timezone.utc),
+                start_date=datetime(2099, 1, 1, tzinfo=UTC),
+                end_date=datetime(2099, 1, 8, tzinfo=UTC),
                 duration_months=0,
                 provider="trial",
                 status_from_panel="ACTIVE",
@@ -295,8 +295,8 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
                 panel_user_uuid="panel-user",
                 panel_subscription_uuid="panel-sub",
                 tariff_key="basic",
-                start_date=datetime(2099, 1, 1, tzinfo=timezone.utc),
-                end_date=datetime(2099, 2, 1, tzinfo=timezone.utc),
+                start_date=datetime(2099, 1, 1, tzinfo=UTC),
+                end_date=datetime(2099, 2, 1, tzinfo=UTC),
                 effective_monthly_price_rub=100,
                 premium_topup_balance_bytes=0,
                 premium_topup_used_bytes=0,

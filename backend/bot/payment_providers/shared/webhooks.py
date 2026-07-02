@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +11,7 @@ from db.dal import payment_dal
 from db.models import Payment
 
 
-def coerce_payment_db_id(order_id_raw: Any) -> Optional[int]:
+def coerce_payment_db_id(order_id_raw: Any) -> int | None:
     """Pull a numeric DB id out of a webhook's ``orderId``/``order_id`` field."""
     if isinstance(order_id_raw, int):
         return order_id_raw
@@ -24,14 +24,14 @@ async def lookup_payment_by_order_or_provider_id(
     session: AsyncSession,
     *,
     order_id_raw: Any = None,
-    provider_payment_id: Optional[str] = None,
-) -> Optional[Payment]:
+    provider_payment_id: str | None = None,
+) -> Payment | None:
     """Find a payment by DB id first, fall back to provider id.
 
     Returns ``None`` so callers stay in charge of the not-found response.
     """
     payment_db_id = coerce_payment_db_id(order_id_raw)
-    payment: Optional[Payment] = None
+    payment: Payment | None = None
     if payment_db_id is not None:
         payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
     if not payment and provider_payment_id:

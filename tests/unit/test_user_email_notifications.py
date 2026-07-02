@@ -1,6 +1,5 @@
 import unittest
 from types import SimpleNamespace
-from typing import List
 from unittest.mock import patch
 
 from bot.services import user_email_notifications as module
@@ -19,12 +18,12 @@ class _FakeI18n:
 
 
 class _FakeEmailService:
-    instances: List["_FakeEmailService"] = []
+    instances: list["_FakeEmailService"] = []
 
     def __init__(self, settings, i18n=None):
         self.settings = settings
         self.i18n = i18n
-        self.sent: List[dict] = []
+        self.sent: list[dict] = []
         _FakeEmailService.instances.append(self)
 
     async def send_rendered_email(self, *, email, content):

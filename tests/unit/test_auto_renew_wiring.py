@@ -1,9 +1,8 @@
 """Regression tests for provider-agnostic auto-renew wiring."""
 
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import List, Optional
 from unittest.mock import AsyncMock, patch
 
 from bot.handlers.user.subscription import core as subscription_core
@@ -17,11 +16,11 @@ class _FakeRecurringService:
         *,
         configured: bool = True,
         recurring_active: bool = True,
-        result: Optional[RecurringChargeResult] = None,
+        result: RecurringChargeResult | None = None,
     ) -> None:
         self.configured = configured
         self.recurring_active = recurring_active
-        self.calls: List[object] = []
+        self.calls: list[object] = []
         self._result = result or RecurringChargeResult.ok(
             provider_payment_id="auto-pay-1",
             status="pending",
@@ -43,9 +42,9 @@ class _FakeSub(SimpleNamespace):
 
 def _make_mixin(
     *,
-    service: Optional[_FakeRecurringService],
+    service: _FakeRecurringService | None,
     provider: str = "yookassa",
-    price_for_months: Optional[float] = 100.0,
+    price_for_months: float | None = 100.0,
 ):
     mixin = RenewalMixin()
     mixin.settings = SimpleNamespace(
@@ -285,8 +284,8 @@ class ChargeRenewalHappyPathTests(unittest.IsolatedAsyncioTestCase):
     async def test_includes_hwid_device_renewal_in_saved_method_charge(self):
         service = _FakeRecurringService()
         mixin = _make_mixin(service=service, price_for_months=399.0)
-        valid_from = datetime(2099, 2, 1, tzinfo=timezone.utc)
-        valid_until = datetime(2099, 3, 1, tzinfo=timezone.utc)
+        valid_from = datetime(2099, 2, 1, tzinfo=UTC)
+        valid_until = datetime(2099, 3, 1, tzinfo=UTC)
         mixin.quote_hwid_device_renewal_for_subscription = AsyncMock(
             return_value={
                 "device_count": 2,

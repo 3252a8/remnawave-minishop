@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
@@ -17,13 +17,13 @@ from .user_keyboards_context import (
 
 
 def get_subscription_options_keyboard(
-    subscription_options: Dict[float, Optional[float]],
+    subscription_options: dict[float, float | None],
     currency_symbol_val: str,
     lang: str,
     i18n_instance: JsonI18n,
     traffic_mode: bool = False,
     back_callback: str = "main_action:back_to_main",
-    callback_context: Optional[str] = None,
+    callback_context: str | None = None,
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -65,12 +65,12 @@ def get_subscription_options_keyboard(
 
 
 def get_tariff_catalog_keyboard(
-    tariffs: List[Any],
+    tariffs: list[Any],
     lang: str,
     i18n_instance: JsonI18n,
-    settings: Optional[Settings] = None,
+    settings: Settings | None = None,
     back_callback: str = "main_action:back_to_main",
-    callback_context: Optional[str] = None,
+    callback_context: str | None = None,
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     callback_context = callback_context or callback_context_from_back_callback(back_callback)
@@ -115,7 +115,7 @@ def get_tariff_periods_keyboard(
     i18n_instance: JsonI18n,
     settings: Settings,
     back_callback: str = "main_action:subscribe",
-    callback_context: Optional[str] = None,
+    callback_context: str | None = None,
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     callback_context = callback_context or callback_context_from_back_callback(back_callback)
@@ -145,12 +145,12 @@ def get_tariff_periods_keyboard(
 
 def get_tariff_packages_keyboard(
     tariff: Any,
-    packages: List[Any],
+    packages: list[Any],
     lang: str,
     i18n_instance: JsonI18n,
     currency_symbol: str = "RUB",
     back_callback: str = "main_action:subscribe",
-    callback_context: Optional[str] = None,
+    callback_context: str | None = None,
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     callback_context = callback_context or callback_context_from_back_callback(back_callback)
@@ -176,7 +176,7 @@ def get_tariff_packages_keyboard(
 
 def get_hwid_device_packages_keyboard(
     tariff: Any,
-    packages: List[Any],
+    packages: list[Any],
     lang: str,
     i18n_instance: JsonI18n,
     settings: Settings,

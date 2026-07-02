@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
@@ -19,8 +19,8 @@ class _I18n:
 
 class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
     async def test_telegram_subscription_hwid_quote_is_stored_in_yookassa_metadata(self):
-        valid_from = datetime(2099, 2, 1, tzinfo=timezone.utc)
-        valid_until = datetime(2099, 3, 1, tzinfo=timezone.utc)
+        valid_from = datetime(2099, 2, 1, tzinfo=UTC)
+        valid_until = datetime(2099, 3, 1, tzinfo=UTC)
         session = AsyncMock()
         callback = SimpleNamespace(
             from_user=SimpleNamespace(id=42),
@@ -94,8 +94,8 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
         assert service.create_payment.await_args.kwargs["amount"] == 150
 
     async def test_webapp_subscription_hwid_quote_is_stored_in_yookassa_metadata(self):
-        valid_from = datetime(2099, 2, 1, tzinfo=timezone.utc)
-        valid_until = datetime(2099, 3, 1, tzinfo=timezone.utc)
+        valid_from = datetime(2099, 2, 1, tzinfo=UTC)
+        valid_until = datetime(2099, 3, 1, tzinfo=UTC)
         payment = SimpleNamespace(payment_id=123)
         session = AsyncMock()
         service = SimpleNamespace(
@@ -245,8 +245,8 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
         assert event_payload["tariff_key"] == "standard"
 
     async def test_subscription_hwid_webhook_uses_payment_record_metadata_fallback(self):
-        valid_from = datetime(2099, 2, 1, tzinfo=timezone.utc)
-        valid_until = datetime(2099, 3, 1, tzinfo=timezone.utc)
+        valid_from = datetime(2099, 2, 1, tzinfo=UTC)
+        valid_until = datetime(2099, 3, 1, tzinfo=UTC)
         payment = SimpleNamespace(
             payment_id=5,
             status="pending_yookassa",
@@ -356,7 +356,7 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
         assert event_payload["tariff_key"] == "standard"
 
     async def test_subscription_uses_payment_tariff_for_activation_and_referral(self):
-        end_date = datetime(2099, 2, 1, tzinfo=timezone.utc)
+        end_date = datetime(2099, 2, 1, tzinfo=UTC)
         payment = SimpleNamespace(payment_id=5, status="pending_yookassa", tariff_key="premium")
         updated_payment = SimpleNamespace(payment_id=5, status="succeeded", tariff_key="premium")
         db_user = SimpleNamespace(
@@ -478,8 +478,8 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
         assert yookassa.DEFERRED_SUCCESS_MESSAGE_KEY not in event_payload
 
     async def test_auto_renew_hwid_metadata_is_persisted_for_activation(self):
-        valid_from = datetime(2099, 2, 1, tzinfo=timezone.utc)
-        valid_until = datetime(2099, 3, 1, tzinfo=timezone.utc)
+        valid_from = datetime(2099, 2, 1, tzinfo=UTC)
+        valid_until = datetime(2099, 3, 1, tzinfo=UTC)
         payment = SimpleNamespace(payment_id=5, status="pending_yookassa", tariff_key="standard")
         updated_payment = SimpleNamespace(payment_id=5, status="succeeded", tariff_key="standard")
         db_user = SimpleNamespace(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -56,8 +56,8 @@ def _payment(**overrides):
         "tariff_key": "standard",
         "purchased_gb": 12.5,
         "purchased_hwid_devices": 2,
-        "created_at": datetime(2026, 1, 2, 3, 4, tzinfo=timezone.utc),
-        "updated_at": datetime(2026, 1, 2, 4, 5, tzinfo=timezone.utc),
+        "created_at": datetime(2026, 1, 2, 3, 4, tzinfo=UTC),
+        "updated_at": datetime(2026, 1, 2, 4, 5, tzinfo=UTC),
         "user": SimpleNamespace(
             user_id=42,
             telegram_id=42,
@@ -93,7 +93,7 @@ def test_ad_response_model_matches_legacy_serializer():
         start_param="summer",
         cost=15,
         is_active=True,
-        created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
     )
     stats = {"starts": 4, "trials": 2, "payers": 1, "revenue": 120.0}
 
@@ -111,7 +111,7 @@ class _LazyLogEntry:
     event_type = "message"
     content = "hello"
     is_admin_event = True
-    timestamp = datetime(2026, 1, 3, 5, 6, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 1, 3, 5, 6, tzinfo=UTC)
 
     @property
     def author_user(self):

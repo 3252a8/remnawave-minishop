@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import html
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from bot.middlewares.i18n import JsonI18n
@@ -28,16 +28,16 @@ from .email_templates_common import (
 def render_payment_success(
     settings: Settings,
     *,
-    language_code: Optional[str],
+    language_code: str | None,
     sale_mode: str,
     months: int,
-    traffic_gb: Optional[float],
+    traffic_gb: float | None,
     amount: float,
     currency: str,
     end_date_text: str,
-    dashboard_url: Optional[str],
-    provider_label: Optional[str] = None,
-    i18n: Optional[JsonI18n] = None,
+    dashboard_url: str | None,
+    provider_label: str | None = None,
+    i18n: JsonI18n | None = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
     lang = _normalize_lang(language_code, settings)
@@ -126,7 +126,7 @@ def render_payment_success(
             end_date=end_date,
         )
 
-    rows: list[Tuple[str, str]] = [
+    rows: list[tuple[str, str]] = [
         (period_label, period_value),
         (_t_text(i18n, lang, "email_payment_success_row_amount"), amount_text),
         (_t_text(i18n, lang, "email_payment_success_row_end_date"), end_date),

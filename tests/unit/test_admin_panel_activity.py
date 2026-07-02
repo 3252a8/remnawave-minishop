@@ -1,6 +1,6 @@
 import json
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -44,8 +44,8 @@ def _active_subscription(panel_user_uuid="panel-from-sub"):
         subscription_id=10,
         panel_user_uuid=panel_user_uuid,
         panel_subscription_uuid=None,
-        start_date=datetime(2026, 6, 1, tzinfo=timezone.utc),
-        end_date=datetime(2026, 7, 1, tzinfo=timezone.utc),
+        start_date=datetime(2026, 6, 1, tzinfo=UTC),
+        end_date=datetime(2026, 7, 1, tzinfo=UTC),
         duration_months=1,
         is_active=True,
         status_from_panel="ACTIVE",
@@ -168,7 +168,7 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
             email=None,
             language_code="ru",
             is_banned=False,
-            registration_date=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            registration_date=datetime(2026, 6, 1, tzinfo=UTC),
             panel_user_uuid=None,
             referral_code=None,
             referred_by_id=None,

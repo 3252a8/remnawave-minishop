@@ -8,7 +8,7 @@ returns a fast ack. These tests pin that contract.
 import json
 import unittest
 from types import SimpleNamespace
-from typing import Any, List
+from typing import Any
 from unittest.mock import patch
 
 from aiohttp import web
@@ -51,7 +51,7 @@ def _patch_admin_auth(monkeypatch_target: Any) -> None:
 
 class AdminSyncQueueTests(unittest.IsolatedAsyncioTestCase):
     async def test_returns_queued_when_redis_accepts_event(self):
-        recorded: List[dict] = []
+        recorded: list[dict] = []
 
         async def fake_enqueue(settings, provider, payload, *, event_id=None):
             recorded.append(

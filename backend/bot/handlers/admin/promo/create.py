@@ -1,6 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from aiogram import F, Router, types
 from aiogram.filters import StateFilter
@@ -30,7 +29,7 @@ async def create_promo_prompt_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error preparing promo creation.", show_alert=True)
         return
@@ -66,7 +65,7 @@ async def process_promo_code_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -107,7 +106,7 @@ async def process_promo_bonus_days_handler(
     message: types.Message, state: FSMContext, i18n_data: dict, settings: Settings
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -147,7 +146,7 @@ async def process_promo_max_activations_handler(
     message: types.Message, state: FSMContext, i18n_data: dict, settings: Settings
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -219,7 +218,7 @@ async def process_promo_set_validity(
     callback: types.CallbackQuery, state: FSMContext, i18n_data: dict, settings: Settings
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error processing validity.", show_alert=True)
         return
@@ -258,7 +257,7 @@ async def process_promo_validity_days_handler(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         await message.reply("Language service error.")
         return
@@ -289,7 +288,7 @@ async def create_promo_code_final(
 ) -> None:
     """Final step - create the promo code in database"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
@@ -308,14 +307,12 @@ async def create_promo_code_final(
             "current_activations": 0,
             "is_active": True,
             "created_by_admin_id": created_by_admin_id,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
         }
 
         # Set validity
         if data.get("validity_days"):
-            promo_data["valid_until"] = datetime.now(timezone.utc) + timedelta(
-                days=data["validity_days"]
-            )
+            promo_data["valid_until"] = datetime.now(UTC) + timedelta(days=data["validity_days"])
         else:
             promo_data["valid_until"] = None
 
@@ -397,7 +394,7 @@ async def cancel_promo_creation_state_to_menu(
     session: AsyncSession,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n or not callback.message:
         await callback.answer("Error cancelling.", show_alert=True)
         return
