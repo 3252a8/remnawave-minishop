@@ -1,9 +1,11 @@
+import json
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TARIFF_EDITOR = REPO_ROOT / "frontend/src/admin/sections/TariffEditorModal.svelte"
 TARIFF_EDITOR_TABS = REPO_ROOT / "frontend/src/admin/sections/tariffs"
 TARIFFS_SECTION = REPO_ROOT / "frontend/src/admin/sections/TariffsSection.svelte"
+LOCALES = (REPO_ROOT / "locales/ru.json", REPO_ROOT / "locales/en.json")
 
 
 def tariff_editor_source() -> str:
@@ -46,3 +48,21 @@ def test_tariff_cards_show_regular_traffic_limit():
     assert "tariffDeviceLimit(tariff)" in facts_block
     assert "premium_monthly_gb || 0" not in facts_block
     assert "tariff.hwid_device_limit ??" not in facts_block
+
+
+def test_traffic_topup_always_toggle_labels_are_localized():
+    source = tariff_editor_source()
+    required_keys = {
+        "admin_tariff_topup_always_hint",
+        "admin_tariff_topup_always_label",
+        "admin_tariff_premium_topup_always_hint",
+        "admin_tariff_premium_topup_always_label",
+    }
+
+    for key in required_keys:
+        assert key.removeprefix("admin_") in source
+
+    for path in LOCALES:
+        messages = json.loads(path.read_text(encoding="utf-8"))
+        missing = sorted(required_keys - set(messages))
+        assert not missing, f"{path.name} is missing {missing}"
