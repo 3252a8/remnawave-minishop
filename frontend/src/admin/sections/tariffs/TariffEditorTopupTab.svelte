@@ -55,13 +55,6 @@
           >
         </div>
       </header>
-      <p class="admin-muted">
-        {at(
-          "tariff_topup_unlock_hint",
-          {},
-          "По умолчанию докупка появляется у пользователя (в мини-аппе и в меню бота), когда израсходовано не менее 80% лимита трафика. Переключатель ниже делает докупку доступной всегда."
-        )}
-      </p>
       <div class="admin-action-row admin-action-row-bordered">
         <Switch.Root
           aria-labelledby="tariff-topup-always-toggle-label"
@@ -73,16 +66,12 @@
           <Switch.Thumb class="admin-switch-thumb" />
         </Switch.Root>
         <Label.Root id="tariff-topup-always-toggle-label" class="admin-action-label">
-          <strong
-            >{tariffDraft.topup_always_available
-              ? at("tariff_topup_always_on", {}, "Докупка доступна всегда")
-              : at("tariff_topup_always_off", {}, "Докупка открывается после 80% расхода")}</strong
-          >
+          <strong>{at("tariff_topup_always_label", {}, "Докупка доступна всегда")}</strong>
           <small
             >{at(
               "tariff_topup_always_hint",
               {},
-              "Если включено, пользователь видит докупку трафика независимо от того, сколько лимита израсходовано."
+              "По умолчанию докупка обычного трафика появляется у пользователя (в мини-аппе и в меню бота), когда израсходовано не менее 80% лимита. Включите, чтобы предложение показывалось независимо от процента расхода."
             )}</small
           >
         </Label.Root>

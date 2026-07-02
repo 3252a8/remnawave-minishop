@@ -107,6 +107,30 @@ describe("computeBillingView", () => {
     expect(view.regularTrafficTopupBarClickable).toBe(true);
   });
 
+  it("gates regular and premium always-available toggles independently", () => {
+    const view = computeBillingView({
+      appSettings: {},
+      plans: [periodPlan],
+      selectedTariffKey: "period",
+      subscription: {
+        active: true,
+        tariff_key: "period",
+        can_topup_regular_traffic: true,
+        can_topup_premium_traffic: true,
+        topup_always_available: false,
+        premium_topup_always_available: true,
+        traffic_limit_bytes: 100,
+        traffic_used_bytes: 5,
+        premium_limit_bytes: 100,
+        premium_used_bytes: 5,
+      },
+      topupUnlockPercent: 80,
+    });
+
+    expect(view.regularTrafficTopupUnlocked).toBe(false);
+    expect(view.premiumTrafficTopupUnlocked).toBe(true);
+  });
+
   it("uses premium-specific top-up permissions before the generic fallback", () => {
     const view = computeBillingView({
       appSettings: {},

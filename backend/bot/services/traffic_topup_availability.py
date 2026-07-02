@@ -3,7 +3,8 @@
 Mirrors the web app rules (``frontend/src/lib/webapp/billingView.ts``): the
 offer unlocks once usage crosses ``TRAFFIC_TOPUP_UNLOCK_PERCENT`` of the
 limit, except for traffic-billed tariffs (buying packages *is* the product)
-and tariffs with the ``topup_always_available`` admin toggle enabled.
+and tariffs with the ``topup_always_available`` / ``premium_topup_always_available``
+admin toggles enabled. Regular and premium traffic are gated independently.
 """
 
 import logging
@@ -25,7 +26,8 @@ class TrafficTopupAvailability:
     premium_offer_exists: bool = False
     regular_unlocked: bool = False
     premium_unlocked: bool = False
-    always_available: bool = False
+    regular_always_available: bool = False
+    premium_always_available: bool = False
 
     @property
     def has_offers(self) -> bool:
@@ -79,8 +81,11 @@ def resolve_traffic_topup_availability(
         and tariff.premium_topup_packages
         and tariff.premium_topup_packages.has_any()
     )
-    always_available = bool(tariff.topup_always_available)
-    threshold_bypassed = always_available or tariff.billing_model == "traffic"
+    regular_always_available = bool(tariff.topup_always_available)
+    premium_always_available = bool(tariff.premium_topup_always_available)
+    traffic_billed = tariff.billing_model == "traffic"
+    regular_threshold_bypassed = regular_always_available or traffic_billed
+    premium_threshold_bypassed = premium_always_available or traffic_billed
 
     regular_visible = not bool(active.get("regular_unlimited_override")) and (
         _coerce_bytes(active.get("traffic_limit_bytes")) > 0
@@ -89,7 +94,7 @@ def resolve_traffic_topup_availability(
         regular_offer_exists
         and regular_visible
         and (
-            threshold_bypassed
+            regular_threshold_bypassed
             or _usage_percent(active.get("traffic_used_bytes"), active.get("traffic_limit_bytes"))
             >= TRAFFIC_TOPUP_UNLOCK_PERCENT
         )
@@ -102,7 +107,7 @@ def resolve_traffic_topup_availability(
         premium_offer_exists
         and premium_visible
         and (
-            threshold_bypassed
+            premium_threshold_bypassed
             or _usage_percent(active.get("premium_used_bytes"), active.get("premium_limit_bytes"))
             >= TRAFFIC_TOPUP_UNLOCK_PERCENT
         )
@@ -113,5 +118,6 @@ def resolve_traffic_topup_availability(
         premium_offer_exists=premium_offer_exists,
         regular_unlocked=regular_unlocked,
         premium_unlocked=premium_unlocked,
-        always_available=always_available,
+        regular_always_available=regular_always_available,
+        premium_always_available=premium_always_available,
     )

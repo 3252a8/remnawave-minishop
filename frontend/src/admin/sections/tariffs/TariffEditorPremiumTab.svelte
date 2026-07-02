@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getTariffsStore } from "$lib/admin/context";
   import { Input, Sortable } from "$components/ui/index.js";
-  import { Tabs, Label } from "$components/ui/primitives.js";
+  import { Tabs, Label, Switch } from "$components/ui/primitives.js";
   import { AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
   import { Plus, Trash2, X } from "$components/ui/icons.js";
   import { normalizeUuidList } from "$lib/admin/tariffDraft";
@@ -170,6 +170,27 @@
         >
       </div>
     </header>
+    <div class="admin-action-row admin-action-row-bordered">
+      <Switch.Root
+        aria-labelledby="tariff-premium-topup-always-toggle-label"
+        checked={Boolean(tariffDraft.premium_topup_always_available)}
+        onCheckedChange={(value) =>
+          tariffsStore.updateDraftField("premium_topup_always_available", value)}
+        class="admin-switch-root"
+      >
+        <Switch.Thumb class="admin-switch-thumb" />
+      </Switch.Root>
+      <Label.Root id="tariff-premium-topup-always-toggle-label" class="admin-action-label">
+        <strong>{at("tariff_premium_topup_always_label", {}, "Докупка доступна всегда")}</strong>
+        <small
+          >{at(
+            "tariff_premium_topup_always_hint",
+            {},
+            "По умолчанию докупка premium-трафика появляется у пользователя (в мини-аппе и в меню бота), когда израсходовано не менее 80% premium-лимита. Включите, чтобы предложение показывалось независимо от процента расхода."
+          )}</small
+        >
+      </Label.Root>
+    </div>
     {#if tariffDraft.premiumTopupRows.length}
       <div class="admin-row-editor">
         <div class="admin-row-editor-line admin-row-editor-drag admin-row-editor-header">

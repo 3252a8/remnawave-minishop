@@ -19,6 +19,7 @@ type BillingSubscription = BillingPlan & {
   can_topup_regular_traffic?: boolean;
   can_topup_traffic?: boolean;
   premium_limit_bytes?: number | string;
+  premium_topup_always_available?: boolean;
   premium_unlimited_override?: boolean;
   premium_used_bytes?: number | string;
   regular_unlimited_override?: boolean;
@@ -99,21 +100,26 @@ export function computeBillingView({
   );
   const regularTrafficUsagePercent = trafficPercent(subscription);
   const premiumTrafficUsagePercent = premiumTrafficPercent(subscription);
-  // Admin toggle on the tariff: skip the usage threshold and offer top-ups always.
-  const effectiveUnlockPercent = subscription?.topup_always_available ? 0 : topupUnlockPercent;
+  // Admin toggles on the tariff: skip the usage threshold per traffic type.
+  const regularEffectiveUnlockPercent = subscription?.topup_always_available
+    ? 0
+    : topupUnlockPercent;
+  const premiumEffectiveUnlockPercent = subscription?.premium_topup_always_available
+    ? 0
+    : topupUnlockPercent;
   const regularTrafficTopupUnlocked = Boolean(
-    canOpenRegularTopupModal && regularTrafficUsagePercent >= effectiveUnlockPercent
+    canOpenRegularTopupModal && regularTrafficUsagePercent >= regularEffectiveUnlockPercent
   );
   const premiumTrafficTopupUnlocked = Boolean(
-    canOpenPremiumTopupModal && premiumTrafficUsagePercent >= effectiveUnlockPercent
+    canOpenPremiumTopupModal && premiumTrafficUsagePercent >= premiumEffectiveUnlockPercent
   );
   const regularTrafficTopupBarClickable = Boolean(
     canOpenRegularTopupModal &&
-    (subscriptionIsTrafficTariff || regularTrafficUsagePercent >= effectiveUnlockPercent)
+    (subscriptionIsTrafficTariff || regularTrafficUsagePercent >= regularEffectiveUnlockPercent)
   );
   const premiumTrafficTopupBarClickable = Boolean(
     canOpenPremiumTopupModal &&
-    (subscriptionIsTrafficTariff || premiumTrafficUsagePercent >= effectiveUnlockPercent)
+    (subscriptionIsTrafficTariff || premiumTrafficUsagePercent >= premiumEffectiveUnlockPercent)
   );
 
   return {

@@ -191,8 +191,8 @@ class Tariff(BaseModel):
     referral_bonus_days_referee: dict[str, int] = Field(default_factory=dict)
     enabled_periods: list[int] = Field(default_factory=list)
     topup_packages: PackageSet | None = None
-    # Admin toggle: offer traffic top-ups regardless of how much of the
-    # monthly limit is used (by default the offer unlocks only after the
+    # Admin toggle: offer regular-traffic top-ups regardless of how much of
+    # the monthly limit is used (by default the offer unlocks only after
     # usage crosses the unlock threshold, mirroring the web app).
     topup_always_available: bool = False
 
@@ -204,6 +204,8 @@ class Tariff(BaseModel):
     premium_squad_uuids: list[str] = Field(default_factory=list)
     premium_monthly_gb: float | None = None
     premium_topup_packages: PackageSet | None = None
+    # Same toggle as topup_always_available, scoped to premium-squad traffic.
+    premium_topup_always_available: bool = False
 
     @model_validator(mode="after")
     def validate_tariff(self) -> "Tariff":

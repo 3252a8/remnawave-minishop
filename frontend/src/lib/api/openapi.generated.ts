@@ -3668,6 +3668,11 @@ export interface components {
       };
       /** Premium Squad Uuids */
       premium_squad_uuids?: string[];
+      /**
+       * Premium Topup Always Available
+       * @default false
+       */
+      premium_topup_always_available: boolean;
       /** @default null */
       premium_topup_packages: components["schemas"]["PackageSet"] | null;
       /** Prices */
@@ -6918,6 +6923,7 @@ export interface operations {
               premium_node_labels?: string[];
               premium_squad_labels?: string[];
               premium_title?: string | null;
+              premium_topup_always_available?: boolean;
               premium_topup_balance_bytes?: number | null;
               premium_topup_used_bytes?: number | null;
               premium_unlimited_override?: boolean;

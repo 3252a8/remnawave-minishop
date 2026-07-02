@@ -3,8 +3,9 @@
 The gate mirrors the web app rules (``frontend/src/lib/webapp/billingView.ts``):
 the bot menu button and the ``tariff_topup:list`` callback must offer top-ups
 only once usage crosses ``TRAFFIC_TOPUP_UNLOCK_PERCENT`` of the limit. The
-per-tariff ``topup_always_available`` admin toggle and traffic-billed tariffs
-bypass the threshold; unlimited overrides hide the offer entirely.
+per-tariff ``topup_always_available`` / ``premium_topup_always_available``
+admin toggles and traffic-billed tariffs bypass the threshold independently
+for regular vs. premium traffic; unlimited overrides hide the offer entirely.
 """
 
 import json
@@ -27,6 +28,7 @@ def _tariffs_payload(
     topup_rub=None,
     premium_topup_rub=None,
     topup_always_available: bool = False,
+    premium_topup_always_available: bool = False,
 ) -> dict:
     tariff: dict[str, Any] = {
         "key": "standard",
@@ -47,6 +49,7 @@ def _tariffs_payload(
         tariff["premium_squad_uuids"] = ["premium-squad"]
         tariff["premium_monthly_gb"] = 20
         tariff["premium_topup_packages"] = {"rub": premium_topup_rub, "stars": []}
+        tariff["premium_topup_always_available"] = premium_topup_always_available
     return {"default_tariff": "standard", "tariffs": [tariff]}
 
 
@@ -123,8 +126,32 @@ class TrafficTopupAvailabilityTests(unittest.TestCase):
             availability = resolve_traffic_topup_availability(
                 settings, _active(traffic_used_bytes=0)
             )
-        self.assertTrue(availability.always_available)
+        self.assertTrue(availability.regular_always_available)
         self.assertTrue(availability.regular_unlocked)
+
+    def test_premium_always_available_toggle_is_independent_of_regular(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                tmpdir,
+                _tariffs_payload(
+                    topup_rub=[{"gb": 10, "price": 50}],
+                    premium_topup_rub=[{"gb": 10, "price": 50}],
+                    topup_always_available=False,
+                    premium_topup_always_available=True,
+                ),
+            )
+            availability = resolve_traffic_topup_availability(
+                settings,
+                _active(
+                    traffic_used_bytes=0,
+                    premium_limit_bytes=20 * GB,
+                    premium_used_bytes=0,
+                ),
+            )
+        self.assertFalse(availability.regular_always_available)
+        self.assertTrue(availability.premium_always_available)
+        self.assertFalse(availability.regular_unlocked)
+        self.assertTrue(availability.premium_unlocked)
 
     def test_traffic_billing_model_bypasses_threshold(self):
         with tempfile.TemporaryDirectory() as tmpdir:

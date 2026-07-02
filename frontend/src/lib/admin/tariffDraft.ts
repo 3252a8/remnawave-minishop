@@ -25,6 +25,7 @@ export interface TariffDraft extends UnknownRecord {
   billing_model: string;
   enabled: boolean;
   topup_always_available: boolean;
+  premium_topup_always_available: boolean;
   monthly_gb: string | number;
   premium_monthly_gb: string | number;
   hwid_device_limit: string | number;
@@ -84,6 +85,7 @@ export function emptyTariffDraft(): TariffDraft {
     billing_model: "period",
     enabled: true,
     topup_always_available: false,
+    premium_topup_always_available: false,
     monthly_gb: 500,
     premium_monthly_gb: "",
     hwid_device_limit: "",
@@ -230,6 +232,7 @@ export function draftFromTariff(tariff: UnknownRecord, defaultCurrency = "rub"):
     billing_model: String(tariff.billing_model || "period"),
     enabled: tariff.enabled !== false,
     topup_always_available: tariff.topup_always_available === true,
+    premium_topup_always_available: tariff.premium_topup_always_available === true,
     monthly_gb: scalarDraftValue(tariff.monthly_gb),
     premium_monthly_gb: scalarDraftValue(tariff.premium_monthly_gb),
     hwid_device_limit: scalarDraftValue(tariff.hwid_device_limit),
@@ -373,6 +376,7 @@ export function tariffFromDraft(draft: TariffDraft, fallbackCurrency = "rub"): U
   if (premiumMonthlyGb !== null) tariff.premium_monthly_gb = premiumMonthlyGb;
   const premiumTopupPackages = packageSetFromRows(draft.premiumTopupRows, "gb", defaultCurrency);
   if (premiumTopupPackages) tariff.premium_topup_packages = premiumTopupPackages;
+  tariff.premium_topup_always_available = Boolean(draft.premium_topup_always_available);
 
   if (tariff.billing_model === "period") {
     const seenMonths = new Set();

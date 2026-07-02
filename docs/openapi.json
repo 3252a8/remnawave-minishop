@@ -5056,6 +5056,11 @@
             "title": "Premium Squad Uuids",
             "type": "array"
           },
+          "premium_topup_always_available": {
+            "default": false,
+            "title": "Premium Topup Always Available",
+            "type": "boolean"
+          },
           "premium_topup_packages": {
             "anyOf": [
               {
@@ -12445,6 +12450,9 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "premium_topup_always_available": {
+                          "type": "boolean"
                         },
                         "premium_topup_balance_bytes": {
                           "type": [
