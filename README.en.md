@@ -70,6 +70,12 @@ Run the aggregate gate before pushing:
 make check
 ```
 
+Start the local development stand with one command:
+
+```bash
+make dev
+```
+
 Without GNU Make, use the equivalent root command:
 
 ```bash

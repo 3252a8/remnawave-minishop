@@ -5,7 +5,14 @@
 локальную Remnawave Panel, Remnawave Subscription Page и сиды для тестовых
 пользователей.
 
-Канонический вход - npm-команды из корня репозитория:
+Канонический короткий вход из корня репозитория:
+
+```powershell
+make dev
+```
+
+`make dev` применяет latest-пресет `2.8.0`, валидирует compose-конфиг и поднимает стенд.
+Для другого пресета используйте `$env:DEV_PRESET = "2.7.4"; make dev`. Эквивалентные npm-команды:
 
 ```powershell
 npm run dev:stand:use:2.8.0

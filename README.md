@@ -130,6 +130,9 @@ npm run check:quick
 # Локальная сборка и запуск
 docker compose up -d --build
 
+# Единый dev stand для разработки и full-stack QA
+make dev
+
 # Логи приложения
 docker compose logs -f backend worker frontend
 
