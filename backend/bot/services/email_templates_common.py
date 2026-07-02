@@ -199,8 +199,8 @@ def _email_safe_raster_logo_to_png(body: bytes) -> bytes | None:
     content_size = _EMAIL_LOGO_RASTER_SIZE - (_EMAIL_LOGO_RASTER_PADDING * 2)
     scale = min(content_size / source.width, content_size / source.height)
     target_size = (
-        max(1, int(round(source.width * scale))),
-        max(1, int(round(source.height * scale))),
+        max(1, round(source.width * scale)),
+        max(1, round(source.height * scale)),
     )
     source = source.resize(target_size, Image.Resampling.LANCZOS)
 

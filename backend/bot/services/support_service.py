@@ -22,6 +22,7 @@ from db.dal import message_log_dal, subscription_dal, support_dal, user_dal
 from db.models import Subscription, SupportTicket, SupportTicketMessage, User
 
 logger = logging.getLogger(__name__)
+_SUPPORT_NOTIFICATION_TASKS: set[asyncio.Task[None]] = set()
 
 
 @dataclass(frozen=True)
@@ -148,7 +149,9 @@ class SupportService:
             except Exception:
                 logger.exception(error_message, *error_args)
 
-        asyncio.create_task(_runner(), name="support-notification")
+        task = asyncio.create_task(_runner(), name="support-notification")
+        _SUPPORT_NOTIFICATION_TASKS.add(task)
+        task.add_done_callback(_SUPPORT_NOTIFICATION_TASKS.discard)
 
     async def _ensure_user_allowed(self, session: AsyncSession, user_id: int) -> User:
         user = await user_dal.get_user_by_id(session, user_id)

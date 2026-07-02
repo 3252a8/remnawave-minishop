@@ -234,7 +234,7 @@ async def get_promo_detail_text_and_keyboard(
     if not promo:
         return None, None
 
-    status_emoji, status = get_promo_status_emoji_and_text(promo, i18n, current_lang)
+    _status_emoji, status = get_promo_status_emoji_and_text(promo, i18n, current_lang)
 
     validity = _("admin_promo_valid_indefinitely")
     if promo.valid_until:
@@ -354,7 +354,7 @@ async def promo_management_handler(
 
     builder = InlineKeyboardBuilder()
     for promo in promo_models:
-        status_emoji, status_text = get_promo_status_emoji_and_text(promo, i18n, current_lang)
+        status_emoji, _status_text = get_promo_status_emoji_and_text(promo, i18n, current_lang)
         button_text = (
             f"{status_emoji} {promo.code} ({promo.current_activations}/{promo.max_activations})"
         )
@@ -692,7 +692,7 @@ async def promo_export_all_handler(
 
         for promo in all_promos:
             # Определяем статус
-            status_emoji, status_text = get_promo_status_emoji_and_text(promo, i18n, export_lang)
+            _status_emoji, status_text = get_promo_status_emoji_and_text(promo, i18n, export_lang)
             effects = PromoEffects.from_model(promo)
 
             # Формируем данные для CSV
@@ -733,7 +733,7 @@ async def promo_export_all_handler(
         await callback_message(callback).answer_document(file, caption=caption)
 
     except Exception as e:
-        await callback.answer(f"❌ Export error: {str(e)}", show_alert=True)
+        await callback.answer(f"❌ Export error: {e!s}", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("promo_delete:"))
@@ -847,7 +847,7 @@ async def promo_edit_field_handler(
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
-    action, field, promo_id_str = callback_data(callback).split(":")
+    _action, field, promo_id_str = callback_data(callback).split(":")
     await state.update_data(promo_id=int(promo_id_str), field_to_edit=field)
 
     prompts = {

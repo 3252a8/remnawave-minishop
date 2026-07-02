@@ -300,7 +300,7 @@ def _dummy_migration(migration_id: str) -> Migration:
 
 def test_validate_migration_chains_requires_namespace_prefix():
     chains = {"myplugin": [_dummy_migration("0001_initial")]}
-    with pytest.raises(ValueError, match="must start with 'myplugin.'"):
+    with pytest.raises(ValueError, match=r"must start with 'myplugin\.'"):
         validate_migration_chains(chains)
 
 

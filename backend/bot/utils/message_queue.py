@@ -43,12 +43,21 @@ class MessageQueue:
         self.total_sent = 0
         self.total_failed = 0
         self._chat_last_sent: dict[int, datetime] = {}
+        self._processing_task: asyncio.Task[None] | None = None
 
     async def add_message(self, message: QueuedMessage) -> None:
         """Add message to queue"""
         self.queue.append(message)
-        if not self.is_processing:
-            asyncio.create_task(self._process_queue())
+        if not self.is_processing and (
+            self._processing_task is None or self._processing_task.done()
+        ):
+            task = asyncio.create_task(self._process_queue())
+            self._processing_task = task
+            task.add_done_callback(self._forget_processing_task)
+
+    def _forget_processing_task(self, task: asyncio.Task[None]) -> None:
+        if self._processing_task is task:
+            self._processing_task = None
 
     async def _process_queue(self) -> None:
         """Process messages from queue with rate limiting"""

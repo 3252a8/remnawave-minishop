@@ -165,7 +165,7 @@ def test_create_user_emits_user_registered(monkeypatch):
     session = MagicMock()
     session.execute = AsyncMock(return_value=insert_result)
 
-    user, created = asyncio.run(
+    _user, created = asyncio.run(
         user_dal.create_user(
             session,
             {

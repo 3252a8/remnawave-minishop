@@ -1,4 +1,4 @@
-# ruff: noqa: F401,F403,F405,I001
+# ruff: noqa: F401, I001
 from collections.abc import Awaitable
 from typing import cast
 

@@ -306,7 +306,7 @@ async def deactivate_all_user_subscriptions(session: AsyncSession, user_id: int)
     affected = rowcount(result)
     if affected > 0:
         logging.info(
-            f"Deactivated {affected} subscriptions for user {user_id} due to missing panel user."  # noqa: E501
+            f"Deactivated {affected} subscriptions for user {user_id} due to missing panel user."
         )
     return affected
 

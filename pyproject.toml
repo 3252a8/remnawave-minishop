@@ -23,11 +23,15 @@ select = [
     "SIM", # flake8-simplify
     "PIE", # flake8-pie
     "PERF", # Perflint
+    "RUF", # Ruff-specific rules
 ]
 ignore = [
     "E731", # lambda assignment (common in handlers)
     "E712", # `== True` / `== False` in SQLAlchemy filters
     "E711", # `== None` on ORM columns (use `.is_(None)` in refactors)
+    "RUF001", # intentional Russian UI/localization strings use Cyrillic homoglyphs
+    "RUF002", # intentional Russian docstrings use Cyrillic homoglyphs
+    "RUF003", # intentional Russian comments use Cyrillic homoglyphs
 ]
 
 [tool.ruff.lint.isort]

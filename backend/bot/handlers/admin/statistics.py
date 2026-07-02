@@ -190,7 +190,7 @@ async def show_statistics_handler(
     except Exception as e:
         logging.error(f"Failed to fetch panel statistics: {e}", exc_info=True)
         stats_text_parts.append(f"❌ {_('admin_panel_stats_fetch_error')}")
-        stats_text_parts.append(f"⚠️ {_('admin_panel_stats_error_details')}: {str(e)}")
+        stats_text_parts.append(f"⚠️ {_('admin_panel_stats_error_details')}: {e!s}")
 
     # Financial statistics
     financial_stats = await payment_dal.get_financial_statistics(session)

@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from typing import ClassVar
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock
 
@@ -7,7 +8,7 @@ from bot.services.notification_service import NotificationService
 
 
 class _I18n:
-    messages = {
+    messages: ClassVar[dict[str, str]] = {
         "log_open_profile_link": "Profile",
         "log_payment_received": (
             "{provider_emoji} Payment Received\n"

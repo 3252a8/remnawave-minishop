@@ -1,7 +1,7 @@
 """Compatibility re-export facade for the subscription Mini App backend."""
 
 from bot.app.web.webapp import (
-    _runtime as _runtime,  # noqa: F401
+    _runtime as _runtime,
 )
 from bot.app.web.webapp import (
     account as _account,  # noqa: F401

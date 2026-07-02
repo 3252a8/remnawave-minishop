@@ -178,7 +178,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         full_price, selected_packages = resolved
         rounded_price = HwidDeviceMixin._round_hwid_price(full_price, currency=currency)
         if currency == "stars":
-            rounded_price = float(int(math.ceil(rounded_price)))
+            rounded_price = float(math.ceil(rounded_price))
         return {
             "price": rounded_price,
             "full_price": float(full_price),
@@ -210,7 +210,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         if raw_price > 0 and min_price is not None:
             price = max(price, self._round_hwid_price(float(min_price), currency=currency))
         if currency == "stars":
-            price = float(int(math.ceil(price)))
+            price = float(math.ceil(price))
 
         return {
             "price": price,

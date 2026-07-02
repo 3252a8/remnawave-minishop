@@ -317,7 +317,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                         "language_code": sub_model.user.language_code
                         or self.settings.DEFAULT_LANGUAGE,
                         "end_date_str": sub_model.end_date.strftime("%Y-%m-%d"),
-                        "days_left": max(0, int(round(days_left))),
+                        "days_left": max(0, round(days_left)),
                         "subscription_end_date_iso_for_update": sub_model.end_date,
                     }
                 )

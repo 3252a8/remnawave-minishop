@@ -282,7 +282,7 @@ async def export_payments_csv_handler(
 
     except Exception as e:
         logging.error(f"Failed to export payments CSV: {e}", exc_info=True)
-        await callback.answer(f"❌ Ошибка экспорта: {str(e)}", show_alert=True)
+        await callback.answer(f"❌ Ошибка экспорта: {e!s}", show_alert=True)
 
 
 @router.callback_query(F.data == "noop")

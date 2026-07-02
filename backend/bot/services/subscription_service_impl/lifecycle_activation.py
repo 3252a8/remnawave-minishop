@@ -191,7 +191,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             panel_user_uuid,
             panel_sub_link_id,
             panel_short_uuid,
-            panel_user_created_now,
+            _panel_user_created_now,
         ) = await self._get_or_create_panel_user_link_details(session, user_id, db_user)
 
         if not panel_user_uuid or not panel_sub_link_id:

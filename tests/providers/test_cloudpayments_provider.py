@@ -211,7 +211,7 @@ def test_create_order_surfaces_api_error(monkeypatch):
         AsyncMock(return_value=_capture_session(captured, response=response)),
     )
 
-    success, data = asyncio.run(
+    success, _data = asyncio.run(
         service.create_order(
             payment_db_id=1, user_id=1, amount=10.0, currency="RUB", description="x"
         )

@@ -90,7 +90,7 @@ async def post_json_request(
         except Exception as exc:
             if attempt < _TRANSPORT_ATTEMPTS and _should_retry_transport_error(exc, trace_ctx):
                 logging.warning(
-                    "%s: transport failed before request headers were sent; retrying (%s/%s): %s",  # noqa: E501
+                    "%s: transport failed before request headers were sent; retrying (%s/%s): %s",
                     log_prefix,
                     attempt + 1,
                     _TRANSPORT_ATTEMPTS,

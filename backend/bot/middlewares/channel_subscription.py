@@ -25,9 +25,11 @@ from db.dal import user_dal
 
 class ChannelSubscriptionMiddleware(BaseMiddleware):
     """
-    Blocks access to handlers for users who have not yet passed the required channel subscription check.
+    Blocks access to handlers for users who have not yet passed the required channel
+    subscription check.
+
     The /start command is allowed through so that the handler can re-run the verification.
-    """  # noqa: E501
+    """
 
     def __init__(self, settings: Settings, i18n_instance: JsonI18n):
         super().__init__()

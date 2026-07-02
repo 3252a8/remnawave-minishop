@@ -9,7 +9,7 @@ import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx
 
@@ -71,14 +71,14 @@ class LknpdClient:
     - Income registration with proper payment types (CASH/WIRE)
     """
 
-    DEFAULT_HEADERS = {
+    DEFAULT_HEADERS: ClassVar[dict[str, str]] = {
         "Content-Type": "application/json",
         "Accept": "application/json, text/plain, */*",
         "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
         "Referrer": "https://lknpd.nalog.ru/auth/login",
     }
 
-    DEVICE_INFO_TEMPLATE = {
+    DEVICE_INFO_TEMPLATE: ClassVar[dict[str, object]] = {
         "sourceType": "WEB",
         "appVersion": "1.0.0",
         "metaDetails": {

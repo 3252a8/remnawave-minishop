@@ -5,6 +5,7 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from typing import ClassVar
 from unittest.mock import AsyncMock, patch
 
 from bot.services.panel_api_service import PanelApiService
@@ -68,8 +69,8 @@ class _PeriodTariff:
 
 class _PremiumTariff:
     key = "standard"
-    squad_uuids = ["squad-1"]
-    premium_squad_uuids = ["premium-squad"]
+    squad_uuids: ClassVar[list[str]] = ["squad-1"]
+    premium_squad_uuids: ClassVar[list[str]] = ["premium-squad"]
     premium_monthly_bytes = 25 * (1024**3)
 
     def name(self, _lang, fallback="ru"):

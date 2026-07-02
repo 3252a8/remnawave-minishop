@@ -133,7 +133,7 @@ def test_missing_locale_string_is_rejected():
     config = _config()
     del config["platforms"]["ios"]["apps"][0]["blocks"][0]["title"]["en"]
 
-    with pytest.raises(SubscriptionGuidesConfigError, match="title.en"):
+    with pytest.raises(SubscriptionGuidesConfigError, match=r"title\.en"):
         validate_subscription_guides_config(config)
 
 

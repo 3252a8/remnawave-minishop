@@ -95,6 +95,7 @@ class PanelWebhookService:
         )
         self.subscription_service: SubscriptionService | None = None
         self._event_semaphore = asyncio.Semaphore(self._MAX_CONCURRENT_EVENTS)
+        self._background_tasks: set[asyncio.Task[None]] = set()
         if not self.settings.PANEL_WEBHOOK_SECRET:
             logging.error(
                 "PANEL_WEBHOOK_SECRET is not configured. Panel webhooks will be rejected."
@@ -357,13 +358,9 @@ class PanelWebhookService:
                 reply_markup=markup,
                 **kwargs,
             )
-        elif (
-            stage.key == "expired"
-            and self.settings.SUBSCRIPTION_NOTIFY_ON_EXPIRE
-            or (
-                self._is_after_expiration_stage(stage)
-                and self.settings.SUBSCRIPTION_NOTIFY_AFTER_EXPIRE
-            )
+        elif (stage.key == "expired" and self.settings.SUBSCRIPTION_NOTIFY_ON_EXPIRE) or (
+            self._is_after_expiration_stage(stage)
+            and self.settings.SUBSCRIPTION_NOTIFY_AFTER_EXPIRE
         ):
             await self._send_message(
                 user_id,
@@ -724,10 +721,12 @@ class PanelWebhookService:
             event_id=self._webhook_event_id(str(event_name), user_data, meta),
         )
         if not queued:
-            asyncio.create_task(
+            task = asyncio.create_task(
                 self._run_event_in_background(str(event_name), user_data, meta),
                 name=f"panel_event_{event_name}",
             )
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
         return web.Response(status=200, text="ok")
 
     @classmethod

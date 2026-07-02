@@ -234,7 +234,7 @@ async def _perform_sync_impl(
 
                         except Exception as e_create:
                             sync_errors.append(
-                                f"Error creating user {telegram_id_from_panel}: {str(e_create)}"
+                                f"Error creating user {telegram_id_from_panel}: {e_create!s}"
                             )
                             logging.error(
                                 f"Error creating user {telegram_id_from_panel}: {e_create}"
@@ -260,7 +260,7 @@ async def _perform_sync_impl(
                             users_by_email[email_from_panel] = new_user
                         except Exception as e_create_email:
                             sync_errors.append(
-                                f"Error creating email user {email_from_panel}: {str(e_create_email)}"  # noqa: E501
+                                f"Error creating email user {email_from_panel}: {e_create_email!s}"
                             )
                             logging.error(
                                 f"Error creating email user {email_from_panel}: {e_create_email}"
@@ -675,7 +675,7 @@ async def _perform_sync_impl(
 
                     except Exception as e:
                         sync_errors.append(
-                            f"Error syncing subscription for user {actual_user_id}: {str(e)}"
+                            f"Error syncing subscription for user {actual_user_id}: {e!s}"
                         )
                         logging.error(f"Error syncing subscription for user {actual_user_id}: {e}")
 
@@ -693,9 +693,8 @@ async def _perform_sync_impl(
                     )
 
             except Exception as e_user:
-                sync_errors.append(
-                    f"Error processing panel user {panel_user_dict.get('uuid', 'unknown')}: {str(e_user)}"  # noqa: E501
-                )
+                panel_user_uuid = panel_user_dict.get("uuid", "unknown")
+                sync_errors.append(f"Error processing panel user {panel_user_uuid}: {e_user!s}")
                 logging.error(f"Error syncing user: {e_user}")
 
         # Update sync status
@@ -774,7 +773,7 @@ async def _perform_sync_impl(
     except Exception as e_sync_global:
         await session.rollback()
         logging.error(f"Global error during sync: {e_sync_global}", exc_info=True)
-        error_detail = f"Unexpected error during sync: {str(e_sync_global)}"
+        error_detail = f"Unexpected error during sync: {e_sync_global!s}"
 
         await panel_sync_dal.update_panel_sync_status(
             session,

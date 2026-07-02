@@ -1,5 +1,6 @@
 import unittest
 from types import SimpleNamespace
+from typing import ClassVar
 from unittest.mock import patch
 
 from bot.services import user_email_notifications as module
@@ -18,7 +19,7 @@ class _FakeI18n:
 
 
 class _FakeEmailService:
-    instances: list["_FakeEmailService"] = []
+    instances: ClassVar[list["_FakeEmailService"]] = []
 
     def __init__(self, settings, i18n=None):
         self.settings = settings

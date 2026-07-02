@@ -107,7 +107,7 @@ def _resolve_module_expression(expr: ast.AST, aliases: Mapping[str, str]) -> str
 
 
 def test_facade_imports_are_explicit_and_frozen() -> None:
-    _, expected_importers, expected_runtime_importers = _load_baseline()
+    _, expected_importers, _expected_runtime_importers = _load_baseline()
     actual_importers = _collect_facade_importers()
 
     for facade_name, expected in expected_importers.items():
@@ -213,10 +213,8 @@ def test_monkeypatch_targets_avoid_facade_imports() -> None:
             func = node.func
             is_patch_call = False
             if (
-                isinstance(func, ast.Name)
-                and func.id == "patch"
-                or isinstance(func, ast.Attribute)
-                and func.attr == "patch"
+                (isinstance(func, ast.Name) and func.id == "patch")
+                or (isinstance(func, ast.Attribute) and func.attr == "patch")
                 or (
                     isinstance(func, ast.Attribute)
                     and func.attr == "setattr"

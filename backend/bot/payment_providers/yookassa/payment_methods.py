@@ -361,7 +361,7 @@ async def payment_method_history(
     pm_filter_requested: bool = False
     callback_data = callback.data or ""
     try:
-        split_a, split_b, split_pm_id = callback_data.split(":", 2)
+        _, _, split_pm_id = callback_data.split(":", 2)
         if split_pm_id:
             pm_filter_requested = True
             if split_pm_id.isdigit():
@@ -401,7 +401,7 @@ async def payment_method_history(
 
         back_pm_id = ""
         try:
-            split_a, split_b, back_pm_id = callback_data.split(":", 2)
+            _, _, back_pm_id = callback_data.split(":", 2)
         except Exception:
             back_pm_id = ""
         back_markup = (
@@ -431,7 +431,7 @@ async def payment_method_history(
     lines = [_format_item(p) for p in user_payments]
     text = _("payment_method_tx_history_title") + "\n\n" + "\n".join(lines)
     try:
-        split_a, split_b, split_pm_id_for_back = callback_data.split(":", 2)
+        _split_a, _split_b, split_pm_id_for_back = callback_data.split(":", 2)
     except Exception:
         split_pm_id_for_back = ""
     from bot.keyboards.inline.user_keyboards import get_back_to_payment_method_details_keyboard

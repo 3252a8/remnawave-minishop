@@ -210,7 +210,7 @@ class InviterBonusTests(unittest.IsolatedAsyncioTestCase):
             side_effect=[inviter_new_end, referee_new_end]
         )
 
-        service, bot = _make_service(settings=settings, subscription_service=subscription_service)
+        service, _bot = _make_service(settings=settings, subscription_service=subscription_service)
 
         with (
             patch(
@@ -482,16 +482,16 @@ class RefereeBonusTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result["referee_bonus_applied_days"], 7)
         self.assertTrue(result["inviter_bonus_applied_flag"])
-        inviter_call = [
+        inviter_call = next(
             call
             for call in subscription_service.extend_active_subscription_days.await_args_list
             if call.kwargs.get("user_id") == 1
-        ][0]
-        referee_call = [
+        )
+        referee_call = next(
             call
             for call in subscription_service.extend_active_subscription_days.await_args_list
             if call.kwargs.get("user_id") == 42
-        ][0]
+        )
         self.assertEqual(inviter_call.kwargs["bonus_days"], 20)
         self.assertEqual(referee_call.kwargs["bonus_days"], 7)
 

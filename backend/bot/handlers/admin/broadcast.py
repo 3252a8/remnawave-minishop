@@ -26,6 +26,7 @@ from config.settings import Settings
 from db.dal import message_log_dal, user_dal
 
 router = Router(name="admin_broadcast_router")
+_BROADCAST_STATUS_TASKS: set[asyncio.Task[None]] = set()
 
 
 async def broadcast_message_prompt_handler(
@@ -397,7 +398,9 @@ async def confirm_broadcast_callback_handler(
             else:
                 logging.debug("Broadcast queue auto-update reached time limit.")
 
-        asyncio.create_task(auto_update_queue_status())
+        task = asyncio.create_task(auto_update_queue_status())
+        _BROADCAST_STATUS_TASKS.add(task)
+        task.add_done_callback(_BROADCAST_STATUS_TASKS.discard)
 
     elif action == "cancel":
         await callback_message(callback).edit_text(

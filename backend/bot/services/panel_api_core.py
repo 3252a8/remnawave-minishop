@@ -334,7 +334,7 @@ class PanelApiCoreMixin:
                 endpoint_label,
                 e,
             )
-            return {"error": True, "status_code": -1, "message": f"Connection error: {str(e)}"}
+            return {"error": True, "status_code": -1, "message": f"Connection error: {e!s}"}
         except aiohttp.ServerTimeoutError as e:
             logging.info(
                 "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=timeout",
@@ -345,7 +345,7 @@ class PanelApiCoreMixin:
             logging.warning(
                 "Panel API timeout method=%s endpoint=%s: %s", method.upper(), endpoint_label, e
             )
-            return {"error": True, "status_code": -3, "message": f"Request timed out: {str(e)}"}
+            return {"error": True, "status_code": -3, "message": f"Request timed out: {e!s}"}
         except aiohttp.ClientError as e:
             logging.info(
                 "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=client_error",
@@ -356,7 +356,7 @@ class PanelApiCoreMixin:
             logging.exception(
                 "Panel API ClientError method=%s endpoint=%s.", method.upper(), endpoint_label
             )
-            return {"error": True, "status_code": -2, "message": f"Client error: {str(e)}"}
+            return {"error": True, "status_code": -2, "message": f"Client error: {e!s}"}
         except TimeoutError:
             logging.info(
                 "metric panel_latency_seconds=%.3f method=%s endpoint=%s status=timeout",
@@ -384,4 +384,4 @@ class PanelApiCoreMixin:
                 e,
                 exc_info=True,
             )
-            return {"error": True, "status_code": -4, "message": f"Unexpected error: {str(e)}"}
+            return {"error": True, "status_code": -4, "message": f"Unexpected error: {e!s}"}

@@ -2,6 +2,7 @@ import asyncio
 import time
 import unittest
 from types import SimpleNamespace
+from typing import ClassVar
 from unittest.mock import AsyncMock, patch
 
 import aiohttp
@@ -98,7 +99,7 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
 
         class OkResponse:
             status = 200
-            headers = {"Content-Type": "application/json"}
+            headers: ClassVar[dict[str, str]] = {"Content-Type": "application/json"}
 
             async def __aenter__(self):
                 return self

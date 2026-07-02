@@ -478,7 +478,7 @@ async def process_premium_override_bonus_handler(
         await message.answer(_("admin_premium_override_invalid_gb"))
         return
 
-    bonus_bytes = int(round(gb * (1024**3)))
+    bonus_bytes = round(gb * (1024**3))
     target_user = await user_dal.get_user_by_id(session, target_user_id)
     if not target_user:
         await message.answer(_("admin_user_not_found_action"))

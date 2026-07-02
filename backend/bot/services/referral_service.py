@@ -140,7 +140,7 @@ class ReferralService:
                 else:
                     (
                         inviter_panel_uuid,
-                        inviter_panel_sub_link_id,
+                        _inviter_panel_sub_link_id,
                         _,
                         _,
                     ) = await self.subscription_service._get_or_create_panel_user_link_details(

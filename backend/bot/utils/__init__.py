@@ -145,7 +145,7 @@ def filter_kwargs(content_type: str, kwargs: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_message_content(message: types.Message) -> MessageContent:
-    """
+    """# noqa: E501
     Определяет тип контента сообщения и возвращает его данные.
     Использует match/case вместо длинных if-elif цепочек.
     """
@@ -324,9 +324,10 @@ async def send_direct_message(
 ) -> None:
     """
     Отправляет прямое сообщение с дополнительной обработкой для sticker и video_note.
-    Для этих типов медиа отправляется отдельное текстовое сообщение, т.к. они не поддерживают caption.
+    Для этих типов медиа отправляется отдельное текстовое сообщение,
+    т.к. они не поддерживают caption.
     Автоматически фильтрует неподдерживаемые параметры.
-    """  # noqa: E501
+    """
     match content.content_type:
         case "sticker":
             # Отправляем стикер с отфильтрованными параметрами

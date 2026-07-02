@@ -25,9 +25,9 @@ from .email_templates_support import (
 )
 
 __all__ = [
+    "_WEBAPP_UPLOADED_LOGO_DIR",
     "EmailContent",
     "EmailInlineImage",
-    "_WEBAPP_UPLOADED_LOGO_DIR",
     "_email_logo",
     "_inline_uploaded_logo",
     "_uploaded_logo_dir",

@@ -374,7 +374,7 @@ async def admin_user_premium_override_route(request: web.Request) -> web.Respons
             return _error(400, "invalid_bonus", "bonus_bytes must be an integer")
     else:
         try:
-            bonus_bytes = int(round(float(bonus_gb_raw) * (1024**3)))
+            bonus_bytes = round(float(bonus_gb_raw) * (1024**3))
         except (TypeError, ValueError):
             return _error(400, "invalid_bonus", "bonus_gb must be a number")
 
@@ -433,7 +433,7 @@ async def admin_user_regular_traffic_override_route(request: web.Request) -> web
             return _error(400, "invalid_regular_bonus", "regular_bonus_bytes must be an integer")
     else:
         try:
-            regular_bonus_bytes = int(round(float(regular_bonus_gb_raw) * (1024**3)))
+            regular_bonus_bytes = round(float(regular_bonus_gb_raw) * (1024**3))
         except (TypeError, ValueError):
             return _error(400, "invalid_regular_bonus", "regular_bonus_gb must be a number")
 
@@ -573,7 +573,7 @@ async def admin_user_traffic_grant_route(request: web.Request) -> web.Response:
             gb_value = grant_bytes / (1024**3)
         else:
             gb_value = float(gb_raw)
-            grant_bytes = int(round(gb_value * (1024**3)))
+            grant_bytes = round(gb_value * (1024**3))
     except (TypeError, ValueError):
         return _error(400, "invalid_amount", "amount must be a positive number")
     if gb_value <= 0 or grant_bytes <= 0:

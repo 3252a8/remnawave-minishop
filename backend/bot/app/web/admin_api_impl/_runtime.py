@@ -1,4 +1,3 @@
-# ruff: noqa: F401,F403,F405,I001
 """HTTP API powering the admin section of the subscription Mini App.
 
 All routes require an authenticated webapp session (cookie or Bearer
@@ -7,6 +6,7 @@ token) AND the resolved Telegram user id must appear in
 ``_require_admin_user_id`` helper, never trusted from the client.
 """
 
+# ruff: noqa: F401, I001
 from __future__ import annotations
 
 import csv

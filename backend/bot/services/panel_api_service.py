@@ -55,8 +55,8 @@ class PanelApiService(  # type: ignore[misc]
 
 
 __all__ = [
-    "PanelApiService",
     "_ENDPOINT_LOG_LABELS",
+    "PanelApiService",
     "_endpoint_log_label",
     "asyncio",
     "logging",

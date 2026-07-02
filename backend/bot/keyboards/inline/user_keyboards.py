@@ -1,4 +1,4 @@
-# ruff: noqa: F401,F403
+# ruff: noqa: F403
 from .user_keyboards_account import *
 from .user_keyboards_context import *
 from .user_keyboards_menus import *

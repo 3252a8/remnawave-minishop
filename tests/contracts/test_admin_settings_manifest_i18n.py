@@ -170,7 +170,7 @@ def test_webapp_title_is_first_general_admin_setting():
 
     assert field["section"] == "general"
     assert field["section_order"] == 1
-    assert [item["key"] for item in items if item["section"] == "general"][0] == "WEBAPP_TITLE"
+    assert next(item["key"] for item in items if item["section"] == "general") == "WEBAPP_TITLE"
 
 
 def test_server_status_url_is_admin_editable():

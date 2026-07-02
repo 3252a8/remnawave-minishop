@@ -1,5 +1,6 @@
 import logging
 from datetime import UTC, datetime
+from typing import ClassVar
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +18,7 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
     # Keys are the lowercased value persisted in ``subscriptions.provider``
     # (see the call sites in lifecycle.py / traffic.py); missing keys produce
     # no row in the email rather than raising.
-    _PROVIDER_LABELS = {
+    _PROVIDER_LABELS: ClassVar[dict[str, str]] = {
         "yookassa": "YooKassa",
         "freekassa": "FreeKassa",
         "platega": "Platega",
