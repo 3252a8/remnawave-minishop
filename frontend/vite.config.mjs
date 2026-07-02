@@ -25,10 +25,10 @@ export default defineConfig(({ command, mode }) => {
       ? "subscription_webapp_docs_demo"
       : "subscription_webapp";
   const entry = isAdminBuild
-    ? "src/adminEntry.js"
+    ? "src/adminEntry.ts"
     : isDocsDemoBuild
-      ? "src/docsDemoEntry.js"
-      : "src/main.js";
+      ? "src/docsDemoEntry.ts"
+      : "src/main.ts";
 
   return {
     define: {

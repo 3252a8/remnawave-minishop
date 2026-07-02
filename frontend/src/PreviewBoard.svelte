@@ -27,11 +27,8 @@
   import PreviewMethods from "./preview/PreviewMethods.svelte";
   import PreviewNav from "./preview/PreviewNav.svelte";
 
-  type PreviewConfig = {
-    title?: string;
-    logoUrl?: string;
-    primaryColor?: string;
-  };
+  import type { WebappConfig, WebappDataSnapshot } from "$lib/webapp/types";
+
   type PreviewPlan = { title?: string; price: number; months: number };
   type PreviewSubscription = {
     end_date_text?: string;
@@ -46,25 +43,19 @@
     telegram_linked?: boolean;
     telegram_photo_url?: string;
   };
-  type PreviewMockData = {
-    plans?: PreviewPlan[];
-    subscription?: PreviewSubscription;
-    payment_methods?: { name?: string }[];
-    user?: PreviewUser;
-  };
   type Props = {
-    config?: PreviewConfig;
-    mockData?: PreviewMockData;
+    config?: WebappConfig;
+    mockData?: WebappDataSnapshot;
   };
 
-  let { config = {}, mockData = {} }: Props = $props();
+  let { config = {} as WebappConfig, mockData = {} as WebappDataSnapshot }: Props = $props();
 
   const title = $derived(config.title || "Subscription");
   const logoUrl = $derived(config.logoUrl || "/webapp-default-logo.webp");
-  const plans = $derived(mockData.plans || []);
-  const sub: PreviewSubscription = $derived(mockData.subscription || {});
-  const methods = $derived(mockData.payment_methods || []);
-  const user: PreviewUser = $derived(mockData.user || {});
+  const plans = $derived((mockData.plans || []) as unknown as PreviewPlan[]);
+  const sub = $derived((mockData.subscription || {}) as unknown as PreviewSubscription);
+  const methods = $derived((mockData.payment_methods || []) as unknown as { name?: string }[]);
+  const user = $derived((mockData.user || {}) as unknown as PreviewUser);
   type IconComponent = typeof Zap;
 
   const tariffs: [string, string, string, string, IconComponent][] = [
