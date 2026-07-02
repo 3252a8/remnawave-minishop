@@ -8,7 +8,7 @@ def _read(path: str) -> str:
 
 
 def test_telegram_init_data_login_runs_before_manual_logout_gate():
-    source = _read("frontend/src/lib/webapp/webappBoot.js")
+    source = _read("frontend/src/lib/webapp/webappBoot.ts")
 
     init_data_pos = source.index("const initData = getInitDataForBoot();")
     manual_logout_pos = source.index("if (isManuallyLoggedOut())")
@@ -62,7 +62,7 @@ def test_logout_handler_is_noop_inside_telegram_mini_app():
 
 
 def test_open_app_route_uses_fallback_screen_without_auth_flow():
-    main_source = _read("frontend/src/main.js")
+    main_source = _read("frontend/src/main.ts")
     app_source = _read("frontend/src/App.svelte")
     app_mode_source = _read("frontend/src/webapp/AppModeContent.svelte")
     screen_source = _read("frontend/src/webapp/screens/AppLaunchScreen.svelte")
