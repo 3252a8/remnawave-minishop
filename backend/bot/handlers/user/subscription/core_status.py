@@ -14,6 +14,7 @@ from bot.keyboards.inline.user_keyboards import (
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.traffic_topup_availability import resolve_traffic_topup_availability
 from bot.utils.callback_answer import (
     callback_message,
 )
@@ -423,16 +424,10 @@ async def my_subscription_command_handler(
                 tariff_actions.append(
                     InlineKeyboardButton(text="Сменить тариф", callback_data="tariff_change:list")
                 )
-            try:
-                tariff = settings.tariffs_config.require(local_sub.tariff_key)
-                topup_packages = settings.tariffs_config.topup_packages_for(tariff)
-                has_topup_packages = bool(
-                    (topup_packages and topup_packages.has_any())
-                    or (tariff.premium_topup_packages and tariff.premium_topup_packages.has_any())
-                )
-            except Exception:
-                has_topup_packages = False
-            if has_topup_packages:
+            # Mirror the web app: the top-up offer stays hidden until usage
+            # crosses the unlock threshold (unless the tariff allows it always).
+            topup_availability = resolve_traffic_topup_availability(settings, active)
+            if topup_availability.unlocked:
                 tariff_actions.append(
                     InlineKeyboardButton(text="Докупить трафик", callback_data="tariff_topup:list")
                 )

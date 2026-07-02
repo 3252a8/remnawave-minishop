@@ -417,6 +417,7 @@ def _serialize_subscription(
     can_topup_premium_traffic = False
     can_topup_traffic = False
     can_topup_devices = False
+    topup_always_available = False
     if settings.tariffs_config and active.get("tariff_key"):
         try:
             tariff = settings.tariffs_config.require(str(active.get("tariff_key")))
@@ -428,6 +429,7 @@ def _serialize_subscription(
                 and tariff.premium_topup_packages.has_any()
             )
             can_topup_traffic = bool(can_topup_regular_traffic or can_topup_premium_traffic)
+            topup_always_available = bool(tariff.topup_always_available)
             max_devices = _coerce_int_or_none(active.get("max_devices"))
             # max_devices == 0 or None means unlimited — top-up is pointless in that case.
             can_topup_devices = bool(
@@ -440,6 +442,7 @@ def _serialize_subscription(
             can_topup_premium_traffic = False
             can_topup_traffic = False
             can_topup_devices = False
+            topup_always_available = False
 
     panel_short_uuid = str(active.get("panel_short_uuid") or "").strip()
     share_token = str(
@@ -527,6 +530,7 @@ def _serialize_subscription(
         "can_topup_regular_traffic": can_topup_regular_traffic,
         "can_topup_premium_traffic": can_topup_premium_traffic,
         "can_topup_devices": can_topup_devices,
+        "topup_always_available": topup_always_available,
         "period_start_at": active.get("period_start_at").isoformat()
         if active.get("period_start_at")
         else None,

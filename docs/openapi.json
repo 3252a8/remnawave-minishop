@@ -5112,6 +5112,11 @@
             "title": "Squad Uuids",
             "type": "array"
           },
+          "topup_always_available": {
+            "default": false,
+            "title": "Topup Always Available",
+            "type": "boolean"
+          },
           "topup_packages": {
             "anyOf": [
               {
@@ -12506,6 +12511,9 @@
                             "integer",
                             "null"
                           ]
+                        },
+                        "topup_always_available": {
+                          "type": "boolean"
                         },
                         "topup_balance_bytes": {
                           "type": [

@@ -22,6 +22,7 @@ type BillingSubscription = BillingPlan & {
   premium_unlimited_override?: boolean;
   premium_used_bytes?: number | string;
   regular_unlimited_override?: boolean;
+  topup_always_available?: boolean;
   traffic_limit_bytes?: number | string;
   traffic_used_bytes?: number | string;
 };
@@ -98,19 +99,21 @@ export function computeBillingView({
   );
   const regularTrafficUsagePercent = trafficPercent(subscription);
   const premiumTrafficUsagePercent = premiumTrafficPercent(subscription);
+  // Admin toggle on the tariff: skip the usage threshold and offer top-ups always.
+  const effectiveUnlockPercent = subscription?.topup_always_available ? 0 : topupUnlockPercent;
   const regularTrafficTopupUnlocked = Boolean(
-    canOpenRegularTopupModal && regularTrafficUsagePercent >= topupUnlockPercent
+    canOpenRegularTopupModal && regularTrafficUsagePercent >= effectiveUnlockPercent
   );
   const premiumTrafficTopupUnlocked = Boolean(
-    canOpenPremiumTopupModal && premiumTrafficUsagePercent >= topupUnlockPercent
+    canOpenPremiumTopupModal && premiumTrafficUsagePercent >= effectiveUnlockPercent
   );
   const regularTrafficTopupBarClickable = Boolean(
     canOpenRegularTopupModal &&
-    (subscriptionIsTrafficTariff || regularTrafficUsagePercent >= topupUnlockPercent)
+    (subscriptionIsTrafficTariff || regularTrafficUsagePercent >= effectiveUnlockPercent)
   );
   const premiumTrafficTopupBarClickable = Boolean(
     canOpenPremiumTopupModal &&
-    (subscriptionIsTrafficTariff || premiumTrafficUsagePercent >= topupUnlockPercent)
+    (subscriptionIsTrafficTariff || premiumTrafficUsagePercent >= effectiveUnlockPercent)
   );
 
   return {

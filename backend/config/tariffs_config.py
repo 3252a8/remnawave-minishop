@@ -191,6 +191,10 @@ class Tariff(BaseModel):
     referral_bonus_days_referee: dict[str, int] = Field(default_factory=dict)
     enabled_periods: list[int] = Field(default_factory=list)
     topup_packages: PackageSet | None = None
+    # Admin toggle: offer traffic top-ups regardless of how much of the
+    # monthly limit is used (by default the offer unlocks only after the
+    # usage crosses the unlock threshold, mirroring the web app).
+    topup_always_available: bool = False
 
     traffic_packages: PackageSet | None = None
     conversion_rate_per_gb: float | None = None

@@ -94,6 +94,7 @@
   "traffic_period_month": "за месяц",
   "traffic_period_no_reset": "без сброса",
   "traffic_used_with_period": "{traffic_used} ({traffic_period})",
+  "traffic_topup_not_needed_alert": "У вас достаточно трафика — докупка пока не требуется. Осталось: {traffic_left}. Докупка станет доступна, когда вы израсходуете не менее {unlock_percent}% лимита.",
   "promo_code_prompt": "Пожалуйста, введите ваш промокод:",
   "promo_code_not_found": "Промокод <code>{code}</code> не найден, истек или уже использован максимальное количество раз.",
   "promo_code_too_many_attempts": "Слишком много неудачных попыток ввода промокода. Повторите через {seconds} сек.",

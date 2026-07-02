@@ -9,6 +9,10 @@ from bot.keyboards.inline.user_keyboards import (
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.traffic_topup_availability import (
+    TRAFFIC_TOPUP_UNLOCK_PERCENT,
+    resolve_traffic_topup_availability,
+)
 from bot.utils.callback_answer import (
     callback_bot,
     callback_data,
@@ -28,6 +32,7 @@ from .core_common import (
 from .core_status import my_subscription_command_handler
 
 
+@router.callback_query(F.data == "tariff_topup:list")
 async def tariff_topup_list_callback(
     callback: types.CallbackQuery,
     i18n_data: dict,
@@ -45,14 +50,43 @@ async def tariff_topup_list_callback(
     if not config or not active or not active.get("tariff_key") or not callback.message:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
+    availability = resolve_traffic_topup_availability(settings, active)
+    if availability.has_offers and not availability.unlocked:
+        # The user clicked a stale menu rendered before the offer got locked
+        # (or before the unlock gate existed): explain and refresh the menu.
+        limit_bytes = int(active.get("traffic_limit_bytes") or 0)
+        used_bytes = int(active.get("traffic_used_bytes") or 0)
+        traffic_left = max(0, limit_bytes - used_bytes)
+        await callback.answer(
+            get_text(
+                "traffic_topup_not_needed_alert",
+                traffic_left=f"{traffic_left / 2**30:.2f} GB",
+                unlock_percent=TRAFFIC_TOPUP_UNLOCK_PERCENT,
+            ),
+            show_alert=True,
+        )
+        await my_subscription_command_handler(
+            callback,
+            i18n_data,
+            settings,
+            subscription_service.panel_service,
+            subscription_service,
+            session,
+            callback_bot(callback),
+        )
+        return
     tariff = config.require(active["tariff_key"])
     packages = config.topup_packages_for(tariff)
     default_currency = default_currency_key_for_settings(settings)
     currency = default_payment_currency_code_for_settings(settings)
-    currency_packages = packages.for_currency(default_currency) if packages else []
+    currency_packages = (
+        packages.for_currency(default_currency)
+        if packages and availability.regular_unlocked
+        else []
+    )
     premium_packages = (
         tariff.premium_topup_packages.for_currency(default_currency)
-        if tariff.premium_topup_packages
+        if tariff.premium_topup_packages and availability.premium_unlocked
         else []
     )
     if not currency_packages and not premium_packages:

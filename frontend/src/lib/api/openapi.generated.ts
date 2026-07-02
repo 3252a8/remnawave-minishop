@@ -3694,6 +3694,11 @@ export interface components {
       };
       /** Squad Uuids */
       squad_uuids?: string[];
+      /**
+       * Topup Always Available
+       * @default false
+       */
+      topup_always_available: boolean;
       /** @default null */
       topup_packages: components["schemas"]["PackageSet"] | null;
       /** @default null */
@@ -6927,6 +6932,7 @@ export interface operations {
               tariff_key?: string | null;
               tariff_name?: string | null;
               tier_baseline_bytes?: number | null;
+              topup_always_available?: boolean;
               topup_balance_bytes?: number | null;
               traffic_limit?: string;
               traffic_limit_bytes?: number | null;

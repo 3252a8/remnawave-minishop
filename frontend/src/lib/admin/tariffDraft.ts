@@ -24,6 +24,7 @@ export interface TariffDraft extends UnknownRecord {
   premiumSquadUuids: unknown;
   billing_model: string;
   enabled: boolean;
+  topup_always_available: boolean;
   monthly_gb: string | number;
   premium_monthly_gb: string | number;
   hwid_device_limit: string | number;
@@ -82,6 +83,7 @@ export function emptyTariffDraft(): TariffDraft {
     premiumSquadUuids: [],
     billing_model: "period",
     enabled: true,
+    topup_always_available: false,
     monthly_gb: 500,
     premium_monthly_gb: "",
     hwid_device_limit: "",
@@ -227,6 +229,7 @@ export function draftFromTariff(tariff: UnknownRecord, defaultCurrency = "rub"):
     premiumSquadUuids: tariff.premium_squad_uuids || [],
     billing_model: String(tariff.billing_model || "period"),
     enabled: tariff.enabled !== false,
+    topup_always_available: tariff.topup_always_available === true,
     monthly_gb: scalarDraftValue(tariff.monthly_gb),
     premium_monthly_gb: scalarDraftValue(tariff.premium_monthly_gb),
     hwid_device_limit: scalarDraftValue(tariff.hwid_device_limit),
@@ -410,6 +413,7 @@ export function tariffFromDraft(draft: TariffDraft, fallbackCurrency = "rub"): U
     );
     const topupPackages = packageSetFromRows(draft.topupRows, "gb", defaultCurrency);
     if (topupPackages) tariff.topup_packages = topupPackages;
+    tariff.topup_always_available = Boolean(draft.topup_always_available);
   } else {
     const trafficPackages = packageSetFromRows(draft.trafficRows, "gb", defaultCurrency);
     if (trafficPackages) tariff.traffic_packages = trafficPackages;

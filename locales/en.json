@@ -94,6 +94,7 @@
   "traffic_period_month": "per month",
   "traffic_period_no_reset": "no reset",
   "traffic_used_with_period": "{traffic_used} ({traffic_period})",
+  "traffic_topup_not_needed_alert": "You still have enough traffic — no top-up is needed yet. Remaining: {traffic_left}. Top-ups unlock once you have used at least {unlock_percent}% of your limit.",
   "promo_code_prompt": "Please enter your promo code:",
   "promo_code_not_found": "Promo code <code>{code}</code> not found, expired, or already used the maximum number of times.",
   "promo_code_too_many_attempts": "Too many failed promo code attempts. Please try again in {seconds} sec.",
