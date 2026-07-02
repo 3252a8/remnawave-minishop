@@ -42,7 +42,7 @@ async def select_subscription_period_callback_handler(
     try:
         months = float(parts[1])
     except (ValueError, IndexError):
-        logger.error(f"Invalid subscription period in callback_data: {callback.data}")
+        logger.error("Invalid subscription period in callback_data: %s", callback.data)
         with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -81,7 +81,9 @@ async def select_subscription_period_callback_handler(
             currency_symbol_val = "⭐"
         else:
             logger.error(
-                f"Price not found for option {months} using {'traffic_packages' if traffic_mode else 'subscription_options'}."  # noqa: E501
+                "Price not found for option %s using %s.",
+                months,
+                "traffic_packages" if traffic_mode else "subscription_options",
             )
             with contextlib.suppress(Exception):
                 await callback.answer(get_text("error_try_again"), show_alert=True)
@@ -111,7 +113,7 @@ async def select_subscription_period_callback_handler(
         await callback_message(callback).edit_text(text_content, reply_markup=reply_markup)
     except Exception as e_edit:
         logger.warning(
-            f"Edit message for payment method selection failed: {e_edit}. Sending new one."
+            "Edit message for payment method selection failed: %s. Sending new one.", e_edit
         )
         await callback_message(callback).answer(text_content, reply_markup=reply_markup)
     with contextlib.suppress(Exception):

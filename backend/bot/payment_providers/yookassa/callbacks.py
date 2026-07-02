@@ -120,13 +120,14 @@ async def _initiate_yk_payment(
         db_payment_record = await payment_dal.create_payment_record(session, payment_record_data)
         await session.commit()
         logger.info(
-            f"Payment record {db_payment_record.payment_id} created for user {user_id} with status 'pending_yookassa'."  # noqa: E501
+            "Payment record %s created for user %s with status 'pending_yookassa'.",
+            db_payment_record.payment_id,
+            user_id,
         )
     except Exception as e_db_payment:
         await session.rollback()
-        logger.error(
-            f"Failed to create payment record in DB for user {user_id}: {e_db_payment}",
-            exc_info=True,
+        logger.exception(
+            "Failed to create payment record in DB for user %s: %s", user_id, e_db_payment
         )
         with contextlib.suppress(Exception):
             await message.edit_text(get_text("error_creating_payment_record"))
@@ -240,9 +241,10 @@ async def _initiate_yk_payment(
             await session.commit()
         except Exception as e_db_update_ykid:
             await session.rollback()
-            logger.error(
-                f"Failed to update payment record {db_payment_record.payment_id} with YK ID: {e_db_update_ykid}",  # noqa: E501
-                exc_info=True,
+            logger.exception(
+                "Failed to update payment record %s with YK ID: %s",
+                db_payment_record.payment_id,
+                e_db_update_ykid,
             )
             with contextlib.suppress(Exception):
                 await message.edit_text(get_text("error_payment_gateway_link_failed"))
@@ -267,7 +269,7 @@ async def _initiate_yk_payment(
                 disable_web_page_preview=False,
             )
         except Exception as e_edit:
-            logger.warning(f"Edit message for payment link failed: {e_edit}. Sending new one.")
+            logger.warning("Edit message for payment link failed: %s. Sending new one.", e_edit)
             with contextlib.suppress(Exception):
                 await message.answer(
                     get_text(
@@ -308,9 +310,10 @@ async def _initiate_yk_payment(
             await session.commit()
         except Exception as e_db_update_saved:
             await session.rollback()
-            logger.error(
-                f"Failed to update saved-card payment record {db_payment_record.payment_id}: {e_db_update_saved}",  # noqa: E501
-                exc_info=True,
+            logger.exception(
+                "Failed to update saved-card payment record %s: %s",
+                db_payment_record.payment_id,
+                e_db_update_saved,
             )
             with contextlib.suppress(Exception):
                 await message.edit_text(get_text("error_payment_gateway"))
@@ -323,7 +326,7 @@ async def _initiate_yk_payment(
                 reply_markup=get_back_to_main_menu_markup(current_lang, i18n),
             )
         except Exception as e_edit:
-            logger.warning(f"Failed to notify about saved-card charge start: {e_edit}")
+            logger.warning("Failed to notify about saved-card charge start: %s", e_edit)
             with contextlib.suppress(Exception):
                 await message.answer(
                     message_text,
@@ -338,12 +341,15 @@ async def _initiate_yk_payment(
         await session.commit()
     except Exception as e_db_fail_create:
         await session.rollback()
-        logger.error(
-            f"Additionally failed to update payment record to 'failed_creation': {e_db_fail_create}",  # noqa: E501
-            exc_info=True,
+        logger.exception(
+            "Additionally failed to update payment record to 'failed_creation': %s",
+            e_db_fail_create,
         )
     logger.error(
-        f"Failed to create payment in YooKassa for user {user_id}, payment_db_id {db_payment_record.payment_id}. Response: {payment_response_yk}"  # noqa: E501
+        "Failed to create payment in YooKassa for user %s, payment_db_id %s. Response: %s",
+        user_id,
+        db_payment_record.payment_id,
+        payment_response_yk,
     )
     with contextlib.suppress(Exception):
         await message.edit_text(get_text("error_payment_gateway"))
@@ -402,14 +408,14 @@ async def pay_yk_callback_handler(
     try:
         _, data_payload = callback_data.split(":", 1)
     except ValueError:
-        logger.error(f"Invalid pay_yk data in callback: {callback_data}")
+        logger.error("Invalid pay_yk data in callback: %s", callback_data)
         with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
         return
 
     parsed = _parse_offer_payload(data_payload)
     if not parsed:
-        logger.error(f"Invalid pay_yk payload structure: {callback_data}")
+        logger.error("Invalid pay_yk payload structure: %s", callback_data)
         with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -433,7 +439,9 @@ async def pay_yk_callback_handler(
                 session, user_id, provider="yookassa"
             )
         except Exception as e_list:
-            logger.exception(f"Failed to load saved payment methods for user {user_id}: {e_list}")
+            logger.exception(
+                "Failed to load saved payment methods for user %s: %s", user_id, e_list
+            )
             saved_methods = []
 
     if autopay_enabled and saved_methods:
@@ -453,7 +461,7 @@ async def pay_yk_callback_handler(
                 ),
             )
         except Exception as e_edit:
-            logger.warning(f"Failed to show autopay choice: {e_edit}. Sending new message.")
+            logger.warning("Failed to show autopay choice: %s. Sending new message.", e_edit)
             with contextlib.suppress(Exception):
                 await message.answer(
                     get_text("yookassa_autopay_flow_prompt"),
@@ -541,14 +549,14 @@ async def pay_yk_new_card_handler(
     try:
         _, data_payload = callback_data.split(":", 1)
     except ValueError:
-        logger.error(f"Invalid pay_yk_new data in callback: {callback_data}")
+        logger.error("Invalid pay_yk_new data in callback: %s", callback_data)
         with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
         return
 
     parsed = _parse_offer_payload(data_payload)
     if not parsed:
-        logger.error(f"Invalid pay_yk_new payload structure: {callback_data}")
+        logger.error("Invalid pay_yk_new payload structure: %s", callback_data)
         with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -625,14 +633,14 @@ async def pay_yk_saved_list_handler(
     try:
         _, data_payload = callback_data.split(":", 1)
     except ValueError:
-        logger.error(f"Invalid pay_yk_saved_list data: {callback_data}")
+        logger.error("Invalid pay_yk_saved_list data: %s", callback_data)
         with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
         return
 
     parsed_saved_list = _parse_saved_list_payload(data_payload)
     if not parsed_saved_list:
-        logger.error(f"pay_yk_saved_list payload missing components: {callback_data}")
+        logger.error("pay_yk_saved_list payload missing components: %s", callback_data)
         with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -654,7 +662,7 @@ async def pay_yk_saved_list_handler(
             session, user_id, provider="yookassa"
         )
     except Exception as e_list:
-        logger.exception(f"Failed to list saved payment methods for user {user_id}: {e_list}")
+        logger.exception("Failed to list saved payment methods for user %s: %s", user_id, e_list)
         saved_methods = []
 
     if not saved_methods:
@@ -674,7 +682,7 @@ async def pay_yk_saved_list_handler(
                 ),
             )
         except Exception as e_edit:
-            logger.warning(f"Failed to display no-saved-card notice: {e_edit}")
+            logger.warning("Failed to display no-saved-card notice: %s", e_edit)
             with contextlib.suppress(Exception):
                 await message.answer(
                     get_text("yookassa_autopay_no_saved_cards"),
@@ -719,7 +727,7 @@ async def pay_yk_saved_list_handler(
             ),
         )
     except Exception as e_edit:
-        logger.warning(f"Failed to display saved card list: {e_edit}")
+        logger.warning("Failed to display saved card list: %s", e_edit)
         with contextlib.suppress(Exception):
             await message.answer(
                 get_text("yookassa_autopay_choose_saved_card"),
@@ -770,14 +778,14 @@ async def pay_yk_use_saved_handler(
     try:
         _, data_payload = callback_data.split(":", 1)
     except ValueError:
-        logger.error(f"Invalid pay_yk_use_saved data: {callback_data}")
+        logger.error("Invalid pay_yk_use_saved data: %s", callback_data)
         with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
         return
 
     parts = data_payload.split(":")
     if len(parts) < 3:
-        logger.error(f"pay_yk_use_saved payload missing components: {callback_data}")
+        logger.error("pay_yk_use_saved payload missing components: %s", callback_data)
         with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -787,7 +795,7 @@ async def pay_yk_use_saved_handler(
         price_rub = float(parts[1])
         sale_mode = parts[3] if len(parts) > 3 else "subscription"
     except (ValueError, IndexError):
-        logger.error(f"pay_yk_use_saved months/price parsing error: {callback_data}")
+        logger.error("pay_yk_use_saved months/price parsing error: %s", callback_data)
         with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -826,7 +834,7 @@ async def pay_yk_use_saved_handler(
             session, user_id, provider="yookassa"
         )
     except Exception as e_list:
-        logger.exception(f"Failed to list saved payment methods for user {user_id}: {e_list}")
+        logger.exception("Failed to list saved payment methods for user %s: %s", user_id, e_list)
         saved_methods = []
 
     selected_method = None
@@ -839,7 +847,9 @@ async def pay_yk_use_saved_handler(
             break
 
     if not selected_method:
-        logger.warning(f"Selected payment method not found for user {user_id}: {method_identifier}")
+        logger.warning(
+            "Selected payment method not found for user %s: %s", user_id, method_identifier
+        )
         with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
         return

@@ -283,7 +283,7 @@ async def export_payments_csv_handler(
         await callback.answer(_("admin_export_sent"), show_alert=False)
 
     except Exception as e:
-        logger.error(f"Failed to export payments CSV: {e}", exc_info=True)
+        logger.exception("Failed to export payments CSV: %s", e)
         await callback.answer(f"❌ Ошибка экспорта: {e!s}", show_alert=True)
 
 

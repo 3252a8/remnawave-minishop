@@ -44,7 +44,9 @@ async def create_payment_record(session: AsyncSession, payment_data: dict[str, A
     session.add(new_payment)
     await session.flush()
     await session.refresh(new_payment)
-    logger.info(f"Payment record {new_payment.payment_id} created for user {new_payment.user_id}")
+    logger.info(
+        "Payment record %s created for user %s", new_payment.payment_id, new_payment.user_id
+    )
     return new_payment
 
 
@@ -223,9 +225,9 @@ async def update_payment_status_by_db_id(
         await session.flush()
         await session.refresh(payment)
         if not preserve_succeeded:
-            logger.info(f"Payment record {payment.payment_id} status updated to {new_status}.")
+            logger.info("Payment record %s status updated to %s.", payment.payment_id, new_status)
     else:
-        logger.warning(f"Payment record with DB ID {payment_db_id} not found for status update.")
+        logger.warning("Payment record with DB ID %s not found for status update.", payment_db_id)
     return payment
 
 
@@ -333,10 +335,13 @@ async def update_provider_payment_and_status(
         await session.refresh(payment)
         if not preserve_succeeded:
             logger.info(
-                f"Payment record {payment.payment_id} updated with provider id {provider_payment_id} and status {new_status}."  # noqa: E501
+                "Payment record %s updated with provider id %s and status %s.",
+                payment.payment_id,
+                provider_payment_id,
+                new_status,
             )
     else:
-        logger.warning(f"Payment record with DB ID {payment_db_id} not found for provider update.")
+        logger.warning("Payment record with DB ID %s not found for provider update.", payment_db_id)
     return payment
 
 

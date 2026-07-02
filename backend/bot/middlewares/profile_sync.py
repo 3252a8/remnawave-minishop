@@ -56,7 +56,9 @@ class ProfileSyncMiddleware(BaseMiddleware):
                     if update_payload:
                         await user_dal.update_user(session, db_user.user_id, update_payload)
                         logger.info(
-                            f"ProfileSyncMiddleware: Updated user {tg_user.id} profile fields: {list(update_payload.keys())}"  # noqa: E501
+                            "ProfileSyncMiddleware: Updated user %s profile fields: %s",
+                            tg_user.id,
+                            list(update_payload.keys()),
                         )
 
                         # Keep panel identity fields fresh, but do not rewrite
@@ -76,12 +78,16 @@ class ProfileSyncMiddleware(BaseMiddleware):
                                 )
                         except Exception as e_upd_desc:
                             logger.warning(
-                                f"ProfileSyncMiddleware: Failed to update panel identity for user {tg_user.id}: {e_upd_desc}"  # noqa: E501
+                                "ProfileSyncMiddleware: Failed to update panel identity for user "
+                                "%s: %s",
+                                tg_user.id,
+                                e_upd_desc,
                             )
             except Exception as e:
-                logger.error(
-                    f"ProfileSyncMiddleware: Failed to sync profile for user {getattr(tg_user, 'id', 'N/A')}: {e}",  # noqa: E501
-                    exc_info=True,
+                logger.exception(
+                    "ProfileSyncMiddleware: Failed to sync profile for user %s: %s",
+                    getattr(tg_user, "id", "N/A"),
+                    e,
                 )
             finally:
                 if settings:

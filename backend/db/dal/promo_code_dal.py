@@ -17,7 +17,7 @@ async def create_promo_code(session: AsyncSession, promo_data: dict[str, Any]) -
     session.add(new_promo)
     await session.flush()
     await session.refresh(new_promo)
-    logger.info(f"Promo code '{new_promo.code}' created with ID {new_promo.promo_code_id}")
+    logger.info("Promo code '%s' created with ID %s", new_promo.code, new_promo.promo_code_id)
     return new_promo
 
 
@@ -236,7 +236,10 @@ async def record_promo_activation(
     existing_activation = await get_user_activation_for_promo(session, promo_code_id, user_id)
     if existing_activation:
         logger.info(
-            f"User {user_id} has already activated promo code {promo_code_id}. Activation ID: {existing_activation.activation_id}"  # noqa: E501
+            "User %s has already activated promo code %s. Activation ID: %s",
+            user_id,
+            promo_code_id,
+            existing_activation.activation_id,
         )
         return existing_activation
 
@@ -246,7 +249,7 @@ async def record_promo_activation(
     promo = await get_promo_code_by_id(session, promo_code_id)
     if not user or not promo:
         logger.error(
-            f"Cannot record promo activation: User {user_id} or Promo {promo_code_id} not found."
+            "Cannot record promo activation: User %s or Promo %s not found.", user_id, promo_code_id
         )
         return None
 
@@ -255,7 +258,7 @@ async def record_promo_activation(
 
         payment = await get_payment_by_db_id(session, payment_id)
         if not payment:
-            logger.error(f"Cannot record promo activation: Payment {payment_id} not found.")
+            logger.error("Cannot record promo activation: Payment %s not found.", payment_id)
             return None
 
     activation_data = {
@@ -281,7 +284,10 @@ async def record_promo_activation(
     await session.flush()
     await session.refresh(new_activation)
     logger.info(
-        f"Promo code {promo_code_id} activated by user {user_id}. Activation ID: {new_activation.activation_id}"  # noqa: E501
+        "Promo code %s activated by user %s. Activation ID: %s",
+        promo_code_id,
+        user_id,
+        new_activation.activation_id,
     )
     return new_activation
 

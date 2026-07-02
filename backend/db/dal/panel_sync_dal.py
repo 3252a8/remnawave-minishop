@@ -46,6 +46,6 @@ async def update_panel_sync_status(
     await session.flush()
     await session.refresh(sync_record)
     logger.info(
-        f"Panel sync status updated: {status}, Users: {users_processed}, Subs: {subs_synced}"
+        "Panel sync status updated: %s, Users: %s, Subs: %s", status, users_processed, subs_synced
     )
     return sync_record

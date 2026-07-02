@@ -52,7 +52,7 @@ async def referral_command_handler(
         bot_info = await bot.get_me()
         bot_username = bot_info.username
     except Exception as e_bot_info:
-        logger.error(f"Failed to get bot info for referral link: {e_bot_info}")
+        logger.error("Failed to get bot info for referral link: %s", e_bot_info)
         await target_message_obj.answer(_("error_generating_referral_link"))
         if isinstance(event, types.CallbackQuery):
             await event.answer()
@@ -130,7 +130,7 @@ async def referral_command_handler(
                 text, reply_markup=reply_markup_val, disable_web_page_preview=True
             )
         except Exception as e_edit:
-            logger.warning(f"Failed to edit message for referral info: {e_edit}. Sending new one.")
+            logger.warning("Failed to edit message for referral info: %s. Sending new one.", e_edit)
             await callback_message(event).answer(
                 text, reply_markup=reply_markup_val, disable_web_page_preview=True
             )
@@ -192,7 +192,7 @@ async def referral_action_handler(
             await callback_message(callback).answer(friend_message, disable_web_page_preview=True)
 
         except Exception as e:
-            logger.error(f"Error in referral share message: {e}")
+            logger.error("Error in referral share message: %s", e)
             await callback.answer(_("error_occurred_try_again"), show_alert=True)
 
     await callback.answer()

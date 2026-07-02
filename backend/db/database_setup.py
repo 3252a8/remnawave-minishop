@@ -101,7 +101,7 @@ async def init_db(
 
         await load_overrides_from_db(settings, session_factory)
     except Exception as e_overrides:
-        logger.warning(f"Failed to load setting overrides on startup: {e_overrides}")
+        logger.warning("Failed to load setting overrides on startup: %s", e_overrides)
 
     async with session_factory() as session:
         from .dal.panel_sync_dal import get_panel_sync_status, update_panel_sync_status
@@ -120,7 +120,7 @@ async def init_db(
                 await session.commit()
         except Exception as e_sync_init:
             await session.rollback()
-            logger.error(f"Failed to initialize PanelSyncStatus: {e_sync_init}", exc_info=True)
+            logger.exception("Failed to initialize PanelSyncStatus: %s", e_sync_init)
 
         if settings.tariffs_config:
             try:

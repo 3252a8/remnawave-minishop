@@ -169,9 +169,13 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
                 session, sub_to_update.subscription_id, datetime.now(UTC)
             )
             logger.info(
-                f"Updated last_notification_sent for user {user_id}, sub_id {sub_to_update.subscription_id}"  # noqa: E501
+                "Updated last_notification_sent for user %s, sub_id %s",
+                user_id,
+                sub_to_update.subscription_id,
             )
         else:
             logger.warning(
-                f"Could not find subscription for user {user_id} ending at {subscription_end_date.isoformat()} to update notification time."  # noqa: E501
+                "Could not find subscription for user %s ending at %s to update notification time.",
+                user_id,
+                subscription_end_date.isoformat(),
             )

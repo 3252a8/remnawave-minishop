@@ -201,7 +201,7 @@ async def select_language_callback_handler(
             i18n_data["current_language"] = lang_code
             _ = lambda key, **kwargs: i18n.gettext(lang_code, key, **kwargs)
             await safe_answer_callback(callback, _(key="language_set_alert"))
-            logger.info(f"User {user_id} language updated to {lang_code} in session.")
+            logger.info("User %s language updated to %s in session.", user_id, lang_code)
         else:
             await safe_answer_callback(
                 callback,
@@ -210,7 +210,7 @@ async def select_language_callback_handler(
             )
             return
     except Exception as e_lang_update:
-        logger.error(f"Error updating lang for user {user_id}: {e_lang_update}", exc_info=True)
+        logger.exception("Error updating lang for user %s: %s", user_id, e_lang_update)
         await safe_answer_callback(callback, "Error setting language.", show_alert=True)
         return
     if return_target == "bot" and telegram_bot_menu_enabled_for_user(

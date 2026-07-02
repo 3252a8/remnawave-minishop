@@ -192,7 +192,9 @@ class PanelApiUsersMixin:
 
             if not response_data or response_data.get("error"):
                 logger.error(
-                    f"Failed to fetch panel users batch (start: {start_offset}). Response: {response_data}"  # noqa: E501
+                    "Failed to fetch panel users batch (start: %s). Response: %s",
+                    start_offset,
+                    response_data,
                 )
                 return None
             response = response_data.get("response")
@@ -205,7 +207,7 @@ class PanelApiUsersMixin:
             start_offset += page_size
             if page_delay:
                 await asyncio.sleep(page_delay)
-        logger.info(f"Fetched {len(all_users)} users from panel API.")
+        logger.info("Fetched %s users from panel API.", len(all_users))
         return all_users
 
     async def get_user_by_uuid(
@@ -376,7 +378,7 @@ class PanelApiUsersMixin:
             ):
                 return response_data["response"]
             elif response_data and response_data.get("errorCode") == "A062":
-                logger.info(f"Panel API: Users not found for {filter_used_log}")
+                logger.info("Panel API: Users not found for %s", filter_used_log)
                 return []
 
         elif username is not None:
@@ -392,7 +394,7 @@ class PanelApiUsersMixin:
             ):
                 return [response_data["response"]]
             elif response_data and response_data.get("errorCode") == "A062":
-                logger.info(f"Panel API: User not found for {filter_used_log}")
+                logger.info("Panel API: User not found for %s", filter_used_log)
                 return []
 
         elif email is not None:
@@ -408,7 +410,7 @@ class PanelApiUsersMixin:
             ):
                 return response_data["response"]
             elif response_data and response_data.get("errorCode") == "A062":
-                logger.info(f"Panel API: Users not found for {filter_used_log}")
+                logger.info("Panel API: Users not found for %s", filter_used_log)
                 return []
 
         if not telegram_id and not username and not email:
@@ -475,7 +477,9 @@ class PanelApiUsersMixin:
                     payload["hwidDeviceLimit"] = hwid_limit_int
             except (TypeError, ValueError):
                 logger.warning(
-                    f"Ignoring invalid HWID device limit '{hwid_limit_value}' while creating panel user '{username_on_panel}'."  # noqa: E501
+                    "Ignoring invalid HWID device limit '%s' while creating panel user '%s'.",
+                    hwid_limit_value,
+                    username_on_panel,
                 )
         if specific_squad_uuids:
             payload["activeInternalSquads"] = specific_squad_uuids
@@ -496,12 +500,17 @@ class PanelApiUsersMixin:
         if response and not response.get("error") and "response" in response:
             await self._invalidate_all_users_cache()
             logger.info(
-                f"Panel user '{username_on_panel}' created successfully (UUID: {response.get('response', {}).get('uuid')})."  # noqa: E501
+                "Panel user '%s' created successfully (UUID: %s).",
+                username_on_panel,
+                response.get("response", {}).get("uuid"),
             )
             return response
 
         logger.error(
-            f"Failed to create panel user '{username_on_panel}'. Payload: {payload}, Response: {response if not log_response else '(full response logged above)'}"  # noqa: E501
+            "Failed to create panel user '%s'. Payload: %s, Response: %s",
+            username_on_panel,
+            payload,
+            response if not log_response else "(full response logged above)",
         )
         return response
 
@@ -525,7 +534,10 @@ class PanelApiUsersMixin:
             return _json_dict(full_response.get("response"))
 
         logger.error(
-            f"Failed to update user {user_uuid} details on panel. Payload: {update_payload}, Response: {full_response if not log_response else '(logged above)'}"  # noqa: E501
+            "Failed to update user %s details on panel. Payload: %s, Response: %s",
+            user_uuid,
+            update_payload,
+            full_response if not log_response else "(logged above)",
         )
         return None
 
@@ -543,17 +555,26 @@ class PanelApiUsersMixin:
             expected_status = "ACTIVE" if enable else "DISABLED"
             if actual_status == expected_status:
                 logger.info(
-                    f"User {user_uuid} status on panel successfully set to {action} (Actual: {actual_status})."  # noqa: E501
+                    "User %s status on panel successfully set to %s (Actual: %s).",
+                    user_uuid,
+                    action,
+                    actual_status,
                 )
                 return True
             else:
                 logger.warning(
-                    f"User {user_uuid} status on panel action '{action}' called, but final status is '{actual_status}'."  # noqa: E501
+                    "User %s status on panel action '%s' called, but final status is '%s'.",
+                    user_uuid,
+                    action,
+                    actual_status,
                 )
                 return False
 
         logger.error(
-            f"Failed to {action} user {user_uuid} on panel. Response: {response_data if not log_response else '(logged above)'}"  # noqa: E501
+            "Failed to %s user %s on panel. Response: %s",
+            action,
+            user_uuid,
+            response_data if not log_response else "(logged above)",
         )
         return False
 
@@ -563,7 +584,9 @@ class PanelApiUsersMixin:
         response_data = await self._request("DELETE", endpoint, log_full_response=log_response)
 
         if not response_data:
-            logger.error(f"Panel API delete_user_from_panel returned no data for user {user_uuid}.")
+            logger.error(
+                "Panel API delete_user_from_panel returned no data for user %s.", user_uuid
+            )
             return False
 
         if response_data.get("error"):
@@ -571,16 +594,20 @@ class PanelApiUsersMixin:
             error_code = details.get("errorCode") or response_data.get("errorCode")
             if error_code in {"A062", "A040"}:
                 logger.info(
-                    f"Panel user {user_uuid} already absent (errorCode {error_code}). Treating as deleted."  # noqa: E501
+                    "Panel user %s already absent (errorCode %s). Treating as deleted.",
+                    user_uuid,
+                    error_code,
                 )
                 await self._invalidate_user_cache(user_uuid)
                 await self._invalidate_devices_cache(user_uuid)
                 await self._invalidate_all_users_cache()
                 return True
-            logger.error(f"Failed to delete user {user_uuid} on panel. Response: {response_data}")
+            logger.error(
+                "Failed to delete user %s on panel. Response: %s", user_uuid, response_data
+            )
             return False
 
-        logger.info(f"Panel user {user_uuid} deleted successfully.")
+        logger.info("Panel user %s deleted successfully.", user_uuid)
         await self._invalidate_user_cache(user_uuid)
         await self._invalidate_devices_cache(user_uuid)
         await self._invalidate_all_users_cache()

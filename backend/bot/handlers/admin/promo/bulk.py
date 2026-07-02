@@ -51,7 +51,7 @@ async def create_bulk_promo_prompt_handler(
             parse_mode="HTML",
         )
     except Exception as e:
-        logger.warning(f"Could not edit message for bulk promo prompt: {e}. Sending new.")
+        logger.warning("Could not edit message for bulk promo prompt: %s. Sending new.", e)
         await callback_message(callback).answer(
             prompt_text,
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
@@ -100,7 +100,7 @@ async def process_bulk_promo_quantity_handler(
     except ValueError:
         await message.answer(_("admin_promo_invalid_number"))
     except Exception as e:
-        logger.error(f"Error processing bulk promo quantity: {e}")
+        logger.error("Error processing bulk promo quantity: %s", e)
         await message.answer(_("error_occurred_try_again"))
 
 
@@ -142,7 +142,7 @@ async def process_bulk_promo_bonus_days_handler(
     except ValueError:
         await message.answer(_("admin_promo_invalid_number"))
     except Exception as e:
-        logger.error(f"Error processing bulk promo bonus days: {e}")
+        logger.error("Error processing bulk promo bonus days: %s", e)
         await message.answer(_("error_occurred_try_again"))
 
 
@@ -198,7 +198,7 @@ async def process_bulk_promo_max_activations_handler(
     except ValueError:
         await message.answer(_("admin_promo_invalid_number"))
     except Exception as e:
-        logger.error(f"Error processing bulk promo max activations: {e}")
+        logger.error("Error processing bulk promo max activations: %s", e)
         await message.answer(_("error_occurred_try_again"))
 
 
@@ -284,7 +284,7 @@ async def process_bulk_promo_validity_days_handler(
     except ValueError:
         await message.answer(_("admin_promo_invalid_number"))
     except Exception as e:
-        logger.error(f"Error processing bulk promo validity days: {e}")
+        logger.error("Error processing bulk promo validity days: %s", e)
         await message.answer(_("error_occurred_try_again"))
 
 
@@ -367,7 +367,7 @@ async def create_bulk_promo_codes_final(
                 created_codes.append(created_promo.code)
 
             except Exception as e:
-                logger.error(f"Error creating bulk promo code #{i + 1}: {e}")
+                logger.error("Error creating bulk promo code #%s: %s", i + 1, e)
                 failed_codes.append(f"Код #{i + 1} ({str(e)[:50]})")
 
         await session.commit()
@@ -424,7 +424,7 @@ async def create_bulk_promo_codes_final(
                 bot_info = await bot.get_me()
                 bot_username = bot_info.username or "your_bot"
             except Exception as e:
-                logger.error(f"Failed to get bot username for CSV links: {e}")
+                logger.error("Failed to get bot username for CSV links: %s", e)
                 bot_username = "your_bot"
 
             for code in created_codes:
@@ -498,7 +498,7 @@ async def create_bulk_promo_codes_final(
         await state.clear()
 
     except Exception as e:
-        logger.error(f"Error creating bulk promo codes: {e}")
+        logger.error("Error creating bulk promo codes: %s", e)
         error_text = _("error_occurred_try_again")
 
         if isinstance(callback_or_message, types.CallbackQuery):

@@ -1592,11 +1592,8 @@ def run_migration_chains(connection: Connection, chains: dict[str, list[Migratio
                         {"revision": migration.id},
                     )
             except Exception as exc:
-                logger.error(
-                    "Migrator: failed to apply %s (%s)",
-                    migration.id,
-                    migration.description,
-                    exc_info=True,
+                logger.exception(
+                    "Migrator: failed to apply %s (%s)", migration.id, migration.description
                 )
                 raise exc
             else:

@@ -94,7 +94,7 @@ async def handle_view_user_logs(
         await callback.answer()
 
     except Exception as e:
-        logger.error(f"Error viewing logs for user {user.user_id}: {e}")
+        logger.error("Error viewing logs for user %s: %s", user.user_id, e)
         await callback.answer(_("admin_user_logs_error"), show_alert=True)
 
 
@@ -203,12 +203,7 @@ async def handle_view_user_invitees(
 
         await callback.answer()
     except Exception as exc:
-        logger.error(
-            "Error viewing invitees for user %s: %s",
-            user.user_id,
-            exc,
-            exc_info=True,
-        )
+        logger.exception("Error viewing invitees for user %s: %s", user.user_id, exc)
         await callback.answer(_("admin_user_invitees_error"), show_alert=True)
 
 
@@ -268,7 +263,7 @@ async def handle_refresh_user_card(
         await callback.answer()
 
     except Exception as e:
-        logger.error(f"Error refreshing user card for {user.user_id}: {e}")
+        logger.error("Error refreshing user card for %s: %s", user.user_id, e)
         await callback.answer("Error refreshing user card", show_alert=True)
 
 
@@ -288,7 +283,9 @@ async def handle_delete_user_prompt(
     admin = callback.from_user
     admin_id = admin.id if admin else None
     if not admin_id or admin_id not in settings.ADMIN_IDS:
-        logger.warning(f"Unauthorized delete attempt by user {admin_id} targeting {user.user_id}.")
+        logger.warning(
+            "Unauthorized delete attempt by user %s targeting %s.", admin_id, user.user_id
+        )
         await callback.answer(
             _(
                 "admin_user_delete_not_allowed",
@@ -311,7 +308,7 @@ async def handle_delete_user_prompt(
     try:
         await callback_message(callback).answer(prompt_text, parse_mode="HTML")
     except Exception as e:
-        logger.error(f"Failed to send delete confirmation prompt for user {user.user_id}: {e}")
+        logger.error("Failed to send delete confirmation prompt for user %s: %s", user.user_id, e)
         await callback_message(callback).reply(prompt_text, parse_mode="HTML")
 
     await callback.answer()
@@ -340,9 +337,8 @@ async def _log_admin_user_deletion(
             },
         )
     except Exception as e:
-        logger.error(
-            f"Failed to log deletion audit for admin {admin_id} -> user {target_user_id}: {e}",
-            exc_info=True,
+        logger.exception(
+            "Failed to log deletion audit for admin %s -> user %s: %s", admin_id, target_user_id, e
         )
 
 
@@ -370,7 +366,7 @@ async def process_delete_user_confirmation_handler(
     admin = message.from_user
     admin_id = admin.id if admin else None
     if not admin_id or admin_id not in settings.ADMIN_IDS:
-        logger.warning(f"Unauthorized delete confirmation attempt by user {admin_id}.")
+        logger.warning("Unauthorized delete confirmation attempt by user %s.", admin_id)
         await message.answer(
             _(
                 "admin_user_delete_not_allowed",
@@ -458,7 +454,7 @@ async def process_delete_user_confirmation_handler(
             parse_mode="HTML",
         )
     except Exception as e:
-        logger.error(f"Error deleting user {target_user_id}: {e}", exc_info=True)
+        logger.exception("Error deleting user %s: %s", target_user_id, e)
         await session.rollback()
         await message.answer(
             _(

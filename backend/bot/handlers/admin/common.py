@@ -80,7 +80,10 @@ async def admin_panel_actions_callback_handler(
 
     if not callback.message:
         logger.error(
-            f"CallbackQuery {callback.id} from {callback.from_user.id} has no message for admin_action {action}"  # noqa: E501
+            "CallbackQuery %s from %s has no message for admin_action %s",
+            callback.id,
+            callback.from_user.id,
+            action,
         )
         await callback.answer("Error processing action: message context lost.", show_alert=True)
         return
@@ -180,7 +183,7 @@ async def admin_panel_actions_callback_handler(
             )
         await callback.answer()
     else:
-        logger.warning(f"Unknown admin_action received: {action} from callback {callback.data}")
+        logger.warning("Unknown admin_action received: %s from callback %s", action, callback.data)
         await callback.answer(_("admin_unknown_action"), show_alert=True)
 
 
@@ -236,7 +239,7 @@ async def admin_section_handler(
 
         await callback.answer()
     except Exception as e:
-        logger.error(f"Error handling admin section {section}: {e}")
+        logger.error("Error handling admin section %s: %s", section, e)
         await callback_message(callback).answer(
             _("error_occurred_try_again"),
             reply_markup=get_admin_panel_keyboard(i18n, current_lang, settings),
@@ -289,5 +292,5 @@ async def show_queue_status_handler(callback: types.CallbackQuery, i18n_data: di
         await callback.answer()
 
     except Exception as e:
-        logger.error(f"Error getting queue status: {e}")
+        logger.error("Error getting queue status: %s", e)
         await callback.answer("❌ Ошибка получения статуса очередей", show_alert=True)

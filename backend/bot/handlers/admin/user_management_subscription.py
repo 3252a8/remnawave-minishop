@@ -124,7 +124,7 @@ async def handle_reset_trial(
         )
 
     except Exception as e:
-        logger.error(f"Error resetting trial for user {user.user_id}: {e}")
+        logger.error("Error resetting trial for user %s: %s", user.user_id, e)
         await session.rollback()
         await callback.answer(_("admin_user_trial_reset_error"), show_alert=True)
 
@@ -332,12 +332,8 @@ async def handle_change_tariff_apply(
             lang,
         )
     except Exception as exc:
-        logger.error(
-            "Error changing tariff for user %s to %s: %s",
-            user.user_id,
-            resolved_tariff_key,
-            exc,
-            exc_info=True,
+        logger.exception(
+            "Error changing tariff for user %s to %s: %s", user.user_id, resolved_tariff_key, exc
         )
         await session.rollback()
         await callback.answer(_("admin_user_tariff_change_error"), show_alert=True)
@@ -386,7 +382,7 @@ async def handle_toggle_ban(
         )
 
     except Exception as e:
-        logger.error(f"Error toggling ban for user {user.user_id}: {e}")
+        logger.error("Error toggling ban for user %s: %s", user.user_id, e)
         await session.rollback()
         await callback.answer(_("admin_user_ban_toggle_error"), show_alert=True)
 

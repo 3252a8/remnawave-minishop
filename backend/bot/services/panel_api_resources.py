@@ -88,7 +88,9 @@ class PanelApiResourcesMixin:
         if response is not None:
             return response
         logger.error(
-            f"Failed to get subscription page config for short UUID {short_uuid}. Response: {response_data}"  # noqa: E501
+            "Failed to get subscription page config for short UUID %s. Response: %s",
+            short_uuid,
+            response_data,
         )
         return None
 
@@ -99,7 +101,7 @@ class PanelApiResourcesMixin:
         if response is not None:
             return response
         logger.error(
-            f"Failed to get subscription page config list from panel. Response: {response_data}"
+            "Failed to get subscription page config list from panel. Response: %s", response_data
         )
         return None
 
@@ -116,7 +118,9 @@ class PanelApiResourcesMixin:
         if response is not None:
             return response
         logger.error(
-            f"Failed to get subscription page config {config_uuid} from panel. Response: {response_data}"  # noqa: E501
+            "Failed to get subscription page config %s from panel. Response: %s",
+            config_uuid,
+            response_data,
         )
         return None
 

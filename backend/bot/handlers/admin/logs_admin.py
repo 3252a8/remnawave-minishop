@@ -86,7 +86,7 @@ async def display_logs_menu(
             reply_markup=get_logs_menu_keyboard(i18n, current_lang),
         )
     except Exception as e:
-        logger.warning(f"Failed to edit message for logs menu: {e}. Sending new.")
+        logger.warning("Failed to edit message for logs menu: %s. Sending new.", e)
         await callback_message(callback).answer(
             text=_(key="admin_logs_menu_title"),
             reply_markup=get_logs_menu_keyboard(i18n, current_lang),
@@ -180,7 +180,9 @@ async def _display_formatted_logs(
         )
     except Exception as e:
         logger.warning(
-            f"Failed to edit message for logs display (len: {len(text)}): {e}. Sending new message(s)."  # noqa: E501
+            "Failed to edit message for logs display (len: %s): %s. Sending new message(s).",
+            len(text),
+            e,
         )
 
         max_chunk_size = 4000
@@ -195,7 +197,7 @@ async def _display_formatted_logs(
                     disable_web_page_preview=True,
                 )
             except Exception as e_chunk:
-                logger.error(f"Failed to send log chunk: {e_chunk}")
+                logger.error("Failed to send log chunk: %s", e_chunk)
 
                 if i == 0:
                     await target_message.answer(
@@ -483,5 +485,5 @@ async def export_logs_csv_handler(
         )
 
     except Exception as e:
-        logger.error(f"Error exporting logs to CSV: {e}", exc_info=True)
+        logger.exception("Error exporting logs to CSV: %s", e)
         await callback_message(callback).answer(_("admin_logs_csv_export_failed", error=str(e)))

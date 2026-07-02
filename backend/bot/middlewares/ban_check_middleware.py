@@ -47,14 +47,16 @@ class BanCheckMiddleware(BaseMiddleware):
         try:
             db_user_model = await user_dal.get_user_by_id(session, event_user.id)
         except Exception as e_db:
-            logger.error(
-                f"BanCheckMiddleware: DB error fetching user {event_user.id}: {e_db}", exc_info=True
+            logger.exception(
+                "BanCheckMiddleware: DB error fetching user %s: %s", event_user.id, e_db
             )
             return await handler(event, data)
 
         if db_user_model and db_user_model.is_banned:
             logger.info(
-                f"User {event_user.id} ({event_user.username or 'NoUsername'}) is banned. Blocking access."  # noqa: E501
+                "User %s (%s) is banned. Blocking access.",
+                event_user.id,
+                event_user.username or "NoUsername",
             )
 
             i18n_data_from_event = data.get("i18n_data", {})
@@ -112,13 +114,15 @@ class BanCheckMiddleware(BaseMiddleware):
                     await bot_instance.send_message(
                         event_user.id, ban_message_text, reply_markup=keyboard
                     )
-                logger.info(f"Ban notification sent to user {event_user.id}.")
+                logger.info("Ban notification sent to user %s.", event_user.id)
             except TelegramForbiddenError:
-                logger.warning(f"BanCheck: Bot is blocked by user {event_user.id}.")
+                logger.warning("BanCheck: Bot is blocked by user %s.", event_user.id)
             except Exception as e_send:
-                logger.error(
-                    f"BanCheck: Failed to notify banned user {event_user.id}: {type(e_send).__name__} - {e_send}",  # noqa: E501
-                    exc_info=True,
+                logger.exception(
+                    "BanCheck: Failed to notify banned user %s: %s - %s",
+                    event_user.id,
+                    type(e_send).__name__,
+                    e_send,
                 )
 
             return

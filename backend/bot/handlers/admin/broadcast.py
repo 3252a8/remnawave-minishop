@@ -55,7 +55,7 @@ async def broadcast_message_prompt_handler(
                 reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
             )
         except Exception as e:
-            logger.warning(f"Could not edit message for broadcast prompt: {e}. Sending new.")
+            logger.warning("Could not edit message for broadcast prompt: %s. Sending new.", e)
             await callback_message(callback).answer(
                 prompt_text,
                 reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
@@ -262,7 +262,10 @@ async def confirm_broadcast_callback_handler(
         failed_count = 0
         admin_user = callback.from_user
         logger.info(
-            f"Admin {admin_user.id} broadcasting '{(content.text or '')[:50]}...' to {len(user_ids)} users."  # noqa: E501
+            "Admin %s broadcasting '%s...' to %s users.",
+            admin_user.id,
+            (content.text or "")[:50],
+            len(user_ids),
         )
 
         # Get message queue manager
@@ -312,7 +315,7 @@ async def confirm_broadcast_callback_handler(
                 )
             except Exception as e:
                 failed_count += 1
-                logger.warning(f"Failed to queue broadcast to {uid}: {type(e).__name__} – {e}")
+                logger.warning("Failed to queue broadcast to %s: %s – %s", uid, type(e).__name__, e)
                 await message_log_dal.create_message_log(
                     session,
                     {
@@ -330,7 +333,7 @@ async def confirm_broadcast_callback_handler(
             await session.commit()
         except Exception as e_commit:
             await session.rollback()
-            logger.error(f"Error committing broadcast logs: {e_commit}")
+            logger.error("Error committing broadcast logs: %s", e_commit)
 
         # Prepare queue stats presentation
         queue_stats = queue_manager.get_queue_stats()

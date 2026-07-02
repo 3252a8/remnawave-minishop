@@ -74,7 +74,7 @@ async def inline_query_handler(
         )
 
     except Exception as e:
-        logger.error(f"Error handling inline query from user {user_id}: {e}")
+        logger.error("Error handling inline query from user %s: %s", user_id, e)
         # Send empty results in case of error
         await inline_query.answer(results=[], cache_time=10)
 
@@ -120,7 +120,7 @@ async def create_referral_result(
         )
 
     except Exception as e:
-        logger.error(f"Error creating referral result: {e}")
+        logger.error("Error creating referral result: %s", e)
         return None
 
 
@@ -152,7 +152,7 @@ async def create_admin_stats_results(
             results.append(system_stats_result)
 
     except Exception as e:
-        logger.error(f"Error creating admin stats results: {e}")
+        logger.error("Error creating admin stats results: %s", e)
 
     return results
 
@@ -196,7 +196,7 @@ async def create_user_stats_result(
         )
 
     except Exception as e:
-        logger.error(f"Error creating user stats result: {e}")
+        logger.error("Error creating user stats result: %s", e)
         return None
 
 
@@ -233,7 +233,7 @@ async def create_financial_stats_result(
         )
 
     except Exception as e:
-        logger.error(f"Error creating financial stats result: {e}")
+        logger.error("Error creating financial stats result: %s", e)
         return None
 
 
@@ -325,7 +325,7 @@ async def create_system_stats_result(
         )
 
     except Exception as e:
-        logger.error(f"Error creating system stats result: {e}")
+        logger.error("Error creating system stats result: %s", e)
         # Fallback error message
         error_text = _("inline_panel_stats_error")
 

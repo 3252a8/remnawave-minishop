@@ -275,15 +275,26 @@ class PanelApiCoreMixin:
                             parsed_json_for_log, indent=2, ensure_ascii=False
                         )
                         logger.info(
-                            f"{log_prefix} {log_suffix} | Full Response Body:\n{pretty_response_text}"  # noqa: E501
+                            "%s %s | Full Response Body:\n%s",
+                            log_prefix,
+                            log_suffix,
+                            pretty_response_text,
                         )
                     except json.JSONDecodeError:
                         logger.info(
-                            f"{log_prefix} {log_suffix} | Full Response Text (not JSON):\n{response_text[:2000]}{'...' if len(response_text) > 2000 else ''}"  # noqa: E501
+                            "%s %s | Full Response Text (not JSON):\n%s%s",
+                            log_prefix,
+                            log_suffix,
+                            response_text[:2000],
+                            "..." if len(response_text) > 2000 else "",
                         )
                 else:
                     logger.debug(
-                        f"{log_prefix} {log_suffix} | OK. Response Body Preview: {response_text[:200]}{'...' if len(response_text) > 200 else ''}"  # noqa: E501
+                        "%s %s | OK. Response Body Preview: %s%s",
+                        log_prefix,
+                        log_suffix,
+                        response_text[:200],
+                        "..." if len(response_text) > 200 else "",
                     )
 
                 if 200 <= response_status < 300:
@@ -301,7 +312,10 @@ class PanelApiCoreMixin:
                             }
                     except json.JSONDecodeError as e_json_ok:
                         logger.error(
-                            f"{log_prefix} {log_suffix} | OK but JSON Parse Error. Error: {e_json_ok}. Body was logged above."  # noqa: E501
+                            "%s %s | OK but JSON Parse Error. Error: %s. Body was logged above.",
+                            log_prefix,
+                            log_suffix,
+                            e_json_ok,
                         )
                         return {
                             "status": "success_parse_error",
@@ -379,11 +393,10 @@ class PanelApiCoreMixin:
                 method.upper(),
                 endpoint_label,
             )
-            logger.error(
+            logger.exception(
                 "Unexpected Panel API request error method=%s endpoint=%s: %s",
                 method.upper(),
                 endpoint_label,
                 e,
-                exc_info=True,
             )
             return {"error": True, "status_code": -4, "message": f"Unexpected error: {e!s}"}

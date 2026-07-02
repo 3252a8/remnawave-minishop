@@ -141,7 +141,8 @@ async def build_and_start_web_app(
             secret_token=settings.WEBHOOK_SECRET_TOKEN,
         ).register(app, path=telegram_webhook_path)
         logger.info(
-            f"Telegram webhook route configured at: [POST] {telegram_webhook_path} (relative to base URL)"  # noqa: E501
+            "Telegram webhook route configured at: [POST] %s (relative to base URL)",
+            telegram_webhook_path,
         )
 
     from bot.services.panel_webhook_service import panel_webhook_route
@@ -163,7 +164,7 @@ async def build_and_start_web_app(
     panel_path = settings.panel_webhook_path
     if panel_path.startswith("/"):
         app.router.add_post(panel_path, panel_webhook_route)
-        logger.info(f"Panel webhook route configured at: [POST] {panel_path}")
+        logger.info("Panel webhook route configured at: [POST] %s", panel_path)
 
     if plugin_context is not None:
         setup_web_plugins(plugin_context, app, scope=WEB_SCOPE_WEBHOOKS)
@@ -181,7 +182,7 @@ async def build_and_start_web_app(
 
     await site.start()
     logger.info(
-        f"AIOHTTP server started on http://{settings.WEB_SERVER_HOST}:{settings.WEB_SERVER_PORT}"
+        "AIOHTTP server started on http://%s:%s", settings.WEB_SERVER_HOST, settings.WEB_SERVER_PORT
     )
     if after_webhooks_started is not None:
         await after_webhooks_started()

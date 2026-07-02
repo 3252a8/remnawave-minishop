@@ -47,7 +47,7 @@ async def create_promo_prompt_handler(
             parse_mode="HTML",
         )
     except Exception as e:
-        logger.warning(f"Could not edit message for promo prompt: {e}. Sending new.")
+        logger.warning("Could not edit message for promo prompt: %s. Sending new.", e)
         await callback_message(callback).answer(
             prompt_text,
             reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
@@ -98,7 +98,7 @@ async def process_promo_code_handler(
         await state.set_state(AdminStates.waiting_for_promo_bonus_days)
 
     except Exception as e:
-        logger.error(f"Error processing promo code: {e}")
+        logger.error("Error processing promo code: %s", e)
         await message.answer(_("error_occurred_try_again"))
 
 
@@ -138,7 +138,7 @@ async def process_promo_bonus_days_handler(
     except ValueError:
         await message.answer(_("admin_promo_invalid_number"))
     except Exception as e:
-        logger.error(f"Error processing promo bonus days: {e}")
+        logger.error("Error processing promo bonus days: %s", e)
         await message.answer(_("error_occurred_try_again"))
 
 
@@ -193,7 +193,7 @@ async def process_promo_max_activations_handler(
     except ValueError:
         await message.answer(_("admin_promo_invalid_number"))
     except Exception as e:
-        logger.error(f"Error processing promo max activations: {e}")
+        logger.error("Error processing promo max activations: %s", e)
         await message.answer(_("error_occurred_try_again"))
 
 
@@ -277,7 +277,7 @@ async def process_promo_validity_days_handler(
     except ValueError:
         await message.answer(_("admin_promo_invalid_number"))
     except Exception as e:
-        logger.error(f"Error processing promo validity days: {e}")
+        logger.error("Error processing promo validity days: %s", e)
         await message.answer(_("error_occurred_try_again"))
 
 
@@ -324,7 +324,7 @@ async def create_promo_code_final(
 
         # Log successful creation
         logger.info(
-            f"Promo code '{data['promo_code']}' created with ID {created_promo.promo_code_id}"
+            "Promo code '%s' created with ID %s", data["promo_code"], created_promo.promo_code_id
         )
 
         # Success message
@@ -366,7 +366,7 @@ async def create_promo_code_final(
         await state.clear()
 
     except Exception as e:
-        logger.error(f"Error creating promo code: {e}")
+        logger.error("Error creating promo code: %s", e)
         error_text = _("error_occurred_try_again")
 
         if isinstance(callback_or_message, types.CallbackQuery):

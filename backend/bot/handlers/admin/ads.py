@@ -95,7 +95,7 @@ async def ads_list_pagination(
         await callback_message(callback).edit_text(text, reply_markup=reply_markup)
         await callback.answer()
     except Exception as e:
-        logger.error(f"Failed to paginate ads list: {e}")
+        logger.error("Failed to paginate ads list: %s", e)
         await callback.answer()
 
 
@@ -145,7 +145,7 @@ async def show_ad_card(
         )
         await callback.answer()
     except Exception as e:
-        logger.error(f"Failed to show ad card: {e}")
+        logger.error("Failed to show ad card: %s", e)
         await callback.answer()
 
 
@@ -380,7 +380,7 @@ async def ads_create_flow(
             return
         except Exception as e:
             await session.rollback()
-            logger.error(f"Failed to create ad campaign: {e}", exc_info=True)
+            logger.exception("Failed to create ad campaign: %s", e)
             await message.answer(_("error_occurred_try_again"))
             return
 

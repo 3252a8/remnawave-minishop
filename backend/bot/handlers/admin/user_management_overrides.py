@@ -140,9 +140,7 @@ async def handle_premium_override_apply(
             callback, user, subscription_service, session, settings, i18n_instance, lang
         )
     except Exception as exc:
-        logger.error(
-            "Failed to apply premium override for user %s: %s", user.user_id, exc, exc_info=True
-        )
+        logger.exception("Failed to apply premium override for user %s: %s", user.user_id, exc)
         await session.rollback()
         await callback.answer(_("admin_premium_override_save_error"), show_alert=True)
 
@@ -297,12 +295,7 @@ async def handle_hwid_limit_apply(
             callback, user, subscription_service, session, settings, i18n_instance, lang
         )
     except Exception as exc:
-        logger.error(
-            "Failed to apply HWID device limit for user %s: %s",
-            user.user_id,
-            exc,
-            exc_info=True,
-        )
+        logger.exception("Failed to apply HWID device limit for user %s: %s", user.user_id, exc)
         await session.rollback()
         await callback.answer(_("admin_hwid_limit_save_error"), show_alert=True)
 

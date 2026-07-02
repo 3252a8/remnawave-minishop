@@ -25,6 +25,7 @@ select = [
     "PERF", # Perflint
     "RUF", # Ruff-specific rules
     "LOG", # flake8-logging
+    "G", # flake8-logging-format
 ]
 ignore = [
     "E731", # lambda assignment (common in handlers)

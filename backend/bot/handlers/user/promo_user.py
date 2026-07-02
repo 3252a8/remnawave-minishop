@@ -72,7 +72,7 @@ async def prompt_promo_code_input(
             ),
         )
     except Exception as e_edit:
-        logger.warning(f"Failed to edit message for promo prompt: {e_edit}. Sending new one.")
+        logger.warning("Failed to edit message for promo prompt: %s. Sending new one.", e_edit)
         await callback_message(callback).answer(
             text=_(key="promo_code_prompt"),
             reply_markup=get_back_to_main_menu_markup(
@@ -85,8 +85,9 @@ async def prompt_promo_code_input(
     await safe_answer_callback(callback)
     await state.set_state(UserPromoStates.waiting_for_promo_code)
     logger.info(
-        f"User {callback.from_user.id} entered state UserPromoStates.waiting_for_promo_code. "
-        f"FSM state: {await state.get_state()}"
+        "User %s entered state UserPromoStates.waiting_for_promo_code. FSM state: %s",
+        callback.from_user.id,
+        await state.get_state(),
     )
 
 
@@ -102,7 +103,10 @@ async def process_promo_code_input(
     session: AsyncSession,
 ) -> None:
     logger.info(
-        f"Processing promo code input from user {message_from_user(message).id} in state {await state.get_state()}: '{message.text}'"  # noqa: E501
+        "Processing promo code input from user %s in state %s: '%s'",
+        message_from_user(message).id,
+        await state.get_state(),
+        message.text,
     )
 
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -121,7 +125,7 @@ async def process_promo_code_input(
     is_suspicious = False
     if not code_input:
         is_suspicious = True
-        logger.warning(f"Empty promo code input by user {user.id}.")
+        logger.warning("Empty promo code input by user %s.", user.id)
     elif (
         len(code_input) > MAX_PROMO_CODE_INPUT_LENGTH
         or SUSPICIOUS_SQL_KEYWORDS_REGEX.search(code_input)
@@ -129,7 +133,10 @@ async def process_promo_code_input(
     ):
         is_suspicious = True
         logger.warning(
-            f"Suspicious input for promo code by user {user.id} (len: {len(code_input)}): '{code_input}'"  # noqa: E501
+            "Suspicious input for promo code by user %s (len: %s): '%s'",
+            user.id,
+            len(code_input),
+            code_input,
         )
 
     response_to_user_text = ""
@@ -148,7 +155,7 @@ async def process_promo_code_input(
                 suspicious_input=code_input,
             )
         except Exception as e:
-            logger.error(f"Failed to send suspicious promo notification: {e}")
+            logger.error("Failed to send suspicious promo notification: %s", e)
 
     success, result = await promo_code_service.apply_promo_code(
         session, user.id, code_input, current_lang
@@ -181,13 +188,15 @@ async def process_promo_code_input(
         )
         await state.clear()
         logger.info(
-            f"Promo code input '{code_input}' processing finished for user {user.id}. State cleared."  # noqa: E501
+            "Promo code input '%s' processing finished for user %s. State cleared.",
+            code_input,
+            user.id,
         )
         return
 
     if success:
         await session.commit()
-        logger.info(f"Promo code '{code_input}' successfully applied for user {user.id}.")
+        logger.info("Promo code '%s' successfully applied for user %s.", code_input, user.id)
 
         new_end_date = result if isinstance(result, datetime) else None
         active = await subscription_service.get_active_subscription_details(session, user.id)
@@ -228,7 +237,10 @@ async def process_promo_code_input(
     else:
         await session.commit()
         logger.info(
-            f"Promo code '{code_input}' application failed for user {user.id}. Reason: {result}"
+            "Promo code '%s' application failed for user %s. Reason: %s",
+            code_input,
+            user.id,
+            result,
         )
         response_to_user_text = result
         reply_markup = get_back_to_main_menu_markup(current_lang, i18n)
@@ -240,7 +252,9 @@ async def process_promo_code_input(
     )
     await state.clear()
     logger.info(
-        f"Promo code input '{code_input}' processing finished for user {message_from_user(message).id}. State cleared."  # noqa: E501
+        "Promo code input '%s' processing finished for user %s. State cleared.",
+        code_input,
+        message_from_user(message).id,
     )
 
 
@@ -261,7 +275,9 @@ async def cancel_promo_input_via_button(
         return
 
     logger.info(
-        f"User {callback.from_user.id} cancelled promo code input via button from state {await state.get_state()}. Clearing state."  # noqa: E501
+        "User %s cancelled promo code input via button from state %s. Clearing state.",
+        callback.from_user.id,
+        await state.get_state(),
     )
     await state.clear()
 

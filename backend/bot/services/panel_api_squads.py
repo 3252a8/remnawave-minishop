@@ -153,5 +153,5 @@ class PanelApiSquadMutationMixin:
                 "links will be used as fallback."
             )
             return None
-        logger.error(f"Failed to encrypt happ link. Response: {response_data}")
+        logger.error("Failed to encrypt happ link. Response: %s", response_data)
         return None

@@ -95,12 +95,14 @@ class MessageQueue:
                         except Exception as retry_exc:
                             self.total_failed += 1
                             logger.error(
-                                f"Failed to send fallback message to {message.chat_id}: {retry_exc}"
+                                "Failed to send fallback message to %s: %s",
+                                message.chat_id,
+                                retry_exc,
                             )
                             continue
 
                     self.total_failed += 1
-                    logger.error(f"Failed to send queued message to {message.chat_id}: {exc}")
+                    logger.error("Failed to send queued message to %s: %s", message.chat_id, exc)
 
                 except Exception:
                     self.total_failed += 1

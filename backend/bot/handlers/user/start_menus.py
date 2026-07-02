@@ -59,7 +59,7 @@ async def send_main_menu(
     user_full_name = hd.quote(event_user.full_name)
 
     if not i18n:
-        logger.error(f"i18n_instance missing in send_main_menu for user {user_id}")
+        logger.error("i18n_instance missing in send_main_menu for user %s", user_id)
         err_msg_fallback = "Error: Language service unavailable. Please try again later."
         if isinstance(target_event, types.CallbackQuery):
             with contextlib.suppress(Exception):
@@ -91,7 +91,7 @@ async def send_main_menu(
         target_message_obj = callback_message(target_event)
 
     if not target_message_obj:
-        logger.error(f"send_main_menu: target_message_obj is None for event from user {user_id}.")
+        logger.error("send_main_menu: target_message_obj is None for event from user %s.", user_id)
         if isinstance(target_event, types.CallbackQuery):
             await safe_answer_callback(
                 target_event,
@@ -110,14 +110,18 @@ async def send_main_menu(
             await safe_answer_callback(target_event)
     except Exception as e_send_edit:
         logger.warning(
-            f"Failed to send/edit main menu (user: {user_id}, is_edit: {is_edit}): {type(e_send_edit).__name__} - {e_send_edit}."  # noqa: E501
+            "Failed to send/edit main menu (user: %s, is_edit: %s): %s - %s.",
+            user_id,
+            is_edit,
+            type(e_send_edit).__name__,
+            e_send_edit,
         )
         if is_edit and target_message_obj:
             try:
                 await target_message_obj.answer(text, reply_markup=reply_markup)
             except Exception as e_send_new:
                 logger.error(
-                    f"Also failed to send new main menu message for user {user_id}: {e_send_new}"
+                    "Also failed to send new main menu message for user %s: %s", user_id, e_send_new
                 )
         if isinstance(target_event, types.CallbackQuery):
             await safe_answer_callback(

@@ -23,7 +23,11 @@ async def create_campaign(
     await session.flush()
     await session.refresh(campaign)
     logger.info(
-        f"AdCampaign created id={campaign.ad_campaign_id}, source={source}, start={start_param}, cost={cost}"  # noqa: E501
+        "AdCampaign created id=%s, source=%s, start=%s, cost=%s",
+        campaign.ad_campaign_id,
+        source,
+        start_param,
+        cost,
     )
     return campaign
 
@@ -69,7 +73,7 @@ async def ensure_attribution(
     session.add(attrib)
     await session.flush()
     await session.refresh(attrib)
-    logger.info(f"AdAttribution created for user {user_id} -> campaign {campaign_id}")
+    logger.info("AdAttribution created for user %s -> campaign %s", user_id, campaign_id)
     return attrib
 
 
@@ -204,8 +208,8 @@ async def delete_campaign(session: AsyncSession, campaign_id: int) -> bool:
             return False
         await session.delete(campaign)
         await session.flush()
-        logger.info(f"AdCampaign deleted id={campaign_id}")
+        logger.info("AdCampaign deleted id=%s", campaign_id)
         return True
     except Exception as e:
-        logger.error(f"Failed to delete AdCampaign id={campaign_id}: {e}", exc_info=True)
+        logger.exception("Failed to delete AdCampaign id=%s: %s", campaign_id, e)
         raise

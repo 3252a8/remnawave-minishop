@@ -246,7 +246,9 @@ async def upsert_subscription(session: AsyncSession, sub_payload: dict[str, Any]
 
     if existing_sub:
         logger.info(
-            f"Updating existing subscription {existing_sub.subscription_id} by panel_sub_uuid {panel_sub_uuid}"  # noqa: E501
+            "Updating existing subscription %s by panel_sub_uuid %s",
+            existing_sub.subscription_id,
+            panel_sub_uuid,
         )
         for key, value in _subscription_model_payload(sub_payload).items():
             setattr(existing_sub, key, value)
@@ -254,7 +256,7 @@ async def upsert_subscription(session: AsyncSession, sub_payload: dict[str, Any]
         await session.refresh(existing_sub)
         return existing_sub
     else:
-        logger.info(f"Creating new subscription with panel_sub_uuid {panel_sub_uuid}")
+        logger.info("Creating new subscription with panel_sub_uuid %s", panel_sub_uuid)
 
         if sub_payload.get("user_id") is None and "panel_user_uuid" not in sub_payload:
             raise ValueError("For a new subscription without user_id, panel_user_uuid is required.")
@@ -294,7 +296,9 @@ async def deactivate_other_active_subscriptions(
     affected = rowcount(result)
     if affected > 0:
         logger.info(
-            f"Deactivated {affected} other active subscriptions for panel_user_uuid {panel_user_uuid}."  # noqa: E501
+            "Deactivated %s other active subscriptions for panel_user_uuid %s.",
+            affected,
+            panel_user_uuid,
         )
 
 
@@ -308,7 +312,7 @@ async def deactivate_all_user_subscriptions(session: AsyncSession, user_id: int)
     affected = rowcount(result)
     if affected > 0:
         logger.info(
-            f"Deactivated {affected} subscriptions for user {user_id} due to missing panel user."
+            "Deactivated %s subscriptions for user %s due to missing panel user.", affected, user_id
         )
     return affected
 
@@ -319,7 +323,9 @@ async def delete_all_user_subscriptions(session: AsyncSession, user_id: int) -> 
     result = await session.execute(stmt)
     affected = rowcount(result)
     if affected > 0:
-        logger.info(f"Deleted {affected} subscription records for user {user_id} for trial reset.")
+        logger.info(
+            "Deleted %s subscription records for user %s for trial reset.", affected, user_id
+        )
     return affected
 
 

@@ -19,7 +19,7 @@ async def create_message_log(session: AsyncSession, log_data: dict) -> MessageLo
         return log_entry
     except Exception as e:
         await session.rollback()
-        logger.error(f"Failed to create and commit message log: {e}", exc_info=True)
+        logger.exception("Failed to create and commit message log: %s", e)
         return None
 
 
@@ -84,7 +84,8 @@ async def create_message_log_no_commit(session: AsyncSession, log_data: dict) ->
         target_user = await get_user_by_id(session, log_data["target_user_id"])
         if not target_user:
             logger.warning(
-                f"Target user {log_data['target_user_id']} not found for message log. Setting to NULL."  # noqa: E501
+                "Target user %s not found for message log. Setting to NULL.",
+                log_data["target_user_id"],
             )
             log_data["target_user_id"] = None
 
@@ -92,6 +93,8 @@ async def create_message_log_no_commit(session: AsyncSession, log_data: dict) ->
     session.add(new_log)
 
     logger.debug(
-        f"Message log added to session: user {log_data.get('user_id')}, event {log_data.get('event_type')}"  # noqa: E501
+        "Message log added to session: user %s, event %s",
+        log_data.get("user_id"),
+        log_data.get("event_type"),
     )
     return new_log

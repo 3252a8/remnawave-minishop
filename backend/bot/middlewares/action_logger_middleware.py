@@ -95,7 +95,9 @@ class ActionLoggerMiddleware(BaseMiddleware):
                 user_exists = await user_dal.get_user_by_id(session, user_id)
                 if not user_exists:
                     logger.warning(
-                        f"ActionLoggerMiddleware: User {user_id} not found in DB. Logging action with user_id=NULL."  # noqa: E501
+                        "ActionLoggerMiddleware: User %s not found in DB. Logging action with "
+                        "user_id=NULL.",
+                        user_id,
                     )
                     log_user_id_for_db = None
 
@@ -117,9 +119,11 @@ class ActionLoggerMiddleware(BaseMiddleware):
                     bot = bot_candidate if isinstance(bot_candidate, Bot) else None
                     await notify_message_log(log_payload, settings=self.settings, bot=bot)
             except Exception as e_log:
-                logger.error(
-                    f"ActionLoggerMiddleware: Failed to add log to session for user {user_id}, type {current_event_type}: {e_log}",  # noqa: E501
-                    exc_info=True,
+                logger.exception(
+                    "ActionLoggerMiddleware: Failed to add log to session for user %s, type %s: %s",
+                    user_id,
+                    current_event_type,
+                    e_log,
                 )
 
         return result

@@ -276,7 +276,9 @@ async def create_user(
 
     if created:
         logger.info(
-            f"New user {user.user_id} created in DAL. Referred by: {user.referred_by_id or 'N/A'}."
+            "New user %s created in DAL. Referred by: %s.",
+            user.user_id,
+            user.referred_by_id or "N/A",
         )
         if registered_via == "auto":
             if user_data.get("telegram_id"):
@@ -299,7 +301,7 @@ async def create_user(
                 )
             )
     else:
-        logger.info(f"User {user.user_id} already exists in DAL. Proceeding without creation.")
+        logger.info("User %s already exists in DAL. Proceeding without creation.", user.user_id)
 
     return user, created
 

@@ -206,7 +206,9 @@ async def process_successful_payment(
         or (not payment_db_id_str and not auto_renew_subscription_id_str)
     ):
         logger.error(
-            f"Missing crucial metadata for payment: {payment_info_from_webhook.get('id')}, metadata: {metadata}"  # noqa: E501
+            "Missing crucial metadata for payment: %s, metadata: %s",
+            payment_info_from_webhook.get("id"),
+            metadata,
         )
         return None
 
@@ -251,7 +253,9 @@ async def process_successful_payment(
             payment_record = await payment_dal.get_payment_by_db_id(session, payment_db_id)
             if not payment_record:
                 logger.error(
-                    f"Payment record {payment_db_id} not found for YK ID {yk_payment_id_from_hook}."
+                    "Payment record %s not found for YK ID %s.",
+                    payment_db_id,
+                    yk_payment_id_from_hook,
                 )
                 return None
 
@@ -354,22 +358,29 @@ async def process_successful_payment(
                     )
                 payment_db_id = payment_record.payment_id
             except Exception as e_ensure:
-                logger.error(
-                    f"Failed to ensure payment record for auto-renew webhook (YK {payment_info_from_webhook.get('id')}): {e_ensure}",  # noqa: E501
-                    exc_info=True,
+                logger.exception(
+                    "Failed to ensure payment record for auto-renew webhook (YK %s): %s",
+                    payment_info_from_webhook.get("id"),
+                    e_ensure,
                 )
                 return None
 
         if payment_record and payment_record.status == "succeeded":
             logger.info(
-                f"Skipping duplicate YooKassa webhook for payment {payment_db_id} (YK: {yk_payment_id_from_hook})."  # noqa: E501
+                "Skipping duplicate YooKassa webhook for payment %s (YK: %s).",
+                payment_db_id,
+                yk_payment_id_from_hook,
             )
             return None
 
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user:
             logger.error(
-                f"User {user_id} not found in DB during successful payment processing for YK ID {payment_info_from_webhook.get('id')}. Payment record {payment_db_id}."  # noqa: E501
+                "User %s not found in DB during successful payment processing for YK ID %s. "
+                "Payment record %s.",
+                user_id,
+                payment_info_from_webhook.get("id"),
+                payment_db_id,
             )
 
             await payment_dal.update_payment_status_by_db_id(
@@ -379,7 +390,7 @@ async def process_successful_payment(
             return None
 
     except (TypeError, ValueError) as e:
-        logger.error(f"Invalid metadata format for payment processing: {metadata} - {e}")
+        logger.error("Invalid metadata format for payment processing: %s - %s", metadata, e)
 
         if payment_db_id_str and payment_db_id_str.isdigit():
             try:
@@ -390,7 +401,7 @@ async def process_successful_payment(
                     payment_info_from_webhook.get("id"),
                 )
             except Exception as e_upd:
-                logger.error(f"Failed to update payment status after metadata error: {e_upd}")
+                logger.error("Failed to update payment status after metadata error: %s", e_upd)
         return None
 
     try:
@@ -485,7 +496,9 @@ async def process_successful_payment(
             sale_mode_base == "subscription" and not activation_details.get("end_date")
         ):
             logger.error(
-                f"Failed to activate subscription for user {user_id} after payment {yk_payment_id_from_hook}"  # noqa: E501
+                "Failed to activate subscription for user %s after payment %s",
+                user_id,
+                yk_payment_id_from_hook,
             )
             raise Exception(f"Subscription Error: Failed to activate for user {user_id}")
 
@@ -497,7 +510,9 @@ async def process_successful_payment(
         )
         if not updated_payment_record:
             logger.error(
-                f"Failed to update payment record {payment_db_id} for yk_id {yk_payment_id_from_hook}"  # noqa: E501
+                "Failed to update payment record %s for yk_id %s",
+                payment_db_id,
+                yk_payment_id_from_hook,
             )
             raise Exception(f"DB Error: Could not update payment record {payment_db_id}")
 
@@ -636,7 +651,9 @@ async def process_successful_payment(
             and not is_traffic_sale_base(sale_mode_base)
         ):
             logger.error(
-                f"Critical error: final_end_date_for_user is None for user {user_id} after successful payment logic."  # noqa: E501
+                "Critical error: final_end_date_for_user is None for user %s after successful "
+                "payment logic.",
+                user_id,
             )
             details_message = _("payment_successful_error_details")
             include_keyboard = True
@@ -696,9 +713,10 @@ async def process_successful_payment(
         return payment_succeeded_payload
 
     except Exception as e_process:
-        logger.error(
-            f"Error during process_successful_payment main try block for user {user_id}: {e_process}",  # noqa: E501
-            exc_info=True,
+        logger.exception(
+            "Error during process_successful_payment main try block for user %s: %s",
+            user_id,
+            e_process,
         )
 
         raise
@@ -719,14 +737,14 @@ async def process_cancelled_payment(
 
     if not user_id_str or not payment_db_id_str:
         logger.warning(
-            f"Missing metadata in cancelled payment webhook: {payment_info_from_webhook.get('id')}"
+            "Missing metadata in cancelled payment webhook: %s", payment_info_from_webhook.get("id")
         )
         return None
     try:
         user_id = int(user_id_str)
         payment_db_id = int(payment_db_id_str)
     except ValueError:
-        logger.error(f"Invalid metadata in cancelled payment webhook: {metadata}")
+        logger.error("Invalid metadata in cancelled payment webhook: %s", metadata)
         return None
 
     try:
@@ -739,7 +757,10 @@ async def process_cancelled_payment(
 
         if updated_payment:
             logger.info(
-                f"Payment {payment_db_id} (YK: {payment_info_from_webhook.get('id')}) status updated to cancelled for user {user_id}."  # noqa: E501
+                "Payment %s (YK: %s) status updated to cancelled for user %s.",
+                payment_db_id,
+                payment_info_from_webhook.get("id"),
+                user_id,
             )
             payload: dict[str, Any] = PaymentCanceledPayload(
                 user_id=user_id,
@@ -751,13 +772,17 @@ async def process_cancelled_payment(
             return payload
         else:
             logger.warning(
-                f"Could not find payment record {payment_db_id} to update status to cancelled for user {user_id}."  # noqa: E501
+                "Could not find payment record %s to update status to cancelled for user %s.",
+                payment_db_id,
+                user_id,
             )
 
     except Exception as e_process_cancel:
-        logger.error(
-            f"Error processing cancelled payment for user {user_id}, payment_db_id {payment_db_id}: {e_process_cancel}",  # noqa: E501
-            exc_info=True,
+        logger.exception(
+            "Error processing cancelled payment for user %s, payment_db_id %s: %s",
+            user_id,
+            payment_db_id,
+            e_process_cancel,
         )
         raise
     return None

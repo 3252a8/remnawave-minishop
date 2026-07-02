@@ -56,7 +56,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                 await self.bot.send_message(admin_id, msg)
             except Exception as e:
                 logger.error(
-                    f"Failed to notify admin {admin_id} about panel user creation failure: {e}"
+                    "Failed to notify admin %s about panel user creation failure: %s", admin_id, e
                 )
 
     def _telegram_id_for_panel(self, db_user: User) -> int | None:
@@ -99,7 +99,9 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
 
         if not db_user:
             logger.error(
-                f"_get_or_create_panel_user_link_details: User {user_id} not found in local DB. Cannot proceed."  # noqa: E501
+                "_get_or_create_panel_user_link_details: User %s not found in local DB. Cannot "
+                "proceed.",
+                user_id,
             )
             return None, None, None, False
 
@@ -118,11 +120,16 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
         if panel_users_by_tg_id_list and len(panel_users_by_tg_id_list) == 1:
             panel_user_obj_from_api = panel_users_by_tg_id_list[0]
             logger.info(
-                f"Found panel user by telegramId {telegram_id_for_panel}: UUID {panel_user_obj_from_api.get('uuid')}, Username: {panel_user_obj_from_api.get('username')}"  # noqa: E501
+                "Found panel user by telegramId %s: UUID %s, Username: %s",
+                telegram_id_for_panel,
+                panel_user_obj_from_api.get("uuid"),
+                panel_user_obj_from_api.get("username"),
             )
         elif panel_users_by_tg_id_list and len(panel_users_by_tg_id_list) > 1:
             logger.error(
-                f"CRITICAL: Multiple panel users found for telegramId {telegram_id_for_panel}. Manual intervention needed."  # noqa: E501
+                "CRITICAL: Multiple panel users found for telegramId %s. Manual intervention "
+                "needed.",
+                telegram_id_for_panel,
             )
             return None, None, None, False
 
@@ -133,28 +140,41 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             if panel_users_by_email_list and len(panel_users_by_email_list) == 1:
                 panel_user_obj_from_api = panel_users_by_email_list[0]
                 logger.info(
-                    f"Found panel user by email {db_user.email}: UUID {panel_user_obj_from_api.get('uuid')}, Username: {panel_user_obj_from_api.get('username')}"  # noqa: E501
+                    "Found panel user by email %s: UUID %s, Username: %s",
+                    db_user.email,
+                    panel_user_obj_from_api.get("uuid"),
+                    panel_user_obj_from_api.get("username"),
                 )
             elif panel_users_by_email_list and len(panel_users_by_email_list) > 1:
                 logger.error(
-                    f"CRITICAL: Multiple panel users found for email {db_user.email}. Manual intervention needed."  # noqa: E501
+                    "CRITICAL: Multiple panel users found for email %s. Manual intervention "
+                    "needed.",
+                    db_user.email,
                 )
                 return None, None, None, False
 
         if not panel_user_obj_from_api:
             if current_local_panel_uuid:
                 logger.info(
-                    f"User {user_id} (local panel_uuid: {current_local_panel_uuid}) not found on panel by TG ID. Fetching by panel_uuid."  # noqa: E501
+                    "User %s (local panel_uuid: %s) not found on panel by TG ID. Fetching by "
+                    "panel_uuid.",
+                    user_id,
+                    current_local_panel_uuid,
                 )
                 panel_user_obj_from_api = await self.panel_service.get_user_by_uuid(
                     current_local_panel_uuid
                 )
                 if not panel_user_obj_from_api:
                     logger.warning(
-                        f"Local panel_uuid {current_local_panel_uuid} for TG user {user_id} also not found on panel. User might be deleted from panel or UUID desynced."  # noqa: E501
+                        "Local panel_uuid %s for TG user %s also not found on panel. User might be "
+                        "deleted from panel or UUID desynced.",
+                        current_local_panel_uuid,
+                        user_id,
                     )
                     logger.info(
-                        f"Creating new panel user '{panel_username_on_panel_standard}' for TG user {user_id}."  # noqa: E501
+                        "Creating new panel user '%s' for TG user %s.",
+                        panel_username_on_panel_standard,
+                        user_id,
                     )
                     creation_response = await self.panel_service.create_panel_user(
                         username_on_panel=panel_username_on_panel_standard,
@@ -179,7 +199,10 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
 
             else:
                 logger.info(
-                    f"No panel user by TG ID & no local panel_uuid for TG user {user_id}. Creating new panel user '{panel_username_on_panel_standard}'."  # noqa: E501
+                    "No panel user by TG ID & no local panel_uuid for TG user %s. Creating new "
+                    "panel user '%s'.",
+                    user_id,
+                    panel_username_on_panel_standard,
                 )
                 creation_response = await self.panel_service.create_panel_user(
                     username_on_panel=panel_username_on_panel_standard,
@@ -201,7 +224,8 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
 
                 elif creation_response and creation_response.get("errorCode") == "A019":
                     logger.warning(
-                        f"Panel user '{panel_username_on_panel_standard}' already exists (errorCode A019). Fetching by username."  # noqa: E501
+                        "Panel user '%s' already exists (errorCode A019). Fetching by username.",
+                        panel_username_on_panel_standard,
                     )
                     fetched_by_username_list = await self.panel_service.get_users_by_filter(
                         username=panel_username_on_panel_standard
@@ -211,14 +235,18 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
 
                 if not panel_user_obj_from_api:
                     logger.error(
-                        f"Failed to create or link panel user for TG_ID {user_id} with panel username '{panel_username_on_panel_standard}'. Response: {creation_response if 'creation_response' in locals() else 'N/A'}"  # noqa: E501
+                        "Failed to create or link panel user for TG_ID %s with panel username "
+                        "'%s'. Response: %s",
+                        user_id,
+                        panel_username_on_panel_standard,
+                        creation_response if "creation_response" in locals() else "N/A",
                     )
                     await self._notify_admin_panel_user_creation_failed(user_id)
                     return None, None, None, False
 
         if not panel_user_obj_from_api:
             logger.error(
-                f"Could not obtain panel user object for TG user {user_id} after all checks."
+                "Could not obtain panel user object for TG user %s after all checks.", user_id
             )
 
             return (
@@ -233,7 +261,9 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
 
         if not actual_panel_uuid_from_api:
             logger.error(
-                f"Panel user object for TG user {user_id} does not contain 'uuid'. Data: {panel_user_obj_from_api}"  # noqa: E501
+                "Panel user object for TG user %s does not contain 'uuid'. Data: %s",
+                user_id,
+                panel_user_obj_from_api,
             )
             return (
                 current_local_panel_uuid,
@@ -250,9 +280,11 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             and current_local_panel_uuid != actual_panel_uuid_from_api
         ):
             logger.warning(
-                f"Local panel_uuid for user {user_id} ('{current_local_panel_uuid}') "
-                f"differs from panel's UUID ('{actual_panel_uuid_from_api}') for their telegramId. "
-                f"Will attempt to update local to panel's version."
+                "Local panel_uuid for user %s ('%s') differs from panel's UUID ('%s') for their "
+                "telegramId. Will attempt to update local to panel's version.",
+                user_id,
+                current_local_panel_uuid,
+                actual_panel_uuid_from_api,
             )
             needs_local_panel_uuid_update = True
 
@@ -262,9 +294,13 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             )
             if conflicting_user_record and conflicting_user_record.user_id != user_id:
                 logger.error(
-                    f"CRITICAL CONFLICT: Panel UUID {actual_panel_uuid_from_api} (from panel for TG ID {user_id}) "  # noqa: E501
-                    f"is ALREADY LINKED in local DB to a different TG User {conflicting_user_record.user_id}. "  # noqa: E501
-                    f"Cannot update panel_user_uuid for user {user_id}. Manual data correction needed."  # noqa: E501
+                    "CRITICAL CONFLICT: Panel UUID %s (from panel for TG ID %s) is ALREADY LINKED "
+                    "in local DB to a different TG User %s. Cannot update panel_user_uuid for user "
+                    "%s. Manual data correction needed.",
+                    actual_panel_uuid_from_api,
+                    user_id,
+                    conflicting_user_record.user_id,
+                    user_id,
                 )
 
                 return None, None, None, False
@@ -292,7 +328,10 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             and panel_telegram_id_int != telegram_id_for_panel
         ):
             logger.info(
-                f"Panel user {current_local_panel_uuid} has telegramId '{panel_telegram_id_from_api}'. Updating on panel to '{telegram_id_for_panel}'."  # noqa: E501
+                "Panel user %s has telegramId '%s'. Updating on panel to '%s'.",
+                current_local_panel_uuid,
+                panel_telegram_id_from_api,
+                telegram_id_for_panel,
             )
             await self.panel_service.update_user_details_on_panel(
                 current_local_panel_uuid,
@@ -306,7 +345,10 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
 
         if not panel_sub_link_id and current_local_panel_uuid:
             logger.warning(
-                f"No subscriptionUuid or shortUuid found on panel for panel_user_uuid {current_local_panel_uuid} (TG ID: {user_id})."  # noqa: E501
+                "No subscriptionUuid or shortUuid found on panel for panel_user_uuid %s (TG ID: "
+                "%s).",
+                current_local_panel_uuid,
+                user_id,
             )
 
         return (

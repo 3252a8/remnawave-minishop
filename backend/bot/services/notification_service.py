@@ -140,12 +140,16 @@ class NotificationService(NotificationSupportMixin):
                         await self.bot.send_message(**_build_kwargs(fallback_markup))
                     except Exception as retry_exc:
                         logger.error(
-                            "Failed to send notification without profile buttons to log "
-                            f"channel {self.settings.LOG_CHAT_ID}: {retry_exc}"
+                            "Failed to send notification without profile buttons to log channel "
+                            "%s: %s",
+                            self.settings.LOG_CHAT_ID,
+                            retry_exc,
                         )
                     return
                 logger.error(
-                    f"Failed to send notification to log channel {self.settings.LOG_CHAT_ID}: {exc}"
+                    "Failed to send notification to log channel %s: %s",
+                    self.settings.LOG_CHAT_ID,
+                    exc,
                 )
             except Exception:
                 logger.exception(

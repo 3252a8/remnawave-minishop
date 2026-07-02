@@ -297,7 +297,7 @@ async def format_user_card(
                 f"{_('admin_user_subscription_label')} {hcode(_('admin_user_subscription_none'))}"
             )
     except Exception as e:
-        logger.error(f"Error getting subscription details for user {user.user_id}: {e}")
+        logger.error("Error getting subscription details for user %s: %s", user.user_id, e)
         card_parts.append(
             f"{_('admin_user_subscription_label')} {hcode(_('admin_user_subscription_error'))}"
         )
@@ -335,7 +335,7 @@ async def format_user_card(
             card_parts.append(f"{_('admin_user_referral_revenue_label')} {referral_revenue_text}")
         except Exception as e_fin:
             logger.error(
-                f"Failed to build financial analytics for admin card {user.user_id}: {e_fin}"
+                "Failed to build financial analytics for admin card %s: %s", user.user_id, e_fin
             )
 
         # Referral stats
@@ -352,11 +352,11 @@ async def format_user_card(
                 )
             except Exception as e_rs:
                 logger.error(
-                    f"Failed to build referral stats for admin card {user.user_id}: {e_rs}"
+                    "Failed to build referral stats for admin card %s: %s", user.user_id, e_rs
                 )
 
     except Exception as e:
-        logger.error(f"Error getting user statistics for {user.user_id}: {e}")
+        logger.error("Error getting user statistics for %s: %s", user.user_id, e)
 
     # Links section: subscription page + install guide + both referral links.
     link_lines: list[str] = []

@@ -222,8 +222,13 @@ class YooKassaService:
             payment_request = builder.build()
 
             logger.info(
-                f"Creating YooKassa payment (Idempotence-Key: {idempotence_key}). "
-                f"Amount: {amount} {currency}. Metadata: {metadata}. Receipt: {receipt_data_dict}"
+                "Creating YooKassa payment (Idempotence-Key: %s). Amount: %s %s. Metadata: %s. "
+                "Receipt: %s",
+                idempotence_key,
+                amount,
+                currency,
+                metadata,
+                receipt_data_dict,
             )
 
             response = await asyncio.to_thread(
@@ -233,7 +238,10 @@ class YooKassaService:
             )
 
             logger.info(
-                f"YooKassa Payment.create response: ID={response.id}, Status={response.status}, Paid={response.paid}"  # noqa: E501
+                "YooKassa Payment.create response: ID=%s, Status=%s, Paid=%s",
+                response.id,
+                response.status,
+                response.paid,
             )
 
             return {
@@ -264,7 +272,7 @@ class YooKassaService:
             logger.error("YooKassa is not configured. Cannot get payment info.")
             return None
         try:
-            logger.info(f"Fetching payment info from YooKassa for ID: {payment_id_in_yookassa}")
+            logger.info("Fetching payment info from YooKassa for ID: %s", payment_id_in_yookassa)
 
             payment_info_yk = await asyncio.to_thread(
                 YooKassaPayment.find_one,
@@ -273,7 +281,10 @@ class YooKassaService:
 
             if payment_info_yk:
                 logger.info(
-                    f"YooKassa payment info for {payment_id_in_yookassa}: Status={payment_info_yk.status}, Paid={payment_info_yk.paid}"  # noqa: E501
+                    "YooKassa payment info for %s: Status=%s, Paid=%s",
+                    payment_id_in_yookassa,
+                    payment_info_yk.status,
+                    payment_info_yk.paid,
                 )
                 pm = getattr(payment_info_yk, "payment_method", None)
                 pm_payload: dict[str, Any] = {}
@@ -323,7 +334,7 @@ class YooKassaService:
                 }
             else:
                 logger.warning(
-                    f"No payment info found in YooKassa for ID: {payment_id_in_yookassa}"
+                    "No payment info found in YooKassa for ID: %s", payment_id_in_yookassa
                 )
                 return None
         except Exception:
@@ -336,7 +347,7 @@ class YooKassaService:
             return False
         try:
             await asyncio.to_thread(YooKassaPayment.cancel, payment_id_in_yookassa)
-            logger.info(f"Cancelled YooKassa payment {payment_id_in_yookassa}")
+            logger.info("Cancelled YooKassa payment %s", payment_id_in_yookassa)
             return True
         except Exception:
             logger.exception("Failed to cancel YooKassa payment %s.", payment_id_in_yookassa)

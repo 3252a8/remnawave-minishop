@@ -172,9 +172,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         try:
             new_or_updated_sub = await subscription_dal.upsert_subscription(session, sub_payload)
         except Exception as exc:
-            logger.error(
-                "Failed to upsert traffic subscription for user %s: %s", user_id, exc, exc_info=True
-            )
+            logger.exception("Failed to upsert traffic subscription for user %s: %s", user_id, exc)
             return None
 
         panel_update_payload = self._build_panel_update_payload(

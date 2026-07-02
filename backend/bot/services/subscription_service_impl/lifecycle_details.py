@@ -19,7 +19,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or not db_user.panel_user_uuid:
             logger.info(
-                f"User {user_id} not found in DB or no panel_user_uuid for 'my_subscription'."
+                "User %s not found in DB or no panel_user_uuid for 'my_subscription'.", user_id
             )
             return None
 

@@ -804,7 +804,7 @@ def get_settings() -> Settings:
                 )
 
         except ValidationError as e:
-            logger.critical(f"Pydantic validation error while loading settings: {e}")
+            logger.critical("Pydantic validation error while loading settings: %s", e)
 
             raise SystemExit(
                 f"CRITICAL SETTINGS ERROR: {e}. Please check your .env file and Settings model."

@@ -105,7 +105,10 @@ async def show_statistics_handler(
             nodes_stats = await panel_service.get_nodes_statistics()
 
             logger.info(
-                f"Panel stats response: system={system_stats}, bandwidth={bandwidth_stats}, nodes={nodes_stats}"  # noqa: E501
+                "Panel stats response: system=%s, bandwidth=%s, nodes=%s",
+                system_stats,
+                bandwidth_stats,
+                nodes_stats,
             )
 
             if system_stats:
@@ -190,7 +193,7 @@ async def show_statistics_handler(
                 stats_text_parts.append(f"🔗 {_('admin_panel_nodes_label')}: <b>{total_online}</b>")
 
     except Exception as e:
-        logger.error(f"Failed to fetch panel statistics: {e}", exc_info=True)
+        logger.exception("Failed to fetch panel statistics: %s", e)
         stats_text_parts.append(f"❌ {_('admin_panel_stats_fetch_error')}")
         stats_text_parts.append(f"⚠️ {_('admin_panel_stats_error_details')}: {e!s}")
 
@@ -281,7 +284,7 @@ async def show_statistics_handler(
             parse_mode="HTML",
         )
     except Exception as e_edit:
-        logger.error(f"Error editing message for statistics: {e_edit}", exc_info=True)
+        logger.exception("Error editing message for statistics: %s", e_edit)
 
         max_chunk_size = 4000
         for i in range(0, len(final_text), max_chunk_size):
@@ -296,7 +299,7 @@ async def show_statistics_handler(
                     parse_mode="HTML",
                 )
             except Exception as e_chunk:
-                logger.error(f"Failed to send statistics chunk: {e_chunk}")
+                logger.error("Failed to send statistics chunk: %s", e_chunk)
                 if i == 0:
                     await callback_message(callback).answer(
                         _("error_displaying_statistics"),

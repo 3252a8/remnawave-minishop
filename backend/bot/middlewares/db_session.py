@@ -33,5 +33,5 @@ class DBSessionMiddleware(BaseMiddleware):
                 return result
             except Exception:
                 await session.rollback()
-                logger.error("DBSessionMiddleware: Exception caused rollback.", exc_info=True)
+                logger.exception("DBSessionMiddleware: Exception caused rollback.")
                 raise

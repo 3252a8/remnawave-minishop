@@ -186,7 +186,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
 
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user:
-            logger.error(f"User {user_id} not found in DB for paid subscription activation.")
+            logger.error("User %s not found in DB for paid subscription activation.", user_id)
             return None
 
         (
@@ -197,7 +197,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         ) = await self._get_or_create_panel_user_link_details(session, user_id, db_user)
 
         if not panel_user_uuid or not panel_sub_link_id:
-            logger.error(f"Failed to ensure panel user for TG {user_id} during paid subscription.")
+            logger.error("Failed to ensure panel user for TG %s during paid subscription.", user_id)
             return None
 
         try:
@@ -263,7 +263,8 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     )
             else:
                 logger.warning(
-                    f"Promo code ID {promo_code_id_from_payment} (from payment) not found or invalid."  # noqa: E501
+                    "Promo code ID %s (from payment) not found or invalid.",
+                    promo_code_id_from_payment,
                 )
                 promo_code_id_from_payment = None
 
@@ -398,9 +399,8 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         try:
             new_or_updated_sub = await subscription_dal.upsert_subscription(session, sub_payload)
         except Exception as e_upsert_sub:
-            logger.error(
-                f"Failed to upsert paid subscription for user {user_id}: {e_upsert_sub}",
-                exc_info=True,
+            logger.exception(
+                "Failed to upsert paid subscription for user %s: %s", user_id, e_upsert_sub
             )
             return None
 
@@ -425,7 +425,9 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         )
         if not updated_panel_user or updated_panel_user.get("error"):
             logger.warning(
-                f"Panel user details update FAILED for paid sub user {panel_user_uuid}. Response: {updated_panel_user}"  # noqa: E501
+                "Panel user details update FAILED for paid sub user %s. Response: %s",
+                panel_user_uuid,
+                updated_panel_user,
             )
             return None
 
@@ -501,7 +503,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
 
         user = await user_dal.get_user_by_id(session, user_id)
         if not user:
-            logger.warning(f"Cannot extend subscription for user {user_id}: user not found.")
+            logger.warning("Cannot extend subscription for user %s: user not found.", user_id)
             return None
 
         panel_uuid, panel_sub_uuid, _, _ = await self._get_or_create_panel_user_link_details(
@@ -509,7 +511,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         )
         if not panel_uuid or not panel_sub_uuid:
             logger.error(
-                f"Failed to ensure panel user for subscription extension of user {user_id}."
+                "Failed to ensure panel user for subscription extension of user %s.", user_id
             )
             return None
 
@@ -543,7 +545,9 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             bonus_tariff = requested_tariff
         if not active_sub or not active_sub.end_date:
             logger.info(
-                f"No active subscription found for user {user_id}. Creating new one for {bonus_days} days."  # noqa: E501
+                "No active subscription found for user %s. Creating new one for %s days.",
+                user_id,
+                bonus_days,
             )
             start_date = datetime.now(UTC)
             new_end_date_obj = start_date + timedelta(days=bonus_days)
@@ -833,9 +837,13 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     )
 
             logger.info(
-                f"Subscription for user {user_id} extended by {bonus_days} days ({reason}). New end date: {new_end_date_obj}."  # noqa: E501
+                "Subscription for user %s extended by %s days (%s). New end date: %s.",
+                user_id,
+                bonus_days,
+                reason,
+                new_end_date_obj,
             )
             return new_end_date_obj
         else:
-            logger.error(f"Failed to update subscription end date locally for user {user_id}.")
+            logger.error("Failed to update subscription end date locally for user %s.", user_id)
             return None

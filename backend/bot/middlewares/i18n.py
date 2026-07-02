@@ -317,12 +317,14 @@ class JsonI18n:
             self.configure_overrides_file(overrides_path)
             self.reload_overrides_from_file(force=True)
         logger.info(
-            f"JsonI18n initialized. Loaded languages: {list(self.locales_data.keys())}. Default: {self.default_lang}"  # noqa: E501
+            "JsonI18n initialized. Loaded languages: %s. Default: %s",
+            list(self.locales_data.keys()),
+            self.default_lang,
         )
 
     def _load_locales(self) -> None:
         if not os.path.isdir(self.path):
-            logger.error(f"Locales path not found or not a directory: {self.path}")
+            logger.error("Locales path not found or not a directory: %s", self.path)
             return
         loaded: dict[str, dict[str, str]] = {}
         for item in os.listdir(self.path):
@@ -346,12 +348,14 @@ class JsonI18n:
                         )
                 except json.JSONDecodeError as e_json_load:
                     logger.error(
-                        f"Error loading locale {lang_code} from {file_path} (JSON Decode Error): {e_json_load}"  # noqa: E501
+                        "Error loading locale %s from %s (JSON Decode Error): %s",
+                        lang_code,
+                        file_path,
+                        e_json_load,
                     )
                 except Exception as e_load:
-                    logger.error(
-                        f"Error loading locale {lang_code} from {file_path}: {e_load}",
-                        exc_info=True,
+                    logger.exception(
+                        "Error loading locale %s from %s: %s", lang_code, file_path, e_load
                     )
         self.base_locales_data = loaded
         self._rebuild_effective_locales()
@@ -543,7 +547,11 @@ class JsonI18n:
                     except Exception:
                         return text
             logger.warning(
-                f"No language data for '{effective_lang_code}' (default '{self.default_lang}' also missing). Key '{key}' will be returned as is."  # noqa: E501
+                "No language data for '%s' (default '%s' also missing). Key '%s' will be returned "
+                "as is.",
+                effective_lang_code,
+                self.default_lang,
+                key,
             )
             return key.format(**kwargs) if kwargs else key
 
@@ -555,20 +563,30 @@ class JsonI18n:
 
             if text is None:
                 logger.warning(
-                    f"Translation key '{key}' not found for lang '{effective_lang_code}' or default '{self.default_lang}'. Returning key."  # noqa: E501
+                    "Translation key '%s' not found for lang '%s' or default '%s'. Returning key.",
+                    key,
+                    effective_lang_code,
+                    self.default_lang,
                 )
                 return key.format(**kwargs) if kwargs else key
         try:
             return text.format(**kwargs) if kwargs else text
         except KeyError as e_format:
             logger.warning(
-                f"Missing format key '{e_format}' for i18n key '{key}' (lang: {effective_lang_code}). Original text: '{text}'"  # noqa: E501
+                "Missing format key '%s' for i18n key '%s' (lang: %s). Original text: '%s'",
+                e_format,
+                key,
+                effective_lang_code,
+                text,
             )
             return text
         except Exception as e_general_format:
-            logger.error(
-                f"General error formatting i18n key '{key}' (lang: {effective_lang_code}): {e_general_format}. Original text: '{text}'",  # noqa: E501
-                exc_info=True,
+            logger.exception(
+                "General error formatting i18n key '%s' (lang: %s): %s. Original text: '%s'",
+                key,
+                effective_lang_code,
+                e_general_format,
+                text,
             )
             return text
 
@@ -581,7 +599,7 @@ def get_i18n_instance(path: str = "locales", default: str = "en", domain: str = 
     if _i18n_instance_singleton is None:
         if not os.path.exists(path) or not os.path.isdir(path):
             logger.error(
-                f"CRITICAL: Locales directory '{path}' not found. i18n will not work correctly."
+                "CRITICAL: Locales directory '%s' not found. i18n will not work correctly.", path
             )
 
             _i18n_instance_singleton = JsonI18n(path=path, default=default, domain=domain)
@@ -623,9 +641,10 @@ class I18nMiddleware(BaseMiddleware):
                     elif event_user.language_code.lower() in self.i18n.locales_data:
                         current_language = event_user.language_code.lower()
             except Exception as e_db_lang:
-                logger.error(
-                    f"I18nMiddleware: Error fetching user lang from DB for {event_user.id}: {e_db_lang}. Falling back.",  # noqa: E501
-                    exc_info=True,
+                logger.exception(
+                    "I18nMiddleware: Error fetching user lang from DB for %s: %s. Falling back.",
+                    event_user.id,
+                    e_db_lang,
                 )
                 if event_user.language_code:
                     lang_prefix = event_user.language_code.split("-")[0].lower()

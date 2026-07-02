@@ -71,11 +71,10 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
         try:
             db_user = await user_dal.get_user_by_id(session, event_user.id)
         except Exception as db_error:
-            logger.error(
+            logger.exception(
                 "ChannelSubscriptionMiddleware: failed to fetch user %s: %s",
                 event_user.id,
                 db_error,
-                exc_info=True,
             )
             return await handler(event, data)
 
@@ -142,11 +141,11 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
             try:
                 await callback.message.answer(prompt_text, reply_markup=keyboard)
             except Exception as send_error:
-                logger.error(
-                    "ChannelSubscriptionMiddleware: failed to send prompt for callback in chat %s: %s",  # noqa: E501
+                logger.exception(
+                    "ChannelSubscriptionMiddleware: failed to send prompt for callback in chat %s: "
+                    "%s",
                     callback.message.chat.id,
                     send_error,
-                    exc_info=True,
                 )
         else:
             bot_instance = data["bot"]

@@ -82,8 +82,10 @@ async def yookassa_webhook_route(request: web.Request) -> web.Response:
         payment_data_from_notification = notification_object.object
 
         logger.info(
-            f"YooKassa Webhook Parsed: Event='{notification_object.event}', "
-            f"PaymentId='{payment_data_from_notification.id}', Status='{payment_data_from_notification.status}'"  # noqa: E501
+            "YooKassa Webhook Parsed: Event='%s', PaymentId='%s', Status='%s'",
+            notification_object.event,
+            payment_data_from_notification.id,
+            payment_data_from_notification.status,
         )
 
         if (
@@ -92,7 +94,8 @@ async def yookassa_webhook_route(request: web.Request) -> web.Response:
             or payment_data_from_notification.metadata is None
         ):
             logger.error(
-                f"YooKassa webhook payment {payment_data_from_notification.id} lacks metadata. Cannot process."  # noqa: E501
+                "YooKassa webhook payment %s lacks metadata. Cannot process.",
+                payment_data_from_notification.id,
             )
             return web.Response(status=200, text="ok_error_no_metadata")
 
@@ -187,9 +190,11 @@ async def yookassa_webhook_route(request: web.Request) -> web.Response:
                                 await emit_yookassa_success_events(event_payload)
                         else:
                             logger.warning(
-                                f"Payment Succeeded event for {payment_dict_for_processing.get('id')} "  # noqa: E501
-                                f"but data not as expected: status='{payment_dict_for_processing.get('status')}', "  # noqa: E501
-                                f"paid='{payment_dict_for_processing.get('paid')}'"
+                                "Payment Succeeded event for %s but data not as expected: "
+                                "status='%s', paid='%s'",
+                                payment_dict_for_processing.get("id"),
+                                payment_dict_for_processing.get("status"),
+                                payment_dict_for_processing.get("paid"),
                             )
                     elif notification_object.event == YOOKASSA_EVENT_PAYMENT_CANCELED:
                         event_payload = await process_cancelled_payment(

@@ -66,11 +66,8 @@ async def ensure_required_channel_subscription(
         try:
             db_user = await user_dal.get_user_by_id(session, user_id)
         except Exception as fetch_error:
-            logger.error(
-                "Channel subscription check: failed to fetch user %s: %s",
-                user_id,
-                fetch_error,
-                exc_info=True,
+            logger.exception(
+                "Channel subscription check: failed to fetch user %s: %s", user_id, fetch_error
             )
             return False
 
@@ -144,12 +141,7 @@ async def ensure_required_channel_subscription(
             await event.answer(error_text)
         return False
     except TelegramAPIError as api_error:
-        logger.error(
-            "Required channel check failed for user %s: %s",
-            user_id,
-            api_error,
-            exc_info=True,
-        )
+        logger.exception("Required channel check failed for user %s: %s", user_id, api_error)
         error_text = translate("channel_subscription_check_failed")
         if isinstance(event, types.CallbackQuery):
             with contextlib.suppress(Exception):
@@ -169,11 +161,8 @@ async def ensure_required_channel_subscription(
     try:
         await user_dal.update_user(session, user_id, update_payload)
     except Exception as update_error:
-        logger.error(
-            "Failed to persist channel verification result for user %s: %s",
-            user_id,
-            update_error,
-            exc_info=True,
+        logger.exception(
+            "Failed to persist channel verification result for user %s: %s", user_id, update_error
         )
 
     if is_member:

@@ -321,7 +321,8 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
                 ]
             except ValueError:
                 logger.error(
-                    f"Invalid ADMIN_IDS_STR format: '{self.ADMIN_IDS_STR}'. Expected comma-separated integers."  # noqa: E501
+                    "Invalid ADMIN_IDS_STR format: '%s'. Expected comma-separated integers.",
+                    self.ADMIN_IDS_STR,
                 )
                 return []
         return []

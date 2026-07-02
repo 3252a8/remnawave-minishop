@@ -66,7 +66,8 @@ class ReferralService:
             referee_user_model = await user_dal.get_user_by_id(session, referee_user_id)
             if not referee_user_model or referee_user_model.referred_by_id is None:
                 logger.debug(
-                    f"User {referee_user_id} not referred or inviter ID missing. No referral bonuses."  # noqa: E501
+                    "User %s not referred or inviter ID missing. No referral bonuses.",
+                    referee_user_id,
                 )
                 return {"referee_bonus_applied_days": None, "referee_new_end_date": None}
 
@@ -81,12 +82,15 @@ class ReferralService:
                     )
                     if succeeded_count and succeeded_count > 0:
                         logger.info(
-                            f"Referral bonuses skipped for user {referee_user_id}: already has {succeeded_count} succeeded payments."  # noqa: E501
+                            "Referral bonuses skipped for user %s: already has %s succeeded "
+                            "payments.",
+                            referee_user_id,
+                            succeeded_count,
                         )
                         return {"referee_bonus_applied_days": None, "referee_new_end_date": None}
                 except Exception as e_cnt:
                     logger.error(
-                        f"Failed counting succeeded payments for user {referee_user_id}: {e_cnt}"
+                        "Failed counting succeeded payments for user %s: %s", referee_user_id, e_cnt
                     )
 
             # Additionally, do not award referral bonuses if the user was active at payment time
@@ -97,12 +101,14 @@ class ReferralService:
                         session, referee_user_id
                     ):
                         logger.info(
-                            f"Referral bonuses skipped for user {referee_user_id}: user currently has an active subscription."  # noqa: E501
+                            "Referral bonuses skipped for user %s: user currently has an active "
+                            "subscription.",
+                            referee_user_id,
                         )
                         return {"referee_bonus_applied_days": None, "referee_new_end_date": None}
                 except Exception as e_sub:
                     logger.error(
-                        f"Failed to check active subscription for {referee_user_id}: {e_sub}"
+                        "Failed to check active subscription for %s: %s", referee_user_id, e_sub
                     )
 
             inviter_user_id = referee_user_model.referred_by_id
@@ -137,7 +143,8 @@ class ReferralService:
             if inviter_bonus_days and inviter_bonus_days > 0:
                 if not inviter_user_model:
                     logger.warning(
-                        f"Inviter user {inviter_user_id} not found in local DB. Cannot apply inviter bonus."  # noqa: E501
+                        "Inviter user %s not found in local DB. Cannot apply inviter bonus.",
+                        inviter_user_id,
                     )
                 else:
                     (
@@ -151,7 +158,9 @@ class ReferralService:
 
                     if not inviter_panel_uuid:
                         logger.warning(
-                            f"Failed to get/create panel link for inviter {inviter_user_id}. Cannot apply inviter bonus directly to panel."  # noqa: E501
+                            "Failed to get/create panel link for inviter %s. Cannot apply inviter "
+                            "bonus directly to panel.",
+                            inviter_user_id,
                         )
 
                     else:
@@ -176,7 +185,9 @@ class ReferralService:
                             inviter_bonus_end_date = new_end_date_inviter
                             inviter_bonus_kind = "extended" if inviter_active_sub else "new_sub"
                             logger.info(
-                                f"Bonus of {inviter_bonus_days} days successfully applied/extended for inviter {inviter_user_id}."  # noqa: E501
+                                "Bonus of %s days successfully applied/extended for inviter %s.",
+                                inviter_bonus_days,
+                                inviter_user_id,
                             )
                         else:
                             logger.warning(
@@ -199,11 +210,15 @@ class ReferralService:
                     referee_final_end_date = new_end_date_referee
                     referee_bonus_applied_days = referee_bonus_days
                     logger.info(
-                        f"Bonus of {referee_bonus_days} days successfully applied to referee {referee_user_id}."  # noqa: E501
+                        "Bonus of %s days successfully applied to referee %s.",
+                        referee_bonus_days,
+                        referee_user_id,
                     )
                 else:
                     logger.warning(
-                        f"Failed to apply referee bonus for {referee_user_id} (could not extend their new subscription)."  # noqa: E501
+                        "Failed to apply referee bonus for %s (could not extend their new "
+                        "subscription).",
+                        referee_user_id,
                     )
 
             if referee_bonus_applied_days or inviter_bonus_successfully_applied:
@@ -241,9 +256,8 @@ class ReferralService:
                 "event_payload": referral_event_payload,
             }
         except Exception as e:
-            logger.error(
-                f"Error in apply_referral_bonuses_for_payment for referee {referee_user_id}: {e}",
-                exc_info=True,
+            logger.exception(
+                "Error in apply_referral_bonuses_for_payment for referee %s: %s", referee_user_id, e
             )
 
             raise
@@ -299,11 +313,8 @@ class ReferralService:
 
             return f"https://t.me/{bot_username}?start=ref_u{referral_code}"
         except Exception as exc:
-            logger.error(
-                "Failed to generate referral link for user %s: %s",
-                inviter_user_id,
-                exc,
-                exc_info=True,
+            logger.exception(
+                "Failed to generate referral link for user %s: %s", inviter_user_id, exc
             )
             return None
 
@@ -333,5 +344,5 @@ class ReferralService:
 
             return {"invited_count": invited_count, "purchased_count": purchased_count}
         except Exception as e:
-            logger.error(f"Error getting referral stats for user {user_id}: {e}")
+            logger.error("Error getting referral stats for user %s: %s", user_id, e)
             return {"invited_count": 0, "purchased_count": 0}

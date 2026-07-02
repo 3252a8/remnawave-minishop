@@ -144,7 +144,8 @@ async def configure_telegram_webhook(dispatcher: Dispatcher) -> None:
         async def _configure_webhook() -> None:
             current_webhook_info = await bot.get_webhook_info()
             logger.info(
-                f"STARTUP: Current Telegram webhook info BEFORE setting: {current_webhook_info.model_dump_json(exclude_none=True, indent=2)}"  # noqa: E501
+                "STARTUP: Current Telegram webhook info BEFORE setting: %s",
+                current_webhook_info.model_dump_json(exclude_none=True, indent=2),
             )
 
             set_success = await bot.set_webhook(
@@ -166,7 +167,8 @@ async def configure_telegram_webhook(dispatcher: Dispatcher) -> None:
 
             new_webhook_info = await bot.get_webhook_info()
             logger.info(
-                f"STARTUP: Telegram Webhook info AFTER setting: {new_webhook_info.model_dump_json(exclude_none=True, indent=2)}"  # noqa: E501
+                "STARTUP: Telegram Webhook info AFTER setting: %s",
+                new_webhook_info.model_dump_json(exclude_none=True, indent=2),
             )
             if not new_webhook_info.url:
                 logger.error(
@@ -277,17 +279,17 @@ async def on_shutdown_configured(dispatcher: Dispatcher):
         if callable(close_coro):
             try:
                 await close_coro()
-                logger.info(f"{key} closed on shutdown.")
+                logger.info("%s closed on shutdown.", key)
             except Exception as e:
-                logger.warning(f"Failed to close {key}: {e}")
+                logger.warning("Failed to close %s: %s", key, e)
         else:
             close_session = getattr(service, "close_session", None)
             if callable(close_session):
                 try:
                     await close_session()
-                    logger.info(f"{key} session closed on shutdown.")
+                    logger.info("%s session closed on shutdown.", key)
                 except Exception as e:
-                    logger.warning(f"Failed to close session for {key}: {e}")
+                    logger.warning("Failed to close session for %s: %s", key, e)
 
     from bot.payment_providers import iter_service_keys
 
@@ -311,7 +313,7 @@ async def on_shutdown_configured(dispatcher: Dispatcher):
             await bot.session.close()
             logger.info("SHUTDOWN: Aiogram Bot session closed.")
         except Exception as e:
-            logger.warning(f"SHUTDOWN: Failed to close bot session: {e}")
+            logger.warning("SHUTDOWN: Failed to close bot session: %s", e)
 
     from db.database_setup import async_engine as global_async_engine
 
@@ -346,7 +348,7 @@ async def run_bot(settings_param: Settings):
         if bot_info.username:
             actual_bot_username = bot_info.username
             set_dispatcher_bot_username(dp, actual_bot_username)
-            logger.info(f"Bot username resolved: @{actual_bot_username}")
+            logger.info("Bot username resolved: @%s", actual_bot_username)
         else:
             logger.warning("Bot username is empty; Telegram Login Widget will be unavailable.")
 
@@ -412,7 +414,7 @@ async def run_bot(settings_param: Settings):
     try:
         await asyncio.gather(*main_tasks)
     except (KeyboardInterrupt, SystemExit, asyncio.CancelledError) as e:
-        logger.info(f"Main bot loop interrupted/cancelled: {type(e).__name__} - {e}")
+        logger.info("Main bot loop interrupted/cancelled: %s - %s", type(e).__name__, e)
     finally:
         logger.info("Initiating final bot shutdown sequence...")
         for task in main_tasks:
@@ -421,11 +423,10 @@ async def run_bot(settings_param: Settings):
                 try:
                     await task
                 except asyncio.CancelledError:
-                    logger.info(f"Task '{task.get_name()}' was cancelled successfully.")
+                    logger.info("Task '%s' was cancelled successfully.", task.get_name())
                 except Exception as e_task_cancel:
-                    logger.error(
-                        f"Error during cancellation of task '{task.get_name()}': {e_task_cancel}",
-                        exc_info=True,
+                    logger.exception(
+                        "Error during cancellation of task '%s': %s", task.get_name(), e_task_cancel
                     )
 
         await dp.emit_shutdown()

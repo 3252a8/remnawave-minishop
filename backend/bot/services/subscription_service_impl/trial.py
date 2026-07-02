@@ -26,7 +26,7 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
 
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user:
-            logger.error(f"User {user_id} not found in DB, cannot activate trial.")
+            logger.error("User %s not found in DB, cannot activate trial.", user_id)
             return {
                 "eligible": False,
                 "activated": False,
@@ -48,7 +48,7 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
         ) = await self._get_or_create_panel_user_link_details(session, user_id, db_user)
 
         if not panel_user_uuid or not panel_sub_link_id:
-            logger.error(f"Failed to get panel link details for trial user {user_id}.")
+            logger.error("Failed to get panel link details for trial user %s.", user_id)
             return {
                 "eligible": True,
                 "activated": False,
@@ -86,9 +86,8 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
         try:
             await subscription_dal.upsert_subscription(session, trial_sub_data)
         except Exception as e_upsert:
-            logger.error(
-                f"Failed to upsert trial subscription for user {user_id}: {e_upsert}",
-                exc_info=True,
+            logger.exception(
+                "Failed to upsert trial subscription for user %s: %s", user_id, e_upsert
             )
             await session.rollback()
             return {
@@ -120,7 +119,9 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
         )
         if not updated_panel_user or updated_panel_user.get("error"):
             logger.warning(
-                f"Panel user details update FAILED for trial user {panel_user_uuid}. Response: {updated_panel_user}"  # noqa: E501
+                "Panel user details update FAILED for trial user %s. Response: %s",
+                panel_user_uuid,
+                updated_panel_user,
             )
             await session.rollback()
             return {

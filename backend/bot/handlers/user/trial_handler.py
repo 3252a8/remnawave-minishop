@@ -120,7 +120,7 @@ async def request_trial_confirmation_handler(
             await session.commit()
         except Exception as e_mark:
             await session.rollback()
-            logger.error(f"Failed to mark trial for ad attribution for user {user_id}: {e_mark}")
+            logger.error("Failed to mark trial for ad attribution for user %s: %s", user_id, e_mark)
     else:
         message_key_from_service = (
             activation_result.get("message_key", "trial_activation_failed")
@@ -159,7 +159,7 @@ async def request_trial_confirmation_handler(
             disable_web_page_preview=True,
         )
     except Exception as e_edit:
-        logger.warning(f"Could not edit trial result message: {e_edit}. Sending new one.")
+        logger.warning("Could not edit trial result message: %s. Sending new one.", e_edit)
 
         if callback.message:
             await callback_message(callback).answer(
@@ -286,7 +286,7 @@ async def confirm_activate_trial_handler(
             disable_web_page_preview=True,
         )
     except Exception as e_edit:
-        logger.warning(f"Could not edit trial result message: {e_edit}. Sending new one.")
+        logger.warning("Could not edit trial result message: %s. Sending new one.", e_edit)
 
         if callback.message:
             await callback_message(callback).answer(
@@ -304,7 +304,7 @@ async def confirm_activate_trial_handler(
             await session.commit()
         except Exception as e_mark:
             await session.rollback()
-            logger.error(f"Failed to mark trial for ad attribution for user {user_id}: {e_mark}")
+            logger.error("Failed to mark trial for ad attribution for user %s: %s", user_id, e_mark)
 
 
 @router.callback_query(F.data == "main_action:cancel_trial")
