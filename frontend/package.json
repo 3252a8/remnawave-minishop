@@ -1,5 +1,8 @@
 {
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build:webapp:svelte:main": "vite build --config ./vite.config.mjs",
     "build:webapp:svelte:admin": "vite build --config ./vite.config.mjs --mode admin",

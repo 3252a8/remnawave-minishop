@@ -1,5 +1,8 @@
 {
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build:webapp": "npm --prefix frontend run build:webapp",
     "build:docs": "npm --prefix docs-site run build",
