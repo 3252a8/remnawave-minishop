@@ -128,6 +128,7 @@ services:
     depends_on:
       remnawave-dev-seed:
         condition: service_completed_successfully
+        required: false
 
   remnawave-dev-seed:
     image: postgres:17.6
