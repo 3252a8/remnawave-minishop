@@ -20,9 +20,7 @@ MYPY_PATHS := \
 	backend/main_worker.py \
 	backend/scripts \
 	scripts \
-	tests/contracts \
-	tests/providers \
-	tests/unit
+	tests
 
 .PHONY: test lint types architecture front check cov dev dev-config dev-down dev-ps dev-logs
 

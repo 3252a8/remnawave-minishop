@@ -111,7 +111,8 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
 class SettingsStub(SimpleNamespace):
     @property
     def disposable_email_domains(self) -> list[str]:
-        return _split_csv(self.DISPOSABLE_EMAIL_DOMAINS)
+        domains: list[str] = _split_csv(self.DISPOSABLE_EMAIL_DOMAINS)
+        return domains
 
     @property
     def email_auth_configured(self) -> bool:
@@ -153,7 +154,8 @@ class SettingsStub(SimpleNamespace):
 
     @property
     def trusted_proxies(self) -> list[str]:
-        return _split_csv(getattr(self, "TRUSTED_PROXIES", None))
+        proxies: list[str] = _split_csv(getattr(self, "TRUSTED_PROXIES", None))
+        return proxies
 
     @property
     def webapp_settings(self) -> WebAppSettings:

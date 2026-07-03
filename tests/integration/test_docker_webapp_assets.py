@@ -76,6 +76,7 @@ class DockerWebappAssetTests(unittest.TestCase):
             flags=re.DOTALL,
         )
         self.assertIsNotNone(worker_match, "worker stage is missing")
+        assert worker_match is not None
         self.assertNotIn("frontend-builder", worker_match.group("body"))
 
 

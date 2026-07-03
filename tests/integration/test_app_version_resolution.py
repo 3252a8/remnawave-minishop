@@ -51,8 +51,9 @@ def _reset_cache() -> None:
     runtime._APP_VERSION_CACHE = None  # type: ignore[attr-defined]
 
 
-def _resolve():
-    return assets_module._resolve_app_version()
+def _resolve() -> str:
+    version: str = assets_module._resolve_app_version()
+    return version
 
 
 def _clean_version_env() -> dict:

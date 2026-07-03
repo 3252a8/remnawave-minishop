@@ -235,9 +235,7 @@ jobs:
           backend/main_worker.py
           backend/scripts
           scripts
-          tests/contracts
-          tests/providers
-          tests/unit
+          tests
 
   build:
     name: Docker build

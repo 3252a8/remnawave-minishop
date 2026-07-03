@@ -7,10 +7,14 @@ import json
 import os
 import time
 import uuid
+from collections.abc import Iterator
 from dataclasses import dataclass
 from http.cookies import SimpleCookie
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from asyncpg import Record
 
 import httpx
 import pytest
@@ -53,7 +57,7 @@ class WebAuthSession:
 
 
 @pytest.fixture(scope="session")
-def client() -> httpx.Client:
+def client() -> Iterator[httpx.Client]:
     with httpx.Client(
         base_url=API_BASE_URL,
         timeout=httpx.Timeout(25.0, connect=5.0),
@@ -80,7 +84,7 @@ def _wait_for_http(client: httpx.Client, path: str, *, timeout_seconds: int = 90
 
 def _ok(response: httpx.Response) -> dict[str, Any]:
     assert response.status_code < 400, response.text
-    data = response.json()
+    data: dict[str, Any] = response.json()
     assert data.get("ok") is True, data
     return data
 
@@ -136,7 +140,7 @@ def _signed_json(payload: dict[str, Any]) -> tuple[bytes, str]:
 async def _fetch_payment_and_latest_subscription(
     payment_id: int,
     user_id: int,
-) -> tuple[asyncpg.Record, asyncpg.Record]:
+) -> tuple[Record | None, Record | None]:
     connection = await asyncpg.connect(DB_DSN)
     try:
         payment = await connection.fetchrow(
@@ -166,8 +170,10 @@ async def _fetch_payment_and_latest_subscription(
 
 
 def _find_admin_field(payload: dict[str, Any], key: str) -> dict[str, Any]:
-    for section in payload.get("sections", []):
-        for field in section.get("fields", []):
+    sections: list[dict[str, Any]] = payload.get("sections", [])
+    for section in sections:
+        fields: list[dict[str, Any]] = section.get("fields", [])
+        for field in fields:
             if field.get("key") == key:
                 return field
     raise AssertionError(f"admin settings field {key!r} was not found")
@@ -235,6 +241,8 @@ def test_qa_payment_webhook_activates_subscription(client: httpx.Client) -> None
     payment, subscription = asyncio.run(
         _fetch_payment_and_latest_subscription(payment_id, session.user_id)
     )
+    assert payment is not None
+    assert subscription is not None
     assert payment["provider"] == "qa"
     assert payment["status"] == "succeeded"
     assert subscription["provider"] == "qa"

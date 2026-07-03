@@ -100,6 +100,6 @@ warn_return_any = true
 no_implicit_optional = true
 
 [[tool.mypy.overrides]]
-module = ["tests.contracts.*", "tests.unit.*", "tests.providers.*"]
+module = ["tests.*", "tests"]
 warn_return_any = true
 no_implicit_optional = true

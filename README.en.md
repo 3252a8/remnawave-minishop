@@ -94,8 +94,7 @@ python -m mypy --explicit-package-bases backend/config backend/db backend/bot/in
   backend/bot/middlewares backend/bot/utils \
   backend/bot/plugins backend/bot/keyboards backend/bot/payment_providers backend/bot/services \
   backend/bot/handlers backend/bot/app/factories backend/bot/app/controllers backend/bot/app/web \
-  backend/main_backend.py backend/main_worker.py backend/scripts scripts tests/contracts \
-  tests/providers tests/unit
+  backend/main_backend.py backend/main_worker.py backend/scripts scripts tests
 npm --prefix frontend run check
 npm --prefix frontend run test
 npm --prefix frontend run build
