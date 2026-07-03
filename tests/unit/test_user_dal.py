@@ -191,7 +191,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             flush=AsyncMock(),
         )
 
-        with patch("db.dal.user_dal.get_user_by_id", AsyncMock(return_value=user)):
+        with patch("db.dal.user_merge_dal.get_user_by_id", AsyncMock(return_value=user)):
             deleted = await user_dal.delete_user_and_relations(session, 42)
 
         self.assertTrue(deleted)
@@ -341,9 +341,9 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             return None
 
         with (
-            patch("db.dal.user_dal.get_user_by_id", side_effect=fake_get_user_by_id),
-            patch("db.dal.user_dal._get_active_subscription_for_user", return_value=None),
-            patch("db.dal.user_dal._get_latest_subscription_for_user", return_value=None),
+            patch("db.dal.user_merge_dal.get_user_by_id", side_effect=fake_get_user_by_id),
+            patch("db.dal.user_merge_dal._get_active_subscription_for_user", return_value=None),
+            patch("db.dal.user_merge_dal._get_latest_subscription_for_user", return_value=None),
         ):
             merged = await user_dal.merge_users(
                 session,
@@ -455,13 +455,13 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             return None
 
         with (
-            patch("db.dal.user_dal.get_user_by_id", side_effect=fake_get_user_by_id),
+            patch("db.dal.user_merge_dal.get_user_by_id", side_effect=fake_get_user_by_id),
             patch(
-                "db.dal.user_dal._get_active_subscription_for_user",
+                "db.dal.user_merge_dal._get_active_subscription_for_user",
                 side_effect=fake_get_active_subscription,
             ),
             patch(
-                "db.dal.user_dal._get_latest_subscription_for_user",
+                "db.dal.user_merge_dal._get_latest_subscription_for_user",
                 side_effect=fake_get_latest_subscription,
             ),
         ):

@@ -5,36 +5,19 @@
 import logging
 import secrets
 import string
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import String, and_, cast, delete, func, or_, update
+from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from bot.infra import events
-from bot.infra.event_payloads import AccountMergedPayload, UserRegisteredPayload
+from bot.infra.event_payloads import UserRegisteredPayload
 
 from ..models import (
-    AdAttribution,
-    EmailVerificationCode,
-    HwidDevicePurchase,
-    LegacyImportMapping,
-    LegacyReferralCode,
-    MessageLog,
-    Payment,
-    PromoCodeActivation,
-    Subscription,
-    SubscriptionNotification,
-    SupportTicket,
-    SupportTicketMessage,
-    TariffChange,
-    TrafficTopup,
-    TrafficWarning,
     User,
-    UserBilling,
-    UserPaymentMethod,
     UserTelegramAvatar,
 )
 from ._sqlalchemy import rowcount
@@ -57,6 +40,27 @@ from .user_broadcast_dal import (  # noqa: F401
     get_user_ids_without_active_subscription,
     get_user_ids_without_any_subscription,
 )
+from .user_merge_dal import (  # noqa: F401
+    UserMergeConflictError,
+    delete_user_and_relations,
+    merge_users,
+)
+from .user_reads_dal import (  # noqa: F401
+    count_all_users,
+    count_users_referred_by,
+    get_all_users_paginated,
+    get_banned_users,
+    get_panel_user_uuids_for_user,
+    get_referrer_for_user,
+    get_user_by_email,
+    get_user_by_id,
+    get_user_by_panel_uuid,
+    get_user_by_referral_code,
+    get_user_by_telegram_id,
+    get_user_by_username,
+    get_user_telegram_avatar,
+    get_users_referred_by,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,10 +68,6 @@ REFERRAL_CODE_ALPHABET = string.ascii_uppercase + string.digits
 REFERRAL_CODE_LENGTH = 9
 MAX_REFERRAL_CODE_ATTEMPTS = 25
 MAX_EMAIL_USER_ID_ATTEMPTS = 25
-
-
-class UserMergeConflictError(ValueError):
-    pass
 
 
 def _generate_referral_code_candidate() -> str:
@@ -118,112 +118,6 @@ async def ensure_referral_code(session: AsyncSession, user: User) -> str:
     await session.flush()
     await session.refresh(user)
     return referral_code
-
-
-async def get_user_by_id(session: AsyncSession, user_id: int) -> User | None:
-    stmt = select(User).where(User.user_id == user_id)
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none()
-
-
-async def get_referrer_for_user(session: AsyncSession, user: User) -> User | None:
-    referred_by_id = getattr(user, "referred_by_id", None)
-    if referred_by_id is None:
-        return None
-    return await get_user_by_id(session, int(referred_by_id))
-
-
-async def get_users_referred_by(
-    session: AsyncSession,
-    user_id: int,
-    *,
-    limit: int = 50,
-    offset: int = 0,
-) -> list[User]:
-    safe_limit = max(1, min(500, int(limit or 50)))
-    safe_offset = max(0, int(offset or 0))
-    stmt = (
-        select(User)
-        .where(User.referred_by_id == user_id)
-        .order_by(User.registration_date.desc().nullslast(), User.user_id.desc())
-        .offset(safe_offset)
-        .limit(safe_limit)
-    )
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
-
-
-async def count_users_referred_by(session: AsyncSession, user_id: int) -> int:
-    stmt = select(func.count(User.user_id)).where(User.referred_by_id == user_id)
-    result = await session.execute(stmt)
-    return int(result.scalar_one() or 0)
-
-
-async def get_user_by_username(session: AsyncSession, username: str) -> User | None:
-    clean_username = username.lstrip("@").lower()
-    stmt = select(User).where(func.lower(User.username) == clean_username)
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none()
-
-
-async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
-    clean_email = (email or "").strip().lower()
-    if not clean_email:
-        return None
-    stmt = select(User).where(func.lower(User.email) == clean_email)
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none()
-
-
-async def get_user_by_telegram_id(session: AsyncSession, telegram_id: int) -> User | None:
-    stmt = select(User).where(User.telegram_id == telegram_id)
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none()
-
-
-async def get_user_telegram_avatar(
-    session: AsyncSession,
-    user_id: int,
-) -> UserTelegramAvatar | None:
-    stmt = select(UserTelegramAvatar).where(UserTelegramAvatar.user_id == user_id)
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none()
-
-
-async def upsert_user_telegram_avatar(
-    session: AsyncSession,
-    *,
-    user_id: int,
-    file_unique_id: str | None,
-    content_type: str,
-    image_bytes: bytes,
-) -> UserTelegramAvatar:
-    avatar = await get_user_telegram_avatar(session, user_id)
-    if avatar is None:
-        avatar = UserTelegramAvatar(
-            user_id=user_id,
-            file_unique_id=file_unique_id,
-            content_type=content_type,
-            image_bytes=image_bytes,
-            size_bytes=len(image_bytes),
-            updated_at=datetime.now(UTC),
-        )
-        session.add(avatar)
-    else:
-        avatar.file_unique_id = file_unique_id
-        avatar.content_type = content_type
-        avatar.image_bytes = image_bytes
-        avatar.size_bytes = len(image_bytes)
-        avatar.updated_at = datetime.now(UTC)
-    await session.flush()
-    await session.refresh(avatar)
-    return avatar
-
-
-async def get_user_by_panel_uuid(session: AsyncSession, panel_uuid: str) -> User | None:
-    stmt = select(User).where(User.panel_user_uuid == panel_uuid)
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none()
 
 
 ## Removed unused generic get_user helper to keep DAL explicit and simple
@@ -345,416 +239,34 @@ async def mark_trial_eligibility_reset(
     return reset_at
 
 
-async def _has_active_panel_subscription(
-    session: AsyncSession, user_id: int, panel_user_uuid: str
-) -> bool:
-    stmt = (
-        select(Subscription.subscription_id)
-        .where(
-            Subscription.user_id == user_id,
-            Subscription.panel_user_uuid == panel_user_uuid,
-            Subscription.is_active == True,
-            Subscription.end_date > datetime.now(UTC),
-        )
-        .limit(1)
-    )
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none() is not None
-
-
-async def _get_latest_subscription_for_user(
-    session: AsyncSession,
-    user_id: int,
-    panel_user_uuid: str | None = None,
-    *,
-    active_only: bool = False,
-) -> Subscription | None:
-    stmt = select(Subscription).where(Subscription.user_id == user_id)
-    if panel_user_uuid is not None:
-        stmt = stmt.where(Subscription.panel_user_uuid == panel_user_uuid)
-    if active_only:
-        stmt = stmt.where(
-            Subscription.is_active == True,
-            Subscription.end_date > datetime.now(UTC),
-        )
-    stmt = stmt.order_by(Subscription.end_date.desc(), Subscription.subscription_id.desc()).limit(1)
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none()
-
-
-async def _get_active_subscription_for_user(
-    session: AsyncSession,
-    user_id: int,
-    panel_user_uuid: str | None = None,
-) -> Subscription | None:
-    return await _get_latest_subscription_for_user(
-        session,
-        user_id,
-        panel_user_uuid,
-        active_only=True,
-    )
-
-
-async def merge_users(
+async def upsert_user_telegram_avatar(
     session: AsyncSession,
     *,
-    source_user_id: int,
-    target_user_id: int,
-    reason: str = "unknown",
-    send_user_email: bool = False,
-) -> User:
-    """Merge source user data into target user and remove the source row."""
-
-    if source_user_id == target_user_id:
-        target = await get_user_by_id(session, target_user_id)
-        if not target:
-            raise ValueError("Target user not found.")
-        return target
-
-    source = await get_user_by_id(session, source_user_id)
-    target = await get_user_by_id(session, target_user_id)
-    if not source or not target:
-        raise ValueError("Both source and target users are required for merge.")
-
-    if source.email and target.email and source.email != target.email:
-        raise UserMergeConflictError("Both accounts already have different emails.")
-    if (
-        source.telegram_id
-        and target.telegram_id
-        and int(source.telegram_id) != int(target.telegram_id)
-    ):
-        raise UserMergeConflictError("Both accounts already have different Telegram IDs.")
-
-    source_panel_uuid = source.panel_user_uuid
-    target_panel_uuid = target.panel_user_uuid
-    panel_uuid_to_keep = target_panel_uuid or source_panel_uuid
-
-    now = datetime.now(UTC)
-    source_active_sub = await _get_active_subscription_for_user(
-        session, source_user_id, source_panel_uuid
-    )
-    target_active_sub = await _get_active_subscription_for_user(
-        session, target_user_id, target_panel_uuid
-    )
-    target_anchor_sub = target_active_sub
-    if not target_anchor_sub and target_panel_uuid:
-        target_anchor_sub = await _get_latest_subscription_for_user(
-            session, target_user_id, target_panel_uuid
+    user_id: int,
+    file_unique_id: str | None,
+    content_type: str,
+    image_bytes: bytes,
+) -> UserTelegramAvatar:
+    avatar = await get_user_telegram_avatar(session, user_id)
+    if avatar is None:
+        avatar = UserTelegramAvatar(
+            user_id=user_id,
+            file_unique_id=file_unique_id,
+            content_type=content_type,
+            image_bytes=image_bytes,
+            size_bytes=len(image_bytes),
+            updated_at=datetime.now(UTC),
         )
-    if not target_anchor_sub and not target_panel_uuid:
-        target_anchor_sub = await _get_latest_subscription_for_user(session, target_user_id)
-
-    if (
-        source_active_sub
-        and target_anchor_sub
-        and source_panel_uuid
-        and target_panel_uuid
-        and source_panel_uuid != target_panel_uuid
-    ):
-        source_end = source_active_sub.end_date
-        if source_end.tzinfo is None:
-            source_end = source_end.replace(tzinfo=UTC)
-
-        target_end = target_anchor_sub.end_date
-        if target_end.tzinfo is None:
-            target_end = target_end.replace(tzinfo=UTC)
-
-        source_remaining = max(timedelta(0), source_end - now)
-        if source_remaining > timedelta(0):
-            base_end = target_end if target_end > now else now
-            target_anchor_sub.end_date = base_end + source_remaining
-            target_anchor_sub.last_notification_sent = None
-            target_anchor_sub.is_active = True
-            target_anchor_sub.status_from_panel = "ACTIVE_EXTENDED_BY_MERGE"
-
-        source_active_sub.is_active = False
-        source_active_sub.skip_notifications = True
-        source_active_sub.last_notification_sent = None
-        source_active_sub.status_from_panel = "MERGED_INTO_ACCOUNT"
-    elif (
-        source_active_sub
-        and target_panel_uuid
-        and source_panel_uuid
-        and source_panel_uuid != target_panel_uuid
-        and not target_anchor_sub
-    ):
-        source_active_sub.panel_user_uuid = target_panel_uuid
-        source_active_sub.last_notification_sent = None
-        source_active_sub.status_from_panel = "ACTIVE_EXTENDED_BY_MERGE"
-
-    email_to_move = source.email if source.email and not target.email else None
-    email_verified_at_to_move = (
-        source.email_verified_at
-        if source.email and (not target.email_verified_at or email_to_move)
-        else None
-    )
-    telegram_id_to_move = (
-        source.telegram_id if source.telegram_id and not target.telegram_id else None
-    )
-    referral_code_to_move = (
-        source.referral_code if source.referral_code and not target.referral_code else None
-    )
-
-    if email_to_move:
-        source.email = None
-    if telegram_id_to_move:
-        source.telegram_id = None
-    if referral_code_to_move:
-        source.referral_code = None
-    if email_to_move or source_panel_uuid or telegram_id_to_move or referral_code_to_move:
-        await session.flush()
-
-    if email_to_move:
-        target.email = email_to_move
-    if email_verified_at_to_move and not target.email_verified_at:
-        target.email_verified_at = email_verified_at_to_move
-    if telegram_id_to_move:
-        target.telegram_id = telegram_id_to_move
-    if panel_uuid_to_keep and not target.panel_user_uuid:
-        target.panel_user_uuid = panel_uuid_to_keep
-    if referral_code_to_move:
-        target.referral_code = referral_code_to_move
-
-    for attr in ("username", "first_name", "last_name", "language_code", "telegram_photo_url"):
-        if not getattr(target, attr) and getattr(source, attr):
-            setattr(target, attr, getattr(source, attr))
-    if (
-        not target.channel_subscription_verified
-        and source.channel_subscription_verified is not None
-    ):
-        target.channel_subscription_verified = source.channel_subscription_verified
-    if not target.channel_subscription_checked_at and source.channel_subscription_checked_at:
-        target.channel_subscription_checked_at = source.channel_subscription_checked_at
-    if not target.channel_subscription_verified_for and source.channel_subscription_verified_for:
-        target.channel_subscription_verified_for = source.channel_subscription_verified_for
-    source_tg_status = str(getattr(source, "telegram_notifications_status", None) or "unknown")
-    target_tg_status = str(getattr(target, "telegram_notifications_status", None) or "unknown")
-    if (source_tg_status == "enabled" and target_tg_status != "enabled") or (
-        target_tg_status == "unknown" and source_tg_status != "unknown"
-    ):
-        target.telegram_notifications_status = source_tg_status
-    if getattr(source, "telegram_notifications_checked_at", None) and (
-        not getattr(target, "telegram_notifications_checked_at", None)
-        or source.telegram_notifications_checked_at > target.telegram_notifications_checked_at
-    ):
-        target.telegram_notifications_checked_at = source.telegram_notifications_checked_at
-    if getattr(source, "telegram_notifications_enabled_at", None) and (
-        not getattr(target, "telegram_notifications_enabled_at", None)
-        or source.telegram_notifications_enabled_at > target.telegram_notifications_enabled_at
-    ):
-        target.telegram_notifications_enabled_at = source.telegram_notifications_enabled_at
-    if getattr(source, "telegram_notifications_blocked_at", None) and (
-        not getattr(target, "telegram_notifications_blocked_at", None)
-        or source.telegram_notifications_blocked_at > target.telegram_notifications_blocked_at
-    ):
-        target.telegram_notifications_blocked_at = source.telegram_notifications_blocked_at
-    if source.lifetime_used_traffic_bytes is not None:
-        target.lifetime_used_traffic_bytes = (
-            target.lifetime_used_traffic_bytes or 0
-        ) + source.lifetime_used_traffic_bytes
-        source_synced_at = getattr(source, "lifetime_used_traffic_synced_at", None)
-        target_synced_at = getattr(target, "lifetime_used_traffic_synced_at", None)
-        if source_synced_at and (not target_synced_at or source_synced_at > target_synced_at):
-            target.lifetime_used_traffic_synced_at = source_synced_at
-    source_welcome_claimed_at = getattr(source, "referral_welcome_bonus_claimed_at", None)
-    target_welcome_claimed_at = getattr(target, "referral_welcome_bonus_claimed_at", None)
-    if source_welcome_claimed_at and (
-        not target_welcome_claimed_at or source_welcome_claimed_at < target_welcome_claimed_at
-    ):
-        # The welcome bonus is once-per-person: if either account already
-        # claimed it, the merged account must keep that mark so the bonus
-        # cannot be re-granted after the merge.
-        target.referral_welcome_bonus_claimed_at = source_welcome_claimed_at
-    if not target.referred_by_id and source.referred_by_id != target_user_id:
-        target.referred_by_id = source.referred_by_id
-    if target.referred_by_id == source_user_id:
-        target.referred_by_id = source.referred_by_id
-        if target.referred_by_id == target_user_id:
-            target.referred_by_id = None
-
-    target_method_ids = select(UserPaymentMethod.provider_payment_method_id).where(
-        UserPaymentMethod.user_id == target_user_id
-    )
-    await session.execute(
-        delete(UserPaymentMethod).where(
-            UserPaymentMethod.user_id == source_user_id,
-            UserPaymentMethod.provider_payment_method_id.in_(target_method_ids),
-        )
-    )
-
-    target_promo_ids = select(PromoCodeActivation.promo_code_id).where(
-        PromoCodeActivation.user_id == target_user_id
-    )
-    await session.execute(
-        delete(PromoCodeActivation).where(
-            PromoCodeActivation.user_id == source_user_id,
-            PromoCodeActivation.promo_code_id.in_(target_promo_ids),
-        )
-    )
-
-    target_has_billing = (
-        await session.execute(
-            select(UserBilling.user_id).where(UserBilling.user_id == target_user_id)
-        )
-    ).scalar_one_or_none()
-    if target_has_billing:
-        await session.execute(delete(UserBilling).where(UserBilling.user_id == source_user_id))
+        session.add(avatar)
     else:
-        await session.execute(
-            update(UserBilling)
-            .where(UserBilling.user_id == source_user_id)
-            .values(user_id=target_user_id)
-        )
-
-    target_has_attribution = (
-        await session.execute(
-            select(AdAttribution.user_id).where(AdAttribution.user_id == target_user_id)
-        )
-    ).scalar_one_or_none()
-    if target_has_attribution:
-        await session.execute(delete(AdAttribution).where(AdAttribution.user_id == source_user_id))
-    else:
-        await session.execute(
-            update(AdAttribution)
-            .where(AdAttribution.user_id == source_user_id)
-            .values(user_id=target_user_id)
-        )
-
-    target_has_avatar = (
-        await session.execute(
-            select(UserTelegramAvatar.user_id).where(UserTelegramAvatar.user_id == target_user_id)
-        )
-    ).scalar_one_or_none()
-    if target_has_avatar:
-        await session.execute(
-            delete(UserTelegramAvatar).where(UserTelegramAvatar.user_id == source_user_id)
-        )
-    else:
-        await session.execute(
-            update(UserTelegramAvatar)
-            .where(UserTelegramAvatar.user_id == source_user_id)
-            .values(user_id=target_user_id)
-        )
-
-    subscription_update_values: dict[str, Any] = {"user_id": target_user_id}
-    if panel_uuid_to_keep:
-        subscription_update_values["panel_user_uuid"] = panel_uuid_to_keep
-    await session.execute(
-        update(Subscription)
-        .where(Subscription.user_id == source_user_id)
-        .values(**subscription_update_values)
-    )
-    for model in (Payment, PromoCodeActivation, UserPaymentMethod):
-        await session.execute(
-            update(model).where(model.user_id == source_user_id).values(user_id=target_user_id)
-        )
-    await session.execute(
-        update(LegacyReferralCode)
-        .where(LegacyReferralCode.user_id == source_user_id)
-        .values(user_id=target_user_id)
-    )
-    await session.execute(
-        update(LegacyImportMapping)
-        .where(
-            LegacyImportMapping.target_table == "users",
-            LegacyImportMapping.target_id == str(source_user_id),
-        )
-        .values(target_id=str(target_user_id))
-    )
-
-    await session.execute(
-        update(MessageLog)
-        .where(MessageLog.user_id == source_user_id)
-        .values(user_id=target_user_id)
-    )
-    await session.execute(
-        update(MessageLog)
-        .where(MessageLog.target_user_id == source_user_id)
-        .values(target_user_id=target_user_id)
-    )
-    await session.execute(
-        update(User)
-        .where(User.referred_by_id == source_user_id)
-        .values(referred_by_id=target_user_id)
-    )
-
-    await session.delete(source)
+        avatar.file_unique_id = file_unique_id
+        avatar.content_type = content_type
+        avatar.image_bytes = image_bytes
+        avatar.size_bytes = len(image_bytes)
+        avatar.updated_at = datetime.now(UTC)
     await session.flush()
-    await session.refresh(target)
-
-    await events.emit_model(
-        AccountMergedPayload(
-            source_user_id=int(source_user_id),
-            target_user_id=int(target_user_id),
-            reason=reason,
-            send_user_email=send_user_email,
-            source_panel_user_uuid=source_panel_uuid,
-            target_panel_user_uuid=target.panel_user_uuid,
-            email=target.email,
-            telegram_id=target.telegram_id,
-            username=target.username,
-            first_name=target.first_name,
-            language=target.language_code,
-            final_end_date=getattr(target_anchor_sub or source_active_sub, "end_date", None),
-        )
-    )
-    return target
-
-
-async def get_user_by_referral_code(
-    session: AsyncSession,
-    referral_code: str,
-    *,
-    include_legacy: bool = False,
-) -> User | None:
-    normalized = referral_code.strip()
-    if not normalized:
-        return None
-
-    stmt = select(User).where(User.referral_code == normalized)
-    result = await session.execute(stmt)
-    user = result.scalar_one_or_none()
-    if user:
-        return user
-
-    upper_normalized = normalized.upper()
-    if upper_normalized != normalized:
-        stmt = select(User).where(User.referral_code == upper_normalized)
-        result = await session.execute(stmt)
-        user = result.scalar_one_or_none()
-        if user:
-            return user
-
-    if not include_legacy:
-        return None
-
-    stmt = (
-        select(User)
-        .join(LegacyReferralCode, LegacyReferralCode.user_id == User.user_id)
-        .where(LegacyReferralCode.code == normalized, LegacyReferralCode.is_active == True)
-        .limit(1)
-    )
-    result = await session.execute(stmt)
-    user = result.scalar_one_or_none()
-    if user:
-        return user
-
-    if upper_normalized != normalized:
-        stmt = (
-            select(User)
-            .join(LegacyReferralCode, LegacyReferralCode.user_id == User.user_id)
-            .where(
-                LegacyReferralCode.code == upper_normalized,
-                LegacyReferralCode.is_active == True,
-            )
-            .limit(1)
-        )
-        result = await session.execute(stmt)
-        user = result.scalar_one_or_none()
-        if user:
-            return user
-
-    return None
+    await session.refresh(avatar)
+    return avatar
 
 
 async def update_user(
@@ -773,180 +285,3 @@ async def update_user_language(session: AsyncSession, user_id: int, lang_code: s
     stmt = update(User).where(User.user_id == user_id).values(language_code=lang_code)
     result = await session.execute(stmt)
     return rowcount(result) > 0
-
-
-async def get_banned_users(session: AsyncSession) -> list[User]:
-    """Get all banned users"""
-    stmt = select(User).where(User.is_banned == True).order_by(User.registration_date.desc())
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
-
-
-async def get_all_users_paginated(
-    session: AsyncSession, *, page: int = 0, page_size: int = 15
-) -> list[User]:
-    """Return a slice of users ordered by newest registration first."""
-    safe_page = max(page, 0)
-    safe_page_size = max(page_size, 1)
-
-    stmt = (
-        select(User)
-        .order_by(User.registration_date.desc())
-        .offset(safe_page * safe_page_size)
-        .limit(safe_page_size)
-    )
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
-
-
-async def count_all_users(session: AsyncSession) -> int:
-    """Count total number of users."""
-    result = await session.execute(select(func.count(User.user_id)))
-    return result.scalar_one()
-
-
-async def get_panel_user_uuids_for_user(
-    session: AsyncSession,
-    user_id: int,
-    *,
-    user: User | None = None,
-) -> list[str]:
-    """Return every Remnawave user UUID linked to a bot user.
-
-    The canonical UUID normally lives on ``users.panel_user_uuid``, but older
-    or partially-synced records can still have UUIDs only on subscription rows.
-    """
-
-    if user is None:
-        user = await get_user_by_id(session, user_id)
-
-    panel_uuids: list[str] = []
-    seen: set[str] = set()
-
-    def add_uuid(value: Any) -> None:
-        panel_uuid = str(value or "").strip()
-        if panel_uuid and panel_uuid not in seen:
-            seen.add(panel_uuid)
-            panel_uuids.append(panel_uuid)
-
-    add_uuid(getattr(user, "panel_user_uuid", None))
-
-    stmt = select(Subscription.panel_user_uuid).where(Subscription.user_id == user_id)
-    result = await session.execute(stmt)
-    for panel_uuid in result.scalars().all():
-        add_uuid(panel_uuid)
-
-    return panel_uuids
-
-
-async def delete_user_and_relations(session: AsyncSession, user_id: int) -> bool:
-    """Completely remove a user and all dependent records from the database.
-
-    This helper ensures we do not leave dangling foreign keys or orphaned data.
-    """
-    user = await get_user_by_id(session, user_id)
-    if not user:
-        return False
-
-    # Ensure referral pointers do not block deletion
-    await session.execute(
-        update(User).where(User.referred_by_id == user_id).values(referred_by_id=None)
-    )
-
-    subscription_ids = select(Subscription.subscription_id).where(Subscription.user_id == user_id)
-    payment_ids = select(Payment.payment_id).where(Payment.user_id == user_id)
-    support_ticket_ids = select(SupportTicket.ticket_id).where(SupportTicket.user_id == user_id)
-
-    # Clean up dependent tables that do not cascade automatically.
-    await session.execute(
-        delete(TrafficTopup).where(
-            or_(
-                TrafficTopup.subscription_id.in_(subscription_ids),
-                TrafficTopup.payment_id.in_(payment_ids),
-            )
-        )
-    )
-    await session.execute(
-        delete(HwidDevicePurchase).where(
-            or_(
-                HwidDevicePurchase.subscription_id.in_(subscription_ids),
-                HwidDevicePurchase.payment_id.in_(payment_ids),
-            )
-        )
-    )
-    await session.execute(
-        delete(TariffChange).where(
-            or_(
-                TariffChange.subscription_id.in_(subscription_ids),
-                TariffChange.payment_id.in_(payment_ids),
-            )
-        )
-    )
-    await session.execute(
-        delete(TrafficWarning).where(TrafficWarning.subscription_id.in_(subscription_ids))
-    )
-    await session.execute(
-        delete(SubscriptionNotification).where(
-            SubscriptionNotification.subscription_id.in_(subscription_ids)
-        )
-    )
-    await session.execute(
-        delete(SupportTicketMessage).where(SupportTicketMessage.ticket_id.in_(support_ticket_ids))
-    )
-    await session.execute(
-        update(SupportTicketMessage)
-        .where(SupportTicketMessage.author_user_id == user_id)
-        .values(author_user_id=None)
-    )
-    await session.execute(delete(SupportTicket).where(SupportTicket.user_id == user_id))
-    await session.execute(
-        delete(EmailVerificationCode).where(EmailVerificationCode.target_user_id == user_id)
-    )
-    await session.execute(
-        delete(MessageLog).where(
-            or_(MessageLog.user_id == user_id, MessageLog.target_user_id == user_id)
-        )
-    )
-    await session.execute(
-        delete(PromoCodeActivation).where(
-            or_(
-                PromoCodeActivation.user_id == user_id,
-                PromoCodeActivation.payment_id.in_(payment_ids),
-            )
-        )
-    )
-    await session.execute(delete(UserPaymentMethod).where(UserPaymentMethod.user_id == user_id))
-    await session.execute(delete(UserBilling).where(UserBilling.user_id == user_id))
-    await session.execute(delete(AdAttribution).where(AdAttribution.user_id == user_id))
-    await session.execute(delete(UserTelegramAvatar).where(UserTelegramAvatar.user_id == user_id))
-    await session.execute(delete(LegacyReferralCode).where(LegacyReferralCode.user_id == user_id))
-    await session.execute(
-        delete(LegacyImportMapping).where(
-            or_(
-                and_(
-                    LegacyImportMapping.target_table == "users",
-                    LegacyImportMapping.target_id == str(user_id),
-                ),
-                and_(
-                    LegacyImportMapping.target_table == "subscriptions",
-                    LegacyImportMapping.target_id.in_(
-                        select(cast(Subscription.subscription_id, String)).where(
-                            Subscription.user_id == user_id
-                        )
-                    ),
-                ),
-                and_(
-                    LegacyImportMapping.target_table == "payments",
-                    LegacyImportMapping.target_id.in_(
-                        select(cast(Payment.payment_id, String)).where(Payment.user_id == user_id)
-                    ),
-                ),
-            )
-        )
-    )
-    await session.execute(delete(Payment).where(Payment.user_id == user_id))
-    await session.execute(delete(Subscription).where(Subscription.user_id == user_id))
-
-    await session.delete(user)
-    await session.flush()
-    return True

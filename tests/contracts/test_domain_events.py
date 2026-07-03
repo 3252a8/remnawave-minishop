@@ -325,6 +325,8 @@ EXPECTED_EVENT_WIRING = {
     # through create_user. account.merged likewise covers all merge paths.
     "backend/db/dal/user_dal.py": [
         ("USER_REGISTERED", "UserRegisteredPayload"),
+    ],
+    "backend/db/dal/user_merge_dal.py": [
         ("ACCOUNT_MERGED", "AccountMergedPayload"),
     ],
     "backend/bot/app/web/webapp/account.py": [

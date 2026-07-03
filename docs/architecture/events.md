@@ -26,7 +26,7 @@ Core reactions: `CoreEventReactions.on_account_email_linked`
 
 Payload model: `AccountMergedPayload`
 
-Emitters: `backend/db/dal/user_dal.py`
+Emitters: `backend/db/dal/user_merge_dal.py`
 
 Core reactions: `CoreEventReactions.on_account_merged`
 
