@@ -218,7 +218,8 @@ def _unique_tariff_key(base_key: str, used_keys: set[str]) -> str:
 
 def _remnashop_currency_key(value: Any) -> str:
     normalized = _normalize_currency(value) or str(value or "")
-    return normalize_currency_key(normalized)
+    key: str = normalize_currency_key(normalized)
+    return key
 
 
 def _remnashop_price_value(value: Any) -> float | None:

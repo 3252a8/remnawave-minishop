@@ -13,7 +13,8 @@ CONFIG_PATH = ROOT / "scripts" / "architecture_gates.json"
 
 
 def _load_config() -> dict:
-    return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    config: dict = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    return config
 
 
 def _to_posix(path: Path) -> str:
@@ -24,7 +25,7 @@ def _is_allowed(path: str, allowlist: list[str]) -> bool:
     return any(fnmatch.fnmatch(path, pattern) for pattern in allowlist)
 
 
-def _iter_text_files(scope: str, extensions: set[str]):
+def _iter_text_files(scope: str, extensions: set[str]) -> list[Path]:
     base = ROOT / scope
     if not base.exists():
         return []
@@ -208,11 +209,12 @@ def _collect_api_routes(cfg: dict, issues: list[str]) -> list[tuple[str, str]]:
                 if not path.startswith("/api/"):
                     continue
 
+                handler_node = node.args[handler_arg_index]
                 handler_name: str | None = None
-                if isinstance(node.args[handler_arg_index], ast.Name):
-                    handler_name = node.args[1].id
+                if isinstance(handler_node, ast.Name):
+                    handler_name = handler_node.id
                 else:
-                    handler_name = _string_value(node.args[handler_arg_index])
+                    handler_name = _string_value(handler_node)
                 if handler_name is None:
                     continue
 
@@ -543,8 +545,8 @@ def _collect_facade_importers(facade_modules: set[str], file: Path) -> set[str]:
                 if module == facade or module.startswith(f"{facade}."):
                     imports.add(facade)
                     continue
-                for alias in aliases:
-                    imported_path = f"{module}.{alias}"
+                for alias_name in aliases:
+                    imported_path = f"{module}.{alias_name}"
                     if imported_path == facade or imported_path.startswith(f"{facade}."):
                         imports.add(facade)
                         break

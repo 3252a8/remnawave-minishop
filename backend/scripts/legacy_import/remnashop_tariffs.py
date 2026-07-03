@@ -63,7 +63,7 @@ class _RemnashopTariffsSection(_RemnashopImporterBase):
             self.summary["tariffs"]["generation_skipped"] += 1
 
     def _merged_tariff_catalog(self, existing_catalog: dict[str, Any] | None) -> dict[str, Any]:
-        generated = json.loads(_json_dumps(self.generated_tariff_catalog or {}))
+        generated: dict[str, Any] = json.loads(_json_dumps(self.generated_tariff_catalog or {}))
         if not existing_catalog or self.on_conflict == "overwrite":
             return generated
         if self.on_conflict == "skip":
