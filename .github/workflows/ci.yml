@@ -217,6 +217,7 @@ jobs:
       - name: Mypy web API and event layers
         run: >-
           python -m mypy
+          --explicit-package-bases
           backend/config
           backend/db
           backend/bot/infra
@@ -232,6 +233,8 @@ jobs:
           backend/bot/app/web
           backend/main_backend.py
           backend/main_worker.py
+          backend/scripts
+          scripts
           tests/contracts
 
   build:

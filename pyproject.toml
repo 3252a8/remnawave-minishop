@@ -91,6 +91,15 @@ warn_return_any = true
 no_implicit_optional = true
 
 [[tool.mypy.overrides]]
+# Covers both script roots: root scripts/ resolves as scripts.* (namespace package
+# under the repo root via --explicit-package-bases), backend/scripts as backend.scripts.*.
+module = ["scripts", "scripts.*", "backend.scripts", "backend.scripts.*"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_return_any = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
 module = "tests.contracts.*"
 warn_return_any = true
 no_implicit_optional = true

@@ -32,10 +32,10 @@ npm run check
 npm run check:quick
 ```
 
-Current documented mypy frontier outside the CI scope: `backend/scripts`, `scripts`, and tests
-outside `tests/contracts`. Add those only after separate type-hardening work keeps the full command green.
-(`backend/config`, `backend/main_backend.py`, and `backend/main_worker.py` graduated into the
-enforced scope.)
+Current documented mypy frontier outside the CI scope: tests outside `tests/contracts`.
+Add those only after separate type-hardening work keeps the full command green.
+(`backend/config`, `backend/main_backend.py`, `backend/main_worker.py`, `backend/scripts`,
+and `scripts` graduated into the enforced scope.)
 
 Явные команды ниже остаются источником правды для CI и ручной диагностики.
 
@@ -48,7 +48,7 @@ python -m mypy --explicit-package-bases backend/config backend/db backend/bot/in
   backend/bot/middlewares backend/bot/utils \
   backend/bot/plugins backend/bot/keyboards backend/bot/payment_providers backend/bot/services \
   backend/bot/handlers backend/bot/app/factories backend/bot/app/controllers backend/bot/app/web \
-  backend/main_backend.py backend/main_worker.py tests/contracts
+  backend/main_backend.py backend/main_worker.py backend/scripts scripts tests/contracts
 ```
 
 **Фронтенд** (`frontend/`):
