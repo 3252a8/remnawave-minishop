@@ -15,8 +15,9 @@ Non-negotiables (details in CONTRIBUTING.md §2):
   the plugin `(event_name, dict)` subscriber signature.
 - Frontend: first-party Svelte code is runes-only and enforced for `frontend/src`; no
   `export let`, `$:`, `$$props`, `$$restProps`, `<slot>`, `<svelte:component>`,
-  `createEventDispatcher`, or class API `$set`. No global `checkJs`; typing is opt-in
-  (`.ts` / `<script lang="ts">`); use literal API paths; `unwrap` the envelope.
+  `createEventDispatcher`, or class API `$set`. First-party frontend code is TypeScript-only
+  (`.ts` / `<script lang="ts">`, enforced by architecture gates); no global `checkJs`;
+  use literal API paths; `unwrap` the envelope.
 - User/admin-facing copy is localized, not hard-coded: every new or changed UI/bot text key must
   have at least `locales/ru.json` and `locales/en.json` entries; component fallbacks are not a
   substitute for base locale keys.

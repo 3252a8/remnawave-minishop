@@ -123,6 +123,158 @@
         "title": "AdminAdsListOut",
         "type": "object"
       },
+      "AdminBackupArchiveOut": {
+        "properties": {
+          "compose_files_count": {
+            "title": "Compose Files Count",
+            "type": "integer"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
+          "created_at_local": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At Local"
+          },
+          "database_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Database Name"
+          },
+          "has_compose": {
+            "title": "Has Compose",
+            "type": "boolean"
+          },
+          "has_database": {
+            "title": "Has Database",
+            "type": "boolean"
+          },
+          "manifest": {
+            "additionalProperties": true,
+            "title": "Manifest",
+            "type": "object"
+          },
+          "modified_at": {
+            "title": "Modified At",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "size_bytes",
+          "modified_at",
+          "has_database",
+          "has_compose",
+          "compose_files_count"
+        ],
+        "title": "AdminBackupArchiveOut",
+        "type": "object"
+      },
+      "AdminBackupCreateOut": {
+        "properties": {
+          "archive": {
+            "$ref": "#/components/schemas/AdminBackupArchiveOut"
+          },
+          "result": {
+            "$ref": "#/components/schemas/AdminBackupCreateResultOut"
+          }
+        },
+        "required": [
+          "result",
+          "archive"
+        ],
+        "title": "AdminBackupCreateOut",
+        "type": "object"
+      },
+      "AdminBackupCreateResultOut": {
+        "properties": {
+          "archive_name": {
+            "title": "Archive Name",
+            "type": "string"
+          },
+          "archive_path": {
+            "title": "Archive Path",
+            "type": "string"
+          },
+          "completed_at": {
+            "title": "Completed At",
+            "type": "string"
+          },
+          "compose_files_count": {
+            "title": "Compose Files Count",
+            "type": "integer"
+          },
+          "db_dump_included": {
+            "title": "Db Dump Included",
+            "type": "boolean"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "archive_name",
+          "archive_path",
+          "started_at",
+          "completed_at",
+          "db_dump_included",
+          "compose_files_count",
+          "size_bytes"
+        ],
+        "title": "AdminBackupCreateResultOut",
+        "type": "object"
+      },
       "AdminBackupRestoreBody": {
         "properties": {
           "archive_name": {
@@ -143,6 +295,145 @@
           }
         },
         "title": "AdminBackupRestoreBody",
+        "type": "object"
+      },
+      "AdminBackupRestoreOut": {
+        "properties": {
+          "result": {
+            "$ref": "#/components/schemas/AdminBackupRestoreResultOut"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "AdminBackupRestoreOut",
+        "type": "object"
+      },
+      "AdminBackupRestoreResultOut": {
+        "properties": {
+          "archive_name": {
+            "title": "Archive Name",
+            "type": "string"
+          },
+          "completed_at": {
+            "title": "Completed At",
+            "type": "string"
+          },
+          "compose_files_restored": {
+            "title": "Compose Files Restored",
+            "type": "integer"
+          },
+          "compose_pre_restore_archive": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Compose Pre Restore Archive"
+          },
+          "compose_target_dir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Compose Target Dir"
+          },
+          "database_migrations_applied": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Database Migrations Applied",
+            "type": "array"
+          },
+          "database_restored": {
+            "title": "Database Restored",
+            "type": "boolean"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "archive_name",
+          "started_at",
+          "completed_at",
+          "database_restored",
+          "compose_files_restored"
+        ],
+        "title": "AdminBackupRestoreResultOut",
+        "type": "object"
+      },
+      "AdminBackupUploadOut": {
+        "properties": {
+          "archive": {
+            "$ref": "#/components/schemas/AdminBackupArchiveOut"
+          }
+        },
+        "required": [
+          "archive"
+        ],
+        "title": "AdminBackupUploadOut",
+        "type": "object"
+      },
+      "AdminBackupsListOut": {
+        "properties": {
+          "archives": {
+            "items": {
+              "$ref": "#/components/schemas/AdminBackupArchiveOut"
+            },
+            "title": "Archives",
+            "type": "array"
+          },
+          "backup_dir": {
+            "title": "Backup Dir",
+            "type": "string"
+          }
+        },
+        "required": [
+          "backup_dir",
+          "archives"
+        ],
+        "title": "AdminBackupsListOut",
+        "type": "object"
+      },
+      "AdminBroadcastAudienceCountsOut": {
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Counts",
+            "type": "object"
+          }
+        },
+        "required": [
+          "counts"
+        ],
+        "title": "AdminBroadcastAudienceCountsOut",
         "type": "object"
       },
       "AdminBroadcastBody": {
@@ -234,6 +525,66 @@
         "title": "AdminMeOut",
         "type": "object"
       },
+      "AdminPanelInternalSquadOut": {
+        "properties": {
+          "active_inbounds_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Active Inbounds Count"
+          },
+          "members_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Members Count"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "uuid": {
+            "title": "Uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "name"
+        ],
+        "title": "AdminPanelInternalSquadOut",
+        "type": "object"
+      },
       "AdminPanelSyncOut": {
         "properties": {
           "details": {
@@ -305,6 +656,390 @@
         "title": "AdminPaymentsListOut",
         "type": "object"
       },
+      "AdminSettingChoiceOut": {
+        "properties": {
+          "i18n_label_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "I18N Label Key"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "AdminSettingChoiceOut",
+        "type": "object"
+      },
+      "AdminSettingsFieldOut": {
+        "additionalProperties": true,
+        "properties": {
+          "choices": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AdminSettingChoiceOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Choices"
+          },
+          "default": {
+            "default": null,
+            "title": "Default"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "has_value": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Has Value"
+          },
+          "i18n_description_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "I18N Description Key"
+          },
+          "i18n_label_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "I18N Label Key"
+          },
+          "i18n_placeholder_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "I18N Placeholder Key"
+          },
+          "i18n_subsection_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "I18N Subsection Key"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Max"
+          },
+          "min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min"
+          },
+          "mutually_exclusive_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Mutually Exclusive Key"
+          },
+          "optional": {
+            "title": "Optional",
+            "type": "boolean"
+          },
+          "overridden": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Overridden"
+          },
+          "placeholder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Placeholder"
+          },
+          "provider_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Provider Id"
+          },
+          "read_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Read Error"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "boolean"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "section_order": {
+            "title": "Section Order",
+            "type": "integer"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source"
+          },
+          "subsection": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subsection"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Updated At"
+          },
+          "value": {
+            "default": null,
+            "title": "Value"
+          },
+          "webhook_base_url_configured": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Webhook Base Url Configured"
+          },
+          "webhook_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Webhook Hint"
+          },
+          "webhook_hint_i18n_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Webhook Hint I18N Key"
+          },
+          "webhook_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Webhook Path"
+          },
+          "webhook_requires_base_url": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Webhook Requires Base Url"
+          },
+          "webhook_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Webhook Url"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "section",
+          "section_order",
+          "label",
+          "optional",
+          "secret"
+        ],
+        "title": "AdminSettingsFieldOut",
+        "type": "object"
+      },
+      "AdminSettingsOut": {
+        "properties": {
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Features",
+            "type": "array"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/AdminSettingsSectionOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sections",
+          "features"
+        ],
+        "title": "AdminSettingsOut",
+        "type": "object"
+      },
       "AdminSettingsPatchBody": {
         "properties": {
           "deletes": {
@@ -315,6 +1050,32 @@
           }
         },
         "title": "AdminSettingsPatchBody",
+        "type": "object"
+      },
+      "AdminSettingsSectionOut": {
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/AdminSettingsFieldOut"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "order",
+          "fields"
+        ],
+        "title": "AdminSettingsSectionOut",
         "type": "object"
       },
       "AdminStatsOut": {
@@ -1287,6 +2048,120 @@
         "title": "AdminSupportUserSnapshotOut",
         "type": "object"
       },
+      "AdminSyncOut": {
+        "properties": {
+          "result": {
+            "$ref": "#/components/schemas/AdminSyncResultOut"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "AdminSyncOut",
+        "type": "object"
+      },
+      "AdminSyncResultOut": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "AdminSyncResultOut",
+        "type": "object"
+      },
+      "AdminTariffsCatalogOut": {
+        "properties": {
+          "default_currency": {
+            "default": "rub",
+            "title": "Default Currency",
+            "type": "string"
+          },
+          "default_tariff": {
+            "title": "Default Tariff",
+            "type": "string"
+          },
+          "tariffs": {
+            "items": {
+              "$ref": "#/components/schemas/Tariff"
+            },
+            "title": "Tariffs",
+            "type": "array"
+          },
+          "topup_packages_default": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackageSet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "default_tariff",
+          "tariffs"
+        ],
+        "title": "AdminTariffsCatalogOut",
+        "type": "object"
+      },
+      "AdminTariffsOut": {
+        "properties": {
+          "catalog": {
+            "$ref": "#/components/schemas/AdminTariffsCatalogOut"
+          },
+          "exists": {
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "provider_currency_support": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderCurrencySupportOut"
+            },
+            "title": "Provider Currency Support",
+            "type": "array"
+          }
+        },
+        "required": [
+          "exists",
+          "path",
+          "catalog",
+          "provider_currency_support"
+        ],
+        "title": "AdminTariffsOut",
+        "type": "object"
+      },
+      "AdminThemesOut": {
+        "properties": {
+          "catalog": {
+            "$ref": "#/components/schemas/WebappThemesConfig"
+          },
+          "exists": {
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "themes_dir": {
+            "title": "Themes Dir",
+            "type": "string"
+          }
+        },
+        "required": [
+          "exists",
+          "themes_dir",
+          "catalog"
+        ],
+        "title": "AdminThemesOut",
+        "type": "object"
+      },
       "AdminTicketPatchPayload": {
         "properties": {
           "assigned_admin_id": {
@@ -1378,6 +2253,197 @@
           "body"
         ],
         "title": "AdminTicketReplyPayload",
+        "type": "object"
+      },
+      "AdminTranslationGroupOut": {
+        "properties": {
+          "audience": {
+            "title": "Audience",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "description_key": {
+            "title": "Description Key",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminTranslationItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "title_key": {
+            "title": "Title Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "audience",
+          "title_key",
+          "description_key",
+          "items"
+        ],
+        "title": "AdminTranslationGroupOut",
+        "type": "object"
+      },
+      "AdminTranslationItemOut": {
+        "properties": {
+          "audience": {
+            "title": "Audience",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AdminTranslationValueOut"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "key",
+          "audience",
+          "values"
+        ],
+        "title": "AdminTranslationItemOut",
+        "type": "object"
+      },
+      "AdminTranslationLanguageOut": {
+        "properties": {
+          "base": {
+            "title": "Base",
+            "type": "boolean"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "flag": {
+            "title": "Flag",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "flag",
+          "base"
+        ],
+        "title": "AdminTranslationLanguageOut",
+        "type": "object"
+      },
+      "AdminTranslationValueOut": {
+        "properties": {
+          "base": {
+            "title": "Base",
+            "type": "string"
+          },
+          "effective": {
+            "title": "Effective",
+            "type": "string"
+          },
+          "fallback": {
+            "title": "Fallback",
+            "type": "string"
+          },
+          "overridden": {
+            "title": "Overridden",
+            "type": "boolean"
+          },
+          "override": {
+            "title": "Override",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Updated By"
+          }
+        },
+        "required": [
+          "base",
+          "fallback",
+          "effective",
+          "override",
+          "overridden"
+        ],
+        "title": "AdminTranslationValueOut",
+        "type": "object"
+      },
+      "AdminTranslationsOut": {
+        "properties": {
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/AdminTranslationGroupOut"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "languages": {
+            "items": {
+              "$ref": "#/components/schemas/AdminTranslationLanguageOut"
+            },
+            "title": "Languages",
+            "type": "array"
+          },
+          "override_count": {
+            "title": "Override Count",
+            "type": "integer"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "languages",
+          "groups",
+          "path",
+          "override_count"
+        ],
+        "title": "AdminTranslationsOut",
         "type": "object"
       },
       "AdminTranslationsPatchBody": {
@@ -3320,6 +4386,292 @@
         "title": "PromoUpdateBody",
         "type": "object"
       },
+      "ProviderCurrencySupportOut": {
+        "properties": {
+          "accepts_any_currency": {
+            "title": "Accepts Any Currency",
+            "type": "boolean"
+          },
+          "admin_only": {
+            "title": "Admin Only",
+            "type": "boolean"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "currencies": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Currencies"
+          },
+          "default_currency": {
+            "title": "Default Currency",
+            "type": "string"
+          },
+          "directly_supports_default_currency": {
+            "title": "Directly Supports Default Currency",
+            "type": "boolean"
+          },
+          "docs_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Docs Url"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Icon"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "price_source": {
+            "title": "Price Source",
+            "type": "string"
+          },
+          "provider_key": {
+            "title": "Provider Key",
+            "type": "string"
+          },
+          "provider_label": {
+            "title": "Provider Label",
+            "type": "string"
+          },
+          "settings_path": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Settings Path",
+            "type": "array"
+          },
+          "supports_default_currency": {
+            "title": "Supports Default Currency",
+            "type": "boolean"
+          },
+          "telegram_label": {
+            "title": "Telegram Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider_key",
+          "provider_label",
+          "settings_path",
+          "label",
+          "telegram_label",
+          "enabled",
+          "configured",
+          "admin_only",
+          "price_source",
+          "accepts_any_currency",
+          "supports_default_currency",
+          "directly_supports_default_currency",
+          "default_currency",
+          "note"
+        ],
+        "title": "ProviderCurrencySupportOut",
+        "type": "object"
+      },
+      "PublicSubscriptionContextOut": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "config_link": {
+            "title": "Config Link",
+            "type": "string"
+          },
+          "connect_url": {
+            "title": "Connect Url",
+            "type": "string"
+          },
+          "install_share_token": {
+            "title": "Install Share Token",
+            "type": "string"
+          },
+          "panel_short_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel Short Uuid"
+          },
+          "share_url": {
+            "title": "Share Url",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "active",
+          "config_link",
+          "connect_url",
+          "install_share_token",
+          "username",
+          "share_url"
+        ],
+        "title": "PublicSubscriptionContextOut",
+        "type": "object"
+      },
+      "PublicSubscriptionGuidesOut": {
+        "properties": {
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Config"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source"
+          },
+          "subscription": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicSubscriptionContextOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "PublicSubscriptionGuidesOut",
+        "type": "object"
+      },
+      "SubscriptionGuidesOut": {
+        "properties": {
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Config"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "SubscriptionGuidesOut",
+        "type": "object"
+      },
       "SupportCountsOut": {
         "additionalProperties": true,
         "description": "Ticket counters keyed by known statuses, with room for future status keys.",
@@ -3704,6 +5056,11 @@
             "title": "Premium Squad Uuids",
             "type": "array"
           },
+          "premium_topup_always_available": {
+            "default": false,
+            "title": "Premium Topup Always Available",
+            "type": "boolean"
+          },
           "premium_topup_packages": {
             "anyOf": [
               {
@@ -3760,6 +5117,11 @@
             "title": "Squad Uuids",
             "type": "array"
           },
+          "topup_always_available": {
+            "default": false,
+            "title": "Topup Always Available",
+            "type": "boolean"
+          },
           "topup_packages": {
             "anyOf": [
               {
@@ -3788,43 +5150,6 @@
           "billing_model"
         ],
         "title": "Tariff",
-        "type": "object"
-      },
-      "TariffsConfig": {
-        "properties": {
-          "default_currency": {
-            "default": "rub",
-            "title": "Default Currency",
-            "type": "string"
-          },
-          "default_tariff": {
-            "title": "Default Tariff",
-            "type": "string"
-          },
-          "tariffs": {
-            "items": {
-              "$ref": "#/components/schemas/Tariff"
-            },
-            "title": "Tariffs",
-            "type": "array"
-          },
-          "topup_packages_default": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PackageSet"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          }
-        },
-        "required": [
-          "default_tariff",
-          "tariffs"
-        ],
-        "title": "TariffsConfig",
         "type": "object"
       },
       "TariffsSaveBody": {
@@ -5250,6 +6575,226 @@
         "title": "WebAppTelegramAuthPayload",
         "type": "object"
       },
+      "WebappBootstrapConfigOut": {
+        "additionalProperties": true,
+        "properties": {
+          "adminCssAsset": {
+            "title": "Admincssasset",
+            "type": "string"
+          },
+          "adminJsAsset": {
+            "title": "Adminjsasset",
+            "type": "string"
+          },
+          "apiBase": {
+            "title": "Apibase",
+            "type": "string"
+          },
+          "appRepositoryUrl": {
+            "title": "Apprepositoryurl",
+            "type": "string"
+          },
+          "appVersion": {
+            "title": "Appversion",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "emailAuthEnabled": {
+            "title": "Emailauthenabled",
+            "type": "boolean"
+          },
+          "faviconUrl": {
+            "title": "Faviconurl",
+            "type": "string"
+          },
+          "faviconUseCustom": {
+            "title": "Faviconusecustom",
+            "type": "boolean"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "languages": {
+            "items": {
+              "$ref": "#/components/schemas/WebappBootstrapLanguageOut"
+            },
+            "title": "Languages",
+            "type": "array"
+          },
+          "logoUrl": {
+            "title": "Logourl",
+            "type": "string"
+          },
+          "primaryColor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Primarycolor"
+          },
+          "privacyPolicyUrl": {
+            "title": "Privacypolicyurl",
+            "type": "string"
+          },
+          "registrationInviteOnlyEnabled": {
+            "title": "Registrationinviteonlyenabled",
+            "type": "boolean"
+          },
+          "serverStatusUrl": {
+            "title": "Serverstatusurl",
+            "type": "string"
+          },
+          "supportUrl": {
+            "title": "Supporturl",
+            "type": "string"
+          },
+          "telegramLoginBotId": {
+            "title": "Telegramloginbotid",
+            "type": "integer"
+          },
+          "telegramLoginBotUsername": {
+            "title": "Telegramloginbotusername",
+            "type": "string"
+          },
+          "telegramOAuthClientId": {
+            "title": "Telegramoauthclientid",
+            "type": "integer"
+          },
+          "telegramOAuthRequestAccess": {
+            "title": "Telegramoauthrequestaccess",
+            "type": "string"
+          },
+          "themePreviewKey": {
+            "title": "Themepreviewkey",
+            "type": "string"
+          },
+          "themesCatalog": {
+            "additionalProperties": true,
+            "title": "Themescatalog",
+            "type": "object"
+          },
+          "themesDir": {
+            "title": "Themesdir",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "userAgreementUrl": {
+            "title": "Useragreementurl",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "themesDir",
+          "themePreviewKey",
+          "logoUrl",
+          "faviconUrl",
+          "faviconUseCustom",
+          "apiBase",
+          "adminJsAsset",
+          "adminCssAsset",
+          "telegramLoginBotUsername",
+          "telegramLoginBotId",
+          "telegramOAuthClientId",
+          "telegramOAuthRequestAccess",
+          "supportUrl",
+          "serverStatusUrl",
+          "privacyPolicyUrl",
+          "userAgreementUrl",
+          "currency",
+          "language",
+          "languages",
+          "emailAuthEnabled",
+          "registrationInviteOnlyEnabled",
+          "appVersion",
+          "appRepositoryUrl"
+        ],
+        "title": "WebappBootstrapConfigOut",
+        "type": "object"
+      },
+      "WebappBootstrapLanguageOut": {
+        "properties": {
+          "base": {
+            "title": "Base",
+            "type": "boolean"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "flag": {
+            "title": "Flag",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "flag",
+          "base"
+        ],
+        "title": "WebappBootstrapLanguageOut",
+        "type": "object"
+      },
+      "WebappBootstrapOut": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/WebappBootstrapConfigOut"
+          },
+          "i18n": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "I18N",
+            "type": "object"
+          }
+        },
+        "required": [
+          "config",
+          "i18n"
+        ],
+        "title": "WebappBootstrapOut",
+        "type": "object"
+      },
+      "WebappI18nOut": {
+        "properties": {
+          "i18n": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "I18N",
+            "type": "object"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope",
+          "i18n"
+        ],
+        "title": "WebappI18nOut",
+        "type": "object"
+      },
       "WebappTheme": {
         "description": "Single theme descriptor loaded from WEBAPP_THEMES_DIR/<key>/theme.json.",
         "properties": {
@@ -6334,29 +7879,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "archives": {
-                      "items": {
-                        "additionalProperties": true,
-                        "type": "object"
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
                       },
-                      "type": "array"
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
                     },
-                    "backup_dir": {
-                      "type": "string"
-                    },
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
+                    {
+                      "$ref": "#/components/schemas/AdminBackupsListOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "backup_dir",
-                    "archives"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
@@ -6385,27 +7925,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "archive": {
-                      "additionalProperties": true,
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
                       "type": "object"
                     },
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
-                    },
-                    "result": {
-                      "additionalProperties": true,
-                      "type": "object"
+                    {
+                      "$ref": "#/components/schemas/AdminBackupCreateOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "result",
-                    "archive"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
@@ -6444,22 +7981,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
-                    },
-                    "result": {
-                      "additionalProperties": true,
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
                       "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminBackupRestoreOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "result"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
@@ -6507,22 +8046,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "archive": {
-                      "additionalProperties": true,
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
                       "type": "object"
                     },
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
+                    {
+                      "$ref": "#/components/schemas/AdminBackupUploadOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "archive"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
@@ -6612,22 +8153,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "counts": {
-                      "additionalProperties": true,
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
                       "type": "object"
                     },
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
+                    {
+                      "$ref": "#/components/schemas/AdminBroadcastAudienceCountsOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "counts"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
@@ -6802,8 +8345,7 @@
                     },
                     "squads": {
                       "items": {
-                        "additionalProperties": true,
-                        "type": "object"
+                        "$ref": "#/components/schemas/AdminPanelInternalSquadOut"
                       },
                       "type": "array"
                     }
@@ -7265,32 +8807,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "features": {
-                      "items": {
-                        "type": "string"
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
                       },
-                      "type": "array"
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
                     },
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
-                    },
-                    "sections": {
-                      "items": {
-                        "additionalProperties": true,
-                        "type": "object"
-                      },
-                      "type": "array"
+                    {
+                      "$ref": "#/components/schemas/AdminSettingsOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "sections",
-                    "features"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
@@ -7757,22 +9291,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
-                    },
-                    "result": {
-                      "additionalProperties": true,
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
                       "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminSyncOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "result"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
@@ -7801,38 +9337,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "catalog": {
-                      "additionalProperties": true,
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
                       "type": "object"
                     },
-                    "exists": {
-                      "type": "boolean"
-                    },
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
-                    },
-                    "path": {
-                      "type": "string"
-                    },
-                    "provider_currency_support": {
-                      "items": {
-                        "additionalProperties": true,
-                        "type": "object"
-                      },
-                      "type": "array"
+                    {
+                      "$ref": "#/components/schemas/AdminTariffsOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "exists",
-                    "path",
-                    "catalog",
-                    "provider_currency_support"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
@@ -7869,38 +9391,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "catalog": {
-                      "additionalProperties": true,
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
                       "type": "object"
                     },
-                    "exists": {
-                      "type": "boolean"
-                    },
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
-                    },
-                    "path": {
-                      "type": "string"
-                    },
-                    "provider_currency_support": {
-                      "items": {
-                        "additionalProperties": true,
-                        "type": "object"
-                      },
-                      "type": "array"
+                    {
+                      "$ref": "#/components/schemas/AdminTariffsOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "exists",
-                    "path",
-                    "catalog",
-                    "provider_currency_support"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
@@ -7929,30 +9437,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "catalog": {
-                      "additionalProperties": true,
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
                       "type": "object"
                     },
-                    "exists": {
-                      "type": "boolean"
-                    },
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
-                    },
-                    "themes_dir": {
-                      "type": "string"
+                    {
+                      "$ref": "#/components/schemas/AdminThemesOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "exists",
-                    "themes_dir",
-                    "catalog"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
@@ -7989,30 +9491,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "catalog": {
-                      "additionalProperties": true,
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
                       "type": "object"
                     },
-                    "exists": {
-                      "type": "boolean"
-                    },
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
-                    },
-                    "themes_dir": {
-                      "type": "string"
+                    {
+                      "$ref": "#/components/schemas/AdminThemesOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "exists",
-                    "themes_dir",
-                    "catalog"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
@@ -8041,41 +9537,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "groups": {
-                      "items": {
-                        "additionalProperties": true,
-                        "type": "object"
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
                       },
-                      "type": "array"
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
                     },
-                    "languages": {
-                      "items": {
-                        "additionalProperties": true,
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
-                    },
-                    "override_count": {
-                      "type": "integer"
-                    },
-                    "path": {
-                      "type": "string"
+                    {
+                      "$ref": "#/components/schemas/AdminTranslationsOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "languages",
-                    "groups",
-                    "path",
-                    "override_count"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
@@ -8345,6 +9824,12 @@
                         }
                       ]
                     },
+                    "install_share_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "last_vpn_connected_at": {
                       "type": [
                         "string",
@@ -8443,6 +9928,7 @@
                     "recent_payments",
                     "log_count",
                     "subscription_url",
+                    "install_share_url",
                     "last_vpn_connected_at",
                     "vpn_connection_status",
                     "referral"
@@ -9861,29 +11347,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "config": {
-                      "additionalProperties": true,
-                      "description": "Runtime Mini App config assembled from settings and theme catalog.",
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
                       "type": "object"
                     },
-                    "i18n": {
-                      "additionalProperties": true,
-                      "description": "Locale dictionary keyed by language and translation key.",
-                      "type": "object"
-                    },
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
+                    {
+                      "$ref": "#/components/schemas/WebappBootstrapOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "config",
-                    "i18n"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
@@ -10349,27 +11830,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "i18n": {
-                      "additionalProperties": true,
-                      "description": "Locale dictionary keyed by language and translation key.",
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
                       "type": "object"
                     },
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
-                    },
-                    "scope": {
-                      "type": "string"
+                    {
+                      "$ref": "#/components/schemas/WebappI18nOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "scope",
-                    "i18n"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
@@ -10973,6 +12451,9 @@
                             "null"
                           ]
                         },
+                        "premium_topup_always_available": {
+                          "type": "boolean"
+                        },
                         "premium_topup_balance_bytes": {
                           "type": [
                             "integer",
@@ -11038,6 +12519,9 @@
                             "integer",
                             "null"
                           ]
+                        },
+                        "topup_always_available": {
+                          "type": "boolean"
                         },
                         "topup_balance_bytes": {
                           "type": [
@@ -11502,32 +12986,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "config": {
-                      "additionalProperties": true,
-                      "description": "Resolved subscription guide config from admin override or panel.",
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
                       "type": "object"
                     },
-                    "enabled": {
-                      "type": "boolean"
-                    },
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
-                    },
-                    "source": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                    {
+                      "$ref": "#/components/schemas/SubscriptionGuidesOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "enabled"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
@@ -11567,37 +13043,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "config": {
-                      "additionalProperties": true,
-                      "description": "Resolved subscription guide config from admin override or panel.",
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
                       "type": "object"
                     },
-                    "enabled": {
-                      "type": "boolean"
-                    },
-                    "ok": {
-                      "const": true,
-                      "type": "boolean"
-                    },
-                    "source": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "subscription": {
-                      "additionalProperties": true,
-                      "description": "Public install subscription context resolved by share token.",
-                      "type": "object"
+                    {
+                      "$ref": "#/components/schemas/PublicSubscriptionGuidesOut"
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "enabled"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
