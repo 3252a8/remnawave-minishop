@@ -120,6 +120,7 @@ class LinkPaymentDescriptor[ServiceT: LinkFlowService]:
     callback_lead_text: (
         Callable[[CreatePaymentRequest, dict, Callable[..., str]], str | None] | None
     ) = None
+    callback_before_create: Callable[[types.CallbackQuery], Awaitable[None]] | None = None
     callback_reuse_enabled: bool = True
     callback_reuse_answer: bool = False
     webapp_available: Callable[[ServiceT], bool] | None = None
@@ -278,6 +279,9 @@ async def run_callback_payment[ServiceT: LinkFlowService](
         )
         await notify_payment_record_failure(callback, translator)
         return
+
+    if descriptor.callback_before_create is not None:
+        await descriptor.callback_before_create(callback)
 
     create_request = CreatePaymentRequest(
         payment=payment_record,

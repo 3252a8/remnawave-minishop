@@ -218,6 +218,39 @@ def test_callback_lead_text_is_passed_to_renderer(monkeypatch):
     assert kwargs["lead_text"] == "Order #1"
 
 
+def test_callback_before_create_hook_runs_after_record_creation(monkeypatch):
+    _patch_common(monkeypatch)
+    payment = SimpleNamespace(payment_id=42, status="pending_fake")
+    events: list[str] = []
+    fake_dal = SimpleNamespace(
+        find_recent_pending_provider_payment=AsyncMock(return_value=None),
+        create_payment_record=AsyncMock(
+            side_effect=lambda session, payload: events.append("record") or payment
+        ),
+    )
+    monkeypatch.setattr(link_flow, "payment_dal", fake_dal)
+
+    async def before_create(callback):
+        assert callback is not None
+        events.append("answer")
+
+    async def create(service, request):
+        events.append("create")
+        return True, {"url": "https://pay/x", "id": "pid-1"}
+
+    desc = _descriptor(
+        callback_before_create=before_create,
+        create=AsyncMock(side_effect=create),
+    )
+    asyncio.run(
+        run_callback_payment(
+            desc, _callback(), _settings(), {"i18n_instance": object()}, _FakeService(), _session()
+        )
+    )
+
+    assert events == ["record", "answer", "create"]
+
+
 def test_callback_unconfigured_service_notifies(monkeypatch):
     _patch_common(monkeypatch)
     monkeypatch.setattr(link_flow, "payment_dal", SimpleNamespace())
