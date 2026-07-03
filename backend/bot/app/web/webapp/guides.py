@@ -192,21 +192,39 @@ async def _subscription_guides_status_for_request(
 
     short_uuid = str(panel_short_uuid or "").strip()
     resolved_panel_user_uuid = str(panel_user_uuid or "").strip()
+    short_uuid_from_local_db = False
     if not short_uuid and user_id is not None:
         context = await _active_panel_subscription_context_for_user(request, int(user_id))
         short_uuid = str(context.get("panel_short_uuid") or "").strip()
         resolved_panel_user_uuid = str(context.get("panel_user_uuid") or "").strip()
+        short_uuid_from_local_db = context.get("source") == "local"
 
     if short_uuid:
+        request_headers = _subscription_page_request_headers(request)
         panel_status = await _subscription_guides_status_from_panel_short_uuid_cached(
             request.app,
             settings,
             short_uuid,
             panel_user_uuid=resolved_panel_user_uuid,
-            request_headers=_subscription_page_request_headers(request),
+            request_headers=request_headers,
         )
         if panel_status.get("enabled"):
             return panel_status
+        if short_uuid_from_local_db and resolved_panel_user_uuid:
+            # The locally stored short UUID goes stale when the subscription
+            # link is revoked/reset on the panel side; retry with a fresh one
+            # before falling back to the shared default config.
+            fresh_short_uuid = await _fresh_panel_short_uuid(request.app, resolved_panel_user_uuid)
+            if fresh_short_uuid and fresh_short_uuid != short_uuid:
+                panel_status = await _subscription_guides_status_from_panel_short_uuid_cached(
+                    request.app,
+                    settings,
+                    fresh_short_uuid,
+                    panel_user_uuid=resolved_panel_user_uuid,
+                    request_headers=request_headers,
+                )
+                if panel_status.get("enabled"):
+                    return panel_status
 
     return await _subscription_guides_status_shared(request.app)
 
@@ -631,7 +649,11 @@ async def _active_panel_subscription_context_for_user(
             return {}
         panel_short_uuid = str(getattr(local_sub, "panel_subscription_uuid", "") or "").strip()
         if panel_short_uuid:
-            return {"panel_short_uuid": panel_short_uuid, "panel_user_uuid": panel_user_uuid}
+            return {
+                "panel_short_uuid": panel_short_uuid,
+                "panel_user_uuid": panel_user_uuid,
+                "source": "local",
+            }
 
     try:
         panel_user = await get_user(panel_user_uuid)
@@ -645,7 +667,25 @@ async def _active_panel_subscription_context_for_user(
     return {
         "panel_short_uuid": _panel_short_uuid_from_user(panel_user),
         "panel_user_uuid": panel_user_uuid,
+        "source": "panel",
     }
+
+
+async def _fresh_panel_short_uuid(app: web.Application, panel_user_uuid: str) -> str:
+    panel_service = _panel_service_from_app(app)
+    get_user = getattr(panel_service, "get_user_by_uuid", None)
+    if not callable(get_user):
+        return ""
+    try:
+        panel_user = await get_user(panel_user_uuid)
+    except Exception:
+        logger.warning(
+            "Failed to refresh panel short UUID for install guides panel user %s",
+            panel_user_uuid,
+            exc_info=True,
+        )
+        return ""
+    return _panel_short_uuid_from_user(panel_user)
 
 
 async def _public_subscription_payload_cached(
