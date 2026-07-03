@@ -54,6 +54,10 @@ warn_unused_configs = true
 
 [tool.coverage.run]
 source = ["backend"]
+branch = true
+# Offline migration tooling: the legacy importer runs against another bot's
+# database dump outside the test DB, so it is characterized at the CLI/mapping
+# layer (tests/unit/test_import_legacy_cli.py) rather than line-covered here.
 omit = [
     "backend/scripts/import_legacy.py",
     "backend/scripts/legacy_import/*",
@@ -63,7 +67,9 @@ omit = [
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 55
+# Branch coverage (branch = true above) reads lower than line coverage. Measured
+# 53.92% on 2026-07-03; ratcheted to measured - 1. This number only goes up.
+fail_under = 53
 
 [[tool.mypy.overrides]]
 module = "db.*"

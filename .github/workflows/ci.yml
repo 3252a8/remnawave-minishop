@@ -195,7 +195,7 @@ jobs:
         run: pip install -r backend/requirements.txt pytest pytest-cov
 
       - name: Run full pytest suite
-        run: python -m pytest -q --cov --cov-report=xml --cov-fail-under=55
+        run: python -m pytest -q --cov --cov-report=xml --cov-fail-under=53
 
   typecheck:
     name: Python typecheck
