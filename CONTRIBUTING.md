@@ -246,6 +246,9 @@ Svelte + Vite. API-клиент **типизирован из OpenAPI-спека
 - **Сообщения коммитов:** префиксы Conventional Commits (`fix:`, `feat:`, `refactor:`, `chore:`,
   `docs:`, `ci:`, `build:`, `perf:`, `test:`, `style:`), на английском. Трейлер `Co-Authored-By`
   **не добавлять**.
+- **`CHANGELOG.md` в проекте нет намеренно — не создавать и не вести.** История изменений живёт
+  в Conventional Commits и описаниях PR; ручной журнал изменений дублирует их и мгновенно
+  устаревает.
 - Одно связное изменение на коммит; для рефакторов предпочитай move-only диффы для ревью.
 - После любого изменения контракта регенерируй затронутые артефакты (раздел 1) в том же изменении.
 - Compatibility facades (`admin_api`, `subscription_webapp`, `subscription_service`) are compatibility-only layers.
