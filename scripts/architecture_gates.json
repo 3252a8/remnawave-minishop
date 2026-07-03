@@ -25,9 +25,7 @@
       "backend/config"
     ],
     "allowlist": {
-      "backend/config/settings.py": 1,
-      "backend/bot/app/controllers/dispatcher_controller.py": 1,
-      "backend/bot/services/panel_api_service.py": 1
+      "backend/config/settings.py": 1
     }
   },
   "raw_json_response": {

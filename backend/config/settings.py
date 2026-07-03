@@ -772,6 +772,10 @@ def get_settings() -> Settings:
     global _settings_instance
     if _settings_instance is None:
         try:
+            # Third-party boundary: pydantic-settings fills required fields
+            # (BOT_TOKEN, POSTGRES_*) from the environment inside __init__, but
+            # dataclass_transform makes mypy demand them as named arguments.
+            # model_validate({}) would satisfy mypy yet skip the env sources.
             _settings_instance = Settings()  # type: ignore[call-arg]
             if not _settings_instance.ADMIN_IDS:
                 logger.warning(

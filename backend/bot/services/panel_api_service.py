@@ -45,7 +45,7 @@ def _endpoint_log_label(endpoint: str) -> str:
     return "/other"
 
 
-class PanelApiService(  # type: ignore[misc]
+class PanelApiService(
     PanelApiUsersMixin,
     PanelApiResourcesMixin,
     PanelApiSquadMutationMixin,

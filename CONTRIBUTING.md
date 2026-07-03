@@ -32,10 +32,11 @@ npm run check
 npm run check:quick
 ```
 
-Current documented mypy frontier outside the CI scope: none for directories — all backend
-packages, both script roots (`backend/scripts`, `scripts`), and the whole `tests/` tree are
-in the enforced scope. The last remaining debt is the `type_ignore` allowlist in
-`scripts/architecture_gates.json`.
+There is no mypy frontier: the whole repository is in scope — all backend packages, both
+script roots (`backend/scripts`, `scripts`), and the whole `tests/` tree. The `type_ignore`
+allowlist holds a single boundary-proven entry (`config/settings.py`: pydantic-settings
+fills required fields from the environment, invisible to static analysis; the inline
+comment at the call site carries the proof).
 
 Явные команды ниже остаются источником правды для CI и ручной диагностики.
 
