@@ -37,11 +37,6 @@ PROVIDER_NAMES = sorted({s.service_key.removesuffix("_service") for s in SPECS i
 # NOT use the shared link-flow engine. Each value documents the divergence.
 LINKFLOW_BESPOKE = {
     "cryptopay": "aiocryptopay invoice flow, not a hosted-link redirect",
-    "platega": (
-        "callback/webapp variant routing is part of provider payload validation: "
-        "legacy pay_platega maps to SBP, crypto/SBP use distinct method ids, "
-        "and reuse must validate the stored platega_variant in provider payload"
-    ),
     "qa": "local signed webhook fixture for full-stack QA, not a real hosted provider",
     "stars": "Telegram Stars in-app invoice; no external payment link or webhook",
     "stripe": "card PaymentIntent / saved-card recurring, not a hosted-link redirect",

@@ -260,7 +260,7 @@ def test_callback_context_is_passed_to_create_request(monkeypatch):
     )
     monkeypatch.setattr(link_flow, "payment_dal", fake_dal)
 
-    desc = _descriptor(callback_context=lambda callback, parts: {"variant": "sbp"})
+    desc = _descriptor(callback_context=lambda callback, parts, service: {"variant": "sbp"})
     asyncio.run(
         run_callback_payment(
             desc, _callback(), _settings(), {"i18n_instance": object()}, _FakeService(), _session()
@@ -282,7 +282,7 @@ def test_callback_reuse_validator_skips_stale_payment(monkeypatch):
     monkeypatch.setattr(link_flow, "payment_dal", fake_dal)
 
     desc = _descriptor(
-        callback_context=lambda callback, parts: {"variant": "sbp"},
+        callback_context=lambda callback, parts, service: {"variant": "sbp"},
         reuse=AsyncMock(return_value="https://pay/reused"),
         reuse_payment_allowed=lambda payment, context: False,
     )

@@ -123,7 +123,9 @@ class LinkPaymentDescriptor[ServiceT: LinkFlowService]:
         Callable[[CreatePaymentRequest, dict, Callable[..., str]], str | None] | None
     ) = None
     callback_before_create: Callable[[types.CallbackQuery], Awaitable[None]] | None = None
-    callback_context: Callable[[types.CallbackQuery, Any], dict[str, Any] | None] | None = None
+    callback_context: (
+        Callable[[types.CallbackQuery, Any, ServiceT], dict[str, Any] | None] | None
+    ) = None
     webapp_context: Callable[[WebAppPaymentContext], dict[str, Any] | None] | None = None
     reuse_payment_allowed: Callable[[Any, dict[str, Any] | None], bool] | None = None
     reuse_with_context: (
@@ -243,7 +245,7 @@ async def run_callback_payment[ServiceT: LinkFlowService](
         await notify_service_unavailable(callback, translator)
         return
     provider_context = (
-        descriptor.callback_context(callback, parts)
+        descriptor.callback_context(callback, parts, service)
         if descriptor.callback_context is not None
         else None
     )
