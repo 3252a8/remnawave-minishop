@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 import importlib.util
 import json
 from pathlib import Path
@@ -437,3 +438,49 @@ def test_loose_schema_guard_requires_non_empty_reasons(
 
     assert result == 1
     assert "reason #1 is empty" in output
+
+
+# ---------------------------------------------------------------------------
+# Real-config lock: the module-size allowlist may exempt generated artifacts only.
+#
+# The module-size gate exempts a small allowlist from the line limit. Every entry
+# must name a *generated* build output, never hand-written code that grew too large
+# (that has to be split). The patterns below are the sanctioned generated artifacts,
+# each annotated with the generator that emits it. A future allowlist entry has to
+# match one of them, so adding a hand-written file to the allowlist fails this test
+# rather than merely inviting a reviewer's objection.
+# ---------------------------------------------------------------------------
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+GENERATED_ARTIFACT_PATTERNS: dict[str, str] = {
+    "backend/bot/app/web/templates/*.js": (
+        "compiled webapp/admin Svelte bundles emitted by the frontend build"
+    ),
+    "frontend/src/lib/api/openapi.generated.ts": (
+        "typed API client generated from docs/openapi.json (npm run generate:api-types)"
+    ),
+    "frontend/src/lib/webapp/demoDataset.js": (
+        "demo dataset snapshot; its file header marks it generated"
+    ),
+}
+
+
+def _is_documented_generated_artifact(entry: str) -> bool:
+    return any(
+        entry == pattern or fnmatch.fnmatch(entry, pattern)
+        for pattern in GENERATED_ARTIFACT_PATTERNS
+    )
+
+
+def test_module_size_allowlist_is_generated_artifacts_only() -> None:
+    config = json.loads(
+        (REPO_ROOT / "scripts" / "architecture_gates.json").read_text(encoding="utf-8")
+    )
+    allowlist = config["module_size"]["allowlist"]
+
+    undocumented = [entry for entry in allowlist if not _is_documented_generated_artifact(entry)]
+    assert not undocumented, (
+        "module_size.allowlist may only exempt generated artifacts; these entries match "
+        f"no documented generator pattern (split the module instead): {undocumented}"
+    )
