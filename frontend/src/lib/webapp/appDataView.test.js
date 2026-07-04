@@ -34,8 +34,22 @@ describe("computeAppDataView", () => {
     expect(view.brandTitle).toBe("Panel");
     expect(view.brand.logoUrl).toBe("/logo.png");
     expect(view.faviconBrand.faviconUrl).toBe("/logo.png");
+    expect(view.appSettings.home_brand_visible).toBe(true);
+    expect(view.appSettings.tariff_change_visible).toBe(true);
     expect(view.plans).toEqual([{ id: "mock-plan" }]);
     expect(view.methods).toEqual([]);
+  });
+
+  it("maps the home brand visibility config into app settings", () => {
+    const view = computeAppDataView({
+      cfg: { homeBrandVisible: false, tariffChangeVisible: false },
+      data: null,
+      fallbackBrandTitle: "Subscription",
+      mockData: MOCK_DATA,
+    });
+
+    expect(view.appSettings.home_brand_visible).toBe(false);
+    expect(view.appSettings.tariff_change_visible).toBe(false);
   });
 
   it("prefers loaded data over mock data", () => {

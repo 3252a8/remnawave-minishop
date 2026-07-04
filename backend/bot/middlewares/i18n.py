@@ -17,6 +17,7 @@ LocaleOverrides = Dict[str, Dict[str, str]]
 
 _LOCALE_LANGUAGE_CODE_RE = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 LANGUAGE_LABELS: Dict[str, str] = {
+    "zh-cn": "简体中文",
     "ru": "Русский",
     "en": "English",
     "de": "Deutsch",
@@ -27,6 +28,7 @@ LANGUAGE_LABELS: Dict[str, str] = {
     "uk": "Українська",
 }
 LANGUAGE_FLAGS: Dict[str, str] = {
+    "zh-cn": "🇨🇳",
     "ru": "🇷🇺",
     "en": "🇬🇧",
     "de": "🇩🇪",
@@ -36,7 +38,7 @@ LANGUAGE_FLAGS: Dict[str, str] = {
     "tr": "🇹🇷",
     "uk": "🇺🇦",
 }
-DEFAULT_LANGUAGE_ORDER = ("ru", "en")
+DEFAULT_LANGUAGE_ORDER = ("zh-cn", "ru", "en")
 LOCALE_KEY_ALIASES: Dict[str, str] = {
     "admin_apply": "wa_apply",
     "admin_ads_col_status": "admin_status",

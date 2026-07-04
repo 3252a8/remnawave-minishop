@@ -77,6 +77,8 @@ if TYPE_CHECKING:
         BRUTE_FORCE_LOCK_SECONDS: int
         WEBAPP_TITLE: str
         WEBAPP_PRIMARY_COLOR: str
+        WEBAPP_HOME_BRAND_VISIBLE: bool
+        WEBAPP_TARIFF_CHANGE_VISIBLE: bool
         WEBAPP_LOGO_URL: Optional[str]
         WEBAPP_FAVICON_USE_CUSTOM: bool
         WEBAPP_FAVICON_URL: Optional[str]
@@ -164,6 +166,7 @@ if TYPE_CHECKING:
         PAYMENT_METHODS_ORDER: Optional[str]
         SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED: bool
         DEFAULT_LANGUAGE: str
+        SUBSCRIPTION_PURCHASE_DESCRIPTION_ZH_CN: str
         SUBSCRIPTION_PURCHASE_DESCRIPTION_EN: str
         SUBSCRIPTION_PURCHASE_DESCRIPTION_RU: str
 
@@ -224,6 +227,8 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         return WebAppSettings(
             title=self.WEBAPP_TITLE,
             primary_color=self.WEBAPP_PRIMARY_COLOR,
+            home_brand_visible=self.WEBAPP_HOME_BRAND_VISIBLE,
+            tariff_change_visible=self.WEBAPP_TARIFF_CHANGE_VISIBLE,
             logo_url=self.WEBAPP_LOGO_URL,
             favicon_use_custom=self.WEBAPP_FAVICON_USE_CUSTOM,
             favicon_url=self.WEBAPP_FAVICON_URL,
@@ -509,7 +514,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
     @computed_field
     def traffic_sale_mode(self) -> bool:
         """When true, the bot sells traffic packages instead of time-based subscriptions."""
-        if self.tariffs_config is not None:
+        if self.tariffs_config:
             return False
         return bool(self.traffic_packages or self.stars_traffic_packages)
 
@@ -677,18 +682,27 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
     def subscription_purchase_description(self, language: Optional[str] = None) -> str:
         if not self.SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED:
             return ""
-        lang = (language or self.DEFAULT_LANGUAGE or "ru").split("-")[0].lower()
-        primary = (
-            self.SUBSCRIPTION_PURCHASE_DESCRIPTION_EN
-            if lang == "en"
-            else self.SUBSCRIPTION_PURCHASE_DESCRIPTION_RU
-        )
-        fallback = (
-            self.SUBSCRIPTION_PURCHASE_DESCRIPTION_RU
-            if lang == "en"
-            else self.SUBSCRIPTION_PURCHASE_DESCRIPTION_EN
-        )
-        return (primary or fallback or "").strip()
+        lang = (language or self.DEFAULT_LANGUAGE or "zh-cn").replace("_", "-").lower()
+        primary_code = lang.split("-", 1)[0]
+        if primary_code == "zh":
+            candidates = (
+                self.SUBSCRIPTION_PURCHASE_DESCRIPTION_ZH_CN,
+                self.SUBSCRIPTION_PURCHASE_DESCRIPTION_EN,
+                self.SUBSCRIPTION_PURCHASE_DESCRIPTION_RU,
+            )
+        elif primary_code == "en":
+            candidates = (
+                self.SUBSCRIPTION_PURCHASE_DESCRIPTION_EN,
+                self.SUBSCRIPTION_PURCHASE_DESCRIPTION_RU,
+                self.SUBSCRIPTION_PURCHASE_DESCRIPTION_ZH_CN,
+            )
+        else:
+            candidates = (
+                self.SUBSCRIPTION_PURCHASE_DESCRIPTION_RU,
+                self.SUBSCRIPTION_PURCHASE_DESCRIPTION_EN,
+                self.SUBSCRIPTION_PURCHASE_DESCRIPTION_ZH_CN,
+            )
+        return next((value.strip() for value in candidates if value and value.strip()), "")
 
     @computed_field
     def email_auth_configured(self) -> bool:

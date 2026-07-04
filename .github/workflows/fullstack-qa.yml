@@ -2,9 +2,9 @@ name: Full-stack QA
 
 on:
   pull_request:
-    branches: [main, dev]
+    branches: [dev, prod]
   push:
-    branches: [main, dev]
+    branches: [dev, prod]
   workflow_dispatch:
 
 concurrency:

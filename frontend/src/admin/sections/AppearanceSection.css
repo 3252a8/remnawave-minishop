@@ -109,6 +109,13 @@
   font-size: 13px;
 }
 
+.appearance-control-note {
+  max-width: 420px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .appearance-themes-body {
   display: grid;
   gap: 14px;

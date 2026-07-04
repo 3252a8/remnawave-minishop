@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, RootModel, ValidationError, model_validator
 
-DEFAULT_TARIFF_CURRENCY = "rub"
+DEFAULT_TARIFF_CURRENCY = "cny"
 STARS_TARIFF_CURRENCY = "stars"
 
 Currency = str
@@ -17,6 +17,12 @@ def normalize_currency_key(value: Any, default: str = DEFAULT_TARIFF_CURRENCY) -
     if not text:
         return default
     aliases = {
+        "¥": "cny",
+        "￥": "cny",
+        "rmb": "cny",
+        "$": "usd",
+        "usd$": "usd",
+        "₽": "rub",
         "rur": "rub",
         "xtr": STARS_TARIFF_CURRENCY,
         "star": STARS_TARIFF_CURRENCY,
@@ -27,7 +33,7 @@ def normalize_currency_key(value: Any, default: str = DEFAULT_TARIFF_CURRENCY) -
     return cleaned or default
 
 
-def payment_currency_code(currency: Any, default: str = "RUB") -> str:
+def payment_currency_code(currency: Any, default: str = "CNY") -> str:
     key = normalize_currency_key(currency, default=normalize_currency_key(default))
     if key == STARS_TARIFF_CURRENCY:
         return "XTR"
@@ -400,19 +406,24 @@ class Tariff(BaseModel):
 
 
 class TariffsConfig(BaseModel):
-    default_tariff: str
+    default_tariff: str = ""
     default_currency: str = DEFAULT_TARIFF_CURRENCY
     topup_packages_default: Optional[PackageSet] = None
-    tariffs: List[Tariff]
+    tariffs: List[Tariff] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_config(self) -> "TariffsConfig":
+        self.default_tariff = str(self.default_tariff or "").strip()
         self.default_currency = normalize_currency_key(self.default_currency)
         if self.default_currency == STARS_TARIFF_CURRENCY:
             raise ValueError("default_currency must be a non-Stars payment currency")
         keys = [tariff.key for tariff in self.tariffs]
         if len(keys) != len(set(keys)):
             raise ValueError("tariff keys must be unique")
+        if not self.tariffs:
+            if self.default_tariff:
+                raise ValueError("default_tariff must be empty when tariffs list is empty")
+            return self
         active = [tariff for tariff in self.tariffs if tariff.enabled]
         if not active:
             raise ValueError("at least one enabled tariff is required")
@@ -424,6 +435,9 @@ class TariffsConfig(BaseModel):
     @property
     def enabled_tariffs(self) -> List[Tariff]:
         return [tariff for tariff in self.tariffs if tariff.enabled]
+
+    def __bool__(self) -> bool:
+        return bool(self.enabled_tariffs)
 
     def get(self, key: str) -> Optional[Tariff]:
         return next((tariff for tariff in self.tariffs if tariff.key == key), None)

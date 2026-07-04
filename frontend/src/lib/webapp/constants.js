@@ -1,5 +1,6 @@
 export const MANUAL_LOGOUT_FLAG_KEY = "rw_webapp_manual_logout";
 export const LANGUAGE_LABELS = {
+  "zh-cn": "简体中文",
   en: "English",
   de: "Deutsch",
   es: "Español",
@@ -10,6 +11,7 @@ export const LANGUAGE_LABELS = {
   uk: "Українська",
 };
 export const LANGUAGE_FLAGS = {
+  "zh-cn": "🇨🇳",
   en: "🇬🇧",
   de: "🇩🇪",
   es: "🇪🇸",
@@ -19,7 +21,7 @@ export const LANGUAGE_FLAGS = {
   tr: "🇹🇷",
   uk: "🇺🇦",
 };
-export const WEBAPP_LANGUAGE_ORDER = ["ru", "en"];
+export const WEBAPP_LANGUAGE_ORDER = ["zh-cn", "en", "ru"];
 export const LOCALE_KEY_ALIASES = {
   admin_apply: "wa_apply",
   admin_ads_col_status: "admin_status",

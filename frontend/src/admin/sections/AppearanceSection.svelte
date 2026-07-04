@@ -66,6 +66,8 @@
     "WEBAPP_FAVICON_URL",
     "WEBAPP_FAVICON_USE_CUSTOM",
     "WEBAPP_LOGO_FAVICON_URL",
+    "WEBAPP_HOME_BRAND_VISIBLE",
+    "WEBAPP_TARIFF_CHANGE_VISIBLE",
     "WEBAPP_ENABLED",
   ]);
   let logoFileInput = $state<HTMLInputElement | null>(null);
@@ -100,9 +102,43 @@
     settingsSections.find((section: SettingsSection) => section.id === "appearance")?.fields || []
   );
   const fieldMap = $derived(new Map(appearanceFields.map((field) => [field.key, field])));
+  const homeBrandVisibleField = $derived(fieldMap.get("WEBAPP_HOME_BRAND_VISIBLE"));
+  const tariffChangeVisibleField = $derived(fieldMap.get("WEBAPP_TARIFF_CHANGE_VISIBLE"));
   const activeKey = $derived(themesCatalog.default_theme);
   const logoUrl = $derived(stringValueForKey("WEBAPP_LOGO_URL"));
   const currentLogoUrl = $derived(pendingLogoPreviewUrl || logoUrl || brand?.logoUrl || "");
+  const homeBrandVisible = $derived(boolValue(valueForKey("WEBAPP_HOME_BRAND_VISIBLE", true)));
+  const tariffChangeVisible = $derived(
+    boolValue(valueForKey("WEBAPP_TARIFF_CHANGE_VISIBLE", true))
+  );
+  const homeBrandVisibleLabel = $derived(
+    fieldLabelText(
+      homeBrandVisibleField,
+      "settings_field_webapp_home_brand_visible_label",
+      "显示首页品牌区"
+    )
+  );
+  const homeBrandVisibleDescription = $derived(
+    fieldDescriptionText(
+      homeBrandVisibleField,
+      "settings_field_webapp_home_brand_visible_description",
+      "控制 Web App 首页顶部的大 Logo 和站点名称是否显示。"
+    )
+  );
+  const tariffChangeVisibleLabel = $derived(
+    fieldLabelText(
+      tariffChangeVisibleField,
+      "settings_field_webapp_tariff_change_visible_label",
+      "显示首页切换套餐按钮"
+    )
+  );
+  const tariffChangeVisibleDescription = $derived(
+    fieldDescriptionText(
+      tariffChangeVisibleField,
+      "settings_field_webapp_tariff_change_visible_description",
+      "控制 Web App 首页订阅卡片上的“切换套餐”入口是否显示。"
+    )
+  );
   const previewLogoUrl = $derived(
     logoPreviewNonce && currentLogoUrl ? withLogoCacheBust(currentLogoUrl) : currentLogoUrl
   );
@@ -186,6 +222,35 @@
 
   function isAppearanceSettingKey(key: string): boolean {
     return APPEARANCE_SETTING_KEYS.has(key) || appearanceFields.some((field) => field.key === key);
+  }
+
+  function adminLocaleKey(key: unknown): string {
+    const raw = String(key || "");
+    return raw.startsWith("admin_") ? raw.slice("admin_".length) : raw;
+  }
+
+  function fieldLabelText(
+    field: SettingField | undefined,
+    fallbackKey: string,
+    fallback: string
+  ): string {
+    if (!field) return at(fallbackKey, {}, fallback);
+    const labelFallback = field.label || fallback;
+    return field.i18n_label_key
+      ? at(adminLocaleKey(field.i18n_label_key), {}, labelFallback)
+      : at(fallbackKey, {}, labelFallback);
+  }
+
+  function fieldDescriptionText(
+    field: SettingField | undefined,
+    fallbackKey: string,
+    fallback: string
+  ): string {
+    if (!field) return at(fallbackKey, {}, fallback);
+    const descriptionFallback = field.description || fallback;
+    return field.i18n_description_key
+      ? at(adminLocaleKey(field.i18n_description_key), {}, descriptionFallback)
+      : at(fallbackKey, {}, descriptionFallback);
   }
 
   function boolValue(value: unknown): boolean {
@@ -587,6 +652,14 @@
     }
   }
 
+  function setHomeBrandVisible(enabled: boolean): void {
+    settingsStore.markDirty("WEBAPP_HOME_BRAND_VISIBLE", Boolean(enabled));
+  }
+
+  function setTariffChangeVisible(enabled: boolean): void {
+    settingsStore.markDirty("WEBAPP_TARIFF_CHANGE_VISIBLE", Boolean(enabled));
+  }
+
   async function saveAppearance(): Promise<void> {
     const keysToSave = new Set(appearanceDirtyKeys);
     const shouldReloadFrontend = Array.from(keysToSave).some((key) =>
@@ -595,6 +668,8 @@
         "WEBAPP_FAVICON_URL",
         "WEBAPP_FAVICON_USE_CUSTOM",
         "WEBAPP_LOGO_FAVICON_URL",
+        "WEBAPP_HOME_BRAND_VISIBLE",
+        "WEBAPP_TARIFF_CHANGE_VISIBLE",
       ].includes(key)
     );
     let settingsSaved = true;
@@ -700,14 +775,14 @@
 </script>
 
 {#if themesLoading || settingsLoading}
-  <AdminEmptyState>{at("loading", {}, "Загрузка…")}</AdminEmptyState>
+  <AdminEmptyState>{at("loading", {}, "加载中…")}</AdminEmptyState>
 {:else}
   <div class="appearance-stack">
     <article class="admin-card">
       <header class="admin-card-head">
         <div>
-          <h3>{at("appearance_brand_title", {}, "Логотип")}</h3>
-          <small>{at("appearance_brand_sub", {}, "Загрузите логотип файлом или по ссылке")}</small>
+          <h3>{at("appearance_brand_title", {}, "Logo 标识")}</h3>
+          <small>{at("appearance_brand_sub", {}, "上传 Logo 文件或填写 URL。")}</small>
         </div>
         <div class="admin-editor-section-actions">
           {#if appearanceDirtyCount}
@@ -715,7 +790,7 @@
               {at(
                 "settings_dirty_count",
                 { count: appearanceDirtyCount },
-                `Изменений: ${appearanceDirtyCount}`
+                `共 ${appearanceDirtyCount} 处修改`
               )}
             </AdminBadge>
           {/if}
@@ -727,8 +802,8 @@
           >
             <Save size={13} />
             {settingsSaving || themesSaving
-              ? at("btn_saving", {}, "Сохранение...")
-              : at("btn_save", {}, "Сохранить")}
+              ? at("btn_saving", {}, "保存中...")
+              : at("btn_save", {}, "保存")}
           </AdminButton>
         </div>
       </header>
@@ -765,7 +840,7 @@
               disabled={themesSaving}
             >
               <FileText size={13} />
-              {at("appearance_logo_upload_file", {}, "Загрузить файл")}
+              {at("appearance_logo_upload_file", {}, "上传文件")}
             </AdminButton>
             <div class="appearance-url-row">
               <Input
@@ -780,9 +855,43 @@
                 onclick={uploadLogoFromUrl}
                 disabled={themesSaving || !logoSourceUrl.trim()}
               >
-                {at("appearance_logo_upload_url", {}, "По ссылке")}
+                {at("appearance_logo_upload_url", {}, "通过 URL")}
               </AdminButton>
             </div>
+          </section>
+
+          <section class="appearance-control-card" data-setting-key="WEBAPP_HOME_BRAND_VISIBLE">
+            <label class="appearance-switch">
+              <Switch.Root
+                aria-label={homeBrandVisibleLabel}
+                checked={homeBrandVisible}
+                onCheckedChange={setHomeBrandVisible}
+                class="admin-switch-root"
+              >
+                <Switch.Thumb class="admin-switch-thumb" />
+              </Switch.Root>
+              <span>{homeBrandVisibleLabel}</span>
+            </label>
+            {#if homeBrandVisibleDescription}
+              <small class="appearance-control-note">{homeBrandVisibleDescription}</small>
+            {/if}
+          </section>
+
+          <section class="appearance-control-card" data-setting-key="WEBAPP_TARIFF_CHANGE_VISIBLE">
+            <label class="appearance-switch">
+              <Switch.Root
+                aria-label={tariffChangeVisibleLabel}
+                checked={tariffChangeVisible}
+                onCheckedChange={setTariffChangeVisible}
+                class="admin-switch-root"
+              >
+                <Switch.Thumb class="admin-switch-thumb" />
+              </Switch.Root>
+              <span>{tariffChangeVisibleLabel}</span>
+            </label>
+            {#if tariffChangeVisibleDescription}
+              <small class="appearance-control-note">{tariffChangeVisibleDescription}</small>
+            {/if}
           </section>
         </div>
       </div>
@@ -809,20 +918,14 @@
           <section class="appearance-control-card">
             <label class="appearance-switch">
               <Switch.Root
-                aria-label={at(
-                  "appearance_use_custom_favicon",
-                  {},
-                  "Использовать отдельную favicon"
-                )}
+                aria-label={at("appearance_use_custom_favicon", {}, "使用单独的 favicon")}
                 bind:checked={faviconUseCustomDraft}
                 onCheckedChange={setCustomFavicon}
                 class="admin-switch-root"
               >
                 <Switch.Thumb class="admin-switch-thumb" />
               </Switch.Root>
-              <span
-                >{at("appearance_use_custom_favicon", {}, "Использовать отдельную favicon")}</span
-              >
+              <span>{at("appearance_use_custom_favicon", {}, "使用单独的 favicon")}</span>
             </label>
             <FileInput
               bind:element={faviconFileInput}
@@ -837,7 +940,7 @@
               disabled={themesSaving}
             >
               <FileText size={13} />
-              {at("appearance_favicon_upload_file", {}, "Загрузить favicon")}
+              {at("appearance_favicon_upload_file", {}, "上传 favicon")}
             </AdminButton>
             <div class="appearance-url-row">
               <Input
@@ -852,7 +955,7 @@
                 onclick={uploadFaviconFromUrl}
                 disabled={themesSaving || !faviconSourceUrl.trim()}
               >
-                {at("appearance_favicon_upload_url", {}, "По ссылке")}
+                {at("appearance_favicon_upload_url", {}, "通过 URL")}
               </AdminButton>
             </div>
           </section>
@@ -863,14 +966,8 @@
     <article class="admin-card">
       <header class="admin-card-head">
         <div>
-          <h3>{at("appearance_themes_title", {}, "Темы")}</h3>
-          <small
-            >{at(
-              "appearance_themes_sub",
-              {},
-              "Глобальная тема, accent color и предпросмотр"
-            )}</small
-          >
+          <h3>{at("appearance_themes_title", {}, "主题")}</h3>
+          <small>{at("appearance_themes_sub", {}, "全局主题、强调色和预览")}</small>
         </div>
         <div class="admin-editor-section-actions">
           <AdminButton
@@ -879,7 +976,7 @@
             disabled={themesLoading || themesSaving}
           >
             <RefreshCw size={13} />
-            {at("btn_refresh", {}, "Обновить")}
+            {at("btn_refresh", {}, "刷新")}
           </AdminButton>
           <AdminButton
             size="sm"
@@ -888,18 +985,14 @@
             disabled={settingsSaving || themesSaving}
           >
             <Save size={13} />
-            {at("btn_save", {}, "Сохранить")}
+            {at("btn_save", {}, "保存")}
           </AdminButton>
         </div>
       </header>
       <div class="admin-card-body appearance-themes-body">
         {#if !visibleThemes.length}
           <AdminEmptyState>
-            {at(
-              "themes_catalog_empty",
-              {},
-              "Каталог пуст. Добавьте папку темы в data/themes и обновите список."
-            )}
+            {at("themes_catalog_empty", {}, "主题目录为空。请在 data/themes 中添加主题后刷新。")}
           </AdminEmptyState>
         {:else}
           <AppearanceDefaultThemeEditor

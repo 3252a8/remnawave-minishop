@@ -33,6 +33,8 @@ class EmailSettings(BaseModel):
 class WebAppSettings(BaseModel):
     title: str
     primary_color: str
+    home_brand_visible: bool
+    tariff_change_visible: bool
     logo_url: Optional[str]
     favicon_use_custom: bool
     favicon_url: Optional[str]

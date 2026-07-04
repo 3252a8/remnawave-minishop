@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: deploy/docker/Dockerfile
       target: frontend
-    image: 3252a8/remnawave-minishop-frontend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REPOSITORY_PREFIX:-3252a8/remnawave-minishop}-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     # Run with a real init (tini) as PID 1 so healthcheck child processes are
     # reaped. nginx's master only waits on its own workers, not adopted
@@ -34,7 +34,7 @@ services:
       context: .
       dockerfile: deploy/docker/Dockerfile
       target: backend
-    image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REPOSITORY_PREFIX:-3252a8/remnawave-minishop}-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     # Run with a real init (tini) as PID 1 so the healthcheck process is reaped.
     # The app's PID 1 (python) does not reap orphans, so each healthcheck run
@@ -74,7 +74,7 @@ services:
       context: .
       dockerfile: deploy/docker/Dockerfile
       target: worker
-    image: 3252a8/remnawave-minishop-worker:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REPOSITORY_PREFIX:-3252a8/remnawave-minishop}-worker:${IMAGE_TAG:-latest}
     restart: unless-stopped
     # Real init (tini) as PID 1 for proper signal forwarding / zombie reaping.
     init: true
@@ -99,7 +99,7 @@ services:
 
   migrate:
     container_name: remnawave-minishop-migrate
-    image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REPOSITORY_PREFIX:-3252a8/remnawave-minishop}-backend:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile

@@ -142,10 +142,14 @@ async def tariff_change_options_route(request: web.Request) -> web.Response:
                 400, "subscription_required", "Active tariff subscription is required"
             )
         lang = db_user.language_code or settings.DEFAULT_LANGUAGE
-        current = config.require(sub.tariff_key)
+        current = config.get(sub.tariff_key)
+        current_key = current.key if current else str(sub.tariff_key or "").strip()
+        current_title = current.name(lang) if current else current_key
+        current_description = current.description(lang) if current else ""
+        current_billing_model = current.billing_model if current else "period"
         targets = []
         for tariff in config.enabled_tariffs:
-            if tariff.key == current.key:
+            if tariff.key == current_key:
                 continue
             options = await subscription_service.calculate_tariff_switch_options_with_hwid(
                 session, sub, tariff
@@ -155,10 +159,10 @@ async def tariff_change_options_route(request: web.Request) -> web.Response:
             {
                 "ok": True,
                 "current": {
-                    "tariff_key": current.key,
-                    "title": current.name(lang),
-                    "description": current.description(lang),
-                    "billing_model": current.billing_model,
+                    "tariff_key": current_key,
+                    "title": current_title,
+                    "description": current_description,
+                    "billing_model": current_billing_model,
                 },
                 "targets": targets,
             }

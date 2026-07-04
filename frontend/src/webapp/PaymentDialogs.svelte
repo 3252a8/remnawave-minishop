@@ -517,6 +517,19 @@
             {t}
             onSelect={(id) => (selectedMethod = id)}
           />
+          <div class="checkout-handoff-note">
+            <LockKeyhole size={16} />
+            <span>
+              <strong>{t("wa_checkout_external_payment_title", {}, "Secure payment")}</strong>
+              <small>
+                {t(
+                  "wa_checkout_external_payment_hint",
+                  {},
+                  "The payment page opens after confirmation; this app will watch for activation."
+                )}
+              </small>
+            </span>
+          </div>
         {:else}
           <EmptyCard>{t("wa_payment_methods_not_configured")}</EmptyCard>
         {/if}
@@ -627,6 +640,19 @@
           {t}
           onSelect={(id) => (selectedMethod = id)}
         />
+        <div class="checkout-handoff-note">
+          <LockKeyhole size={16} />
+          <span>
+            <strong>{t("wa_checkout_external_payment_title", {}, "Secure payment")}</strong>
+            <small>
+              {t(
+                "wa_checkout_external_payment_hint",
+                {},
+                "The payment page opens after confirmation; this app will watch for activation."
+              )}
+            </small>
+          </span>
+        </div>
       {:else}
         <EmptyCard>{t("wa_payment_methods_not_configured")}</EmptyCard>
       {/if}

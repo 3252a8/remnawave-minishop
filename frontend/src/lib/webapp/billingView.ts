@@ -76,7 +76,11 @@ export function computeBillingView({
   const hasActiveTariffSubscription = Boolean(
     tariffMode && subscription?.active && subscription?.tariff_key
   );
-  const canChangeTariff = Boolean(hasActiveTariffSubscription && hasMultipleTariffs);
+  const canChangeTariff = Boolean(
+    appSettings?.tariff_change_visible !== false &&
+    hasActiveTariffSubscription &&
+    hasMultipleTariffs
+  );
   const currentTariffName = activeTariffName(subscription, plans);
   const canOpenRegularTopupModal = Boolean(
     hasActiveTariffSubscription &&

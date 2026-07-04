@@ -34,6 +34,8 @@ def _changed_setting_keys(
 WEBAPP_APPEARANCE_SETTING_KEYS = frozenset(
     {
         "WEBAPP_TITLE",
+        "WEBAPP_HOME_BRAND_VISIBLE",
+        "WEBAPP_TARIFF_CHANGE_VISIBLE",
         "WEBAPP_LOGO_URL",
         "WEBAPP_FAVICON_URL",
         "WEBAPP_FAVICON_USE_CUSTOM",

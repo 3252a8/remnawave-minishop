@@ -93,6 +93,7 @@ export const TRAFFIC_STRATEGY_OPTIONS = [
 
 const PROVIDER_FALLBACK_LABELS = {
   cryptopay: "CryptoPay",
+  epay: "易支付",
   freekassa: "FreeKassa",
   heleket: "Heleket",
   lava: "LAVA",
@@ -109,6 +110,7 @@ const PROVIDER_FALLBACK_LABELS = {
 
 const PROVIDER_SETTINGS_PATHS: Partial<Record<ProviderKey, string[]>> = {
   cryptopay: ["payments", "cryptopay"],
+  epay: ["payments", "epay"],
   freekassa: ["payments", "freekassa"],
   heleket: ["payments", "heleket"],
   lava: ["payments", "lava"],

@@ -1,11 +1,11 @@
 name: Dependency review
 
-# On PRs into main/dev, flag any newly added dependency that has a known
+# On PRs into dev/prod, flag any newly added dependency that has a known
 # vulnerability or an incompatible license before it gets merged.
 
 on:
   pull_request:
-    branches: [main, dev]
+    branches: [dev, prod]
 
 permissions:
   contents: read

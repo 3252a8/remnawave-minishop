@@ -65,6 +65,23 @@ describe("computeBillingView", () => {
     expect(view.regularTrafficTopupBarClickable).toBe(false);
   });
 
+  it("hides tariff change action when the WebApp switch is disabled", () => {
+    const view = computeBillingView({
+      appSettings: { tariff_change_visible: false },
+      plans: [periodPlan, trafficPlan],
+      selectedTariffKey: "period",
+      subscription: {
+        active: true,
+        tariff_key: "period",
+      },
+      topupUnlockPercent: 80,
+    });
+
+    expect(view.hasActiveTariffSubscription).toBe(true);
+    expect(view.hasMultipleTariffs).toBe(true);
+    expect(view.canChangeTariff).toBe(false);
+  });
+
   it("lets traffic tariffs open top-up from the progress bar before the threshold", () => {
     const view = computeBillingView({
       appSettings: {},

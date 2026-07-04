@@ -24,12 +24,14 @@
     at = (key, _params = {}, fallback = "") => fallback || key,
     fmtDate = (value) => String(value || ""),
     fmtMoney = (amount, currency) => `${amount} ${currency || ""}`.trim(),
+    paymentStatusLabel = (status) => String(status || "—"),
     paymentStatusVariant = () => "muted",
     onOpenUserCard = () => {},
   }: {
     at?: TranslateFn;
     fmtDate?: (value: string | null | undefined) => string;
     fmtMoney?: (amount: unknown, currency?: string | null) => string;
+    paymentStatusLabel?: (status: string | null | undefined) => string;
     paymentStatusVariant?: (status: string | null | undefined) => string;
     onOpenUserCard?: (userId: number) => void;
   } = $props();
@@ -45,7 +47,7 @@
   );
   const title = $derived(
     payment
-      ? at("payment_detail_title", { id: payment.payment_id }, `Платёж #${payment.payment_id}`)
+      ? at("payment_detail_title", { id: payment.payment_id }, `支付 #${payment.payment_id}`)
       : ""
   );
   const description = $derived(
@@ -89,7 +91,7 @@
         at(
           "payment_detail_regular_traffic",
           { gb: formatGb(regularGb) },
-          `Основной: ${formatGb(regularGb)}`
+          `标准流量：${formatGb(regularGb)}`
         )
       );
     }
@@ -98,7 +100,7 @@
         at(
           "payment_detail_premium_traffic",
           { gb: formatGb(premiumGb) },
-          `Премиум: ${formatGb(premiumGb)}`
+          `高级流量：${formatGb(premiumGb)}`
         )
       );
     }
@@ -106,13 +108,27 @@
   }
 
   function paymentDescription(p: AdminPayment | null): string {
+    const traffic = formatTrafficSplit(p);
+    if (traffic !== "—") return traffic;
+    const hwidDevices = p?.purchased_hwid_devices;
+    if (present(hwidDevices) && Number(hwidDevices) > 0) {
+      return at(
+        "payments_desc_hwid_devices",
+        { count: hwidDevices },
+        `加购 HWID 设备 ${hwidDevices} 台`
+      );
+    }
+    const months = p?.subscription_duration_months;
+    if (present(months) && Number(months) > 0) {
+      return at("payments_desc_subscription_months", { count: months }, `订阅 ${months} 个月`);
+    }
     const raw = p?.description && String(p.description).trim();
     if (raw) return raw;
-    return formatTrafficSplit(p);
+    return "—";
   }
 
   function copy(value: unknown): void {
-    paymentsStore.copyToClipboard(value, at("payment_detail_copied", {}, "Скопировано"));
+    paymentsStore.copyToClipboard(value, at("payment_detail_copied", {}, "已复制"));
   }
 
   function openUser(): void {
@@ -124,7 +140,7 @@
   function durationText(p: AdminPayment | null): string {
     const months = p?.subscription_duration_months;
     return present(months)
-      ? at("payment_detail_months_count", { count: months }, `${months} мес.`)
+      ? at("payment_detail_months_count", { count: months }, `${months} 个月`)
       : "";
   }
 
@@ -140,25 +156,25 @@
       copy: payment?.payment_id,
     },
     {
-      label: at("amount", {}, "Сумма"),
+      label: at("amount", {}, "金额"),
       value: money(payment?.amount, payment?.currency),
     },
-    { label: at("status", {}, "Статус"), value: payment?.status },
+    { label: at("status", {}, "状态"), value: paymentStatusLabel(payment?.status) },
     {
-      label: at("date", {}, "Дата"),
+      label: at("date", {}, "日期"),
       value: payment?.created_at ? fmtDate(payment.created_at) : "",
     },
     {
-      label: at("payment_detail_updated_at", {}, "Обновлён"),
+      label: at("payment_detail_updated_at", {}, "已更新"),
       value: payment?.updated_at ? fmtDate(payment.updated_at) : "",
     },
-    { label: at("description", {}, "Описание"), value: paymentDescription(payment) },
+    { label: at("description", {}, "描述"), value: paymentDescription(payment) },
   ] satisfies MetaRow[]);
 
   const providerRows = $derived([
-    { label: at("provider", {}, "Провайдер"), value: payment?.provider },
+    { label: at("provider", {}, "支付方式"), value: payment?.provider },
     {
-      label: at("payment_detail_provider_payment_id", {}, "ID у провайдера"),
+      label: at("payment_detail_provider_payment_id", {}, "渠道支付 ID"),
       value: payment?.provider_payment_id,
       copy: payment?.provider_payment_id,
     },
@@ -168,36 +184,36 @@
       copy: payment?.yookassa_payment_id,
     },
     {
-      label: at("payment_detail_idempotence_key", {}, "Ключ идемпотентности"),
+      label: at("payment_detail_idempotence_key", {}, "幂等键"),
       value: payment?.idempotence_key,
       copy: payment?.idempotence_key,
     },
   ] satisfies MetaRow[]);
 
   const purchaseRows = $derived([
-    { label: at("payment_detail_sale_mode", {}, "Тип продажи"), value: payment?.sale_mode },
-    { label: at("payment_detail_tariff_key", {}, "Тариф"), value: payment?.tariff_key },
+    { label: at("payment_detail_sale_mode", {}, "销售模式"), value: payment?.sale_mode },
+    { label: at("payment_detail_tariff_key", {}, "套餐"), value: payment?.tariff_key },
     {
-      label: at("payment_detail_duration_months", {}, "Период"),
+      label: at("payment_detail_duration_months", {}, "周期"),
       value: durationText(payment),
     },
     {
-      label: at("payment_detail_traffic", {}, "Трафик"),
+      label: at("payment_detail_traffic", {}, "流量"),
       value: formatTrafficSplit(payment),
     },
     {
-      label: at("payment_detail_purchased_gb", {}, "Куплено GB"),
+      label: at("payment_detail_purchased_gb", {}, "购买流量"),
       value: purchasedGbText(payment),
     },
     {
-      label: at("payment_detail_hwid_devices", {}, "HWID-устройства"),
+      label: at("payment_detail_hwid_devices", {}, "HWID 设备"),
       value: payment?.purchased_hwid_devices,
     },
-    { label: at("payment_detail_promo_code", {}, "Промокод"), value: payment?.promo_code },
+    { label: at("payment_detail_promo_code", {}, "优惠码"), value: payment?.promo_code },
   ] satisfies MetaRow[]);
 
   const userRows = $derived([
-    { label: at("user", {}, "Пользователь"), value: payment?.user_label },
+    { label: at("user", {}, "用户"), value: payment?.user_label },
     { label: "User ID", value: payment?.user_id, copy: payment?.user_id },
     { label: "Telegram ID", value: payment?.telegram_id, copy: payment?.telegram_id },
   ] satisfies MetaRow[]);
@@ -207,7 +223,7 @@
   open={Boolean(openedPaymentId)}
   {title}
   {description}
-  closeLabel={at("close", {}, "Закрыть")}
+  closeLabel={at("close", {}, "关闭")}
   onclose={closePayment}
   class="admin-dialog admin-payment-dialog"
 >
@@ -223,7 +239,7 @@
             <small>{paymentDescription(payment)}</small>
             <div class="admin-payment-summary-tags">
               <AdminBadge variant={paymentStatusVariant(payment.status)}
-                >{display(payment.status)}</AdminBadge
+                >{paymentStatusLabel(payment.status)}</AdminBadge
               >
               {#if payment.provider}
                 <AdminBadge variant="muted">{payment.provider}</AdminBadge>
@@ -235,18 +251,18 @@
         <div class="admin-payment-stats">
           <div class="admin-payment-stat">
             <CreditCard size={15} />
-            <span>{at("payment_detail_provider", {}, "Провайдер")}</span>
+            <span>{at("payment_detail_provider", {}, "支付方式")}</span>
             <strong>{display(payment.provider)}</strong>
           </div>
           <div class="admin-payment-stat">
             <CalendarDays size={15} />
-            <span>{at("date", {}, "Дата")}</span>
+            <span>{at("date", {}, "日期")}</span>
             <strong>{payment.created_at ? fmtDate(payment.created_at) : "—"}</strong>
           </div>
         </div>
 
         <div class="admin-subsection-title">
-          {at("payment_detail_user_section", {}, "Пользователь")}
+          {at("payment_detail_user_section", {}, "用户")}
         </div>
         <ul class="admin-meta-list admin-payment-meta-list">
           {#each userRows as row}
@@ -257,7 +273,7 @@
                 <AdminButton
                   size="icon"
                   variant="icon"
-                  title={at("user_copy_tooltip", {}, "Скопировать")}
+                  title={at("user_copy_tooltip", {}, "复制")}
                   onclick={() => copy(row.copy)}
                 >
                   <Copy size={14} />
@@ -269,18 +285,18 @@
 
         <AdminButton variant="ghost" onclick={openUser} disabled={!payment.user_id}>
           <User size={14} />
-          {at("payments_open_user", {}, "Открыть карточку пользователя")}
+          {at("payments_open_user", {}, "打开用户卡片")}
         </AdminButton>
       </aside>
 
       <main class="admin-payment-main">
         {#if paymentDetailLoading && !openedPayment}
-          <p class="admin-muted">{at("loading", {}, "Загрузка...")}</p>
+          <p class="admin-muted">{at("loading", {}, "加载中...")}</p>
         {:else}
           <section class="admin-payment-panel">
             <div class="admin-payment-panel-head">
               <CreditCard size={16} />
-              <h3>{at("payment_detail_payment_section", {}, "Платёж")}</h3>
+              <h3>{at("payment_detail_payment_section", {}, "支付")}</h3>
             </div>
             <ul class="admin-meta-list admin-payment-meta-list">
               {#each paymentRows as row}
@@ -291,7 +307,7 @@
                     <AdminButton
                       size="icon"
                       variant="icon"
-                      title={at("user_copy_tooltip", {}, "Скопировать")}
+                      title={at("user_copy_tooltip", {}, "复制")}
                       onclick={() => copy(row.copy)}
                     >
                       <Copy size={14} />
@@ -305,7 +321,7 @@
           <section class="admin-payment-panel">
             <div class="admin-payment-panel-head">
               <Database size={16} />
-              <h3>{at("payment_detail_provider_section", {}, "Провайдер")}</h3>
+              <h3>{at("payment_detail_provider_section", {}, "支付方式")}</h3>
             </div>
             <ul class="admin-meta-list admin-payment-meta-list">
               {#each providerRows as row}
@@ -316,7 +332,7 @@
                     <AdminButton
                       size="icon"
                       variant="icon"
-                      title={at("user_copy_tooltip", {}, "Скопировать")}
+                      title={at("user_copy_tooltip", {}, "复制")}
                       onclick={() => copy(row.copy)}
                     >
                       <Copy size={14} />
@@ -330,7 +346,7 @@
           <section class="admin-payment-panel">
             <div class="admin-payment-panel-head">
               <Tag size={16} />
-              <h3>{at("payment_detail_purchase_section", {}, "Покупка")}</h3>
+              <h3>{at("payment_detail_purchase_section", {}, "购买信息")}</h3>
             </div>
             <ul class="admin-meta-list admin-payment-meta-list">
               {#each purchaseRows as row}

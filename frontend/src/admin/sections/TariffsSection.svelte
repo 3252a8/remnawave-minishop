@@ -72,12 +72,9 @@
   const settingsDirty: SettingsDirtyState = $derived(settingsStore.settingsDirty || {});
   const settingsSaving = $derived(Boolean(settingsStore.settingsSaving));
 
-  const enabledTariffs: Tariff[] = $derived(
-    (tariffsCatalog.tariffs || []).filter((tariff) => tariff.enabled !== false)
-  );
-  const disabledTariffs = $derived(
-    Math.max(0, (tariffsCatalog.tariffs || []).length - enabledTariffs.length)
-  );
+  const tariffs: Tariff[] = $derived(tariffsCatalog.tariffs || []);
+  const enabledTariffs: Tariff[] = $derived(tariffs.filter((tariff) => tariff.enabled !== false));
+  const disabledTariffs = $derived(Math.max(0, tariffs.length - enabledTariffs.length));
   const settingsFieldMap: Map<string, SettingField> = $derived(
     new Map(
       (settingsSections || [])
@@ -96,21 +93,38 @@
   );
 
   let legacyTariffSettingsOpen = $state(false);
-  let defaultCurrencyDraft = $state("RUB");
+  let defaultCurrencyDraft = $state("CNY");
 
   function tariffName(tariff: Tariff): string {
-    return tariff?.names?.ru || tariff?.names?.en || tariff?.key || "—";
+    return (
+      tariff?.names?.["zh-cn"] ||
+      tariff?.names?.zh ||
+      tariff?.names?.en ||
+      tariff?.names?.ru ||
+      tariff?.key ||
+      "—"
+    );
+  }
+
+  function tariffDescription(tariff: Tariff): string {
+    return (
+      tariff?.descriptions?.["zh-cn"] ||
+      tariff?.descriptions?.zh ||
+      tariff?.descriptions?.en ||
+      tariff?.descriptions?.ru ||
+      at("wa_tariff_no_description", {}, "暂无说明")
+    );
   }
 
   function tariffPriceSummary(tariff: Tariff): string {
-    const currency = normalizeCurrencyKey(tariffsCatalog.default_currency || "rub");
+    const currency = normalizeCurrencyKey(tariffsCatalog.default_currency || "cny");
     const currencyCode = currency.toUpperCase();
     if (tariff.billing_model === "traffic") {
       const packages = tariff.traffic_packages?.[currency] || [];
       const first = packages[0];
       return first
-        ? `${first.gb} GB ${at("at", {}, "за")} ${fmtMoney(first.price, currencyCode)}`
-        : at("tariff_traffic_packages", {}, "Пакеты трафика");
+        ? `${first.gb} GB ${at("at", {}, "每")} ${fmtMoney(first.price, currencyCode)}`
+        : at("tariff_traffic_packages", {}, "流量包");
     }
     const months = [...(tariff.enabled_periods || [])];
     return months
@@ -119,15 +133,15 @@
           (currency === "rub" ? tariff.prices_rub?.[String(month)] : undefined) ??
           tariff.prices?.[currency]?.[String(month)];
         const stars = tariff.prices_stars?.[String(month)];
-        if (rub) return `${month} ${at("months_short", {}, "мес.")} ${fmtMoney(rub, currencyCode)}`;
-        if (stars) return `${month} ${at("months_short", {}, "мес.")} ${stars} ⭐`;
-        return `${month} ${at("months_short", {}, "мес.")}`;
+        if (rub) return `${month} ${at("months_short", {}, "个月")} ${fmtMoney(rub, currencyCode)}`;
+        if (stars) return `${month} ${at("months_short", {}, "个月")} ${stars} ⭐`;
+        return `${month} ${at("months_short", {}, "个月")}`;
       })
       .join(" · ");
   }
 
   function tariffUnlimitedLabel(): string {
-    return at("tariff_traffic_unlimited", {}, "Безлимит");
+    return at("traffic_unlimited", {}, "不限流量");
   }
 
   function tariffGbLimitLabel(value: unknown): string {
@@ -183,10 +197,10 @@
   }
 
   const catalogCurrencyKey = $derived(
-    normalizeCurrencyKey(tariffsCatalog.default_currency || "rub")
+    normalizeCurrencyKey(tariffsCatalog.default_currency || "cny")
   );
   const catalogCurrencyCode = $derived(catalogCurrencyKey.toUpperCase());
-  const defaultCurrencyDraftKey = $derived(normalizeCurrencyKey(defaultCurrencyDraft || "rub"));
+  const defaultCurrencyDraftKey = $derived(normalizeCurrencyKey(defaultCurrencyDraft || "cny"));
   const defaultCurrencyDirty = $derived(defaultCurrencyDraftKey !== catalogCurrencyKey);
   const providerSupportSummary: ProviderSupportSummary = $derived(
     summarizeProviderSupport(providerCurrencySupport)
@@ -210,10 +224,10 @@
   }
 
   function providerCurrencyLabel(provider: ProviderCurrencySupport): string {
-    if (provider.accepts_any_currency) return at("tariff_provider_any_currency", {}, "Любая");
+    if (provider.accepts_any_currency) return at("tariff_provider_any_currency", {}, "任意币种");
     return (
       (provider.currencies || []).map((currency) => String(currency).toUpperCase()).join(", ") ||
-      at("tariff_provider_not_declared", {}, "Не задано")
+      at("tariff_provider_not_declared", {}, "未声明")
     );
   }
 
@@ -225,10 +239,10 @@
   }
 
   function providerCurrencyStatus(provider: ProviderCurrencySupport): string {
-    if (!provider.enabled) return at("disabled", {}, "Отключен");
-    if (!provider.configured) return at("status_not_configured", {}, "Не настроен");
-    if (provider.supports_default_currency) return at("tariff_currency_supported", {}, "Доступен");
-    return at("tariff_currency_unsupported", {}, "Заблокирован");
+    if (!provider.enabled) return at("disabled", {}, "已禁用");
+    if (!provider.configured) return at("tariff_provider_not_declared", {}, "未声明");
+    if (provider.supports_default_currency) return at("tariff_currency_supported", {}, "可用");
+    return at("tariff_currency_unsupported", {}, "不支持");
   }
 
   function openProviderSettings(provider: ProviderCurrencySupport): void {
@@ -246,28 +260,26 @@
 </script>
 
 {#if tariffsLoading}
-  <AdminEmptyState>{at("loading", {}, "Загрузка…")}</AdminEmptyState>
+  <AdminEmptyState>{at("loading", {}, "加载中…")}</AdminEmptyState>
 {:else}
   <div class="admin-stat-grid">
     <div class="admin-stat-card">
-      <span class="admin-stat-label">{at("tariffs_stat_total", {}, "Всего тарифов")}</span>
-      <strong class="admin-stat-value">{tariffsCatalog.tariffs.length}</strong>
-      <span class="admin-stat-trend"
-        >{at("tariffs_stat_enabled", {}, "Включено")}: {enabledTariffs.length}</span
-      >
+      <span class="admin-stat-label">{at("tariffs_stat_total", {}, "套餐总数")}</span>
+      <strong class="admin-stat-value">{tariffs.length}</strong>
+      <span class="admin-stat-trend">{at("enabled", {}, "已启用")}: {enabledTariffs.length}</span>
     </div>
     <div class="admin-stat-card">
-      <span class="admin-stat-label">{at("tariffs_stat_default", {}, "По умолчанию")}</span>
+      <span class="admin-stat-label">{at("tariffs_stat_default", {}, "默认")}</span>
       <strong class="admin-stat-value">{tariffsCatalog.default_tariff || "—"}</strong>
       <span class="admin-stat-trend"
-        >{at("tariffs_stat_default_hint", {}, "Используется для новых подписок")}</span
+        >{at("tariffs_stat_default_hint", {}, "当前默认销售套餐。")}</span
       >
     </div>
     <div class="admin-stat-card">
-      <span class="admin-stat-label">{at("tariffs_stat_disabled", {}, "Отключено")}</span>
+      <span class="admin-stat-label">{at("tariffs_stat_disabled", {}, "已禁用")}</span>
       <strong class="admin-stat-value">{disabledTariffs}</strong>
       <span class="admin-stat-trend"
-        >{at("tariffs_stat_disabled_hint", {}, "Скрыто с витрины")}</span
+        >{at("tariffs_stat_disabled_hint", {}, "当前禁用的套餐数量。")}</span
       >
     </div>
   </div>
@@ -295,25 +307,21 @@
       <article class="admin-card admin-tariff-currency-card">
         <header class="admin-card-head admin-tariff-panel-head">
           <div>
-            <h3>{at("tariffs_currency_title", {}, "Валюта каталога")}</h3>
+            <h3>{at("tariffs_currency_title", {}, "套餐币种")}</h3>
             <small>
-              {at(
-                "tariffs_currency_subtitle",
-                {},
-                "Цены тарифов и платёжные провайдеры проверяются по этой валюте."
-              )}
+              {at("tariffs_currency_subtitle", {}, "设置套餐和支付渠道使用的币种。")}
             </small>
           </div>
           <AdminBadge variant="muted">{catalogCurrencyCode}</AdminBadge>
         </header>
         <div class="admin-card-body admin-tariff-currency-body">
           <div class="admin-tariff-currency-current">
-            <span>{at("tariffs_currency_current", {}, "Текущая валюта")}</span>
+            <span>{at("tariffs_currency_current", {}, "当前币种")}</span>
             <strong>{catalogCurrencyCode}</strong>
           </div>
           <div class="admin-tariff-catalog-bar">
             <label class="admin-field-label-compact admin-tariff-currency-field">
-              <span>{at("tariff_default_currency", {}, "Валюта оплаты")}</span>
+              <span>{at("tariff_default_currency", {}, "默认币种")}</span>
               <Input
                 class="input admin-currency-input"
                 type="text"
@@ -332,8 +340,8 @@
               >
                 <Save size={13} />
                 {tariffsSaving
-                  ? at("btn_saving", {}, "Сохранение...")
-                  : at("btn_save", {}, "Сохранить")}
+                  ? at("btn_syncing", {}, "同步中...")
+                  : at("btn_save_tariff", {}, "保存套餐")}
               </AdminButton>
             {/if}
           </div>
@@ -343,13 +351,9 @@
       <article class="admin-card admin-tariff-providers-card">
         <header class="admin-card-head admin-tariff-panel-head">
           <div>
-            <h3>{at("tariffs_provider_title", {}, "Платёжные провайдеры")}</h3>
+            <h3>{at("tariffs_provider_title", {}, "支付提供商")}</h3>
             <small>
-              {at(
-                "tariffs_provider_subtitle",
-                {},
-                "Здесь видно, какие провайдеры смогут принять текущую валюту каталога."
-              )}
+              {at("tariffs_provider_subtitle", {}, "查看各支付渠道的启用状态和支持币种。")}
             </small>
           </div>
           <div class="admin-provider-summary">
@@ -357,14 +361,14 @@
               {at(
                 "tariffs_provider_available_count",
                 { count: providerSupportSummary.available },
-                "Доступно: {count}"
+                "可用: {count}"
               )}
             </AdminBadge>
             <AdminBadge variant="muted">
               {at(
                 "tariffs_provider_enabled_count",
                 { count: providerSupportSummary.enabled },
-                "Включено: {count}"
+                "已启用: {count}"
               )}
             </AdminBadge>
             {#if providerSupportSummary.blocked}
@@ -372,7 +376,7 @@
                 {at(
                   "tariffs_provider_blocked_count",
                   { count: providerSupportSummary.blocked },
-                  "Не подходят: {count}"
+                  "不支持: {count}"
                 )}
               </AdminBadge>
             {/if}
@@ -407,7 +411,7 @@
             </div>
           {:else}
             <AdminEmptyState>
-              {at("tariffs_provider_empty", {}, "Данные по провайдерам пока не загружены.")}
+              {at("tariffs_provider_empty", {}, "暂未加载支付渠道数据。")}
             </AdminEmptyState>
           {/if}
         </div>
@@ -417,9 +421,9 @@
     <article class="admin-card admin-tariff-list-card">
       <header class="admin-card-head admin-tariff-list-head">
         <div>
-          <h3>{at("tariffs_title", {}, "Каталог тарифов")}</h3>
+          <h3>{at("tariffs_title", {}, "套餐")}</h3>
           <small>
-            {at("tariffs_catalog_subtitle", {}, "Периоды, цены, трафик и доступы пользователей.")}
+            {at("tariffs_catalog_subtitle", {}, "销售目录、购买周期、流量包和访问权限。")}
           </small>
           <code class="admin-tariff-path">{tariffsPath || "data/tariffs.json"}</code>
         </div>
@@ -430,7 +434,7 @@
             disabled={tariffsLoading || tariffsSaving}
           >
             <RefreshCw size={13} />
-            {at("btn_refresh", {}, "Обновить")}
+            {at("btn_sync", {}, "刷新")}
           </AdminButton>
           <AdminButton
             size="sm"
@@ -439,65 +443,61 @@
             disabled={tariffsLoading || tariffsSaving}
           >
             <Plus size={13} />
-            {at("btn_create_tariff", {}, "Создать тариф")}
+            {at("btn_create_tariff", {}, "创建套餐")}
           </AdminButton>
         </div>
       </header>
       <div class="admin-card-body">
-        {#if !tariffsCatalog.tariffs.length}
+        {#if !tariffs.length}
           <AdminEmptyState>
             {at(
               "tariffs_catalog_empty",
               {},
-              "Каталог пуст. Добавьте первый тариф, после сохранения будет создан JSON-файл каталога."
+              "目录为空，请先添加套餐；保存后将生成 JSON 套餐目录。"
             )}
           </AdminEmptyState>
         {:else}
           <div class="admin-tariff-grid">
-            {#each tariffsCatalog.tariffs as tariff}
+            {#each tariffs as tariff}
               <article class="admin-tariff-card" class:is-disabled={tariff.enabled === false}>
                 <div class="admin-tariff-top">
                   <div>
                     <div class="admin-tariff-title">
                       <strong>{tariffName(tariff)}</strong>
                       {#if tariff.key === tariffsCatalog.default_tariff}
-                        <AdminBadge variant="success"
-                          >{at("status_default", {}, "Default")}</AdminBadge
+                        <AdminBadge variant="success">{at("status_default", {}, "默认")}</AdminBadge
                         >
                       {/if}
                     </div>
                     <code>{tariff.key}</code>
                   </div>
                   {#if tariff.enabled === false}
-                    <AdminBadge variant="muted">{at("status_disabled", {}, "Выключен")}</AdminBadge>
+                    <AdminBadge variant="muted">{at("status_disabled", {}, "已禁用")}</AdminBadge>
                   {:else}
-                    <AdminBadge variant="success">{at("status_active", {}, "Активен")}</AdminBadge>
+                    <AdminBadge variant="success">{at("tariff_visible", {}, "可见")}</AdminBadge>
                   {/if}
                 </div>
-                <p>
-                  {tariff.descriptions?.ru ||
-                    tariff.descriptions?.en ||
-                    at("no_description", {}, "Без описания")}
-                </p>
+                <p>{tariffDescription(tariff)}</p>
                 <div class="admin-tariff-facts">
                   <span
                     >{tariff.billing_model === "traffic"
-                      ? at("tariff_model_traffic", {}, "Трафик")
-                      : at("tariff_model_periods", {}, "Периоды")}</span
+                      ? at("tariff_model_traffic", {}, "流量包")
+                      : at("tariff_model_periods", {}, "周期订阅")}</span
                   >
                   <span>{tariffPriceSummary(tariff)}</span>
                   <span
-                    >{at("tariff_squads", {}, "Squads")}: {(tariff.squad_uuids || []).length}</span
+                    >{at("tariff_squads", {}, "套餐节点组")}: {(tariff.squad_uuids || [])
+                      .length}</span
                   >
                   <span
-                    >{at("tariff_regular_traffic", {}, "Обычный трафик")}:
+                    >{at("tariff_regular_traffic", {}, "基础流量")}:
                     {tariffMonthlyTrafficLimit(tariff)}</span
                   >
                   <span
-                    >{at("tariff_premium", {}, "Premium")}:
+                    >{at("tariff_premium", {}, "高级")}:
                     {tariffPremiumTrafficLimit(tariff)}</span
                   >
-                  <span>{at("tariff_devices", {}, "Устройства")}: {tariffDeviceLimit(tariff)}</span>
+                  <span>{at("tariff_devices", {}, "设备")}: {tariffDeviceLimit(tariff)}</span>
                 </div>
                 <div class="admin-tariff-actions">
                   <AdminButton
@@ -505,7 +505,7 @@
                     size="sm"
                     onclick={() => tariffsStore.openEditTariff(tariff)}
                   >
-                    {at("btn_configure", {}, "Настроить")}
+                    {at("btn_configure", {}, "配置")}
                   </AdminButton>
                   <AdminButton
                     size="sm"
@@ -513,8 +513,8 @@
                     disabled={tariffsSaving}
                   >
                     {tariff.enabled === false
-                      ? at("btn_enable", {}, "Включить")
-                      : at("btn_disable", {}, "Выключить")}
+                      ? at("btn_enable", {}, "开启")
+                      : at("btn_disable", {}, "关闭")}
                   </AdminButton>
                   <AdminButton
                     size="sm"
@@ -523,7 +523,7 @@
                       tariff.enabled === false ||
                       tariff.key === tariffsCatalog.default_tariff}
                   >
-                    {at("btn_set_default", {}, "По умолчанию")}
+                    {at("btn_set_default", {}, "设为默认")}
                   </AdminButton>
                   <AdminButton
                     data-admin-action="open-tariff-delete"
@@ -535,7 +535,7 @@
                         tariffDeleteOpen: true,
                       })}
                     disabled={tariffsSaving}
-                    aria-label={at("btn_delete_tariff", {}, "Удалить тариф")}
+                    aria-label={at("btn_delete_tariff", {}, "删除套餐")}
                   >
                     <Trash2 size={13} />
                   </AdminButton>
@@ -560,18 +560,18 @@
           onclick={() => (legacyTariffSettingsOpen = !legacyTariffSettingsOpen)}
         >
           <span class="admin-accordion-title">
-            {at("tariffs_legacy_title", {}, "Совместимость с legacy-тарифами")}
+            {at("tariffs_legacy_title", {}, "旧版套餐兼容设置")}
           </span>
           <span class="admin-accordion-meta">
             {at(
               "tariffs_legacy_subtitle",
               {},
-              "Старые периоды и пакеты трафика remnawave-tg-shop, которые используются только без JSON-каталога."
+              "旧 remnawave-tg-shop 的周期、价格和流量包配置；仅在没有 JSON 套餐目录时使用。"
             )}{#if legacyDirtyCount}
               · {at(
                 "settings_dirty_count",
                 { count: legacyDirtyCount },
-                `Изменений: ${legacyDirtyCount}`
+                `共 ${legacyDirtyCount} 处修改`
               )}{/if}
           </span>
           <ChevronRight size={16} class="admin-accordion-chev" />
@@ -586,7 +586,7 @@
                   {at(
                     "settings_dirty_count",
                     { count: legacyDirtyCount },
-                    `Изменений: ${legacyDirtyCount}`
+                    `共 ${legacyDirtyCount} 处修改`
                   )}
                 </AdminBadge>
                 <AdminButton
@@ -597,20 +597,20 @@
                 >
                   <Save size={13} />
                   {settingsSaving
-                    ? at("btn_saving", {}, "Сохранение...")
-                    : at("btn_save", {}, "Сохранить")}
+                    ? at("btn_syncing", {}, "同步中...")
+                    : at("btn_save_tariff", {}, "保存")}
                 </AdminButton>
               </div>
             {/if}
             <div class="admin-settings-warning" role="status">
               <TriangleAlert size={16} aria-hidden="true" />
               <div class="admin-settings-warning-copy">
-                <strong>{at("settings_legacy_tariffs_warning_title", {}, "Legacy tariffs")}</strong>
+                <strong>{at("settings_legacy_tariffs_warning_title", {}, "旧套餐说明")}</strong>
                 <p>
                   {at(
                     "settings_legacy_tariffs_warning_body",
                     {},
-                    "These settings are ignored when tariffs are configured in the dedicated Tariffs section."
+                    "当套餐在“套餐”区域单独配置后，这些旧兼容项不会生效。"
                   )}
                 </p>
               </div>
@@ -622,10 +622,10 @@
             >
               <div class="admin-setting-meta">
                 <strong>
-                  {at("tariffs_legacy_refs", {}, "Старые ref-ссылки с ID пользователя")}
+                  {at("tariffs_legacy_refs", {}, "兼容旧邀请链接")}
                   {#if settingsDirty.LEGACY_REFS}
                     <AdminBadge variant="warning"
-                      >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                      >{at("settings_badge_dirty", {}, "已修改")}</AdminBadge
                     >
                   {/if}
                 </strong>
@@ -634,18 +634,14 @@
                   {at(
                     "tariffs_legacy_refs_hint",
                     {},
-                    "Принимать ссылки вида /start ref_<telegram_id>, где в payload записан Telegram/user ID пригласившего. Оставляйте включённым только для старых раздач ссылок."
+                    "接受 /start ref_<telegram_id> 这种旧链接格式，其中 payload 是邀请人的 Telegram/user ID。只建议为历史推广链接保留开启。"
                   )}
                 </small>
               </div>
               <div class="admin-setting-control">
                 <div class="admin-setting-switch">
                   <Switch.Root
-                    aria-label={at(
-                      "tariffs_legacy_refs",
-                      {},
-                      "Старые ref-ссылки с ID пользователя"
-                    )}
+                    aria-label={at("tariffs_legacy_refs", {}, "兼容旧邀请链接")}
                     checked={boolValue("LEGACY_REFS", settingsDirty, settingsFieldMap)}
                     onCheckedChange={(checked) => setSetting("LEGACY_REFS", checked)}
                     class="admin-switch-root"
@@ -654,8 +650,8 @@
                   </Switch.Root>
                   <span
                     >{boolValue("LEGACY_REFS", settingsDirty, settingsFieldMap)
-                      ? at("enabled", {}, "Включено")
-                      : at("disabled", {}, "Выключено")}</span
+                      ? at("enabled", {}, "已启用")
+                      : at("status_disabled", {}, "已禁用")}</span
                   >
                 </div>
                 {#if settingsDirty.LEGACY_REFS}
@@ -665,7 +661,7 @@
                     onclick={() => settingsStore.clearDirty("LEGACY_REFS")}
                   >
                     <X size={12} />
-                    {at("reset", {}, "Сбросить")}
+                    {at("reset", {}, "重置")}
                   </AdminButton>
                 {/if}
               </div>
@@ -673,19 +669,19 @@
 
             <div class="admin-legacy-tariff-table">
               <div class="admin-legacy-tariff-row admin-legacy-tariff-head">
-                <span>{at("tariffs_legacy_period", {}, "Period")}</span>
-                <span>{at("tariffs_legacy_enabled", {}, "Enabled")}</span>
+                <span>{at("tariffs_legacy_period", {}, "周期")}</span>
+                <span>{at("tariffs_legacy_enabled", {}, "已启用")}</span>
                 <span>{at("payment_rub", {}, "RUB")}</span>
                 <span>{at("payment_stars", {}, "Stars")}</span>
-                <span>{at("tariffs_legacy_ref_inviter", {}, "Inviter")}</span>
-                <span>{at("tariffs_legacy_ref_referee", {}, "Friend")}</span>
+                <span>{at("tariffs_legacy_ref_inviter", {}, "邀请人奖励")}</span>
+                <span>{at("tariffs_legacy_ref_referee", {}, "被邀请人奖励")}</span>
               </div>
               {#each LEGACY_PERIODS as [months, enabledKey, rubKey, starsKey, inviterKey, refereeKey]}
                 <div class="admin-legacy-tariff-row">
-                  <strong>{months} {at("months_short", {}, "mo")}</strong>
+                  <strong>{months} {at("months_short", {}, "个月")}</strong>
                   <div class="admin-setting-switch">
                     <Switch.Root
-                      aria-label={`${at("tariffs_legacy_enabled", {}, "Enabled")} ${months} ${at("months_short", {}, "mo")}`}
+                      aria-label={`${at("tariffs_legacy_enabled", {}, "已启用")} ${months} ${at("months_short", {}, "个月")}`}
                       checked={boolValue(enabledKey, settingsDirty, settingsFieldMap)}
                       onCheckedChange={(checked) => setSetting(enabledKey, checked)}
                       class="admin-switch-root"
@@ -731,8 +727,14 @@
 
             <div class="admin-form-row admin-form-row-2 admin-legacy-traffic-row">
               <label class="admin-field-label admin-field-label-compact">
-                <span>{at("tariffs_legacy_traffic_packages", {}, "Traffic packages")}</span>
-                <small>{at("tariffs_legacy_traffic_hint", {}, "Format: 10:199,50:799")}</small>
+                <span>{at("tariffs_legacy_traffic_packages", {}, "旧版流量包")}</span>
+                <small
+                  >{at(
+                    "tariffs_legacy_traffic_hint",
+                    {},
+                    "旧版流量包配置，仅在未使用 JSON 套餐目录时生效。"
+                  )}</small
+                >
                 <Input
                   class="input"
                   type="text"
@@ -741,14 +743,14 @@
                 />
               </label>
               <label class="admin-field-label admin-field-label-compact">
-                <span
+                <span>{at("tariffs_legacy_stars_traffic_packages", {}, "旧版 Stars 流量包")}</span>
+                <small
                   >{at(
-                    "tariffs_legacy_stars_traffic_packages",
+                    "tariffs_legacy_traffic_hint",
                     {},
-                    "Traffic packages, Stars"
-                  )}</span
+                    "旧版流量包配置，仅在未使用 JSON 套餐目录时生效。"
+                  )}</small
                 >
-                <small>{at("tariffs_legacy_traffic_hint", {}, "Format: 10:199,50:799")}</small>
                 <Input
                   class="input"
                   type="text"

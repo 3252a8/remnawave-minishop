@@ -12,6 +12,7 @@
     fmtDateShort,
     fmtMoney,
     openTelegramProfileLink,
+    paymentStatusLabel,
     paymentStatusVariant,
     resolvedAvatarUrl,
     trafficLeftLabel,
@@ -30,6 +31,7 @@
     fmtDateShort: (value: unknown) => string;
     fmtMoney: (value: unknown, currency?: string | null) => string;
     openTelegramProfileLink: (url: string) => boolean;
+    paymentStatusLabel: (status: unknown) => string;
     paymentStatusVariant: (status: unknown) => BadgeVariant;
     resolvedAvatarUrl: (user: AdminUser) => string;
     trafficLeftLabel: (used: unknown, limit: unknown) => string;
@@ -98,6 +100,7 @@
     {at}
     {fmtDate}
     {fmtMoney}
+    {paymentStatusLabel}
     {paymentStatusVariant}
     onOpenUserCard={onOpenPaymentUserCard}
   />
@@ -116,6 +119,7 @@
     {userTelegramProfileLink}
     {userTelegramProfileLinkKind}
     {openTelegramProfileLink}
+    {paymentStatusLabel}
     {paymentStatusVariant}
     {trafficPercentValue}
     {trafficLeftLabel}

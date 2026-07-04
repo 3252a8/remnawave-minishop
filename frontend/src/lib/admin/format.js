@@ -63,6 +63,32 @@ export function paymentStatusVariant(status) {
   return "danger";
 }
 
+/**
+ * @param {unknown} status
+ * @param {((key: string, params?: Record<string, unknown>, fallback?: string) => string) | null} [t]
+ */
+export function paymentStatusLabel(status, t = null) {
+  const raw = String(status || "").trim();
+  if (!raw) return "—";
+  const normalized = raw.toLowerCase();
+  const key = normalized.startsWith("pending")
+    ? "pending"
+    : normalized.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const fallbacks = {
+    succeeded: "Succeeded",
+    pending: "Pending",
+    failed: "Failed",
+    canceled: "Canceled",
+    cancelled: "Canceled",
+    expired: "Expired",
+    waiting_for_capture: "Waiting for capture",
+    created: "Created",
+    paid: "Paid",
+  };
+  const fallback = fallbacks[key] || raw;
+  return typeof t === "function" ? t(`payment_status_${key}`, {}, fallback) : fallback;
+}
+
 export function optionLabel(options, value) {
   return options.find((option) => option.value === value)?.label || value;
 }

@@ -67,21 +67,17 @@ export function moveDraftRowHandler(
 }
 
 export function defaultCurrencyCode(tariffsCatalog: TariffsCatalog): string {
-  return (normalizeCurrencyKey(tariffsCatalog?.default_currency || "rub") as string).toUpperCase();
+  return (normalizeCurrencyKey(tariffsCatalog?.default_currency || "cny") as string).toUpperCase();
 }
 
 export function currencyPriceColumnLabel(at: TranslateFn, currency: string): string {
-  return at("tariff_col_price_currency", { currency }, `Цена, ${currency}`);
+  return at("tariff_col_price_currency", { currency }, `Price (${currency})`);
 }
 
 export function currencyPriceAriaLabel(at: TranslateFn, currency: string): string {
-  return at("tariff_label_price_currency", { currency }, `Цена в ${currency}`);
+  return at("tariff_label_price_currency", { currency }, `${currency} price`);
 }
 
 export function conversionCurrencyLabel(at: TranslateFn, currency: string): string {
-  return at(
-    "tariff_label_conversion_currency",
-    { currency },
-    `Курс конвертации, ${currency} за 1 GB`
-  );
+  return at("tariff_label_conversion_currency", { currency }, `Conversion price (${currency}/GB)`);
 }

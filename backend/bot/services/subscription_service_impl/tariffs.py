@@ -41,7 +41,10 @@ class TariffMixin(SubscriptionServiceMixinContract):
         config = self._tariffs_config()
         if not config:
             return None
-        tariff = config.require(tariff_key or config.default_tariff)
+        key = (tariff_key or config.default_tariff or "").strip()
+        tariff = config.get(key) if key else None
+        if not tariff or not tariff.enabled:
+            return None
         if billing_model and tariff.billing_model != billing_model:
             raise ValueError(
                 f"Tariff {tariff.key} is {tariff.billing_model}, expected {billing_model}"

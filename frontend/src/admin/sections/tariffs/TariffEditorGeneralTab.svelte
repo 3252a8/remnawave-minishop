@@ -72,7 +72,7 @@
           "tariff_model_period_desc",
           {},
           "пользователь покупает фиксированный срок (1/3/12 мес. и т.д.)"
-        )}. <b>{at("tariff_model_traffic_label", {}, "Трафик")}</b> — {at(
+        )} <b>{at("tariff_model_traffic_label", {}, "Трафик")}</b> — {at(
           "tariff_model_traffic_desc",
           {},
           "пользователь покупает пакеты гигабайт по фиксированной цене за GB"
@@ -114,6 +114,16 @@
 
   <div class="admin-form-row admin-form-row-2">
     <Label.Root class="admin-field-label">
+      <span>{at("tariff_label_name_zh", {}, "名称 · 简体中文")}</span>
+      <Input
+        class="input"
+        type="text"
+        placeholder={at("tariff_placeholder_name_zh", {}, "标准套餐")}
+        value={tariffDraft.nameZh}
+        oninput={draftInputHandler(tariffsStore, "nameZh")}
+      />
+    </Label.Root>
+    <Label.Root class="admin-field-label">
       <span>{at("tariff_label_name_ru", {}, "Название · RU")}</span>
       <Input
         class="input"
@@ -123,6 +133,9 @@
         oninput={draftInputHandler(tariffsStore, "nameRu")}
       />
     </Label.Root>
+  </div>
+
+  <div class="admin-form-row admin-form-row-2">
     <Label.Root class="admin-field-label">
       <span>{at("tariff_label_name_en", {}, "Название · EN")}</span>
       <Input
@@ -137,6 +150,16 @@
 
   <div class="admin-form-row admin-form-row-2">
     <Label.Root class="admin-field-label">
+      <span>{at("tariff_label_desc_zh", {}, "说明 · 简体中文")}</span>
+      <Input
+        class="input"
+        type="text"
+        placeholder={at("tariff_placeholder_desc_zh", {}, "基础节点池")}
+        value={tariffDraft.descriptionZh}
+        oninput={draftInputHandler(tariffsStore, "descriptionZh")}
+      />
+    </Label.Root>
+    <Label.Root class="admin-field-label">
       <span>{at("tariff_label_desc_ru", {}, "Описание · RU")}</span>
       <Input
         class="input"
@@ -146,6 +169,9 @@
         oninput={draftInputHandler(tariffsStore, "descriptionRu")}
       />
     </Label.Root>
+  </div>
+
+  <div class="admin-form-row admin-form-row-2">
     <Label.Root class="admin-field-label">
       <span>{at("tariff_label_desc_en", {}, "Описание · EN")}</span>
       <Input

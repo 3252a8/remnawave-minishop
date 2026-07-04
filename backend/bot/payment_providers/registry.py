@@ -3,8 +3,10 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, List, Mapping, Optional, cast
 
 from . import (
+    bepusdt,
     cloudpayments,
     cryptopay,
+    epay,
     freekassa,
     heleket,
     lava,
@@ -37,9 +39,11 @@ PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
     yookassa.SPEC,
     stars.SPEC,
     cryptopay.SPEC,
+    epay.SPEC,
     heleket.SPEC,
     paykilla.SPEC,
     lava.SPEC,
+    bepusdt.SPEC,
     pally.SPEC,
     cloudpayments.SPEC,
     stripe.SPEC,
@@ -486,12 +490,16 @@ def manifest_field_default(
         return _localized_default(spec.webapp_labels, "ru", spec.webapp_label) or spec.label
     if attr == "WEBAPP_LABEL_EN":
         return _localized_default(spec.webapp_labels, "en", spec.webapp_label) or spec.label
+    if attr == "WEBAPP_LABEL_ZH":
+        return _localized_default(spec.webapp_labels, "zh", spec.webapp_label) or spec.label
     if attr == "WEBAPP_ICON":
         return spec.webapp_icon
     if attr == "TELEGRAM_LABEL_RU":
         return _localized_default(spec.telegram_labels, "ru", None) or spec.label
     if attr == "TELEGRAM_LABEL_EN":
         return _localized_default(spec.telegram_labels, "en", None) or spec.label
+    if attr == "TELEGRAM_LABEL_ZH":
+        return _localized_default(spec.telegram_labels, "zh", None) or spec.label
     if attr == "TELEGRAM_EMOJI":
         return spec.default_telegram_emoji
     return None

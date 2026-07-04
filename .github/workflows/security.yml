@@ -11,9 +11,9 @@ name: Security
 
 on:
   pull_request:
-    branches: [main, dev]
+    branches: [dev, prod]
   push:
-    branches: [main, dev]
+    branches: [dev, prod]
   schedule:
     - cron: "27 4 * * 1" # weekly, Monday 04:27 UTC
   workflow_dispatch:

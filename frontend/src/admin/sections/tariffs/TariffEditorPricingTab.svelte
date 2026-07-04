@@ -126,7 +126,7 @@
                 type="number"
                 min="0"
                 step="1"
-                placeholder="3"
+                placeholder={at("tariff_referral_bonus_placeholder", {}, "可空")}
                 value={row.referral_inviter}
                 oninput={draftRowInputHandler(
                   tariffsStore,
@@ -141,7 +141,7 @@
                 type="number"
                 min="0"
                 step="1"
-                placeholder="1"
+                placeholder={at("tariff_referral_bonus_placeholder", {}, "可空")}
                 value={row.referral_referee}
                 oninput={draftRowInputHandler(
                   tariffsStore,

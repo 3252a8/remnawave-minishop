@@ -47,7 +47,7 @@
   const logHeaders = $derived([
     at("date", {}, "Дата"),
     at("event", {}, "Событие"),
-    at("user_short", {}, "User"),
+    at("user", {}, "User"),
     at("target_short", {}, "Target"),
     at("content", {}, "Контент"),
   ]);
@@ -136,7 +136,7 @@
         <tr>
           <th>{at("date", {}, "Дата")}</th>
           <th>{at("event", {}, "Событие")}</th>
-          <th>{at("user_short", {}, "User")}</th>
+          <th>{at("user", {}, "User")}</th>
           <th>{at("target_short", {}, "Target")}</th>
           <th>{at("content", {}, "Контент")}</th>
         </tr>
@@ -155,7 +155,7 @@
             <td class="admin-cell-mono" data-label={at("event", {}, "Событие")}
               >{entry.event_type}</td
             >
-            <td class="admin-logs-user-cell" data-label={at("user_short", {}, "User")}>
+            <td class="admin-logs-user-cell" data-label={at("user", {}, "User")}>
               {#if userId(entry, "user")}
                 <span class="admin-logs-user">
                   <AdminButton

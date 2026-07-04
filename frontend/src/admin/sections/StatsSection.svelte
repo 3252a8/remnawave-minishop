@@ -65,6 +65,7 @@
     fmtDate = (value) => String(value ?? ""),
     fmtDateShort = (value) => String(value ?? ""),
     fmtMoney = (value) => String(value ?? ""),
+    paymentStatusLabel = (status) => String(status || "—"),
     paymentStatusVariant = () => "muted",
     onOpenUserCard = () => {},
   }: {
@@ -72,6 +73,7 @@
     fmtDate?: DateFormatterFn;
     fmtDateShort?: DateFormatterFn;
     fmtMoney?: FormatterFn;
+    paymentStatusLabel?: (status: unknown) => string;
     paymentStatusVariant?: (status: unknown) => AdminBadgeVariant;
     onOpenUserCard?: (userId: unknown) => void;
   } = $props();
@@ -191,15 +193,15 @@
   );
   const recentPaymentHeaders = $derived([
     at("id", {}, "ID"),
-    at("user", {}, "Пользователь"),
+    at("user", {}, "用户"),
     at("payments_col_user_id", {}, "ID"),
-    at("payments_col_traffic_regular", {}, "Основной трафик"),
-    at("payments_col_traffic_premium", {}, "Премиум"),
-    at("amount", {}, "Сумма"),
-    at("provider", {}, "Провайдер"),
-    at("description", {}, "Описание"),
-    at("status", {}, "Статус"),
-    at("date", {}, "Дата"),
+    at("payments_col_traffic_regular", {}, "基础流量"),
+    at("payments_col_traffic_premium", {}, "高级流量"),
+    at("amount", {}, "金额"),
+    at("provider", {}, "支付方式"),
+    at("description", {}, "描述"),
+    at("status", {}, "状态"),
+    at("date", {}, "日期"),
   ]);
   const recentPayments: PaymentOut[] = $derived((stats?.recent_payments || []).slice(0, 10));
 
@@ -868,15 +870,15 @@
               <thead>
                 <tr>
                   <th>{at("id", {}, "ID")}</th>
-                  <th>{at("user", {}, "Пользователь")}</th>
+                  <th>{at("user", {}, "用户")}</th>
                   <th>{at("payments_col_user_id", {}, "ID")}</th>
-                  <th>{at("payments_col_traffic_regular", {}, "Основной трафик")}</th>
-                  <th>{at("payments_col_traffic_premium", {}, "Премиум")}</th>
-                  <th>{at("amount", {}, "Сумма")}</th>
-                  <th>{at("provider", {}, "Провайдер")}</th>
-                  <th>{at("description", {}, "Описание")}</th>
-                  <th>{at("status", {}, "Статус")}</th>
-                  <th>{at("date", {}, "Дата")}</th>
+                  <th>{at("payments_col_traffic_regular", {}, "基础流量")}</th>
+                  <th>{at("payments_col_traffic_premium", {}, "高级流量")}</th>
+                  <th>{at("amount", {}, "金额")}</th>
+                  <th>{at("provider", {}, "支付方式")}</th>
+                  <th>{at("description", {}, "描述")}</th>
+                  <th>{at("status", {}, "状态")}</th>
+                  <th>{at("date", {}, "日期")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -887,25 +889,22 @@
                         class="admin-payment-id-btn"
                         variant="ghost"
                         size="sm"
-                        title={at("payment_detail_open", {}, "Открыть платеж")}
-                        aria-label={at("payment_detail_open", {}, "Открыть платеж")}
+                        title={at("payment_detail_open", {}, "打开支付")}
+                        aria-label={at("payment_detail_open", {}, "打开支付")}
                         onclick={() => paymentsStore.openPayment(p)}
                       >
                         <FileText size={14} />
                         #{p.payment_id}
                       </AdminButton>
                     </td>
-                    <td
-                      class="admin-cell-user-with-action"
-                      data-label={at("user", {}, "Пользователь")}
-                    >
+                    <td class="admin-cell-user-with-action" data-label={at("user", {}, "用户")}>
                       <span class="admin-payments-user-cell">
                         <AdminButton
                           class="admin-payments-user-btn"
                           variant="ghost"
                           size="icon"
-                          title={at("payments_open_user", {}, "Открыть карточку пользователя")}
-                          aria-label={at("payments_open_user", {}, "Открыть карточку пользователя")}
+                          title={at("payments_open_user", {}, "打开用户详情")}
+                          aria-label={at("payments_open_user", {}, "打开用户详情")}
                           onclick={() => onOpenUserCard(p.user_id)}
                         >
                           <User size={14} />
@@ -918,27 +917,29 @@
                     </td>
                     <td
                       class="admin-cell-traffic-gb"
-                      data-label={at("payments_col_traffic_regular", {}, "Основной трафик")}
+                      data-label={at("payments_col_traffic_regular", {}, "基础流量")}
                     >
                       {formatTrafficGbCell(p.traffic_regular_gb)}
                     </td>
                     <td
                       class="admin-cell-traffic-gb"
-                      data-label={at("payments_col_traffic_premium", {}, "Премиум")}
+                      data-label={at("payments_col_traffic_premium", {}, "高级流量")}
                     >
                       {formatTrafficGbCell(p.traffic_premium_gb)}
                     </td>
-                    <td data-label={at("amount", {}, "Сумма")}>
+                    <td data-label={at("amount", {}, "金额")}>
                       {fmtMoney(p.amount, p.currency ?? undefined)}
                     </td>
-                    <td data-label={at("provider", {}, "Провайдер")}>{p.provider}</td>
-                    <td class="admin-cell-wrap" data-label={at("description", {}, "Описание")}
+                    <td data-label={at("provider", {}, "支付方式")}>{p.provider}</td>
+                    <td class="admin-cell-wrap" data-label={at("description", {}, "描述")}
                       >{paymentDescriptionDisplay(p, at)}</td
                     >
-                    <td data-label={at("status", {}, "Статус")}>
-                      <AdminBadge variant={paymentStatusVariant(p.status)}>{p.status}</AdminBadge>
+                    <td data-label={at("status", {}, "状态")}>
+                      <AdminBadge variant={paymentStatusVariant(p.status)}>
+                        {paymentStatusLabel(p.status)}
+                      </AdminBadge>
                     </td>
-                    <td data-label={at("date", {}, "Дата")}>{fmtDate(p.created_at)}</td>
+                    <td data-label={at("date", {}, "日期")}>{fmtDate(p.created_at)}</td>
                   </tr>
                 {/each}
               </tbody>

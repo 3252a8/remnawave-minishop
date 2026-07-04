@@ -23,6 +23,7 @@
     at,
     fmtDate,
     fmtMoney,
+    paymentStatusLabel,
     paymentStatusVariant,
     onOpenUserCard,
     onPageChange,
@@ -35,6 +36,7 @@
     at: TranslateFn;
     fmtDate: (value: string | null | undefined) => string;
     fmtMoney: (value: number, currency?: string | null) => string;
+    paymentStatusLabel: (status: string | null | undefined) => string;
     paymentStatusVariant: (status: string | null | undefined) => string;
     onOpenUserCard: (userId: number) => void;
     onPageChange: (page: number) => void;
@@ -202,7 +204,7 @@
               <td data-label={at("status", {}, "Status")}>
                 {#if row.payment_status}
                   <AdminBadge variant={paymentStatusVariant(row.payment_status)}>
-                    {row.payment_status}
+                    {paymentStatusLabel(row.payment_status)}
                   </AdminBadge>
                 {:else}
                   <AdminBadge variant="muted">

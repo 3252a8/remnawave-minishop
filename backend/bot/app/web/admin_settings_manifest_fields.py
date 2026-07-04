@@ -60,8 +60,8 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "string",
         "general",
         "Валюта",
-        "Например, RUB, USD, EUR.",
-        placeholder="RUB",
+        "Например, CNY, USD, USDT.",
+        placeholder="CNY",
     ),
     SettingField(
         "SUPPORT_LINK", "url", "general", "Ссылка поддержки", "Куда вести пользователей за помощью."
@@ -202,55 +202,61 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "SUBSCRIPTION_MINI_APP_URL",
         "url",
         "appearance",
-        "Публичный URL Mini App",
-        "Например, https://app.example.com/.",
+        "Web App 主页地址",
+        "例如 https://app.example.com/。",
+    ),
+    SettingField("WEBAPP_PRIMARY_COLOR", "color", "appearance", "主色", placeholder="#00fe7a"),
+    SettingField(
+        "WEBAPP_HOME_BRAND_VISIBLE",
+        "bool",
+        "appearance",
+        "显示首页品牌区",
+        "控制 Web App 首页顶部的大 Logo 和站点名称是否显示。",
     ),
     SettingField(
-        "WEBAPP_PRIMARY_COLOR", "color", "appearance", "Основной цвет", placeholder="#00fe7a"
+        "WEBAPP_TARIFF_CHANGE_VISIBLE",
+        "bool",
+        "appearance",
+        "显示首页切换套餐按钮",
+        "控制 Web App 首页订阅卡片上的“切换套餐”入口是否显示。",
     ),
-    SettingField("WEBAPP_LOGO_URL", "url", "appearance", "URL логотипа"),
+    SettingField("WEBAPP_LOGO_URL", "url", "appearance", "Logo 地址"),
     SettingField(
         "WEBAPP_FAVICON_USE_CUSTOM",
         "bool",
         "appearance",
-        "Использовать отдельную favicon",
+        "使用独立 Favicon",
     ),
-    SettingField("WEBAPP_FAVICON_URL", "url", "appearance", "URL отдельной favicon"),
-    SettingField("WEBAPP_LOGO_FAVICON_URL", "url", "appearance", "Favicon из логотипа"),
-    SettingField("WEBAPP_ENABLED", "bool", "appearance", "Web App включён"),
+    SettingField("WEBAPP_FAVICON_URL", "url", "appearance", "独立 favicon 地址"),
+    SettingField("WEBAPP_LOGO_FAVICON_URL", "url", "appearance", "从 Logo 生成的 favicon"),
+    SettingField("WEBAPP_ENABLED", "bool", "appearance", "Web App 已启用"),
     SettingField(
         "SUBSCRIPTION_GUIDES_ENABLED",
         "bool",
         "subscription_guides",
-        "Embedded install guides",
-        "Open install instructions inside the Web App instead of an external connect page.",
+        "在 Web App 内置安装指引",
+        "在 Web App 内打开订阅引导页，而不是跳转到外部链接。",
     ),
     SettingField(
         "SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED",
         "bool",
         "subscription_guides",
-        "Open install guides from bot",
-        (
-            "Use the Telegram Mini App install screen for bot connect buttons and show "
-            "public install guide links."
-        ),
+        "从 Telegram bot 打开安装指引",
+        "Bot 中的连接按钮使用 Telegram Mini App 安装流程，并展示公共安装指引链接。",
     ),
     SettingField(
         "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED",
         "bool",
         "subscription_guides",
-        "Use Remnawave Panel config",
-        (
-            "Fetch Subscription Page config from Remnawave Panel by the user's "
-            "subscription short UUID."
-        ),
+        "启用 Remnawave 面板配置",
+        ("通过用户订阅短 UUID 从 Remnawave 面板读取订阅页配置。"),
     ),
     SettingField(
         "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED",
         "bool",
         "subscription_guides",
-        "Enable admin JSON override",
-        "Use the JSON field below instead of Remnawave Panel config. Disabled by default.",
+        "启用管理员 JSON 覆盖",
+        "启用后改用下方 JSON 字段作为订阅页配置，默认关闭。",
     ),
     SettingField(
         "SUBSCRIPTION_PAGE_CONFIG_PATH",
@@ -358,6 +364,14 @@ SETTINGS_MANIFEST: List[SettingField] = [
         "payments",
         "Показывать описание подписки",
         "Текст появится перед выбором срока покупки или продления.",
+        subsection="checkout",
+    ),
+    SettingField(
+        "SUBSCRIPTION_PURCHASE_DESCRIPTION_ZH_CN",
+        "text",
+        "payments",
+        "Описание подписки (ZH-CN)",
+        "Китайская версия текста на этапе оплаты.",
         subsection="checkout",
     ),
     SettingField(

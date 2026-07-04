@@ -343,7 +343,10 @@ def _format_bytes(value: Optional[Any], *, zero_as_unlimited: bool = False) -> s
 
 
 def _format_months_title(months: int, lang: str) -> str:
-    if lang == "en":
+    normalized_lang = str(lang or "").lower()
+    if normalized_lang.startswith("zh"):
+        return f"{months} 个月"
+    if normalized_lang.startswith("en"):
         if months == 1:
             return "1 month"
         return f"{months} months"
@@ -364,13 +367,19 @@ def _format_traffic_title(traffic_gb: float, lang: str) -> str:
 
 
 def _traffic_payment_description(traffic_gb: float, lang: str) -> str:
-    if lang == "en":
+    normalized_lang = str(lang or "").lower()
+    if normalized_lang.startswith("zh"):
+        return f"流量包 {_format_traffic_title(traffic_gb, lang)}"
+    if normalized_lang.startswith("en"):
         return f"Traffic package {_format_traffic_title(traffic_gb, lang)}"
     return f"Пакет трафика {_format_traffic_title(traffic_gb, lang)}"
 
 
 def _hwid_devices_payment_description(device_count: int, lang: str) -> str:
-    if lang == "en":
+    normalized_lang = str(lang or "").lower()
+    if normalized_lang.startswith("zh"):
+        return f"加购 HWID 设备 +{device_count}"
+    if normalized_lang.startswith("en"):
         return f"HWID device package +{device_count}"
     return f"Докупка устройств HWID +{device_count}"
 
@@ -386,6 +395,9 @@ def _resolve_numeric_option_key(options: Dict[Any, Any], target: float) -> Optio
 
 
 def _payment_description(months: int, lang: str) -> str:
-    if lang == "en":
+    normalized_lang = str(lang or "").lower()
+    if normalized_lang.startswith("zh"):
+        return f"订阅 {_format_months_title(months, lang)}"
+    if normalized_lang.startswith("en"):
         return f"Subscription for {_format_months_title(months, lang)}"
     return f"Подписка на {_format_months_title(months, lang)}"

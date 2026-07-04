@@ -66,6 +66,7 @@ LINKFLOW_BESPOKE = {
 WEBHOOK_PROFILES = {
     "base-template": {"cryptopay", "qa"},
     "service-route": {
+        "bepusdt",
         "cloudpayments",
         "freekassa",
         "heleket",
@@ -77,7 +78,7 @@ WEBHOOK_PROFILES = {
         "stripe",
         "wata",
     },
-    "standalone-sdk-route": {"yookassa"},
+    "standalone-sdk-route": {"epay", "yookassa"},
     "telegram-invoice": {"stars"},
 }
 

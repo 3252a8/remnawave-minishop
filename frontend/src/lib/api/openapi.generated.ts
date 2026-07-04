@@ -3177,13 +3177,16 @@ export interface components {
     TariffsConfig: {
       /**
        * Default Currency
-       * @default rub
+       * @default cny
        */
       default_currency: string;
-      /** Default Tariff */
+      /**
+       * Default Tariff
+       * @default
+       */
       default_tariff: string;
       /** Tariffs */
-      tariffs: components["schemas"]["Tariff"][];
+      tariffs?: components["schemas"]["Tariff"][];
       /** @default null */
       topup_packages_default: components["schemas"]["PackageSet"] | null;
     };

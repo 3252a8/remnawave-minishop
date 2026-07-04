@@ -74,7 +74,7 @@ def get_tariff_catalog_keyboard(
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     callback_context = callback_context or callback_context_from_back_callback(back_callback)
-    default_currency = default_currency_key_for_settings(settings) if settings else "rub"
+    default_currency = default_currency_key_for_settings(settings) if settings else "cny"
     for tariff in tariffs:
         label = tariff.name(lang)
         if tariff.billing_model == "period":
@@ -148,7 +148,7 @@ def get_tariff_packages_keyboard(
     packages: List[Any],
     lang: str,
     i18n_instance: JsonI18n,
-    currency_symbol: str = "RUB",
+    currency_symbol: str = "CNY",
     back_callback: str = "main_action:subscribe",
     callback_context: Optional[str] = None,
 ) -> InlineKeyboardMarkup:

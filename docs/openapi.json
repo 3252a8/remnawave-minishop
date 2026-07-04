@@ -3793,11 +3793,12 @@
       "TariffsConfig": {
         "properties": {
           "default_currency": {
-            "default": "rub",
+            "default": "cny",
             "title": "Default Currency",
             "type": "string"
           },
           "default_tariff": {
+            "default": "",
             "title": "Default Tariff",
             "type": "string"
           },
@@ -3820,10 +3821,6 @@
             "default": null
           }
         },
-        "required": [
-          "default_tariff",
-          "tariffs"
-        ],
         "title": "TariffsConfig",
         "type": "object"
       },

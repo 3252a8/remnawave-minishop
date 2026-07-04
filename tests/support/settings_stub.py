@@ -97,6 +97,8 @@ DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
     "WEBAPP_LOGO_URL": None,
     "WEBAPP_ME_CACHE_TTL_SECONDS": 15,
     "WEBAPP_PRIMARY_COLOR": "#00fe7a",
+    "WEBAPP_HOME_BRAND_VISIBLE": True,
+    "WEBAPP_TARIFF_CHANGE_VISIBLE": True,
     "WEBAPP_SERVER_HOST": "0.0.0.0",
     "WEBAPP_SERVER_PORT": 8080,
     "WEBAPP_SESSION_SECRET": "test-session-secret",
@@ -160,6 +162,8 @@ class SettingsStub(SimpleNamespace):
         return WebAppSettings(
             title=getattr(self, "WEBAPP_TITLE", "/minishop"),
             primary_color=getattr(self, "WEBAPP_PRIMARY_COLOR", "#00fe7a"),
+            home_brand_visible=bool(getattr(self, "WEBAPP_HOME_BRAND_VISIBLE", True)),
+            tariff_change_visible=bool(getattr(self, "WEBAPP_TARIFF_CHANGE_VISIBLE", True)),
             logo_url=getattr(self, "WEBAPP_LOGO_URL", None),
             favicon_use_custom=bool(getattr(self, "WEBAPP_FAVICON_USE_CUSTOM", False)),
             favicon_url=getattr(self, "WEBAPP_FAVICON_URL", None),

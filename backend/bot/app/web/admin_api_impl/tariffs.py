@@ -76,13 +76,14 @@ async def admin_tariffs_get_route(request: web.Request) -> web.Response:
                 "path": str(path),
                 "catalog": {
                     "default_tariff": "",
-                    "default_currency": "rub",
-                    "topup_packages_default": {"rub": [], "stars": []},
+                    "default_currency": "cny",
+                    "topup_packages_default": {"cny": [], "stars": []},
                     "tariffs": [],
                 },
                 "provider_currency_support": _provider_currency_support_payload(
                     settings,
                     request.app,
+                    default_currency_code="CNY",
                 ),
             }
         )
@@ -92,7 +93,11 @@ async def admin_tariffs_get_route(request: web.Request) -> web.Response:
             "exists": True,
             "path": str(path),
             "catalog": _tariffs_config_payload(config),
-            "provider_currency_support": _provider_currency_support_payload(settings, request.app),
+            "provider_currency_support": _provider_currency_support_payload(
+                settings,
+                request.app,
+                default_currency_code=config.default_payment_currency_code,
+            ),
         }
     )
 
@@ -124,7 +129,11 @@ async def admin_tariffs_save_route(request: web.Request) -> web.Response:
             "exists": True,
             "path": str(path),
             "catalog": _tariffs_config_payload(config),
-            "provider_currency_support": _provider_currency_support_payload(settings, request.app),
+            "provider_currency_support": _provider_currency_support_payload(
+                settings,
+                request.app,
+                default_currency_code=config.default_payment_currency_code,
+            ),
         }
     )
 
@@ -132,10 +141,11 @@ async def admin_tariffs_save_route(request: web.Request) -> web.Response:
 def _provider_currency_support_payload(
     settings: Settings,
     app: web.Application,
+    default_currency_code: str | None = None,
 ) -> List[Dict[str, Any]]:
     from bot.payment_providers import iter_provider_specs, resolve_provider_presentation
 
-    default_currency = default_payment_currency_code_for_settings(settings)
+    default_currency = default_currency_code or default_payment_currency_code_for_settings(settings)
     providers: List[Dict[str, Any]] = []
     for spec in iter_provider_specs():
         presentation = resolve_provider_presentation(spec, settings)

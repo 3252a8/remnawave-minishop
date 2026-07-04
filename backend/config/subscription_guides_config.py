@@ -41,6 +41,7 @@ ALLOWED_LOCALES = {
     "uz",
     "vi",
     "zh",
+    "zh-cn",
 }
 ALLOWED_PLATFORMS = {
     "android",

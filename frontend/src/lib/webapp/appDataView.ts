@@ -52,7 +52,11 @@ export function computeAppDataView({
   const methods = (
     arrayField(dataRecord.payment_methods).length ? dataRecord.payment_methods : []
   ) as PaymentMethod[];
-  const appSettings = recordField(dataRecord.settings || mock.settings);
+  const appSettings: WebappRecord = {
+    ...recordField(dataRecord.settings || mock.settings),
+    home_brand_visible: cfg.homeBrandVisible !== false,
+    tariff_change_visible: cfg.tariffChangeVisible !== false,
+  };
   const rawEmailAuthEnabled =
     recordField(dataRecord.settings).email_auth_enabled ??
     appSettings.email_auth_enabled ??

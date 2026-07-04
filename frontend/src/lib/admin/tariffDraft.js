@@ -2,14 +2,17 @@ import { structuredCloneSafe } from "./format.js";
 
 export function emptyTariffDraft() {
   return {
-    defaultCurrency: "rub",
+    defaultCurrency: "cny",
     key: "",
     nameRu: "",
     nameEn: "",
+    nameZh: "",
     descriptionRu: "",
     descriptionEn: "",
+    descriptionZh: "",
     premiumNameRu: "",
     premiumNameEn: "",
+    premiumNameZh: "",
     squadUuids: [],
     premiumSquadUuids: [],
     billing_model: "period",
@@ -37,17 +40,20 @@ export function emptyTariffDraft() {
 export function cloneCatalog(catalog) {
   return structuredCloneSafe({
     default_tariff: catalog?.default_tariff || "",
-    default_currency: normalizeCurrencyKey(catalog?.default_currency || "rub"),
-    topup_packages_default: catalog?.topup_packages_default || { rub: [], stars: [] },
+    default_currency: normalizeCurrencyKey(catalog?.default_currency || "cny"),
+    topup_packages_default: catalog?.topup_packages_default || { cny: [], stars: [] },
     tariffs: catalog?.tariffs || [],
   });
 }
 
-export function normalizeCurrencyKey(value, fallback = "rub") {
+export function normalizeCurrencyKey(value, fallback = "cny") {
   const text = String(value || "")
     .trim()
     .toLowerCase();
   if (!text) return fallback;
+  if (text === "¥" || text === "￥" || text === "rmb") return "cny";
+  if (text === "$" || text === "usd$") return "usd";
+  if (text === "₽") return "rub";
   if (text === "rur") return "rub";
   if (["xtr", "star", "stars"].includes(text)) return "stars";
   return text.replace(/[^a-z0-9_-]/g, "") || fallback;
@@ -106,7 +112,7 @@ export function packageRowsFromPackageSet(packageSet, currency, valueKey) {
   return rows;
 }
 
-export function draftFromTariff(tariff, defaultCurrency = "rub") {
+export function draftFromTariff(tariff, defaultCurrency = "cny") {
   const currency = normalizeCurrencyKey(defaultCurrency);
   const defaultPrices = tariff.prices?.[currency] || {};
   // enabled_periods comes first so its order (the configured purchase order)
@@ -136,10 +142,13 @@ export function draftFromTariff(tariff, defaultCurrency = "rub") {
     key: tariff.key || "",
     nameRu: tariff.names?.ru || "",
     nameEn: tariff.names?.en || "",
+    nameZh: tariff.names?.["zh-cn"] || tariff.names?.zh || "",
     descriptionRu: tariff.descriptions?.ru || "",
     descriptionEn: tariff.descriptions?.en || "",
+    descriptionZh: tariff.descriptions?.["zh-cn"] || tariff.descriptions?.zh || "",
     premiumNameRu: tariff.premium_names?.ru || "",
     premiumNameEn: tariff.premium_names?.en || "",
+    premiumNameZh: tariff.premium_names?.["zh-cn"] || tariff.premium_names?.zh || "",
     squadUuids: tariff.squad_uuids || [],
     premiumSquadUuids: tariff.premium_squad_uuids || [],
     billing_model: tariff.billing_model || "period",
@@ -213,7 +222,7 @@ export function packagesFromPackageRows(rows, valueKey, priceKey, options = {}) 
     .filter((row) => row[valueKey] > 0 && row.price !== null && row.price >= 0);
 }
 
-export function packageSetFromRows(rows, valueKey, defaultCurrency = "rub") {
+export function packageSetFromRows(rows, valueKey, defaultCurrency = "cny") {
   const currency = normalizeCurrencyKey(defaultCurrency);
   const defaultCurrencyPackages = packagesFromPackageRows(rows, valueKey, "price");
   const stars = packagesFromPackageRows(rows, valueKey, "stars", {
@@ -235,17 +244,23 @@ export function normalizeUuidList(value) {
     .filter(Boolean);
 }
 
-export function tariffFromDraft(draft, fallbackCurrency = "rub") {
+export function tariffFromDraft(draft, fallbackCurrency = "cny") {
   const defaultCurrency = normalizeCurrencyKey(draft.defaultCurrency || fallbackCurrency);
   const key = draft.key.trim();
-  const names = compactMap({ ru: draft.nameRu.trim(), en: draft.nameEn.trim() });
+  const names = compactMap({
+    ru: draft.nameRu.trim(),
+    en: draft.nameEn.trim(),
+    "zh-cn": draft.nameZh.trim(),
+  });
   const descriptions = compactMap({
     ru: draft.descriptionRu.trim(),
     en: draft.descriptionEn.trim(),
+    "zh-cn": draft.descriptionZh.trim(),
   });
   const premiumNames = compactMap({
     ru: draft.premiumNameRu.trim(),
     en: draft.premiumNameEn.trim(),
+    "zh-cn": draft.premiumNameZh.trim(),
   });
   const tariff = {
     key,

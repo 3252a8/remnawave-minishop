@@ -509,6 +509,10 @@
                   {/if}
                 </div>
                 <div class="install-actions install-subscription-actions">
+                  <Button onclick={() => openResolvedLink(finalSubscriptionLink)}>
+                    <ExternalLink size={16} />
+                    {t("wa_install_open_subscription_link", {}, "Open in app")}
+                  </Button>
                   <Button variant="secondary" onclick={copySubscriptionLink}>
                     <Copy size={16} />
                     {t("wa_install_copy_subscription_link", {}, "Copy link")}

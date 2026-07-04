@@ -64,6 +64,23 @@
     </header>
     <div class="admin-form-row admin-form-row-2">
       <Label.Root class="admin-field-label">
+        <span>{at("tariff_label_premium_name_zh", {}, "高级节点组名称 · 简体中文")}</span>
+        <small
+          >{at(
+            "tariff_hint_premium_name_zh",
+            {},
+            "显示在用户端的高级节点组名称，留空则回退到英文或俄文。"
+          )}</small
+        >
+        <Input
+          class="input"
+          type="text"
+          placeholder={at("tariff_placeholder_premium_name_zh", {}, "高级节点")}
+          value={tariffDraft.premiumNameZh}
+          oninput={draftInputHandler(tariffsStore, "premiumNameZh")}
+        />
+      </Label.Root>
+      <Label.Root class="admin-field-label">
         <span>{at("tariff_label_premium_name_ru", {}, "Название premium-раздела, RU")}</span>
         <small
           >{at(
@@ -80,6 +97,8 @@
           oninput={draftInputHandler(tariffsStore, "premiumNameRu")}
         />
       </Label.Root>
+    </div>
+    <div class="admin-form-row admin-form-row-2">
       <Label.Root class="admin-field-label">
         <span>{at("tariff_label_premium_name_en", {}, "Название premium-раздела, EN")}</span>
         <small

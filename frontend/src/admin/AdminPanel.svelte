@@ -36,6 +36,7 @@
     fmtDate,
     fmtDateShort,
     fmtMoney,
+    paymentStatusLabel as formatPaymentStatusLabel,
     paymentStatusVariant,
     trafficLeftLabel,
     trafficOfLabel,
@@ -151,6 +152,7 @@
 
   const at: TranslateFn = (key, params = {}, fallback = "") =>
     t(`admin_${key}`, params, fallback || key);
+  const paymentStatusLabel = (status: unknown): string => formatPaymentStatusLabel(status, at);
 
   function initialApi(): AdminApi {
     return api;
@@ -627,8 +629,22 @@
         return { label: at("status_disabled", {}, "Disabled"), variant: "muted" };
       case "bot_only":
         return { label: at("status_bot_only", {}, "Только бот"), variant: "muted" };
+      case "inactive_user_not_found":
+      case "panel_user_not_found":
+        return {
+          label: at("status_panel_user_not_found", {}, "Panel user not found"),
+          variant: "muted",
+        };
+      case "cancelled":
+      case "canceled":
+        return { label: at("status_cancelled", {}, "Canceled"), variant: "muted" };
+      case "trial":
+        return { label: at("status_trial", {}, "Trial"), variant: "success" };
       default:
-        return { label: status || "—", variant: "muted" };
+        return {
+          label: status ? at("status_unknown_panel", {}, "Unknown panel status") : "—",
+          variant: "muted",
+        };
     }
   }
 
@@ -919,6 +935,7 @@
               {fmtMoney}
               {onSettingsSaved}
               {onTranslationsSaved}
+              {paymentStatusLabel}
               {paymentStatusVariant}
               {panelStatusBadge}
               {resolvedAvatarUrl}
@@ -953,6 +970,7 @@
   {fmtDateShort}
   {fmtMoney}
   {openTelegramProfileLink}
+  {paymentStatusLabel}
   {paymentStatusVariant}
   {resolvedAvatarUrl}
   {trafficLeftLabel}

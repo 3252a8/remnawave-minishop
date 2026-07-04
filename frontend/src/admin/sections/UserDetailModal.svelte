@@ -34,6 +34,7 @@
     resolvedAvatarUrl,
     userDisplayName,
     userSecondaryName,
+    paymentStatusLabel,
     paymentStatusVariant,
     trafficPercentValue,
     trafficLeftLabel,
@@ -51,6 +52,7 @@
     resolvedAvatarUrl: (user: AdminUser) => string;
     userDisplayName: (user: AdminUser) => string;
     userSecondaryName: (user: AdminUser) => string;
+    paymentStatusLabel: (status: unknown) => string;
     paymentStatusVariant: (status: unknown) => BadgeVariant;
     trafficPercentValue: (left: unknown, total: unknown) => number;
     trafficLeftLabel: (used: unknown, limit: unknown) => string;
@@ -873,7 +875,7 @@
                         <small>{payment.provider} · {fmtDateShort(payment.created_at)}</small>
                       </div>
                       <AdminBadge variant={paymentStatusVariant(payment.status)}
-                        >{payment.status}</AdminBadge
+                        >{paymentStatusLabel(payment.status)}</AdminBadge
                       >
                     </div>
                   {/each}

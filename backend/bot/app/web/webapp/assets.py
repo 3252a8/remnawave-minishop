@@ -230,7 +230,7 @@ def _get_cached_webapp_settings(request: web.Request) -> Dict[str, Any]:
             "server_status_url": settings.SERVER_STATUS_URL or "",
             "privacy_policy_url": settings.PRIVACY_POLICY_URL or "",
             "user_agreement_url": settings.USER_AGREEMENT_URL or "",
-            "currency": payment_settings.default_currency_symbol or "RUB",
+            "currency": payment_settings.default_currency_symbol or "CNY",
             "email_auth_enabled": settings.email_auth_configured,
             "registration_invite_only_enabled": bool(
                 settings.registration_settings.invite_only_enabled
@@ -437,6 +437,8 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> Dict[str, Any]:
         "config": {
             "title": webapp_settings.title,
             "primaryColor": webapp_settings.primary_color,
+            "homeBrandVisible": bool(webapp_settings.home_brand_visible),
+            "tariffChangeVisible": bool(webapp_settings.tariff_change_visible),
             "themesCatalog": themes_payload,
             "themesDir": settings.WEBAPP_THEMES_DIR,
             "themePreviewKey": preview_key,

@@ -1,12 +1,12 @@
 name: PR checks
 
-# Runs on pull requests into main (typically from dev) and into dev (typically
+# Runs on pull requests into prod (typically from dev) and into dev (typically
 # from feature/* branches): lint + format checks, a demo settings-manifest
 # drift guard, and a no-push image build to prove the Docker images still build.
 
 on:
   pull_request:
-    branches: [main, dev]
+    branches: [dev, prod]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

@@ -118,11 +118,34 @@ export function paymentDescriptionDisplay(p: PaymentOut, t: TranslateFn): string
   const pr = p.traffic_premium_gb;
   if (r != null && pr == null) {
     const gb = formatGbAmountPlain(r);
-    return t("payments_desc_traffic_package_regular", { gb }, `Пакет трафика ${gb} ГБ (обычный)`);
+    return t("payments_desc_traffic_package_regular", { gb }, `标准流量包 ${gb} GB`);
   }
   if (pr != null && r == null) {
     const gb = formatGbAmountPlain(pr);
-    return t("payments_desc_traffic_package_premium", { gb }, `Пакет трафика ${gb} ГБ (премиум)`);
+    return t("payments_desc_traffic_package_premium", { gb }, `高级流量包 ${gb} GB`);
+  }
+  if (r != null && pr != null) {
+    const regularGb = formatGbAmountPlain(r);
+    const premiumGb = formatGbAmountPlain(pr);
+    return t(
+      "payments_desc_traffic_package_mixed",
+      { regularGb, premiumGb },
+      `标准流量 ${regularGb} GB · 高级流量 ${premiumGb} GB`
+    );
+  }
+  if (p.purchased_hwid_devices != null && Number(p.purchased_hwid_devices) > 0) {
+    return t(
+      "payments_desc_hwid_devices",
+      { count: p.purchased_hwid_devices },
+      `加购 HWID 设备 ${p.purchased_hwid_devices} 台`
+    );
+  }
+  if (p.subscription_duration_months != null && Number(p.subscription_duration_months) > 0) {
+    return t(
+      "payments_desc_subscription_months",
+      { count: p.subscription_duration_months },
+      `订阅 ${p.subscription_duration_months} 个月`
+    );
   }
   const raw = p.description && String(p.description).trim();
   return raw || "—";

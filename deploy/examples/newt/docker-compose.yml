@@ -41,7 +41,7 @@ services:
       retries: 20
 
   migrate:
-    image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REPOSITORY_PREFIX:-3252a8/remnawave-minishop}-backend:${IMAGE_TAG:-latest}
     restart: "no"
     command: ["python", "backend/main_migrate.py"]
     env_file: *app_env_file
@@ -58,7 +58,7 @@ services:
         condition: service_healthy
 
   backend:
-    image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REPOSITORY_PREFIX:-3252a8/remnawave-minishop}-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     # Real init (tini) as PID 1 so the healthcheck process is reaped instead of
     # leaking a zombie every interval (python PID 1 does not reap orphans).
@@ -88,7 +88,7 @@ services:
       start_period: 30s
 
   worker:
-    image: 3252a8/remnawave-minishop-worker:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REPOSITORY_PREFIX:-3252a8/remnawave-minishop}-worker:${IMAGE_TAG:-latest}
     restart: unless-stopped
     init: true
     env_file: *app_env_file
@@ -108,7 +108,7 @@ services:
         condition: service_completed_successfully
 
   frontend:
-    image: 3252a8/remnawave-minishop-frontend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REPOSITORY_PREFIX:-3252a8/remnawave-minishop}-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     # Real init (tini) reaps wget healthcheck children (nginx master only waits
     # on its own workers, not adopted orphans).

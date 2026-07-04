@@ -105,8 +105,8 @@ function isOkResponse<T extends { ok: true }>(response: T | AdminErrorResponse):
 function defaultCatalog(): TariffsCatalog {
   return {
     default_tariff: "",
-    default_currency: "rub",
-    topup_packages_default: { rub: [], stars: [] },
+    default_currency: "cny",
+    topup_packages_default: { cny: [], stars: [] },
     tariffs: [],
   };
 }
@@ -141,8 +141,8 @@ export function createTariffsStore({
   const state = $state<TariffsStore>({
     tariffsCatalog: {
       default_tariff: "",
-      default_currency: "rub",
-      topup_packages_default: { rub: [], stars: [] },
+      default_currency: "cny",
+      topup_packages_default: { cny: [], stars: [] },
       tariffs: [],
     },
     tariffsPath: "",
@@ -179,7 +179,7 @@ export function createTariffsStore({
     moveDraftRow,
   });
 
-  const tariffFromDraft = (draft: TariffDraft, defaultCurrency = "rub"): Tariff =>
+  const tariffFromDraft = (draft: TariffDraft, defaultCurrency = "cny"): Tariff =>
     tariffFromDraftFn(draft, defaultCurrency) as Tariff;
 
   function updateStore(updater: (snapshot: TariffsState) => TariffsState): void {
@@ -303,7 +303,7 @@ export function createTariffsStore({
       tariffEditingKey: "",
       tariffDraft: {
         ...(emptyTariffDraft() as TariffDraft),
-        defaultCurrency: s.tariffsCatalog.default_currency || "rub",
+        defaultCurrency: s.tariffsCatalog.default_currency || "cny",
       },
       tariffEditorTab: "general",
       selectedBaseSquad: "",
@@ -318,7 +318,7 @@ export function createTariffsStore({
       tariffEditingKey: tariff.key,
       tariffDraft: draftFromTariff(
         tariff,
-        s.tariffsCatalog.default_currency || "rub"
+        s.tariffsCatalog.default_currency || "cny"
       ) as TariffDraft,
       tariffEditorTab: "general",
       selectedBaseSquad: "",
@@ -331,7 +331,7 @@ export function createTariffsStore({
     const s = readState();
     const catalog = snapshotForPayload(s.tariffsCatalog);
     const draft = snapshotForPayload(s.tariffDraft);
-    const tariff = tariffFromDraft(draft, catalog.default_currency || "rub");
+    const tariff = tariffFromDraft(draft, catalog.default_currency || "cny");
     if (!tariff.key) {
       flash(at("tariff_error_key_required", {}, "Укажите ключ тарифа"));
       return;
@@ -392,14 +392,14 @@ export function createTariffsStore({
   }
 
   async function setDefaultCurrency(value: string): Promise<void> {
-    const currency = normalizeCurrencyKey(value || "rub") as string;
+    const currency = normalizeCurrencyKey(value || "cny") as string;
     if (!currency || currency === "stars") {
       flash(at("tariff_currency_invalid", {}, "Укажите фиатную или криптовалюту, но не Stars"));
       return;
     }
     const s = readState();
     const catalog = snapshotForPayload(s.tariffsCatalog);
-    if (currency === normalizeCurrencyKey(catalog.default_currency || "rub")) return;
+    if (currency === normalizeCurrencyKey(catalog.default_currency || "cny")) return;
     await persistTariffs(
       { ...cloneCatalog(catalog), default_currency: currency },
       at("tariff_currency_updated", {}, "Валюта оплаты обновлена")

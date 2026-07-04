@@ -271,8 +271,8 @@ CSRF, платежный webhook, admin-save и состояние БД.
 
 CI workflow `.github/workflows/fullstack-qa.yml` запускает этот слой на:
 
-- `pull_request` в `main` и `dev`;
-- `push` в `main` и `dev`;
+- `pull_request` в `dev` и `prod`;
+- `push` в `dev` и `prod`;
 - ручной `workflow_dispatch`.
 
 При падении workflow прикладывает Docker Compose logs как artifact.

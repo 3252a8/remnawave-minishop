@@ -21,7 +21,7 @@ INSERT INTO users (
         910000001,
         'Runes',
         'Admin',
-        'ru',
+        'zh-cn',
         false,
         '00000000-0000-4000-8000-000000000001',
         'RUNESADMIN',
@@ -72,6 +72,26 @@ ON CONFLICT (user_id) DO UPDATE SET
     telegram_notifications_status = EXCLUDED.telegram_notifications_status,
     channel_subscription_verified = EXCLUDED.channel_subscription_verified;
 
+UPDATE subscriptions
+SET
+    panel_subscription_uuid = panel_subscription_uuid || '-legacy-' || subscription_id,
+    install_share_token = 'legacy' || subscription_id,
+    is_active = false
+WHERE
+    panel_subscription_uuid IN (
+        '10000000-0000-4000-8000-000000000001',
+        '10000000-0000-4000-8000-000000000002',
+        '10000000-0000-4000-8000-000000000003'
+    )
+    OR (
+        install_share_token IN (
+            'devsharetokenadmin000001',
+            'devsharetokenactive00001',
+            'devsharetokenexpired0001'
+        )
+        AND panel_subscription_uuid NOT IN ('devadmin01', 'devactive1', 'devexpired')
+    );
+
 INSERT INTO subscriptions (
     user_id,
     panel_user_uuid,
@@ -109,7 +129,7 @@ INSERT INTO subscriptions (
     (
         910000001,
         '00000000-0000-4000-8000-000000000001',
-        '10000000-0000-4000-8000-000000000001',
+        'devadmin01',
         'devsharetokenadmin000001',
         now() - interval '10 days',
         now() + interval '20 days',
@@ -143,7 +163,7 @@ INSERT INTO subscriptions (
     (
         910000002,
         '00000000-0000-4000-8000-000000000002',
-        '10000000-0000-4000-8000-000000000002',
+        'devactive1',
         'devsharetokenactive00001',
         now() - interval '5 days',
         now() + interval '55 days',
@@ -177,7 +197,7 @@ INSERT INTO subscriptions (
     (
         910000003,
         '00000000-0000-4000-8000-000000000003',
-        '10000000-0000-4000-8000-000000000003',
+        'devexpired',
         'devsharetokenexpired0001',
         now() - interval '75 days',
         now() - interval '15 days',
@@ -265,10 +285,10 @@ INSERT INTO payments (
         'https://payments.example.test/dev-payment-runes-admin-001',
         'dev_seed',
         'dev-idempotence-runes-admin-001',
-        299.00,
-        'RUB',
+        5.00,
+        'CNY',
         'succeeded',
-        'Dev seed subscription payment',
+        '开发种子：标准订阅支付',
         1,
         'subscription@standard',
         'standard',
@@ -283,10 +303,10 @@ INSERT INTO payments (
         'https://payments.example.test/dev-payment-runes-active-001',
         'dev_seed',
         'dev-idempotence-runes-active-001',
-        499.00,
-        'RUB',
+        10.00,
+        'CNY',
         'succeeded',
-        'Dev seed premium subscription payment',
+        '开发种子：高级订阅支付',
         2,
         'subscription@premium',
         'premium',
@@ -301,10 +321,10 @@ INSERT INTO payments (
         'https://payments.example.test/dev-payment-runes-active-topup-001',
         'dev_seed',
         'dev-idempotence-runes-active-topup-001',
-        149.00,
-        'RUB',
+        2.00,
+        'CNY',
         'pending',
-        'Dev seed traffic top-up payment',
+        '开发种子：流量加购支付',
         null,
         'topup@premium',
         'premium',

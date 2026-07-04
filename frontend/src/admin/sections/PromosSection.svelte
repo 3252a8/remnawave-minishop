@@ -84,6 +84,7 @@
     fmtDateShort,
     fmtDate = (value) => String(value || ""),
     fmtMoney = (value, currency) => `${value} ${currency || ""}`.trim(),
+    paymentStatusLabel = (status) => String(status || "—"),
     paymentStatusVariant = () => "muted",
     onOpenUserCard = () => {},
   }: {
@@ -91,6 +92,7 @@
     fmtDateShort: (value: string) => string;
     fmtDate?: (value: string | null | undefined) => string;
     fmtMoney?: (value: number, currency?: string | null) => string;
+    paymentStatusLabel?: (status: string | null | undefined) => string;
     paymentStatusVariant?: (status: string | null | undefined) => string;
     onOpenUserCard?: (userId: number) => void;
   } = $props();
@@ -937,14 +939,14 @@
             >
               <header class="admin-editor-section-head">
                 <div class="admin-editor-section-title">
-                  <strong>{at("promo_section_links", {}, "Ссылки")}</strong>
+                  <strong>{at("promo_section_links", {}, "链接")}</strong>
                 </div>
               </header>
               <div class="admin-link-list admin-promo-link-list">
                 <div class="admin-link-row">
                   <div class="admin-link-row-meta">
                     <span class="admin-link-row-label">
-                      {at("promo_link_bot", {}, "Telegram-бот")}
+                      {at("promo_link_bot", {}, "Telegram 机器人")}
                     </span>
                     {#if promoEditing.bot_link}
                       <a
@@ -957,7 +959,7 @@
                       </a>
                     {:else}
                       <span class="admin-link-row-url admin-link-row-url-muted">
-                        {at("promo_link_unavailable", {}, "Недоступно")}
+                        {at("promo_link_unavailable", {}, "不可用")}
                       </span>
                     {/if}
                   </div>
@@ -965,8 +967,8 @@
                     <AdminButton
                       size="icon"
                       variant="icon"
-                      title={at("open", {}, "Открыть")}
-                      aria-label={at("open", {}, "Открыть")}
+                      title={at("open", {}, "打开")}
+                      aria-label={at("open", {}, "打开")}
                       disabled={!promoEditing.bot_link}
                       onclick={() => openPromoLink(promoEditing.bot_link)}
                     >
@@ -975,13 +977,13 @@
                     <AdminButton
                       size="icon"
                       variant="icon"
-                      title={at("copy", {}, "Скопировать")}
-                      aria-label={at("copy", {}, "Скопировать")}
+                      title={at("copy", {}, "复制")}
+                      aria-label={at("copy", {}, "复制")}
                       disabled={!promoEditing.bot_link}
                       onclick={() =>
                         promosStore.copyToClipboard(
                           promoEditing.bot_link,
-                          at("promo_link_copied", {}, "Ссылка скопирована")
+                          at("promo_link_copied", {}, "链接已复制")
                         )}
                     >
                       <Copy size={14} />
@@ -992,7 +994,7 @@
                 <div class="admin-link-row">
                   <div class="admin-link-row-meta">
                     <span class="admin-link-row-label">
-                      {at("promo_link_webapp", {}, "Веб-приложение")}
+                      {at("promo_link_webapp", {}, "Web App")}
                     </span>
                     {#if promoEditing.webapp_link}
                       <a
@@ -1005,7 +1007,7 @@
                       </a>
                     {:else}
                       <span class="admin-link-row-url admin-link-row-url-muted">
-                        {at("promo_link_unavailable", {}, "Недоступно")}
+                        {at("promo_link_unavailable", {}, "不可用")}
                       </span>
                     {/if}
                   </div>
@@ -1013,8 +1015,8 @@
                     <AdminButton
                       size="icon"
                       variant="icon"
-                      title={at("open", {}, "Открыть")}
-                      aria-label={at("open", {}, "Открыть")}
+                      title={at("open", {}, "打开")}
+                      aria-label={at("open", {}, "打开")}
                       disabled={!promoEditing.webapp_link}
                       onclick={() => openPromoLink(promoEditing.webapp_link)}
                     >
@@ -1023,13 +1025,13 @@
                     <AdminButton
                       size="icon"
                       variant="icon"
-                      title={at("copy", {}, "Скопировать")}
-                      aria-label={at("copy", {}, "Скопировать")}
+                      title={at("copy", {}, "复制")}
+                      aria-label={at("copy", {}, "复制")}
                       disabled={!promoEditing.webapp_link}
                       onclick={() =>
                         promosStore.copyToClipboard(
                           promoEditing.webapp_link,
-                          at("promo_link_copied", {}, "Ссылка скопирована")
+                          at("promo_link_copied", {}, "链接已复制")
                         )}
                     >
                       <Copy size={14} />
@@ -1043,12 +1045,12 @@
           <div class="admin-dialog-actions admin-promo-dialog-actions">
             {#if promoSettingsDirtyCount}
               <span class="admin-unsaved-hint">
-                {at("promo_unsaved_hint", {}, "There are unsaved changes.")}
+                {at("promo_unsaved_hint", {}, "有未保存的更改。")}
               </span>
             {/if}
-            <AdminButton onclick={closePromoEditor}>{at("btn_cancel", {}, "Cancel")}</AdminButton>
+            <AdminButton onclick={closePromoEditor}>{at("btn_cancel", {}, "取消")}</AdminButton>
             <AdminButton variant="primary" onclick={promosStore.savePromo}>
-              {at("btn_save", {}, "Save")}
+              {at("btn_save", {}, "保存")}
             </AdminButton>
           </div>
         </Tabs.Content>
@@ -1063,6 +1065,7 @@
             {at}
             {fmtDate}
             {fmtMoney}
+            {paymentStatusLabel}
             {paymentStatusVariant}
             {onOpenUserCard}
             onPageChange={(page) => promosStore.setActivationsPage(page)}

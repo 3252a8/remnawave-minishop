@@ -156,8 +156,8 @@
   }
   function premiumTrafficMetaLabel(sub: AnyRecord = subscription) {
     return sub?.premium_is_limited
-      ? t("wa_premium_access_limited", {}, "Доступ к premium временно ограничен")
-      : t("wa_premium_reset_monthly", {}, "Отдельный лимит на месяц");
+      ? t("wa_premium_access_limited", {}, "高级功能暂时受限")
+      : t("wa_premium_reset_monthly", {}, "每月单独重置额度");
   }
   function premiumServerLabels(sub: AnyRecord) {
     return premiumServerLabelsFn(sub);
@@ -236,7 +236,7 @@
     t(
       "wa_subscription_remaining_countdown",
       { countdown: subscriptionEndCountdown },
-      `осталось: ${subscriptionEndCountdown}`
+      `剩余：${subscriptionEndCountdown}`
     )
   );
   const subscriptionExpiringSoon = $derived(
@@ -249,7 +249,7 @@
   );
   const subscriptionTermDisplayText = $derived(
     subscriptionExpiringSoon
-      ? t("wa_subscription_expiring_soon", {}, "Скоро закончится!")
+      ? t("wa_subscription_expiring_soon", {}, "即将到期")
       : activeSubscriptionTermLabel(subscription)
   );
   const subscriptionEndDisplayText = $derived(
@@ -266,6 +266,8 @@
       .filter(Boolean)
       .join(" ")
   );
+  const homeBrandVisible = $derived(appSettings?.home_brand_visible !== false);
+  const tariffChangeVisible = $derived(appSettings?.tariff_change_visible !== false);
   const autoRenewVisible = $derived(
     Boolean(subscription?.active && subscription?.auto_renew_available)
   );
@@ -280,11 +282,13 @@
   });
 </script>
 
-<main class="home-layout">
-  <div class="login-brand home-brand">
-    <BrandMark {brand} size="xl" />
-    <h1>{brandTitle}</h1>
-  </div>
+<main class="home-layout" class:home-layout-compact={!homeBrandVisible}>
+  {#if homeBrandVisible}
+    <div class="login-brand home-brand">
+      <BrandMark {brand} size="xl" />
+      <h1>{brandTitle}</h1>
+    </div>
+  {/if}
 
   {#if telegramNotificationsNeedPrompt}
     <TelegramNotificationsBanner
@@ -322,7 +326,7 @@
               </p>
             </div>
           </div>
-          {#if canChangeTariff}
+          {#if canChangeTariff && tariffChangeVisible}
             <Button
               data-webapp-action="open-tariff-change"
               class="status-tariff-action"
@@ -463,20 +467,16 @@
             <Gift size={22} />
             <span>
               <strong>
-                {t(
-                  "wa_referral_welcome_telegram_required_title",
-                  {},
-                  "Бонус ждёт привязки Telegram"
-                )}
+                {t("wa_referral_welcome_telegram_required_title", {}, "绑定 Telegram 后可获取奖励")}
               </strong>
-              <small>{t("wa_referral_program_title", {}, "Реферальная программа")}</small>
+              <small>{t("wa_referral_program_title", {}, "推荐奖励计划")}</small>
             </span>
           </div>
           <p class="trial-card-description">
             {t(
               "wa_referral_welcome_telegram_required_description",
               { days: Number(referral?.welcome_bonus_days || 0) },
-              "Привяжите Telegram, чтобы получить {days} бонусных дней за регистрацию по приглашению."
+              "绑定 Telegram 可获得 {days} 天邀请注册奖励。"
             )}
           </p>
           <Button
@@ -487,7 +487,7 @@
           >
             <AttentionDot />
             <Send size={18} />
-            {t("wa_referral_link_telegram_and_claim", {}, "Привязать и получить бонус")}
+            {t("wa_referral_link_telegram_and_claim", {}, "绑定并领取奖励")}
           </Button>
         </Card>
       {/if}
@@ -497,7 +497,7 @@
           <div class="trial-card-head">
             <Gift size={22} />
             <span>
-              <strong>{t("wa_trial_offer_title", {}, "Можно начать с льготного периода")}</strong>
+              <strong>{t("wa_trial_offer_title", {}, "先体验再支付")}</strong>
               <small>{t("wa_trial_title")}</small>
             </span>
           </div>
@@ -505,22 +505,22 @@
             {t(
               "wa_trial_offer_description",
               { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
-              "Активируйте триал: {duration} доступа и {traffic} для скачивания без оплаты."
+              "激活试用：{duration} 使用期限，赠送 {traffic} 下载流量。"
             )}
           </p>
           <div class="trial-card-facts">
             <span>
-              <small>{t("wa_trial_duration_label", {}, "Срок")}</small>
+              <small>{t("wa_trial_duration_label", {}, "时长")}</small>
               <strong>{trialDurationLabel()}</strong>
             </span>
             <span>
-              <small>{t("wa_trial_download_traffic_label", {}, "Доступно для скачивания")}</small>
+              <small>{t("wa_trial_download_traffic_label", {}, "可下载流量")}</small>
               <strong>{trialTrafficLabel()}</strong>
             </span>
           </div>
           <Button class="wide trial-card-action" onclick={activateTrial} disabled={trialBusy}>
             <Gift size={18} />
-            {t("wa_trial_try_free", {}, "Попробовать бесплатно")}
+            {t("wa_trial_try_free", {}, "免费试用")}
           </Button>
         </Card>
       {:else if trialRequiresTelegram}
@@ -529,7 +529,7 @@
             <Gift size={22} />
             <span>
               <strong>
-                {t("wa_trial_telegram_required_title", {}, "Привяжите Telegram для триала")}
+                {t("wa_trial_telegram_required_title", {}, "绑定 Telegram 后可开启试用")}
               </strong>
               <small>{t("wa_trial_title")}</small>
             </span>
@@ -538,16 +538,16 @@
             {t(
               "wa_trial_telegram_required_description",
               { duration: trialDurationLabel(), traffic: trialTrafficLabel() },
-              "Чтобы активировать триал на {duration} с лимитом {traffic}, сначала привяжите Telegram."
+              "先绑定 Telegram 后可激活 {duration} 试用，赠送 {traffic} 流量。"
             )}
           </p>
           <div class="trial-card-facts">
             <span>
-              <small>{t("wa_trial_duration_label", {}, "Срок")}</small>
+              <small>{t("wa_trial_duration_label", {}, "时长")}</small>
               <strong>{trialDurationLabel()}</strong>
             </span>
             <span>
-              <small>{t("wa_trial_download_traffic_label", {}, "Доступно для скачивания")}</small>
+              <small>{t("wa_trial_download_traffic_label", {}, "可下载流量")}</small>
               <strong>{trialTrafficLabel()}</strong>
             </span>
           </div>
@@ -559,10 +559,33 @@
           >
             <AttentionDot />
             <Send size={18} />
-            {t("wa_trial_link_telegram_and_activate", {}, "Привязать и активировать")}
+            {t("wa_trial_link_telegram_and_activate", {}, "绑定并激活")}
           </Button>
         </Card>
       {/if}
+    {/if}
+
+    {#if !subscription.active}
+      <Card compact class="purchase-journey-card">
+        <div class="purchase-journey-item">
+          <CreditCard size={18} />
+          <span>
+            <strong>{t("wa_purchase_step_payment", {}, "选择并支付")}</strong>
+            <small>
+              {t("wa_purchase_step_payment_hint", {}, "选择套餐和周期，完成支付。")}
+            </small>
+          </span>
+        </div>
+        <div class="purchase-journey-item">
+          <Download size={18} />
+          <span>
+            <strong>{t("wa_purchase_step_import", {}, "导入订阅")}</strong>
+            <small>
+              {t("wa_purchase_step_import_hint", {}, "激活后，将订阅链接导入到你的客户端。")}
+            </small>
+          </span>
+        </div>
+      </Card>
     {/if}
 
     <div class="action-stack">

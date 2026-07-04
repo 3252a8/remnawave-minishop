@@ -29,6 +29,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 json.dumps(
                     {
                         "default_tariff": "standard",
+                        "default_currency": "rub",
                         "tariffs": [
                             {
                                 "key": "standard",
@@ -70,6 +71,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 POSTGRES_USER="app_user",
                 POSTGRES_PASSWORD="app_password",
                 TARIFFS_CONFIG_PATH=str(path),
+                DEFAULT_CURRENCY_SYMBOL="RUB",
                 TRAFFIC_PACKAGES="10:199",
             )
 
@@ -93,6 +95,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 json.dumps(
                     {
                         "default_tariff": "standard",
+                        "default_currency": "rub",
                         "tariffs": [
                             {
                                 "key": "standard",
@@ -118,6 +121,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 POSTGRES_USER="app_user",
                 POSTGRES_PASSWORD="app_password",
                 TARIFFS_CONFIG_PATH=str(path),
+                DEFAULT_CURRENCY_SYMBOL="RUB",
             )
 
             plans = subscription_webapp._serialize_plans(settings, "en")
@@ -131,6 +135,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 json.dumps(
                     {
                         "default_tariff": "traffic",
+                        "default_currency": "rub",
                         "tariffs": [
                             {
                                 "key": "traffic",
@@ -160,6 +165,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 POSTGRES_USER="app_user",
                 POSTGRES_PASSWORD="app_password",
                 TARIFFS_CONFIG_PATH=str(path),
+                DEFAULT_CURRENCY_SYMBOL="RUB",
             )
 
             plans = subscription_webapp._serialize_plans(settings, "en")
@@ -1022,6 +1028,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             POSTGRES_PASSWORD="app_password",
             TARIFFS_CONFIG_PATH="missing-tariffs.json",
             PAYMENT_METHODS_ORDER="yookassa",
+            DEFAULT_CURRENCY_SYMBOL="RUB",
             STARS_ENABLED=False,
         )
         app = {"yookassa_service": SimpleNamespace(configured=True)}
@@ -1052,6 +1059,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             POSTGRES_PASSWORD="app_password",
             TARIFFS_CONFIG_PATH="missing-tariffs.json",
             PAYMENT_METHODS_ORDER="wata",
+            DEFAULT_CURRENCY_SYMBOL="RUB",
             STARS_ENABLED=False,
         )
         app = {"wata_service": SimpleNamespace(configured=True)}

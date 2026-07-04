@@ -29,6 +29,7 @@
 | `DEPLOYMENT_PROFILE` | install wizard | Информационный маркер выбранного профиля (`caddy`, `nginx`, `newt`, `no-proxy`, `egames`). Для `egames` последующие migration-only запуски понимают, что нужно переиспользовать существующий `eGamesAPI/remnawave-reverse-proxy` Nginx. |
 | `APP_ENV_FILE` | CLI/Compose | Путь к env-файлу вместо `.env`. |
 | `IMAGE_TAG` | CLI/Compose | Тег Docker-образов. |
+| `IMAGE_REPOSITORY_PREFIX` | CLI/Compose | Префикс трех app-образов без суффикса сервиса. По умолчанию `3252a8/remnawave-minishop`; для fork-owned GHCR укажите, например, `ghcr.io/kinm/remnawave-minishop`. |
 | `FRONTEND_PORT` | `.env` / Compose | Хостовый порт frontend nginx. По умолчанию `8082`. |
 | `WEB_SERVER_HOST` | `.env` | Внутренний хост backend-сервера вебхуков. Обычно `0.0.0.0`. |
 | `WEB_SERVER_PORT` | `.env` / Compose | Хостовый порт backend-сервера вебхуков. По умолчанию `8080`. |
@@ -238,7 +239,7 @@ proxy/Docker gateway и может отклонить валидный webhook. 
 | --- | --- |
 | `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты: `severpay,wata,freekassa,platega,yookassa,stars,cryptopay,heleket,paykilla,lava,pally,cloudpayments,stripe`. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED` | Показывать описание подписки перед выбором срока. |
-| `SUBSCRIPTION_PURCHASE_DESCRIPTION_RU` / `SUBSCRIPTION_PURCHASE_DESCRIPTION_EN` | Локализованное описание подписки. |
+| `SUBSCRIPTION_PURCHASE_DESCRIPTION_ZH_CN` / `SUBSCRIPTION_PURCHASE_DESCRIPTION_RU` / `SUBSCRIPTION_PURCHASE_DESCRIPTION_EN` | Локализованное описание подписки. |
 | `PAYMENT_REQUEST_TIMEOUT_SECONDS` | Общий таймаут одного API-запроса к платёжному провайдеру, в секундах. По умолчанию `20`. |
 | `PAYMENT_<METHOD>_WEBAPP_LABEL_RU` / `PAYMENT_<METHOD>_WEBAPP_LABEL_EN` | Текст кнопки провайдера в Web App. |
 | `PAYMENT_<METHOD>_WEBAPP_ICON` | Lucide-иконка кнопки в Web App. |

@@ -789,7 +789,7 @@ def _serialize_plans(
                 "months": int(traffic_value) if traffic_value.is_integer() else traffic_value,
                 "traffic_gb": traffic_value,
                 "price": float(price or 0),
-                "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+                "currency": settings.DEFAULT_CURRENCY_SYMBOL or "CNY",
                 "title": _format_traffic_title(traffic_value, lang),
                 "sale_mode": "traffic",
             }
@@ -811,7 +811,7 @@ def _serialize_plans(
         plan = {
             "months": int(months),
             "price": float(price or 0),
-            "currency": settings.DEFAULT_CURRENCY_SYMBOL or "RUB",
+            "currency": settings.DEFAULT_CURRENCY_SYMBOL or "CNY",
             "title": _format_months_title(int(months), lang),
             "sale_mode": "subscription",
         }

@@ -16,6 +16,7 @@
     "allowlist": [
       "backend/bot/app/web/templates/*.js",
       "backend/db/migrator.py",
+      "frontend/src/admin/sections/AppearanceSection.svelte",
       "frontend/src/admin/sections/PromosSection.svelte",
       "frontend/src/lib/api/openapi.generated.ts",
       "frontend/src/lib/webapp/demoDataset.js",

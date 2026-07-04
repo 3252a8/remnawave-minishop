@@ -91,7 +91,13 @@ describe("statsDerivations", () => {
     expect(formatTrafficGbCell("")).toBe("—");
     expect(
       paymentDescriptionDisplay({ traffic_regular_gb: 10, description: "" } as never, at)
-    ).toBe('Пакет трафика 10 ГБ (обычный):{"gb":"10"}');
+    ).toBe('标准流量包 10 GB:{"gb":"10"}');
+    expect(
+      paymentDescriptionDisplay(
+        { subscription_duration_months: 3, description: "Подписка на 3 месяца" } as never,
+        at
+      )
+    ).toBe('订阅 3 个月:{"count":3}');
     expect(paymentDescriptionDisplay({ description: "Manual" } as never, at)).toBe("Manual");
   });
 });

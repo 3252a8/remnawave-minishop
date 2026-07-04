@@ -148,18 +148,18 @@
 <section class="appearance-theme-section">
   <header class="appearance-theme-section-head">
     <div>
-      <h4>{at("appearance_default_theme_title", {}, "Тема по-умолчанию")}</h4>
+      <h4>{at("appearance_default_theme_title", {}, "默认主题")}</h4>
       <small>
         {at(
           "appearance_default_theme_section_sub",
           {},
-          "Базовая тема приложения: темный и светлый режимы, цвета, шрифты и логотип."
+          "应用基础主题：深色/浅色模式、颜色、字体和 Logo 缩放。"
         )}
       </small>
     </div>
     {#if isThemeDirty(defaultTheme)}
       <AdminBadge variant="warning">
-        {at("settings_badge_dirty", {}, "Изменено")}
+        {at("settings_badge_dirty", {}, "已更改")}
       </AdminBadge>
     {/if}
   </header>
@@ -174,7 +174,7 @@
       <button
         type="button"
         class="theme-card-select-hitbox"
-        aria-label={at("appearance_use_default_theme", {}, "Выбрать тему по-умолчанию")}
+        aria-label={at("appearance_use_default_theme", {}, "选择默认主题")}
         aria-pressed={defaultThemeIsCurrent}
         disabled={themesSaving || defaultThemeIsCurrent}
         onclick={activateDefaultThemeFromClick}
@@ -183,14 +183,13 @@
         <div>
           <div class="default-theme-title">
             <Paintbrush size={17} />
-            <strong>{at("appearance_default_theme_title", {}, "Тема по-умолчанию")}</strong>
+            <strong>{at("appearance_default_theme_title", {}, "默认主题")}</strong>
             {#if defaultThemeIsCurrent}
-              <AdminBadge variant="success">{at("status_current", {}, "Current")}</AdminBadge>
+              <AdminBadge variant="success">{at("status_current", {}, "当前")}</AdminBadge>
             {/if}
             <AdminBadge>{defaultVariantTitle(defaultVariant)}</AdminBadge>
             {#if isDefaultVariantDirty()}
-              <AdminBadge variant="warning">{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
-              >
+              <AdminBadge variant="warning">{at("settings_badge_dirty", {}, "已更改")}</AdminBadge>
             {/if}
             {#if defaultThemeIsCurrent}
               <span class="default-theme-check" aria-hidden="true">
@@ -204,31 +203,31 @@
           {#if !defaultThemeIsCurrent}
             <AdminButton size="sm" onclick={activateDefaultThemeFromClick} disabled={themesSaving}>
               <Check size={13} />
-              {at("appearance_use_default_theme", {}, "Выбрать тему по-умолчанию")}
+              {at("appearance_use_default_theme", {}, "选择默认主题")}
             </AdminButton>
           {/if}
           <label class="appearance-switch appearance-mode-switch">
-            <span>{at("appearance_default_dark", {}, "Dark")}</span>
+            <span>{at("appearance_default_dark", {}, "深色")}</span>
             <Switch.Root
-              aria-label={at("appearance_default_variant", {}, "Вариант темы по умолчанию")}
+              aria-label={at("appearance_default_variant", {}, "默认主题模式")}
               checked={defaultVariant === "light"}
               onCheckedChange={setDefaultVariantFromSwitch}
               class="admin-switch-root"
             >
               <Switch.Thumb class="admin-switch-thumb" />
             </Switch.Root>
-            <span>{at("appearance_default_light", {}, "Light")}</span>
+            <span>{at("appearance_default_light", {}, "浅色")}</span>
           </label>
           <AdminButton size="sm" variant="ghost" onclick={previewDefaultVariantFromClick}>
             <ExternalLink size={13} />
-            {at("appearance_preview_theme", {}, "Preview")}
+            {at("appearance_preview_theme", {}, "预览")}
           </AdminButton>
         </div>
       </div>
 
       <div
         class="appearance-preset-row"
-        aria-label={at("appearance_default_presets", {}, "Пресеты темы по умолчанию")}
+        aria-label={at("appearance_default_presets", {}, "默认主题预设")}
       >
         {#each DEFAULT_THEME_PRESETS[defaultVariant] || [] as preset (preset.id)}
           <button
@@ -244,14 +243,14 @@
 
       <div class="default-theme-grid">
         <section class="default-theme-panel">
-          <h4><Type size={15} /> {at("appearance_typography", {}, "Typography")}</h4>
+          <h4><Type size={15} /> {at("appearance_typography", {}, "字体")}</h4>
           <div class="appearance-select-grid">
             <label class:is-dirty={isDefaultTokenDirty("font_sans")}>
               <span>
-                {at("appearance_font_ui", {}, "Interface")}
+                {at("appearance_font_ui", {}, "界面")}
                 {#if isDefaultTokenDirty("font_sans")}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "已更改")}</AdminBadge
                   >
                 {/if}
               </span>
@@ -268,10 +267,10 @@
             </label>
             <label class:is-dirty={isDefaultTokenDirty("font_logo")}>
               <span>
-                {at("appearance_font_brand", {}, "Brand")}
+                {at("appearance_font_brand", {}, "品牌")}
                 {#if isDefaultTokenDirty("font_logo")}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "已更改")}</AdminBadge
                   >
                 {/if}
               </span>
@@ -291,7 +290,7 @@
                 {at("appearance_font_mono", {}, "Mono")}
                 {#if isDefaultTokenDirty("font_mono")}
                   <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                    >{at("settings_badge_dirty", {}, "已更改")}</AdminBadge
                   >
                 {/if}
               </span>
@@ -321,7 +320,7 @@
               disabled={!customGoogleFontName.trim()}
             >
               <Type size={12} />
-              {at("appearance_font_apply_ui", {}, "Interface")}
+              {at("appearance_font_apply_ui", {}, "界面")}
             </AdminButton>
             <AdminButton
               size="sm"
@@ -329,7 +328,7 @@
               disabled={!customGoogleFontName.trim()}
             >
               <Type size={12} />
-              {at("appearance_font_apply_brand", {}, "Brand")}
+              {at("appearance_font_apply_brand", {}, "品牌")}
             </AdminButton>
             <AdminButton
               size="sm"
@@ -354,8 +353,7 @@
             <span class="appearance-logo-scale-label">
               {at("appearance_radius", {}, "Radius")}
               {#if isDefaultTokenDirty("radius")}
-                <AdminBadge variant="warning"
-                  >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                <AdminBadge variant="warning">{at("settings_badge_dirty", {}, "已更改")}</AdminBadge
                 >
               {/if}
             </span>
@@ -388,8 +386,7 @@
             <span class="appearance-logo-scale-label">
               {at("appearance_logo_desktop", {}, "Desktop logo")}
               {#if isThemeHomeLogoScaleDirty(defaultTheme, "desktop", defaultVariant)}
-                <AdminBadge variant="warning"
-                  >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                <AdminBadge variant="warning">{at("settings_badge_dirty", {}, "已更改")}</AdminBadge
                 >
               {/if}
             </span>
@@ -422,8 +419,7 @@
             <span class="appearance-logo-scale-label">
               {at("appearance_logo_mobile", {}, "Mobile logo")}
               {#if isThemeHomeLogoScaleDirty(defaultTheme, "mobile", defaultVariant)}
-                <AdminBadge variant="warning"
-                  >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                <AdminBadge variant="warning">{at("settings_badge_dirty", {}, "已更改")}</AdminBadge
                 >
               {/if}
             </span>
@@ -472,7 +468,7 @@
                     {tokenLabel}
                     {#if isDefaultTokenDirty(tokenKey)}
                       <AdminBadge variant="warning"
-                        >{at("settings_badge_dirty", {}, "Изменено")}</AdminBadge
+                        >{at("settings_badge_dirty", {}, "已更改")}</AdminBadge
                       >
                     {/if}
                   </span>
@@ -497,12 +493,12 @@
                     title={at(
                       "appearance_reset_token",
                       { label: tokenLabel },
-                      `Сбросить ${tokenLabel}`
+                      `清除 ${tokenLabel}`
                     )}
                     aria-label={at(
                       "appearance_reset_token",
                       { label: tokenLabel },
-                      `Сбросить ${tokenLabel}`
+                      `清除 ${tokenLabel}`
                     )}
                     onclick={() => resetDefaultToken(tokenKey)}
                   >
@@ -517,7 +513,7 @@
     </section>
   {:else}
     <AdminEmptyState>
-      {at("themes_catalog_empty", {}, "Каталог тем пуст. Обновите список тем.")}
+      {at("themes_catalog_empty", {}, "主题目录为空，请刷新主题列表。")}
     </AdminEmptyState>
   {/if}
 </section>

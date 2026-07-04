@@ -1,0 +1,147 @@
+name: Deploy production
+
+# Builds production images from prod, publishes them to GHCR by default, then
+# connects to the production server and refreshes the Docker Compose stack.
+
+on:
+  push:
+    branches: [prod]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-push:
+    name: Build production images
+    uses: ./.github/workflows/_docker-build-push.yml
+    with:
+      push: true
+      tag_mode: production
+      publish_dockerhub: ${{ vars.PUBLISH_DOCKERHUB == 'true' }}
+    secrets: inherit
+
+  deploy:
+    name: Update production server
+    runs-on: ubuntu-latest
+    needs: build-push
+    environment: production
+    timeout-minutes: 20
+    env:
+      REPOSITORY_OWNER: ${{ github.repository_owner }}
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/opt/remnawave-minishop' }}
+      DEPLOY_COMPOSE_FILES: ${{ secrets.DEPLOY_COMPOSE_FILES || 'docker-compose.yml' }}
+      DEPLOY_IMAGE_TAG: ${{ secrets.DEPLOY_IMAGE_TAG || 'latest' }}
+      DEPLOY_IMAGE_REPOSITORY_PREFIX: ${{ secrets.DEPLOY_IMAGE_REPOSITORY_PREFIX }}
+      DEPLOY_HEALTH_URL: ${{ secrets.DEPLOY_HEALTH_URL }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_REGISTRY: ${{ secrets.DEPLOY_REGISTRY || 'ghcr.io' }}
+      DEPLOY_REGISTRY_USERNAME: ${{ secrets.DEPLOY_REGISTRY_USERNAME }}
+      DEPLOY_REGISTRY_PASSWORD: ${{ secrets.DEPLOY_REGISTRY_PASSWORD }}
+    steps:
+      - name: Validate required deploy secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name secret is required for production deploy"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' > ~/.ssh/minishop_deploy_key
+          chmod 600 ~/.ssh/minishop_deploy_key
+          if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Pull images and restart compose stack
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "$DEPLOY_IMAGE_REPOSITORY_PREFIX" ]; then
+            owner="${REPOSITORY_OWNER,,}"
+            DEPLOY_IMAGE_REPOSITORY_PREFIX="ghcr.io/${owner}/remnawave-minishop"
+          fi
+
+          registry_password_b64=""
+          if [ -n "$DEPLOY_REGISTRY_PASSWORD" ]; then
+            registry_password_b64="$(printf '%s' "$DEPLOY_REGISTRY_PASSWORD" | base64 -w0)"
+          fi
+
+          remote_env=(
+            "DEPLOY_PATH=$(printf '%q' "$DEPLOY_PATH")"
+            "DEPLOY_COMPOSE_FILES=$(printf '%q' "$DEPLOY_COMPOSE_FILES")"
+            "DEPLOY_IMAGE_TAG=$(printf '%q' "$DEPLOY_IMAGE_TAG")"
+            "DEPLOY_IMAGE_REPOSITORY_PREFIX=$(printf '%q' "$DEPLOY_IMAGE_REPOSITORY_PREFIX")"
+            "DEPLOY_HEALTH_URL=$(printf '%q' "$DEPLOY_HEALTH_URL")"
+            "DEPLOY_REGISTRY=$(printf '%q' "$DEPLOY_REGISTRY")"
+            "DEPLOY_REGISTRY_USERNAME=$(printf '%q' "$DEPLOY_REGISTRY_USERNAME")"
+            "DEPLOY_REGISTRY_PASSWORD_B64=$(printf '%q' "$registry_password_b64")"
+          )
+
+          ssh \
+            -i ~/.ssh/minishop_deploy_key \
+            -p "$DEPLOY_PORT" \
+            -o IdentitiesOnly=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "${remote_env[*]} bash -se" <<'REMOTE'
+          set -euo pipefail
+
+          cd "$DEPLOY_PATH"
+
+          export IMAGE_TAG="$DEPLOY_IMAGE_TAG"
+          export IMAGE_REPOSITORY_PREFIX="$DEPLOY_IMAGE_REPOSITORY_PREFIX"
+
+          if [ -n "$DEPLOY_REGISTRY_USERNAME" ] && [ -n "$DEPLOY_REGISTRY_PASSWORD_B64" ]; then
+            printf '%s' "$DEPLOY_REGISTRY_PASSWORD_B64" \
+              | base64 -d \
+              | docker login "$DEPLOY_REGISTRY" -u "$DEPLOY_REGISTRY_USERNAME" --password-stdin
+          fi
+
+          compose=(docker compose)
+          normalized_compose_files="${DEPLOY_COMPOSE_FILES//,/ }"
+          for compose_file in $normalized_compose_files; do
+            compose+=(-f "$compose_file")
+          done
+
+          "${compose[@]}" pull
+          "${compose[@]}" up -d --remove-orphans
+          "${compose[@]}" ps
+
+          if [ -n "$DEPLOY_HEALTH_URL" ]; then
+            for attempt in $(seq 1 30); do
+              if curl -fsS "$DEPLOY_HEALTH_URL"; then
+                exit 0
+              fi
+              echo "Health check attempt ${attempt}/30 failed; waiting..."
+              sleep 5
+            done
+            "${compose[@]}" logs --no-color --tail=120 backend worker frontend || true
+            exit 1
+          fi
+          REMOTE

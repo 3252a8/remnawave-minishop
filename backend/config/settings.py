@@ -27,6 +27,9 @@ DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_EN = (
     "By buying or renewing a subscription, you get access to a VPN/proxy service "
     "that helps protect your connection and keep your access stable."
 )
+DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_ZH_CN = (
+    "购买或续费订阅后，你将获得 VPN/代理服务访问权限，用于保护连接并保持网络访问稳定。"
+)
 
 
 DEFAULT_DISPOSABLE_EMAIL_DOMAINS = "\n".join(
@@ -242,8 +245,8 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
         default=".git,node_modules,__pycache__,.pytest_cache,.ruff_cache,postgres-data,redis-data,shop-data,backups"
     )
 
-    DEFAULT_LANGUAGE: str = Field(default="ru")
-    DEFAULT_CURRENCY_SYMBOL: str = Field(default="RUB")
+    DEFAULT_LANGUAGE: str = Field(default="zh-cn")
+    DEFAULT_CURRENCY_SYMBOL: str = Field(default="CNY")
 
     SUPPORT_LINK: Optional[str] = Field(default=None)
     SERVER_STATUS_URL: Optional[str] = Field(default=None)
@@ -298,6 +301,12 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED: bool = Field(
         default=True,
         description="Show a localized description of the subscription before users choose a purchase/renewal period.",  # noqa: E501
+    )
+    SUBSCRIPTION_PURCHASE_DESCRIPTION_ZH_CN: str = Field(
+        default=DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_ZH_CN,
+        description=(
+            "Simplified Chinese subscription description shown before purchase/renewal options."
+        ),
     )
     SUBSCRIPTION_PURCHASE_DESCRIPTION_RU: str = Field(
         default=DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_RU,
@@ -531,6 +540,14 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     WEBAPP_SERVER_PORT: int = Field(default=8081)
     WEBAPP_TITLE: str = Field(default="/minishop")
     WEBAPP_PRIMARY_COLOR: str = Field(default="#00fe7a")
+    WEBAPP_HOME_BRAND_VISIBLE: bool = Field(
+        default=True,
+        description="Show the large logo and title block at the top of the Web App home screen.",
+    )
+    WEBAPP_TARIFF_CHANGE_VISIBLE: bool = Field(
+        default=True,
+        description="Show the tariff change action on the Web App home subscription card.",
+    )
     WEBAPP_THEMES_DIR: str = Field(
         default="data/themes",
         description=(

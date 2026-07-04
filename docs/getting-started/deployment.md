@@ -337,6 +337,52 @@ docker compose build frontend backend worker
 docker compose up -d
 ```
 
+### Автодеплой из GitHub Actions
+
+Workflow `Deploy production` запускается на каждом push в `prod` и вручную через
+`workflow_dispatch`. Он собирает `backend`, `worker` и `frontend`, публикует
+production-теги `latest` и `prod-<sha>` в GHCR текущего владельца репозитория, затем по SSH
+заходит на сервер и выполняет:
+
+```bash
+docker compose pull
+docker compose up -d --remove-orphans
+docker compose ps
+```
+
+Минимальные GitHub Secrets для environment `production` или всего репозитория:
+
+| Secret | Назначение |
+| --- | --- |
+| `DEPLOY_HOST` | IP или hostname production-сервера. |
+| `DEPLOY_USER` | SSH-пользователь, у которого есть доступ к Docker Compose каталогу и Docker socket. |
+| `DEPLOY_SSH_KEY` | Private key для SSH-доступа. |
+
+Опциональные Secrets:
+
+| Secret | Значение по умолчанию | Когда менять |
+| --- | --- | --- |
+| `DEPLOY_PORT` | `22` | SSH слушает другой порт. |
+| `DEPLOY_PATH` | `/opt/remnawave-minishop` | Compose-файлы лежат в другом каталоге. |
+| `DEPLOY_COMPOSE_FILES` | `docker-compose.yml` | Нужны несколько compose-файлов, например `docker-compose.yml,docker-compose.override.yml`. |
+| `DEPLOY_IMAGE_TAG` | `latest` | Сервер должен тянуть не `latest`, а фиксированный тег. |
+| `DEPLOY_IMAGE_REPOSITORY_PREFIX` | `ghcr.io/<repo-owner>/remnawave-minishop` | Сервер должен тянуть Docker Hub или другой registry. |
+| `DEPLOY_HEALTH_URL` | пусто | Нужна HTTP-проверка после рестарта, например `https://app.example.com/health`. |
+| `DEPLOY_KNOWN_HOSTS` | `ssh-keyscan` на лету | Хотите закрепить SSH host key без сетевого сканирования. |
+| `DEPLOY_REGISTRY` | `ghcr.io` | Используется другой registry для `docker login`. |
+| `DEPLOY_REGISTRY_USERNAME` / `DEPLOY_REGISTRY_PASSWORD` | пусто | GHCR/Docker Hub package приватный и серверу нужен login перед `pull`. |
+
+Если сервер должен тянуть образы из fork-owned GHCR, в compose `.env` или в секрет
+`DEPLOY_IMAGE_REPOSITORY_PREFIX` укажите:
+
+```bash
+IMAGE_REPOSITORY_PREFIX=ghcr.io/kinm/remnawave-minishop
+IMAGE_TAG=latest
+```
+
+Для публикации production-образов еще и в Docker Hub создайте repo variable
+`PUBLISH_DOCKERHUB=true` и добавьте Secrets `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`.
+
 ## Образы GHCR и Docker Hub
 
 Образы приложения называются единообразно:

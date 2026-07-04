@@ -116,6 +116,49 @@ def _i18n_slug(value: str) -> str:
     return slug or "default"
 
 
+_PROVIDER_PRESENTATION_I18N_KEYS = {
+    "WEBAPP_LABEL_RU": (
+        "admin_settings_payment_presentation_webapp_label_ru_label",
+        "admin_settings_payment_presentation_webapp_label_ru_description",
+    ),
+    "WEBAPP_LABEL_EN": (
+        "admin_settings_payment_presentation_webapp_label_en_label",
+        "admin_settings_payment_presentation_webapp_label_en_description",
+    ),
+    "WEBAPP_LABEL_ZH": (
+        "admin_settings_payment_presentation_webapp_label_zh_label",
+        "admin_settings_payment_presentation_webapp_label_zh_description",
+    ),
+    "WEBAPP_ICON": (
+        "admin_settings_payment_presentation_webapp_icon_label",
+        "admin_settings_payment_presentation_webapp_icon_description",
+    ),
+    "TELEGRAM_LABEL_RU": (
+        "admin_settings_payment_presentation_telegram_label_ru_label",
+        "admin_settings_payment_presentation_telegram_label_ru_description",
+    ),
+    "TELEGRAM_LABEL_EN": (
+        "admin_settings_payment_presentation_telegram_label_en_label",
+        "admin_settings_payment_presentation_telegram_label_en_description",
+    ),
+    "TELEGRAM_LABEL_ZH": (
+        "admin_settings_payment_presentation_telegram_label_zh_label",
+        "admin_settings_payment_presentation_telegram_label_zh_description",
+    ),
+    "TELEGRAM_EMOJI": (
+        "admin_settings_payment_presentation_telegram_emoji_label",
+        "admin_settings_payment_presentation_telegram_emoji_description",
+    ),
+}
+
+
+def _provider_presentation_i18n_keys(manifest_field: Any) -> tuple[Optional[str], Optional[str]]:
+    if getattr(manifest_field, "target", None) != "presentation":
+        return None, None
+    attr = getattr(manifest_field, "attr", None) or getattr(manifest_field, "key", "")
+    return _PROVIDER_PRESENTATION_I18N_KEYS.get(str(attr), (None, None))
+
+
 def manifest_payload() -> List[dict]:
     """Serialize the manifest for the admin UI.
 
@@ -170,6 +213,11 @@ def manifest_payload() -> List[dict]:
             spec, manifest_field = owner
             default_value = manifest_field_default(spec, manifest_field)
             webhook_metadata = provider_webhook_metadata(spec)
+            presentation_label_i18n_key, presentation_description_i18n_key = (
+                _provider_presentation_i18n_keys(manifest_field)
+            )
+        else:
+            presentation_label_i18n_key, presentation_description_i18n_key = None, None
 
         placeholder = field.placeholder
         if not placeholder and default_value:
@@ -183,8 +231,11 @@ def manifest_payload() -> List[dict]:
             "subsection": field.subsection,
             "label": field.label,
             "description": field.description,
-            "i18n_label_key": field.i18n_label_key or auto_label_i18n_key,
+            "i18n_label_key": field.i18n_label_key
+            or presentation_label_i18n_key
+            or auto_label_i18n_key,
             "i18n_description_key": field.i18n_description_key
+            or presentation_description_i18n_key
             or (auto_description_i18n_key if field.description else None),
             "i18n_subsection_key": field.i18n_subsection_key or auto_subsection_i18n_key,
             "i18n_placeholder_key": (

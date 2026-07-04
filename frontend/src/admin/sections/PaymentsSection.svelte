@@ -20,12 +20,14 @@
     at = (key) => key,
     fmtDate = (value) => String(value || ""),
     fmtMoney = (value) => String(value),
+    paymentStatusLabel = (status) => String(status || "—"),
     paymentStatusVariant = () => "muted",
     onOpenUserCard = () => {},
   }: {
     at?: TranslateFn;
     fmtDate?: (value: string | null | undefined) => string;
     fmtMoney?: (value: number, currency?: string | null) => string;
+    paymentStatusLabel?: (status: string | null | undefined) => string;
     paymentStatusVariant?: (status: string | null | undefined) => string;
     onOpenUserCard?: (userId: number) => void;
   } = $props();
@@ -70,18 +72,33 @@
     const pr = p.traffic_premium_gb;
     if (r != null && pr == null) {
       const gb = formatGbAmountPlain(r);
-      return at(
-        "payments_desc_traffic_package_regular",
-        { gb },
-        `Пакет трафика ${gb} ГБ (обычный)`
-      );
+      return at("payments_desc_traffic_package_regular", { gb }, `流量套餐 ${gb}GB（普通）`);
     }
     if (pr != null && r == null) {
       const gb = formatGbAmountPlain(pr);
+      return at("payments_desc_traffic_package_premium", { gb }, `流量套餐 ${gb}GB（高级）`);
+    }
+    if (r != null && pr != null) {
+      const regularGb = formatGbAmountPlain(r);
+      const premiumGb = formatGbAmountPlain(pr);
       return at(
-        "payments_desc_traffic_package_premium",
-        { gb },
-        `Пакет трафика ${gb} ГБ (премиум)`
+        "payments_desc_traffic_package_mixed",
+        { regularGb, premiumGb },
+        `标准流量 ${regularGb} GB · 高级流量 ${premiumGb} GB`
+      );
+    }
+    if (p.purchased_hwid_devices != null && Number(p.purchased_hwid_devices) > 0) {
+      return at(
+        "payments_desc_hwid_devices",
+        { count: p.purchased_hwid_devices },
+        `加购 HWID 设备 ${p.purchased_hwid_devices} 台`
+      );
+    }
+    if (p.subscription_duration_months != null && Number(p.subscription_duration_months) > 0) {
+      return at(
+        "payments_desc_subscription_months",
+        { count: p.subscription_duration_months },
+        `订阅 ${p.subscription_duration_months} 个月`
       );
     }
     const raw = p.description && String(p.description).trim();
@@ -90,15 +107,15 @@
 
   const paymentHeaders = $derived([
     at("id", {}, "ID"),
-    at("user", {}, "Пользователь"),
+    at("user", {}, "用户"),
     at("payments_col_user_id", {}, "ID"),
-    at("payments_col_traffic_regular", {}, "Основной трафик"),
-    at("payments_col_traffic_premium", {}, "Премиум"),
-    at("amount", {}, "Сумма"),
-    at("provider", {}, "Провайдер"),
-    at("description", {}, "Описание"),
-    at("status", {}, "Статус"),
-    at("date", {}, "Дата"),
+    at("payments_col_traffic_regular", {}, "基础流量"),
+    at("payments_col_traffic_premium", {}, "高级流量"),
+    at("amount", {}, "金额"),
+    at("provider", {}, "支付方式"),
+    at("description", {}, "描述"),
+    at("status", {}, "状态"),
+    at("date", {}, "日期"),
   ]);
 
   onMount(() => {
@@ -115,22 +132,22 @@
     />
   {:else if !paymentsTable.rows.length}
     <AdminEmptyState tone="card"
-      ><span class="admin-muted">{at("payments_empty", {}, "Нет платежей")}</span></AdminEmptyState
+      ><span class="admin-muted">{at("payments_empty", {}, "暂无支付记录")}</span></AdminEmptyState
     >
   {:else}
     <AdminTable>
       <thead>
         <tr>
           <th>{at("id", {}, "ID")}</th>
-          <th>{at("user", {}, "Пользователь")}</th>
+          <th>{at("user", {}, "用户")}</th>
           <th>{at("payments_col_user_id", {}, "ID")}</th>
-          <th>{at("payments_col_traffic_regular", {}, "Основной трафик")}</th>
-          <th>{at("payments_col_traffic_premium", {}, "Премиум")}</th>
-          <th>{at("amount", {}, "Сумма")}</th>
-          <th>{at("provider", {}, "Провайдер")}</th>
-          <th>{at("description", {}, "Описание")}</th>
-          <th>{at("status", {}, "Статус")}</th>
-          <th>{at("date", {}, "Дата")}</th>
+          <th>{at("payments_col_traffic_regular", {}, "基础流量")}</th>
+          <th>{at("payments_col_traffic_premium", {}, "高级流量")}</th>
+          <th>{at("amount", {}, "金额")}</th>
+          <th>{at("provider", {}, "支付方式")}</th>
+          <th>{at("description", {}, "描述")}</th>
+          <th>{at("status", {}, "状态")}</th>
+          <th>{at("date", {}, "日期")}</th>
         </tr>
       </thead>
       <VirtualTableRows
@@ -146,22 +163,22 @@
                 class="admin-payment-id-btn"
                 variant="ghost"
                 size="sm"
-                title={at("payment_detail_open", {}, "Открыть платеж")}
-                aria-label={at("payment_detail_open", {}, "Открыть платеж")}
+                title={at("payment_detail_open", {}, "打开支付")}
+                aria-label={at("payment_detail_open", {}, "打开支付")}
                 onclick={() => paymentsStore.openPayment(p)}
               >
                 <FileText size={14} />
                 #{p.payment_id}
               </AdminButton>
             </td>
-            <td class="admin-cell-user-with-action" data-label={at("user", {}, "Пользователь")}>
+            <td class="admin-cell-user-with-action" data-label={at("user", {}, "用户")}>
               <span class="admin-payments-user-cell">
                 <AdminButton
                   class="admin-payments-user-btn"
                   variant="ghost"
                   size="icon"
-                  title={at("payments_open_user", {}, "Открыть карточку пользователя")}
-                  aria-label={at("payments_open_user", {}, "Открыть карточку пользователя")}
+                  title={at("payments_open_user", {}, "打开用户详情")}
+                  aria-label={at("payments_open_user", {}, "打开用户详情")}
                   onclick={() => onOpenUserCard(p.user_id)}
                 >
                   <User size={14} />
@@ -174,25 +191,27 @@
             </td>
             <td
               class="admin-cell-traffic-gb"
-              data-label={at("payments_col_traffic_regular", {}, "Основной трафик")}
+              data-label={at("payments_col_traffic_regular", {}, "基础流量")}
             >
               {formatTrafficGbCell(p.traffic_regular_gb)}
             </td>
             <td
               class="admin-cell-traffic-gb"
-              data-label={at("payments_col_traffic_premium", {}, "Премиум")}
+              data-label={at("payments_col_traffic_premium", {}, "高级流量")}
             >
               {formatTrafficGbCell(p.traffic_premium_gb)}
             </td>
-            <td data-label={at("amount", {}, "Сумма")}>{fmtMoney(p.amount, p.currency)}</td>
-            <td data-label={at("provider", {}, "Провайдер")}>{p.provider}</td>
-            <td class="admin-cell-wrap" data-label={at("description", {}, "Описание")}
+            <td data-label={at("amount", {}, "金额")}>{fmtMoney(p.amount, p.currency)}</td>
+            <td data-label={at("provider", {}, "支付方式")}>{p.provider}</td>
+            <td class="admin-cell-wrap" data-label={at("description", {}, "描述")}
               >{paymentDescriptionDisplay(p)}</td
             >
-            <td data-label={at("status", {}, "Статус")}>
-              <AdminBadge variant={paymentStatusVariant(p.status)}>{p.status}</AdminBadge>
+            <td data-label={at("status", {}, "状态")}>
+              <AdminBadge variant={paymentStatusVariant(p.status)}>
+                {paymentStatusLabel(p.status)}
+              </AdminBadge>
             </td>
-            <td data-label={at("date", {}, "Дата")}>{fmtDate(p.created_at)}</td>
+            <td data-label={at("date", {}, "日期")}>{fmtDate(p.created_at)}</td>
           </tr>
         {/snippet}
       </VirtualTableRows>
@@ -204,14 +223,14 @@
   page={paymentsPage}
   pageCount={paymentsPageCount}
   total={paymentsTotal}
-  pageLabel={at("page_short", {}, "Стр.")}
-  ofLabel={at("pagination_of", {}, "из")}
-  totalLabel={at("total", {}, "Всего")}
-  jumpLabel={at("page_short", {}, "Стр.")}
-  jumpAriaLabel={at("pagination_jump_aria", {}, "Перейти к странице")}
-  goLabel={at("pagination_go", {}, "Перейти")}
-  prevLabel={at("back", {}, "Назад")}
-  nextLabel={at("next", {}, "Далее")}
+  pageLabel={at("page_short", {}, "页")}
+  ofLabel={at("pagination_of", {}, "共")}
+  totalLabel={at("total", {}, "共计")}
+  jumpLabel={at("page_short", {}, "页")}
+  jumpAriaLabel={at("pagination_jump_aria", {}, "跳转到页面")}
+  goLabel={at("pagination_go", {}, "前往")}
+  prevLabel={at("back", {}, "上一步")}
+  nextLabel={at("next", {}, "下一步")}
   onPageChange={(page) => paymentsStore.setPage(page)}
 />
 

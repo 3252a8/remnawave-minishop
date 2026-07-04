@@ -38,7 +38,7 @@ def _yookassa_payment_payload_for_processing(payload: Dict[str, Any]) -> Dict[st
         if amount_value is not None or amount_currency:
             normalized["amount"] = {
                 "value": str(amount_value if amount_value is not None else 0),
-                "currency": amount_currency or "RUB",
+                "currency": amount_currency or "CNY",
             }
     return normalized
 

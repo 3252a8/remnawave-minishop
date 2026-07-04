@@ -13,6 +13,9 @@ import {
 
 describe("tariffDraft", () => {
   it("normalizes currency aliases and clones catalog defaults", () => {
+    expect(emptyTariffDraft().defaultCurrency).toBe("cny");
+    expect(normalizeCurrencyKey("¥")).toBe("cny");
+    expect(normalizeCurrencyKey("RMB")).toBe("cny");
     expect(normalizeCurrencyKey(" RUR ")).toBe("rub");
     expect(normalizeCurrencyKey("XTR")).toBe("stars");
     expect(normalizeCurrencyKey("***", "usd")).toBe("usd");
@@ -113,6 +116,7 @@ describe("tariffDraft", () => {
       key: "traffic",
       nameRu: "Трафик",
       billing_model: "traffic",
+      defaultCurrency: "rub",
       trafficRows: [{ gb: "25", price: "300", stars: "" }],
       conversion_rate_rub_per_gb: "12.5",
     };

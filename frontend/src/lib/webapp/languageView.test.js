@@ -10,7 +10,7 @@ describe("computeLanguageView", () => {
       i18nMessages: { fr: {}, es: {} },
     });
 
-    expect(view.languageCodes).toEqual(["ru", "en", "de", "fr", "es"]);
+    expect(view.languageCodes).toEqual(["zh-cn", "en", "ru", "de", "fr", "es"]);
     expect(view.currentLanguageOption).toEqual({
       value: "de",
       label: "Deutsch custom",
@@ -25,6 +25,11 @@ describe("computeLanguageView", () => {
       i18nMessages: {},
     });
 
+    expect(view.languageOptions[0]).toEqual({
+      value: "zh-cn",
+      label: "简体中文",
+      flag: "\u{1F1E8}\u{1F1F3}",
+    });
     expect(view.languageOptions[1]).toEqual({
       value: "en",
       label: "English",
@@ -40,7 +45,7 @@ describe("computeLanguageView", () => {
       i18nMessages: {},
     });
 
-    expect(view.languageCodes).toEqual(["ru", "en", "it"]);
+    expect(view.languageCodes).toEqual(["zh-cn", "en", "ru", "it"]);
     expect(view.currentLanguageOption).toEqual({
       value: "it",
       label: "IT",

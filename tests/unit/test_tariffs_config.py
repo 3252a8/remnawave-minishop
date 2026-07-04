@@ -99,6 +99,31 @@ class TariffsConfigTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             self.assertIsNone(load_tariffs_config(Path(tmpdir) / "missing.json"))
 
+    def test_empty_catalog_can_store_default_currency(self):
+        config = TariffsConfig.model_validate(
+            {
+                "default_tariff": "",
+                "default_currency": "CNY",
+                "topup_packages_default": {"cny": [], "stars": []},
+                "tariffs": [],
+            }
+        )
+
+        self.assertFalse(config)
+        self.assertEqual(config.default_currency, "cny")
+        self.assertEqual(config.default_payment_currency_code, "CNY")
+        self.assertEqual(config.enabled_tariffs, [])
+
+    def test_empty_catalog_rejects_default_tariff_reference(self):
+        with self.assertRaises(ValueError):
+            TariffsConfig.model_validate(
+                {
+                    "default_tariff": "standard",
+                    "default_currency": "CNY",
+                    "tariffs": [],
+                }
+            )
+
     def test_duplicate_keys_rejected(self):
         data = _valid_config()
         data["tariffs"][1]["key"] = "standard"
@@ -109,6 +134,14 @@ class TariffsConfigTests(unittest.TestCase):
     def test_default_must_be_enabled(self):
         data = _valid_config()
         data["default_tariff"] = "missing"
+
+        with self.assertRaises(ValueError):
+            TariffsConfig.model_validate(data)
+
+    def test_non_empty_catalog_requires_enabled_tariff(self):
+        data = _valid_config()
+        data["tariffs"][0]["enabled"] = False
+        data["tariffs"][1]["enabled"] = False
 
         with self.assertRaises(ValueError):
             TariffsConfig.model_validate(data)
@@ -147,6 +180,10 @@ class TariffsConfigTests(unittest.TestCase):
         self.assertEqual(traffic.currency_per_gb_for_conversion("usd"), 0.25)
 
     def test_currency_symbol_falls_back_to_default_key(self):
+        self.assertEqual(normalize_currency_key(""), "cny")
+        self.assertEqual(normalize_currency_key("¥"), "cny")
+        self.assertEqual(normalize_currency_key("￥"), "cny")
+        self.assertEqual(normalize_currency_key("RMB"), "cny")
         self.assertEqual(normalize_currency_key("₽"), "rub")
 
     def test_hwid_device_limit_and_packages_load(self):

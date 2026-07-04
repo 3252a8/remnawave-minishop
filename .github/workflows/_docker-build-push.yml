@@ -5,9 +5,10 @@ name: Docker build & push (reusable)
 # them to the selected registries under the repository owner's namespace.
 #
 # Called by:
-#   - docker-dev.yml      (tag_mode: dev,     push: true)  on pushes to dev
-#   - docker-release.yml  (tag_mode: release, push: true)  on release tags
-#   - ci.yml              (tag_mode: dev,     push: false) on pull requests
+#   - docker-dev.yml          (tag_mode: dev,        push: true)  on pushes to dev
+#   - docker-release.yml      (tag_mode: release,    push: true)  on release tags
+#   - deploy-production.yml   (tag_mode: production, push: true)  on pushes to prod
+#   - ci.yml                  (tag_mode: dev,        push: false) on pull requests
 
 on:
   workflow_call:
@@ -17,7 +18,7 @@ on:
         type: boolean
         default: true
       tag_mode:
-        description: "Tagging strategy: 'dev' or 'release'"
+        description: "Tagging strategy: 'dev', 'production', or 'release'"
         type: string
         required: true
       publish_dockerhub:
@@ -114,8 +115,9 @@ jobs:
             name=ghcr.io/${{ steps.image_namespaces.outputs.github_owner }}/${{ matrix.image }},enable=true
           tags: |
             type=raw,value=dev,enable=${{ inputs.tag_mode == 'dev' }}
-            type=raw,value=latest,enable=${{ inputs.tag_mode == 'release' }}
+            type=raw,value=latest,enable=${{ inputs.tag_mode == 'release' || inputs.tag_mode == 'production' }}
             type=raw,value=${{ steps.version.outputs.version }},enable=${{ inputs.tag_mode == 'release' }}
+            type=sha,prefix=prod-,format=short,enable=${{ inputs.tag_mode == 'production' }}
 
       - name: Build${{ inputs.push && ' & push' || '' }} ${{ matrix.image }}
         uses: docker/build-push-action@v7
