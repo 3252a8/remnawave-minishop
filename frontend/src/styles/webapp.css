@@ -739,10 +739,17 @@ a {
 }
 
 .traffic-reset-detail {
-  gap: 7px;
+  gap: 0;
 }
 
-.premium-server-list > .traffic-reset-date-row {
+.traffic-reset-detail > .traffic-reset-detail-inner {
+  display: grid;
+  gap: 7px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.premium-server-list .traffic-reset-date-row {
   display: grid;
   gap: 2px;
 }

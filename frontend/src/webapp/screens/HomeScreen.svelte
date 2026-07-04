@@ -415,9 +415,11 @@
               </strong>
             </summary>
             <div class="premium-server-list premium-server-list-dropdown traffic-reset-detail">
-              <div class="traffic-reset-date-row">
-                <small>{t("wa_traffic_next_reset_label", {}, "Следующий сброс")}</small>
-                <strong>{trafficNextResetLabel(subscription)}</strong>
+              <div class="traffic-reset-detail-inner">
+                <div class="traffic-reset-date-row">
+                  <small>{t("wa_traffic_next_reset_label", {}, "Следующий сброс")}</small>
+                  <strong>{trafficNextResetLabel(subscription)}</strong>
+                </div>
               </div>
             </div>
           </details>
@@ -457,18 +459,20 @@
               </strong>
             </summary>
             <div class="premium-server-list premium-server-list-dropdown traffic-reset-detail">
-              <div class="traffic-reset-date-row">
-                <small>{t("wa_traffic_next_reset_label", {}, "Следующий сброс")}</small>
-                <strong>{premiumNextResetLabel(subscription)}</strong>
-              </div>
-              {#if premiumServerLabels(subscription).length}
-                <small>{t("wa_premium_servers_scope_label", {}, "Лимит действует на")}</small>
-                <div>
-                  {#each premiumServerLabels(subscription).slice(0, 8) as label}
-                    <span>{label}</span>
-                  {/each}
+              <div class="traffic-reset-detail-inner">
+                <div class="traffic-reset-date-row">
+                  <small>{t("wa_traffic_next_reset_label", {}, "Следующий сброс")}</small>
+                  <strong>{premiumNextResetLabel(subscription)}</strong>
                 </div>
-              {/if}
+                {#if premiumServerLabels(subscription).length}
+                  <small>{t("wa_premium_servers_scope_label", {}, "Лимит действует на")}</small>
+                  <div>
+                    {#each premiumServerLabels(subscription).slice(0, 8) as label}
+                      <span>{label}</span>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
             </div>
           </details>
           <LinearProgress
