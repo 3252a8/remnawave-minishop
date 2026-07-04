@@ -87,6 +87,14 @@ def test_shell_installer_installs_compose_and_explains_bind_errors():
     assert "compose-last-error.log" in script
 
 
+def test_shell_installer_prints_migrate_logs_after_compose_failure():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "didn't complete successfully" in script
+    assert "Сервис migrate завершился с ошибкой" in script
+    assert "run_compose logs --tail 120 migrate" in script
+
+
 def test_deployment_docs_explain_install_wizard_prompts():
     docs = (REPO_ROOT / "docs" / "getting-started" / "deployment.md").read_text(encoding="utf-8")
 

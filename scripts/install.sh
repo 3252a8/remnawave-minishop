@@ -1845,6 +1845,13 @@ explain_compose_failure() {
         return 0
     fi
 
+    if grep -Eiq "service \"migrate\" didn't complete successfully|service \"migrate\" did not complete successfully|migrate.*exit [1-9]" "$output_file"; then
+        fail "Сервис migrate завершился с ошибкой."
+        info "Ниже последние строки логов migrate; в них обычно указана реальная причина: настройки, тарифы или схема БД."
+        run_compose logs --tail 120 migrate || true
+        return 0
+    fi
+
     if grep -Eiq 'yaml:|mapping values are not allowed|did not find expected key|found character that cannot start any token' "$output_file"; then
         fail "Compose-файл выглядит синтаксически некорректным."
         info "Если файл редактировался вручную, сравните его с исходным примером или заново скачайте профиль через пункт меню обновления файлов."

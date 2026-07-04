@@ -461,7 +461,7 @@ def load_tariffs_config(path: str | Path) -> TariffsConfig | None:
     if not config_path.exists():
         return None
     try:
-        data = json.loads(config_path.read_text(encoding="utf-8"))
+        data = json.loads(config_path.read_text(encoding="utf-8-sig"))
         return TariffsConfig.model_validate(data)
     except (OSError, json.JSONDecodeError, ValidationError, ValueError) as exc:
         logger.critical("Failed to load tariffs config from %s: %s", config_path, exc)

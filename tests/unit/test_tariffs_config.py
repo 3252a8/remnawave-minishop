@@ -52,6 +52,19 @@ class TariffsConfigTests(unittest.TestCase):
             self.assertEqual(config.default.key, "standard")
             self.assertEqual(config.require("traffic").rub_per_gb_for_conversion(), 19.9)
 
+    def test_tariffs_config_with_utf8_bom_loads(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "tariffs.json"
+            path.write_text(json.dumps(_valid_config()), encoding="utf-8-sig")
+
+            config = load_tariffs_config(path)
+
+            self.assertIsNotNone(config)
+            self.assertEqual(config.default.key, "standard")
+
     def test_period_tariff_without_topup_packages_has_no_topup(self):
         config = TariffsConfig.model_validate(_valid_config())
 
