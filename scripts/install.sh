@@ -1845,10 +1845,20 @@ explain_compose_failure() {
         return 0
     fi
 
+    if grep -Eiq 'postgres.*unhealthy|dependency failed.*postgres|container .*postgres.*unhealthy' "$output_file"; then
+        fail "PostgreSQL не прошел healthcheck."
+        explain_postgres_password_mismatch
+        return 0
+    fi
+
     if grep -Eiq "service \"migrate\" didn't complete successfully|service \"migrate\" did not complete successfully|migrate.*exit [1-9]" "$output_file"; then
         fail "Сервис migrate завершился с ошибкой."
         info "Ниже последние строки логов migrate; в них обычно указана реальная причина: настройки, тарифы или схема БД."
-        run_compose logs --tail 120 migrate || true
+        migrate_logs=$(compose logs --tail 120 migrate 2>/dev/null || true)
+        [ -n "$migrate_logs" ] && printf '%s\n' "$migrate_logs"
+        if printf '%s\n' "$migrate_logs" | grep -Eiq 'InvalidPasswordError|password authentication failed'; then
+            explain_postgres_password_mismatch
+        fi
         return 0
     fi
 
@@ -1885,6 +1895,67 @@ run_compose_checked() {
     return "$status"
 }
 
+explain_postgres_password_mismatch() {
+    fail "PostgreSQL не принимает POSTGRES_USER/POSTGRES_PASSWORD из текущего .env."
+    info "Чаще всего это значит, что Docker volume базы уже был создан раньше с другим паролем."
+    info "Для настоящей чистой установки удалите старый DB volume через wizard или смените COMPOSE_PROJECT_NAME."
+    info "Если в базе есть нужные данные, верните старый POSTGRES_PASSWORD в .env и не удаляйте volume."
+}
+
+target_postgres_volume() {
+    printf '%s-db-data' "$(target_compose_project)"
+}
+
+check_target_postgres_auth() {
+    (cd "$TARGET_DIR" && compose exec -T postgres sh -lc \
+        'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atqc "SELECT 1" | grep -qx 1')
+}
+
+wait_target_postgres_auth() {
+    attempt=1
+    while [ "$attempt" -le 30 ]; do
+        if check_target_postgres_auth >/dev/null 2>&1; then
+            ok "PostgreSQL принимает логин/пароль из .env."
+            return 0
+        fi
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+    return 1
+}
+
+preflight_existing_postgres_volume() {
+    volume=$(target_postgres_volume)
+    if ! volume_exists "$volume"; then
+        return 0
+    fi
+    if volume_is_empty "$volume"; then
+        return 0
+    fi
+
+    warn "Найден существующий Docker volume PostgreSQL: $volume"
+    warn "Если вы проходите wizard заново, это может быть не чистая установка: данные БД живут вне папки $TARGET_DIR."
+
+    (cd "$TARGET_DIR" && run_compose_checked up -d postgres redis) || return 1
+    if wait_target_postgres_auth; then
+        return 0
+    fi
+
+    explain_postgres_password_mismatch
+    if confirm "Удалить volume $volume и начать с пустой БД? Все данные в этой БД будут удалены." 0; then
+        (cd "$TARGET_DIR" && run_compose down) || true
+        docker volume rm "$volume" >/dev/null || {
+            fail "Не удалось удалить Docker volume: $volume"
+            return 1
+        }
+        ok "Docker volume $volume удален. При следующем старте PostgreSQL создаст пустую БД с текущим .env."
+        return 0
+    fi
+
+    fail "Запуск остановлен, чтобы не продолжать с несовпадающим паролем PostgreSQL."
+    return 1
+}
+
 start_stack() {
     pull="${1:-1}"
     section "Запуск Docker Compose стека"
@@ -1894,6 +1965,7 @@ start_stack() {
     if [ "$pull" = "1" ]; then
         (cd "$TARGET_DIR" && run_compose_checked pull) || return 1
     fi
+    preflight_existing_postgres_volume || return 1
     (cd "$TARGET_DIR" && run_compose_checked up -d) || return 1
     (cd "$TARGET_DIR" && run_compose ps) || true
     ok "Команда запуска стека выполнена."
@@ -2360,17 +2432,11 @@ stop_known_legacy_containers() {
 
 wait_target_postgres() {
     section "Ожидание целевого PostgreSQL"
-    attempt=1
-    while [ "$attempt" -le 30 ]; do
-        if (cd "$TARGET_DIR" && compose exec -T postgres sh -c \
-            'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null 2>&1); then
-            ok "PostgreSQL готов."
-            return 0
-        fi
-        sleep 2
-        attempt=$((attempt + 1))
-    done
-    fail "Целевой PostgreSQL не стал готовым."
+    if wait_target_postgres_auth; then
+        return 0
+    fi
+    explain_postgres_password_mismatch
+    fail "Целевой PostgreSQL не стал готовым с текущими настройками .env."
     return 1
 }
 
@@ -2980,7 +3046,7 @@ create_pre_migration_backup() {
         fi
     done
 
-    if (cd "$TARGET_DIR" && compose exec -T postgres sh -lc 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null 2>&1); then
+    if check_target_postgres_auth >/dev/null 2>&1; then
         if (cd "$TARGET_DIR" && compose exec -T postgres sh -lc 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --no-acl') > "$backup_dir/dumps/minishop-postgres.sql"; then
             ok "Дамп PostgreSQL сохранен: $backup_dir/dumps/minishop-postgres.sql"
         else

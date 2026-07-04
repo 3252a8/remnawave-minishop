@@ -200,6 +200,32 @@ def test_deployment_examples_scope_named_volumes_to_compose_project():
         assert "name: remnawave-minishop-redis-data" not in compose
 
 
+def test_postgres_healthchecks_validate_configured_credentials():
+    compose_paths = [REPO_ROOT / "docker-compose.yml"] + [
+        REPO_ROOT / "deploy" / "examples" / profile / "docker-compose.yml"
+        for profile in ("caddy", "nginx", "newt", "no-proxy")
+    ]
+
+    for path in compose_paths:
+        compose = path.read_text(encoding="utf-8")
+        assert "PGPASSWORD=" in compose
+        assert "$$POSTGRES_PASSWORD" in compose
+        assert "psql -h 127.0.0.1" in compose
+        assert "pg_isready -U $$POSTGRES_USER" not in compose
+
+
+def test_shell_installer_guards_existing_postgres_volume_password_drift():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "preflight_existing_postgres_volume" in script
+    assert "Найден существующий Docker volume PostgreSQL" in script
+    assert "PostgreSQL принимает логин/пароль из .env" in script
+    assert "InvalidPasswordError|password authentication failed" in script
+    assert "Удалить volume $volume и начать с пустой БД" in script
+    assert 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1' in script
+    assert 'pg_isready -U "$POSTGRES_USER"' not in script
+
+
 def test_shell_installer_refreshes_importer_without_prompting_inside_command_substitution():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
