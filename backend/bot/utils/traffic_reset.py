@@ -122,6 +122,12 @@ def traffic_accounting_period_start(
         if derived is not None:
             return derived
 
+    previous_period = aware_utc(previous_period_start_at)
+    if previous_period is not None and previous_period <= current:
+        derived = traffic_period_start_from_anchor(previous_period, normalized, now=current)
+        if derived is not None:
+            return derived
+
     if normalized == "DAY":
         return datetime(current.year, current.month, current.day, tzinfo=UTC)
     if normalized == "WEEK":

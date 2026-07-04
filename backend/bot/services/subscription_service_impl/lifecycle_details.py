@@ -280,13 +280,9 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
         )
         premium_next_reset_at = None
         if local_active_sub and premium_limit_bytes > 0 and not premium_unlimited_override:
-            premium_next_reset_at = panel_next_traffic_reset_at(
-                panel_user_data,
-                fallback_strategy=effective_traffic_strategy,
-                now=now,
-            ) or next_traffic_reset_after(
+            premium_next_reset_at = next_traffic_reset_after(
                 premium_period_start_at,
-                effective_traffic_strategy,
+                self._period_tariff_traffic_strategy(),
                 now=now,
             )
 

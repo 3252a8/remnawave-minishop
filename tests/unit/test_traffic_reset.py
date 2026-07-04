@@ -50,6 +50,26 @@ class TrafficResetTests(unittest.TestCase):
             datetime(2026, 9, 15, 12, 30, tzinfo=UTC),
         )
 
+    def test_previous_period_start_is_anchor_when_panel_payload_omits_reset(self):
+        previous_period_start = datetime(2026, 6, 15, 12, 30, tzinfo=UTC)
+
+        self.assertEqual(
+            traffic_accounting_period_start(
+                "MONTH",
+                datetime(2026, 7, 4, 9, tzinfo=UTC),
+                previous_period_start_at=previous_period_start,
+            ),
+            previous_period_start,
+        )
+        self.assertEqual(
+            traffic_accounting_period_start(
+                "MONTH",
+                datetime(2026, 7, 16, 9, tzinfo=UTC),
+                previous_period_start_at=previous_period_start,
+            ),
+            datetime(2026, 7, 15, 12, 30, tzinfo=UTC),
+        )
+
     def test_next_reset_is_empty_for_no_reset(self):
         self.assertIsNone(
             next_traffic_reset_after(

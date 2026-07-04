@@ -225,6 +225,24 @@ def test_support_settings_i18n_keys_exist_in_admin_locales():
             assert field["i18n_description_key"] in messages
 
 
+def test_settings_choice_i18n_keys_exist_in_admin_locales():
+    fields_with_choices = [
+        item for item in _manifest_items() if isinstance(item.get("choices"), list)
+    ]
+    assert fields_with_choices
+
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        missing: list[str] = []
+        for field in fields_with_choices:
+            for choice in field["choices"]:
+                key = choice.get("i18n_label_key")
+                if key and key not in messages:
+                    missing.append(str(key))
+
+        assert sorted(missing) == []
+
+
 def test_subscription_purchase_description_settings_i18n_keys_exist():
     manifest = _manifest_by_key()
 
