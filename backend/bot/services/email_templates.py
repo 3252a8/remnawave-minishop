@@ -12,6 +12,7 @@ from .email_templates_common import (
     _uploaded_logo_dir,
 )
 from .email_templates_notifications import (
+    render_broadcast_email,
     render_subscription_expiring,
     render_subscription_lifecycle_notification,
     render_user_notification,
@@ -32,6 +33,7 @@ __all__ = [
     "_inline_uploaded_logo",
     "_uploaded_logo_dir",
     "render_account_merged",
+    "render_broadcast_email",
     "render_login_code",
     "render_payment_success",
     "render_subscription_expiring",

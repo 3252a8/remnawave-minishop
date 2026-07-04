@@ -46,7 +46,23 @@ export function demoApiResponse(
   if (cleanPath === "/admin/broadcast/audience-counts") {
     return {
       ok: true,
-      counts: { all: 1280, active: 742, inactive: 538, expired: 311, never: 227 },
+      counts: { all: 1280, active: 742, inactive: 538, expired: 311, never: 227, admins: 2 },
+      email_enabled: true,
+    };
+  }
+  if (cleanPath === "/admin/broadcast" && method === "POST") {
+    const body = jsonBody(options);
+    const channels = Array.isArray(body.channels) ? body.channels : ["telegram"];
+    const target = String(body.target || "all");
+    const queued = channels.includes("telegram") ? (target === "admins" ? 2 : 1280) : 0;
+    const emailQueued = channels.includes("email") ? (target === "admins" ? 1 : 486) : 0;
+    return {
+      ok: true,
+      queued,
+      failed: 0,
+      email_queued: emailQueued,
+      target,
+      channels,
     };
   }
   if (cleanPath === "/admin/sync") return { ok: true, status: "queued" };

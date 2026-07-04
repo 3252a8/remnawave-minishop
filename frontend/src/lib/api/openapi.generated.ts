@@ -1668,9 +1668,23 @@ export interface components {
       counts: {
         [key: string]: number | null;
       };
+      /**
+       * Email Enabled
+       * @default false
+       */
+      email_enabled: boolean;
     };
     /** AdminBroadcastBody */
     AdminBroadcastBody: {
+      /** Buttons */
+      buttons?: components["schemas"]["AdminBroadcastButtonBody"][];
+      /** Channels */
+      channels?: string[];
+      /**
+       * Email Subject
+       * @default
+       */
+      email_subject: unknown;
       /**
        * Target
        * @default all
@@ -1681,6 +1695,37 @@ export interface components {
        * @default
        */
       text: unknown;
+    };
+    /**
+     * AdminBroadcastButtonBody
+     * @description One inline button attached to a broadcast.
+     *
+     *     ``kind`` selects how the button URL is produced:
+     *     - ``url`` — explicit ``url`` field;
+     *     - ``promo_bot`` — deep link into the bot applying ``promo_code``;
+     *     - ``promo_webapp`` — link into the Mini App checkout with ``promo_code``.
+     */
+    AdminBroadcastButtonBody: {
+      /**
+       * Kind
+       * @default url
+       */
+      kind: string;
+      /**
+       * Label
+       * @default
+       */
+      label: string;
+      /**
+       * Promo Code
+       * @default
+       */
+      promo_code: string;
+      /**
+       * Url
+       * @default
+       */
+      url: string;
     };
     /** AdminHealthOut */
     AdminHealthOut: {
@@ -5081,6 +5126,8 @@ export interface operations {
         };
         content: {
           "application/json": {
+            channels: string[];
+            email_queued: number;
             failed: number;
             /** @constant */
             ok: true;

@@ -81,6 +81,7 @@ class AdminBackupRestoreOut(HttpResponseModel):
 
 class AdminBroadcastAudienceCountsOut(HttpResponseModel):
     counts: dict[str, int | None]
+    email_enabled: bool = False
 
 
 class AdminPanelInternalSquadOut(HttpResponseModel):

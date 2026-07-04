@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -16,6 +17,7 @@ from db.models import Subscription, User
 logger = logging.getLogger(__name__)
 
 AUDIENCE_ACTIVE_NEVER_CONNECTED = "active_never_connected"
+AUDIENCE_ADMINS = "admins"
 AUDIENCE_TARGETS = {
     "all",
     "active",
@@ -23,6 +25,7 @@ AUDIENCE_TARGETS = {
     "expired",
     "never",
     AUDIENCE_ACTIVE_NEVER_CONNECTED,
+    AUDIENCE_ADMINS,
 }
 PANEL_ACTIVITY_LOOKUP_CONCURRENCY = 10
 
@@ -33,14 +36,18 @@ class AudienceSegmentationService:
         session_factory: sessionmaker,
         *,
         panel_service: Any = None,
+        admin_ids: Sequence[int] | None = None,
     ) -> None:
         self.session_factory = session_factory
         self.panel_service = panel_service
+        self.admin_ids = [int(admin_id) for admin_id in dict.fromkeys(admin_ids or [])]
 
     async def resolve_user_ids(self, target: str) -> list[int]:
         normalized = str(target or "all").strip().lower()
         if normalized not in AUDIENCE_TARGETS:
             normalized = "all"
+        if normalized == AUDIENCE_ADMINS:
+            return list(self.admin_ids)
         async with self.session_factory() as session:
             if normalized == AUDIENCE_ACTIVE_NEVER_CONNECTED:
                 if self.panel_service is None:
@@ -82,6 +89,7 @@ class AudienceSegmentationService:
                 ),
                 "never": await user_dal.count_users_without_any_subscription_for_broadcast(session),
                 AUDIENCE_ACTIVE_NEVER_CONNECTED: None,
+                AUDIENCE_ADMINS: len(self.admin_ids),
             }
             if self.panel_service is not None:
                 counts[AUDIENCE_ACTIVE_NEVER_CONNECTED] = len(

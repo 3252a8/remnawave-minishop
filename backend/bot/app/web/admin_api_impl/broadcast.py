@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
+    get_bot_username,
+    get_i18n,
     get_optional_subscription_service,
     get_session_factory,
     get_settings,
@@ -25,18 +27,31 @@ from bot.app.web.route_contracts import (
 )
 from bot.services.audience_segmentation import (
     AUDIENCE_ACTIVE_NEVER_CONNECTED,
+    AUDIENCE_ADMINS,
     AUDIENCE_TARGETS,
     AudienceSegmentationService,
+)
+from bot.services.broadcast_email_service import (
+    BroadcastEmailRecipient,
+    schedule_broadcast_emails,
 )
 from bot.utils import MessageContent, send_message_via_queue
 from bot.utils.message_queue import get_queue_manager
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
-from db.dal import message_log_dal, user_dal
+from db.dal import message_log_dal, promo_code_dal, user_dal
 from db.models import Subscription, User
 
 from .auth import (
     _require_admin_user_id,
+)
+from .broadcast_content import (
+    BroadcastValidationError,
+    broadcast_promo_codes,
+    email_links_for_buttons,
+    normalize_broadcast_channels,
+    resolve_broadcast_buttons,
+    telegram_markup_for_buttons,
 )
 from .common import (
     _error,
@@ -58,7 +73,13 @@ register_contract(
     RouteContract(
         request_model=AdminBroadcastBody,
         response_schema=ok_envelope_with(
-            {"queued": INTEGER_SCHEMA, "failed": INTEGER_SCHEMA, "target": STRING_SCHEMA}
+            {
+                "queued": INTEGER_SCHEMA,
+                "failed": INTEGER_SCHEMA,
+                "email_queued": INTEGER_SCHEMA,
+                "target": STRING_SCHEMA,
+                "channels": {"type": "array", "items": STRING_SCHEMA},
+            }
         ),
     ),
 )
@@ -80,9 +101,11 @@ def _resolve_audience_service(request: web.Request) -> AudienceSegmentationServi
     service = request.app.get("audience_segmentation_service")
     if isinstance(service, AudienceSegmentationService):
         return service
+    settings: Settings = get_settings(request)
     return AudienceSegmentationService(
         get_session_factory(request),
         panel_service=_resolve_panel_service(request),
+        admin_ids=settings.ADMIN_IDS,
     )
 
 
@@ -185,6 +208,7 @@ async def _load_broadcast_audience_counts(
         return await _load_broadcast_audience_counts_uncached(
             async_session_factory,
             panel_service,
+            admin_ids=settings.ADMIN_IDS,
         )
     cache_key = "with-panel" if panel_service is not None else "without-panel"
     return cast(
@@ -194,6 +218,7 @@ async def _load_broadcast_audience_counts(
             lambda: _load_broadcast_audience_counts_uncached(
                 async_session_factory,
                 panel_service,
+                admin_ids=settings.ADMIN_IDS,
             ),
         ),
     )
@@ -202,6 +227,8 @@ async def _load_broadcast_audience_counts(
 async def _load_broadcast_audience_counts_uncached(
     async_session_factory: sessionmaker,
     panel_service: Any,
+    *,
+    admin_ids: list[int] | None = None,
 ) -> dict[str, int | None]:
     async with async_session_factory() as session:
         counts: dict[str, int | None] = {
@@ -213,6 +240,7 @@ async def _load_broadcast_audience_counts_uncached(
             "expired": await user_dal.count_users_with_expired_subscription_for_broadcast(session),
             "never": await user_dal.count_users_without_any_subscription_for_broadcast(session),
             BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED: None,
+            AUDIENCE_ADMINS: len(dict.fromkeys(admin_ids or [])),
         }
         if panel_service is not None:
             counts[BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED] = len(
@@ -224,9 +252,26 @@ async def _load_broadcast_audience_counts_uncached(
     return counts
 
 
+async def _validate_broadcast_promo_codes(
+    session: AsyncSession,
+    promo_codes: list[str],
+) -> web.Response | None:
+    """Catch admin typos before anything is queued: codes must exist and be live."""
+    for code in promo_codes:
+        promo = await promo_code_dal.get_promo_code_by_code(session, code)
+        if promo is None:
+            return _error(400, "promo_code_not_found", code)
+        if promo.__dict__.get("archived_at") is not None or not bool(
+            promo.__dict__.get("is_active")
+        ):
+            return _error(400, "promo_code_inactive", code)
+    return None
+
+
 async def admin_broadcast_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
     body = await parse_body_or_400(request, AdminBroadcastBody)
+    settings: Settings = get_settings(request)
     text = str(body.text or "").strip()
     target = str(body.target or "all").strip().lower()
     if not text:
@@ -234,8 +279,23 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
     if target not in BROADCAST_TARGETS:
         target = "all"
 
-    queue_manager = get_queue_manager()
-    if not queue_manager:
+    try:
+        channels = normalize_broadcast_channels(body.channels)
+        buttons = resolve_broadcast_buttons(
+            body.buttons,
+            settings=settings,
+            bot_username=get_bot_username(request),
+        )
+    except BroadcastValidationError as exc:
+        return _error(400, exc.code, exc.detail)
+
+    telegram_enabled = "telegram" in channels
+    email_enabled = "email" in channels
+    if email_enabled and not settings.email_auth_configured:
+        return _error(503, "email_not_configured")
+
+    queue_manager = get_queue_manager() if telegram_enabled else None
+    if telegram_enabled and not queue_manager:
         return _error(503, "queue_unavailable")
 
     if (
@@ -245,37 +305,77 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
         return _error(503, "panel_service_unavailable")
 
     audience_service = _resolve_audience_service(request)
-    user_ids = await audience_service.resolve_user_ids(target)
+    user_ids = [int(uid) for uid in await audience_service.resolve_user_ids(target)]
+    promo_codes = broadcast_promo_codes(buttons)
+    markup = telegram_markup_for_buttons(buttons)
 
     async_session_factory: sessionmaker = get_session_factory(request)
+    sent = 0
+    failed = 0
+    email_queued = 0
     async with async_session_factory() as session:
-        sent = 0
-        failed = 0
-        for uid in user_ids:
-            try:
-                await send_message_via_queue(
-                    queue_manager,
-                    int(uid),
-                    MessageContent(content_type="text", text=text),
-                    parse_mode="HTML",
-                    disable_web_page_preview=True,
+        promo_error = await _validate_broadcast_promo_codes(session, promo_codes)
+        if promo_error is not None:
+            return promo_error
+
+        if telegram_enabled and queue_manager is not None:
+            for uid in user_ids:
+                try:
+                    await send_message_via_queue(
+                        queue_manager,
+                        uid,
+                        MessageContent(content_type="text", text=text),
+                        parse_mode="HTML",
+                        disable_web_page_preview=True,
+                        reply_markup=markup,
+                    )
+                    sent += 1
+                except Exception as exc:
+                    failed += 1
+                    logger.debug("Broadcast queue failed for %s: %s", uid, exc)
+
+        if email_enabled:
+            recipients = [
+                BroadcastEmailRecipient(user_id=uid, email=email, language_code=language)
+                for uid, email, language in await user_dal.get_email_recipients_for_broadcast(
+                    session, user_ids
                 )
-                sent += 1
-            except Exception as exc:
-                failed += 1
-                logger.debug("Broadcast queue failed for %s: %s", uid, exc)
+            ]
+            email_queued = schedule_broadcast_emails(
+                settings=settings,
+                i18n=get_i18n(request),
+                recipients=recipients,
+                subject=str(body.email_subject or ""),
+                message_text=text,
+                buttons=email_links_for_buttons(buttons),
+                session_factory=async_session_factory,
+                actor_id=actor_id,
+                target=target,
+            )
 
         await message_log_dal.create_message_log(
             session,
             {
                 "user_id": actor_id,
                 "event_type": "admin_broadcast_webapp",
-                "content": f"target={target} sent={sent} failed={failed} text={text[:120]}",
+                "content": (
+                    f"target={target} channels={','.join(channels)} sent={sent} "
+                    f"failed={failed} email_queued={email_queued} "
+                    f"buttons={len(buttons)} text={text[:120]}"
+                ),
                 "is_admin_event": True,
             },
         )
 
-    return _ok({"queued": sent, "failed": failed, "target": target})
+    return _ok(
+        {
+            "queued": sent,
+            "failed": failed,
+            "email_queued": email_queued,
+            "target": target,
+            "channels": channels,
+        }
+    )
 
 
 async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Response:
@@ -295,4 +395,9 @@ async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Res
             panel_service,
         )
 
-    return _ok(AdminBroadcastAudienceCountsOut(counts=counts).model_dump(mode="json"))
+    return _ok(
+        AdminBroadcastAudienceCountsOut(
+            counts=counts,
+            email_enabled=bool(settings.email_auth_configured),
+        ).model_dump(mode="json")
+    )

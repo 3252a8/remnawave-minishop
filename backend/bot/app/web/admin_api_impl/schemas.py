@@ -255,14 +255,54 @@ class AdminBackupRestoreBody(HttpBodyModel):
     confirm: Any = False
 
 
+class AdminBroadcastButtonBody(HttpBodyModel):
+    """One inline button attached to a broadcast.
+
+    ``kind`` selects how the button URL is produced:
+    - ``url`` — explicit ``url`` field;
+    - ``promo_bot`` — deep link into the bot applying ``promo_code``;
+    - ``promo_webapp`` — link into the Mini App checkout with ``promo_code``.
+    """
+
+    kind: str = "url"
+    label: str = ""
+    url: str = ""
+    promo_code: str = ""
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _normalize_kind(cls, value: Any) -> str:
+        return _strip_text(value).lower()
+
+    @field_validator("label", "url", "promo_code", mode="before")
+    @classmethod
+    def _normalize_button_text(cls, value: Any) -> str:
+        return _strip_text(value)
+
+
 class AdminBroadcastBody(HttpBodyModel):
     text: Any = ""
     target: Any = "all"
+    channels: list[str] = Field(default_factory=lambda: ["telegram"])
+    email_subject: Any = ""
+    buttons: list[AdminBroadcastButtonBody] = Field(default_factory=list)
 
-    @field_validator("text", "target", mode="before")
+    @field_validator("text", "target", "email_subject", mode="before")
     @classmethod
     def _normalize_text_fields(cls, value: Any) -> str:
         return _strip_text(value)
+
+    @field_validator("channels", mode="before")
+    @classmethod
+    def _normalize_channels(cls, value: Any) -> list[str]:
+        if value is None:
+            return ["telegram"]
+        if isinstance(value, str):
+            value = [value]
+        if not isinstance(value, list):
+            return ["telegram"]
+        normalized = [_strip_text(item).lower() for item in value]
+        return [item for item in normalized if item]
 
 
 class AdminUserBanBody(HttpBodyModel):

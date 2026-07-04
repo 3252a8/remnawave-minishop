@@ -25,6 +25,33 @@ async def count_all_active_users_for_broadcast(session: AsyncSession) -> int:
     return int(result.scalar_one() or 0)
 
 
+async def get_email_recipients_for_broadcast(
+    session: AsyncSession,
+    user_ids: list[int],
+    *,
+    chunk_size: int = 900,
+) -> list[tuple[int, str, str | None]]:
+    """Return ``(user_id, email, language_code)`` for the given users with an email set.
+
+    The audience id list can be large, so the ``IN`` lookup is chunked.
+    """
+    recipients: list[tuple[int, str, str | None]] = []
+    for start in range(0, len(user_ids), chunk_size):
+        chunk = user_ids[start : start + chunk_size]
+        stmt = select(User.user_id, User.email, User.language_code).where(
+            User.user_id.in_(chunk),
+            User.is_banned == False,
+            User.email.is_not(None),
+            User.email != "",
+        )
+        result = await session.execute(stmt)
+        recipients.extend(
+            (int(user_id), str(email), language_code)
+            for user_id, email, language_code in result.all()
+        )
+    return recipients
+
+
 async def get_all_users_with_panel_uuid(session: AsyncSession) -> list[User]:
     stmt = select(User).where(User.panel_user_uuid.is_not(None))
     result = await session.execute(stmt)

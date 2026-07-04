@@ -428,6 +428,11 @@
             },
             "title": "Counts",
             "type": "object"
+          },
+          "email_enabled": {
+            "default": false,
+            "title": "Email Enabled",
+            "type": "boolean"
           }
         },
         "required": [
@@ -438,6 +443,24 @@
       },
       "AdminBroadcastBody": {
         "properties": {
+          "buttons": {
+            "items": {
+              "$ref": "#/components/schemas/AdminBroadcastButtonBody"
+            },
+            "title": "Buttons",
+            "type": "array"
+          },
+          "channels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Channels",
+            "type": "array"
+          },
+          "email_subject": {
+            "default": "",
+            "title": "Email Subject"
+          },
           "target": {
             "default": "all",
             "title": "Target"
@@ -448,6 +471,33 @@
           }
         },
         "title": "AdminBroadcastBody",
+        "type": "object"
+      },
+      "AdminBroadcastButtonBody": {
+        "description": "One inline button attached to a broadcast.\n\n``kind`` selects how the button URL is produced:\n- ``url`` — explicit ``url`` field;\n- ``promo_bot`` — deep link into the bot applying ``promo_code``;\n- ``promo_webapp`` — link into the Mini App checkout with ``promo_code``.",
+        "properties": {
+          "kind": {
+            "default": "url",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "title": "Label",
+            "type": "string"
+          },
+          "promo_code": {
+            "default": "",
+            "title": "Promo Code",
+            "type": "string"
+          },
+          "url": {
+            "default": "",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "title": "AdminBroadcastButtonBody",
         "type": "object"
       },
       "AdminHealthOut": {
@@ -8104,6 +8154,15 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "channels": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "email_queued": {
+                      "type": "integer"
+                    },
                     "failed": {
                       "type": "integer"
                     },
@@ -8122,7 +8181,9 @@
                     "ok",
                     "queued",
                     "failed",
-                    "target"
+                    "email_queued",
+                    "target",
+                    "channels"
                   ],
                   "type": "object"
                 }
