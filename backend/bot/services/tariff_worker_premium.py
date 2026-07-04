@@ -14,7 +14,11 @@ from bot.services.message_audit import log_user_message_delivery
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.date_utils import month_start
-from bot.utils.traffic_reset import previous_traffic_reset, traffic_period_starts_match
+from bot.utils.traffic_reset import (
+    panel_traffic_limit_strategy,
+    previous_traffic_reset,
+    traffic_period_starts_match,
+)
 from config.settings import Settings
 from db.dal import tariff_dal
 from db.models import Subscription
@@ -132,19 +136,29 @@ class TariffWorkerPremiumMixin:
                 sub.premium_is_limited = False
             return
 
+        premium_panel_user_dict = (
+            panel_user_dict
+            if str(getattr(tariff, "billing_model", "") or "").lower() == "period"
+            else None
+        )
         premium_period_start = self.subscription_service._premium_accounting_period_start(
             sub,
             now,
-            panel_user_data=panel_user_dict,
+            panel_user_data=premium_panel_user_dict,
+        )
+        effective_strategy = panel_traffic_limit_strategy(
+            premium_panel_user_dict,
+            self._period_tariff_traffic_strategy(),
         )
         is_trial_premium_tariff = bool(getattr(tariff, "key", "") == "trial")
         previous_premium_period_start = getattr(sub, "premium_period_start_at", None)
         same_period = self._same_premium_period(
             previous_premium_period_start,
             premium_period_start,
+            traffic_strategy=effective_strategy,
         )
         if (
-            self._period_tariff_traffic_strategy() == "NO_RESET"
+            effective_strategy == "NO_RESET"
             and previous_premium_period_start is not None
             and premium_period_start != month_start(now)
         ):
@@ -187,7 +201,10 @@ class TariffWorkerPremiumMixin:
         if premium_used is None:
             return
 
-        panel_next_reset_at = self._panel_next_traffic_reset_at(panel_user_dict, now=now)
+        panel_next_reset_at = self._panel_next_traffic_reset_at(
+            premium_panel_user_dict,
+            now=now,
+        )
 
         # Consume paid top-up balance only for overflow beyond baseline+bonus.
         # Admin-granted bonus is "spent" against usage first along with baseline,
@@ -283,6 +300,7 @@ class TariffWorkerPremiumMixin:
                     limit=int(premium_limit),
                     period_start_at=premium_period_start,
                     previous_period_start=previous_premium_period_start,
+                    traffic_strategy=effective_strategy,
                 )
             return
 
@@ -311,6 +329,7 @@ class TariffWorkerPremiumMixin:
                     limit=int(premium_limit),
                     period_start_at=premium_period_start,
                     previous_period_start=previous_premium_period_start,
+                    traffic_strategy=effective_strategy,
                 )
         logger.info(
             "Premium squad access %s for user %s tariff %s: %s/%s bytes",
@@ -331,8 +350,9 @@ class TariffWorkerPremiumMixin:
         limit: int,
         period_start_at: datetime,
         previous_period_start: datetime | None,
+        traffic_strategy: str,
     ) -> None:
-        if self._period_tariff_traffic_strategy() == "NO_RESET":
+        if traffic_strategy == "NO_RESET":
             return
         if not self._traffic_notice_channels_available():
             return
@@ -341,11 +361,15 @@ class TariffWorkerPremiumMixin:
 
         expected_previous_period = previous_traffic_reset(
             period_start_at,
-            self._period_tariff_traffic_strategy(),
+            traffic_strategy,
         )
         if expected_previous_period is None:
             return
-        if not self._same_premium_period(previous_period_start, expected_previous_period):
+        if not self._same_premium_period(
+            previous_period_start,
+            expected_previous_period,
+            traffic_strategy=traffic_strategy,
+        ):
             return
         was_warned_previous_period = await tariff_dal.has_warning_level_between(
             session,
@@ -439,14 +463,20 @@ class TariffWorkerPremiumMixin:
             )
             return None
 
-    def _same_premium_period(self, value: datetime | None, premium_period_start: datetime) -> bool:
+    def _same_premium_period(
+        self,
+        value: datetime | None,
+        premium_period_start: datetime,
+        *,
+        traffic_strategy: str | None = None,
+    ) -> bool:
         if value is None:
             return False
         try:
             return traffic_period_starts_match(
                 value,
                 premium_period_start,
-                self._period_tariff_traffic_strategy(),
+                traffic_strategy or self._period_tariff_traffic_strategy(),
             )
         except Exception:
             return False

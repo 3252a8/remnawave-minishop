@@ -4,7 +4,10 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from bot.utils.date_utils import add_months, month_start
-from config.traffic_strategy import normalize_traffic_limit_strategy
+from config.traffic_strategy import (
+    canonical_traffic_limit_strategy,
+    normalize_traffic_limit_strategy,
+)
 
 PANEL_NEXT_RESET_KEYS = (
     "nextTrafficResetAt",
@@ -59,6 +62,24 @@ def panel_traffic_stats(panel_user_data: dict[str, Any] | None) -> dict[str, Any
     return raw if isinstance(raw, dict) else {}
 
 
+def panel_traffic_limit_strategy(
+    panel_user_data: dict[str, Any] | None,
+    fallback_strategy: str,
+) -> str:
+    fallback = normalize_traffic_limit_strategy(fallback_strategy, default="MONTH")
+    if not isinstance(panel_user_data, dict):
+        return fallback
+    stats = panel_traffic_stats(panel_user_data)
+    for raw in (
+        panel_user_data.get("trafficLimitStrategy"),
+        stats.get("trafficLimitStrategy"),
+    ):
+        canonical = canonical_traffic_limit_strategy(raw)
+        if canonical is not None:
+            return canonical
+    return fallback
+
+
 def panel_last_traffic_reset_at(panel_user_data: dict[str, Any] | None) -> datetime | None:
     if not isinstance(panel_user_data, dict):
         return None
@@ -83,14 +104,10 @@ def panel_next_traffic_reset_at(
     if explicit_next is not None:
         return explicit_next
 
-    strategy = (
-        panel_user_data.get("trafficLimitStrategy")
-        or stats.get("trafficLimitStrategy")
-        or fallback_strategy
-    )
+    strategy = panel_traffic_limit_strategy(panel_user_data, fallback_strategy)
     return next_traffic_reset_after(
         panel_last_traffic_reset_at(panel_user_data),
-        str(strategy or ""),
+        strategy,
         now=now,
     )
 
@@ -103,7 +120,7 @@ def traffic_accounting_period_start(
     previous_period_start_at: datetime | None = None,
     panel_user_data: dict[str, Any] | None = None,
 ) -> datetime:
-    normalized = normalize_traffic_limit_strategy(strategy, default="MONTH")
+    normalized = panel_traffic_limit_strategy(panel_user_data, strategy)
     current = aware_utc(now) or datetime.now(UTC)
     panel_last_reset = panel_last_traffic_reset_at(panel_user_data)
 

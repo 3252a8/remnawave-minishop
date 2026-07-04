@@ -70,6 +70,31 @@ class TrafficResetTests(unittest.TestCase):
             datetime(2026, 7, 15, 12, 30, tzinfo=UTC),
         )
 
+    def test_panel_strategy_overrides_no_reset_fallback(self):
+        now = datetime(2026, 7, 4, 9, tzinfo=UTC)
+        panel_user = {
+            "trafficLimitStrategy": "MONTH",
+            "lastTrafficResetAt": "2026-07-01T00:00:00Z",
+        }
+
+        self.assertEqual(
+            traffic_accounting_period_start(
+                "NO_RESET",
+                now,
+                subscription_start_at=datetime(2026, 6, 15, tzinfo=UTC),
+                panel_user_data=panel_user,
+            ),
+            datetime(2026, 7, 1, tzinfo=UTC),
+        )
+        self.assertEqual(
+            panel_next_traffic_reset_at(
+                panel_user,
+                fallback_strategy="NO_RESET",
+                now=now,
+            ),
+            datetime(2026, 8, 1, tzinfo=UTC),
+        )
+
     def test_next_reset_is_empty_for_no_reset(self):
         self.assertIsNone(
             next_traffic_reset_after(

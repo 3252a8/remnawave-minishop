@@ -15,12 +15,12 @@ from bot.services.message_audit import log_user_message_delivery
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.traffic_reset import (
+    panel_traffic_limit_strategy,
     previous_traffic_reset,
     traffic_accounting_period_start,
     traffic_period_starts_match,
 )
 from config.settings import Settings
-from config.traffic_strategy import canonical_traffic_limit_strategy
 from db.dal import tariff_dal, user_dal
 from db.models import Subscription
 
@@ -204,8 +204,12 @@ class TariffWorkerRegularMixin:
                 (
                     used,
                     limit,
-                    panel_strategy,
+                    _panel_strategy,
                 ) = self.subscription_service._extract_panel_traffic_details(panel_data)
+                effective_strategy = panel_traffic_limit_strategy(
+                    panel_data,
+                    self._period_tariff_traffic_strategy(),
+                )
                 panel_status = str(panel_data.get("status") or "").upper()
                 panel_username = (
                     panel_data.get("username") if isinstance(panel_data, dict) else None
@@ -226,7 +230,6 @@ class TariffWorkerRegularMixin:
                         previous_period_start_at=previous_regular_period_start,
                         panel_user_data=panel_data,
                     )
-                    await self._ensure_period_reset_strategy(sub, tariff, limit, panel_strategy)
                     await self._maybe_send_regular_reset_notice(
                         session,
                         sub,
@@ -235,6 +238,7 @@ class TariffWorkerRegularMixin:
                         limit,
                         warning_period_start,
                         previous_period_start=previous_regular_period_start,
+                        traffic_strategy=effective_strategy,
                     )
                     sub.period_start_at = warning_period_start
                 else:
@@ -364,57 +368,23 @@ class TariffWorkerRegularMixin:
             )
         return {}
 
-    def _same_regular_period(self, value: datetime | None, period_start: datetime) -> bool:
+    def _same_regular_period(
+        self,
+        value: datetime | None,
+        period_start: datetime,
+        *,
+        traffic_strategy: str | None = None,
+    ) -> bool:
         if value is None:
             return False
         try:
             return traffic_period_starts_match(
                 value,
                 period_start,
-                self._period_tariff_traffic_strategy(),
+                traffic_strategy or self._period_tariff_traffic_strategy(),
             )
         except Exception:
             return False
-
-    async def _ensure_period_reset_strategy(
-        self,
-        sub: Subscription,
-        tariff: _RegularTariff,
-        limit: int | None,
-        panel_strategy: str | None,
-    ) -> None:
-        target_strategy = self._period_tariff_traffic_strategy()
-        if canonical_traffic_limit_strategy(panel_strategy) == target_strategy:
-            return
-        rb = int(getattr(sub, "regular_bonus_bytes", 0) or 0)
-        if bool(getattr(sub, "regular_unlimited_override", False)):
-            baseline = int(sub.tier_baseline_bytes or (tariff.monthly_bytes if tariff else 0) or 0)
-            traffic_limit_bytes = self.subscription_service._compute_main_traffic_limit_bytes(
-                tier_baseline_bytes=baseline,
-                topup_balance_bytes=int(sub.topup_balance_bytes or 0),
-                regular_bonus_bytes=rb,
-                regular_unlimited_override=True,
-                traffic_used_bytes=int(sub.traffic_used_bytes or 0),
-            )
-        else:
-            traffic_limit_bytes = int(
-                limit
-                or sub.traffic_limit_bytes
-                or (tariff.monthly_bytes + int(sub.topup_balance_bytes or 0) + rb)
-            )
-        payload = self.subscription_service._build_panel_update_payload(
-            panel_user_uuid=sub.panel_user_uuid,
-            expire_at=sub.end_date,
-            traffic_limit_bytes=traffic_limit_bytes,
-            traffic_limit_strategy=target_strategy,
-        )
-        payload["activeInternalSquads"] = self.subscription_service._panel_squads_for_tariff(
-            tariff,
-            include_premium=not bool(getattr(sub, "premium_is_limited", False)),
-        )
-        await self.panel_service.update_user_details_on_panel(
-            sub.panel_user_uuid, payload, log_response=False
-        )
 
     async def _sync_hwid_device_limit(
         self,
@@ -484,8 +454,9 @@ class TariffWorkerRegularMixin:
         period_start_at: datetime,
         *,
         previous_period_start: datetime | None,
+        traffic_strategy: str,
     ) -> None:
-        if self._period_tariff_traffic_strategy() == "NO_RESET":
+        if traffic_strategy == "NO_RESET":
             return
         if not self._traffic_notice_channels_available():
             return
@@ -500,11 +471,15 @@ class TariffWorkerRegularMixin:
 
         expected_previous_period = previous_traffic_reset(
             period_start_at,
-            self._period_tariff_traffic_strategy(),
+            traffic_strategy,
         )
         if expected_previous_period is None:
             return
-        if not self._same_regular_period(previous_period_start, expected_previous_period):
+        if not self._same_regular_period(
+            previous_period_start,
+            expected_previous_period,
+            traffic_strategy=traffic_strategy,
+        ):
             return
         was_warned_previous_period = await tariff_dal.has_warning_level_between(
             session,

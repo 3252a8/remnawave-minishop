@@ -269,11 +269,12 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             premium_topup_used,
             premium_bonus_bytes,
         )
+        premium_panel_user_data = panel_user_data if billing_model_display == "period" else None
         premium_period_start_at = (
             self._premium_accounting_period_start(
                 local_active_sub,
                 now,
-                panel_user_data=panel_user_data,
+                panel_user_data=premium_panel_user_data,
             )
             if local_active_sub
             else None

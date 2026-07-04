@@ -178,7 +178,7 @@ Legacy-поля остаются алиасами: `prices_rub`, `conversion_rat
 - в Remnawave отправляются Internal Squads из тарифа;
 - в Remnawave отправляется эффективный HWID-лимит тарифа.
 
-`USER_TRAFFIC_STRATEGY` определяет, будет ли Remnawave сбрасывать использованный трафик для period-тарифов. При `NO_RESET` панель не должна выполнять календарный сброс; при `DAY`, `WEEK`, `MONTH` и `MONTH_ROLLING` бот отправляет ту же стратегию в Remnawave и использует её же для отдельного premium-счётчика.
+`USER_TRAFFIC_STRATEGY` задаёт стратегию Remnawave по умолчанию для новых period-тарифов. При `NO_RESET` панель не должна выполнять календарный сброс; при `DAY`, `WEEK`, `MONTH` и `MONTH_ROLLING` бот отправляет эту стратегию при создании/активации подписки. Если для пользователя в Remnawave уже указана другая стратегия, фоновые синки считают панель источником правды и не откатывают её обратно к дефолту.
 
 Докупка трафика для period-тарифа увеличивает `topup_balance_bytes` и общий `traffic_limit_bytes`. Этот баланс сохраняется в подписке и учитывается при продлении period-тарифа. В панель отправляется актуальный лимит, а доступ переводится в `ACTIVE`.
 
@@ -217,7 +217,7 @@ Legacy-поля остаются алиасами: `prices_rub`, `conversion_rat
 - при исчерпании premium-лимита бот убирает только premium-сквады, обычный доступ остается;
 - после докупки premium-трафика бот возвращает premium-сквады, если новый лимит снова больше использованного premium-трафика.
 - докупленный premium-трафик не сгорает: сначала расходуется `premium_monthly_gb`, а докупленный остаток уменьшается только на трафик сверх базового premium-лимита;
-- premium-учёт следует `USER_TRAFFIC_STRATEGY`: при `NO_RESET` он идет от `start_date` подписки и не сбрасывает `premium_topup_used_bytes`; при `DAY`, `WEEK`, `MONTH` и `MONTH_ROLLING` счетчик premium-трафика и `premium_topup_used_bytes` сбрасываются на границе соответствующего периода, а `premium_topup_balance_bytes` переносится дальше. Для rolling-стратегии бот использует `lastTrafficResetAt` из Remnawave, если панель его отдаёт.
+- premium-учёт у period-тарифов следует `trafficLimitStrategy` пользователя из Remnawave с fallback на `USER_TRAFFIC_STRATEGY`; у traffic-тарифов premium-учёт использует `USER_TRAFFIC_STRATEGY`, потому что обычный traffic-пакет в Remnawave живёт с `NO_RESET`. При `NO_RESET` premium-период идет от `start_date` подписки и не сбрасывает `premium_topup_used_bytes`; при `DAY`, `WEEK`, `MONTH` и `MONTH_ROLLING` счетчик premium-трафика и `premium_topup_used_bytes` сбрасываются на границе соответствующего периода, а `premium_topup_balance_bytes` переносится дальше. Для rolling-стратегии бот использует `lastTrafficResetAt` из Remnawave, если панель его отдаёт.
 
 Если `premium_squad_uuids` заданы, но `premium_monthly_gb` пустой или `0` и нет `premium_topup_packages`, premium-сквады работают как дополнительный доступ без отдельного ограничения. Если заданы `premium_topup_packages` или положительный `premium_monthly_gb`, `premium_squad_uuids` обязательны.
 
@@ -353,12 +353,11 @@ Remnawave ограничивает доступ при достижении `tra
 `TariffTrafficWorker` запускается, когда активен JSON-каталог тарифов. Раз в 300 секунд он:
 
 - синхронизирует из панели `status`, `trafficLimitBytes`, `usedTrafficBytes` и `trafficLimitStrategy`;
-- для period-тарифов выставляет `trafficLimitStrategy` из `USER_TRAFFIC_STRATEGY`, если панель еще показывает другую стратегию;
+- для period-тарифов использует `trafficLimitStrategy` из Remnawave, а `USER_TRAFFIC_STRATEGY` применяет как fallback, если панель не вернула стратегию;
 - отправляет предупреждения на уровнях из `TARIFF_TRAFFIC_WARNING_LEVELS` (по умолчанию `85,90,95`);
-- не отправляет `status=ACTIVE` при простой синхронизации стратегии, чтобы не снять статус `LIMITED`, выставленный Remnawave;
 - дедуплицирует предупреждения через `traffic_warnings`.
 
-Для period-тарифов дедупликация предупреждений привязана к началу текущего периода по `USER_TRAFFIC_STRATEGY`; уведомления о сбросе отправляются только когда стратегия сброса не `NO_RESET`. Для traffic-тарифов дедупликация учитывает текущий `trafficLimitBytes`, чтобы после покупки очередного пакета пользователь мог получить следующий набор предупреждений.
+Для period-тарифов дедупликация предупреждений привязана к началу текущего периода по стратегии из Remnawave с fallback на `USER_TRAFFIC_STRATEGY`; уведомления о сбросе отправляются только когда эффективная стратегия сброса не `NO_RESET`. Для traffic-тарифов дедупликация учитывает текущий `trafficLimitBytes`, чтобы после покупки очередного пакета пользователь мог получить следующий набор предупреждений.
 
 Подписки, которые были ограничены логикой предыдущих запусков бота (`is_throttled=True`), восстанавливаются воркером только когда лимит снова больше использованного трафика.
 

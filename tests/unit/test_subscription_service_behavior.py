@@ -247,6 +247,7 @@ class SubscriptionServicePanelPayloadTests(unittest.TestCase):
                 expire_at=expire_at,
                 status="ACTIVE",
                 traffic_limit_bytes=12345,
+                traffic_limit_strategy="MONTH",
                 hwid_device_limit="4",
             )
 
@@ -258,6 +259,23 @@ class SubscriptionServicePanelPayloadTests(unittest.TestCase):
             self.assertEqual(payload["hwidDeviceLimit"], 4)
             self.assertEqual(payload["activeInternalSquads"], ["squad-a", "squad-b"])
             self.assertEqual(payload["externalSquadUuid"], "external-squad")
+
+    def test_build_panel_update_payload_omits_strategy_unless_explicit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                _tariffs_config_payload(),
+                tmpdir,
+                USER_TRAFFIC_STRATEGY="NO_RESET",
+            )
+            service = _make_service(settings)
+
+            payload = service._build_panel_update_payload(
+                panel_user_uuid="panel-uuid",
+                traffic_limit_bytes=12345,
+            )
+
+            self.assertEqual(payload["trafficLimitBytes"], 12345)
+            self.assertNotIn("trafficLimitStrategy", payload)
 
     def test_extract_panel_traffic_details_accepts_nested_and_top_level_shapes(self):
         with tempfile.TemporaryDirectory() as tmpdir:
