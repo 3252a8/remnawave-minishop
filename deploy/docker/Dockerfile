@@ -154,6 +154,33 @@ LABEL org.opencontainers.image.source="https://github.com/3252a8/remnawave-minis
 CMD ["python", "backend/main_worker.py"]
 
 
+FROM nginx:1.27-alpine AS nginx-brotli-builder
+
+RUN set -eu; \
+    apk add --no-cache \
+        build-base \
+        git \
+        linux-headers \
+        openssl-dev \
+        pcre2-dev \
+        wget \
+        zlib-dev; \
+    nginx_version="$(nginx -v 2>&1 | sed 's#nginx version: nginx/##')"; \
+    cd /tmp; \
+    wget -q "https://nginx.org/download/nginx-${nginx_version}.tar.gz"; \
+    tar -xzf "nginx-${nginx_version}.tar.gz"; \
+    git clone --branch v1.0.0rc --depth 1 --recurse-submodules \
+        https://github.com/google/ngx_brotli.git; \
+    cd "nginx-${nginx_version}"; \
+    ./configure \
+        --with-compat \
+        --with-cc-opt='-Wno-error=vla-parameter' \
+        --add-dynamic-module=../ngx_brotli; \
+    make modules; \
+    mkdir -p /brotli-modules; \
+    cp objs/ngx_http_brotli_static_module.so /brotli-modules/
+
+
 FROM nginx:1.27-alpine AS frontend
 
 LABEL org.opencontainers.image.source="https://github.com/3252a8/remnawave-minishop" \
@@ -161,6 +188,9 @@ LABEL org.opencontainers.image.source="https://github.com/3252a8/remnawave-minis
       org.opencontainers.image.description="Remnawave Minishop frontend (nginx serving the subscription Mini App)." \
       org.opencontainers.image.licenses="MIT"
 
+COPY --from=nginx-brotli-builder /brotli-modules/ngx_http_brotli_static_module.so /usr/lib/nginx/modules/
+RUN set -eu; \
+    sed -i '1i load_module modules/ngx_http_brotli_static_module.so;' /etc/nginx/nginx.conf
 COPY deploy/docker/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY deploy/docker/frontend/00-startup-banner.sh /docker-entrypoint.d/00-startup-banner.sh
 COPY deploy/docker/frontend/robots.txt /usr/share/nginx/html/robots.txt
