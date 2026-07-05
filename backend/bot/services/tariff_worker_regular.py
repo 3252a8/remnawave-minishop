@@ -214,7 +214,11 @@ class TariffWorkerRegularMixin:
                 panel_username = (
                     panel_data.get("username") if isinstance(panel_data, dict) else None
                 )
-                if used is not None and used != sub.traffic_used_bytes:
+                if (
+                    not trial_premium_subscription
+                    and used is not None
+                    and used != sub.traffic_used_bytes
+                ):
                     sub.traffic_used_bytes = used
                 if limit is not None and limit != sub.traffic_limit_bytes:
                     sub.traffic_limit_bytes = limit
@@ -265,6 +269,13 @@ class TariffWorkerRegularMixin:
                     panel_user_dict=panel_data,
                     panel_view=panel_view,
                 )
+                if trial_premium_subscription and used is not None:
+                    regular_used = self.subscription_service._regular_traffic_used_for_subscription(
+                        sub,
+                        used,
+                    )
+                    if regular_used is not None and regular_used != sub.traffic_used_bytes:
+                        sub.traffic_used_bytes = regular_used
 
     async def _prefetch_panel_users_by_uuid(
         self,

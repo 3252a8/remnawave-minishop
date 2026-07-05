@@ -1451,6 +1451,77 @@ class SubscriptionServiceActiveDetailsTests(unittest.IsolatedAsyncioTestCase):
             extra_hwid_devices=0,
         )
 
+    async def test_trial_details_exposes_regular_usage_without_premium_usage(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                _tariffs_config_payload(),
+                tmpdir,
+                TRIAL_TRAFFIC_LIMIT_GB=9,
+                TRIAL_PREMIUM_TRAFFIC_LIMIT_GB=3,
+                TRIAL_SQUAD_UUIDS="main-squad",
+                TRIAL_PREMIUM_SQUAD_UUIDS="premium-squad",
+            )
+            service = _make_service(settings)
+            service.panel_service.get_user_by_uuid_lookup = AsyncMock(
+                return_value={
+                    "ok": True,
+                    "user": {
+                        "uuid": "panel-user",
+                        "shortUuid": "short-uuid",
+                        "status": "ACTIVE",
+                        "expireAt": "2099-02-01T00:00:00Z",
+                        "subscriptionUrl": "https://panel.example.test/sub/short-uuid",
+                        "trafficLimitBytes": 9 * GIB,
+                        "userTraffic": {
+                            "usedTrafficBytes": 5 * GIB,
+                        },
+                    },
+                }
+            )
+            session = AsyncMock()
+            db_user = SimpleNamespace(
+                user_id=42,
+                panel_user_uuid="panel-user",
+                username="alice",
+                language_code="en",
+                lifetime_used_traffic_bytes=0,
+            )
+            local_sub = self._local_active_sub()
+            local_sub.provider = "trial"
+            local_sub.status_from_panel = "TRIAL"
+            local_sub.traffic_limit_bytes = 9 * GIB
+            local_sub.premium_baseline_bytes = 3 * GIB
+            local_sub.premium_used_bytes = 2 * GIB
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.user_dal.get_user_by_id",
+                    AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=local_sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.update_subscription",
+                    AsyncMock(),
+                ) as update_subscription,
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.tariff_dal.get_hwid_device_entitlement_summary",
+                    AsyncMock(return_value={"active_devices": 0}),
+                ),
+            ):
+                result = await service.get_active_subscription_details(session, user_id=42)
+
+        self.assertEqual(result["traffic_used_bytes"], 3 * GIB)
+        self.assertEqual(result["premium_used_bytes"], 2 * GIB)
+        self.assertTrue(
+            any(
+                call.args[2].get("traffic_used_bytes") == 3 * GIB
+                for call in update_subscription.await_args_list
+            )
+        )
+
     async def test_get_active_subscription_details_preserves_local_subscription_on_panel_error(
         self,
     ):
