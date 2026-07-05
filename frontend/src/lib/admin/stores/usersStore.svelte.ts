@@ -152,9 +152,11 @@ export function createUsersStore({
     const hwidLimitDraft =
       hasHwidLimit && hwidLimit !== null && hwidLimit > 0 ? String(hwidLimit) : "";
     const tariffKey = String(sub?.tariff_key || "");
+    const trafficStrategy = String(sub?.traffic_limit_strategy || "NO_RESET").trim() || "NO_RESET";
 
     return {
       tariffKey,
+      trafficStrategy,
       premiumUnlimited: Boolean(sub?.premium_unlimited_override),
       premiumBonusGb: bonusGb,
       regularUnlimited: Boolean(sub?.regular_unlimited_override),
@@ -172,6 +174,7 @@ export function createUsersStore({
     const {
       resetExtendTariff = true,
       resetTariffAction = true,
+      resetTrafficStrategy = true,
       resetPremium = true,
       resetRegular = true,
       resetHwid = true,
@@ -191,6 +194,10 @@ export function createUsersStore({
     if (resetTariffAction) {
       next.userTariffActionKey = draft.tariffKey;
       next.userTariffActionBaselineKey = draft.tariffKey;
+    }
+    if (resetTrafficStrategy) {
+      next.trafficStrategyDraft = draft.trafficStrategy;
+      next.trafficStrategyBaseline = draft.trafficStrategy;
     }
     if (resetPremium) {
       next.premiumUnlimitedDraft = draft.premiumUnlimited;
@@ -599,6 +606,7 @@ export function createUsersStore({
         invalidateUsersQueries(s.openedUser.user_id);
         onToast(at("subscription_extended", { days }, `Продлено на ${days} д.`));
         await refreshOpenedUserDetail({
+          resetTrafficStrategy: false,
           resetPremium: false,
           resetRegular: false,
           resetHwid: false,
@@ -651,6 +659,7 @@ export function createUsersStore({
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
           resetTariffAction: false,
+          resetTrafficStrategy: false,
           resetPremium: false,
           resetRegular: false,
           resetHwid: false,
@@ -690,6 +699,7 @@ export function createUsersStore({
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
           resetTariffAction: false,
+          resetTrafficStrategy: false,
           resetRegular: false,
           resetHwid: false,
           resetGrant: false,
@@ -732,7 +742,40 @@ export function createUsersStore({
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
           resetTariffAction: false,
+          resetTrafficStrategy: false,
           resetPremium: false,
+          resetHwid: false,
+          resetGrant: false,
+        });
+      } else {
+        onToast(adminErrorMessage(res, at));
+      }
+    } finally {
+      applyState((st) => ({ ...st, userActionBusy: false }));
+    }
+  }
+
+  async function saveTrafficStrategy() {
+    const s = readStateSnapshot();
+    if (!s.openedUser) return;
+    const trafficLimitStrategy = String(s.trafficStrategyDraft || "")
+      .trim()
+      .toUpperCase();
+    if (!trafficLimitStrategy) return;
+    applyState((st) => ({ ...st, userActionBusy: true }));
+    try {
+      const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "traffic-strategy"), {
+        method: "POST",
+        body: JSON.stringify({ traffic_limit_strategy: trafficLimitStrategy }),
+      });
+      if (res?.ok) {
+        invalidateUsersQueries(s.openedUser.user_id);
+        onToast(at("user_traffic_strategy_saved", {}, "Стратегия сброса сохранена"));
+        await refreshOpenedUserDetail({
+          resetExtendTariff: false,
+          resetTariffAction: false,
+          resetPremium: false,
+          resetRegular: false,
           resetHwid: false,
           resetGrant: false,
         });
@@ -780,6 +823,7 @@ export function createUsersStore({
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
           resetTariffAction: false,
+          resetTrafficStrategy: false,
           resetPremium: false,
           resetRegular: false,
           resetGrant: false,
@@ -829,6 +873,7 @@ export function createUsersStore({
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
           resetTariffAction: false,
+          resetTrafficStrategy: false,
           resetPremium: false,
           resetRegular: false,
           resetHwid: false,
@@ -886,6 +931,7 @@ export function createUsersStore({
     deleteUser,
     savePremiumTrafficOverride,
     saveRegularTrafficOverride,
+    saveTrafficStrategy,
     saveHwidDeviceLimit,
     grantTraffic,
     loadUserLogs,

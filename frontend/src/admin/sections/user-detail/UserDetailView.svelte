@@ -70,6 +70,13 @@
     currentSubscriptionTariffLabel,
     userTariffActionKey,
     selectTariffAction,
+    trafficStrategyItems,
+    trafficStrategyDirty,
+    trafficStrategyDraftValid,
+    trafficStrategyEditable,
+    trafficStrategyCurrentLabel,
+    trafficStrategyLockMessage,
+    selectTrafficStrategy,
     premiumOverrideDirty,
     premiumOverrideDraftValid,
     premiumUnlimitedDraft,
@@ -131,6 +138,13 @@
     currentSubscriptionTariffLabel: string;
     userTariffActionKey: string;
     selectTariffAction: (value: string) => void;
+    trafficStrategyItems: SelectOption[];
+    trafficStrategyDirty: boolean;
+    trafficStrategyDraftValid: boolean;
+    trafficStrategyEditable: boolean;
+    trafficStrategyCurrentLabel: string;
+    trafficStrategyLockMessage: string;
+    selectTrafficStrategy: (value: string) => void;
     premiumOverrideDirty: boolean;
     premiumOverrideDraftValid: boolean;
     premiumUnlimitedDraft: boolean;
@@ -678,6 +692,13 @@
               {currentSubscriptionTariffLabel}
               {userTariffActionKey}
               {selectTariffAction}
+              {trafficStrategyItems}
+              {trafficStrategyDirty}
+              {trafficStrategyDraftValid}
+              {trafficStrategyEditable}
+              {trafficStrategyCurrentLabel}
+              {trafficStrategyLockMessage}
+              {selectTrafficStrategy}
               {premiumOverrideDirty}
               {premiumOverrideDraftValid}
               {premiumUnlimitedDraft}

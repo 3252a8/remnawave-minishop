@@ -49,6 +49,8 @@ export type AdminStoreState = {
   userExtendTariffKey: string;
   userTariffActionKey: string;
   userTariffActionBaselineKey: string;
+  trafficStrategyDraft: string;
+  trafficStrategyBaseline: string;
   userActionBusy: boolean;
   userDeleteOpen: boolean;
   userBanConfirmOpen: boolean;
@@ -99,6 +101,7 @@ export type OpenUserOptions = { pathContext?: PathContext; skipPush?: boolean };
 export type SnapshotOptions = {
   resetExtendTariff?: boolean;
   resetTariffAction?: boolean;
+  resetTrafficStrategy?: boolean;
   resetPremium?: boolean;
   resetRegular?: boolean;
   resetHwid?: boolean;
@@ -134,6 +137,8 @@ export function createInitialUsersState(): AdminStoreState {
     userExtendTariffKey: "",
     userTariffActionKey: "",
     userTariffActionBaselineKey: "",
+    trafficStrategyDraft: "",
+    trafficStrategyBaseline: "",
     userActionBusy: false,
     userDeleteOpen: false,
     userBanConfirmOpen: false,
@@ -182,6 +187,8 @@ export function closedUserModalState(): Partial<AdminStoreState> {
     userExtendTariffKey: "",
     userTariffActionKey: "",
     userTariffActionBaselineKey: "",
+    trafficStrategyDraft: "",
+    trafficStrategyBaseline: "",
     userDeleteOpen: false,
     userBanConfirmOpen: false,
     userMessageConfirmOpen: false,

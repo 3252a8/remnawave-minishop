@@ -349,6 +349,10 @@ class AdminUserTrafficGrantBody(HttpBodyModel):
         return _strip_text(value).lower() or "regular"
 
 
+class AdminUserTrafficStrategyBody(HttpBodyModel):
+    traffic_limit_strategy: Any = None
+
+
 class AdminUserExtendBody(HttpBodyModel):
     days: Any = None
     tariff_key: Any = None
@@ -812,6 +816,10 @@ class AdminSubscriptionOut(HttpResponseModel):
     auto_renew_enabled: bool
     provider: str | None = None
     is_throttled: bool
+    billing_model: str | None = None
+    traffic_limit_strategy: str | None = None
+    traffic_strategy_editable: bool = False
+    traffic_strategy_lock_reason: str | None = None
 
     @classmethod
     def from_orm_subscription(cls, sub: Any) -> AdminSubscriptionOut:
@@ -857,6 +865,10 @@ class AdminSubscriptionOut(HttpResponseModel):
             auto_renew_enabled=bool(sub.auto_renew_enabled),
             provider=provider,
             is_throttled=bool(sub.is_throttled),
+            billing_model=getattr(sub, "billing_model", None),
+            traffic_limit_strategy=getattr(sub, "traffic_limit_strategy", None),
+            traffic_strategy_editable=bool(getattr(sub, "traffic_strategy_editable", False)),
+            traffic_strategy_lock_reason=getattr(sub, "traffic_strategy_lock_reason", None),
         )
 
 

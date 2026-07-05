@@ -24,6 +24,7 @@ from .schemas import (
     AdminUserRegularTrafficOverrideBody,
     AdminUserTariffBody,
     AdminUserTrafficGrantBody,
+    AdminUserTrafficStrategyBody,
     AdminUserTrialOut,
     AdminUserWithAvatarOut,
     PaymentOut,
@@ -41,6 +42,7 @@ from .users_actions import (
     admin_user_tariff_route,
     admin_user_telegram_profile_link_route,
     admin_user_traffic_grant_route,
+    admin_user_traffic_strategy_route,
 )
 from .users_common import (
     _ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
@@ -214,6 +216,14 @@ register_contract(
     ),
 )
 register_contract(
+    "admin_user_traffic_strategy_route",
+    RouteContract(
+        request_model=AdminUserTrafficStrategyBody,
+        response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
+        models=(AdminSubscriptionOut,),
+    ),
+)
+register_contract(
     "admin_user_hwid_device_limit_route",
     RouteContract(
         request_model=AdminUserHwidDeviceLimitBody,
@@ -288,6 +298,7 @@ __all__ = [
     "admin_user_tariff_route",
     "admin_user_telegram_profile_link_route",
     "admin_user_traffic_grant_route",
+    "admin_user_traffic_strategy_route",
     "admin_users_list_route",
     "message_log_dal",
     "payment_dal",

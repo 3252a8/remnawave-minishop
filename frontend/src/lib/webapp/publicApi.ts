@@ -444,6 +444,7 @@ export type AdminUserAction =
   | "reset-trial"
   | "premium-override"
   | "regular-traffic-override"
+  | "traffic-strategy"
   | "hwid-device-limit"
   | "traffic-grant";
 type AdminUserActionTemplate =
@@ -456,6 +457,7 @@ type AdminUserActionTemplate =
   | "/api/admin/users/{user_id}/reset-trial"
   | "/api/admin/users/{user_id}/premium-override"
   | "/api/admin/users/{user_id}/regular-traffic-override"
+  | "/api/admin/users/{user_id}/traffic-strategy"
   | "/api/admin/users/{user_id}/hwid-device-limit"
   | "/api/admin/users/{user_id}/traffic-grant";
 export type AdminUserActionPath = BuiltApiPath<AdminUserActionTemplate>;

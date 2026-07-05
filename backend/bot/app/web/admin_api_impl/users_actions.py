@@ -16,11 +16,14 @@ from bot.app.web.request_parsing import parse_body_or_400
 from bot.utils import MessageContent, send_message_via_queue
 from bot.utils.message_queue import get_queue_manager
 from config.settings import Settings
+from config.traffic_strategy import canonical_traffic_limit_strategy
 from db.dal import message_log_dal, subscription_dal, user_dal
 from db.models import User
 
 from .auth import _require_admin_user_id
 from .common import (
+    _admin_subscription_traffic_strategy_lock_reason,
+    _decorate_admin_subscription_traffic_strategy,
     _error,
     _ok,
     _serialize_subscription,
@@ -35,6 +38,7 @@ from .schemas import (
     AdminUserRegularTrafficOverrideBody,
     AdminUserTariffBody,
     AdminUserTrafficGrantBody,
+    AdminUserTrafficStrategyBody,
 )
 from .users_listing import (
     _invalidate_after_admin_user_mutation,
@@ -471,6 +475,115 @@ async def admin_user_regular_traffic_override_route(request: web.Request) -> web
 
     await _invalidate_after_admin_user_mutation(settings, target_id)
     return _ok({"subscription": _serialize_subscription(active)})
+
+
+async def admin_user_traffic_strategy_route(request: web.Request) -> web.Response:
+    """Set a period subscription's Remnawave traffic reset strategy."""
+
+    actor_id = _require_admin_user_id(request)
+    target_id = int(request.match_info["user_id"])
+    settings: Settings = get_settings(request)
+    body = await parse_body_or_400(request, AdminUserTrafficStrategyBody)
+
+    traffic_limit_strategy = canonical_traffic_limit_strategy(body.traffic_limit_strategy)
+    if traffic_limit_strategy is None:
+        return _error(
+            400,
+            "invalid_traffic_strategy",
+            "traffic_limit_strategy must be one of: NO_RESET, DAY, WEEK, MONTH, MONTH_ROLLING",
+        )
+
+    async_session_factory: sessionmaker = get_session_factory(request)
+    async with async_session_factory() as session:
+        active = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
+        if not active:
+            return _error(404, "no_active_subscription")
+
+        lock_reason = _admin_subscription_traffic_strategy_lock_reason(
+            settings,
+            active,
+            panel_available=True,
+        )
+        if lock_reason == "traffic_tariff":
+            return _error(
+                409,
+                "traffic_strategy_locked",
+                (
+                    "Traffic package tariffs always use NO_RESET. Switch the user to a period "
+                    "tariff before changing the reset strategy."
+                ),
+            )
+        if lock_reason == "trial":
+            return _error(
+                409,
+                "traffic_strategy_locked",
+                "Trial traffic reset strategy is controlled by TRIAL_TRAFFIC_STRATEGY.",
+            )
+
+        panel_user_uuid = str(getattr(active, "panel_user_uuid", "") or "").strip()
+        if not panel_user_uuid:
+            return _error(
+                409,
+                "panel_user_missing",
+                "The active subscription is not linked to a Remnawave panel user.",
+            )
+
+        subscription_service = get_optional_subscription_service(request)
+        panel_service = get_panel_service(request) or getattr(
+            subscription_service, "panel_service", None
+        )
+        if panel_service is None:
+            return _error(503, "panel_service_unavailable")
+
+        update_payload = {
+            "uuid": panel_user_uuid,
+            "trafficLimitStrategy": traffic_limit_strategy,
+        }
+        try:
+            updated_panel_user = await panel_service.update_user_details_on_panel(
+                panel_user_uuid,
+                update_payload,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Admin webapp failed to update traffic strategy for user %s: %s",
+                target_id,
+                exc,
+            )
+            await session.rollback()
+            return _error(502, "panel_update_failed", str(exc))
+        if not updated_panel_user:
+            await session.rollback()
+            return _error(502, "panel_update_failed", "Unable to update Remnawave panel user")
+
+        if hasattr(active, "period_start_at"):
+            active.period_start_at = None
+        if hasattr(active, "premium_period_start_at"):
+            active.premium_period_start_at = None
+
+        await message_log_dal.create_message_log(
+            session,
+            {
+                "user_id": actor_id,
+                "event_type": "admin_traffic_strategy_webapp",
+                "content": f"traffic_limit_strategy={traffic_limit_strategy}",
+                "is_admin_event": True,
+                "target_user_id": target_id,
+            },
+        )
+        await session.commit()
+        await session.refresh(active)
+
+    await _invalidate_after_admin_user_mutation(settings, target_id)
+    subscription_payload = _serialize_subscription(active)
+    _decorate_admin_subscription_traffic_strategy(
+        subscription_payload,
+        settings,
+        active,
+        traffic_limit_strategy=traffic_limit_strategy,
+        panel_available=True,
+    )
+    return _ok({"subscription": subscription_payload})
 
 
 async def admin_user_hwid_device_limit_route(request: web.Request) -> web.Response:

@@ -1197,6 +1197,18 @@
             "title": "Auto Renew Enabled",
             "type": "boolean"
           },
+          "billing_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Billing Model"
+          },
           "display_label": {
             "anyOf": [
               {
@@ -1444,6 +1456,35 @@
             ],
             "default": null,
             "title": "Traffic Limit Bytes"
+          },
+          "traffic_limit_strategy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Traffic Limit Strategy"
+          },
+          "traffic_strategy_editable": {
+            "default": false,
+            "title": "Traffic Strategy Editable",
+            "type": "boolean"
+          },
+          "traffic_strategy_lock_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Traffic Strategy Lock Reason"
           },
           "traffic_used_bytes": {
             "anyOf": [
@@ -2784,6 +2825,16 @@
           }
         },
         "title": "AdminUserTrafficGrantBody",
+        "type": "object"
+      },
+      "AdminUserTrafficStrategyBody": {
+        "properties": {
+          "traffic_limit_strategy": {
+            "default": null,
+            "title": "Traffic Limit Strategy"
+          }
+        },
+        "title": "AdminUserTrafficStrategyBody",
         "type": "object"
       },
       "AdminUserTrialOut": {
@@ -10816,6 +10867,68 @@
           }
         ],
         "summary": "Admin User Traffic Grant",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/traffic-strategy": {
+      "post": {
+        "operationId": "post_admin_user_traffic_strategy_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserTrafficStrategyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "subscription": {
+                      "$ref": "#/components/schemas/AdminSubscriptionOut"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Traffic Strategy",
         "tags": [
           "admin"
         ]

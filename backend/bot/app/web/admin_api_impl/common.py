@@ -10,6 +10,7 @@ from aiohttp import web
 from bot.app.web.response_helpers import json_response
 from config.settings import Settings
 from config.tariffs_config import TariffsConfig
+from config.traffic_strategy import normalize_traffic_limit_strategy
 from db.models import AdCampaign, MessageLog, Payment, PromoCode, Subscription, User
 
 from .schemas import AdminSubscriptionOut, AdminUserOut, AdOut, LogOut, PaymentOut, PromoOut
@@ -268,6 +269,107 @@ def _serialize_subscription(sub: Subscription) -> dict[str, Any]:
         dict[str, Any],
         AdminSubscriptionOut.from_orm_subscription(sub).model_dump(mode="json"),
     )
+
+
+def _is_trial_subscription(sub: Subscription | Any | None) -> bool:
+    if sub is None:
+        return False
+    return bool(getattr(sub, "is_trial", False)) or (
+        str(getattr(sub, "provider", "") or "").strip().lower() == "trial"
+    )
+
+
+def _settings_bool(settings: Settings, name: str, default: bool = False) -> bool:
+    try:
+        return bool(getattr(settings, name))
+    except Exception:
+        return default
+
+
+def _admin_subscription_billing_model(
+    settings: Settings,
+    sub: Subscription | Any | None,
+) -> str | None:
+    if sub is None or _is_trial_subscription(sub):
+        return None
+
+    tariff_key = str(getattr(sub, "tariff_key", "") or "").strip()
+    if tariff_key:
+        try:
+            tariffs_config = settings.tariffs_config
+        except Exception:
+            tariffs_config = None
+        if tariffs_config is not None:
+            try:
+                tariff = tariffs_config.require(tariff_key)
+            except Exception:
+                tariff = None
+            billing_model = str(getattr(tariff, "billing_model", "") or "").strip().lower()
+            if billing_model in {"period", "traffic"}:
+                return billing_model
+        return "period"
+
+    if _settings_bool(settings, "traffic_sale_mode"):
+        return "traffic"
+    return "period"
+
+
+def _admin_subscription_traffic_strategy_fallback(
+    settings: Settings,
+    sub: Subscription | Any | None,
+) -> str:
+    if _admin_subscription_billing_model(settings, sub) == "traffic":
+        return "NO_RESET"
+    if _is_trial_subscription(sub):
+        return normalize_traffic_limit_strategy(
+            settings.TRIAL_TRAFFIC_STRATEGY,
+            default="NO_RESET",
+        )
+    return normalize_traffic_limit_strategy(
+        settings.USER_TRAFFIC_STRATEGY,
+        default="NO_RESET",
+    )
+
+
+def _admin_subscription_traffic_strategy_lock_reason(
+    settings: Settings,
+    sub: Subscription | Any | None,
+    *,
+    panel_available: bool,
+) -> str | None:
+    if sub is None:
+        return "no_active_subscription"
+    if _is_trial_subscription(sub):
+        return "trial"
+    if _admin_subscription_billing_model(settings, sub) == "traffic":
+        return "traffic_tariff"
+    if not panel_available:
+        return "panel_unavailable"
+    return None
+
+
+def _decorate_admin_subscription_traffic_strategy(
+    payload: dict[str, Any],
+    settings: Settings,
+    sub: Subscription | Any,
+    *,
+    traffic_limit_strategy: str | None = None,
+    panel_available: bool,
+) -> dict[str, Any]:
+    fallback = _admin_subscription_traffic_strategy_fallback(settings, sub)
+    lock_reason = _admin_subscription_traffic_strategy_lock_reason(
+        settings,
+        sub,
+        panel_available=panel_available,
+    )
+    payload["billing_model"] = _admin_subscription_billing_model(settings, sub)
+    payload["traffic_limit_strategy"] = normalize_traffic_limit_strategy(
+        traffic_limit_strategy or fallback,
+        default=fallback,
+    )
+    payload["traffic_strategy_editable"] = lock_reason is None
+    payload["traffic_strategy_lock_reason"] = lock_reason
+    return payload
 
 
 def _payment_traffic_gb_split(payment: Payment) -> tuple[float | None, float | None]:

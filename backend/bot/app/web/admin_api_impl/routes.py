@@ -86,6 +86,7 @@ from .users import (
     admin_user_tariff_route,
     admin_user_telegram_profile_link_route,
     admin_user_traffic_grant_route,
+    admin_user_traffic_strategy_route,
     admin_users_list_route,
 )
 
@@ -119,6 +120,10 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_post(
         "/api/admin/users/{user_id:-?\\d+}/regular-traffic-override",
         admin_user_regular_traffic_override_route,
+    )
+    router.add_post(
+        "/api/admin/users/{user_id:-?\\d+}/traffic-strategy",
+        admin_user_traffic_strategy_route,
     )
     router.add_post(
         "/api/admin/users/{user_id:-?\\d+}/hwid-device-limit",

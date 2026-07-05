@@ -948,6 +948,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{user_id}/traffic-strategy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Traffic Strategy */
+    post: operations["post_admin_user_traffic_strategy_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/auth/email/magic": {
     parameters: {
       query?: never;
@@ -2018,6 +2035,11 @@ export interface components {
       /** Auto Renew Enabled */
       auto_renew_enabled: boolean;
       /**
+       * Billing Model
+       * @default null
+       */
+      billing_model: string | null;
+      /**
        * Display Label
        * @default null
        */
@@ -2124,6 +2146,21 @@ export interface components {
        * @default null
        */
       traffic_limit_bytes: number | null;
+      /**
+       * Traffic Limit Strategy
+       * @default null
+       */
+      traffic_limit_strategy: string | null;
+      /**
+       * Traffic Strategy Editable
+       * @default false
+       */
+      traffic_strategy_editable: boolean;
+      /**
+       * Traffic Strategy Lock Reason
+       * @default null
+       */
+      traffic_strategy_lock_reason: string | null;
       /**
        * Traffic Used Bytes
        * @default null
@@ -2717,6 +2754,14 @@ export interface components {
        * @default regular
        */
       kind: unknown;
+    };
+    /** AdminUserTrafficStrategyBody */
+    AdminUserTrafficStrategyBody: {
+      /**
+       * Traffic Limit Strategy
+       * @default null
+       */
+      traffic_limit_strategy: unknown;
     };
     /** AdminUserTrialOut */
     AdminUserTrialOut: {
@@ -6355,6 +6400,36 @@ export interface operations {
             /** @constant */
             ok: true;
             subscription?: components["schemas"]["AdminSubscriptionOut"] | null;
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_traffic_strategy_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserTrafficStrategyBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
           };
         };
       };

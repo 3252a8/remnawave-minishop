@@ -8,6 +8,7 @@ from bot.app.web.admin_api_impl import broadcast as broadcast_module
 from bot.app.web.admin_api_impl import common as common_module
 from bot.app.web.admin_api_impl import users as users_module
 from bot.app.web.admin_api_impl import users_detail
+from tests.support.settings_stub import settings_stub
 
 
 class FakeResult:
@@ -186,7 +187,7 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
         install_links = AsyncMock(return_value="https://app.example/s/share")
         request = SimpleNamespace(
             app={
-                "settings": SimpleNamespace(SUBSCRIPTION_MINI_APP_URL=None),
+                "settings": settings_stub(SUBSCRIPTION_MINI_APP_URL=None),
                 "async_session_factory": lambda: session,
                 "subscription_service": SimpleNamespace(panel_service=panel_service),
             },
