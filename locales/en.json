@@ -1024,6 +1024,7 @@
   "wa_traffic_reset_policy": "Traffic reset policy",
   "wa_traffic_next_reset_label": "Next reset",
   "wa_traffic_next_reset_none": "No reset is scheduled",
+  "wa_traffic_reset_none_details": "Traffic does not reset automatically: available volume stays until you use it. If the tariff supports top-ups, you can add traffic with a separate package.",
   "wa_premium_servers_scope_label": "Limit applies to",
   "wa_plan_one_year": "1 year",
   "wa_link_email_modal_desc": "Enter your email and get a verification code",

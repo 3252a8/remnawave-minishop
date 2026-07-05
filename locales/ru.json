@@ -1024,6 +1024,7 @@
   "wa_traffic_reset_policy": "Стратегия сброса трафика",
   "wa_traffic_next_reset_label": "Следующий сброс",
   "wa_traffic_next_reset_none": "Сброс не запланирован",
+  "wa_traffic_reset_none_details": "Трафик не сбрасывается автоматически: доступный объём сохраняется, пока вы его не используете. Если тариф поддерживает докупку, можно добавить трафик отдельным пакетом.",
   "wa_premium_servers_scope_label": "Лимит действует на",
   "wa_plan_one_year": "1 год",
   "wa_link_email_modal_desc": "Введите email и получите код подтверждения",

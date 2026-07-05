@@ -24,6 +24,8 @@
     trafficPercent as trafficPercentFn,
     trafficLabel as trafficLabelFn,
     trafficResetLabel as trafficResetLabelFn,
+    trafficResetScheduled as trafficResetScheduledFn,
+    trafficSummaryTitle as trafficSummaryTitleFn,
     trafficNextResetLabel as trafficNextResetLabelFn,
     regularTrafficLimitVisible as regularTrafficLimitVisibleFn,
     premiumTrafficPercent as premiumTrafficPercentFn,
@@ -134,6 +136,12 @@
   function trafficResetLabel(sub: SubscriptionView) {
     return trafficResetLabelFn(sub, t);
   }
+  function trafficResetScheduled(sub: SubscriptionView = subscription) {
+    return trafficResetScheduledFn(sub);
+  }
+  function trafficSummaryTitle(sub: SubscriptionView = subscription) {
+    return trafficSummaryTitleFn(sub, t);
+  }
   function trafficNextResetLabel(sub: SubscriptionView) {
     return trafficNextResetLabelFn(sub, t);
   }
@@ -153,9 +161,6 @@
     ]
       .filter(Boolean)
       .join(" ");
-  }
-  function regularTrafficMetaLabel(sub: SubscriptionView = subscription) {
-    return regularTrafficDepleted(sub) ? t("wa_traffic_depleted") : trafficResetLabel(sub);
   }
   function premiumTrafficAvailable(sub: SubscriptionView = subscription) {
     return !regularTrafficDepleted(sub);
@@ -417,9 +422,7 @@
             >
               <span class="traffic-summary-left premium-summary-trigger">
                 <span class="premium-summary-copy">
-                  {t("wa_home_traffic_used")}
-                  <span class="traffic-summary-separator" aria-hidden="true">|</span>
-                  {regularTrafficMetaLabel(subscription)}
+                  {trafficSummaryTitle(subscription)}
                 </span>
                 <CircleQuestionMark class="premium-server-help-icon" size={15} />
               </span>
@@ -436,10 +439,24 @@
                 transition:slide={RESET_DETAIL_TRANSITION}
               >
                 <div class="traffic-reset-detail-inner">
-                  <div class="traffic-reset-date-row">
-                    <small>{t("wa_traffic_next_reset_label", {}, "Следующий сброс")}</small>
-                    <strong>{trafficNextResetLabel(subscription)}</strong>
-                  </div>
+                  {#if trafficResetScheduled(subscription)}
+                    <div class="traffic-reset-date-row">
+                      <small>{t("wa_traffic_next_reset_label", {}, "Следующий сброс")}</small>
+                      <strong>{trafficNextResetLabel(subscription)}</strong>
+                    </div>
+                  {:else}
+                    <div class="traffic-reset-date-row">
+                      <small>{t("wa_traffic_reset_policy", {}, "Стратегия сброса трафика")}</small>
+                      <strong>{trafficResetLabel(subscription)}</strong>
+                    </div>
+                    <p class="traffic-reset-note">
+                      {t(
+                        "wa_traffic_reset_none_details",
+                        {},
+                        "Трафик не сбрасывается автоматически. Если тариф поддерживает докупку, можно добавить трафик отдельным пакетом."
+                      )}
+                    </p>
+                  {/if}
                 </div>
               </div>
             {/if}

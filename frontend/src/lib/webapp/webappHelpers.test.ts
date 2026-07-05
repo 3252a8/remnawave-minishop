@@ -23,6 +23,8 @@ import {
   trafficNextResetLabel,
   trafficPercent,
   trafficResetLabel,
+  trafficResetScheduled,
+  trafficSummaryTitle,
 } from "./traffic.js";
 
 describe("webapp formatters", () => {
@@ -78,6 +80,14 @@ describe("webapp traffic helpers", () => {
     );
     expect(trafficResetLabel({ traffic_limit_strategy: "CUSTOM" }, t)).toBe(
       "wa_traffic_reset_policy:{}"
+    );
+    expect(trafficResetScheduled({ traffic_limit_strategy: "MONTH_ROLLING" })).toBe(true);
+    expect(trafficResetScheduled({ traffic_limit_strategy: "NO_RESET" })).toBe(false);
+    expect(trafficSummaryTitle({ traffic_limit_strategy: "MONTH_ROLLING" }, t)).toBe(
+      "wa_traffic_reset_monthly:{}"
+    );
+    expect(trafficSummaryTitle({ traffic_limit_strategy: "NO_RESET" }, t)).toBe(
+      "wa_home_traffic_used:{}"
     );
     expect(trafficNextResetLabel({ traffic_next_reset_text: "05.07.2026" }, t)).toBe("05.07.2026");
     expect(premiumNextResetLabel({ premium_next_reset_text: "" }, t)).toBe(
