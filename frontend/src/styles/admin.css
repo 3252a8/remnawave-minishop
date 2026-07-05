@@ -3901,6 +3901,13 @@
     var(--admin-row-editor-action-size);
 }
 
+/* Broadcast button rows: handle, kind select, label, URL/code, remove. */
+.admin-row-editor-line.admin-row-editor-broadcast {
+  grid-template-columns:
+    24px minmax(130px, 0.9fr) minmax(110px, 1fr) minmax(110px, 1fr)
+    var(--admin-row-editor-action-size);
+}
+
 .admin-dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -4168,7 +4175,8 @@
   .admin-row-editor-line.admin-row-editor-4,
   .admin-row-editor-line.admin-row-editor-6,
   .admin-row-editor-line.admin-row-editor-period,
-  .admin-row-editor-line.admin-row-editor-drag {
+  .admin-row-editor-line.admin-row-editor-drag,
+  .admin-row-editor-line.admin-row-editor-broadcast {
     grid-template-columns: 1fr;
     align-items: stretch;
   }

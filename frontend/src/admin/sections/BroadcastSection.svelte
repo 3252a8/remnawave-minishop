@@ -155,63 +155,65 @@
             "До 4 кнопок: в Telegram — инлайн-кнопки, в email — кнопки-ссылки. Промокод активируется в один клик."
           )}</small
         >
-        <Sortable
-          items={broadcastButtons}
-          class="broadcast-button-row"
-          getKey={(button: BroadcastButtonDraft) => button.id}
-          handleLabel={at("broadcast_button_reorder", {}, "Перетащите, чтобы изменить порядок")}
-          onReorder={broadcastStore.moveButton}
-        >
-          {#snippet children(button: BroadcastButtonDraft, index: number)}
-            <AdminSelect
-              class="broadcast-button-kind"
-              value={button.kind}
-              items={buttonKindOptions}
-              ariaLabel={at("broadcast_buttons_label", {}, "Кнопки")}
-              onValueChange={(value) =>
-                broadcastStore.updateButton(index, { kind: value as BroadcastButtonKind })}
-            />
-            <Input
-              class="broadcast-button-input"
-              value={button.label}
-              maxlength={64}
-              placeholder={at("broadcast_button_label_placeholder", {}, "Текст кнопки")}
-              oninput={(e) =>
-                broadcastStore.updateButton(index, {
-                  label: (e.currentTarget as HTMLInputElement).value,
-                })}
-            />
-            {#if button.kind === "url"}
+        <div class="admin-row-editor">
+          <Sortable
+            items={broadcastButtons}
+            class="admin-row-editor-line admin-row-editor-broadcast"
+            getKey={(button: BroadcastButtonDraft) => button.id}
+            handleLabel={at("broadcast_button_reorder", {}, "Перетащите, чтобы изменить порядок")}
+            onReorder={broadcastStore.moveButton}
+          >
+            {#snippet children(button: BroadcastButtonDraft, index: number)}
+              <AdminSelect
+                value={button.kind}
+                items={buttonKindOptions}
+                ariaLabel={at("broadcast_buttons_label", {}, "Кнопки")}
+                onValueChange={(value) =>
+                  broadcastStore.updateButton(index, { kind: value as BroadcastButtonKind })}
+              />
               <Input
-                class="broadcast-button-input"
-                value={button.url}
-                placeholder={at("broadcast_button_url_placeholder", {}, "https://…")}
+                class="input"
+                value={button.label}
+                maxlength={64}
+                placeholder={at("broadcast_button_label_placeholder", {}, "Текст кнопки")}
                 oninput={(e) =>
                   broadcastStore.updateButton(index, {
-                    url: (e.currentTarget as HTMLInputElement).value,
+                    label: (e.currentTarget as HTMLInputElement).value,
                   })}
               />
-            {:else}
-              <AdminSelect
-                class="broadcast-button-promo"
-                value={button.promoCode}
-                items={promoOptions}
-                placeholder={promoOptionsLoading
-                  ? at("broadcast_button_promo_loading", {}, "Загрузка промокодов...")
-                  : at("broadcast_button_promo_select", {}, "Выберите промокод")}
-                ariaLabel={at("broadcast_button_promo_select", {}, "Выберите промокод")}
-                onValueChange={(value) => broadcastStore.updateButton(index, { promoCode: value })}
-              />
-            {/if}
-            <AdminButton
-              variant="ghost"
-              aria-label={at("broadcast_button_remove", {}, "Удалить кнопку")}
-              onclick={() => broadcastStore.removeButton(index)}
-            >
-              <Trash2 size={14} />
-            </AdminButton>
-          {/snippet}
-        </Sortable>
+              {#if button.kind === "url"}
+                <Input
+                  class="input"
+                  value={button.url}
+                  placeholder={at("broadcast_button_url_placeholder", {}, "https://…")}
+                  oninput={(e) =>
+                    broadcastStore.updateButton(index, {
+                      url: (e.currentTarget as HTMLInputElement).value,
+                    })}
+                />
+              {:else}
+                <AdminSelect
+                  value={button.promoCode}
+                  items={promoOptions}
+                  placeholder={promoOptionsLoading
+                    ? at("broadcast_button_promo_loading", {}, "Загрузка промокодов...")
+                    : at("broadcast_button_promo_select", {}, "Выберите промокод")}
+                  ariaLabel={at("broadcast_button_promo_select", {}, "Выберите промокод")}
+                  onValueChange={(value) =>
+                    broadcastStore.updateButton(index, { promoCode: value })}
+                />
+              {/if}
+              <AdminButton
+                size="sm"
+                variant="danger"
+                aria-label={at("broadcast_button_remove", {}, "Удалить кнопку")}
+                onclick={() => broadcastStore.removeButton(index)}
+              >
+                <Trash2 size={13} />
+              </AdminButton>
+            {/snippet}
+          </Sortable>
+        </div>
         {#if hasPromoButtons && promoOptionsLoaded && !promoOptions.length}
           <small class="admin-muted"
             >{at(
@@ -269,24 +271,5 @@
     gap: 8px;
     align-items: center;
     cursor: pointer;
-  }
-
-  /* Rendered inside the Sortable child component, so target them globally. */
-  :global(.ui-sortable-item.broadcast-button-row) {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
-    padding: 2px 0;
-  }
-
-  :global(.broadcast-button-row .broadcast-button-kind) {
-    min-width: 190px;
-  }
-
-  :global(.broadcast-button-row .broadcast-button-input),
-  :global(.broadcast-button-row .broadcast-button-promo) {
-    flex: 1 1 160px;
-    min-width: 140px;
   }
 </style>
