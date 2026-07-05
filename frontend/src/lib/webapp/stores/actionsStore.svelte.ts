@@ -2,6 +2,7 @@ import type { LoadDataOptions } from "../dataClient";
 import type { ApiClient, PostPayload, TrialActivateResponse } from "../publicApi";
 import {
   buildPromoApplyPath,
+  buildPromoStatusPath,
   buildReferralWelcomeBonusClaimPath,
   buildTrialActivatePath,
   unwrap,
@@ -9,6 +10,8 @@ import {
 
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type MaybeRecord = Record<string, unknown>;
+export type PromoDeeplinkStatus = "" | "standalone" | "already_used" | "invalid" | "error";
+export type PromoDeeplinkContext = { modalOpened?: boolean };
 export type ActionsState = {
   promoCode: string;
   promoBusy: boolean;
@@ -17,6 +20,13 @@ export type ActionsState = {
   promoFieldError: string;
   promoCheckoutCode: string;
   promoCheckoutSummary: string;
+  promoDeeplinkOpen: boolean;
+  promoDeeplinkStatus: PromoDeeplinkStatus;
+  promoDeeplinkCode: string;
+  promoDeeplinkMessage: string;
+  promoDeeplinkEffectSummary: string;
+  promoDeeplinkError: string;
+  promoDeeplinkBusy: boolean;
   trialBusy: boolean;
   trialActivationResult: Extract<TrialActivateResponse, { ok: true }> | null;
   trialActivationError: string;
@@ -28,6 +38,7 @@ type ActionsStoreDeps = {
   loadData: (options?: LoadDataOptions & Record<string, unknown>) => Promise<unknown>;
   maybeShowActivationSuccessDialog: (context?: Record<string, unknown>) => Promise<boolean>;
   startCheckoutPromo?: (code: string) => void;
+  prefillCheckoutPromo?: (code: string) => void;
 };
 export type ActionsStore = ActionsState & {
   setPromoCode(value: string): void;
@@ -35,6 +46,9 @@ export type ActionsStore = ActionsState & {
   clearPromoFieldError(): void;
   applyPromo(): Promise<void>;
   openPromoCheckout(): void;
+  handlePromoDeeplink(code: string, context?: PromoDeeplinkContext): Promise<void>;
+  activatePromoDeeplink(): Promise<void>;
+  closePromoDeeplink(): void;
   claimReferralWelcomeBonus(): Promise<void>;
   activateTrial(): Promise<void>;
 };
@@ -54,6 +68,7 @@ export function createActionsStore({
   loadData,
   maybeShowActivationSuccessDialog,
   startCheckoutPromo = () => {},
+  prefillCheckoutPromo = () => {},
 }: ActionsStoreDeps) {
   const state = $state<ActionsStore>({
     promoCode: "",
@@ -63,6 +78,13 @@ export function createActionsStore({
     promoFieldError: "",
     promoCheckoutCode: "",
     promoCheckoutSummary: "",
+    promoDeeplinkOpen: false,
+    promoDeeplinkStatus: "",
+    promoDeeplinkCode: "",
+    promoDeeplinkMessage: "",
+    promoDeeplinkEffectSummary: "",
+    promoDeeplinkError: "",
+    promoDeeplinkBusy: false,
     trialBusy: false,
     trialActivationResult: null,
     trialActivationError: "",
@@ -71,6 +93,9 @@ export function createActionsStore({
     clearPromoFieldError,
     applyPromo,
     openPromoCheckout,
+    handlePromoDeeplink,
+    activatePromoDeeplink,
+    closePromoDeeplink,
     claimReferralWelcomeBonus,
     activateTrial,
   });
@@ -174,6 +199,116 @@ export function createActionsStore({
     const code = String(state.promoCheckoutCode || state.promoCode || "").trim();
     if (!code) return;
     startCheckoutPromo(code);
+  }
+
+  function openPromoDeeplinkDialog(
+    status: PromoDeeplinkStatus,
+    code: string,
+    message = "",
+    effectSummary = ""
+  ) {
+    state.promoDeeplinkOpen = true;
+    state.promoDeeplinkStatus = status;
+    state.promoDeeplinkCode = code;
+    state.promoDeeplinkMessage = message;
+    state.promoDeeplinkEffectSummary = effectSummary;
+    state.promoDeeplinkError = "";
+    state.promoDeeplinkBusy = false;
+  }
+
+  function closePromoDeeplink() {
+    state.promoDeeplinkOpen = false;
+    state.promoDeeplinkStatus = "";
+    state.promoDeeplinkCode = "";
+    state.promoDeeplinkMessage = "";
+    state.promoDeeplinkEffectSummary = "";
+    state.promoDeeplinkError = "";
+    state.promoDeeplinkBusy = false;
+  }
+
+  async function handlePromoDeeplink(code: string, context: PromoDeeplinkContext = {}) {
+    const trimmed = String(code || "").trim();
+    if (!trimmed) return;
+    try {
+      const payload: PostPayload<"/api/promo/status"> = { code: trimmed };
+      const response = await api(buildPromoStatusPath(), {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      const statusPayload = asRecord(unwrap(response));
+      const status = stringField(statusPayload.status);
+      const resolvedCode = stringField(statusPayload.code) || trimmed;
+      const message = stringField(statusPayload.message);
+      const effectSummary = stringField(statusPayload.effect_summary);
+      if (status === "requires_checkout") {
+        // The code adjusts a purchase — the checkout flow with the prefilled
+        // code stays the right UX. Reuse the opened deeplink modal if any.
+        if (context.modalOpened) {
+          prefillCheckoutPromo(resolvedCode);
+        } else {
+          startCheckoutPromo(resolvedCode);
+        }
+        return;
+      }
+      if (status === "standalone") {
+        openPromoDeeplinkDialog("standalone", resolvedCode, message, effectSummary);
+        return;
+      }
+      if (status === "already_used") {
+        openPromoDeeplinkDialog("already_used", resolvedCode, message);
+        return;
+      }
+      // not_found / throttled / anything unexpected: explain instead of
+      // dropping the user into a checkout with a failing promo field.
+      openPromoDeeplinkDialog(
+        "invalid",
+        resolvedCode,
+        message || t("wa_promo_activation_failed", {}, "Failed to activate promo code")
+      );
+    } catch (error: unknown) {
+      openPromoDeeplinkDialog(
+        "error",
+        trimmed,
+        stringField(asRecord(error).message) ||
+          t(
+            "wa_promo_deeplink_check_failed",
+            {},
+            "Check your connection and try again — or enter the code manually on the home screen."
+          )
+      );
+    }
+  }
+
+  async function activatePromoDeeplink() {
+    const code = String(state.promoDeeplinkCode || "").trim();
+    if (!code || state.promoDeeplinkBusy) return;
+    state.promoDeeplinkBusy = true;
+    state.promoDeeplinkError = "";
+    try {
+      const payload: PostPayload<"/api/promo/apply"> = { code };
+      const response = await api(buildPromoApplyPath(), {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      const responsePayload = asRecord(unwrap(response));
+      if (responsePayload.requires_checkout === true) {
+        // Race: the code switched to checkout-only between check and apply.
+        closePromoDeeplink();
+        startCheckoutPromo(stringField(responsePayload.code) || code);
+        return;
+      }
+      closePromoDeeplink();
+      const endDateText = stringField(responsePayload.end_date_text);
+      showToast(
+        endDateText ? t("wa_promo_activated_until", { date: endDateText }) : t("wa_promo_activated")
+      );
+      await loadData({ fresh: true });
+    } catch (error: unknown) {
+      state.promoDeeplinkError =
+        stringField(asRecord(error).message) || t("wa_promo_activation_failed");
+    } finally {
+      state.promoDeeplinkBusy = false;
+    }
   }
 
   async function claimReferralWelcomeBonus() {

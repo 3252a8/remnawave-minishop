@@ -24,6 +24,12 @@ type BillingDeeplinkStore = {
 
 export type BillingDeeplinkEffectsDeps = {
   billingStore: BillingDeeplinkStore;
+  /**
+   * Status-aware promo deeplink handler. When provided it decides whether to
+   * open checkout or show an explanatory dialog (already used / invalid code)
+   * instead of always opening checkout with an erroring promo field.
+   */
+  handleCheckoutPromoDeeplink?: (code: string, context: { modalOpened: boolean }) => void;
   readCheckoutPromoDeeplink?: () => string;
   readRenewalDeeplink: () => { tariffKey: string } | null;
   setHomeRoute: () => void;
@@ -41,6 +47,7 @@ export type ApplyPostLoadBillingDeeplinksInput = {
 
 export function createBillingDeeplinkEffects({
   billingStore,
+  handleCheckoutPromoDeeplink,
   readCheckoutPromoDeeplink = () => "",
   readRenewalDeeplink,
   setHomeRoute,
@@ -86,6 +93,11 @@ export function createBillingDeeplinkEffects({
 
     const checkoutPromoCode = readCheckoutPromoDeeplink();
     if (checkoutPromoCode) {
+      stripCheckoutPromoQueryFromUrl();
+      if (handleCheckoutPromoDeeplink) {
+        handleCheckoutPromoDeeplink(checkoutPromoCode, { modalOpened: openedBillingDeeplink });
+        return;
+      }
       billingStore.setCheckoutPromoInput?.(checkoutPromoCode);
       if (!openedBillingDeeplink) {
         setHomeRoute();
@@ -104,7 +116,6 @@ export function createBillingDeeplinkEffects({
         );
       }
       void billingStore.applyCheckoutPromo?.();
-      stripCheckoutPromoQueryFromUrl();
     }
   }
 

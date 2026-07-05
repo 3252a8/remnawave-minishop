@@ -463,6 +463,7 @@
 
     <AuthenticatedDialogs
       {accountStore}
+      {actionsStore}
       {activationSuccessDialogOpen}
       {activationSuccessUseInstallGuides}
       {backToTariffList}

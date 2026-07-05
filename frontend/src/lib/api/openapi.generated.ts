@@ -1237,6 +1237,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/promo/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Promo Status */
+    post: operations["post_promo_status_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/referral/welcome-bonus/claim": {
     parameters: {
       query?: never;
@@ -7208,6 +7225,42 @@ export interface operations {
             /** @constant */
             ok: true;
             requires_checkout?: boolean;
+          };
+        };
+      };
+    };
+  };
+  post_promo_status_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPromoApplyPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            applies_to?: string;
+            bonus_days?: number;
+            code: string;
+            effect_summary?: string;
+            end_date_text?: string | null;
+            message?: string;
+            min_subscription_months?: number | null;
+            min_traffic_gb?: number | null;
+            /** @constant */
+            ok: true;
+            status: string;
           };
         };
       };

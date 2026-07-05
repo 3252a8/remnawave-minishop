@@ -13119,6 +13119,93 @@
         ]
       }
     },
+    "/api/promo/status": {
+      "post": {
+        "operationId": "post_promo_status_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppPromoApplyPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "applies_to": {
+                      "type": "string"
+                    },
+                    "bonus_days": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "effect_summary": {
+                      "type": "string"
+                    },
+                    "end_date_text": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "min_subscription_months": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "min_traffic_gb": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Promo Status",
+        "tags": [
+          "promo"
+        ]
+      }
+    },
     "/api/referral/welcome-bonus/claim": {
       "post": {
         "operationId": "post_referral_welcome_bonus_claim_route",

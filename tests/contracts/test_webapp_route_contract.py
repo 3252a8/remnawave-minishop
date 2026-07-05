@@ -124,6 +124,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("POST", "/api/account/password/confirm"): "account_password_confirm_route",
             ("POST", "/api/account/telegram/link"): "account_telegram_link_route",
             ("POST", "/api/promo/apply"): "apply_promo_route",
+            ("POST", "/api/promo/status"): "promo_status_route",
             ("POST", "/api/trial/activate"): "activate_trial_route",
             ("GET", "/api/devices"): "devices_route",
             ("POST", "/api/devices/disconnect"): "disconnect_device_route",

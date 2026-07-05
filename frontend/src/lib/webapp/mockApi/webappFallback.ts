@@ -152,6 +152,21 @@ export function webappFallbackResponse(
     return { ok: true, csrf_token: "local-preview-csrf" };
   }
   if (path === "/promo/apply") return { ok: true, end_date_text: "31.05.2026" };
+  if (path === "/promo/status") {
+    const body = jsonBody(options);
+    return {
+      ok: true,
+      status: "standalone",
+      code: String(body.code || "DEMO"),
+      message: "",
+      effect_summary: "+7 дней",
+      applies_to: "all",
+      min_subscription_months: null,
+      min_traffic_gb: null,
+      bonus_days: 7,
+      end_date_text: null,
+    };
+  }
   if (
     path === "/referral/welcome-bonus/claim" &&
     String(options.method || "").toUpperCase() === "POST"

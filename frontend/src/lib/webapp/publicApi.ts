@@ -101,6 +101,7 @@ export type DeviceTopupOptionsResponse = GetResponse<"/api/devices/topup-options
 export type PaymentCreateResponse = PostResponse<"/api/payments">;
 export type PaymentStatusResponse = GetResponse<"/api/payments/{payment_id}">;
 export type PromoApplyResponse = PostResponse<"/api/promo/apply">;
+export type PromoStatusResponse = PostResponse<"/api/promo/status">;
 export type PromoQuoteResponse = PostResponse<"/api/subscription/quote-promo">;
 export type ReferralWelcomeBonusResponse = PostResponse<"/api/referral/welcome-bonus/claim">;
 export type SubscriptionGuidesResponse = GetResponse<"/api/subscription-guides">;
@@ -140,6 +141,7 @@ export type SubscriptionAutoRenewPath = "/subscription/auto-renew";
 export type SubscriptionPromoQuotePath = "/subscription/quote-promo";
 export type ReferralWelcomeBonusClaimPath = "/referral/welcome-bonus/claim";
 export type PromoApplyPath = "/promo/apply";
+export type PromoStatusPath = "/promo/status";
 export type TrialActivatePath = "/trial/activate";
 export type SupportTicketsListPath = "/support/tickets" | `/support/tickets?${string}`;
 export type SupportUnreadPath = "/support/unread";
@@ -360,6 +362,10 @@ export function buildReferralWelcomeBonusClaimPath(): ReferralWelcomeBonusClaimP
 
 export function buildPromoApplyPath(): PromoApplyPath {
   return "/promo/apply";
+}
+
+export function buildPromoStatusPath(): PromoStatusPath {
+  return "/promo/status";
 }
 
 export function buildTrialActivatePath(): TrialActivatePath {

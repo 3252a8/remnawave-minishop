@@ -301,6 +301,11 @@ export function createAppFactories({
   });
   const { applyPostLoadBillingDeeplinks } = createBillingDeeplinkEffects({
     billingStore,
+    // actionsStore is created below; the deeplink fires post-load, so the
+    // lazy closure always sees the initialized store.
+    handleCheckoutPromoDeeplink: (code, context) => {
+      void actionsStore.handlePromoDeeplink(code, context);
+    },
     readCheckoutPromoDeeplink,
     readRenewalDeeplink,
     setHomeRoute: () => {
@@ -346,6 +351,10 @@ export function createAppFactories({
           selectDefaultTariff: true,
         }
       );
+      void billingStore.applyCheckoutPromo();
+    },
+    prefillCheckoutPromo: (code) => {
+      billingStore.setCheckoutPromoInput(code);
       void billingStore.applyCheckoutPromo();
     },
   });
