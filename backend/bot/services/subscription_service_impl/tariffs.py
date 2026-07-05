@@ -99,31 +99,6 @@ class TariffMixin(SubscriptionServiceMixinContract):
             return 0
         return int(self.settings.trial_premium_traffic_limit_bytes or 0)
 
-    @staticmethod
-    def _is_trial_subscription_record(sub: Any | None) -> bool:
-        if sub is None:
-            return False
-        provider = str(getattr(sub, "provider", "") or "").strip().lower()
-        status = str(getattr(sub, "status_from_panel", "") or "").strip().upper()
-        return provider == "trial" or status == "TRIAL"
-
-    def _regular_traffic_used_for_subscription(
-        self,
-        sub: Any | None,
-        panel_used_bytes: int | None,
-    ) -> int | None:
-        if panel_used_bytes is None:
-            return None
-        used = max(0, int(panel_used_bytes or 0))
-        if (
-            not self._is_trial_subscription_record(sub)
-            or getattr(sub, "tariff_key", None)
-            or int(getattr(sub, "premium_baseline_bytes", 0) or 0) <= 0
-        ):
-            return used
-        premium_used = max(0, int(getattr(sub, "premium_used_bytes", 0) or 0))
-        return max(0, used - premium_used)
-
     def _traffic_limit_for_period_tariff(
         self,
         tariff: Tariff | None,

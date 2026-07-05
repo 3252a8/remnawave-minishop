@@ -84,10 +84,6 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             panel_traffic_used, panel_traffic_limit, _ = self._extract_panel_traffic_details(
                 panel_user_data
             )
-            regular_traffic_used = self._regular_traffic_used_for_subscription(
-                local_active_sub,
-                panel_traffic_used,
-            )
             panel_sub_uuid_from_panel = panel_user_data.get(
                 "subscriptionUuid"
             ) or panel_user_data.get("shortUuid")
@@ -102,10 +98,10 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                     update_payload_local["end_date"] = panel_expire_dt
                     update_payload_local["last_notification_sent"] = None
             if (
-                regular_traffic_used is not None
-                and local_active_sub.traffic_used_bytes != regular_traffic_used
+                panel_traffic_used is not None
+                and local_active_sub.traffic_used_bytes != panel_traffic_used
             ):
-                update_payload_local["traffic_used_bytes"] = regular_traffic_used
+                update_payload_local["traffic_used_bytes"] = panel_traffic_used
             if (
                 panel_traffic_limit is not None
                 and local_active_sub.traffic_limit_bytes != panel_traffic_limit
@@ -135,10 +131,6 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
         )
         panel_traffic_used, panel_traffic_limit, panel_traffic_strategy = (
             self._extract_panel_traffic_details(panel_user_data)
-        )
-        regular_traffic_used = self._regular_traffic_used_for_subscription(
-            local_active_sub,
-            panel_traffic_used,
         )
         config_link_raw = panel_user_data.get("subscriptionUrl")
         display_link, connect_button_url = await prepare_config_links(
@@ -306,7 +298,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             "config_link": display_link,
             "connect_button_url": connect_button_url,
             "traffic_limit_bytes": panel_traffic_limit,
-            "traffic_used_bytes": regular_traffic_used,
+            "traffic_used_bytes": panel_traffic_used,
             "traffic_limit_strategy": traffic_limit_strategy,
             "tariff_key": local_active_sub.tariff_key if local_active_sub else None,
             "tariff_name": tariff.name(db_user.language_code or self.settings.DEFAULT_LANGUAGE)

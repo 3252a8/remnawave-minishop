@@ -1451,7 +1451,7 @@ class SubscriptionServiceActiveDetailsTests(unittest.IsolatedAsyncioTestCase):
             extra_hwid_devices=0,
         )
 
-    async def test_trial_details_exposes_regular_usage_without_premium_usage(self):
+    async def test_trial_details_keeps_panel_usage_while_exposing_premium_usage(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(
                 _tariffs_config_payload(),
@@ -1513,11 +1513,11 @@ class SubscriptionServiceActiveDetailsTests(unittest.IsolatedAsyncioTestCase):
             ):
                 result = await service.get_active_subscription_details(session, user_id=42)
 
-        self.assertEqual(result["traffic_used_bytes"], 3 * GIB)
+        self.assertEqual(result["traffic_used_bytes"], 5 * GIB)
         self.assertEqual(result["premium_used_bytes"], 2 * GIB)
         self.assertTrue(
             any(
-                call.args[2].get("traffic_used_bytes") == 3 * GIB
+                call.args[2].get("traffic_used_bytes") == 5 * GIB
                 for call in update_subscription.await_args_list
             )
         )

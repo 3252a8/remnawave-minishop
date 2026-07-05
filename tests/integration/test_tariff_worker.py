@@ -801,7 +801,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             payload = panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(payload["activeInternalSquads"], ["squad-1"])
 
-    async def test_trial_premium_usage_is_removed_from_regular_usage(self):
+    async def test_trial_keeps_panel_regular_usage_and_tracks_premium_usage(self):
         payload = _tariffs_config_payload()
         payload["tariffs"][0]["premium_squad_uuids"] = ["premium-squad"]
         payload["tariffs"][0]["premium_monthly_gb"] = 25
@@ -884,7 +884,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             await worker.traffic_period_tick(session)
 
             self.assertEqual(sub.premium_used_bytes, 2 * (1024**3))
-            self.assertEqual(sub.traffic_used_bytes, 3 * (1024**3))
+            self.assertEqual(sub.traffic_used_bytes, 5 * (1024**3))
             panel_service.update_user_details_on_panel.assert_not_awaited()
 
     async def test_premium_topup_balance_carries_over_and_is_spent_only_above_monthly_limit(self):
