@@ -206,19 +206,20 @@ class TariffWorkerPremiumMixin:
             now=now,
         )
 
-        # Consume paid top-up balance only for overflow beyond baseline+bonus.
-        # Admin-granted bonus is "spent" against usage first along with baseline,
-        # so the user's paid top-up survives longer.
-        free_quota = premium_baseline + premium_bonus
-        overflow = max(0, int(premium_used) - free_quota)
-        delta_overflow = max(0, overflow - premium_topup_used)
-        consume_from_topup = min(premium_topup_balance, delta_overflow)
-        if consume_from_topup > 0:
-            premium_topup_balance -= consume_from_topup
-            premium_topup_used += consume_from_topup
-            premium_limit = (
-                premium_baseline + premium_topup_balance + premium_topup_used + premium_bonus
-            )
+        if not premium_unlimited_override:
+            # Consume paid top-up balance only for overflow beyond baseline+bonus.
+            # Admin-granted bonus is "spent" against usage first along with baseline,
+            # so the user's paid top-up survives longer.
+            free_quota = premium_baseline + premium_bonus
+            overflow = max(0, int(premium_used) - free_quota)
+            delta_overflow = max(0, overflow - premium_topup_used)
+            consume_from_topup = min(premium_topup_balance, delta_overflow)
+            if consume_from_topup > 0:
+                premium_topup_balance -= consume_from_topup
+                premium_topup_used += consume_from_topup
+                premium_limit = (
+                    premium_baseline + premium_topup_balance + premium_topup_used + premium_bonus
+                )
 
         should_limit = False if premium_unlimited_override else premium_used >= premium_limit
         access_state_changed = bool(sub.premium_is_limited) != should_limit

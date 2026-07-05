@@ -1570,7 +1570,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
 
-    async def test_premium_unlimited_override_never_throttles(self):
+    async def test_premium_unlimited_override_never_throttles_or_spends_topup(self):
         payload = _tariffs_config_payload()
         payload["tariffs"][0]["premium_squad_uuids"] = ["premium-squad"]
         payload["tariffs"][0]["premium_monthly_gb"] = 1
@@ -1613,7 +1613,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                 user_id=42,
                 panel_user_uuid="panel-uuid",
                 premium_baseline_bytes=1 * (1024**3),
-                premium_topup_balance_bytes=0,
+                premium_topup_balance_bytes=10 * (1024**3),
                 premium_topup_used_bytes=0,
                 premium_used_bytes=0,
                 premium_is_limited=False,
@@ -1635,6 +1635,8 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertFalse(sub.premium_is_limited)
             self.assertEqual(int(sub.premium_used_bytes), 50 * (1024**3))
+            self.assertEqual(int(sub.premium_topup_balance_bytes), 10 * (1024**3))
+            self.assertEqual(int(sub.premium_topup_used_bytes), 0)
             payload_sent = panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertIn("premium-squad", payload_sent["activeInternalSquads"])
 
