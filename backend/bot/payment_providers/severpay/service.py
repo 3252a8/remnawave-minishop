@@ -618,6 +618,7 @@ SPEC = PaymentProviderSpec(
     currency_support_note=(
         "SeverPay PayIn requires a currency; keep this list aligned with your merchant account."
     ),
+    info_url="https://severpay.io/",
     currency_support_url="https://docs.severpay.io/ru/payin/create",
 )
 

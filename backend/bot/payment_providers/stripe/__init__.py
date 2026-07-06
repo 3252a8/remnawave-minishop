@@ -232,6 +232,7 @@ SPEC = PaymentProviderSpec(
         "Stripe supports many presentment currencies, but availability depends on the account "
         "country and enabled payment methods. Use STRIPE_SUPPORTED_CURRENCIES to restrict UI."
     ),
+    info_url="https://stripe.com/",
     currency_support_url="https://docs.stripe.com/currencies",
 )
 

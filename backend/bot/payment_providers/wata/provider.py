@@ -422,6 +422,7 @@ SPEC = PaymentProviderSpec(
         "WATA H2H payment links document RUB, USD and EUR as payment currencies; "
         "configure the currencies enabled for your terminal."
     ),
+    info_url="https://wata.pro/",
     currency_support_url="https://wata.pro/api",
 )
 
@@ -454,6 +455,7 @@ CRYPTO_SPEC = PaymentProviderSpec(
         "WATA H2H payment links document RUB, USD and EUR as payment currencies; "
         "configure the currencies enabled for your crypto terminal."
     ),
+    info_url="https://wata.pro/",
     currency_support_url="https://wata.pro/api",
 )
 

@@ -388,6 +388,7 @@ SPEC = PaymentProviderSpec(
         "PayKilla invoice currency and paymentCurrencies availability can depend on "
         "merchant account settings."
     ),
+    info_url="https://paykilla.com/",
     currency_support_url="https://paykilla.gitbook.io/paykilla-docs/api-integration/supported-currencies",
 )
 

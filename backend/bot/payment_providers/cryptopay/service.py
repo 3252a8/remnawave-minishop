@@ -704,5 +704,6 @@ SPEC = PaymentProviderSpec(
         "Crypto Pay supports different sets for fiat invoices and crypto invoices; "
         "CURRENCY_TYPE selects which set is active."
     ),
+    info_url="https://crypt.bot/",
     currency_support_url="https://help.crypt.bot/crypto-pay-api/",
 )

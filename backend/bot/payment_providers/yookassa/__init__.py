@@ -222,6 +222,7 @@ SPEC = PaymentProviderSpec(
         "YooKassa public payment API examples and limits are RUB-based; "
         "treat non-RUB as unsupported unless your YooKassa contract confirms otherwise."
     ),
+    info_url="https://yookassa.ru/",
     currency_support_url="https://yookassa.ru/developers/payment-acceptance/integration-scenarios/smart-payment",
 )
 

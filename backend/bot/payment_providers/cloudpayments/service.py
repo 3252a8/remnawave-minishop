@@ -776,6 +776,7 @@ SPEC = PaymentProviderSpec(
     currency_support_note=(
         "CloudPayments orders accept RUB, USD, EUR, GBP and CIS currencies as the payment currency."
     ),
+    info_url="https://cloudpayments.ru/",
     currency_support_url="https://developers.cloudpayments.ru/#valyuty",
 )
 

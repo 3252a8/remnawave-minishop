@@ -376,15 +376,12 @@ def test_payment_provider_settings_include_webhook_metadata():
 
     assert manifest["FREEKASSA_ENABLED"]["webhook_path"] == "/webhook/freekassa"
     assert manifest["FREEKASSA_ENABLED"]["provider_id"] == "freekassa"
-    assert manifest["FREEKASSA_ENABLED"]["provider_info_url"] == "https://docs.freekassa.net/"
+    assert manifest["FREEKASSA_ENABLED"]["provider_info_url"] == "https://freekassa.net/"
     assert manifest["FREEKASSA_ENABLED"]["provider_logo_url"] == "/provider-logos/freekassa.png"
     assert manifest["PAYMENT_PLATEGA_CRYPTO_WEBAPP_LABEL_RU"]["webhook_path"] == "/webhook/platega"
     assert manifest["YOOKASSA_SHOP_ID"]["webhook_requires_base_url"] is True
     assert "webhook_path" not in manifest["PAYMENT_STARS_WEBAPP_LABEL_RU"]
-    assert (
-        manifest["PAYMENT_STARS_WEBAPP_LABEL_RU"]["provider_info_url"]
-        == "https://core.telegram.org/bots/payments-stars"
-    )
+    assert manifest["PAYMENT_STARS_WEBAPP_LABEL_RU"]["provider_info_url"] == "https://telegram.org/"
     assert (
         manifest["PAYMENT_STARS_WEBAPP_LABEL_RU"]["provider_logo_url"]
         == "/provider-logos/telegram-stars.png"

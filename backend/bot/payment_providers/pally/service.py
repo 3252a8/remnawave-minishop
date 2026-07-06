@@ -744,6 +744,7 @@ SPEC = PaymentProviderSpec(
     manifest_fields=_CONFIG_MANIFEST + _PRESENTATION_MANIFEST,
     supported_currencies=PALLY_SUPPORTED_CURRENCIES,
     currency_support_note="Pally bills support RUB, USD and EUR.",
+    info_url="https://pally.info/",
     currency_support_url="https://pally.info/reference/api",
 )
 

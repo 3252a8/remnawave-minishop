@@ -691,6 +691,7 @@ SPEC = PaymentProviderSpec(
         "Heleket supports crypto and fiat invoice currencies, but exact availability "
         "can depend on service/account settings."
     ),
+    info_url="https://heleket.com/",
     currency_support_url="https://doc.heleket.com/methods/payments/creating-invoice",
 )
 

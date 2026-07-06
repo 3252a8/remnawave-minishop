@@ -713,6 +713,7 @@ SPEC = PaymentProviderSpec(
     currency_support_note=(
         "FreeKassa SCI documents the payment currency parameter as RUB, USD, EUR, UAH or KZT."
     ),
+    info_url="https://freekassa.net/",
     currency_support_url="https://docs.freekassa.net/",
 )
 

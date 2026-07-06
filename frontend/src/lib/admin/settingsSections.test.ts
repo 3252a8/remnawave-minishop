@@ -44,7 +44,7 @@ describe("settingsSections", () => {
           subsection: "Platega",
           webhook_path: "payments/platega/webhook",
           provider_id: "platega",
-          provider_info_url: "https://docs.platega.io/",
+          provider_info_url: "https://platega.io/",
           provider_label: "Platega",
           provider_logo_url: "/provider-logos/platega.png",
         }),
@@ -61,7 +61,7 @@ describe("settingsSections", () => {
     });
     expect(group.providerInfo).toMatchObject({
       id: "platega",
-      infoUrl: "https://docs.platega.io/",
+      infoUrl: "https://platega.io/",
       label: "Platega",
       logoFallback: "PL",
       logoUrl: "/provider-logos/platega.png",

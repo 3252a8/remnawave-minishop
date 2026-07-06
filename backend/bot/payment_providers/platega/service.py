@@ -814,6 +814,7 @@ SBP_SPEC = PaymentProviderSpec(
         "Platega currencies are merchant/method-specific; configure the codes "
         "enabled for your account."
     ),
+    info_url="https://platega.io/",
     currency_support_url="https://docs.platega.io/",
 )
 
@@ -847,6 +848,7 @@ CRYPTO_SPEC = PaymentProviderSpec(
         "Platega currencies are merchant/method-specific; configure the codes "
         "enabled for your account."
     ),
+    info_url="https://platega.io/",
     currency_support_url="https://docs.platega.io/",
 )
 

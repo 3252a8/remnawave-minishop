@@ -721,6 +721,7 @@ SPEC = PaymentProviderSpec(
     manifest_fields=_CONFIG_MANIFEST + _PRESENTATION_MANIFEST,
     supported_currencies=("RUB",),
     currency_support_note="LAVA Business invoices are issued in RUB only.",
+    info_url="https://lava.ru/",
     currency_support_url="https://dev.lava.ru/",
 )
 
