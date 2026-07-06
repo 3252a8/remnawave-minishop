@@ -16,7 +16,8 @@ from bot.keyboards.inline.admin_keyboards import (
     get_back_to_admin_panel_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
-from bot.services.promo_effects import PROMO_APPLIES_TO_SUBSCRIPTION
+from bot.services.promo_code_service import PromoCodeService
+from bot.services.promo_effects import PROMO_APPLIES_TO_SUBSCRIPTION, PromoEffects
 from bot.states.admin_states import AdminStates
 from bot.utils.callback_answer import callback_message, message_bot
 from config.settings import Settings
@@ -334,6 +335,9 @@ async def create_bulk_promo_codes_final(
                     existing_promo = await promo_code_dal.get_promo_code_by_code(
                         session, promo_code
                     )
+                    if existing_promo and getattr(existing_promo, "archived_at", None) is not None:
+                        await promo_code_dal.release_archived_promo_code(session, existing_promo)
+                        existing_promo = None
                     if not existing_promo:
                         break
                     attempts += 1
@@ -342,28 +346,27 @@ async def create_bulk_promo_codes_final(
                     failed_codes.append(f"Код #{i + 1} (не удалось сгенерировать уникальный)")
                     continue
 
-                # Prepare promo code data
-                promo_data = {
-                    "code": promo_code,
-                    "bonus_days": data["bonus_days"],
-                    "applies_to": PROMO_APPLIES_TO_SUBSCRIPTION,
-                    "max_activations": data["max_activations"],
-                    "current_activations": 0,
-                    "is_active": True,
-                    "created_by_admin_id": created_by_admin_id,
-                    "created_at": datetime.now(UTC),
-                }
-
                 # Set validity
                 if data.get("validity_days"):
-                    promo_data["valid_until"] = datetime.now(UTC) + timedelta(
-                        days=data["validity_days"]
-                    )
+                    expires_at = datetime.now(UTC) + timedelta(days=data["validity_days"])
                 else:
-                    promo_data["valid_until"] = None
+                    expires_at = None
 
                 # Create promo code
-                created_promo = await promo_code_dal.create_promo_code(session, promo_data)
+                created_promo = await PromoCodeService.issue_code(
+                    session,
+                    effects=PromoEffects(
+                        bonus_days=int(data["bonus_days"]),
+                        applies_to=PROMO_APPLIES_TO_SUBSCRIPTION,
+                    ),
+                    code=promo_code,
+                    max_activations=int(data["max_activations"]),
+                    valid_until=expires_at,
+                    origin="admin",
+                    created_by_admin_id=created_by_admin_id,
+                    max_duration_multiplier=float(settings.PROMO_DURATION_MULTIPLIER_MAX),
+                    max_traffic_multiplier=float(settings.PROMO_TRAFFIC_MULTIPLIER_MAX),
+                )
                 created_codes.append(created_promo.code)
 
             except Exception as e:

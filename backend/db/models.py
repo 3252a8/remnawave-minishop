@@ -401,6 +401,7 @@ class PromoCode(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     valid_until = Column(DateTime(timezone=True), nullable=True)
     archived_at = Column(DateTime(timezone=True), nullable=True)
+    archived_code = Column(String, nullable=True)
 
     activations = relationship(
         "PromoCodeActivation", back_populates="promo_code", cascade="all, delete-orphan"

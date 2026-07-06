@@ -62,6 +62,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0039_add_promo_activation_effect_snapshots",
     "0040_add_code_checkout_snapshots",
     "0041_add_bonus_payment_mode_flag",
+    "0042_release_archived_promo_codes",
 ]
 
 

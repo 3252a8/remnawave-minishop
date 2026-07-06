@@ -12,6 +12,7 @@ from bot.services.promo_code_service import (
     PromoCheckoutRequired,
     PromoCodeService,
 )
+from bot.services.promo_effects import PromoEffects
 
 
 def _status_settings():
@@ -35,6 +36,45 @@ def _status_service():
 
 
 class PromoCodeServiceTests(IsolatedAsyncioTestCase):
+    async def test_issue_code_releases_archived_duplicate_name(self):
+        session = AsyncMock()
+        archived = SimpleNamespace(
+            promo_code_id=7,
+            code="GIFT",
+            archived_code=None,
+            archived_at=datetime(2026, 1, 2, tzinfo=UTC),
+            is_active=False,
+        )
+        created = SimpleNamespace(promo_code_id=8, code="GIFT")
+        lookup = AsyncMock(side_effect=[archived, None, None])
+
+        with (
+            patch(
+                "bot.services.promo_code_service.promo_code_dal.get_promo_code_by_code",
+                lookup,
+            ),
+            patch(
+                "bot.services.promo_code_service.promo_code_dal.create_promo_code",
+                AsyncMock(return_value=created),
+            ) as create_promo,
+        ):
+            result = await PromoCodeService.issue_code(
+                session,
+                effects=PromoEffects(bonus_days=7),
+                code="gift",
+                max_activations=3,
+                valid_until=None,
+                origin="admin",
+                created_by_admin_id=100,
+            )
+
+        self.assertIs(result, created)
+        self.assertEqual(archived.archived_code, "GIFT")
+        self.assertTrue(archived.code.startswith("__ARCHIVED_PROMO__7__GIFT"))
+        created_payload = create_promo.await_args.args[1]
+        self.assertEqual(created_payload["code"], "GIFT")
+        self.assertEqual(created_payload["bonus_days"], 7)
+
     async def test_apply_promo_passes_default_tariff_for_new_bonus_subscription(self):
         end_date = datetime(2026, 1, 8, tzinfo=UTC)
         settings = SimpleNamespace(

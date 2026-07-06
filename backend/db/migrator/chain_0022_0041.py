@@ -591,6 +591,48 @@ def _migration_0041_add_bonus_payment_mode_flag(connection: Connection) -> None:
         )
 
 
+def _migration_0042_release_archived_promo_codes(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: set[str] = {col["name"] for col in inspector.get_columns("promo_codes")}
+    if "archived_code" not in columns:
+        connection.execute(text("ALTER TABLE promo_codes ADD COLUMN archived_code VARCHAR"))
+
+    connection.execute(
+        text(
+            """
+            UPDATE promo_codes
+            SET archived_code = code
+            WHERE archived_at IS NOT NULL
+              AND (archived_code IS NULL OR archived_code = '')
+            """
+        )
+    )
+
+    if connection.dialect.name == "postgresql":
+        connection.execute(
+            text(
+                """
+                UPDATE promo_codes
+                SET code = CONCAT('__ARCHIVED_PROMO__', promo_code_id::text, '__', code)
+                WHERE archived_at IS NOT NULL
+                  AND code NOT LIKE '__ARCHIVED_PROMO__%'
+                """
+            )
+        )
+        return
+
+    connection.execute(
+        text(
+            """
+            UPDATE promo_codes
+            SET code = '__ARCHIVED_PROMO__' || promo_code_id || '__' || code
+            WHERE archived_at IS NOT NULL
+              AND code NOT LIKE '__ARCHIVED_PROMO__%'
+            """
+        )
+    )
+
+
 CHAIN_0022_0041: list[Migration] = [
     Migration(
         id="0022_add_indexes_for_admin_reports",
@@ -691,5 +733,10 @@ CHAIN_0022_0041: list[Migration] = [
         id="0041_add_bonus_payment_mode_flag",
         description="Choose whether bonus days are granted immediately or after payment",
         upgrade=_migration_0041_add_bonus_payment_mode_flag,
+    ),
+    Migration(
+        id="0042_release_archived_promo_codes",
+        description="Release archived code names while preserving their display value",
+        upgrade=_migration_0042_release_archived_promo_codes,
     ),
 ]

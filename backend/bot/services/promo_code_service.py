@@ -105,12 +105,18 @@ class PromoCodeService:
         normalized_code = PromoCodeService._normalize_code(code or "")
         if normalized_code:
             existing = await promo_code_dal.get_promo_code_by_code(session, normalized_code)
+            if existing is not None and getattr(existing, "archived_at", None) is not None:
+                await promo_code_dal.release_archived_promo_code(session, existing)
+                existing = await promo_code_dal.get_promo_code_by_code(session, normalized_code)
             if existing is not None:
                 raise ValueError("duplicate_code")
         else:
             for _ in range(32):
                 candidate = PromoCodeService._generate_code()
                 existing = await promo_code_dal.get_promo_code_by_code(session, candidate)
+                if existing is not None and getattr(existing, "archived_at", None) is not None:
+                    await promo_code_dal.release_archived_promo_code(session, existing)
+                    existing = await promo_code_dal.get_promo_code_by_code(session, candidate)
                 if existing is None:
                     normalized_code = candidate
                     break

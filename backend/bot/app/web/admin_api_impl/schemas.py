@@ -725,13 +725,17 @@ class PaymentDetailOut(PaymentOut):
     @classmethod
     def from_orm_payment_detail(cls, payment: Any) -> PaymentDetailOut:
         payload = PaymentOut.from_orm_payment(payment).model_dump(mode="json")
+        promo_code_used = payment.promo_code_used
+        promo_code = None
+        if promo_code_used is not None:
+            promo_code = getattr(promo_code_used, "archived_code", None) or getattr(
+                promo_code_used, "code", None
+            )
         payload.update(
             {
                 "yookassa_payment_id": payment.yookassa_payment_id,
                 "idempotence_key": payment.idempotence_key,
-                "promo_code": (
-                    payment.promo_code_used.code if payment.promo_code_used is not None else None
-                ),
+                "promo_code": promo_code,
                 "updated_at": payment.updated_at,
             }
         )
