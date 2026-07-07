@@ -133,6 +133,50 @@ def test_shell_installer_supports_egames_reverse_proxy_profile():
     assert 'docker exec "$nginx_container" nginx -s reload' in script
 
 
+def test_shell_installer_attaches_to_existing_nginx_or_caddy_containers():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "configure_existing_reverse_proxy" in script
+    assert "attach_existing_reverse_proxy_container" in script
+    assert "list_running_proxy_containers" in script
+    assert "proxy_container_kind" in script
+    assert "container_uses_host_network" in script
+    assert "container_mount_source" in script
+    assert "ensure_target_network_exists" in script
+    assert "connect_proxy_to_target_network" in script
+    assert "Другой запущенный Nginx или Caddy" in script
+    # Bridge-network proxies resolve compose service names dynamically.
+    assert "resolver 127.0.0.11" in script
+    assert "http://backend:8080" in script
+    assert "http://frontend:80" in script
+    # Config changes are validated and rolled back on failure.
+    assert 'docker exec "$1" nginx -t' in script
+    assert "caddy validate --config" in script
+    assert "caddy reload --config" in script
+    assert "strip_managed_block" in script
+    assert "remnawave-minishop.conf" in script
+
+
+def test_shell_installer_can_toggle_pangolin_newt_publication():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "docker-compose.pangolin.yml" in script
+    assert "write_pangolin_compose_file" in script
+    assert "enable_pangolin_compose_file" in script
+    assert "disable_pangolin_compose_file" in script
+    assert "pangolin_connect_in_target" in script
+    assert "pangolin_disconnect_in_target" in script
+    assert "offer_pangolin_connect_after_install" in script
+    assert "Подключить Web App к Pangolin (Newt)." in script
+    assert "Отключить Web App от Pangolin (Newt)." in script
+    assert "COMPOSE_FILE" in script
+    assert "unset_env_file_value" in script
+    assert "rm -sf newt" in script
+    assert "fosrl/newt:latest" in script
+    # Disconnect keeps credentials for an easy reconnect.
+    assert "оставлены в .env для быстрого повторного подключения" in script
+
+
 def test_shell_installer_checks_dns_and_can_prepare_nginx_certificates():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
