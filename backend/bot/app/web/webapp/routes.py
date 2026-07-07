@@ -49,6 +49,7 @@ from .auth import (
     email_password_auth_route,
     logout_route,
     referral_welcome_bonus_claim_route,
+    session_route,
     telegram_oauth_callback_route,
     telegram_oauth_nonce_route,
     telegram_oauth_start_route,
@@ -171,6 +172,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/auth/email/verify", email_auth_verify_route)
     app.router.add_post("/api/auth/email/magic", email_auth_magic_route)
     app.router.add_post("/api/auth/email/password", email_password_auth_route)
+    app.router.add_get("/api/auth/session", session_route)
     app.router.add_post("/api/auth/logout", logout_route)
     app.router.add_get("/api/bootstrap", bootstrap_route)
     app.router.add_get("/api/i18n", i18n_route)

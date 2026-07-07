@@ -6,6 +6,11 @@ import {
 } from "./authHelpers.js";
 import { TELEGRAM_SDK_BOOT_TIMEOUT_MS } from "./constants";
 
+type SessionRefreshResult = {
+  authenticated?: boolean;
+  csrf_token?: string;
+};
+
 export type WebappBootDeps = {
   MOCK: unknown;
   setMode: (mode: string) => void;
@@ -15,6 +20,8 @@ export type WebappBootDeps = {
   loadData: () => Promise<unknown>;
   showLogin: () => void;
   clearToken: () => void;
+  refreshSession?: (() => Promise<SessionRefreshResult | null | undefined>) | null;
+  setCsrfToken?: ((csrfToken: string) => void) | null;
   clearManualLogoutFlag: () => void;
   isManuallyLoggedOut: () => boolean;
   hasEmailCodeLoginDeeplink?: (() => boolean) | null;
@@ -40,6 +47,8 @@ export async function runWebappBoot({
   loadData,
   showLogin,
   clearToken,
+  refreshSession,
+  setCsrfToken,
   clearManualLogoutFlag,
   isManuallyLoggedOut,
   hasEmailCodeLoginDeeplink,
@@ -107,6 +116,20 @@ export async function runWebappBoot({
   if (isManuallyLoggedOut()) {
     showLogin();
     return;
+  }
+
+  if (refreshSession) {
+    try {
+      const session = await refreshSession();
+      if (session?.authenticated) {
+        if (session.csrf_token) setCsrfToken?.(session.csrf_token);
+        clearManualLogoutFlag();
+        await loadData();
+        return;
+      }
+    } catch {
+      clearToken();
+    }
   }
 
   if (getToken() || getCsrfToken()) {

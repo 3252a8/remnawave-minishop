@@ -152,7 +152,7 @@ Importer автоматически строит `TARIFFS_CONFIG_PATH` из Remn
 
 Если source DB находится на том же Docker host и host в DSN совпадает с именем
 контейнера, например `remnashop-db`, wizard сам подключит этот контейнер к сети
-`<COMPOSE_PROJECT_NAME>_remnawave-shop` перед dry-run. Для подключения к сервису
+`<COMPOSE_PROJECT_NAME>-network` (по умолчанию `remnawave-minishop-network`) перед dry-run. Для подключения к сервису
 вне Docker по-прежнему используйте `host.docker.internal` или внешний адрес
 сервера.
 

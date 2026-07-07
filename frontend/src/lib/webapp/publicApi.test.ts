@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createApiClient } from "./publicApi";
+import { buildApiUrl, createApiClient } from "./publicApi";
 
 function jsonResponse(payload = {}, status = 200) {
   return {
@@ -15,6 +15,12 @@ afterEach(() => {
 });
 
 describe("createApiClient", () => {
+  it("builds same-origin API URLs without duplicating the /api prefix", () => {
+    expect(buildApiUrl("/me")).toBe("/api/me");
+    expect(buildApiUrl("/api/me")).toBe("/api/me");
+    expect(buildApiUrl("/bootstrap?i18n_scope=webapp")).toBe("/api/bootstrap?i18n_scope=webapp");
+  });
+
   it("adds the in-memory session token to authenticated API requests", async () => {
     const fetchMock = vi.fn(async () => jsonResponse({ ok: true }));
     vi.stubGlobal("fetch", fetchMock);

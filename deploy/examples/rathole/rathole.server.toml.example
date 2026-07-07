@@ -1,0 +1,7 @@
+[server]
+bind_addr = "0.0.0.0:2333"
+
+[server.services.webapp-api]
+token = "change_me_same_token_on_both_sides"
+bind_addr = "0.0.0.0:18081"
+

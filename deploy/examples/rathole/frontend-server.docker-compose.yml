@@ -1,0 +1,40 @@
+services:
+  frontend:
+    image: 3252a8/remnawave-minishop-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    init: true
+    environment:
+      IMAGE_TAG: ${IMAGE_TAG:-latest}
+      FRONTEND_PUBLIC: ${MINIAPP_PUBLIC_URL:-https://app.example.com/}
+      WEBAPP_API_BASE_URL: /api
+      WEBAPP_BACKEND_UPSTREAM: http://rathole-server:18081
+      WEBAPP_BACKEND_UPSTREAM_HOST: rathole-server
+    ports:
+      - "${FRONTEND_BIND:-127.0.0.1:8082}:80"
+    networks:
+      - remnawave-minishop
+    depends_on:
+      - rathole-server
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health | grep -q ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+      start_interval: 2s
+
+  rathole-server:
+    image: ${RATHOLE_IMAGE:-rapiz1/rathole:v0.5.0}
+    restart: unless-stopped
+    command: ["--server", "/etc/rathole/server.toml"]
+    volumes:
+      - ./rathole.server.toml:/etc/rathole/server.toml:ro
+    ports:
+      - "${RATHOLE_CONTROL_BIND:-0.0.0.0:2333}:2333"
+    networks:
+      - remnawave-minishop
+
+networks:
+  remnawave-minishop:
+    name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-network
+

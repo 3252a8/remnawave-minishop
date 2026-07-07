@@ -25,6 +25,10 @@ WEBAPP_ENABLED=True
 WEBAPP_SERVER_HOST=0.0.0.0
 WEBAPP_SERVER_PORT=8081
 SUBSCRIPTION_MINI_APP_URL=https://app.domain.com/
+WEBAPP_API_BASE_URL=/api
+WEBAPP_BACKEND_UPSTREAM=http://backend:8081
+WEBAPP_BACKEND_UPSTREAM_HOST=backend
+MINISHOP_EDGE_TOKEN=
 SUBSCRIPTION_GUIDES_ENABLED=True
 SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED=True
 SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED=True
@@ -44,6 +48,10 @@ SUPPORT_TICKET_RATE_LIMIT_PER_HOUR=5
 ```
 
 `SUBSCRIPTION_MINI_APP_URL` - это публичный HTTPS URL именно frontend/Mini App, обычно отдельный домен вроде `https://app.domain.com/`. Его указывают в BotFather в Mini Apps, а бот использует его для кнопок личного кабинета, реферальных ссылок и входа по email. Не добавляйте в него `/api`, `/webhook` или путь конкретной страницы.
+
+`WEBAPP_API_BASE_URL` - это browser-visible base URL для frontend-запросов. Оставляйте `/api` и для обычного compose, и для разнесенных frontend/backend серверов. Разнесение делается server-side настройкой `WEBAPP_BACKEND_UPSTREAM` у frontend nginx, а не публичным backend origin в JavaScript.
+
+`WEBAPP_BACKEND_UPSTREAM` - приватный/protected upstream, куда frontend nginx проксирует `/api`, `/auth`, `/open-app` и ассеты Web App. По умолчанию это `http://backend:8081`. Для split-сервера используйте защищенный backend-домен с `MINISHOP_EDGE_TOKEN`, private IP/VPN или Rathole tunnel.
 
 ## Инструкции установки
 
@@ -83,7 +91,7 @@ Mini App поддерживает вход через Telegram Mini Apps `initDa
 
 ## Проксирование
 
-Рекомендуемая продакшен-схема - два публичных домена:
+Рекомендуемая продакшен-схема - два публичных домена и две разные backend-плоскости:
 
 - `WEBHOOK_BASE_URL`, например `https://webhooks.domain.com`, целиком проксируется в `backend:8080`;
 - `SUBSCRIPTION_MINI_APP_URL`, например `https://app.domain.com/`, целиком проксируется в `frontend:80`.
@@ -91,6 +99,16 @@ Mini App поддерживает вход через Telegram Mini Apps `initDa
 `frontend` уже сам проксирует `/api/*`, `/auth/*`, `/webapp-logo` и ассеты тем/логотипов во внутренний
 WebApp API на `backend:8081`, поэтому внешний обратный прокси обычно не должен отправлять эти пути в
 `backend:8081` напрямую.
+
+Для split frontend/backend браузер всё равно обращается только к frontend-домену:
+
+```text
+browser -> https://app.domain.com/api -> frontend nginx -> WEBAPP_BACKEND_UPSTREAM
+```
+
+Платежные provider webhook, Telegram webhook и Remnawave Panel webhook продолжают идти на `WEBHOOK_BASE_URL` и backend plane `8080`; frontend-домен и `MINISHOP_EDGE_TOKEN` к ним не относятся.
+
+Если `WEBAPP_BACKEND_UPSTREAM=https://bot.domain.com`, backend-side reverse proxy должен маршрутизировать `/api/*`, `/auth/*`, `/open-app`, logo/theme/favicon paths в `backend:8081` и требовать `X-Minishop-Edge-Token`, который добавляет только frontend nginx. Webhook routes на этом же домене остаются на `backend:8080` без edge token. Токен нельзя класть в frontend JS: любой browser-visible token виден пользователю в DevTools.
 
 Готовые варианты описаны в разделе [Развертывание](../getting-started/deployment.md#готовые-папки-запуска):
 

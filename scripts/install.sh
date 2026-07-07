@@ -60,10 +60,23 @@ WEBHOOK_HOST_VALUE=""
 MINIAPP_HOST_VALUE=""
 WEBHOOK_PUBLIC_URL_VALUE=""
 MINIAPP_PUBLIC_URL_VALUE=""
+FRONTEND_BACKEND_MODE_VALUE=""
+INSTALL_NODE_ROLE_VALUE=""
+WEBAPP_API_BASE_URL_VALUE=""
+WEBAPP_BACKEND_UPSTREAM_VALUE=""
+WEBAPP_BACKEND_UPSTREAM_HOST_VALUE=""
+MINISHOP_EDGE_TOKEN_VALUE=""
+MINISHOP_EDGE_TOKEN_HEADER_VALUE=""
 HTTP_BIND_VALUE=""
 HTTPS_BIND_VALUE=""
 WEB_SERVER_BIND_VALUE=""
+WEBAPP_SERVER_BIND_VALUE=""
 FRONTEND_BIND_VALUE=""
+RATHOLE_IMAGE_VALUE=""
+RATHOLE_CONTROL_BIND_VALUE=""
+RATHOLE_CONTROL_REMOTE_VALUE=""
+RATHOLE_SERVICE_TOKEN_VALUE=""
+RATHOLE_SERVICE_PORT_VALUE=""
 PANGOLIN_ENDPOINT_VALUE=""
 NEWT_ID_VALUE=""
 NEWT_SECRET_VALUE=""
@@ -85,7 +98,7 @@ TELEGRAM_OAUTH_CLIENT_ID_VALUE=""
 TELEGRAM_OAUTH_CLIENT_SECRET_VALUE=""
 TELEGRAM_OAUTH_REQUEST_ACCESS_VALUE=""
 
-KNOWN_ENV_KEYS="DEPLOYMENT_PROFILE COMPOSE_PROJECT_NAME IMAGE_TAG WEBHOOK_HOST MINIAPP_HOST WEBHOOK_PUBLIC_URL MINIAPP_PUBLIC_URL HTTP_BIND HTTPS_BIND WEB_SERVER_BIND FRONTEND_BIND PANGOLIN_ENDPOINT NEWT_ID NEWT_SECRET BOT_TOKEN ADMIN_IDS POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB WEBAPP_ENABLED WEBAPP_TITLE WEBAPP_SESSION_SECRET WEBHOOK_SECRET_TOKEN TRUSTED_PROXIES PANEL_API_URL PANEL_API_KEY PANEL_API_COOKIE PANEL_WEBHOOK_SECRET TELEGRAM_OAUTH_CLIENT_ID TELEGRAM_OAUTH_CLIENT_SECRET TELEGRAM_OAUTH_REQUEST_ACCESS"
+KNOWN_ENV_KEYS="DEPLOYMENT_PROFILE COMPOSE_PROJECT_NAME IMAGE_TAG WEBHOOK_HOST MINIAPP_HOST WEBHOOK_PUBLIC_URL MINIAPP_PUBLIC_URL FRONTEND_BACKEND_MODE INSTALL_NODE_ROLE WEBAPP_API_BASE_URL WEBAPP_BACKEND_UPSTREAM WEBAPP_BACKEND_UPSTREAM_HOST MINISHOP_EDGE_TOKEN MINISHOP_EDGE_TOKEN_HEADER HTTP_BIND HTTPS_BIND WEB_SERVER_BIND WEBAPP_SERVER_BIND FRONTEND_BIND RATHOLE_IMAGE RATHOLE_CONTROL_BIND RATHOLE_CONTROL_REMOTE RATHOLE_SERVICE_TOKEN RATHOLE_SERVICE_PORT PANGOLIN_ENDPOINT NEWT_ID NEWT_SECRET BOT_TOKEN ADMIN_IDS POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB WEBAPP_ENABLED WEBAPP_TITLE WEBAPP_SESSION_SECRET WEBHOOK_SECRET_TOKEN TRUSTED_PROXIES PANEL_API_URL PANEL_API_KEY PANEL_API_COOKIE PANEL_WEBHOOK_SECRET TELEGRAM_OAUTH_CLIENT_ID TELEGRAM_OAUTH_CLIENT_SECRET TELEGRAM_OAUTH_REQUEST_ACCESS"
 
 color() {
     printf '%s%s%s' "$2" "$1" "$RESET"
@@ -171,7 +184,7 @@ mask_secret() {
 
 is_secret_key() {
     case "$1" in
-        BOT_TOKEN|POSTGRES_PASSWORD|WEBAPP_SESSION_SECRET|WEBHOOK_SECRET_TOKEN|PANEL_API_KEY|PANEL_API_COOKIE|PANEL_WEBHOOK_SECRET|TELEGRAM_OAUTH_CLIENT_SECRET|NEWT_SECRET)
+        BOT_TOKEN|POSTGRES_PASSWORD|WEBAPP_SESSION_SECRET|WEBHOOK_SECRET_TOKEN|PANEL_API_KEY|PANEL_API_COOKIE|PANEL_WEBHOOK_SECRET|TELEGRAM_OAUTH_CLIENT_SECRET|NEWT_SECRET|MINISHOP_EDGE_TOKEN|RATHOLE_SERVICE_TOKEN)
             return 0
             ;;
         *)
@@ -857,8 +870,153 @@ choose_profile() {
     DEPLOYMENT_PROFILE_VALUE="$PROFILE_KEY"
 }
 
+choose_install_node_role() {
+    section "Роль сервера"
+    choose "Роль текущего сервера" "1" "1|2|3" \
+        "1. Full stack - frontend, backend, worker и база на этом сервере." \
+        "2. Backend node - webhook/backend plane и база; frontend будет отдельно." \
+        "3. Frontend node - только frontend nginx, backend уже на другом сервере." || return 1
+    case "$CHOICE_VALUE" in
+        1) INSTALL_NODE_ROLE_VALUE="full-stack" ;;
+        2) INSTALL_NODE_ROLE_VALUE="backend-node" ;;
+        3) INSTALL_NODE_ROLE_VALUE="frontend-node" ;;
+    esac
+}
+
+host_from_url() {
+    printf '%s' "$1" | sed -n 's#^[A-Za-z][A-Za-z0-9+.-]*://\([^/:]*\).*#\1#p'
+}
+
+prompt_frontend_node_env() {
+    section "Frontend node .env"
+    COMPOSE_PROJECT_NAME_VALUE="$(env_get COMPOSE_PROJECT_NAME remnawave-minishop)"
+    prompt_value "Имя Docker Compose проекта" "$COMPOSE_PROJECT_NAME_VALUE" 0 0 "" || return 1
+    COMPOSE_PROJECT_NAME_VALUE="$PROMPT_VALUE"
+    IMAGE_TAG_VALUE="$(env_get IMAGE_TAG "$DEFAULT_IMAGE_TAG")"
+    prompt_value "Тег Docker-образа" "$IMAGE_TAG_VALUE" 0 0 "" || return 1
+    IMAGE_TAG_VALUE="$PROMPT_VALUE"
+    prompt_value "Публичный URL Mini App frontend" "$(env_get MINIAPP_PUBLIC_URL 'https://app.example.com/')" 1 0 "url" || return 1
+    MINIAPP_PUBLIC_URL_VALUE="$PROMPT_VALUE"
+    MINIAPP_HOST_VALUE="$(host_from_url "$MINIAPP_PUBLIC_URL_VALUE")"
+    if [ -z "$MINIAPP_HOST_VALUE" ]; then
+        fail "Не удалось определить hostname Mini App из $MINIAPP_PUBLIC_URL_VALUE"
+        return 1
+    fi
+    FRONTEND_BIND_VALUE="$(env_get FRONTEND_BIND '127.0.0.1:8082')"
+    prompt_value "Адрес привязки frontend container" "$FRONTEND_BIND_VALUE" 0 0 "bind" || return 1
+    FRONTEND_BIND_VALUE="$PROMPT_VALUE"
+    WEBAPP_API_BASE_URL_VALUE="/api"
+    MINISHOP_EDGE_TOKEN_HEADER_VALUE="$(env_get MINISHOP_EDGE_TOKEN_HEADER X-Minishop-Edge-Token)"
+    info "Frontend node не спрашивает BOT_TOKEN, PostgreSQL, Panel и платежные секреты; они остаются на backend node."
+}
+
+configure_frontend_backend_mode() {
+    section "Связь frontend -> backend WebApp API"
+    [ -n "$INSTALL_NODE_ROLE_VALUE" ] || INSTALL_NODE_ROLE_VALUE="full-stack"
+    case "$INSTALL_NODE_ROLE_VALUE" in
+        backend-node)
+            prompt_value "Адрес привязки WebApp API plane 8081 (только loopback/private)" "$(env_get WEBAPP_SERVER_BIND '127.0.0.1:8081')" 0 0 "bind" || return 1
+            WEBAPP_SERVER_BIND_VALUE="$PROMPT_VALUE"
+            ;;
+        frontend-node)
+            info "Frontend node использует MINIAPP_PUBLIC_URL и server-side upstream; WEBHOOK_PUBLIC_URL остается backend node."
+            ;;
+    esac
+
+    if [ "$INSTALL_NODE_ROLE_VALUE" = "full-stack" ]; then
+        choose "Как frontend будет обращаться к backend WebApp API?" "1" "1|2|3" \
+            "1. Same-origin / тот же compose - browser API base /api, upstream http://backend:8081." \
+            "2. Защищенный backend upstream - browser API base /api, frontend nginx проксирует к backend." \
+            "3. Приватный tunnel Rathole - browser API base /api, upstream http://rathole-server:18081." || return 1
+        frontend_backend_choice="$CHOICE_VALUE"
+    else
+        choose "Как frontend будет обращаться к backend WebApp API?" "1" "1|2" \
+            "1. Защищенный backend upstream - browser API base /api, frontend nginx проксирует к backend." \
+            "2. Приватный tunnel Rathole - browser API base /api, upstream http://rathole-server:18081." || return 1
+        case "$CHOICE_VALUE" in
+            1) frontend_backend_choice="2" ;;
+            2) frontend_backend_choice="3" ;;
+        esac
+    fi
+
+    case "$frontend_backend_choice" in
+        1)
+            FRONTEND_BACKEND_MODE_VALUE="same-origin"
+            WEBAPP_API_BASE_URL_VALUE="/api"
+            WEBAPP_BACKEND_UPSTREAM_VALUE="http://backend:8081"
+            WEBAPP_BACKEND_UPSTREAM_HOST_VALUE="backend"
+            MINISHOP_EDGE_TOKEN_HEADER_VALUE="$(env_get MINISHOP_EDGE_TOKEN_HEADER X-Minishop-Edge-Token)"
+            ;;
+        2)
+            FRONTEND_BACKEND_MODE_VALUE="protected-upstream"
+            WEBAPP_API_BASE_URL_VALUE="/api"
+            choose "Protected upstream вариант" "1" "1|2" \
+                "1. Один backend-домен: /api и /auth на WEBHOOK_PUBLIC_URL защищены edge-token." \
+                "2. Приватный IP/VPN: frontend nginx ходит к http://<private-ip>:8081." || return 1
+            if [ "$CHOICE_VALUE" = "1" ]; then
+                default_upstream="${WEBHOOK_PUBLIC_URL_VALUE:-$(env_get WEBHOOK_PUBLIC_URL 'https://bot.example.com')}"
+                prompt_value "Backend upstream URL" "$default_upstream" 1 0 "url" || return 1
+                WEBAPP_BACKEND_UPSTREAM_VALUE="$PROMPT_VALUE"
+                upstream_host=$(host_from_url "$WEBAPP_BACKEND_UPSTREAM_VALUE")
+                prompt_value "Backend upstream Host/SNI" "${upstream_host:-bot.example.com}" 1 0 "hostname" || return 1
+                WEBAPP_BACKEND_UPSTREAM_HOST_VALUE="$PROMPT_VALUE"
+                if [ "$INSTALL_NODE_ROLE_VALUE" = "frontend-node" ]; then
+                    WEBHOOK_PUBLIC_URL_VALUE="$WEBAPP_BACKEND_UPSTREAM_VALUE"
+                    WEBHOOK_HOST_VALUE="$WEBAPP_BACKEND_UPSTREAM_HOST_VALUE"
+                fi
+                current_edge_token="$(env_get MINISHOP_EDGE_TOKEN '')"
+                [ -n "$current_edge_token" ] || current_edge_token="$(secret_hex 32)"
+                prompt_value "Minishop edge token (только server-side proxy header)" "$current_edge_token" 1 1 "" || return 1
+                MINISHOP_EDGE_TOKEN_VALUE="$PROMPT_VALUE"
+            else
+                prompt_value "Private backend WebApp API upstream" "$(env_get WEBAPP_BACKEND_UPSTREAM 'http://10.0.0.5:8081')" 1 0 "url" || return 1
+                WEBAPP_BACKEND_UPSTREAM_VALUE="$PROMPT_VALUE"
+                WEBAPP_BACKEND_UPSTREAM_HOST_VALUE="$(env_get WEBAPP_BACKEND_UPSTREAM_HOST '')"
+                MINISHOP_EDGE_TOKEN_VALUE="$(env_get MINISHOP_EDGE_TOKEN '')"
+            fi
+            MINISHOP_EDGE_TOKEN_HEADER_VALUE="$(env_get MINISHOP_EDGE_TOKEN_HEADER X-Minishop-Edge-Token)"
+            warn "WEBHOOK_PUBLIC_URL остается webhook/backend plane 8080. Платежные и panel webhook не идут через frontend и не требуют Minishop edge token."
+            ;;
+        3)
+            FRONTEND_BACKEND_MODE_VALUE="rathole"
+            WEBAPP_API_BASE_URL_VALUE="/api"
+            WEBAPP_BACKEND_UPSTREAM_VALUE="http://rathole-server:18081"
+            WEBAPP_BACKEND_UPSTREAM_HOST_VALUE="rathole-server"
+            RATHOLE_IMAGE_VALUE="$(env_get RATHOLE_IMAGE rapiz1/rathole:v0.5.0)"
+            RATHOLE_CONTROL_BIND_VALUE="$(env_get RATHOLE_CONTROL_BIND 0.0.0.0:2333)"
+            RATHOLE_CONTROL_REMOTE_VALUE="$(env_get RATHOLE_CONTROL_REMOTE frontend.example.com:2333)"
+            RATHOLE_SERVICE_PORT_VALUE="$(env_get RATHOLE_SERVICE_PORT 18081)"
+            current_rathole_token="$(env_get RATHOLE_SERVICE_TOKEN '')"
+            [ -n "$current_rathole_token" ] || current_rathole_token="$(secret_hex 32)"
+            prompt_value "Rathole service token" "$current_rathole_token" 1 1 "" || return 1
+            RATHOLE_SERVICE_TOKEN_VALUE="$PROMPT_VALUE"
+            ;;
+    esac
+}
+
 download_profile_files() {
     section "Скачивание файлов деплоя"
+    case "$INSTALL_NODE_ROLE_VALUE" in
+        frontend-node)
+            case "$FRONTEND_BACKEND_MODE_VALUE" in
+                rathole)
+                    download_raw_file "deploy/examples/rathole/frontend-server.docker-compose.yml" "docker-compose.yml" 1 || return 1
+                    download_raw_file "deploy/examples/rathole/.env.example" ".env.example" 1 || return 1
+                    ;;
+                *)
+                    download_raw_file "deploy/examples/split-protected-upstream/frontend.docker-compose.yml" "docker-compose.yml" 1 || return 1
+                    download_raw_file "deploy/examples/split-protected-upstream/.env.frontend.example" ".env.example" 1 || return 1
+                    ;;
+            esac
+            return 0
+            ;;
+        backend-node)
+            download_raw_file "deploy/examples/split-protected-upstream/backend.docker-compose.yml" "docker-compose.yml" 1 || return 1
+            download_raw_file "deploy/examples/split-protected-upstream/.env.backend.example" ".env.example" 1 || return 1
+            return 0
+            ;;
+    esac
+
     case "$PROFILE_KEY" in
         caddy)
             download_raw_file "deploy/examples/caddy/docker-compose.yml" "docker-compose.yml" 1 || return 1
@@ -1059,6 +1217,55 @@ prompt_common_env() {
     esac
 }
 
+download_split_reference_files() {
+    case "$FRONTEND_BACKEND_MODE_VALUE" in
+        protected-upstream)
+            mkdir -p "$TARGET_DIR/split-protected-upstream"
+            download_raw_file "deploy/examples/split-protected-upstream/frontend.docker-compose.yml" "split-protected-upstream/frontend.docker-compose.yml" 0 || return 1
+            download_raw_file "deploy/examples/split-protected-upstream/backend.docker-compose.yml" "split-protected-upstream/backend.docker-compose.yml" 0 || return 1
+            download_raw_file "deploy/examples/split-protected-upstream/.env.frontend.example" "split-protected-upstream/.env.frontend.example" 0 || return 1
+            download_raw_file "deploy/examples/split-protected-upstream/.env.backend.example" "split-protected-upstream/.env.backend.example" 0 || return 1
+            download_raw_file "deploy/examples/split-protected-upstream/README.md" "split-protected-upstream/README.md" 0 || return 1
+            ;;
+        rathole)
+            mkdir -p "$TARGET_DIR/rathole"
+            download_raw_file "deploy/examples/rathole/frontend-server.docker-compose.yml" "rathole/frontend-server.docker-compose.yml" 0 || return 1
+            download_raw_file "deploy/examples/rathole/backend-server.override.yml" "rathole/backend-server.override.yml" 0 || return 1
+            download_raw_file "deploy/examples/rathole/README.md" "rathole/README.md" 0 || return 1
+            render_rathole_configs
+            ;;
+    esac
+}
+
+render_rathole_configs() {
+    [ "$FRONTEND_BACKEND_MODE_VALUE" = "rathole" ] || return 0
+    mkdir -p "$TARGET_DIR/rathole"
+    token="${RATHOLE_SERVICE_TOKEN_VALUE:-$(env_get RATHOLE_SERVICE_TOKEN '')}"
+    [ -n "$token" ] || token="$(secret_hex 32)"
+    remote="${RATHOLE_CONTROL_REMOTE_VALUE:-$(env_get RATHOLE_CONTROL_REMOTE frontend.example.com:2333)}"
+    service_port="${RATHOLE_SERVICE_PORT_VALUE:-$(env_get RATHOLE_SERVICE_PORT 18081)}"
+    cat > "$TARGET_DIR/rathole/rathole.server.toml" <<EOF
+[server]
+bind_addr = "0.0.0.0:2333"
+
+[server.services.webapp-api]
+token = "$token"
+bind_addr = "0.0.0.0:$service_port"
+EOF
+    cat > "$TARGET_DIR/rathole/rathole.client.toml" <<EOF
+[client]
+remote_addr = "$remote"
+
+[client.services.webapp-api]
+token = "$token"
+local_addr = "backend:8081"
+EOF
+    if [ "$INSTALL_NODE_ROLE_VALUE" = "frontend-node" ]; then
+        cp "$TARGET_DIR/rathole/rathole.server.toml" "$TARGET_DIR/rathole.server.toml"
+    fi
+    ok "Rathole TOML сохранены в $TARGET_DIR/rathole/."
+}
+
 env_line() {
     key="$1"
     value="$2"
@@ -1088,8 +1295,22 @@ display_env_summary() {
     show_env_value MINIAPP_HOST "$MINIAPP_HOST_VALUE"
     show_env_value WEBHOOK_PUBLIC_URL "$WEBHOOK_PUBLIC_URL_VALUE"
     show_env_value MINIAPP_PUBLIC_URL "$MINIAPP_PUBLIC_URL_VALUE"
+    show_env_value INSTALL_NODE_ROLE "$INSTALL_NODE_ROLE_VALUE"
+    show_env_value FRONTEND_BACKEND_MODE "$FRONTEND_BACKEND_MODE_VALUE"
+    show_env_value WEBAPP_API_BASE_URL "$WEBAPP_API_BASE_URL_VALUE"
+    show_env_value WEBAPP_BACKEND_UPSTREAM "$WEBAPP_BACKEND_UPSTREAM_VALUE"
+    show_env_value WEBAPP_BACKEND_UPSTREAM_HOST "$WEBAPP_BACKEND_UPSTREAM_HOST_VALUE"
+    show_env_value MINISHOP_EDGE_TOKEN "$MINISHOP_EDGE_TOKEN_VALUE"
+    show_env_value MINISHOP_EDGE_TOKEN_HEADER "$MINISHOP_EDGE_TOKEN_HEADER_VALUE"
     show_env_value WEB_SERVER_BIND "$WEB_SERVER_BIND_VALUE"
+    show_env_value WEBAPP_SERVER_BIND "$WEBAPP_SERVER_BIND_VALUE"
     show_env_value FRONTEND_BIND "$FRONTEND_BIND_VALUE"
+    show_env_value RATHOLE_IMAGE "$RATHOLE_IMAGE_VALUE"
+    show_env_value RATHOLE_CONTROL_BIND "$RATHOLE_CONTROL_BIND_VALUE"
+    show_env_value RATHOLE_CONTROL_REMOTE "$RATHOLE_CONTROL_REMOTE_VALUE"
+    show_env_value RATHOLE_SERVICE_TOKEN "$RATHOLE_SERVICE_TOKEN_VALUE"
+    show_env_value RATHOLE_SERVICE_PORT "$RATHOLE_SERVICE_PORT_VALUE"
+    [ "$INSTALL_NODE_ROLE_VALUE" = "frontend-node" ] && return 0
     show_env_value BOT_TOKEN "$BOT_TOKEN_VALUE"
     show_env_value ADMIN_IDS "$ADMIN_IDS_VALUE"
     show_env_value POSTGRES_USER "$POSTGRES_USER_VALUE"
@@ -1142,13 +1363,31 @@ render_env_file() {
     env_line MINIAPP_HOST "$MINIAPP_HOST_VALUE" "$output"
     env_line WEBHOOK_PUBLIC_URL "$WEBHOOK_PUBLIC_URL_VALUE" "$output"
     env_line MINIAPP_PUBLIC_URL "$MINIAPP_PUBLIC_URL_VALUE" "$output"
+    env_line INSTALL_NODE_ROLE "$INSTALL_NODE_ROLE_VALUE" "$output"
+    env_line FRONTEND_BACKEND_MODE "$FRONTEND_BACKEND_MODE_VALUE" "$output"
+    env_line WEBAPP_API_BASE_URL "$WEBAPP_API_BASE_URL_VALUE" "$output"
+    env_line WEBAPP_BACKEND_UPSTREAM "$WEBAPP_BACKEND_UPSTREAM_VALUE" "$output"
+    env_line WEBAPP_BACKEND_UPSTREAM_HOST "$WEBAPP_BACKEND_UPSTREAM_HOST_VALUE" "$output"
+    env_line MINISHOP_EDGE_TOKEN "$MINISHOP_EDGE_TOKEN_VALUE" "$output"
+    env_line MINISHOP_EDGE_TOKEN_HEADER "$MINISHOP_EDGE_TOKEN_HEADER_VALUE" "$output"
     env_line HTTP_BIND "$HTTP_BIND_VALUE" "$output"
     env_line HTTPS_BIND "$HTTPS_BIND_VALUE" "$output"
     env_line WEB_SERVER_BIND "$WEB_SERVER_BIND_VALUE" "$output"
+    env_line WEBAPP_SERVER_BIND "$WEBAPP_SERVER_BIND_VALUE" "$output"
     env_line FRONTEND_BIND "$FRONTEND_BIND_VALUE" "$output"
+    env_line RATHOLE_IMAGE "$RATHOLE_IMAGE_VALUE" "$output"
+    env_line RATHOLE_CONTROL_BIND "$RATHOLE_CONTROL_BIND_VALUE" "$output"
+    env_line RATHOLE_CONTROL_REMOTE "$RATHOLE_CONTROL_REMOTE_VALUE" "$output"
+    env_line RATHOLE_SERVICE_TOKEN "$RATHOLE_SERVICE_TOKEN_VALUE" "$output"
+    env_line RATHOLE_SERVICE_PORT "$RATHOLE_SERVICE_PORT_VALUE" "$output"
     env_line PANGOLIN_ENDPOINT "$PANGOLIN_ENDPOINT_VALUE" "$output"
     env_line NEWT_ID "$NEWT_ID_VALUE" "$output"
     env_line NEWT_SECRET "$NEWT_SECRET_VALUE" "$output"
+
+    if [ "$INSTALL_NODE_ROLE_VALUE" = "frontend-node" ]; then
+        append_preserved_env "$output"
+        return 0
+    fi
 
     printf '\n# Telegram\n' >> "$output"
     env_line BOT_TOKEN "$BOT_TOKEN_VALUE" "$output"
@@ -1762,7 +2001,9 @@ compose_bind_value() {
         HTTP_BIND) value="$HTTP_BIND_VALUE" ;;
         HTTPS_BIND) value="$HTTPS_BIND_VALUE" ;;
         WEB_SERVER_BIND) value="$WEB_SERVER_BIND_VALUE" ;;
+        WEBAPP_SERVER_BIND) value="$WEBAPP_SERVER_BIND_VALUE" ;;
         FRONTEND_BIND) value="$FRONTEND_BIND_VALUE" ;;
+        RATHOLE_CONTROL_BIND) value="$RATHOLE_CONTROL_BIND_VALUE" ;;
     esac
     if [ -z "$value" ]; then
         value=$(env_get "$key" "")
@@ -1772,7 +2013,7 @@ compose_bind_value() {
 
 print_current_bind_settings() {
     printed=0
-    for key in HTTP_BIND HTTPS_BIND WEB_SERVER_BIND FRONTEND_BIND; do
+    for key in HTTP_BIND HTTPS_BIND WEB_SERVER_BIND WEBAPP_SERVER_BIND FRONTEND_BIND RATHOLE_CONTROL_BIND; do
         value=$(compose_bind_value "$key")
         [ -n "$value" ] || continue
         if [ "$printed" = "0" ]; then
@@ -1785,7 +2026,7 @@ print_current_bind_settings() {
 
 validate_bind_settings() {
     failed=0
-    for key in HTTP_BIND HTTPS_BIND WEB_SERVER_BIND FRONTEND_BIND; do
+    for key in HTTP_BIND HTTPS_BIND WEB_SERVER_BIND WEBAPP_SERVER_BIND FRONTEND_BIND RATHOLE_CONTROL_BIND; do
         value=$(compose_bind_value "$key")
         [ -n "$value" ] || continue
         if ! is_bind_address "$value"; then
@@ -1831,7 +2072,7 @@ explain_compose_failure() {
 
     if grep -Eiq 'invalid hostPort|invalid host port|invalid.*published.*port|invalid.*containerPort|invalid port' "$output_file"; then
         fail "Docker Compose не смог разобрать публикацию порта."
-        info "Самая частая причина: в HTTP_BIND, HTTPS_BIND, WEB_SERVER_BIND или FRONTEND_BIND указан только IP без порта."
+        info "Самая частая причина: в HTTP_BIND, HTTPS_BIND, WEB_SERVER_BIND, WEBAPP_SERVER_BIND, FRONTEND_BIND или RATHOLE_CONTROL_BIND указан только IP без порта."
         info "Нужно указать PORT или IP:PORT: 80, 0.0.0.0:80, <IP_СЕРВЕРА>:80, 127.0.0.1:8080."
         info "Если хотите слушать все интерфейсы сервера, оставьте 0.0.0.0:PORT."
         print_current_bind_settings
@@ -2009,7 +2250,9 @@ start_stack() {
     if [ "$pull" = "1" ]; then
         (cd "$TARGET_DIR" && run_compose_checked pull) || return 1
     fi
-    preflight_existing_postgres_volume || return 1
+    if [ "$INSTALL_NODE_ROLE_VALUE" != "frontend-node" ]; then
+        preflight_existing_postgres_volume || return 1
+    fi
     (cd "$TARGET_DIR" && run_compose_checked up -d) || return 1
     (cd "$TARGET_DIR" && run_compose ps) || true
     ok "Команда запуска стека выполнена."
@@ -2315,7 +2558,7 @@ EOF
 }
 
 ensure_target_network_exists() {
-    target_network="$(target_compose_project)_remnawave-shop"
+    target_network="$(target_network_name)"
     if docker network inspect "$target_network" >/dev/null 2>&1; then
         return 0
     fi
@@ -2329,7 +2572,7 @@ ensure_target_network_exists() {
 
 connect_proxy_to_target_network() {
     proxy_name="$1"
-    target_network="$(target_compose_project)_remnawave-shop"
+    target_network="$(target_network_name)"
     if docker inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' "$proxy_name" 2>/dev/null | grep -Fx "$target_network" >/dev/null 2>&1; then
         ok "Контейнер $proxy_name уже подключен к Docker-сети $target_network."
         return 0
@@ -2936,6 +3179,10 @@ target_compose_project() {
     printf '%s' "$project"
 }
 
+target_network_name() {
+    printf '%s-network' "$(target_compose_project)"
+}
+
 connect_local_source_db_to_target_network() {
     source_host=$(dsn_hostname "$SOURCE_DSN")
     [ -n "$source_host" ] || return 0
@@ -2948,7 +3195,7 @@ connect_local_source_db_to_target_network() {
         return 0
     fi
 
-    target_network="$(target_compose_project)_remnawave-shop"
+    target_network="$(target_network_name)"
     if ! docker network inspect "$target_network" >/dev/null 2>&1; then
         warn "Целевая Docker-сеть $target_network не найдена; исходный контейнер $source_host не подключен автоматически."
         return 0
@@ -3831,7 +4078,7 @@ services:
       NEWT_SECRET: ${NEWT_SECRET:?set NEWT_SECRET in .env}
       HEALTH_FILE: /tmp/healthy
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     healthcheck:
       test: ["CMD-SHELL", "test -f /tmp/healthy"]
       interval: 30s
@@ -3839,7 +4086,7 @@ services:
       retries: 5
 
 networks:
-  remnawave-shop:
+  remnawave-minishop:
 EOF
     mv "$tmp" "$pangolin_output" || {
         rm -f "$tmp"
@@ -4026,23 +4273,41 @@ install_flow() {
     LEGACY_SOURCE=""
     installation_directory || return 1
     install_source || return 1
-    choose_profile || return 1
-    if [ "$with_migration" = "1" ]; then
-        choose_legacy_source || return 1
-    fi
     ENV_PATH="$TARGET_DIR/.env"
     if [ -f "$ENV_PATH" ]; then
         warn "Найден существующий .env: $ENV_PATH; неизвестные значения будут сохранены."
     fi
-    prompt_common_env || return 1
+    choose_install_node_role || return 1
+    if [ "$with_migration" = "1" ] && [ "$INSTALL_NODE_ROLE_VALUE" = "frontend-node" ]; then
+        fail "Frontend node не запускает backend migration/import. Выберите full stack или backend node."
+        return 1
+    fi
+    if [ "$INSTALL_NODE_ROLE_VALUE" = "frontend-node" ]; then
+        PROFILE_KEY="frontend-node"
+        DEPLOYMENT_PROFILE_VALUE="frontend-node"
+    else
+        choose_profile || return 1
+    fi
+    if [ "$with_migration" = "1" ]; then
+        choose_legacy_source || return 1
+    fi
+    if [ "$INSTALL_NODE_ROLE_VALUE" = "frontend-node" ]; then
+        prompt_frontend_node_env || return 1
+    else
+        prompt_common_env || return 1
+    fi
+    configure_frontend_backend_mode || return 1
     mkdir -p "$TARGET_DIR/$INSTALL_STATE_DIR"
     check_public_dns_records || return 1
     download_profile_files || return 1
+    download_split_reference_files || return 1
     write_env_file || return 1
     configure_nginx_certificates || return 1
     configure_existing_reverse_proxy || return 1
-    prepare_data_mount || return 1
-    if [ "$with_migration" != "1" ] && confirm "Мигрировать данные из другого бота после установки?" 0; then
+    if [ "$INSTALL_NODE_ROLE_VALUE" != "frontend-node" ]; then
+        prepare_data_mount || return 1
+    fi
+    if [ "$INSTALL_NODE_ROLE_VALUE" != "frontend-node" ] && [ "$with_migration" != "1" ] && confirm "Мигрировать данные из другого бота после установки?" 0; then
         choose_legacy_source || return 1
     fi
 

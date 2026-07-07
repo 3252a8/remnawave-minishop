@@ -24,6 +24,8 @@ function makeDeps(overrides: TestOverrides = {}) {
     loadData: vi.fn(),
     showLogin: vi.fn(),
     clearToken: vi.fn(),
+    refreshSession: vi.fn(),
+    setCsrfToken: vi.fn(),
     clearManualLogoutFlag: vi.fn(),
     isManuallyLoggedOut: vi.fn(() => false),
     hasEmailCodeLoginDeeplink: vi.fn(() => false),
@@ -52,5 +54,35 @@ describe("runWebappBoot", () => {
     expect(deps.setAuthStatus).toHaveBeenCalledWith("wa_auth_invite_required", true);
     expect(deps.showLogin).toHaveBeenCalledOnce();
     expect(window.history.replaceState).toHaveBeenCalledOnce();
+  });
+
+  it("loads data when the backend refreshes an existing cookie session", async () => {
+    installBrowser();
+    const deps = makeDeps({
+      refreshSession: vi.fn(async () => ({ authenticated: true, csrf_token: "csrf-token" })),
+      setCsrfToken: vi.fn(),
+    });
+
+    await runWebappBoot(deps);
+
+    expect(deps.refreshSession).toHaveBeenCalledOnce();
+    expect(deps.setCsrfToken).toHaveBeenCalledWith("csrf-token");
+    expect(deps.loadData).toHaveBeenCalledOnce();
+    expect(deps.showLogin).not.toHaveBeenCalled();
+  });
+
+  it("keeps Telegram initData auth ahead of cookie session refresh", async () => {
+    installBrowser();
+    const deps = makeDeps({
+      getInitDataForBoot: vi.fn(() => "tg-init-data"),
+      finalizeTelegramAuth: vi.fn(async () => true),
+      refreshSession: vi.fn(async () => ({ authenticated: true, csrf_token: "csrf-token" })),
+    });
+
+    await runWebappBoot(deps);
+
+    expect(deps.finalizeTelegramAuth).toHaveBeenCalledWith("tg-init-data", "init_data");
+    expect(deps.refreshSession).not.toHaveBeenCalled();
+    expect(deps.showLogin).not.toHaveBeenCalled();
   });
 });

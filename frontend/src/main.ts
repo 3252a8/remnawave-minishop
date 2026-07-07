@@ -1,6 +1,7 @@
 import { mount } from "svelte";
 
 import App from "./App.svelte";
+import { buildApiUrl } from "./lib/webapp/publicApi";
 import "./styles.css";
 
 const PUBLIC_INSTALL_PRELOAD_KEY = "__RW_PUBLIC_INSTALL_PRELOAD__";
@@ -20,7 +21,7 @@ function startPublicInstallPreload(): PublicInstallPreload | null {
   const shareToken = publicInstallTokenFromPath();
   if (!shareToken) return null;
   const path = `/subscription-guides/public/${encodeURIComponent(shareToken)}`;
-  const promise = fetch(`/api${path}`, {
+  const promise = fetch(buildApiUrl(path), {
     credentials: "same-origin",
     headers: { Accept: "application/json" },
   })
@@ -44,8 +45,8 @@ async function loadBootstrap(): Promise<void> {
     }, BOOTSTRAP_TIMEOUT_MS);
   });
   const bootstrap = (async () => {
-    const response = await fetch("/api/bootstrap?i18n_scope=webapp", {
-      credentials: "include",
+    const response = await fetch(buildApiUrl("/bootstrap?i18n_scope=webapp"), {
+      credentials: "same-origin",
       headers: { Accept: "application/json" },
       signal: controller?.signal,
     });

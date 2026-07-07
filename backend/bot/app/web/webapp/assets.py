@@ -193,6 +193,78 @@ async def _security_headers_middleware(
     return response
 
 
+_EDGE_TOKEN_EXACT_PATHS = {
+    "/open-app",
+    "/webapp-logo",
+    "/webapp-default-logo.webp",
+    "/favicon.ico",
+    "/apple-touch-icon.png",
+    "/apple-touch-icon-precomposed.png",
+    "/icon-192.png",
+    "/icon-512.png",
+}
+_EDGE_TOKEN_PREFIXES = (
+    "/api/",
+    "/auth/",
+    "/webapp-uploaded-logo/",
+    "/webapp-favicon/",
+    "/webapp-theme-css/",
+    "/webapp-theme-assets/",
+)
+
+
+def _webapp_edge_token_required(path: str) -> bool:
+    return path in _EDGE_TOKEN_EXACT_PATHS or any(
+        path.startswith(prefix) for prefix in _EDGE_TOKEN_PREFIXES
+    )
+
+
+@web.middleware
+async def _webapp_edge_token_middleware(
+    request: web.Request, handler: Handler
+) -> web.StreamResponse:
+    settings: Settings = get_settings(request)
+    expected_token = settings.MINISHOP_EDGE_TOKEN.strip()
+    if not expected_token or not _webapp_edge_token_required(request.path):
+        return await handler(request)
+
+    header_name = settings.MINISHOP_EDGE_TOKEN_HEADER.strip()
+    if not header_name:
+        header_name = "X-Minishop-Edge-Token"
+    received_token = request.headers.get(header_name, "")
+    if not hmac.compare_digest(received_token, expected_token):
+        return _json_error(403, "edge_token_required", "Forbidden")
+
+    return await handler(request)
+
+
+def _webapp_api_url(path: str) -> str:
+    normalized_path = "/" + str(path or "").lstrip("/")
+    if normalized_path == "/api":
+        normalized_path = ""
+    elif normalized_path.startswith("/api/"):
+        normalized_path = normalized_path[4:]
+    return f"/api{normalized_path}"
+
+
+def _webapp_shell_preload_markup(
+    js_asset_name: str,
+    share_token: str = "",
+) -> str:
+    js_href = "/" + quote(str(js_asset_name or "").lstrip("/"), safe="/.-_")
+    lines = [f'<link rel="preload" href="{js_href}" as="script">']
+    normalized_share_token = subscription_dal.normalize_install_share_token(share_token)
+    if normalized_share_token:
+        fetch_href = _webapp_api_url(
+            f"/subscription-guides/public/{quote(normalized_share_token, safe='')}",
+        )
+        lines.append(
+            f'<link rel="preload" href="{fetch_href}" as="fetch" '
+            'crossorigin="use-credentials" fetchpriority="high">'
+        )
+    return "\n".join(lines)
+
+
 @web.middleware
 async def _csrf_protection_middleware(request: web.Request, handler: Handler) -> web.StreamResponse:
     settings: Settings = get_settings(request)
@@ -563,19 +635,6 @@ def _apply_webapp_head_metadata(html_text: str, page_title: str, favicon_url: st
     return _replace_webapp_favicon(html_text, _favicon_head_markup(favicon_url))
 
 
-def _webapp_shell_preload_markup(js_asset_name: str, share_token: str = "") -> str:
-    js_href = "/" + quote(str(js_asset_name or "").lstrip("/"), safe="/.-_")
-    lines = [f'<link rel="preload" href="{js_href}" as="script">']
-    normalized_share_token = subscription_dal.normalize_install_share_token(share_token)
-    if normalized_share_token:
-        fetch_href = f"/api/subscription-guides/public/{quote(normalized_share_token, safe='')}"
-        lines.append(
-            f'<link rel="preload" href="{fetch_href}" as="fetch" '
-            'crossorigin="use-credentials" fetchpriority="high">'
-        )
-    return "\n".join(lines)
-
-
 async def index_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
     if not settings.WEBAPP_ENABLED:
@@ -755,8 +814,10 @@ __all__ = [
     "_uploaded_webapp_logo_filename",
     "_uploaded_webapp_logo_response",
     "_warm_webapp_logo_cache",
+    "_webapp_api_url",
     "_webapp_default_brand_file_response",
     "_webapp_default_favicon_file_response",
+    "_webapp_edge_token_middleware",
     "_webapp_favicon_file_response",
     "_webapp_generated_favicon_digest",
     "_webapp_logo_cache_key",

@@ -73,6 +73,7 @@ backend/bot/app/web/templates/subscription_webapp_docs_demo.js
 backend/bot/app/web/templates/subscription_webapp_docs_demo.*.css
 backend/bot/app/web/templates/subscription_webapp_docs_demo.*.css.br
 backend/bot/app/web/templates/subscription_webapp_docs_demo.*.css.gz
+backend/bot/app/web/templates/provider-logos/
 .claude
 
 # Игнорировать кэш Python

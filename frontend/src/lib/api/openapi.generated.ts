@@ -1084,6 +1084,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/auth/session": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Session */
+    get: operations["get_session_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/auth/telegram/nonce": {
     parameters: {
       query?: never;
@@ -6784,6 +6801,31 @@ export interface operations {
         };
         content: {
           "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_session_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            authenticated: boolean;
+            csrf_token?: string;
             /** @constant */
             ok: true;
           };

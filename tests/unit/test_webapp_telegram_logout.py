@@ -92,4 +92,4 @@ def test_frontend_nginx_proxies_open_app_gateway_to_backend():
     block = source[open_app_pos:fallback_pos]
 
     assert open_app_pos < fallback_pos
-    assert "proxy_pass http://backend:8081;" in block
+    assert "proxy_pass ${WEBAPP_BACKEND_UPSTREAM};" in block

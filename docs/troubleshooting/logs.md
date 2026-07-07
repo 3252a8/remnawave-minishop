@@ -57,6 +57,13 @@ docker compose logs -f frontend backend
 - домен Web App: `SUBSCRIPTION_MINI_APP_URL`, он должен быть публичным HTTPS URL frontend, без `/api`, `/auth` или webhook-пути;
 - WebApp-сервер backend: `WEBAPP_ENABLED=True`, `WEBAPP_SERVER_HOST=0.0.0.0`, `WEBAPP_SERVER_PORT=8081`.
 
+Для split frontend/backend дополнительно проверьте:
+
+- startup banner `frontend` показывает `api base :: /api` и ожидаемый `upstream :: ...`;
+- `WEBAPP_BACKEND_UPSTREAM` доступен с frontend-сервера;
+- при protected upstream frontend nginx добавляет `X-Minishop-Edge-Token`, но прямой запрос к backend `/api/bootstrap` без token возвращает `401/403`;
+- webhook routes на backend-домене продолжают идти в `backend:8080`, а не в `frontend` и не в `backend:8081`.
+
 ## Авторизация Mini App и Telegram OAuth
 
 Ошибки авторизации почти всегда видны в `backend`, потому что проверка Telegram Mini Apps `initData`, Telegram OAuth `id_token`, nonce/state и сессий выполняется на WebApp-сервере backend.

@@ -100,6 +100,9 @@ def test_deployment_docs_explain_install_wizard_prompts():
 
     assert "### Что спрашивает install wizard" in docs
     assert "`HTTP_BIND` / `HTTPS_BIND`" in docs
+    assert "`FRONTEND_BACKEND_MODE`" in docs
+    assert "split-protected-upstream" in docs
+    assert "Rathole" in docs
     assert "с одним IP без порта некорректно" in docs
     assert "Docker Compose не найден" in docs
     assert ".installer/compose-last-error.log" in docs
@@ -282,9 +285,41 @@ def test_shell_installer_connects_local_remnashop_db_container_for_import():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
     assert "connect_local_source_db_to_target_network" in script
+    assert "target_network_name()" in script
     assert "dsn_hostname" in script
     assert "docker network connect" in script
-    assert "_remnawave-shop" in script
+    assert 'target_network="$(target_network_name)"' in script
+
+
+def test_shell_installer_supports_split_frontend_backend_modes():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    for key in (
+        "FRONTEND_BACKEND_MODE",
+        "INSTALL_NODE_ROLE",
+        "WEBAPP_BACKEND_UPSTREAM",
+        "WEBAPP_BACKEND_UPSTREAM_HOST",
+        "MINISHOP_EDGE_TOKEN",
+        "MINISHOP_EDGE_TOKEN_HEADER",
+        "WEBAPP_SERVER_BIND",
+        "RATHOLE_IMAGE",
+        "RATHOLE_CONTROL_BIND",
+        "RATHOLE_CONTROL_REMOTE",
+        "RATHOLE_SERVICE_TOKEN",
+        "RATHOLE_SERVICE_PORT",
+    ):
+        assert key in script
+    assert "prompt_frontend_node_env" in script
+    assert "choose_install_node_role" in script
+    assert "deploy/examples/split-protected-upstream/.env.frontend.example" in script
+    assert "deploy/examples/split-protected-upstream/.env.backend.example" in script
+    assert (
+        'cp "$TARGET_DIR/rathole/rathole.server.toml" "$TARGET_DIR/rathole.server.toml"' in script
+    )
+    assert "Как frontend будет обращаться к backend WebApp API?" in script
+    assert "Защищенный backend upstream" in script
+    assert "Приватный tunnel Rathole" in script
+    assert "Rathole TOML сохранены" in script
 
 
 def test_shell_installer_supports_legacy_tgshop_volume_and_dsn_paths():

@@ -57,6 +57,15 @@ AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
         response_schema=AUTH_RESPONSE_SCHEMA,
     ),
     "logout_route": public_contract(response_schema=ok_envelope_with()),
+    "session_route": public_contract(
+        response_schema=ok_envelope_with(
+            {
+                "authenticated": BOOLEAN_SCHEMA,
+                "csrf_token": STRING_SCHEMA,
+            },
+            required=["authenticated"],
+        )
+    ),
     "referral_welcome_bonus_claim_route": user_contract(
         response_schema=ok_envelope_with(
             {

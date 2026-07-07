@@ -19,7 +19,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     healthcheck:
       test:
         [
@@ -39,7 +39,7 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -58,7 +58,7 @@ services:
     volumes:
       - ./data:/app/data
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     depends_on:
       postgres:
         condition: service_healthy
@@ -82,7 +82,7 @@ services:
       - ./data:/app/data
       - ${COMPOSE_BACKUP_SOURCE:-.}:/app/compose-source:${COMPOSE_RESTORE_MODE:-rw}
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     depends_on:
       postgres:
         condition: service_healthy
@@ -109,7 +109,7 @@ services:
       - ./data:/app/data
       - ${COMPOSE_BACKUP_SOURCE:-.}:/app/compose-source:ro
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     depends_on:
       postgres:
         condition: service_healthy
@@ -127,10 +127,15 @@ services:
     environment:
       IMAGE_TAG: ${IMAGE_TAG:-latest}
       FRONTEND_PUBLIC: ${MINIAPP_PUBLIC_URL:?set MINIAPP_PUBLIC_URL in .env}
+      WEBAPP_API_BASE_URL: ${WEBAPP_API_BASE_URL:-/api}
+      WEBAPP_BACKEND_UPSTREAM: ${WEBAPP_BACKEND_UPSTREAM:-http://backend:8081}
+      WEBAPP_BACKEND_UPSTREAM_HOST: ${WEBAPP_BACKEND_UPSTREAM_HOST:-backend}
+      MINISHOP_EDGE_TOKEN: ${MINISHOP_EDGE_TOKEN:-}
+      MINISHOP_EDGE_TOKEN_HEADER: ${MINISHOP_EDGE_TOKEN_HEADER:-X-Minishop-Edge-Token}
     ports:
       - "${FRONTEND_BIND:-0.0.0.0:8082}:80"
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     depends_on:
       backend:
         condition: service_healthy
@@ -143,7 +148,8 @@ services:
       start_interval: 2s
 
 networks:
-  remnawave-shop:
+  remnawave-minishop:
+    name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-network
 
 volumes:
   postgres-data:

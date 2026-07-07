@@ -3,6 +3,7 @@ import { createBillingStore } from "./stores/billingStore";
 import { createAccountStore } from "./stores/accountStore";
 import { createActionsStore } from "./stores/actionsStore";
 import { createWebappDataClient } from "./dataClient";
+import { buildApiUrl } from "./publicApi";
 import { createWebappActivationContext } from "./webappActivationContext";
 import { createAuthRuntime } from "./authRuntime.js";
 import { createResumeLifecycle } from "./resumeLifecycle.js";
@@ -188,8 +189,7 @@ export function createAppFactories({
 
   const adminRuntime = createAdminRuntime({
     fetchI18nScope: async (scope) => {
-      const apiBase = String(CFG.apiBase || "/api").replace(/\/+$/, "");
-      const response = await fetch(`${apiBase}/i18n?scope=${encodeURIComponent(scope)}`, {
+      const response = await fetch(buildApiUrl(`/i18n?scope=${encodeURIComponent(scope)}`), {
         credentials: "same-origin",
         headers: { Accept: "application/json" },
       });
@@ -233,7 +233,6 @@ export function createAppFactories({
       manualLogoutFlagKey,
     });
   const dataClient = createWebappDataClient({
-    apiBase: CFG.apiBase,
     csrfCookieName,
     getAuthToken: () => shellState.token,
     getCsrfToken: () => shellState.csrfToken,
@@ -378,6 +377,7 @@ export function createAppFactories({
     loadData,
     showLogin,
     clearToken,
+    refreshSession: () => api("/auth/session"),
     clearManualLogoutFlag,
     isManuallyLoggedOut,
     hasEmailCodeLoginDeeplink,

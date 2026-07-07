@@ -1,21 +1,26 @@
-x-app-env-file: &app_env_file
-  - ${APP_ENV_FILE:-.env}
-
 x-app-environment: &app_environment
   IMAGE_TAG: ${IMAGE_TAG:-latest}
   POSTGRES_HOST: postgres
   REDIS_URL: redis://redis:6379/0
-  WEBHOOK_BASE_URL: https://${WEBHOOK_HOST:?set WEBHOOK_HOST in .env}
-  SUBSCRIPTION_MINI_APP_URL: https://${MINIAPP_HOST:?set MINIAPP_HOST in .env}/
+  WEBAPP_ENABLED: "true"
+  WEBHOOK_BASE_URL: ${WEBHOOK_PUBLIC_URL:-https://bot.example.com}
+  SUBSCRIPTION_MINI_APP_URL: ${MINIAPP_PUBLIC_URL:-https://app.example.com/}
+  WEBAPP_SESSION_SECRET: ${WEBAPP_SESSION_SECRET:-change_me_to_64_hex_chars}
+  WEBHOOK_SECRET_TOKEN: ${WEBHOOK_SECRET_TOKEN:-change_me_to_64_hex_chars}
+  MINISHOP_EDGE_TOKEN: ${MINISHOP_EDGE_TOKEN:-}
+  MINISHOP_EDGE_TOKEN_HEADER: ${MINISHOP_EDGE_TOKEN_HEADER:-X-Minishop-Edge-Token}
+  PANEL_API_URL: ${PANEL_API_URL:-https://panel.example.com/api}
+  PANEL_API_KEY: ${PANEL_API_KEY:-change_me}
+  PANEL_WEBHOOK_SECRET: ${PANEL_WEBHOOK_SECRET:-change_me}
 
 services:
   postgres:
     image: postgres:17.6
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:-remnawave_minishop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-remnawave_minishop}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
@@ -50,11 +55,14 @@ services:
 
   migrate:
     image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
-    restart: "no"
     command: ["python", "backend/main_migrate.py"]
-    env_file: *app_env_file
     environment:
       <<: *app_environment
+      BOT_TOKEN: ${BOT_TOKEN:-change_me}
+      ADMIN_IDS: ${ADMIN_IDS:-123456789}
+      POSTGRES_USER: ${POSTGRES_USER:-remnawave_minishop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-remnawave_minishop}
     volumes:
       - ./data:/app/data
     networks:
@@ -68,17 +76,19 @@ services:
   backend:
     image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
-    # Real init (tini) as PID 1 so the healthcheck process is reaped instead of
-    # leaking a zombie every interval (python PID 1 does not reap orphans).
     init: true
-    env_file: *app_env_file
     environment:
       <<: *app_environment
-      WEBAPP_ENABLED: ${WEBAPP_ENABLED:-true}
-      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7}
+      BOT_TOKEN: ${BOT_TOKEN:-change_me}
+      ADMIN_IDS: ${ADMIN_IDS:-123456789}
+      POSTGRES_USER: ${POSTGRES_USER:-remnawave_minishop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-remnawave_minishop}
+    ports:
+      - "${WEBHOOK_BIND:-127.0.0.1:8080}:8080"
+      - "${WEBAPP_SERVER_BIND:-127.0.0.1:8081}:8081"
     volumes:
       - ./data:/app/data
-      - ${COMPOSE_BACKUP_SOURCE:-.}:/app/compose-source:${COMPOSE_RESTORE_MODE:-rw}
     networks:
       - remnawave-minishop
     depends_on:
@@ -100,12 +110,15 @@ services:
     image: 3252a8/remnawave-minishop-worker:${IMAGE_TAG:-latest}
     restart: unless-stopped
     init: true
-    env_file: *app_env_file
     environment:
       <<: *app_environment
+      BOT_TOKEN: ${BOT_TOKEN:-change_me}
+      ADMIN_IDS: ${ADMIN_IDS:-123456789}
+      POSTGRES_USER: ${POSTGRES_USER:-remnawave_minishop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-remnawave_minishop}
     volumes:
       - ./data:/app/data
-      - ${COMPOSE_BACKUP_SOURCE:-.}:/app/compose-source:ro
     networks:
       - remnawave-minishop
     depends_on:
@@ -115,49 +128,6 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-
-  frontend:
-    image: 3252a8/remnawave-minishop-frontend:${IMAGE_TAG:-latest}
-    restart: unless-stopped
-    # Real init (tini) reaps wget healthcheck children (nginx master only waits
-    # on its own workers, not adopted orphans).
-    init: true
-    environment:
-      IMAGE_TAG: ${IMAGE_TAG:-latest}
-      FRONTEND_PUBLIC: https://${MINIAPP_HOST:?set MINIAPP_HOST in .env}/
-      WEBAPP_API_BASE_URL: ${WEBAPP_API_BASE_URL:-/api}
-      WEBAPP_BACKEND_UPSTREAM: ${WEBAPP_BACKEND_UPSTREAM:-http://backend:8081}
-      WEBAPP_BACKEND_UPSTREAM_HOST: ${WEBAPP_BACKEND_UPSTREAM_HOST:-backend}
-      MINISHOP_EDGE_TOKEN: ${MINISHOP_EDGE_TOKEN:-}
-      MINISHOP_EDGE_TOKEN_HEADER: ${MINISHOP_EDGE_TOKEN_HEADER:-X-Minishop-Edge-Token}
-    networks:
-      - remnawave-minishop
-    depends_on:
-      backend:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health | grep -q ok"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
-      start_interval: 2s
-
-  newt:
-    image: fosrl/newt:latest
-    restart: unless-stopped
-    environment:
-      PANGOLIN_ENDPOINT: ${PANGOLIN_ENDPOINT:?set PANGOLIN_ENDPOINT in .env}
-      NEWT_ID: ${NEWT_ID:?set NEWT_ID in .env}
-      NEWT_SECRET: ${NEWT_SECRET:?set NEWT_SECRET in .env}
-      HEALTH_FILE: /tmp/healthy
-    networks:
-      - remnawave-minishop
-    healthcheck:
-      test: ["CMD-SHELL", "test -f /tmp/healthy"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
 
 networks:
   remnawave-minishop:

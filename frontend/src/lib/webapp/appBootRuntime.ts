@@ -20,6 +20,7 @@ type AppBootRuntimeDeps = {
   loadData: LoadData;
   showLogin: () => void;
   clearToken: () => void;
+  refreshSession?: (() => Promise<{ authenticated?: boolean; csrf_token?: string } | null>) | null;
   clearManualLogoutFlag: () => void;
   isManuallyLoggedOut: () => boolean;
   hasEmailCodeLoginDeeplink: () => boolean;
@@ -81,6 +82,10 @@ export function createAppBootRuntime(deps: AppBootRuntimeDeps) {
       loadData: deps.loadData,
       showLogin: deps.showLogin,
       clearToken: deps.clearToken,
+      refreshSession: deps.refreshSession,
+      setCsrfToken: (csrfToken) => {
+        shellState.csrfToken = csrfToken || "";
+      },
       clearManualLogoutFlag: deps.clearManualLogoutFlag,
       isManuallyLoggedOut: deps.isManuallyLoggedOut,
       hasEmailCodeLoginDeeplink: deps.hasEmailCodeLoginDeeplink,

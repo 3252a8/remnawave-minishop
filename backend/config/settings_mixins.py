@@ -793,6 +793,23 @@ class SettingsValidationMixin:
             return None
         return v
 
+    @field_validator("WEBAPP_API_BASE_URL", mode="before")
+    @classmethod
+    def normalize_webapp_api_base_url(cls, v):
+        value = str(v or "/api").strip().rstrip("/")
+        return value or "/api"
+
+    @field_validator("MINISHOP_EDGE_TOKEN", mode="before")
+    @classmethod
+    def normalize_minishop_edge_token(cls, v):
+        return str(v or "").strip()
+
+    @field_validator("MINISHOP_EDGE_TOKEN_HEADER", mode="before")
+    @classmethod
+    def normalize_minishop_edge_token_header(cls, v):
+        value = str(v or "").strip()
+        return value or "X-Minishop-Edge-Token"
+
     @field_validator("USER_HWID_DEVICE_LIMIT", mode="before")
     @classmethod
     def validate_optional_int(cls, v):

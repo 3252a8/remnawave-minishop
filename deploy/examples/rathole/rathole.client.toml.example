@@ -1,0 +1,7 @@
+[client]
+remote_addr = "frontend.example.com:2333"
+
+[client.services.webapp-api]
+token = "change_me_same_token_on_both_sides"
+local_addr = "backend:8081"
+
