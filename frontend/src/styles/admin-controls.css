@@ -62,6 +62,7 @@
 
 .admin-screen-wrap .admin-translations-search .input,
 .admin-screen-wrap .admin-icon-picker-search .input,
+.admin-screen-wrap .admin-settings-search .input,
 .admin-screen-wrap .support-admin-search .input {
   padding-left: 38px;
 }

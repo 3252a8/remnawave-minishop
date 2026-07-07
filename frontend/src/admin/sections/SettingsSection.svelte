@@ -16,6 +16,11 @@
     settingsSectionRoute,
     settingsSubsectionRoute,
   } from "$lib/admin/settingsSections";
+  import {
+    buildSettingsSearchEntries,
+    searchSettingsEntries,
+    type SettingsSearchEntry,
+  } from "$lib/admin/settingsSearch";
   import type { ComponentType, SvelteComponent } from "svelte";
   import type {
     SettingField,
@@ -83,6 +88,9 @@
   let settingsAnchorScrollTimers = $state<Array<ReturnType<typeof window.setTimeout>>>([]);
   let settingsAnchorScrollFrames = $state<number[]>([]);
   let settingsAnchorScrollCleanup = $state<(() => void) | null>(null);
+  let settingsSearchQuery = $state("");
+  let highlightedSettingKey = $state("");
+  let settingsSearchHighlightTimer = $state<ReturnType<typeof window.setTimeout> | null>(null);
 
   const settingsAllOpen = $derived(
     visibleSettingsSections.length > 0 &&
@@ -95,6 +103,17 @@
   );
   const filteredIconOptions = $derived(
     iconOptions.filter((name) => name.toLowerCase().includes(iconPickerSearch.trim().toLowerCase()))
+  );
+  const settingsSearchEntries = $derived(
+    buildSettingsSearchEntries(visibleSettingsSections, {
+      sectionTitle,
+      subsectionTitle,
+      fieldLabelText,
+      fieldDescriptionText,
+    })
+  );
+  const settingsSearchResults = $derived(
+    searchSettingsEntries(settingsSearchEntries, settingsSearchQuery, 8)
   );
   const currentSettingsPathKey = $derived(settingsPathKey(settingsPath));
   $effect(() => {
@@ -116,6 +135,7 @@
     if (copiedWebhookTimer && typeof window !== "undefined") {
       window.clearTimeout(copiedWebhookTimer);
     }
+    clearSettingsSearchHighlight();
     cancelPendingSettingsAnchorScroll();
   });
 
@@ -125,6 +145,51 @@
     } else {
       settingsOpenSections = visibleSettingsSections.map((s) => s.id);
     }
+  }
+
+  function clearSettingsSearch(): void {
+    settingsSearchQuery = "";
+  }
+
+  function clearSettingsSearchHighlight(): void {
+    if (settingsSearchHighlightTimer && typeof window !== "undefined") {
+      window.clearTimeout(settingsSearchHighlightTimer);
+    }
+    settingsSearchHighlightTimer = null;
+    highlightedSettingKey = "";
+  }
+
+  function highlightSettingsSearchResult(key: string): void {
+    clearSettingsSearchHighlight();
+    highlightedSettingKey = key;
+    if (typeof window === "undefined") return;
+    settingsSearchHighlightTimer = window.setTimeout(() => {
+      clearSettingsSearchHighlight();
+    }, 2600);
+  }
+
+  async function selectSettingsSearchResult(result: SettingsSearchEntry): Promise<void> {
+    const routePath = result.subsectionId
+      ? settingsSubsectionRoute(result.sectionId, result.subsectionId)
+      : settingsSectionRoute(result.sectionId);
+    updateSettingsRoute(routePath);
+
+    if (!settingsOpenSections.includes(result.sectionId)) {
+      settingsOpenSections = [...settingsOpenSections, result.sectionId];
+    }
+    if (result.subsectionId) {
+      const openSubsections = settingsOpenSubsections[result.sectionId] || [];
+      if (!openSubsections.includes(result.subsectionId)) {
+        settingsOpenSubsections = {
+          ...settingsOpenSubsections,
+          [result.sectionId]: [...openSubsections, result.subsectionId],
+        };
+      }
+    }
+
+    highlightSettingsSearchResult(result.key);
+    await tick();
+    scrollToSettingsAnchor(result.anchorKey);
   }
 
   function currentUrlSettingsPath(): SettingsPath {
@@ -624,8 +689,13 @@
   {settingsAllOpen}
   {settingsOpenSections}
   {settingsOpenSubsections}
+  bind:settingsSearchQuery
+  {settingsSearchResults}
+  {highlightedSettingKey}
   {copiedWebhookKey}
   {toggleAllSections}
+  {clearSettingsSearch}
+  {selectSettingsSearchResult}
   {saveSettings}
   {toggleSettingsSection}
   {toggleSettingsSubsection}

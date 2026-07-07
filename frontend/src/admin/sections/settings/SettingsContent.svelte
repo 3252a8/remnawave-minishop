@@ -1,6 +1,15 @@
 <script lang="ts">
   import { ColorInput, FileInput, Input, Textarea } from "$components/ui/index.js";
-  import { Check, Copy, ExternalLink, Eye, EyeOff, FileText, X } from "$components/ui/icons.js";
+  import {
+    Check,
+    Copy,
+    ExternalLink,
+    Eye,
+    EyeOff,
+    FileText,
+    Search,
+    X,
+  } from "$components/ui/icons.js";
   import { Switch } from "$components/ui/primitives.js";
   import {
     AdminBadge,
@@ -12,6 +21,7 @@
   import {
     groupSectionFields,
     semanticFieldGroups,
+    settingsFieldAnchorKey,
     settingsFieldGroupAnchorKey,
     settingsSectionAnchorKey,
     settingsSubsectionAnchorKey,
@@ -23,6 +33,7 @@
     settingsParamsCountLabel,
   } from "./disclosureLabels";
   import type { ComponentType, SvelteComponent } from "svelte";
+  import type { SettingsSearchEntry } from "$lib/admin/settingsSearch";
   import type { SettingsDirtyEntry } from "$lib/admin/stores/settingsStore";
   import type {
     AdminSettingField,
@@ -46,8 +57,13 @@
     settingsAllOpen,
     settingsOpenSections,
     settingsOpenSubsections,
+    settingsSearchQuery = $bindable(""),
+    settingsSearchResults,
+    highlightedSettingKey,
     copiedWebhookKey,
     toggleAllSections,
+    clearSettingsSearch,
+    selectSettingsSearchResult,
     saveSettings,
     toggleSettingsSection,
     toggleSettingsSubsection,
@@ -89,8 +105,13 @@
     settingsAllOpen: boolean;
     settingsOpenSections: string[];
     settingsOpenSubsections: Record<string, string[]>;
+    settingsSearchQuery: string;
+    settingsSearchResults: SettingsSearchEntry[];
+    highlightedSettingKey: string;
     copiedWebhookKey: string;
     toggleAllSections: () => void;
+    clearSettingsSearch: () => void;
+    selectSettingsSearchResult: (result: SettingsSearchEntry) => void | Promise<void>;
     saveSettings: () => void | Promise<void>;
     toggleSettingsSection: (sectionId: string) => void;
     toggleSettingsSubsection: (sectionId: string, groupId: string) => void;
@@ -124,6 +145,47 @@
     markFieldDirty: (key: string, value: unknown) => void;
     resetField: (field: AdminSettingField) => void;
   } = $props();
+
+  let settingsSearchOpen = $state(false);
+
+  const settingsSearchHasQuery = $derived(settingsSearchQuery.trim().length > 0);
+  const settingsSearchVisible = $derived(settingsSearchOpen && settingsSearchHasQuery);
+
+  function openSettingsSearch(): void {
+    if (settingsSearchHasQuery) settingsSearchOpen = true;
+  }
+
+  function handleSettingsSearchInput(event: Event): void {
+    const input = event.currentTarget as HTMLInputElement | null;
+    settingsSearchOpen = Boolean(input?.value.trim() || settingsSearchQuery.trim());
+  }
+
+  function handleSettingsSearchKeydown(event: KeyboardEvent): void {
+    if (event.key === "Escape") {
+      settingsSearchOpen = false;
+      return;
+    }
+    if (event.key !== "Enter" || !settingsSearchResults[0]) return;
+    event.preventDefault();
+    chooseSettingsSearchResult(settingsSearchResults[0]);
+  }
+
+  function handleSettingsSearchFocusOut(event: FocusEvent): void {
+    const current = event.currentTarget as HTMLElement | null;
+    const next = event.relatedTarget as Node | null;
+    if (current && next && current.contains(next)) return;
+    settingsSearchOpen = false;
+  }
+
+  function chooseSettingsSearchResult(result: SettingsSearchEntry): void {
+    settingsSearchOpen = false;
+    void selectSettingsSearchResult(result);
+  }
+
+  function resetSettingsSearch(): void {
+    clearSettingsSearch();
+    settingsSearchOpen = false;
+  }
 </script>
 
 {#snippet renderProviderInfo(provider: NonNullable<GroupProviderInfo>)}
@@ -229,7 +291,13 @@
 
 {#snippet renderField(field: AdminSettingField)}
   {@const revealed = isSecretRevealed(field.key)}
-  <div class="admin-setting" class:is-overridden={isOverridden(field)}>
+  <div
+    class="admin-setting"
+    class:is-overridden={isOverridden(field)}
+    class:is-search-highlighted={highlightedSettingKey === field.key}
+    data-settings-anchor={settingsFieldAnchorKey(field.key)}
+    tabindex="-1"
+  >
     <div class="admin-setting-meta">
       <strong>
         {fieldLabelText(field)}
@@ -395,6 +463,74 @@
       : at("no_data", {}, "Нет данных")}</AdminEmptyState
   >
 {:else}
+  <div class="admin-settings-search" onfocusout={handleSettingsSearchFocusOut}>
+    <div class="admin-settings-search-box">
+      <Search class="admin-settings-search-icon" size={16} aria-hidden="true" />
+      <Input
+        class="admin-settings-search-input"
+        type="search"
+        bind:value={settingsSearchQuery}
+        autocomplete="off"
+        placeholder={at(
+          "settings_search_placeholder",
+          {},
+          "Search settings by name or description"
+        )}
+        aria-label={at("settings_search_aria", {}, "Search settings")}
+        aria-controls="admin-settings-search-results"
+        aria-expanded={settingsSearchVisible}
+        onfocus={openSettingsSearch}
+        oninput={handleSettingsSearchInput}
+        onkeydown={handleSettingsSearchKeydown}
+      />
+      {#if settingsSearchHasQuery}
+        <AdminButton
+          class="admin-settings-search-clear"
+          size="sm"
+          variant="ghost"
+          title={at("clear", {}, "Clear")}
+          aria-label={at("clear", {}, "Clear")}
+          onclick={resetSettingsSearch}
+        >
+          <X size={13} />
+        </AdminButton>
+      {/if}
+    </div>
+    {#if settingsSearchVisible}
+      <div
+        id="admin-settings-search-results"
+        class="admin-settings-search-results"
+        role="listbox"
+        aria-label={at("settings_search_results", {}, "Settings search results")}
+      >
+        {#if settingsSearchResults.length}
+          {#each settingsSearchResults as result (result.key)}
+            <button
+              type="button"
+              class="admin-settings-search-result"
+              class:is-active={highlightedSettingKey === result.key}
+              role="option"
+              aria-selected={highlightedSettingKey === result.key}
+              onclick={() => chooseSettingsSearchResult(result)}
+            >
+              <span class="admin-settings-search-result-head">
+                <strong>{result.label}</strong>
+                <small>{result.pathLabel}</small>
+              </span>
+              {#if result.description}
+                <span class="admin-settings-search-result-description">{result.description}</span>
+              {/if}
+              <code>{result.key}</code>
+            </button>
+          {/each}
+        {:else}
+          <div class="admin-settings-search-empty">
+            {at("settings_search_no_results", {}, "No settings found")}
+          </div>
+        {/if}
+      </div>
+    {/if}
+  </div>
   <div
     style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;"
   >

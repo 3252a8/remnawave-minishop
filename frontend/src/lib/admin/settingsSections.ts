@@ -178,6 +178,10 @@ export function settingsFieldGroupAnchorKey(
   return `settings-field-group:${sectionId}:${groupId}:${fieldGroupId}`;
 }
 
+export function settingsFieldAnchorKey(fieldKey: string): string {
+  return `settings-field:${fieldKey}`;
+}
+
 export function settingsSectionRoute(sectionId: string): SettingsPath {
   return [settingsRouteSegment(sectionId)].filter(Boolean);
 }
