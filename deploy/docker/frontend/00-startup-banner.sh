@@ -30,19 +30,11 @@ json_escape() {
 }
 
 WEBAPP_RUNTIME_CONFIG_PATH="/usr/share/nginx/html/webapp-runtime-config.js"
-INDEX_HTML_PATH="/usr/share/nginx/html/index.html"
-WEBAPP_API_BASE_PLACEHOLDER="__RW_WEBAPP_API_BASE_URL__"
-ESCAPED_WEBAPP_API_BASE_URL="$(json_escape "$WEBAPP_API_BASE_URL_VALUE")"
-
 cat > "$WEBAPP_RUNTIME_CONFIG_PATH" <<EOF
 window.__RW_WEBAPP_RUNTIME_CONFIG__ = {
-  apiBaseUrl: "$ESCAPED_WEBAPP_API_BASE_URL"
+  apiBaseUrl: "$(json_escape "$WEBAPP_API_BASE_URL_VALUE")"
 };
 EOF
-
-if [ -f "$INDEX_HTML_PATH" ]; then
-  sed -i "s|${WEBAPP_API_BASE_PLACEHOLDER}|${ESCAPED_WEBAPP_API_BASE_URL}|g" "$INDEX_HTML_PATH"
-fi
 
 cat <<EOF
 

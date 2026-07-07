@@ -745,27 +745,6 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("/webapp-default-logo.webp", nginx_conf)
         self.assertIn("proxy_pass http://backend:8081;", nginx_conf)
 
-    def test_frontend_runtime_config_is_inlined_and_patched_at_startup(self):
-        prepare_script = Path("frontend/scripts/prepare_nginx_assets.mjs").read_text(
-            encoding="utf-8"
-        )
-        startup_script = Path("deploy/docker/frontend/00-startup-banner.sh").read_text(
-            encoding="utf-8"
-        )
-
-        self.assertIn("__RW_WEBAPP_API_BASE_URL__", prepare_script)
-        self.assertIn("inlineRuntimeConfigScript", prepare_script)
-        self.assertIn('INDEX_HTML_PATH="/usr/share/nginx/html/index.html"', startup_script)
-        self.assertIn("__RW_WEBAPP_API_BASE_URL__", startup_script)
-
-    def test_frontend_compose_passes_app_env_file_to_frontend_service(self):
-        compose = Path("docker-compose.yml").read_text(encoding="utf-8")
-        frontend_block = compose.split("  frontend:", 1)[1].split("\n  backend:", 1)[0]
-
-        self.assertIn("env_file:", frontend_block)
-        self.assertIn("${APP_ENV_FILE:-.env}", frontend_block)
-        self.assertNotIn("WEBAPP_API_BASE_URL:", frontend_block)
-
     def test_frontend_nginx_serves_shell_routes_from_static_index(self):
         nginx_conf = Path("deploy/docker/frontend/nginx.conf").read_text(encoding="utf-8")
         marker = 'location ~ "^/(?:$|login/password$|home$|install$|trial$|s/[a-f0-9]{32}$'

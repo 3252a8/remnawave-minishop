@@ -1,13 +1,5 @@
 export const DEFAULT_WEBAPP_API_BASE = "/api";
 
-/** Placeholder substituted in nginx index.html at frontend container startup. */
-export const WEBAPP_API_BASE_URL_PLACEHOLDER = "__RW_WEBAPP_API_BASE_URL__";
-
-function devOnlyViteApiBase(): string {
-  if (!import.meta.env.DEV) return "";
-  return String(import.meta.env.VITE_WEBAPP_API_BASE_URL || "").trim();
-}
-
 export function normalizeApiBase(
   value: string | null | undefined,
   fallback = DEFAULT_WEBAPP_API_BASE
@@ -36,7 +28,8 @@ type WebappRuntimeConfigWindow = Window & {
 
 export function runtimeApiBase(): string {
   const runtimeConfig = (window as WebappRuntimeConfigWindow).__RW_WEBAPP_RUNTIME_CONFIG__;
-  const runtimeValue =
-    typeof runtimeConfig?.apiBaseUrl === "string" ? runtimeConfig.apiBaseUrl : "";
-  return normalizeApiBase(runtimeValue, devOnlyViteApiBase() || DEFAULT_WEBAPP_API_BASE);
+  return normalizeApiBase(
+    typeof runtimeConfig?.apiBaseUrl === "string" ? runtimeConfig.apiBaseUrl : "",
+    import.meta.env.VITE_WEBAPP_API_BASE_URL || DEFAULT_WEBAPP_API_BASE
+  );
 }

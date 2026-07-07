@@ -11,12 +11,11 @@ services:
     # reaped. nginx's master only waits on its own workers, not adopted
     # orphans, so wget healthchecks would otherwise pile up as zombies.
     init: true
-    env_file:
-      - ${APP_ENV_FILE:-.env}
     environment:
       IMAGE_TAG: ${IMAGE_TAG:-latest}
       FRONTEND_PORT: ${FRONTEND_PORT:-8082}
       FRONTEND_PUBLIC: 127.0.0.1:${FRONTEND_PORT:-8082}->80
+      WEBAPP_API_BASE_URL: ${WEBAPP_API_BASE_URL:-/api}
     depends_on:
       backend:
         condition: service_healthy

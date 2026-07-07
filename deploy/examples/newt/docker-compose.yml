@@ -122,10 +122,10 @@ services:
     # Real init (tini) reaps wget healthcheck children (nginx master only waits
     # on its own workers, not adopted orphans).
     init: true
-    env_file: *app_env_file
     environment:
       IMAGE_TAG: ${IMAGE_TAG:-latest}
       FRONTEND_PUBLIC: https://${MINIAPP_HOST:?set MINIAPP_HOST in .env}/
+      WEBAPP_API_BASE_URL: ${WEBAPP_API_BASE_URL:-/api}
     networks:
       - remnawave-shop
     depends_on:
