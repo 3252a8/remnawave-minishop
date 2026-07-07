@@ -1039,7 +1039,13 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_security_headers_csp_excludes_unsafe_eval_and_plain_http_images(self):
-        request = {"settings": SimpleNamespace()}
+        request = {
+            "settings": SimpleNamespace(
+                SUBSCRIPTION_MINI_APP_URL="",
+                WEBAPP_API_BASE_URL="/api",
+                WEBAPP_CORS_ALLOWED_ORIGINS="",
+            )
+        }
         handler = AsyncMock(return_value=web.Response(text="ok"))
 
         response = await subscription_webapp._security_headers_middleware(request, handler)

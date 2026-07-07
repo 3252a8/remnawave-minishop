@@ -162,14 +162,11 @@ def _webapp_origin_from_url(value: str) -> str:
 
 def _webapp_cors_allowed_origins(settings: Settings) -> set[str]:
     origins: set[str] = set()
-    raw_origins = getattr(settings, "WEBAPP_CORS_ALLOWED_ORIGINS", "")
-    for raw in str(raw_origins or "").replace("\n", ",").split(","):
+    for raw in str(settings.WEBAPP_CORS_ALLOWED_ORIGINS or "").replace("\n", ",").split(","):
         origin = raw.strip().rstrip("/")
         if origin:
             origins.add(origin)
-    mini_app_origin = _webapp_origin_from_url(
-        getattr(settings, "SUBSCRIPTION_MINI_APP_URL", "") or ""
-    )
+    mini_app_origin = _webapp_origin_from_url(settings.SUBSCRIPTION_MINI_APP_URL or "")
     if mini_app_origin:
         origins.add(mini_app_origin)
     return origins
@@ -177,7 +174,7 @@ def _webapp_cors_allowed_origins(settings: Settings) -> set[str]:
 
 def _webapp_connect_src(settings: Settings) -> str:
     origins = _webapp_cors_allowed_origins(settings)
-    api_origin = _webapp_origin_from_url(getattr(settings, "WEBAPP_API_BASE_URL", "") or "")
+    api_origin = _webapp_origin_from_url(settings.WEBAPP_API_BASE_URL or "")
     if api_origin:
         origins.add(api_origin)
     extras = " ".join(sorted(origins))
@@ -188,7 +185,7 @@ def _webapp_connect_src(settings: Settings) -> str:
 async def _security_headers_middleware(
     request: web.Request, handler: Handler
 ) -> web.StreamResponse:
-    settings = get_settings(request)
+    settings = request["settings"] if isinstance(request, dict) else get_settings(request)
     request["csp_nonce"] = secrets.token_urlsafe(16)
     try:
         response = await handler(request)
@@ -245,6 +242,7 @@ def _apply_webapp_cors_headers(request: web.Request, response: web.StreamRespons
 
 @web.middleware
 async def _webapp_cors_middleware(request: web.Request, handler: Handler) -> web.StreamResponse:
+    response: web.StreamResponse
     if request.method == "OPTIONS":
         response = web.Response(status=204)
     else:
@@ -790,7 +788,6 @@ __all__ = [
     "_csrf_protection_middleware",
     "_enforce_webapp_rate_limit",
     "_ensure_shared_http_session",
-    "_webapp_cors_middleware",
     "_favicon_head_markup",
     "_fetch_webapp_logo",
     "_get_cached_asset_name",
@@ -835,6 +832,7 @@ __all__ = [
     "_uploaded_webapp_logo_response",
     "_warm_webapp_logo_cache",
     "_webapp_api_url",
+    "_webapp_cors_middleware",
     "_webapp_default_brand_file_response",
     "_webapp_default_favicon_file_response",
     "_webapp_favicon_file_response",
