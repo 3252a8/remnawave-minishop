@@ -44,6 +44,8 @@ const editUrl =
         return;
       }
 
+      document.documentElement.classList.add('dark-mode');
+
       window.SwaggerUIBundle({
         url: target.dataset.openapiUrl || '/openapi.json',
         dom_id: '#swagger-ui',
@@ -52,6 +54,9 @@ const editUrl =
         supportedSubmitMethods: [],
         presets: [window.SwaggerUIBundle.presets.apis],
         layout: 'BaseLayout',
+        syntaxHighlight: {
+          theme: 'monokai',
+        },
       });
     });
   </script>
@@ -104,9 +109,7 @@ const editUrl =
     border: 1px solid var(--api-reference-border);
     border-radius: 8px;
     margin-top: 1.25rem;
-    background:
-      radial-gradient(circle at 18% 0%, rgb(0 254 122 / 8%), transparent 28rem),
-      var(--api-reference-bg);
+    background: var(--api-reference-bg);
     color: var(--api-reference-text);
     color-scheme: dark;
   }
@@ -139,10 +142,15 @@ const editUrl =
   .api-reference-shell .swagger-ui .info p,
   .api-reference-shell .swagger-ui .info li,
   .api-reference-shell .swagger-ui .info table,
+  .api-reference-shell .swagger-ui .info .base-url,
   .api-reference-shell .swagger-ui .markdown p,
   .api-reference-shell .swagger-ui .markdown li,
+  .api-reference-shell .swagger-ui .markdown td,
+  .api-reference-shell .swagger-ui .markdown th,
   .api-reference-shell .swagger-ui .renderedMarkdown p,
-  .api-reference-shell .swagger-ui .renderedMarkdown li {
+  .api-reference-shell .swagger-ui .renderedMarkdown li,
+  .api-reference-shell .swagger-ui .renderedMarkdown td,
+  .api-reference-shell .swagger-ui .renderedMarkdown th {
     color: var(--api-reference-muted);
   }
 
@@ -156,16 +164,25 @@ const editUrl =
   .api-reference-shell .swagger-ui .info .version,
   .api-reference-shell .swagger-ui .parameter__name,
   .api-reference-shell .swagger-ui .parameter__type,
+  .api-reference-shell .swagger-ui .parameter__in,
+  .api-reference-shell .swagger-ui .parameter__extension,
   .api-reference-shell .swagger-ui .prop-name,
   .api-reference-shell .swagger-ui .prop-type,
+  .api-reference-shell .swagger-ui .prop-format,
   .api-reference-shell .swagger-ui .model,
   .api-reference-shell .swagger-ui .model-title,
   .api-reference-shell .swagger-ui .models h4,
   .api-reference-shell .swagger-ui table thead tr td,
   .api-reference-shell .swagger-ui table thead tr th,
+  .api-reference-shell .swagger-ui table thead tr td *,
+  .api-reference-shell .swagger-ui table thead tr th *,
   .api-reference-shell .swagger-ui .responses-inner h4,
   .api-reference-shell .swagger-ui .responses-inner h5,
-  .api-reference-shell .swagger-ui .opblock-section-header h4 {
+  .api-reference-shell .swagger-ui .opblock-section-header h4,
+  .api-reference-shell .swagger-ui .opblock-section-header label,
+  .api-reference-shell .swagger-ui .opblock-section-header label span,
+  .api-reference-shell .swagger-ui .body-param-options label,
+  .api-reference-shell .swagger-ui .body-param-options label span {
     color: var(--api-reference-text);
   }
 
@@ -203,11 +220,26 @@ const editUrl =
     box-shadow: none;
   }
 
+  .api-reference-shell .swagger-ui .opblock-body,
+  .api-reference-shell .swagger-ui .responses-wrapper,
+  .api-reference-shell .swagger-ui .responses-inner,
+  .api-reference-shell .swagger-ui .request-body-wrapper,
+  .api-reference-shell .swagger-ui .opblock-description-wrapper,
+  .api-reference-shell .swagger-ui .opblock-external-docs-wrapper,
+  .api-reference-shell .swagger-ui .opblock-title_normal,
+  .api-reference-shell .swagger-ui .parameters-container,
+  .api-reference-shell .swagger-ui .execute-wrapper {
+    background: transparent;
+    color: var(--api-reference-text);
+  }
+
   .api-reference-shell .swagger-ui .opblock-tag,
   .api-reference-shell .swagger-ui .opblock .opblock-summary-path,
   .api-reference-shell .swagger-ui .opblock .opblock-summary-path__deprecated,
+  .api-reference-shell .swagger-ui .opblock .opblock-summary-operation-id,
   .api-reference-shell .swagger-ui .opblock .opblock-summary-description,
   .api-reference-shell .swagger-ui .opblock-description-wrapper p,
+  .api-reference-shell .swagger-ui .opblock-description-wrapper i,
   .api-reference-shell .swagger-ui .opblock-external-docs-wrapper p,
   .api-reference-shell .swagger-ui .opblock-title_normal p,
   .api-reference-shell .swagger-ui .response-col_status,
@@ -224,6 +256,11 @@ const editUrl =
 
   .api-reference-shell .swagger-ui .model-box,
   .api-reference-shell .swagger-ui .model-container,
+  .api-reference-shell .swagger-ui .model-example,
+  .api-reference-shell .swagger-ui .example,
+  .api-reference-shell .swagger-ui .highlight-code,
+  .api-reference-shell .swagger-ui .microlight,
+  .api-reference-shell .swagger-ui .curl-command,
   .api-reference-shell .swagger-ui section.models,
   .api-reference-shell .swagger-ui section.models.is-open h4,
   .api-reference-shell .swagger-ui .responses-table,
@@ -255,15 +292,24 @@ const editUrl =
   .api-reference-shell .swagger-ui .markdown code,
   .api-reference-shell .swagger-ui .renderedMarkdown code,
   .api-reference-shell .swagger-ui code,
-  .api-reference-shell .swagger-ui pre {
+  .api-reference-shell .swagger-ui pre,
+  .api-reference-shell .swagger-ui textarea.curl {
     border-color: rgb(148 163 184 / 18%);
     background: #050b13;
     color: #c7f9d8;
   }
 
+  .api-reference-shell .swagger-ui .copy-to-clipboard,
+  .api-reference-shell .swagger-ui .download-contents {
+    border: 1px solid var(--api-reference-border);
+    background: var(--api-reference-panel);
+    color: var(--api-reference-text);
+  }
+
   .api-reference-shell .swagger-ui input,
   .api-reference-shell .swagger-ui textarea,
-  .api-reference-shell .swagger-ui select {
+  .api-reference-shell .swagger-ui select,
+  .api-reference-shell .swagger-ui select.content-type {
     border-color: var(--api-reference-border);
     background: var(--api-reference-panel);
     color: var(--api-reference-text);
@@ -280,6 +326,52 @@ const editUrl =
   .api-reference-shell .swagger-ui .btn:focus-visible {
     border-color: var(--api-reference-accent);
     color: var(--api-reference-accent);
+  }
+
+  .api-reference-shell .swagger-ui .opblock-summary-control,
+  .api-reference-shell .swagger-ui .models-control,
+  .api-reference-shell .swagger-ui .model-box-control {
+    color: var(--api-reference-text);
+  }
+
+  .api-reference-shell .swagger-ui .model-toggle::after,
+  .api-reference-shell .swagger-ui .models-control svg,
+  .api-reference-shell .swagger-ui .opblock-summary-control svg,
+  .api-reference-shell .swagger-ui .expand-operation svg {
+    filter: brightness(0) invert(1);
+  }
+
+  .api-reference-shell .swagger-ui .json-schema-2020-12,
+  .api-reference-shell .swagger-ui .json-schema-2020-12 button,
+  .api-reference-shell .swagger-ui .json-schema-2020-12-body,
+  .api-reference-shell .swagger-ui .json-schema-2020-12-head,
+  .api-reference-shell .swagger-ui .json-schema-2020-12-property,
+  .api-reference-shell .swagger-ui .json-schema-2020-12-accordion,
+  .api-reference-shell .swagger-ui .json-schema-2020-12-keyword {
+    border-color: var(--api-reference-border);
+    background: #050b13;
+    color: var(--api-reference-text);
+  }
+
+  .api-reference-shell .swagger-ui .json-schema-2020-12__title,
+  .api-reference-shell .swagger-ui .json-schema-2020-12-keyword__name,
+  .api-reference-shell .swagger-ui .json-schema-2020-12-keyword__name--primary,
+  .api-reference-shell .swagger-ui .json-schema-2020-12-keyword__value,
+  .api-reference-shell .swagger-ui .json-schema-2020-12__attribute--primary,
+  .api-reference-shell .swagger-ui .json-schema-2020-12-json-viewer__name {
+    color: var(--api-reference-text);
+  }
+
+  .api-reference-shell .swagger-ui .json-schema-2020-12-keyword__name--secondary,
+  .api-reference-shell .swagger-ui .json-schema-2020-12-keyword__value--secondary,
+  .api-reference-shell .swagger-ui .json-schema-2020-12__attribute--muted,
+  .api-reference-shell .swagger-ui .json-schema-2020-12-json-viewer__value {
+    color: var(--api-reference-muted);
+  }
+
+  .api-reference-shell .swagger-ui .json-schema-2020-12__constraint {
+    background: rgb(0 254 122 / 18%);
+    color: #d8ffe6;
   }
 
   .api-reference-shell .swagger-ui .dialog-ux .modal-ux {
