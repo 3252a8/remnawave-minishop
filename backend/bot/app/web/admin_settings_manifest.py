@@ -404,6 +404,7 @@ def manifest_payload() -> list[dict]:
         "trial": 5,
         "referral": 6,
         "notifications": 7,
+        "email": 8,
         "support": 8,
         "backups": 9,
         "devices": 10,

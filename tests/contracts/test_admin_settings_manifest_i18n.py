@@ -62,6 +62,29 @@ TELEGRAM_ANTIFLOOD_SETTINGS = (
     "TELEGRAM_TRIAL_CALLBACK_COOLDOWN_SECONDS",
 )
 
+EMAIL_AUTH_SETTINGS = (
+    "REGISTRATION_INVITE_ONLY_ENABLED",
+    "QA_AUTH_ENABLED",
+    "WEBAPP_AUTH_MAX_AGE_SECONDS",
+    "WEBAPP_LOGIN_TOKEN_TTL_SECONDS",
+    "SMTP_HOST",
+    "SMTP_PORT",
+    "SMTP_FALLBACK_PORTS",
+    "SMTP_TIMEOUT_SECONDS",
+    "SMTP_USERNAME",
+    "SMTP_PASSWORD",
+    "SMTP_FROM_EMAIL",
+    "SMTP_FROM_NAME",
+    "SMTP_STARTTLS",
+    "SMTP_USE_SSL",
+    "EMAIL_CODE_TTL_SECONDS",
+    "EMAIL_CODE_RESEND_SECONDS",
+    "EMAIL_CODE_MAX_ATTEMPTS",
+    "BRUTE_FORCE_MAX_FAILURES",
+    "BRUTE_FORCE_WINDOW_SECONDS",
+    "BRUTE_FORCE_LOCK_SECONDS",
+)
+
 REMNASHOP_MIGRATION_SETTINGS = (
     "MIGRATION_REMNASHOP_REFERRAL_CODE_COMPAT_ENABLED",
     "MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED",
@@ -331,6 +354,57 @@ def test_telegram_antiflood_settings_i18n_keys_exist():
             field = manifest[setting_key]
             assert field["i18n_label_key"] in messages
             assert field["i18n_description_key"] in messages
+
+
+def test_email_auth_settings_i18n_keys_exist():
+    manifest = _manifest_by_key()
+
+    expected_subsections = {
+        "REGISTRATION_INVITE_ONLY_ENABLED": "email_auth",
+        "QA_AUTH_ENABLED": "email_auth",
+        "WEBAPP_AUTH_MAX_AGE_SECONDS": "email_auth",
+        "WEBAPP_LOGIN_TOKEN_TTL_SECONDS": "email_auth",
+        "SMTP_HOST": "smtp",
+        "SMTP_PORT": "smtp",
+        "SMTP_FALLBACK_PORTS": "smtp",
+        "SMTP_TIMEOUT_SECONDS": "smtp",
+        "SMTP_USERNAME": "smtp",
+        "SMTP_PASSWORD": "smtp",
+        "SMTP_FROM_EMAIL": "smtp",
+        "SMTP_FROM_NAME": "smtp",
+        "SMTP_STARTTLS": "smtp",
+        "SMTP_USE_SSL": "smtp",
+        "EMAIL_CODE_TTL_SECONDS": "email_codes",
+        "EMAIL_CODE_RESEND_SECONDS": "email_codes",
+        "EMAIL_CODE_MAX_ATTEMPTS": "email_codes",
+        "BRUTE_FORCE_MAX_FAILURES": "email_security",
+        "BRUTE_FORCE_WINDOW_SECONDS": "email_security",
+        "BRUTE_FORCE_LOCK_SECONDS": "email_security",
+    }
+
+    for setting_key in EMAIL_AUTH_SETTINGS:
+        field = manifest[setting_key]
+        assert field["section"] == "email"
+        assert field["section_order"] == 8
+        assert field["subsection"] == expected_subsections[setting_key]
+
+    assert manifest["SMTP_PASSWORD"]["secret"] is True
+    assert manifest["SMTP_PORT"]["min"] == 1
+    assert manifest["SMTP_PORT"]["max"] == 65535
+    assert manifest["EMAIL_CODE_TTL_SECONDS"]["min"] == 60
+
+    for language in ("ru", "en"):
+        messages = _locale(language)
+
+        assert "admin_settings_section_email" in messages
+        for subsection in {"email_auth", "smtp", "email_codes", "email_security"}:
+            assert f"admin_settings_subsection_{subsection}" in messages
+        for setting_key in EMAIL_AUTH_SETTINGS:
+            field = manifest[setting_key]
+            assert field["i18n_label_key"] in messages
+            assert field["i18n_description_key"] in messages
+            if field.get("i18n_placeholder_key"):
+                assert field["i18n_placeholder_key"] in messages
 
 
 def test_remnashop_migration_settings_i18n_keys_exist():

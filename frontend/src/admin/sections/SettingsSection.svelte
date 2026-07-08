@@ -572,6 +572,7 @@
   function sectionTitle(id: string): string {
     const map = {
       general: "Общие",
+      email: "Email",
       remnawave: "Remnawave Panel",
       appearance: "Внешний вид",
       pricing: "Тарифы и цены",
