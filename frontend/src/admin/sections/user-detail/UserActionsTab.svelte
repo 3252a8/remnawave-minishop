@@ -2,6 +2,7 @@
   import { getUsersStore } from "$lib/admin/context";
   import { Label, Tabs } from "$components/ui/primitives.js";
   import { Checkbox, Input, Textarea } from "$components/ui/index.js";
+  import UserSquadOverridesActionCard from "./UserSquadOverridesActionCard.svelte";
   import {
     AdminBadge,
     AdminButton,
@@ -10,6 +11,7 @@
   } from "$components/patterns/admin/index.js";
   import { Eye, Plus, RefreshCw, Send, Trash2, UserMinus, UserPlus } from "$components/ui/icons.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
+  import type { AdminPanelSquadOverrides } from "$lib/admin/stores/usersStoreState";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SelectOption = { value: string; label: string };
@@ -22,6 +24,7 @@
   };
   type UserDetail = Record<string, unknown> & {
     active_subscription?: SubscriptionDetail | null;
+    panel_squad_overrides?: AdminPanelSquadOverrides | null;
   };
   type Props = {
     at: TranslateFn;
@@ -60,6 +63,14 @@
     hwidLimitLabel: (sub: Record<string, unknown> | null | undefined) => string;
     selectGrantTrafficKind: (value: string) => void;
     grantTrafficGbValid?: boolean;
+    panelSquadItems?: SelectOption[];
+    squadLabel: (uuid: string) => string;
+    userSquadOverrideDraft?: string;
+    selectUserSquadOverride: (value: string) => void;
+    userExternalSquadModeDraft?: "inherit" | "set" | "cleared";
+    selectUserExternalSquadMode: (value: string) => void;
+    userExternalSquadUuidDraft?: string;
+    updateUserExternalSquadUuid: (value: string) => void;
   };
 
   let {
@@ -99,6 +110,14 @@
     hwidLimitLabel,
     selectGrantTrafficKind,
     grantTrafficGbValid = false,
+    panelSquadItems = [],
+    squadLabel,
+    userSquadOverrideDraft = "",
+    selectUserSquadOverride,
+    userExternalSquadModeDraft = "inherit",
+    selectUserExternalSquadMode,
+    userExternalSquadUuidDraft = "",
+    updateUserExternalSquadUuid,
   }: Props = $props();
 
   const usersStore = getUsersStore();
@@ -205,6 +224,20 @@
       {at("user_btn_reset_trial", {}, "Сбросить триал")}
     </AdminButton>
   </div>
+
+  <UserSquadOverridesActionCard
+    {at}
+    panelSquadOverrides={openedUserDetail?.panel_squad_overrides || null}
+    {userActionBusy}
+    {panelSquadItems}
+    {squadLabel}
+    {userSquadOverrideDraft}
+    {selectUserSquadOverride}
+    {userExternalSquadModeDraft}
+    {selectUserExternalSquadMode}
+    {userExternalSquadUuidDraft}
+    {updateUserExternalSquadUuid}
+  />
 
   {#if openedUserDetail?.active_subscription}
     {#if periodTariffItems.length}

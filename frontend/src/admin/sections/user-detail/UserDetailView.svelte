@@ -1,25 +1,10 @@
 ﻿<script lang="ts">
   import { Separator, Tabs } from "$components/ui/primitives.js";
-  import { Input } from "$components/ui/index.js";
   import Dialog from "$components/ui/dialog.svelte";
   import UserActionsTab from "./UserActionsTab.svelte";
   import UserLogsTab from "./UserLogsTab.svelte";
-  import {
-    AdminBadge,
-    AdminButton,
-    AdminSectionHeader,
-    AdminSelect,
-    AdminTrafficCard,
-  } from "$components/patterns/admin/index.js";
-  import {
-    Copy,
-    ExternalLink,
-    Plus,
-    RefreshCw,
-    Save,
-    Trash2,
-    UsersRound,
-  } from "$components/ui/icons.js";
+  import { AdminBadge, AdminButton, AdminTrafficCard } from "$components/patterns/admin/index.js";
+  import { Copy, ExternalLink, UsersRound } from "$components/ui/icons.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { AdminUserDetail } from "$lib/admin/stores/usersStoreState";
 
@@ -194,37 +179,6 @@
     userExternalSquadUuidDraft: string;
     updateUserExternalSquadUuid: (value: string) => void;
   } = $props();
-
-  const panelSquadOverrides = $derived(openedUserDetail?.panel_squad_overrides || null);
-  const managedInternalSquads = $derived(panelSquadOverrides?.managed_internal_squads || []);
-  const manualInternalSquads = $derived(panelSquadOverrides?.manual_internal_squads || []);
-  const effectiveInternalSquads = $derived(
-    panelSquadOverrides?.effective_internal_squad_uuids || []
-  );
-  const externalSquad = $derived(panelSquadOverrides?.external || null);
-  const externalModeItems = $derived([
-    { value: "inherit", label: at("user_external_squad_mode_inherit", {}, "Default") },
-    { value: "set", label: at("user_external_squad_mode_set", {}, "Manual UUID") },
-    { value: "cleared", label: at("user_external_squad_mode_cleared", {}, "Cleared") },
-  ]);
-  const userSquadOverrideCanAdd = $derived(
-    Boolean(String(userSquadOverrideDraft || "").trim()) && !userActionBusy
-  );
-
-  function squadDisplayLabel(uuid: unknown): string {
-    const value = String(uuid || "");
-    return value ? squadLabel(value) : "—";
-  }
-
-  function squadSourceLabel(source: unknown): string {
-    const value = String(source || "");
-    if (value === "admin") return at("user_squad_source_admin", {}, "admin");
-    if (value === "panel") return at("user_squad_source_panel", {}, "panel");
-    if (value === "trial") return at("user_squad_source_trial", {}, "trial");
-    if (value === "tariff") return at("user_squad_source_tariff", {}, "tariff");
-    if (value === "settings") return at("user_squad_source_settings", {}, "settings");
-    return value || "—";
-  }
 </script>
 
 <Dialog
@@ -634,141 +588,6 @@
                 </p>
               {/if}
 
-              {#if panelSquadOverrides}
-                <section class="admin-user-action-sheet admin-user-action-sheet--squad-overrides">
-                  <AdminSectionHeader
-                    title={at("user_squad_overrides_title", {}, "Panel squads")}
-                  />
-                  <div class="admin-user-action-sheet-body admin-squad-overrides-body">
-                    <div class="admin-squad-overrides-grid">
-                      <div class="admin-squad-overrides-block">
-                        <strong>{at("user_squad_managed_title", {}, "Managed")}</strong>
-                        {#if managedInternalSquads.length}
-                          <div class="admin-squad-chip-list">
-                            {#each managedInternalSquads as squad}
-                              <span class="admin-squad-chip">
-                                {squadDisplayLabel(squad.uuid)}
-                                <small>{squadSourceLabel(squad.source)}</small>
-                              </span>
-                            {/each}
-                          </div>
-                        {:else}
-                          <p class="admin-muted">{at("user_squad_empty", {}, "—")}</p>
-                        {/if}
-                      </div>
-                      <div class="admin-squad-overrides-block">
-                        <strong>{at("user_squad_manual_title", {}, "Manual")}</strong>
-                        {#if manualInternalSquads.length}
-                          <div class="admin-squad-manual-list">
-                            {#each manualInternalSquads as squad}
-                              <div class="admin-squad-manual-row">
-                                <span>
-                                  <strong>{squadDisplayLabel(squad.uuid)}</strong>
-                                  <small>{squadSourceLabel(squad.source)}</small>
-                                </span>
-                                <AdminButton
-                                  size="icon"
-                                  variant="icon"
-                                  title={at("user_squad_remove", {}, "Remove")}
-                                  aria-label={at("user_squad_remove", {}, "Remove")}
-                                  disabled={userActionBusy}
-                                  onclick={() =>
-                                    usersStore.removeUserInternalSquadOverride(
-                                      String(squad.uuid || "")
-                                    )}
-                                >
-                                  <Trash2 size={14} />
-                                </AdminButton>
-                              </div>
-                            {/each}
-                          </div>
-                        {:else}
-                          <p class="admin-muted">
-                            {at("user_squad_no_manual", {}, "No manual squads")}
-                          </p>
-                        {/if}
-                      </div>
-                    </div>
-                    <div class="admin-squad-add-row">
-                      {#if panelSquadItems.length}
-                        <AdminSelect
-                          class="admin-squad-select"
-                          value={userSquadOverrideDraft}
-                          items={panelSquadItems}
-                          placeholder={at("user_squad_add_placeholder", {}, "Internal squad")}
-                          ariaLabel={at("user_squad_add_placeholder", {}, "Internal squad")}
-                          disabled={userActionBusy}
-                          onValueChange={selectUserSquadOverride}
-                        />
-                      {:else}
-                        <Input
-                          class="input admin-squad-uuid-input"
-                          value={userSquadOverrideDraft}
-                          placeholder={at("user_squad_uuid_placeholder", {}, "Internal squad UUID")}
-                          aria-label={at("user_squad_uuid_placeholder", {}, "Internal squad UUID")}
-                          disabled={userActionBusy}
-                          oninput={(event) => selectUserSquadOverride(event.currentTarget.value)}
-                        />
-                      {/if}
-                      <AdminButton
-                        variant="primary"
-                        disabled={!userSquadOverrideCanAdd}
-                        onclick={usersStore.addUserInternalSquadOverride}
-                      >
-                        <Plus size={14} />
-                        {at("user_squad_add", {}, "Add")}
-                      </AdminButton>
-                      <AdminButton
-                        variant="ghost"
-                        disabled={userActionBusy}
-                        onclick={usersStore.refreshUserSquadOverrides}
-                      >
-                        <RefreshCw size={14} />
-                        {at("user_squad_refresh", {}, "Refresh")}
-                      </AdminButton>
-                    </div>
-                    <div class="admin-squad-external-row">
-                      <AdminSelect
-                        class="admin-squad-external-mode"
-                        value={userExternalSquadModeDraft}
-                        items={externalModeItems}
-                        placeholder={at("user_external_squad_mode", {}, "External mode")}
-                        ariaLabel={at("user_external_squad_mode", {}, "External mode")}
-                        disabled={userActionBusy}
-                        onValueChange={selectUserExternalSquadMode}
-                      />
-                      {#if userExternalSquadModeDraft === "set"}
-                        <Input
-                          class="input admin-squad-uuid-input"
-                          value={userExternalSquadUuidDraft}
-                          placeholder={at("user_external_squad_uuid", {}, "External squad UUID")}
-                          aria-label={at("user_external_squad_uuid", {}, "External squad UUID")}
-                          disabled={userActionBusy}
-                          oninput={(event) =>
-                            updateUserExternalSquadUuid(event.currentTarget.value)}
-                        />
-                      {/if}
-                      <AdminButton
-                        variant="primary"
-                        disabled={userActionBusy ||
-                          (userExternalSquadModeDraft === "set" &&
-                            !String(userExternalSquadUuidDraft || "").trim())}
-                        onclick={usersStore.saveUserExternalSquadOverride}
-                      >
-                        <Save size={14} />
-                        {at("user_external_squad_save", {}, "Save")}
-                      </AdminButton>
-                    </div>
-                    <div class="admin-squad-effective-line">
-                      <span>{at("user_squad_effective_internal", {}, "Effective internal")}</span>
-                      <strong>{effectiveInternalSquads.length}</strong>
-                      <span>{at("user_external_squad_effective", {}, "External")}</span>
-                      <strong>{externalSquad?.effective_uuid || "—"}</strong>
-                    </div>
-                  </div>
-                </section>
-              {/if}
-
               {#if openedUserDetail?.trial}
                 <ul class="admin-meta-list">
                   <li>
@@ -915,6 +734,14 @@
               {hwidLimitLabel}
               {selectGrantTrafficKind}
               {grantTrafficGbValid}
+              {panelSquadItems}
+              {squadLabel}
+              {userSquadOverrideDraft}
+              {selectUserSquadOverride}
+              {userExternalSquadModeDraft}
+              {selectUserExternalSquadMode}
+              {userExternalSquadUuidDraft}
+              {updateUserExternalSquadUuid}
             />
           </Tabs.Root>
         </main>
