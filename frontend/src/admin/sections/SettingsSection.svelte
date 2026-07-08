@@ -390,7 +390,7 @@
         scrollSettingsAnchorIntoView(anchorKey, prefersReducedMotion.current ? "auto" : "smooth", {
           focus: true,
         });
-        for (const delay of [180, 360]) {
+        for (const delay of [180, 360, 720]) {
           scheduleSettingsAnchorScrollTimeout(
             () => scrollSettingsAnchorIntoView(anchorKey, "auto"),
             delay

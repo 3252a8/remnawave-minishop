@@ -177,9 +177,25 @@
     settingsSearchOpen = false;
   }
 
+  function releaseSettingsSearchFocus(): void {
+    if (typeof document === "undefined") return;
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement) activeElement.blur();
+  }
+
   function chooseSettingsSearchResult(result: SettingsSearchEntry): void {
     settingsSearchOpen = false;
+    releaseSettingsSearchFocus();
     void selectSettingsSearchResult(result);
+  }
+
+  function handleSettingsSearchResultPointerDown(
+    event: PointerEvent,
+    result: SettingsSearchEntry
+  ): void {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    chooseSettingsSearchResult(result);
   }
 
   function resetSettingsSearch(): void {
@@ -511,6 +527,7 @@
               class:is-active={highlightedSettingKey === result.key}
               role="option"
               aria-selected={highlightedSettingKey === result.key}
+              onpointerdown={(event) => handleSettingsSearchResultPointerDown(event, result)}
               onclick={() => chooseSettingsSearchResult(result)}
             >
               <span class="admin-settings-search-result-head">
