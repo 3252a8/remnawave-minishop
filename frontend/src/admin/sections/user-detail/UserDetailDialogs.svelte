@@ -11,9 +11,8 @@
   } from "$components/patterns/admin/index.js";
   import { ExternalLink, RefreshCw, Send, Trash2, UserMinus } from "$components/ui/icons.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
+  import type { DateFormatter, TranslateFn } from "./userDetailTypes";
 
-  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-  type DateFormatter = (value: unknown) => string;
   type Props = {
     at: TranslateFn;
     fmtDateShort?: DateFormatter;

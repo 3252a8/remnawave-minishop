@@ -8,9 +8,7 @@
   } from "$components/patterns/admin/index.js";
   import { Plus, RefreshCw, Save, Trash2 } from "$components/ui/icons.js";
   import type { AdminPanelSquadOverrides } from "$lib/admin/stores/usersStoreState";
-
-  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-  type SelectOption = { value: string; label: string };
+  import type { SelectOption, TranslateFn } from "./userDetailTypes";
 
   let {
     at,
