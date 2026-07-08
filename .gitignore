@@ -19,6 +19,7 @@ node_modules/
 /fullstack-qa-compose-logs/
 /.ci-*.log
 /.codex-*.log
+/graphify-out/cache/
 /src/
 
 # Documentation site build artifacts
