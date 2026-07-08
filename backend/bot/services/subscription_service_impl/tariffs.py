@@ -397,6 +397,22 @@ class TariffMixin(SubscriptionServiceMixinContract):
         value = self.settings.USER_HWID_DEVICE_LIMIT
         return int(value) if value is not None else None
 
+    def _transition_hwid_base_limits(
+        self,
+        current_base_limit: int | None,
+        target_tariff: Tariff | None,
+        *,
+        apply_tariff_hwid_limit: bool = False,
+    ) -> tuple[int | None, int | None]:
+        """Return ``(local_base, panel_base)`` for tariff/admin transitions."""
+        target_base_limit = self._base_hwid_limit_for_tariff(target_tariff)
+        if apply_tariff_hwid_limit:
+            return target_base_limit, target_base_limit
+        if current_base_limit is None:
+            return None, target_base_limit
+        current_base_int = int(current_base_limit)
+        return current_base_int, current_base_int
+
     @staticmethod
     def _effective_hwid_limit(base_limit: int | None, extra_devices: int = 0) -> int | None:
         if base_limit is None:

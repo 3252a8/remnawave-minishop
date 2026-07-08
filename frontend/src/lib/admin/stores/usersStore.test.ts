@@ -86,6 +86,27 @@ describe("usersStore", () => {
     });
   });
 
+  it("sends tariff HWID reset choice when changing a user tariff", async () => {
+    const api = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: true, user: { user_id: 42 }, active_subscription: null });
+    const store = makeStore(api);
+    store.updateState({
+      openedUser: { user_id: 42 },
+      userTariffActionKey: "pro",
+      userApplyTariffHwidLimit: true,
+    });
+
+    await store.changeUserTariff();
+
+    expect(api).toHaveBeenNthCalledWith(1, "/admin/users/42/tariff", {
+      method: "POST",
+      body: JSON.stringify({ tariff_key: "pro", apply_tariff_hwid_limit: true }),
+    });
+    expect(store.userApplyTariffHwidLimit).toBe(false);
+  });
+
   it("shows traffic grant toasts with interpolated user identity", async () => {
     const api = vi
       .fn()

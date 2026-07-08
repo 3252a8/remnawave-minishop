@@ -37,6 +37,7 @@
     selectExtendTariff: (value: string) => void;
     periodTariffItems?: SelectOption[];
     tariffActionDirty?: boolean;
+    tariffHwidLimitChangeAvailable?: boolean;
     currentSubscriptionTariffLabel?: string;
     userTariffActionKey?: string;
     selectTariffAction: (value: string) => void;
@@ -75,6 +76,7 @@
     selectExtendTariff,
     periodTariffItems = [],
     tariffActionDirty = false,
+    tariffHwidLimitChangeAvailable = false,
     currentSubscriptionTariffLabel = "",
     userTariffActionKey = "",
     selectTariffAction,
@@ -249,7 +251,10 @@
               {/if}
               <AdminButton
                 variant="primary"
-                onclick={usersStore.changeUserTariff}
+                onclick={() =>
+                  tariffHwidLimitChangeAvailable
+                    ? usersStore.updateState({ userTariffHwidConfirmOpen: true })
+                    : usersStore.changeUserTariff()}
                 disabled={userActionBusy || !userTariffActionKey || !tariffActionDirty}
               >
                 <RefreshCw size={14} />
@@ -262,6 +267,15 @@
               <span class="admin-unsaved-hint">
                 {at("user_action_unsaved_hint", {}, "Есть несохранённые изменения")}
               </span>
+              {#if tariffHwidLimitChangeAvailable}
+                <span class="admin-muted">
+                  {at(
+                    "user_tariff_hwid_confirm_hint",
+                    {},
+                    "Ручной HWID-лимит будет сохранён; можно применить лимит тарифа перед сохранением."
+                  )}
+                </span>
+              {/if}
             </div>
           {/if}
         </div>

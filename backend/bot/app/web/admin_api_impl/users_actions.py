@@ -756,6 +756,7 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
         return _error(400, "invalid_days")
     extend_hwid_devices = body.extend_hwid_devices
     extend_hwid_devices = True if extend_hwid_devices is None else bool(extend_hwid_devices)
+    apply_tariff_hwid_limit = bool(body.apply_tariff_hwid_limit)
     tariff_key, tariff_error = _resolve_admin_period_tariff_key(
         settings,
         body.tariff_key,
@@ -776,6 +777,7 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
             days,
             "admin_extend_subscription_webapp",
             extend_hwid_devices=extend_hwid_devices,
+            apply_tariff_hwid_limit=apply_tariff_hwid_limit,
             **({"tariff_key": tariff_key} if tariff_key else {}),
         )
         if not new_end:
@@ -790,7 +792,8 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
                 "content": (
                     f"+{days}d -> {new_end.isoformat()} "
                     f"(hwid={'yes' if extend_hwid_devices else 'no'} "
-                    f"tariff={tariff_key or 'legacy'})"
+                    f"tariff={tariff_key or 'legacy'} "
+                    f"apply_tariff_hwid_limit={'yes' if apply_tariff_hwid_limit else 'no'})"
                 ),
                 "is_admin_event": True,
                 "target_user_id": target_id,
@@ -837,6 +840,7 @@ async def admin_user_tariff_route(request: web.Request) -> web.Response:
             target_id,
             tariff_key,
             "admin_assign",
+            apply_tariff_hwid_limit=bool(body.apply_tariff_hwid_limit),
         )
         if not result:
             await session.rollback()

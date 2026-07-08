@@ -401,10 +401,12 @@ class AdminUserExtendBody(HttpBodyModel):
     days: Any = None
     tariff_key: Any = None
     extend_hwid_devices: Any = None
+    apply_tariff_hwid_limit: Any = False
 
 
 class AdminUserTariffBody(HttpBodyModel):
     tariff_key: Any = None
+    apply_tariff_hwid_limit: Any = False
 
 
 class PromoOut(HttpResponseModel):

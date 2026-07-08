@@ -107,6 +107,22 @@
     return at("user_hwid_limit_count", { count: base }, `${base}`);
   }
 
+  function hwidBaseLimitLabel(value: unknown): string {
+    if (value === null || value === undefined || value === "") {
+      return at("user_hwid_limit_default", {}, "Тарифный / default");
+    }
+    const limit = Number(value);
+    if (limit === 0) return at("user_hwid_limit_unlimited", {}, "Безлимит");
+    if (Number.isFinite(limit)) return at("user_hwid_limit_count", { count: limit }, `${limit}`);
+    return at("user_hwid_limit_default", {}, "Тарифный / default");
+  }
+
+  function hwidBaseLimitKey(value: unknown): string {
+    if (value === null || value === undefined || value === "") return "default";
+    const limit = Number(value);
+    return Number.isFinite(limit) ? String(limit) : "default";
+  }
+
   function vpnLastConnectionLabel(detail: Record<string, unknown> | null | undefined): string {
     const connectedAt = detail?.last_vpn_connected_at;
     const status = detail?.vpn_connection_status;
@@ -229,6 +245,7 @@
   const userDeleteOpen = $derived(usersState.userDeleteOpen);
   const userBanConfirmOpen = $derived(usersState.userBanConfirmOpen);
   const userMessageConfirmOpen = $derived(usersState.userMessageConfirmOpen);
+  const userTariffHwidConfirmOpen = $derived(usersState.userTariffHwidConfirmOpen);
   const userReferralsOpen = $derived(usersState.userReferralsOpen);
   const userReferralsLoading = $derived(usersState.userReferralsLoading);
   const userReferrals = $derived(usersState.userReferrals);
@@ -295,6 +312,9 @@
       (tariff) => String(tariff?.key || "") === currentSubscriptionTariffKey
     ) || null
   );
+  const selectedTariffAction = $derived(
+    tariffCatalogItems.find((tariff) => String(tariff?.key || "") === userTariffActionKey) || null
+  );
   const periodTariffs = $derived(
     enabledTariffs.filter((tariff) => tariff?.billing_model === "period")
   );
@@ -322,6 +342,27 @@
   );
   const tariffActionDirty = $derived(
     Boolean(userTariffActionKey) && userTariffActionKey !== userTariffActionBaselineKey
+  );
+  const currentHwidBaseKey = $derived(
+    hwidBaseLimitKey(openedUserDetail?.active_subscription?.hwid_device_limit)
+  );
+  const selectedTariffHwidBaseKey = $derived(
+    hwidBaseLimitKey(selectedTariffAction?.hwid_device_limit)
+  );
+  const tariffHwidLimitChangeAvailable = $derived(
+    Boolean(
+      tariffActionDirty &&
+      openedUserDetail?.active_subscription?.hwid_device_limit !== null &&
+      openedUserDetail?.active_subscription?.hwid_device_limit !== undefined &&
+      selectedTariffAction &&
+      currentHwidBaseKey !== selectedTariffHwidBaseKey
+    )
+  );
+  const tariffHwidCurrentLabel = $derived(
+    hwidBaseLimitLabel(openedUserDetail?.active_subscription?.hwid_device_limit)
+  );
+  const tariffHwidTargetLabel = $derived(
+    hwidBaseLimitLabel(selectedTariffAction?.hwid_device_limit)
   );
   const trafficStrategyItems = $derived([
     {
@@ -527,6 +568,7 @@
   {selectExtendTariff}
   {periodTariffItems}
   {tariffActionDirty}
+  {tariffHwidLimitChangeAvailable}
   {currentSubscriptionTariffLabel}
   {userTariffActionKey}
   {selectTariffAction}
@@ -570,6 +612,9 @@
   {userMessageConfirmOpen}
   {userMessageDraft}
   {userBanConfirmOpen}
+  {userTariffHwidConfirmOpen}
+  {tariffHwidCurrentLabel}
+  {tariffHwidTargetLabel}
   {userDeleteOpen}
   {userActionBusy}
 />

@@ -9,7 +9,7 @@
     AdminTable,
     AdminTableSkeleton,
   } from "$components/patterns/admin/index.js";
-  import { ExternalLink, Send, Trash2, UserMinus } from "$components/ui/icons.js";
+  import { ExternalLink, RefreshCw, Send, Trash2, UserMinus } from "$components/ui/icons.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -35,6 +35,9 @@
     userMessageConfirmOpen?: boolean;
     userMessageDraft?: string;
     userBanConfirmOpen?: boolean;
+    userTariffHwidConfirmOpen?: boolean;
+    tariffHwidCurrentLabel?: string;
+    tariffHwidTargetLabel?: string;
     userDeleteOpen?: boolean;
     userActionBusy?: boolean;
   };
@@ -60,6 +63,9 @@
     userMessageConfirmOpen = false,
     userMessageDraft = "",
     userBanConfirmOpen = false,
+    userTariffHwidConfirmOpen = false,
+    tariffHwidCurrentLabel = "",
+    tariffHwidTargetLabel = "",
     userDeleteOpen = false,
     userActionBusy = false,
   }: Props = $props();
@@ -237,6 +243,63 @@
     >
       <UserMinus size={14} />
       {at("btn_ban", {}, "Заблокировать")}
+    </AdminButton>
+  </div>
+</Dialog>
+
+<Dialog
+  open={userTariffHwidConfirmOpen}
+  title={at("user_tariff_hwid_confirm_title", {}, "Применить HWID-лимит тарифа?")}
+  description={at(
+    "user_tariff_hwid_confirm_subtitle",
+    {},
+    "У пользователя задан ручной HWID-лимит. По умолчанию он будет сохранён после смены тарифа."
+  )}
+  closeLabel={at("close", {}, "Закрыть")}
+  onclose={() =>
+    usersStore.updateState({
+      userTariffHwidConfirmOpen: false,
+      userApplyTariffHwidLimit: false,
+    })}
+  class="admin-dialog admin-user-tariff-hwid-confirm-dialog"
+>
+  <div class="admin-tariff-hwid-confirm-summary">
+    <span>
+      {at("user_tariff_hwid_confirm_before", {}, "Было")}
+      <strong>{tariffHwidCurrentLabel || "—"}</strong>
+    </span>
+    <span>
+      {at("user_tariff_hwid_confirm_after", {}, "Лимит тарифа")}
+      <strong>{tariffHwidTargetLabel || "—"}</strong>
+    </span>
+  </div>
+  <div class="admin-dialog-actions">
+    <AdminButton
+      variant="primary"
+      onclick={() => {
+        usersStore.updateState({
+          userTariffHwidConfirmOpen: false,
+          userApplyTariffHwidLimit: false,
+        });
+        usersStore.changeUserTariff();
+      }}
+      disabled={userActionBusy}
+    >
+      <RefreshCw size={14} />
+      {at("user_tariff_hwid_confirm_keep", {}, "Сохранить текущий лимит")}
+    </AdminButton>
+    <AdminButton
+      onclick={() => {
+        usersStore.updateState({
+          userTariffHwidConfirmOpen: false,
+          userApplyTariffHwidLimit: true,
+        });
+        usersStore.changeUserTariff();
+      }}
+      disabled={userActionBusy}
+    >
+      <RefreshCw size={14} />
+      {at("user_tariff_hwid_confirm_apply", {}, "Применить лимит тарифа")}
     </AdminButton>
   </div>
 </Dialog>

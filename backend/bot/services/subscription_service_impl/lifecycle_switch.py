@@ -145,6 +145,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         target_tariff_key: str,
         mode: str,
         payment_id: int | None = None,
+        apply_tariff_hwid_limit: bool = False,
     ) -> dict[str, Any] | None:
         config = self._tariffs_config()
         if not config:
@@ -201,7 +202,11 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 }
             )
         converted_bytes = None
-        base_hwid_limit = self._base_hwid_limit_for_tariff(target)
+        local_hwid_base_limit, panel_hwid_base_limit = self._transition_hwid_base_limits(
+            getattr(sub, "hwid_device_limit", None),
+            target,
+            apply_tariff_hwid_limit=apply_tariff_hwid_limit,
+        )
         try:
             extra_hwid_devices = await tariff_dal.sum_active_hwid_devices(
                 session,
@@ -214,7 +219,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 user_id,
             )
             extra_hwid_devices = int(sub.extra_hwid_devices or 0)
-        update_data["hwid_device_limit"] = base_hwid_limit
+        update_data["hwid_device_limit"] = local_hwid_base_limit
         update_data["extra_hwid_devices"] = extra_hwid_devices
 
         if target.billing_model == "period":
@@ -289,7 +294,10 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 if target.billing_model == "traffic"
                 else self._period_tariff_traffic_strategy()
             ),
-            hwid_device_limit=self._effective_hwid_limit(base_hwid_limit, extra_hwid_devices),
+            hwid_device_limit=self._effective_hwid_limit(
+                panel_hwid_base_limit,
+                extra_hwid_devices,
+            ),
         )
         panel_payload["activeInternalSquads"] = self._panel_squads_for_tariff(
             target,

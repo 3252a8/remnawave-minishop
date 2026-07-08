@@ -598,6 +598,7 @@ export function createUsersStore({
         extend_hwid_devices: Boolean(s.userExtendHwidDevices),
       };
       if (s.userExtendTariffKey) body.tariff_key = s.userExtendTariffKey;
+      if (s.userApplyTariffHwidLimit) body.apply_tariff_hwid_limit = true;
       const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "extend"), {
         method: "POST",
         body: JSON.stringify(body),
@@ -614,7 +615,11 @@ export function createUsersStore({
         });
       } else onToast(adminErrorMessage(res, at));
     } finally {
-      applyState((st) => ({ ...st, userActionBusy: false }));
+      applyState((st) => ({
+        ...st,
+        userActionBusy: false,
+        userApplyTariffHwidLimit: false,
+      }));
     }
   }
 
@@ -625,7 +630,10 @@ export function createUsersStore({
     try {
       const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "tariff"), {
         method: "POST",
-        body: JSON.stringify({ tariff_key: s.userTariffActionKey }),
+        body: JSON.stringify({
+          tariff_key: s.userTariffActionKey,
+          apply_tariff_hwid_limit: Boolean(s.userApplyTariffHwidLimit),
+        }),
       });
       if (res?.ok) {
         invalidateUsersQueries(s.openedUser.user_id);
@@ -641,7 +649,12 @@ export function createUsersStore({
         onToast(adminErrorMessage(res, at));
       }
     } finally {
-      applyState((st) => ({ ...st, userActionBusy: false }));
+      applyState((st) => ({
+        ...st,
+        userActionBusy: false,
+        userApplyTariffHwidLimit: false,
+        userTariffHwidConfirmOpen: false,
+      }));
     }
   }
 

@@ -67,6 +67,7 @@
     selectExtendTariff,
     periodTariffItems,
     tariffActionDirty,
+    tariffHwidLimitChangeAvailable,
     currentSubscriptionTariffLabel,
     userTariffActionKey,
     selectTariffAction,
@@ -135,6 +136,7 @@
     selectExtendTariff: (value: string) => void;
     periodTariffItems: SelectOption[];
     tariffActionDirty: boolean;
+    tariffHwidLimitChangeAvailable: boolean;
     currentSubscriptionTariffLabel: string;
     userTariffActionKey: string;
     selectTariffAction: (value: string) => void;
@@ -689,6 +691,7 @@
               {selectExtendTariff}
               {periodTariffItems}
               {tariffActionDirty}
+              {tariffHwidLimitChangeAvailable}
               {currentSubscriptionTariffLabel}
               {userTariffActionKey}
               {selectTariffAction}

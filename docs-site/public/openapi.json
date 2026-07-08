@@ -2715,6 +2715,10 @@
       },
       "AdminUserExtendBody": {
         "properties": {
+          "apply_tariff_hwid_limit": {
+            "default": false,
+            "title": "Apply Tariff Hwid Limit"
+          },
           "days": {
             "default": null,
             "title": "Days"
@@ -2955,6 +2959,10 @@
       },
       "AdminUserTariffBody": {
         "properties": {
+          "apply_tariff_hwid_limit": {
+            "default": false,
+            "title": "Apply Tariff Hwid Limit"
+          },
           "tariff_key": {
             "default": null,
             "title": "Tariff Key"

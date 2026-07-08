@@ -2727,6 +2727,11 @@ export interface components {
     /** AdminUserExtendBody */
     AdminUserExtendBody: {
       /**
+       * Apply Tariff Hwid Limit
+       * @default false
+       */
+      apply_tariff_hwid_limit: unknown;
+      /**
        * Days
        * @default null
        */
@@ -2878,6 +2883,11 @@ export interface components {
     };
     /** AdminUserTariffBody */
     AdminUserTariffBody: {
+      /**
+       * Apply Tariff Hwid Limit
+       * @default false
+       */
+      apply_tariff_hwid_limit: unknown;
       /**
        * Tariff Key
        * @default null

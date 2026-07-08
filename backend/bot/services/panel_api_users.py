@@ -590,13 +590,12 @@ class PanelApiUsersMixin:
             return False
 
         if response_data.get("error"):
-            details = response_data.get("details") or {}
-            error_code = details.get("errorCode") or response_data.get("errorCode")
-            if error_code in {"A062", "A040"}:
+            error_code = self._panel_response_error_code(response_data)
+            if self._is_user_not_found_response(response_data):
                 logger.info(
                     "Panel user %s already absent (errorCode %s). Treating as deleted.",
                     user_uuid,
-                    error_code,
+                    error_code or "status_404",
                 )
                 await self._invalidate_user_cache(user_uuid)
                 await self._invalidate_devices_cache(user_uuid)

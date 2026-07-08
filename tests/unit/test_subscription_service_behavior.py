@@ -1172,7 +1172,7 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
 
             extend_hwid.assert_not_awaited()
 
-    async def test_admin_extension_applies_selected_tariff_to_active_subscription(self):
+    async def test_admin_extension_preserves_manual_hwid_limit_for_selected_tariff(self):
         payload = _tariffs_config_payload()
         payload["tariffs"].append(
             {
@@ -1214,6 +1214,7 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
                 premium_topup_used_bytes=1 * GIB,
                 premium_used_bytes=10 * GIB,
                 premium_bonus_bytes=6 * GIB,
+                hwid_device_limit=0,
                 extra_hwid_devices=1,
                 effective_monthly_price_rub=150,
             )
@@ -1228,7 +1229,7 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
                     "tier_baseline_bytes": 200 * GIB,
                     "premium_baseline_bytes": 50 * GIB,
                     "premium_is_limited": False,
-                    "hwid_device_limit": 5,
+                    "hwid_device_limit": 0,
                     "extra_hwid_devices": 2,
                 }
             )
@@ -1276,16 +1277,124 @@ class SubscriptionServiceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(update_data["tariff_key"], "plus")
             self.assertEqual(update_data["traffic_limit_bytes"], 207 * GIB)
             self.assertEqual(update_data["premium_baseline_bytes"], 50 * GIB)
-            self.assertEqual(update_data["hwid_device_limit"], 5)
+            self.assertEqual(update_data["hwid_device_limit"], 0)
             self.assertEqual(update_data["extra_hwid_devices"], 2)
             create_tariff_change.assert_awaited_once()
 
             panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(panel_payload["trafficLimitBytes"], 207 * GIB)
             self.assertEqual(panel_payload["trafficLimitStrategy"], "NO_RESET")
-            self.assertEqual(panel_payload["hwidDeviceLimit"], 7)
+            self.assertEqual(panel_payload["hwidDeviceLimit"], 0)
             self.assertEqual(panel_payload["activeInternalSquads"], ["plus-squad", "plus-premium"])
             self.assertEqual(panel_payload["externalSquadUuid"], "external-squad")
+
+    async def test_admin_extension_can_apply_selected_tariff_hwid_limit(self):
+        payload = _tariffs_config_payload()
+        payload["tariffs"].append(
+            {
+                "key": "plus",
+                "names": {"en": "Plus"},
+                "descriptions": {"en": "Plus period plan"},
+                "squad_uuids": ["plus-squad"],
+                "premium_squad_uuids": ["plus-premium"],
+                "premium_monthly_gb": 50,
+                "billing_model": "period",
+                "monthly_gb": 200,
+                "prices_rub": {"1": 300},
+                "prices_stars": {"1": 0},
+                "enabled_periods": [1],
+                "hwid_device_limit": 5,
+                "enabled": True,
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(payload, tmpdir)
+            service = _make_service(settings)
+            service._get_or_create_panel_user_link_details = AsyncMock(
+                return_value=("panel-user", "short-uuid", "short", False)
+            )
+            service.panel_service.update_user_details_on_panel = AsyncMock(
+                side_effect=_echo_panel_expiry
+            )
+            current_end = datetime.now(UTC) + timedelta(days=5)
+            active_sub = SimpleNamespace(
+                subscription_id=10,
+                end_date=current_end,
+                traffic_limit_bytes=100 * GIB,
+                traffic_used_bytes=7 * GIB,
+                tariff_key="standard",
+                topup_balance_bytes=3 * GIB,
+                regular_bonus_bytes=4 * GIB,
+                regular_unlimited_override=False,
+                premium_topup_balance_bytes=2 * GIB,
+                premium_topup_used_bytes=1 * GIB,
+                premium_used_bytes=10 * GIB,
+                premium_bonus_bytes=6 * GIB,
+                hwid_device_limit=0,
+                extra_hwid_devices=1,
+                effective_monthly_price_rub=150,
+            )
+            extended_sub = SimpleNamespace(
+                **{**active_sub.__dict__, "end_date": current_end + timedelta(days=10)}
+            )
+            updated_sub = SimpleNamespace(
+                **{
+                    **extended_sub.__dict__,
+                    "tariff_key": "plus",
+                    "traffic_limit_bytes": 207 * GIB,
+                    "tier_baseline_bytes": 200 * GIB,
+                    "premium_baseline_bytes": 50 * GIB,
+                    "premium_is_limited": False,
+                    "hwid_device_limit": 5,
+                    "extra_hwid_devices": 2,
+                }
+            )
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.user_dal.get_user_by_id",
+                    AsyncMock(return_value=SimpleNamespace(user_id=42)),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=active_sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.update_subscription_end_date",
+                    AsyncMock(return_value=extended_sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.subscription_dal.update_subscription",
+                    AsyncMock(return_value=updated_sub),
+                ) as update_subscription,
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.tariff_dal.sum_active_hwid_devices",
+                    AsyncMock(return_value=2),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.tariff_dal.extend_hwid_device_purchases_for_subscription_bonus",
+                    AsyncMock(return_value=0),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle.tariff_dal.create_tariff_change",
+                    AsyncMock(),
+                ),
+            ):
+                result = await service.extend_active_subscription_days(
+                    session=AsyncMock(),
+                    user_id=42,
+                    bonus_days=10,
+                    reason="admin_manual_extension",
+                    tariff_key="plus",
+                    apply_tariff_hwid_limit=True,
+                )
+
+            self.assertEqual(result, current_end + timedelta(days=10))
+            update_data = update_subscription.await_args.args[2]
+            self.assertEqual(update_data["hwid_device_limit"], 5)
+
+            panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
+            self.assertEqual(panel_payload["hwidDeviceLimit"], 7)
 
     async def test_admin_tariff_assignment_does_not_record_change_before_panel_confirmation(self):
         payload = _tariffs_config_payload()

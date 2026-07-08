@@ -7,6 +7,7 @@ USER_DETAIL = REPO_ROOT / "frontend/src/admin/sections/UserDetailModal.svelte"
 USER_DETAIL_VIEW = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailView.svelte"
 USER_DETAIL_CSS = REPO_ROOT / "frontend/src/admin/sections/UserDetailModal.css"
 USER_ACTIONS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserActionsTab.svelte"
+USER_DIALOGS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailDialogs.svelte"
 STATS_SECTION = REPO_ROOT / "frontend/src/admin/sections/StatsSection.svelte"
 ADMIN_PANEL = REPO_ROOT / "frontend/src/admin/AdminPanel.svelte"
 ADMIN_CSS = REPO_ROOT / "frontend/src/styles/admin.css"
@@ -23,6 +24,10 @@ def _view_source() -> str:
 
 def _actions_source() -> str:
     return USER_ACTIONS.read_text(encoding="utf-8")
+
+
+def _dialogs_source() -> str:
+    return USER_DIALOGS.read_text(encoding="utf-8")
 
 
 def _extend_card_markup() -> str:
@@ -173,6 +178,25 @@ def test_user_action_saves_refresh_details_without_reopening_modal():
     assert "resetPremium: false" in action_block
     assert "resetRegular: false" in action_block
     assert "resetHwid: false" in action_block
+
+
+def test_tariff_hwid_limit_confirm_flow_is_localized():
+    modal = _source()
+    actions = _actions_source()
+    dialogs = _dialogs_source()
+    store = USERS_STORE.read_text(encoding="utf-8")
+
+    assert "tariffHwidLimitChangeAvailable" in modal
+    assert "userTariffHwidConfirmOpen: true" in actions
+    assert "user_tariff_hwid_confirm_title" in dialogs
+    assert "userApplyTariffHwidLimit: true" in dialogs
+    assert "apply_tariff_hwid_limit" in store
+
+    for language in ("ru", "en"):
+        messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
+        assert messages["admin_user_tariff_hwid_confirm_title"]
+        assert messages["admin_user_tariff_hwid_confirm_keep"]
+        assert messages["admin_user_tariff_hwid_confirm_apply"]
 
 
 def test_stats_recent_payments_open_payment_and_user_cards():

@@ -49,6 +49,8 @@ export type AdminStoreState = {
   userExtendTariffKey: string;
   userTariffActionKey: string;
   userTariffActionBaselineKey: string;
+  userApplyTariffHwidLimit: boolean;
+  userTariffHwidConfirmOpen: boolean;
   trafficStrategyDraft: string;
   trafficStrategyBaseline: string;
   userActionBusy: boolean;
@@ -137,6 +139,8 @@ export function createInitialUsersState(): AdminStoreState {
     userExtendTariffKey: "",
     userTariffActionKey: "",
     userTariffActionBaselineKey: "",
+    userApplyTariffHwidLimit: false,
+    userTariffHwidConfirmOpen: false,
     trafficStrategyDraft: "",
     trafficStrategyBaseline: "",
     userActionBusy: false,
@@ -187,6 +191,8 @@ export function closedUserModalState(): Partial<AdminStoreState> {
     userExtendTariffKey: "",
     userTariffActionKey: "",
     userTariffActionBaselineKey: "",
+    userApplyTariffHwidLimit: false,
+    userTariffHwidConfirmOpen: false,
     trafficStrategyDraft: "",
     trafficStrategyBaseline: "",
     userDeleteOpen: false,

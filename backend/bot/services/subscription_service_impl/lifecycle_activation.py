@@ -495,6 +495,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         reason: str = "bonus",
         extend_hwid_devices: bool = True,
         tariff_key: str | None = None,
+        apply_tariff_hwid_limit: bool = False,
     ) -> datetime | None:
         reason_lower = (reason or "").lower()
         apply_main_traffic_limit = any(
@@ -685,6 +686,11 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     1,
                     default_currency_key_for_settings(self.settings),
                 ) or admin_tariff.min_period_price(default_currency_key_for_settings(self.settings))
+                local_hwid_base_limit, _ = self._transition_hwid_base_limits(
+                    getattr(active_sub, "hwid_device_limit", None),
+                    admin_tariff,
+                    apply_tariff_hwid_limit=apply_tariff_hwid_limit,
+                )
                 admin_update_data: dict[str, Any] = {
                     "tariff_key": admin_tariff.key,
                     "tier_baseline_bytes": admin_tariff.monthly_bytes,
@@ -702,7 +708,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     "period_start_at": None,
                     "is_throttled": False,
                     "effective_monthly_price_rub": target_monthly_price,
-                    "hwid_device_limit": self._base_hwid_limit_for_tariff(admin_tariff),
+                    "hwid_device_limit": local_hwid_base_limit,
                     "extra_hwid_devices": extra_hwid_devices,
                 }
                 updated_sub_model = await subscription_dal.update_subscription(
@@ -745,6 +751,13 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
 
         if updated_sub_model:
             panel_tariff = admin_tariff or bonus_tariff
+            panel_hwid_base_limit = None
+            if panel_tariff:
+                _, panel_hwid_base_limit = self._transition_hwid_base_limits(
+                    getattr(updated_sub_model, "hwid_device_limit", None),
+                    panel_tariff,
+                    apply_tariff_hwid_limit=False,
+                )
             panel_update_payload = self._build_panel_update_payload(
                 expire_at=new_end_date_obj,
                 status="ACTIVE" if panel_tariff else None,
@@ -760,7 +773,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 ),
                 hwid_device_limit=(
                     self._effective_hwid_limit(
-                        updated_sub_model.hwid_device_limit,
+                        panel_hwid_base_limit,
                         int(getattr(updated_sub_model, "extra_hwid_devices", 0) or 0),
                     )
                     if panel_tariff
