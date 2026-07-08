@@ -120,6 +120,15 @@ export default defineConfig({
             { label: 'Логи', slug: 'troubleshooting/logs' },
             { label: 'Обслуживание', slug: 'troubleshooting/maintenance' },
             { label: 'Архитектура', slug: 'reference/architecture' },
+            {
+              label: 'Разработка',
+              items: [
+                { label: 'Карта Graphify', slug: 'development/graphify' },
+                { label: 'Единый dev stand', slug: 'development/dev-stand' },
+                { label: 'Рецепты изменений', slug: 'development/how-to' },
+                { label: 'Runes QA', slug: 'development/runes-migration-qa' },
+              ],
+            },
           ],
         },
       ],
