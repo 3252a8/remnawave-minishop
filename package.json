@@ -9,6 +9,7 @@
     "dev:docs": "npm --prefix docs-site run dev",
     "preview:docs": "npm --prefix docs-site run preview",
     "sync:docs": "npm --prefix docs-site run sync:docs",
+    "check:docs": "npm --prefix docs-site run check:openapi-sync",
     "lint:py": "python -m ruff check .",
     "lint:js": "npm --prefix frontend run lint && npm --prefix frontend run check:svelte",
     "lint": "npm run lint:py && npm run lint:js",
@@ -35,6 +36,6 @@
     "check:e2e": "npm --prefix frontend run test:e2e",
     "check:frontend": "npm --prefix frontend run check && npm --prefix frontend run test && npm --prefix frontend run build && npm run check:e2e",
     "check:quick": "npm run lint && npm test && npm run build:webapp",
-    "check": "npm run check:backend && npm run check:frontend"
+    "check": "npm run check:docs && npm run check:backend && npm run check:frontend"
   }
 }

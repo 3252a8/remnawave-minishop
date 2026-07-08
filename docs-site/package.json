@@ -3,6 +3,7 @@
   "type": "module",
   "scripts": {
     "sync:docs": "node ./scripts/sync-docs.mjs",
+    "check:openapi-sync": "node ./scripts/check-openapi-sync.mjs",
     "build:demo": "node ./scripts/build-demo-runtime.mjs",
     "dev": "npm run sync:docs && npm run build:demo && astro dev",
     "build": "npm run sync:docs && npm run build:demo && astro build && node ./scripts/materialize-demo-routes.mjs",
