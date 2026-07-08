@@ -63,7 +63,6 @@ TELEGRAM_ANTIFLOOD_SETTINGS = (
 )
 
 EMAIL_AUTH_SETTINGS = (
-    "REGISTRATION_INVITE_ONLY_ENABLED",
     "QA_AUTH_ENABLED",
     "WEBAPP_AUTH_MAX_AGE_SECONDS",
     "WEBAPP_LOGIN_TOKEN_TTL_SECONDS",
@@ -360,7 +359,6 @@ def test_email_auth_settings_i18n_keys_exist():
     manifest = _manifest_by_key()
 
     expected_subsections = {
-        "REGISTRATION_INVITE_ONLY_ENABLED": "email_auth",
         "QA_AUTH_ENABLED": "email_auth",
         "WEBAPP_AUTH_MAX_AGE_SECONDS": "email_auth",
         "WEBAPP_LOGIN_TOKEN_TTL_SECONDS": "email_auth",
@@ -387,6 +385,11 @@ def test_email_auth_settings_i18n_keys_exist():
         assert field["section"] == "email"
         assert field["section_order"] == 8
         assert field["subsection"] == expected_subsections[setting_key]
+
+    invite_only = manifest["REGISTRATION_INVITE_ONLY_ENABLED"]
+    assert invite_only["section"] == "general"
+    assert invite_only["section_order"] == 1
+    assert invite_only["subsection"] is None
 
     assert manifest["SMTP_PASSWORD"]["secret"] is True
     assert manifest["SMTP_PORT"]["min"] == 1

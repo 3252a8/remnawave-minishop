@@ -175,6 +175,25 @@
         "updated_at": null
       },
       {
+        "key": "REGISTRATION_INVITE_ONLY_ENABLED",
+        "type": "bool",
+        "section": "general",
+        "section_order": 1,
+        "subsection": null,
+        "label": "Регистрация только по приглашению",
+        "description": "Если включено, новые пользователи создаются только по валидной реферальной ссылке. Существующие пользователи продолжают входить как обычно.",
+        "i18n_label_key": "admin_settings_field_registration_invite_only_enabled_label",
+        "i18n_description_key": "admin_settings_field_registration_invite_only_enabled_description",
+        "i18n_subsection_key": null,
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": false,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "TELEGRAM_BOT_MENU_DISABLED",
         "type": "bool",
         "section": "general",
@@ -8326,25 +8345,6 @@
     "id": "email",
     "order": 8,
     "fields": [
-      {
-        "key": "REGISTRATION_INVITE_ONLY_ENABLED",
-        "type": "bool",
-        "section": "email",
-        "section_order": 8,
-        "subsection": "email_auth",
-        "label": "Регистрация только по приглашению",
-        "description": "Если включено, новые пользователи создаются только по валидной реферальной ссылке. Существующие пользователи продолжают входить как обычно.",
-        "i18n_label_key": "admin_settings_field_registration_invite_only_enabled_label",
-        "i18n_description_key": "admin_settings_field_registration_invite_only_enabled_description",
-        "i18n_subsection_key": "admin_settings_subsection_email_auth",
-        "i18n_placeholder_key": null,
-        "placeholder": "",
-        "optional": false,
-        "secret": false,
-        "value": "",
-        "overridden": false,
-        "updated_at": null
-      },
       {
         "key": "QA_AUTH_ENABLED",
         "type": "bool",
