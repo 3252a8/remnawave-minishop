@@ -144,6 +144,14 @@
     usersStore.updateState({
       grantTrafficKindDraft: value === "premium" ? "premium" : "regular",
     });
+  const selectUserSquadOverride = (value: string) =>
+    usersStore.updateState({ userSquadOverrideDraft: value });
+  const selectUserExternalSquadMode = (value: string) =>
+    usersStore.updateState({
+      userExternalSquadModeDraft: value === "set" || value === "cleared" ? value : "inherit",
+    });
+  const updateUserExternalSquadUuid = (value: string) =>
+    usersStore.updateState({ userExternalSquadUuidDraft: value });
 
   function tariffLabel(tariff: Tariff | Record<string, unknown> | null | undefined): string {
     const raw = (tariff || {}) as Record<string, unknown>;
@@ -270,6 +278,9 @@
   const trafficStrategyDraft = $derived(usersState.trafficStrategyDraft);
   const trafficStrategyBaseline = $derived(usersState.trafficStrategyBaseline);
   const grantTrafficGbDraft = $derived(usersState.grantTrafficGbDraft);
+  const userSquadOverrideDraft = $derived(usersState.userSquadOverrideDraft);
+  const userExternalSquadModeDraft = $derived(usersState.userExternalSquadModeDraft);
+  const userExternalSquadUuidDraft = $derived(usersState.userExternalSquadUuidDraft);
   const userLogs = $derived(usersState.userLogs);
   const userLogsTotal = $derived(usersState.userLogsTotal);
   const userLogsPage = $derived(usersState.userLogsPage);
@@ -339,6 +350,12 @@
   const userExtendDaysValid = $derived(Number(usersState.userExtendDays) > 0);
   const extendTariffsLoading = $derived(
     Boolean(openedUser && tariffsState.tariffsLoading && !extendTariffItems.length)
+  );
+  const panelSquadItems = $derived(
+    (tariffsState.panelSquads || []).map((squad) => ({
+      value: squad.uuid,
+      label: tariffsStore.squadLabel(squad.uuid),
+    }))
   );
   const tariffActionDirty = $derived(
     Boolean(userTariffActionKey) && userTariffActionKey !== userTariffActionBaselineKey
@@ -447,6 +464,12 @@
     ) {
       tariffsLoadRequested = true;
       tariffsStore.loadTariffs();
+    }
+  });
+
+  $effect(() => {
+    if (openedUser && !tariffsState.panelSquadsLoading && !tariffsState.panelSquads.length) {
+      void tariffsStore.loadPanelSquads();
     }
   });
 
@@ -590,6 +613,14 @@
   {hwidUnlimitedDraft}
   {selectGrantTrafficKind}
   {grantTrafficGbValid}
+  {panelSquadItems}
+  squadLabel={tariffsStore.squadLabel}
+  {userSquadOverrideDraft}
+  {selectUserSquadOverride}
+  {userExternalSquadModeDraft}
+  {selectUserExternalSquadMode}
+  {userExternalSquadUuidDraft}
+  {updateUserExternalSquadUuid}
 />
 <UserDetailDialogs
   {at}

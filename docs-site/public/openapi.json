@@ -693,6 +693,79 @@
         "title": "AdminMeOut",
         "type": "object"
       },
+      "AdminPanelExternalSquadOverrideOut": {
+        "properties": {
+          "default_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Default Uuid"
+          },
+          "effective_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Effective Uuid"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Seen At"
+          },
+          "manual_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Manual Uuid"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "AdminPanelExternalSquadOverrideOut",
+        "type": "object"
+      },
       "AdminPanelInternalSquadOut": {
         "properties": {
           "active_inbounds_count": {
@@ -751,6 +824,98 @@
           "name"
         ],
         "title": "AdminPanelInternalSquadOut",
+        "type": "object"
+      },
+      "AdminPanelSquadItemOut": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Seen At"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "uuid": {
+            "title": "Uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "source"
+        ],
+        "title": "AdminPanelSquadItemOut",
+        "type": "object"
+      },
+      "AdminPanelSquadOverridesOut": {
+        "properties": {
+          "effective_internal_squad_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Effective Internal Squad Uuids",
+            "type": "array"
+          },
+          "external": {
+            "$ref": "#/components/schemas/AdminPanelExternalSquadOverrideOut"
+          },
+          "managed_internal_squads": {
+            "items": {
+              "$ref": "#/components/schemas/AdminPanelSquadItemOut"
+            },
+            "title": "Managed Internal Squads",
+            "type": "array"
+          },
+          "manual_internal_squads": {
+            "items": {
+              "$ref": "#/components/schemas/AdminPanelSquadItemOut"
+            },
+            "title": "Manual Internal Squads",
+            "type": "array"
+          },
+          "panel_snapshot_available": {
+            "default": false,
+            "title": "Panel Snapshot Available",
+            "type": "boolean"
+          },
+          "panel_user_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel User Uuid"
+          }
+        },
+        "required": [
+          "external"
+        ],
+        "title": "AdminPanelSquadOverridesOut",
         "type": "object"
       },
       "AdminPanelSyncOut": {
@@ -2955,6 +3120,55 @@
           }
         },
         "title": "AdminUserRegularTrafficOverrideBody",
+        "type": "object"
+      },
+      "AdminUserSquadOverridesPatchBody": {
+        "properties": {
+          "add_internal_squad_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Add Internal Squad Uuids",
+            "type": "array"
+          },
+          "external_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "External Mode"
+          },
+          "external_squad_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "External Squad Uuid"
+          },
+          "remove_internal_squad_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Remove Internal Squad Uuids",
+            "type": "array"
+          },
+          "sync_panel": {
+            "default": true,
+            "title": "Sync Panel",
+            "type": "boolean"
+          }
+        },
+        "title": "AdminUserSquadOverridesPatchBody",
         "type": "object"
       },
       "AdminUserTariffBody": {
@@ -10219,6 +10433,16 @@
                       "const": true,
                       "type": "boolean"
                     },
+                    "panel_squad_overrides": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/AdminPanelSquadOverridesOut"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "recent_payments": {
                       "items": {
                         "$ref": "#/components/schemas/PaymentOut"
@@ -10307,6 +10531,7 @@
                     "install_share_url",
                     "last_vpn_connected_at",
                     "vpn_connection_status",
+                    "panel_squad_overrides",
                     "referral"
                   ],
                   "type": "object"
@@ -10926,6 +11151,122 @@
           }
         ],
         "summary": "Admin User Reset Trial",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/squad-overrides": {
+      "patch": {
+        "operationId": "patch_admin_user_squad_overrides_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserSquadOverridesPatchBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "panel_squad_overrides": {
+                      "$ref": "#/components/schemas/AdminPanelSquadOverridesOut"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "panel_squad_overrides"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Squad Overrides",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/squad-overrides/refresh": {
+      "post": {
+        "operationId": "post_admin_user_squad_overrides_refresh_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "panel_squad_overrides": {
+                      "$ref": "#/components/schemas/AdminPanelSquadOverridesOut"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "panel_squad_overrides"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Squad Overrides Refresh",
         "tags": [
           "admin"
         ]

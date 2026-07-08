@@ -411,12 +411,22 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             traffic_limit_bytes=traffic_limit_bytes,
             traffic_limit_strategy=self._period_tariff_traffic_strategy(),
             hwid_device_limit=effective_hwid_limit,
+            include_default_squads=False,
         )
-        if tariff:
-            panel_update_payload["activeInternalSquads"] = self._panel_squads_for_tariff(
-                tariff,
-                include_premium=not premium_is_limited,
+        managed_squads = self._panel_squads_for_tariff(
+            tariff,
+            include_premium=not premium_is_limited,
+        )
+        panel_update_payload.update(
+            await self.build_effective_panel_squad_fields(
+                session,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                managed_internal_squads=managed_squads,
+                include_internal_squads=bool(tariff or managed_squads),
+                source="paid_activation",
             )
+        )
 
         panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
 
@@ -783,16 +793,22 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 include_default_squads=False,
             )
             if panel_tariff:
-                panel_update_payload["activeInternalSquads"] = self._panel_squads_for_tariff(
+                managed_squads = self._panel_squads_for_tariff(
                     panel_tariff,
                     include_premium=not bool(
                         getattr(updated_sub_model, "premium_is_limited", False)
                     ),
                 )
-                if self.settings.parsed_user_external_squad_uuid:
-                    panel_update_payload["externalSquadUuid"] = (
-                        self.settings.parsed_user_external_squad_uuid
+                panel_update_payload.update(
+                    await self.build_effective_panel_squad_fields(
+                        session,
+                        user_id=user_id,
+                        panel_user_uuid=panel_uuid,
+                        managed_internal_squads=managed_squads,
+                        include_internal_squads=True,
+                        source="admin_extend",
                     )
+                )
 
             panel_update_success = await self.panel_service.update_user_details_on_panel(
                 panel_uuid,

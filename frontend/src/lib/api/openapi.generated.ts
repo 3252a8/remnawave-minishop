@@ -931,6 +931,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{user_id}/squad-overrides": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Admin User Squad Overrides */
+    patch: operations["patch_admin_user_squad_overrides_route"];
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/squad-overrides/refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Squad Overrides Refresh */
+    post: operations["post_admin_user_squad_overrides_refresh_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/users/{user_id}/tariff": {
     parameters: {
       query?: never;
@@ -1906,6 +1940,36 @@ export interface components {
       /** User Id */
       user_id: number;
     };
+    /** AdminPanelExternalSquadOverrideOut */
+    AdminPanelExternalSquadOverrideOut: {
+      /**
+       * Default Uuid
+       * @default null
+       */
+      default_uuid: string | null;
+      /**
+       * Effective Uuid
+       * @default null
+       */
+      effective_uuid: string | null;
+      /**
+       * Last Seen At
+       * @default null
+       */
+      last_seen_at: string | null;
+      /**
+       * Manual Uuid
+       * @default null
+       */
+      manual_uuid: string | null;
+      /** Mode */
+      mode: string;
+      /**
+       * Source
+       * @default null
+       */
+      source: string | null;
+    };
     /** AdminPanelInternalSquadOut */
     AdminPanelInternalSquadOut: {
       /**
@@ -1922,6 +1986,43 @@ export interface components {
       name: string;
       /** Uuid */
       uuid: string;
+    };
+    /** AdminPanelSquadItemOut */
+    AdminPanelSquadItemOut: {
+      /**
+       * Label
+       * @default null
+       */
+      label: string | null;
+      /**
+       * Last Seen At
+       * @default null
+       */
+      last_seen_at: string | null;
+      /** Source */
+      source: string;
+      /** Uuid */
+      uuid: string;
+    };
+    /** AdminPanelSquadOverridesOut */
+    AdminPanelSquadOverridesOut: {
+      /** Effective Internal Squad Uuids */
+      effective_internal_squad_uuids?: string[];
+      external: components["schemas"]["AdminPanelExternalSquadOverrideOut"];
+      /** Managed Internal Squads */
+      managed_internal_squads?: components["schemas"]["AdminPanelSquadItemOut"][];
+      /** Manual Internal Squads */
+      manual_internal_squads?: components["schemas"]["AdminPanelSquadItemOut"][];
+      /**
+       * Panel Snapshot Available
+       * @default false
+       */
+      panel_snapshot_available: boolean;
+      /**
+       * Panel User Uuid
+       * @default null
+       */
+      panel_user_uuid: string | null;
     };
     /** AdminPanelSyncOut */
     AdminPanelSyncOut: {
@@ -2880,6 +2981,28 @@ export interface components {
        * @default false
        */
       unlimited: unknown;
+    };
+    /** AdminUserSquadOverridesPatchBody */
+    AdminUserSquadOverridesPatchBody: {
+      /** Add Internal Squad Uuids */
+      add_internal_squad_uuids?: string[];
+      /**
+       * External Mode
+       * @default null
+       */
+      external_mode: string | null;
+      /**
+       * External Squad Uuid
+       * @default null
+       */
+      external_squad_uuid: string | null;
+      /** Remove Internal Squad Uuids */
+      remove_internal_squad_uuids?: string[];
+      /**
+       * Sync Panel
+       * @default true
+       */
+      sync_panel: boolean;
     };
     /** AdminUserTariffBody */
     AdminUserTariffBody: {
@@ -6191,6 +6314,7 @@ export interface operations {
             log_count: number;
             /** @constant */
             ok: true;
+            panel_squad_overrides: components["schemas"]["AdminPanelSquadOverridesOut"] | null;
             recent_payments: components["schemas"]["PaymentOut"][];
             referral: {
               bot_link: string | null;
@@ -6516,6 +6640,62 @@ export interface operations {
           "application/json": {
             /** @constant */
             ok: true;
+          };
+        };
+      };
+    };
+  };
+  patch_admin_user_squad_overrides_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserSquadOverridesPatchBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            panel_squad_overrides: components["schemas"]["AdminPanelSquadOverridesOut"];
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_squad_overrides_refresh_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            panel_squad_overrides: components["schemas"]["AdminPanelSquadOverridesOut"];
           };
         };
       };

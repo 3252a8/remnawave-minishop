@@ -520,6 +520,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
             expire_at=updated_sub.end_date,
             status="ACTIVE",
             hwid_device_limit=effective_hwid_limit,
+            include_default_squads=False,
         )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
         updated_panel = await self.panel_service.update_user_details_on_panel(

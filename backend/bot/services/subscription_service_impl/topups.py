@@ -126,10 +126,21 @@ class TopupMixin(SubscriptionServiceMixinContract):
             status="ACTIVE",
             traffic_limit_bytes=new_limit,
             hwid_device_limit=effective_hwid_limit,
+            include_default_squads=False,
         )
-        panel_payload["activeInternalSquads"] = self._panel_squads_for_tariff(
+        managed_squads = self._panel_squads_for_tariff(
             tariff,
             include_premium=not bool(getattr(updated_sub, "premium_is_limited", False)),
+        )
+        panel_payload.update(
+            await self.build_effective_panel_squad_fields(
+                session,
+                user_id=user_id,
+                panel_user_uuid=db_user.panel_user_uuid,
+                managed_internal_squads=managed_squads,
+                include_internal_squads=True,
+                source="regular_topup",
+            )
         )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
         updated_panel = await self.panel_service.update_user_details_on_panel(
@@ -285,6 +296,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
             desired_squads,
             user_id=user_id,
             source="premium_topup",
+            session=session,
         )
         if not panel_updated:
             logger.warning(
@@ -379,11 +391,22 @@ class TopupMixin(SubscriptionServiceMixinContract):
             status="ACTIVE",
             traffic_limit_bytes=new_limit,
             hwid_device_limit=effective_hwid_limit,
+            include_default_squads=False,
         )
         if tariff is not None:
-            panel_payload["activeInternalSquads"] = self._panel_squads_for_tariff(
+            managed_squads = self._panel_squads_for_tariff(
                 tariff,
                 include_premium=not bool(getattr(updated_sub, "premium_is_limited", False)),
+            )
+            panel_payload.update(
+                await self.build_effective_panel_squad_fields(
+                    session,
+                    user_id=user_id,
+                    panel_user_uuid=db_user.panel_user_uuid,
+                    managed_internal_squads=managed_squads,
+                    include_internal_squads=True,
+                    source="admin_regular_topup",
+                )
             )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
         try:
@@ -486,6 +509,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
                 desired_squads,
                 user_id=user_id,
                 source="admin_premium_topup",
+                session=session,
             )
             if not panel_updated:
                 logger.warning(
@@ -520,12 +544,43 @@ class TopupMixin(SubscriptionServiceMixinContract):
         *,
         user_id: int,
         source: str,
+        session: AsyncSession | None = None,
     ) -> bool:
-        match, current_set = await self._panel_squads_match(panel_user_uuid, desired_squads)
-        if match is True:
+        panel_user: dict[str, Any] | None = None
+        try:
+            panel_user = await self.panel_service.get_user_by_uuid(
+                panel_user_uuid,
+                log_response=False,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to fetch panel user %s before premium squad update",
+                panel_user_uuid,
+            )
+        current_known, current_set = self._panel_active_squad_uuid_set(panel_user)
+        payload: dict[str, Any] = {"uuid": panel_user_uuid, "activeInternalSquads": desired_squads}
+        if session is not None:
+            payload = {
+                "uuid": panel_user_uuid,
+                **(
+                    await self.build_effective_panel_squad_fields(
+                        session,
+                        user_id=user_id,
+                        panel_user_uuid=panel_user_uuid,
+                        managed_internal_squads=desired_squads,
+                        panel_user_snapshot=panel_user,
+                        discover_panel_overrides=True,
+                        fetch_panel_snapshot=False,
+                        include_internal_squads=True,
+                        source=source,
+                    )
+                ),
+            }
+        effective_squads = payload.get("activeInternalSquads", desired_squads)
+        desired_set = self._panel_squad_uuid_set(effective_squads)
+        if current_known and current_set == desired_set:
             return True
 
-        desired_set = self._panel_squad_uuid_set(desired_squads)
         self._log_panel_squad_patch(
             source=source,
             user_id=user_id,
@@ -535,7 +590,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
         )
         updated_panel = await self.panel_service.update_user_details_on_panel(
             panel_user_uuid,
-            {"uuid": panel_user_uuid, "activeInternalSquads": desired_squads},
+            payload,
             log_response=False,
         )
         if not updated_panel:

@@ -5,6 +5,7 @@ import { withRoutePrefix } from "../../webapp/routes.js";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
 import { defineRawStateProperty } from "./rawStateProperty";
 import { AdminUsersError, createUsersStoreQueries } from "./usersStoreQueries";
+import { createUsersStoreSquadOverrideActions } from "./usersStoreSquadOverrides";
 import {
   buildAdminUserActionPath,
   buildAdminUserPath,
@@ -179,6 +180,7 @@ export function createUsersStore({
       resetRegular = true,
       resetHwid = true,
       resetGrant = true,
+      resetSquadOverrides = true,
     } = options;
     const sub = res.active_subscription || null;
     const draft = _draftStateFromSubscription(sub);
@@ -220,6 +222,16 @@ export function createUsersStore({
     if (resetGrant) {
       next.grantTrafficGbDraft = "";
       next.grantTrafficKindDraft = "regular";
+    }
+    if (resetSquadOverrides) {
+      const panelOverrides = res.panel_squad_overrides || null;
+      const external = panelOverrides?.external || null;
+      const mode = String(external?.mode || "inherit");
+      next.userSquadOverrideDraft = "";
+      next.userExternalSquadModeDraft = mode === "set" || mode === "cleared" ? mode : "inherit";
+      next.userExternalSquadUuidDraft = String(
+        external?.manual_uuid || (mode === "set" ? external?.effective_uuid || "" : "") || ""
+      );
     }
 
     return next;
@@ -925,6 +937,15 @@ export function createUsersStore({
     assignState(updates);
   }
 
+  const squadOverrideActions = createUsersStoreSquadOverrideActions({
+    api,
+    onToast,
+    at,
+    readStateSnapshot,
+    applyState,
+    invalidateUsersQueries,
+  });
+
   return Object.assign(store, {
     updateState,
     setActive,
@@ -947,6 +968,7 @@ export function createUsersStore({
     saveTrafficStrategy,
     saveHwidDeviceLimit,
     grantTraffic,
+    ...squadOverrideActions,
     loadUserLogs,
     setUserLogsPage,
     openUserReferrals,

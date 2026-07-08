@@ -11,6 +11,7 @@ from . import (
     support_dal,
     user_billing_dal,
     user_dal,
+    user_panel_squad_override_dal,
 )
 
 __all__ = (
@@ -26,4 +27,5 @@ __all__ = (
     "support_dal",
     "user_billing_dal",
     "user_dal",
+    "user_panel_squad_override_dal",
 )

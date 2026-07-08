@@ -182,9 +182,19 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             traffic_limit_bytes=new_limit,
             traffic_limit_strategy="NO_RESET",
             hwid_device_limit=effective_hwid_limit,
+            include_default_squads=False,
         )
-        if tariff:
-            panel_update_payload["activeInternalSquads"] = self._panel_squads_for_tariff(tariff)
+        managed_squads = self._panel_squads_for_tariff(tariff)
+        panel_update_payload.update(
+            await self.build_effective_panel_squad_fields(
+                session,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                managed_internal_squads=managed_squads,
+                include_internal_squads=bool(tariff or managed_squads),
+                source="traffic_package",
+            )
+        )
 
         panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
 
@@ -284,6 +294,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
                 squads,
                 user_id=user_id,
                 source="admin_premium_override",
+                session=session,
             )
             if not panel_updated:
                 logger.warning(
@@ -334,11 +345,22 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             status="ACTIVE",
             traffic_limit_bytes=new_limit,
             hwid_device_limit=effective_hwid_limit,
+            include_default_squads=False,
         )
         if tariff is not None:
-            panel_payload["activeInternalSquads"] = self._panel_squads_for_tariff(
+            managed_squads = self._panel_squads_for_tariff(
                 tariff,
                 include_premium=not bool(getattr(sub, "premium_is_limited", False)),
+            )
+            panel_payload.update(
+                await self.build_effective_panel_squad_fields(
+                    session,
+                    user_id=user_id,
+                    panel_user_uuid=db_user.panel_user_uuid,
+                    managed_internal_squads=managed_squads,
+                    include_internal_squads=True,
+                    source="sync_main_traffic_limit",
+                )
             )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
         try:

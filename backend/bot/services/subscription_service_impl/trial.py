@@ -105,13 +105,16 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
             include_default_squads=False,
         )
         trial_squads = self._trial_all_panel_squad_uuids()
-        if trial_squads:
-            panel_update_payload["activeInternalSquads"] = trial_squads
-        if self.settings.parsed_user_external_squad_uuid:
-            panel_update_payload["externalSquadUuid"] = (
-                self.settings.parsed_user_external_squad_uuid
+        panel_update_payload.update(
+            await self.build_effective_panel_squad_fields(
+                session,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                managed_internal_squads=trial_squads,
+                include_internal_squads=bool(trial_squads),
+                source="trial_activation",
             )
-
+        )
         panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
 
         updated_panel_user = await self.panel_service.update_user_details_on_panel(

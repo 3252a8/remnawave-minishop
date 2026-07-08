@@ -156,6 +156,9 @@
 .admin-user-action-sheet--traffic-grant {
   margin-top: 10px;
 }
+.admin-user-action-sheet--squad-overrides {
+  margin-top: 12px;
+}
 .admin-user-action-sheet .admin-user-tariff-select {
   width: 100%;
   max-width: 100%;
@@ -163,6 +166,91 @@
 .admin-user-action-sheet .admin-grant-kind-select {
   width: 100%;
   max-width: 100%;
+}
+.admin-squad-overrides-body {
+  gap: 14px;
+}
+.admin-squad-overrides-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.admin-squad-overrides-block {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+.admin-squad-overrides-block > strong {
+  font-size: 13px;
+}
+.admin-squad-chip-list,
+.admin-squad-manual-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.admin-squad-chip,
+.admin-squad-manual-row {
+  min-width: 0;
+  border: 1px solid var(--admin-border-muted, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  background: var(--admin-surface-2, rgba(255, 255, 255, 0.04));
+}
+.admin-squad-chip {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  overflow-wrap: anywhere;
+}
+.admin-squad-chip small,
+.admin-squad-manual-row small {
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+.admin-squad-manual-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+}
+.admin-squad-manual-row span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.admin-squad-add-row,
+.admin-squad-external-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.admin-squad-select,
+.admin-squad-external-mode,
+.admin-squad-uuid-input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.admin-squad-effective-line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 10px;
+  font-size: 12px;
+  color: var(--admin-muted);
+}
+.admin-squad-effective-line strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--admin-text);
+}
+@media (max-width: 720px) {
+  .admin-squad-overrides-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .admin-avatar-preview-trigger {
   padding: 0;

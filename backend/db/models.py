@@ -73,6 +73,11 @@ class User(Base):
         back_populates="target_user",
         cascade="all, delete-orphan",
     )
+    panel_squad_overrides = relationship(
+        "UserPanelSquadOverride",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<User(user_id={self.user_id}, username='{self.username}')>"
@@ -99,6 +104,44 @@ class UserTelegramAvatar(Base):
     )
 
     user = relationship("User")
+
+
+class UserPanelSquadOverride(Base):
+    __tablename__ = "user_panel_squad_overrides"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "panel_user_uuid",
+            "kind",
+            "override_key",
+            name="uq_user_panel_squad_override_key",
+        ),
+        Index("ix_user_panel_squad_overrides_user_active", "user_id", "is_active"),
+        Index(
+            "ix_user_panel_squad_overrides_panel_active",
+            "panel_user_uuid",
+            "is_active",
+        ),
+        Index("ix_user_panel_squad_overrides_kind_squad", "kind", "squad_uuid"),
+    )
+
+    override_id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=False, index=True)
+    panel_user_uuid = Column(String, nullable=False, index=True)
+    kind = Column(String(16), nullable=False)
+    override_key = Column(String, nullable=False)
+    squad_uuid = Column(String, nullable=True)
+    mode = Column(String(16), nullable=False, default="set")
+    source = Column(String(16), nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_by_admin_id = Column(BigInteger, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+    last_seen_at = Column(DateTime(timezone=True), nullable=True)
+    deactivated_at = Column(DateTime(timezone=True), nullable=True)
+    note = Column(Text, nullable=True)
+
+    user = relationship("User", back_populates="panel_squad_overrides")
 
 
 class Subscription(Base):

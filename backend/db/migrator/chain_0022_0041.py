@@ -633,6 +633,44 @@ def _migration_0042_release_archived_promo_codes(connection: Connection) -> None
     )
 
 
+def _migration_0043_add_user_panel_squad_overrides(connection: Connection) -> None:
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS user_panel_squad_overrides (
+                override_id SERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                panel_user_uuid VARCHAR NOT NULL,
+                kind VARCHAR(16) NOT NULL,
+                override_key VARCHAR NOT NULL,
+                squad_uuid VARCHAR NULL,
+                mode VARCHAR(16) NOT NULL DEFAULT 'set',
+                source VARCHAR(16) NOT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_by_admin_id BIGINT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NULL,
+                last_seen_at TIMESTAMPTZ NULL,
+                deactivated_at TIMESTAMPTZ NULL,
+                note TEXT NULL,
+                CONSTRAINT uq_user_panel_squad_override_key
+                    UNIQUE (user_id, panel_user_uuid, kind, override_key)
+            )
+            """
+        )
+    )
+    index_statements = [
+        "CREATE INDEX IF NOT EXISTS ix_user_panel_squad_overrides_user_active "
+        "ON user_panel_squad_overrides (user_id, is_active)",
+        "CREATE INDEX IF NOT EXISTS ix_user_panel_squad_overrides_panel_active "
+        "ON user_panel_squad_overrides (panel_user_uuid, is_active)",
+        "CREATE INDEX IF NOT EXISTS ix_user_panel_squad_overrides_kind_squad "
+        "ON user_panel_squad_overrides (kind, squad_uuid)",
+    ]
+    for stmt in index_statements:
+        connection.execute(text(stmt))
+
+
 CHAIN_0022_0041: list[Migration] = [
     Migration(
         id="0022_add_indexes_for_admin_reports",
@@ -738,5 +776,10 @@ CHAIN_0022_0041: list[Migration] = [
         id="0042_release_archived_promo_codes",
         description="Release archived code names while preserving their display value",
         upgrade=_migration_0042_release_archived_promo_codes,
+    ),
+    Migration(
+        id="0043_add_user_panel_squad_overrides",
+        description="Persist manual Remnawave squad overrides per panel user",
+        upgrade=_migration_0043_add_user_panel_squad_overrides,
     ),
 ]

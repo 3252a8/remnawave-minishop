@@ -23,10 +23,12 @@ export type AdminLogsResponse = NonNullable<
 >;
 type AdminListUser = NonNullable<AdminUsersListResponse["users"]>[number];
 export type AdminSubscription = components["schemas"]["AdminSubscriptionOut"];
+export type AdminPanelSquadOverrides = components["schemas"]["AdminPanelSquadOverridesOut"];
 export type AdminUserDetail = AdminUserDetailResponse & {
   active_subscription: AdminSubscription | null;
   subscriptions: AdminSubscription[];
   user: AdminUser;
+  panel_squad_overrides?: AdminPanelSquadOverrides | null;
 };
 export type UserLogRow = NonNullable<AdminLogsResponse["logs"]>[number];
 export type DraftNumber = number | string;
@@ -79,6 +81,9 @@ export type AdminStoreState = {
   hwidDeviceLimitBaseline: DraftNumber;
   grantTrafficGbDraft: DraftNumber;
   grantTrafficKindDraft: "regular" | "premium";
+  userSquadOverrideDraft: string;
+  userExternalSquadModeDraft: "inherit" | "set" | "cleared";
+  userExternalSquadUuidDraft: string;
   userLogs: UserLogRow[];
   userLogsTotal: number;
   userLogsPage: number;
@@ -108,6 +113,7 @@ export type SnapshotOptions = {
   resetRegular?: boolean;
   resetHwid?: boolean;
   resetGrant?: boolean;
+  resetSquadOverrides?: boolean;
 };
 
 export type UsersStoreOptions = {
@@ -169,6 +175,9 @@ export function createInitialUsersState(): AdminStoreState {
     hwidDeviceLimitBaseline: "",
     grantTrafficGbDraft: "",
     grantTrafficKindDraft: "regular",
+    userSquadOverrideDraft: "",
+    userExternalSquadModeDraft: "inherit",
+    userExternalSquadUuidDraft: "",
 
     userLogs: [],
     userLogsTotal: 0,
@@ -219,6 +228,9 @@ export function closedUserModalState(): Partial<AdminStoreState> {
     hwidDeviceLimitBaseline: "",
     grantTrafficGbDraft: "",
     grantTrafficKindDraft: "regular",
+    userSquadOverrideDraft: "",
+    userExternalSquadModeDraft: "inherit",
+    userExternalSquadUuidDraft: "",
     userLogs: [],
     userLogsTotal: 0,
     userLogsPage: 0,

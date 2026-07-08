@@ -298,10 +298,21 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 panel_hwid_base_limit,
                 extra_hwid_devices,
             ),
+            include_default_squads=False,
         )
-        panel_payload["activeInternalSquads"] = self._panel_squads_for_tariff(
+        managed_squads = self._panel_squads_for_tariff(
             target,
             include_premium=not bool(updated.premium_is_limited),
+        )
+        panel_payload.update(
+            await self.build_effective_panel_squad_fields(
+                session,
+                user_id=user_id,
+                panel_user_uuid=db_user.panel_user_uuid,
+                managed_internal_squads=managed_squads,
+                include_internal_squads=True,
+                source="tariff_switch",
+            )
         )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
         updated_panel = await self.panel_service.update_user_details_on_panel(

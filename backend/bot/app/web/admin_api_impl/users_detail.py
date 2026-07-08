@@ -37,6 +37,7 @@ from .common import (
     _serialize_subscription,
 )
 from .schemas import AdminUserTrialOut
+from .squad_override_schemas import AdminPanelSquadOverridesOut
 from .users_common import _bulk_user_avatar_keys, _serialize_admin_user_with_avatar
 
 logger = logging.getLogger(__name__)
@@ -618,6 +619,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
     vpn_connection_status = "unknown"
     traffic_limit_strategy: str | None = None
     panel_strategy_available = False
+    panel_data: dict[str, Any] | None = None
     panel_uuid = getattr(user, "panel_user_uuid", None) or getattr(
         active_sub,
         "panel_user_uuid",
@@ -664,6 +666,31 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             traffic_limit_strategy=traffic_limit_strategy,
             panel_available=panel_strategy_available,
         )
+    panel_squad_overrides: dict[str, Any] | None = None
+    subscription_service = get_optional_subscription_service(request)
+    summary_builder = getattr(subscription_service, "panel_squad_overrides_summary", None)
+    if callable(summary_builder):
+        try:
+            async with async_session_factory() as session:
+                summary = await summary_builder(
+                    session,
+                    user_id=target_id,
+                    panel_user_uuid=panel_uuid,
+                    subscription=active_sub,
+                    panel_user_snapshot=panel_data,
+                    panel_snapshot_available=panel_data is not None,
+                    discover_panel_overrides=panel_data is not None,
+                )
+                panel_squad_overrides = AdminPanelSquadOverridesOut.model_validate(
+                    summary
+                ).model_dump(mode="json")
+                await session.commit()
+        except Exception as exc_overrides:  # pragma: no cover - defensive admin enrichment
+            logger.warning(
+                "Failed to build panel squad overrides for user %s: %s",
+                target_id,
+                exc_overrides,
+            )
 
     return _ok(
         {
@@ -678,6 +705,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             "install_share_url": install_share_url,
             "last_vpn_connected_at": last_vpn_connected_at,
             "vpn_connection_status": vpn_connection_status,
+            "panel_squad_overrides": panel_squad_overrides,
             "referral": {
                 "code": referral_code,
                 "bot_link": referral_bot_link,
