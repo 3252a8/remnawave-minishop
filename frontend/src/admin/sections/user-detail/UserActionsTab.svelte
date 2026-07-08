@@ -225,20 +225,6 @@
     </AdminButton>
   </div>
 
-  <UserSquadOverridesActionCard
-    {at}
-    panelSquadOverrides={openedUserDetail?.panel_squad_overrides || null}
-    {userActionBusy}
-    {panelSquadItems}
-    {squadLabel}
-    {userSquadOverrideDraft}
-    {selectUserSquadOverride}
-    {userExternalSquadModeDraft}
-    {selectUserExternalSquadMode}
-    {userExternalSquadUuidDraft}
-    {updateUserExternalSquadUuid}
-  />
-
   {#if openedUserDetail?.active_subscription}
     {#if periodTariffItems.length}
       <section
@@ -780,4 +766,18 @@
       </AdminButton>
     </div>
   </section>
+
+  <UserSquadOverridesActionCard
+    {at}
+    panelSquadOverrides={openedUserDetail?.panel_squad_overrides || null}
+    {userActionBusy}
+    {panelSquadItems}
+    {squadLabel}
+    {userSquadOverrideDraft}
+    {selectUserSquadOverride}
+    {userExternalSquadModeDraft}
+    {selectUserExternalSquadMode}
+    {userExternalSquadUuidDraft}
+    {updateUserExternalSquadUuid}
+  />
 </Tabs.Content>

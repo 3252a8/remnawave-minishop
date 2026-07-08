@@ -71,6 +71,10 @@
     if (value === "settings") return at("user_squad_source_settings", {}, "settings");
     return value || "—";
   }
+
+  function squadSourceDescription(source: unknown): string {
+    return at("user_squad_source_label", { source: squadSourceLabel(source) }, "Source: {source}");
+  }
 </script>
 
 {#if panelSquadOverrides}
@@ -99,8 +103,12 @@
           <div class="admin-squad-list">
             {#each managedInternalSquads as squad}
               <div class="admin-squad-row">
-                <span class="admin-squad-row-main">{squadDisplayLabel(squad.uuid)}</span>
-                <small>{squadSourceLabel(squad.source)}</small>
+                <span class="admin-squad-row-content">
+                  <span class="admin-squad-row-name" title={squadDisplayLabel(squad.uuid)}>
+                    {squadDisplayLabel(squad.uuid)}
+                  </span>
+                  <small>{squadSourceDescription(squad.source)}</small>
+                </span>
               </div>
             {/each}
           </div>
@@ -124,8 +132,12 @@
           <div class="admin-squad-list">
             {#each manualInternalSquads as squad}
               <div class="admin-squad-row admin-squad-row--removable">
-                <span class="admin-squad-row-main">{squadDisplayLabel(squad.uuid)}</span>
-                <small>{squadSourceLabel(squad.source)}</small>
+                <span class="admin-squad-row-content">
+                  <span class="admin-squad-row-name" title={squadDisplayLabel(squad.uuid)}>
+                    {squadDisplayLabel(squad.uuid)}
+                  </span>
+                  <small>{squadSourceDescription(squad.source)}</small>
+                </span>
                 <AdminButton
                   size="icon"
                   variant="icon"
