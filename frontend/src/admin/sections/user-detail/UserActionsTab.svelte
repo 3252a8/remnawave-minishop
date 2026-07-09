@@ -191,8 +191,6 @@
 
   <UserTelegramMessageActionCard {at} {userActionBusy} {userMessageDraft} />
 
-  <UserDangerActionsCard {at} {openedUserIsBanned} {userActionBusy} />
-
   <UserSquadOverridesActionCard
     {at}
     panelSquadOverrides={openedUserDetail?.panel_squad_overrides || null}
@@ -206,4 +204,6 @@
     {userExternalSquadUuidDraft}
     {updateUserExternalSquadUuid}
   />
+
+  <UserDangerActionsCard {at} {openedUserIsBanned} {userActionBusy} />
 </Tabs.Content>

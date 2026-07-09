@@ -194,6 +194,16 @@ def test_action_cards_surface_unsaved_state():
         assert messages["admin_user_action_unsaved_hint"]
 
 
+def test_danger_actions_stay_last_in_user_actions_tab():
+    source = _actions_source()
+
+    squad_index = source.index("<UserSquadOverridesActionCard")
+    danger_index = source.index("<UserDangerActionsCard")
+
+    assert squad_index < danger_index
+    assert source[danger_index:].strip().endswith("</Tabs.Content>")
+
+
 def test_user_action_saves_refresh_details_without_reopening_modal():
     store = USERS_STORE.read_text(encoding="utf-8")
     action_start = store.index("async function extendUser()")
