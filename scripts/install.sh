@@ -14,11 +14,6 @@ IMPORTER_CACHE_PATH="$INSTALL_STATE_DIR/import_legacy.py"
 APP_UID=10001
 APP_GID=10001
 OLD_TGSHOP_DB_VOLUME="remnawave-tg-shop-db-data"
-NEW_MINISHOP_DB_VOLUME="remnawave-minishop-db-data"
-OLD_TGSHOP_CADDY_DATA_VOLUME="remnawave-tg-shop-caddy-data"
-OLD_TGSHOP_CADDY_CONFIG_VOLUME="remnawave-tg-shop-caddy-config"
-NEW_MINISHOP_CADDY_DATA_VOLUME="remnawave-minishop-caddy-data"
-NEW_MINISHOP_CADDY_CONFIG_VOLUME="remnawave-minishop-caddy-config"
 KNOWN_LEGACY_CONTAINERS="remnawave-tg-shop remnawave-tg-shop-db remnawave-tg-shop-caddy remnawave-minishop remnawave-minishop-db remnawave-minishop-caddy remnawave-minishop-backend remnawave-minishop-worker remnawave-minishop-frontend remnawave-minishop-migrate remnawave-minishop-postgres remnawave-minishop-redis"
 PANGOLIN_COMPOSE_FILE="docker-compose.pangolin.yml"
 
@@ -160,6 +155,7 @@ print_help() {
   REMNASHOP_SOURCE_ENV_FILE путь к .env Remnashop для переноса настроек
   REMNASHOP_SOURCE_SCHEMA   схема PostgreSQL базы Remnashop (public)
   LEGACY_TGSHOP_SOURCE_DSN  DSN старого remnawave-tg-shop для дампа/восстановления
+  LEGACY_TGSHOP_DB_CONTAINER имя контейнера PostgreSQL старого remnawave-tg-shop
 
 Мастер интерактивный: он не перезаписывает файлы без подтверждения.
 Импорт из Remnashop всегда сначала запускается в режиме проверки без записи (dry-run).
@@ -601,6 +597,29 @@ detect_remnawave_db_container() {
     fi
     command -v docker >/dev/null 2>&1 || return 1
     docker ps -a --format '{{.Names}}' 2>/dev/null | grep -Ei 'remnawave.*(db|postgres)|postgres.*remnawave' | head -n 1
+}
+
+detect_tgshop_db_container() {
+    if [ -n "${LEGACY_TGSHOP_DB_CONTAINER:-}" ] && docker_container_exists "$LEGACY_TGSHOP_DB_CONTAINER"; then
+        printf '%s' "$LEGACY_TGSHOP_DB_CONTAINER"
+        return 0
+    fi
+    if docker_container_exists remnawave-tg-shop-db; then
+        printf '%s' remnawave-tg-shop-db
+        return 0
+    fi
+    command -v docker >/dev/null 2>&1 || return 1
+    docker ps -a --format '{{.Names}}' 2>/dev/null | grep -Ei 'remnawave-tg-shop.*(db|postgres)|postgres.*remnawave-tg-shop' | head -n 1
+}
+
+detect_tgshop_source_dsn() {
+    if [ -n "${LEGACY_TGSHOP_SOURCE_DSN:-}" ]; then
+        printf '%s' "$LEGACY_TGSHOP_SOURCE_DSN"
+        return 0
+    fi
+    container=$(detect_tgshop_db_container || true)
+    [ -n "$container" ] || return 1
+    docker exec "$container" sh -lc 'printf "postgresql://%s:%s@'"$container"':5432/%s" "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$POSTGRES_DB"' 2>/dev/null
 }
 
 detect_remnashop_env_file() {
@@ -2241,6 +2260,23 @@ preflight_existing_postgres_volume() {
     return 1
 }
 
+reset_target_postgres_volume() {
+    section "Пересоздание целевого PostgreSQL volume"
+    volume=$(target_postgres_volume)
+    (cd "$TARGET_DIR" && run_compose down) || true
+    if volume_exists "$volume"; then
+        docker volume rm "$volume" >/dev/null || {
+            fail "Не удалось удалить Docker volume: $volume"
+            return 1
+        }
+        ok "Docker volume $volume удален. PostgreSQL будет создан заново с текущими POSTGRES_* из .env."
+    else
+        info "Целевой DB volume $volume еще не создан."
+    fi
+    (cd "$TARGET_DIR" && run_compose_checked up -d postgres redis) || return 1
+    wait_target_postgres || return 1
+}
+
 start_stack() {
     pull="${1:-1}"
     section "Запуск Docker Compose стека"
@@ -3056,52 +3092,6 @@ volume_is_empty() {
         'test -z "$(find /data -mindepth 1 -print -quit)"' >/dev/null 2>&1
 }
 
-copy_volume_if_safe() {
-    source_volume="$1"
-    target_volume="$2"
-    required="${3:-0}"
-
-    if ! volume_exists "$source_volume"; then
-        if [ "$required" = "1" ]; then
-            fail "Исходный Docker volume не найден: $source_volume"
-            return 1
-        fi
-        warn "Пропускаю $source_volume: исходный Docker volume не найден."
-        return 0
-    fi
-
-    if ! volume_exists "$target_volume"; then
-        if [ "$required" = "1" ]; then
-            fail "Целевой Docker volume не найден: $target_volume"
-            return 1
-        fi
-        warn "Пропускаю $target_volume: целевой Docker volume не был создан этим профилем."
-        return 0
-    fi
-
-    if ! volume_is_empty "$target_volume"; then
-        if [ "$required" = "1" ]; then
-            warn "Целевой Docker volume $target_volume уже не пустой."
-            warn "Возможно, миграция уже была выполнена или стек уже стартовал с пустой базой."
-            if confirm "Продолжить без копирования старого Docker volume базы данных?" 0; then
-                return 0
-            fi
-            return 1
-        fi
-        warn "Пропускаю $target_volume: целевой Docker volume уже не пустой."
-        return 0
-    fi
-
-    run_label="docker run --rm -v $source_volume:/from:ro -v $target_volume:/to alpine sh -c 'cd /from && cp -a . /to/'"
-    color "+ $run_label" "$DIM"
-    printf '\n'
-    docker run --rm \
-        -v "$source_volume:/from:ro" \
-        -v "$target_volume:/to" \
-        alpine sh -c 'cd /from && cp -a . /to/' || return 1
-    ok "Скопировано $source_volume -> $target_volume"
-}
-
 stop_known_legacy_containers() {
     section "Остановка старых контейнеров"
     stopped=0
@@ -3207,10 +3197,10 @@ connect_local_source_db_to_target_network() {
     fi
 
     docker network connect "$target_network" "$source_host" || {
-        warn "Не удалось подключить исходный контейнер $source_host к $target_network. Проверка без записи может завершиться ошибкой, если сервис backend его не видит."
+        warn "Не удалось подключить исходный контейнер $source_host к $target_network. Импорт может завершиться ошибкой, если сервис backend его не видит."
         return 0
     }
-    ok "Исходный контейнер $source_host подключен к $target_network для импорта Remnashop."
+    ok "Исходный контейнер $source_host подключен к $target_network для импорта."
 }
 
 remnashop_webhook_checklist() {
@@ -3721,9 +3711,12 @@ reset_target_compose_database() {
 
 create_pre_migration_backup() {
     label="$1"
-    if ! confirm "Сделать бэкап текущего Minishop перед миграцией? Это позволит откатить целевую базу и конфиги." 1; then
-        warn "Бэкап перед миграцией пропущен по вашему выбору."
-        return 0
+    ask="${2:-1}"
+    if [ "$ask" = "1" ]; then
+        if ! confirm "Сделать бэкап текущего Minishop перед миграцией? Это позволит откатить целевую базу и конфиги." 1; then
+            warn "Бэкап перед миграцией пропущен по вашему выбору."
+            return 0
+        fi
     fi
 
     section "Бэкап перед миграцией"
@@ -3801,6 +3794,45 @@ EOF
 Бэкап содержит копии основных файлов деплоя и, если PostgreSQL был доступен, логический дамп целевой базы Minishop.
 EOF
     ok "Бэкап перед миграцией сохранен: $backup_dir"
+}
+
+create_tgshop_source_backup() {
+    section "Бэкап источника remnawave-tg-shop"
+    stamp=$(date -u '+%Y%m%d-%H%M%S')
+    backup_dir="$TARGET_DIR/backups/pre-remnawave-tg-shop-source-$stamp"
+    dump_dir="$backup_dir/dumps"
+    dump_path="$dump_dir/remnawave-tg-shop-source.sql"
+    mkdir -p "$dump_dir"
+    chmod 700 "$backup_dir" 2>/dev/null || true
+
+    if volume_exists "$OLD_TGSHOP_DB_VOLUME"; then
+        info "Старый Docker volume $OLD_TGSHOP_DB_VOLUME не удаляется и остается на хосте для отката."
+    else
+        info "Старый Docker volume $OLD_TGSHOP_DB_VOLUME не найден; сохраняю backup по source DSN."
+    fi
+
+    if (cd "$TARGET_DIR" && run_compose run --rm --no-deps \
+        -v "$dump_dir:/backup" \
+        -e "SOURCE_DSN=$SOURCE_DSN" \
+        backend sh -lc \
+        'pg_dump --clean --if-exists --no-owner --no-privileges "$SOURCE_DSN" > /backup/remnawave-tg-shop-source.sql'); then
+        ok "Дамп источника сохранен: $dump_path"
+    else
+        fail "Не удалось сохранить дамп старого remnawave-tg-shop. Целевой DB volume не удалялся."
+        return 1
+    fi
+
+    cat > "$backup_dir/README.md" <<EOF
+# Backup источника remnawave-tg-shop
+
+Создан: $(date -u '+%Y-%m-%dT%H:%M:%SZ')
+Source DSN: $(mask_compose_log_args "$SOURCE_DSN")
+Старый Docker volume: $OLD_TGSHOP_DB_VOLUME
+
+Wizard не удаляет старый Docker volume. Этот SQL dump сохранен до пересоздания
+целевого Minishop DB volume и может использоваться для ручного восстановления.
+EOF
+    TGSHOP_SOURCE_DUMP_PATH="$dump_path"
 }
 
 choose_legacy_source() {
@@ -3950,41 +3982,25 @@ prepare_compose_without_starting_apps() {
     (cd "$TARGET_DIR" && run_compose_checked up --no-start) || return 1
 }
 
-run_tgshop_volume_migration() {
-    section "Миграция Docker volume старого remnawave-tg-shop"
-    warn "Этот путь копирует старый PostgreSQL Docker volume в новый Docker volume Minishop."
-    warn "Старые Docker volumes не удаляются; сохраните их до проверки нового стека."
-
-    if confirm "Остановить известные старые/текущие контейнеры перед копированием томов Docker?" 1; then
-        stop_known_legacy_containers || return 1
-        (cd "$TARGET_DIR" && run_compose down) || true
-    fi
-
-    prepare_compose_without_starting_apps || return 1
-    copy_volume_if_safe "$OLD_TGSHOP_DB_VOLUME" "$NEW_MINISHOP_DB_VOLUME" 1 || return 1
-    copy_volume_if_safe "$OLD_TGSHOP_CADDY_DATA_VOLUME" "$NEW_MINISHOP_CADDY_DATA_VOLUME" 0 || return 1
-    copy_volume_if_safe "$OLD_TGSHOP_CADDY_CONFIG_VOLUME" "$NEW_MINISHOP_CADDY_CONFIG_VOLUME" 0 || return 1
-
-    if confirm "Запустить новый стек и применить миграции схемы сейчас?" 1; then
-        start_stack 0 || return 1
-        (cd "$TARGET_DIR" && run_compose logs --tail 120 migrate) || true
-    else
-        warn "Стек подготовлен, но не запущен. Позже выполните docker compose up -d."
-    fi
-}
-
 run_tgshop_dsn_migration() {
-    section "DSN-миграция старого remnawave-tg-shop"
-    warn "Этот путь делает дамп старой PostgreSQL базы, восстанавливает его в целевую PostgreSQL базу Compose и запускает миграции схемы Minishop."
-    warn "Целевая база будет удалена и создана заново перед восстановлением."
+    section "Миграция старого remnawave-tg-shop через pg_dump"
+    warn "Wizard пересоздаст целевой PostgreSQL volume, чтобы target DB осталась на новых POSTGRES_* из .env."
+    warn "Старая база будет прочитана через source DSN, затем восстановлена в чистую целевую БД."
 
-    if ! confirm "Заменить целевую базу дампом источника?" 0; then
+    detected_source_dsn=$(detect_tgshop_source_dsn || true)
+    if [ -n "$detected_source_dsn" ]; then
+        info "Нашел PostgreSQL старого remnawave-tg-shop и подставил source DSN по умолчанию."
+        info "Source DSN: $(mask_compose_log_args "$detected_source_dsn")"
+        SOURCE_DSN="$detected_source_dsn"
+    else
+        prompt_value "DSN PostgreSQL старого remnawave-tg-shop" "" 1 0 ""
+        SOURCE_DSN="$PROMPT_VALUE"
+    fi
+
+    if ! confirm "Удалить целевой DB volume и заменить его дампом старого remnawave-tg-shop?" 1; then
         warn "Миграция не применена."
         return 0
     fi
-
-    prompt_value "DSN PostgreSQL старого remnawave-tg-shop" "${LEGACY_TGSHOP_SOURCE_DSN:-}" 1 0 ""
-    SOURCE_DSN="$PROMPT_VALUE"
 
     require_docker || return 1
     POSTGRES_USER_VALUE="$(env_get POSTGRES_USER '')"
@@ -3993,21 +4009,18 @@ run_tgshop_dsn_migration() {
     TARGET_DSN="$(local_target_dsn)"
     validate_bind_settings || return 1
 
-    section "Запуск целевого PostgreSQL"
-    (cd "$TARGET_DIR" && run_compose stop backend worker frontend migrate) || true
-    (cd "$TARGET_DIR" && run_compose_checked up -d postgres redis) || return 1
-    wait_target_postgres || return 1
+    prepare_compose_without_starting_apps || return 1
+    connect_local_source_db_to_target_network
+    create_tgshop_source_backup || return 1
+    create_pre_migration_backup remnawave-tg-shop 0 || return 1
+    reset_target_postgres_volume || return 1
 
-    section "Сброс целевой базы"
-    (cd "$TARGET_DIR" && run_compose exec -T postgres sh -c \
-        'dropdb -U "$POSTGRES_USER" --if-exists "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"') || return 1
-
-    section "Дамп и восстановление старой базы"
+    section "Восстановление старой базы"
     (cd "$TARGET_DIR" && run_compose run --rm --no-deps \
-        -e "SOURCE_DSN=$SOURCE_DSN" \
+        -v "$TGSHOP_SOURCE_DUMP_PATH:/backup/remnawave-tg-shop-source.sql:ro" \
         -e "TARGET_DSN=$TARGET_DSN" \
         backend sh -lc \
-        'pg_dump --clean --if-exists --no-owner --no-privileges "$SOURCE_DSN" | psql "$TARGET_DSN"') || return 1
+        'psql "$TARGET_DSN" -v ON_ERROR_STOP=1 < /backup/remnawave-tg-shop-source.sql') || return 1
 
     run_target_schema_migrations || return 1
     if confirm "Запустить полный стек сейчас?" 1; then
@@ -4024,15 +4037,9 @@ run_remnawave_tg_shop_migration() {
     fi
     require_docker || return 1
 
-    choose "Способ миграции" "1" "1|2|3" \
-        "1. Скопировать старые Docker volumes на этом сервере (рекомендуется для старых compose-установок)." \
-        "2. Сделать дамп из исходного PostgreSQL DSN и восстановить в этот compose-стек." \
-        "3. Пропустить миграцию" || return 1
-    case "$CHOICE_VALUE" in
-        1) run_tgshop_volume_migration ;;
-        2) run_tgshop_dsn_migration ;;
-        3) return 0 ;;
-    esac
+    info "Для старого remnawave-tg-shop wizard использует безопасный pg_dump-перенос вместо копирования raw PostgreSQL volume."
+    info "Так целевой стек сохраняет новые POSTGRES_* из .env и не наследует старый пароль базы."
+    run_tgshop_dsn_migration
 }
 
 run_selected_legacy_migration() {

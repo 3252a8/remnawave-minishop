@@ -92,7 +92,7 @@ def test_shell_installer_prints_migrate_logs_after_compose_failure():
 
     assert "didn't complete successfully" in script
     assert "Сервис migrate завершился с ошибкой" in script
-    assert "run_compose logs --tail 120 migrate" in script
+    assert "compose logs --tail 120 migrate" in script
 
 
 def test_deployment_docs_explain_install_wizard_prompts():
@@ -322,14 +322,22 @@ def test_shell_installer_supports_split_frontend_backend_modes():
     assert "Rathole TOML сохранены" in script
 
 
-def test_shell_installer_supports_legacy_tgshop_volume_and_dsn_paths():
+def test_shell_installer_migrates_legacy_tgshop_through_dsn_restore():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
     assert "Старый remnawave-tg-shop" in script or "старого remnawave-tg-shop" in script
-    assert "remnawave-tg-shop-db-data" in script
-    assert "remnawave-minishop-db-data" in script
+    assert "detect_tgshop_source_dsn" in script
+    assert "LEGACY_TGSHOP_DB_CONTAINER" in script
+    assert "create_tgshop_source_backup" in script
+    assert "pre-remnawave-tg-shop-source" in script
+    assert "reset_target_postgres_volume" in script
+    assert 'docker volume rm "$volume"' in script
+    assert "копирования raw PostgreSQL volume" in script
     assert "pg_dump --clean --if-exists" in script
+    assert 'psql "$TARGET_DSN" -v ON_ERROR_STOP=1' in script
     assert "run_compose_checked run --rm migrate" in script
+    assert "run_tgshop_volume_migration" not in script
+    assert "copy_volume_if_safe" not in script
 
 
 def test_shell_installer_only_prepares_data_mount_not_runtime_content():

@@ -81,8 +81,11 @@ Remnawave API settings и поддерживаемые payment provider settings
 админам/лог-чату и в самом конце печатает новые webhook URL для Remnawave Panel,
 Telegram и платежных провайдеров.
 Миграция со старого `remnawave-tg-shop` работает как upgrade совместимой БД:
-либо копирует старый Docker volume, либо делает `pg_dump` по source DSN,
-восстанавливает дамп в целевую compose-БД и запускает сервис `migrate`.
+wizard автоматически пытается собрать source DSN из старого DB-контейнера,
+сохраняет `pg_dump` старой БД в `backups/pre-remnawave-tg-shop-source-*`,
+пересоздает целевой DB volume с новыми `POSTGRES_*` из `.env`,
+восстанавливает сохраненный дамп в целевую compose-БД и запускает сервис
+`migrate`. Старый DB volume `remnawave-tg-shop-db-data` не удаляется.
 
 ### Что спрашивает install wizard
 

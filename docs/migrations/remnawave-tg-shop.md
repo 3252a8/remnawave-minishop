@@ -20,20 +20,23 @@ Wizard полностью русскоязычный. В главном меню
 если compose-папка уже готова. Затем выберите источник
 `Старый remnawave-tg-shop`.
 
-Wizard поддерживает два способа переноса:
+Wizard переносит базу безопасным `pg_dump`-путем. Он не копирует raw PostgreSQL
+volume старого стека в новый, потому что raw volume уже инициализирован старыми
+ролями и паролем PostgreSQL. Вместо этого wizard:
 
-- `Скопировать старые Docker volumes на этом сервере` - для старого
-  compose-стека на том же Docker host.
-  Скрипт подготавливает новый stack, копирует
-  `remnawave-tg-shop-db-data` в `remnawave-minishop-db-data`, опционально
-  переносит Caddy volumes и запускает новый stack.
-- `Сделать дамп из исходного PostgreSQL DSN и восстановить в этот compose-стек` -
-  для старой БД, доступной по DSN.
-  Скрипт поднимает целевой `postgres`, сбрасывает целевую БД, делает
-  `pg_dump` из старой БД, восстанавливает дамп в compose-БД и запускает
-  сервис `migrate`.
+- пытается сам найти старый контейнер PostgreSQL (`remnawave-tg-shop-db` или
+  `LEGACY_TGSHOP_DB_CONTAINER`) и собрать source DSN из его
+  `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`;
+- если автодетект невозможен, просит `LEGACY_TGSHOP_SOURCE_DSN` / source DSN
+  вручную;
+- до удаления целевого volume сохраняет `pg_dump` старой БД в
+  `backups/pre-remnawave-tg-shop-source-*`;
+- удаляет целевой DB volume Minishop и поднимает чистый PostgreSQL с новыми
+  `POSTGRES_*` из `.env`;
+- восстанавливает сохраненный dump в compose-БД и запускает сервис `migrate`.
 
-В обоих режимах старые volumes и старая БД не удаляются автоматически.
+Старый DB volume `remnawave-tg-shop-db-data` и старая БД не удаляются
+автоматически; они остаются на хосте для отката.
 
 ## Как работает перенос
 
@@ -43,29 +46,37 @@ Wizard поддерживает два способа переноса:
 затем последовательные записи `schema_migrations`. Это one-shot сервис: он
 должен завершиться с кодом `0`, после чего стартуют `backend` и `worker`.
 
-При volume-миграции wizard:
+При миграции wizard:
 
-1. Останавливает известные контейнеры старого и переходного стеков, если вы
-   подтверждаете этот шаг.
-2. Запускает `docker compose up --no-start`, чтобы Docker Compose создал новые
-   volumes.
-3. Копирует старый volume БД:
+1. Читает source DSN старого PostgreSQL автоматически из старого контейнера
+   или из `LEGACY_TGSHOP_SOURCE_DSN`.
+2. Подключает старый DB-контейнер к compose-сети целевого стека, если source
+   DSN указывает на локальный контейнер.
+3. Сохраняет backup источника:
 
    ```bash
-   docker run --rm \
-     -v remnawave-tg-shop-db-data:/from:ro \
-     -v remnawave-minishop-db-data:/to \
-     alpine sh -c "cd /from && cp -a . /to"
+   pg_dump --clean --if-exists --no-owner --no-privileges "$SOURCE_DSN" \
+     > backups/pre-remnawave-tg-shop-source-*/dumps/remnawave-tg-shop-source.sql
    ```
 
-4. Если старые Caddy volumes существуют, переносит
-   `remnawave-tg-shop-caddy-data` -> `remnawave-minishop-caddy-data` и
-   `remnawave-tg-shop-caddy-config` -> `remnawave-minishop-caddy-config`.
-5. Запускает новый stack через Docker Compose.
+4. Сохраняет бэкап файлов целевого Minishop и, если текущий target PostgreSQL
+   доступен, логический дамп перед заменой.
+5. Останавливает целевой compose-стек и удаляет целевой DB volume:
 
-Если целевой DB volume уже непустой, wizard не перетирает его молча: он
-останавливается и просит отдельное подтверждение на продолжение без копирования
-старой БД.
+   ```bash
+   docker volume rm remnawave-minishop-db-data
+   ```
+
+6. Поднимает `postgres` и `redis`; новый PostgreSQL инициализируется текущими
+   `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` из `.env`.
+7. Восстанавливает заранее сохраненный dump:
+
+   ```bash
+   psql "$TARGET_DSN" -v ON_ERROR_STOP=1 \
+     < backups/pre-remnawave-tg-shop-source-*/dumps/remnawave-tg-shop-source.sql
+   ```
+
+8. Запускает миграции схемы Minishop и затем полный stack.
 
 ## Что меняется в архитектуре
 
@@ -81,10 +92,10 @@ Wizard поддерживает два способа переноса:
 
 | Volume | Что происходит |
 | --- | --- |
-| `remnawave-minishop-db-data` | переносится из `remnawave-tg-shop-db-data` или восстанавливается из source DSN |
+| `remnawave-minishop-db-data` | пересоздается и восстанавливается из source DSN; raw volume старого PostgreSQL не копируется |
 | `remnawave-minishop-redis-data` | создается пустым |
 | `remnawave-minishop-shop-data` | создается пустым; runtime-файлы в `/app/data` дальше настраиваются через админку или вручную |
-| `remnawave-minishop-caddy-data` / `remnawave-minishop-caddy-config` | переносятся из `remnawave-tg-shop-caddy-*`, если старый стек использовал Caddy |
+| `remnawave-minishop-caddy-data` / `remnawave-minishop-caddy-config` | создаются новым Caddy-профилем; старые `remnawave-tg-shop-caddy-*` остаются как источник для ручного отката |
 
 Доступные compose-профили: `docker-compose.yml`,
 `deploy/examples/caddy/docker-compose.yml`,
