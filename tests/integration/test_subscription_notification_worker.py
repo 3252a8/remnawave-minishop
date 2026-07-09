@@ -1,18 +1,22 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
+from bot.infra import events
 from bot.services.subscription_notification_worker import SubscriptionNotificationWorker
+from db.dal import subscription_dal
 
 
 def _worker(**overrides):
-    settings = SimpleNamespace(
-        SUBSCRIPTION_NOTIFY_DAYS_BEFORE=3,
-        SUBSCRIPTION_NOTIFY_HOURS_BEFORE=3,
-        SUBSCRIPTION_NOTIFY_ON_EXPIRE=True,
-        SUBSCRIPTION_NOTIFY_AFTER_EXPIRE=True,
-        SUBSCRIPTION_NOTIFICATION_WORKER_TICK_SECONDS=300,
+    settings_payload = {
+        "SUBSCRIPTION_NOTIFY_DAYS_BEFORE": 3,
+        "SUBSCRIPTION_NOTIFY_HOURS_BEFORE": 3,
+        "SUBSCRIPTION_NOTIFY_ON_EXPIRE": True,
+        "SUBSCRIPTION_NOTIFY_AFTER_EXPIRE": True,
+        "SUBSCRIPTION_NOTIFICATION_WORKER_TICK_SECONDS": 300,
         **overrides,
-    )
+    }
+    settings = SimpleNamespace(**settings_payload)
     return SubscriptionNotificationWorker(
         settings=settings,
         session_factory=object(),
@@ -163,3 +167,67 @@ def test_expired_row_without_other_coverage_is_not_superseded():
     sub = _sub(now - timedelta(hours=25), user_id=555, subscription_id=244)
 
     assert _worker()._superseded_by_active_subscription(sub, {}, now) is False
+
+
+def test_expired_event_stage_ignores_delivery_flags():
+    now = datetime(2026, 5, 28, 12, tzinfo=UTC)
+    worker = _worker(
+        SUBSCRIPTION_NOTIFY_ON_EXPIRE=False,
+        SUBSCRIPTION_NOTIFY_AFTER_EXPIRE=False,
+    )
+
+    assert worker.stage_for_subscription(_sub(now - timedelta(hours=1)), now) is None
+    expired_stage = worker.stage_for_subscription(
+        _sub(now - timedelta(hours=1)),
+        now,
+        respect_delivery_flags=False,
+    )
+    lapsed_stage = worker.stage_for_subscription(
+        _sub(now - timedelta(hours=25)),
+        now,
+        respect_delivery_flags=False,
+    )
+    assert expired_stage is not None
+    assert lapsed_stage is not None
+    assert expired_stage.key == "expired"
+    assert lapsed_stage.key == "expired_24h_after"
+
+
+def test_expiry_event_is_recorded_with_event_channel(monkeypatch):
+    now = datetime(2026, 5, 28, 12, tzinfo=UTC)
+    worker = _worker()
+    sub = _sub(now - timedelta(hours=1), user_id=55, subscription_id=44, tariff_key="pro")
+    stage = worker.stage_for_subscription(sub, now, respect_delivery_flags=False)
+    assert stage is not None
+    recorded = []
+    emitted = []
+
+    async def fake_has_notification(session, subscription_id, notification_key):
+        return False
+
+    async def fake_record_notification(session, subscription_id, notification_key, *, sent_at):
+        recorded.append((subscription_id, notification_key, sent_at))
+
+    async def fake_emit_model(payload):
+        emitted.append(payload)
+
+    monkeypatch.setattr(
+        subscription_dal,
+        "has_subscription_notification",
+        fake_has_notification,
+    )
+    monkeypatch.setattr(
+        subscription_dal,
+        "record_subscription_notification",
+        fake_record_notification,
+    )
+    monkeypatch.setattr(events, "emit_model", fake_emit_model)
+
+    asyncio.run(worker._emit_expiry_event_once(object(), sub, stage, now))
+
+    assert recorded == [(44, "expired:event", now)]
+    assert len(emitted) == 1
+    assert emitted[0].EVENT_NAME == events.SUBSCRIPTION_EXPIRED
+    assert emitted[0].user_id == 55
+    assert emitted[0].subscription_id == 44
+    assert emitted[0].tariff_key == "pro"

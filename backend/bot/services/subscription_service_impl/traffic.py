@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra.grants import GrantContext, resolve_effective_grant
+from bot.services.panel_activity import record_subscription_panel_activity
 from bot.services.payment_promo import consume_payment_promo, load_payment_promo_effects
 from config.tariffs_config import Tariff
 from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
@@ -113,6 +114,8 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         active_sub = await subscription_dal.get_active_subscription_by_user_id(
             session, user_id, panel_user_uuid
         )
+        if active_sub and panel_user_data:
+            await record_subscription_panel_activity(session, active_sub, panel_user_data)
         if current_limit is None and active_sub:
             current_limit = active_sub.traffic_limit_bytes
         if current_used is None and active_sub:

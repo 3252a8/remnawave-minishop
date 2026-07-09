@@ -13,6 +13,7 @@ from bot.app.web.context import (
     get_settings,
 )
 from bot.app.web.request_parsing import parse_body_or_400
+from bot.services.panel_activity import record_subscription_panel_activity
 from db.dal import message_log_dal, subscription_dal, user_dal
 from db.dal import user_panel_squad_override_dal as override_dal
 from db.models import Subscription, User
@@ -135,6 +136,8 @@ async def admin_user_squad_overrides_route(request: web.Request) -> web.Response
                     panel_response,
                 )
                 return _error(502, "panel_update_failed")
+            if active_sub is not None:
+                await record_subscription_panel_activity(session, active_sub, panel_response)
 
         await message_log_dal.create_message_log(
             session,
@@ -204,6 +207,8 @@ async def admin_user_squad_overrides_refresh_route(request: web.Request) -> web.
             return _error(502, "panel_request_failed", str(exc))
         if not isinstance(panel_user_snapshot, dict):
             return _error(502, "panel_request_failed")
+        if active_sub is not None:
+            await record_subscription_panel_activity(session, active_sub, panel_user_snapshot)
 
         payload = await _build_overrides_payload(
             subscription_service,

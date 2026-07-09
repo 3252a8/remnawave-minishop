@@ -320,6 +320,10 @@ EXPECTED_EVENT_WIRING = {
     "backend/bot/services/subscription_service_impl/trial.py": [
         ("TRIAL_ACTIVATED", "TrialActivatedPayload")
     ],
+    "backend/bot/services/behavior_events.py": [
+        ("PLANS_VIEWED", "PlansViewedPayload"),
+        ("BOT_STARTED", "BotStartedPayload"),
+    ],
     # user.registered is emitted in the DAL so every registration path is
     # covered: bot /start, Mini App Telegram login and email signup all go
     # through create_user. account.merged likewise covers all merge paths.

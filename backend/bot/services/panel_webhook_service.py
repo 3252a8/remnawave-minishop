@@ -21,6 +21,7 @@ from bot.keyboards.inline.user_keyboards import (
     get_subscribe_only_markup,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.services.panel_activity import record_subscription_panel_activity
 from bot.services.subscription_lifecycle_notifications import (
     SubscriptionLifecycleNotificationService,
     SubscriptionNotificationStage,
@@ -222,7 +223,6 @@ class PanelWebhookService:
                     meta=meta,
                 )
                 return
-
             markup = get_subscribe_only_markup(
                 lang,
                 self.i18n,
@@ -244,6 +244,9 @@ class PanelWebhookService:
                     internal_user_id,
                 )
                 return
+
+            if await record_subscription_panel_activity(session, sub, user_payload) is not None:
+                await session.commit()
 
             if self._is_before_expiration_stage(stage):
                 days_left = int(stage.days_left or 0)

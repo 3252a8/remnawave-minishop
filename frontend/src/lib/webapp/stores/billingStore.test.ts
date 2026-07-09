@@ -10,6 +10,7 @@ function makeBillingStore(overrides: TestOverrides = {}) {
     fetchTopupOptions: vi.fn(),
     fetchDeviceTopupOptions: vi.fn(),
     fetchTariffChangeOptions: vi.fn(),
+    notifyPlansViewed: vi.fn().mockResolvedValue({ ok: true }),
     postPayment: vi.fn(),
     quotePromo: vi.fn(),
     postTariffChange: vi.fn(),
@@ -38,7 +39,7 @@ function makeBillingStore(overrides: TestOverrides = {}) {
 
 describe("billingStore", () => {
   it("opens payment modal on preferred default tariff checkout", () => {
-    const { store } = makeBillingStore();
+    const { store, billing } = makeBillingStore();
 
     store.openPaymentModal(
       true,
@@ -57,6 +58,10 @@ describe("billingStore", () => {
       selectedPlan: { id: "plan-1", tariff_key: "pro" },
       selectedMethod: "card",
       renewHwidDevices: true,
+    });
+    expect(billing.notifyPlansViewed).toHaveBeenCalledWith({
+      plans_count: 1,
+      tariff_key: "pro",
     });
   });
 

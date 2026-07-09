@@ -1,11 +1,7 @@
-import asyncio
 import logging
-from collections import defaultdict
-from datetime import UTC, datetime
 from typing import Any, cast
 
 from aiohttp import web
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
@@ -48,7 +44,6 @@ from bot.utils.message_queue import get_queue_manager
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
 from db.dal import message_log_dal, promo_code_dal, user_dal
-from db.models import Subscription, User
 
 from .auth import (
     _require_admin_user_id,
@@ -64,7 +59,6 @@ from .broadcast_content import (
 from .common import (
     _error,
     _ok,
-    _panel_user_connection_activity,
 )
 from .response_schemas import AdminBroadcastAudienceCountsOut
 from .schemas import AdminBroadcastBody
@@ -73,7 +67,6 @@ logger = logging.getLogger(__name__)
 
 BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED = AUDIENCE_ACTIVE_NEVER_CONNECTED
 BROADCAST_TARGETS = AUDIENCE_TARGETS
-PANEL_ACTIVITY_LOOKUP_CONCURRENCY = 10
 # Telegram rejects messages over 4096 chars; a shortcode expansion can push a
 # per-recipient message past the limit, so we skip+count those rather than let
 # the queue fail them later with an opaque error.
@@ -124,74 +117,23 @@ def _resolve_audience_service(request: web.Request) -> AudienceSegmentationServi
 async def _active_subscription_panel_uuids_by_user(
     session: AsyncSession,
 ) -> dict[int, list[str]]:
-    now = datetime.now(UTC)
-    stmt = (
-        select(Subscription.user_id, Subscription.panel_user_uuid)
-        .join(User, Subscription.user_id == User.user_id)
-        .where(
-            User.is_banned == False,
-            Subscription.is_active == True,
-            Subscription.end_date > now,
-            Subscription.panel_user_uuid.is_not(None),
-            Subscription.panel_user_uuid != "",
-        )
-        .order_by(Subscription.user_id.asc(), Subscription.end_date.desc())
-    )
-    result = await session.execute(stmt)
-
-    grouped: dict[int, list[str]] = defaultdict(list)
-    seen: dict[int, set[str]] = defaultdict(set)
-    for user_id, panel_uuid in result.all():
-        user_id_int = int(user_id)
-        panel_uuid_str = str(panel_uuid or "").strip()
-        if panel_uuid_str and panel_uuid_str not in seen[user_id_int]:
-            grouped[user_id_int].append(panel_uuid_str)
-            seen[user_id_int].add(panel_uuid_str)
-    return dict(grouped)
-
-
-async def _panel_connection_status(panel_service: Any, panel_uuid: str) -> str:
-    try:
-        panel_user = await panel_service.get_user_by_uuid(panel_uuid)
-    except Exception as exc:
-        logger.warning("Failed to fetch panel user activity uuid=%s: %s", panel_uuid, exc)
-        return "unknown"
-    activity = _panel_user_connection_activity(panel_user)
-    return str(activity.get("status") or "unknown")
+    service = AudienceSegmentationService(cast(sessionmaker, None))
+    entries_by_user = await service._active_subscription_panel_uuids_by_user(session)
+    return {
+        user_id: [panel_uuid for panel_uuid, _last_connected_at in entries]
+        for user_id, entries in entries_by_user.items()
+    }
 
 
 async def _user_ids_with_active_subscription_never_connected(
     session: AsyncSession,
     panel_service: Any,
 ) -> list[int]:
-    panel_uuids_by_user = await _active_subscription_panel_uuids_by_user(session)
-    semaphore = asyncio.Semaphore(PANEL_ACTIVITY_LOOKUP_CONCURRENCY)
-
-    async def lookup(panel_uuid: str) -> str:
-        async with semaphore:
-            return await _panel_connection_status(panel_service, panel_uuid)
-
-    panel_uuids = list(
-        dict.fromkeys(
-            panel_uuid
-            for user_panel_uuids in panel_uuids_by_user.values()
-            for panel_uuid in user_panel_uuids
-        )
+    service = AudienceSegmentationService(
+        cast(sessionmaker, None),
+        panel_service=panel_service,
     )
-    statuses_by_uuid = dict(
-        zip(
-            panel_uuids,
-            await asyncio.gather(*(lookup(uuid) for uuid in panel_uuids)),
-            strict=True,
-        )
-    )
-
-    user_ids: list[int] = []
-    for user_id, panel_uuids in panel_uuids_by_user.items():
-        statuses = [statuses_by_uuid.get(panel_uuid, "unknown") for panel_uuid in panel_uuids]
-        if statuses and all(status == "never" for status in statuses):
-            user_ids.append(user_id)
-    return user_ids
+    return await service._user_ids_with_active_subscription_never_connected(session)
 
 
 def _admin_broadcast_audience_counts_cache(settings: Settings) -> AsyncTTLCache | None:

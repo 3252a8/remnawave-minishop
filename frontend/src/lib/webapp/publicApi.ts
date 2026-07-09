@@ -101,6 +101,7 @@ export type DevicesDisconnectResponse = PostResponse<"/api/devices/disconnect">;
 export type DeviceTopupOptionsResponse = GetResponse<"/api/devices/topup-options">;
 export type PaymentCreateResponse = PostResponse<"/api/payments">;
 export type PaymentStatusResponse = GetResponse<"/api/payments/{payment_id}">;
+export type PlansViewedResponse = PostResponse<"/api/plans/viewed">;
 export type PromoApplyResponse = PostResponse<"/api/promo/apply">;
 export type PromoStatusResponse = PostResponse<"/api/promo/status">;
 export type PromoQuoteResponse = PostResponse<"/api/subscription/quote-promo">;
@@ -136,6 +137,7 @@ export type AuthTokenPath = "/auth/token";
 export type DeviceTopupOptionsPath = "/devices/topup-options";
 export type DevicesDisconnectPath = "/devices/disconnect";
 export type TariffChangeOptionsPath = "/tariffs/change-options";
+export type PlansViewedPath = "/plans/viewed";
 export type TariffChangePath = "/tariffs/change";
 export type TariffChangePaymentPath = "/tariffs/change-payment";
 export type SubscriptionAutoRenewPath = "/subscription/auto-renew";
@@ -301,6 +303,10 @@ export function buildDevicesDisconnectPath(): DevicesDisconnectPath {
 
 export function buildDeviceTopupOptionsPath(): DeviceTopupOptionsPath {
   return "/devices/topup-options";
+}
+
+export function buildPlansViewedPath(): PlansViewedPath {
+  return "/plans/viewed";
 }
 
 export type AdminHealthPath = "/admin/health" | "/admin/health?refresh=1";

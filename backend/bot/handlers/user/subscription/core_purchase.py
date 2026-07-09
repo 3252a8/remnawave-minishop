@@ -14,6 +14,7 @@ from bot.keyboards.inline.user_keyboards import (
     tariff_purchase_back_callback,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.services.behavior_events import emit_plans_viewed
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.callback_answer import (
     callback_data,
@@ -21,6 +22,7 @@ from bot.utils.callback_answer import (
 )
 from config.settings import Settings
 from config.tariffs_config import (
+    Tariff,
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
 )
@@ -31,6 +33,45 @@ from .core_common import (
     _with_subscription_purchase_description,
     router,
 )
+
+
+def _tariff_visible_plan_count(tariff: Tariff, settings: Settings) -> int:
+    if getattr(tariff, "billing_model", "") == "period":
+        default_currency = default_currency_key_for_settings(settings)
+        count = 0
+        for months in getattr(tariff, "enabled_periods", []) or []:
+            if tariff.period_price(months, default_currency) or tariff.period_price(
+                months, "stars"
+            ):
+                count += 1
+        return count or len(getattr(tariff, "enabled_periods", []) or [])
+    packages = getattr(tariff, "traffic_packages", None)
+    if not packages:
+        return 0
+    default_currency = default_currency_key_for_settings(settings)
+    gb_values = {float(package.gb) for package in packages.for_currency(default_currency)}
+    gb_values.update(float(package.gb) for package in packages.for_currency("stars"))
+    return len(gb_values)
+
+
+async def _emit_subscription_options_viewed(
+    event: types.Message | types.CallbackQuery,
+    settings: Settings,
+    *,
+    plans_count: int,
+    tariff_key: str | None = None,
+) -> None:
+    from_user = getattr(event, "from_user", None)
+    user_id = getattr(from_user, "id", None)
+    if user_id is None:
+        return
+    await emit_plans_viewed(
+        settings,
+        user_id=int(user_id),
+        source="bot",
+        plans_count=plans_count,
+        tariff_key=tariff_key,
+    )
 
 
 async def display_subscription_options(
@@ -61,6 +102,8 @@ async def display_subscription_options(
         callback_context = callback_context_from_back_callback(back_callback)
         if len(enabled_tariffs) == 1:
             tariff = enabled_tariffs[0]
+            plans_count = _tariff_visible_plan_count(tariff, settings)
+            viewed_tariff_key = tariff.key
             text_content = _tariff_purchase_text(tariff, current_lang, i18n, settings)
             text_content = _with_subscription_purchase_description(
                 text_content,
@@ -92,6 +135,14 @@ async def display_subscription_options(
                 back_callback=back_callback,
                 callback_context=callback_context,
             )
+            plans_count = len(enabled_tariffs)
+            viewed_tariff_key = None
+        await _emit_subscription_options_viewed(
+            event,
+            settings,
+            plans_count=plans_count,
+            tariff_key=viewed_tariff_key,
+        )
         if isinstance(event, types.CallbackQuery):
             target_message_obj = callback_message(event)
             try:
@@ -146,6 +197,8 @@ async def display_subscription_options(
             i18n,
             callback_data=back_callback,
         )
+
+    await _emit_subscription_options_viewed(event, settings, plans_count=len(options))
 
     if isinstance(event, types.CallbackQuery):
         target_message_obj = callback_message(event)

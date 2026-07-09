@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
-from bot.app.web.admin_api_impl.common import _panel_user_connection_activity
+from bot.services.panel_activity import _panel_user_connection_activity
 from db.dal import user_dal
 from db.models import Subscription, User
 
@@ -97,10 +97,17 @@ class AudienceSegmentationService:
                 )
             return counts
 
-    async def _active_subscription_panel_uuids_by_user(self, session: Any) -> dict[int, list[str]]:
+    async def _active_subscription_panel_uuids_by_user(
+        self,
+        session: Any,
+    ) -> dict[int, list[tuple[str, datetime | None]]]:
         now = datetime.now(UTC)
         stmt = (
-            select(Subscription.user_id, Subscription.panel_user_uuid)
+            select(
+                Subscription.user_id,
+                Subscription.panel_user_uuid,
+                Subscription.last_connected_at,
+            )
             .join(User, Subscription.user_id == User.user_id)
             .where(
                 User.is_banned == False,
@@ -112,15 +119,26 @@ class AudienceSegmentationService:
             .order_by(Subscription.user_id.asc(), Subscription.end_date.desc())
         )
         result = await session.execute(stmt)
-        grouped: dict[int, list[str]] = defaultdict(list)
-        seen: dict[int, set[str]] = defaultdict(set)
-        for user_id, panel_uuid in result.all():
+        grouped: dict[int, dict[str, datetime | None]] = defaultdict(dict)
+        order: dict[int, list[str]] = defaultdict(list)
+        for row in result.all():
+            user_id, panel_uuid, last_connected_at = (
+                (row[0], row[1], row[2]) if len(row) >= 3 else (row[0], row[1], None)
+            )
             user_id_int = int(user_id)
             panel_uuid_str = str(panel_uuid or "").strip()
-            if panel_uuid_str and panel_uuid_str not in seen[user_id_int]:
-                grouped[user_id_int].append(panel_uuid_str)
-                seen[user_id_int].add(panel_uuid_str)
-        return dict(grouped)
+            if not panel_uuid_str:
+                continue
+            snapshot = last_connected_at if isinstance(last_connected_at, datetime) else None
+            if panel_uuid_str not in grouped[user_id_int]:
+                grouped[user_id_int][panel_uuid_str] = snapshot
+                order[user_id_int].append(panel_uuid_str)
+            elif grouped[user_id_int][panel_uuid_str] is None and snapshot is not None:
+                grouped[user_id_int][panel_uuid_str] = snapshot
+        return {
+            user_id: [(panel_uuid, grouped[user_id][panel_uuid]) for panel_uuid in order[user_id]]
+            for user_id in order
+        }
 
     async def _panel_connection_status(self, panel_uuid: str) -> str:
         try:
@@ -145,20 +163,30 @@ class AudienceSegmentationService:
         panel_uuids = list(
             dict.fromkeys(
                 panel_uuid
-                for user_panel_uuids in panel_uuids_by_user.values()
-                for panel_uuid in user_panel_uuids
+                for entries in panel_uuids_by_user.values()
+                for panel_uuid, last_connected_at in entries
+                if last_connected_at is None
             )
         )
-        statuses_by_uuid = dict(
-            zip(
-                panel_uuids,
-                await asyncio.gather(*(lookup(uuid) for uuid in panel_uuids)),
-                strict=True,
+        statuses_by_uuid = (
+            dict(
+                zip(
+                    panel_uuids,
+                    await asyncio.gather(*(lookup(uuid) for uuid in panel_uuids)),
+                    strict=True,
+                )
             )
+            if panel_uuids
+            else {}
         )
         user_ids: list[int] = []
-        for user_id, panel_uuids in panel_uuids_by_user.items():
-            statuses = [statuses_by_uuid.get(panel_uuid, "unknown") for panel_uuid in panel_uuids]
+        for user_id, entries in panel_uuids_by_user.items():
+            statuses = [
+                "connected"
+                if last_connected_at is not None
+                else statuses_by_uuid.get(panel_uuid, "unknown")
+                for panel_uuid, last_connected_at in entries
+            ]
             if statuses and all(status == "never" for status in statuses):
                 user_ids.append(user_id)
         return user_ids

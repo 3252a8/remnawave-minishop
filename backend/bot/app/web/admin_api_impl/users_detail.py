@@ -18,6 +18,11 @@ from bot.app.web.context import (
     get_session_factory,
     get_settings,
 )
+from bot.services.panel_activity import (
+    _panel_user_connection_activity,
+    connection_activity_from_snapshot,
+    record_subscription_panel_activity,
+)
 from bot.services.referral_service import ReferralService
 from bot.utils.install_links import ensure_user_install_guide_share_url
 from bot.utils.traffic_reset import panel_traffic_limit_strategy
@@ -32,7 +37,6 @@ from .common import (
     _decorate_admin_subscription_traffic_strategy,
     _error,
     _ok,
-    _panel_user_connection_activity,
     _serialize_payment,
     _serialize_subscription,
 )
@@ -617,6 +621,12 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
     subscription_url: str | None = None
     last_vpn_connected_at: str | None = None
     vpn_connection_status = "unknown"
+    if active_sub is not None:
+        snapshot_activity = connection_activity_from_snapshot(
+            getattr(active_sub, "last_connected_at", None)
+        )
+        vpn_connection_status = str(snapshot_activity.get("status") or "unknown")
+        last_vpn_connected_at = snapshot_activity.get("last_connected_at")
     traffic_limit_strategy: str | None = None
     panel_strategy_available = False
     panel_data: dict[str, Any] | None = None
@@ -636,9 +646,22 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
                 if panel_data:
                     subscription_url = panel_data.get("subscriptionUrl") or None
                     vpn_activity = _panel_user_connection_activity(panel_data)
-                    vpn_connection_status = str(vpn_activity.get("status") or "unknown")
-                    last_vpn_connected_at = vpn_activity.get("last_connected_at")
+                    live_connected_at = vpn_activity.get("last_connected_at")
+                    if live_connected_at:
+                        last_vpn_connected_at = live_connected_at
+                        vpn_connection_status = str(vpn_activity.get("status") or "connected")
+                    elif last_vpn_connected_at:
+                        vpn_connection_status = "connected"
+                    else:
+                        vpn_connection_status = str(vpn_activity.get("status") or "unknown")
                     if active_sub is not None:
+                        async with async_session_factory() as session:
+                            await record_subscription_panel_activity(
+                                session,
+                                active_sub,
+                                panel_data,
+                            )
+                            await session.commit()
                         traffic_limit_strategy = panel_traffic_limit_strategy(
                             panel_data,
                             _admin_subscription_traffic_strategy_fallback(settings, active_sub),

@@ -671,6 +671,15 @@ def _migration_0043_add_user_panel_squad_overrides(connection: Connection) -> No
         connection.execute(text(stmt))
 
 
+def _migration_0044_add_subscription_last_connected_at(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+    if "last_connected_at" not in columns:
+        connection.execute(
+            text("ALTER TABLE subscriptions ADD COLUMN last_connected_at TIMESTAMPTZ")
+        )
+
+
 CHAIN_0022_0041: list[Migration] = [
     Migration(
         id="0022_add_indexes_for_admin_reports",
@@ -781,5 +790,10 @@ CHAIN_0022_0041: list[Migration] = [
         id="0043_add_user_panel_squad_overrides",
         description="Persist manual Remnawave squad overrides per panel user",
         upgrade=_migration_0043_add_user_panel_squad_overrides,
+    ),
+    Migration(
+        id="0044_add_subscription_last_connected_at",
+        description="Snapshot the latest panel connection time on subscriptions",
+        upgrade=_migration_0044_add_subscription_last_connected_at,
     ),
 ]

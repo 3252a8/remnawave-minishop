@@ -1,12 +1,13 @@
 import logging
 from collections import Counter
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 
 from sqlalchemy import or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
+from bot.services.panel_activity import panel_user_last_connected_datetime
 from bot.services.panel_api_service import PanelApiService
 from config.settings import Settings
 from db.advisory_locks import acquire_subscription_background_sync_lock
@@ -40,6 +41,25 @@ from .sync_admin_identity import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _snapshot_is_newer(current_value: datetime | None, next_value: datetime) -> bool:
+    if current_value is None:
+        return True
+    current = current_value.replace(tzinfo=UTC) if current_value.tzinfo is None else current_value
+    next_connected = next_value.replace(tzinfo=UTC) if next_value.tzinfo is None else next_value
+    return current.astimezone(UTC) < next_connected.astimezone(UTC)
+
+
+def _include_last_connected_snapshot(
+    payload: dict[str, Any],
+    subscription: Subscription | None,
+    connected_at: datetime | None,
+) -> None:
+    if connected_at is None:
+        return
+    if subscription is None or _snapshot_is_newer(subscription.last_connected_at, connected_at):
+        payload["last_connected_at"] = connected_at
 
 
 async def perform_sync(
@@ -558,6 +578,7 @@ async def _perform_sync_impl(
                 # Sync subscription data
                 panel_expire_at_iso = panel_user_dict.get("expireAt")
                 panel_status = panel_user_dict.get("status", "UNKNOWN")
+                panel_last_connected_at = panel_user_last_connected_datetime(panel_user_dict)
 
                 if panel_expire_at_iso:
                     try:
@@ -603,6 +624,11 @@ async def _perform_sync_impl(
                                     "is_active": panel_status == "ACTIVE",
                                     "status_from_panel": panel_status,
                                 }
+                                _include_last_connected_snapshot(
+                                    update_payload,
+                                    existing_sub_by_uuid,
+                                    panel_last_connected_at,
+                                )
                                 update_delta = _subscription_update_delta(
                                     existing_sub_by_uuid, update_payload
                                 )
@@ -640,6 +666,11 @@ async def _perform_sync_impl(
                                     "traffic_limit_bytes": settings.user_traffic_limit_bytes,
                                     "auto_renew_enabled": False,
                                 }
+                                _include_last_connected_snapshot(
+                                    sub_payload,
+                                    None,
+                                    panel_last_connected_at,
+                                )
                                 created_sub = await subscription_dal.upsert_subscription(
                                     session, sub_payload
                                 )
@@ -673,6 +704,11 @@ async def _perform_sync_impl(
                                     "is_active": panel_status == "ACTIVE",
                                     "status_from_panel": panel_status,
                                 }
+                                _include_last_connected_snapshot(
+                                    update_payload,
+                                    active_sub,
+                                    panel_last_connected_at,
+                                )
                                 update_delta = _subscription_update_delta(
                                     active_sub, update_payload
                                 )

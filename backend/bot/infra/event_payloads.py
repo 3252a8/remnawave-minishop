@@ -121,6 +121,24 @@ class TrialActivatedPayload(EventPayload):
     traffic_gb: float | None = None
 
 
+class PlansViewedPayload(EventPayload):
+    EVENT_NAME: ClassVar[str] = "plans.viewed"
+
+    user_id: int
+    source: Literal["webapp", "bot"]
+    plans_count: int
+    tariff_key: str | None = None
+
+
+class BotStartedPayload(EventPayload):
+    EVENT_NAME: ClassVar[str] = "bot.started"
+
+    user_id: int
+    returning: bool
+    source: Literal["direct", "referral", "promo", "ad", "ticket", "notifications"]
+    start_param: str | None = None
+
+
 class UserRegisteredPayload(EventPayload):
     EVENT_NAME: ClassVar[str] = "user.registered"
 

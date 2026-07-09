@@ -22,6 +22,7 @@ from .contract_schemas import (
 from .payloads import (
     WebAppAutoRenewPayload,
     WebAppPaymentCreatePayload,
+    WebAppPlansViewedPayload,
     WebAppPromoQuotePayload,
     WebAppTariffChangePayload,
 )
@@ -50,6 +51,10 @@ PROMO_QUOTE_RESPONSE_SCHEMA = ok_envelope_with(
 )
 
 BILLING_ROUTE_CONTRACTS: dict[str, RouteContract] = {
+    "plans_viewed_route": user_contract(
+        request_model=WebAppPlansViewedPayload,
+        response_schema=ok_envelope_with({}),
+    ),
     "subscription_auto_renew_route": user_contract(
         request_model=WebAppAutoRenewPayload,
         response_schema=ok_envelope_with(

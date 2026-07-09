@@ -26,6 +26,7 @@ class FakeSession:
     def __init__(self):
         self.execute = AsyncMock(side_effect=[FakeResult([]), FakeResult([]), FakeResult([])])
         self.committed = False
+        self.objects = {}
 
     async def __aenter__(self):
         return self
@@ -38,6 +39,9 @@ class FakeSession:
 
     async def rollback(self):
         pass
+
+    async def get(self, model, key):
+        return self.objects.get(key)
 
 
 def _active_subscription(panel_user_uuid="panel-from-sub"):
@@ -52,6 +56,7 @@ def _active_subscription(panel_user_uuid="panel-from-sub"):
         status_from_panel="ACTIVE",
         traffic_limit_bytes=100,
         traffic_used_bytes=0,
+        last_connected_at=None,
         tier_baseline_bytes=0,
         topup_balance_bytes=0,
         premium_used_bytes=0,
@@ -111,6 +116,7 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
                         (3, "missing-panel"),
                         (4, "also-never-panel"),
                         (4, "also-connected-panel"),
+                        (5, "snapshot-connected-panel", datetime(2026, 6, 6, tzinfo=UTC)),
                     ]
                 )
             )
@@ -176,6 +182,7 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
             trial_eligibility_reset_at=None,
         )
         active_sub = _active_subscription("panel-from-sub")
+        session.objects[active_sub.subscription_id] = active_sub
         panel_service = SimpleNamespace(
             get_user_by_uuid=AsyncMock(
                 return_value={
@@ -238,6 +245,7 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["install_share_url"], "https://app.example/s/share")
         self.assertEqual(payload["vpn_connection_status"], "connected")
         self.assertEqual(payload["last_vpn_connected_at"], "2026-06-05T12:00:00+00:00")
+        self.assertEqual(active_sub.last_connected_at, datetime(2026, 6, 5, 12, tzinfo=UTC))
         panel_service.get_user_by_uuid.assert_awaited_once_with("panel-from-sub")
         install_links.assert_awaited_once()
         self.assertIs(install_links.await_args.kwargs["local_subscription"], active_sub)

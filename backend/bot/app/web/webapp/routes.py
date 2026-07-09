@@ -60,6 +60,7 @@ from .billing import (
     create_payment_route,
     device_topup_options_route,
     payment_status_route,
+    plans_viewed_route,
     quote_promo_route,
     subscription_auto_renew_route,
     tariff_change_options_route,
@@ -196,6 +197,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/referral/welcome-bonus/claim", referral_welcome_bonus_claim_route)
     app.router.add_post("/api/promo/apply", apply_promo_route)
     app.router.add_post("/api/promo/status", promo_status_route)
+    app.router.add_post("/api/plans/viewed", plans_viewed_route)
     app.router.add_post("/api/trial/activate", activate_trial_route)
     app.router.add_post("/api/subscription/auto-renew", subscription_auto_renew_route)
     app.router.add_post("/api/subscription/quote-promo", quote_promo_route)

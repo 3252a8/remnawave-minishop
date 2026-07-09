@@ -1305,6 +1305,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/plans/viewed": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Plans Viewed */
+    post: operations["post_plans_viewed_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/promo/apply": {
     parameters: {
       query?: never;
@@ -4616,6 +4633,19 @@ export interface components {
        */
       traffic_gb: unknown;
     };
+    /** WebAppPlansViewedPayload */
+    WebAppPlansViewedPayload: {
+      /**
+       * Plans Count
+       * @default 0
+       */
+      plans_count: number;
+      /**
+       * Tariff Key
+       * @default null
+       */
+      tariff_key: string | null;
+    };
     /** WebAppPromoApplyPayload */
     WebAppPromoApplyPayload: {
       /**
@@ -7585,6 +7615,33 @@ export interface operations {
             payment_id?: number;
             payment_url?: string | null;
             status?: string;
+          };
+        };
+      };
+    };
+  };
+  post_plans_viewed_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPlansViewedPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
           };
         };
       };

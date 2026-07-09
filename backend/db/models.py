@@ -163,6 +163,7 @@ class Subscription(Base):
     status_from_panel = Column(String, nullable=True)
     traffic_limit_bytes = Column(BigInteger, nullable=True)
     traffic_used_bytes = Column(BigInteger, nullable=True)
+    last_connected_at = Column(DateTime(timezone=True), nullable=True)
     last_notification_sent = Column(DateTime(timezone=True), nullable=True)
     provider = Column(String, nullable=True)
     skip_notifications = Column(Boolean, default=False)

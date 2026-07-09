@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.panel_activity import record_subscription_panel_activity
 from bot.utils.config_link import prepare_config_links
 from bot.utils.traffic_reset import next_traffic_reset_after, traffic_accounting_period_start
 from config.tariffs_config import default_currency_key_for_settings
@@ -255,6 +256,8 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 )
                 or {}
             )
+            if panel_user:
+                await record_subscription_panel_activity(session, sub, panel_user)
             current_used, _, _ = self._extract_panel_traffic_details(panel_user)
             cur_used_int = int(current_used or 0)
             update_data.update(

@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.panel_activity import record_subscription_panel_activity
 from bot.utils.config_link import prepare_config_links
 from bot.utils.traffic_reset import (
     next_traffic_reset_after,
@@ -78,6 +79,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             )
 
         if local_active_sub:
+            await record_subscription_panel_activity(session, local_active_sub, panel_user_data)
             update_payload_local = {}
             panel_status = panel_user_data.get("status", "UNKNOWN").upper()
             panel_expire_at_str = panel_user_data.get("expireAt")

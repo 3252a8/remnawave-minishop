@@ -13,8 +13,10 @@ from bot.app.web.webapp.common import (
 )
 from bot.app.web.webapp.payloads import (
     WebAppPaymentCreatePayload,
+    WebAppPlansViewedPayload,
     WebAppTariffChangePayload,
 )
+from bot.services.behavior_events import emit_plans_viewed
 from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
 from config.tariffs_config import (
@@ -35,6 +37,20 @@ from .serializers import (
     _serialize_topup_packages,
     _traffic_percent,
 )
+
+
+async def plans_viewed_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    settings: Settings = get_settings(request)
+    payload = await _parse_model_payload(request, WebAppPlansViewedPayload)
+    await emit_plans_viewed(
+        settings,
+        user_id=user_id,
+        source="webapp",
+        plans_count=payload.plans_count,
+        tariff_key=payload.tariff_key,
+    )
+    return json_response({"ok": True})
 
 
 async def tariff_topup_options_route(request: web.Request) -> web.Response:
@@ -87,6 +103,14 @@ async def tariff_topup_options_route(request: web.Request) -> web.Response:
             + premium_bonus_bytes
         )
         premium_access = await get_subscription_service(request).premium_access_for_tariff(tariff)
+        all_plans = plans + premium_plans
+        await emit_plans_viewed(
+            settings,
+            user_id=user_id,
+            source="webapp",
+            plans_count=len(all_plans),
+            tariff_key=tariff.key,
+        )
         return json_response(
             {
                 "ok": True,
@@ -114,7 +138,7 @@ async def tariff_topup_options_route(request: web.Request) -> web.Response:
                 "premium_squad_labels": premium_access.get("squad_labels") or [],
                 "premium_node_labels": premium_access.get("node_labels") or [],
                 "warning_levels": settings.tariff_traffic_warning_levels,
-                "plans": plans + premium_plans,
+                "plans": all_plans,
             }
         )
 
@@ -149,6 +173,13 @@ async def tariff_change_options_route(request: web.Request) -> web.Response:
                 session, sub, tariff
             )
             targets.append(_serialize_tariff_change_target(settings, config, tariff, options, lang))
+        await emit_plans_viewed(
+            settings,
+            user_id=user_id,
+            source="webapp",
+            plans_count=len(targets),
+            tariff_key=current.key,
+        )
         return json_response(
             {
                 "ok": True,
@@ -335,6 +366,13 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
             if stars_quote and int(stars_quote.get("price") or 0) > 0:
                 plan["stars_price"] = int(stars_quote["price"])
             plans.append(plan)
+        await emit_plans_viewed(
+            settings,
+            user_id=user_id,
+            source="webapp",
+            plans_count=len(plans),
+            tariff_key=tariff.key,
+        )
         return json_response(
             {
                 "ok": True,

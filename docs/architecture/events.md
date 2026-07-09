@@ -62,6 +62,21 @@ Core reactions: `CoreEventReactions.on_account_telegram_linked`
 | `username` | `str | None` | `None` |
 | `first_name` | `str | None` | `None` |
 
+## `bot.started`
+
+Payload model: `BotStartedPayload`
+
+Emitters: `backend/bot/services/behavior_events.py`
+
+Core reactions: none
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `user_id` | `int` | required |
+| `returning` | `bool` | required |
+| `source` | `'direct' | 'referral' | 'promo' | 'ad' | 'ticket' | 'notifications'` | required |
+| `start_param` | `str | None` | `None` |
+
 ## `panel.webhook_received`
 
 Payload model: `PanelWebhookReceivedPayload`
@@ -119,6 +134,21 @@ Core reactions: `CoreEventReactions.on_payment_succeeded`
 | `discount_amount` | `float | None` | `None` |
 | `end_date` | `datetime | None` | `None` |
 | `is_auto_renew` | `bool` | required |
+
+## `plans.viewed`
+
+Payload model: `PlansViewedPayload`
+
+Emitters: `backend/bot/app/web/webapp/billing_contracts.py`, `backend/bot/app/web/webapp/billing_options.py`, `backend/bot/app/web/webapp/payloads.py`, `backend/bot/services/behavior_events.py`
+
+Core reactions: none
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `user_id` | `int` | required |
+| `source` | `'webapp' | 'bot'` | required |
+| `plans_count` | `int` | required |
+| `tariff_key` | `str | None` | `None` |
 
 ## `promo_code.applied`
 

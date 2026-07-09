@@ -6833,6 +6833,30 @@
         "title": "WebAppPaymentCreatePayload",
         "type": "object"
       },
+      "WebAppPlansViewedPayload": {
+        "properties": {
+          "plans_count": {
+            "default": 0,
+            "title": "Plans Count",
+            "type": "integer"
+          },
+          "tariff_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tariff Key"
+          }
+        },
+        "title": "WebAppPlansViewedPayload",
+        "type": "object"
+      },
       "WebAppPromoApplyPayload": {
         "properties": {
           "code": {
@@ -13674,6 +13698,55 @@
         "summary": "Payment Status",
         "tags": [
           "payments"
+        ]
+      }
+    },
+    "/api/plans/viewed": {
+      "post": {
+        "operationId": "post_plans_viewed_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppPlansViewedPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Plans Viewed",
+        "tags": [
+          "plans"
         ]
       }
     },
