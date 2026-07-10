@@ -572,6 +572,7 @@ async def tariff_change_apply_callback(
             callback_bot(callback),
         )
     else:
+        await session.rollback()
         await callback.answer("Error", show_alert=True)
 
 

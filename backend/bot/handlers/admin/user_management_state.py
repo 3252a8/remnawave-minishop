@@ -556,6 +556,14 @@ async def process_premium_override_bonus_handler(
         active_sub.premium_unlimited_override = False
         active_sub.premium_bonus_bytes = max(0, bonus_bytes)
 
+        synced = await subscription_service.sync_premium_squad_access_to_panel(
+            session, target_user_id
+        )
+        if not synced:
+            await session.rollback()
+            await message.answer(_("admin_premium_override_save_error"))
+            return
+
         await message_log_dal.create_message_log_no_commit(
             session,
             {
@@ -568,10 +576,6 @@ async def process_premium_override_bonus_handler(
             },
         )
         await session.commit()
-
-        await subscription_service.sync_premium_squad_access_to_panel(session, target_user_id)
-        await session.commit()
-
         await message.answer(
             _("admin_premium_override_bonus_set", gb=f"{gb:.2f}", user_id=target_user_id)
         )
@@ -662,6 +666,10 @@ async def process_hwid_device_limit_handler(
         effective_limit = await subscription_service.sync_hwid_device_limit_to_panel(
             session, target_user_id
         )
+        if effective_limit is None:
+            await session.rollback()
+            await message.answer(_("admin_hwid_limit_save_error"))
+            return
         await message_log_dal.create_message_log_no_commit(
             session,
             {

@@ -119,6 +119,14 @@ async def handle_premium_override_apply(
         if unlimited:
             active_sub.premium_is_limited = False
 
+        synced = await subscription_service.sync_premium_squad_access_to_panel(
+            session, user.user_id
+        )
+        if not synced:
+            await session.rollback()
+            await callback.answer(_("admin_premium_override_save_error"), show_alert=True)
+            return
+
         await message_log_dal.create_message_log_no_commit(
             session,
             {
@@ -131,10 +139,6 @@ async def handle_premium_override_apply(
             },
         )
         await session.commit()
-
-        await subscription_service.sync_premium_squad_access_to_panel(session, user.user_id)
-        await session.commit()
-
         await callback.answer(_("admin_premium_override_saved"), show_alert=False)
         await handle_refresh_user_card(
             callback, user, subscription_service, session, settings, i18n_instance, lang
@@ -274,6 +278,10 @@ async def handle_hwid_limit_apply(
         effective_limit = await subscription_service.sync_hwid_device_limit_to_panel(
             session, user.user_id
         )
+        if effective_limit is None:
+            await session.rollback()
+            await callback.answer(_("admin_hwid_limit_save_error"), show_alert=True)
+            return
         await message_log_dal.create_message_log_no_commit(
             session,
             {

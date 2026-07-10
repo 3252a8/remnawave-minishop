@@ -281,6 +281,66 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
             panel_payload = panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(panel_payload["trafficLimitBytes"], 155 * (1024**3))
 
+    async def test_regular_grant_returns_none_and_skips_audit_when_panel_update_fails(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(), tmpdir)
+            panel_service = AsyncMock(spec=PanelApiService)
+            panel_service.update_user_details_on_panel = AsyncMock(return_value=None)
+            service = SubscriptionService(settings, panel_service)
+
+            db_user = SimpleNamespace(
+                user_id=42,
+                first_name="Tester",
+                last_name=None,
+                username="tester",
+                language_code="ru",
+                panel_user_uuid="panel-uuid",
+                email=None,
+                telegram_id=42,
+            )
+            sub = SimpleNamespace(
+                subscription_id=7,
+                user_id=42,
+                panel_user_uuid="panel-uuid",
+                end_date=datetime.now(UTC) + timedelta(days=10),
+                tariff_key="standard",
+                tier_baseline_bytes=100 * (1024**3),
+                topup_balance_bytes=5 * (1024**3),
+                traffic_limit_bytes=105 * (1024**3),
+                is_throttled=True,
+                hwid_device_limit=3,
+                extra_hwid_devices=0,
+                premium_is_limited=False,
+            )
+            updated_sub = SimpleNamespace(**vars(sub))
+            updated_sub.topup_balance_bytes = 55 * (1024**3)
+            updated_sub.traffic_limit_bytes = 155 * (1024**3)
+            updated_sub.is_throttled = False
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl._runtime.user_dal.get_user_by_id",
+                    new=AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.get_active_subscription_by_user_id",
+                    new=AsyncMock(return_value=sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.update_subscription",
+                    new=AsyncMock(return_value=updated_sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl._runtime.tariff_dal.create_traffic_topup",
+                    new=AsyncMock(),
+                ) as topup_log,
+            ):
+                result = await service.admin_grant_topup(AsyncMock(), 42, 50.0)
+
+            self.assertIsNone(result)
+            topup_log.assert_not_awaited()
+            panel_service.update_user_details_on_panel.assert_awaited_once()
+
     async def test_regular_grant_rejects_zero(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(_tariffs_config_payload(), tmpdir)
@@ -562,6 +622,64 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result["premium_topup_balance_bytes"], 15 * (1024**3))
             sub_update_payload = upd.await_args.args[2]
             self.assertEqual(sub_update_payload["premium_period_start_at"], period_start)
+
+    async def test_premium_grant_returns_none_and_skips_audit_when_panel_sync_fails(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(_tariffs_config_payload(premium=True), tmpdir)
+            service = SubscriptionService(settings, AsyncMock(spec=PanelApiService))
+            service._sync_panel_squads_if_needed = AsyncMock(return_value=False)
+
+            db_user = SimpleNamespace(
+                user_id=77,
+                first_name="Premium",
+                last_name=None,
+                username="premium",
+                language_code="ru",
+                panel_user_uuid="panel-uuid",
+                email=None,
+                telegram_id=77,
+            )
+            sub = SimpleNamespace(
+                subscription_id=9,
+                user_id=77,
+                panel_user_uuid="panel-uuid",
+                tariff_key="standard",
+                premium_baseline_bytes=25 * (1024**3),
+                premium_topup_balance_bytes=0,
+                premium_topup_used_bytes=0,
+                premium_used_bytes=30 * (1024**3),
+                premium_is_limited=True,
+                premium_period_start_at=datetime.now(UTC).replace(
+                    day=1, hour=0, minute=0, second=0, microsecond=0
+                ),
+                premium_unlimited_override=False,
+                premium_bonus_bytes=0,
+            )
+            updated_sub = SimpleNamespace(**vars(sub))
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl._runtime.user_dal.get_user_by_id",
+                    new=AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.get_active_subscription_by_user_id",
+                    new=AsyncMock(return_value=sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl._runtime.subscription_dal.update_subscription",
+                    new=AsyncMock(return_value=updated_sub),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl._runtime.tariff_dal.create_traffic_topup",
+                    new=AsyncMock(),
+                ) as topup_log,
+            ):
+                result = await service.admin_grant_premium_topup(AsyncMock(), 77, 20.0)
+
+            self.assertIsNone(result)
+            topup_log.assert_not_awaited()
+            service._sync_panel_squads_if_needed.assert_awaited_once()
 
     async def test_premium_grant_skips_panel_patch_when_squads_already_match(self):
         with tempfile.TemporaryDirectory() as tmpdir:

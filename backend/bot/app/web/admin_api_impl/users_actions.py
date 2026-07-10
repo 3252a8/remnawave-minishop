@@ -396,7 +396,15 @@ async def admin_user_premium_override_route(request: web.Request) -> web.Respons
         if active.premium_unlimited_override:
             active.premium_is_limited = False
 
-        await message_log_dal.create_message_log(
+        if subscription_service is not None:
+            synced = await subscription_service.sync_premium_squad_access_to_panel(
+                session, target_id
+            )
+            if not synced:
+                await session.rollback()
+                return _error(502, "panel_update_failed", "Unable to update Remnawave panel user")
+
+        await message_log_dal.create_message_log_no_commit(
             session,
             {
                 "user_id": actor_id,
@@ -408,11 +416,6 @@ async def admin_user_premium_override_route(request: web.Request) -> web.Respons
         )
         await session.commit()
         await session.refresh(active)
-
-        if subscription_service is not None:
-            await subscription_service.sync_premium_squad_access_to_panel(session, target_id)
-            await session.commit()
-            await session.refresh(active)
 
     await _invalidate_after_admin_user_mutation(settings, target_id)
     return _ok({"subscription": _serialize_subscription(active)})
@@ -456,9 +459,12 @@ async def admin_user_regular_traffic_override_route(request: web.Request) -> web
         active.regular_bonus_bytes = int(regular_bonus_bytes)
 
         if subscription_service is not None:
-            await subscription_service.sync_main_traffic_limit_to_panel(session, target_id)
+            synced = await subscription_service.sync_main_traffic_limit_to_panel(session, target_id)
+            if not synced:
+                await session.rollback()
+                return _error(502, "panel_update_failed", "Unable to update Remnawave panel user")
 
-        await message_log_dal.create_message_log(
+        await message_log_dal.create_message_log_no_commit(
             session,
             {
                 "user_id": actor_id,
@@ -637,8 +643,11 @@ async def admin_user_hwid_device_limit_route(request: web.Request) -> web.Respon
             effective_limit = await subscription_service.sync_hwid_device_limit_to_panel(
                 session, target_id
             )
+            if effective_limit is None:
+                await session.rollback()
+                return _error(502, "panel_update_failed", "Unable to update Remnawave panel user")
 
-        await message_log_dal.create_message_log(
+        await message_log_dal.create_message_log_no_commit(
             session,
             {
                 "user_id": actor_id,

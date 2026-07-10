@@ -419,6 +419,55 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
             self.assertEqual(panel_payload["activeInternalSquads"], ["main-squad", "premium-squad"])
 
+    async def test_activate_trial_panel_exception_rolls_back_without_commit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                _tariffs_config_payload(),
+                tmpdir,
+                TRIAL_ENABLED=True,
+                TRIAL_DURATION_DAYS=3,
+                TRIAL_TRAFFIC_LIMIT_GB=5,
+                TRIAL_SQUAD_UUIDS="trial-squad",
+            )
+            service = _make_service(settings)
+            service.has_trial_blocking_subscription = AsyncMock(return_value=False)
+            service._get_or_create_panel_user_link_details = AsyncMock(
+                return_value=("panel-user", "panel-sub", "short", True)
+            )
+            service.panel_service.update_user_details_on_panel = AsyncMock(
+                side_effect=RuntimeError("panel down")
+            )
+            session = AsyncMock()
+            db_user = SimpleNamespace(
+                user_id=42,
+                telegram_id=42,
+                email=None,
+                username="trial-user",
+                first_name="Trial",
+                last_name="User",
+            )
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.trial.user_dal.get_user_by_id",
+                    AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.trial.subscription_dal.deactivate_other_active_subscriptions",
+                    AsyncMock(),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.trial.subscription_dal.upsert_subscription",
+                    AsyncMock(),
+                ),
+            ):
+                result = await service.activate_trial_subscription(session, user_id=42)
+
+            self.assertFalse(result["activated"])
+            self.assertEqual(result["message_key"], "trial_activation_failed_panel_update")
+            session.rollback.assert_awaited_once()
+            session.commit.assert_not_awaited()
+
     async def test_activate_trial_falls_back_to_default_user_squads(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = _make_settings(

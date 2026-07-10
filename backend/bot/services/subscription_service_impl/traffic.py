@@ -265,7 +265,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         self,
         session: AsyncSession,
         user_id: int,
-    ) -> None:
+    ) -> bool:
         """Recompute premium quota flags from DB and push internal squads to Remnawave.
 
         Used when admin overrides change without going through the traffic worker
@@ -273,15 +273,15 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         """
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or not db_user.panel_user_uuid:
-            return
+            return False
         sub = await subscription_dal.get_active_subscription_by_user_id(
             session, user_id, db_user.panel_user_uuid
         )
         if not sub:
-            return
+            return False
         tariff = self._resolve_tariff(sub.tariff_key) if sub.tariff_key else None
         if not tariff or not getattr(tariff, "premium_squad_uuids", None):
-            return
+            return False
 
         premium_baseline = int(tariff.premium_monthly_bytes or sub.premium_baseline_bytes or 0)
         premium_bonus = max(0, int(getattr(sub, "premium_bonus_bytes", 0) or 0))
@@ -320,25 +320,28 @@ class TrafficMixin(SubscriptionServiceMixinContract):
                     "sync_premium_squad_access_to_panel: panel update failed for user %s",
                     user_id,
                 )
+                return False
         except Exception:
             logger.exception(
                 "sync_premium_squad_access_to_panel: failed to push squads for user %s", user_id
             )
+            return False
+        return True
 
     async def sync_main_traffic_limit_to_panel(
         self,
         session: AsyncSession,
         user_id: int,
-    ) -> None:
+    ) -> bool:
         """Recompute main traffic limit from tier + topups + regular_bonus_bytes and push to panel."""  # noqa: E501
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or not db_user.panel_user_uuid:
-            return
+            return False
         sub = await subscription_dal.get_active_subscription_by_user_id(
             session, user_id, db_user.panel_user_uuid
         )
         if not sub:
-            return
+            return False
         tariff = self._resolve_tariff(sub.tariff_key) if sub.tariff_key else None
         baseline = int(sub.tier_baseline_bytes or (tariff.monthly_bytes if tariff else 0) or 0)
         rb = int(getattr(sub, "regular_bonus_bytes", 0) or 0)
@@ -383,8 +386,17 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
         try:
-            await self.panel_service.update_user_details_on_panel(
+            updated_panel = await self.panel_service.update_user_details_on_panel(
                 db_user.panel_user_uuid, panel_payload
             )
         except Exception:
             logger.exception("sync_main_traffic_limit_to_panel failed for user %s", user_id)
+            return False
+        if not updated_panel or (isinstance(updated_panel, dict) and updated_panel.get("error")):
+            logger.warning(
+                "sync_main_traffic_limit_to_panel panel update failed for user %s. Response: %s",
+                user_id,
+                updated_panel,
+            )
+            return False
+        return True
