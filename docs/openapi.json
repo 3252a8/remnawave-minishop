@@ -502,6 +502,13 @@
       },
       "AdminBroadcastPreviewBody": {
         "properties": {
+          "buttons": {
+            "items": {
+              "$ref": "#/components/schemas/AdminBroadcastButtonBody"
+            },
+            "title": "Buttons",
+            "type": "array"
+          },
           "email_subject": {
             "default": "",
             "title": "Email Subject"

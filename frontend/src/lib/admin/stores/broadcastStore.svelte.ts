@@ -98,6 +98,15 @@ function buttonDraftValid(button: BroadcastButtonDraft): boolean {
   return /^[A-Za-z0-9_-]{1,58}$/.test(button.promoCode.trim());
 }
 
+function buttonsForPayload(buttons: BroadcastButtonDraft[]) {
+  return buttons.map((button) => ({
+    kind: button.kind,
+    label: button.label.trim(),
+    url: button.kind === "url" ? button.url.trim() : "",
+    promo_code: button.kind === "url" ? "" : button.promoCode.trim(),
+  }));
+}
+
 type PromoListItem = components["schemas"]["PromoOut"];
 type PromosListResponse = GetResponse<"/api/admin/promos">;
 
@@ -339,12 +348,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
         text,
         channels,
         email_subject: emailSubject.trim(),
-        buttons: buttons.map((button) => ({
-          kind: button.kind,
-          label: button.label.trim(),
-          url: button.kind === "url" ? button.url.trim() : "",
-          promo_code: button.kind === "url" ? "" : button.promoCode.trim(),
-        })),
+        buttons: buttonsForPayload(buttons),
       } satisfies PostPayload<"/api/admin/broadcast">;
       const res = await api(buildAdminBroadcastPath(), {
         method: "POST",
@@ -426,11 +430,13 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
     }
     updateState((s) => ({ ...s, broadcastPreviewBusy: true }));
     try {
+      const buttons = snapshotForPayload(state.broadcastButtons);
       const body = {
         text,
         email_subject: state.broadcastEmailSubject.trim(),
         user_id: userId,
         mode,
+        buttons: buttonsForPayload(buttons),
       } satisfies PostPayload<"/api/admin/broadcast/preview">;
       const res = await api(buildAdminBroadcastPreviewPath(), {
         method: "POST",

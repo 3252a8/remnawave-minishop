@@ -521,6 +521,49 @@ class BroadcastEndpointsTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["unknown_shortcodes"], [])
         self.assertFalse(payload["sent"])
 
+    async def test_preview_send_mode_includes_broadcast_buttons(self):
+        request = _request(
+            {
+                "text": "Hi!",
+                "mode": "send_telegram",
+                "buttons": [
+                    {
+                        "kind": "url",
+                        "label": "Open",
+                        "url": "https://example.com",
+                        "promo_code": "",
+                    }
+                ],
+            },
+            admin_telegram_id=123456789,
+        )
+        queue = _FakeQueue()
+        with (
+            patch.object(broadcast_shortcodes_module, "_require_admin_user_id", return_value=999),
+            patch.object(broadcast_shortcodes_module, "get_queue_manager", return_value=queue),
+            patch.object(
+                broadcast_shortcodes_module.user_dal,
+                "get_user_by_id",
+                AsyncMock(return_value=SimpleNamespace(language_code="en")),
+            ),
+            patch.object(
+                broadcast_shortcodes_module.message_log_dal,
+                "create_message_log",
+                AsyncMock(),
+            ),
+        ):
+            response = await broadcast_shortcodes_module.admin_broadcast_preview_route(
+                cast(Any, request)
+            )
+        import json
+
+        payload = json.loads(response.body)
+        self.assertTrue(payload["ok"])
+        self.assertTrue(payload["sent"])
+        markup = queue.messages[0]["reply_markup"]
+        self.assertEqual(markup.inline_keyboard[0][0].text, "Open")
+        self.assertEqual(markup.inline_keyboard[0][0].url, "https://example.com")
+
 
 if __name__ == "__main__":
     unittest.main()

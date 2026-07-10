@@ -326,6 +326,7 @@ class AdminBroadcastPreviewBody(HttpBodyModel):
     email_subject: Any = ""
     user_id: int | None = None
     mode: str = "render"
+    buttons: list[AdminBroadcastButtonBody] = Field(default_factory=list)
 
     @field_validator("text", "email_subject", mode="before")
     @classmethod
