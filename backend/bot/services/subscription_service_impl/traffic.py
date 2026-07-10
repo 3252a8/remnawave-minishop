@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra.grants import GrantContext, resolve_effective_grant
+from bot.services.panel_activity import record_subscription_panel_activity
 from bot.services.payment_promo import consume_payment_promo, load_payment_promo_effects
 from config.tariffs_config import Tariff
 from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
@@ -113,20 +114,36 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         active_sub = await subscription_dal.get_active_subscription_by_user_id(
             session, user_id, panel_user_uuid
         )
+        if active_sub and panel_user_data:
+            await record_subscription_panel_activity(session, active_sub, panel_user_data)
         if current_limit is None and active_sub:
             current_limit = active_sub.traffic_limit_bytes
         if current_used is None and active_sub:
             current_used = active_sub.traffic_used_bytes
 
         purchase_bytes = self.gb_to_bytes(granted_gb)
+        carryover_balance = self._traffic_package_carryover_bytes(
+            active_sub,
+            limit_bytes=current_limit,
+            used_bytes=current_used,
+        )
+        current_billing_model = self._subscription_billing_model(active_sub)
+        if current_billing_model != "traffic":
+            carryover_balance += self._nonnegative_bytes(
+                getattr(active_sub, "regular_bonus_bytes", 0)
+            )
+        regular_unlimited_override = bool(getattr(active_sub, "regular_unlimited_override", False))
         extra_hwid_devices = (
             await self._active_hwid_extra_devices_for_sub(session, active_sub) if active_sub else 0
         )
         base_hwid_limit = self._base_hwid_limit_for_tariff(tariff)
         effective_hwid_limit = self._effective_hwid_limit(base_hwid_limit, extra_hwid_devices)
-        remaining_bytes = max(0, int(current_limit or 0) - int(current_used or 0))
-        new_balance = remaining_bytes + purchase_bytes
-        new_limit = int(current_used or 0) + new_balance
+        new_balance = carryover_balance + purchase_bytes
+        new_limit = self._traffic_limit_for_balance(
+            used_bytes=current_used,
+            balance_bytes=new_balance,
+            unlimited_override=regular_unlimited_override,
+        )
 
         start_date = datetime.now(UTC)
         # Set a far-future expiry to satisfy panel requirements; keep the latest known expiry if it's further.  # noqa: E501
@@ -156,6 +173,8 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             "tariff_key": tariff.key if tariff else None,
             "tier_baseline_bytes": 0,
             "topup_balance_bytes": new_balance,
+            "regular_bonus_bytes": 0,
+            "regular_unlimited_override": regular_unlimited_override,
             "premium_baseline_bytes": self._premium_limit_for_tariff(tariff, 0),
             "premium_topup_balance_bytes": 0,
             "premium_topup_used_bytes": 0,
@@ -182,9 +201,19 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             traffic_limit_bytes=new_limit,
             traffic_limit_strategy="NO_RESET",
             hwid_device_limit=effective_hwid_limit,
+            include_default_squads=False,
         )
-        if tariff:
-            panel_update_payload["activeInternalSquads"] = self._panel_squads_for_tariff(tariff)
+        managed_squads = self._panel_squads_for_tariff(tariff)
+        panel_update_payload.update(
+            await self.build_effective_panel_squad_fields(
+                session,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                managed_internal_squads=managed_squads,
+                include_internal_squads=bool(tariff or managed_squads),
+                source="traffic_package",
+            )
+        )
 
         panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
 
@@ -236,7 +265,7 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         self,
         session: AsyncSession,
         user_id: int,
-    ) -> None:
+    ) -> bool:
         """Recompute premium quota flags from DB and push internal squads to Remnawave.
 
         Used when admin overrides change without going through the traffic worker
@@ -244,15 +273,15 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         """
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or not db_user.panel_user_uuid:
-            return
+            return False
         sub = await subscription_dal.get_active_subscription_by_user_id(
             session, user_id, db_user.panel_user_uuid
         )
         if not sub:
-            return
+            return False
         tariff = self._resolve_tariff(sub.tariff_key) if sub.tariff_key else None
         if not tariff or not getattr(tariff, "premium_squad_uuids", None):
-            return
+            return False
 
         premium_baseline = int(tariff.premium_monthly_bytes or sub.premium_baseline_bytes or 0)
         premium_bonus = max(0, int(getattr(sub, "premium_bonus_bytes", 0) or 0))
@@ -284,31 +313,35 @@ class TrafficMixin(SubscriptionServiceMixinContract):
                 squads,
                 user_id=user_id,
                 source="admin_premium_override",
+                session=session,
             )
             if not panel_updated:
                 logger.warning(
                     "sync_premium_squad_access_to_panel: panel update failed for user %s",
                     user_id,
                 )
+                return False
         except Exception:
             logger.exception(
                 "sync_premium_squad_access_to_panel: failed to push squads for user %s", user_id
             )
+            return False
+        return True
 
     async def sync_main_traffic_limit_to_panel(
         self,
         session: AsyncSession,
         user_id: int,
-    ) -> None:
+    ) -> bool:
         """Recompute main traffic limit from tier + topups + regular_bonus_bytes and push to panel."""  # noqa: E501
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user or not db_user.panel_user_uuid:
-            return
+            return False
         sub = await subscription_dal.get_active_subscription_by_user_id(
             session, user_id, db_user.panel_user_uuid
         )
         if not sub:
-            return
+            return False
         tariff = self._resolve_tariff(sub.tariff_key) if sub.tariff_key else None
         baseline = int(sub.tier_baseline_bytes or (tariff.monthly_bytes if tariff else 0) or 0)
         rb = int(getattr(sub, "regular_bonus_bytes", 0) or 0)
@@ -334,16 +367,36 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             status="ACTIVE",
             traffic_limit_bytes=new_limit,
             hwid_device_limit=effective_hwid_limit,
+            include_default_squads=False,
         )
         if tariff is not None:
-            panel_payload["activeInternalSquads"] = self._panel_squads_for_tariff(
+            managed_squads = self._panel_squads_for_tariff(
                 tariff,
                 include_premium=not bool(getattr(sub, "premium_is_limited", False)),
             )
+            panel_payload.update(
+                await self.build_effective_panel_squad_fields(
+                    session,
+                    user_id=user_id,
+                    panel_user_uuid=db_user.panel_user_uuid,
+                    managed_internal_squads=managed_squads,
+                    include_internal_squads=True,
+                    source="sync_main_traffic_limit",
+                )
+            )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
         try:
-            await self.panel_service.update_user_details_on_panel(
+            updated_panel = await self.panel_service.update_user_details_on_panel(
                 db_user.panel_user_uuid, panel_payload
             )
         except Exception:
             logger.exception("sync_main_traffic_limit_to_panel failed for user %s", user_id)
+            return False
+        if not updated_panel or (isinstance(updated_panel, dict) and updated_panel.get("error")):
+            logger.warning(
+                "sync_main_traffic_limit_to_panel panel update failed for user %s. Response: %s",
+                user_id,
+                updated_panel,
+            )
+            return False
+        return True

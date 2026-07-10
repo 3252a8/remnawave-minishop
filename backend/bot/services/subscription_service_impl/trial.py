@@ -105,18 +105,34 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
             include_default_squads=False,
         )
         trial_squads = self._trial_all_panel_squad_uuids()
-        if trial_squads:
-            panel_update_payload["activeInternalSquads"] = trial_squads
-        if self.settings.parsed_user_external_squad_uuid:
-            panel_update_payload["externalSquadUuid"] = (
-                self.settings.parsed_user_external_squad_uuid
+        panel_update_payload.update(
+            await self.build_effective_panel_squad_fields(
+                session,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                managed_internal_squads=trial_squads,
+                include_internal_squads=bool(trial_squads),
+                source="trial_activation",
             )
-
+        )
         panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
 
-        updated_panel_user = await self.panel_service.update_user_details_on_panel(
-            panel_user_uuid, panel_update_payload
-        )
+        try:
+            updated_panel_user = await self.panel_service.update_user_details_on_panel(
+                panel_user_uuid, panel_update_payload
+            )
+        except Exception as exc:
+            logger.exception(
+                "Panel user details update raised for trial user %s: %s",
+                panel_user_uuid,
+                exc,
+            )
+            await session.rollback()
+            return {
+                "eligible": True,
+                "activated": False,
+                "message_key": "trial_activation_failed_panel_update",
+            }
         if not updated_panel_user or updated_panel_user.get("error"):
             logger.warning(
                 "Panel user details update FAILED for trial user %s. Response: %s",

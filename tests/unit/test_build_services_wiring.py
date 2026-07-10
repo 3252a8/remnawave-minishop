@@ -185,6 +185,7 @@ class BuildServicesWiringTests(unittest.TestCase):
             "lava_service",
             "pally_service",
             "cloudpayments_service",
+            "overpay_service",
             "stripe_service",
             "qa_service",
         }

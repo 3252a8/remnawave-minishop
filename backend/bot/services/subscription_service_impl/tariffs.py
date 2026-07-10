@@ -5,7 +5,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.utils.date_utils import month_start
+from bot.utils.traffic_reset import traffic_accounting_period_start, traffic_period_starts_match
 from config.tariffs_config import (
     Tariff,
     TariffsConfig,
@@ -49,6 +49,60 @@ class TariffMixin(SubscriptionServiceMixinContract):
                 f"Tariff {tariff.key} is {tariff.billing_model}, expected {billing_model}"
             )
         return tariff
+
+    def _subscription_billing_model(self, sub: Any | None) -> str | None:
+        if sub is None:
+            return None
+        tariff_key = str(getattr(sub, "tariff_key", "") or "").strip()
+        if not tariff_key:
+            return None
+        try:
+            tariff = self._resolve_tariff(tariff_key)
+        except Exception:
+            logger.debug("Unable to resolve tariff %r for subscription state", tariff_key)
+            return None
+        return tariff.billing_model if tariff else None
+
+    @staticmethod
+    def _nonnegative_bytes(value: Any) -> int:
+        try:
+            return max(0, int(value or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    def _remaining_traffic_bytes(self, limit_bytes: Any, used_bytes: Any) -> int:
+        limit = self._nonnegative_bytes(limit_bytes)
+        if limit <= 0:
+            return 0
+        return max(0, limit - self._nonnegative_bytes(used_bytes))
+
+    def _traffic_package_carryover_bytes(
+        self,
+        sub: Any | None,
+        *,
+        limit_bytes: Any,
+        used_bytes: Any,
+    ) -> int:
+        if sub is None:
+            return 0
+        remaining = self._remaining_traffic_bytes(limit_bytes, used_bytes)
+        if self._subscription_billing_model(sub) == "traffic":
+            return remaining
+        paid_topup_balance = self._nonnegative_bytes(getattr(sub, "topup_balance_bytes", 0))
+        if paid_topup_balance <= 0:
+            return 0
+        return min(paid_topup_balance, remaining)
+
+    def _traffic_limit_for_balance(
+        self,
+        *,
+        used_bytes: Any,
+        balance_bytes: Any,
+        unlimited_override: bool = False,
+    ) -> int:
+        if unlimited_override:
+            return 0
+        return self._nonnegative_bytes(used_bytes) + self._nonnegative_bytes(balance_bytes)
 
     def _panel_squads_for_tariff(
         self,
@@ -130,18 +184,20 @@ class TariffMixin(SubscriptionServiceMixinContract):
             default="MONTH",
         )
 
-    def _premium_accounting_period_start(self, sub: Any, now: datetime) -> datetime:
-        if self._period_tariff_traffic_strategy() == "NO_RESET":
-            sub_start = self._aware_utc(getattr(sub, "start_date", None))
-            if sub_start is not None:
-                if sub_start <= now:
-                    return sub_start
-                previous_period_start = self._aware_utc(
-                    getattr(sub, "premium_period_start_at", None)
-                )
-                if previous_period_start is not None and previous_period_start <= now:
-                    return previous_period_start
-        return month_start(now)
+    def _premium_accounting_period_start(
+        self,
+        sub: Any,
+        now: datetime,
+        *,
+        panel_user_data: dict[str, Any] | None = None,
+    ) -> datetime:
+        return traffic_accounting_period_start(
+            self._period_tariff_traffic_strategy(),
+            now,
+            subscription_start_at=self._aware_utc(getattr(sub, "start_date", None)),
+            previous_period_start_at=self._aware_utc(getattr(sub, "premium_period_start_at", None)),
+            panel_user_data=panel_user_data,
+        )
 
     def _same_premium_accounting_period(
         self,
@@ -152,13 +208,12 @@ class TariffMixin(SubscriptionServiceMixinContract):
         current_period_start = self._aware_utc(getattr(sub, "premium_period_start_at", None))
         if current_period_start is None:
             return False
-        if current_period_start == premium_period_start:
+        strategy = self._period_tariff_traffic_strategy()
+        if traffic_period_starts_match(current_period_start, premium_period_start, strategy):
             return True
         no_reset_anchor = self._aware_utc(getattr(sub, "start_date", None))
         return bool(
-            self._period_tariff_traffic_strategy() == "NO_RESET"
-            and no_reset_anchor is not None
-            and no_reset_anchor <= now
+            strategy == "NO_RESET" and no_reset_anchor is not None and no_reset_anchor <= now
         )
 
     @staticmethod
@@ -396,6 +451,34 @@ class TariffMixin(SubscriptionServiceMixinContract):
         value = self.settings.USER_HWID_DEVICE_LIMIT
         return int(value) if value is not None else None
 
+    def _transition_hwid_base_limits(
+        self,
+        current_base_limit: int | None,
+        target_tariff: Tariff | None,
+        *,
+        apply_tariff_hwid_limit: bool = False,
+    ) -> tuple[int | None, int | None]:
+        """Return ``(local_base, panel_base)`` for tariff/admin transitions."""
+        target_base_limit = self._base_hwid_limit_for_tariff(target_tariff)
+        if apply_tariff_hwid_limit:
+            return target_base_limit, target_base_limit
+        if current_base_limit is None:
+            return None, target_base_limit
+        current_base_int = int(current_base_limit)
+        return current_base_int, current_base_int
+
+    @staticmethod
+    def _tariff_effective_monthly_price(tariff: Tariff, currency: str) -> float | None:
+        one_month = tariff.period_price(1, currency)
+        if one_month and one_month > 0:
+            return float(one_month)
+        monthly_prices = []
+        for months in tariff.enabled_periods:
+            price = tariff.period_price(months, currency)
+            if price and price > 0:
+                monthly_prices.append(float(price) / max(1, int(months)))
+        return min(monthly_prices) if monthly_prices else None
+
     @staticmethod
     def _effective_hwid_limit(base_limit: int | None, extra_devices: int = 0) -> int | None:
         if base_limit is None:
@@ -413,14 +496,15 @@ class TariffMixin(SubscriptionServiceMixinContract):
         )
         now = datetime.now(UTC)
         remaining_days = max(0, (sub.end_date - now).days) if sub.end_date else 0
-        effective = float(sub.effective_monthly_price_rub or 0)
         current_model = current_tariff.billing_model if current_tariff else "period"
         default_currency = default_currency_key_for_settings(self.settings)
+        effective = float(sub.effective_monthly_price_rub or 0)
+        if effective <= 0 and current_model == "period" and current_tariff is not None:
+            effective = self._tariff_effective_monthly_price(current_tariff, default_currency) or 0
 
         if current_model == "period" and target_tariff.billing_model == "period":
             target_monthly = (
-                target_tariff.period_price(1, default_currency)
-                or target_tariff.min_period_price(default_currency)
+                self._tariff_effective_monthly_price(target_tariff, default_currency)
                 or effective
                 or 1
             )

@@ -1,0 +1,140 @@
+x-app-environment: &app_environment
+  IMAGE_TAG: ${IMAGE_TAG:-latest}
+  POSTGRES_HOST: postgres
+  REDIS_URL: redis://redis:6379/0
+  WEBAPP_ENABLED: "true"
+  WEBHOOK_BASE_URL: ${WEBHOOK_PUBLIC_URL:-https://bot.example.com}
+  SUBSCRIPTION_MINI_APP_URL: ${MINIAPP_PUBLIC_URL:-https://app.example.com/}
+  WEBAPP_SESSION_SECRET: ${WEBAPP_SESSION_SECRET:-change_me_to_64_hex_chars}
+  WEBHOOK_SECRET_TOKEN: ${WEBHOOK_SECRET_TOKEN:-change_me_to_64_hex_chars}
+  MINISHOP_EDGE_TOKEN: ${MINISHOP_EDGE_TOKEN:-}
+  MINISHOP_EDGE_TOKEN_HEADER: ${MINISHOP_EDGE_TOKEN_HEADER:-X-Minishop-Edge-Token}
+  PANEL_API_URL: ${PANEL_API_URL:-https://panel.example.com/api}
+  PANEL_API_KEY: ${PANEL_API_KEY:-change_me}
+  PANEL_WEBHOOK_SECRET: ${PANEL_WEBHOOK_SECRET:-change_me}
+
+services:
+  postgres:
+    image: postgres:17.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-remnawave_minishop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-remnawave_minishop}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - remnawave-minishop
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -Atqc 'SELECT 1' | grep -qx 1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+      start_interval: 1s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - remnawave-minishop
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+      start_interval: 1s
+
+  migrate:
+    image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
+    command: ["python", "backend/main_migrate.py"]
+    environment:
+      <<: *app_environment
+      BOT_TOKEN: ${BOT_TOKEN:-change_me}
+      ADMIN_IDS: ${ADMIN_IDS:-123456789}
+      POSTGRES_USER: ${POSTGRES_USER:-remnawave_minishop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-remnawave_minishop}
+    volumes:
+      - ./data:/app/data
+    networks:
+      - remnawave-minishop
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  backend:
+    image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    init: true
+    environment:
+      <<: *app_environment
+      BOT_TOKEN: ${BOT_TOKEN:-change_me}
+      ADMIN_IDS: ${ADMIN_IDS:-123456789}
+      POSTGRES_USER: ${POSTGRES_USER:-remnawave_minishop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-remnawave_minishop}
+    ports:
+      - "${WEBHOOK_BIND:-127.0.0.1:8080}:8080"
+      - "${WEBAPP_SERVER_BIND:-127.0.0.1:8081}:8081"
+    volumes:
+      - ./data:/app/data
+    networks:
+      - remnawave-minishop
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+      start_interval: 3s
+
+  worker:
+    image: 3252a8/remnawave-minishop-worker:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    init: true
+    environment:
+      <<: *app_environment
+      BOT_TOKEN: ${BOT_TOKEN:-change_me}
+      ADMIN_IDS: ${ADMIN_IDS:-123456789}
+      POSTGRES_USER: ${POSTGRES_USER:-remnawave_minishop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-remnawave_minishop}
+    volumes:
+      - ./data:/app/data
+    networks:
+      - remnawave-minishop
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+networks:
+  remnawave-minishop:
+    name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-network
+
+volumes:
+  postgres-data:
+    name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-db-data
+  redis-data:
+    name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-redis-data

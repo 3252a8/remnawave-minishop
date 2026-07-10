@@ -2,6 +2,7 @@ import {
   buildDeviceTopupOptionsPath,
   buildPaymentStatusPath,
   buildPaymentsPath,
+  buildPlansViewedPath,
   buildSubscriptionPromoQuotePath,
   buildSubscriptionAutoRenewPath,
   buildTariffChangeOptionsPath,
@@ -20,6 +21,7 @@ import type {
   DeviceTopupOptionsResponse,
   PaymentCreateResponse,
   PaymentStatusResponse,
+  PlansViewedResponse,
   PostPayload,
   PromoQuoteResponse,
   SubscriptionAutoRenewResponse,
@@ -38,6 +40,7 @@ export type BillingActions = {
   fetchTopupOptions(kind: string): Promise<TariffTopupOptionsResponse>;
   fetchDeviceTopupOptions(): Promise<DeviceTopupOptionsResponse>;
   fetchTariffChangeOptions(): Promise<TariffChangeOptionsResponse>;
+  notifyPlansViewed(body: PostPayload<"/api/plans/viewed">): Promise<PlansViewedResponse>;
   postPayment(body: PostPayload<"/api/payments">): Promise<PaymentCreateResponse>;
   fetchPaymentStatus(paymentId: string | number): Promise<PaymentStatusResponse>;
   quotePromo(body: PostPayload<"/api/subscription/quote-promo">): Promise<PromoQuoteResponse>;
@@ -81,6 +84,12 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
 
   async function fetchTariffChangeOptions(): Promise<TariffChangeOptionsResponse> {
     return api(buildTariffChangeOptionsPath());
+  }
+
+  async function notifyPlansViewed(
+    body: PostPayload<"/api/plans/viewed">
+  ): Promise<PlansViewedResponse> {
+    return api(buildPlansViewedPath(), { method: "POST", body: JSON.stringify(body) });
   }
 
   async function postPayment(body: PostPayload<"/api/payments">): Promise<PaymentCreateResponse> {
@@ -205,6 +214,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
     fetchTopupOptions,
     fetchDeviceTopupOptions,
     fetchTariffChangeOptions,
+    notifyPlansViewed,
     postPayment,
     quotePromo,
     fetchPaymentStatus,

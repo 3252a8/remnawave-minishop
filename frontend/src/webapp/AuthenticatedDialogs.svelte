@@ -1,8 +1,9 @@
 <script lang="ts">
   import type { AccountStore } from "../lib/webapp/stores/accountStore.js";
+  import type { ActionsStore } from "../lib/webapp/stores/actionsStore.js";
   import type { BillingStore } from "../lib/webapp/stores/billingStore.js";
 
-  import { CheckCircle2 } from "$components/ui/icons.js";
+  import { CheckCircle2, Gift, Info, TriangleAlert } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
   import Dialog from "$components/ui/dialog.svelte";
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
@@ -21,6 +22,7 @@
 
   type Props = {
     accountStore: AccountStore;
+    actionsStore: ActionsStore;
     activationSuccessDialogOpen?: boolean;
     activationSuccessUseInstallGuides?: boolean;
     backToTariffList: VoidAction;
@@ -50,6 +52,7 @@
 
   let {
     accountStore,
+    actionsStore,
     activationSuccessDialogOpen = false,
     activationSuccessUseInstallGuides = false,
     backToTariffList,
@@ -76,6 +79,24 @@
     trafficMode = false,
     user = {},
   }: Props = $props();
+
+  const promoDeeplinkOpen = $derived(actionsStore.promoDeeplinkOpen);
+  const promoDeeplinkStatus = $derived(actionsStore.promoDeeplinkStatus);
+  const promoDeeplinkCode = $derived(actionsStore.promoDeeplinkCode);
+  const promoDeeplinkMessage = $derived(actionsStore.promoDeeplinkMessage);
+  const promoDeeplinkEffectSummary = $derived(actionsStore.promoDeeplinkEffectSummary);
+  const promoDeeplinkTitle = $derived.by(() => {
+    if (promoDeeplinkStatus === "activated") {
+      return t("wa_promo_deeplink_title_activated", {}, "Promo code activated");
+    }
+    if (promoDeeplinkStatus === "already_used") {
+      return t("wa_promo_deeplink_title_already_used", {}, "Promo code already activated");
+    }
+    if (promoDeeplinkStatus === "invalid") {
+      return t("wa_promo_deeplink_title_invalid", {}, "Promo code unavailable");
+    }
+    return t("wa_promo_deeplink_title_error", {}, "Could not check the promo code");
+  });
 </script>
 
 <PaymentDialogs
@@ -215,3 +236,48 @@
     </Button>
   </div>
 </Dialog>
+
+<Dialog
+  open={promoDeeplinkOpen}
+  title={promoDeeplinkTitle}
+  description={promoDeeplinkMessage}
+  closeLabel={t("wa_close")}
+  onclose={actionsStore.closePromoDeeplink}
+  class="promo-deeplink-dialog"
+>
+  {#snippet titleIcon()}
+    {#if promoDeeplinkStatus === "activated"}
+      <Gift size={23} />
+    {:else if promoDeeplinkStatus === "already_used"}
+      <Info size={23} />
+    {:else}
+      <TriangleAlert size={23} />
+    {/if}
+  {/snippet}
+  <div class="promo-deeplink-dialog-body">
+    {#if promoDeeplinkStatus === "activated" && promoDeeplinkEffectSummary}
+      <p class="promo-deeplink-effect">
+        <strong>{promoDeeplinkCode}</strong> · {promoDeeplinkEffectSummary}
+      </p>
+    {/if}
+    <Button class="wide" onclick={actionsStore.closePromoDeeplink}>
+      {t("wa_ok", {}, "OK")}
+    </Button>
+  </div>
+</Dialog>
+
+<style>
+  .promo-deeplink-dialog-body {
+    display: grid;
+    gap: 12px;
+  }
+
+  .promo-deeplink-effect {
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--accent, #00fe7a) 8%, transparent);
+    font-size: 14px;
+  }
+</style>

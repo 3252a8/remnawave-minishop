@@ -83,11 +83,19 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
         try:
-            await self.panel_service.update_user_details_on_panel(
+            updated_panel = await self.panel_service.update_user_details_on_panel(
                 db_user.panel_user_uuid, panel_payload
             )
         except Exception:
             logger.exception("sync_hwid_device_limit_to_panel failed for user %s", user_id)
+            return None
+        if not updated_panel or (isinstance(updated_panel, dict) and updated_panel.get("error")):
+            logger.warning(
+                "sync_hwid_device_limit_to_panel panel update failed for user %s. Response: %s",
+                user_id,
+                updated_panel,
+            )
+            return None
         return int(effective_hwid_limit)
 
     async def _hwid_topup_validity_window(
@@ -520,6 +528,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
             expire_at=updated_sub.end_date,
             status="ACTIVE",
             hwid_device_limit=effective_hwid_limit,
+            include_default_squads=False,
         )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
         updated_panel = await self.panel_service.update_user_details_on_panel(

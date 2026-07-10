@@ -14,12 +14,8 @@ IMPORTER_CACHE_PATH="$INSTALL_STATE_DIR/import_legacy.py"
 APP_UID=10001
 APP_GID=10001
 OLD_TGSHOP_DB_VOLUME="remnawave-tg-shop-db-data"
-NEW_MINISHOP_DB_VOLUME="remnawave-minishop-db-data"
-OLD_TGSHOP_CADDY_DATA_VOLUME="remnawave-tg-shop-caddy-data"
-OLD_TGSHOP_CADDY_CONFIG_VOLUME="remnawave-tg-shop-caddy-config"
-NEW_MINISHOP_CADDY_DATA_VOLUME="remnawave-minishop-caddy-data"
-NEW_MINISHOP_CADDY_CONFIG_VOLUME="remnawave-minishop-caddy-config"
 KNOWN_LEGACY_CONTAINERS="remnawave-tg-shop remnawave-tg-shop-db remnawave-tg-shop-caddy remnawave-minishop remnawave-minishop-db remnawave-minishop-caddy remnawave-minishop-backend remnawave-minishop-worker remnawave-minishop-frontend remnawave-minishop-migrate remnawave-minishop-postgres remnawave-minishop-redis"
+PANGOLIN_COMPOSE_FILE="docker-compose.pangolin.yml"
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
     RESET="$(printf '\033[0m')"
@@ -59,10 +55,23 @@ WEBHOOK_HOST_VALUE=""
 MINIAPP_HOST_VALUE=""
 WEBHOOK_PUBLIC_URL_VALUE=""
 MINIAPP_PUBLIC_URL_VALUE=""
+FRONTEND_BACKEND_MODE_VALUE=""
+INSTALL_NODE_ROLE_VALUE=""
+WEBAPP_API_BASE_URL_VALUE=""
+WEBAPP_BACKEND_UPSTREAM_VALUE=""
+WEBAPP_BACKEND_UPSTREAM_HOST_VALUE=""
+MINISHOP_EDGE_TOKEN_VALUE=""
+MINISHOP_EDGE_TOKEN_HEADER_VALUE=""
 HTTP_BIND_VALUE=""
 HTTPS_BIND_VALUE=""
 WEB_SERVER_BIND_VALUE=""
+WEBAPP_SERVER_BIND_VALUE=""
 FRONTEND_BIND_VALUE=""
+RATHOLE_IMAGE_VALUE=""
+RATHOLE_CONTROL_BIND_VALUE=""
+RATHOLE_CONTROL_REMOTE_VALUE=""
+RATHOLE_SERVICE_TOKEN_VALUE=""
+RATHOLE_SERVICE_PORT_VALUE=""
 PANGOLIN_ENDPOINT_VALUE=""
 NEWT_ID_VALUE=""
 NEWT_SECRET_VALUE=""
@@ -84,7 +93,7 @@ TELEGRAM_OAUTH_CLIENT_ID_VALUE=""
 TELEGRAM_OAUTH_CLIENT_SECRET_VALUE=""
 TELEGRAM_OAUTH_REQUEST_ACCESS_VALUE=""
 
-KNOWN_ENV_KEYS="DEPLOYMENT_PROFILE COMPOSE_PROJECT_NAME IMAGE_TAG WEBHOOK_HOST MINIAPP_HOST WEBHOOK_PUBLIC_URL MINIAPP_PUBLIC_URL HTTP_BIND HTTPS_BIND WEB_SERVER_BIND FRONTEND_BIND PANGOLIN_ENDPOINT NEWT_ID NEWT_SECRET BOT_TOKEN ADMIN_IDS POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB WEBAPP_ENABLED WEBAPP_TITLE WEBAPP_SESSION_SECRET WEBHOOK_SECRET_TOKEN TRUSTED_PROXIES PANEL_API_URL PANEL_API_KEY PANEL_API_COOKIE PANEL_WEBHOOK_SECRET TELEGRAM_OAUTH_CLIENT_ID TELEGRAM_OAUTH_CLIENT_SECRET TELEGRAM_OAUTH_REQUEST_ACCESS"
+KNOWN_ENV_KEYS="DEPLOYMENT_PROFILE COMPOSE_PROJECT_NAME IMAGE_TAG WEBHOOK_HOST MINIAPP_HOST WEBHOOK_PUBLIC_URL MINIAPP_PUBLIC_URL FRONTEND_BACKEND_MODE INSTALL_NODE_ROLE WEBAPP_API_BASE_URL WEBAPP_BACKEND_UPSTREAM WEBAPP_BACKEND_UPSTREAM_HOST MINISHOP_EDGE_TOKEN MINISHOP_EDGE_TOKEN_HEADER HTTP_BIND HTTPS_BIND WEB_SERVER_BIND WEBAPP_SERVER_BIND FRONTEND_BIND RATHOLE_IMAGE RATHOLE_CONTROL_BIND RATHOLE_CONTROL_REMOTE RATHOLE_SERVICE_TOKEN RATHOLE_SERVICE_PORT PANGOLIN_ENDPOINT NEWT_ID NEWT_SECRET BOT_TOKEN ADMIN_IDS POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB WEBAPP_ENABLED WEBAPP_TITLE WEBAPP_SESSION_SECRET WEBHOOK_SECRET_TOKEN TRUSTED_PROXIES PANEL_API_URL PANEL_API_KEY PANEL_API_COOKIE PANEL_WEBHOOK_SECRET TELEGRAM_OAUTH_CLIENT_ID TELEGRAM_OAUTH_CLIENT_SECRET TELEGRAM_OAUTH_REQUEST_ACCESS"
 
 color() {
     printf '%s%s%s' "$2" "$1" "$RESET"
@@ -146,6 +155,7 @@ print_help() {
   REMNASHOP_SOURCE_ENV_FILE путь к .env Remnashop для переноса настроек
   REMNASHOP_SOURCE_SCHEMA   схема PostgreSQL базы Remnashop (public)
   LEGACY_TGSHOP_SOURCE_DSN  DSN старого remnawave-tg-shop для дампа/восстановления
+  LEGACY_TGSHOP_DB_CONTAINER имя контейнера PostgreSQL старого remnawave-tg-shop
 
 Мастер интерактивный: он не перезаписывает файлы без подтверждения.
 Импорт из Remnashop всегда сначала запускается в режиме проверки без записи (dry-run).
@@ -170,7 +180,7 @@ mask_secret() {
 
 is_secret_key() {
     case "$1" in
-        BOT_TOKEN|POSTGRES_PASSWORD|WEBAPP_SESSION_SECRET|WEBHOOK_SECRET_TOKEN|PANEL_API_KEY|PANEL_API_COOKIE|PANEL_WEBHOOK_SECRET|TELEGRAM_OAUTH_CLIENT_SECRET|NEWT_SECRET)
+        BOT_TOKEN|POSTGRES_PASSWORD|WEBAPP_SESSION_SECRET|WEBHOOK_SECRET_TOKEN|PANEL_API_KEY|PANEL_API_COOKIE|PANEL_WEBHOOK_SECRET|TELEGRAM_OAUTH_CLIENT_SECRET|NEWT_SECRET|MINISHOP_EDGE_TOKEN|RATHOLE_SERVICE_TOKEN)
             return 0
             ;;
         *)
@@ -540,6 +550,42 @@ detect_egames_stack() {
     [ -n "$nginx_conf" ] && [ -n "$nginx_container" ]
 }
 
+list_running_proxy_containers() {
+    command -v docker >/dev/null 2>&1 || return 1
+    docker ps --format '{{.Names}} {{.Image}}' 2>/dev/null | awk '
+        {
+            line = tolower($0)
+            if (line !~ /nginx/ && line !~ /caddy/) next
+            if (line ~ /minishop/ || line ~ /tg-shop/) next
+            print $1
+        }
+    '
+}
+
+proxy_container_kind() {
+    descriptor=$(docker inspect -f '{{.Name}} {{.Config.Image}}' "$1" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    case "$descriptor" in
+        *caddy*)
+            printf 'caddy'
+            ;;
+        *nginx*)
+            printf 'nginx'
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+container_uses_host_network() {
+    [ "$(docker inspect -f '{{.HostConfig.NetworkMode}}' "$1" 2>/dev/null)" = "host" ]
+}
+
+container_mount_source() {
+    docker inspect -f '{{range .Mounts}}{{.Destination}}|{{.Source}}{{"\n"}}{{end}}' "$1" 2>/dev/null |
+        awk -F'|' -v dest="$2" '$1 == dest { print $2; exit }'
+}
+
 detect_remnawave_db_container() {
     if [ -n "${EGAMES_REMNAWAVE_DB_CONTAINER:-}" ] && docker_container_exists "$EGAMES_REMNAWAVE_DB_CONTAINER"; then
         printf '%s' "$EGAMES_REMNAWAVE_DB_CONTAINER"
@@ -551,6 +597,29 @@ detect_remnawave_db_container() {
     fi
     command -v docker >/dev/null 2>&1 || return 1
     docker ps -a --format '{{.Names}}' 2>/dev/null | grep -Ei 'remnawave.*(db|postgres)|postgres.*remnawave' | head -n 1
+}
+
+detect_tgshop_db_container() {
+    if [ -n "${LEGACY_TGSHOP_DB_CONTAINER:-}" ] && docker_container_exists "$LEGACY_TGSHOP_DB_CONTAINER"; then
+        printf '%s' "$LEGACY_TGSHOP_DB_CONTAINER"
+        return 0
+    fi
+    if docker_container_exists remnawave-tg-shop-db; then
+        printf '%s' remnawave-tg-shop-db
+        return 0
+    fi
+    command -v docker >/dev/null 2>&1 || return 1
+    docker ps -a --format '{{.Names}}' 2>/dev/null | grep -Ei 'remnawave-tg-shop.*(db|postgres)|postgres.*remnawave-tg-shop' | head -n 1
+}
+
+detect_tgshop_source_dsn() {
+    if [ -n "${LEGACY_TGSHOP_SOURCE_DSN:-}" ]; then
+        printf '%s' "$LEGACY_TGSHOP_SOURCE_DSN"
+        return 0
+    fi
+    container=$(detect_tgshop_db_container || true)
+    [ -n "$container" ] || return 1
+    docker exec "$container" sh -lc 'printf "postgresql://%s:%s@'"$container"':5432/%s" "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$POSTGRES_DB"' 2>/dev/null
 }
 
 detect_remnashop_env_file() {
@@ -795,6 +864,13 @@ choose_profile() {
     if detect_egames_stack; then
         default_profile="5"
         info "Найдена установленная Remnawave/eGames связка; по умолчанию предлагаю встроиться в ее Nginx/TLS."
+    else
+        running_proxies=$(list_running_proxy_containers 2>/dev/null || true)
+        if [ -n "$running_proxies" ]; then
+            default_profile="5"
+            info "Найдены уже запущенные reverse proxy контейнеры: $(printf '%s' "$running_proxies" | tr '\n' ' ' | sed 's/[[:space:]]*$//')."
+            info "По умолчанию предлагаю встроиться в существующий Nginx/Caddy вместо запуска отдельного прокси."
+        fi
     fi
     info "Подробнее о профилях деплоя: $DOCS_SETUP_URL"
     choose "Профиль деплоя" "$default_profile" "1|2|3|4|5" \
@@ -802,7 +878,7 @@ choose_profile() {
         "2. Nginx HTTPS - свои сертификаты или помощник Certbot." \
         "3. Pangolin / Newt - без входящих портов, публичные маршруты в Pangolin." \
         "4. Без прокси / внешний TLS - прямые HTTP-порты или свой TLS-терминатор." \
-        "5. Уже установленная Remnawave через eGames - использовать ее Nginx/TLS." || return 1
+        "5. Уже установленная Remnawave через eGames или другой запущенный Nginx/Caddy - встроиться в существующий reverse proxy." || return 1
     case "$CHOICE_VALUE" in
         1) PROFILE_KEY="caddy" ;;
         2) PROFILE_KEY="nginx" ;;
@@ -813,8 +889,153 @@ choose_profile() {
     DEPLOYMENT_PROFILE_VALUE="$PROFILE_KEY"
 }
 
+choose_install_node_role() {
+    section "Роль сервера"
+    choose "Роль текущего сервера" "1" "1|2|3" \
+        "1. Full stack - frontend, backend, worker и база на этом сервере." \
+        "2. Backend node - webhook/backend plane и база; frontend будет отдельно." \
+        "3. Frontend node - только frontend nginx, backend уже на другом сервере." || return 1
+    case "$CHOICE_VALUE" in
+        1) INSTALL_NODE_ROLE_VALUE="full-stack" ;;
+        2) INSTALL_NODE_ROLE_VALUE="backend-node" ;;
+        3) INSTALL_NODE_ROLE_VALUE="frontend-node" ;;
+    esac
+}
+
+host_from_url() {
+    printf '%s' "$1" | sed -n 's#^[A-Za-z][A-Za-z0-9+.-]*://\([^/:]*\).*#\1#p'
+}
+
+prompt_frontend_node_env() {
+    section "Frontend node .env"
+    COMPOSE_PROJECT_NAME_VALUE="$(env_get COMPOSE_PROJECT_NAME remnawave-minishop)"
+    prompt_value "Имя Docker Compose проекта" "$COMPOSE_PROJECT_NAME_VALUE" 0 0 "" || return 1
+    COMPOSE_PROJECT_NAME_VALUE="$PROMPT_VALUE"
+    IMAGE_TAG_VALUE="$(env_get IMAGE_TAG "$DEFAULT_IMAGE_TAG")"
+    prompt_value "Тег Docker-образа" "$IMAGE_TAG_VALUE" 0 0 "" || return 1
+    IMAGE_TAG_VALUE="$PROMPT_VALUE"
+    prompt_value "Публичный URL Mini App frontend" "$(env_get MINIAPP_PUBLIC_URL 'https://app.example.com/')" 1 0 "url" || return 1
+    MINIAPP_PUBLIC_URL_VALUE="$PROMPT_VALUE"
+    MINIAPP_HOST_VALUE="$(host_from_url "$MINIAPP_PUBLIC_URL_VALUE")"
+    if [ -z "$MINIAPP_HOST_VALUE" ]; then
+        fail "Не удалось определить hostname Mini App из $MINIAPP_PUBLIC_URL_VALUE"
+        return 1
+    fi
+    FRONTEND_BIND_VALUE="$(env_get FRONTEND_BIND '127.0.0.1:8082')"
+    prompt_value "Адрес привязки frontend container" "$FRONTEND_BIND_VALUE" 0 0 "bind" || return 1
+    FRONTEND_BIND_VALUE="$PROMPT_VALUE"
+    WEBAPP_API_BASE_URL_VALUE="/api"
+    MINISHOP_EDGE_TOKEN_HEADER_VALUE="$(env_get MINISHOP_EDGE_TOKEN_HEADER X-Minishop-Edge-Token)"
+    info "Frontend node не спрашивает BOT_TOKEN, PostgreSQL, Panel и платежные секреты; они остаются на backend node."
+}
+
+configure_frontend_backend_mode() {
+    section "Связь frontend -> backend WebApp API"
+    [ -n "$INSTALL_NODE_ROLE_VALUE" ] || INSTALL_NODE_ROLE_VALUE="full-stack"
+    case "$INSTALL_NODE_ROLE_VALUE" in
+        backend-node)
+            prompt_value "Адрес привязки WebApp API plane 8081 (только loopback/private)" "$(env_get WEBAPP_SERVER_BIND '127.0.0.1:8081')" 0 0 "bind" || return 1
+            WEBAPP_SERVER_BIND_VALUE="$PROMPT_VALUE"
+            ;;
+        frontend-node)
+            info "Frontend node использует MINIAPP_PUBLIC_URL и server-side upstream; WEBHOOK_PUBLIC_URL остается backend node."
+            ;;
+    esac
+
+    if [ "$INSTALL_NODE_ROLE_VALUE" = "full-stack" ]; then
+        choose "Как frontend будет обращаться к backend WebApp API?" "1" "1|2|3" \
+            "1. Same-origin / тот же compose - browser API base /api, upstream http://backend:8081." \
+            "2. Защищенный backend upstream - browser API base /api, frontend nginx проксирует к backend." \
+            "3. Приватный tunnel Rathole - browser API base /api, upstream http://rathole-server:18081." || return 1
+        frontend_backend_choice="$CHOICE_VALUE"
+    else
+        choose "Как frontend будет обращаться к backend WebApp API?" "1" "1|2" \
+            "1. Защищенный backend upstream - browser API base /api, frontend nginx проксирует к backend." \
+            "2. Приватный tunnel Rathole - browser API base /api, upstream http://rathole-server:18081." || return 1
+        case "$CHOICE_VALUE" in
+            1) frontend_backend_choice="2" ;;
+            2) frontend_backend_choice="3" ;;
+        esac
+    fi
+
+    case "$frontend_backend_choice" in
+        1)
+            FRONTEND_BACKEND_MODE_VALUE="same-origin"
+            WEBAPP_API_BASE_URL_VALUE="/api"
+            WEBAPP_BACKEND_UPSTREAM_VALUE="http://backend:8081"
+            WEBAPP_BACKEND_UPSTREAM_HOST_VALUE="backend"
+            MINISHOP_EDGE_TOKEN_HEADER_VALUE="$(env_get MINISHOP_EDGE_TOKEN_HEADER X-Minishop-Edge-Token)"
+            ;;
+        2)
+            FRONTEND_BACKEND_MODE_VALUE="protected-upstream"
+            WEBAPP_API_BASE_URL_VALUE="/api"
+            choose "Protected upstream вариант" "1" "1|2" \
+                "1. Один backend-домен: /api и /auth на WEBHOOK_PUBLIC_URL защищены edge-token." \
+                "2. Приватный IP/VPN: frontend nginx ходит к http://<private-ip>:8081." || return 1
+            if [ "$CHOICE_VALUE" = "1" ]; then
+                default_upstream="${WEBHOOK_PUBLIC_URL_VALUE:-$(env_get WEBHOOK_PUBLIC_URL 'https://bot.example.com')}"
+                prompt_value "Backend upstream URL" "$default_upstream" 1 0 "url" || return 1
+                WEBAPP_BACKEND_UPSTREAM_VALUE="$PROMPT_VALUE"
+                upstream_host=$(host_from_url "$WEBAPP_BACKEND_UPSTREAM_VALUE")
+                prompt_value "Backend upstream Host/SNI" "${upstream_host:-bot.example.com}" 1 0 "hostname" || return 1
+                WEBAPP_BACKEND_UPSTREAM_HOST_VALUE="$PROMPT_VALUE"
+                if [ "$INSTALL_NODE_ROLE_VALUE" = "frontend-node" ]; then
+                    WEBHOOK_PUBLIC_URL_VALUE="$WEBAPP_BACKEND_UPSTREAM_VALUE"
+                    WEBHOOK_HOST_VALUE="$WEBAPP_BACKEND_UPSTREAM_HOST_VALUE"
+                fi
+                current_edge_token="$(env_get MINISHOP_EDGE_TOKEN '')"
+                [ -n "$current_edge_token" ] || current_edge_token="$(secret_hex 32)"
+                prompt_value "Minishop edge token (только server-side proxy header)" "$current_edge_token" 1 1 "" || return 1
+                MINISHOP_EDGE_TOKEN_VALUE="$PROMPT_VALUE"
+            else
+                prompt_value "Private backend WebApp API upstream" "$(env_get WEBAPP_BACKEND_UPSTREAM 'http://10.0.0.5:8081')" 1 0 "url" || return 1
+                WEBAPP_BACKEND_UPSTREAM_VALUE="$PROMPT_VALUE"
+                WEBAPP_BACKEND_UPSTREAM_HOST_VALUE="$(env_get WEBAPP_BACKEND_UPSTREAM_HOST '')"
+                MINISHOP_EDGE_TOKEN_VALUE="$(env_get MINISHOP_EDGE_TOKEN '')"
+            fi
+            MINISHOP_EDGE_TOKEN_HEADER_VALUE="$(env_get MINISHOP_EDGE_TOKEN_HEADER X-Minishop-Edge-Token)"
+            warn "WEBHOOK_PUBLIC_URL остается webhook/backend plane 8080. Платежные и panel webhook не идут через frontend и не требуют Minishop edge token."
+            ;;
+        3)
+            FRONTEND_BACKEND_MODE_VALUE="rathole"
+            WEBAPP_API_BASE_URL_VALUE="/api"
+            WEBAPP_BACKEND_UPSTREAM_VALUE="http://rathole-server:18081"
+            WEBAPP_BACKEND_UPSTREAM_HOST_VALUE="rathole-server"
+            RATHOLE_IMAGE_VALUE="$(env_get RATHOLE_IMAGE rapiz1/rathole:v0.5.0)"
+            RATHOLE_CONTROL_BIND_VALUE="$(env_get RATHOLE_CONTROL_BIND 0.0.0.0:2333)"
+            RATHOLE_CONTROL_REMOTE_VALUE="$(env_get RATHOLE_CONTROL_REMOTE frontend.example.com:2333)"
+            RATHOLE_SERVICE_PORT_VALUE="$(env_get RATHOLE_SERVICE_PORT 18081)"
+            current_rathole_token="$(env_get RATHOLE_SERVICE_TOKEN '')"
+            [ -n "$current_rathole_token" ] || current_rathole_token="$(secret_hex 32)"
+            prompt_value "Rathole service token" "$current_rathole_token" 1 1 "" || return 1
+            RATHOLE_SERVICE_TOKEN_VALUE="$PROMPT_VALUE"
+            ;;
+    esac
+}
+
 download_profile_files() {
     section "Скачивание файлов деплоя"
+    case "$INSTALL_NODE_ROLE_VALUE" in
+        frontend-node)
+            case "$FRONTEND_BACKEND_MODE_VALUE" in
+                rathole)
+                    download_raw_file "deploy/examples/rathole/frontend-server.docker-compose.yml" "docker-compose.yml" 1 || return 1
+                    download_raw_file "deploy/examples/rathole/.env.example" ".env.example" 1 || return 1
+                    ;;
+                *)
+                    download_raw_file "deploy/examples/split-protected-upstream/frontend.docker-compose.yml" "docker-compose.yml" 1 || return 1
+                    download_raw_file "deploy/examples/split-protected-upstream/.env.frontend.example" ".env.example" 1 || return 1
+                    ;;
+            esac
+            return 0
+            ;;
+        backend-node)
+            download_raw_file "deploy/examples/split-protected-upstream/backend.docker-compose.yml" "docker-compose.yml" 1 || return 1
+            download_raw_file "deploy/examples/split-protected-upstream/.env.backend.example" ".env.example" 1 || return 1
+            return 0
+            ;;
+    esac
+
     case "$PROFILE_KEY" in
         caddy)
             download_raw_file "deploy/examples/caddy/docker-compose.yml" "docker-compose.yml" 1 || return 1
@@ -1015,6 +1236,55 @@ prompt_common_env() {
     esac
 }
 
+download_split_reference_files() {
+    case "$FRONTEND_BACKEND_MODE_VALUE" in
+        protected-upstream)
+            mkdir -p "$TARGET_DIR/split-protected-upstream"
+            download_raw_file "deploy/examples/split-protected-upstream/frontend.docker-compose.yml" "split-protected-upstream/frontend.docker-compose.yml" 0 || return 1
+            download_raw_file "deploy/examples/split-protected-upstream/backend.docker-compose.yml" "split-protected-upstream/backend.docker-compose.yml" 0 || return 1
+            download_raw_file "deploy/examples/split-protected-upstream/.env.frontend.example" "split-protected-upstream/.env.frontend.example" 0 || return 1
+            download_raw_file "deploy/examples/split-protected-upstream/.env.backend.example" "split-protected-upstream/.env.backend.example" 0 || return 1
+            download_raw_file "deploy/examples/split-protected-upstream/README.md" "split-protected-upstream/README.md" 0 || return 1
+            ;;
+        rathole)
+            mkdir -p "$TARGET_DIR/rathole"
+            download_raw_file "deploy/examples/rathole/frontend-server.docker-compose.yml" "rathole/frontend-server.docker-compose.yml" 0 || return 1
+            download_raw_file "deploy/examples/rathole/backend-server.override.yml" "rathole/backend-server.override.yml" 0 || return 1
+            download_raw_file "deploy/examples/rathole/README.md" "rathole/README.md" 0 || return 1
+            render_rathole_configs
+            ;;
+    esac
+}
+
+render_rathole_configs() {
+    [ "$FRONTEND_BACKEND_MODE_VALUE" = "rathole" ] || return 0
+    mkdir -p "$TARGET_DIR/rathole"
+    token="${RATHOLE_SERVICE_TOKEN_VALUE:-$(env_get RATHOLE_SERVICE_TOKEN '')}"
+    [ -n "$token" ] || token="$(secret_hex 32)"
+    remote="${RATHOLE_CONTROL_REMOTE_VALUE:-$(env_get RATHOLE_CONTROL_REMOTE frontend.example.com:2333)}"
+    service_port="${RATHOLE_SERVICE_PORT_VALUE:-$(env_get RATHOLE_SERVICE_PORT 18081)}"
+    cat > "$TARGET_DIR/rathole/rathole.server.toml" <<EOF
+[server]
+bind_addr = "0.0.0.0:2333"
+
+[server.services.webapp-api]
+token = "$token"
+bind_addr = "0.0.0.0:$service_port"
+EOF
+    cat > "$TARGET_DIR/rathole/rathole.client.toml" <<EOF
+[client]
+remote_addr = "$remote"
+
+[client.services.webapp-api]
+token = "$token"
+local_addr = "backend:8081"
+EOF
+    if [ "$INSTALL_NODE_ROLE_VALUE" = "frontend-node" ]; then
+        cp "$TARGET_DIR/rathole/rathole.server.toml" "$TARGET_DIR/rathole.server.toml"
+    fi
+    ok "Rathole TOML сохранены в $TARGET_DIR/rathole/."
+}
+
 env_line() {
     key="$1"
     value="$2"
@@ -1044,8 +1314,22 @@ display_env_summary() {
     show_env_value MINIAPP_HOST "$MINIAPP_HOST_VALUE"
     show_env_value WEBHOOK_PUBLIC_URL "$WEBHOOK_PUBLIC_URL_VALUE"
     show_env_value MINIAPP_PUBLIC_URL "$MINIAPP_PUBLIC_URL_VALUE"
+    show_env_value INSTALL_NODE_ROLE "$INSTALL_NODE_ROLE_VALUE"
+    show_env_value FRONTEND_BACKEND_MODE "$FRONTEND_BACKEND_MODE_VALUE"
+    show_env_value WEBAPP_API_BASE_URL "$WEBAPP_API_BASE_URL_VALUE"
+    show_env_value WEBAPP_BACKEND_UPSTREAM "$WEBAPP_BACKEND_UPSTREAM_VALUE"
+    show_env_value WEBAPP_BACKEND_UPSTREAM_HOST "$WEBAPP_BACKEND_UPSTREAM_HOST_VALUE"
+    show_env_value MINISHOP_EDGE_TOKEN "$MINISHOP_EDGE_TOKEN_VALUE"
+    show_env_value MINISHOP_EDGE_TOKEN_HEADER "$MINISHOP_EDGE_TOKEN_HEADER_VALUE"
     show_env_value WEB_SERVER_BIND "$WEB_SERVER_BIND_VALUE"
+    show_env_value WEBAPP_SERVER_BIND "$WEBAPP_SERVER_BIND_VALUE"
     show_env_value FRONTEND_BIND "$FRONTEND_BIND_VALUE"
+    show_env_value RATHOLE_IMAGE "$RATHOLE_IMAGE_VALUE"
+    show_env_value RATHOLE_CONTROL_BIND "$RATHOLE_CONTROL_BIND_VALUE"
+    show_env_value RATHOLE_CONTROL_REMOTE "$RATHOLE_CONTROL_REMOTE_VALUE"
+    show_env_value RATHOLE_SERVICE_TOKEN "$RATHOLE_SERVICE_TOKEN_VALUE"
+    show_env_value RATHOLE_SERVICE_PORT "$RATHOLE_SERVICE_PORT_VALUE"
+    [ "$INSTALL_NODE_ROLE_VALUE" = "frontend-node" ] && return 0
     show_env_value BOT_TOKEN "$BOT_TOKEN_VALUE"
     show_env_value ADMIN_IDS "$ADMIN_IDS_VALUE"
     show_env_value POSTGRES_USER "$POSTGRES_USER_VALUE"
@@ -1098,13 +1382,31 @@ render_env_file() {
     env_line MINIAPP_HOST "$MINIAPP_HOST_VALUE" "$output"
     env_line WEBHOOK_PUBLIC_URL "$WEBHOOK_PUBLIC_URL_VALUE" "$output"
     env_line MINIAPP_PUBLIC_URL "$MINIAPP_PUBLIC_URL_VALUE" "$output"
+    env_line INSTALL_NODE_ROLE "$INSTALL_NODE_ROLE_VALUE" "$output"
+    env_line FRONTEND_BACKEND_MODE "$FRONTEND_BACKEND_MODE_VALUE" "$output"
+    env_line WEBAPP_API_BASE_URL "$WEBAPP_API_BASE_URL_VALUE" "$output"
+    env_line WEBAPP_BACKEND_UPSTREAM "$WEBAPP_BACKEND_UPSTREAM_VALUE" "$output"
+    env_line WEBAPP_BACKEND_UPSTREAM_HOST "$WEBAPP_BACKEND_UPSTREAM_HOST_VALUE" "$output"
+    env_line MINISHOP_EDGE_TOKEN "$MINISHOP_EDGE_TOKEN_VALUE" "$output"
+    env_line MINISHOP_EDGE_TOKEN_HEADER "$MINISHOP_EDGE_TOKEN_HEADER_VALUE" "$output"
     env_line HTTP_BIND "$HTTP_BIND_VALUE" "$output"
     env_line HTTPS_BIND "$HTTPS_BIND_VALUE" "$output"
     env_line WEB_SERVER_BIND "$WEB_SERVER_BIND_VALUE" "$output"
+    env_line WEBAPP_SERVER_BIND "$WEBAPP_SERVER_BIND_VALUE" "$output"
     env_line FRONTEND_BIND "$FRONTEND_BIND_VALUE" "$output"
+    env_line RATHOLE_IMAGE "$RATHOLE_IMAGE_VALUE" "$output"
+    env_line RATHOLE_CONTROL_BIND "$RATHOLE_CONTROL_BIND_VALUE" "$output"
+    env_line RATHOLE_CONTROL_REMOTE "$RATHOLE_CONTROL_REMOTE_VALUE" "$output"
+    env_line RATHOLE_SERVICE_TOKEN "$RATHOLE_SERVICE_TOKEN_VALUE" "$output"
+    env_line RATHOLE_SERVICE_PORT "$RATHOLE_SERVICE_PORT_VALUE" "$output"
     env_line PANGOLIN_ENDPOINT "$PANGOLIN_ENDPOINT_VALUE" "$output"
     env_line NEWT_ID "$NEWT_ID_VALUE" "$output"
     env_line NEWT_SECRET "$NEWT_SECRET_VALUE" "$output"
+
+    if [ "$INSTALL_NODE_ROLE_VALUE" = "frontend-node" ]; then
+        append_preserved_env "$output"
+        return 0
+    fi
 
     printf '\n# Telegram\n' >> "$output"
     env_line BOT_TOKEN "$BOT_TOKEN_VALUE" "$output"
@@ -1718,7 +2020,9 @@ compose_bind_value() {
         HTTP_BIND) value="$HTTP_BIND_VALUE" ;;
         HTTPS_BIND) value="$HTTPS_BIND_VALUE" ;;
         WEB_SERVER_BIND) value="$WEB_SERVER_BIND_VALUE" ;;
+        WEBAPP_SERVER_BIND) value="$WEBAPP_SERVER_BIND_VALUE" ;;
         FRONTEND_BIND) value="$FRONTEND_BIND_VALUE" ;;
+        RATHOLE_CONTROL_BIND) value="$RATHOLE_CONTROL_BIND_VALUE" ;;
     esac
     if [ -z "$value" ]; then
         value=$(env_get "$key" "")
@@ -1728,7 +2032,7 @@ compose_bind_value() {
 
 print_current_bind_settings() {
     printed=0
-    for key in HTTP_BIND HTTPS_BIND WEB_SERVER_BIND FRONTEND_BIND; do
+    for key in HTTP_BIND HTTPS_BIND WEB_SERVER_BIND WEBAPP_SERVER_BIND FRONTEND_BIND RATHOLE_CONTROL_BIND; do
         value=$(compose_bind_value "$key")
         [ -n "$value" ] || continue
         if [ "$printed" = "0" ]; then
@@ -1741,7 +2045,7 @@ print_current_bind_settings() {
 
 validate_bind_settings() {
     failed=0
-    for key in HTTP_BIND HTTPS_BIND WEB_SERVER_BIND FRONTEND_BIND; do
+    for key in HTTP_BIND HTTPS_BIND WEB_SERVER_BIND WEBAPP_SERVER_BIND FRONTEND_BIND RATHOLE_CONTROL_BIND; do
         value=$(compose_bind_value "$key")
         [ -n "$value" ] || continue
         if ! is_bind_address "$value"; then
@@ -1787,7 +2091,7 @@ explain_compose_failure() {
 
     if grep -Eiq 'invalid hostPort|invalid host port|invalid.*published.*port|invalid.*containerPort|invalid port' "$output_file"; then
         fail "Docker Compose не смог разобрать публикацию порта."
-        info "Самая частая причина: в HTTP_BIND, HTTPS_BIND, WEB_SERVER_BIND или FRONTEND_BIND указан только IP без порта."
+        info "Самая частая причина: в HTTP_BIND, HTTPS_BIND, WEB_SERVER_BIND, WEBAPP_SERVER_BIND, FRONTEND_BIND или RATHOLE_CONTROL_BIND указан только IP без порта."
         info "Нужно указать PORT или IP:PORT: 80, 0.0.0.0:80, <IP_СЕРВЕРА>:80, 127.0.0.1:8080."
         info "Если хотите слушать все интерфейсы сервера, оставьте 0.0.0.0:PORT."
         print_current_bind_settings
@@ -1845,6 +2149,23 @@ explain_compose_failure() {
         return 0
     fi
 
+    if grep -Eiq 'postgres.*unhealthy|dependency failed.*postgres|container .*postgres.*unhealthy' "$output_file"; then
+        fail "PostgreSQL не прошел healthcheck."
+        explain_postgres_password_mismatch
+        return 0
+    fi
+
+    if grep -Eiq "service \"migrate\" didn't complete successfully|service \"migrate\" did not complete successfully|migrate.*exit [1-9]" "$output_file"; then
+        fail "Сервис migrate завершился с ошибкой."
+        info "Ниже последние строки логов migrate; в них обычно указана реальная причина: настройки, тарифы или схема БД."
+        migrate_logs=$(compose logs --tail 120 migrate 2>/dev/null || true)
+        [ -n "$migrate_logs" ] && printf '%s\n' "$migrate_logs"
+        if printf '%s\n' "$migrate_logs" | grep -Eiq 'InvalidPasswordError|password authentication failed'; then
+            explain_postgres_password_mismatch
+        fi
+        return 0
+    fi
+
     if grep -Eiq 'yaml:|mapping values are not allowed|did not find expected key|found character that cannot start any token' "$output_file"; then
         fail "Compose-файл выглядит синтаксически некорректным."
         info "Если файл редактировался вручную, сравните его с исходным примером или заново скачайте профиль через пункт меню обновления файлов."
@@ -1878,6 +2199,84 @@ run_compose_checked() {
     return "$status"
 }
 
+explain_postgres_password_mismatch() {
+    fail "PostgreSQL не принимает POSTGRES_USER/POSTGRES_PASSWORD из текущего .env."
+    info "Чаще всего это значит, что Docker volume базы уже был создан раньше с другим паролем."
+    info "Для настоящей чистой установки удалите старый DB volume через wizard или смените COMPOSE_PROJECT_NAME."
+    info "Если в базе есть нужные данные, верните старый POSTGRES_PASSWORD в .env и не удаляйте volume."
+}
+
+target_postgres_volume() {
+    printf '%s-db-data' "$(target_compose_project)"
+}
+
+check_target_postgres_auth() {
+    (cd "$TARGET_DIR" && compose exec -T postgres sh -lc \
+        'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atqc "SELECT 1" | grep -qx 1')
+}
+
+wait_target_postgres_auth() {
+    attempt=1
+    while [ "$attempt" -le 30 ]; do
+        if check_target_postgres_auth >/dev/null 2>&1; then
+            ok "PostgreSQL принимает логин/пароль из .env."
+            return 0
+        fi
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+    return 1
+}
+
+preflight_existing_postgres_volume() {
+    volume=$(target_postgres_volume)
+    if ! volume_exists "$volume"; then
+        return 0
+    fi
+    if volume_is_empty "$volume"; then
+        return 0
+    fi
+
+    warn "Найден существующий Docker volume PostgreSQL: $volume"
+    warn "Если вы проходите wizard заново, это может быть не чистая установка: данные БД живут вне папки $TARGET_DIR."
+
+    (cd "$TARGET_DIR" && run_compose_checked up -d postgres redis) || return 1
+    if wait_target_postgres_auth; then
+        return 0
+    fi
+
+    explain_postgres_password_mismatch
+    if confirm "Удалить volume $volume и начать с пустой БД? Все данные в этой БД будут удалены." 0; then
+        (cd "$TARGET_DIR" && run_compose down) || true
+        docker volume rm "$volume" >/dev/null || {
+            fail "Не удалось удалить Docker volume: $volume"
+            return 1
+        }
+        ok "Docker volume $volume удален. При следующем старте PostgreSQL создаст пустую БД с текущим .env."
+        return 0
+    fi
+
+    fail "Запуск остановлен, чтобы не продолжать с несовпадающим паролем PostgreSQL."
+    return 1
+}
+
+reset_target_postgres_volume() {
+    section "Пересоздание целевого PostgreSQL volume"
+    volume=$(target_postgres_volume)
+    (cd "$TARGET_DIR" && run_compose down) || true
+    if volume_exists "$volume"; then
+        docker volume rm "$volume" >/dev/null || {
+            fail "Не удалось удалить Docker volume: $volume"
+            return 1
+        }
+        ok "Docker volume $volume удален. PostgreSQL будет создан заново с текущими POSTGRES_* из .env."
+    else
+        info "Целевой DB volume $volume еще не создан."
+    fi
+    (cd "$TARGET_DIR" && run_compose_checked up -d postgres redis) || return 1
+    wait_target_postgres || return 1
+}
+
 start_stack() {
     pull="${1:-1}"
     section "Запуск Docker Compose стека"
@@ -1886,6 +2285,9 @@ start_stack() {
     require_docker || return 1
     if [ "$pull" = "1" ]; then
         (cd "$TARGET_DIR" && run_compose_checked pull) || return 1
+    fi
+    if [ "$INSTALL_NODE_ROLE_VALUE" != "frontend-node" ]; then
+        preflight_existing_postgres_volume || return 1
     fi
     (cd "$TARGET_DIR" && run_compose_checked up -d) || return 1
     (cd "$TARGET_DIR" && run_compose ps) || true
@@ -1939,6 +2341,21 @@ set_env_file_value() {
                 print key "=" value
             }
         }
+    ' "$file" > "$tmp" || {
+        rm -f "$tmp"
+        return 1
+    }
+    mv "$tmp" "$file"
+}
+
+unset_env_file_value() {
+    file="$1"
+    key="$2"
+    [ -f "$file" ] || return 0
+    tmp="$file.tmp.$$"
+    awk -v key="$key" '
+        $0 ~ "^[[:space:]]*" key "=" { next }
+        { print }
     ' "$file" > "$tmp" || {
         rm -f "$tmp"
         return 1
@@ -2176,6 +2593,394 @@ EOF
     fi
 }
 
+ensure_target_network_exists() {
+    target_network="$(target_network_name)"
+    if docker network inspect "$target_network" >/dev/null 2>&1; then
+        return 0
+    fi
+    info "Docker-сеть $target_network еще не создана; подготавливаю стек без запуска, чтобы Docker Compose создал ее."
+    prepare_compose_without_starting_apps || return 1
+    docker network inspect "$target_network" >/dev/null 2>&1 || {
+        fail "Docker-сеть $target_network не появилась после подготовки стека."
+        return 1
+    }
+}
+
+connect_proxy_to_target_network() {
+    proxy_name="$1"
+    target_network="$(target_network_name)"
+    if docker inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' "$proxy_name" 2>/dev/null | grep -Fx "$target_network" >/dev/null 2>&1; then
+        ok "Контейнер $proxy_name уже подключен к Docker-сети $target_network."
+        return 0
+    fi
+    docker network connect "$target_network" "$proxy_name" || {
+        fail "Не удалось подключить $proxy_name к Docker-сети $target_network."
+        return 1
+    }
+    ok "Контейнер $proxy_name подключен к Docker-сети $target_network."
+}
+
+strip_managed_block() {
+    awk '
+        /^# BEGIN remnawave-minishop managed by install.sh$/ { managed = 1; next }
+        /^# END remnawave-minishop managed by install.sh$/ { managed = 0; next }
+        managed { next }
+        { print }
+    ' "$1" > "$2"
+}
+
+container_nginx_first_value() {
+    proxy_name="$1"
+    nginx_key="$2"
+    docker exec "$proxy_name" sh -c "grep -rhE '^[[:space:]]*$nginx_key[[:space:]]' /etc/nginx 2>/dev/null | head -n 1" 2>/dev/null |
+        awk '{ value = $2; gsub(/[";]/, "", value); print value; exit }'
+}
+
+nginx_container_confd_host_dir() {
+    confd_source=$(container_mount_source "$1" /etc/nginx/conf.d)
+    if [ -n "$confd_source" ] && [ -d "$confd_source" ]; then
+        printf '%s' "$confd_source"
+        return 0
+    fi
+    etc_source=$(container_mount_source "$1" /etc/nginx)
+    if [ -n "$etc_source" ] && [ -d "$etc_source/conf.d" ]; then
+        printf '%s/conf.d' "$etc_source"
+        return 0
+    fi
+    return 1
+}
+
+nginx_container_confd_file_mount() {
+    docker inspect -f '{{range .Mounts}}{{.Destination}}|{{.Source}}{{"\n"}}{{end}}' "$1" 2>/dev/null |
+        awk -F'|' '$1 ~ /^\/etc\/nginx\/conf\.d\/.+/ { print $2; exit }'
+}
+
+render_generic_nginx_server_block() {
+    server_host="$1"
+    server_upstream="$2"
+    listen_directive="$3"
+    ssl_lines="$4"
+    use_resolver="$5"
+    upstream_var="$6"
+    if [ "$use_resolver" = "1" ]; then
+        proxy_lines="        resolver 127.0.0.11 valid=30s ipv6=off;
+        set \$$upstream_var $server_upstream;
+        proxy_pass \$$upstream_var;"
+    else
+        proxy_lines="        proxy_pass $server_upstream;"
+    fi
+    cat <<EOF
+server {
+    server_name $server_host;
+    $listen_directive
+$ssl_lines
+    client_max_body_size 20m;
+
+    location / {
+$proxy_lines
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Host \$host;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
+EOF
+}
+
+render_generic_nginx_servers() {
+    render_output="$1"
+    webhook_host="$2"
+    miniapp_host="$3"
+    backend_upstream="$4"
+    frontend_upstream="$5"
+    ssl_cert="$6"
+    ssl_key="$7"
+    use_resolver="$8"
+    if [ -n "$ssl_cert" ]; then
+        listen_directive="listen 443 ssl;"
+        ssl_lines="    ssl_certificate \"$ssl_cert\";
+    ssl_certificate_key \"$ssl_key\";
+"
+    else
+        listen_directive="listen 80;"
+        ssl_lines=""
+    fi
+    {
+        printf '# BEGIN remnawave-minishop managed by install.sh\n'
+        render_generic_nginx_server_block "$webhook_host" "$backend_upstream" "$listen_directive" "$ssl_lines" "$use_resolver" minishop_backend
+        printf '\n'
+        render_generic_nginx_server_block "$miniapp_host" "$frontend_upstream" "$listen_directive" "$ssl_lines" "$use_resolver" minishop_frontend
+        printf '# END remnawave-minishop managed by install.sh\n'
+    } >> "$render_output"
+}
+
+render_generic_caddy_block() {
+    cat >> "$1" <<EOF
+
+# BEGIN remnawave-minishop managed by install.sh
+$2 {
+    encode zstd gzip
+    reverse_proxy $4
+}
+
+$3 {
+    encode zstd gzip
+    reverse_proxy $5
+}
+# END remnawave-minishop managed by install.sh
+EOF
+}
+
+apply_nginx_container_config() {
+    if ! docker exec "$1" nginx -t; then
+        return 1
+    fi
+    docker exec "$1" nginx -s reload || docker restart "$1" >/dev/null
+}
+
+attach_generic_nginx_proxy() {
+    proxy_name="$1"
+    webhook_host="$2"
+    miniapp_host="$3"
+
+    if container_uses_host_network "$proxy_name"; then
+        backend_upstream="http://127.0.0.1:$(bind_port "${WEB_SERVER_BIND_VALUE:-$(env_get WEB_SERVER_BIND '127.0.0.1:8080')}")"
+        frontend_upstream="http://127.0.0.1:$(bind_port "${FRONTEND_BIND_VALUE:-$(env_get FRONTEND_BIND '127.0.0.1:8082')}")"
+        use_resolver=0
+        info "Контейнер $proxy_name использует host-сеть; проксирую на локальные порты Minishop."
+    else
+        ensure_target_network_exists || return 1
+        connect_proxy_to_target_network "$proxy_name" || return 1
+        backend_upstream="http://backend:8080"
+        frontend_upstream="http://frontend:80"
+        use_resolver=1
+        info "Проксирую на сервисы backend/frontend по именам внутри общей Docker-сети."
+    fi
+
+    ssl_cert=$(container_nginx_first_value "$proxy_name" ssl_certificate || true)
+    ssl_key=$(container_nginx_first_value "$proxy_name" ssl_certificate_key || true)
+    if [ -n "$ssl_cert" ] && [ -n "$ssl_key" ]; then
+        info "Использую существующий сертификат Nginx: $ssl_cert"
+        warn "Убедитесь, что сертификат покрывает $webhook_host и $miniapp_host (например, wildcard)."
+    else
+        warn "Не нашел ssl_certificate в конфиге контейнера $proxy_name."
+        prompt_value "Путь к fullchain.pem внутри контейнера (пусто = слушать HTTP :80 без TLS)" "" 0 0 ""
+        ssl_cert="$PROMPT_VALUE"
+        if [ -n "$ssl_cert" ]; then
+            prompt_value "Путь к privkey.pem внутри контейнера" "" 1 0 ""
+            ssl_key="$PROMPT_VALUE"
+        else
+            ssl_key=""
+            warn "Серверные блоки будут слушать порт 80: TLS должен терминироваться выше по цепочке."
+        fi
+    fi
+
+    confd_dir=$(nginx_container_confd_host_dir "$proxy_name" || true)
+    if [ -n "$confd_dir" ]; then
+        snippet_path="$confd_dir/remnawave-minishop.conf"
+        snippet_backup=""
+        if [ -e "$snippet_path" ]; then
+            snippet_backup=$(backup_path "$snippet_path")
+            cp "$snippet_path" "$snippet_backup"
+            info "Бэкап $snippet_path сохранен как $(basename "$snippet_backup")"
+        fi
+        tmp="$snippet_path.tmp.$$"
+        : > "$tmp"
+        render_generic_nginx_servers "$tmp" "$webhook_host" "$miniapp_host" "$backend_upstream" "$frontend_upstream" "$ssl_cert" "$ssl_key" "$use_resolver"
+        mv "$tmp" "$snippet_path" || {
+            rm -f "$tmp"
+            return 1
+        }
+        if apply_nginx_container_config "$proxy_name"; then
+            ok "Маршруты Nginx настроены: $webhook_host -> $backend_upstream и $miniapp_host -> $frontend_upstream"
+            ok "Записан конфиг $snippet_path"
+            return 0
+        fi
+        warn "Проверка конфига Nginx не прошла; откатываю $snippet_path"
+        if [ -n "$snippet_backup" ] && [ -f "$snippet_backup" ]; then
+            cp "$snippet_backup" "$snippet_path"
+        else
+            rm -f "$snippet_path"
+        fi
+        docker exec "$proxy_name" nginx -s reload >/dev/null 2>&1 || true
+        return 1
+    fi
+
+    conf_file=$(nginx_container_confd_file_mount "$proxy_name" || true)
+    if [ -n "$conf_file" ] && [ -f "$conf_file" ]; then
+        conf_backup=$(backup_path "$conf_file")
+        cp "$conf_file" "$conf_backup" || return 1
+        info "Бэкап $conf_file сохранен как $(basename "$conf_backup")"
+        tmp="$conf_file.tmp.$$"
+        egames_remove_managed_and_conflicting_servers "$conf_backup" "$tmp" "$webhook_host" "$miniapp_host" || {
+            rm -f "$tmp"
+            return 1
+        }
+        printf '\n' >> "$tmp"
+        render_generic_nginx_servers "$tmp" "$webhook_host" "$miniapp_host" "$backend_upstream" "$frontend_upstream" "$ssl_cert" "$ssl_key" "$use_resolver"
+        if ! cat "$tmp" > "$conf_file"; then
+            rm -f "$tmp"
+            return 1
+        fi
+        rm -f "$tmp"
+        if apply_nginx_container_config "$proxy_name"; then
+            ok "Маршруты Nginx настроены: $webhook_host -> $backend_upstream и $miniapp_host -> $frontend_upstream"
+            return 0
+        fi
+        warn "Проверка конфига Nginx не прошла; восстанавливаю $conf_backup"
+        cp "$conf_backup" "$conf_file"
+        docker restart "$proxy_name" >/dev/null || true
+        return 1
+    fi
+
+    mkdir -p "$TARGET_DIR/$INSTALL_STATE_DIR"
+    manual_conf="$TARGET_DIR/$INSTALL_STATE_DIR/remnawave-minishop-nginx.conf"
+    : > "$manual_conf"
+    render_generic_nginx_servers "$manual_conf" "$webhook_host" "$miniapp_host" "$backend_upstream" "$frontend_upstream" "$ssl_cert" "$ssl_key" "$use_resolver"
+    warn "Не нашел host-mounted конфиг (conf.d) у контейнера $proxy_name, поэтому не могу записать его автоматически."
+    warn "Готовые server-блоки сохранены: $manual_conf"
+    info "Добавьте их в http-контекст вашего Nginx (например, скопируйте файл в его conf.d) и выполните nginx -s reload."
+    return 0
+}
+
+attach_generic_caddy_proxy() {
+    proxy_name="$1"
+    webhook_host="$2"
+    miniapp_host="$3"
+
+    if container_uses_host_network "$proxy_name"; then
+        backend_upstream="127.0.0.1:$(bind_port "${WEB_SERVER_BIND_VALUE:-$(env_get WEB_SERVER_BIND '127.0.0.1:8080')}")"
+        frontend_upstream="127.0.0.1:$(bind_port "${FRONTEND_BIND_VALUE:-$(env_get FRONTEND_BIND '127.0.0.1:8082')}")"
+        info "Контейнер $proxy_name использует host-сеть; проксирую на локальные порты Minishop."
+    else
+        ensure_target_network_exists || return 1
+        connect_proxy_to_target_network "$proxy_name" || return 1
+        backend_upstream="backend:8080"
+        frontend_upstream="frontend:80"
+        info "Проксирую на сервисы backend/frontend по именам внутри общей Docker-сети."
+    fi
+    info "Caddy сам выпустит сертификаты для $webhook_host и $miniapp_host, если DNS уже указывает на этот сервер."
+
+    caddyfile=$(container_mount_source "$proxy_name" /etc/caddy/Caddyfile)
+    if [ -z "$caddyfile" ]; then
+        caddy_dir=$(container_mount_source "$proxy_name" /etc/caddy)
+        if [ -n "$caddy_dir" ] && [ -f "$caddy_dir/Caddyfile" ]; then
+            caddyfile="$caddy_dir/Caddyfile"
+        fi
+    fi
+    if [ -z "$caddyfile" ] || [ ! -f "$caddyfile" ]; then
+        mkdir -p "$TARGET_DIR/$INSTALL_STATE_DIR"
+        manual_conf="$TARGET_DIR/$INSTALL_STATE_DIR/remnawave-minishop-caddy.conf"
+        : > "$manual_conf"
+        render_generic_caddy_block "$manual_conf" "$webhook_host" "$miniapp_host" "$backend_upstream" "$frontend_upstream"
+        warn "Не нашел host-mounted Caddyfile у контейнера $proxy_name, поэтому не могу записать его автоматически."
+        warn "Готовые site-блоки сохранены: $manual_conf"
+        info "Добавьте их в ваш Caddyfile и выполните caddy reload."
+        return 0
+    fi
+
+    caddy_backup=$(backup_path "$caddyfile")
+    cp "$caddyfile" "$caddy_backup" || return 1
+    info "Бэкап $caddyfile сохранен как $(basename "$caddy_backup")"
+    tmp="$caddyfile.tmp.$$"
+    strip_managed_block "$caddy_backup" "$tmp" || {
+        rm -f "$tmp"
+        return 1
+    }
+    render_generic_caddy_block "$tmp" "$webhook_host" "$miniapp_host" "$backend_upstream" "$frontend_upstream"
+    if ! cat "$tmp" > "$caddyfile"; then
+        rm -f "$tmp"
+        return 1
+    fi
+    rm -f "$tmp"
+    if docker exec "$proxy_name" caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1; then
+        docker exec "$proxy_name" caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || docker restart "$proxy_name" >/dev/null
+        ok "Маршруты Caddy настроены: $webhook_host -> $backend_upstream и $miniapp_host -> $frontend_upstream"
+        return 0
+    fi
+    warn "Проверка Caddyfile не прошла; восстанавливаю $caddy_backup"
+    cp "$caddy_backup" "$caddyfile"
+    docker exec "$proxy_name" caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || docker restart "$proxy_name" >/dev/null || true
+    return 1
+}
+
+attach_existing_reverse_proxy_container() {
+    section "Подключение к существующему Nginx/Caddy"
+    require_docker || return 1
+    webhook_host="${WEBHOOK_HOST_VALUE:-$(env_get WEBHOOK_HOST '')}"
+    miniapp_host="${MINIAPP_HOST_VALUE:-$(env_get MINIAPP_HOST '')}"
+    if [ -z "$webhook_host" ] || [ -z "$miniapp_host" ]; then
+        fail "Для подключения к существующему reverse proxy нужны WEBHOOK_HOST и MINIAPP_HOST."
+        return 1
+    fi
+
+    candidates=$(list_running_proxy_containers || true)
+    default_proxy=""
+    if [ -n "$candidates" ]; then
+        info "Найдены запущенные reverse proxy контейнеры:"
+        printf '%s\n' "$candidates" | while IFS= read -r candidate; do
+            info "  - $candidate ($(proxy_container_kind "$candidate" || printf 'неизвестный тип'))"
+        done
+        default_proxy=$(printf '%s\n' "$candidates" | head -n 1)
+    else
+        warn "Не нашел запущенные Nginx/Caddy контейнеры автоматически; введите имя вручную."
+    fi
+    prompt_value "Имя контейнера reverse proxy" "$default_proxy" 1 0 ""
+    proxy_name="$PROMPT_VALUE"
+    if ! docker_container_exists "$proxy_name"; then
+        fail "Контейнер не найден: $proxy_name"
+        return 1
+    fi
+
+    proxy_kind=$(proxy_container_kind "$proxy_name" || true)
+    if [ -z "$proxy_kind" ]; then
+        choose "Тип reverse proxy в контейнере $proxy_name" "1" "1|2" \
+            "1. Nginx" \
+            "2. Caddy" || return 1
+        case "$CHOICE_VALUE" in
+            1) proxy_kind="nginx" ;;
+            2) proxy_kind="caddy" ;;
+        esac
+    fi
+
+    case "$proxy_kind" in
+        nginx)
+            attach_generic_nginx_proxy "$proxy_name" "$webhook_host" "$miniapp_host"
+            ;;
+        caddy)
+            attach_generic_caddy_proxy "$proxy_name" "$webhook_host" "$miniapp_host"
+            ;;
+    esac
+}
+
+configure_existing_reverse_proxy() {
+    is_egames_profile || return 0
+    default_proxy_mode="2"
+    if detect_egames_stack; then
+        default_proxy_mode="1"
+    fi
+    choose "Подключение к существующему reverse proxy" "$default_proxy_mode" "1|2|3" \
+        "1. Remnawave/eGames Nginx - правка nginx.conf по схеме eGames (unix socket)." \
+        "2. Другой запущенный Nginx или Caddy - универсальное подключение к контейнеру." \
+        "3. Пропустить - настрою reverse proxy вручную." || return 1
+    case "$CHOICE_VALUE" in
+        1)
+            configure_egames_reverse_proxy
+            ;;
+        2)
+            attach_existing_reverse_proxy_container
+            ;;
+        3)
+            warn "Настройка reverse proxy пропущена. Направьте WEBHOOK_HOST на backend-порт и MINIAPP_HOST на frontend-порт вручную."
+            return 0
+            ;;
+    esac
+}
+
 refresh_egames_nginx_after_migration() {
     is_egames_profile || return 0
     section "Перезапуск eGames Nginx"
@@ -2287,52 +3092,6 @@ volume_is_empty() {
         'test -z "$(find /data -mindepth 1 -print -quit)"' >/dev/null 2>&1
 }
 
-copy_volume_if_safe() {
-    source_volume="$1"
-    target_volume="$2"
-    required="${3:-0}"
-
-    if ! volume_exists "$source_volume"; then
-        if [ "$required" = "1" ]; then
-            fail "Исходный Docker volume не найден: $source_volume"
-            return 1
-        fi
-        warn "Пропускаю $source_volume: исходный Docker volume не найден."
-        return 0
-    fi
-
-    if ! volume_exists "$target_volume"; then
-        if [ "$required" = "1" ]; then
-            fail "Целевой Docker volume не найден: $target_volume"
-            return 1
-        fi
-        warn "Пропускаю $target_volume: целевой Docker volume не был создан этим профилем."
-        return 0
-    fi
-
-    if ! volume_is_empty "$target_volume"; then
-        if [ "$required" = "1" ]; then
-            warn "Целевой Docker volume $target_volume уже не пустой."
-            warn "Возможно, миграция уже была выполнена или стек уже стартовал с пустой базой."
-            if confirm "Продолжить без копирования старого Docker volume базы данных?" 0; then
-                return 0
-            fi
-            return 1
-        fi
-        warn "Пропускаю $target_volume: целевой Docker volume уже не пустой."
-        return 0
-    fi
-
-    run_label="docker run --rm -v $source_volume:/from:ro -v $target_volume:/to alpine sh -c 'cd /from && cp -a . /to/'"
-    color "+ $run_label" "$DIM"
-    printf '\n'
-    docker run --rm \
-        -v "$source_volume:/from:ro" \
-        -v "$target_volume:/to" \
-        alpine sh -c 'cd /from && cp -a . /to/' || return 1
-    ok "Скопировано $source_volume -> $target_volume"
-}
-
 stop_known_legacy_containers() {
     section "Остановка старых контейнеров"
     stopped=0
@@ -2353,17 +3112,11 @@ stop_known_legacy_containers() {
 
 wait_target_postgres() {
     section "Ожидание целевого PostgreSQL"
-    attempt=1
-    while [ "$attempt" -le 30 ]; do
-        if (cd "$TARGET_DIR" && compose exec -T postgres sh -c \
-            'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null 2>&1); then
-            ok "PostgreSQL готов."
-            return 0
-        fi
-        sleep 2
-        attempt=$((attempt + 1))
-    done
-    fail "Целевой PostgreSQL не стал готовым."
+    if wait_target_postgres_auth; then
+        return 0
+    fi
+    explain_postgres_password_mismatch
+    fail "Целевой PostgreSQL не стал готовым с текущими настройками .env."
     return 1
 }
 
@@ -2416,6 +3169,10 @@ target_compose_project() {
     printf '%s' "$project"
 }
 
+target_network_name() {
+    printf '%s-network' "$(target_compose_project)"
+}
+
 connect_local_source_db_to_target_network() {
     source_host=$(dsn_hostname "$SOURCE_DSN")
     [ -n "$source_host" ] || return 0
@@ -2428,7 +3185,7 @@ connect_local_source_db_to_target_network() {
         return 0
     fi
 
-    target_network="$(target_compose_project)_remnawave-shop"
+    target_network="$(target_network_name)"
     if ! docker network inspect "$target_network" >/dev/null 2>&1; then
         warn "Целевая Docker-сеть $target_network не найдена; исходный контейнер $source_host не подключен автоматически."
         return 0
@@ -2440,10 +3197,10 @@ connect_local_source_db_to_target_network() {
     fi
 
     docker network connect "$target_network" "$source_host" || {
-        warn "Не удалось подключить исходный контейнер $source_host к $target_network. Проверка без записи может завершиться ошибкой, если сервис backend его не видит."
+        warn "Не удалось подключить исходный контейнер $source_host к $target_network. Импорт может завершиться ошибкой, если сервис backend его не видит."
         return 0
     }
-    ok "Исходный контейнер $source_host подключен к $target_network для импорта Remnashop."
+    ok "Исходный контейнер $source_host подключен к $target_network для импорта."
 }
 
 remnashop_webhook_checklist() {
@@ -2954,9 +3711,12 @@ reset_target_compose_database() {
 
 create_pre_migration_backup() {
     label="$1"
-    if ! confirm "Сделать бэкап текущего Minishop перед миграцией? Это позволит откатить целевую базу и конфиги." 1; then
-        warn "Бэкап перед миграцией пропущен по вашему выбору."
-        return 0
+    ask="${2:-1}"
+    if [ "$ask" = "1" ]; then
+        if ! confirm "Сделать бэкап текущего Minishop перед миграцией? Это позволит откатить целевую базу и конфиги." 1; then
+            warn "Бэкап перед миграцией пропущен по вашему выбору."
+            return 0
+        fi
     fi
 
     section "Бэкап перед миграцией"
@@ -2973,7 +3733,7 @@ create_pre_migration_backup() {
         fi
     done
 
-    if (cd "$TARGET_DIR" && compose exec -T postgres sh -lc 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null 2>&1); then
+    if check_target_postgres_auth >/dev/null 2>&1; then
         if (cd "$TARGET_DIR" && compose exec -T postgres sh -lc 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --no-acl') > "$backup_dir/dumps/minishop-postgres.sql"; then
             ok "Дамп PostgreSQL сохранен: $backup_dir/dumps/minishop-postgres.sql"
         else
@@ -3034,6 +3794,45 @@ EOF
 Бэкап содержит копии основных файлов деплоя и, если PostgreSQL был доступен, логический дамп целевой базы Minishop.
 EOF
     ok "Бэкап перед миграцией сохранен: $backup_dir"
+}
+
+create_tgshop_source_backup() {
+    section "Бэкап источника remnawave-tg-shop"
+    stamp=$(date -u '+%Y%m%d-%H%M%S')
+    backup_dir="$TARGET_DIR/backups/pre-remnawave-tg-shop-source-$stamp"
+    dump_dir="$backup_dir/dumps"
+    dump_path="$dump_dir/remnawave-tg-shop-source.sql"
+    mkdir -p "$dump_dir"
+    chmod 700 "$backup_dir" 2>/dev/null || true
+
+    if volume_exists "$OLD_TGSHOP_DB_VOLUME"; then
+        info "Старый Docker volume $OLD_TGSHOP_DB_VOLUME не удаляется и остается на хосте для отката."
+    else
+        info "Старый Docker volume $OLD_TGSHOP_DB_VOLUME не найден; сохраняю backup по source DSN."
+    fi
+
+    if (cd "$TARGET_DIR" && run_compose run --rm --no-deps \
+        -v "$dump_dir:/backup" \
+        -e "SOURCE_DSN=$SOURCE_DSN" \
+        backend sh -lc \
+        'pg_dump --clean --if-exists --no-owner --no-privileges "$SOURCE_DSN" > /backup/remnawave-tg-shop-source.sql'); then
+        ok "Дамп источника сохранен: $dump_path"
+    else
+        fail "Не удалось сохранить дамп старого remnawave-tg-shop. Целевой DB volume не удалялся."
+        return 1
+    fi
+
+    cat > "$backup_dir/README.md" <<EOF
+# Backup источника remnawave-tg-shop
+
+Создан: $(date -u '+%Y-%m-%dT%H:%M:%SZ')
+Source DSN: $(mask_compose_log_args "$SOURCE_DSN")
+Старый Docker volume: $OLD_TGSHOP_DB_VOLUME
+
+Wizard не удаляет старый Docker volume. Этот SQL dump сохранен до пересоздания
+целевого Minishop DB volume и может использоваться для ручного восстановления.
+EOF
+    TGSHOP_SOURCE_DUMP_PATH="$dump_path"
 }
 
 choose_legacy_source() {
@@ -3183,41 +3982,25 @@ prepare_compose_without_starting_apps() {
     (cd "$TARGET_DIR" && run_compose_checked up --no-start) || return 1
 }
 
-run_tgshop_volume_migration() {
-    section "Миграция Docker volume старого remnawave-tg-shop"
-    warn "Этот путь копирует старый PostgreSQL Docker volume в новый Docker volume Minishop."
-    warn "Старые Docker volumes не удаляются; сохраните их до проверки нового стека."
-
-    if confirm "Остановить известные старые/текущие контейнеры перед копированием томов Docker?" 1; then
-        stop_known_legacy_containers || return 1
-        (cd "$TARGET_DIR" && run_compose down) || true
-    fi
-
-    prepare_compose_without_starting_apps || return 1
-    copy_volume_if_safe "$OLD_TGSHOP_DB_VOLUME" "$NEW_MINISHOP_DB_VOLUME" 1 || return 1
-    copy_volume_if_safe "$OLD_TGSHOP_CADDY_DATA_VOLUME" "$NEW_MINISHOP_CADDY_DATA_VOLUME" 0 || return 1
-    copy_volume_if_safe "$OLD_TGSHOP_CADDY_CONFIG_VOLUME" "$NEW_MINISHOP_CADDY_CONFIG_VOLUME" 0 || return 1
-
-    if confirm "Запустить новый стек и применить миграции схемы сейчас?" 1; then
-        start_stack 0 || return 1
-        (cd "$TARGET_DIR" && run_compose logs --tail 120 migrate) || true
-    else
-        warn "Стек подготовлен, но не запущен. Позже выполните docker compose up -d."
-    fi
-}
-
 run_tgshop_dsn_migration() {
-    section "DSN-миграция старого remnawave-tg-shop"
-    warn "Этот путь делает дамп старой PostgreSQL базы, восстанавливает его в целевую PostgreSQL базу Compose и запускает миграции схемы Minishop."
-    warn "Целевая база будет удалена и создана заново перед восстановлением."
+    section "Миграция старого remnawave-tg-shop через pg_dump"
+    warn "Wizard пересоздаст целевой PostgreSQL volume, чтобы target DB осталась на новых POSTGRES_* из .env."
+    warn "Старая база будет прочитана через source DSN, затем восстановлена в чистую целевую БД."
 
-    if ! confirm "Заменить целевую базу дампом источника?" 0; then
+    detected_source_dsn=$(detect_tgshop_source_dsn || true)
+    if [ -n "$detected_source_dsn" ]; then
+        info "Нашел PostgreSQL старого remnawave-tg-shop и подставил source DSN по умолчанию."
+        info "Source DSN: $(mask_compose_log_args "$detected_source_dsn")"
+        SOURCE_DSN="$detected_source_dsn"
+    else
+        prompt_value "DSN PostgreSQL старого remnawave-tg-shop" "" 1 0 ""
+        SOURCE_DSN="$PROMPT_VALUE"
+    fi
+
+    if ! confirm "Удалить целевой DB volume и заменить его дампом старого remnawave-tg-shop?" 1; then
         warn "Миграция не применена."
         return 0
     fi
-
-    prompt_value "DSN PostgreSQL старого remnawave-tg-shop" "${LEGACY_TGSHOP_SOURCE_DSN:-}" 1 0 ""
-    SOURCE_DSN="$PROMPT_VALUE"
 
     require_docker || return 1
     POSTGRES_USER_VALUE="$(env_get POSTGRES_USER '')"
@@ -3226,21 +4009,18 @@ run_tgshop_dsn_migration() {
     TARGET_DSN="$(local_target_dsn)"
     validate_bind_settings || return 1
 
-    section "Запуск целевого PostgreSQL"
-    (cd "$TARGET_DIR" && run_compose stop backend worker frontend migrate) || true
-    (cd "$TARGET_DIR" && run_compose_checked up -d postgres redis) || return 1
-    wait_target_postgres || return 1
+    prepare_compose_without_starting_apps || return 1
+    connect_local_source_db_to_target_network
+    create_tgshop_source_backup || return 1
+    create_pre_migration_backup remnawave-tg-shop 0 || return 1
+    reset_target_postgres_volume || return 1
 
-    section "Сброс целевой базы"
-    (cd "$TARGET_DIR" && run_compose exec -T postgres sh -c \
-        'dropdb -U "$POSTGRES_USER" --if-exists "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"') || return 1
-
-    section "Дамп и восстановление старой базы"
+    section "Восстановление старой базы"
     (cd "$TARGET_DIR" && run_compose run --rm --no-deps \
-        -e "SOURCE_DSN=$SOURCE_DSN" \
+        -v "$TGSHOP_SOURCE_DUMP_PATH:/backup/remnawave-tg-shop-source.sql:ro" \
         -e "TARGET_DSN=$TARGET_DSN" \
         backend sh -lc \
-        'pg_dump --clean --if-exists --no-owner --no-privileges "$SOURCE_DSN" | psql "$TARGET_DSN"') || return 1
+        'psql "$TARGET_DSN" -v ON_ERROR_STOP=1 < /backup/remnawave-tg-shop-source.sql') || return 1
 
     run_target_schema_migrations || return 1
     if confirm "Запустить полный стек сейчас?" 1; then
@@ -3257,15 +4037,9 @@ run_remnawave_tg_shop_migration() {
     fi
     require_docker || return 1
 
-    choose "Способ миграции" "1" "1|2|3" \
-        "1. Скопировать старые Docker volumes на этом сервере (рекомендуется для старых compose-установок)." \
-        "2. Сделать дамп из исходного PostgreSQL DSN и восстановить в этот compose-стек." \
-        "3. Пропустить миграцию" || return 1
-    case "$CHOICE_VALUE" in
-        1) run_tgshop_volume_migration ;;
-        2) run_tgshop_dsn_migration ;;
-        3) return 0 ;;
-    esac
+    info "Для старого remnawave-tg-shop wizard использует безопасный pg_dump-перенос вместо копирования raw PostgreSQL volume."
+    info "Так целевой стек сохраняет новые POSTGRES_* из .env и не наследует старый пароль базы."
+    run_tgshop_dsn_migration
 }
 
 run_selected_legacy_migration() {
@@ -3280,6 +4054,211 @@ run_selected_legacy_migration() {
             return 0
             ;;
     esac
+}
+
+base_compose_file_name() {
+    if [ -f "$TARGET_DIR/docker-compose.yml" ]; then
+        printf 'docker-compose.yml'
+        return 0
+    fi
+    if [ -f "$TARGET_DIR/compose.yml" ]; then
+        printf 'compose.yml'
+        return 0
+    fi
+    return 1
+}
+
+write_pangolin_compose_file() {
+    pangolin_output="$TARGET_DIR/$PANGOLIN_COMPOSE_FILE"
+    tmp="$pangolin_output.tmp.$$"
+    cat > "$tmp" <<'EOF'
+# Дополнительный Docker Compose файл: публикация Web App через Pangolin (Newt).
+# Подключается через COMPOSE_FILE в .env; отключается мастером установки
+# пунктом меню "Отключить Web App от Pangolin (Newt)".
+services:
+  newt:
+    image: fosrl/newt:latest
+    restart: unless-stopped
+    environment:
+      PANGOLIN_ENDPOINT: ${PANGOLIN_ENDPOINT:?set PANGOLIN_ENDPOINT in .env}
+      NEWT_ID: ${NEWT_ID:?set NEWT_ID in .env}
+      NEWT_SECRET: ${NEWT_SECRET:?set NEWT_SECRET in .env}
+      HEALTH_FILE: /tmp/healthy
+    networks:
+      - remnawave-minishop
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+networks:
+  remnawave-minishop:
+EOF
+    mv "$tmp" "$pangolin_output" || {
+        rm -f "$tmp"
+        return 1
+    }
+    ok "Записан файл $pangolin_output"
+}
+
+enable_pangolin_compose_file() {
+    base_compose=$(base_compose_file_name) || {
+        fail "Не найден docker-compose.yml или compose.yml в $TARGET_DIR."
+        return 1
+    }
+    current_compose_file=$(env_get COMPOSE_FILE "")
+    if [ -z "$current_compose_file" ]; then
+        new_compose_file="$base_compose:$PANGOLIN_COMPOSE_FILE"
+    else
+        case ":$current_compose_file:" in
+            *":$PANGOLIN_COMPOSE_FILE:"*)
+                new_compose_file="$current_compose_file"
+                ;;
+            *)
+                new_compose_file="$current_compose_file:$PANGOLIN_COMPOSE_FILE"
+                ;;
+        esac
+    fi
+    set_env_file_value "$ENV_PATH" COMPOSE_FILE "$new_compose_file"
+}
+
+disable_pangolin_compose_file() {
+    current_compose_file=$(env_get COMPOSE_FILE "")
+    [ -n "$current_compose_file" ] || return 0
+    new_compose_file=$(printf '%s' "$current_compose_file" | awk -F: -v skip="$PANGOLIN_COMPOSE_FILE" '
+        {
+            out = ""
+            for (i = 1; i <= NF; i++) {
+                if ($i == skip || $i == "") continue
+                out = out (out == "" ? "" : ":") $i
+            }
+            print out
+        }
+    ')
+    base_compose=$(base_compose_file_name || printf '')
+    if [ -z "$new_compose_file" ] || [ "$new_compose_file" = "$base_compose" ]; then
+        unset_env_file_value "$ENV_PATH" COMPOSE_FILE
+    else
+        set_env_file_value "$ENV_PATH" COMPOSE_FILE "$new_compose_file"
+    fi
+}
+
+pangolin_resources_checklist() {
+    info "В Pangolin создайте HTTP-ресурсы для этого Newt site:"
+    printf '  Mini App (%s) -> http://frontend:80\n' "$(env_get MINIAPP_HOST app.example.com)"
+    printf '  API/webhook (%s) -> http://backend:8080\n' "$(env_get WEBHOOK_HOST webhooks.example.com)"
+    info "Если Web App уже опубликован другим способом, ресурсы Pangolin станут дополнительным путем доступа."
+}
+
+pangolin_connect_in_target() {
+    section "Подключение Web App к Pangolin (Newt)"
+    ENV_PATH="$TARGET_DIR/.env"
+    if [ ! -f "$ENV_PATH" ]; then
+        fail ".env не найден: $ENV_PATH. Сначала установите стек."
+        return 1
+    fi
+    if [ "$(env_get DEPLOYMENT_PROFILE '')" = "newt" ]; then
+        info "Стек уже развернут по профилю Pangolin/Newt; отдельное подключение не требуется."
+        return 0
+    fi
+    base_compose_file_name >/dev/null || {
+        fail "Не найден docker-compose.yml или compose.yml в $TARGET_DIR. Сначала установите стек."
+        return 1
+    }
+    require_docker || return 1
+
+    info "Newt сам подключается к Pangolin наружу; открывать входящие порты не нужно."
+    prompt_value "Endpoint Pangolin" "$(env_get PANGOLIN_ENDPOINT https://pangolin.example.com)" 1 0 "url"
+    PANGOLIN_ENDPOINT_VALUE="$PROMPT_VALUE"
+    prompt_value "Newt ID" "$(env_get NEWT_ID '')" 1 0 ""
+    NEWT_ID_VALUE="$PROMPT_VALUE"
+    newt_secret_prefilled=0
+    existing_newt_secret=$(env_get NEWT_SECRET "")
+    [ -n "$existing_newt_secret" ] && newt_secret_prefilled=1
+    prompt_value "Секрет Newt" "$existing_newt_secret" 1 1 "" "$newt_secret_prefilled"
+    NEWT_SECRET_VALUE="$PROMPT_VALUE"
+
+    env_backup=$(backup_path "$ENV_PATH")
+    cp "$ENV_PATH" "$env_backup" || return 1
+    info "Бэкап $ENV_PATH сохранен как $(basename "$env_backup")"
+    set_env_file_value "$ENV_PATH" PANGOLIN_ENDPOINT "$PANGOLIN_ENDPOINT_VALUE" || return 1
+    set_env_file_value "$ENV_PATH" NEWT_ID "$NEWT_ID_VALUE" || return 1
+    set_env_file_value "$ENV_PATH" NEWT_SECRET "$NEWT_SECRET_VALUE" || return 1
+    write_pangolin_compose_file || return 1
+    enable_pangolin_compose_file || return 1
+
+    if confirm "Запустить контейнер newt сейчас?" 1; then
+        (cd "$TARGET_DIR" && run_compose_checked up -d newt) || return 1
+        (cd "$TARGET_DIR" && run_compose ps newt) || true
+    else
+        info "Контейнер newt не запущен. Позже выполните docker compose up -d newt в $TARGET_DIR."
+    fi
+
+    ok "Web App подключен к Pangolin через Newt."
+    pangolin_resources_checklist
+    info "Отключить публикацию можно пунктом меню \"Отключить Web App от Pangolin (Newt)\"."
+}
+
+pangolin_disconnect_in_target() {
+    section "Отключение Web App от Pangolin (Newt)"
+    ENV_PATH="$TARGET_DIR/.env"
+    if [ ! -f "$ENV_PATH" ]; then
+        fail ".env не найден: $ENV_PATH."
+        return 1
+    fi
+    if [ "$(env_get DEPLOYMENT_PROFILE '')" = "newt" ]; then
+        fail "Стек развернут по профилю Pangolin/Newt: Newt здесь единственный вход в приложение."
+        info "Отключение возможно только сменой профиля деплоя (повторная установка с другим профилем)."
+        return 1
+    fi
+    current_compose_file=$(env_get COMPOSE_FILE "")
+    pangolin_enabled=0
+    case ":$current_compose_file:" in
+        *":$PANGOLIN_COMPOSE_FILE:"*)
+            pangolin_enabled=1
+            ;;
+    esac
+    if [ "$pangolin_enabled" = "0" ] && [ ! -f "$TARGET_DIR/$PANGOLIN_COMPOSE_FILE" ]; then
+        info "Подключение к Pangolin не найдено; отключать нечего."
+        return 0
+    fi
+    require_docker || return 1
+
+    if [ "$pangolin_enabled" = "1" ]; then
+        (cd "$TARGET_DIR" && run_compose rm -sf newt) || warn "Не удалось остановить контейнер newt; проверьте его вручную."
+    fi
+
+    env_backup=$(backup_path "$ENV_PATH")
+    cp "$ENV_PATH" "$env_backup" || return 1
+    info "Бэкап $ENV_PATH сохранен как $(basename "$env_backup")"
+    disable_pangolin_compose_file || return 1
+    if [ -f "$TARGET_DIR/$PANGOLIN_COMPOSE_FILE" ]; then
+        pangolin_backup=$(backup_path "$TARGET_DIR/$PANGOLIN_COMPOSE_FILE")
+        mv "$TARGET_DIR/$PANGOLIN_COMPOSE_FILE" "$pangolin_backup"
+        info "Файл $PANGOLIN_COMPOSE_FILE сохранен как $(basename "$pangolin_backup") на случай возврата."
+    fi
+    info "Значения PANGOLIN_ENDPOINT/NEWT_ID/NEWT_SECRET оставлены в .env для быстрого повторного подключения."
+    ok "Web App отключен от Pangolin."
+}
+
+pangolin_connect_flow() {
+    installation_directory || return 1
+    pangolin_connect_in_target
+}
+
+pangolin_disconnect_flow() {
+    installation_directory || return 1
+    pangolin_disconnect_in_target
+}
+
+offer_pangolin_connect_after_install() {
+    [ "$PROFILE_KEY" = "newt" ] && return 0
+    [ -f "$TARGET_DIR/.env" ] || return 0
+    if confirm "Дополнительно опубликовать Web App через Pangolin (Newt)?" 0; then
+        pangolin_connect_in_target || return 1
+    fi
+    return 0
 }
 
 installation_directory() {
@@ -3301,23 +4280,41 @@ install_flow() {
     LEGACY_SOURCE=""
     installation_directory || return 1
     install_source || return 1
-    choose_profile || return 1
-    if [ "$with_migration" = "1" ]; then
-        choose_legacy_source || return 1
-    fi
     ENV_PATH="$TARGET_DIR/.env"
     if [ -f "$ENV_PATH" ]; then
         warn "Найден существующий .env: $ENV_PATH; неизвестные значения будут сохранены."
     fi
-    prompt_common_env || return 1
+    choose_install_node_role || return 1
+    if [ "$with_migration" = "1" ] && [ "$INSTALL_NODE_ROLE_VALUE" = "frontend-node" ]; then
+        fail "Frontend node не запускает backend migration/import. Выберите full stack или backend node."
+        return 1
+    fi
+    if [ "$INSTALL_NODE_ROLE_VALUE" = "frontend-node" ]; then
+        PROFILE_KEY="frontend-node"
+        DEPLOYMENT_PROFILE_VALUE="frontend-node"
+    else
+        choose_profile || return 1
+    fi
+    if [ "$with_migration" = "1" ]; then
+        choose_legacy_source || return 1
+    fi
+    if [ "$INSTALL_NODE_ROLE_VALUE" = "frontend-node" ]; then
+        prompt_frontend_node_env || return 1
+    else
+        prompt_common_env || return 1
+    fi
+    configure_frontend_backend_mode || return 1
     mkdir -p "$TARGET_DIR/$INSTALL_STATE_DIR"
     check_public_dns_records || return 1
     download_profile_files || return 1
+    download_split_reference_files || return 1
     write_env_file || return 1
     configure_nginx_certificates || return 1
-    configure_egames_reverse_proxy || return 1
-    prepare_data_mount || return 1
-    if [ "$with_migration" != "1" ] && confirm "Мигрировать данные из другого бота после установки?" 0; then
+    configure_existing_reverse_proxy || return 1
+    if [ "$INSTALL_NODE_ROLE_VALUE" != "frontend-node" ]; then
+        prepare_data_mount || return 1
+    fi
+    if [ "$INSTALL_NODE_ROLE_VALUE" != "frontend-node" ] && [ "$with_migration" != "1" ] && confirm "Мигрировать данные из другого бота после установки?" 0; then
         choose_legacy_source || return 1
     fi
 
@@ -3336,6 +4333,7 @@ install_flow() {
             fi
             ;;
     esac
+    offer_pangolin_connect_after_install || return 1
 }
 
 migration_only_flow() {
@@ -3365,20 +4363,24 @@ health_flow() {
 main_menu() {
     while :; do
         banner
-        choose "Главное меню" "1" "1|2|3|4|5|6" \
+        choose "Главное меню" "1" "1|2|3|4|5|6|7|8" \
             "1. Установить новый remnawave-minishop." \
             "2. Установить новый remnawave-minishop и мигрировать данные из другого бота." \
             "3. Мигрировать данные в уже установленный remnawave-minishop." \
             "4. Только скачать/обновить файлы деплоя." \
             "5. Проверить текущий стек." \
-            "6. Выйти." || return 1
+            "6. Подключить Web App к Pangolin (Newt)." \
+            "7. Отключить Web App от Pangolin (Newt)." \
+            "8. Выйти." || return 1
         case "$CHOICE_VALUE" in
             1) install_flow 0 ;;
             2) install_flow 1 ;;
             3) migration_only_flow ;;
             4) download_only_flow ;;
             5) health_flow ;;
-            6) printf 'Готово, выходим.\n'; return 0 ;;
+            6) pangolin_connect_flow ;;
+            7) pangolin_disconnect_flow ;;
+            8) printf 'Готово, выходим.\n'; return 0 ;;
         esac
         status=$?
         if [ "$status" -ne 0 ]; then

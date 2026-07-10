@@ -108,6 +108,43 @@ describe("createBillingDeeplinkEffects", () => {
     expect(deps.stripRenewalLoginQueryFromUrl).toHaveBeenCalledOnce();
   });
 
+  it("delegates a code deeplink to the status-aware handler when provided", () => {
+    const handleCheckoutPromoDeeplink = vi.fn();
+    const { deps, effects } = makeEffects({
+      handleCheckoutPromoDeeplink,
+      readCheckoutPromoDeeplink: vi.fn(() => "SAVE10"),
+    });
+
+    effects.applyPostLoadBillingDeeplinks({
+      defaultMethod: "card",
+      plans: [{ tariff_key: "pro", is_default_tariff: true }],
+      search: "?startapp=promo_SAVE10",
+      subscription: { active: false },
+    });
+
+    expect(handleCheckoutPromoDeeplink).toHaveBeenCalledWith("SAVE10", { modalOpened: false });
+    expect(deps.stripCheckoutPromoQueryFromUrl).toHaveBeenCalledOnce();
+    expect(deps.billingStore.openPaymentModal).not.toHaveBeenCalled();
+    expect(deps.billingStore.applyCheckoutPromo).not.toHaveBeenCalled();
+  });
+
+  it("reports an already opened deeplink modal to the promo handler", () => {
+    const handleCheckoutPromoDeeplink = vi.fn();
+    const { effects } = makeEffects({
+      handleCheckoutPromoDeeplink,
+      readCheckoutPromoDeeplink: vi.fn(() => "SAVE10"),
+    });
+
+    effects.applyPostLoadBillingDeeplinks({
+      defaultMethod: "card",
+      plans: tariffPlans,
+      search: "?topup=regular&startapp=promo_SAVE10",
+      subscription: activeRegularSubscription,
+    });
+
+    expect(handleCheckoutPromoDeeplink).toHaveBeenCalledWith("SAVE10", { modalOpened: true });
+  });
+
   it("prefills checkout code and opens default checkout from a code deeplink", () => {
     const { deps, effects } = makeEffects({
       readCheckoutPromoDeeplink: vi.fn(() => "SAVE10"),

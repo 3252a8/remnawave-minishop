@@ -13,26 +13,35 @@ from sqlalchemy.sql.selectable import Subquery
 from bot.app.web.context import (
     get_bot_username,
     get_optional_subscription_service,
+    get_panel_service,
     get_referral_service,
     get_session_factory,
     get_settings,
 )
+from bot.services.panel_activity import (
+    _panel_user_connection_activity,
+    connection_activity_from_snapshot,
+    record_subscription_panel_activity,
+)
 from bot.services.referral_service import ReferralService
 from bot.utils.install_links import ensure_user_install_guide_share_url
+from bot.utils.traffic_reset import panel_traffic_limit_strategy
 from config.settings import Settings
 from db.dal import message_log_dal, payment_dal, subscription_dal, user_dal
 from db.models import Payment, Subscription, User, UserTelegramAvatar
 
 from .auth import _require_admin_user_id
 from .common import (
+    _admin_subscription_traffic_strategy_fallback,
     _build_admin_webapp_referral_link,
+    _decorate_admin_subscription_traffic_strategy,
     _error,
     _ok,
-    _panel_user_connection_activity,
     _serialize_payment,
     _serialize_subscription,
 )
 from .schemas import AdminUserTrialOut
+from .squad_override_schemas import AdminPanelSquadOverridesOut
 from .users_common import _bulk_user_avatar_keys, _serialize_admin_user_with_avatar
 
 logger = logging.getLogger(__name__)
@@ -612,6 +621,15 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
     subscription_url: str | None = None
     last_vpn_connected_at: str | None = None
     vpn_connection_status = "unknown"
+    if active_sub is not None:
+        snapshot_activity = connection_activity_from_snapshot(
+            getattr(active_sub, "last_connected_at", None)
+        )
+        vpn_connection_status = str(snapshot_activity.get("status") or "unknown")
+        last_vpn_connected_at = snapshot_activity.get("last_connected_at")
+    traffic_limit_strategy: str | None = None
+    panel_strategy_available = False
+    panel_data: dict[str, Any] | None = None
     panel_uuid = getattr(user, "panel_user_uuid", None) or getattr(
         active_sub,
         "panel_user_uuid",
@@ -619,15 +637,36 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
     )
     if panel_uuid:
         subscription_service = get_optional_subscription_service(request)
-        panel_service = getattr(subscription_service, "panel_service", None)
+        panel_service = get_panel_service(request) or getattr(
+            subscription_service, "panel_service", None
+        )
         if panel_service is not None:
             try:
                 panel_data = await panel_service.get_user_by_uuid(panel_uuid)
                 if panel_data:
                     subscription_url = panel_data.get("subscriptionUrl") or None
                     vpn_activity = _panel_user_connection_activity(panel_data)
-                    vpn_connection_status = str(vpn_activity.get("status") or "unknown")
-                    last_vpn_connected_at = vpn_activity.get("last_connected_at")
+                    live_connected_at = vpn_activity.get("last_connected_at")
+                    if live_connected_at:
+                        last_vpn_connected_at = live_connected_at
+                        vpn_connection_status = str(vpn_activity.get("status") or "connected")
+                    elif last_vpn_connected_at:
+                        vpn_connection_status = "connected"
+                    else:
+                        vpn_connection_status = str(vpn_activity.get("status") or "unknown")
+                    if active_sub is not None:
+                        async with async_session_factory() as session:
+                            await record_subscription_panel_activity(
+                                session,
+                                active_sub,
+                                panel_data,
+                            )
+                            await session.commit()
+                        traffic_limit_strategy = panel_traffic_limit_strategy(
+                            panel_data,
+                            _admin_subscription_traffic_strategy_fallback(settings, active_sub),
+                        )
+                        panel_strategy_available = True
             except Exception as exc_panel:  # pragma: no cover
                 logger.warning(
                     "Failed to fetch panel details for user %s (uuid=%s): %s",
@@ -641,11 +680,45 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
         _serialize_admin_user_with_avatar(inviter, avatar_keys) if inviter is not None else None
     )
     trial_payload = _serialize_trial_summary(user, trial_subs)
+    active_subscription_payload = _serialize_subscription(active_sub) if active_sub else None
+    if active_subscription_payload is not None:
+        _decorate_admin_subscription_traffic_strategy(
+            active_subscription_payload,
+            settings,
+            active_sub,
+            traffic_limit_strategy=traffic_limit_strategy,
+            panel_available=panel_strategy_available,
+        )
+    panel_squad_overrides: dict[str, Any] | None = None
+    subscription_service = get_optional_subscription_service(request)
+    summary_builder = getattr(subscription_service, "panel_squad_overrides_summary", None)
+    if callable(summary_builder):
+        try:
+            async with async_session_factory() as session:
+                summary = await summary_builder(
+                    session,
+                    user_id=target_id,
+                    panel_user_uuid=panel_uuid,
+                    subscription=active_sub,
+                    panel_user_snapshot=panel_data,
+                    panel_snapshot_available=panel_data is not None,
+                    discover_panel_overrides=panel_data is not None,
+                )
+                panel_squad_overrides = AdminPanelSquadOverridesOut.model_validate(
+                    summary
+                ).model_dump(mode="json")
+                await session.commit()
+        except Exception as exc_overrides:  # pragma: no cover - defensive admin enrichment
+            logger.warning(
+                "Failed to build panel squad overrides for user %s: %s",
+                target_id,
+                exc_overrides,
+            )
 
     return _ok(
         {
             "user": serialized_user,
-            "active_subscription": _serialize_subscription(active_sub) if active_sub else None,
+            "active_subscription": active_subscription_payload,
             "subscriptions": [_serialize_subscription(s) for s in (latest_subs or [])],
             "trial": trial_payload,
             "total_paid": float(total_paid),
@@ -655,6 +728,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             "install_share_url": install_share_url,
             "last_vpn_connected_at": last_vpn_connected_at,
             "vpn_connection_status": vpn_connection_status,
+            "panel_squad_overrides": panel_squad_overrides,
             "referral": {
                 "code": referral_code,
                 "bot_link": referral_bot_link,

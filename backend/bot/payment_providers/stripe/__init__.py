@@ -208,6 +208,7 @@ SPEC = PaymentProviderSpec(
     webapp_label="Stripe",
     webapp_labels={"ru": "Stripe", "en": "Stripe"},
     webapp_icon="CreditCard",
+    logo_url="/provider-logos/stripe.png",
     telegram_labels={"ru": "Stripe", "en": "Stripe"},
     emoji="",
     telegram_emoji="",
@@ -231,6 +232,7 @@ SPEC = PaymentProviderSpec(
         "Stripe supports many presentment currencies, but availability depends on the account "
         "country and enabled payment methods. Use STRIPE_SUPPORTED_CURRENCIES to restrict UI."
     ),
+    info_url="https://stripe.com/",
     currency_support_url="https://docs.stripe.com/currencies",
 )
 

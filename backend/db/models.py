@@ -73,6 +73,11 @@ class User(Base):
         back_populates="target_user",
         cascade="all, delete-orphan",
     )
+    panel_squad_overrides = relationship(
+        "UserPanelSquadOverride",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<User(user_id={self.user_id}, username='{self.username}')>"
@@ -101,6 +106,44 @@ class UserTelegramAvatar(Base):
     user = relationship("User")
 
 
+class UserPanelSquadOverride(Base):
+    __tablename__ = "user_panel_squad_overrides"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "panel_user_uuid",
+            "kind",
+            "override_key",
+            name="uq_user_panel_squad_override_key",
+        ),
+        Index("ix_user_panel_squad_overrides_user_active", "user_id", "is_active"),
+        Index(
+            "ix_user_panel_squad_overrides_panel_active",
+            "panel_user_uuid",
+            "is_active",
+        ),
+        Index("ix_user_panel_squad_overrides_kind_squad", "kind", "squad_uuid"),
+    )
+
+    override_id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=False, index=True)
+    panel_user_uuid = Column(String, nullable=False, index=True)
+    kind = Column(String(16), nullable=False)
+    override_key = Column(String, nullable=False)
+    squad_uuid = Column(String, nullable=True)
+    mode = Column(String(16), nullable=False, default="set")
+    source = Column(String(16), nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_by_admin_id = Column(BigInteger, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+    last_seen_at = Column(DateTime(timezone=True), nullable=True)
+    deactivated_at = Column(DateTime(timezone=True), nullable=True)
+    note = Column(Text, nullable=True)
+
+    user = relationship("User", back_populates="panel_squad_overrides")
+
+
 class Subscription(Base):
     __tablename__ = "subscriptions"
     __table_args__ = (
@@ -120,14 +163,15 @@ class Subscription(Base):
     status_from_panel = Column(String, nullable=True)
     traffic_limit_bytes = Column(BigInteger, nullable=True)
     traffic_used_bytes = Column(BigInteger, nullable=True)
+    last_connected_at = Column(DateTime(timezone=True), nullable=True)
     last_notification_sent = Column(DateTime(timezone=True), nullable=True)
     provider = Column(String, nullable=True)
     skip_notifications = Column(Boolean, default=False)
-    # Trial and registration/referral-bonus subscriptions are only a few days
-    # long, so the multi-day "ending soon" reminders would fire almost as soon
-    # as they are granted. While this is set the worker keeps only the
-    # hours-before reminder plus the expiry/after-expiry notices; a real payment
-    # clears it so the full reminder spectrum resumes.
+    # Trial and registration/referral-bonus subscriptions can be only a few
+    # days long, so multi-day "ending soon" reminders would fire almost as soon
+    # as they are granted. The notification worker treats this as a guard for
+    # genuinely short grants only; long or later extended rows still receive
+    # the local fallback reminder spectrum.
     suppress_early_expiry_notifications = Column(Boolean, nullable=False, default=False)
     auto_renew_enabled = Column(Boolean, default=True, index=True)
     tariff_key = Column(String, nullable=True, index=True)
@@ -401,6 +445,7 @@ class PromoCode(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     valid_until = Column(DateTime(timezone=True), nullable=True)
     archived_at = Column(DateTime(timezone=True), nullable=True)
+    archived_code = Column(String, nullable=True)
 
     activations = relationship(
         "PromoCodeActivation", back_populates="promo_code", cascade="all, delete-orphan"

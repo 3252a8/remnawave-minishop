@@ -362,6 +362,7 @@ SPEC = PaymentProviderSpec(
     webapp_label="PayKilla",
     webapp_labels={"ru": "PayKilla", "en": "PayKilla"},
     webapp_icon="Bitcoin",
+    logo_url="/provider-logos/paykilla.png",
     telegram_labels={"ru": "PayKilla", "en": "PayKilla"},
     telegram_emoji="",
     pending_status="pending_paykilla",
@@ -387,6 +388,7 @@ SPEC = PaymentProviderSpec(
         "PayKilla invoice currency and paymentCurrencies availability can depend on "
         "merchant account settings."
     ),
+    info_url="https://paykilla.com/",
     currency_support_url="https://paykilla.gitbook.io/paykilla-docs/api-integration/supported-currencies",
 )
 

@@ -44,6 +44,9 @@ describe("settingsSections", () => {
           subsection: "Platega",
           webhook_path: "payments/platega/webhook",
           provider_id: "platega",
+          provider_info_url: "https://platega.io/",
+          provider_label: "Platega",
+          provider_logo_url: "/provider-logos/platega.png",
         }),
       ],
     } as AdminSettingsSection;
@@ -55,6 +58,13 @@ describe("settingsSections", () => {
       key: "platega:/payments/platega/webhook",
       path: "/payments/platega/webhook",
       url: "/payments/platega/webhook",
+    });
+    expect(group.providerInfo).toMatchObject({
+      id: "platega",
+      infoUrl: "https://platega.io/",
+      label: "Platega",
+      logoFallback: "PL",
+      logoUrl: "/provider-logos/platega.png",
     });
   });
 

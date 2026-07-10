@@ -726,6 +726,7 @@ SPEC = PaymentProviderSpec(
     webapp_label="Pally",
     webapp_labels={"ru": "Pally", "en": "Pally"},
     webapp_icon="WalletCards",
+    logo_url="/provider-logos/pally.png",
     telegram_labels={"ru": "Pally", "en": "Pally"},
     telegram_emoji="\U0001f4b3",
     pending_status="pending_pally",
@@ -743,6 +744,7 @@ SPEC = PaymentProviderSpec(
     manifest_fields=_CONFIG_MANIFEST + _PRESENTATION_MANIFEST,
     supported_currencies=PALLY_SUPPORTED_CURRENCIES,
     currency_support_note="Pally bills support RUB, USD and EUR.",
+    info_url="https://pally.info/",
     currency_support_url="https://pally.info/reference/api",
 )
 

@@ -30,6 +30,22 @@ from bot.services.promo_effects import PromoEffects, summarize_effects, validate
 from config.settings import Settings
 from config.tariffs_config import PackageSet, Tariff, TariffsConfig
 
+from .schema_helpers import (
+    display_label as _display_label,
+)
+from .schema_helpers import (
+    first_float_or_none as _first_float_or_none,
+)
+from .schema_helpers import (
+    float_or_none as _float_or_none,
+)
+from .schema_helpers import (
+    payment_user_display_label as _payment_user_display_label,
+)
+from .schema_helpers import (
+    traffic_gb_split as _traffic_gb_split,
+)
+
 
 class PromoCreateBody(HttpBodyModel):
     code: str | None = None
@@ -255,14 +271,82 @@ class AdminBackupRestoreBody(HttpBodyModel):
     confirm: Any = False
 
 
+class AdminBroadcastButtonBody(HttpBodyModel):
+    """One inline button attached to a broadcast.
+
+    ``kind`` selects how the button URL is produced:
+    - ``url`` — explicit ``url`` field;
+    - ``promo_bot`` — deep link into the bot applying ``promo_code``;
+    - ``promo_webapp`` — link into the Mini App checkout with ``promo_code``.
+    """
+
+    kind: str = "url"
+    label: str = ""
+    url: str = ""
+    promo_code: str = ""
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _normalize_kind(cls, value: Any) -> str:
+        return _strip_text(value).lower()
+
+    @field_validator("label", "url", "promo_code", mode="before")
+    @classmethod
+    def _normalize_button_text(cls, value: Any) -> str:
+        return _strip_text(value)
+
+
 class AdminBroadcastBody(HttpBodyModel):
     text: Any = ""
     target: Any = "all"
+    channels: list[str] = Field(default_factory=lambda: ["telegram"])
+    email_subject: Any = ""
+    buttons: list[AdminBroadcastButtonBody] = Field(default_factory=list)
 
-    @field_validator("text", "target", mode="before")
+    @field_validator("text", "target", "email_subject", mode="before")
     @classmethod
     def _normalize_text_fields(cls, value: Any) -> str:
         return _strip_text(value)
+
+    @field_validator("channels", mode="before")
+    @classmethod
+    def _normalize_channels(cls, value: Any) -> list[str]:
+        if value is None:
+            return ["telegram"]
+        if isinstance(value, str):
+            value = [value]
+        if not isinstance(value, list):
+            return ["telegram"]
+        normalized = [_strip_text(item).lower() for item in value]
+        return [item for item in normalized if item]
+
+
+class AdminBroadcastPreviewBody(HttpBodyModel):
+    text: Any = ""
+    email_subject: Any = ""
+    user_id: int | None = None
+    mode: str = "render"
+
+    @field_validator("text", "email_subject", mode="before")
+    @classmethod
+    def _normalize_preview_text(cls, value: Any) -> str:
+        return _strip_text(value)
+
+    @field_validator("mode", mode="before")
+    @classmethod
+    def _normalize_mode(cls, value: Any) -> str:
+        mode = _strip_text(value).lower()
+        return mode if mode in {"render", "send_telegram"} else "render"
+
+    @field_validator("user_id", mode="before")
+    @classmethod
+    def _coerce_user_id(cls, value: Any) -> int | None:
+        if value is None or value == "":
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
 
 
 class AdminUserBanBody(HttpBodyModel):
@@ -309,14 +393,20 @@ class AdminUserTrafficGrantBody(HttpBodyModel):
         return _strip_text(value).lower() or "regular"
 
 
+class AdminUserTrafficStrategyBody(HttpBodyModel):
+    traffic_limit_strategy: Any = None
+
+
 class AdminUserExtendBody(HttpBodyModel):
     days: Any = None
     tariff_key: Any = None
     extend_hwid_devices: Any = None
+    apply_tariff_hwid_limit: Any = False
 
 
 class AdminUserTariffBody(HttpBodyModel):
     tariff_key: Any = None
+    apply_tariff_hwid_limit: Any = False
 
 
 class PromoOut(HttpResponseModel):
@@ -403,85 +493,6 @@ class AdminPanelSyncOut(HttpResponseModel):
             users_processed=sync_status.users_processed_from_panel if sync_status else 0,
             subscriptions_synced=sync_status.subscriptions_synced if sync_status else 0,
         )
-
-
-def _traffic_gb_split(payment: Any) -> tuple[float | None, float | None]:
-    if payment.purchased_gb is None:
-        return None, None
-    try:
-        gb = float(payment.purchased_gb)
-    except (TypeError, ValueError):
-        return None, None
-    sale_mode = (payment.sale_mode or "").strip()
-    if not sale_mode:
-        return None, None
-    base = sale_mode.split("@", 1)[0].split("|", 1)[0].lower()
-    if base == "premium_topup":
-        return None, gb
-    if base in {"traffic", "traffic_package", "topup"}:
-        return gb, None
-    return None, None
-
-
-def _display_label(
-    loaded_user: Any,
-    fallback_user_id: int | None,
-    *,
-    first_name: str | None = None,
-    last_name: str | None = None,
-    username: str | None = None,
-    email: str | None = None,
-) -> str | None:
-    telegram_id = getattr(loaded_user, "telegram_id", None)
-    if loaded_user is not None and telegram_id is not None:
-        first = (getattr(loaded_user, "first_name", None) or "").strip()
-        last = (getattr(loaded_user, "last_name", None) or "").strip()
-        full_name = f"{first} {last}".strip()
-        if full_name:
-            return full_name
-        loaded_username = (getattr(loaded_user, "username", None) or "").strip()
-        if loaded_username:
-            return loaded_username if loaded_username.startswith("@") else f"@{loaded_username}"
-    elif loaded_user is not None:
-        loaded_email = (getattr(loaded_user, "email", None) or "").strip()
-        if loaded_email:
-            return loaded_email
-    first = (first_name or "").strip()
-    last = (last_name or "").strip()
-    full_name = f"{first} {last}".strip()
-    if full_name:
-        return full_name
-    username_value = (username or "").strip()
-    if username_value:
-        return username_value if username_value.startswith("@") else f"@{username_value}"
-    email_value = (email or "").strip()
-    if email_value:
-        return email_value
-    if fallback_user_id is None:
-        return None
-    return str(fallback_user_id)
-
-
-def _payment_user_display_label(loaded_user: Any, payment_user_id: int) -> str:
-    label = _display_label(loaded_user, payment_user_id)
-    return label or str(payment_user_id)
-
-
-def _float_or_none(value: Any) -> float | None:
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _first_float_or_none(*values: Any) -> float | None:
-    for value in values:
-        parsed = _float_or_none(value)
-        if parsed is not None:
-            return parsed
-    return None
 
 
 class PromoActivationOut(HttpResponseModel):
@@ -653,13 +664,17 @@ class PaymentDetailOut(PaymentOut):
     @classmethod
     def from_orm_payment_detail(cls, payment: Any) -> PaymentDetailOut:
         payload = PaymentOut.from_orm_payment(payment).model_dump(mode="json")
+        promo_code_used = payment.promo_code_used
+        promo_code = None
+        if promo_code_used is not None:
+            promo_code = getattr(promo_code_used, "archived_code", None) or getattr(
+                promo_code_used, "code", None
+            )
         payload.update(
             {
                 "yookassa_payment_id": payment.yookassa_payment_id,
                 "idempotence_key": payment.idempotence_key,
-                "promo_code": (
-                    payment.promo_code_used.code if payment.promo_code_used is not None else None
-                ),
+                "promo_code": promo_code,
                 "updated_at": payment.updated_at,
             }
         )
@@ -772,6 +787,10 @@ class AdminSubscriptionOut(HttpResponseModel):
     auto_renew_enabled: bool
     provider: str | None = None
     is_throttled: bool
+    billing_model: str | None = None
+    traffic_limit_strategy: str | None = None
+    traffic_strategy_editable: bool = False
+    traffic_strategy_lock_reason: str | None = None
 
     @classmethod
     def from_orm_subscription(cls, sub: Any) -> AdminSubscriptionOut:
@@ -817,6 +836,10 @@ class AdminSubscriptionOut(HttpResponseModel):
             auto_renew_enabled=bool(sub.auto_renew_enabled),
             provider=provider,
             is_throttled=bool(sub.is_throttled),
+            billing_model=getattr(sub, "billing_model", None),
+            traffic_limit_strategy=getattr(sub, "traffic_limit_strategy", None),
+            traffic_strategy_editable=bool(getattr(sub, "traffic_strategy_editable", False)),
+            traffic_strategy_lock_reason=getattr(sub, "traffic_strategy_lock_reason", None),
         )
 
 

@@ -1,0 +1,23 @@
+services:
+  frontend:
+    image: 3252a8/remnawave-minishop-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    init: true
+    environment:
+      IMAGE_TAG: ${IMAGE_TAG:-latest}
+      FRONTEND_PUBLIC: ${MINIAPP_PUBLIC_URL:-https://app.example.com/}
+      WEBAPP_API_BASE_URL: /api
+      WEBAPP_BACKEND_UPSTREAM: ${WEBAPP_BACKEND_UPSTREAM:-https://bot.example.com}
+      WEBAPP_BACKEND_UPSTREAM_HOST: ${WEBAPP_BACKEND_UPSTREAM_HOST:-bot.example.com}
+      MINISHOP_EDGE_TOKEN: ${MINISHOP_EDGE_TOKEN:-}
+      MINISHOP_EDGE_TOKEN_HEADER: ${MINISHOP_EDGE_TOKEN_HEADER:-X-Minishop-Edge-Token}
+    ports:
+      - "${FRONTEND_BIND:-127.0.0.1:8082}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health | grep -q ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+      start_interval: 2s
+

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import {
+  cp,
   copyFile,
   lstat,
   mkdir,
@@ -44,6 +45,13 @@ async function copyIfExists(sourceName, targetName = sourceName) {
   const sourcePath = path.join(templatesDir, sourceName);
   if (!(await pathExists(sourcePath))) return false;
   await copyFile(sourcePath, path.join(outDir, targetName));
+  return true;
+}
+
+async function copyDirectoryIfExists(sourceName, targetName = sourceName) {
+  const sourcePath = path.join(templatesDir, sourceName);
+  if (!(await pathExists(sourcePath))) return false;
+  await cp(sourcePath, path.join(outDir, targetName), { recursive: true });
   return true;
 }
 
@@ -159,6 +167,7 @@ async function main() {
     copyRuntimeAsset({ hashedName: adminCssName, stableName: "subscription_webapp_admin.css" }),
   ]);
   const adminChunkNames = await copyAdminChunkAssets(entries);
+  const providerLogoAssetsCopied = await copyDirectoryIfExists("provider-logos");
 
   const indexTemplate = await readFile(path.join(templatesDir, "subscription_webapp.html"), "utf8");
   await writeFile(
@@ -168,7 +177,7 @@ async function main() {
   );
 
   console.log(
-    `Prepared nginx assets in ${path.relative(repoRoot, outDir)}: ${mainJsName}, ${mainCssName}, ${adminJsName}, ${adminCssName}, ${adminChunkNames.length} admin chunks`
+    `Prepared nginx assets in ${path.relative(repoRoot, outDir)}: ${mainJsName}, ${mainCssName}, ${adminJsName}, ${adminCssName}, ${adminChunkNames.length} admin chunks, ${providerLogoAssetsCopied ? "provider logos" : "no provider logos"}`
   );
 }
 

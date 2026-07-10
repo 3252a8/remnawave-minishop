@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { slide } from "svelte/transition";
   import {
     CheckCircle2,
     CircleQuestionMark,
@@ -23,9 +24,12 @@
     trafficPercent as trafficPercentFn,
     trafficLabel as trafficLabelFn,
     trafficResetLabel as trafficResetLabelFn,
+    trafficResetScheduled as trafficResetScheduledFn,
+    trafficNextResetLabel as trafficNextResetLabelFn,
     regularTrafficLimitVisible as regularTrafficLimitVisibleFn,
     premiumTrafficPercent as premiumTrafficPercentFn,
     premiumTrafficLabel as premiumTrafficLabelFn,
+    premiumNextResetLabel as premiumNextResetLabelFn,
     premiumTrafficLimitVisible as premiumTrafficLimitVisibleFn,
     premiumTitle as premiumTitleFn,
     premiumServerLabels as premiumServerLabelsFn,
@@ -44,6 +48,9 @@
 
   const SUBSCRIPTION_EXPIRY_WARNING_MS = 72 * 60 * 60 * 1000;
   const SUBSCRIPTION_EXPIRING_SOON_MS = 24 * 60 * 60 * 1000;
+  const RESET_DETAIL_TRANSITION = { duration: 220 };
+  const REGULAR_TRAFFIC_RESET_DETAIL_ID = "regular-traffic-reset-detail";
+  const PREMIUM_TRAFFIC_RESET_DETAIL_ID = "premium-traffic-reset-detail";
 
   let {
     appSettings = {},
@@ -116,6 +123,8 @@
   } = $props();
 
   let nowMs = $state(Date.now());
+  let regularTrafficResetOpen = $state(false);
+  let premiumTrafficResetOpen = $state(false);
 
   function trafficPercent(sub: SubscriptionView) {
     return trafficPercentFn(sub);
@@ -125,6 +134,12 @@
   }
   function trafficResetLabel(sub: SubscriptionView) {
     return trafficResetLabelFn(sub, t);
+  }
+  function trafficResetScheduled(sub: SubscriptionView = subscription) {
+    return trafficResetScheduledFn(sub);
+  }
+  function trafficNextResetLabel(sub: SubscriptionView) {
+    return trafficNextResetLabelFn(sub, t);
   }
   function regularTrafficLimitVisible(sub: SubscriptionView = subscription) {
     return regularTrafficLimitVisibleFn(sub);
@@ -143,9 +158,6 @@
       .filter(Boolean)
       .join(" ");
   }
-  function regularTrafficMetaLabel(sub: SubscriptionView = subscription) {
-    return regularTrafficDepleted(sub) ? t("wa_traffic_depleted") : trafficResetLabel(sub);
-  }
   function premiumTrafficAvailable(sub: SubscriptionView = subscription) {
     return !regularTrafficDepleted(sub);
   }
@@ -158,13 +170,16 @@
   function premiumTrafficLabel(sub: SubscriptionView) {
     return premiumTrafficLabelFn(sub, t);
   }
+  function premiumNextResetLabel(sub: SubscriptionView) {
+    return premiumNextResetLabelFn(sub, t);
+  }
   function premiumTitle(sub: SubscriptionView = subscription) {
     return premiumTitleFn(sub, t);
   }
   function premiumTrafficMetaLabel(sub: SubscriptionView = subscription) {
     return sub?.premium_is_limited
       ? t("wa_premium_access_limited", {}, "Доступ к premium временно ограничен")
-      : t("wa_premium_reset_monthly", {}, "Отдельный лимит на месяц");
+      : trafficResetLabel(sub);
   }
   function premiumServerLabels(sub: SubscriptionView) {
     return premiumServerLabelsFn(sub);
@@ -388,17 +403,63 @@
               aria-label={t("wa_add_traffic")}
             ></button>
           {/if}
-          <div class="traffic-summary-row">
-            <span class="traffic-summary-left">
-              {t("wa_home_traffic_used")}
-              <span class="traffic-summary-separator" aria-hidden="true">|</span>
-              {regularTrafficMetaLabel(subscription)}
-            </span>
-            <strong class="traffic-summary-right">
-              <span>{trafficLabel(subscription)}</span>
-              <span class="traffic-summary-separator" aria-hidden="true">|</span>
-              <span>{trafficPercent(subscription)}%</span>
-            </strong>
+          <div
+            class="premium-server-dropdown premium-server-dropdown-inline traffic-reset-dropdown"
+            data-open={regularTrafficResetOpen ? "true" : undefined}
+          >
+            <button
+              class="traffic-summary-row premium-server-summary premium-server-trigger"
+              type="button"
+              aria-expanded={regularTrafficResetOpen}
+              aria-controls={REGULAR_TRAFFIC_RESET_DETAIL_ID}
+              onclick={() => {
+                regularTrafficResetOpen = !regularTrafficResetOpen;
+              }}
+            >
+              <span class="traffic-summary-left premium-summary-trigger">
+                <span class="premium-summary-copy">
+                  {t("wa_home_traffic_used")}
+                  {#if trafficResetScheduled(subscription)}
+                    <span class="traffic-summary-separator" aria-hidden="true">|</span>
+                    {trafficResetLabel(subscription)}
+                  {/if}
+                </span>
+                <CircleQuestionMark class="premium-server-help-icon" size={15} />
+              </span>
+              <strong class="traffic-summary-right">
+                <span>{trafficLabel(subscription)}</span>
+                <span class="traffic-summary-separator" aria-hidden="true">|</span>
+                <span>{trafficPercent(subscription)}%</span>
+              </strong>
+            </button>
+            {#if regularTrafficResetOpen}
+              <div
+                id={REGULAR_TRAFFIC_RESET_DETAIL_ID}
+                class="premium-server-list premium-server-list-dropdown traffic-reset-detail"
+                transition:slide={RESET_DETAIL_TRANSITION}
+              >
+                <div class="traffic-reset-detail-inner">
+                  {#if trafficResetScheduled(subscription)}
+                    <div class="traffic-reset-date-row">
+                      <small>{t("wa_traffic_next_reset_label", {}, "Следующий сброс")}</small>
+                      <strong>{trafficNextResetLabel(subscription)}</strong>
+                    </div>
+                  {:else}
+                    <div class="traffic-reset-date-row">
+                      <small>{t("wa_traffic_reset_policy", {}, "Стратегия сброса трафика")}</small>
+                      <strong>{trafficResetLabel(subscription)}</strong>
+                    </div>
+                    <p class="traffic-reset-note">
+                      {t(
+                        "wa_traffic_reset_none_details",
+                        {},
+                        "Трафик не сбрасывается автоматически. Если тариф поддерживает докупку, можно добавить трафик отдельным пакетом."
+                      )}
+                    </p>
+                  {/if}
+                </div>
+              </div>
+            {/if}
           </div>
           <LinearProgress value={trafficPercent(subscription)} label={t("wa_home_traffic_used")} />
         </Card>
@@ -417,45 +478,56 @@
               aria-label={t("wa_add_traffic_premium", { target: premiumTitle(subscription) })}
             ></button>
           {/if}
-          {#if premiumServerLabels(subscription).length}
-            <details class="premium-server-dropdown premium-server-dropdown-inline">
-              <summary class="traffic-summary-row premium-server-summary">
-                <span class="traffic-summary-left premium-summary-trigger">
-                  <span class="premium-summary-copy">
-                    {premiumTitle(subscription)}
-                    <span class="traffic-summary-separator" aria-hidden="true">|</span>
-                    {premiumTrafficMetaLabel(subscription)}
-                  </span>
-                  <CircleQuestionMark class="premium-server-help-icon" size={15} />
-                </span>
-                <strong class="traffic-summary-right">
-                  <span>{premiumTrafficLabel(subscription)}</span>
+          <div
+            class="premium-server-dropdown premium-server-dropdown-inline traffic-reset-dropdown"
+            data-open={premiumTrafficResetOpen ? "true" : undefined}
+          >
+            <button
+              class="traffic-summary-row premium-server-summary premium-server-trigger"
+              type="button"
+              aria-expanded={premiumTrafficResetOpen}
+              aria-controls={PREMIUM_TRAFFIC_RESET_DETAIL_ID}
+              onclick={() => {
+                premiumTrafficResetOpen = !premiumTrafficResetOpen;
+              }}
+            >
+              <span class="traffic-summary-left premium-summary-trigger">
+                <span class="premium-summary-copy">
+                  {premiumTitle(subscription)}
                   <span class="traffic-summary-separator" aria-hidden="true">|</span>
-                  <span>{premiumTrafficPercent(subscription)}%</span>
-                </strong>
-              </summary>
-              <div class="premium-server-list premium-server-list-dropdown">
-                <div>
-                  {#each premiumServerLabels(subscription).slice(0, 8) as label}
-                    <span>{label}</span>
-                  {/each}
-                </div>
-              </div>
-            </details>
-          {:else}
-            <div class="traffic-summary-row">
-              <span class="traffic-summary-left">
-                {premiumTitle(subscription)}
-                <span class="traffic-summary-separator" aria-hidden="true">|</span>
-                {premiumTrafficMetaLabel(subscription)}
+                  {premiumTrafficMetaLabel(subscription)}
+                </span>
+                <CircleQuestionMark class="premium-server-help-icon" size={15} />
               </span>
               <strong class="traffic-summary-right">
                 <span>{premiumTrafficLabel(subscription)}</span>
                 <span class="traffic-summary-separator" aria-hidden="true">|</span>
                 <span>{premiumTrafficPercent(subscription)}%</span>
               </strong>
-            </div>
-          {/if}
+            </button>
+            {#if premiumTrafficResetOpen}
+              <div
+                id={PREMIUM_TRAFFIC_RESET_DETAIL_ID}
+                class="premium-server-list premium-server-list-dropdown traffic-reset-detail"
+                transition:slide={RESET_DETAIL_TRANSITION}
+              >
+                <div class="traffic-reset-detail-inner">
+                  <div class="traffic-reset-date-row">
+                    <small>{t("wa_traffic_next_reset_label", {}, "Следующий сброс")}</small>
+                    <strong>{premiumNextResetLabel(subscription)}</strong>
+                  </div>
+                  {#if premiumServerLabels(subscription).length}
+                    <small>{t("wa_premium_servers_scope_label", {}, "Лимит действует на")}</small>
+                    <div>
+                      {#each premiumServerLabels(subscription).slice(0, 8) as label}
+                        <span>{label}</span>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              </div>
+            {/if}
+          </div>
           <LinearProgress
             class="premium-progress"
             value={premiumTrafficPercent(subscription)}

@@ -395,6 +395,7 @@ SPEC = PaymentProviderSpec(
     webapp_label="Wata",
     webapp_labels={"ru": "Wata", "en": "Wata"},
     webapp_icon="WalletCards",
+    logo_url="/provider-logos/wata.png",
     telegram_labels={"ru": "Wata", "en": "Wata"},
     telegram_emoji="💳",
     pending_status="pending_wata",
@@ -421,6 +422,7 @@ SPEC = PaymentProviderSpec(
         "WATA H2H payment links document RUB, USD and EUR as payment currencies; "
         "configure the currencies enabled for your terminal."
     ),
+    info_url="https://wata.pro/",
     currency_support_url="https://wata.pro/api",
 )
 
@@ -431,6 +433,7 @@ CRYPTO_SPEC = PaymentProviderSpec(
     webapp_label="Wata Crypto",
     webapp_labels={"ru": "Wata Crypto", "en": "Wata Crypto"},
     webapp_icon="Bitcoin",
+    logo_url="/provider-logos/wata.png",
     telegram_labels={"ru": "Wata Crypto", "en": "Wata Crypto"},
     telegram_emoji="🪙",
     pending_status="pending_wata",
@@ -452,6 +455,7 @@ CRYPTO_SPEC = PaymentProviderSpec(
         "WATA H2H payment links document RUB, USD and EUR as payment currencies; "
         "configure the currencies enabled for your crypto terminal."
     ),
+    info_url="https://wata.pro/",
     currency_support_url="https://wata.pro/api",
 )
 

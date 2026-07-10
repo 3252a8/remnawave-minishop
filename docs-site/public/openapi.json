@@ -428,6 +428,11 @@
             },
             "title": "Counts",
             "type": "object"
+          },
+          "email_enabled": {
+            "default": false,
+            "title": "Email Enabled",
+            "type": "boolean"
           }
         },
         "required": [
@@ -438,6 +443,24 @@
       },
       "AdminBroadcastBody": {
         "properties": {
+          "buttons": {
+            "items": {
+              "$ref": "#/components/schemas/AdminBroadcastButtonBody"
+            },
+            "title": "Buttons",
+            "type": "array"
+          },
+          "channels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Channels",
+            "type": "array"
+          },
+          "email_subject": {
+            "default": "",
+            "title": "Email Subject"
+          },
           "target": {
             "default": "all",
             "title": "Target"
@@ -448,6 +471,151 @@
           }
         },
         "title": "AdminBroadcastBody",
+        "type": "object"
+      },
+      "AdminBroadcastButtonBody": {
+        "description": "One inline button attached to a broadcast.\n\n``kind`` selects how the button URL is produced:\n- ``url`` — explicit ``url`` field;\n- ``promo_bot`` — deep link into the bot applying ``promo_code``;\n- ``promo_webapp`` — link into the Mini App checkout with ``promo_code``.",
+        "properties": {
+          "kind": {
+            "default": "url",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "title": "Label",
+            "type": "string"
+          },
+          "promo_code": {
+            "default": "",
+            "title": "Promo Code",
+            "type": "string"
+          },
+          "url": {
+            "default": "",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "title": "AdminBroadcastButtonBody",
+        "type": "object"
+      },
+      "AdminBroadcastPreviewBody": {
+        "properties": {
+          "email_subject": {
+            "default": "",
+            "title": "Email Subject"
+          },
+          "mode": {
+            "default": "render",
+            "title": "Mode",
+            "type": "string"
+          },
+          "text": {
+            "default": "",
+            "title": "Text"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "User Id"
+          }
+        },
+        "title": "AdminBroadcastPreviewBody",
+        "type": "object"
+      },
+      "AdminBroadcastPreviewOut": {
+        "properties": {
+          "length": {
+            "default": 0,
+            "title": "Length",
+            "type": "integer"
+          },
+          "rendered_subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rendered Subject"
+          },
+          "rendered_text": {
+            "default": "",
+            "title": "Rendered Text",
+            "type": "string"
+          },
+          "sent": {
+            "default": false,
+            "title": "Sent",
+            "type": "boolean"
+          },
+          "unknown_shortcodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unknown Shortcodes",
+            "type": "array"
+          }
+        },
+        "title": "AdminBroadcastPreviewOut",
+        "type": "object"
+      },
+      "AdminBroadcastShortcodeOut": {
+        "properties": {
+          "cost": {
+            "title": "Cost",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "cost",
+          "description"
+        ],
+        "title": "AdminBroadcastShortcodeOut",
+        "type": "object"
+      },
+      "AdminBroadcastShortcodesOut": {
+        "properties": {
+          "allowed_tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Tags",
+            "type": "array"
+          },
+          "shortcodes": {
+            "items": {
+              "$ref": "#/components/schemas/AdminBroadcastShortcodeOut"
+            },
+            "title": "Shortcodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "shortcodes",
+          "allowed_tags"
+        ],
+        "title": "AdminBroadcastShortcodesOut",
         "type": "object"
       },
       "AdminHealthOut": {
@@ -525,6 +693,79 @@
         "title": "AdminMeOut",
         "type": "object"
       },
+      "AdminPanelExternalSquadOverrideOut": {
+        "properties": {
+          "default_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Default Uuid"
+          },
+          "effective_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Effective Uuid"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Seen At"
+          },
+          "manual_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Manual Uuid"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "AdminPanelExternalSquadOverrideOut",
+        "type": "object"
+      },
       "AdminPanelInternalSquadOut": {
         "properties": {
           "active_inbounds_count": {
@@ -583,6 +824,98 @@
           "name"
         ],
         "title": "AdminPanelInternalSquadOut",
+        "type": "object"
+      },
+      "AdminPanelSquadItemOut": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Seen At"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "uuid": {
+            "title": "Uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "source"
+        ],
+        "title": "AdminPanelSquadItemOut",
+        "type": "object"
+      },
+      "AdminPanelSquadOverridesOut": {
+        "properties": {
+          "effective_internal_squad_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Effective Internal Squad Uuids",
+            "type": "array"
+          },
+          "external": {
+            "$ref": "#/components/schemas/AdminPanelExternalSquadOverrideOut"
+          },
+          "managed_internal_squads": {
+            "items": {
+              "$ref": "#/components/schemas/AdminPanelSquadItemOut"
+            },
+            "title": "Managed Internal Squads",
+            "type": "array"
+          },
+          "manual_internal_squads": {
+            "items": {
+              "$ref": "#/components/schemas/AdminPanelSquadItemOut"
+            },
+            "title": "Manual Internal Squads",
+            "type": "array"
+          },
+          "panel_snapshot_available": {
+            "default": false,
+            "title": "Panel Snapshot Available",
+            "type": "boolean"
+          },
+          "panel_user_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel User Uuid"
+          }
+        },
+        "required": [
+          "external"
+        ],
+        "title": "AdminPanelSquadOverridesOut",
         "type": "object"
       },
       "AdminPanelSyncOut": {
@@ -862,6 +1195,42 @@
             ],
             "default": null,
             "title": "Provider Id"
+          },
+          "provider_info_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Provider Info Url"
+          },
+          "provider_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Provider Label"
+          },
+          "provider_logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Provider Logo Url"
           },
           "read_error": {
             "anyOf": [
@@ -1147,6 +1516,18 @@
             "title": "Auto Renew Enabled",
             "type": "boolean"
           },
+          "billing_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Billing Model"
+          },
           "display_label": {
             "anyOf": [
               {
@@ -1394,6 +1775,35 @@
             ],
             "default": null,
             "title": "Traffic Limit Bytes"
+          },
+          "traffic_limit_strategy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Traffic Limit Strategy"
+          },
+          "traffic_strategy_editable": {
+            "default": false,
+            "title": "Traffic Strategy Editable",
+            "type": "boolean"
+          },
+          "traffic_strategy_lock_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Traffic Strategy Lock Reason"
           },
           "traffic_used_bytes": {
             "anyOf": [
@@ -2470,6 +2880,10 @@
       },
       "AdminUserExtendBody": {
         "properties": {
+          "apply_tariff_hwid_limit": {
+            "default": false,
+            "title": "Apply Tariff Hwid Limit"
+          },
           "days": {
             "default": null,
             "title": "Days"
@@ -2708,8 +3122,61 @@
         "title": "AdminUserRegularTrafficOverrideBody",
         "type": "object"
       },
+      "AdminUserSquadOverridesPatchBody": {
+        "properties": {
+          "add_internal_squad_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Add Internal Squad Uuids",
+            "type": "array"
+          },
+          "external_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "External Mode"
+          },
+          "external_squad_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "External Squad Uuid"
+          },
+          "remove_internal_squad_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Remove Internal Squad Uuids",
+            "type": "array"
+          },
+          "sync_panel": {
+            "default": true,
+            "title": "Sync Panel",
+            "type": "boolean"
+          }
+        },
+        "title": "AdminUserSquadOverridesPatchBody",
+        "type": "object"
+      },
       "AdminUserTariffBody": {
         "properties": {
+          "apply_tariff_hwid_limit": {
+            "default": false,
+            "title": "Apply Tariff Hwid Limit"
+          },
           "tariff_key": {
             "default": null,
             "title": "Tariff Key"
@@ -2734,6 +3201,16 @@
           }
         },
         "title": "AdminUserTrafficGrantBody",
+        "type": "object"
+      },
+      "AdminUserTrafficStrategyBody": {
+        "properties": {
+          "traffic_limit_strategy": {
+            "default": null,
+            "title": "Traffic Limit Strategy"
+          }
+        },
+        "title": "AdminUserTrafficStrategyBody",
         "type": "object"
       },
       "AdminUserTrialOut": {
@@ -6356,6 +6833,30 @@
         "title": "WebAppPaymentCreatePayload",
         "type": "object"
       },
+      "WebAppPlansViewedPayload": {
+        "properties": {
+          "plans_count": {
+            "default": 0,
+            "title": "Plans Count",
+            "type": "integer"
+          },
+          "tariff_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tariff Key"
+          }
+        },
+        "title": "WebAppPlansViewedPayload",
+        "type": "object"
+      },
       "WebAppPromoApplyPayload": {
         "properties": {
           "code": {
@@ -8104,6 +8605,15 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "channels": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "email_queued": {
+                      "type": "integer"
+                    },
                     "failed": {
                       "type": "integer"
                     },
@@ -8122,7 +8632,9 @@
                     "ok",
                     "queued",
                     "failed",
-                    "target"
+                    "email_queued",
+                    "target",
+                    "channels"
                   ],
                   "type": "object"
                 }
@@ -8186,6 +8698,108 @@
           }
         ],
         "summary": "Admin Broadcast Audience Counts",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/broadcast/preview": {
+      "post": {
+        "operationId": "post_admin_broadcast_preview_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminBroadcastPreviewBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminBroadcastPreviewOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Broadcast Preview",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/broadcast/shortcodes": {
+      "get": {
+        "operationId": "get_admin_broadcast_shortcodes_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminBroadcastShortcodesOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Broadcast Shortcodes",
         "tags": [
           "admin"
         ]
@@ -9843,6 +10457,16 @@
                       "const": true,
                       "type": "boolean"
                     },
+                    "panel_squad_overrides": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/AdminPanelSquadOverridesOut"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "recent_payments": {
                       "items": {
                         "$ref": "#/components/schemas/PaymentOut"
@@ -9931,6 +10555,7 @@
                     "install_share_url",
                     "last_vpn_connected_at",
                     "vpn_connection_status",
+                    "panel_squad_overrides",
                     "referral"
                   ],
                   "type": "object"
@@ -10555,6 +11180,122 @@
         ]
       }
     },
+    "/api/admin/users/{user_id}/squad-overrides": {
+      "patch": {
+        "operationId": "patch_admin_user_squad_overrides_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserSquadOverridesPatchBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "panel_squad_overrides": {
+                      "$ref": "#/components/schemas/AdminPanelSquadOverridesOut"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "panel_squad_overrides"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Squad Overrides",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/squad-overrides/refresh": {
+      "post": {
+        "operationId": "post_admin_user_squad_overrides_refresh_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "panel_squad_overrides": {
+                      "$ref": "#/components/schemas/AdminPanelSquadOverridesOut"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "panel_squad_overrides"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Squad Overrides Refresh",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/users/{user_id}/tariff": {
       "post": {
         "operationId": "post_admin_user_tariff_route",
@@ -10755,6 +11496,68 @@
           }
         ],
         "summary": "Admin User Traffic Grant",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/traffic-strategy": {
+      "post": {
+        "operationId": "post_admin_user_traffic_strategy_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserTrafficStrategyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "subscription": {
+                      "$ref": "#/components/schemas/AdminSubscriptionOut"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Traffic Strategy",
         "tags": [
           "admin"
         ]
@@ -11178,6 +11981,44 @@
           }
         },
         "summary": "Logout",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/session": {
+      "get": {
+        "operationId": "get_session_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "authenticated": {
+                      "type": "boolean"
+                    },
+                    "csrf_token": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "authenticated"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "Session",
         "tags": [
           "auth"
         ]
@@ -12433,6 +13274,18 @@
                             "null"
                           ]
                         },
+                        "premium_next_reset_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "premium_next_reset_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "premium_node_labels": {
                           "items": {
                             "type": "string"
@@ -12540,6 +13393,18 @@
                         },
                         "traffic_limit_strategy": {
                           "type": "string"
+                        },
+                        "traffic_next_reset_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "traffic_next_reset_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "traffic_used": {
                           "type": "string"
@@ -12836,6 +13701,55 @@
         ]
       }
     },
+    "/api/plans/viewed": {
+      "post": {
+        "operationId": "post_plans_viewed_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppPlansViewedPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Plans Viewed",
+        "tags": [
+          "plans"
+        ]
+      }
+    },
     "/api/promo/apply": {
       "post": {
         "operationId": "post_apply_promo_route",
@@ -12916,6 +13830,93 @@
           }
         ],
         "summary": "Apply Promo",
+        "tags": [
+          "promo"
+        ]
+      }
+    },
+    "/api/promo/status": {
+      "post": {
+        "operationId": "post_promo_status_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppPromoApplyPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "applies_to": {
+                      "type": "string"
+                    },
+                    "bonus_days": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "effect_summary": {
+                      "type": "string"
+                    },
+                    "end_date_text": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "min_subscription_months": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "min_traffic_gb": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Promo Status",
         "tags": [
           "promo"
         ]

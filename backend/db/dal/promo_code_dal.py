@@ -11,6 +11,14 @@ from db.models import Payment, PromoCode, PromoCodeActivation
 
 logger = logging.getLogger(__name__)
 
+_ARCHIVED_CODE_PREFIX = "__ARCHIVED_PROMO__"
+
+
+def _archived_storage_code(promo: PromoCode, attempt: int = 0) -> str:
+    suffix = f"_{attempt}" if attempt else ""
+    public_code = str(promo.archived_code or promo.code or "").strip()
+    return f"{_ARCHIVED_CODE_PREFIX}{int(promo.promo_code_id)}{suffix}__{public_code}"
+
 
 async def create_promo_code(session: AsyncSession, promo_data: dict[str, Any]) -> PromoCode:
     new_promo = PromoCode(**promo_data)
@@ -160,6 +168,29 @@ async def update_promo_code(
     return promo
 
 
+async def release_archived_promo_code(session: AsyncSession, promo: PromoCode) -> PromoCode:
+    if promo.archived_at is None:
+        return promo
+    if not promo.archived_code:
+        promo.archived_code = str(promo.code or "").strip()
+    if str(promo.code or "").startswith(_ARCHIVED_CODE_PREFIX):
+        await session.flush()
+        await session.refresh(promo)
+        return promo
+
+    for attempt in range(32):
+        storage_code = _archived_storage_code(promo, attempt)
+        existing = await get_promo_code_by_code(session, storage_code, preserve_case=True)
+        if existing is None or int(existing.promo_code_id) == int(promo.promo_code_id):
+            promo.code = storage_code
+            promo.is_active = False
+            await session.flush()
+            await session.refresh(promo)
+            return promo
+
+    raise ValueError("archived_code_release_failed")
+
+
 async def delete_promo_code(session: AsyncSession, promo_id: int) -> PromoCode | None:
     promo = await get_promo_code_by_id(session, promo_id)
     if not promo:
@@ -169,9 +200,7 @@ async def delete_promo_code(session: AsyncSession, promo_id: int) -> PromoCode |
     if activations_count > 0 or payments_count > 0:
         promo.is_active = False
         promo.archived_at = datetime.now(UTC)
-        await session.flush()
-        await session.refresh(promo)
-        return promo
+        return await release_archived_promo_code(session, promo)
 
     await session.delete(promo)
     await session.flush()

@@ -39,6 +39,7 @@ const descriptions = {
   'architecture.md': 'Краткая архитектура backend, frontend, worker и инфраструктурных сервисов.',
   'architecture/http-api.md': 'Контракты HTTP API, envelope ответов, security-схемы, OpenAPI-артефакт и правила typed-маршрутов.',
   'architecture/events.md': 'Каталог доменных событий, payload-моделей, emitters и core-реакций.',
+  'development/graphify.md': 'Как пользоваться сгенерированной Graphify-картой кодовой базы и когда обновлять graphify-out.',
 };
 
 const imageExtensions = new Set(['.avif', '.gif', '.jpeg', '.jpg', '.png', '.svg', '.webp']);

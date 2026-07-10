@@ -118,9 +118,7 @@
         </Card>
         <Card>
           <div class="traffic-top">
-            <span>Использовано трафика</span><strong
-              >{sub.traffic_used} из {sub.traffic_limit}</strong
-            >
+            <span>Трафик</span><strong>{sub.traffic_used} из {sub.traffic_limit}</strong>
           </div>
           <LinearProgress value={18} />
           <div class="traffic-percent">18%</div>

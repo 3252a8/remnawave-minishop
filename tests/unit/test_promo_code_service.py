@@ -3,10 +3,78 @@ from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
-from bot.services.promo_code_service import PromoCheckoutRequired, PromoCodeService
+from bot.services.promo_code_service import (
+    PROMO_STATUS_ALREADY_USED,
+    PROMO_STATUS_NOT_FOUND,
+    PROMO_STATUS_REQUIRES_CHECKOUT,
+    PROMO_STATUS_STANDALONE,
+    PROMO_STATUS_THROTTLED,
+    PromoCheckoutRequired,
+    PromoCodeService,
+)
+from bot.services.promo_effects import PromoEffects
+
+
+def _status_settings():
+    return SimpleNamespace(
+        MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED=False,
+        BRUTE_FORCE_LOCK_SECONDS=60,
+        BRUTE_FORCE_MAX_FAILURES=5,
+        BRUTE_FORCE_WINDOW_SECONDS=300,
+    )
+
+
+def _status_gettext(lang, key, **kw):
+    suffix = ",".join(f"{k}={v}" for k, v in kw.items())
+    return f"{key}|{suffix}" if suffix else key
+
+
+def _status_service():
+    i18n = SimpleNamespace(gettext=_status_gettext)
+    subscription_service = SimpleNamespace(extend_active_subscription_days=AsyncMock())
+    return PromoCodeService(_status_settings(), subscription_service, AsyncMock(), i18n)
 
 
 class PromoCodeServiceTests(IsolatedAsyncioTestCase):
+    async def test_issue_code_releases_archived_duplicate_name(self):
+        session = AsyncMock()
+        archived = SimpleNamespace(
+            promo_code_id=7,
+            code="GIFT",
+            archived_code=None,
+            archived_at=datetime(2026, 1, 2, tzinfo=UTC),
+            is_active=False,
+        )
+        created = SimpleNamespace(promo_code_id=8, code="GIFT")
+        lookup = AsyncMock(side_effect=[archived, None, None])
+
+        with (
+            patch(
+                "bot.services.promo_code_service.promo_code_dal.get_promo_code_by_code",
+                lookup,
+            ),
+            patch(
+                "bot.services.promo_code_service.promo_code_dal.create_promo_code",
+                AsyncMock(return_value=created),
+            ) as create_promo,
+        ):
+            result = await PromoCodeService.issue_code(
+                session,
+                effects=PromoEffects(bonus_days=7),
+                code="gift",
+                max_activations=3,
+                valid_until=None,
+                origin="admin",
+                created_by_admin_id=100,
+            )
+
+        self.assertIs(result, created)
+        self.assertEqual(archived.archived_code, "GIFT")
+        self.assertTrue(archived.code.startswith("__ARCHIVED_PROMO__7__GIFT"))
+        created_payload = create_promo.await_args.args[1]
+        self.assertEqual(created_payload["code"], "GIFT")
+        self.assertEqual(created_payload["bonus_days"], 7)
+
     async def test_apply_promo_passes_default_tariff_for_new_bonus_subscription(self):
         end_date = datetime(2026, 1, 8, tzinfo=UTC)
         settings = SimpleNamespace(
@@ -205,3 +273,173 @@ class PromoCodeServiceTests(IsolatedAsyncioTestCase):
         subscription_service.extend_active_subscription_days.assert_not_awaited()
         consume_activation.assert_not_awaited()
         clear_throttle.assert_awaited_once()
+
+
+class PromoCodeStatusTests(IsolatedAsyncioTestCase):
+    async def test_status_standalone_for_unused_bonus_code(self):
+        service = _status_service()
+        promo = SimpleNamespace(
+            promo_code_id=5,
+            code="HELLO",
+            bonus_days=7,
+            applies_to="subscription",
+        )
+        with (
+            patch(
+                "bot.services.promo_code_service.security_dal.check_throttle",
+                AsyncMock(return_value=SimpleNamespace(locked=False, retry_after=None)),
+            ),
+            patch(
+                "bot.services.promo_code_service.promo_code_dal.get_active_promo_code_by_code_str",
+                AsyncMock(return_value=promo),
+            ),
+            patch(
+                "bot.services.promo_code_service.promo_code_dal.get_user_activation_for_promo",
+                AsyncMock(return_value=None),
+            ),
+        ):
+            status = await service.get_promo_code_status(AsyncMock(), 42, "hello", "en")
+
+        self.assertEqual(status.status, PROMO_STATUS_STANDALONE)
+        self.assertEqual(status.code, "HELLO")
+        self.assertEqual(status.bonus_days, 7)
+        self.assertEqual(status.effect_summary, "+7 days")
+
+    async def test_status_requires_checkout_for_discount_code(self):
+        service = _status_service()
+        promo = SimpleNamespace(
+            promo_code_id=5,
+            code="SALE20",
+            bonus_days=0,
+            discount_percent=20,
+            applies_to="subscription",
+            min_subscription_months=3,
+        )
+        with (
+            patch(
+                "bot.services.promo_code_service.security_dal.check_throttle",
+                AsyncMock(return_value=SimpleNamespace(locked=False, retry_after=None)),
+            ),
+            patch(
+                "bot.services.promo_code_service.promo_code_dal.get_active_promo_code_by_code_str",
+                AsyncMock(return_value=promo),
+            ),
+            patch(
+                "bot.services.promo_code_service.promo_code_dal.get_user_activation_for_promo",
+                AsyncMock(return_value=None),
+            ),
+        ):
+            status = await service.get_promo_code_status(AsyncMock(), 42, "sale20", "en")
+
+        self.assertEqual(status.status, PROMO_STATUS_REQUIRES_CHECKOUT)
+        self.assertEqual(status.code, "SALE20")
+        self.assertEqual(status.min_subscription_months, 3)
+
+    async def test_status_already_used_includes_dates(self):
+        service = _status_service()
+        promo = SimpleNamespace(
+            promo_code_id=5,
+            code="HELLO",
+            bonus_days=7,
+            applies_to="subscription",
+        )
+        activation = SimpleNamespace(activated_at=datetime(2026, 6, 1, tzinfo=UTC))
+        active_subscription = SimpleNamespace(end_date=datetime(2026, 8, 1, tzinfo=UTC))
+        with (
+            patch(
+                "bot.services.promo_code_service.security_dal.check_throttle",
+                AsyncMock(return_value=SimpleNamespace(locked=False, retry_after=None)),
+            ),
+            patch(
+                "bot.services.promo_code_service.promo_code_dal.get_active_promo_code_by_code_str",
+                AsyncMock(return_value=promo),
+            ),
+            patch(
+                "bot.services.promo_code_service.promo_code_dal.get_user_activation_for_promo",
+                AsyncMock(return_value=activation),
+            ),
+            patch(
+                "bot.services.promo_code_service.subscription_dal.get_active_subscription_by_user_id",
+                AsyncMock(return_value=active_subscription),
+            ),
+        ):
+            status = await service.get_promo_code_status(AsyncMock(), 42, "hello", "en")
+
+        self.assertEqual(status.status, PROMO_STATUS_ALREADY_USED)
+        self.assertIn("promo_code_already_used_details", status.message)
+        self.assertIn("date=01.06.2026", status.message)
+        self.assertIn("promo_code_already_used_subscription_until", status.message)
+        self.assertIn("end_date=01.08.2026", status.message)
+        self.assertEqual(status.subscription_end_date, active_subscription.end_date)
+
+    async def test_status_not_found_records_throttle_failure(self):
+        service = _status_service()
+        record_failure = AsyncMock(return_value=SimpleNamespace(locked=False, retry_after=None))
+        with (
+            patch(
+                "bot.services.promo_code_service.security_dal.check_throttle",
+                AsyncMock(return_value=SimpleNamespace(locked=False, retry_after=None)),
+            ),
+            patch(
+                "bot.services.promo_code_service.promo_code_dal.get_active_promo_code_by_code_str",
+                AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.services.promo_code_service.security_dal.record_throttle_failure",
+                record_failure,
+            ),
+        ):
+            status = await service.get_promo_code_status(AsyncMock(), 42, "nope", "en")
+
+        self.assertEqual(status.status, PROMO_STATUS_NOT_FOUND)
+        self.assertIn("promo_code_not_found", status.message)
+        record_failure.assert_awaited_once()
+
+    async def test_status_throttled_when_locked(self):
+        service = _status_service()
+        with patch(
+            "bot.services.promo_code_service.security_dal.check_throttle",
+            AsyncMock(return_value=SimpleNamespace(locked=True, retry_after=30)),
+        ):
+            status = await service.get_promo_code_status(AsyncMock(), 42, "hello", "en")
+
+        self.assertEqual(status.status, PROMO_STATUS_THROTTLED)
+        self.assertIn("seconds=30", status.message)
+
+    async def test_apply_already_used_message_includes_activation_date(self):
+        service = _status_service()
+        promo = SimpleNamespace(
+            promo_code_id=5,
+            code="HELLO",
+            bonus_days=7,
+            applies_to="subscription",
+        )
+        activation = SimpleNamespace(activated_at=datetime(2026, 6, 1, tzinfo=UTC))
+        with (
+            patch(
+                "bot.services.promo_code_service.security_dal.check_throttle",
+                AsyncMock(return_value=SimpleNamespace(locked=False, retry_after=None)),
+            ),
+            patch(
+                "bot.services.promo_code_service.promo_code_dal.get_active_promo_code_by_code_str",
+                AsyncMock(return_value=promo),
+            ),
+            patch(
+                "bot.services.promo_code_service.promo_code_dal.get_user_activation_for_promo",
+                AsyncMock(return_value=activation),
+            ),
+            patch(
+                "bot.services.promo_code_service.subscription_dal.get_active_subscription_by_user_id",
+                AsyncMock(return_value=None),
+            ),
+        ):
+            success, result = await service.apply_promo_code(
+                session=AsyncMock(),
+                user_id=42,
+                code_input="hello",
+                user_lang="en",
+            )
+
+        self.assertFalse(success)
+        self.assertIn("promo_code_already_used_details", str(result))
+        self.assertIn("date=01.06.2026", str(result))

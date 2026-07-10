@@ -15,15 +15,20 @@ services:
       IMAGE_TAG: ${IMAGE_TAG:-latest}
       FRONTEND_PORT: ${FRONTEND_PORT:-8082}
       FRONTEND_PUBLIC: 127.0.0.1:${FRONTEND_PORT:-8082}->80
+      WEBAPP_API_BASE_URL: ${WEBAPP_API_BASE_URL:-/api}
+      WEBAPP_BACKEND_UPSTREAM: ${WEBAPP_BACKEND_UPSTREAM:-http://backend:8081}
+      WEBAPP_BACKEND_UPSTREAM_HOST: ${WEBAPP_BACKEND_UPSTREAM_HOST:-backend}
+      MINISHOP_EDGE_TOKEN: ${MINISHOP_EDGE_TOKEN:-}
+      MINISHOP_EDGE_TOKEN_HEADER: ${MINISHOP_EDGE_TOKEN_HEADER:-X-Minishop-Edge-Token}
     depends_on:
       backend:
         condition: service_healthy
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     ports:
-      - "127.0.0.1:${FRONTEND_PORT:-8082}:80"
+      - '127.0.0.1:${FRONTEND_PORT:-8082}:80'
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health | grep -q ok"]
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/health | grep -q ok']
       interval: 30s
       timeout: 5s
       retries: 5
@@ -48,7 +53,7 @@ services:
       IMAGE_TAG: ${IMAGE_TAG:-latest}
       POSTGRES_HOST: postgres
       REDIS_URL: redis://redis:6379/0
-      WEBAPP_ENABLED: "true"
+      WEBAPP_ENABLED: 'true'
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,11 +65,11 @@ services:
       - shop-data:/app/data
       - ${COMPOSE_BACKUP_SOURCE:-.}:/app/compose-source:${COMPOSE_RESTORE_MODE:-rw}
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     ports:
-      - "127.0.0.1:${WEB_SERVER_PORT:-8080}:8080"
+      - '127.0.0.1:${WEB_SERVER_PORT:-8080}:8080'
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:8080/healthz']
       interval: 30s
       timeout: 5s
       retries: 5
@@ -98,7 +103,7 @@ services:
       - shop-data:/app/data
       - ${COMPOSE_BACKUP_SOURCE:-.}:/app/compose-source:ro
     networks:
-      - remnawave-shop
+      - remnawave-minishop
 
   migrate:
     container_name: remnawave-minishop-migrate
@@ -107,7 +112,7 @@ services:
       context: .
       dockerfile: deploy/docker/Dockerfile
       target: backend
-    command: ["python", "backend/main_migrate.py"]
+    command: ['python', 'backend/main_migrate.py']
     env_file:
       - ${APP_ENV_FILE:-.env}
     environment:
@@ -122,7 +127,7 @@ services:
     volumes:
       - shop-data:/app/data
     networks:
-      - remnawave-shop
+      - remnawave-minishop
 
   postgres:
     image: postgres:17.6
@@ -135,9 +140,13 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test:
+        [
+          'CMD-SHELL',
+          'PGPASSWORD="$$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -Atqc ''SELECT 1'' | grep -qx 1',
+        ]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -148,13 +157,13 @@ services:
     image: redis:7-alpine
     container_name: remnawave-minishop-redis
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ['redis-server', '--appendonly', 'yes']
     volumes:
       - redis-data:/data
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 3s
       retries: 20
@@ -162,7 +171,8 @@ services:
       start_interval: 1s
 
 networks:
-  remnawave-shop:
+  remnawave-minishop:
+    name: remnawave-minishop-network
 
 volumes:
   postgres-data:

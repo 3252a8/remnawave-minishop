@@ -82,9 +82,11 @@ def _context_with_i18n(i18n, *, notification_service=None, email_auth_service=No
 class CoreEventReactionsTests(IsolatedAsyncioTestCase):
     def setUp(self):
         events.reset_subscribers()
+        event_reactions._payment_log_notification_cache.clear()
 
     def tearDown(self):
         events.reset_subscribers()
+        event_reactions._payment_log_notification_cache.clear()
 
     async def test_trial_activation_event_notifies_and_invalidates(self):
         end_date = datetime(2026, 1, 9, 3, 4, tzinfo=UTC)
@@ -296,6 +298,90 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             purchases=ANY,
         )
         invalidate.assert_awaited_once_with(ctx.settings, 42, include_devices=True)
+
+    async def test_payment_succeeded_event_dedupes_log_notification_by_payment_id(self):
+        notification_service = SimpleNamespace(notify_payment_received=AsyncMock())
+        ctx = _context(notification_service=notification_service)
+        user = SimpleNamespace(username="alice", email="alice@example.test")
+        payment = SimpleNamespace(
+            amount=120,
+            currency="RUB",
+            provider="yookassa",
+            sale_mode="subscription@standard",
+            tariff_key="standard",
+            subscription_duration_months=1,
+        )
+        payload = {
+            "user_id": 42,
+            "payment_db_id": 5,
+            "notification_provider": "yookassa",
+            "amount": 120,
+            "currency": "RUB",
+            "sale_mode": "subscription@standard",
+            "tariff_key": "standard",
+            "months": 1,
+        }
+
+        with (
+            patch.object(event_reactions.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+            patch.object(
+                event_reactions.payment_dal,
+                "get_payment_by_db_id",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                event_reactions,
+                "invalidate_webapp_user_caches",
+                AsyncMock(),
+            ) as invalidate,
+        ):
+            register_core_reactions(ctx)
+            await events.emit(events.PAYMENT_SUCCEEDED, payload)
+            await events.emit(events.PAYMENT_SUCCEEDED, payload)
+
+        notification_service.notify_payment_received.assert_awaited_once()
+        self.assertEqual(invalidate.await_count, 2)
+
+    async def test_payment_succeeded_event_uses_redis_dedupe_for_log_notification(self):
+        notification_service = SimpleNamespace(notify_payment_received=AsyncMock())
+        ctx = _context(notification_service=notification_service)
+        user = SimpleNamespace(username="alice", email="alice@example.test")
+        payment = SimpleNamespace(
+            amount=120,
+            currency="RUB",
+            provider="yookassa",
+            sale_mode="subscription@standard",
+            tariff_key="standard",
+            subscription_duration_months=1,
+        )
+        payload = {
+            "user_id": 42,
+            "payment_db_id": 5,
+            "notification_provider": "yookassa",
+            "amount": 120,
+            "currency": "RUB",
+            "sale_mode": "subscription@standard",
+            "tariff_key": "standard",
+            "months": 1,
+        }
+        redis = SimpleNamespace(set=AsyncMock(side_effect=[True, False]))
+
+        with (
+            patch.object(event_reactions, "get_redis", AsyncMock(return_value=redis)),
+            patch.object(event_reactions.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+            patch.object(
+                event_reactions.payment_dal,
+                "get_payment_by_db_id",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(event_reactions, "invalidate_webapp_user_caches", AsyncMock()),
+        ):
+            register_core_reactions(ctx)
+            await events.emit(events.PAYMENT_SUCCEEDED, payload)
+            await events.emit(events.PAYMENT_SUCCEEDED, payload)
+
+        notification_service.notify_payment_received.assert_awaited_once()
+        self.assertEqual(redis.set.await_count, 2)
 
     async def test_payment_succeeded_event_falls_back_to_payment_purchase_units(self):
         notification_service = SimpleNamespace(notify_payment_received=AsyncMock())

@@ -268,6 +268,24 @@ class PaymentSuccessOutcome:
     language: str
 
 
+async def _mark_activation_failed(req: PaymentSuccessRequest) -> None:
+    await req.session.rollback()
+    try:
+        await payment_dal.update_payment_status_by_db_id(
+            req.session,
+            req.payment.payment_id,
+            "activation_failed",
+        )
+        await req.session.commit()
+    except Exception:
+        await req.session.rollback()
+        logger.exception(
+            "%s: failed to mark payment %s activation_failed.",
+            req.log_prefix,
+            req.payment.payment_id,
+        )
+
+
 async def finalize_successful_payment(
     req: PaymentSuccessRequest,
 ) -> PaymentSuccessOutcome | None:
@@ -306,6 +324,14 @@ async def finalize_successful_payment(
             promo_code_id_from_payment=getattr(req.payment, "promo_code_id", None),
             **activation_extra_kwargs,
         )
+        if not activation or (is_subscription and not activation.get("end_date")):
+            logger.error(
+                "%s: activation returned no usable subscription state for payment %s.",
+                req.log_prefix,
+                req.payment.payment_id,
+            )
+            await _mark_activation_failed(req)
+            return None
         referral_bonus = None
         if is_subscription:
             referral_bonus = await req.referral_service.apply_referral_bonuses_for_payment(
@@ -323,26 +349,12 @@ async def finalize_successful_payment(
         )
         await req.session.commit()
     except Exception:
-        await req.session.rollback()
         logger.exception(
             "%s: failed to activate subscription for payment %s.",
             req.log_prefix,
             req.payment.payment_id,
         )
-        try:
-            await payment_dal.update_payment_status_by_db_id(
-                req.session,
-                req.payment.payment_id,
-                "activation_failed",
-            )
-            await req.session.commit()
-        except Exception:
-            await req.session.rollback()
-            logger.exception(
-                "%s: failed to mark payment %s activation_failed.",
-                req.log_prefix,
-                req.payment.payment_id,
-            )
+        await _mark_activation_failed(req)
         return None
 
     await events.emit_model(

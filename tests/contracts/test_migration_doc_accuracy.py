@@ -114,9 +114,13 @@ class MigrationDocumentationFactsTests(unittest.TestCase):
         self.assertIn("backend:8080", self.doc)
         self.assertIn("frontend:80", self.doc)
 
-    def test_doc_mentions_both_supported_tgshop_migration_methods(self):
-        self.assertIn("Скопировать старые Docker volumes на этом сервере", self.doc)
-        self.assertIn("Сделать дамп из исходного PostgreSQL DSN", self.doc)
+    def test_doc_describes_safe_tgshop_dsn_restore(self):
+        self.assertIn("не копирует raw PostgreSQL", self.doc)
+        self.assertIn("LEGACY_TGSHOP_DB_CONTAINER", self.doc)
+        self.assertIn("LEGACY_TGSHOP_SOURCE_DSN", self.doc)
+        self.assertIn("удаляет целевой DB volume", self.doc)
+        self.assertIn("pre-remnawave-tg-shop-source", self.doc)
+        self.assertIn("remnawave-tg-shop-db-data", self.doc)
         self.assertIn("pg_dump", self.doc)
 
     def test_doc_uses_current_russian_wizard_menu_labels(self):
@@ -142,11 +146,15 @@ class InstallWizardCoverageTests(unittest.TestCase):
             with self.subTest(container=legacy):
                 self.assertIn(legacy, self.known)
 
-    def test_installer_contains_tgshop_volume_and_dsn_paths(self):
-        self.assertIn("run_tgshop_volume_migration", self.script)
+    def test_installer_contains_tgshop_dsn_restore_path(self):
+        self.assertNotIn("run_tgshop_volume_migration", self.script)
         self.assertIn("run_tgshop_dsn_migration", self.script)
-        self.assertIn("remnawave-tg-shop-db-data", self.script)
+        self.assertIn("detect_tgshop_source_dsn", self.script)
+        self.assertIn("create_tgshop_source_backup", self.script)
+        self.assertIn("reset_target_postgres_volume", self.script)
+        self.assertIn('docker volume rm "$volume"', self.script)
         self.assertIn("pg_dump --clean --if-exists", self.script)
+        self.assertIn('psql "$TARGET_DSN" -v ON_ERROR_STOP=1', self.script)
         self.assertIn("run_compose_checked run --rm migrate", self.script)
 
     def test_script_is_syntactically_valid_sh_and_bash(self):

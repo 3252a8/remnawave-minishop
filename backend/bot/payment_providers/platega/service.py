@@ -787,6 +787,7 @@ SBP_SPEC = PaymentProviderSpec(
     webapp_label="Platega · СБП",
     webapp_labels={"ru": "Оплата картой (СБП)", "en": "Pay with card (SBP)"},
     webapp_icon="CreditCard",
+    logo_url="/provider-logos/platega.png",
     telegram_labels={"ru": "Оплата через СБП", "en": "Pay via SBP"},
     telegram_emoji="🏦",
     pending_status="pending_platega",
@@ -813,6 +814,7 @@ SBP_SPEC = PaymentProviderSpec(
         "Platega currencies are merchant/method-specific; configure the codes "
         "enabled for your account."
     ),
+    info_url="https://platega.io/",
     currency_support_url="https://docs.platega.io/",
 )
 
@@ -823,6 +825,7 @@ CRYPTO_SPEC = PaymentProviderSpec(
     webapp_label="Platega · Crypto",
     webapp_labels={"ru": "Крипта", "en": "Crypto"},
     webapp_icon="Bitcoin",
+    logo_url="/provider-logos/platega.png",
     telegram_labels={"ru": "Оплата криптой", "en": "Pay with crypto"},
     telegram_emoji="🪙",
     pending_status="pending_platega",
@@ -845,6 +848,7 @@ CRYPTO_SPEC = PaymentProviderSpec(
         "Platega currencies are merchant/method-specific; configure the codes "
         "enabled for your account."
     ),
+    info_url="https://platega.io/",
     currency_support_url="https://docs.platega.io/",
 )
 

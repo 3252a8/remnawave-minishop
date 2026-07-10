@@ -4,6 +4,10 @@ export type SettingsPath = string[];
 export type AdminSettingField = SettingField &
   Record<string, unknown> & {
     subsection?: string;
+    provider_id?: string;
+    provider_info_url?: string;
+    provider_label?: string;
+    provider_logo_url?: string;
     webhook_path?: string;
     webhook_url?: string;
   };
@@ -15,6 +19,7 @@ export type SettingsSubsection = {
   label: string | null;
   fields: AdminSettingField[];
   i18nLabelKey?: string | null;
+  providerInfo?: GroupProviderInfo;
   webhook?: GroupWebhook;
 };
 export type SemanticFieldGroup = {
@@ -39,6 +44,13 @@ export type GroupWebhook = {
   hintFallback?: string;
   requiresBaseUrl?: boolean;
   baseConfigured?: boolean;
+} | null;
+export type GroupProviderInfo = {
+  id: string;
+  label: string;
+  infoUrl: string;
+  logoUrl: string;
+  logoFallback: string;
 } | null;
 
 export const SETTINGS_SECTION_IDS_HIDDEN_IN_GENERAL_SETTINGS = new Set(["appearance", "pricing"]);
@@ -164,6 +176,10 @@ export function settingsFieldGroupAnchorKey(
   fieldGroupId: string
 ): string {
   return `settings-field-group:${sectionId}:${groupId}:${fieldGroupId}`;
+}
+
+export function settingsFieldAnchorKey(fieldKey: string): string {
+  return `settings-field:${fieldKey}`;
 }
 
 export function settingsSectionRoute(sectionId: string): SettingsPath {
@@ -308,6 +324,41 @@ export function groupWebhook(fields: AdminSettingField[]): GroupWebhook {
   };
 }
 
+function providerLogoFallback(label: string): string {
+  const words = label
+    .replace(/[^0-9A-Za-zА-Яа-яЁё]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length >= 2) {
+    return words
+      .slice(0, 2)
+      .map((word) => word[0])
+      .join("")
+      .toUpperCase();
+  }
+  const compact = (words[0] || label).replace(/[^0-9A-Za-zА-Яа-яЁё]+/g, "");
+  return compact.slice(0, 2).toUpperCase() || "P";
+}
+
+export function groupProviderInfo(fields: AdminSettingField[]): GroupProviderInfo {
+  const field = (fields || []).find(
+    (item) => item.provider_info_url || item.provider_logo_url || item.provider_label
+  );
+  if (!field) return null;
+  const label = String(field.provider_label || field.subsection || field.provider_id || "").trim();
+  const infoUrl = String(field.provider_info_url || "").trim();
+  const logoUrl = String(field.provider_logo_url || "").trim();
+  if (!label || (!infoUrl && !logoUrl)) return null;
+  return {
+    id: String(field.provider_id || label),
+    label,
+    infoUrl,
+    logoUrl,
+    logoFallback: providerLogoFallback(label),
+  };
+}
+
 export function groupSectionFields(section: AdminSettingsSection): SettingsSubsection[] {
   const groups = new Map<string, SettingsSubsection>();
   for (const field of section.fields || []) {
@@ -331,6 +382,7 @@ export function groupSectionFields(section: AdminSettingsSection): SettingsSubse
     id,
     label: id === "_root" ? null : id,
     i18nLabelKey: group.i18nLabelKey,
+    providerInfo: groupProviderInfo(group.fields),
     webhook: groupWebhook(group.fields),
     fields: group.fields,
   }));

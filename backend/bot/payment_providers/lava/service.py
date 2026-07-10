@@ -703,6 +703,7 @@ SPEC = PaymentProviderSpec(
     webapp_label="LAVA",
     webapp_labels={"ru": "LAVA", "en": "LAVA"},
     webapp_icon="CreditCard",
+    logo_url="/provider-logos/lava.png",
     telegram_labels={"ru": "LAVA", "en": "LAVA"},
     telegram_emoji="💳",
     pending_status="pending_lava",
@@ -720,6 +721,7 @@ SPEC = PaymentProviderSpec(
     manifest_fields=_CONFIG_MANIFEST + _PRESENTATION_MANIFEST,
     supported_currencies=("RUB",),
     currency_support_note="LAVA Business invoices are issued in RUB only.",
+    info_url="https://lava.ru/",
     currency_support_url="https://dev.lava.ru/",
 )
 

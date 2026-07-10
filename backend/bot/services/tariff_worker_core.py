@@ -3,7 +3,7 @@ import contextlib
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
@@ -18,8 +18,15 @@ from bot.services.message_audit import log_user_message_delivery
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.user_email_notifications import send_user_notification_email
-from bot.utils.date_utils import add_months
 from bot.utils.mini_app_url import subscription_mini_app_topup_url
+from bot.utils.traffic_reset import (
+    advance_traffic_reset,
+    first_panel_datetime,
+    format_traffic_reset_date,
+    next_traffic_reset_after,
+    panel_next_traffic_reset_at,
+    parse_panel_datetime,
+)
 from config.settings import Settings
 from config.traffic_strategy import normalize_traffic_limit_strategy
 from db.advisory_locks import acquire_subscription_background_sync_lock
@@ -156,7 +163,7 @@ class TariffWorkerCoreMixin:
     ) -> str:
         reset_at = next_reset_at
         if reset_at is None:
-            reset_at = self._next_traffic_reset_after(
+            reset_at = next_traffic_reset_after(
                 period_start_at,
                 self._period_tariff_traffic_strategy(),
             )
@@ -181,86 +188,22 @@ class TariffWorkerCoreMixin:
         *,
         now: datetime | None = None,
     ) -> datetime | None:
-        if not isinstance(panel_user_data, dict):
-            return None
-        traffic_stats = panel_user_data.get("userTraffic")
-        if not isinstance(traffic_stats, dict):
-            traffic_stats = {}
-        explicit_next = self._first_panel_datetime(
+        return panel_next_traffic_reset_at(
             panel_user_data,
-            (
-                "nextTrafficResetAt",
-                "next_traffic_reset_at",
-                "trafficNextResetAt",
-                "traffic_next_reset_at",
-            ),
+            fallback_strategy=self._period_tariff_traffic_strategy(),
+            now=now,
         )
-        if explicit_next is None:
-            explicit_next = self._first_panel_datetime(
-                traffic_stats,
-                (
-                    "nextTrafficResetAt",
-                    "next_traffic_reset_at",
-                    "trafficNextResetAt",
-                    "traffic_next_reset_at",
-                ),
-            )
-        if explicit_next is not None:
-            return explicit_next
 
-        strategy = (
-            panel_user_data.get("trafficLimitStrategy")
-            or traffic_stats.get("trafficLimitStrategy")
-            or self._period_tariff_traffic_strategy()
-        )
-        last_reset_at = self._first_panel_datetime(
-            panel_user_data,
-            (
-                "lastTrafficResetAt",
-                "last_traffic_reset_at",
-            ),
-        )
-        if last_reset_at is None:
-            last_reset_at = self._first_panel_datetime(
-                traffic_stats,
-                (
-                    "lastTrafficResetAt",
-                    "last_traffic_reset_at",
-                ),
-            )
-        return self._next_traffic_reset_after(last_reset_at, str(strategy or ""), now=now)
-
-    @classmethod
+    @staticmethod
     def _first_panel_datetime(
-        cls,
         payload: dict[str, Any],
         keys: tuple[str, ...],
     ) -> datetime | None:
-        for key in keys:
-            parsed = cls._parse_panel_datetime(payload.get(key))
-            if parsed is not None:
-                return parsed
-        return None
+        return first_panel_datetime(payload, keys)
 
     @staticmethod
     def _parse_panel_datetime(value: Any) -> datetime | None:
-        if isinstance(value, datetime):
-            parsed = value
-        elif isinstance(value, str):
-            raw = value.strip()
-            if not raw:
-                return None
-            if raw.endswith("Z"):
-                raw = raw[:-1] + "+00:00"
-            try:
-                parsed = datetime.fromisoformat(raw)
-            except ValueError:
-                return None
-        else:
-            return None
-        if parsed.tzinfo is None:
-            return parsed.replace(tzinfo=UTC)
-        return parsed.astimezone(UTC)
+        return parse_panel_datetime(value)
 
     def _next_traffic_reset_after(
         self,
@@ -269,47 +212,24 @@ class TariffWorkerCoreMixin:
         *,
         now: datetime | None = None,
     ) -> datetime | None:
-        if period_start_at is None:
-            return None
         normalized_strategy = normalize_traffic_limit_strategy(strategy, default="MONTH")
-        if normalized_strategy == "NO_RESET":
-            return None
-        current = now or datetime.now(UTC)
-        current = current.replace(tzinfo=UTC) if current.tzinfo is None else current.astimezone(UTC)
-        anchor = period_start_at
-        anchor = anchor.replace(tzinfo=UTC) if anchor.tzinfo is None else anchor.astimezone(UTC)
-
-        candidate = self._advance_traffic_reset(anchor, normalized_strategy)
-        if now is None:
-            return candidate
-        for _ in range(512):
-            if candidate > current:
-                return candidate
-            candidate = self._advance_traffic_reset(candidate, normalized_strategy)
-        logger.warning(
-            "TariffTrafficWorker: failed to derive next traffic reset from anchor=%s strategy=%s",
-            anchor.isoformat(),
-            normalized_strategy,
-        )
-        return None
+        reset_at = next_traffic_reset_after(period_start_at, normalized_strategy, now=now)
+        if reset_at is None and period_start_at is not None and normalized_strategy != "NO_RESET":
+            logger.warning(
+                "TariffTrafficWorker: failed to derive next traffic reset from anchor=%s "
+                "strategy=%s",
+                period_start_at.isoformat(),
+                normalized_strategy,
+            )
+        return reset_at
 
     @staticmethod
     def _advance_traffic_reset(value: datetime, strategy: str) -> datetime:
-        if strategy == "DAY":
-            return value + timedelta(days=1)
-        if strategy == "WEEK":
-            return value + timedelta(days=7)
-        return add_months(value, 1)
+        return advance_traffic_reset(value, strategy)
 
     @staticmethod
     def _format_traffic_reset_date(value: datetime, user_lang: str) -> str:
-        reset_at = value
-        if reset_at.tzinfo is not None:
-            reset_at = reset_at.astimezone(UTC)
-        lang = str(user_lang or "").lower()
-        if lang.startswith("ru"):
-            return reset_at.strftime("%d.%m.%Y")
-        return reset_at.date().isoformat()
+        return format_traffic_reset_date(value, user_lang)
 
     def _traffic_notice_channels_available(self) -> bool:
         return bool(self.bot) or bool(getattr(self.settings, "email_auth_configured", False))

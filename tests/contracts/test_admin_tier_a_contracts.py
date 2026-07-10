@@ -96,6 +96,19 @@ def test_payment_response_models_match_legacy_serializer():
     }
 
 
+def test_payment_detail_prefers_archived_promo_display_code():
+    payment = _payment(
+        promo_code_used=SimpleNamespace(
+            code="__ARCHIVED_PROMO__5__GIFT",
+            archived_code="GIFT",
+        )
+    )
+
+    payload = PaymentDetailOut.from_orm_payment_detail(payment).model_dump(mode="json")
+
+    assert payload["promo_code"] == "GIFT"
+
+
 def test_ad_response_model_matches_legacy_serializer():
     campaign = SimpleNamespace(
         ad_campaign_id=5,

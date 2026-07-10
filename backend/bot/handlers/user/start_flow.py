@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.infra import events
 from bot.infra.event_payloads import ReferralBonusGrantedPayload
 from bot.middlewares.i18n import JsonI18n
+from bot.services.behavior_events import BotStartedSource, emit_bot_started
 from bot.services.referral_service import ReferralService
 from bot.services.registration_invite_gate import evaluate_registration_invite
 from bot.services.subscription_service_impl.core import SubscriptionService
@@ -37,6 +38,39 @@ from .start_common import (
 from .start_menus import send_main_menu
 
 logger = logging.getLogger(__name__)
+
+
+def _start_argument(message: types.Message) -> str | None:
+    text = str(getattr(message, "text", "") or "").strip()
+    if not text.startswith("/start"):
+        return None
+    _, separator, argument = text.partition(" ")
+    if not separator:
+        return None
+    value = argument.strip()
+    return value or None
+
+
+def _bot_started_source(
+    *,
+    ref_match: re.Match | None,
+    promo_match: re.Match | None,
+    page_ref_match: re.Match | None,
+    ad_param_match: re.Match | None,
+    ticket_match: re.Match | None,
+    notifications_match: re.Match | None,
+) -> BotStartedSource:
+    if ref_match or page_ref_match:
+        return "referral"
+    if promo_match:
+        return "promo"
+    if ad_param_match:
+        return "ad"
+    if ticket_match:
+        return "ticket"
+    if notifications_match:
+        return "notifications"
+    return "direct"
 
 
 @router.message(CommandStart())
@@ -78,8 +112,24 @@ async def start_command_handler(
 
     user = message_from_user(message)
     user_id = user.id
+    start_param = _start_argument(message)
+    start_source = _bot_started_source(
+        ref_match=ref_match,
+        promo_match=promo_match,
+        page_ref_match=page_ref_match,
+        ad_param_match=ad_param_match,
+        ticket_match=ticket_match,
+        notifications_match=notifications_match,
+    )
 
     if admin_user_match and user_id in settings.ADMIN_IDS:
+        started_user = await user_dal.get_user_by_id(session, user_id)
+        await emit_bot_started(
+            user_id=user_id,
+            returning=started_user is not None,
+            source=start_source,
+            start_param=start_param,
+        )
         target_user_id = int(admin_user_match.group(1))
         target_user = await user_dal.get_user_by_id(session, target_user_id)
         if not target_user:
@@ -132,6 +182,13 @@ async def start_command_handler(
         ticket_id = int(ticket_match.group(1))
         base_url = (settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
         if base_url:
+            started_user = await user_dal.get_user_by_id(session, user_id)
+            await emit_bot_started(
+                user_id=user_id,
+                returning=started_user is not None,
+                source=start_source,
+                start_param=start_param,
+            )
             ticket_url = f"{base_url.rstrip('/')}/support/{ticket_id}"
             keyboard = types.InlineKeyboardMarkup(
                 inline_keyboard=[
@@ -198,6 +255,12 @@ async def start_command_handler(
             source="telegram_start",
         )
         if invite_check.requires_invite:
+            await emit_bot_started(
+                user_id=user_id,
+                returning=False,
+                source=start_source,
+                start_param=start_param,
+            )
             await message.answer(_("registration_invite_required"))
             return
         referred_by_user_id = invite_check.referrer_user_id
@@ -356,6 +419,13 @@ async def start_command_handler(
             )
             with contextlib.suppress(Exception):
                 await session.rollback()
+
+    await emit_bot_started(
+        user_id=user_id,
+        returning=is_existing_user,
+        source=start_source,
+        start_param=start_param,
+    )
 
     if not await ensure_required_channel_subscription(
         message, settings, i18n, current_lang, session, db_user

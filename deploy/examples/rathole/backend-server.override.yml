@@ -1,0 +1,15 @@
+services:
+  rathole-client:
+    image: ${RATHOLE_IMAGE:-rapiz1/rathole:v0.5.0}
+    restart: unless-stopped
+    command: ["--client", "/etc/rathole/client.toml"]
+    volumes:
+      - ./rathole.client.toml:/etc/rathole/client.toml:ro
+    networks:
+      - remnawave-minishop
+
+networks:
+  remnawave-minishop:
+    external: true
+    name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-network
+

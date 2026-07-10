@@ -257,6 +257,8 @@ class PaymentProviderSpec:
     supported_currencies_resolver: CurrencySupportResolver | None = None
     payment_amount_resolver: PaymentAmountResolver | None = None
     payment_minimum_resolver: PaymentMinimumResolver | None = None
+    info_url: str | None = None
+    logo_url: str | None = None
     currency_support_note: str = ""
     currency_support_url: str | None = None
 

@@ -693,6 +693,7 @@ SPEC = PaymentProviderSpec(
     webapp_label="FreeKassa / СБП",
     webapp_labels={"ru": "FreeKassa / СБП", "en": "FreeKassa / SBP"},
     webapp_icon="Smartphone",
+    logo_url="/provider-logos/freekassa.png",
     telegram_labels={"ru": "СБП", "en": "SBP"},
     telegram_emoji="📱",
     pending_status="pending_freekassa",
@@ -712,6 +713,7 @@ SPEC = PaymentProviderSpec(
     currency_support_note=(
         "FreeKassa SCI documents the payment currency parameter as RUB, USD, EUR, UAH or KZT."
     ),
+    info_url="https://freekassa.net/",
     currency_support_url="https://docs.freekassa.net/",
 )
 

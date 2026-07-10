@@ -13,12 +13,7 @@ pydantic-settings==2.14.2
 email-validator==2.3.0
 sqlalchemy[asyncio]==2.0.51
 asyncpg==0.31.0
-# Checked 2026-07-02: https://pypi.org/pypi/aiocryptopay/json latest is 0.4.8
-# and still caps certifi at <2024 (metadata-only). The Dockerfile force-upgrades
-# certifi after install and pip-audit ignores PYSEC-2024-230 in CI until
-# aiocryptopay relaxes this upstream pin.
-aiocryptopay==0.4.8
-certifi<2024
+certifi>=2024.7.4
 PyJWT[crypto]==2.13.0
 Pillow==12.2.0
 # Checked 2026-07-02: https://pypi.org/pypi/redis/json latest is 8.0.1, but

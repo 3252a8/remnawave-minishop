@@ -13,6 +13,12 @@ from bot.keyboards.inline.admin_keyboards import (
     get_broadcast_confirmation_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.services.broadcast_personalization import (
+    BroadcastUserContext,
+    known_shortcodes,
+    telegram_html_error,
+    unknown_shortcodes,
+)
 from bot.states.admin_states import AdminStates
 from bot.utils import (
     MessageContent,
@@ -24,6 +30,14 @@ from bot.utils.callback_answer import callback_data, callback_message
 from bot.utils.message_queue import get_queue_manager
 from config.settings import Settings
 from db.dal import message_log_dal, user_dal
+
+from .broadcast_shortcodes import (
+    bot_username_for_shortcodes,
+    load_admin_broadcast_contexts,
+    localized_shortcode_error,
+    message_content_html_text,
+    render_personalized_admin_broadcast_text,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -91,25 +105,100 @@ async def process_broadcast_message_handler(
         await message.answer(_("admin_broadcast_error_no_message"))
         return
 
+    unknown = sorted(unknown_shortcodes(content.text or ""))
+    if unknown:
+        await message.answer(
+            localized_shortcode_error(
+                i18n,
+                current_lang,
+                "admin_broadcast_unknown_shortcode",
+                ", ".join(unknown),
+            )
+        )
+        return
+
+    needed_shortcodes = known_shortcodes(content.text or "")
+    uses_shortcodes = bool(needed_shortcodes)
+    broadcast_text = content.text
+    preview_content = content
+    preview_entities = entities
+    if uses_shortcodes:
+        broadcast_text = message_content_html_text(message, content).strip()
+        html_error = telegram_html_error(broadcast_text)
+        if html_error:
+            await message.answer(
+                localized_shortcode_error(
+                    i18n,
+                    current_lang,
+                    "admin_broadcast_invalid_telegram_html",
+                    html_error,
+                )
+            )
+            return
+
+        admin_user_id = int(message.from_user.id) if message.from_user else 0
+        contexts = await load_admin_broadcast_contexts(
+            session,
+            settings,
+            [admin_user_id] if admin_user_id else [],
+            needed_shortcodes,
+        )
+        bot_username = await bot_username_for_shortcodes(bot, needed_shortcodes)
+        preview_content = MessageContent(
+            content.content_type,
+            content.file_id,
+            render_personalized_admin_broadcast_text(
+                broadcast_text,
+                contexts,
+                admin_user_id,
+                fallback_lang=current_lang,
+                i18n=i18n,
+                settings=settings,
+                bot_username=bot_username,
+            ),
+        )
+        preview_entities = []
+
     # Сохраняем данные для рассылки
     await state.update_data(
-        broadcast_text=content.text,
-        broadcast_entities=entities,
+        broadcast_text=broadcast_text,
+        broadcast_entities=preview_entities,
         broadcast_content_type=content.content_type,
         broadcast_file_id=content.file_id,
         broadcast_target="all",
+        broadcast_uses_shortcodes=uses_shortcodes,
+        broadcast_shortcodes=sorted(needed_shortcodes),
     )
 
     # Отправляем превью-копию того, что будет разослано
     try:
         # Для медиа-сообщений используем caption_entities, для текста - entities
         if content.content_type == "text":
+            if uses_shortcodes:
+                await send_message_by_type(
+                    bot,
+                    chat_id=message.chat.id,
+                    content=preview_content,
+                    parse_mode="HTML",
+                    disable_web_page_preview=True,
+                    disable_notification=True,
+                )
+            else:
+                await send_message_by_type(
+                    bot,
+                    chat_id=message.chat.id,
+                    content=preview_content,
+                    parse_mode="HTML",
+                    entities=preview_entities,
+                    disable_web_page_preview=True,
+                    disable_notification=True,
+                )
+        elif uses_shortcodes:
             await send_message_by_type(
                 bot,
                 chat_id=message.chat.id,
-                content=content,
+                content=preview_content,
                 parse_mode="HTML",
-                entities=entities,
                 disable_web_page_preview=True,
                 disable_notification=True,
             )
@@ -117,9 +206,9 @@ async def process_broadcast_message_handler(
             await send_message_by_type(
                 bot,
                 chat_id=message.chat.id,
-                content=content,
+                content=preview_content,
                 parse_mode="HTML",
-                caption_entities=entities,
+                caption_entities=preview_entities,
                 disable_web_page_preview=True,
                 disable_notification=True,
             )
@@ -276,24 +365,73 @@ async def confirm_broadcast_callback_handler(
             )
             return
 
+        needed_shortcodes = {
+            str(code) for code in user_fsm_data.get("broadcast_shortcodes", []) if code
+        }
+        uses_shortcodes = bool(user_fsm_data.get("broadcast_uses_shortcodes")) and bool(
+            content.text
+        )
+        contexts: dict[int, BroadcastUserContext] = {}
+        bot_username = ""
+        if uses_shortcodes:
+            contexts = await load_admin_broadcast_contexts(
+                session,
+                settings,
+                [int(uid) for uid in user_ids],
+                needed_shortcodes,
+            )
+            bot_username = await bot_username_for_shortcodes(bot, needed_shortcodes)
+
         # Queue all messages for sending
         for uid in user_ids:
             try:
+                message_content = content
+                if uses_shortcodes:
+                    message_content = MessageContent(
+                        content.content_type,
+                        content.file_id,
+                        render_personalized_admin_broadcast_text(
+                            content.text or "",
+                            contexts,
+                            int(uid),
+                            fallback_lang=settings.DEFAULT_LANGUAGE,
+                            i18n=i18n,
+                            settings=settings,
+                            bot_username=bot_username,
+                        ),
+                    )
                 # Для медиа-сообщений используем caption_entities, для текста - entities
                 if content.content_type == "text":
+                    if uses_shortcodes:
+                        await send_message_via_queue(
+                            queue_manager,
+                            uid,
+                            message_content,
+                            parse_mode="HTML",
+                            disable_web_page_preview=True,
+                        )
+                    else:
+                        await send_message_via_queue(
+                            queue_manager,
+                            uid,
+                            message_content,
+                            parse_mode="HTML",
+                            entities=entities,
+                            disable_web_page_preview=True,
+                        )
+                elif uses_shortcodes:
                     await send_message_via_queue(
                         queue_manager,
                         uid,
-                        content,
+                        message_content,
                         parse_mode="HTML",
-                        entities=entities,
                         disable_web_page_preview=True,
                     )
                 else:
                     await send_message_via_queue(
                         queue_manager,
                         uid,
-                        content,
+                        message_content,
                         parse_mode="HTML",
                         caption_entities=entities,
                         disable_web_page_preview=True,

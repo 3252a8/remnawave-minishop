@@ -199,6 +199,7 @@ SPEC = PaymentProviderSpec(
     webapp_label="ЮKassa",
     webapp_labels={"ru": "ЮKassa", "en": "YooKassa"},
     webapp_icon="CreditCard",
+    logo_url="/provider-logos/yookassa.png",
     telegram_labels={"ru": "ЮKassa", "en": "YooKassa"},
     telegram_emoji="💳",
     pending_status="pending_yookassa",
@@ -221,6 +222,7 @@ SPEC = PaymentProviderSpec(
         "YooKassa public payment API examples and limits are RUB-based; "
         "treat non-RUB as unsupported unless your YooKassa contract confirms otherwise."
     ),
+    info_url="https://yookassa.ru/",
     currency_support_url="https://yookassa.ru/developers/payment-acceptance/integration-scenarios/smart-payment",
 )
 

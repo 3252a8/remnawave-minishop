@@ -9,6 +9,7 @@ from bot.app.web.admin_settings_manifest import coerce_value, get_field_by_key, 
 from bot.middlewares.i18n import resolve_locale_key
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 SUPPORT_RELATED_SETTINGS = (
     "LOG_SUPPORT_THREAD_ID",
@@ -59,6 +60,28 @@ TELEGRAM_ANTIFLOOD_SETTINGS = (
     "TELEGRAM_ACTION_COOLDOWN_ENABLED",
     "TELEGRAM_PAYMENT_CALLBACK_COOLDOWN_SECONDS",
     "TELEGRAM_TRIAL_CALLBACK_COOLDOWN_SECONDS",
+)
+
+EMAIL_AUTH_SETTINGS = (
+    "QA_AUTH_ENABLED",
+    "WEBAPP_AUTH_MAX_AGE_SECONDS",
+    "WEBAPP_LOGIN_TOKEN_TTL_SECONDS",
+    "SMTP_HOST",
+    "SMTP_PORT",
+    "SMTP_FALLBACK_PORTS",
+    "SMTP_TIMEOUT_SECONDS",
+    "SMTP_USERNAME",
+    "SMTP_PASSWORD",
+    "SMTP_FROM_EMAIL",
+    "SMTP_FROM_NAME",
+    "SMTP_STARTTLS",
+    "SMTP_USE_SSL",
+    "EMAIL_CODE_TTL_SECONDS",
+    "EMAIL_CODE_RESEND_SECONDS",
+    "EMAIL_CODE_MAX_ATTEMPTS",
+    "BRUTE_FORCE_MAX_FAILURES",
+    "BRUTE_FORCE_WINDOW_SECONDS",
+    "BRUTE_FORCE_LOCK_SECONDS",
 )
 
 REMNASHOP_MIGRATION_SETTINGS = (
@@ -225,6 +248,24 @@ def test_support_settings_i18n_keys_exist_in_admin_locales():
             assert field["i18n_description_key"] in messages
 
 
+def test_settings_choice_i18n_keys_exist_in_admin_locales():
+    fields_with_choices = [
+        item for item in _manifest_items() if isinstance(item.get("choices"), list)
+    ]
+    assert fields_with_choices
+
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        missing: list[str] = []
+        for field in fields_with_choices:
+            for choice in field["choices"]:
+                key = choice.get("i18n_label_key")
+                if key and key not in messages:
+                    missing.append(str(key))
+
+        assert sorted(missing) == []
+
+
 def test_subscription_purchase_description_settings_i18n_keys_exist():
     manifest = _manifest_by_key()
 
@@ -314,6 +355,61 @@ def test_telegram_antiflood_settings_i18n_keys_exist():
             assert field["i18n_description_key"] in messages
 
 
+def test_email_auth_settings_i18n_keys_exist():
+    manifest = _manifest_by_key()
+
+    expected_subsections = {
+        "QA_AUTH_ENABLED": "email_auth",
+        "WEBAPP_AUTH_MAX_AGE_SECONDS": "email_auth",
+        "WEBAPP_LOGIN_TOKEN_TTL_SECONDS": "email_auth",
+        "SMTP_HOST": "smtp",
+        "SMTP_PORT": "smtp",
+        "SMTP_FALLBACK_PORTS": "smtp",
+        "SMTP_TIMEOUT_SECONDS": "smtp",
+        "SMTP_USERNAME": "smtp",
+        "SMTP_PASSWORD": "smtp",
+        "SMTP_FROM_EMAIL": "smtp",
+        "SMTP_FROM_NAME": "smtp",
+        "SMTP_STARTTLS": "smtp",
+        "SMTP_USE_SSL": "smtp",
+        "EMAIL_CODE_TTL_SECONDS": "email_codes",
+        "EMAIL_CODE_RESEND_SECONDS": "email_codes",
+        "EMAIL_CODE_MAX_ATTEMPTS": "email_codes",
+        "BRUTE_FORCE_MAX_FAILURES": "email_security",
+        "BRUTE_FORCE_WINDOW_SECONDS": "email_security",
+        "BRUTE_FORCE_LOCK_SECONDS": "email_security",
+    }
+
+    for setting_key in EMAIL_AUTH_SETTINGS:
+        field = manifest[setting_key]
+        assert field["section"] == "email"
+        assert field["section_order"] == 8
+        assert field["subsection"] == expected_subsections[setting_key]
+
+    invite_only = manifest["REGISTRATION_INVITE_ONLY_ENABLED"]
+    assert invite_only["section"] == "general"
+    assert invite_only["section_order"] == 1
+    assert invite_only["subsection"] is None
+
+    assert manifest["SMTP_PASSWORD"]["secret"] is True
+    assert manifest["SMTP_PORT"]["min"] == 1
+    assert manifest["SMTP_PORT"]["max"] == 65535
+    assert manifest["EMAIL_CODE_TTL_SECONDS"]["min"] == 60
+
+    for language in ("ru", "en"):
+        messages = _locale(language)
+
+        assert "admin_settings_section_email" in messages
+        for subsection in {"email_auth", "smtp", "email_codes", "email_security"}:
+            assert f"admin_settings_subsection_{subsection}" in messages
+        for setting_key in EMAIL_AUTH_SETTINGS:
+            field = manifest[setting_key]
+            assert field["i18n_label_key"] in messages
+            assert field["i18n_description_key"] in messages
+            if field.get("i18n_placeholder_key"):
+                assert field["i18n_placeholder_key"] in messages
+
+
 def test_remnashop_migration_settings_i18n_keys_exist():
     manifest = _manifest_by_key()
 
@@ -357,9 +453,75 @@ def test_payment_provider_settings_include_webhook_metadata():
 
     assert manifest["FREEKASSA_ENABLED"]["webhook_path"] == "/webhook/freekassa"
     assert manifest["FREEKASSA_ENABLED"]["provider_id"] == "freekassa"
+    assert manifest["FREEKASSA_ENABLED"]["provider_info_url"] == "https://freekassa.net/"
+    assert manifest["FREEKASSA_ENABLED"]["provider_logo_url"] == "/provider-logos/freekassa.png"
     assert manifest["PAYMENT_PLATEGA_CRYPTO_WEBAPP_LABEL_RU"]["webhook_path"] == "/webhook/platega"
     assert manifest["YOOKASSA_SHOP_ID"]["webhook_requires_base_url"] is True
     assert "webhook_path" not in manifest["PAYMENT_STARS_WEBAPP_LABEL_RU"]
+    assert manifest["PAYMENT_STARS_WEBAPP_LABEL_RU"]["provider_info_url"] == "https://telegram.org/"
+    assert (
+        manifest["PAYMENT_STARS_WEBAPP_LABEL_RU"]["provider_logo_url"]
+        == "/provider-logos/telegram-stars.png"
+    )
+
+
+def test_payment_provider_logo_assets_are_local_png_files():
+    logo_urls = {
+        str(item["provider_logo_url"])
+        for item in _manifest_items()
+        if item.get("provider_logo_url")
+    }
+
+    assert "/provider-logos/cryptopay.png" in logo_urls
+    assert len(logo_urls) >= 13
+    for logo_url in logo_urls:
+        assert re.fullmatch(r"/provider-logos/[A-Za-z0-9_-]+\.png", logo_url)
+        logo_path = REPO_ROOT / "frontend" / "public" / logo_url.removeprefix("/")
+        assert logo_path.is_file()
+        with logo_path.open("rb") as fh:
+            assert fh.read(len(PNG_SIGNATURE)) == PNG_SIGNATURE
+
+
+def test_payment_provider_settings_i18n_keys_exist_in_admin_locales():
+    provider_items = [item for item in _manifest_items() if item.get("provider_id")]
+    assert provider_items
+
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        missing: list[str] = []
+        for field in provider_items:
+            for key_name in (
+                "i18n_label_key",
+                "i18n_description_key",
+                "i18n_subsection_key",
+            ):
+                key = field.get(key_name)
+                if key and key not in messages:
+                    missing.append(str(key))
+
+        assert sorted(set(missing)) == []
+
+
+def test_shared_payment_provider_option_i18n_does_not_bake_provider_names():
+    provider_names = {
+        str(item["provider_label"])
+        for item in _manifest_items()
+        if item.get("provider_id") and item.get("provider_label")
+    }
+
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        baked_names: dict[str, list[str]] = {}
+        for key, value in messages.items():
+            if not key.startswith("admin_settings_provider_opt_"):
+                continue
+            if "{provider}" in value:
+                continue
+            offenders = sorted(name for name in provider_names if name and name in value)
+            if offenders:
+                baked_names[key] = offenders
+
+        assert baked_names == {}
 
 
 def test_remnawave_settings_include_panel_webhook_metadata():

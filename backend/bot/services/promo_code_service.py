@@ -1,6 +1,7 @@
 import logging
 import secrets
 import string
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from html import escape as html_escape
@@ -13,12 +14,18 @@ from bot.infra.event_payloads import PromoCodeAppliedPayload
 from bot.middlewares.i18n import JsonI18n
 from bot.services.promo_effects import PromoEffects, summarize_effects, validate_effects
 from config.settings import Settings
-from db.dal import promo_code_dal, security_dal
+from db.dal import promo_code_dal, security_dal, subscription_dal
 from db.models import PromoCode
 
 from .subscription_service import SubscriptionService
 
 logger = logging.getLogger(__name__)
+
+PROMO_STATUS_NOT_FOUND = "not_found"
+PROMO_STATUS_ALREADY_USED = "already_used"
+PROMO_STATUS_REQUIRES_CHECKOUT = "requires_checkout"
+PROMO_STATUS_STANDALONE = "standalone"
+PROMO_STATUS_THROTTLED = "throttled"
 
 
 @dataclass(frozen=True)
@@ -28,6 +35,27 @@ class PromoCheckoutRequired:
     applies_to: str
     min_subscription_months: int | None = None
     min_traffic_gb: float | None = None
+
+
+@dataclass(frozen=True)
+class PromoCodeStatus:
+    """Read-only verdict on how a promo code relates to a specific user.
+
+    ``message`` carries the localized human explanation for terminal states
+    (already used / not found / throttled) so both the bot and the web app can
+    show it verbatim.
+    """
+
+    status: str
+    code: str = ""
+    message: str = ""
+    effect_summary: str = ""
+    applies_to: str = "all"
+    min_subscription_months: int | None = None
+    min_traffic_gb: float | None = None
+    bonus_days: int = 0
+    activated_at: datetime | None = None
+    subscription_end_date: datetime | None = None
 
 
 class PromoCodeService:
@@ -77,12 +105,18 @@ class PromoCodeService:
         normalized_code = PromoCodeService._normalize_code(code or "")
         if normalized_code:
             existing = await promo_code_dal.get_promo_code_by_code(session, normalized_code)
+            if existing is not None and getattr(existing, "archived_at", None) is not None:
+                await promo_code_dal.release_archived_promo_code(session, existing)
+                existing = await promo_code_dal.get_promo_code_by_code(session, normalized_code)
             if existing is not None:
                 raise ValueError("duplicate_code")
         else:
             for _ in range(32):
                 candidate = PromoCodeService._generate_code()
                 existing = await promo_code_dal.get_promo_code_by_code(session, candidate)
+                if existing is not None and getattr(existing, "archived_at", None) is not None:
+                    await promo_code_dal.release_archived_promo_code(session, existing)
+                    existing = await promo_code_dal.get_promo_code_by_code(session, candidate)
                 if existing is None:
                     normalized_code = candidate
                     break
@@ -113,6 +147,148 @@ class PromoCodeService:
                 "created_by_admin_id": created_by_admin_id,
                 "is_active": True,
             },
+        )
+
+    async def _already_used_message(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        code_display: str,
+        activated_at: datetime | None,
+        translate: Callable[..., str],
+    ) -> tuple[str, datetime | None]:
+        """Build the localized "you already used this code" explanation.
+
+        Includes the activation date when known and the active subscription end
+        date when the user still has one, so the user understands why the code
+        no longer applies and what they currently have.
+        """
+        if activated_at is not None:
+            message = translate(
+                "promo_code_already_used_details",
+                code=code_display,
+                date=activated_at.strftime("%d.%m.%Y"),
+            )
+        else:
+            message = translate("promo_code_already_used_by_user", code=code_display)
+
+        subscription_end: datetime | None = None
+        try:
+            active = await subscription_dal.get_active_subscription_by_user_id(session, user_id)
+            subscription_end = getattr(active, "end_date", None) if active else None
+        except Exception:
+            logger.debug("Active subscription lookup failed for user %s.", user_id, exc_info=True)
+        if subscription_end is not None:
+            message = (
+                f"{message} "
+                + translate(
+                    "promo_code_already_used_subscription_until",
+                    end_date=subscription_end.strftime("%d.%m.%Y"),
+                )
+            ).strip()
+        return message, subscription_end
+
+    async def get_promo_code_status(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        code_input: str,
+        user_lang: str,
+    ) -> PromoCodeStatus:
+        """Read-only classification of a code for a user (deeplink pre-check).
+
+        Mirrors ``apply_promo_code`` validation without consuming anything.
+        Unknown codes still count towards the apply throttle so this endpoint
+        cannot be used to enumerate codes faster than apply itself.
+        """
+        _ = lambda k, **kw: self.i18n.gettext(user_lang, k, **kw)
+        preserve_case = bool(
+            getattr(self.settings, "MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED", False)
+        )
+        code_input_clean = (code_input or "").strip()[:100]
+        lookup_code = code_input_clean if preserve_case else code_input_clean.upper()
+        code_display = html_escape(lookup_code[:100], quote=False)
+        throttle_identifier = self._throttle_identifier(user_id)
+
+        throttle = await security_dal.check_throttle(
+            session,
+            scope=security_dal.PROMO_CODE_APPLY_SCOPE,
+            identifier=throttle_identifier,
+        )
+        if throttle.locked:
+            return PromoCodeStatus(
+                status=PROMO_STATUS_THROTTLED,
+                code=lookup_code,
+                message=_(
+                    "promo_code_too_many_attempts",
+                    seconds=throttle.retry_after
+                    or max(1, int(self.settings.BRUTE_FORCE_LOCK_SECONDS)),
+                ),
+            )
+
+        promo_data = await promo_code_dal.get_active_promo_code_by_code_str(
+            session, lookup_code, preserve_case=preserve_case
+        )
+        if not promo_data:
+            throttle_result = await security_dal.record_throttle_failure(
+                session,
+                scope=security_dal.PROMO_CODE_APPLY_SCOPE,
+                identifier=throttle_identifier,
+                max_failures=self.settings.BRUTE_FORCE_MAX_FAILURES,
+                window_seconds=self.settings.BRUTE_FORCE_WINDOW_SECONDS,
+                lock_seconds=self.settings.BRUTE_FORCE_LOCK_SECONDS,
+            )
+            if throttle_result.locked:
+                return PromoCodeStatus(
+                    status=PROMO_STATUS_THROTTLED,
+                    code=lookup_code,
+                    message=_(
+                        "promo_code_too_many_attempts",
+                        seconds=throttle_result.retry_after
+                        or max(1, int(self.settings.BRUTE_FORCE_LOCK_SECONDS)),
+                    ),
+                )
+            return PromoCodeStatus(
+                status=PROMO_STATUS_NOT_FOUND,
+                code=lookup_code,
+                message=_("promo_code_not_found", code=code_display),
+            )
+
+        applied_code = str(promo_data.code or lookup_code)
+        code_display = html_escape(applied_code[:100], quote=False)
+        existing_activation = await promo_code_dal.get_user_activation_for_promo(
+            session, promo_data.promo_code_id, user_id
+        )
+        if existing_activation:
+            activated_at = getattr(existing_activation, "activated_at", None)
+            message, subscription_end = await self._already_used_message(
+                session, user_id, code_display, activated_at, _
+            )
+            return PromoCodeStatus(
+                status=PROMO_STATUS_ALREADY_USED,
+                code=applied_code,
+                message=message,
+                activated_at=activated_at,
+                subscription_end_date=subscription_end,
+            )
+
+        effects = PromoEffects.from_model(promo_data)
+        summary = summarize_effects(effects)
+        if not effects.can_apply_standalone:
+            return PromoCodeStatus(
+                status=PROMO_STATUS_REQUIRES_CHECKOUT,
+                code=applied_code,
+                effect_summary=summary,
+                applies_to=effects.applies_to,
+                min_subscription_months=effects.min_subscription_months,
+                min_traffic_gb=effects.min_traffic_gb,
+            )
+        return PromoCodeStatus(
+            status=PROMO_STATUS_STANDALONE,
+            code=applied_code,
+            effect_summary=summary,
+            applies_to=effects.applies_to,
+            bonus_days=int(effects.bonus_days or 0),
         )
 
     async def apply_promo_code(
@@ -169,7 +345,14 @@ class PromoCodeService:
             session, promo_data.promo_code_id, user_id
         )
         if existing_activation:
-            return False, _("promo_code_already_used_by_user", code=code_display)
+            message, _end = await self._already_used_message(
+                session,
+                user_id,
+                code_display,
+                getattr(existing_activation, "activated_at", None),
+                _,
+            )
+            return False, message
 
         effects = PromoEffects.from_model(promo_data)
         if not effects.can_apply_standalone:

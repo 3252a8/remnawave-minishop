@@ -43,12 +43,7 @@ jobs:
 
       - name: Audit Python dependencies
         continue-on-error: true
-        # PYSEC-2024-230 (certifi): checked 2026-07-02, still pulled in by
-        # aiocryptopay 0.4.8's <2024 cap.
-        # The Docker image force-upgrades certifi after install (see
-        # deploy/docker/Dockerfile), so the advisory does not apply to the
-        # shipped images. Remove once aiocryptopay relaxes the pin.
-        run: pip-audit -r backend/requirements.txt --ignore-vuln PYSEC-2024-230
+        run: pip-audit -r backend/requirements.txt
 
   npm-audit:
     name: npm audit

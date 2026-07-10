@@ -12,10 +12,8 @@
   } from "$components/patterns/admin/index.js";
   import { RefreshCw } from "$components/ui/icons.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
+  import type { DateFormatter, TranslateFn, UserLogRow } from "./userDetailTypes";
 
-  type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-  type DateFormatter = (value: unknown) => string;
-  type UserLogRow = Record<string, unknown> & { log_id?: number | string };
   type Props = {
     at: TranslateFn;
     fmtDate: DateFormatter;

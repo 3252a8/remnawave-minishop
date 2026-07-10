@@ -1,6 +1,7 @@
 import { mount } from "svelte";
 
 import App from "./App.svelte";
+import { buildApiUrl } from "./lib/webapp/publicApi";
 import "./styles.css";
 
 const PUBLIC_INSTALL_PRELOAD_KEY = "__RW_PUBLIC_INSTALL_PRELOAD__";
@@ -20,7 +21,7 @@ function startPublicInstallPreload(): PublicInstallPreload | null {
   const shareToken = publicInstallTokenFromPath();
   if (!shareToken) return null;
   const path = `/subscription-guides/public/${encodeURIComponent(shareToken)}`;
-  const promise = fetch(`/api${path}`, {
+  const promise = fetch(buildApiUrl(path), {
     credentials: "same-origin",
     headers: { Accept: "application/json" },
   })
@@ -34,19 +35,24 @@ function startPublicInstallPreload(): PublicInstallPreload | null {
 async function loadBootstrap(): Promise<void> {
   if (document.getElementById("webapp-config")) return;
   const controller = typeof AbortController === "undefined" ? null : new AbortController();
-  const timeoutId = controller
-    ? window.setTimeout(() => {
-        controller.abort();
-      }, BOOTSTRAP_TIMEOUT_MS)
-    : 0;
-  try {
-    const response = await fetch("/api/bootstrap?i18n_scope=webapp", {
-      credentials: "include",
+  let timedOut = false;
+  let timeoutId: ReturnType<typeof window.setTimeout> | null = null;
+  const timeout = new Promise<void>((resolve) => {
+    timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      if (controller) controller.abort();
+      resolve();
+    }, BOOTSTRAP_TIMEOUT_MS);
+  });
+  const bootstrap = (async () => {
+    const response = await fetch(buildApiUrl("/bootstrap?i18n_scope=webapp"), {
+      credentials: "same-origin",
       headers: { Accept: "application/json" },
       signal: controller?.signal,
     });
-    if (!response.ok) return;
+    if (!response.ok || timedOut) return;
     const payload: { config?: unknown; i18n?: unknown } = await response.json();
+    if (timedOut) return;
     for (const [id, value] of [
       ["webapp-config", payload.config],
       ["i18n", payload.i18n],
@@ -57,8 +63,11 @@ async function loadBootstrap(): Promise<void> {
       script.textContent = JSON.stringify(value || {});
       document.head.appendChild(script);
     }
-  } catch (_error) {
+  })().catch((_error) => {
     void _error;
+  });
+  try {
+    await Promise.race([bootstrap, timeout]);
   } finally {
     if (timeoutId) window.clearTimeout(timeoutId);
   }

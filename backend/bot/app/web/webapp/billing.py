@@ -13,6 +13,7 @@ from .billing_common import (
 )
 from .billing_options import (
     device_topup_options_route,
+    plans_viewed_route,
     tariff_change_options_route,
     tariff_change_payment_route,
     tariff_change_route,
@@ -64,6 +65,7 @@ __all__ = [
     "message_log_dal",
     "payment_dal",
     "payment_status_route",
+    "plans_viewed_route",
     "quote_promo_route",
     "subscription_auto_renew_route",
     "subscription_dal",

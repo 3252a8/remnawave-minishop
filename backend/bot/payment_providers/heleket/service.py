@@ -667,6 +667,7 @@ SPEC = PaymentProviderSpec(
     webapp_label="Heleket",
     webapp_labels={"ru": "Heleket", "en": "Heleket"},
     webapp_icon="Bitcoin",
+    logo_url="/provider-logos/heleket.png",
     telegram_labels={"ru": "Heleket", "en": "Heleket"},
     telegram_emoji="🪙",
     pending_status="pending_heleket",
@@ -690,6 +691,7 @@ SPEC = PaymentProviderSpec(
         "Heleket supports crypto and fiat invoice currencies, but exact availability "
         "can depend on service/account settings."
     ),
+    info_url="https://heleket.com/",
     currency_support_url="https://doc.heleket.com/methods/payments/creating-invoice",
 )
 

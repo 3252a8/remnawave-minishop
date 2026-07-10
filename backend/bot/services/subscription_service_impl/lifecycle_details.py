@@ -4,7 +4,13 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.panel_activity import record_subscription_panel_activity
 from bot.utils.config_link import prepare_config_links
+from bot.utils.traffic_reset import (
+    next_traffic_reset_after,
+    panel_next_traffic_reset_at,
+    traffic_accounting_period_start,
+)
 from db.dal import subscription_dal, tariff_dal, user_dal
 
 from ._typing import SubscriptionServiceMixinContract
@@ -32,6 +38,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             panel_user_confirmed_absent,
             panel_lookup_failure_reason,
         ) = await self._lookup_panel_user_for_subscription_details(panel_user_uuid)
+        now = datetime.now(UTC)
 
         if not panel_user_data:
             if panel_user_confirmed_absent:
@@ -72,6 +79,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             )
 
         if local_active_sub:
+            await record_subscription_panel_activity(session, local_active_sub, panel_user_data)
             update_payload_local = {}
             panel_status = panel_user_data.get("status", "UNKNOWN").upper()
             panel_expire_at_str = panel_user_data.get("expireAt")
@@ -108,7 +116,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                 update_payload_local["panel_subscription_uuid"] = panel_sub_uuid_from_panel
 
             is_active_based_on_panel = panel_status == "ACTIVE" and (
-                panel_expire_dt > datetime.now(UTC) if panel_expire_dt else False
+                panel_expire_dt > now if panel_expire_dt else False
             )
             if local_active_sub.is_active != is_active_based_on_panel:
                 update_payload_local["is_active"] = is_active_based_on_panel
@@ -151,6 +159,12 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             else ("traffic" if getattr(self.settings, "traffic_sale_mode", False) else "period")
         )
         traffic_limit_strategy = panel_traffic_strategy
+        if not traffic_limit_strategy:
+            traffic_limit_strategy = (
+                self._period_tariff_traffic_strategy()
+                if billing_model_display == "period"
+                else "NO_RESET"
+            )
         premium_access = (
             await self.premium_access_for_tariff(tariff)
             if tariff
@@ -196,7 +210,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                 hwid_entitlement_summary = await tariff_dal.get_hwid_device_entitlement_summary(
                     session,
                     subscription_id=local_active_sub.subscription_id,
-                    at=datetime.now(UTC),
+                    at=now,
                 )
                 active_extra_hwid_devices = int(hwid_entitlement_summary.get("active_devices") or 0)
                 if active_extra_hwid_devices != int(local_active_sub.extra_hwid_devices or 0):
@@ -230,6 +244,50 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             extra_hwid_valid_until,
             panel_end_date,
         )
+        effective_traffic_strategy = str(traffic_limit_strategy or "")
+        traffic_period_start_at = None
+        traffic_next_reset_at = None
+        if local_active_sub and billing_model_display == "period":
+            traffic_period_start_at = traffic_accounting_period_start(
+                effective_traffic_strategy,
+                now,
+                subscription_start_at=getattr(local_active_sub, "start_date", None),
+                previous_period_start_at=getattr(local_active_sub, "period_start_at", None),
+                panel_user_data=panel_user_data,
+            )
+            traffic_next_reset_at = panel_next_traffic_reset_at(
+                panel_user_data,
+                fallback_strategy=effective_traffic_strategy,
+                now=now,
+            ) or next_traffic_reset_after(
+                traffic_period_start_at,
+                effective_traffic_strategy,
+                now=now,
+            )
+
+        premium_limit_bytes = self._premium_effective_limit_bytes(
+            premium_baseline,
+            premium_topup_balance,
+            premium_topup_used,
+            premium_bonus_bytes,
+        )
+        premium_panel_user_data = panel_user_data if billing_model_display == "period" else None
+        premium_period_start_at = (
+            self._premium_accounting_period_start(
+                local_active_sub,
+                now,
+                panel_user_data=premium_panel_user_data,
+            )
+            if local_active_sub
+            else None
+        )
+        premium_next_reset_at = None
+        if local_active_sub and premium_limit_bytes > 0 and not premium_unlimited_override:
+            premium_next_reset_at = next_traffic_reset_after(
+                premium_period_start_at,
+                self._period_tariff_traffic_strategy(),
+                now=now,
+            )
 
         return {
             "user_id": panel_user_data.get("uuid"),
@@ -271,21 +329,17 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             "premium_used_bytes": local_active_sub.premium_used_bytes if local_active_sub else 0,
             "premium_bonus_bytes": premium_bonus_bytes,
             "premium_unlimited_override": premium_unlimited_override,
-            "premium_limit_bytes": self._premium_effective_limit_bytes(
-                premium_baseline,
-                premium_topup_balance,
-                premium_topup_used,
-                premium_bonus_bytes,
-            ),
+            "premium_limit_bytes": premium_limit_bytes,
             "premium_is_limited": bool(local_active_sub.premium_is_limited)
             if local_active_sub
             else False,
-            "premium_period_start_at": getattr(local_active_sub, "premium_period_start_at", None)
-            if local_active_sub
-            else None,
+            "premium_period_start_at": premium_period_start_at,
+            "premium_next_reset_at": premium_next_reset_at,
             "premium_squad_labels": premium_access.get("squad_labels") or [],
             "premium_node_labels": premium_access.get("node_labels") or [],
-            "period_start_at": local_active_sub.period_start_at if local_active_sub else None,
+            "period_start_at": traffic_period_start_at
+            or (local_active_sub.period_start_at if local_active_sub else None),
+            "traffic_next_reset_at": traffic_next_reset_at,
             "is_throttled": bool(local_active_sub.is_throttled) if local_active_sub else False,
             "base_hwid_device_limit": local_active_sub.hwid_device_limit
             if local_active_sub

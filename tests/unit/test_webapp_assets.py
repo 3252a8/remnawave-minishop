@@ -412,6 +412,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         payload = subscription_webapp._build_webapp_bootstrap_payload(request)
 
         self.assertEqual(payload["config"]["serverStatusUrl"], "https://status.example.com")
+        self.assertEqual(payload["config"]["apiBase"], "/api")
         self.assertEqual(
             request.app["webapp_settings_cache"]["data"]["server_status_url"],
             "https://status.example.com",
@@ -732,7 +733,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("apple-touch-icon", nginx_conf)
         self.assertIn("favicon\\.ico", nginx_conf)
         self.assertIn("/webapp-default-logo.webp", nginx_conf)
-        self.assertIn("proxy_pass http://backend:8081;", nginx_conf)
+        self.assertIn("proxy_pass ${WEBAPP_BACKEND_UPSTREAM};", nginx_conf)
+        self.assertIn("proxy_set_header ${MINISHOP_EDGE_TOKEN_HEADER_VALUE}", nginx_conf)
 
     def test_frontend_nginx_serves_shell_routes_from_static_index(self):
         nginx_conf = Path("deploy/docker/frontend/nginx.conf").read_text(encoding="utf-8")
@@ -743,7 +745,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         shell_block = nginx_conf[start : nginx_conf.index("\n\n", start)]
 
         self.assertIn("try_files /index.html =404;", shell_block)
-        self.assertNotIn("proxy_pass http://backend:8081;", shell_block)
+        self.assertNotIn("proxy_pass ${WEBAPP_BACKEND_UPSTREAM};", shell_block)
         self.assertIn("devices$", shell_block)
         self.assertIn("admin(?:/.*)?$", shell_block)
 
@@ -1203,6 +1205,44 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                     subscription_webapp._resolve_webapp_admin_css_asset_name(),
                     r"^subscription_webapp_admin\.css\?v=[0-9a-f]{8}$",
                 )
+
+    async def test_provider_logo_route_serves_valid_png_name(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            asset_dir = Path(tmpdir)
+            logo_dir = asset_dir / "provider-logos"
+            logo_dir.mkdir()
+            (logo_dir / "cryptopay.png").write_bytes(b"\x89PNG\r\n\x1a\nlogo")
+
+            request = SimpleNamespace(
+                app={"settings": SimpleNamespace(WEBAPP_ENABLED=True)},
+                match_info={"filename": "cryptopay.png"},
+            )
+
+            with patch.object(assets_static, "ASSET_DIR", asset_dir):
+                response = await assets_static.provider_logo_asset_route(request)
+
+            self.assertEqual(response.content_type, "image/png")
+            self.assertEqual(response.body, b"\x89PNG\r\n\x1a\nlogo")
+
+    async def test_provider_logo_route_rejects_invalid_names(self):
+        asset_dir = Path("/nonexistent-provider-logo-dir")
+        for bad_name in (
+            "../../etc/passwd.png",
+            "evil.PNG",
+            ".png",
+            "logo.svg",
+            "a" * 65 + ".png",
+            "sub/dir.png",
+        ):
+            request = SimpleNamespace(
+                app={"settings": SimpleNamespace(WEBAPP_ENABLED=True)},
+                match_info={"filename": bad_name},
+            )
+            with (
+                patch.object(assets_static, "ASSET_DIR", asset_dir),
+                self.assertRaises(web.HTTPNotFound),
+            ):
+                await assets_static.provider_logo_asset_route(request)
 
     async def test_js_asset_route_sets_immutable_cache_control_for_minified_asset(self):
         with tempfile.TemporaryDirectory() as tmpdir:

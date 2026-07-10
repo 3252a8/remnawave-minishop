@@ -42,6 +42,40 @@ class SettingsTests(unittest.TestCase):
 
         self.assertEqual(settings.WEBAPP_TITLE, "/minishop")
 
+    def test_webapp_api_base_url_defaults_to_same_origin_api(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+        )
+
+        self.assertEqual(settings.WEBAPP_API_BASE_URL, "/api")
+
+    def test_webapp_api_base_url_strips_same_origin_trailing_slashes(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            WEBAPP_API_BASE_URL="/api/",
+        )
+
+        self.assertEqual(settings.WEBAPP_API_BASE_URL, "/api")
+
+    def test_minishop_edge_token_settings_are_optional_and_stripped(self):
+        settings = Settings(
+            _env_file=None,
+            BOT_TOKEN="token",
+            POSTGRES_USER="app_user",
+            POSTGRES_PASSWORD="app_password",
+            MINISHOP_EDGE_TOKEN="  edge-secret  ",
+            MINISHOP_EDGE_TOKEN_HEADER="",
+        )
+
+        self.assertEqual(settings.MINISHOP_EDGE_TOKEN, "edge-secret")
+        self.assertEqual(settings.MINISHOP_EDGE_TOKEN_HEADER, "X-Minishop-Edge-Token")
+
     def test_trusted_proxies_default_includes_private_proxy_ranges(self):
         settings = Settings(
             _env_file=None,

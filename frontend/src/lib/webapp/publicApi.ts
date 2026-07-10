@@ -94,13 +94,16 @@ export type AuthEmailPasswordResponse = PostResponse<"/api/auth/email/password">
 export type AuthEmailRequestResponse = PostResponse<"/api/auth/email/request">;
 export type AuthEmailVerifyResponse = PostResponse<"/api/auth/email/verify">;
 export type AuthLogoutResponse = PostResponse<"/api/auth/logout">;
+export type AuthSessionResponse = GetResponse<"/api/auth/session">;
 export type AuthTokenResponse = PostResponse<"/api/auth/token">;
 export type DevicesResponse = GetResponse<"/api/devices">;
 export type DevicesDisconnectResponse = PostResponse<"/api/devices/disconnect">;
 export type DeviceTopupOptionsResponse = GetResponse<"/api/devices/topup-options">;
 export type PaymentCreateResponse = PostResponse<"/api/payments">;
 export type PaymentStatusResponse = GetResponse<"/api/payments/{payment_id}">;
+export type PlansViewedResponse = PostResponse<"/api/plans/viewed">;
 export type PromoApplyResponse = PostResponse<"/api/promo/apply">;
+export type PromoStatusResponse = PostResponse<"/api/promo/status">;
 export type PromoQuoteResponse = PostResponse<"/api/subscription/quote-promo">;
 export type ReferralWelcomeBonusResponse = PostResponse<"/api/referral/welcome-bonus/claim">;
 export type SubscriptionGuidesResponse = GetResponse<"/api/subscription-guides">;
@@ -134,12 +137,14 @@ export type AuthTokenPath = "/auth/token";
 export type DeviceTopupOptionsPath = "/devices/topup-options";
 export type DevicesDisconnectPath = "/devices/disconnect";
 export type TariffChangeOptionsPath = "/tariffs/change-options";
+export type PlansViewedPath = "/plans/viewed";
 export type TariffChangePath = "/tariffs/change";
 export type TariffChangePaymentPath = "/tariffs/change-payment";
 export type SubscriptionAutoRenewPath = "/subscription/auto-renew";
 export type SubscriptionPromoQuotePath = "/subscription/quote-promo";
 export type ReferralWelcomeBonusClaimPath = "/referral/welcome-bonus/claim";
 export type PromoApplyPath = "/promo/apply";
+export type PromoStatusPath = "/promo/status";
 export type TrialActivatePath = "/trial/activate";
 export type SupportTicketsListPath = "/support/tickets" | `/support/tickets?${string}`;
 export type SupportUnreadPath = "/support/unread";
@@ -156,7 +161,6 @@ export type MockApi = (
 ) => unknown | Promise<unknown>;
 
 type ApiClientOptions = {
-  apiBase?: string;
   csrfCookieName?: string;
   getAuthToken?: () => string;
   getCsrfToken?: () => string;
@@ -167,6 +171,14 @@ type ApiClientOptions = {
 };
 
 const DEFAULT_API_REQUEST_TIMEOUT_MS = 15000;
+const WEBAPP_API_BASE = "/api";
+
+export function buildApiUrl(path: string): string {
+  const value = String(path || "").trim();
+  if (!value) return WEBAPP_API_BASE;
+  if (value.startsWith("/api")) return value;
+  return `${WEBAPP_API_BASE}/${value.replace(/^\/+/, "")}`;
+}
 
 function apiTimeoutError(): Error {
   const error = new Error("api_request_timeout");
@@ -293,6 +305,10 @@ export function buildDeviceTopupOptionsPath(): DeviceTopupOptionsPath {
   return "/devices/topup-options";
 }
 
+export function buildPlansViewedPath(): PlansViewedPath {
+  return "/plans/viewed";
+}
+
 export type AdminHealthPath = "/admin/health" | "/admin/health?refresh=1";
 export function buildAdminHealthPath(refresh: boolean = false): AdminHealthPath {
   return refresh ? "/admin/health?refresh=1" : "/admin/health";
@@ -360,6 +376,10 @@ export function buildReferralWelcomeBonusClaimPath(): ReferralWelcomeBonusClaimP
 
 export function buildPromoApplyPath(): PromoApplyPath {
   return "/promo/apply";
+}
+
+export function buildPromoStatusPath(): PromoStatusPath {
+  return "/promo/status";
 }
 
 export function buildTrialActivatePath(): TrialActivatePath {
@@ -442,8 +462,11 @@ export type AdminUserAction =
   | "extend"
   | "tariff"
   | "reset-trial"
+  | "squad-overrides"
+  | "squad-overrides/refresh"
   | "premium-override"
   | "regular-traffic-override"
+  | "traffic-strategy"
   | "hwid-device-limit"
   | "traffic-grant";
 type AdminUserActionTemplate =
@@ -454,8 +477,11 @@ type AdminUserActionTemplate =
   | "/api/admin/users/{user_id}/extend"
   | "/api/admin/users/{user_id}/tariff"
   | "/api/admin/users/{user_id}/reset-trial"
+  | "/api/admin/users/{user_id}/squad-overrides"
+  | "/api/admin/users/{user_id}/squad-overrides/refresh"
   | "/api/admin/users/{user_id}/premium-override"
   | "/api/admin/users/{user_id}/regular-traffic-override"
+  | "/api/admin/users/{user_id}/traffic-strategy"
   | "/api/admin/users/{user_id}/hwid-device-limit"
   | "/api/admin/users/{user_id}/traffic-grant";
 export type AdminUserActionPath = BuiltApiPath<AdminUserActionTemplate>;
@@ -514,6 +540,16 @@ export function buildAdminBroadcastPath(): AdminBroadcastPath {
 export type AdminBroadcastAudienceCountsPath = "/admin/broadcast/audience-counts";
 export function buildAdminBroadcastAudienceCountsPath(): AdminBroadcastAudienceCountsPath {
   return "/admin/broadcast/audience-counts";
+}
+
+export type AdminBroadcastShortcodesPath = "/admin/broadcast/shortcodes";
+export function buildAdminBroadcastShortcodesPath(): AdminBroadcastShortcodesPath {
+  return "/admin/broadcast/shortcodes";
+}
+
+export type AdminBroadcastPreviewPath = "/admin/broadcast/preview";
+export function buildAdminBroadcastPreviewPath(): AdminBroadcastPreviewPath {
+  return "/admin/broadcast/preview";
 }
 
 export type AdminLogsPath = "/admin/logs" | `/admin/logs?${string}`;
@@ -652,7 +688,6 @@ export function unwrap<T extends { ok: boolean }>(response: T): Extract<T, { ok:
 }
 
 export function createApiClient({
-  apiBase = "",
   csrfCookieName = "rw_webapp_csrf",
   getAuthToken = () => "",
   getCsrfToken = () => "",
@@ -687,7 +722,7 @@ export function createApiClient({
 
     const { signal, cleanup } = requestSignal(options.signal, requestTimeoutMs);
     try {
-      const response = await fetch(`${apiBase}${path}`, {
+      const response = await fetch(buildApiUrl(path), {
         ...options,
         headers,
         credentials: "same-origin",
@@ -729,7 +764,7 @@ export function createApiClient({
     }
     const { signal, cleanup } = requestSignal(options.signal, requestTimeoutMs);
     try {
-      const response = await fetch(`${apiBase}${path}`, {
+      const response = await fetch(buildApiUrl(path), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

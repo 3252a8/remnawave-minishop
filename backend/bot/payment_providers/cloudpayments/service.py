@@ -755,6 +755,7 @@ SPEC = PaymentProviderSpec(
     webapp_label="CloudPayments",
     webapp_labels={"ru": "CloudPayments", "en": "CloudPayments"},
     webapp_icon="CreditCard",
+    logo_url="/provider-logos/cloudpayments.png",
     telegram_labels={"ru": "CloudPayments", "en": "CloudPayments"},
     telegram_emoji="💳",
     pending_status="pending_cloudpayments",
@@ -775,6 +776,7 @@ SPEC = PaymentProviderSpec(
     currency_support_note=(
         "CloudPayments orders accept RUB, USD, EUR, GBP and CIS currencies as the payment currency."
     ),
+    info_url="https://cloudpayments.ru/",
     currency_support_url="https://developers.cloudpayments.ru/#valyuty",
 )
 

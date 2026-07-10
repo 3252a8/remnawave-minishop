@@ -31,6 +31,7 @@ from .assets import (
     i18n_route,
     index_route,
     js_asset_route,
+    provider_logo_asset_route,
     robots_txt_route,
     theme_asset_route,
     theme_css_asset_route,
@@ -48,6 +49,7 @@ from .auth import (
     email_password_auth_route,
     logout_route,
     referral_welcome_bonus_claim_route,
+    session_route,
     telegram_oauth_callback_route,
     telegram_oauth_nonce_route,
     telegram_oauth_start_route,
@@ -58,12 +60,16 @@ from .billing import (
     create_payment_route,
     device_topup_options_route,
     payment_status_route,
+    plans_viewed_route,
     quote_promo_route,
     subscription_auto_renew_route,
     tariff_change_options_route,
     tariff_change_payment_route,
     tariff_change_route,
     tariff_topup_options_route,
+)
+from .billing_subscription import (
+    promo_status_route,
 )
 from .contracts import register_webapp_route_contracts
 from .devices import (
@@ -149,6 +155,10 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/subscription_webapp_admin.css", admin_css_asset_route)
     app.router.add_get(r"/webapp-theme-css/{path:.+}", theme_css_asset_route)
     app.router.add_get(r"/webapp-theme-assets/{path:.+}", theme_asset_route)
+    app.router.add_get(
+        r"/provider-logos/{filename:[A-Za-z0-9_-]+\.png}",
+        provider_logo_asset_route,
+    )
     app.router.add_get("/subscription_webapp.min.{asset_hash}.js", js_asset_route)
     app.router.add_get("/subscription_webapp.js", js_asset_route)
     app.router.add_get(
@@ -163,6 +173,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/auth/email/verify", email_auth_verify_route)
     app.router.add_post("/api/auth/email/magic", email_auth_magic_route)
     app.router.add_post("/api/auth/email/password", email_password_auth_route)
+    app.router.add_get("/api/auth/session", session_route)
     app.router.add_post("/api/auth/logout", logout_route)
     app.router.add_get("/api/bootstrap", bootstrap_route)
     app.router.add_get("/api/i18n", i18n_route)
@@ -185,6 +196,8 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     )
     app.router.add_post("/api/referral/welcome-bonus/claim", referral_welcome_bonus_claim_route)
     app.router.add_post("/api/promo/apply", apply_promo_route)
+    app.router.add_post("/api/promo/status", promo_status_route)
+    app.router.add_post("/api/plans/viewed", plans_viewed_route)
     app.router.add_post("/api/trial/activate", activate_trial_route)
     app.router.add_post("/api/subscription/auto-renew", subscription_auto_renew_route)
     app.router.add_post("/api/subscription/quote-promo", quote_promo_route)

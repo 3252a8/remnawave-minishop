@@ -707,6 +707,40 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
     await openAdminSection(page, id);
   }
 
+  setPhase("admin-broadcast:shortcode-picker");
+  await openAdminSection(page, "broadcast");
+  const shortcodeToggle = page.locator(".broadcast-tool-shortcode");
+  await expect(shortcodeToggle).toBeVisible();
+  await shortcodeToggle.click();
+  const shortcodeList = page.locator(".broadcast-shortcode-list");
+  await expect(shortcodeList).toBeVisible();
+  await expect(
+    shortcodeList.locator(".broadcast-shortcode-scroll .scroll-area__viewport")
+  ).toBeVisible();
+  await shortcodeList.locator(".broadcast-shortcode-item").first().click();
+  await expect(page.locator(".broadcast-surface .broadcast-chip").first()).toBeVisible();
+  await page.locator("[data-broadcast-source-toggle]").click();
+  const broadcastSource = page.locator("textarea.broadcast-source");
+  await expect(broadcastSource).toBeVisible();
+  await broadcastSource.evaluate((element) => {
+    const textarea = element as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(0, textarea.value.length);
+  });
+  await page.locator('[data-broadcast-format="bold"]').click();
+  await expect(broadcastSource).toHaveValue("<b>{first_name}</b>");
+  await broadcastSource.evaluate((element) => {
+    const textarea = element as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+  });
+  await page.locator('[data-broadcast-format="link"]').click();
+  await expect(broadcastSource).toHaveValue(
+    '<b>{first_name}</b><a href="https://">https://</a>'
+  );
+  await page.locator("[data-broadcast-source-toggle]").click();
+  await expect(page.locator(".broadcast-surface .broadcast-chip").first()).toBeVisible();
+
   setPhase("admin-users:filter-dialog");
   await openAdminSection(page, "users");
   await page.setViewportSize(MOBILE_VIEWPORT);

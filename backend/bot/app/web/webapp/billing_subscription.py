@@ -41,6 +41,65 @@ from .response_helpers import json_response
 logger = logging.getLogger(__name__)
 
 
+async def promo_status_route(request: web.Request) -> web.Response:
+    """Classify a promo code for the current user without applying it.
+
+    Used by the web app before acting on a promo deeplink: instead of always
+    opening checkout (and surfacing a cryptic field error for used or unknown
+    codes), the frontend asks for the verdict first and shows an explanatory
+    dialog when the code cannot be applied.
+    """
+    user_id = _require_user_id(request)
+    status_payload = await _parse_model_payload(request, WebAppPromoApplyPayload)
+    code = str(status_payload.code or "").strip()
+    if not code:
+        return _json_error(400, "empty_code", "Promo code is empty")
+
+    settings: Settings = get_settings(request)
+    promo_code_service: PromoCodeService = get_promo_code_service(request)
+    if not promo_code_service:
+        return _json_error(503, "service_unavailable", "Promo service unavailable")
+
+    async_session_factory: sessionmaker = get_session_factory(request)
+    async with async_session_factory() as session:
+        try:
+            db_user = await user_dal.get_user_by_id(session, user_id)
+            if not db_user or db_user.is_banned:
+                await session.rollback()
+                return _json_error(403, "access_denied", "Access denied")
+            lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
+            status = await promo_code_service.get_promo_code_status(
+                session,
+                user_id,
+                code,
+                lang,
+            )
+            # Throttle bookkeeping for unknown codes must persist.
+            await session.commit()
+            return json_response(
+                {
+                    "ok": True,
+                    "status": status.status,
+                    "code": status.code,
+                    "message": _plain_text_message(status.message) if status.message else "",
+                    "effect_summary": status.effect_summary,
+                    "applies_to": status.applies_to,
+                    "min_subscription_months": status.min_subscription_months,
+                    "min_traffic_gb": status.min_traffic_gb,
+                    "bonus_days": status.bonus_days,
+                    "end_date_text": (
+                        _format_webapp_datetime(status.subscription_end_date)
+                        if status.subscription_end_date
+                        else None
+                    ),
+                }
+            )
+        except Exception:
+            await session.rollback()
+            logger.exception("WebApp promo status check failed")
+            return _json_error(500, "promo_status_failed", "Promo status check failed")
+
+
 async def apply_promo_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     promo_payload = await _parse_model_payload(request, WebAppPromoApplyPayload)

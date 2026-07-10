@@ -69,6 +69,7 @@ npm run test:e2e     # Playwright docs-demo smoke: webapp+админка, окн
 | Артефакт | Регенерация | Защищён |
 | --- | --- | --- |
 | `docs/openapi.json` | `PYTHONPATH=backend python -m bot.app.web.openapi` | `tests/contracts/test_openapi_artifact.py` |
+| `docs-site/public/openapi.json` | `npm --prefix docs-site run sync:docs` | `npm run check:docs`, pre-commit, CI |
 | `docs/architecture/events.md` | `PYTHONPATH=backend python -m bot.infra.event_catalog` | `tests/contracts/test_contract_docs_accuracy.py` |
 | `frontend/src/lib/api/openapi.generated.ts` | `npm --prefix frontend run generate:api-types` | CI `git diff --exit-code` |
 | demo settings manifest | `python scripts/export_settings_manifest.py` (+ prettier) | `tests/contracts/test_settings_manifest_demo_sync.py` |

@@ -59,6 +59,10 @@ from .common import (
     _resolve_telegram_oauth_client_id,
     _resolve_telegram_oauth_request_access,
 )
+from .constants import (
+    WEBAPP_CSRF_COOKIE_NAME,
+    WEBAPP_SESSION_COOKIE_NAME,
+)
 from .payloads import (
     WebAppTelegramAuthPayload,
 )
@@ -437,6 +441,29 @@ async def auth_token_route(request: web.Request) -> web.Response:
     await _probe_telegram_notifications_for_user_id(request, int(authenticated_user_id))
     token = create_webapp_session_token(settings, int(authenticated_user_id))
     return _build_webapp_auth_response(settings, {"ok": True}, token=token)
+
+
+async def session_route(request: web.Request) -> web.Response:
+    settings: Settings = get_settings(request)
+    user_id = _extract_authenticated_user_id(request)
+    if not user_id:
+        response = json_response({"ok": True, "authenticated": False})
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    csrf_token = request.cookies.get(WEBAPP_CSRF_COOKIE_NAME) or secrets.token_hex(32)
+    response = json_response(
+        {
+            "ok": True,
+            "authenticated": True,
+            "csrf_token": csrf_token,
+        }
+    )
+    session_cookie = request.cookies.get(WEBAPP_SESSION_COOKIE_NAME)
+    if session_cookie and not request.cookies.get(WEBAPP_CSRF_COOKIE_NAME):
+        _set_webapp_auth_cookies(response, settings, session_cookie, csrf_token)
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 async def logout_route(request: web.Request) -> web.Response:

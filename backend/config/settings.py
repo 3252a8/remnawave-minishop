@@ -643,6 +643,26 @@ class Settings(SettingsComputedMixin, SettingsValidationMixin, BaseSettings):
     SUPPORT_ADMIN_NOTIFICATION_COOLDOWN_SECONDS: int = Field(default=5 * 60)
     SUPPORT_ADMIN_EMAIL_COOLDOWN_SECONDS: int = Field(default=30 * 60)
     SUBSCRIPTION_MINI_APP_URL: str | None = Field(default=None)
+    WEBAPP_API_BASE_URL: str = Field(
+        default="/api",
+        description=(
+            "Base URL used by the Mini App frontend for backend API requests. "
+            "Keep /api; split deployments configure the frontend nginx upstream instead."
+        ),
+    )
+    MINISHOP_EDGE_TOKEN: str = Field(
+        default="",
+        description=(
+            "Optional server-side token required on protected Web App API upstream routes. "
+            "It must be injected by a trusted reverse proxy, never by browser JavaScript."
+        ),
+    )
+    MINISHOP_EDGE_TOKEN_HEADER: str = Field(
+        default="X-Minishop-Edge-Token",
+        description=(
+            "HTTP header name used by frontend nginx or an API edge to pass MINISHOP_EDGE_TOKEN."
+        ),
+    )
     TELEGRAM_BOT_MENU_DISABLED: bool = Field(
         default=False,
         description=(

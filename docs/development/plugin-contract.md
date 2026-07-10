@@ -14,21 +14,22 @@
 - `locales_dir()` — дополнительные JSON-каталоги локалей;
 - `entitlements_provider()` — интеграция feature flags.
 
-`PluginContext` содержит настройки, optional bot/dispatcher/session factory, i18n и общий словарь
-`services`. Словарь `services` — публичная поверхность расширения; ключи должны быть строками,
-а хуки должны терпеть отсутствие optional-полей в вспомогательных entrypoint'ах.
+`PluginContext` содержит настройки, необязательные bot/dispatcher/session factory, i18n и общий
+словарь `services`. Словарь `services` — публичная поверхность расширения; ключи должны быть
+строками, а хуки должны терпеть отсутствие необязательных полей во вспомогательных entrypoint'ах.
 
-Для first-party core services и типизированного plugin-кода предпочитай helpers на контексте:
+Для внутренних core-сервисов и типизированного кода плагинов предпочитай методы-помощники на
+контексте:
 
 - `ctx.require_bot()`, `ctx.require_i18n()`, `ctx.require_session_factory()` — когда entrypoint
   обязан иметь runtime-объект;
 - `ctx.panel_service`, `ctx.subscription_service`, `ctx.notification_service` и парные
-  `ctx.require_*` helpers — typed доступ к core services без строковых ключей;
+  `ctx.require_*` helpers — типизированный доступ к core-сервисам без строковых ключей;
 - `ctx.get_service("my_service", MyService)` / `ctx.require_service("my_service", MyService)` —
   runtime-проверяемый доступ к сервисам, добавленным плагином.
 
 Прямой `ctx.services[...]` остается совместимым API для внешних плагинов и динамических ключей, но
-новый first-party код должен идти через typed helpers, если ключ заранее известен.
+новый внутренний код должен идти через типизированные helpers, если ключ заранее известен.
 
 Web-плагины получают один из двух scope из `bot.plugins.spec`:
 
@@ -39,17 +40,19 @@ Web-плагины получают один из двух scope из `bot.plugi
 описаны в [`../architecture/events.md`](../architecture/events.md) и проверяются pydantic-моделями
 в `bot.infra.event_payloads`, но внешние подписчики получают обычный плоский `dict`.
 
-Минимальный runnable sample лежит в
+Минимальный запускаемый пример лежит в
 [`../../examples/plugins/audit_logger_plugin`](../../examples/plugins/audit_logger_plugin). Он показывает
 `setup`, `setup_web` и подписку через `bot.infra.events.subscribe`.
 
-## Observability hooks
+## Хуки наблюдаемости
 
-Core exposes no-op observability defaults in `bot.infra.observability`. Plugins may provide
-`ctx.services["error_reporter"]` implementing `ErrorReporter` and/or `ctx.services["metrics"]`
-implementing `Metrics` from their `setup(ctx)` hook. `PluginContext.error_reporter` and
-`PluginContext.metrics` resolve plugin-provided implementations or fall back to no-op defaults.
+Ядро предоставляет заглушки наблюдаемости в `bot.infra.observability`. Плагин может в своем
+хуке `setup(ctx)` положить в `ctx.services["error_reporter"]` реализацию `ErrorReporter` и/или
+в `ctx.services["metrics"]` реализацию `Metrics`. Свойства `PluginContext.error_reporter` и
+`PluginContext.metrics` возвращают реализацию плагина, если она есть, иначе откатываются к
+безопасным no-op значениям по умолчанию.
 
-The web and worker global error paths call the resolved `ErrorReporter` for unhandled handler
-exceptions. Reporter failures are logged and never replace the original exception. The service
-keys are additive extension points; existing plugin hook signatures stay unchanged.
+Глобальные обработчики ошибок web- и worker-процессов вызывают найденный `ErrorReporter` для
+необработанных исключений в handlers. Если reporter сам падает, ошибка логируется и не заменяет
+исходное исключение. Ключи сервисов остаются additive extension points: существующие сигнатуры
+хуков плагинов не меняются.

@@ -407,6 +407,26 @@ async def update_subscription_notification_time(
     )
 
 
+async def update_subscription_last_connected_at(
+    session: AsyncSession,
+    subscription_id: int,
+    last_connected_at: datetime,
+) -> Subscription | None:
+    existing = await session.get(Subscription, subscription_id)
+    if existing is None:
+        return None
+    value = last_connected_at
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    current = existing.last_connected_at
+    if current is not None:
+        current = current.replace(tzinfo=UTC) if current.tzinfo is None else current.astimezone(UTC)
+        if current >= value:
+            return existing
+    existing.last_connected_at = value
+    return existing
+
+
 async def has_subscription_notification(
     session: AsyncSession,
     subscription_id: int,

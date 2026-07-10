@@ -104,6 +104,13 @@ class WebAppPaymentCreatePayload(BaseModel):
     note: LongTextString | None = None
 
 
+class WebAppPlansViewedPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    plans_count: int = 0
+    tariff_key: OptionalTariffKeyString | None = None
+
+
 class WebAppPromoQuotePayload(WebAppPaymentCreatePayload):
     model_config = ConfigDict(extra="ignore")
 

@@ -138,6 +138,43 @@ class HandleWebhookQueueingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(entry["payload"]["meta"], {"expiration": -12})
         self.assertEqual(entry["event_id"], "user.expiration:99:expiration:-12")
 
+    async def test_enqueues_expiration_event_with_root_meta_and_direct_user_data(self):
+        service = _make_service()
+        captured: list[dict] = []
+
+        async def fake_enqueue(settings, provider, payload, *, event_id=None):
+            captured.append({"provider": provider, "payload": payload, "event_id": event_id})
+            return True
+
+        body = json.dumps(
+            {
+                "event": "user.expiration",
+                "data": {
+                    "telegramId": 99,
+                    "uuid": "abc",
+                    "expireAt": "2026-05-31T12:00:00.000Z",
+                },
+                "meta": {"expiration": -72},
+            }
+        ).encode()
+
+        with patch.object(pws, "enqueue_webhook_event", fake_enqueue):
+            response = await service.handle_webhook(body, _sign(body))
+
+        self.assertEqual(response.status, 200)
+        entry = captured[0]
+        self.assertEqual(entry["payload"]["event"], "user.expiration")
+        self.assertEqual(
+            entry["payload"]["user"],
+            {
+                "telegramId": 99,
+                "uuid": "abc",
+                "expireAt": "2026-05-31T12:00:00.000Z",
+            },
+        )
+        self.assertEqual(entry["payload"]["meta"], {"expiration": -72})
+        self.assertEqual(entry["event_id"], "user.expiration:99:expiration:-72")
+
     async def test_expiration_event_id_keeps_different_offsets_distinct(self):
         service = _make_service()
         self.assertEqual(

@@ -18,6 +18,7 @@ from .lifecycle import SubscriptionLifecycleMixin
 from .panel_identity import PanelIdentityMixin
 from .payments import PaymentContextMixin
 from .renewal import RenewalMixin
+from .squad_overrides import SquadOverrideMixin
 from .tariffs import TariffMixin
 from .topups import TopupMixin
 from .traffic import TrafficMixin
@@ -33,6 +34,7 @@ class SubscriptionService(
     RenewalMixin,
     PaymentContextMixin,
     PanelIdentityMixin,
+    SquadOverrideMixin,
     TariffMixin,
 ):
     def __init__(

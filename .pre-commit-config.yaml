@@ -8,6 +8,13 @@ repos:
 
   - repo: local
     hooks:
+      - id: docs-openapi-sync
+        name: docs OpenAPI artifact sync
+        entry: npm --prefix docs-site run check:openapi-sync
+        language: system
+        files: ^(docs/openapi\.json|docs-site/public/openapi\.json|docs-site/scripts/(sync-docs|check-openapi-sync)\.mjs)$
+        pass_filenames: false
+
       - id: frontend-prettier
         name: frontend prettier
         entry: npm --prefix frontend run format

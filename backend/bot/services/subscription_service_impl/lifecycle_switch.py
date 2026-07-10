@@ -4,12 +4,15 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.panel_activity import record_subscription_panel_activity
 from bot.utils.config_link import prepare_config_links
+from bot.utils.traffic_reset import next_traffic_reset_after, traffic_accounting_period_start
 from config.tariffs_config import default_currency_key_for_settings
-from db.dal import subscription_dal, tariff_dal, user_dal
+from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
 from db.models import Subscription, User
 
 from ._typing import SubscriptionServiceMixinContract
+from .sale_mode import parse_sale_mode_context
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +47,48 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         premium_topup_balance = int(local_active_sub.premium_topup_balance_bytes or 0)
         premium_topup_used = int(getattr(local_active_sub, "premium_topup_used_bytes", 0) or 0)
         premium_bonus_bytes = int(getattr(local_active_sub, "premium_bonus_bytes", 0) or 0)
+        premium_unlimited_override = bool(
+            getattr(local_active_sub, "premium_unlimited_override", False)
+        )
+        premium_limit_bytes = self._premium_effective_limit_bytes(
+            premium_baseline,
+            premium_topup_balance,
+            premium_topup_used,
+            premium_bonus_bytes,
+        )
+        billing_model_display = (
+            tariff.billing_model
+            if tariff
+            else ("traffic" if getattr(self.settings, "traffic_sale_mode", False) else "period")
+        )
+        now = datetime.now(UTC)
+        traffic_limit_strategy = (
+            self._period_tariff_traffic_strategy()
+            if billing_model_display == "period"
+            else "NO_RESET"
+        )
+        traffic_period_start_at = getattr(local_active_sub, "period_start_at", None)
+        traffic_next_reset_at = None
+        if billing_model_display == "period":
+            traffic_period_start_at = traffic_accounting_period_start(
+                traffic_limit_strategy,
+                now,
+                subscription_start_at=getattr(local_active_sub, "start_date", None),
+                previous_period_start_at=getattr(local_active_sub, "period_start_at", None),
+            )
+            traffic_next_reset_at = next_traffic_reset_after(
+                traffic_period_start_at,
+                traffic_limit_strategy,
+                now=now,
+            )
+        premium_period_start_at = self._premium_accounting_period_start(local_active_sub, now)
+        premium_next_reset_at = None
+        if premium_limit_bytes > 0 and not premium_unlimited_override:
+            premium_next_reset_at = next_traffic_reset_after(
+                premium_period_start_at,
+                self._period_tariff_traffic_strategy(),
+                now=now,
+            )
         return {
             "user_id": db_user.panel_user_uuid,
             "panel_subscription_uuid": local_active_sub.panel_subscription_uuid,
@@ -54,14 +99,12 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             "connect_button_url": connect_button_url,
             "traffic_limit_bytes": local_active_sub.traffic_limit_bytes,
             "traffic_used_bytes": local_active_sub.traffic_used_bytes,
-            "traffic_limit_strategy": "",
+            "traffic_limit_strategy": traffic_limit_strategy,
             "tariff_key": local_active_sub.tariff_key,
             "tariff_name": tariff.name(language) if tariff else None,
             "tariff_description": tariff.description(language) if tariff else None,
             "premium_title": tariff.premium_name(language) if tariff else None,
-            "billing_model": tariff.billing_model
-            if tariff
-            else ("traffic" if getattr(self.settings, "traffic_sale_mode", False) else "period"),
+            "billing_model": billing_model_display,
             "tier_baseline_bytes": local_active_sub.tier_baseline_bytes,
             "topup_balance_bytes": local_active_sub.topup_balance_bytes,
             "regular_bonus_bytes": int(getattr(local_active_sub, "regular_bonus_bytes", 0) or 0),
@@ -73,20 +116,15 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             "premium_topup_used_bytes": premium_topup_used,
             "premium_used_bytes": local_active_sub.premium_used_bytes,
             "premium_bonus_bytes": premium_bonus_bytes,
-            "premium_unlimited_override": bool(
-                getattr(local_active_sub, "premium_unlimited_override", False)
-            ),
-            "premium_limit_bytes": self._premium_effective_limit_bytes(
-                premium_baseline,
-                premium_topup_balance,
-                premium_topup_used,
-                premium_bonus_bytes,
-            ),
+            "premium_unlimited_override": premium_unlimited_override,
+            "premium_limit_bytes": premium_limit_bytes,
             "premium_is_limited": bool(local_active_sub.premium_is_limited),
-            "premium_period_start_at": getattr(local_active_sub, "premium_period_start_at", None),
+            "premium_period_start_at": premium_period_start_at,
+            "premium_next_reset_at": premium_next_reset_at,
             "premium_squad_labels": premium_access.get("squad_labels") or [],
             "premium_node_labels": premium_access.get("node_labels") or [],
-            "period_start_at": local_active_sub.period_start_at,
+            "period_start_at": traffic_period_start_at,
+            "traffic_next_reset_at": traffic_next_reset_at,
             "is_throttled": bool(local_active_sub.is_throttled),
             "base_hwid_device_limit": local_active_sub.hwid_device_limit,
             "extra_hwid_devices": int(local_active_sub.extra_hwid_devices or 0),
@@ -109,6 +147,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         target_tariff_key: str,
         mode: str,
         payment_id: int | None = None,
+        apply_tariff_hwid_limit: bool = False,
     ) -> dict[str, Any] | None:
         config = self._tariffs_config()
         if not config:
@@ -131,6 +170,42 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             options = dict(self.calculate_tariff_switch_options(sub, target))
         else:
             options = await self.calculate_tariff_switch_options_with_hwid(session, sub, target)
+        if mode == "paid_diff":
+            if payment_id is None:
+                logger.warning(
+                    "Rejecting paid tariff switch for user %s -> %s without payment id",
+                    user_id,
+                    target.key,
+                )
+                return None
+            payment = await payment_dal.get_payment_by_db_id(session, payment_id)
+            sale_context = parse_sale_mode_context(
+                getattr(payment, "sale_mode", "") if payment else ""
+            )
+            payment_tariff_key = (
+                sale_context.tariff_key or str(getattr(payment, "tariff_key", "") or "").strip()
+            )
+            paid_amount = float(getattr(payment, "amount", 0) or 0)
+            required_amount = float(options.get("paid_diff_rub") or 0)
+            if (
+                not payment
+                or int(getattr(payment, "user_id", 0) or 0) != int(user_id)
+                or sale_context.base != "tariff_upgrade"
+                or payment_tariff_key != target.key
+                or paid_amount + 0.01 < required_amount
+            ):
+                logger.warning(
+                    "Rejecting paid tariff switch for user %s -> %s: payment=%s "
+                    "paid_amount=%s required_amount=%s sale_mode=%s tariff_key=%s",
+                    user_id,
+                    target.key,
+                    payment_id,
+                    paid_amount,
+                    required_amount,
+                    getattr(payment, "sale_mode", None) if payment else None,
+                    getattr(payment, "tariff_key", None) if payment else None,
+                )
+                return None
         converted_hwid_purchase_ids = list(options.get("convertible_hwid_purchase_ids") or [])
         if converted_hwid_purchase_ids:
             await tariff_dal.expire_hwid_device_purchases(
@@ -165,7 +240,11 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 }
             )
         converted_bytes = None
-        base_hwid_limit = self._base_hwid_limit_for_tariff(target)
+        local_hwid_base_limit, panel_hwid_base_limit = self._transition_hwid_base_limits(
+            getattr(sub, "hwid_device_limit", None),
+            target,
+            apply_tariff_hwid_limit=apply_tariff_hwid_limit,
+        )
         try:
             extra_hwid_devices = await tariff_dal.sum_active_hwid_devices(
                 session,
@@ -178,7 +257,7 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 user_id,
             )
             extra_hwid_devices = int(sub.extra_hwid_devices or 0)
-        update_data["hwid_device_limit"] = base_hwid_limit
+        update_data["hwid_device_limit"] = local_hwid_base_limit
         update_data["extra_hwid_devices"] = extra_hwid_devices
 
         if target.billing_model == "period":
@@ -194,9 +273,10 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 traffic_used_bytes=used_sub,
             )
             update_data["period_start_at"] = None
-            update_data["effective_monthly_price_rub"] = target.period_price(
-                1, default_currency_key_for_settings(self.settings)
-            ) or target.min_period_price(default_currency_key_for_settings(self.settings))
+            update_data["effective_monthly_price_rub"] = self._tariff_effective_monthly_price(
+                target,
+                default_currency_key_for_settings(self.settings),
+            )
             if convert_trial_admin_assignment and not getattr(sub, "duration_months", None):
                 update_data["duration_months"] = 1
             if mode == "recalc_days" and options.get("recalc_days") is not None:
@@ -204,8 +284,6 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         else:
             converted_gb = float(options.get("converted_gb", 0))
             converted_bytes = self.gb_to_bytes(converted_gb)
-            old_topup = int(sub.topup_balance_bytes or 0)
-            new_balance = old_topup + converted_bytes
             rb = int(getattr(sub, "regular_bonus_bytes", 0) or 0)
             runl = bool(getattr(sub, "regular_unlimited_override", False))
             panel_user = (
@@ -214,20 +292,31 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 )
                 or {}
             )
-            current_used, _, _ = self._extract_panel_traffic_details(panel_user)
+            if panel_user:
+                await record_subscription_panel_activity(session, sub, panel_user)
+            current_used, current_limit, _ = self._extract_panel_traffic_details(panel_user)
+            if current_used is None:
+                current_used = getattr(sub, "traffic_used_bytes", None)
+            if current_limit is None:
+                current_limit = getattr(sub, "traffic_limit_bytes", None)
             cur_used_int = int(current_used or 0)
+            carryover_balance = self._traffic_package_carryover_bytes(
+                sub,
+                limit_bytes=current_limit,
+                used_bytes=current_used,
+            )
+            new_balance = carryover_balance + max(0, rb) + converted_bytes
             update_data.update(
                 {
                     "end_date": self._far_future(),
                     "period_start_at": None,
                     "tier_baseline_bytes": 0,
                     "topup_balance_bytes": new_balance,
-                    "traffic_limit_bytes": self._compute_main_traffic_limit_bytes(
-                        tier_baseline_bytes=0,
-                        topup_balance_bytes=new_balance,
-                        regular_bonus_bytes=rb,
-                        regular_unlimited_override=runl,
-                        traffic_used_bytes=cur_used_int,
+                    "regular_bonus_bytes": 0,
+                    "traffic_limit_bytes": self._traffic_limit_for_balance(
+                        used_bytes=cur_used_int,
+                        balance_bytes=new_balance,
+                        unlimited_override=runl,
                     ),
                     "traffic_used_bytes": current_used,
                     "effective_monthly_price_rub": None,
@@ -253,11 +342,25 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 if target.billing_model == "traffic"
                 else self._period_tariff_traffic_strategy()
             ),
-            hwid_device_limit=self._effective_hwid_limit(base_hwid_limit, extra_hwid_devices),
+            hwid_device_limit=self._effective_hwid_limit(
+                panel_hwid_base_limit,
+                extra_hwid_devices,
+            ),
+            include_default_squads=False,
         )
-        panel_payload["activeInternalSquads"] = self._panel_squads_for_tariff(
+        managed_squads = self._panel_squads_for_tariff(
             target,
             include_premium=not bool(updated.premium_is_limited),
+        )
+        panel_payload.update(
+            await self.build_effective_panel_squad_fields(
+                session,
+                user_id=user_id,
+                panel_user_uuid=db_user.panel_user_uuid,
+                managed_internal_squads=managed_squads,
+                include_internal_squads=True,
+                source="tariff_switch",
+            )
         )
         panel_payload.update(self._panel_identity_payload_for_user(db_user))
         updated_panel = await self.panel_service.update_user_details_on_panel(

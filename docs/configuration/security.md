@@ -55,6 +55,15 @@ openssl rand -hex 32
 - `SUBSCRIPTION_MINI_APP_URL` должен вести на frontend/Mini App-домен.
 - Не добавляйте `/api`, `/auth` или webhook-пути в `SUBSCRIPTION_MINI_APP_URL`.
 
+## Split frontend/backend
+
+- Браузер пользователя должен ходить только на frontend origin: `https://app.example.com/api/...`.
+- `WEBAPP_API_BASE_URL` оставляйте `/api`; отдельный backend origin в frontend JS не является защитой и делает WebApp API напрямую видимым пользователю.
+- Для protected upstream используйте `WEBAPP_BACKEND_UPSTREAM` у frontend nginx и `MINISHOP_EDGE_TOKEN`, который nginx добавляет к upstream-запросам server-side.
+- `MINISHOP_EDGE_TOKEN` нельзя отдавать в runtime config или frontend bundle: browser-visible token виден в DevTools.
+- Token/firewall/VPN применяются к WebApp API plane `backend:8081`. Telegram, payment provider и Remnawave Panel webhook остаются на public webhook plane `backend:8080` и не должны требовать `MINISHOP_EDGE_TOKEN`.
+- При upstream `https://bot.example.com` настройте Host/SNI (`WEBAPP_BACKEND_UPSTREAM_HOST=bot.example.com`) и route order так, чтобы `/api/*`, `/auth/*`, `/open-app`, logo/theme/favicon paths попадали в `8081` раньше generic webhook fallback.
+
 ## IP allowlist вебхуков
 
 - Reverse proxy для `WEBHOOK_BASE_URL` должен передавать `X-Forwarded-For` с реальным IP отправителя.

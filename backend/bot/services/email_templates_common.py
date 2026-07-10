@@ -15,6 +15,7 @@ import re
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 from urllib.parse import urlsplit
@@ -417,35 +418,111 @@ def _format_traffic(traffic_gb: float | None) -> str:
     return str(int(value)) if value.is_integer() else f"{value:g}"
 
 
-_ALLOWED_INLINE_TAGS = {
-    "b": "strong",
-    "strong": "strong",
-    "i": "em",
-    "em": "em",
-    "u": "u",
-    "s": "s",
-    "code": "code",
-}
-_INLINE_TAG_RE = re.compile(r"</?(?:b|strong|i|em|u|s|code)>", re.IGNORECASE)
 _ANY_TAG_RE = re.compile(r"<[^>]+>")
+
+# Inline marks map straight onto their email-safe equivalents. ``a``, ``pre`` and
+# ``blockquote`` are handled specially (href sanitization / styled blocks). The
+# tag set matches ``TELEGRAM_BROADCAST_ALLOWED_TAGS`` — the shared editor∩email
+# whitelist — so what the broadcast editor emits is what the email renders.
+_EMAIL_INLINE_OPEN = {
+    "b": "<strong>",
+    "strong": "<strong>",
+    "i": "<em>",
+    "em": "<em>",
+    "u": "<u>",
+    "s": "<s>",
+    "code": "<code>",
+}
+_EMAIL_INLINE_CLOSE = {
+    "b": "</strong>",
+    "strong": "</strong>",
+    "i": "</em>",
+    "em": "</em>",
+    "u": "</u>",
+    "s": "</s>",
+    "code": "</code>",
+}
+_EMAIL_PRE_OPEN = (
+    f'<pre style="margin:12px 0;padding:12px 14px;background:{_BG};'
+    f"border:1px solid {_BORDER};border-radius:10px;overflow:auto;"
+    f"font-family:'JetBrains Mono','SFMono-Regular',Menlo,Consolas,monospace;"
+    f'font-size:13px;line-height:1.5;color:{_TEXT};white-space:pre-wrap;">'
+)
+_EMAIL_BLOCKQUOTE_OPEN = (
+    f'<blockquote style="margin:12px 0;padding:6px 14px;'
+    f'border-left:3px solid {_TEXT_DIM};color:{_TEXT_MUTED};">'
+)
+
+
+class _TelegramEmailHtmlConverter(HTMLParser):
+    """Convert the Telegram-HTML subset admins write into email-safe HTML.
+
+    Everything outside the whitelist is escaped to literal text (matching the
+    original converter). ``<a>`` keeps only ``http(s)`` hrefs — other schemes
+    drop the anchor but keep its text. Newlines become ``<br>``.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self._anchor_stack: list[bool] = []
+
+    def handle_data(self, data: str) -> None:
+        self.parts.append(html.escape(data).replace("\n", "<br>"))
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "a":
+            href = next((value for key, value in attrs if key == "href"), None)
+            if href and href.strip().lower().startswith(("http://", "https://")):
+                self.parts.append(f'<a href="{html.escape(href, quote=True)}">')
+                self._anchor_stack.append(True)
+            else:
+                self._anchor_stack.append(False)
+            return
+        if tag == "pre":
+            self.parts.append(_EMAIL_PRE_OPEN)
+            return
+        if tag == "blockquote":
+            self.parts.append(_EMAIL_BLOCKQUOTE_OPEN)
+            return
+        mapped = _EMAIL_INLINE_OPEN.get(tag)
+        if mapped:
+            self.parts.append(mapped)
+        else:
+            self.parts.append(html.escape(self.get_starttag_text() or f"<{tag}>"))
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.handle_starttag(tag, attrs)
+        self.handle_endtag(tag)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "a":
+            if self._anchor_stack and self._anchor_stack.pop():
+                self.parts.append("</a>")
+            return
+        if tag == "pre":
+            self.parts.append("</pre>")
+            return
+        if tag == "blockquote":
+            self.parts.append("</blockquote>")
+            return
+        mapped = _EMAIL_INLINE_CLOSE.get(tag)
+        if mapped:
+            self.parts.append(mapped)
+        else:
+            self.parts.append(html.escape(f"</{tag}>"))
 
 
 def _telegram_html_to_email_html(value: str) -> str:
-    """Escape arbitrary text while preserving the tiny Telegram HTML subset we use."""
-    source = str(value or "")
-    chunks: list[str] = []
-    cursor = 0
-    for match in _INLINE_TAG_RE.finditer(source):
-        chunks.append(html.escape(source[cursor : match.start()]))
-        raw_tag = match.group(0)
-        closing = raw_tag.startswith("</")
-        tag_name = raw_tag.strip("</>").lower()
-        mapped = _ALLOWED_INLINE_TAGS.get(tag_name)
-        if mapped:
-            chunks.append(f"</{mapped}>" if closing else f"<{mapped}>")
-        cursor = match.end()
-    chunks.append(html.escape(source[cursor:]))
-    return "".join(chunks).replace("\n", "<br>")
+    """Escape arbitrary text while preserving the Telegram HTML subset we support."""
+    converter = _TelegramEmailHtmlConverter()
+    try:
+        converter.feed(str(value or ""))
+        converter.close()
+    except Exception:
+        # Fall back to fully-escaped plain text rather than leaking raw markup.
+        return html.escape(str(value or "")).replace("\n", "<br>")
+    return "".join(converter.parts)
 
 
 def _telegram_html_to_text(value: str) -> str:

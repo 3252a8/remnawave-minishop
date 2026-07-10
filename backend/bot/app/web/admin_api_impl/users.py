@@ -24,9 +24,14 @@ from .schemas import (
     AdminUserRegularTrafficOverrideBody,
     AdminUserTariffBody,
     AdminUserTrafficGrantBody,
+    AdminUserTrafficStrategyBody,
     AdminUserTrialOut,
     AdminUserWithAvatarOut,
     PaymentOut,
+)
+from .squad_override_schemas import (
+    AdminPanelSquadOverridesOut,
+    AdminUserSquadOverridesPatchBody,
 )
 from .users_actions import (
     admin_user_ban_route,
@@ -41,6 +46,7 @@ from .users_actions import (
     admin_user_tariff_route,
     admin_user_telegram_profile_link_route,
     admin_user_traffic_grant_route,
+    admin_user_traffic_strategy_route,
 )
 from .users_common import (
     _ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
@@ -64,6 +70,10 @@ from .users_listing import (
     _load_admin_users_list_payload,
     _load_admin_users_list_payload_uncached,
     admin_users_list_route,
+)
+from .users_squad_overrides import (
+    admin_user_squad_overrides_refresh_route,
+    admin_user_squad_overrides_route,
 )
 
 register_contract(
@@ -115,7 +125,13 @@ register_contract(
 register_contract(
     "admin_user_detail_route",
     RouteContract(
-        models=(AdminUserWithAvatarOut, AdminSubscriptionOut, AdminUserTrialOut, PaymentOut),
+        models=(
+            AdminUserWithAvatarOut,
+            AdminSubscriptionOut,
+            AdminUserTrialOut,
+            PaymentOut,
+            AdminPanelSquadOverridesOut,
+        ),
         response_schema=ok_envelope_with(
             {
                 "user": schema_ref(AdminUserWithAvatarOut),
@@ -131,6 +147,9 @@ register_contract(
                 "install_share_url": NULLABLE_STRING_SCHEMA,
                 "last_vpn_connected_at": NULLABLE_STRING_SCHEMA,
                 "vpn_connection_status": STRING_SCHEMA,
+                "panel_squad_overrides": {
+                    "anyOf": [schema_ref(AdminPanelSquadOverridesOut), {"type": "null"}]
+                },
                 "referral": {
                     "type": "object",
                     "additionalProperties": False,
@@ -147,6 +166,25 @@ register_contract(
                 },
             }
         ),
+    ),
+)
+register_contract(
+    "admin_user_squad_overrides_route",
+    RouteContract(
+        request_model=AdminUserSquadOverridesPatchBody,
+        response_schema=ok_envelope_with(
+            {"panel_squad_overrides": schema_ref(AdminPanelSquadOverridesOut)}
+        ),
+        models=(AdminPanelSquadOverridesOut,),
+    ),
+)
+register_contract(
+    "admin_user_squad_overrides_refresh_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {"panel_squad_overrides": schema_ref(AdminPanelSquadOverridesOut)}
+        ),
+        models=(AdminPanelSquadOverridesOut,),
     ),
 )
 register_contract(
@@ -209,6 +247,14 @@ register_contract(
     "admin_user_regular_traffic_override_route",
     RouteContract(
         request_model=AdminUserRegularTrafficOverrideBody,
+        response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
+        models=(AdminSubscriptionOut,),
+    ),
+)
+register_contract(
+    "admin_user_traffic_strategy_route",
+    RouteContract(
+        request_model=AdminUserTrafficStrategyBody,
         response_schema=_ADMIN_SUBSCRIPTION_RESPONSE_SCHEMA,
         models=(AdminSubscriptionOut,),
     ),
@@ -285,9 +331,12 @@ __all__ = [
     "admin_user_referrals_route",
     "admin_user_regular_traffic_override_route",
     "admin_user_reset_trial_route",
+    "admin_user_squad_overrides_refresh_route",
+    "admin_user_squad_overrides_route",
     "admin_user_tariff_route",
     "admin_user_telegram_profile_link_route",
     "admin_user_traffic_grant_route",
+    "admin_user_traffic_strategy_route",
     "admin_users_list_route",
     "message_log_dal",
     "payment_dal",

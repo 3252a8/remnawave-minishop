@@ -107,6 +107,22 @@
     return at("user_hwid_limit_count", { count: base }, `${base}`);
   }
 
+  function hwidBaseLimitLabel(value: unknown): string {
+    if (value === null || value === undefined || value === "") {
+      return at("user_hwid_limit_default", {}, "Тарифный / default");
+    }
+    const limit = Number(value);
+    if (limit === 0) return at("user_hwid_limit_unlimited", {}, "Безлимит");
+    if (Number.isFinite(limit)) return at("user_hwid_limit_count", { count: limit }, `${limit}`);
+    return at("user_hwid_limit_default", {}, "Тарифный / default");
+  }
+
+  function hwidBaseLimitKey(value: unknown): string {
+    if (value === null || value === undefined || value === "") return "default";
+    const limit = Number(value);
+    return Number.isFinite(limit) ? String(limit) : "default";
+  }
+
   function vpnLastConnectionLabel(detail: Record<string, unknown> | null | undefined): string {
     const connectedAt = detail?.last_vpn_connected_at;
     const status = detail?.vpn_connection_status;
@@ -122,10 +138,20 @@
     usersStore.updateState({ userExtendTariffKey: value });
   const selectTariffAction = (value: string) =>
     usersStore.updateState({ userTariffActionKey: value });
+  const selectTrafficStrategy = (value: string) =>
+    usersStore.updateState({ trafficStrategyDraft: value });
   const selectGrantTrafficKind = (value: string) =>
     usersStore.updateState({
       grantTrafficKindDraft: value === "premium" ? "premium" : "regular",
     });
+  const selectUserSquadOverride = (value: string) =>
+    usersStore.updateState({ userSquadOverrideDraft: value });
+  const selectUserExternalSquadMode = (value: string) =>
+    usersStore.updateState({
+      userExternalSquadModeDraft: value === "set" || value === "cleared" ? value : "inherit",
+    });
+  const updateUserExternalSquadUuid = (value: string) =>
+    usersStore.updateState({ userExternalSquadUuidDraft: value });
 
   function tariffLabel(tariff: Tariff | Record<string, unknown> | null | undefined): string {
     const raw = (tariff || {}) as Record<string, unknown>;
@@ -191,6 +217,32 @@
     return { key: `limit:${limit}`, valid: true };
   }
 
+  function trafficStrategyLockHint(reason: unknown): string {
+    const lockReason = String(reason || "");
+    if (lockReason === "traffic_tariff") {
+      return at(
+        "user_traffic_strategy_locked_traffic",
+        {},
+        "Для traffic-тарифов стратегия всегда NO_RESET. Сначала смените тариф на периодический."
+      );
+    }
+    if (lockReason === "trial") {
+      return at(
+        "user_traffic_strategy_locked_trial",
+        {},
+        "Для триала стратегия задаётся общей настройкой TRIAL_TRAFFIC_STRATEGY."
+      );
+    }
+    if (lockReason === "panel_unavailable") {
+      return at(
+        "user_traffic_strategy_locked_panel",
+        {},
+        "Текущее значение панели недоступно. Повторите после восстановления связи с Remnawave."
+      );
+    }
+    return "";
+  }
+
   const usersState = $derived(usersStore);
   const tariffsState = $derived(tariffsStore);
   const openedUser = $derived(usersState.openedUser);
@@ -201,6 +253,7 @@
   const userDeleteOpen = $derived(usersState.userDeleteOpen);
   const userBanConfirmOpen = $derived(usersState.userBanConfirmOpen);
   const userMessageConfirmOpen = $derived(usersState.userMessageConfirmOpen);
+  const userTariffHwidConfirmOpen = $derived(usersState.userTariffHwidConfirmOpen);
   const userReferralsOpen = $derived(usersState.userReferralsOpen);
   const userReferralsLoading = $derived(usersState.userReferralsLoading);
   const userReferrals = $derived(usersState.userReferrals);
@@ -222,7 +275,12 @@
   const userDetailTab = $derived(usersState.userDetailTab);
   const userTariffActionKey = $derived(usersState.userTariffActionKey);
   const userTariffActionBaselineKey = $derived(usersState.userTariffActionBaselineKey);
+  const trafficStrategyDraft = $derived(usersState.trafficStrategyDraft);
+  const trafficStrategyBaseline = $derived(usersState.trafficStrategyBaseline);
   const grantTrafficGbDraft = $derived(usersState.grantTrafficGbDraft);
+  const userSquadOverrideDraft = $derived(usersState.userSquadOverrideDraft);
+  const userExternalSquadModeDraft = $derived(usersState.userExternalSquadModeDraft);
+  const userExternalSquadUuidDraft = $derived(usersState.userExternalSquadUuidDraft);
   const userLogs = $derived(usersState.userLogs);
   const userLogsTotal = $derived(usersState.userLogsTotal);
   const userLogsPage = $derived(usersState.userLogsPage);
@@ -265,6 +323,9 @@
       (tariff) => String(tariff?.key || "") === currentSubscriptionTariffKey
     ) || null
   );
+  const selectedTariffAction = $derived(
+    tariffCatalogItems.find((tariff) => String(tariff?.key || "") === userTariffActionKey) || null
+  );
   const periodTariffs = $derived(
     enabledTariffs.filter((tariff) => tariff?.billing_model === "period")
   );
@@ -290,8 +351,82 @@
   const extendTariffsLoading = $derived(
     Boolean(openedUser && tariffsState.tariffsLoading && !extendTariffItems.length)
   );
+  const panelSquadItems = $derived(
+    (tariffsState.panelSquads || []).map((squad) => ({
+      value: squad.uuid,
+      label: tariffsStore.squadLabel(squad.uuid),
+    }))
+  );
   const tariffActionDirty = $derived(
     Boolean(userTariffActionKey) && userTariffActionKey !== userTariffActionBaselineKey
+  );
+  const currentHwidBaseKey = $derived(
+    hwidBaseLimitKey(openedUserDetail?.active_subscription?.hwid_device_limit)
+  );
+  const selectedTariffHwidBaseKey = $derived(
+    hwidBaseLimitKey(selectedTariffAction?.hwid_device_limit)
+  );
+  const tariffHwidLimitChangeAvailable = $derived(
+    Boolean(
+      tariffActionDirty &&
+      openedUserDetail?.active_subscription?.hwid_device_limit !== null &&
+      openedUserDetail?.active_subscription?.hwid_device_limit !== undefined &&
+      selectedTariffAction &&
+      currentHwidBaseKey !== selectedTariffHwidBaseKey
+    )
+  );
+  const tariffHwidCurrentLabel = $derived(
+    hwidBaseLimitLabel(openedUserDetail?.active_subscription?.hwid_device_limit)
+  );
+  const tariffHwidTargetLabel = $derived(
+    hwidBaseLimitLabel(selectedTariffAction?.hwid_device_limit)
+  );
+  const trafficStrategyItems = $derived([
+    {
+      value: "NO_RESET",
+      label: at(
+        "settings_field_user_traffic_strategy_choice_no_reset",
+        {},
+        "Без автоматического сброса"
+      ),
+    },
+    {
+      value: "DAY",
+      label: at("settings_field_user_traffic_strategy_choice_day", {}, "Каждый день"),
+    },
+    {
+      value: "WEEK",
+      label: at("settings_field_user_traffic_strategy_choice_week", {}, "Каждую неделю"),
+    },
+    {
+      value: "MONTH",
+      label: at("settings_field_user_traffic_strategy_choice_month", {}, "Каждый месяц"),
+    },
+    {
+      value: "MONTH_ROLLING",
+      label: at(
+        "settings_field_user_traffic_strategy_choice_month_rolling",
+        {},
+        "Месяц от даты сброса"
+      ),
+    },
+  ]);
+  const trafficStrategyDraftValid = $derived(
+    trafficStrategyItems.some((item) => item.value === trafficStrategyDraft)
+  );
+  const trafficStrategyDirty = $derived(
+    Boolean(trafficStrategyDraft) && trafficStrategyDraft !== trafficStrategyBaseline
+  );
+  const trafficStrategyEditable = $derived(
+    Boolean(openedUserDetail?.active_subscription?.traffic_strategy_editable)
+  );
+  const trafficStrategyCurrentLabel = $derived(
+    trafficStrategyItems.find((item) => item.value === trafficStrategyBaseline)?.label ||
+      trafficStrategyBaseline ||
+      "—"
+  );
+  const trafficStrategyLockMessage = $derived(
+    trafficStrategyLockHint(openedUserDetail?.active_subscription?.traffic_strategy_lock_reason)
   );
   const premiumOverrideDraftValid = $derived(gbDraftNumber(premiumBonusGbDraft) >= 0);
   const premiumOverrideDirty = $derived(
@@ -329,6 +464,12 @@
     ) {
       tariffsLoadRequested = true;
       tariffsStore.loadTariffs();
+    }
+  });
+
+  $effect(() => {
+    if (openedUser && !tariffsState.panelSquadsLoading && !tariffsState.panelSquads.length) {
+      void tariffsStore.loadPanelSquads();
     }
   });
 
@@ -450,9 +591,17 @@
   {selectExtendTariff}
   {periodTariffItems}
   {tariffActionDirty}
+  {tariffHwidLimitChangeAvailable}
   {currentSubscriptionTariffLabel}
   {userTariffActionKey}
   {selectTariffAction}
+  {trafficStrategyItems}
+  {trafficStrategyDirty}
+  {trafficStrategyDraftValid}
+  {trafficStrategyEditable}
+  {trafficStrategyCurrentLabel}
+  {trafficStrategyLockMessage}
+  {selectTrafficStrategy}
   {premiumOverrideDirty}
   {premiumOverrideDraftValid}
   {premiumUnlimitedDraft}
@@ -464,6 +613,14 @@
   {hwidUnlimitedDraft}
   {selectGrantTrafficKind}
   {grantTrafficGbValid}
+  {panelSquadItems}
+  squadLabel={tariffsStore.squadLabel}
+  {userSquadOverrideDraft}
+  {selectUserSquadOverride}
+  {userExternalSquadModeDraft}
+  {selectUserExternalSquadMode}
+  {userExternalSquadUuidDraft}
+  {updateUserExternalSquadUuid}
 />
 <UserDetailDialogs
   {at}
@@ -486,6 +643,9 @@
   {userMessageConfirmOpen}
   {userMessageDraft}
   {userBanConfirmOpen}
+  {userTariffHwidConfirmOpen}
+  {tariffHwidCurrentLabel}
+  {tariffHwidTargetLabel}
   {userDeleteOpen}
   {userActionBusy}
 />

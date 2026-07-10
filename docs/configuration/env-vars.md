@@ -34,6 +34,19 @@
 | `WEB_SERVER_PORT` | `.env` / Compose | Хостовый порт backend-сервера вебхуков. По умолчанию `8080`. |
 | `WEBAPP_SERVER_HOST` | `.env` | Внутренний хост Web App API-сервера. Обычно `0.0.0.0`. |
 | `WEBAPP_SERVER_PORT` | `.env` | Внутренний порт Web App API-сервера. По умолчанию `8081`. |
+| `WEBAPP_API_BASE_URL` | `.env` / frontend | Browser-visible API base для Mini App frontend. Оставляйте `/api`; split frontend/backend настраивается через server-side `WEBAPP_BACKEND_UPSTREAM`. |
+| `WEBAPP_BACKEND_UPSTREAM` | frontend env | Куда frontend nginx проксирует `/api`, `/auth`, `/open-app` и Web App assets. По умолчанию `http://backend:8081`; для split можно указать protected backend upstream, private IP/VPN или `http://rathole-server:18081`. |
+| `WEBAPP_BACKEND_UPSTREAM_HOST` | frontend env | Host/SNI override для upstream, например `bot.example.com` при `WEBAPP_BACKEND_UPSTREAM=https://bot.example.com`. |
+| `MINISHOP_EDGE_TOKEN` | backend/frontend proxy env | Необязательный server-side token для protected WebApp API plane `8081`. Его добавляет frontend nginx/API edge, браузер его не получает. |
+| `MINISHOP_EDGE_TOKEN_HEADER` | backend/frontend proxy env | Имя header для edge token. По умолчанию `X-Minishop-Edge-Token`. |
+| `FRONTEND_BACKEND_MODE` | install wizard | Информационный режим связи frontend/backend: `same-origin`, `protected-upstream` или `rathole`. |
+| `INSTALL_NODE_ROLE` | install wizard | Роль текущего сервера: `full-stack`, `backend-node` или `frontend-node`. |
+| `WEBAPP_SERVER_BIND` | split backend node | Host bind для WebApp API plane `8081`, если нужен loopback/private host upstream. Не публикуйте его на `0.0.0.0` без firewall/token. |
+| `RATHOLE_IMAGE` | Rathole compose | Образ Rathole, по умолчанию `rapiz1/rathole:v0.5.0`; можно переопределить для другой архитектуры. |
+| `RATHOLE_CONTROL_BIND` | Rathole frontend node | Публикуемый control port Rathole server, например `0.0.0.0:2333`. |
+| `RATHOLE_CONTROL_REMOTE` | Rathole backend node | Адрес frontend Rathole control port для backend client. |
+| `RATHOLE_SERVICE_TOKEN` | Rathole обе стороны | Обязательный token сервиса WebApp API tunnel, одинаковый на frontend и backend servers. |
+| `RATHOLE_SERVICE_PORT` | Rathole frontend node | Внутренний service port Rathole server для frontend nginx, по умолчанию `18081`. |
 | `POSTGRES_HOST` | Compose | Host PostgreSQL. В штатном Compose задается как `postgres`. |
 | `POSTGRES_PORT` | `.env` | Порт PostgreSQL. |
 | `DB_POOL_SIZE` | `.env` | Размер async SQLAlchemy pool. |
@@ -182,6 +195,11 @@ proxy/Docker gateway и может отклонить валидный webhook. 
 | --- | --- | --- |
 | `WEBAPP_ENABLED` | `.env` / админка | Включает Web App. Если `False`, пользовательский Web App и админка недоступны до включения через `.env` и рестарта. |
 | `SUBSCRIPTION_MINI_APP_URL` | `.env` / админка | Публичный HTTPS URL Mini App/frontend, например `https://app.domain.com/`. Используется в Telegram-кнопках, реферальных ссылках, входе по email и настройках BotFather Mini App. Не указывайте здесь `/api` или webhook-пути. |
+| `WEBAPP_API_BASE_URL` | `.env` | Browser-visible API base для `/bootstrap`, `/me`, платежей и админки. Оставьте `/api`; полный backend URL в браузер не передается. |
+| `WEBAPP_BACKEND_UPSTREAM` | frontend env | Server-side upstream frontend nginx для `/api`, `/auth`, `/open-app` и Web App assets. |
+| `WEBAPP_BACKEND_UPSTREAM_HOST` | frontend env | Host/SNI override для HTTPS upstream. |
+| `MINISHOP_EDGE_TOKEN` | `.env` / frontend env | Server-side shared secret для protected upstream. Backend требует header только на WebApp API plane `8081`; frontend nginx добавляет header к upstream-запросам. |
+| `MINISHOP_EDGE_TOKEN_HEADER` | `.env` / frontend env | Header edge-token, по умолчанию `X-Minishop-Edge-Token`. |
 | `SUBSCRIPTION_GUIDES_ENABLED` | `.env` / админка | Включает встроенные инструкции установки в Web App. По умолчанию `True`; если конфиг недоступен или невалиден, кнопка подключения открывает обычную финальную ссылку подписки. |
 | `SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED` | `.env` / админка | Включает открытие Mini App `/install` из кнопок бота и показ публичной ссылки инструкции `/s/<token>`. По умолчанию `True`; если выключить, бот ведет на финальную Remnawave Subscription Page. |
 | `SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED` | `.env` / админка | Читать Remnawave Subscription Page config из панели для встроенных инструкций. По умолчанию `True`; для активной подписки сначала используется resolved config по `shortUuid`, включая настройки External Squad, затем default config панели. |
@@ -257,6 +275,7 @@ proxy/Docker gateway и может отклонить валидный webhook. 
 | `LAVA_ENABLED` | Включает LAVA. |
 | `PALLY_ENABLED` | Включает Pally / PayPalych. |
 | `CLOUDPAYMENTS_ENABLED` | Включает CloudPayments. |
+| `OVERPAY_ENABLED` | Включает Overpay. |
 
 Конкретные ключи отображения:
 
@@ -339,6 +358,12 @@ PAYMENT_CLOUDPAYMENTS_WEBAPP_ICON
 PAYMENT_CLOUDPAYMENTS_TELEGRAM_LABEL_RU
 PAYMENT_CLOUDPAYMENTS_TELEGRAM_LABEL_EN
 PAYMENT_CLOUDPAYMENTS_TELEGRAM_EMOJI
+PAYMENT_OVERPAY_WEBAPP_LABEL_RU
+PAYMENT_OVERPAY_WEBAPP_LABEL_EN
+PAYMENT_OVERPAY_WEBAPP_ICON
+PAYMENT_OVERPAY_TELEGRAM_LABEL_RU
+PAYMENT_OVERPAY_TELEGRAM_LABEL_EN
+PAYMENT_OVERPAY_TELEGRAM_EMOJI
 PAYMENT_STRIPE_WEBAPP_LABEL_RU
 PAYMENT_STRIPE_WEBAPP_LABEL_EN
 PAYMENT_STRIPE_WEBAPP_ICON
@@ -507,6 +532,26 @@ CloudPayments принимает оплату картами через Orders A
 | `CLOUDPAYMENTS_RECURRING_ENABLED` | Включает списания по сохранённому CloudPayments `Token` для автопродления подписок. |
 | `CLOUDPAYMENTS_VERIFY_WEBHOOK_SIGNATURE` | Проверять заголовок `Content-HMAC` у уведомлений. |
 | `CLOUDPAYMENTS_TRUSTED_IPS` | Необязательный список доверенных IP webhook-источников. |
+
+### Overpay
+
+Overpay построен на платформе BeGateway: бот создаёт hosted-checkout (payment token) и перенаправляет пользователя на `redirect_url`. Исходящие запросы авторизуются HTTP Basic auth (`OVERPAY_SHOP_ID`/`OVERPAY_SECRET_KEY`); уведомления приходят JSON POST'ом с теми же HTTP Basic-кредами. Автопродление списывает сохранённый `credit_card.token` через gateway API. Настройте notification URL: `WEBHOOK_BASE_URL` + `/webhook/overpay`.
+
+| Переменная | Назначение |
+| --- | --- |
+| `OVERPAY_SHOP_ID` | Shop ID из кабинета Overpay (логин HTTP Basic auth). |
+| `OVERPAY_SECRET_KEY` | Secret Key из кабинета Overpay (пароль HTTP Basic auth и проверка входящих webhook'ов). |
+| `OVERPAY_CHECKOUT_URL` | Базовый URL checkout API, по умолчанию `https://checkout.overpay.io`. |
+| `OVERPAY_GATEWAY_URL` | Базовый URL gateway API для списаний по токену, по умолчанию `https://gateway.overpay.io`. |
+| `OVERPAY_RETURN_URL` | URL "Вернуться в магазин" на платёжной странице. |
+| `OVERPAY_SUCCESS_URL` | URL успешного возврата после оплаты. |
+| `OVERPAY_DECLINE_URL` | URL возврата при отклонении оплаты. |
+| `OVERPAY_FAIL_URL` | URL возврата при ошибке оплаты. |
+| `OVERPAY_LANGUAGE` | Язык платёжной формы (например `ru`, `en`); если пусто, бот пробует передать язык пользователя. |
+| `OVERPAY_TEST_MODE` | Отправлять транзакции в песочницу Overpay. |
+| `OVERPAY_RECURRING_ENABLED` | Запрашивать токен карты на checkout и списывать его для автопродления подписок. |
+| `OVERPAY_VERIFY_WEBHOOK_SIGNATURE` | Требовать HTTP Basic auth (Shop ID / Secret Key) у входящих webhook'ов. |
+| `OVERPAY_TRUSTED_IPS` | Необязательный список доверенных IP webhook-источников. |
 
 ### Stripe
 

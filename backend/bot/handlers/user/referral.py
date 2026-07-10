@@ -1,7 +1,6 @@
 import logging
 from collections.abc import Callable
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from aiogram import Bot, F, Router, types
 from aiogram.filters import Command
@@ -10,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.middlewares.i18n import JsonI18n
 from bot.services.referral_service import ReferralService
 from bot.utils.callback_answer import callback_data, callback_message, message_from_user
+from bot.utils.referral_links import build_webapp_referral_link
 from config.settings import Settings
 from db.dal import user_dal
 
@@ -325,20 +325,7 @@ def _build_referral_bonus_details_text(
 
 
 def _build_webapp_referral_link(base_url: str | None, referral_code: str | None) -> str | None:
-    if not base_url or not referral_code:
-        return None
-    parts = urlsplit(base_url)
-    query = dict(parse_qsl(parts.query, keep_blank_values=True))
-    query["ref"] = f"u{referral_code}"
-    return urlunsplit(
-        (
-            parts.scheme,
-            parts.netloc,
-            parts.path or "/",
-            urlencode(query),
-            parts.fragment,
-        )
-    )
+    return build_webapp_referral_link(base_url, referral_code)
 
 
 async def _generate_webapp_referral_link(

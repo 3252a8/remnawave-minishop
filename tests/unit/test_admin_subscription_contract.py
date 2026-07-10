@@ -79,6 +79,10 @@ def test_serialize_subscription_matches_legacy_contract():
         "auto_renew_enabled": True,
         "provider": "stripe",
         "is_throttled": False,
+        "billing_model": None,
+        "traffic_limit_strategy": None,
+        "traffic_strategy_editable": False,
+        "traffic_strategy_lock_reason": None,
     }
     assert result == expected
     # Key order is part of the contract (model_dump preserves field order).

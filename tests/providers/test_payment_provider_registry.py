@@ -167,6 +167,7 @@ def test_service_keys_and_statuses_come_from_provider_specs():
         "lava_service",
         "pally_service",
         "cloudpayments_service",
+        "overpay_service",
         "stripe_service",
         "qa_service",
     }
@@ -184,6 +185,7 @@ def test_service_keys_and_statuses_come_from_provider_specs():
         "pending_lava",
         "pending_pally",
         "pending_cloudpayments",
+        "pending_overpay",
         "pending_stripe",
         "pending_qa",
     }

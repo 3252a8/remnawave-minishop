@@ -81,6 +81,26 @@ class AdminBackupRestoreOut(HttpResponseModel):
 
 class AdminBroadcastAudienceCountsOut(HttpResponseModel):
     counts: dict[str, int | None]
+    email_enabled: bool = False
+
+
+class AdminBroadcastShortcodeOut(HttpResponseModel):
+    name: str
+    cost: str
+    description: str
+
+
+class AdminBroadcastShortcodesOut(HttpResponseModel):
+    shortcodes: list[AdminBroadcastShortcodeOut]
+    allowed_tags: list[str]
+
+
+class AdminBroadcastPreviewOut(HttpResponseModel):
+    rendered_text: str = ""
+    rendered_subject: str | None = None
+    unknown_shortcodes: list[str] = Field(default_factory=list)
+    length: int = 0
+    sent: bool = False
 
 
 class AdminPanelInternalSquadOut(HttpResponseModel):
@@ -142,6 +162,9 @@ class AdminSettingsFieldOut(HttpResponseModel):
     webhook_hint_i18n_key: str | None = None
     webhook_hint: str | None = None
     provider_id: str | None = None
+    provider_label: str | None = None
+    provider_info_url: str | None = None
+    provider_logo_url: str | None = None
     value: Any = None
     overridden: bool | None = None
     updated_at: str | None = None

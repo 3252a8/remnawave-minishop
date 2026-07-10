@@ -124,6 +124,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("POST", "/api/account/password/confirm"): "account_password_confirm_route",
             ("POST", "/api/account/telegram/link"): "account_telegram_link_route",
             ("POST", "/api/promo/apply"): "apply_promo_route",
+            ("POST", "/api/promo/status"): "promo_status_route",
             ("POST", "/api/trial/activate"): "activate_trial_route",
             ("GET", "/api/devices"): "devices_route",
             ("POST", "/api/devices/disconnect"): "disconnect_device_route",
@@ -170,6 +171,14 @@ class WebAppRouteContractTests(unittest.TestCase):
                 "/api/admin/users/{user_id}/message/preview",
             ): "admin_user_message_preview_route",
             ("POST", "/api/admin/users/{user_id}/reset-trial"): "admin_user_reset_trial_route",
+            (
+                "PATCH",
+                "/api/admin/users/{user_id}/squad-overrides",
+            ): "admin_user_squad_overrides_route",
+            (
+                "POST",
+                "/api/admin/users/{user_id}/squad-overrides/refresh",
+            ): "admin_user_squad_overrides_refresh_route",
             ("POST", "/api/admin/users/{user_id}/extend"): "admin_user_extend_route",
             ("POST", "/api/admin/users/{user_id}/tariff"): "admin_user_tariff_route",
             (

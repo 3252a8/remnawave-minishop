@@ -14,11 +14,14 @@ from bot.app.web import admin_api, subscription_webapp
 from bot.app.web.admin_api_impl import settings as admin_settings_routes
 from bot.app.web.web_server import TrustedProxyAccessLogger
 from bot.app.web.webapp import account as account_routes
+from bot.app.web.webapp.assets import _webapp_edge_token_middleware
+from bot.app.web.webapp.auth import session_route
 from bot.app.web.webapp_auth import (
     create_telegram_oauth_nonce,
     create_webapp_session_token,
     verify_telegram_oauth_nonce,
 )
+from bot.payment_providers.base import ProviderWebhookPayload
 from bot.payment_providers.cryptopay import CryptoPayService
 from bot.payment_providers.freekassa import FreeKassaService
 from bot.payment_providers.heleket import HeleketConfig, HeleketService, _compute_signature
@@ -256,6 +259,49 @@ class CryptoPayServiceTests(unittest.TestCase):
         service = self._make_service()
 
         self.assertFalse(service._validate_webhook_signature(b"payload", "not-a-signature"))
+
+    def test_handle_verified_webhook_dispatches_invoice_paid_update(self):
+        service = self._make_service()
+        raw_body = json.dumps(
+            {
+                "update_id": 1,
+                "update_type": "invoice_paid",
+                "request_date": "2026-07-05T12:00:00Z",
+                "payload": {
+                    "invoice_id": 9001,
+                    "status": "paid",
+                    "amount": "100",
+                    "asset": "USDT",
+                    "payload": "{}",
+                },
+            }
+        ).encode()
+        service._invoice_paid_handler = AsyncMock()
+
+        response = asyncio_run(
+            service.handle_verified_webhook(
+                SimpleNamespace(app={"settings": object()}),
+                ProviderWebhookPayload(raw_body=raw_body),
+            )
+        )
+
+        self.assertEqual(response.status, 200)
+        service._invoice_paid_handler.assert_awaited_once()
+        update = service._invoice_paid_handler.await_args.args[0]
+        self.assertEqual(update.update_type, "invoice_paid")
+        self.assertEqual(update.payload.invoice_id, 9001)
+
+    def test_handle_verified_webhook_rejects_malformed_json(self):
+        service = self._make_service()
+
+        response = asyncio_run(
+            service.handle_verified_webhook(
+                SimpleNamespace(app={}),
+                ProviderWebhookPayload(raw_body=b"not-json"),
+            )
+        )
+
+        self.assertEqual(response.status, 400)
 
 
 class HeleketServiceTests(unittest.TestCase):
@@ -659,6 +705,87 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.text, "ok")
         handler.assert_awaited_once()
 
+    async def test_edge_token_middleware_rejects_protected_webapp_api_without_token(self):
+        settings = SimpleNamespace(
+            MINISHOP_EDGE_TOKEN="edge-secret",
+            MINISHOP_EDGE_TOKEN_HEADER="X-Minishop-Edge-Token",
+        )
+        request = SimpleNamespace(
+            path="/api/bootstrap",
+            headers={},
+            app={"settings": settings},
+        )
+        handler = AsyncMock(return_value=web.Response(text="ok"))
+
+        response = await _webapp_edge_token_middleware(request, handler)
+
+        self.assertEqual(response.status, 403)
+        handler.assert_not_awaited()
+
+    async def test_edge_token_middleware_allows_matching_token_and_skips_health(self):
+        settings = SimpleNamespace(
+            MINISHOP_EDGE_TOKEN="edge-secret",
+            MINISHOP_EDGE_TOKEN_HEADER="X-Minishop-Edge-Token",
+        )
+        api_request = SimpleNamespace(
+            path="/api/bootstrap",
+            headers={"X-Minishop-Edge-Token": "edge-secret"},
+            app={"settings": settings},
+        )
+        health_request = SimpleNamespace(
+            path="/health",
+            headers={},
+            app={"settings": settings},
+        )
+        handler = AsyncMock(return_value=web.Response(text="ok"))
+
+        api_response = await _webapp_edge_token_middleware(api_request, handler)
+        health_response = await _webapp_edge_token_middleware(health_request, handler)
+
+        self.assertEqual(api_response.text, "ok")
+        self.assertEqual(health_response.text, "ok")
+        self.assertEqual(handler.await_count, 2)
+
+    async def test_session_route_restores_cookie_session_and_csrf_token(self):
+        settings = SimpleNamespace(
+            WEBAPP_SESSION_SECRET="session-secret",
+            WEBAPP_SESSION_TTL_SECONDS=3600,
+        )
+        token = create_webapp_session_token(settings, 321)
+        request = SimpleNamespace(
+            app={"settings": settings},
+            headers={},
+            cookies={"rw_webapp_session": token},
+        )
+
+        response = await session_route(request)
+        payload = json.loads(response.text)
+
+        self.assertTrue(payload["ok"])
+        self.assertTrue(payload["authenticated"])
+        self.assertTrue(payload["csrf_token"])
+        self.assertEqual(response.headers["Cache-Control"], "no-store")
+        self.assertEqual(response.cookies["rw_webapp_session"].value, token)
+        self.assertEqual(response.cookies["rw_webapp_csrf"].value, payload["csrf_token"])
+
+    async def test_session_route_reports_unauthenticated_without_session(self):
+        settings = SimpleNamespace(
+            WEBAPP_SESSION_SECRET="session-secret",
+            WEBAPP_SESSION_TTL_SECONDS=3600,
+        )
+        request = SimpleNamespace(
+            app={"settings": settings},
+            headers={},
+            cookies={},
+        )
+
+        response = await session_route(request)
+        payload = json.loads(response.text)
+
+        self.assertTrue(payload["ok"])
+        self.assertFalse(payload["authenticated"])
+        self.assertEqual(response.headers["Cache-Control"], "no-store")
+
     def test_email_payload_rejects_overlong_email(self):
         long_email = ("a" * 245) + "@example.com"
 
@@ -995,7 +1122,12 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_security_headers_csp_excludes_unsafe_eval_and_plain_http_images(self):
-        request = {"settings": SimpleNamespace()}
+        request = {
+            "settings": SimpleNamespace(
+                SUBSCRIPTION_MINI_APP_URL="",
+                WEBAPP_API_BASE_URL="/api",
+            )
+        }
         handler = AsyncMock(return_value=web.Response(text="ok"))
 
         response = await subscription_webapp._security_headers_middleware(request, handler)

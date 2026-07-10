@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra.grants import GrantContext, resolve_effective_grant
+from bot.services.panel_activity import record_subscription_panel_activity
 from bot.services.payment_promo import consume_payment_promo, load_payment_promo_effects
 from bot.utils.date_utils import add_months
 from config.tariffs_config import default_currency_key_for_settings
@@ -208,9 +209,41 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         current_active_sub = await subscription_dal.get_active_subscription_by_user_id(
             session, user_id, panel_user_uuid
         )
+        current_billing_model = self._subscription_billing_model(current_active_sub)
+        current_panel_used = getattr(current_active_sub, "traffic_used_bytes", None)
+        current_panel_limit = getattr(current_active_sub, "traffic_limit_bytes", None)
+        if current_active_sub and current_billing_model == "traffic":
+            try:
+                panel_user_data = (
+                    await self.panel_service.get_user_by_uuid(
+                        panel_user_uuid,
+                        log_response=False,
+                    )
+                    or {}
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to fetch panel traffic state before period activation for user %s",
+                    user_id,
+                )
+                panel_user_data = {}
+            if panel_user_data:
+                await record_subscription_panel_activity(
+                    session,
+                    current_active_sub,
+                    panel_user_data,
+                )
+                current_panel_used, current_panel_limit, _ = self._extract_panel_traffic_details(
+                    panel_user_data
+                )
+            if current_panel_used is None:
+                current_panel_used = getattr(current_active_sub, "traffic_used_bytes", None)
+            if current_panel_limit is None:
+                current_panel_limit = getattr(current_active_sub, "traffic_limit_bytes", None)
         start_date = datetime.now(UTC)
         if (
             current_active_sub
+            and current_billing_model != "traffic"
             and current_active_sub.end_date
             and current_active_sub.end_date > start_date
         ):
@@ -312,7 +345,14 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         except Exception:
             logger.exception("Failed to evaluate auto-renew availability for user %s", user_id)
 
-        topup_balance_bytes = int(getattr(current_active_sub, "topup_balance_bytes", 0) or 0)
+        if current_active_sub and current_billing_model == "traffic":
+            topup_balance_bytes = self._traffic_package_carryover_bytes(
+                current_active_sub,
+                limit_bytes=current_panel_limit,
+                used_bytes=current_panel_used,
+            )
+        else:
+            topup_balance_bytes = int(getattr(current_active_sub, "topup_balance_bytes", 0) or 0)
         extra_hwid_devices = 0
         hwid_devices_valid_until = None
         if current_active_sub:
@@ -411,12 +451,22 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             traffic_limit_bytes=traffic_limit_bytes,
             traffic_limit_strategy=self._period_tariff_traffic_strategy(),
             hwid_device_limit=effective_hwid_limit,
+            include_default_squads=False,
         )
-        if tariff:
-            panel_update_payload["activeInternalSquads"] = self._panel_squads_for_tariff(
-                tariff,
-                include_premium=not premium_is_limited,
+        managed_squads = self._panel_squads_for_tariff(
+            tariff,
+            include_premium=not premium_is_limited,
+        )
+        panel_update_payload.update(
+            await self.build_effective_panel_squad_fields(
+                session,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                managed_internal_squads=managed_squads,
+                include_internal_squads=bool(tariff or managed_squads),
+                source="paid_activation",
             )
+        )
 
         panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
 
@@ -495,6 +545,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         reason: str = "bonus",
         extend_hwid_devices: bool = True,
         tariff_key: str | None = None,
+        apply_tariff_hwid_limit: bool = False,
     ) -> datetime | None:
         reason_lower = (reason or "").lower()
         apply_main_traffic_limit = any(
@@ -681,10 +732,15 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 rb = int(getattr(active_sub, "regular_bonus_bytes", 0) or 0)
                 runl = bool(getattr(active_sub, "regular_unlimited_override", False))
                 used_sub = int(getattr(active_sub, "traffic_used_bytes", 0) or 0)
-                target_monthly_price = admin_tariff.period_price(
-                    1,
+                target_monthly_price = self._tariff_effective_monthly_price(
+                    admin_tariff,
                     default_currency_key_for_settings(self.settings),
-                ) or admin_tariff.min_period_price(default_currency_key_for_settings(self.settings))
+                )
+                local_hwid_base_limit, _ = self._transition_hwid_base_limits(
+                    getattr(active_sub, "hwid_device_limit", None),
+                    admin_tariff,
+                    apply_tariff_hwid_limit=apply_tariff_hwid_limit,
+                )
                 admin_update_data: dict[str, Any] = {
                     "tariff_key": admin_tariff.key,
                     "tier_baseline_bytes": admin_tariff.monthly_bytes,
@@ -702,7 +758,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     "period_start_at": None,
                     "is_throttled": False,
                     "effective_monthly_price_rub": target_monthly_price,
-                    "hwid_device_limit": self._base_hwid_limit_for_tariff(admin_tariff),
+                    "hwid_device_limit": local_hwid_base_limit,
                     "extra_hwid_devices": extra_hwid_devices,
                 }
                 updated_sub_model = await subscription_dal.update_subscription(
@@ -745,6 +801,13 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
 
         if updated_sub_model:
             panel_tariff = admin_tariff or bonus_tariff
+            panel_hwid_base_limit = None
+            if panel_tariff:
+                _, panel_hwid_base_limit = self._transition_hwid_base_limits(
+                    getattr(updated_sub_model, "hwid_device_limit", None),
+                    panel_tariff,
+                    apply_tariff_hwid_limit=False,
+                )
             panel_update_payload = self._build_panel_update_payload(
                 expire_at=new_end_date_obj,
                 status="ACTIVE" if panel_tariff else None,
@@ -760,7 +823,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 ),
                 hwid_device_limit=(
                     self._effective_hwid_limit(
-                        updated_sub_model.hwid_device_limit,
+                        panel_hwid_base_limit,
                         int(getattr(updated_sub_model, "extra_hwid_devices", 0) or 0),
                     )
                     if panel_tariff
@@ -770,16 +833,22 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 include_default_squads=False,
             )
             if panel_tariff:
-                panel_update_payload["activeInternalSquads"] = self._panel_squads_for_tariff(
+                managed_squads = self._panel_squads_for_tariff(
                     panel_tariff,
                     include_premium=not bool(
                         getattr(updated_sub_model, "premium_is_limited", False)
                     ),
                 )
-                if self.settings.parsed_user_external_squad_uuid:
-                    panel_update_payload["externalSquadUuid"] = (
-                        self.settings.parsed_user_external_squad_uuid
+                panel_update_payload.update(
+                    await self.build_effective_panel_squad_fields(
+                        session,
+                        user_id=user_id,
+                        panel_user_uuid=panel_uuid,
+                        managed_internal_squads=managed_squads,
+                        include_internal_squads=True,
+                        source="admin_extend",
                     )
+                )
 
             panel_update_success = await self.panel_service.update_user_details_on_panel(
                 panel_uuid,

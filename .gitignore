@@ -19,6 +19,7 @@ node_modules/
 /fullstack-qa-compose-logs/
 /.ci-*.log
 /.codex-*.log
+/graphify-out/cache/
 /src/
 
 # Documentation site build artifacts
@@ -73,6 +74,7 @@ backend/bot/app/web/templates/subscription_webapp_docs_demo.js
 backend/bot/app/web/templates/subscription_webapp_docs_demo.*.css
 backend/bot/app/web/templates/subscription_webapp_docs_demo.*.css.br
 backend/bot/app/web/templates/subscription_webapp_docs_demo.*.css.gz
+backend/bot/app/web/templates/provider-logos/
 .claude
 
 # Игнорировать кэш Python

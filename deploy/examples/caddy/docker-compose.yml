@@ -19,9 +19,13 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test:
+        [
+          "CMD-SHELL",
+          "PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -Atqc 'SELECT 1' | grep -qx 1",
+        ]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -35,7 +39,7 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -54,7 +58,7 @@ services:
     volumes:
       - ./data:/app/data
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,7 +80,7 @@ services:
       - ./data:/app/data
       - ${COMPOSE_BACKUP_SOURCE:-.}:/app/compose-source:${COMPOSE_RESTORE_MODE:-rw}
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,7 +107,7 @@ services:
       - ./data:/app/data
       - ${COMPOSE_BACKUP_SOURCE:-.}:/app/compose-source:ro
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     depends_on:
       postgres:
         condition: service_healthy
@@ -121,8 +125,13 @@ services:
     environment:
       IMAGE_TAG: ${IMAGE_TAG:-latest}
       FRONTEND_PUBLIC: https://${MINIAPP_HOST:?set MINIAPP_HOST in .env}/
+      WEBAPP_API_BASE_URL: ${WEBAPP_API_BASE_URL:-/api}
+      WEBAPP_BACKEND_UPSTREAM: ${WEBAPP_BACKEND_UPSTREAM:-http://backend:8081}
+      WEBAPP_BACKEND_UPSTREAM_HOST: ${WEBAPP_BACKEND_UPSTREAM_HOST:-backend}
+      MINISHOP_EDGE_TOKEN: ${MINISHOP_EDGE_TOKEN:-}
+      MINISHOP_EDGE_TOKEN_HEADER: ${MINISHOP_EDGE_TOKEN_HEADER:-X-Minishop-Edge-Token}
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     depends_on:
       backend:
         condition: service_healthy
@@ -148,7 +157,7 @@ services:
       - caddy-data:/data
       - caddy-config:/config
     networks:
-      - remnawave-shop
+      - remnawave-minishop
     depends_on:
       frontend:
         condition: service_healthy
@@ -156,7 +165,8 @@ services:
         condition: service_healthy
 
 networks:
-  remnawave-shop:
+  remnawave-minishop:
+    name: ${COMPOSE_PROJECT_NAME:-remnawave-minishop}-network
 
 volumes:
   postgres-data:

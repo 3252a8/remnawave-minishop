@@ -29,6 +29,7 @@ from bot.services.telegram_notifications import (
     telegram_notifications_need_prompt,
     telegram_notifications_start_link,
 )
+from bot.utils.traffic_reset import format_traffic_reset_date, parse_panel_datetime
 from config.settings import Settings
 from config.subscription_guides_config import subscription_guides_available
 from config.tariffs_config import default_currency_key_for_settings, payment_currency_code
@@ -511,6 +512,11 @@ def _serialize_subscription(
         "premium_title": active.get("premium_title"),
         "billing_model": active.get("billing_model"),
         "traffic_limit_strategy": str(active.get("traffic_limit_strategy") or ""),
+        "traffic_next_reset_at": _webapp_iso_datetime(active.get("traffic_next_reset_at")),
+        "traffic_next_reset_text": _webapp_reset_date_text(
+            active.get("traffic_next_reset_at"),
+            lang,
+        ),
         "tier_baseline_bytes": _coerce_int_or_none(active.get("tier_baseline_bytes")),
         "topup_balance_bytes": _coerce_int_or_none(active.get("topup_balance_bytes")),
         "premium_limit": _format_bytes(active.get("premium_limit_bytes"), zero_as_unlimited=True),
@@ -527,6 +533,11 @@ def _serialize_subscription(
         "regular_unlimited_override": bool(active.get("regular_unlimited_override")),
         "premium_unlimited_override": bool(active.get("premium_unlimited_override")),
         "premium_is_limited": bool(active.get("premium_is_limited")),
+        "premium_next_reset_at": _webapp_iso_datetime(active.get("premium_next_reset_at")),
+        "premium_next_reset_text": _webapp_reset_date_text(
+            active.get("premium_next_reset_at"),
+            lang,
+        ),
         "premium_squad_labels": list(active.get("premium_squad_labels") or []),
         "premium_node_labels": list(active.get("premium_node_labels") or []),
         "can_topup_traffic": can_topup_traffic,
@@ -569,6 +580,13 @@ def _webapp_iso_datetime(value: Any | None) -> str | None:
         normalized = value if value.tzinfo else value.replace(tzinfo=UTC)
         return normalized.isoformat()
     return str(value)
+
+
+def _webapp_reset_date_text(value: Any | None, lang: str) -> str | None:
+    parsed = parse_panel_datetime(value)
+    if parsed is None:
+        return None
+    return format_traffic_reset_date(parsed, lang)
 
 
 def _webapp_datetime_text(value: Any | None) -> str | None:

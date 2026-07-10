@@ -18,6 +18,7 @@ from bot.app.web.context import (
     get_session_factory,
     get_settings,
 )
+from bot.services.panel_activity import record_subscription_panel_activity
 from bot.utils.config_link import prepare_config_links
 from config.settings import Settings
 from db.dal import subscription_dal
@@ -93,6 +94,9 @@ async def _public_subscription_payload_uncached(
     ):
         panel_user = await panel_service.get_user_by_uuid(local_sub.panel_user_uuid)
         if panel_user:
+            async with async_session_factory() as session:
+                if await record_subscription_panel_activity(session, local_sub, panel_user):
+                    await session.commit()
             raw_link = str(panel_user.get("subscriptionUrl") or "").strip()
             username = str(panel_user.get("username") or "").strip()
             resolved_short_uuid = _panel_short_uuid_from_user(panel_user)

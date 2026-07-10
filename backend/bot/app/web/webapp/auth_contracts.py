@@ -57,6 +57,15 @@ AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
         response_schema=AUTH_RESPONSE_SCHEMA,
     ),
     "logout_route": public_contract(response_schema=ok_envelope_with()),
+    "session_route": public_contract(
+        response_schema=ok_envelope_with(
+            {
+                "authenticated": BOOLEAN_SCHEMA,
+                "csrf_token": STRING_SCHEMA,
+            },
+            required=["authenticated"],
+        )
+    ),
     "referral_welcome_bonus_claim_route": user_contract(
         response_schema=ok_envelope_with(
             {
@@ -65,6 +74,23 @@ AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
                 "end_date_text": NULLABLE_STRING_SCHEMA,
             }
         )
+    ),
+    "promo_status_route": user_contract(
+        request_model=WebAppPromoApplyPayload,
+        response_schema=ok_envelope_with(
+            {
+                "status": STRING_SCHEMA,
+                "code": STRING_SCHEMA,
+                "message": STRING_SCHEMA,
+                "effect_summary": STRING_SCHEMA,
+                "applies_to": STRING_SCHEMA,
+                "min_subscription_months": NULLABLE_INTEGER_SCHEMA,
+                "min_traffic_gb": NULLABLE_NUMBER_SCHEMA,
+                "bonus_days": INTEGER_SCHEMA,
+                "end_date_text": NULLABLE_STRING_SCHEMA,
+            },
+            required=["status", "code"],
+        ),
     ),
     "apply_promo_route": user_contract(
         request_model=WebAppPromoApplyPayload,

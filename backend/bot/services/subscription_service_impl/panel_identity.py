@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.utils.text_sanitizer import panel_description_from_profile
 from config.traffic_strategy import normalize_traffic_limit_strategy
-from db.dal import user_dal
+from db.dal import user_dal, user_panel_squad_override_dal
 from db.models import User
 
 from ._typing import SubscriptionServiceMixinContract
@@ -305,11 +305,28 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
 
                 return None, None, None, False
             else:
+                previous_panel_uuid = current_local_panel_uuid
                 update_data_for_local_user = {"panel_user_uuid": actual_panel_uuid_from_api}
 
                 # Do not overwrite Telegram username with panel username.
                 # Only update the local linkage to panel UUID here.
                 await user_dal.update_user(session, user_id, update_data_for_local_user)
+                if previous_panel_uuid:
+                    moved_overrides = await user_panel_squad_override_dal.merge_panel_user_uuid(
+                        session,
+                        user_id=user_id,
+                        old_panel_user_uuid=previous_panel_uuid,
+                        new_panel_user_uuid=actual_panel_uuid_from_api,
+                    )
+                    if moved_overrides:
+                        logger.info(
+                            "Moved %s panel squad override records for user %s from panel UUID "
+                            "%s to %s.",
+                            moved_overrides,
+                            user_id,
+                            previous_panel_uuid,
+                            actual_panel_uuid_from_api,
+                        )
                 db_user.panel_user_uuid = actual_panel_uuid_from_api
                 panel_user_created_or_linked_now = True
                 current_local_panel_uuid = actual_panel_uuid_from_api
@@ -381,9 +398,10 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             payload["status"] = status
         if traffic_limit_bytes is not None:
             payload["trafficLimitBytes"] = traffic_limit_bytes
-            payload["trafficLimitStrategy"] = normalize_traffic_limit_strategy(
-                traffic_limit_strategy or self.settings.USER_TRAFFIC_STRATEGY
-            )
+            if traffic_limit_strategy is not None:
+                payload["trafficLimitStrategy"] = normalize_traffic_limit_strategy(
+                    traffic_limit_strategy
+                )
         if hwid_device_limit is not None:
             try:
                 hwid_limit_int = int(hwid_device_limit)

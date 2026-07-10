@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra.event_payloads import ReferralBonusGrantedPayload
 from bot.middlewares.i18n import JsonI18n
+from bot.utils.referral_links import build_bot_referral_link
 from config.settings import Settings
 from db.dal import payment_dal, subscription_dal, user_dal
 
@@ -311,7 +312,7 @@ class ReferralService:
                 )
                 return None
 
-            return f"https://t.me/{bot_username}?start=ref_u{referral_code}"
+            return build_bot_referral_link(bot_username, referral_code)
         except Exception as exc:
             logger.exception(
                 "Failed to generate referral link for user %s: %s", inviter_user_id, exc

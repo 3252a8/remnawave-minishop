@@ -591,6 +591,95 @@ def _migration_0041_add_bonus_payment_mode_flag(connection: Connection) -> None:
         )
 
 
+def _migration_0042_release_archived_promo_codes(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: set[str] = {col["name"] for col in inspector.get_columns("promo_codes")}
+    if "archived_code" not in columns:
+        connection.execute(text("ALTER TABLE promo_codes ADD COLUMN archived_code VARCHAR"))
+
+    connection.execute(
+        text(
+            """
+            UPDATE promo_codes
+            SET archived_code = code
+            WHERE archived_at IS NOT NULL
+              AND (archived_code IS NULL OR archived_code = '')
+            """
+        )
+    )
+
+    if connection.dialect.name == "postgresql":
+        connection.execute(
+            text(
+                """
+                UPDATE promo_codes
+                SET code = CONCAT('__ARCHIVED_PROMO__', promo_code_id::text, '__', code)
+                WHERE archived_at IS NOT NULL
+                  AND code NOT LIKE '__ARCHIVED_PROMO__%'
+                """
+            )
+        )
+        return
+
+    connection.execute(
+        text(
+            """
+            UPDATE promo_codes
+            SET code = '__ARCHIVED_PROMO__' || promo_code_id || '__' || code
+            WHERE archived_at IS NOT NULL
+              AND code NOT LIKE '__ARCHIVED_PROMO__%'
+            """
+        )
+    )
+
+
+def _migration_0043_add_user_panel_squad_overrides(connection: Connection) -> None:
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS user_panel_squad_overrides (
+                override_id SERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                panel_user_uuid VARCHAR NOT NULL,
+                kind VARCHAR(16) NOT NULL,
+                override_key VARCHAR NOT NULL,
+                squad_uuid VARCHAR NULL,
+                mode VARCHAR(16) NOT NULL DEFAULT 'set',
+                source VARCHAR(16) NOT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_by_admin_id BIGINT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NULL,
+                last_seen_at TIMESTAMPTZ NULL,
+                deactivated_at TIMESTAMPTZ NULL,
+                note TEXT NULL,
+                CONSTRAINT uq_user_panel_squad_override_key
+                    UNIQUE (user_id, panel_user_uuid, kind, override_key)
+            )
+            """
+        )
+    )
+    index_statements = [
+        "CREATE INDEX IF NOT EXISTS ix_user_panel_squad_overrides_user_active "
+        "ON user_panel_squad_overrides (user_id, is_active)",
+        "CREATE INDEX IF NOT EXISTS ix_user_panel_squad_overrides_panel_active "
+        "ON user_panel_squad_overrides (panel_user_uuid, is_active)",
+        "CREATE INDEX IF NOT EXISTS ix_user_panel_squad_overrides_kind_squad "
+        "ON user_panel_squad_overrides (kind, squad_uuid)",
+    ]
+    for stmt in index_statements:
+        connection.execute(text(stmt))
+
+
+def _migration_0044_add_subscription_last_connected_at(connection: Connection) -> None:
+    inspector = inspect(connection)
+    columns: set[str] = {col["name"] for col in inspector.get_columns("subscriptions")}
+    if "last_connected_at" not in columns:
+        connection.execute(
+            text("ALTER TABLE subscriptions ADD COLUMN last_connected_at TIMESTAMPTZ")
+        )
+
+
 CHAIN_0022_0041: list[Migration] = [
     Migration(
         id="0022_add_indexes_for_admin_reports",
@@ -691,5 +780,20 @@ CHAIN_0022_0041: list[Migration] = [
         id="0041_add_bonus_payment_mode_flag",
         description="Choose whether bonus days are granted immediately or after payment",
         upgrade=_migration_0041_add_bonus_payment_mode_flag,
+    ),
+    Migration(
+        id="0042_release_archived_promo_codes",
+        description="Release archived code names while preserving their display value",
+        upgrade=_migration_0042_release_archived_promo_codes,
+    ),
+    Migration(
+        id="0043_add_user_panel_squad_overrides",
+        description="Persist manual Remnawave squad overrides per panel user",
+        upgrade=_migration_0043_add_user_panel_squad_overrides,
+    ),
+    Migration(
+        id="0044_add_subscription_last_connected_at",
+        description="Snapshot the latest panel connection time on subscriptions",
+        upgrade=_migration_0044_add_subscription_last_connected_at,
     ),
 ]

@@ -28,6 +28,71 @@ import {
   withDemoReferralSummary,
 } from "./users";
 
+const DEMO_SHORTCODE_META: [string, string, string][] = [
+  ["first_name", "db", "First name"],
+  ["last_name", "db", "Last name"],
+  ["username", "db", "@username"],
+  ["user_id", "db", "User ID"],
+  ["email", "db", "User email"],
+  ["end_date", "db", "Subscription end date"],
+  ["days_left", "db", "Days until expiry"],
+  ["subscription_status", "db", "Subscription status"],
+  ["tariff_name", "db", "Tariff name"],
+  ["tariff_price", "db", "Tariff price"],
+  ["traffic_used", "db", "Traffic used, GB"],
+  ["traffic_limit", "db", "Traffic limit, GB"],
+  ["traffic_left", "db", "Traffic left, GB"],
+  ["install_link", "db", "Connection guide link"],
+  ["miniapp_link", "db", "Mini App link"],
+  ["config_link", "panel", "Subscription key link"],
+  ["referral_code", "db", "Referral code"],
+  ["referral_bot_link", "db", "Referral link (bot)"],
+  ["referral_webapp_link", "db", "Referral link (Mini App)"],
+];
+
+const DEMO_SHORTCODE_VALUES: Record<string, string> = {
+  first_name: "Alex",
+  last_name: "Petrov",
+  username: "@alex",
+  user_id: "100245",
+  email: "alex@example.com",
+  end_date: "2030-05-01",
+  days_left: "42",
+  subscription_status: "active",
+  tariff_name: "Premium",
+  tariff_price: "299 RUB",
+  traffic_used: "30",
+  traffic_limit: "100",
+  traffic_left: "70",
+  install_link: "https://app.example/s/demo",
+  miniapp_link: "https://app.example/",
+  config_link: "happ://crypt4/demo",
+  referral_code: "AB12CD",
+  referral_bot_link: "https://t.me/demo_bot?start=ref_uAB12CD",
+  referral_webapp_link: "https://app.example/?ref=uAB12CD",
+};
+
+function demoBroadcastShortcodes(): { shortcodes: DemoRecord[]; allowed_tags: string[] } {
+  return {
+    shortcodes: DEMO_SHORTCODE_META.map(([name, cost, description]) => ({
+      name,
+      cost,
+      description,
+    })),
+    allowed_tags: ["b", "i", "u", "s", "code", "a", "pre", "blockquote"],
+  };
+}
+
+function renderDemoShortcodes(text: string): { text: string; unknown: string[] } {
+  const unknown = new Set<string>();
+  const rendered = text.replace(/\{([a-z_][a-z0-9_]*)\}/g, (whole, name: string) => {
+    if (name in DEMO_SHORTCODE_VALUES) return DEMO_SHORTCODE_VALUES[name];
+    unknown.add(name);
+    return whole;
+  });
+  return { text: rendered, unknown: [...unknown] };
+}
+
 export function demoApiResponse(
   path: string,
   cleanPath: string,
@@ -46,7 +111,39 @@ export function demoApiResponse(
   if (cleanPath === "/admin/broadcast/audience-counts") {
     return {
       ok: true,
-      counts: { all: 1280, active: 742, inactive: 538, expired: 311, never: 227 },
+      counts: { all: 1280, active: 742, inactive: 538, expired: 311, never: 227, admins: 2 },
+      email_enabled: true,
+    };
+  }
+  if (cleanPath === "/admin/broadcast" && method === "POST") {
+    const body = jsonBody(options);
+    const channels = Array.isArray(body.channels) ? body.channels : ["telegram"];
+    const target = String(body.target || "all");
+    const queued = channels.includes("telegram") ? (target === "admins" ? 2 : 1280) : 0;
+    const emailQueued = channels.includes("email") ? (target === "admins" ? 1 : 486) : 0;
+    return {
+      ok: true,
+      queued,
+      failed: 0,
+      email_queued: emailQueued,
+      target,
+      channels,
+    };
+  }
+  if (cleanPath === "/admin/broadcast/shortcodes") {
+    return { ok: true, ...demoBroadcastShortcodes() };
+  }
+  if (cleanPath === "/admin/broadcast/preview" && method === "POST") {
+    const body = jsonBody(options);
+    const rendered = renderDemoShortcodes(String(body.text || ""));
+    const subjectRaw = String(body.email_subject || "");
+    return {
+      ok: true,
+      rendered_text: rendered.text,
+      rendered_subject: subjectRaw ? renderDemoShortcodes(subjectRaw).text : null,
+      unknown_shortcodes: rendered.unknown,
+      length: rendered.text.length,
+      sent: String(body.mode || "render") === "send_telegram",
     };
   }
   if (cleanPath === "/admin/sync") return { ok: true, status: "queued" };

@@ -76,7 +76,7 @@ class AdminUserHwidLimitRouteTests(unittest.IsolatedAsyncioTestCase):
                 "get_active_subscription_by_user_id",
                 AsyncMock(return_value=active),
             ),
-            patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()),
+            patch.object(admin_users.message_log_dal, "create_message_log_no_commit", AsyncMock()),
             patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
             patch.object(
                 users_actions,
@@ -108,7 +108,7 @@ class AdminUserHwidLimitRouteTests(unittest.IsolatedAsyncioTestCase):
                 "get_active_subscription_by_user_id",
                 AsyncMock(return_value=active),
             ),
-            patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()),
+            patch.object(admin_users.message_log_dal, "create_message_log_no_commit", AsyncMock()),
             patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
             patch.object(
                 users_actions,
@@ -122,6 +122,36 @@ class AdminUserHwidLimitRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(json.loads(response.text)["subscription"]["hwid_device_limit"])
         self.assertIsNone(active.hwid_device_limit)
         subscription_service.sync_hwid_device_limit_to_panel.assert_awaited_once_with(session, 42)
+
+    async def test_hwid_sync_failure_rolls_back_without_audit_log(self):
+        session = FakeSession()
+        active = SimpleNamespace(hwid_device_limit=5)
+        subscription_service = SimpleNamespace(
+            sync_hwid_device_limit_to_panel=AsyncMock(return_value=None)
+        )
+        request = FakeRequest({"hwid_device_limit": 7}, session, subscription_service)
+
+        with (
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
+            patch.object(
+                admin_users.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=active),
+            ),
+            patch.object(
+                admin_users.message_log_dal,
+                "create_message_log_no_commit",
+                AsyncMock(),
+            ) as log,
+            patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
+        ):
+            response = await admin_users.admin_user_hwid_device_limit_route(request)
+
+        self.assertEqual(response.status, 502)
+        self.assertEqual(json.loads(response.text)["error"], "panel_update_failed")
+        self.assertTrue(session.rolled_back)
+        self.assertFalse(session.committed)
+        log.assert_not_awaited()
 
     async def test_negative_limit_is_rejected(self):
         session = FakeSession()
@@ -169,6 +199,7 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
             10,
             "admin_extend_subscription_webapp",
             extend_hwid_devices=False,
+            apply_tariff_hwid_limit=False,
         )
         self.assertIn("hwid=no", log.await_args.args[1]["content"])
         self.assertTrue(session.committed)
@@ -201,6 +232,7 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
             10,
             "admin_extend_subscription_webapp",
             extend_hwid_devices=True,
+            apply_tariff_hwid_limit=False,
         )
         self.assertIn("hwid=yes", log.await_args.args[1]["content"])
         self.assertTrue(session.committed)
@@ -238,6 +270,7 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
             10,
             "admin_extend_subscription_webapp",
             extend_hwid_devices=True,
+            apply_tariff_hwid_limit=False,
             tariff_key="standard",
         )
 
@@ -301,6 +334,54 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
             42,
             "plus",
             "admin_assign",
+            apply_tariff_hwid_limit=False,
+        )
+        self.assertTrue(session.committed)
+
+    async def test_change_tariff_route_can_apply_tariff_hwid_limit(self):
+        session = FakeSession()
+        subscription_service = SimpleNamespace(
+            switch_tariff_without_payment=AsyncMock(return_value={"subscription_id": 1})
+        )
+        settings = SimpleNamespace(
+            tariffs_config=FakeTariffsConfig(
+                [
+                    SimpleNamespace(key="standard", billing_model="period"),
+                    SimpleNamespace(key="plus", billing_model="period"),
+                ]
+            )
+        )
+        request = FakeRequest(
+            {"tariff_key": "plus", "apply_tariff_hwid_limit": True},
+            session,
+            subscription_service,
+            settings,
+        )
+
+        with (
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
+            patch.object(admin_users.message_log_dal, "create_message_log", AsyncMock()),
+            patch.object(
+                admin_users.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=SimpleNamespace(subscription_id=1)),
+            ),
+            patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
+            patch.object(
+                users_actions,
+                "_serialize_subscription",
+                return_value={"tariff_key": "plus"},
+            ),
+        ):
+            response = await admin_users.admin_user_tariff_route(request)
+
+        self.assertEqual(response.status, 200)
+        subscription_service.switch_tariff_without_payment.assert_awaited_once_with(
+            session,
+            42,
+            "plus",
+            "admin_assign",
+            apply_tariff_hwid_limit=True,
         )
         self.assertTrue(session.committed)
 
@@ -317,6 +398,83 @@ class AdminUserExtendRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 400)
         self.assertEqual(json.loads(response.text)["error"], "invalid_hwid_device_limit")
         subscription_service.sync_hwid_device_limit_to_panel.assert_not_awaited()
+
+
+class AdminUserOverrideSyncFailureTests(unittest.IsolatedAsyncioTestCase):
+    async def test_regular_traffic_override_failure_rolls_back_without_audit_log(self):
+        session = FakeSession()
+        active = SimpleNamespace(
+            regular_unlimited_override=False,
+            regular_bonus_bytes=0,
+        )
+        subscription_service = SimpleNamespace(
+            sync_main_traffic_limit_to_panel=AsyncMock(return_value=False)
+        )
+        request = FakeRequest(
+            {"unlimited": True, "regular_bonus_gb": 5},
+            session,
+            subscription_service,
+        )
+
+        with (
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
+            patch.object(
+                admin_users.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=active),
+            ),
+            patch.object(
+                admin_users.message_log_dal,
+                "create_message_log_no_commit",
+                AsyncMock(),
+            ) as log,
+            patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
+        ):
+            response = await admin_users.admin_user_regular_traffic_override_route(request)
+
+        self.assertEqual(response.status, 502)
+        self.assertEqual(json.loads(response.text)["error"], "panel_update_failed")
+        self.assertTrue(session.rolled_back)
+        self.assertFalse(session.committed)
+        log.assert_not_awaited()
+
+    async def test_premium_override_failure_rolls_back_without_audit_log(self):
+        session = FakeSession()
+        active = SimpleNamespace(
+            premium_unlimited_override=False,
+            premium_bonus_bytes=0,
+            premium_is_limited=True,
+        )
+        subscription_service = SimpleNamespace(
+            sync_premium_squad_access_to_panel=AsyncMock(return_value=False)
+        )
+        request = FakeRequest(
+            {"unlimited": True, "bonus_gb": 0},
+            session,
+            subscription_service,
+        )
+
+        with (
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
+            patch.object(
+                admin_users.subscription_dal,
+                "get_active_subscription_by_user_id",
+                AsyncMock(return_value=active),
+            ),
+            patch.object(
+                admin_users.message_log_dal,
+                "create_message_log_no_commit",
+                AsyncMock(),
+            ) as log,
+            patch.object(users_actions, "_invalidate_after_admin_user_mutation", AsyncMock()),
+        ):
+            response = await admin_users.admin_user_premium_override_route(request)
+
+        self.assertEqual(response.status, 502)
+        self.assertEqual(json.loads(response.text)["error"], "panel_update_failed")
+        self.assertTrue(session.rolled_back)
+        self.assertFalse(session.committed)
+        log.assert_not_awaited()
 
 
 if __name__ == "__main__":

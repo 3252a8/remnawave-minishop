@@ -476,6 +476,59 @@ export function createBillingStore({
     }
   }
 
+  function notifyPaymentPlansViewed(
+    tariffMode: boolean,
+    singleTariffMode: boolean,
+    tariffCatalog: TariffView[],
+    subscription: SubscriptionView,
+    plans: PlanView[],
+    options: WebappRecord = {}
+  ): void {
+    const catalog = tariffCatalog || [];
+    const planList = plans || [];
+    const preferredTariffKey = String(options?.preferredTariffKey || "").trim();
+    const preferredTariff = preferredTariffKey
+      ? catalog.find((tariff) => tariff.key === preferredTariffKey)
+      : null;
+    const fallbackTariff =
+      catalog.find((tariff) => tariff.is_default) ||
+      catalog.find((tariff) => tariff.key === "standard") ||
+      catalog[0] ||
+      null;
+    let tariffKey = "";
+
+    if (tariffMode) {
+      if (preferredTariff?.key) {
+        tariffKey = String(preferredTariff.key);
+      } else if (options?.selectDefaultTariff && fallbackTariff?.key) {
+        tariffKey = String(fallbackTariff.key);
+      } else if (singleTariffMode && catalog[0]?.key) {
+        tariffKey = String(catalog[0].key);
+      } else if (
+        subscription?.active &&
+        subscription?.tariff_key &&
+        catalog.some((tariff) => tariff.key === subscription.tariff_key)
+      ) {
+        tariffKey = String(subscription.tariff_key);
+      }
+    }
+
+    const plansCount = tariffKey
+      ? planList.filter((plan) => plan?.tariff_key === tariffKey).length || 1
+      : tariffMode
+        ? catalog.length || planList.length
+        : planList.length;
+
+    void billing
+      .notifyPlansViewed({
+        plans_count: Math.max(0, plansCount),
+        tariff_key: tariffKey || null,
+      })
+      .catch((_error) => {
+        void _error;
+      });
+  }
+
   function openPaymentModal(
     tariffMode: boolean,
     singleTariffMode: boolean,
@@ -485,6 +538,14 @@ export function createBillingStore({
     defaultMethod = "",
     options: WebappRecord = {}
   ) {
+    notifyPaymentPlansViewed(
+      tariffMode,
+      singleTariffMode,
+      tariffCatalog,
+      subscription,
+      plans,
+      options
+    );
     updateState((s) => {
       let step: string;
       let plan = s.selectedPlan;

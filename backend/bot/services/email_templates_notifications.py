@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -91,6 +92,62 @@ def render_user_notification(
                 ),
             ]
         )
+    return _email_content(subject=final_subject, text="\n".join(text_lines), layout=rendered)
+
+
+def render_broadcast_email(
+    settings: Settings,
+    *,
+    language_code: str | None,
+    subject: str,
+    message_text: str,
+    buttons: Sequence[tuple[str, str]] = (),
+    i18n: JsonI18n | None = None,
+) -> EmailContent:
+    """Render an admin broadcast as an email with optional CTA link buttons.
+
+    ``buttons`` are ``(label, url)`` pairs; each renders as a full-width CTA
+    block so the email mirrors the Telegram inline keyboard of the same
+    broadcast.
+    """
+    i18n = _resolve_i18n(i18n)
+    lang = _normalize_lang(language_code, settings)
+    accent = _theme_accent(settings)
+    brand = _brand_title(settings)
+    final_subject = (subject or "").strip() or _t_text(
+        i18n, lang, "email_broadcast_default_subject"
+    )
+    intro = _t_text(i18n, lang, "email_broadcast_intro", brand=brand)
+    footer = _t_html(i18n, lang, "email_footer_auto", brand=brand)
+
+    message_html = (
+        f'<div style="margin:0 0 16px 0;background:{_BG};border:1px solid {_BORDER};'
+        f"border-radius:14px;padding:14px 16px;font-size:14px;line-height:1.55;color:{_TEXT};"
+        f'white-space:pre-wrap;">{_telegram_html_to_email_html(message_text)}</div>'
+    )
+    body_parts = [message_html]
+    for label, url in buttons:
+        safe_url = (url or "").strip()
+        if not safe_url:
+            continue
+        body_parts.append(_cta_button_html(label=label, url=safe_url, accent=accent))
+
+    rendered = _layout(
+        settings=settings,
+        language_code=lang,
+        preheader=final_subject,
+        heading=final_subject,
+        intro_html=html.escape(intro),
+        body_html="".join(body_parts),
+        footer_html=footer,
+        accent=accent,
+    )
+    text_lines = [final_subject, "", _telegram_html_to_text(message_text)]
+    for label, url in buttons:
+        safe_url = (url or "").strip()
+        if not safe_url:
+            continue
+        text_lines.extend(["", f"{label}: {safe_url}"])
     return _email_content(subject=final_subject, text="\n".join(text_lines), layout=rendered)
 
 

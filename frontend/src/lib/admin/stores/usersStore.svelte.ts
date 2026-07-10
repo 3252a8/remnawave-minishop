@@ -5,6 +5,7 @@ import { withRoutePrefix } from "../../webapp/routes.js";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
 import { defineRawStateProperty } from "./rawStateProperty";
 import { AdminUsersError, createUsersStoreQueries } from "./usersStoreQueries";
+import { createUsersStoreSquadOverrideActions } from "./usersStoreSquadOverrides";
 import {
   buildAdminUserActionPath,
   buildAdminUserPath,
@@ -152,9 +153,11 @@ export function createUsersStore({
     const hwidLimitDraft =
       hasHwidLimit && hwidLimit !== null && hwidLimit > 0 ? String(hwidLimit) : "";
     const tariffKey = String(sub?.tariff_key || "");
+    const trafficStrategy = String(sub?.traffic_limit_strategy || "NO_RESET").trim() || "NO_RESET";
 
     return {
       tariffKey,
+      trafficStrategy,
       premiumUnlimited: Boolean(sub?.premium_unlimited_override),
       premiumBonusGb: bonusGb,
       regularUnlimited: Boolean(sub?.regular_unlimited_override),
@@ -172,10 +175,12 @@ export function createUsersStore({
     const {
       resetExtendTariff = true,
       resetTariffAction = true,
+      resetTrafficStrategy = true,
       resetPremium = true,
       resetRegular = true,
       resetHwid = true,
       resetGrant = true,
+      resetSquadOverrides = true,
     } = options;
     const sub = res.active_subscription || null;
     const draft = _draftStateFromSubscription(sub);
@@ -191,6 +196,10 @@ export function createUsersStore({
     if (resetTariffAction) {
       next.userTariffActionKey = draft.tariffKey;
       next.userTariffActionBaselineKey = draft.tariffKey;
+    }
+    if (resetTrafficStrategy) {
+      next.trafficStrategyDraft = draft.trafficStrategy;
+      next.trafficStrategyBaseline = draft.trafficStrategy;
     }
     if (resetPremium) {
       next.premiumUnlimitedDraft = draft.premiumUnlimited;
@@ -213,6 +222,16 @@ export function createUsersStore({
     if (resetGrant) {
       next.grantTrafficGbDraft = "";
       next.grantTrafficKindDraft = "regular";
+    }
+    if (resetSquadOverrides) {
+      const panelOverrides = res.panel_squad_overrides || null;
+      const external = panelOverrides?.external || null;
+      const mode = String(external?.mode || "inherit");
+      next.userSquadOverrideDraft = "";
+      next.userExternalSquadModeDraft = mode === "set" || mode === "cleared" ? mode : "inherit";
+      next.userExternalSquadUuidDraft = String(
+        external?.manual_uuid || (mode === "set" ? external?.effective_uuid || "" : "") || ""
+      );
     }
 
     return next;
@@ -591,6 +610,7 @@ export function createUsersStore({
         extend_hwid_devices: Boolean(s.userExtendHwidDevices),
       };
       if (s.userExtendTariffKey) body.tariff_key = s.userExtendTariffKey;
+      if (s.userApplyTariffHwidLimit) body.apply_tariff_hwid_limit = true;
       const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "extend"), {
         method: "POST",
         body: JSON.stringify(body),
@@ -599,6 +619,7 @@ export function createUsersStore({
         invalidateUsersQueries(s.openedUser.user_id);
         onToast(at("subscription_extended", { days }, `Продлено на ${days} д.`));
         await refreshOpenedUserDetail({
+          resetTrafficStrategy: false,
           resetPremium: false,
           resetRegular: false,
           resetHwid: false,
@@ -606,7 +627,11 @@ export function createUsersStore({
         });
       } else onToast(adminErrorMessage(res, at));
     } finally {
-      applyState((st) => ({ ...st, userActionBusy: false }));
+      applyState((st) => ({
+        ...st,
+        userActionBusy: false,
+        userApplyTariffHwidLimit: false,
+      }));
     }
   }
 
@@ -617,7 +642,10 @@ export function createUsersStore({
     try {
       const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "tariff"), {
         method: "POST",
-        body: JSON.stringify({ tariff_key: s.userTariffActionKey }),
+        body: JSON.stringify({
+          tariff_key: s.userTariffActionKey,
+          apply_tariff_hwid_limit: Boolean(s.userApplyTariffHwidLimit),
+        }),
       });
       if (res?.ok) {
         invalidateUsersQueries(s.openedUser.user_id);
@@ -633,7 +661,12 @@ export function createUsersStore({
         onToast(adminErrorMessage(res, at));
       }
     } finally {
-      applyState((st) => ({ ...st, userActionBusy: false }));
+      applyState((st) => ({
+        ...st,
+        userActionBusy: false,
+        userApplyTariffHwidLimit: false,
+        userTariffHwidConfirmOpen: false,
+      }));
     }
   }
 
@@ -651,6 +684,7 @@ export function createUsersStore({
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
           resetTariffAction: false,
+          resetTrafficStrategy: false,
           resetPremium: false,
           resetRegular: false,
           resetHwid: false,
@@ -690,6 +724,7 @@ export function createUsersStore({
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
           resetTariffAction: false,
+          resetTrafficStrategy: false,
           resetRegular: false,
           resetHwid: false,
           resetGrant: false,
@@ -732,7 +767,40 @@ export function createUsersStore({
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
           resetTariffAction: false,
+          resetTrafficStrategy: false,
           resetPremium: false,
+          resetHwid: false,
+          resetGrant: false,
+        });
+      } else {
+        onToast(adminErrorMessage(res, at));
+      }
+    } finally {
+      applyState((st) => ({ ...st, userActionBusy: false }));
+    }
+  }
+
+  async function saveTrafficStrategy() {
+    const s = readStateSnapshot();
+    if (!s.openedUser) return;
+    const trafficLimitStrategy = String(s.trafficStrategyDraft || "")
+      .trim()
+      .toUpperCase();
+    if (!trafficLimitStrategy) return;
+    applyState((st) => ({ ...st, userActionBusy: true }));
+    try {
+      const res = await api(buildAdminUserActionPath(s.openedUser.user_id, "traffic-strategy"), {
+        method: "POST",
+        body: JSON.stringify({ traffic_limit_strategy: trafficLimitStrategy }),
+      });
+      if (res?.ok) {
+        invalidateUsersQueries(s.openedUser.user_id);
+        onToast(at("user_traffic_strategy_saved", {}, "Стратегия сброса сохранена"));
+        await refreshOpenedUserDetail({
+          resetExtendTariff: false,
+          resetTariffAction: false,
+          resetPremium: false,
+          resetRegular: false,
           resetHwid: false,
           resetGrant: false,
         });
@@ -780,6 +848,7 @@ export function createUsersStore({
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
           resetTariffAction: false,
+          resetTrafficStrategy: false,
           resetPremium: false,
           resetRegular: false,
           resetGrant: false,
@@ -829,6 +898,7 @@ export function createUsersStore({
         await refreshOpenedUserDetail({
           resetExtendTariff: false,
           resetTariffAction: false,
+          resetTrafficStrategy: false,
           resetPremium: false,
           resetRegular: false,
           resetHwid: false,
@@ -867,6 +937,15 @@ export function createUsersStore({
     assignState(updates);
   }
 
+  const squadOverrideActions = createUsersStoreSquadOverrideActions({
+    api,
+    onToast,
+    at,
+    readStateSnapshot,
+    applyState,
+    invalidateUsersQueries,
+  });
+
   return Object.assign(store, {
     updateState,
     setActive,
@@ -886,8 +965,10 @@ export function createUsersStore({
     deleteUser,
     savePremiumTrafficOverride,
     saveRegularTrafficOverride,
+    saveTrafficStrategy,
     saveHwidDeviceLimit,
     grantTraffic,
+    ...squadOverrideActions,
     loadUserLogs,
     setUserLogsPage,
     openUserReferrals,

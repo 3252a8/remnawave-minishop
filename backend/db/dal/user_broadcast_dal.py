@@ -25,6 +25,78 @@ async def count_all_active_users_for_broadcast(session: AsyncSession) -> int:
     return int(result.scalar_one() or 0)
 
 
+async def get_email_recipients_for_broadcast(
+    session: AsyncSession,
+    user_ids: list[int],
+    *,
+    chunk_size: int = 900,
+) -> list[tuple[int, str, str | None]]:
+    """Return ``(user_id, email, language_code)`` for the given users with an email set.
+
+    The audience id list can be large, so the ``IN`` lookup is chunked.
+    """
+    recipients: list[tuple[int, str, str | None]] = []
+    for start in range(0, len(user_ids), chunk_size):
+        chunk = user_ids[start : start + chunk_size]
+        stmt = select(User.user_id, User.email, User.language_code).where(
+            User.user_id.in_(chunk),
+            User.is_banned == False,
+            User.email.is_not(None),
+            User.email != "",
+        )
+        result = await session.execute(stmt)
+        recipients.extend(
+            (int(user_id), str(email), language_code)
+            for user_id, email, language_code in result.all()
+        )
+    return recipients
+
+
+async def get_telegram_recipients_for_broadcast(
+    session: AsyncSession,
+    user_ids: list[int],
+    *,
+    chunk_size: int = 900,
+) -> list[tuple[int, int]]:
+    """Return ``(user_id, telegram_chat_id)`` for Telegram broadcast delivery.
+
+    Linked email-first accounts can have a local ``user_id`` that differs from
+    the Telegram chat id. Positive ids without a local row are kept as a
+    fallback for admin test broadcasts that target raw Telegram ids.
+    """
+    if not user_ids:
+        return []
+
+    normalized_user_ids = [int(user_id) for user_id in dict.fromkeys(user_ids)]
+    chat_ids_by_user_id: dict[int, int] = {}
+    found_user_ids: set[int] = set()
+    for start in range(0, len(normalized_user_ids), chunk_size):
+        chunk = normalized_user_ids[start : start + chunk_size]
+        stmt = select(User.user_id, User.telegram_id).where(
+            User.user_id.in_(chunk),
+            User.is_banned == False,
+        )
+        result = await session.execute(stmt)
+        for user_id, telegram_id in result.all():
+            local_user_id = int(user_id)
+            found_user_ids.add(local_user_id)
+            chat_id = int(telegram_id or local_user_id)
+            if chat_id > 0:
+                chat_ids_by_user_id[local_user_id] = chat_id
+
+    recipients: list[tuple[int, int]] = []
+    seen_chat_ids: set[int] = set()
+    for user_id in normalized_user_ids:
+        chat_id = chat_ids_by_user_id.get(user_id)
+        if chat_id is None and user_id not in found_user_ids and user_id > 0:
+            chat_id = user_id
+        if chat_id is None or chat_id in seen_chat_ids:
+            continue
+        recipients.append((user_id, chat_id))
+        seen_chat_ids.add(chat_id)
+    return recipients
+
+
 async def get_all_users_with_panel_uuid(session: AsyncSession) -> list[User]:
     stmt = select(User).where(User.panel_user_uuid.is_not(None))
     result = await session.execute(stmt)

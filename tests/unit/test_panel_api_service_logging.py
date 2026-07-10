@@ -274,6 +274,33 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIsNone(result["user"])
                 self.assertIn("classification=confirmed_not_found", result["failure_reason"])
 
+    async def test_delete_user_from_panel_treats_plain_404_as_already_deleted(self):
+        service = self._make_service()
+        service._request = AsyncMock(
+            return_value={
+                "error": True,
+                "status_code": 404,
+                "details": {"message": "Request failed with status 404"},
+            }
+        )
+
+        with (
+            patch.object(service, "_invalidate_user_cache", AsyncMock()) as invalidate_user,
+            patch.object(service, "_invalidate_devices_cache", AsyncMock()) as invalidate_devices,
+            patch.object(service, "_invalidate_all_users_cache", AsyncMock()) as invalidate_all,
+        ):
+            result = await service.delete_user_from_panel("missing-user")
+
+        self.assertTrue(result)
+        service._request.assert_awaited_once_with(
+            "DELETE",
+            "/users/missing-user",
+            log_full_response=False,
+        )
+        invalidate_user.assert_awaited_once_with("missing-user")
+        invalidate_devices.assert_awaited_once_with("missing-user")
+        invalidate_all.assert_awaited_once_with()
+
     async def test_get_user_devices_uses_short_ttl_cache_and_disconnect_invalidates(self):
         service = self._make_service()
         service._request = AsyncMock(return_value={"response": [{"hwid": "device-1"}]})

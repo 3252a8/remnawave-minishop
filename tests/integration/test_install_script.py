@@ -87,11 +87,22 @@ def test_shell_installer_installs_compose_and_explains_bind_errors():
     assert "compose-last-error.log" in script
 
 
+def test_shell_installer_prints_migrate_logs_after_compose_failure():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "didn't complete successfully" in script
+    assert "Сервис migrate завершился с ошибкой" in script
+    assert "compose logs --tail 120 migrate" in script
+
+
 def test_deployment_docs_explain_install_wizard_prompts():
     docs = (REPO_ROOT / "docs" / "getting-started" / "deployment.md").read_text(encoding="utf-8")
 
     assert "### Что спрашивает install wizard" in docs
     assert "`HTTP_BIND` / `HTTPS_BIND`" in docs
+    assert "`FRONTEND_BACKEND_MODE`" in docs
+    assert "split-protected-upstream" in docs
+    assert "Rathole" in docs
     assert "с одним IP без порта некорректно" in docs
     assert "Docker Compose не найден" in docs
     assert ".installer/compose-last-error.log" in docs
@@ -123,6 +134,50 @@ def test_shell_installer_supports_egames_reverse_proxy_profile():
     assert "egames_container_has_routes" in script
     assert 'docker restart "$nginx_container" >/dev/null' in script
     assert 'docker exec "$nginx_container" nginx -s reload' in script
+
+
+def test_shell_installer_attaches_to_existing_nginx_or_caddy_containers():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "configure_existing_reverse_proxy" in script
+    assert "attach_existing_reverse_proxy_container" in script
+    assert "list_running_proxy_containers" in script
+    assert "proxy_container_kind" in script
+    assert "container_uses_host_network" in script
+    assert "container_mount_source" in script
+    assert "ensure_target_network_exists" in script
+    assert "connect_proxy_to_target_network" in script
+    assert "Другой запущенный Nginx или Caddy" in script
+    # Bridge-network proxies resolve compose service names dynamically.
+    assert "resolver 127.0.0.11" in script
+    assert "http://backend:8080" in script
+    assert "http://frontend:80" in script
+    # Config changes are validated and rolled back on failure.
+    assert 'docker exec "$1" nginx -t' in script
+    assert "caddy validate --config" in script
+    assert "caddy reload --config" in script
+    assert "strip_managed_block" in script
+    assert "remnawave-minishop.conf" in script
+
+
+def test_shell_installer_can_toggle_pangolin_newt_publication():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "docker-compose.pangolin.yml" in script
+    assert "write_pangolin_compose_file" in script
+    assert "enable_pangolin_compose_file" in script
+    assert "disable_pangolin_compose_file" in script
+    assert "pangolin_connect_in_target" in script
+    assert "pangolin_disconnect_in_target" in script
+    assert "offer_pangolin_connect_after_install" in script
+    assert "Подключить Web App к Pangolin (Newt)." in script
+    assert "Отключить Web App от Pangolin (Newt)." in script
+    assert "COMPOSE_FILE" in script
+    assert "unset_env_file_value" in script
+    assert "rm -sf newt" in script
+    assert "fosrl/newt:latest" in script
+    # Disconnect keeps credentials for an easy reconnect.
+    assert "оставлены в .env для быстрого повторного подключения" in script
 
 
 def test_shell_installer_checks_dns_and_can_prepare_nginx_certificates():
@@ -192,6 +247,32 @@ def test_deployment_examples_scope_named_volumes_to_compose_project():
         assert "name: remnawave-minishop-redis-data" not in compose
 
 
+def test_postgres_healthchecks_validate_configured_credentials():
+    compose_paths = [REPO_ROOT / "docker-compose.yml"] + [
+        REPO_ROOT / "deploy" / "examples" / profile / "docker-compose.yml"
+        for profile in ("caddy", "nginx", "newt", "no-proxy")
+    ]
+
+    for path in compose_paths:
+        compose = path.read_text(encoding="utf-8")
+        assert "PGPASSWORD=" in compose
+        assert "$$POSTGRES_PASSWORD" in compose
+        assert "psql -h 127.0.0.1" in compose
+        assert "pg_isready -U $$POSTGRES_USER" not in compose
+
+
+def test_shell_installer_guards_existing_postgres_volume_password_drift():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "preflight_existing_postgres_volume" in script
+    assert "Найден существующий Docker volume PostgreSQL" in script
+    assert "PostgreSQL принимает логин/пароль из .env" in script
+    assert "InvalidPasswordError|password authentication failed" in script
+    assert "Удалить volume $volume и начать с пустой БД" in script
+    assert 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1' in script
+    assert 'pg_isready -U "$POSTGRES_USER"' not in script
+
+
 def test_shell_installer_refreshes_importer_without_prompting_inside_command_substitution():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
@@ -204,19 +285,59 @@ def test_shell_installer_connects_local_remnashop_db_container_for_import():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
     assert "connect_local_source_db_to_target_network" in script
+    assert "target_network_name()" in script
     assert "dsn_hostname" in script
     assert "docker network connect" in script
-    assert "_remnawave-shop" in script
+    assert 'target_network="$(target_network_name)"' in script
 
 
-def test_shell_installer_supports_legacy_tgshop_volume_and_dsn_paths():
+def test_shell_installer_supports_split_frontend_backend_modes():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    for key in (
+        "FRONTEND_BACKEND_MODE",
+        "INSTALL_NODE_ROLE",
+        "WEBAPP_BACKEND_UPSTREAM",
+        "WEBAPP_BACKEND_UPSTREAM_HOST",
+        "MINISHOP_EDGE_TOKEN",
+        "MINISHOP_EDGE_TOKEN_HEADER",
+        "WEBAPP_SERVER_BIND",
+        "RATHOLE_IMAGE",
+        "RATHOLE_CONTROL_BIND",
+        "RATHOLE_CONTROL_REMOTE",
+        "RATHOLE_SERVICE_TOKEN",
+        "RATHOLE_SERVICE_PORT",
+    ):
+        assert key in script
+    assert "prompt_frontend_node_env" in script
+    assert "choose_install_node_role" in script
+    assert "deploy/examples/split-protected-upstream/.env.frontend.example" in script
+    assert "deploy/examples/split-protected-upstream/.env.backend.example" in script
+    assert (
+        'cp "$TARGET_DIR/rathole/rathole.server.toml" "$TARGET_DIR/rathole.server.toml"' in script
+    )
+    assert "Как frontend будет обращаться к backend WebApp API?" in script
+    assert "Защищенный backend upstream" in script
+    assert "Приватный tunnel Rathole" in script
+    assert "Rathole TOML сохранены" in script
+
+
+def test_shell_installer_migrates_legacy_tgshop_through_dsn_restore():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
     assert "Старый remnawave-tg-shop" in script or "старого remnawave-tg-shop" in script
-    assert "remnawave-tg-shop-db-data" in script
-    assert "remnawave-minishop-db-data" in script
+    assert "detect_tgshop_source_dsn" in script
+    assert "LEGACY_TGSHOP_DB_CONTAINER" in script
+    assert "create_tgshop_source_backup" in script
+    assert "pre-remnawave-tg-shop-source" in script
+    assert "reset_target_postgres_volume" in script
+    assert 'docker volume rm "$volume"' in script
+    assert "копирования raw PostgreSQL volume" in script
     assert "pg_dump --clean --if-exists" in script
+    assert 'psql "$TARGET_DSN" -v ON_ERROR_STOP=1' in script
     assert "run_compose_checked run --rm migrate" in script
+    assert "run_tgshop_volume_migration" not in script
+    assert "copy_volume_if_safe" not in script
 
 
 def test_shell_installer_only_prepares_data_mount_not_runtime_content():

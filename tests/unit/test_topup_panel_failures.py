@@ -21,6 +21,7 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
+from bot.handlers.user.subscription import core_topup
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
@@ -409,6 +410,37 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["tariff_key"], "premium")
         self.assertEqual(deactivate_other.await_args.args[1:], ("panel-uuid", "panel-sub"))
         create_change.assert_awaited_once()
+
+
+class TariffChangeCallbackTransactionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_callback_rolls_back_when_switch_returns_none(self):
+        callback = SimpleNamespace(
+            data="tariff_change:apply:premium:recalc_days",
+            from_user=SimpleNamespace(id=42),
+            answer=AsyncMock(),
+        )
+        session = AsyncMock()
+        subscription_service = SimpleNamespace(
+            switch_tariff_without_payment=AsyncMock(return_value=None)
+        )
+
+        await core_topup.tariff_change_apply_callback(
+            callback,
+            {},
+            SimpleNamespace(DEFAULT_LANGUAGE="en"),
+            subscription_service,
+            session,
+        )
+
+        subscription_service.switch_tariff_without_payment.assert_awaited_once_with(
+            session,
+            42,
+            "premium",
+            "recalc_days",
+        )
+        session.rollback.assert_awaited_once()
+        session.commit.assert_not_awaited()
+        callback.answer.assert_awaited_once_with("Error", show_alert=True)
 
 
 if __name__ == "__main__":  # pragma: no cover

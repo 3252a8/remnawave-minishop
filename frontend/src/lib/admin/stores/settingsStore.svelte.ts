@@ -57,6 +57,10 @@ export type SettingField = {
   mutually_exclusive_key?: string;
   group?: string;
   display_group?: string;
+  provider_id?: string;
+  provider_info_url?: string;
+  provider_label?: string;
+  provider_logo_url?: string;
 };
 export type SettingsFieldGroup = {
   id: string;

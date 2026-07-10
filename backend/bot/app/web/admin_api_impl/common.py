@@ -1,6 +1,5 @@
 import contextlib
 import json
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
@@ -8,8 +7,10 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 from aiohttp import web
 
 from bot.app.web.response_helpers import json_response
+from bot.services import panel_activity as _panel_activity
 from config.settings import Settings
 from config.tariffs_config import TariffsConfig
+from config.traffic_strategy import normalize_traffic_limit_strategy
 from db.models import AdCampaign, MessageLog, Payment, PromoCode, Subscription, User
 
 from .schemas import AdminSubscriptionOut, AdminUserOut, AdOut, LogOut, PaymentOut, PromoOut
@@ -42,173 +43,12 @@ def _error_payload(
     return json_response(body, status=status)
 
 
-_PANEL_LAST_CONNECTED_KEYS = (
-    "onlineAt",
-    "online_at",
-    "lastSeenAt",
-    "last_seen_at",
-    "lastConnectedAt",
-    "last_connected_at",
-    "lastConnectionAt",
-    "last_connection_at",
-)
-_PANEL_CONNECTION_MARKER_KEYS = (
-    *_PANEL_LAST_CONNECTED_KEYS,
-    "firstConnectedAt",
-    "first_connected_at",
-    "lastConnectedNodeUuid",
-    "last_connected_node_uuid",
-)
-_PANEL_CONNECTION_MARKER_OBJECT_KEYS = ("lastConnectedNode", "last_connected_node")
-_PANEL_TRAFFIC_OBJECT_KEYS = ("userTraffic", "user_traffic", "traffic", "trafficStats")
-_PANEL_TRAFFIC_USED_KEYS = (
-    "lifetimeUsedTrafficBytes",
-    "lifetime_used_traffic_bytes",
-    "usedTrafficBytes",
-    "used_traffic_bytes",
-    "trafficUsedBytes",
-    "traffic_used_bytes",
-    "downloadBytes",
-    "download_bytes",
-    "uploadBytes",
-    "upload_bytes",
-)
-
-
-def _panel_user_payload(panel_user_data: Any) -> dict[str, Any]:
-    if not isinstance(panel_user_data, dict):
-        return {}
-    response = panel_user_data.get("response")
-    if isinstance(response, dict) and not any(
-        key in panel_user_data
-        for key in ("uuid", "shortUuid", "subscriptionUrl", "userTraffic", "status")
-    ):
-        return response
-    return panel_user_data
-
-
-def _coerce_panel_datetime(value: Any) -> str | None:
-    if value is None or value is False:
-        return None
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if isinstance(value, (int, float)):
-        if value <= 0:
-            return None
-        seconds = float(value) / 1000.0 if value > 10_000_000_000 else float(value)
-        try:
-            return datetime.fromtimestamp(seconds, tz=UTC).isoformat()
-        except (OSError, OverflowError, ValueError):
-            return None
-    text = str(value).strip()
-    if not text or text.lower() in {"0", "null", "none", "never"}:
-        return None
-    if text.isdigit():
-        return _coerce_panel_datetime(int(text))
-    try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return parsed.isoformat()
-
-
-def _coerce_panel_int(value: Any) -> int | None:
-    try:
-        if value is None or value == "":
-            return None
-        return int(float(value))
-    except (TypeError, ValueError):
-        return None
-
-
-def _panel_nested_dicts(panel_user: dict[str, Any], keys: tuple[str, ...]) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    for key in keys:
-        value = panel_user.get(key)
-        if isinstance(value, dict):
-            out.append(value)
-    return out
-
-
-def _panel_user_connection_containers(panel_user: dict[str, Any]) -> list[dict[str, Any]]:
-    traffic_containers = _panel_nested_dicts(panel_user, _PANEL_TRAFFIC_OBJECT_KEYS)
-    marker_containers = _panel_nested_dicts(
-        panel_user,
-        _PANEL_CONNECTION_MARKER_OBJECT_KEYS,
-    )
-    for traffic_container in traffic_containers:
-        marker_containers.extend(
-            _panel_nested_dicts(traffic_container, _PANEL_CONNECTION_MARKER_OBJECT_KEYS)
-        )
-    return [panel_user, *traffic_containers, *marker_containers]
+def _panel_user_connection_activity(panel_user_data: Any) -> dict[str, Any]:
+    return _panel_activity._panel_user_connection_activity(panel_user_data)
 
 
 def _panel_user_last_connected_at(panel_user_data: Any) -> str | None:
-    panel_user = _panel_user_payload(panel_user_data)
-    if not panel_user:
-        return None
-    for container in _panel_user_connection_containers(panel_user):
-        for key in _PANEL_LAST_CONNECTED_KEYS:
-            connected_at = _coerce_panel_datetime(container.get(key))
-            if connected_at:
-                return connected_at
-    return None
-
-
-def _panel_user_positive_traffic_bytes(panel_user: dict[str, Any]) -> bool:
-    containers = [panel_user, *_panel_nested_dicts(panel_user, _PANEL_TRAFFIC_OBJECT_KEYS)]
-    for container in containers:
-        for key in _PANEL_TRAFFIC_USED_KEYS:
-            value = _coerce_panel_int(container.get(key))
-            if value is not None and value > 0:
-                return True
-    return False
-
-
-def _panel_user_has_connection_marker(panel_user: dict[str, Any]) -> bool:
-    for container in _panel_user_connection_containers(panel_user):
-        for key in _PANEL_CONNECTION_MARKER_KEYS:
-            if key in container:
-                return True
-    for container in [panel_user, *_panel_nested_dicts(panel_user, _PANEL_TRAFFIC_OBJECT_KEYS)]:
-        for key in _PANEL_CONNECTION_MARKER_OBJECT_KEYS:
-            if key in container:
-                return True
-    return False
-
-
-def _panel_user_has_connected_marker_value(panel_user: dict[str, Any]) -> bool:
-    for container in _panel_user_connection_containers(panel_user):
-        for key in (*_PANEL_LAST_CONNECTED_KEYS, "firstConnectedAt", "first_connected_at"):
-            if _coerce_panel_datetime(container.get(key)):
-                return True
-        for key in ("lastConnectedNodeUuid", "last_connected_node_uuid"):
-            if str(container.get(key) or "").strip():
-                return True
-    for container in [panel_user, *_panel_nested_dicts(panel_user, _PANEL_TRAFFIC_OBJECT_KEYS)]:
-        for key in _PANEL_CONNECTION_MARKER_OBJECT_KEYS:
-            marker = container.get(key)
-            if isinstance(marker, dict) and any(
-                str(value or "").strip() for value in marker.values()
-            ):
-                return True
-            if marker and not isinstance(marker, dict):
-                return True
-    return False
-
-
-def _panel_user_connection_activity(panel_user_data: Any) -> dict[str, Any]:
-    panel_user = _panel_user_payload(panel_user_data)
-    last_connected_at = _panel_user_last_connected_at(panel_user)
-    if not panel_user:
-        return {"status": "unknown", "last_connected_at": None}
-    if last_connected_at or _panel_user_positive_traffic_bytes(panel_user):
-        return {"status": "connected", "last_connected_at": last_connected_at}
-    if _panel_user_has_connected_marker_value(panel_user):
-        return {"status": "connected", "last_connected_at": last_connected_at}
-    if _panel_user_has_connection_marker(panel_user):
-        return {"status": "never", "last_connected_at": None}
-    return {"status": "unknown", "last_connected_at": None}
+    return _panel_activity._panel_user_last_connected_at(panel_user_data)
 
 
 def _serialize_user(user: User) -> dict[str, Any]:
@@ -268,6 +108,107 @@ def _serialize_subscription(sub: Subscription) -> dict[str, Any]:
         dict[str, Any],
         AdminSubscriptionOut.from_orm_subscription(sub).model_dump(mode="json"),
     )
+
+
+def _is_trial_subscription(sub: Subscription | Any | None) -> bool:
+    if sub is None:
+        return False
+    return bool(getattr(sub, "is_trial", False)) or (
+        str(getattr(sub, "provider", "") or "").strip().lower() == "trial"
+    )
+
+
+def _settings_bool(settings: Settings, name: str, default: bool = False) -> bool:
+    try:
+        return bool(getattr(settings, name))
+    except Exception:
+        return default
+
+
+def _admin_subscription_billing_model(
+    settings: Settings,
+    sub: Subscription | Any | None,
+) -> str | None:
+    if sub is None or _is_trial_subscription(sub):
+        return None
+
+    tariff_key = str(getattr(sub, "tariff_key", "") or "").strip()
+    if tariff_key:
+        try:
+            tariffs_config = settings.tariffs_config
+        except Exception:
+            tariffs_config = None
+        if tariffs_config is not None:
+            try:
+                tariff = tariffs_config.require(tariff_key)
+            except Exception:
+                tariff = None
+            billing_model = str(getattr(tariff, "billing_model", "") or "").strip().lower()
+            if billing_model in {"period", "traffic"}:
+                return billing_model
+        return "period"
+
+    if _settings_bool(settings, "traffic_sale_mode"):
+        return "traffic"
+    return "period"
+
+
+def _admin_subscription_traffic_strategy_fallback(
+    settings: Settings,
+    sub: Subscription | Any | None,
+) -> str:
+    if _admin_subscription_billing_model(settings, sub) == "traffic":
+        return "NO_RESET"
+    if _is_trial_subscription(sub):
+        return normalize_traffic_limit_strategy(
+            settings.TRIAL_TRAFFIC_STRATEGY,
+            default="NO_RESET",
+        )
+    return normalize_traffic_limit_strategy(
+        settings.USER_TRAFFIC_STRATEGY,
+        default="NO_RESET",
+    )
+
+
+def _admin_subscription_traffic_strategy_lock_reason(
+    settings: Settings,
+    sub: Subscription | Any | None,
+    *,
+    panel_available: bool,
+) -> str | None:
+    if sub is None:
+        return "no_active_subscription"
+    if _is_trial_subscription(sub):
+        return "trial"
+    if _admin_subscription_billing_model(settings, sub) == "traffic":
+        return "traffic_tariff"
+    if not panel_available:
+        return "panel_unavailable"
+    return None
+
+
+def _decorate_admin_subscription_traffic_strategy(
+    payload: dict[str, Any],
+    settings: Settings,
+    sub: Subscription | Any,
+    *,
+    traffic_limit_strategy: str | None = None,
+    panel_available: bool,
+) -> dict[str, Any]:
+    fallback = _admin_subscription_traffic_strategy_fallback(settings, sub)
+    lock_reason = _admin_subscription_traffic_strategy_lock_reason(
+        settings,
+        sub,
+        panel_available=panel_available,
+    )
+    payload["billing_model"] = _admin_subscription_billing_model(settings, sub)
+    payload["traffic_limit_strategy"] = normalize_traffic_limit_strategy(
+        traffic_limit_strategy or fallback,
+        default=fallback,
+    )
+    payload["traffic_strategy_editable"] = lock_reason is None
+    payload["traffic_strategy_lock_reason"] = lock_reason
+    return payload
 
 
 def _payment_traffic_gb_split(payment: Payment) -> tuple[float | None, float | None]:

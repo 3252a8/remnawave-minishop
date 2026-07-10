@@ -36,7 +36,7 @@ PROVIDER_NAMES = sorted({s.service_key.removesuffix("_service") for s in SPECS i
 # Providers whose callback/webapp flow is genuinely provider-specific and does
 # NOT use the shared link-flow engine. Each value documents the divergence.
 LINKFLOW_BESPOKE = {
-    "cryptopay": "aiocryptopay invoice flow, not a hosted-link redirect",
+    "cryptopay": "Crypto Pay invoice flow, not a hosted-link redirect",
     "qa": "local signed webhook fixture for full-stack QA, not a real hosted provider",
     "stars": "Telegram Stars in-app invoice; no external payment link or webhook",
     "stripe": "card PaymentIntent / saved-card recurring, not a hosted-link redirect",
@@ -65,6 +65,7 @@ WEBHOOK_PROFILES = {
         "freekassa",
         "heleket",
         "lava",
+        "overpay",
         "pally",
         "paykilla",
         "platega",

@@ -16,6 +16,7 @@ from bot.infra.redis import redis_lock
 from bot.keyboards.inline.user_keyboards import get_subscribe_only_markup
 from bot.middlewares.i18n import JsonI18n
 from bot.services.message_audit import log_user_message_delivery
+from bot.services.panel_activity import record_subscription_panel_activity
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_lifecycle_notifications import (
     SubscriptionLifecycleNotificationService,
@@ -110,8 +111,7 @@ class SubscriptionNotificationWorker:
         )
 
     async def expiry_tick(self, session: AsyncSession) -> None:
-        if not getattr(self.settings, "SUBSCRIPTION_NOTIFICATIONS_ENABLED", True):
-            return
+        delivery_enabled = bool(getattr(self.settings, "SUBSCRIPTION_NOTIFICATIONS_ENABLED", True))
         now = datetime.now(UTC)
         lower = now - EXPIRED_AFTER_NOTIFICATION_WINDOW
         upper = now + self._max_before_window()
@@ -132,8 +132,14 @@ class SubscriptionNotificationWorker:
             now=now,
         )
         for sub in subs:
-            stage = self.stage_for_subscription(sub, now)
-            if stage is None:
+            delivery_stage = self.stage_for_subscription(sub, now)
+            event_stage = self.stage_for_subscription(
+                sub,
+                now,
+                respect_delivery_flags=False,
+            )
+            stage_for_log = delivery_stage or event_stage
+            if stage_for_log is None:
                 continue
             # A renewal can land in a separate subscription row (e.g. the panel
             # user was recreated, or the old row was deactivated). The stale,
@@ -143,30 +149,19 @@ class SubscriptionNotificationWorker:
                 logger.info(
                     "Skipping %s notification for subscription %s: user %s is already "
                     "covered by a newer active subscription.",
-                    stage.key,
+                    stage_for_log.key,
                     getattr(sub, "subscription_id", None),
                     getattr(sub, "user_id", None),
                 )
                 continue
-            delivery = await self.lifecycle_notifications.send_stage(
-                session,
-                sub,
-                stage,
-                sent_at=now,
-            )
-            if delivery.any_sent and stage.key in {"expired", "expired_24h_after"}:
-                payload_cls = (
-                    SubscriptionExpiredPayload
-                    if stage.key == "expired"
-                    else SubscriptionLapsedPayload
-                )
-                await events.emit_model(
-                    payload_cls(
-                        user_id=int(getattr(sub, "user_id", 0) or 0),
-                        subscription_id=getattr(sub, "subscription_id", None),
-                        tariff_key=getattr(sub, "tariff_key", None),
-                        end_date=self._as_utc(getattr(sub, "end_date", None)),
-                    )
+            if event_stage is not None:
+                await self._emit_expiry_event_once(session, sub, event_stage, now)
+            if delivery_enabled and delivery_stage is not None:
+                await self.lifecycle_notifications.send_stage(
+                    session,
+                    sub,
+                    delivery_stage,
+                    sent_at=now,
                 )
 
     def _superseded_by_active_subscription(
@@ -187,10 +182,53 @@ class SubscriptionNotificationWorker:
         threshold = sub_end if sub_end is not None else now
         return covered_until is not None and covered_until > threshold
 
+    def _should_suppress_early_expiry_stage(
+        self,
+        sub: Subscription,
+        end_date: datetime,
+    ) -> bool:
+        if not bool(getattr(sub, "suppress_early_expiry_notifications", False)):
+            return False
+
+        max_before_window = self._max_before_window()
+        if max_before_window <= timedelta(0):
+            return False
+
+        start_date = self._as_utc(getattr(sub, "start_date", None))
+        if start_date is not None and end_date > start_date:
+            # Keep the suppression only when the whole grant is shorter than
+            # the early reminder window. Once a trial/bonus row is extended
+            # into a normal-length subscription, the worker becomes the safety
+            # net for 3d/2d/1d reminders.
+            return (end_date - start_date) <= max_before_window + timedelta(hours=1)
+
+        duration_months = getattr(sub, "duration_months", None)
+        try:
+            if duration_months is not None and int(duration_months) > 0:
+                return False
+        except (TypeError, ValueError):
+            pass
+
+        tariff_key = str(getattr(sub, "tariff_key", "") or "").strip()
+        if tariff_key:
+            return False
+
+        provider = str(getattr(sub, "provider", "") or "").strip().lower()
+        status = str(getattr(sub, "status_from_panel", "") or "").strip().upper()
+        if provider == "trial" or status in {"TRIAL", "ACTIVE_BONUS"}:
+            return True
+
+        try:
+            return duration_months is not None and int(duration_months) == 0
+        except (TypeError, ValueError):
+            return False
+
     def stage_for_subscription(
         self,
         sub: Subscription,
         now: datetime,
+        *,
+        respect_delivery_flags: bool = True,
     ) -> SubscriptionNotificationStage | None:
         end_date = self._as_utc(getattr(sub, "end_date", None))
         if end_date is None:
@@ -206,13 +244,12 @@ class SubscriptionNotificationWorker:
                     hours_before=hours_before,
                 )
 
-            # Trial and registration/referral-bonus subscriptions last only a
-            # few days, so a multi-day "ending soon" reminder would fire almost
-            # the moment they are granted and needlessly alarm newcomers. Skip
-            # the day-before stages for them — they still get the hours-before
-            # reminder above and the expiry/after-expiry notices below. Paying
-            # for a real subscription clears the flag and restores all stages.
-            if bool(getattr(sub, "suppress_early_expiry_notifications", False)):
+            # Trial and registration/referral-bonus subscriptions can be very
+            # short, so a multi-day reminder would fire almost immediately.
+            # Treat the flag as a guard for short periods only; long or later
+            # extended rows must still get the local fallback reminders when
+            # panel webhooks are delayed or missing.
+            if self._should_suppress_early_expiry_stage(sub, end_date):
                 return None
 
             days_before_limit = max(
@@ -237,24 +274,61 @@ class SubscriptionNotificationWorker:
 
         expired_for = now - end_date
         if (
-            getattr(self.settings, "SUBSCRIPTION_NOTIFY_ON_EXPIRE", True)
-            and expired_for <= EXPIRED_NOTIFICATION_WINDOW
-        ):
+            not respect_delivery_flags
+            or getattr(self.settings, "SUBSCRIPTION_NOTIFY_ON_EXPIRE", True)
+        ) and expired_for <= EXPIRED_NOTIFICATION_WINDOW:
             return SubscriptionNotificationStage(
                 key="expired",
                 message_key="subscription_expired_notification",
                 days_left=0,
             )
         if (
-            getattr(self.settings, "SUBSCRIPTION_NOTIFY_AFTER_EXPIRE", True)
-            and EXPIRED_NOTIFICATION_WINDOW < expired_for <= EXPIRED_AFTER_NOTIFICATION_WINDOW
-        ):
+            not respect_delivery_flags
+            or getattr(self.settings, "SUBSCRIPTION_NOTIFY_AFTER_EXPIRE", True)
+        ) and EXPIRED_NOTIFICATION_WINDOW < expired_for <= EXPIRED_AFTER_NOTIFICATION_WINDOW:
             return SubscriptionNotificationStage(
                 key="expired_24h_after",
                 message_key="subscription_expired_yesterday_notification",
                 days_left=0,
             )
         return None
+
+    async def _emit_expiry_event_once(
+        self,
+        session: AsyncSession,
+        sub: Subscription,
+        stage: SubscriptionNotificationStage,
+        sent_at: datetime,
+    ) -> None:
+        if stage.key not in {"expired", "expired_24h_after"}:
+            return
+        subscription_id = getattr(sub, "subscription_id", None)
+        if subscription_id is None:
+            return
+        notification_key = f"{stage.key}:event"
+        if await subscription_dal.has_subscription_notification(
+            session,
+            int(subscription_id),
+            notification_key,
+        ):
+            return
+        await subscription_dal.record_subscription_notification(
+            session,
+            int(subscription_id),
+            notification_key,
+            sent_at=sent_at,
+        )
+        payload_cls = (
+            SubscriptionExpiredPayload if stage.key == "expired" else SubscriptionLapsedPayload
+        )
+        await events.emit_model(
+            payload_cls(
+                user_id=int(getattr(sub, "user_id", 0) or 0),
+                subscription_id=subscription_id,
+                tariff_key=getattr(sub, "tariff_key", None),
+                end_date=self._as_utc(getattr(sub, "end_date", None)),
+            )
+        )
 
     async def trial_traffic_tick(self, session: AsyncSession) -> None:
         if not getattr(self.settings, "SUBSCRIPTION_NOTIFICATIONS_ENABLED", True):
@@ -300,6 +374,7 @@ class SubscriptionNotificationWorker:
             limit = int(getattr(sub, "traffic_limit_bytes", 0) or 0)
             panel_data = await self._panel_user(sub)
             if panel_data:
+                await record_subscription_panel_activity(session, sub, panel_data)
                 panel_used, panel_limit, _ = (
                     self.subscription_service._extract_panel_traffic_details(panel_data)
                 )

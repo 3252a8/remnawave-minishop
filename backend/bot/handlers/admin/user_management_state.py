@@ -9,11 +9,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
 from bot.middlewares.i18n import JsonI18n
+from bot.services.broadcast_personalization import (
+    known_shortcodes,
+    telegram_html_error,
+    unknown_shortcodes,
+)
 from bot.services.panel_api_service import PanelApiService
 from bot.services.referral_service import ReferralService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.states.admin_states import AdminStates
-from bot.utils import get_message_content, send_direct_message
+from bot.utils import MessageContent, get_message_content, send_direct_message
 from bot.utils.callback_answer import (
     callback_data,
     callback_message,
@@ -23,6 +28,13 @@ from bot.utils.callback_answer import (
 from config.settings import Settings
 from db.dal import message_log_dal, subscription_dal, user_dal
 
+from .broadcast_shortcodes import (
+    bot_username_for_shortcodes,
+    load_admin_broadcast_contexts,
+    localized_shortcode_error,
+    message_content_html_text,
+    render_personalized_admin_broadcast_text,
+)
 from .user_management_cards import (
     _send_with_profile_link_fallback,
     format_user_card,
@@ -183,7 +195,52 @@ async def process_direct_message_handler(
             await message.answer(_("admin_direct_empty_message"))
             return
 
-        (content.text + admin_signature) if content.text else None
+        unknown = sorted(unknown_shortcodes(content.text or ""))
+        if unknown:
+            await message.answer(
+                localized_shortcode_error(
+                    i18n,
+                    current_lang,
+                    "admin_broadcast_unknown_shortcode",
+                    ", ".join(unknown),
+                )
+            )
+            return
+
+        needed_shortcodes = known_shortcodes(content.text or "")
+        if needed_shortcodes:
+            template_text = message_content_html_text(message, content).strip()
+            html_error = telegram_html_error(template_text)
+            if html_error:
+                await message.answer(
+                    localized_shortcode_error(
+                        i18n,
+                        current_lang,
+                        "admin_broadcast_invalid_telegram_html",
+                        html_error,
+                    )
+                )
+                return
+            contexts = await load_admin_broadcast_contexts(
+                session,
+                settings,
+                [int(target_user_id)],
+                needed_shortcodes,
+            )
+            bot_username = await bot_username_for_shortcodes(bot, needed_shortcodes)
+            content = MessageContent(
+                content.content_type,
+                content.file_id,
+                render_personalized_admin_broadcast_text(
+                    template_text,
+                    contexts,
+                    int(target_user_id),
+                    fallback_lang=current_lang,
+                    i18n=i18n,
+                    settings=settings,
+                    bot_username=bot_username,
+                ),
+            )
 
         # Send to target user using our fancy match/case function
         try:
@@ -213,7 +270,7 @@ async def process_direct_message_handler(
         async with PanelApiService(settings) as panel_service:
             subscription_service = SubscriptionService(settings, panel_service)
             referral_service = ReferralService(settings, subscription_service, bot, i18n)
-            bot_username = await _resolve_bot_username(bot)
+            card_bot_username = await _resolve_bot_username(bot)
             user_card_text = await format_user_card(
                 target_user,
                 session,
@@ -222,7 +279,7 @@ async def process_direct_message_handler(
                 current_lang,
                 referral_service,
                 settings=settings,
-                bot_username=bot_username,
+                bot_username=card_bot_username,
             )
             keyboard = get_user_card_keyboard(
                 target_user.user_id, i18n, current_lang, target_user.referred_by_id
@@ -499,6 +556,14 @@ async def process_premium_override_bonus_handler(
         active_sub.premium_unlimited_override = False
         active_sub.premium_bonus_bytes = max(0, bonus_bytes)
 
+        synced = await subscription_service.sync_premium_squad_access_to_panel(
+            session, target_user_id
+        )
+        if not synced:
+            await session.rollback()
+            await message.answer(_("admin_premium_override_save_error"))
+            return
+
         await message_log_dal.create_message_log_no_commit(
             session,
             {
@@ -511,10 +576,6 @@ async def process_premium_override_bonus_handler(
             },
         )
         await session.commit()
-
-        await subscription_service.sync_premium_squad_access_to_panel(session, target_user_id)
-        await session.commit()
-
         await message.answer(
             _("admin_premium_override_bonus_set", gb=f"{gb:.2f}", user_id=target_user_id)
         )
@@ -605,6 +666,10 @@ async def process_hwid_device_limit_handler(
         effective_limit = await subscription_service.sync_hwid_device_limit_to_panel(
             session, target_user_id
         )
+        if effective_limit is None:
+            await session.rollback()
+            await message.answer(_("admin_hwid_limit_save_error"))
+            return
         await message_log_dal.create_message_log_no_commit(
             session,
             {

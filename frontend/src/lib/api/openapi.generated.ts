@@ -328,6 +328,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/broadcast/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Broadcast Preview */
+    post: operations["post_admin_broadcast_preview_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/broadcast/shortcodes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Broadcast Shortcodes */
+    get: operations["get_admin_broadcast_shortcodes_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/health": {
     parameters: {
       query?: never;
@@ -897,6 +931,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{user_id}/squad-overrides": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Admin User Squad Overrides */
+    patch: operations["patch_admin_user_squad_overrides_route"];
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/squad-overrides/refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Squad Overrides Refresh */
+    post: operations["post_admin_user_squad_overrides_refresh_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/users/{user_id}/tariff": {
     parameters: {
       query?: never;
@@ -942,6 +1010,23 @@ export interface paths {
     put?: never;
     /** Admin User Traffic Grant */
     post: operations["post_admin_user_traffic_grant_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/traffic-strategy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Traffic Strategy */
+    post: operations["post_admin_user_traffic_strategy_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1027,6 +1112,23 @@ export interface paths {
     put?: never;
     /** Logout */
     post: operations["post_logout_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/session": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Session */
+    get: operations["get_session_route"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1203,6 +1305,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/plans/viewed": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Plans Viewed */
+    post: operations["post_plans_viewed_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/promo/apply": {
     parameters: {
       query?: never;
@@ -1214,6 +1333,23 @@ export interface paths {
     put?: never;
     /** Apply Promo */
     post: operations["post_apply_promo_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/promo/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Promo Status */
+    post: operations["post_promo_status_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1668,9 +1804,23 @@ export interface components {
       counts: {
         [key: string]: number | null;
       };
+      /**
+       * Email Enabled
+       * @default false
+       */
+      email_enabled: boolean;
     };
     /** AdminBroadcastBody */
     AdminBroadcastBody: {
+      /** Buttons */
+      buttons?: components["schemas"]["AdminBroadcastButtonBody"][];
+      /** Channels */
+      channels?: string[];
+      /**
+       * Email Subject
+       * @default
+       */
+      email_subject: unknown;
       /**
        * Target
        * @default all
@@ -1681,6 +1831,101 @@ export interface components {
        * @default
        */
       text: unknown;
+    };
+    /**
+     * AdminBroadcastButtonBody
+     * @description One inline button attached to a broadcast.
+     *
+     *     ``kind`` selects how the button URL is produced:
+     *     - ``url`` — explicit ``url`` field;
+     *     - ``promo_bot`` — deep link into the bot applying ``promo_code``;
+     *     - ``promo_webapp`` — link into the Mini App checkout with ``promo_code``.
+     */
+    AdminBroadcastButtonBody: {
+      /**
+       * Kind
+       * @default url
+       */
+      kind: string;
+      /**
+       * Label
+       * @default
+       */
+      label: string;
+      /**
+       * Promo Code
+       * @default
+       */
+      promo_code: string;
+      /**
+       * Url
+       * @default
+       */
+      url: string;
+    };
+    /** AdminBroadcastPreviewBody */
+    AdminBroadcastPreviewBody: {
+      /**
+       * Email Subject
+       * @default
+       */
+      email_subject: unknown;
+      /**
+       * Mode
+       * @default render
+       */
+      mode: string;
+      /**
+       * Text
+       * @default
+       */
+      text: unknown;
+      /**
+       * User Id
+       * @default null
+       */
+      user_id: number | null;
+    };
+    /** AdminBroadcastPreviewOut */
+    AdminBroadcastPreviewOut: {
+      /**
+       * Length
+       * @default 0
+       */
+      length: number;
+      /**
+       * Rendered Subject
+       * @default null
+       */
+      rendered_subject: string | null;
+      /**
+       * Rendered Text
+       * @default
+       */
+      rendered_text: string;
+      /**
+       * Sent
+       * @default false
+       */
+      sent: boolean;
+      /** Unknown Shortcodes */
+      unknown_shortcodes?: string[];
+    };
+    /** AdminBroadcastShortcodeOut */
+    AdminBroadcastShortcodeOut: {
+      /** Cost */
+      cost: string;
+      /** Description */
+      description: string;
+      /** Name */
+      name: string;
+    };
+    /** AdminBroadcastShortcodesOut */
+    AdminBroadcastShortcodesOut: {
+      /** Allowed Tags */
+      allowed_tags: string[];
+      /** Shortcodes */
+      shortcodes: components["schemas"]["AdminBroadcastShortcodeOut"][];
     };
     /** AdminHealthOut */
     AdminHealthOut: {
@@ -1712,6 +1957,36 @@ export interface components {
       /** User Id */
       user_id: number;
     };
+    /** AdminPanelExternalSquadOverrideOut */
+    AdminPanelExternalSquadOverrideOut: {
+      /**
+       * Default Uuid
+       * @default null
+       */
+      default_uuid: string | null;
+      /**
+       * Effective Uuid
+       * @default null
+       */
+      effective_uuid: string | null;
+      /**
+       * Last Seen At
+       * @default null
+       */
+      last_seen_at: string | null;
+      /**
+       * Manual Uuid
+       * @default null
+       */
+      manual_uuid: string | null;
+      /** Mode */
+      mode: string;
+      /**
+       * Source
+       * @default null
+       */
+      source: string | null;
+    };
     /** AdminPanelInternalSquadOut */
     AdminPanelInternalSquadOut: {
       /**
@@ -1728,6 +2003,43 @@ export interface components {
       name: string;
       /** Uuid */
       uuid: string;
+    };
+    /** AdminPanelSquadItemOut */
+    AdminPanelSquadItemOut: {
+      /**
+       * Label
+       * @default null
+       */
+      label: string | null;
+      /**
+       * Last Seen At
+       * @default null
+       */
+      last_seen_at: string | null;
+      /** Source */
+      source: string;
+      /** Uuid */
+      uuid: string;
+    };
+    /** AdminPanelSquadOverridesOut */
+    AdminPanelSquadOverridesOut: {
+      /** Effective Internal Squad Uuids */
+      effective_internal_squad_uuids?: string[];
+      external: components["schemas"]["AdminPanelExternalSquadOverrideOut"];
+      /** Managed Internal Squads */
+      managed_internal_squads?: components["schemas"]["AdminPanelSquadItemOut"][];
+      /** Manual Internal Squads */
+      manual_internal_squads?: components["schemas"]["AdminPanelSquadItemOut"][];
+      /**
+       * Panel Snapshot Available
+       * @default false
+       */
+      panel_snapshot_available: boolean;
+      /**
+       * Panel User Uuid
+       * @default null
+       */
+      panel_user_uuid: string | null;
     };
     /** AdminPanelSyncOut */
     AdminPanelSyncOut: {
@@ -1849,6 +2161,21 @@ export interface components {
        * @default null
        */
       provider_id: string | null;
+      /**
+       * Provider Info Url
+       * @default null
+       */
+      provider_info_url: string | null;
+      /**
+       * Provider Label
+       * @default null
+       */
+      provider_label: string | null;
+      /**
+       * Provider Logo Url
+       * @default null
+       */
+      provider_logo_url: string | null;
       /**
        * Read Error
        * @default null
@@ -1973,6 +2300,11 @@ export interface components {
       /** Auto Renew Enabled */
       auto_renew_enabled: boolean;
       /**
+       * Billing Model
+       * @default null
+       */
+      billing_model: string | null;
+      /**
        * Display Label
        * @default null
        */
@@ -2079,6 +2411,21 @@ export interface components {
        * @default null
        */
       traffic_limit_bytes: number | null;
+      /**
+       * Traffic Limit Strategy
+       * @default null
+       */
+      traffic_limit_strategy: string | null;
+      /**
+       * Traffic Strategy Editable
+       * @default false
+       */
+      traffic_strategy_editable: boolean;
+      /**
+       * Traffic Strategy Lock Reason
+       * @default null
+       */
+      traffic_strategy_lock_reason: string | null;
       /**
        * Traffic Used Bytes
        * @default null
@@ -2498,6 +2845,11 @@ export interface components {
     /** AdminUserExtendBody */
     AdminUserExtendBody: {
       /**
+       * Apply Tariff Hwid Limit
+       * @default false
+       */
+      apply_tariff_hwid_limit: unknown;
+      /**
        * Days
        * @default null
        */
@@ -2647,8 +2999,35 @@ export interface components {
        */
       unlimited: unknown;
     };
+    /** AdminUserSquadOverridesPatchBody */
+    AdminUserSquadOverridesPatchBody: {
+      /** Add Internal Squad Uuids */
+      add_internal_squad_uuids?: string[];
+      /**
+       * External Mode
+       * @default null
+       */
+      external_mode: string | null;
+      /**
+       * External Squad Uuid
+       * @default null
+       */
+      external_squad_uuid: string | null;
+      /** Remove Internal Squad Uuids */
+      remove_internal_squad_uuids?: string[];
+      /**
+       * Sync Panel
+       * @default true
+       */
+      sync_panel: boolean;
+    };
     /** AdminUserTariffBody */
     AdminUserTariffBody: {
+      /**
+       * Apply Tariff Hwid Limit
+       * @default false
+       */
+      apply_tariff_hwid_limit: unknown;
       /**
        * Tariff Key
        * @default null
@@ -2672,6 +3051,14 @@ export interface components {
        * @default regular
        */
       kind: unknown;
+    };
+    /** AdminUserTrafficStrategyBody */
+    AdminUserTrafficStrategyBody: {
+      /**
+       * Traffic Limit Strategy
+       * @default null
+       */
+      traffic_limit_strategy: unknown;
     };
     /** AdminUserTrialOut */
     AdminUserTrialOut: {
@@ -4246,6 +4633,19 @@ export interface components {
        */
       traffic_gb: unknown;
     };
+    /** WebAppPlansViewedPayload */
+    WebAppPlansViewedPayload: {
+      /**
+       * Plans Count
+       * @default 0
+       */
+      plans_count: number;
+      /**
+       * Tariff Key
+       * @default null
+       */
+      tariff_key: string | null;
+    };
     /** WebAppPromoApplyPayload */
     WebAppPromoApplyPayload: {
       /**
@@ -5081,6 +5481,8 @@ export interface operations {
         };
         content: {
           "application/json": {
+            channels: string[];
+            email_queued: number;
             failed: number;
             /** @constant */
             ok: true;
@@ -5110,6 +5512,56 @@ export interface operations {
             /** @constant */
             ok: true;
           } & components["schemas"]["AdminBroadcastAudienceCountsOut"];
+        };
+      };
+    };
+  };
+  post_admin_broadcast_preview_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminBroadcastPreviewBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminBroadcastPreviewOut"];
+        };
+      };
+    };
+  };
+  get_admin_broadcast_shortcodes_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminBroadcastShortcodesOut"];
         };
       };
     };
@@ -5892,6 +6344,7 @@ export interface operations {
             log_count: number;
             /** @constant */
             ok: true;
+            panel_squad_overrides: components["schemas"]["AdminPanelSquadOverridesOut"] | null;
             recent_payments: components["schemas"]["PaymentOut"][];
             referral: {
               bot_link: string | null;
@@ -6222,6 +6675,62 @@ export interface operations {
       };
     };
   };
+  patch_admin_user_squad_overrides_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserSquadOverridesPatchBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            panel_squad_overrides: components["schemas"]["AdminPanelSquadOverridesOut"];
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_squad_overrides_refresh_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            panel_squad_overrides: components["schemas"]["AdminPanelSquadOverridesOut"];
+          };
+        };
+      };
+    };
+  };
   post_admin_user_tariff_route: {
     parameters: {
       query?: never;
@@ -6308,6 +6817,36 @@ export interface operations {
             /** @constant */
             ok: true;
             subscription?: components["schemas"]["AdminSubscriptionOut"] | null;
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_traffic_strategy_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserTrafficStrategyBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            subscription?: components["schemas"]["AdminSubscriptionOut"];
           };
         };
       };
@@ -6482,6 +7021,31 @@ export interface operations {
         };
         content: {
           "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_session_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            authenticated: boolean;
+            csrf_token?: string;
             /** @constant */
             ok: true;
           };
@@ -6920,6 +7484,8 @@ export interface operations {
               premium_is_limited?: boolean;
               premium_limit?: string;
               premium_limit_bytes?: number | null;
+              premium_next_reset_at?: string | null;
+              premium_next_reset_text?: string | null;
               premium_node_labels?: string[];
               premium_squad_labels?: string[];
               premium_title?: string | null;
@@ -6943,6 +7509,8 @@ export interface operations {
               traffic_limit?: string;
               traffic_limit_bytes?: number | null;
               traffic_limit_strategy?: string;
+              traffic_next_reset_at?: string | null;
+              traffic_next_reset_text?: string | null;
               traffic_used?: string;
               traffic_used_bytes?: number | null;
             };
@@ -7052,6 +7620,33 @@ export interface operations {
       };
     };
   };
+  post_plans_viewed_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPlansViewedPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
   post_apply_promo_route: {
     parameters: {
       query?: never;
@@ -7082,6 +7677,42 @@ export interface operations {
             /** @constant */
             ok: true;
             requires_checkout?: boolean;
+          };
+        };
+      };
+    };
+  };
+  post_promo_status_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPromoApplyPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            applies_to?: string;
+            bonus_days?: number;
+            code: string;
+            effect_summary?: string;
+            end_date_text?: string | null;
+            message?: string;
+            min_subscription_months?: number | null;
+            min_traffic_gb?: number | null;
+            /** @constant */
+            ok: true;
+            status: string;
           };
         };
       };
