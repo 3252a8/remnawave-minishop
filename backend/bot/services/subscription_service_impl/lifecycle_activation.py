@@ -732,10 +732,10 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 rb = int(getattr(active_sub, "regular_bonus_bytes", 0) or 0)
                 runl = bool(getattr(active_sub, "regular_unlimited_override", False))
                 used_sub = int(getattr(active_sub, "traffic_used_bytes", 0) or 0)
-                target_monthly_price = admin_tariff.period_price(
-                    1,
+                target_monthly_price = self._tariff_effective_monthly_price(
+                    admin_tariff,
                     default_currency_key_for_settings(self.settings),
-                ) or admin_tariff.min_period_price(default_currency_key_for_settings(self.settings))
+                )
                 local_hwid_base_limit, _ = self._transition_hwid_base_limits(
                     getattr(active_sub, "hwid_device_limit", None),
                     admin_tariff,

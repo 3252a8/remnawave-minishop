@@ -8,10 +8,11 @@ from bot.services.panel_activity import record_subscription_panel_activity
 from bot.utils.config_link import prepare_config_links
 from bot.utils.traffic_reset import next_traffic_reset_after, traffic_accounting_period_start
 from config.tariffs_config import default_currency_key_for_settings
-from db.dal import subscription_dal, tariff_dal, user_dal
+from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
 from db.models import Subscription, User
 
 from ._typing import SubscriptionServiceMixinContract
+from .sale_mode import parse_sale_mode_context
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +170,42 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             options = dict(self.calculate_tariff_switch_options(sub, target))
         else:
             options = await self.calculate_tariff_switch_options_with_hwid(session, sub, target)
+        if mode == "paid_diff":
+            if payment_id is None:
+                logger.warning(
+                    "Rejecting paid tariff switch for user %s -> %s without payment id",
+                    user_id,
+                    target.key,
+                )
+                return None
+            payment = await payment_dal.get_payment_by_db_id(session, payment_id)
+            sale_context = parse_sale_mode_context(
+                getattr(payment, "sale_mode", "") if payment else ""
+            )
+            payment_tariff_key = (
+                sale_context.tariff_key or str(getattr(payment, "tariff_key", "") or "").strip()
+            )
+            paid_amount = float(getattr(payment, "amount", 0) or 0)
+            required_amount = float(options.get("paid_diff_rub") or 0)
+            if (
+                not payment
+                or int(getattr(payment, "user_id", 0) or 0) != int(user_id)
+                or sale_context.base != "tariff_upgrade"
+                or payment_tariff_key != target.key
+                or paid_amount + 0.01 < required_amount
+            ):
+                logger.warning(
+                    "Rejecting paid tariff switch for user %s -> %s: payment=%s "
+                    "paid_amount=%s required_amount=%s sale_mode=%s tariff_key=%s",
+                    user_id,
+                    target.key,
+                    payment_id,
+                    paid_amount,
+                    required_amount,
+                    getattr(payment, "sale_mode", None) if payment else None,
+                    getattr(payment, "tariff_key", None) if payment else None,
+                )
+                return None
         converted_hwid_purchase_ids = list(options.get("convertible_hwid_purchase_ids") or [])
         if converted_hwid_purchase_ids:
             await tariff_dal.expire_hwid_device_purchases(
@@ -236,9 +273,10 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 traffic_used_bytes=used_sub,
             )
             update_data["period_start_at"] = None
-            update_data["effective_monthly_price_rub"] = target.period_price(
-                1, default_currency_key_for_settings(self.settings)
-            ) or target.min_period_price(default_currency_key_for_settings(self.settings))
+            update_data["effective_monthly_price_rub"] = self._tariff_effective_monthly_price(
+                target,
+                default_currency_key_for_settings(self.settings),
+            )
             if convert_trial_admin_assignment and not getattr(sub, "duration_months", None):
                 update_data["duration_months"] = 1
             if mode == "recalc_days" and options.get("recalc_days") is not None:

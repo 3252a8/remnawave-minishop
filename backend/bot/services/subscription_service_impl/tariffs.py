@@ -468,6 +468,18 @@ class TariffMixin(SubscriptionServiceMixinContract):
         return current_base_int, current_base_int
 
     @staticmethod
+    def _tariff_effective_monthly_price(tariff: Tariff, currency: str) -> float | None:
+        one_month = tariff.period_price(1, currency)
+        if one_month and one_month > 0:
+            return float(one_month)
+        monthly_prices = []
+        for months in tariff.enabled_periods:
+            price = tariff.period_price(months, currency)
+            if price and price > 0:
+                monthly_prices.append(float(price) / max(1, int(months)))
+        return min(monthly_prices) if monthly_prices else None
+
+    @staticmethod
     def _effective_hwid_limit(base_limit: int | None, extra_devices: int = 0) -> int | None:
         if base_limit is None:
             return 0
@@ -484,14 +496,15 @@ class TariffMixin(SubscriptionServiceMixinContract):
         )
         now = datetime.now(UTC)
         remaining_days = max(0, (sub.end_date - now).days) if sub.end_date else 0
-        effective = float(sub.effective_monthly_price_rub or 0)
         current_model = current_tariff.billing_model if current_tariff else "period"
         default_currency = default_currency_key_for_settings(self.settings)
+        effective = float(sub.effective_monthly_price_rub or 0)
+        if effective <= 0 and current_model == "period" and current_tariff is not None:
+            effective = self._tariff_effective_monthly_price(current_tariff, default_currency) or 0
 
         if current_model == "period" and target_tariff.billing_model == "period":
             target_monthly = (
-                target_tariff.period_price(1, default_currency)
-                or target_tariff.min_period_price(default_currency)
+                self._tariff_effective_monthly_price(target_tariff, default_currency)
                 or effective
                 or 1
             )
