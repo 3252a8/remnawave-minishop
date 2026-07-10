@@ -1,6 +1,7 @@
 import gzip
 import hashlib
 import re
+import string
 import time
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,8 @@ WEBAPP_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 WEBAPP_LEGACY_ASSET_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
 PROVIDER_LOGO_MAX_BYTES = 128 * 1024
 PROVIDER_LOGO_SOURCE_DIR = APP_ROOT / "frontend" / "public" / "provider-logos"
+_PROVIDER_LOGO_NAME_CHARS = frozenset(string.ascii_letters + string.digits + "_-")
+_PROVIDER_LOGO_NAME_MAX_LEN = 64
 
 
 async def health_route(request: web.Request) -> web.Response:
@@ -44,7 +47,15 @@ async def provider_logo_asset_route(request: web.Request) -> web.Response:
         raise web.HTTPNotFound(text="webapp_disabled")
 
     filename = str(request.match_info.get("filename") or "")
-    if not re.fullmatch(r"[A-Za-z0-9_-]+\.png", filename):
+    # Bounded, non-backtracking validation equivalent to r"[A-Za-z0-9_-]+\.png"
+    # (also blocks path traversal); avoids running a regex over user input.
+    stem = filename[:-4]
+    if (
+        len(filename) > _PROVIDER_LOGO_NAME_MAX_LEN
+        or not filename.endswith(".png")
+        or not stem
+        or not _PROVIDER_LOGO_NAME_CHARS.issuperset(stem)
+    ):
         raise web.HTTPNotFound(text="provider_logo_not_found")
 
     path = _provider_logo_asset_path(filename)

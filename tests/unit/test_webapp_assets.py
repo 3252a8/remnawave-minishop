@@ -1206,6 +1206,44 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                     r"^subscription_webapp_admin\.css\?v=[0-9a-f]{8}$",
                 )
 
+    async def test_provider_logo_route_serves_valid_png_name(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            asset_dir = Path(tmpdir)
+            logo_dir = asset_dir / "provider-logos"
+            logo_dir.mkdir()
+            (logo_dir / "cryptopay.png").write_bytes(b"\x89PNG\r\n\x1a\nlogo")
+
+            request = SimpleNamespace(
+                app={"settings": SimpleNamespace(WEBAPP_ENABLED=True)},
+                match_info={"filename": "cryptopay.png"},
+            )
+
+            with patch.object(assets_static, "ASSET_DIR", asset_dir):
+                response = await assets_static.provider_logo_asset_route(request)
+
+            self.assertEqual(response.content_type, "image/png")
+            self.assertEqual(response.body, b"\x89PNG\r\n\x1a\nlogo")
+
+    async def test_provider_logo_route_rejects_invalid_names(self):
+        asset_dir = Path("/nonexistent-provider-logo-dir")
+        for bad_name in (
+            "../../etc/passwd.png",
+            "evil.PNG",
+            ".png",
+            "logo.svg",
+            "a" * 65 + ".png",
+            "sub/dir.png",
+        ):
+            request = SimpleNamespace(
+                app={"settings": SimpleNamespace(WEBAPP_ENABLED=True)},
+                match_info={"filename": bad_name},
+            )
+            with (
+                patch.object(assets_static, "ASSET_DIR", asset_dir),
+                self.assertRaises(web.HTTPNotFound),
+            ):
+                await assets_static.provider_logo_asset_route(request)
+
     async def test_js_asset_route_sets_immutable_cache_control_for_minified_asset(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             asset_dir = Path(tmpdir)
