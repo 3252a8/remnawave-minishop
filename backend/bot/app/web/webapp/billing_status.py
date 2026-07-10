@@ -23,6 +23,7 @@ from bot.app.web.webapp.common import (
 )
 from bot.infra import events
 from bot.infra.event_payloads import PaymentCanceledPayload
+from bot.payment_providers.shared.common import detached_payment_snapshot
 from db.dal import payment_dal
 from db.models import Payment
 
@@ -178,7 +179,7 @@ async def _refresh_wata_payment_status(
     request: web.Request,
     session: AsyncSession,
     payment: Payment,
-) -> Payment:
+) -> Any:
     provider = str(getattr(payment, "provider", "") or "").strip().lower()
     if provider not in {"wata", "wata_crypto"}:
         return payment
@@ -193,11 +194,15 @@ async def _refresh_wata_payment_status(
     ):
         return payment
 
+    payment_snapshot = detached_payment_snapshot(payment)
+    payment_id = payment_snapshot.payment_id
+    await session.rollback()
+
     try:
-        return await wata_service.refresh_payment_status(session, payment)
+        return await wata_service.refresh_payment_status(session, payment_snapshot)
     except Exception:
-        logger.exception("Failed to refresh Wata payment %s status", payment.payment_id)
-        return payment
+        logger.exception("Failed to refresh Wata payment %s status", payment_id)
+        return payment_snapshot
 
 
 async def payment_status_route(request: web.Request) -> web.Response:

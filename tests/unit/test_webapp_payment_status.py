@@ -929,4 +929,10 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
         result = await billing_module._refresh_wata_payment_status(request, session, payment)
 
         self.assertIs(result, refreshed_payment)
-        wata_service.refresh_payment_status.assert_awaited_once_with(session, payment)
+        session.rollback.assert_awaited_once()
+        wata_service.refresh_payment_status.assert_awaited_once()
+        called_session, called_payment = wata_service.refresh_payment_status.await_args.args
+        self.assertIs(called_session, session)
+        self.assertIsNot(called_payment, payment)
+        self.assertEqual(called_payment.payment_id, payment.payment_id)
+        self.assertEqual(called_payment.provider, payment.provider)

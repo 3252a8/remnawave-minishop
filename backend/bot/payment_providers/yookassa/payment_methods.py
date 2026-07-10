@@ -13,6 +13,7 @@ from bot.keyboards.inline.user_keyboards import (
     get_payment_methods_list_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.payment_providers.shared.common import detached_payment_snapshot
 from bot.utils.callback_answer import callback_message_or_none
 from config.settings import Settings
 from config.tariffs_config import (
@@ -383,7 +384,10 @@ async def payment_method_history(
         user_payments = []
 
     if selected_pm_provider_id:
-        filtered: list[Payment] = []
+        user_payments = [detached_payment_snapshot(p) for p in user_payments]
+        await session.rollback()
+
+        filtered: list[Any] = []
         for p in user_payments:
             if p.provider != "yookassa":
                 continue
@@ -416,7 +420,7 @@ async def payment_method_history(
 
     traffic_mode = settings.traffic_sale_mode
 
-    def _format_item(p: Payment) -> str:
+    def _format_item(p: Any) -> str:
         if traffic_mode:
             units_val = p.subscription_duration_months or 0
             units_display = (

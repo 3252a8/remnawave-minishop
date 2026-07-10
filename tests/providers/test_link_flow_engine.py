@@ -157,6 +157,39 @@ def test_callback_reuse_hit_short_circuits(monkeypatch):
     desc.create.assert_not_awaited()
 
 
+def test_callback_reuse_rolls_back_before_provider_call(monkeypatch):
+    _patch_common(monkeypatch)
+    existing = SimpleNamespace(payment_id=7, provider_payment_id="provider-7")
+    events: list[object] = []
+    fake_dal = SimpleNamespace(
+        find_recent_pending_provider_payment=AsyncMock(return_value=existing),
+        create_payment_record=AsyncMock(),
+    )
+    monkeypatch.setattr(link_flow, "payment_dal", fake_dal)
+
+    async def reuse(_service, payment):
+        events.append(("reuse", payment))
+        return "https://pay/reused"
+
+    session = _session()
+    session.rollback = AsyncMock(side_effect=lambda: events.append("rollback"))
+    desc = _descriptor(reuse=AsyncMock(side_effect=reuse))
+
+    asyncio.run(
+        run_callback_payment(
+            desc, _callback(), _settings(), {"i18n_instance": object()}, _FakeService(), session
+        )
+    )
+
+    assert events[0] == "rollback"
+    assert isinstance(events[1], tuple)
+    reused_payment = events[1][1]
+    assert reused_payment is not existing
+    assert reused_payment.payment_id == 7
+    assert reused_payment.provider_payment_id == "provider-7"
+    fake_dal.create_payment_record.assert_not_awaited()
+
+
 def test_callback_reuse_lookup_uses_descriptor_ttl(monkeypatch):
     _patch_common(monkeypatch)
     fake_dal = SimpleNamespace(
