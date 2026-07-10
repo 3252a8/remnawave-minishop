@@ -1,4 +1,5 @@
 import logging
+from types import SimpleNamespace
 from typing import Any
 
 from aiohttp import web
@@ -43,7 +44,18 @@ def _yookassa_payment_payload_for_processing(payload: dict[str, Any]) -> dict[st
     return normalized
 
 
-def _payment_status_can_be_refreshed(payment: Payment) -> bool:
+def _payment_status_snapshot(payment: Any) -> SimpleNamespace:
+    return SimpleNamespace(
+        payment_id=payment.payment_id,
+        user_id=payment.user_id,
+        provider=payment.provider,
+        status=payment.status,
+        yookassa_payment_id=payment.yookassa_payment_id,
+        provider_payment_id=payment.provider_payment_id,
+    )
+
+
+def _payment_status_can_be_refreshed(payment: Any) -> bool:
     normalized = str(getattr(payment, "status", "") or "").lower()
     if normalized == "succeeded":
         return False
@@ -56,7 +68,7 @@ async def _refresh_yookassa_payment_status(
     request: web.Request,
     session: AsyncSession,
     payment: Payment,
-) -> Payment:
+) -> Any:
     if str(getattr(payment, "provider", "") or "").lower() != "yookassa":
         return payment
     if not _payment_status_can_be_refreshed(payment):
@@ -72,17 +84,18 @@ async def _refresh_yookassa_payment_status(
     ):
         return payment
 
-    payment_id = payment.payment_id
+    payment_snapshot = _payment_status_snapshot(payment)
+    payment_id = payment_snapshot.payment_id
     await session.rollback()
 
     try:
         provider_payload = await yookassa_service.get_payment_info(yookassa_payment_id)
     except Exception:
         logger.exception("Failed to refresh YooKassa payment %s status", payment_id)
-        return payment
+        return payment_snapshot
 
     if not provider_payload:
-        return payment
+        return payment_snapshot
 
     provider_payload = _yookassa_payment_payload_for_processing(provider_payload)
     provider_status = str(provider_payload.get("status") or "").lower()
@@ -96,7 +109,7 @@ async def _refresh_yookassa_payment_status(
         async with payment_processing_lock:
             current = await payment_dal.get_payment_by_db_id(session, payment_id)
             if not current:
-                return payment
+                return payment_snapshot
             if current.status == "succeeded":
                 return current
             try:
@@ -132,7 +145,7 @@ async def _refresh_yookassa_payment_status(
         async with payment_processing_lock:
             current = await payment_dal.get_payment_by_db_id(session, payment_id)
             if not current:
-                return payment
+                return payment_snapshot
             if not _payment_status_can_be_refreshed(current):
                 return current
             try:
@@ -158,7 +171,7 @@ async def _refresh_yookassa_payment_status(
                 return current
             return await payment_dal.get_payment_by_db_id(session, payment_id) or current
 
-    return payment
+    return payment_snapshot
 
 
 async def _refresh_wata_payment_status(

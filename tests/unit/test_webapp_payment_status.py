@@ -804,6 +804,34 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
         provider_payload = process_success.await_args.args[2]
         self.assertEqual(provider_payload["amount"], {"value": "100.0", "currency": "RUB"})
 
+    async def test_yookassa_pending_payment_refresh_returns_loaded_snapshot_without_payload(self):
+        payment = SimpleNamespace(
+            payment_id=42,
+            user_id=1001,
+            provider="yookassa",
+            status="pending_yookassa",
+            yookassa_payment_id="yk_42",
+            provider_payment_id=None,
+        )
+        yookassa_service = SimpleNamespace(
+            configured=True,
+            get_payment_info=AsyncMock(return_value=None),
+        )
+        request = SimpleNamespace(app={"yookassa_service": yookassa_service})
+        session = AsyncMock()
+
+        result = await billing_module._refresh_yookassa_payment_status(
+            request,
+            session,
+            payment,
+        )
+
+        self.assertIsNot(result, payment)
+        self.assertEqual(result.payment_id, 42)
+        self.assertEqual(result.status, "pending_yookassa")
+        session.rollback.assert_awaited_once()
+        yookassa_service.get_payment_info.assert_awaited_once_with("yk_42")
+
     async def test_yookassa_webapp_payment_uses_unrestricted_checkout_form(self):
         payment_record = SimpleNamespace(payment_id=77)
         yookassa_service = SimpleNamespace(
