@@ -2083,6 +2083,16 @@ run_compose() {
     compose "$@"
 }
 
+host_user_spec() {
+    uid=$(id -u 2>/dev/null || printf '')
+    gid=$(id -g 2>/dev/null || printf '')
+    if [ -n "$uid" ] && [ -n "$gid" ]; then
+        printf '%s:%s' "$uid" "$gid"
+    else
+        printf '%s:%s' "$APP_UID" "$APP_GID"
+    fi
+}
+
 explain_compose_failure() {
     output_file="$1"
     shift
@@ -3088,7 +3098,7 @@ volume_exists() {
 }
 
 volume_is_empty() {
-    docker run --rm -v "$1:/data" alpine sh -c \
+    docker run --rm -v "$1:/data:ro" alpine sh -c \
         'test -z "$(find /data -mindepth 1 -print -quit)"' >/dev/null 2>&1
 }
 
@@ -3696,6 +3706,15 @@ run_import_command() {
     (cd "$TARGET_DIR" && run_compose "$@" < /dev/null)
 }
 
+restore_app_data_permissions() {
+    (cd "$TARGET_DIR" && run_compose run --rm --no-deps \
+        --user 0:0 \
+        backend sh -lc "chown -R $APP_UID:$APP_GID /app/data") || {
+        warn "Не удалось вернуть владельца /app/data на $APP_UID:$APP_GID. Если админка не сможет менять тарифы или файлы, выполните: docker compose run --rm --no-deps --user 0:0 backend chown -R $APP_UID:$APP_GID /app/data"
+        return 1
+    }
+}
+
 reset_target_compose_database() {
     section "Сброс целевой базы Minishop"
     [ -n "$ENV_PATH" ] || ENV_PATH="$TARGET_DIR/.env"
@@ -3812,6 +3831,7 @@ create_tgshop_source_backup() {
     fi
 
     if (cd "$TARGET_DIR" && run_compose run --rm --no-deps \
+        --user "$(host_user_spec)" \
         -v "$dump_dir:/backup" \
         -e "SOURCE_DSN=$SOURCE_DSN" \
         backend sh -lc \
@@ -3953,7 +3973,10 @@ run_remnashop_migration() {
 
     section "Применение импорта"
     APPLY_SUMMARY_PATH="$TARGET_DIR/$INSTALL_STATE_DIR/remnashop-apply-summary.json"
-    run_import_command 0 "$APPLY_SUMMARY_PATH" 0 || return 1
+    import_status=0
+    run_import_command 0 "$APPLY_SUMMARY_PATH" 0 || import_status=$?
+    restore_app_data_permissions || true
+    [ "$import_status" = "0" ] || return "$import_status"
     print_remnashop_import_summary "$APPLY_SUMMARY_PATH" "apply"
     configure_egames_panel_webhook || return 1
     if confirm "Перезапустить backend, worker и frontend, чтобы они перечитали настройки?" 1; then
@@ -4017,6 +4040,7 @@ run_tgshop_dsn_migration() {
 
     section "Восстановление старой базы"
     (cd "$TARGET_DIR" && run_compose run --rm --no-deps \
+        --user "$(host_user_spec)" \
         -v "$TGSHOP_SOURCE_DUMP_PATH:/backup/remnawave-tg-shop-source.sql:ro" \
         -e "TARGET_DSN=$TARGET_DSN" \
         backend sh -lc \

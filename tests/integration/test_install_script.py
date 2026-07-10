@@ -61,6 +61,8 @@ def test_shell_installer_downloads_raw_files_and_runs_import_in_container():
     assert "backend python backend/scripts/import_legacy.py" in script
     assert "run --rm -T" in script
     assert "--user 0:0" in script
+    assert "restore_app_data_permissions" in script
+    assert "chown -R $APP_UID:$APP_GID /app/data" in script
     assert "mask_compose_log_args" in script
     assert "postgresql)://[^:/[:space:]@]+:" in script
     assert "Путь к .env Remnashop для переноса настроек" in script
@@ -270,6 +272,7 @@ def test_shell_installer_guards_existing_postgres_volume_password_drift():
     assert "InvalidPasswordError|password authentication failed" in script
     assert "Удалить volume $volume и начать с пустой БД" in script
     assert 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1' in script
+    assert '-v "$1:/data:ro"' in script
     assert 'pg_isready -U "$POSTGRES_USER"' not in script
 
 
@@ -335,6 +338,8 @@ def test_shell_installer_migrates_legacy_tgshop_through_dsn_restore():
     assert "копирования raw PostgreSQL volume" in script
     assert "pg_dump --clean --if-exists" in script
     assert 'psql "$TARGET_DSN" -v ON_ERROR_STOP=1' in script
+    assert "host_user_spec()" in script
+    assert script.count('--user "$(host_user_spec)"') >= 2
     assert "run_compose_checked run --rm migrate" in script
     assert "run_tgshop_volume_migration" not in script
     assert "copy_volume_if_safe" not in script
