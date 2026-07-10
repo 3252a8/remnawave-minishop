@@ -1195,6 +1195,8 @@ prompt_common_env() {
             WEBHOOK_HOST_VALUE="$PROMPT_VALUE"
             prompt_value "Публичный hostname для Mini App" "$(env_get MINIAPP_HOST app.example.com)" 1 0 "hostname"
             MINIAPP_HOST_VALUE="$PROMPT_VALUE"
+            WEBHOOK_PUBLIC_URL_VALUE="$(env_get WEBHOOK_PUBLIC_URL "https://$WEBHOOK_HOST_VALUE")"
+            MINIAPP_PUBLIC_URL_VALUE="$(env_get MINIAPP_PUBLIC_URL "https://$MINIAPP_HOST_VALUE/")"
             TRUSTED_PROXIES_VALUE="$(env_get TRUSTED_PROXIES '127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7')"
             ;;
     esac
@@ -1745,9 +1747,9 @@ configure_nginx_certificates() {
     case "$CHOICE_VALUE" in
         1)
             ensure_certbot_available cloudflare || return 1
-            prompt_value "Email аккаунта Let's Encrypt" "$(env_get LETSENCRYPT_EMAIL '')" 1 0 ""
+            prompt_value "Email аккаунта Let's Encrypt" "$(env_get LETSENCRYPT_EMAIL '')" 1 0 "" || return 1
             le_email="$PROMPT_VALUE"
-            prompt_value "Cloudflare DNS API token" "$(env_get CLOUDFLARE_DNS_API_TOKEN '')" 1 1 ""
+            prompt_value "Cloudflare DNS API token" "$(env_get CLOUDFLARE_DNS_API_TOKEN '')" 1 1 "" || return 1
             cf_token="$PROMPT_VALUE"
             mkdir -p "$HOME/.secrets/certbot"
             credentials="$HOME/.secrets/certbot/remnawave-minishop-cloudflare.ini"
@@ -1767,7 +1769,7 @@ configure_nginx_certificates() {
             while IFS= read -r base; do
                 [ -n "$base" ] || continue
                 info "Запрашиваю wildcard-сертификат для $base через Cloudflare DNS-01."
-                certbot certonly \
+                PYTHONWARNINGS=ignore::PendingDeprecationWarning certbot certonly \
                     --dns-cloudflare \
                     --dns-cloudflare-credentials "$credentials" \
                     --dns-cloudflare-propagation-seconds 60 \
@@ -1789,11 +1791,11 @@ configure_nginx_certificates() {
             ;;
         2)
             ensure_certbot_available http || return 1
-            prompt_value "Email аккаунта Let's Encrypt" "$(env_get LETSENCRYPT_EMAIL '')" 1 0 ""
+            prompt_value "Email аккаунта Let's Encrypt" "$(env_get LETSENCRYPT_EMAIL '')" 1 0 "" || return 1
             le_email="$PROMPT_VALUE"
             printf '%s\n' "$hosts" | while IFS= read -r host; do
                 info "Запрашиваю сертификат для $host через standalone HTTP-01."
-                certbot certonly \
+                PYTHONWARNINGS=ignore::PendingDeprecationWarning certbot certonly \
                     --standalone \
                     --preferred-challenges http \
                     -d "$host" \
@@ -2289,6 +2291,7 @@ reset_target_postgres_volume() {
 
 start_stack() {
     pull="${1:-1}"
+    skip_existing_volume_preflight="${2:-0}"
     section "Запуск Docker Compose стека"
     [ -n "$ENV_PATH" ] || ENV_PATH="$TARGET_DIR/.env"
     validate_bind_settings || return 1
@@ -2296,7 +2299,7 @@ start_stack() {
     if [ "$pull" = "1" ]; then
         (cd "$TARGET_DIR" && run_compose_checked pull) || return 1
     fi
-    if [ "$INSTALL_NODE_ROLE_VALUE" != "frontend-node" ]; then
+    if [ "$INSTALL_NODE_ROLE_VALUE" != "frontend-node" ] && [ "$skip_existing_volume_preflight" != "1" ]; then
         preflight_existing_postgres_volume || return 1
     fi
     (cd "$TARGET_DIR" && run_compose_checked up -d) || return 1
@@ -4048,7 +4051,7 @@ run_tgshop_dsn_migration() {
 
     run_target_schema_migrations || return 1
     if confirm "Запустить полный стек сейчас?" 1; then
-        start_stack 0 || return 1
+        start_stack 0 1 || return 1
     fi
 }
 

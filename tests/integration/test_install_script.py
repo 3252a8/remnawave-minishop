@@ -341,8 +341,40 @@ def test_shell_installer_migrates_legacy_tgshop_through_dsn_restore():
     assert "host_user_spec()" in script
     assert script.count('--user "$(host_user_spec)"') >= 2
     assert "run_compose_checked run --rm migrate" in script
+    assert "skip_existing_volume_preflight" in script
+    assert "start_stack 0 1" in script
     assert "run_tgshop_volume_migration" not in script
     assert "copy_volume_if_safe" not in script
+
+
+def test_shell_installer_sets_tls_profile_public_urls():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert (
+        'WEBHOOK_PUBLIC_URL_VALUE="$(env_get WEBHOOK_PUBLIC_URL "https://$WEBHOOK_HOST_VALUE")"'
+    ) in script
+    assert (
+        'MINIAPP_PUBLIC_URL_VALUE="$(env_get MINIAPP_PUBLIC_URL "https://$MINIAPP_HOST_VALUE/")"'
+    ) in script
+
+
+def test_shell_installer_suppresses_noisy_certbot_cloudflare_warning():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "PYTHONWARNINGS=ignore::PendingDeprecationWarning certbot certonly" in script
+
+
+def test_shell_installer_stops_when_certbot_required_prompts_fail():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert (
+        'prompt_value "Email аккаунта Let\'s Encrypt" "$(env_get LETSENCRYPT_EMAIL \'\')" '
+        '1 0 "" || return 1'
+    ) in script
+    assert (
+        'prompt_value "Cloudflare DNS API token" "$(env_get CLOUDFLARE_DNS_API_TOKEN \'\')" '
+        '1 1 "" || return 1'
+    ) in script
 
 
 def test_shell_installer_only_prepares_data_mount_not_runtime_content():
