@@ -1,6 +1,7 @@
+import asyncio
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from bot.payment_providers.shared import RecurringChargeContext
 from bot.payment_providers.yookassa import YooKassaConfig, YooKassaService
@@ -87,3 +88,15 @@ class YooKassaRecurringProviderTests(IsolatedAsyncioTestCase):
         self.assertFalse(result.initiated)
         self.assertEqual(result.message, "missing_saved_method")
         service.create_payment.assert_not_awaited()
+
+    async def test_sdk_calls_are_bounded_by_timeout(self):
+        service = _service()
+        service._sdk_timeout_seconds = lambda: 0.01
+
+        async def hanging_to_thread(*_args):
+            await asyncio.sleep(60)
+
+        with patch("bot.payment_providers.yookassa.service.asyncio.to_thread", hanging_to_thread):
+            result = await service.get_payment_info("yk-timeout")
+
+        self.assertIsNone(result)

@@ -1,7 +1,8 @@
 import asyncio
 import logging
 import uuid
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from yookassa import Configuration
 from yookassa import Payment as YooKassaPayment
@@ -26,6 +27,7 @@ else:
     SubscriptionService = object
 
 logger = logging.getLogger(__name__)
+SdkResultT = TypeVar("SdkResultT")
 
 
 class YooKassaService:
@@ -85,6 +87,34 @@ class YooKassaService:
         except Exception:
             logger.exception("Failed to configure YooKassa SDK.")
             self._sdk_configured_for = None
+
+    def _sdk_timeout_seconds(self) -> float:
+        raw_timeout = getattr(self.settings, "PAYMENT_REQUEST_TIMEOUT_SECONDS", 20.0)
+        try:
+            timeout = float(raw_timeout)
+        except (TypeError, ValueError):
+            return 20.0
+        return max(1.0, timeout)
+
+    async def _run_sdk_call(
+        self,
+        operation: str,
+        func: Callable[..., SdkResultT],
+        *args: object,
+    ) -> SdkResultT:
+        timeout = self._sdk_timeout_seconds()
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(func, *args),
+                timeout=timeout,
+            )
+        except TimeoutError:
+            logger.warning(
+                "YooKassa SDK call timed out operation=%s timeout_seconds=%.1f",
+                operation,
+                timeout,
+            )
+            raise
 
     @property
     def return_url(self) -> str:
@@ -231,7 +261,8 @@ class YooKassaService:
                 receipt_data_dict,
             )
 
-            response = await asyncio.to_thread(
+            response = await self._run_sdk_call(
+                "payment.create",
                 YooKassaPayment.create,
                 payment_request,
                 idempotence_key,
@@ -274,7 +305,8 @@ class YooKassaService:
         try:
             logger.info("Fetching payment info from YooKassa for ID: %s", payment_id_in_yookassa)
 
-            payment_info_yk = await asyncio.to_thread(
+            payment_info_yk = await self._run_sdk_call(
+                "payment.find_one",
                 YooKassaPayment.find_one,
                 payment_id_in_yookassa,
             )
@@ -346,7 +378,11 @@ class YooKassaService:
             logger.error("YooKassa is not configured. Cannot cancel payment.")
             return False
         try:
-            await asyncio.to_thread(YooKassaPayment.cancel, payment_id_in_yookassa)
+            await self._run_sdk_call(
+                "payment.cancel",
+                YooKassaPayment.cancel,
+                payment_id_in_yookassa,
+            )
             logger.info("Cancelled YooKassa payment %s", payment_id_in_yookassa)
             return True
         except Exception:

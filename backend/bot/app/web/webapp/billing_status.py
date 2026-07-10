@@ -72,10 +72,13 @@ async def _refresh_yookassa_payment_status(
     ):
         return payment
 
+    payment_id = payment.payment_id
+    await session.rollback()
+
     try:
         provider_payload = await yookassa_service.get_payment_info(yookassa_payment_id)
     except Exception:
-        logger.exception("Failed to refresh YooKassa payment %s status", payment.payment_id)
+        logger.exception("Failed to refresh YooKassa payment %s status", payment_id)
         return payment
 
     if not provider_payload:
@@ -91,7 +94,7 @@ async def _refresh_yookassa_payment_status(
         )
 
         async with payment_processing_lock:
-            current = await payment_dal.get_payment_by_db_id(session, payment.payment_id)
+            current = await payment_dal.get_payment_by_db_id(session, payment_id)
             if not current:
                 return payment
             if current.status == "succeeded":
@@ -115,10 +118,10 @@ async def _refresh_yookassa_payment_status(
                 await session.rollback()
                 logger.exception(
                     "Failed to process refreshed YooKassa payment %s",
-                    payment.payment_id,
+                    payment_id,
                 )
                 return current
-            return await payment_dal.get_payment_by_db_id(session, payment.payment_id) or current
+            return await payment_dal.get_payment_by_db_id(session, payment_id) or current
 
     if provider_status in {"canceled", "cancelled"}:
         from bot.payment_providers.yookassa import (
@@ -127,7 +130,7 @@ async def _refresh_yookassa_payment_status(
         )
 
         async with payment_processing_lock:
-            current = await payment_dal.get_payment_by_db_id(session, payment.payment_id)
+            current = await payment_dal.get_payment_by_db_id(session, payment_id)
             if not current:
                 return payment
             if not _payment_status_can_be_refreshed(current):
@@ -150,10 +153,10 @@ async def _refresh_yookassa_payment_status(
                 await session.rollback()
                 logger.exception(
                     "Failed to process refreshed cancelled YooKassa payment %s",
-                    payment.payment_id,
+                    payment_id,
                 )
                 return current
-            return await payment_dal.get_payment_by_db_id(session, payment.payment_id) or current
+            return await payment_dal.get_payment_by_db_id(session, payment_id) or current
 
     return payment
 

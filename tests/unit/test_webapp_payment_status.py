@@ -528,7 +528,12 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
         self.assertIsNotNone(response)
         self.assertEqual(response.status, 200)
         self.assertIn(b'"payment_id": 77', response.body)
-        resolver.assert_awaited_once_with(ctx, payment)
+        ctx.session.rollback.assert_awaited_once()
+        resolver.assert_awaited_once()
+        resolver_ctx, resolver_payment = resolver.await_args.args
+        self.assertIs(resolver_ctx, ctx)
+        self.assertIsNot(resolver_payment, payment)
+        self.assertEqual(resolver_payment.payment_id, 77)
         self.assertEqual(find_pending.await_args.kwargs["amount"], 299.0)
         self.assertEqual(find_pending.await_args.kwargs["currency"], "RUB")
         self.assertEqual(find_pending.await_args.kwargs["sale_mode"], "subscription@standard")
@@ -792,6 +797,7 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
             )
 
         self.assertIs(result, refreshed_payment)
+        session.rollback.assert_awaited_once()
         session.commit.assert_awaited_once()
         process_success.assert_awaited_once()
         emit_success.assert_awaited_once_with(event_payload)

@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from types import SimpleNamespace
 from typing import Any
 
 from aiohttp import web
@@ -236,6 +237,13 @@ def payment_link_response(
     )
 
 
+def detached_payment_snapshot(payment: Any) -> SimpleNamespace:
+    """Copy scalar payment columns so external calls do not keep a DB transaction open."""
+    return SimpleNamespace(
+        **{column.name: getattr(payment, column.name, None) for column in Payment.__table__.columns}
+    )
+
+
 async def create_base_payment_record(
     session: AsyncSession,
     *,
@@ -393,10 +401,12 @@ async def reusable_webapp_payment_response(
     if payment is None:
         return None
 
-    payment_url = await resolver(ctx, payment)
+    payment_snapshot = detached_payment_snapshot(payment)
+    await ctx.session.rollback()
+    payment_url = await resolver(ctx, payment_snapshot)
     if not payment_url:
         return None
-    return payment_link_response(payment_url=payment_url, payment_id=payment.payment_id)
+    return payment_link_response(payment_url=payment_url, payment_id=payment_snapshot.payment_id)
 
 
 async def mark_payment_failed_creation(session: AsyncSession, payment_id: int) -> None:
