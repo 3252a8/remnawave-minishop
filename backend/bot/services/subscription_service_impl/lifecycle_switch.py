@@ -246,8 +246,6 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         else:
             converted_gb = float(options.get("converted_gb", 0))
             converted_bytes = self.gb_to_bytes(converted_gb)
-            old_topup = int(sub.topup_balance_bytes or 0)
-            new_balance = old_topup + converted_bytes
             rb = int(getattr(sub, "regular_bonus_bytes", 0) or 0)
             runl = bool(getattr(sub, "regular_unlimited_override", False))
             panel_user = (
@@ -258,20 +256,29 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             )
             if panel_user:
                 await record_subscription_panel_activity(session, sub, panel_user)
-            current_used, _, _ = self._extract_panel_traffic_details(panel_user)
+            current_used, current_limit, _ = self._extract_panel_traffic_details(panel_user)
+            if current_used is None:
+                current_used = getattr(sub, "traffic_used_bytes", None)
+            if current_limit is None:
+                current_limit = getattr(sub, "traffic_limit_bytes", None)
             cur_used_int = int(current_used or 0)
+            carryover_balance = self._traffic_package_carryover_bytes(
+                sub,
+                limit_bytes=current_limit,
+                used_bytes=current_used,
+            )
+            new_balance = carryover_balance + max(0, rb) + converted_bytes
             update_data.update(
                 {
                     "end_date": self._far_future(),
                     "period_start_at": None,
                     "tier_baseline_bytes": 0,
                     "topup_balance_bytes": new_balance,
-                    "traffic_limit_bytes": self._compute_main_traffic_limit_bytes(
-                        tier_baseline_bytes=0,
-                        topup_balance_bytes=new_balance,
-                        regular_bonus_bytes=rb,
-                        regular_unlimited_override=runl,
-                        traffic_used_bytes=cur_used_int,
+                    "regular_bonus_bytes": 0,
+                    "traffic_limit_bytes": self._traffic_limit_for_balance(
+                        used_bytes=cur_used_int,
+                        balance_bytes=new_balance,
+                        unlimited_override=runl,
                     ),
                     "traffic_used_bytes": current_used,
                     "effective_monthly_price_rub": None,

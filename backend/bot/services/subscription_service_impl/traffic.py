@@ -122,14 +122,28 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             current_used = active_sub.traffic_used_bytes
 
         purchase_bytes = self.gb_to_bytes(granted_gb)
+        carryover_balance = self._traffic_package_carryover_bytes(
+            active_sub,
+            limit_bytes=current_limit,
+            used_bytes=current_used,
+        )
+        current_billing_model = self._subscription_billing_model(active_sub)
+        if current_billing_model != "traffic":
+            carryover_balance += self._nonnegative_bytes(
+                getattr(active_sub, "regular_bonus_bytes", 0)
+            )
+        regular_unlimited_override = bool(getattr(active_sub, "regular_unlimited_override", False))
         extra_hwid_devices = (
             await self._active_hwid_extra_devices_for_sub(session, active_sub) if active_sub else 0
         )
         base_hwid_limit = self._base_hwid_limit_for_tariff(tariff)
         effective_hwid_limit = self._effective_hwid_limit(base_hwid_limit, extra_hwid_devices)
-        remaining_bytes = max(0, int(current_limit or 0) - int(current_used or 0))
-        new_balance = remaining_bytes + purchase_bytes
-        new_limit = int(current_used or 0) + new_balance
+        new_balance = carryover_balance + purchase_bytes
+        new_limit = self._traffic_limit_for_balance(
+            used_bytes=current_used,
+            balance_bytes=new_balance,
+            unlimited_override=regular_unlimited_override,
+        )
 
         start_date = datetime.now(UTC)
         # Set a far-future expiry to satisfy panel requirements; keep the latest known expiry if it's further.  # noqa: E501
@@ -159,6 +173,8 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             "tariff_key": tariff.key if tariff else None,
             "tier_baseline_bytes": 0,
             "topup_balance_bytes": new_balance,
+            "regular_bonus_bytes": 0,
+            "regular_unlimited_override": regular_unlimited_override,
             "premium_baseline_bytes": self._premium_limit_for_tariff(tariff, 0),
             "premium_topup_balance_bytes": 0,
             "premium_topup_used_bytes": 0,

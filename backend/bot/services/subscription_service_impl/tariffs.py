@@ -50,6 +50,60 @@ class TariffMixin(SubscriptionServiceMixinContract):
             )
         return tariff
 
+    def _subscription_billing_model(self, sub: Any | None) -> str | None:
+        if sub is None:
+            return None
+        tariff_key = str(getattr(sub, "tariff_key", "") or "").strip()
+        if not tariff_key:
+            return None
+        try:
+            tariff = self._resolve_tariff(tariff_key)
+        except Exception:
+            logger.debug("Unable to resolve tariff %r for subscription state", tariff_key)
+            return None
+        return tariff.billing_model if tariff else None
+
+    @staticmethod
+    def _nonnegative_bytes(value: Any) -> int:
+        try:
+            return max(0, int(value or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    def _remaining_traffic_bytes(self, limit_bytes: Any, used_bytes: Any) -> int:
+        limit = self._nonnegative_bytes(limit_bytes)
+        if limit <= 0:
+            return 0
+        return max(0, limit - self._nonnegative_bytes(used_bytes))
+
+    def _traffic_package_carryover_bytes(
+        self,
+        sub: Any | None,
+        *,
+        limit_bytes: Any,
+        used_bytes: Any,
+    ) -> int:
+        if sub is None:
+            return 0
+        remaining = self._remaining_traffic_bytes(limit_bytes, used_bytes)
+        if self._subscription_billing_model(sub) == "traffic":
+            return remaining
+        paid_topup_balance = self._nonnegative_bytes(getattr(sub, "topup_balance_bytes", 0))
+        if paid_topup_balance <= 0:
+            return 0
+        return min(paid_topup_balance, remaining)
+
+    def _traffic_limit_for_balance(
+        self,
+        *,
+        used_bytes: Any,
+        balance_bytes: Any,
+        unlimited_override: bool = False,
+    ) -> int:
+        if unlimited_override:
+            return 0
+        return self._nonnegative_bytes(used_bytes) + self._nonnegative_bytes(balance_bytes)
+
     def _panel_squads_for_tariff(
         self,
         tariff: Tariff | None,
