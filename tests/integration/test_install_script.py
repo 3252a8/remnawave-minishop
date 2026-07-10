@@ -222,6 +222,7 @@ def test_shell_installer_does_not_rename_bot_and_reports_migration_success():
         "refresh_egames_nginx_after_migration\n"
         '    notify_remnashop_migration_success "$APPLY_SUMMARY_PATH"\n'
         '    ok "Миграция завершена."\n'
+        "    stop_remnashop_source_stack\n"
         "    remnashop_post_migration_next_steps"
     ) in script
 
@@ -288,10 +289,54 @@ def test_shell_installer_connects_local_remnashop_db_container_for_import():
     script = INSTALL_SCRIPT.read_text(encoding="utf-8")
 
     assert "connect_local_source_db_to_target_network" in script
+    assert "disconnect_local_source_db_from_target_network" in script
     assert "target_network_name()" in script
     assert "dsn_hostname" in script
     assert "docker network connect" in script
+    assert "docker network disconnect" in script
     assert 'target_network="$(target_network_name)"' in script
+    assert (
+        "disconnect_local_source_db_from_target_network\n"
+        '        fail "Проверка без записи не прошла'
+    ) in script
+    assert (
+        'disconnect_local_source_db_from_target_network\n        warn "Миграция не применена."'
+    ) in script
+    assert (
+        "restore_app_data_permissions || true\n    disconnect_local_source_db_from_target_network"
+    ) in script
+
+
+def test_shell_installer_repairs_reverse_proxy_runtime_after_start():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "validate_reverse_proxy_runtime" in script
+    assert "reverse_proxy_runtime_ready" in script
+    assert "reverse_proxy_upstreams_ready" in script
+    assert 'docker port "$container" 80/tcp' in script
+    assert 'docker port "$container" 443/tcp' in script
+    assert '--force-recreate "$service"' in script
+    assert "http://backend:8080/healthz" in script
+    assert "http://frontend/health" in script
+    assert (
+        'validate_reverse_proxy_runtime || return 1\n    ok "Команда запуска стека выполнена."'
+    ) in script
+    assert (
+        'validate_reverse_proxy_runtime || return 1\n    ok "Команды проверки выполнены."'
+    ) in script
+
+
+def test_shell_installer_stops_remnashop_after_successful_migration_without_deleting_data():
+    script = INSTALL_SCRIPT.read_text(encoding="utf-8")
+
+    assert "REMNASHOP_RUNTIME_CONTAINERS" in script
+    assert "remnashop-taskiq-worker" in script
+    assert "remnashop-taskiq-scheduler" in script
+    assert "stop_remnashop_source_stack" in script
+    assert "Остановить старые контейнеры Remnashop без удаления данных" in script
+    assert "run_compose stop" in script
+    assert 'docker stop "$container"' in script
+    assert 'ok "Миграция завершена."\n    stop_remnashop_source_stack' in script
 
 
 def test_shell_installer_supports_split_frontend_backend_modes():

@@ -15,6 +15,7 @@ APP_UID=10001
 APP_GID=10001
 OLD_TGSHOP_DB_VOLUME="remnawave-tg-shop-db-data"
 KNOWN_LEGACY_CONTAINERS="remnawave-tg-shop remnawave-tg-shop-db remnawave-tg-shop-caddy remnawave-minishop remnawave-minishop-db remnawave-minishop-caddy remnawave-minishop-backend remnawave-minishop-worker remnawave-minishop-frontend remnawave-minishop-migrate remnawave-minishop-postgres remnawave-minishop-redis"
+REMNASHOP_RUNTIME_CONTAINERS="remnashop remnashop-taskiq-worker remnashop-taskiq-scheduler remnashop-db remnashop-redis"
 PANGOLIN_COMPOSE_FILE="docker-compose.pangolin.yml"
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
@@ -2304,6 +2305,7 @@ start_stack() {
     fi
     (cd "$TARGET_DIR" && run_compose_checked up -d) || return 1
     (cd "$TARGET_DIR" && run_compose ps) || true
+    validate_reverse_proxy_runtime || return 1
     ok "Команда запуска стека выполнена."
 }
 
@@ -2314,6 +2316,7 @@ validate_stack() {
     require_docker || return 1
     (cd "$TARGET_DIR" && run_compose_checked ps) || true
     (cd "$TARGET_DIR" && run_compose logs --tail 80 migrate) || true
+    validate_reverse_proxy_runtime || return 1
     ok "Команды проверки выполнены."
 }
 
@@ -3123,6 +3126,52 @@ stop_known_legacy_containers() {
     fi
 }
 
+remnashop_source_compose_dir() {
+    source_env="$SOURCE_ENV_PATH"
+    [ -n "$source_env" ] || source_env=$(detect_remnashop_env_file || true)
+    if [ -n "$source_env" ]; then
+        source_dir=$(dirname "$source_env")
+        if [ -f "$source_dir/docker-compose.yml" ] || [ -f "$source_dir/compose.yml" ] || [ -f "$source_dir/docker-compose.yaml" ]; then
+            (cd "$source_dir" && pwd)
+            return 0
+        fi
+    fi
+    return 1
+}
+
+stop_remnashop_source_stack() {
+    section "Остановка старого Remnashop"
+    warn "Старый Remnashop использует тот же BOT_TOKEN и может продолжать выполнять фоновые задачи после миграции."
+    if ! confirm "Остановить старые контейнеры Remnashop без удаления данных?" 1; then
+        warn "Старые контейнеры Remnashop оставлены как есть. Остановите их вручную после проверки Minishop."
+        return 0
+    fi
+
+    source_dir=$(remnashop_source_compose_dir || true)
+    if [ -n "$source_dir" ]; then
+        if (cd "$source_dir" && run_compose stop); then
+            ok "Docker Compose stack Remnashop остановлен: $source_dir"
+            return 0
+        fi
+        warn "Не удалось остановить Remnashop через docker compose в $source_dir; пробую известные имена контейнеров."
+    fi
+
+    stopped=0
+    for container in $REMNASHOP_RUNTIME_CONTAINERS; do
+        if docker inspect "$container" >/dev/null 2>&1; then
+            if docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null | grep -q '^true$'; then
+                docker stop "$container" >/dev/null || warn "Не удалось остановить $container"
+                stopped=1
+            fi
+        fi
+    done
+    if [ "$stopped" = "1" ]; then
+        ok "Известные контейнеры Remnashop остановлены."
+    else
+        info "Запущенные контейнеры Remnashop не найдены."
+    fi
+}
+
 wait_target_postgres() {
     section "Ожидание целевого PostgreSQL"
     if wait_target_postgres_auth; then
@@ -3130,6 +3179,95 @@ wait_target_postgres() {
     fi
     explain_postgres_password_mismatch
     fail "Целевой PostgreSQL не стал готовым с текущими настройками .env."
+    return 1
+}
+
+reverse_proxy_service_name() {
+    profile="$PROFILE_KEY"
+    [ -n "$profile" ] || profile=$(env_get DEPLOYMENT_PROFILE "")
+    case "$profile" in
+        caddy)
+            printf 'caddy'
+            ;;
+        nginx)
+            printf 'nginx'
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+compose_service_container_id() {
+    service="$1"
+    (cd "$TARGET_DIR" && compose ps -q "$service" 2>/dev/null | head -n 1)
+}
+
+container_running() {
+    [ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" = "true" ]
+}
+
+container_attached_to_target_network() {
+    container="$1"
+    target_network="$(target_network_name)"
+    docker inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' "$container" 2>/dev/null |
+        grep -Fx "$target_network" >/dev/null 2>&1
+}
+
+reverse_proxy_runtime_ready() {
+    service="$1"
+    container=$(compose_service_container_id "$service" || true)
+    [ -n "$container" ] || return 1
+    container_running "$container" || return 1
+    container_attached_to_target_network "$container" || return 1
+    docker port "$container" 80/tcp >/dev/null 2>&1 || return 1
+    docker port "$container" 443/tcp >/dev/null 2>&1 || return 1
+}
+
+reverse_proxy_upstreams_ready() {
+    service="$1"
+    container=$(compose_service_container_id "$service" || true)
+    [ -n "$container" ] || return 1
+    docker exec "$container" sh -lc \
+        'wget -qO- http://backend:8080/healthz >/dev/null && wget -qO- http://frontend/health >/dev/null' \
+        >/dev/null 2>&1
+}
+
+validate_reverse_proxy_runtime() {
+    service=$(reverse_proxy_service_name || true)
+    [ -n "$service" ] || return 0
+
+    section "Проверка reverse proxy"
+    if ! reverse_proxy_runtime_ready "$service"; then
+        warn "Контейнер $service не выглядит полностью подключенным: проверяю published ports 80/443 и Docker-сеть."
+        warn "Пересоздаю $service, чтобы восстановить публикацию портов и подключение к $(target_network_name)."
+        (cd "$TARGET_DIR" && run_compose_checked up -d --force-recreate "$service") || return 1
+        sleep 3
+    fi
+
+    if ! reverse_proxy_runtime_ready "$service"; then
+        fail "Контейнер $service всё еще не публикует 80/443 или не подключен к $(target_network_name)."
+        (cd "$TARGET_DIR" && run_compose ps "$service") || true
+        info "Проверьте docker inspect, занятые порты и состояние Docker network перед повторным запуском wizard."
+        return 1
+    fi
+    ok "$service публикует 80/443 и подключен к $(target_network_name)."
+
+    if reverse_proxy_upstreams_ready "$service"; then
+        ok "$service видит backend:8080 и frontend:80 внутри Docker-сети."
+        return 0
+    fi
+
+    warn "$service не смог достучаться до backend/frontend по Docker DNS; пересоздаю proxy еще раз."
+    (cd "$TARGET_DIR" && run_compose_checked up -d --force-recreate "$service") || return 1
+    sleep 3
+    if reverse_proxy_upstreams_ready "$service"; then
+        ok "$service видит backend:8080 и frontend:80 внутри Docker-сети."
+        return 0
+    fi
+
+    fail "$service запущен, но не видит backend/frontend внутри Docker-сети."
+    info "Проверьте: docker compose ps; docker network inspect $(target_network_name); docker compose logs $service"
     return 1
 }
 
@@ -3214,6 +3352,33 @@ connect_local_source_db_to_target_network() {
         return 0
     }
     ok "Исходный контейнер $source_host подключен к $target_network для импорта."
+}
+
+disconnect_local_source_db_from_target_network() {
+    source_host=$(dsn_hostname "$SOURCE_DSN")
+    [ -n "$source_host" ] || return 0
+    case "$source_host" in
+        localhost|127.*|::1|postgres|host.docker.internal)
+            return 0
+            ;;
+    esac
+    if ! docker inspect --type container "$source_host" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    target_network="$(target_network_name)"
+    if ! docker network inspect "$target_network" >/dev/null 2>&1; then
+        return 0
+    fi
+    if ! docker inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' "$source_host" | grep -Fx "$target_network" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if docker network disconnect "$target_network" "$source_host"; then
+        ok "Исходный контейнер $source_host отключен от $target_network после импорта."
+    else
+        warn "Не удалось отключить исходный контейнер $source_host от $target_network. Проверьте Docker network вручную."
+    fi
 }
 
 remnashop_webhook_checklist() {
@@ -3965,11 +4130,13 @@ run_remnashop_migration() {
     mkdir -p "$TARGET_DIR/$INSTALL_STATE_DIR"
     DRY_RUN_SUMMARY_PATH="$TARGET_DIR/$INSTALL_STATE_DIR/remnashop-dry-run-summary.json"
     if ! run_import_command 1 "$DRY_RUN_SUMMARY_PATH" 0; then
+        disconnect_local_source_db_from_target_network
         fail "Проверка без записи не прошла. Исправьте подключение или настройки перед импортом."
         return 1
     fi
     print_remnashop_import_summary "$DRY_RUN_SUMMARY_PATH" "dry-run"
     if ! confirm "Применить эту миграцию по-настоящему?" 1; then
+        disconnect_local_source_db_from_target_network
         warn "Миграция не применена."
         return 0
     fi
@@ -3979,6 +4146,7 @@ run_remnashop_migration() {
     import_status=0
     run_import_command 0 "$APPLY_SUMMARY_PATH" 0 || import_status=$?
     restore_app_data_permissions || true
+    disconnect_local_source_db_from_target_network
     [ "$import_status" = "0" ] || return "$import_status"
     print_remnashop_import_summary "$APPLY_SUMMARY_PATH" "apply"
     configure_egames_panel_webhook || return 1
@@ -3988,6 +4156,7 @@ run_remnashop_migration() {
     refresh_egames_nginx_after_migration
     notify_remnashop_migration_success "$APPLY_SUMMARY_PATH"
     ok "Миграция завершена."
+    stop_remnashop_source_stack
     remnashop_post_migration_next_steps
 }
 
