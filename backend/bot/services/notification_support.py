@@ -17,6 +17,7 @@ from bot.services.email_templates import (
 from bot.services.email_templates_common import EmailContent
 from bot.utils import MessageContent, send_message_via_queue
 from bot.utils.message_queue import get_queue_manager
+from bot.utils.mini_app_url import subscription_main_mini_app_deep_link
 from db.dal import app_settings_dal, user_dal
 from db.models import SupportTicket, SupportTicketMessage, User
 
@@ -74,12 +75,21 @@ class NotificationSupportMixin:
         *,
         text: str,
         path: str,
+        start_param: str,
         fallback_url: str,
         web_app_button: bool = True,
     ) -> InlineKeyboardButton:
         webapp_url = self._support_webapp_url(path)
         if webapp_url and web_app_button:
             return InlineKeyboardButton(text=text, web_app=WebAppInfo(url=webapp_url))
+        if webapp_url:
+            mini_app_link = subscription_main_mini_app_deep_link(
+                self.settings,
+                self.bot_username,
+                start_param,
+            )
+            if mini_app_link:
+                return InlineKeyboardButton(text=text, url=mini_app_link)
         return InlineKeyboardButton(text=text, url=webapp_url or fallback_url)
 
     def _support_text(self, language: str | None, key: str, fallback: str) -> str:
@@ -171,6 +181,11 @@ class NotificationSupportMixin:
                 self._support_mini_app_button(
                     text="Открыть тикет",
                     path=ticket_path,
+                    start_param=(
+                        f"admin_ticket_{ticket.ticket_id}"
+                        if admin
+                        else f"ticket_{ticket.ticket_id}"
+                    ),
                     fallback_url=self._support_ticket_url(ticket.ticket_id, admin=admin),
                     web_app_button=web_app_buttons,
                 )
@@ -188,6 +203,7 @@ class NotificationSupportMixin:
                     self._support_mini_app_button(
                         text="Карточка пользователя",
                         path=user_card_path,
+                        start_param=f"admin_user_{user.user_id}",
                         fallback_url=self._support_ticket_url(ticket.ticket_id, admin=True),
                         web_app_button=web_app_buttons,
                     )

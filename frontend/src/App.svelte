@@ -38,6 +38,7 @@
   import { createExternalLinkRuntime } from "./lib/webapp/externalLinkRuntime.js";
   import { createAppLoadExecutor, type AppLoadDataOptions } from "./lib/webapp/appLoadExecutor.js";
   import { createPopstateLifecycle } from "./lib/webapp/popstateLifecycle.js";
+  import { miniAppPathFromSearch } from "./lib/webapp/miniAppStartRoute.js";
   import {
     buildAppAdminPanelProps,
     createAppFactories,
@@ -100,6 +101,14 @@
   const isDocsDemo = stableMockRuntime?.docsDemo === true;
   const routePrefix = isDocsDemo ? "/demo/runtime" : "";
   const query = new URLSearchParams(window.location.search);
+  const miniAppStartPath = miniAppPathFromSearch(window.location.search);
+  if (miniAppStartPath && window.location.pathname !== miniAppStartPath) {
+    window.history.replaceState(
+      null,
+      "",
+      `${miniAppStartPath}${window.location.search}${window.location.hash}`
+    );
+  }
   const isAppLaunchRoute = isExternalAppLaunchPath(window.location.pathname);
   stableMockRuntime?.applyPreviewMock?.(query.get("mock"));
   const isPreviewBoard = Boolean(previewBoardComponent) && query.get("preview") === "all";

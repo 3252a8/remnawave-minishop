@@ -117,6 +117,7 @@ def test_admin_support_keyboard_can_use_group_safe_urls():
     service = NotificationService(
         bot=SimpleNamespace(),
         settings=_settings(SUBSCRIPTION_MINI_APP_URL="https://app.example.com/app"),
+        bot_username="demo_bot",
     )
     ticket = SimpleNamespace(ticket_id=42)
     user = SimpleNamespace(user_id=100200300)
@@ -126,10 +127,26 @@ def test_admin_support_keyboard_can_use_group_safe_urls():
     user_card_button = keyboard.inline_keyboard[1][1]
 
     assert ticket_button.web_app is None
-    assert ticket_button.url == "https://app.example.com/app/admin/support/42"
+    assert ticket_button.url == "https://t.me/demo_bot?startapp=admin_ticket_42"
     assert keyboard.inline_keyboard[1][0].url == "tg://user?id=100200300"
     assert user_card_button.web_app is None
-    assert user_card_button.url == "https://app.example.com/app/admin/users/100200300"
+    assert user_card_button.url == "https://t.me/demo_bot?startapp=admin_user_100200300"
+
+
+def test_admin_support_keyboard_group_urls_fall_back_without_bot_username():
+    service = NotificationService(
+        bot=SimpleNamespace(),
+        settings=_settings(SUBSCRIPTION_MINI_APP_URL="https://app.example.com/app"),
+    )
+    ticket = SimpleNamespace(ticket_id=42)
+    user = SimpleNamespace(user_id=100200300)
+
+    keyboard = service._support_keyboard(ticket, user, admin=True, web_app_buttons=False)
+
+    assert keyboard.inline_keyboard[0][0].url == ("https://app.example.com/app/admin/support/42")
+    assert keyboard.inline_keyboard[1][1].url == (
+        "https://app.example.com/app/admin/users/100200300"
+    )
 
 
 def test_admin_support_keyboard_falls_back_to_startapp_url():
@@ -400,6 +417,7 @@ def test_support_topic_suppresses_admin_dm_and_uses_url_buttons():
             LOG_SUPPORT_THREAD_ID=77,
             SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
         ),
+        bot_username="demo_bot",
     )
 
     async def send_to_admins(message, reply_markup=None):
@@ -439,8 +457,8 @@ def test_support_topic_suppresses_admin_dm_and_uses_url_buttons():
     markup = channels[0][3]
     buttons = _keyboard_buttons(markup)
     assert all(button.web_app is None for button in buttons)
-    assert buttons[0].url == "https://app.example.com/admin/support/7"
-    assert buttons[2].url == "https://app.example.com/admin/users/100200300"
+    assert buttons[0].url == "https://t.me/demo_bot?startapp=admin_ticket_7"
+    assert buttons[2].url == "https://t.me/demo_bot?startapp=admin_user_100200300"
 
 
 def test_support_user_reply_topic_suppresses_admin_dm_and_uses_url_buttons():
@@ -453,6 +471,7 @@ def test_support_user_reply_topic_suppresses_admin_dm_and_uses_url_buttons():
             LOG_SUPPORT_THREAD_ID=77,
             SUBSCRIPTION_MINI_APP_URL="https://app.example.com",
         ),
+        bot_username="demo_bot",
     )
 
     async def send_to_admins(message, reply_markup=None):
@@ -495,7 +514,7 @@ def test_support_user_reply_topic_suppresses_admin_dm_and_uses_url_buttons():
     assert channels[0][1] == 77
     buttons = _keyboard_buttons(channels[0][3])
     assert all(button.web_app is None for button in buttons)
-    assert buttons[0].url == "https://app.example.com/admin/support/7"
+    assert buttons[0].url == "https://t.me/demo_bot?startapp=admin_ticket_7"
 
 
 def test_support_user_reply_can_send_email_without_telegram_channels():
