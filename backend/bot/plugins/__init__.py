@@ -13,19 +13,24 @@ from .loader import (
 )
 from .spec import (
     ENTRY_POINT_GROUP,
+    PLUGIN_API_VERSION,
     WEB_SCOPE_WEBAPP,
     WEB_SCOPE_WEBHOOKS,
     Plugin,
+    PluginApiCompatibilityError,
     PluginContext,
     QueueHandler,
     WorkerTaskSpec,
+    validate_plugin_api_compatibility,
 )
 
 __all__ = [
     "ENTRY_POINT_GROUP",
+    "PLUGIN_API_VERSION",
     "WEB_SCOPE_WEBAPP",
     "WEB_SCOPE_WEBHOOKS",
     "Plugin",
+    "PluginApiCompatibilityError",
     "PluginContext",
     "QueueHandler",
     "WorkerTaskSpec",
@@ -40,4 +45,5 @@ __all__ = [
     "run_setup",
     "setup_bot_plugins",
     "setup_web_plugins",
+    "validate_plugin_api_compatibility",
 ]

@@ -27,7 +27,26 @@ export interface AdminSectionDescriptor {
   icon: unknown;
   component?: unknown;
   loadComponent?: () => Promise<unknown>;
+  /** @deprecated Prefer requiredFeature for new extension descriptors. */
   feature?: string;
+  /** Feature required to use this extension section. Navigation-only metadata. */
+  requiredFeature?: string;
+  /** Keep a feature-locked extension discoverable so it can render its own locked state. */
+  visibleWhenLocked?: boolean;
+}
+
+export function requiredFeatureForAdminSection(section: AdminSectionDescriptor): string {
+  return String(section.requiredFeature || section.feature || "").trim();
+}
+
+export function isAdminSectionVisible(
+  section: AdminSectionDescriptor,
+  availableFeatures: ReadonlySet<string>
+): boolean {
+  const requiredFeature = requiredFeatureForAdminSection(section);
+  return (
+    !requiredFeature || availableFeatures.has(requiredFeature) || Boolean(section.visibleWhenLocked)
+  );
 }
 
 export const ADMIN_SECTION_GROUPS = [

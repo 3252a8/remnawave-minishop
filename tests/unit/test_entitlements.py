@@ -17,6 +17,7 @@ from bot.services.entitlements import (
     MARKETING_WINBACK_ENTITLEMENT,
     RESERVED_ENTITLEMENT_KEYS,
     DefaultEntitlements,
+    EntitlementsProviderConflictError,
     active_entitlements_source,
     features,
     get_entitlements,
@@ -96,7 +97,7 @@ def test_plugin_entitlements_provider_becomes_active():
     assert features() == {"admin.extra", "reports"}
 
 
-def test_last_plugin_entitlements_provider_wins():
+def test_multiple_plugin_entitlements_providers_fail_closed():
     register(FeaturePlugin({"first"}))
 
     class LaterFeaturePlugin(FeaturePlugin):
@@ -104,10 +105,11 @@ def test_last_plugin_entitlements_provider_wins():
 
     register(LaterFeaturePlugin({"second"}))
 
-    run_setup(PluginContext(settings=make_settings()))
+    with pytest.raises(EntitlementsProviderConflictError, match="Multiple authoritative"):
+        run_setup(PluginContext(settings=make_settings()))
 
-    assert active_entitlements_source() == "later_feature_plugin"
-    assert features() == {"second"}
+    assert active_entitlements_source() == "core"
+    assert features() == set()
 
 
 def test_admin_settings_response_includes_default_features():

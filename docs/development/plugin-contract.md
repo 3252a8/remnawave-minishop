@@ -3,6 +3,15 @@
 Типизированный источник истины — [`../../backend/bot/plugins/spec.py`](../../backend/bot/plugins/spec.py).
 Эта страница помогает сориентироваться, но не дублирует весь контракт.
 
+## Версия API и совместимость
+
+Текущая публичная версия API плагинов — `PLUGIN_API_VERSION = 1`. Новый внешний плагин должен
+объявить включающий диапазон `plugin_api_min_version` и `plugin_api_max_version` на своем классе
+`Plugin`. Loader останавливает запуск до вызова hook'ов, если текущая версия ядра не входит в этот
+диапазон или диапазон описан некорректно. Неверсионированные плагины остаются совместимы в API v1
+только для обратной совместимости; их следует обновить с явным диапазоном до следующего
+compatibility-breaking релиза.
+
 Плагин наследуется от `Plugin` и переопределяет только нужные хуки:
 
 - `setup(ctx)` — регистрация сервисов и подписок на события;
@@ -13,6 +22,9 @@
 - `migrations()` — цепочка миграций плагина;
 - `locales_dir()` — дополнительные JSON-каталоги локалей;
 - `entitlements_provider()` — интеграция feature flags.
+
+`entitlements_provider()` — авторитетный источник: может быть только один. Несколько плагинов,
+вернувших provider, — детерминированная startup configuration error, а не порядок-зависимый выбор.
 
 `PluginContext` содержит настройки, необязательные bot/dispatcher/session factory, i18n и общий
 словарь `services`. Словарь `services` — публичная поверхность расширения; ключи должны быть
@@ -43,6 +55,13 @@ Web-плагины получают один из двух scope из `bot.plugi
 Минимальный запускаемый пример лежит в
 [`../../examples/plugins/audit_logger_plugin`](../../examples/plugins/audit_logger_plugin). Он показывает
 `setup`, `setup_web` и подписку через `bot.infra.events.subscribe`.
+
+## Стабильная identity установки
+
+Плагин, которому нужен нейтральный идентификатор локальной установки, вызывает
+`bot.services.installation_identity.get_or_create_installation_identity(session)`. Функция
+возвращает persistent UUID и не зависит от включенной telemetry. Плагин получает session через
+`ctx.require_session_factory()` и сам владеет commit транзакции.
 
 ## Хуки наблюдаемости
 

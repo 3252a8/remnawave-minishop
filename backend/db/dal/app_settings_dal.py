@@ -87,6 +87,29 @@ async def upsert_override(
     await session.execute(stmt)
 
 
+async def insert_override_if_missing(
+    session: AsyncSession,
+    *,
+    key: str,
+    value: Any,
+    updated_by: int | None,
+) -> bool:
+    """Insert an override without replacing a value created by another process."""
+
+    stmt = (
+        pg_insert(AppSettingOverride)
+        .values(
+            key=key,
+            value=_encode(value),
+            updated_at=datetime.now(UTC),
+            updated_by=updated_by,
+        )
+        .on_conflict_do_nothing(index_elements=[AppSettingOverride.key])
+    )
+    result = await session.execute(stmt)
+    return rowcount(result) > 0
+
+
 async def delete_override(session: AsyncSession, key: str) -> bool:
     stmt = delete(AppSettingOverride).where(AppSettingOverride.key == key)
     result = await session.execute(stmt)

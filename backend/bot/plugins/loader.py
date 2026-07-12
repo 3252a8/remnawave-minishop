@@ -17,7 +17,14 @@ from importlib import metadata
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .spec import ENTRY_POINT_GROUP, Plugin, PluginContext, QueueHandler, WorkerTaskSpec
+from .spec import (
+    ENTRY_POINT_GROUP,
+    Plugin,
+    PluginContext,
+    QueueHandler,
+    WorkerTaskSpec,
+    validate_plugin_api_compatibility,
+)
 
 if TYPE_CHECKING:
     from aiogram import Router
@@ -104,7 +111,10 @@ def get_plugins(settings: Settings) -> list[Plugin]:
     global _discovered_plugins
     builtin = _get_builtin_plugins()
     if not settings.PLUGINS_ENABLED:
-        return list(builtin)
+        plugins = list(builtin)
+        for plugin in plugins:
+            validate_plugin_api_compatibility(plugin)
+        return plugins
     if _discovered_plugins is None:
         _discovered_plugins = _discover(settings)
         logger.info(
@@ -115,7 +125,10 @@ def get_plugins(settings: Settings) -> list[Plugin]:
             )
             or "none",
         )
-    return [*builtin, *_discovered_plugins, *_registered_plugins]
+    plugins = [*builtin, *_discovered_plugins, *_registered_plugins]
+    for plugin in plugins:
+        validate_plugin_api_compatibility(plugin)
+    return plugins
 
 
 def _run_hook(
@@ -137,11 +150,19 @@ def run_setup(ctx: PluginContext) -> None:
 
 
 def configure_entitlements(ctx: PluginContext) -> None:
-    """Activate the last plugin-provided entitlements provider, if any."""
-    from bot.services.entitlements import DefaultEntitlements, set_entitlements_provider
+    """Activate zero or one plugin-provided entitlements provider."""
+    from bot.services.entitlements import (
+        DefaultEntitlements,
+        EntitlementsProviderConflictError,
+        set_entitlements_provider,
+    )
 
-    provider = DefaultEntitlements()
-    source = "core"
+    # Clear any stale process-local provider before evaluating a new plugin
+    # configuration. A conflict below must fail closed rather than leave a
+    # previous provider active.
+    default_provider = DefaultEntitlements()
+    set_entitlements_provider(default_provider, source="core")
+    contributions = []
     for plugin in get_plugins(ctx.settings):
         try:
             contributed = plugin.entitlements_provider()
@@ -155,9 +176,17 @@ def configure_entitlements(ctx: PluginContext) -> None:
             continue
         if contributed is None:
             continue
-        provider = contributed
-        source = plugin.name
-    set_entitlements_provider(provider, source=source)
+        contributions.append((plugin.name, contributed))
+
+    if len(contributions) > 1:
+        sources = ", ".join(name for name, _provider in contributions)
+        raise EntitlementsProviderConflictError(
+            f"Multiple authoritative entitlement providers are configured: {sources}"
+        )
+
+    if contributions:
+        source, provider = contributions[0]
+        set_entitlements_provider(provider, source=source)
 
 
 def setup_bot_plugins(ctx: PluginContext, *, user_root: Router, admin_root: Router) -> None:

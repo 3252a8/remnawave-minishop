@@ -50,6 +50,16 @@ if TYPE_CHECKING:
 
 ENTRY_POINT_GROUP = "minishop.plugins"
 
+# Increment this integer only for a compatibility-breaking plugin-contract
+# change. Third-party plugins can declare the inclusive API range they support
+# through ``plugin_api_min_version`` / ``plugin_api_max_version``.
+PLUGIN_API_VERSION = 1
+
+
+class PluginApiCompatibilityError(RuntimeError):
+    """Raised when a plugin explicitly declares an unsupported API range."""
+
+
 # Scopes passed to Plugin.setup_web: the webhooks app serves health checks
 # and payment/panel webhooks, the webapp app serves the Mini App and admin API.
 WEB_SCOPE_WEBHOOKS = "webhooks"
@@ -212,6 +222,11 @@ class Plugin:
     name: str = "unnamed"
     #: Plugin version string (informational).
     version: str = "0.0.0"
+    #: Inclusive core plugin-API range supported by this plugin. Existing
+    #: unversioned plugins remain compatible with API v1; new plugins should
+    #: declare both bounds so a future incompatible core release can fail fast.
+    plugin_api_min_version: int | None = None
+    plugin_api_max_version: int | None = None
 
     def setup(self, ctx: PluginContext) -> None:
         """General initialization; called first, once per process.
@@ -274,10 +289,44 @@ class Plugin:
     def entitlements_provider(self) -> EntitlementsProvider | None:
         """Return a feature entitlement provider for this process.
 
-        When several plugins return providers, the last active plugin wins.
-        The default core provider exposes an empty feature set.
+        At most one plugin may return a provider. Multiple authoritative
+        providers are a startup configuration error. The default core provider
+        exposes an empty feature set when no plugin supplies one.
         """
         return None
 
     from bot.services.audience_segmentation import AudienceSegmentationService
     from bot.services.outbound_messaging import OutboundMessagingService
+
+
+def validate_plugin_api_compatibility(plugin: Plugin) -> None:
+    """Validate an explicitly declared plugin API compatibility range.
+
+    API v1 keeps unversioned plugins working for backwards compatibility. New
+    plugins should set both inclusive bounds; malformed or incompatible ranges
+    always fail before plugin hooks run.
+    """
+
+    minimum = plugin.plugin_api_min_version
+    maximum = plugin.plugin_api_max_version
+    if minimum is None and maximum is None:
+        return
+    if (
+        not isinstance(minimum, int)
+        or isinstance(minimum, bool)
+        or not isinstance(maximum, int)
+        or isinstance(maximum, bool)
+    ):
+        raise PluginApiCompatibilityError(
+            f"Plugin {plugin.name!r} must declare integer plugin_api_min_version "
+            "and plugin_api_max_version together"
+        )
+    if minimum > maximum:
+        raise PluginApiCompatibilityError(
+            f"Plugin {plugin.name!r} declares an invalid plugin API range {minimum}..{maximum}"
+        )
+    if not minimum <= PLUGIN_API_VERSION <= maximum:
+        raise PluginApiCompatibilityError(
+            f"Plugin {plugin.name!r} supports plugin API {minimum}..{maximum}, "
+            f"but core provides {PLUGIN_API_VERSION}"
+        )
