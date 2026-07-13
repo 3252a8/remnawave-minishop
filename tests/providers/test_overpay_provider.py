@@ -283,6 +283,9 @@ def _webhook_service(session, payment, monkeypatch, **overrides):
     service._amount_matches_payment = OverpayService._amount_matches_payment.__get__(
         service, OverpayService
     )
+    service._currency_matches_payment = OverpayService._currency_matches_payment.__get__(
+        service, OverpayService
+    )
     service._persist_recurring_payment_method = (
         OverpayService._persist_recurring_payment_method.__get__(service, OverpayService)
     )
@@ -389,6 +392,8 @@ def test_webhook_success_saves_token_when_recurring_enabled(monkeypatch):
 def test_webhook_amount_mismatch_is_rejected(monkeypatch):
     session = _FakeDbSession()
     service = _webhook_service(session, _payment(), monkeypatch)
+    claim_mock = AsyncMock(side_effect=AssertionError("mismatched amount must not claim payment"))
+    monkeypatch.setattr(overpay_service.payment_dal, "claim_payment_finalization", claim_mock)
     monkeypatch.setattr(
         overpay_service.payment_dal,
         "update_provider_payment_and_status",
@@ -409,6 +414,7 @@ def test_webhook_amount_mismatch_is_rejected(monkeypatch):
                         "uid": "tx-1",
                         "status": "successful",
                         "amount": 999999,
+                        "currency": "RUB",
                         "tracking_id": "88",
                     }
                 }
@@ -417,6 +423,48 @@ def test_webhook_amount_mismatch_is_rejected(monkeypatch):
     )
 
     assert response.status == 400
+    claim_mock.assert_not_awaited()
+
+
+def test_webhook_missing_amount_or_wrong_currency_is_rejected(monkeypatch):
+    invalid_details = (
+        {"currency": "RUB"},
+        {"amount": "not-a-number", "currency": "RUB"},
+        {"amount": 15000, "currency": "USD"},
+        {"amount": 15000},
+    )
+
+    for details in invalid_details:
+        session = _FakeDbSession()
+        service = _webhook_service(session, _payment(), monkeypatch)
+        claim_mock = AsyncMock(side_effect=AssertionError("invalid payment must not claim"))
+        finalize_mock = AsyncMock(side_effect=AssertionError("invalid payment must not finalize"))
+        monkeypatch.setattr(
+            overpay_service.payment_dal,
+            "claim_payment_finalization",
+            claim_mock,
+        )
+        monkeypatch.setattr(overpay_service, "finalize_successful_payment", finalize_mock)
+
+        response = asyncio.run(
+            OverpayService.webhook_route(
+                service,
+                _FakeWebhookRequest(
+                    {
+                        "transaction": {
+                            "uid": "tx-1",
+                            "status": "successful",
+                            "tracking_id": "88",
+                            **details,
+                        }
+                    }
+                ),
+            )
+        )
+
+        assert response.status == 400
+        claim_mock.assert_not_awaited()
+        finalize_mock.assert_not_awaited()
 
 
 def test_webhook_failed_status_marks_payment_failed(monkeypatch):

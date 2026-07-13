@@ -370,6 +370,23 @@ def _decimal_from_api(value: Any) -> Decimal | None:
     return decimal_value
 
 
+def paykilla_amount_places(currency: Any) -> int | None:
+    """Return the fixed invoice precision, or exact precision for crypto assets."""
+    currency_code = normalize_payment_currency_code(currency, default="")
+    return 2 if currency_code in _FIAT_CURRENCIES else None
+
+
+def format_paykilla_amount(amount: Any, currency: Any) -> Decimal:
+    """Format an invoice value without silently truncating crypto precision."""
+    decimal_amount = _decimal_from_api(amount)
+    if decimal_amount is None:
+        raise ValueError("payment amount must be finite")
+    places = paykilla_amount_places(currency)
+    if places is None:
+        return decimal_amount
+    return format_decimal_amount(decimal_amount, places)
+
+
 def _config_min_payment_amount(config: PaykillaConfig) -> Decimal:
     amount = _decimal_from_api(getattr(config, "MIN_PAYMENT_AMOUNT", None))
     if amount is None or amount < 0:
@@ -443,11 +460,15 @@ def _min_payment_threshold_for_currency(
     min_currency = _config_min_payment_currency(config)
     payment_currency = normalize_payment_currency_code(payment_currency)
     if payment_currency == min_currency:
-        return format_decimal_amount(min_amount)
+        return format_paykilla_amount(min_amount, payment_currency)
     rate = _exchange_rate_sync(config, payment_currency, min_currency)
     if rate is None or rate <= 0:
         return None
-    return (min_amount / rate).quantize(Decimal("0.01"), rounding=ROUND_CEILING)
+    threshold = min_amount / rate
+    places = paykilla_amount_places(payment_currency)
+    if places is None:
+        return threshold
+    return threshold.quantize(Decimal(10) ** -places, rounding=ROUND_CEILING)
 
 
 def _paykilla_payment_minimum_metadata(
@@ -460,7 +481,11 @@ def _paykilla_payment_minimum_metadata(
     return {
         "min_amount": str(threshold),
         "min_currency": payment_currency,
-        "configured_min_amount": str(format_decimal_amount(_config_min_payment_amount(config))),
+        "configured_min_amount": str(
+            format_paykilla_amount(
+                _config_min_payment_amount(config), _config_min_payment_currency(config)
+            )
+        ),
         "configured_min_currency": _config_min_payment_currency(config),
     }
 
@@ -476,4 +501,4 @@ def _paykilla_payment_amount_supported(
     value = _decimal_from_api(amount)
     if value is None:
         return True
-    return format_decimal_amount(value) >= threshold
+    return format_paykilla_amount(value, payment_currency) >= threshold

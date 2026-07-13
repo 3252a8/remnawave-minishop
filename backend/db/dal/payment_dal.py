@@ -3,6 +3,7 @@ from datetime import UTC
 from typing import Any
 
 from sqlalchemy import Date, and_, case, cast, func, or_, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload, selectinload
@@ -26,7 +27,11 @@ def _would_overwrite_succeeded_payment(current_status: Any, new_status: Any) -> 
     )
 
 
-async def create_payment_record(session: AsyncSession, payment_data: dict[str, Any]) -> Payment:
+async def _validate_payment_record_references(
+    session: AsyncSession,
+    payment_data: dict[str, Any],
+) -> None:
+    """Reject a payment payload whose referenced rows do not exist."""
 
     from .user_dal import get_user_by_id
 
@@ -41,6 +46,10 @@ async def create_payment_record(session: AsyncSession, payment_data: dict[str, A
         if not promo:
             raise ValueError(f"Promo code with id {payment_data['promo_code_id']} not found.")
 
+
+async def create_payment_record(session: AsyncSession, payment_data: dict[str, Any]) -> Payment:
+    await _validate_payment_record_references(session, payment_data)
+
     new_payment = Payment(**payment_data)
     session.add(new_payment)
     await session.flush()
@@ -49,6 +58,69 @@ async def create_payment_record(session: AsyncSession, payment_data: dict[str, A
         "Payment record %s created for user %s", new_payment.payment_id, new_payment.user_id
     )
     return new_payment
+
+
+async def get_payment_by_idempotence_key(
+    session: AsyncSession,
+    idempotence_key: str,
+    *,
+    fresh: bool = False,
+) -> Payment | None:
+    """Fetch a payment by the immutable provider idempotence key."""
+    key = str(idempotence_key or "").strip()
+    if not key:
+        return None
+    stmt = select(Payment).where(Payment.idempotence_key == key)
+    if fresh:
+        stmt = stmt.execution_options(populate_existing=True)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def create_or_get_payment_record_by_idempotence_key(
+    session: AsyncSession,
+    payment_data: dict[str, Any],
+) -> tuple[Payment, bool]:
+    """Atomically claim one local payment row for an idempotent provider call.
+
+    PostgreSQL resolves concurrent ``ON CONFLICT`` attempts against the unique
+    ``payments.idempotence_key`` constraint, so only one caller can own the
+    order before it reaches an external payment API.  The caller commits the
+    newly created row before issuing that API call; a concurrent caller then
+    loads the same row and can safely reuse the provider idempotence key.
+    """
+    payload = dict(payment_data)
+    idempotence_key = str(payload.get("idempotence_key") or "").strip()
+    if not idempotence_key:
+        raise ValueError("idempotence_key is required for idempotent payment creation.")
+    payload["idempotence_key"] = idempotence_key
+
+    existing = await get_payment_by_idempotence_key(session, idempotence_key, fresh=True)
+    if existing:
+        return existing, False
+
+    await _validate_payment_record_references(session, payload)
+    stmt = (
+        pg_insert(Payment)
+        .values(**payload)
+        .on_conflict_do_nothing(index_elements=[Payment.idempotence_key])
+        .returning(Payment.payment_id)
+    )
+    result = await session.execute(stmt)
+    created = result.scalar_one_or_none() is not None
+
+    payment = await get_payment_by_idempotence_key(session, idempotence_key, fresh=True)
+    if payment is None:
+        raise RuntimeError(
+            f"Failed to load payment after claiming its idempotence key {idempotence_key!r}."
+        )
+    if created:
+        logger.info(
+            "Payment record %s created with idempotence key %s",
+            payment.payment_id,
+            idempotence_key,
+        )
+    return payment, created
 
 
 async def get_payment_by_provider_payment_id(

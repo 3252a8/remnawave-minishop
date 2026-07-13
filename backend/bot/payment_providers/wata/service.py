@@ -24,12 +24,12 @@ from ..shared import (
     HttpClientMixin,
     PaymentSuccessRequest,
     check_webhook_source_ip,
-    decimal_amounts_equal,
     finalize_successful_payment,
     first_value,
     format_decimal_amount,
     lookup_payment_by_order_or_provider_id,
     notify_user_payment_failed,
+    payment_amount_and_currency_match,
     payment_units_for_activation,
     post_json_request,
 )
@@ -546,26 +546,13 @@ class WataService(HttpClientMixin):
             return payment
 
         transaction_id = _wata_transaction_id(payload) or str(payment.payment_id)
-        amount_raw = payload.get("amount")
-        currency = payload.get("currency") or self.settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
 
-        if amount_raw is not None:
-            try:
-                if not decimal_amounts_equal(amount_raw, payment.amount):
-                    logger.warning(
-                        "%s: amount mismatch for payment %s (expected %s, got %s)",
-                        log_prefix,
-                        payment.payment_id,
-                        format_decimal_amount(payment.amount),
-                        format_decimal_amount(amount_raw),
-                    )
-            except Exception as exc:
-                logger.warning(
-                    "%s: failed to compare amounts for %s: %s",
-                    log_prefix,
-                    payment.payment_id,
-                    exc,
-                )
+        if not self._paid_payload_matches_payment(
+            payment,
+            payload,
+            log_prefix=log_prefix,
+        ):
+            return None
 
         try:
             claimed_payment = await payment_dal.claim_payment_finalization(
@@ -604,7 +591,7 @@ class WataService(HttpClientMixin):
                 payment=payment,
                 user_id=payment.user_id,
                 amount=float(payment.amount),
-                currency=str(currency),
+                currency=str(payment.currency),
                 sale_mode=sale_mode,
                 months=payment_units,
                 traffic_amount=float(payment_units),
@@ -617,6 +604,33 @@ class WataService(HttpClientMixin):
         if outcome is None:
             return None
         return await payment_dal.get_payment_by_db_id(session, payment.payment_id) or payment
+
+    def _paid_payload_matches_payment(
+        self,
+        payment: Any,
+        payload: Mapping[str, Any],
+        *,
+        log_prefix: str,
+    ) -> bool:
+        amount = payload.get("amount")
+        currency = payload.get("currency")
+        if payment_amount_and_currency_match(
+            expected_amount=payment.amount,
+            expected_currency=payment.currency,
+            received_amount=amount,
+            received_currency=currency,
+        ):
+            return True
+        logger.warning(
+            "%s: amount or currency mismatch for payment %s (expected=%s %s, got=%s %s)",
+            log_prefix,
+            payment.payment_id,
+            payment.amount,
+            payment.currency,
+            amount,
+            currency,
+        )
+        return False
 
     async def _mark_declined_from_payload(
         self,
@@ -878,6 +892,12 @@ class WataService(HttpClientMixin):
                 return web.Response(text="ok")
 
             if status == "paid":
+                if not self._paid_payload_matches_payment(
+                    payment,
+                    payload,
+                    log_prefix="Wata webhook",
+                ):
+                    return web.Response(status=400, text="amount_mismatch")
                 if not await self._mark_paid_from_payload(
                     session,
                     payment,

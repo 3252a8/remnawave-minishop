@@ -1,4 +1,6 @@
 import logging
+import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +14,43 @@ from db.models import Subscription
 from ._typing import SubscriptionServiceMixinContract
 
 logger = logging.getLogger(__name__)
+
+
+def _renewal_idempotence_key(
+    sub: Subscription,
+    *,
+    renewal_cycle_end: datetime | None,
+) -> str:
+    """Build a YooKassa-safe key stable for one renewal cycle attempt.
+
+    ``renewal_cycle_end`` comes from the panel event when available.  That is
+    deliberately preferred over the mutable local ``Subscription.end_date``:
+    after a successful webhook extends the same subscription row, a late copy
+    of the old panel event must still resolve to the original payment order.
+    Every before-expiry stage for that cycle deliberately shares this key:
+    a second panel event must not create a second merchant-initiated charge.
+    """
+    cycle_end = renewal_cycle_end or getattr(sub, "end_date", None)
+    if isinstance(cycle_end, datetime):
+        if cycle_end.tzinfo is None:
+            cycle_end = cycle_end.replace(tzinfo=UTC)
+        # Panel payloads may express the same instant with or without a time
+        # component.  A renewal period cannot legitimately recur twice on one
+        # UTC date, so the normalized calendar date prevents representation
+        # drift from producing a second charge key.
+        cycle_anchor = cycle_end.astimezone(UTC).date().isoformat()
+    else:
+        cycle_anchor = str(cycle_end or "missing")
+    source = "|".join(
+        (
+            "yookassa-auto-renew-v1",
+            str(getattr(sub, "subscription_id", "missing")),
+            cycle_anchor,
+        )
+    )
+    # YooKassa limits Idempotence-Key to 64 characters.  The fixed prefix and
+    # UUID5 digest are 40 ASCII characters and retain no customer data.
+    return f"yk-auto-{uuid.uuid5(uuid.NAMESPACE_URL, source).hex}"
 
 
 class RenewalMixin(SubscriptionServiceMixinContract):
@@ -30,6 +69,8 @@ class RenewalMixin(SubscriptionServiceMixinContract):
         self,
         session: AsyncSession,
         sub: Subscription,
+        *,
+        renewal_cycle_end: datetime | None = None,
     ) -> bool:
         """Attempt to charge user using saved payment method.
 
@@ -162,6 +203,10 @@ class RenewalMixin(SubscriptionServiceMixinContract):
                 description=f"Auto-renewal for {months} months",
                 metadata=metadata,
                 hwid_quote=hwid_quote,
+                idempotence_key=_renewal_idempotence_key(
+                    sub,
+                    renewal_cycle_end=renewal_cycle_end,
+                ),
             )
         )
         if not result.initiated:

@@ -30,12 +30,11 @@ from ..shared import (
     LinkPaymentDescriptor,
     PaymentSuccessRequest,
     constant_time_compare,
-    decimal_amounts_equal,
     finalize_successful_payment,
     first_value,
-    format_decimal_amount,
     format_number_for_payload,
     notify_user_payment_failed,
+    payment_amount_and_currency_match,
     payment_units_for_activation,
     post_json_request,
     run_callback_payment,
@@ -362,7 +361,7 @@ class PlategaService(HttpClientMixin):
         transaction_id = str(data.get("id") or data.get("transactionId") or "").strip()
         status = str(data.get("status") or "").upper()
         amount_raw = data.get("amount")
-        currency = data.get("currency") or self.settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
+        currency = data.get("currency")
 
         if not transaction_id or not status:
             logger.error("Platega webhook: missing transaction id or status in payload: %s", data)
@@ -380,21 +379,25 @@ class PlategaService(HttpClientMixin):
                 return web.Response(text="ok")
 
             if status == "CONFIRMED":
-                if amount_raw is not None:
-                    try:
-                        if not decimal_amounts_equal(amount_raw, payment.amount):
-                            logger.warning(
-                                "Platega webhook: amount mismatch for payment %s (expected %s, got %s)",  # noqa: E501
-                                payment.payment_id,
-                                format_decimal_amount(payment.amount),
-                                format_decimal_amount(amount_raw),
-                            )
-                    except Exception as exc:
-                        logger.warning(
-                            "Platega webhook: failed to compare amounts for %s: %s",
-                            payment.payment_id,
-                            exc,
-                        )
+                if not payment_amount_and_currency_match(
+                    expected_amount=payment.amount,
+                    expected_currency=payment.currency,
+                    received_amount=amount_raw,
+                    received_currency=currency,
+                    # Platega receives the raw numeric amount passed to
+                    # create_transaction, so preserve that invoice precision.
+                    places=None,
+                ):
+                    logger.warning(
+                        "Platega webhook: amount or currency mismatch for payment %s "
+                        "(expected=%s %s, got=%s %s)",
+                        payment.payment_id,
+                        payment.amount,
+                        payment.currency,
+                        amount_raw,
+                        currency,
+                    )
+                    return web.Response(status=400, text="amount_mismatch")
 
                 try:
                     claimed_payment = await payment_dal.claim_payment_finalization(
@@ -429,7 +432,7 @@ class PlategaService(HttpClientMixin):
                         payment=payment,
                         user_id=payment.user_id,
                         amount=float(payment.amount),
-                        currency=str(currency),
+                        currency=str(payment.currency),
                         sale_mode=sale_mode,
                         months=payment_months,
                         traffic_amount=float(payment_months),

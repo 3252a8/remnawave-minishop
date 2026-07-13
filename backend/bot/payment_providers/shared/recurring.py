@@ -28,10 +28,11 @@ from typing import Any, Protocol
 class RecurringChargeContext:
     """Everything a provider needs to charge a saved payment method.
 
-    ``metadata`` mirrors the YooKassa-style key/value bag (the YooKassa webhook
-    reconstructs the renewal from it). Providers that finalize the payment from
-    their own DB record (e.g. CloudPayments) read the structured fields and
-    ``hwid_quote`` instead.
+    ``metadata`` mirrors the YooKassa-style key/value bag.  YooKassa adds a
+    pre-created local payment id to it before charging, then validates the
+    successful webhook against that immutable order. Providers that finalize
+    the payment from their own DB record (e.g. CloudPayments) read the
+    structured fields and ``hwid_quote`` instead.
     """
 
     session: Any
@@ -45,6 +46,10 @@ class RecurringChargeContext:
     description: str
     metadata: Mapping[str, str] = field(default_factory=dict)
     hwid_quote: Mapping[str, Any] | None = None
+    # A provider-safe stable key for one renewal attempt.  YooKassa persists
+    # it on the local order and sends it as Idempotence-Key, while providers
+    # that do not support that contract may ignore it.
+    idempotence_key: str | None = None
 
 
 @dataclass(frozen=True)

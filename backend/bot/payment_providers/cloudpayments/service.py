@@ -37,12 +37,12 @@ from ..shared import (
     build_payment_record_payload,
     check_webhook_source_ip,
     constant_time_compare,
-    decimal_amounts_equal,
     finalize_successful_payment,
     first_value,
     format_decimal_amount,
     lookup_payment_by_order_or_provider_id,
     notify_user_payment_failed,
+    payment_amount_and_currency_match,
     payment_units_for_activation,
     post_json_request,
     run_callback_payment,
@@ -576,15 +576,21 @@ class CloudPaymentsService(HttpClientMixin):
                     return web.json_response(_CODE_OK)
 
                 webhook_amount = _get("Amount")
-                if webhook_amount is not None and not decimal_amounts_equal(
-                    webhook_amount, payment.amount
+                webhook_currency = _get("Currency")
+                if not payment_amount_and_currency_match(
+                    expected_amount=payment.amount,
+                    expected_currency=payment.currency,
+                    received_amount=webhook_amount,
+                    received_currency=webhook_currency,
                 ):
                     logger.error(
-                        "CloudPayments webhook: amount mismatch for payment %s "
-                        "(expected=%s, received=%s)",
+                        "CloudPayments webhook: payment details mismatch for payment %s "
+                        "(expected=%s %s, received=%s %s)",
                         payment.payment_id,
                         payment.amount,
+                        payment.currency,
                         webhook_amount,
+                        webhook_currency,
                     )
                     return web.json_response({"code": 12}, status=200)
 

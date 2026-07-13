@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.dal import payment_dal
 from db.models import Payment
 
-from ..base import WebAppPaymentContext
+from ..base import WebAppPaymentContext, normalize_payment_currency_code
 
 Translator = Callable[..., str]
 
@@ -29,13 +29,73 @@ def make_translator(i18n: Any, language: str) -> Translator:
 
 
 def format_decimal_amount(amount: Any, places: int = 2) -> Decimal:
-    """Quantize ``amount`` to the given decimal places using bank rounding."""
+    """Quantize ``amount`` to the given decimal places using half-up rounding."""
     return Decimal(str(amount)).quantize(Decimal(10) ** -places, rounding=ROUND_HALF_UP)
 
 
 def decimal_amounts_equal(left: Any, right: Any, places: int = 2) -> bool:
     """True when both values round to the same fixed-point representation."""
     return format_decimal_amount(left, places) == format_decimal_amount(right, places)
+
+
+def payment_amount_matches(
+    *,
+    expected_amount: Any,
+    received_amount: Any,
+    places: int | None = 2,
+) -> bool:
+    """Return whether a provider's settled amount matches its issued invoice.
+
+    The locally stored amount is normalized to the precision used when the
+    invoice is created.  A callback must already be expressed at that
+    precision: rounding it would make a distinct, signed settlement look like
+    the expected amount.
+    """
+    if received_amount is None:
+        return False
+    try:
+        expected_decimal = Decimal(str(expected_amount).strip())
+        received_decimal = Decimal(str(received_amount).strip())
+        if not expected_decimal.is_finite() or not received_decimal.is_finite():
+            return False
+        if places is None:
+            return expected_decimal == received_decimal
+        quantum = Decimal(10) ** -places
+        expected_fixed = expected_decimal.quantize(quantum, rounding=ROUND_HALF_UP)
+        received_fixed = received_decimal.quantize(quantum, rounding=ROUND_HALF_UP)
+        return received_decimal == received_fixed and expected_fixed == received_fixed
+    except (InvalidOperation, TypeError, ValueError):
+        return False
+
+
+def payment_amount_and_currency_match(
+    *,
+    expected_amount: Any,
+    expected_currency: Any,
+    received_amount: Any,
+    received_currency: Any,
+    places: int | None = 2,
+) -> bool:
+    """Return whether a provider confirmation matches the stored payment exactly.
+
+    Payment providers must not finalize a payment when their successful callback
+    omits either monetary field: treating a missing currency as the default
+    currency would turn an unverified callback into a paid order.
+
+    ``places=None`` selects an exact finite ``Decimal`` comparison for payment
+    rails that use crypto-asset precision rather than a fixed fiat scale.
+    """
+    if received_amount is None or received_currency is None:
+        return False
+    received_currency_code = normalize_payment_currency_code(received_currency, default="")
+    expected_currency_code = normalize_payment_currency_code(expected_currency, default="")
+    if not received_currency_code or received_currency_code != expected_currency_code:
+        return False
+    return payment_amount_matches(
+        expected_amount=expected_amount,
+        received_amount=received_amount,
+        places=places,
+    )
 
 
 def parse_positive_int_units(value: Any) -> int | None:

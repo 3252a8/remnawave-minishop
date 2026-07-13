@@ -38,6 +38,7 @@ from ..shared import (
     format_decimal_amount,
     lookup_payment_by_order_or_provider_id,
     notify_user_payment_failed,
+    payment_amount_and_currency_match,
     payment_units_for_activation,
     post_json_request,
     run_callback_payment,
@@ -311,6 +312,8 @@ class SeverPayService(HttpClientMixin):
         provider_payment_id = str(data.get("id") or data.get("uid") or "")
         order_id_raw = data.get("order_id")
         status = str(data.get("status") or "").lower()
+        amount = data.get("amount")
+        currency = data.get("currency")
 
         async with self.async_session_factory() as session:
             payment = await lookup_payment_by_order_or_provider_id(
@@ -334,6 +337,26 @@ class SeverPayService(HttpClientMixin):
                         payment.payment_id,
                     )
                     return web.json_response({"status": True})
+
+                if not payment_amount_and_currency_match(
+                    expected_amount=payment.amount,
+                    expected_currency=payment.currency,
+                    received_amount=amount,
+                    received_currency=currency,
+                ):
+                    logger.warning(
+                        "SeverPay webhook: amount or currency mismatch for payment %s "
+                        "(expected=%s %s, got=%s %s)",
+                        payment.payment_id,
+                        payment.amount,
+                        payment.currency,
+                        amount,
+                        currency,
+                    )
+                    return web.json_response(
+                        {"status": False, "msg": "amount_mismatch"},
+                        status=400,
+                    )
 
                 try:
                     claimed_payment = await payment_dal.claim_payment_finalization(

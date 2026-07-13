@@ -229,6 +229,51 @@ class ChargeRenewalHappyPathTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(context.metadata["user_id"], "77")
         self.assertEqual(context.metadata["auto_renew_for_subscription_id"], "555")
         self.assertEqual(context.metadata["subscription_months"], "1")
+        self.assertTrue(context.idempotence_key.startswith("yk-auto-"))
+        self.assertLessEqual(len(context.idempotence_key), 64)
+
+    async def test_panel_cycle_anchor_keeps_duplicate_renewal_key_stable(self):
+        service = _FakeRecurringService()
+        mixin = _make_mixin(service=service, price_for_months=399.0)
+        old_cycle_end = datetime(2099, 2, 1, 12, 0, tzinfo=UTC)
+        sub = _FakeSub(
+            auto_renew_enabled=True,
+            provider="yookassa",
+            user_id=77,
+            subscription_id=555,
+            duration_months=1,
+            end_date=old_cycle_end,
+        )
+
+        with patch(
+            "db.dal.user_billing_dal.get_user_default_payment_method",
+            _stub_default_pm,
+        ):
+            first = await mixin.charge_subscription_renewal(
+                session=None,
+                sub=sub,
+                renewal_cycle_end=old_cycle_end,
+            )
+            # The payment webhook renews this same subscription row.  A late
+            # copy of the old panel event must retain its original key even
+            # when the panel omits the timestamp portion of expireAt.
+            sub.end_date = datetime(2099, 3, 1, 12, 0, tzinfo=UTC)
+            late_duplicate = await mixin.charge_subscription_renewal(
+                session=None,
+                sub=sub,
+                renewal_cycle_end=datetime(2099, 2, 1, tzinfo=UTC),
+            )
+            next_cycle = await mixin.charge_subscription_renewal(
+                session=None,
+                sub=sub,
+                renewal_cycle_end=sub.end_date,
+            )
+
+        self.assertTrue(first)
+        self.assertTrue(late_duplicate)
+        self.assertTrue(next_cycle)
+        self.assertEqual(service.calls[0].idempotence_key, service.calls[1].idempotence_key)
+        self.assertNotEqual(service.calls[1].idempotence_key, service.calls[2].idempotence_key)
 
     async def test_uses_subscription_provider_for_saved_method_lookup(self):
         service = _FakeRecurringService()

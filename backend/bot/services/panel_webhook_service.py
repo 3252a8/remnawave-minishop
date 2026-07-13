@@ -251,11 +251,17 @@ class PanelWebhookService:
             if self._is_before_expiration_stage(stage):
                 days_left = int(stage.days_left or 0)
                 hwid_renewal_note = await self._hwid_renewal_note(internal_user_id, lang)
-                if self._is_autorenew_charge_stage(stage) and await self._try_autorenew_charge(
-                    internal_user_id,
-                    stage.key,
-                ):
-                    return
+                if self._is_autorenew_charge_stage(stage):
+                    renewal_cycle_end = self._payload_expire_datetime(user_payload)
+                    if await self._try_autorenew_charge(
+                        internal_user_id,
+                        stage.key,
+                        renewal_cycle_end=renewal_cycle_end,
+                        renewal_cycle_end_is_date_only=self._payload_expire_is_date_only(
+                            user_payload
+                        ),
+                    ):
+                        return
                 if self._should_send_before_expiration_stage(stage):
                     # For 48h, auto-renew users get a cancel button instead.
                     if days_left == 2:
@@ -448,11 +454,29 @@ class PanelWebhookService:
             return True
         return int(stage.days_left or 0) <= self.settings.SUBSCRIPTION_NOTIFY_DAYS_BEFORE
 
-    async def _try_autorenew_charge(self, internal_user_id: int, stage_key: str) -> bool:
+    async def _try_autorenew_charge(
+        self,
+        internal_user_id: int,
+        stage_key: str,
+        *,
+        renewal_cycle_end: datetime | None = None,
+        renewal_cycle_end_is_date_only: bool = False,
+    ) -> bool:
         # SubscriptionService is wired by the factory after both services are built.
         try:
             subscription_service = getattr(self, "subscription_service", None)
             if not subscription_service:
+                return False
+            if renewal_cycle_end is None:
+                # A stable panel expiry timestamp is the cycle identity.  Do
+                # not fall back to the mutable Subscription.end_date here: a
+                # late legacy event after renewal could otherwise create a
+                # brand-new key and charge the saved method again.
+                logger.warning(
+                    "Auto-renew trigger (%s) skipped without a parseable expireAt for user %s",
+                    stage_key,
+                    internal_user_id,
+                )
                 return False
             async with self.async_session_factory() as renewal_session:
                 active_sub = await subscription_dal.get_active_subscription_by_user_id(
@@ -465,10 +489,28 @@ class PanelWebhookService:
                     and active_sub.provider == "yookassa"
                 ):
                     return False
+                if self._is_stale_autorenew_cycle(
+                    active_sub,
+                    renewal_cycle_end,
+                    renewal_cycle_end_is_date_only=renewal_cycle_end_is_date_only,
+                ):
+                    logger.info(
+                        "Auto-renew trigger (%s) skipped for stale cycle user=%s "
+                        "subscription=%s expected_end=%s current_end=%s",
+                        stage_key,
+                        internal_user_id,
+                        getattr(active_sub, "subscription_id", None),
+                        renewal_cycle_end,
+                        getattr(active_sub, "end_date", None),
+                    )
+                    # The subscription has already moved to another cycle;
+                    # suppress the stale event and do not send its reminder.
+                    return True
                 try:
                     ok = await subscription_service.charge_subscription_renewal(
                         renewal_session,
                         active_sub,
+                        renewal_cycle_end=renewal_cycle_end,
                     )
                     if ok:
                         await renewal_session.commit()
@@ -480,6 +522,34 @@ class PanelWebhookService:
         except Exception:
             logger.exception("Auto-renew trigger (%s) failed pre-check", stage_key)
         return False
+
+    @staticmethod
+    def _is_stale_autorenew_cycle(
+        subscription: Subscription,
+        renewal_cycle_end: datetime | None,
+        *,
+        renewal_cycle_end_is_date_only: bool,
+    ) -> bool:
+        """True when a panel before-expiry event targets an older period."""
+        if renewal_cycle_end is None:
+            return False
+        current_end = getattr(subscription, "end_date", None)
+        if not isinstance(current_end, datetime):
+            return False
+        if current_end.tzinfo is None:
+            current_end = current_end.replace(tzinfo=UTC)
+        else:
+            current_end = current_end.astimezone(UTC)
+        if renewal_cycle_end.tzinfo is None:
+            renewal_cycle_end = renewal_cycle_end.replace(tzinfo=UTC)
+        else:
+            renewal_cycle_end = renewal_cycle_end.astimezone(UTC)
+        if renewal_cycle_end_is_date_only:
+            return current_end.date() != renewal_cycle_end.date()
+        # The panel emits full expiration timestamps.  A narrow tolerance
+        # absorbs serialization precision while rejecting a row advanced by a
+        # paid renewal, which is normally at least one calendar month.
+        return abs(current_end - renewal_cycle_end) > timedelta(minutes=5)
 
     @classmethod
     def _expiration_hours(
@@ -671,6 +741,11 @@ class PanelWebhookService:
         if value.tzinfo is None:
             return value.replace(tzinfo=UTC)
         return value.astimezone(UTC)
+
+    @staticmethod
+    def _payload_expire_is_date_only(user_payload: dict) -> bool:
+        raw = str(user_payload.get("expireAt") or "").strip()
+        return len(raw) == 10 and raw[4:5] == "-" and raw[7:8] == "-"
 
     async def handle_webhook(self, raw_body: bytes, signature_header: str | None) -> web.Response:
         if not self.settings.PANEL_WEBHOOK_SECRET:

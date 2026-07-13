@@ -30,6 +30,7 @@ from ..shared import (
     first_value,
     lookup_payment_by_order_or_provider_id,
     notify_user_payment_failed,
+    parse_positive_int_units,
     payment_units_for_activation,
 )
 from .config import (
@@ -503,25 +504,40 @@ class StripeService(HttpClientMixin):
             amount_minor = None
             currency = None
             if payment_intent:
-                amount_minor = payment_intent.get("amount_received") or payment_intent.get("amount")
+                amount_minor = payment_intent.get("amount_received")
+                if amount_minor is None:
+                    amount_minor = payment_intent.get("amount")
                 currency = payment_intent.get("currency")
             if amount_minor is None:
                 amount_minor = obj.get("amount_total")
             if currency is None:
                 currency = obj.get("currency")
-            if amount_minor is not None:
-                expected_minor = _stripe_amount_to_minor_units(payment.amount, payment.currency)
-                if int(amount_minor) != expected_minor:
-                    logger.error(
-                        "Stripe webhook: amount mismatch for payment %s (expected=%s got=%s)",
-                        payment.payment_id,
-                        expected_minor,
-                        amount_minor,
-                    )
-                    return web.json_response({"error": "amount_mismatch"}, status=400)
-            if currency and normalize_payment_currency_code(
-                currency
-            ) != normalize_payment_currency_code(payment.currency):
+            received_minor = parse_positive_int_units(amount_minor)
+            if received_minor is None:
+                logger.error(
+                    "Stripe webhook: missing or invalid amount for payment %s (got=%s)",
+                    payment.payment_id,
+                    amount_minor,
+                )
+                return web.json_response({"error": "amount_mismatch"}, status=400)
+            expected_minor = _stripe_amount_to_minor_units(payment.amount, payment.currency)
+            if received_minor != expected_minor:
+                logger.error(
+                    "Stripe webhook: amount mismatch for payment %s (expected=%s got=%s)",
+                    payment.payment_id,
+                    expected_minor,
+                    amount_minor,
+                )
+                return web.json_response({"error": "amount_mismatch"}, status=400)
+            if not normalize_payment_currency_code(currency, default=""):
+                logger.error(
+                    "Stripe webhook: missing or invalid currency for payment %s.",
+                    payment.payment_id,
+                )
+                return web.json_response({"error": "currency_mismatch"}, status=400)
+            received_currency = normalize_payment_currency_code(currency, default="")
+            expected_currency = normalize_payment_currency_code(payment.currency, default="")
+            if received_currency != expected_currency:
                 logger.error(
                     "Stripe webhook: currency mismatch for payment %s (expected=%s got=%s)",
                     payment.payment_id,

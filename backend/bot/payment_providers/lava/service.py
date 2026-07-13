@@ -31,12 +31,12 @@ from ..shared import (
     HttpClientMixin,
     LinkPaymentDescriptor,
     PaymentSuccessRequest,
-    decimal_amounts_equal,
     finalize_successful_payment,
     first_value,
     format_decimal_amount,
     lookup_payment_by_order_or_provider_id,
     notify_user_payment_failed,
+    payment_amount_matches,
     payment_units_for_activation,
     run_callback_payment,
     run_reuse_webapp_payment,
@@ -420,8 +420,9 @@ class LavaService(HttpClientMixin):
                     return web.json_response({"status": True})
 
                 webhook_amount = payload.get("amount")
-                if webhook_amount is not None and not decimal_amounts_equal(
-                    webhook_amount, payment.amount
+                if not payment_amount_matches(
+                    expected_amount=payment.amount,
+                    received_amount=webhook_amount,
                 ):
                     logger.error(
                         "LAVA webhook: amount mismatch for payment %s (expected=%s, received=%s)",

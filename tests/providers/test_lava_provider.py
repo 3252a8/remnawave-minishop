@@ -372,6 +372,8 @@ def test_webhook_success_with_amount_mismatch_is_rejected(monkeypatch):
         user=None,
     )
     service = _webhook_service(session, payment, monkeypatch)
+    claim_mock = AsyncMock(side_effect=AssertionError("mismatched amount must not claim payment"))
+    monkeypatch.setattr(lava_service.payment_dal, "claim_payment_finalization", claim_mock)
     monkeypatch.setattr(
         lava_service.payment_dal,
         "update_provider_payment_and_status",
@@ -387,12 +389,46 @@ def test_webhook_success_with_amount_mismatch_is_rejected(monkeypatch):
         LavaService.webhook_route(
             service,
             _FakeWebhookRequest(
-                {"invoice_id": "inv-1", "order_id": "88", "status": "success", "amount": 9999}
+                # A rounded comparison would mistakenly accept this as 150.00.
+                {"invoice_id": "inv-1", "order_id": "88", "status": "success", "amount": 150.001}
             ),
         )
     )
 
     assert response.status == 400
+    claim_mock.assert_not_awaited()
+
+
+def test_webhook_success_without_amount_is_rejected(monkeypatch):
+    session = _FakeDbSession()
+    payment = SimpleNamespace(
+        payment_id=88,
+        user_id=42,
+        status="pending_lava",
+        sale_mode="subscription",
+        purchased_hwid_devices=None,
+        purchased_gb=None,
+        subscription_duration_months=1,
+        amount=150.0,
+        currency="RUB",
+        user=None,
+    )
+    service = _webhook_service(session, payment, monkeypatch)
+    claim_mock = AsyncMock(side_effect=AssertionError("missing amount must not claim payment"))
+    finalize_mock = AsyncMock(side_effect=AssertionError("missing amount must not finalize"))
+    monkeypatch.setattr(lava_service.payment_dal, "claim_payment_finalization", claim_mock)
+    monkeypatch.setattr(lava_service, "finalize_successful_payment", finalize_mock)
+
+    response = asyncio.run(
+        LavaService.webhook_route(
+            service,
+            _FakeWebhookRequest({"invoice_id": "inv-1", "order_id": "88", "status": "success"}),
+        )
+    )
+
+    assert response.status == 400
+    claim_mock.assert_not_awaited()
+    finalize_mock.assert_not_awaited()
 
 
 def test_webhook_failed_status_marks_payment_failed(monkeypatch):

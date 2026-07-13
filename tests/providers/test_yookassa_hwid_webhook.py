@@ -153,7 +153,14 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
         assert metadata["hwid_full_price"] == "50.0"
 
     async def test_webapp_hwid_metadata_activates_device_count_without_end_date(self):
-        payment = SimpleNamespace(payment_id=5, status="pending_yookassa", tariff_key="standard")
+        payment = SimpleNamespace(
+            payment_id=5,
+            status="pending_yookassa",
+            tariff_key="standard",
+            user_id=42,
+            amount=120.0,
+            currency="RUB",
+        )
         updated_payment = SimpleNamespace(payment_id=5, status="succeeded", tariff_key="standard")
         db_user = SimpleNamespace(
             user_id=42,
@@ -249,6 +256,101 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
         assert event_payload["sale_mode"] == "hwid_devices@standard"
         assert event_payload["tariff_key"] == "standard"
 
+    async def test_webhook_uses_stored_hwid_order_not_metadata_units(self):
+        payment = SimpleNamespace(
+            payment_id=5,
+            status="pending_yookassa",
+            tariff_key="standard",
+            user_id=42,
+            sale_mode="hwid_devices@standard",
+            subscription_duration_months=None,
+            purchased_hwid_devices=1,
+            amount=120.0,
+            currency="RUB",
+            promo_code_id=None,
+        )
+        updated_payment = SimpleNamespace(payment_id=5, status="succeeded", tariff_key="standard")
+        db_user = SimpleNamespace(
+            user_id=42,
+            username="alice",
+            language_code="en",
+            referred_by_id=None,
+        )
+        subscription_service = SimpleNamespace(
+            activate_subscription=AsyncMock(
+                return_value={"subscription_id": 11, "purchased_hwid_devices": 1}
+            )
+        )
+        settings = SimpleNamespace(
+            traffic_sale_mode=False,
+            yookassa_autopayments_active=False,
+            DEFAULT_LANGUAGE="en",
+            DEFAULT_CURRENCY_SYMBOL="RUB",
+            LKNPD_RECEIPT_NAME_TRAFFIC="{gb} GB",
+            LKNPD_RECEIPT_NAME_SUBSCRIPTION="{months} months",
+        )
+        payment_info = {
+            "id": "yk-hwid-stored-order-1",
+            "status": "succeeded",
+            "paid": True,
+            "amount": {"value": "120.00", "currency": "RUB"},
+            "metadata": {
+                "user_id": "42",
+                "subscription_months": "99",
+                "payment_db_id": "5",
+                "sale_mode": "subscription@standard",
+                "source": "webapp",
+            },
+        }
+
+        with (
+            patch.object(
+                yookassa.payment_dal,
+                "get_payment_by_db_id",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                yookassa.payment_dal,
+                "claim_payment_finalization",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                yookassa.payment_dal,
+                "update_payment_status_by_db_id",
+                AsyncMock(return_value=updated_payment),
+            ),
+            patch.object(yookassa.user_dal, "get_user_by_id", AsyncMock(return_value=db_user)),
+            patch.object(
+                yookassa_success,
+                "prepare_config_links",
+                AsyncMock(return_value=("link", "https://example.test/sub")),
+            ),
+            patch.object(
+                yookassa_success,
+                "ensure_user_install_guide_links",
+                AsyncMock(return_value=SimpleNamespace(public_share_url=None)),
+            ),
+            patch.object(yookassa_success, "send_success_message_to_user", AsyncMock()),
+        ):
+            event_payload = await yookassa.process_successful_payment(
+                AsyncMock(),
+                AsyncMock(),
+                payment_info,
+                _I18n(),
+                settings,
+                AsyncMock(),
+                subscription_service,
+                AsyncMock(),
+            )
+
+        activation_args = subscription_service.activate_subscription.await_args.args
+        activation_kwargs = subscription_service.activate_subscription.await_args.kwargs
+        assert activation_args[2] == 1
+        assert activation_kwargs["sale_mode"] == "hwid_devices@standard"
+        assert activation_kwargs["traffic_gb"] is None
+        assert event_payload["sale_mode"] == "hwid_devices@standard"
+        assert event_payload["purchased_hwid_devices"] == 1
+
     async def test_subscription_hwid_webhook_uses_payment_record_metadata_fallback(self):
         valid_from = datetime(2099, 2, 1, tzinfo=UTC)
         valid_until = datetime(2099, 3, 1, tzinfo=UTC)
@@ -256,12 +358,15 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
             payment_id=5,
             status="pending_yookassa",
             tariff_key="standard",
+            user_id=42,
             purchased_hwid_devices=1,
             hwid_valid_from=valid_from,
             hwid_valid_until=valid_until,
             hwid_pricing_period_months=1,
             hwid_proration_ratio=1.0,
             hwid_full_price=50.0,
+            amount=150.0,
+            currency="RUB",
         )
         updated_payment = SimpleNamespace(payment_id=5, status="succeeded", tariff_key="standard")
         db_user = SimpleNamespace(
@@ -367,7 +472,14 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
 
     async def test_subscription_uses_payment_tariff_for_activation_and_referral(self):
         end_date = datetime(2099, 2, 1, tzinfo=UTC)
-        payment = SimpleNamespace(payment_id=5, status="pending_yookassa", tariff_key="premium")
+        payment = SimpleNamespace(
+            payment_id=5,
+            status="pending_yookassa",
+            tariff_key="premium",
+            user_id=42,
+            amount=120.0,
+            currency="RUB",
+        )
         updated_payment = SimpleNamespace(payment_id=5, status="succeeded", tariff_key="premium")
         db_user = SimpleNamespace(
             user_id=42,
@@ -492,10 +604,17 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
         assert yookassa.DEFERRED_EVENTS_KEY not in event_payload
         assert yookassa.DEFERRED_SUCCESS_MESSAGE_KEY not in event_payload
 
-    async def test_auto_renew_hwid_metadata_is_persisted_for_activation(self):
+    async def test_auto_renew_without_local_order_is_rejected(self):
         valid_from = datetime(2099, 2, 1, tzinfo=UTC)
         valid_until = datetime(2099, 3, 1, tzinfo=UTC)
-        payment = SimpleNamespace(payment_id=5, status="pending_yookassa", tariff_key="standard")
+        payment = SimpleNamespace(
+            payment_id=5,
+            status="pending_yookassa",
+            tariff_key="standard",
+            user_id=42,
+            amount=449.0,
+            currency="RUB",
+        )
         updated_payment = SimpleNamespace(payment_id=5, status="succeeded", tariff_key="standard")
         db_user = SimpleNamespace(
             user_id=42,
@@ -591,29 +710,20 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
                 referral_service,
             )
 
-        ensure_payment.assert_awaited_once()
-        ensure_kwargs = ensure_payment.await_args.kwargs
-        assert ensure_kwargs["sale_mode"] == "subscription@standard"
-        assert ensure_kwargs["tariff_key"] == "standard"
-        assert ensure_kwargs["purchased_hwid_devices"] == 2
-        assert ensure_kwargs["hwid_valid_from"] == valid_from
-        assert ensure_kwargs["hwid_valid_until"] == valid_until
-        assert ensure_kwargs["hwid_pricing_period_months"] == 1
-        assert ensure_kwargs["hwid_proration_ratio"] == 1.0
-        assert ensure_kwargs["hwid_full_price"] == 50.0
-        activation_kwargs = subscription_service.activate_subscription.await_args.kwargs
-        assert activation_kwargs["sale_mode"] == "subscription@standard"
+        assert event_payload is None
+        ensure_payment.assert_not_awaited()
+        subscription_service.activate_subscription.assert_not_awaited()
         send_success.assert_not_awaited()
-        assert yookassa.DEFERRED_SUCCESS_MESSAGE_KEY in event_payload
-        assert event_payload["user_id"] == 42
-        assert event_payload["payment_db_id"] == 5
-        assert event_payload["notification_provider"] == "yookassa"
-        assert event_payload["sale_mode"] == "subscription@standard"
-        assert event_payload["tariff_key"] == "standard"
-        assert event_payload["is_auto_renew"] is True
 
     async def test_duplicate_successful_payment_skips_activation_after_claim(self):
-        payment = SimpleNamespace(payment_id=5, status="succeeded", tariff_key="standard")
+        payment = SimpleNamespace(
+            payment_id=5,
+            status="succeeded",
+            tariff_key="standard",
+            user_id=42,
+            amount=120.0,
+            currency="RUB",
+        )
         settings = SimpleNamespace(
             traffic_sale_mode=False,
             yookassa_autopayments_active=False,
@@ -664,4 +774,182 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
 
         assert result is None
         claim.assert_awaited_once_with(ANY, 5)
+        subscription_service.activate_subscription.assert_not_awaited()
+
+    async def test_underpaid_webhook_skips_finalization_and_entitlements(self):
+        payment = SimpleNamespace(
+            payment_id=5,
+            status="pending_yookassa",
+            tariff_key="standard",
+            user_id=42,
+            amount=120.0,
+            currency="RUB",
+        )
+        payment_info = {
+            "id": "yk-underpaid-1",
+            "status": "succeeded",
+            "paid": True,
+            "amount": {"value": "1.00", "currency": "RUB"},
+            "metadata": {
+                "user_id": "42",
+                "subscription_months": "1",
+                "payment_db_id": "5",
+                "sale_mode": "subscription@standard",
+            },
+        }
+        subscription_service = SimpleNamespace(activate_subscription=AsyncMock())
+        settings = SimpleNamespace(traffic_sale_mode=False)
+
+        with (
+            patch.object(
+                yookassa.payment_dal,
+                "get_payment_by_db_id",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                yookassa.payment_dal,
+                "claim_payment_finalization",
+                AsyncMock(side_effect=AssertionError("amount mismatch must not claim payment")),
+            ),
+            patch.object(
+                yookassa.payment_dal,
+                "update_payment_status_by_db_id",
+                AsyncMock(),
+            ) as update_status,
+        ):
+            result = await yookassa.process_successful_payment(
+                AsyncMock(),
+                AsyncMock(),
+                payment_info,
+                _I18n(),
+                settings,
+                AsyncMock(),
+                subscription_service,
+                AsyncMock(),
+            )
+
+        assert result is None
+        update_status.assert_awaited_once_with(
+            ANY,
+            5,
+            "failed_amount_mismatch",
+            "yk-underpaid-1",
+        )
+        subscription_service.activate_subscription.assert_not_awaited()
+
+    async def test_webhook_rejects_payment_owned_by_another_user(self):
+        payment = SimpleNamespace(
+            payment_id=5,
+            status="pending_yookassa",
+            tariff_key="standard",
+            user_id=7,
+            amount=120.0,
+            currency="RUB",
+        )
+        payment_info = {
+            "id": "yk-wrong-user-1",
+            "status": "succeeded",
+            "paid": True,
+            "amount": {"value": "120.00", "currency": "RUB"},
+            "metadata": {
+                "user_id": "42",
+                "subscription_months": "1",
+                "payment_db_id": "5",
+                "sale_mode": "subscription@standard",
+            },
+        }
+        subscription_service = SimpleNamespace(activate_subscription=AsyncMock())
+        settings = SimpleNamespace(traffic_sale_mode=False)
+
+        with (
+            patch.object(
+                yookassa.payment_dal,
+                "get_payment_by_db_id",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                yookassa.payment_dal,
+                "claim_payment_finalization",
+                AsyncMock(side_effect=AssertionError("wrong user must not claim payment")),
+            ),
+            patch.object(
+                yookassa.payment_dal,
+                "update_payment_status_by_db_id",
+                AsyncMock(side_effect=AssertionError("wrong user must not mutate payment")),
+            ),
+        ):
+            result = await yookassa.process_successful_payment(
+                AsyncMock(),
+                AsyncMock(),
+                payment_info,
+                _I18n(),
+                settings,
+                AsyncMock(),
+                subscription_service,
+                AsyncMock(),
+            )
+
+        assert result is None
+        subscription_service.activate_subscription.assert_not_awaited()
+
+    async def test_auto_renew_with_local_order_rejects_currency_mismatch(self):
+        payment = SimpleNamespace(
+            payment_id=5,
+            status="pending_yookassa",
+            tariff_key="standard",
+            user_id=42,
+            amount=449.0,
+            currency="RUB",
+        )
+        payment_info = {
+            "id": "yk-auto-currency-mismatch-1",
+            "status": "succeeded",
+            "paid": True,
+            "amount": {"value": "449.00", "currency": "USD"},
+            "metadata": {
+                "user_id": "42",
+                "subscription_months": "1",
+                "payment_db_id": "5",
+                "auto_renew_for_subscription_id": "555",
+                "sale_mode": "subscription@standard",
+            },
+        }
+        subscription_service = SimpleNamespace(activate_subscription=AsyncMock())
+        settings = SimpleNamespace(traffic_sale_mode=False)
+
+        with (
+            patch.object(
+                yookassa.payment_dal,
+                "get_payment_by_db_id",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                yookassa.payment_dal,
+                "claim_payment_finalization",
+                AsyncMock(side_effect=AssertionError("currency mismatch must not claim payment")),
+            ),
+            patch.object(
+                yookassa.payment_dal,
+                "update_payment_status_by_db_id",
+                AsyncMock(),
+            ) as update_status,
+        ):
+            result = await yookassa.process_successful_payment(
+                AsyncMock(),
+                AsyncMock(),
+                payment_info,
+                _I18n(),
+                settings,
+                AsyncMock(),
+                subscription_service,
+                AsyncMock(),
+            )
+
+        assert result is None
+        update_status.assert_awaited_once_with(
+            ANY,
+            5,
+            "failed_currency_mismatch",
+            "yk-auto-currency-mismatch-1",
+        )
         subscription_service.activate_subscription.assert_not_awaited()

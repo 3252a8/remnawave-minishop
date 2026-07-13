@@ -20,6 +20,7 @@ from ..base import (
     ProviderManifestField,
     ServiceFactoryContext,
     WebAppPaymentContext,
+    normalize_payment_currency_code,
     provider_env_file,
 )
 from ..shared import (
@@ -32,9 +33,11 @@ from ..shared import (
     notify_callback_parse_error,
     notify_service_unavailable,
     parse_payment_callback,
+    parse_positive_int_units,
     payment_failed,
     payment_record_amounts,
     payment_unavailable,
+    payment_units_for_activation,
     quote_hwid_callback_parts,
     safe_callback_answer,
     sale_mode_base,
@@ -172,6 +175,30 @@ class StarsService:
             )
             return
 
+        expected_amount = parse_positive_int_units(payment.amount)
+        received_amount = parse_positive_int_units(successful_payment.total_amount)
+        expected_currency = normalize_payment_currency_code(payment.currency, default="")
+        received_currency = normalize_payment_currency_code(
+            successful_payment.currency,
+            default="",
+        )
+        if (
+            expected_amount is None
+            or received_amount is None
+            or expected_amount != received_amount
+            or not expected_currency
+            or expected_currency != received_currency
+        ):
+            logger.warning(
+                "Stars: amount or currency mismatch for payment %s (expected=%s %s, got=%s %s)",
+                payment_db_id,
+                payment.amount,
+                payment.currency,
+                successful_payment.total_amount,
+                successful_payment.currency,
+            )
+            return
+
         try:
             claimed_payment = await payment_dal.claim_payment_finalization(
                 session,
@@ -195,6 +222,8 @@ class StarsService:
             await session.rollback()
             return
 
+        resolved_sale_mode = payment.sale_mode or sale_mode
+        payment_units = payment_units_for_activation(payment, resolved_sale_mode)
         await finalize_successful_payment(
             PaymentSuccessRequest(
                 bot=self.bot,
@@ -205,11 +234,11 @@ class StarsService:
                 referral_service=self.referral_service,
                 payment=payment,
                 user_id=int(target_user_id),
-                amount=float(stars_amount),
-                currency="XTR",
-                sale_mode=sale_mode,
-                months=months,
-                traffic_amount=float(months),
+                amount=float(payment.amount),
+                currency=str(payment.currency),
+                sale_mode=resolved_sale_mode,
+                months=payment_units,
+                traffic_amount=float(payment_units),
                 provider_subscription="telegram_stars",
                 provider_notification="stars",
                 log_prefix="Stars",

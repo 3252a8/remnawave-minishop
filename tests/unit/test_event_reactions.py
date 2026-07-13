@@ -82,11 +82,11 @@ def _context_with_i18n(i18n, *, notification_service=None, email_auth_service=No
 class CoreEventReactionsTests(IsolatedAsyncioTestCase):
     def setUp(self):
         events.reset_subscribers()
-        event_reactions._payment_log_notification_cache.clear()
+        event_reactions._payment_notification_cache.clear()
 
     def tearDown(self):
         events.reset_subscribers()
-        event_reactions._payment_log_notification_cache.clear()
+        event_reactions._payment_notification_cache.clear()
 
     async def test_trial_activation_event_notifies_and_invalidates(self):
         end_date = datetime(2026, 1, 9, 3, 4, tzinfo=UTC)
@@ -570,6 +570,69 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             subject_key="email_payment_failed_subject",
             message_text="payment_failed",
             dashboard_url="https://mini.example.test",
+        )
+
+    async def test_payment_canceled_event_dedupes_notification_by_payment_id(self):
+        bot = SimpleNamespace(send_message=AsyncMock())
+        email = AsyncMock()
+        ctx = _context(bot=bot)
+        user = SimpleNamespace(language_code="en", email="alice@example.test")
+        payment = SimpleNamespace(payment_id=12, user_id=42, status="failed")
+        payload = {
+            "user_id": 42,
+            "payment_db_id": 12,
+            "message_key": "payment_failed",
+        }
+
+        with (
+            patch.object(event_reactions.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+            patch.object(
+                event_reactions.payment_dal,
+                "get_payment_by_db_id",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(event_reactions, "send_user_notification_email", email),
+        ):
+            register_core_reactions(ctx)
+            await events.emit(events.PAYMENT_CANCELED, payload)
+            await events.emit(events.PAYMENT_CANCELED, payload)
+
+        bot.send_message.assert_awaited_once()
+        email.assert_awaited_once()
+
+    async def test_payment_canceled_event_uses_redis_dedupe_by_payment_id(self):
+        bot = SimpleNamespace(send_message=AsyncMock())
+        email = AsyncMock()
+        ctx = _context(bot=bot)
+        user = SimpleNamespace(language_code="en", email="alice@example.test")
+        payment = SimpleNamespace(payment_id=12, user_id=42, status="failed")
+        payload = {
+            "user_id": 42,
+            "payment_db_id": 12,
+            "message_key": "payment_failed",
+        }
+        redis = SimpleNamespace(set=AsyncMock(side_effect=[True, False]))
+
+        with (
+            patch.object(event_reactions, "get_redis", AsyncMock(return_value=redis)),
+            patch.object(event_reactions.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+            patch.object(
+                event_reactions.payment_dal,
+                "get_payment_by_db_id",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(event_reactions, "send_user_notification_email", email),
+        ):
+            register_core_reactions(ctx)
+            await events.emit(events.PAYMENT_CANCELED, payload)
+            await events.emit(events.PAYMENT_CANCELED, payload)
+
+        bot.send_message.assert_awaited_once()
+        email.assert_awaited_once()
+        self.assertEqual(redis.set.await_count, 2)
+        self.assertIn(
+            "payment-failure-notification",
+            redis.set.await_args_list[0].args[0],
         )
 
     async def test_payment_canceled_event_includes_attempt_details(self):

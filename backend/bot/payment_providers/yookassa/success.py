@@ -23,6 +23,7 @@ from bot.utils.install_links import ensure_user_install_guide_links
 from config.settings import Settings
 from db.dal import payment_dal, user_billing_dal, user_dal
 
+from ..base import normalize_payment_currency_code
 from ..shared import (
     SuccessMessage,
     append_hwid_renewal_note,
@@ -31,6 +32,8 @@ from ..shared import (
     is_traffic_sale_base,
     make_translator,
     parse_positive_int_units,
+    payment_amount_and_currency_match,
+    payment_units_for_activation,
     resolve_inviter_name,
     send_success_message_to_user,
 )
@@ -169,6 +172,26 @@ def _resolve_yookassa_activation_amounts(
     )
 
 
+def _payment_amount_and_currency_match(
+    payment: Any,
+    *,
+    actual_amount: Any,
+    actual_currency: Any,
+) -> tuple[bool, str | None]:
+    """Compare the provider settlement values with the immutable local order."""
+    expected_currency = normalize_payment_currency_code(getattr(payment, "currency", None))
+    received_currency = normalize_payment_currency_code(actual_currency, default="")
+    if not expected_currency or received_currency != expected_currency:
+        return False, "currency"
+    amounts_match = payment_amount_and_currency_match(
+        expected_amount=getattr(payment, "amount", None),
+        expected_currency=getattr(payment, "currency", None),
+        received_amount=actual_amount,
+        received_currency=actual_currency,
+    )
+    return (True, None) if amounts_match else (False, "amount")
+
+
 async def process_successful_payment(
     session: AsyncSession,
     bot: Bot,
@@ -194,8 +217,8 @@ async def process_successful_payment(
     payment_db_id_str = metadata.get("payment_db_id")
     auto_renew_subscription_id_str = metadata.get("auto_renew_for_subscription_id")
 
-    # For auto-renew payments, payment_db_id may be absent. In that case,
-    # we will create/ensure a payment record idempotently using provider payment id.
+    # Every successful payment must identify an immutable local order.  The
+    # recurring charge flow creates it before calling YooKassa.
     if (
         not user_id_str
         or not (
@@ -230,65 +253,133 @@ async def process_successful_payment(
         payment_db_id = (
             int(payment_db_id_str) if payment_db_id_str and payment_db_id_str.isdigit() else None
         )
-        is_auto_renew = bool(
-            auto_renew_subscription_id_str
-            and not payment_db_id
-            and sale_mode_base == "subscription"
-        )
         promo_code_id = (
             int(promo_code_id_str) if promo_code_id_str and promo_code_id_str.isdigit() else None
         )
 
-        amount_data = payment_info_from_webhook.get("amount", {})
-        months_for_record = int(subscription_months) if sale_mode_base == "subscription" else 0
+        amount_raw = payment_info_from_webhook.get("amount")
+        amount_data = amount_raw if isinstance(amount_raw, dict) else {}
         payment_value = float(amount_data.get("value", 0.0))
+        payment_currency = str(amount_data.get("currency") or "")
         yk_payment_id_from_hook = payment_info_from_webhook.get("id")
         hwid_valid_from = _metadata_datetime(metadata.get("hwid_valid_from"))
         hwid_valid_until = _metadata_datetime(metadata.get("hwid_valid_until"))
         hwid_pricing_period_months = _metadata_int(metadata.get("hwid_pricing_period_months"))
         hwid_proration_ratio = _metadata_float(metadata.get("hwid_proration_ratio"))
         hwid_full_price = _metadata_float(metadata.get("hwid_full_price"))
-        payment_record = None
-        if payment_db_id is not None:
-            payment_record = await payment_dal.get_payment_by_db_id(session, payment_db_id)
-            if not payment_record:
+        # A successful provider event must always point to a local order created
+        # before the charge. Older auto-renew events did not have this id and
+        # reconstructed an order from the webhook amount, which made a monetary
+        # comparison impossible and could grant an underpaid renewal.
+        if payment_db_id is None:
+            if auto_renew_subscription_id_str:
                 logger.error(
-                    "Payment record %s not found for YK ID %s.",
-                    payment_db_id,
+                    "Rejecting YooKassa auto-renew payment %s without local payment_db_id.",
                     yk_payment_id_from_hook,
                 )
-                return None
-
-        if payment_record and sale_mode_base == "subscription":
-            if hwid_devices_count <= 0:
-                record_hwid_devices = parse_positive_int_units(
-                    getattr(payment_record, "purchased_hwid_devices", None)
+            else:
+                logger.error(
+                    "YooKassa payment %s has no local payment record after validation.",
+                    yk_payment_id_from_hook,
                 )
-                if record_hwid_devices is not None:
-                    hwid_devices_count = record_hwid_devices
-            if hwid_devices_count > 0:
-                if not hwid_valid_from:
-                    hwid_valid_from = _metadata_datetime(
-                        getattr(payment_record, "hwid_valid_from", None)
-                    )
-                if not hwid_valid_until:
-                    hwid_valid_until = _metadata_datetime(
-                        getattr(payment_record, "hwid_valid_until", None)
-                    )
-                if hwid_pricing_period_months is None:
-                    hwid_pricing_period_months = _metadata_int(
-                        getattr(payment_record, "hwid_pricing_period_months", None)
-                    )
-                if hwid_proration_ratio is None:
-                    hwid_proration_ratio = _metadata_float(
-                        getattr(payment_record, "hwid_proration_ratio", None)
-                    )
-                if hwid_full_price is None:
-                    hwid_full_price = _metadata_float(
-                        getattr(payment_record, "hwid_full_price", None)
-                    )
-        if promo_code_id is None and payment_record is not None:
+            return None
+
+        payment_record = await payment_dal.get_payment_by_db_id(session, payment_db_id)
+        if not payment_record:
+            logger.error(
+                "Payment record %s not found for YK ID %s.",
+                payment_db_id,
+                yk_payment_id_from_hook,
+            )
+            return None
+        if getattr(payment_record, "user_id", None) != user_id:
+            logger.error(
+                "YooKassa payment %s metadata user %s does not own local payment %s.",
+                yk_payment_id_from_hook,
+                user_id,
+                payment_db_id,
+            )
+            return None
+
+        stored_sale_mode = str(getattr(payment_record, "sale_mode", "") or "").strip()
+        if stored_sale_mode:
+            # The provider echoes metadata but it must not be allowed to
+            # select a different entitlement from the one persisted locally.
+            sale_mode = stored_sale_mode
+            sale_mode_base = sale_mode.split("@", 1)[0].split("|", 1)[0]
+            user_id = int(payment_record.user_id)
+            payment_units = payment_units_for_activation(payment_record, sale_mode)
+            hwid_devices_count = (
+                parse_positive_int_units(getattr(payment_record, "purchased_hwid_devices", None))
+                or 0
+            )
+            hwid_valid_from = _metadata_datetime(getattr(payment_record, "hwid_valid_from", None))
+            hwid_valid_until = _metadata_datetime(getattr(payment_record, "hwid_valid_until", None))
+            hwid_pricing_period_months = _metadata_int(
+                getattr(payment_record, "hwid_pricing_period_months", None)
+            )
+            hwid_proration_ratio = _metadata_float(
+                getattr(payment_record, "hwid_proration_ratio", None)
+            )
+            hwid_full_price = _metadata_float(getattr(payment_record, "hwid_full_price", None))
             promo_code_id = _metadata_int(getattr(payment_record, "promo_code_id", None))
+
+            if sale_mode_base == "subscription":
+                subscription_months = float(payment_units)
+                traffic_amount_gb = 0.0
+                months_for_activation = int(subscription_months)
+                traffic_gb_for_activation = None
+            elif _is_hwid_device_sale_base(sale_mode_base):
+                subscription_months = 0.0
+                traffic_amount_gb = 0.0
+                months_for_activation = hwid_devices_count
+                traffic_gb_for_activation = None
+            else:
+                subscription_months = 0.0
+                traffic_amount_gb = float(payment_units)
+                months_for_activation = int(traffic_amount_gb)
+                traffic_gb_for_activation = (
+                    traffic_amount_gb if is_traffic_sale_base(sale_mode_base) else None
+                )
+        else:
+            # Pre-schema/in-flight legacy records can lack sale_mode. Keep the
+            # old metadata fallback only for those rows, and make it visible.
+            logger.warning(
+                "YooKassa payment %s has no stored sale_mode; using legacy metadata fallback.",
+                payment_db_id,
+            )
+            if sale_mode_base == "subscription":
+                if hwid_devices_count <= 0:
+                    record_hwid_devices = parse_positive_int_units(
+                        getattr(payment_record, "purchased_hwid_devices", None)
+                    )
+                    if record_hwid_devices is not None:
+                        hwid_devices_count = record_hwid_devices
+                if hwid_devices_count > 0:
+                    if not hwid_valid_from:
+                        hwid_valid_from = _metadata_datetime(
+                            getattr(payment_record, "hwid_valid_from", None)
+                        )
+                    if not hwid_valid_until:
+                        hwid_valid_until = _metadata_datetime(
+                            getattr(payment_record, "hwid_valid_until", None)
+                        )
+                    if hwid_pricing_period_months is None:
+                        hwid_pricing_period_months = _metadata_int(
+                            getattr(payment_record, "hwid_pricing_period_months", None)
+                        )
+                    if hwid_proration_ratio is None:
+                        hwid_proration_ratio = _metadata_float(
+                            getattr(payment_record, "hwid_proration_ratio", None)
+                        )
+                    if hwid_full_price is None:
+                        hwid_full_price = _metadata_float(
+                            getattr(payment_record, "hwid_full_price", None)
+                        )
+            if promo_code_id is None:
+                promo_code_id = _metadata_int(getattr(payment_record, "promo_code_id", None))
+
+        is_auto_renew = bool(auto_renew_subscription_id_str and sale_mode_base == "subscription")
 
         if _is_hwid_device_sale_base(sale_mode_base) and hwid_devices_count <= 0:
             logger.error(
@@ -321,53 +412,26 @@ async def process_successful_payment(
             )
             return None
 
-        # If this is an auto-renewal (no payment_db_id in metadata), ensure a payment record exists
-        if payment_db_id is None and auto_renew_subscription_id_str:
-            try:
-                if not yk_payment_id_from_hook:
-                    logger.error(
-                        "Auto-renew webhook missing YooKassa payment id; cannot ensure payment record."  # noqa: E501
-                    )
-                    return None
-                from db.dal import payment_dal as _payment_dal
-
-                payment_record = await _payment_dal.get_payment_by_provider_payment_id(
-                    session, yk_payment_id_from_hook
-                )
-                if not payment_record:
-                    payment_record = await _payment_dal.ensure_payment_with_provider_id(
-                        session,
-                        user_id=user_id,
-                        amount=payment_value,
-                        currency=amount_data.get("currency", settings.DEFAULT_CURRENCY_SYMBOL),
-                        months=months_for_record or 1,
-                        description=payment_info_from_webhook.get("description")
-                        or f"Auto-renewal for {months_for_record or subscription_months} months",
-                        provider="yookassa",
-                        provider_payment_id=yk_payment_id_from_hook,
-                        sale_mode=sale_mode,
-                        tariff_key=_sale_mode_tariff_key(sale_mode),
-                        purchased_hwid_devices=(
-                            hwid_devices_count if hwid_devices_count > 0 else None
-                        ),
-                        hwid_valid_from=hwid_valid_from,
-                        hwid_valid_until=hwid_valid_until,
-                        hwid_pricing_period_months=hwid_pricing_period_months,
-                        hwid_proration_ratio=hwid_proration_ratio,
-                        hwid_full_price=hwid_full_price,
-                    )
-                payment_db_id = payment_record.payment_id
-            except Exception as e_ensure:
-                logger.exception(
-                    "Failed to ensure payment record for auto-renew webhook (YK %s): %s",
-                    payment_info_from_webhook.get("id"),
-                    e_ensure,
-                )
-                return None
-
-        if payment_db_id is None:
+        amount_matches, mismatch_kind = _payment_amount_and_currency_match(
+            payment_record,
+            actual_amount=payment_value,
+            actual_currency=payment_currency,
+        )
+        if not amount_matches:
             logger.error(
-                "YooKassa payment %s has no local payment record after validation.",
+                "YooKassa payment %s does not match local payment %s "
+                "(expected=%s %s, received=%s %s); skipping fulfillment.",
+                yk_payment_id_from_hook,
+                payment_db_id,
+                getattr(payment_record, "amount", None),
+                getattr(payment_record, "currency", None),
+                payment_value,
+                payment_currency or None,
+            )
+            await payment_dal.update_payment_status_by_db_id(
+                session,
+                payment_db_id,
+                f"failed_{mismatch_kind}_mismatch",
                 yk_payment_id_from_hook,
             )
             return None
@@ -533,7 +597,7 @@ async def process_successful_payment(
             provider="yookassa",
             notification_provider="yookassa",
             amount=payment_value,
-            currency=str(amount_data.get("currency") or "RUB"),
+            currency=payment_currency,
             sale_mode=sale_mode,
             tariff_key=tariff_key_for_event,
             months=months_for_activation if sale_mode_base == "subscription" else None,

@@ -7,6 +7,46 @@ from sqlalchemy.dialects import postgresql
 from db.dal import payment_dal
 
 
+class PaymentDalIdempotenceTests(IsolatedAsyncioTestCase):
+    async def test_create_or_get_uses_unique_idempotence_key_conflict_clause(self):
+        payment = SimpleNamespace(payment_id=17)
+        session = SimpleNamespace(
+            execute=AsyncMock(return_value=SimpleNamespace(scalar_one_or_none=lambda: 17))
+        )
+        payload = {
+            "user_id": 42,
+            "amount": 199.0,
+            "currency": "RUB",
+            "status": "pending_yookassa",
+            "provider": "yookassa",
+            "idempotence_key": "yk-auto-cycle-7",
+        }
+
+        with (
+            patch.object(
+                payment_dal,
+                "get_payment_by_idempotence_key",
+                AsyncMock(side_effect=[None, payment]),
+            ),
+            patch.object(
+                payment_dal,
+                "_validate_payment_record_references",
+                AsyncMock(),
+            ),
+        ):
+            result, created = await payment_dal.create_or_get_payment_record_by_idempotence_key(
+                session,
+                payload,
+            )
+
+        self.assertIs(result, payment)
+        self.assertTrue(created)
+        statement = session.execute.await_args.args[0]
+        rendered = str(statement.compile(dialect=postgresql.dialect()))
+        self.assertIn("ON CONFLICT (idempotence_key) DO NOTHING", rendered)
+        self.assertIn("RETURNING payments.payment_id", rendered)
+
+
 class PaymentDalStatusUpdateTests(IsolatedAsyncioTestCase):
     async def test_update_payment_status_preserves_succeeded_payment(self):
         session = SimpleNamespace(flush=AsyncMock(), refresh=AsyncMock())

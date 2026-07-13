@@ -25,39 +25,49 @@ logger = logging.getLogger(__name__)
 
 _registered_handlers: list[tuple[str, events.EventHandler]] = []
 _ACCOUNT_MERGE_NOTIFY_REASONS = {"email_link", "telegram_link", "login"}
-_PAYMENT_LOG_NOTIFICATION_TTL_SECONDS = 24 * 60 * 60
-_PAYMENT_LOG_NOTIFICATION_CACHE_MAX = 4096
-_payment_log_notification_cache: OrderedDict[str, float] = OrderedDict()
+_PAYMENT_NOTIFICATION_TTL_SECONDS = 24 * 60 * 60
+_PAYMENT_NOTIFICATION_CACHE_MAX = 4096
+_payment_notification_cache: OrderedDict[str, float] = OrderedDict()
 
 
-def _payment_log_notification_key(settings: Any, payment_db_id: int) -> str:
-    return redis_key(settings, "payment-log-notification", payment_db_id)
+def _payment_notification_key(
+    settings: Any,
+    notification_kind: str,
+    payment_db_id: int,
+) -> str:
+    return redis_key(settings, notification_kind, payment_db_id)
 
 
-def _claim_local_payment_log_notification(cache_key: str) -> bool:
+def _claim_local_payment_notification(cache_key: str) -> bool:
     now = time.monotonic()
     expired_keys = [
-        key for key, expires_at in _payment_log_notification_cache.items() if expires_at <= now
+        key for key, expires_at in _payment_notification_cache.items() if expires_at <= now
     ]
     for key in expired_keys:
-        _payment_log_notification_cache.pop(key, None)
+        _payment_notification_cache.pop(key, None)
 
-    if cache_key in _payment_log_notification_cache:
-        _payment_log_notification_cache.move_to_end(cache_key)
+    if cache_key in _payment_notification_cache:
+        _payment_notification_cache.move_to_end(cache_key)
         return False
 
-    _payment_log_notification_cache[cache_key] = now + _PAYMENT_LOG_NOTIFICATION_TTL_SECONDS
-    while len(_payment_log_notification_cache) > _PAYMENT_LOG_NOTIFICATION_CACHE_MAX:
-        _payment_log_notification_cache.popitem(last=False)
+    _payment_notification_cache[cache_key] = now + _PAYMENT_NOTIFICATION_TTL_SECONDS
+    while len(_payment_notification_cache) > _PAYMENT_NOTIFICATION_CACHE_MAX:
+        _payment_notification_cache.popitem(last=False)
     return True
 
 
-async def _claim_payment_log_notification(ctx: PluginContext, payment_db_id: Any) -> bool:
+async def _claim_payment_notification(
+    ctx: PluginContext,
+    payment_db_id: Any,
+    *,
+    notification_kind: str,
+    notification_label: str,
+) -> bool:
     normalized_payment_id = _int_or_none(payment_db_id)
     if normalized_payment_id is None:
         return True
 
-    cache_key = _payment_log_notification_key(ctx.settings, normalized_payment_id)
+    cache_key = _payment_notification_key(ctx.settings, notification_kind, normalized_payment_id)
     redis = await get_redis(ctx.settings)
     if redis is not None:
         try:
@@ -65,11 +75,12 @@ async def _claim_payment_log_notification(ctx: PluginContext, payment_db_id: Any
                 cache_key,
                 "1",
                 nx=True,
-                ex=_PAYMENT_LOG_NOTIFICATION_TTL_SECONDS,
+                ex=_PAYMENT_NOTIFICATION_TTL_SECONDS,
             )
         except Exception as exc:
             logger.warning(
-                "Redis payment log notification dedupe failed for payment %s: %s",
+                "Redis %s notification dedupe failed for payment %s: %s",
+                notification_label,
                 normalized_payment_id,
                 exc,
             )
@@ -77,18 +88,38 @@ async def _claim_payment_log_notification(ctx: PluginContext, payment_db_id: Any
             if claimed:
                 return True
             logger.info(
-                "Skipping duplicate payment log notification for payment %s.",
+                "Skipping duplicate %s notification for payment %s.",
+                notification_label,
                 normalized_payment_id,
             )
             return False
 
-    claimed = _claim_local_payment_log_notification(cache_key)
+    claimed = _claim_local_payment_notification(cache_key)
     if not claimed:
         logger.info(
-            "Skipping duplicate in-process payment log notification for payment %s.",
+            "Skipping duplicate in-process %s notification for payment %s.",
+            notification_label,
             normalized_payment_id,
         )
     return claimed
+
+
+async def _claim_payment_log_notification(ctx: PluginContext, payment_db_id: Any) -> bool:
+    return await _claim_payment_notification(
+        ctx,
+        payment_db_id,
+        notification_kind="payment-log-notification",
+        notification_label="payment log",
+    )
+
+
+async def _claim_payment_failure_notification(ctx: PluginContext, payment_db_id: Any) -> bool:
+    return await _claim_payment_notification(
+        ctx,
+        payment_db_id,
+        notification_kind="payment-failure-notification",
+        notification_label="failed payment",
+    )
 
 
 def _parse_datetime(value: Any) -> datetime | None:
@@ -602,6 +633,8 @@ class CoreEventReactions:
                 user_id,
                 getattr(payment, "payment_id", None),
             )
+            return
+        if not await _claim_payment_failure_notification(self.ctx, payload.get("payment_db_id")):
             return
         user = await self._load_user(user_id)
         language = (
