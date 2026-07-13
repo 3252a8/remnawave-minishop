@@ -28,7 +28,7 @@ from bot.utils.install_links import (
 from bot.utils.mini_app_url import subscription_mini_app_checkout_code_url
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
-from db.dal import user_dal
+from db.dal import subscription_dal, user_dal
 
 from .start_channel import ensure_required_channel_subscription
 from .start_common import (
@@ -302,19 +302,32 @@ async def start_command_handler(
                 referral_welcome_days = max(0, int(settings.referral_settings.welcome_bonus_days))
                 if referred_by_user_id and referral_welcome_days > 0:
                     try:
-                        default_tariff_key = None
-                        tariffs_config = settings.tariffs_config
-                        if tariffs_config:
-                            default_tariff_key = getattr(tariffs_config, "default_tariff", None)
-                        referral_bonus_end_date = (
-                            await subscription_service.extend_active_subscription_days(
-                                session,
-                                user_id,
-                                referral_welcome_days,
-                                reason="referral_welcome_bonus",
-                                tariff_key=default_tariff_key,
+                        locked_user = await user_dal.lock_user_by_id(session, user_id)
+                        eligible = bool(
+                            locked_user
+                            and locked_user.referral_welcome_bonus_claimed_at is None
+                            and not await subscription_dal.has_any_subscription_for_user(
+                                session, user_id
                             )
                         )
+                        if not eligible:
+                            referral_bonus_end_date = None
+                            await session.rollback()
+                        else:
+                            db_user = locked_user
+                            default_tariff_key = None
+                            tariffs_config = settings.tariffs_config
+                            if tariffs_config:
+                                default_tariff_key = getattr(tariffs_config, "default_tariff", None)
+                            referral_bonus_end_date = (
+                                await subscription_service.extend_active_subscription_days(
+                                    session,
+                                    user_id,
+                                    referral_welcome_days,
+                                    reason="referral_welcome_bonus",
+                                    tariff_key=default_tariff_key,
+                                )
+                            )
                         if referral_bonus_end_date:
                             # Mark the welcome bonus as claimed so it cannot be
                             # re-granted later (e.g. via the WebApp claim route

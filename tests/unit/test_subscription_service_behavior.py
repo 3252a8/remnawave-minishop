@@ -339,7 +339,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
 
             with (
                 patch(
-                    "bot.services.subscription_service_impl.trial.user_dal.get_user_by_id",
+                    "bot.services.subscription_service_impl.trial.user_dal.lock_user_by_id",
                     AsyncMock(return_value=db_user),
                 ),
                 patch(
@@ -394,7 +394,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
 
             with (
                 patch(
-                    "bot.services.subscription_service_impl.trial.user_dal.get_user_by_id",
+                    "bot.services.subscription_service_impl.trial.user_dal.lock_user_by_id",
                     AsyncMock(return_value=db_user),
                 ),
                 patch(
@@ -449,7 +449,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
 
             with (
                 patch(
-                    "bot.services.subscription_service_impl.trial.user_dal.get_user_by_id",
+                    "bot.services.subscription_service_impl.trial.user_dal.lock_user_by_id",
                     AsyncMock(return_value=db_user),
                 ),
                 patch(
@@ -498,7 +498,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
 
             with (
                 patch(
-                    "bot.services.subscription_service_impl.trial.user_dal.get_user_by_id",
+                    "bot.services.subscription_service_impl.trial.user_dal.lock_user_by_id",
                     AsyncMock(return_value=db_user),
                 ),
                 patch(
@@ -540,7 +540,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
 
             with (
                 patch(
-                    "bot.services.subscription_service_impl.trial.user_dal.get_user_by_id",
+                    "bot.services.subscription_service_impl.trial.user_dal.lock_user_by_id",
                     AsyncMock(return_value=db_user),
                 ),
                 patch(

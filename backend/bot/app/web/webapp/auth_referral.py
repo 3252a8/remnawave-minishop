@@ -21,7 +21,7 @@ from bot.services.registration_invite_gate import (
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
-from db.dal import user_dal
+from db.dal import subscription_dal, user_dal
 from db.models import User
 
 from .assets import (
@@ -69,6 +69,11 @@ async def _apply_referral_to_existing_user(
     if not raw_referral_param or user.referred_by_id is not None:
         return False
 
+    locked_user = await user_dal.lock_user_by_id(session, int(user.user_id))
+    if not locked_user or locked_user.referred_by_id is not None:
+        return False
+    user = locked_user
+
     referred_by_id = await _resolve_referrer_id(
         session,
         raw_referral_param,
@@ -115,6 +120,11 @@ async def _grant_referral_welcome_bonus_if_eligible(
     session: AsyncSession,
     user: User,
 ) -> datetime | None:
+    locked_user = await user_dal.lock_user_by_id(session, int(user.user_id))
+    if not locked_user:
+        return None
+    user = locked_user
+
     if not user.referred_by_id:
         return None
 
@@ -122,6 +132,9 @@ async def _grant_referral_welcome_bonus_if_eligible(
     # again. Without this marker the bonus could be re-claimed every time the
     # previous grant expired (has_active_subscription alone is not enough).
     if getattr(user, "referral_welcome_bonus_claimed_at", None) is not None:
+        return None
+
+    if await subscription_dal.has_any_subscription_for_user(session, int(user.user_id)):
         return None
 
     settings: Settings = get_settings(request)
@@ -134,12 +147,6 @@ async def _grant_referral_welcome_bonus_if_eligible(
     tariffs_config = settings.tariffs_config
     if tariffs_config:
         default_tariff_key = getattr(tariffs_config, "default_tariff", None)
-    try:
-        if await subscription_service.has_active_subscription(session, int(user.user_id)):
-            return None
-    except Exception:
-        pass
-
     end_date = await subscription_service.extend_active_subscription_days(
         session,
         int(user.user_id),

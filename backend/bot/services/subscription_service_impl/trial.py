@@ -24,7 +24,10 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
                 "message_key": "trial_feature_disabled",
             }
 
-        db_user = await user_dal.get_user_by_id(session, user_id)
+        # Trial, referral-welcome, account-merge, and paid grants all mutate
+        # the same entitlement.  Serialize them before checking history so two
+        # simultaneous free-grant requests cannot both pass eligibility.
+        db_user = await user_dal.lock_user_by_id(session, user_id)
         if not db_user:
             logger.error("User %s not found in DB, cannot activate trial.", user_id)
             return {

@@ -122,6 +122,23 @@ async def ensure_referral_code(session: AsyncSession, user: User) -> str:
     return referral_code
 
 
+async def lock_user_by_id(session: AsyncSession, user_id: int) -> User | None:
+    """Serialize entitlement changes for one user inside the current transaction.
+
+    ``populate_existing`` matters when the caller loaded the user before waiting
+    for the lock: one-time markers changed by the previous transaction must be
+    visible after the wait instead of coming from SQLAlchemy's identity map.
+    """
+    stmt = (
+        select(User)
+        .where(User.user_id == user_id)
+        .execution_options(populate_existing=True)
+        .with_for_update()
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
 ## Removed unused generic get_user helper to keep DAL explicit and simple
 
 

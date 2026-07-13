@@ -190,7 +190,11 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
         state = SimpleNamespace(clear=AsyncMock())
         ref_match = Mock()
         ref_match.group.return_value = "ABC123"
-        created_user = SimpleNamespace(user_id=42, referred_by_id=7)
+        created_user = SimpleNamespace(
+            user_id=42,
+            referred_by_id=7,
+            referral_welcome_bonus_claimed_at=None,
+        )
         referrer = SimpleNamespace(user_id=7)
 
         with (
@@ -209,6 +213,14 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
             patch(
                 "bot.handlers.user.start_flow.ensure_required_channel_subscription",
                 AsyncMock(return_value=True),
+            ),
+            patch(
+                "bot.handlers.user.start_flow.user_dal.lock_user_by_id",
+                AsyncMock(return_value=created_user),
+            ),
+            patch(
+                "bot.handlers.user.start_flow.subscription_dal.has_any_subscription_for_user",
+                AsyncMock(return_value=False),
             ),
             patch(
                 "bot.handlers.user.start_flow.send_main_menu",
