@@ -369,8 +369,40 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("message_logs", update_tables)
         self.assertIn("users", update_tables)
         self.assertIn("user_payment_methods", delete_tables)
-        self.assertIn("promo_code_activations", delete_tables)
+        self.assertNotIn("promo_code_activations", delete_tables)
         session.delete.assert_awaited_once_with(source)
+
+    async def test_merge_users_rejects_duplicate_promo_redemptions(self):
+        source = SimpleNamespace(
+            user_id=1,
+            email="same@example.com",
+            telegram_id=None,
+        )
+        target = SimpleNamespace(
+            user_id=2,
+            email="same@example.com",
+            telegram_id=None,
+        )
+
+        with (
+            patch(
+                "db.dal.user_merge_dal._lock_users_for_merge",
+                AsyncMock(return_value=(source, target)),
+            ),
+            patch(
+                "db.dal.user_merge_dal._accounts_share_promo_activation",
+                AsyncMock(return_value=True),
+            ),
+            self.assertRaisesRegex(
+                user_dal.UserMergeConflictError,
+                "same one-time code",
+            ),
+        ):
+            await user_dal.merge_users(
+                SimpleNamespace(),
+                source_user_id=source.user_id,
+                target_user_id=target.user_id,
+            )
 
     async def test_merge_users_moves_active_email_subscription_onto_expired_telegram_account(self):
         before = datetime.now(UTC)

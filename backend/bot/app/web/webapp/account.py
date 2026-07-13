@@ -66,6 +66,23 @@ def _email_auth_not_configured_response() -> web.Response:
     return _json_error(503, "email_auth_not_configured", "Email auth is not configured")
 
 
+def _merge_conflict_message(
+    request: web.Request,
+    settings: Settings,
+    exc: UserMergeConflictError,
+    language: str | None,
+) -> str:
+    if not exc.message_key:
+        return str(exc)
+    i18n = get_i18n(request)
+    if i18n is None:
+        return str(exc)
+    return i18n.gettext(
+        _normalize_language(language or settings.DEFAULT_LANGUAGE),
+        exc.message_key,
+    )
+
+
 async def account_email_request_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     settings: Settings = get_settings(request)
@@ -120,6 +137,7 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
     final_first_name: str | None = None
     final_panel_uuid: str | None = None
     should_notify_email_linked = False
+    conflict_language = settings.DEFAULT_LANGUAGE
 
     async with async_session_factory() as session:
         try:
@@ -147,6 +165,7 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
             if not current_user or current_user.is_banned:
                 await session.rollback()
                 return _json_error(403, "access_denied", "Access denied")
+            conflict_language = current_user.language_code or conflict_language
             should_notify_email_linked = (
                 bool(_telegram_id_for_user(current_user)) and not current_user.email
             )
@@ -205,7 +224,11 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
 
         except UserMergeConflictError as exc:
             await session.rollback()
-            return _json_error(409, "account_merge_conflict", str(exc))
+            return _json_error(
+                409,
+                "account_merge_conflict",
+                _merge_conflict_message(request, settings, exc, conflict_language),
+            )
         except Exception:
             await session.rollback()
             logger.exception("Email account link failed")
@@ -321,12 +344,14 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
     final_first_name: str | None = None
     final_panel_uuid: str | None = None
     should_notify_telegram_linked = False
+    conflict_language = settings.DEFAULT_LANGUAGE
     async with async_session_factory() as session:
         try:
             current_user_before_link = await user_dal.get_user_by_id(session, user_id)
             if not current_user_before_link or current_user_before_link.is_banned:
                 await session.rollback()
                 return _json_error(403, "access_denied", "Access denied")
+            conflict_language = current_user_before_link.language_code or conflict_language
             should_notify_telegram_linked = bool(
                 current_user_before_link.email
             ) and not _telegram_id_for_user(current_user_before_link)
@@ -386,7 +411,11 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
 
         except UserMergeConflictError as exc:
             await session.rollback()
-            return _json_error(409, "account_merge_conflict", str(exc))
+            return _json_error(
+                409,
+                "account_merge_conflict",
+                _merge_conflict_message(request, settings, exc, conflict_language),
+            )
         except Exception:
             await session.rollback()
             logger.exception("Telegram account link failed")

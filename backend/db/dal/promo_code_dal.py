@@ -268,6 +268,12 @@ async def record_promo_activation(
     granted_days: int | None = None,
     granted_gb: float | None = None,
 ) -> PromoCodeActivation | None:
+    from .user_dal import lock_user_by_id
+
+    if await lock_user_by_id(session, user_id) is None:
+        logger.error("Cannot record promo activation: User %s not found.", user_id)
+        return None
+
     existing_activation = await get_user_activation_for_promo(session, promo_code_id, user_id)
     if existing_activation:
         logger.info(
@@ -353,6 +359,12 @@ async def consume_promo_activation(
     rows carry their own frozen checkout terms and are honored even if the
     code later expires, is disabled, or reaches the configured limit.
     """
+    from .user_dal import lock_user_by_id
+
+    if await lock_user_by_id(session, user_id) is None:
+        logger.error("Cannot consume promo activation: User %s not found.", user_id)
+        return None
+
     existing_activation = await get_user_activation_for_promo(session, promo_code_id, user_id)
     if existing_activation:
         existing_payment_id = int(getattr(existing_activation, "payment_id", 0) or 0)

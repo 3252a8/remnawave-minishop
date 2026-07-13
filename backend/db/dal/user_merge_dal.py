@@ -47,7 +47,9 @@ logger = logging.getLogger(__name__)
 
 
 class UserMergeConflictError(ValueError):
-    pass
+    def __init__(self, message: str, *, message_key: str | None = None) -> None:
+        super().__init__(message)
+        self.message_key = message_key
 
 
 async def _has_active_panel_subscription(
@@ -124,6 +126,26 @@ async def _lock_users_for_merge(
     return users_by_id.get(int(source_user_id)), users_by_id.get(int(target_user_id))
 
 
+async def _accounts_share_promo_activation(
+    session: AsyncSession,
+    source_user_id: int,
+    target_user_id: int,
+) -> bool:
+    target_promo_ids = select(PromoCodeActivation.promo_code_id).where(
+        PromoCodeActivation.user_id == target_user_id
+    )
+    stmt = (
+        select(PromoCodeActivation.activation_id)
+        .where(
+            PromoCodeActivation.user_id == source_user_id,
+            PromoCodeActivation.promo_code_id.in_(target_promo_ids),
+        )
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none() is not None
+
+
 def _is_free_grant_subscription(subscription: Subscription) -> bool:
     status = str(getattr(subscription, "status_from_panel", "") or "").strip().upper()
     if status in {"TRIAL", "ACTIVE_BONUS", "ACTIVE_MERGED_FREE_GRANT"}:
@@ -191,6 +213,11 @@ async def merge_users(
         and int(source.telegram_id) != int(target.telegram_id)
     ):
         raise UserMergeConflictError("Both accounts already have different Telegram IDs.")
+    if await _accounts_share_promo_activation(session, source_user_id, target_user_id):
+        raise UserMergeConflictError(
+            "Both accounts already redeemed the same one-time code.",
+            message_key="account_merge_duplicate_promo_conflict",
+        )
 
     source_panel_uuid = source.panel_user_uuid
     target_panel_uuid = target.panel_user_uuid
@@ -345,16 +372,6 @@ async def merge_users(
         delete(UserPaymentMethod).where(
             UserPaymentMethod.user_id == source_user_id,
             UserPaymentMethod.provider_payment_method_id.in_(target_method_ids),
-        )
-    )
-
-    target_promo_ids = select(PromoCodeActivation.promo_code_id).where(
-        PromoCodeActivation.user_id == target_user_id
-    )
-    await session.execute(
-        delete(PromoCodeActivation).where(
-            PromoCodeActivation.user_id == source_user_id,
-            PromoCodeActivation.promo_code_id.in_(target_promo_ids),
         )
     )
 
