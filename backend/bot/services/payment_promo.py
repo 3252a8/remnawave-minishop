@@ -11,6 +11,10 @@ from db.dal import promo_code_dal
 logger = logging.getLogger(__name__)
 
 
+class PaymentPromoRedemptionError(RuntimeError):
+    """Reject fulfillment when an attached one-time code cannot be consumed."""
+
+
 def _optional_float(value: Any) -> float | None:
     if value is None:
         return None
@@ -37,7 +41,7 @@ async def load_payment_promo_effects(
     promo_model = await promo_code_dal.get_promo_code_by_id(session, promo_code_id)
     if promo_model is None:
         logger.warning("Attached code ID %s was not found.", promo_code_id)
-        return None, None
+        raise PaymentPromoRedemptionError("Attached code is unavailable")
     snapshot_effects = PromoEffects.from_payment_snapshot(payment) if payment is not None else None
     return promo_model, snapshot_effects or PromoEffects.from_model(promo_model)
 
@@ -63,7 +67,9 @@ async def consume_payment_promo(
         user_id,
     )
     if existing is not None:
-        return int(getattr(existing, "payment_id", 0) or 0) == int(payment_id)
+        if int(getattr(existing, "payment_id", 0) or 0) == int(payment_id):
+            return True
+        raise PaymentPromoRedemptionError("Attached code was consumed by another payment")
 
     if (
         (effects.is_bonus_days_only and sale_mode_base != "subscription")
@@ -79,7 +85,7 @@ async def consume_payment_promo(
             promo_code_id,
             user_id,
         )
-        return False
+        raise PaymentPromoRedemptionError("Attached code does not match the payment")
 
     activation = await promo_code_dal.consume_promo_activation(
         session,
@@ -104,4 +110,6 @@ async def consume_payment_promo(
         granted_days=granted_days,
         granted_gb=granted_gb,
     )
-    return activation is not None
+    if activation is None:
+        raise PaymentPromoRedemptionError("Attached code could not be consumed")
+    return True

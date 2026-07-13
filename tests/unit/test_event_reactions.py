@@ -882,6 +882,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         payment = SimpleNamespace(
             payment_id=30,
             user_id=42,
+            promo_code_id=5,
             status="succeeded",
             provider="platega",
             created_at=datetime(2026, 1, 9, 12, 0, tzinfo=UTC),
@@ -899,6 +900,10 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
                 AsyncMock(side_effect=AssertionError("already succeeded must not query history")),
             ),
             patch.object(event_reactions, "send_user_notification_email", email),
+            patch(
+                "db.dal.promo_code_dal.release_promo_activation",
+                AsyncMock(),
+            ) as release_promo,
         ):
             register_core_reactions(ctx)
             await events.emit(
@@ -908,6 +913,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
 
         bot.send_message.assert_not_awaited()
         email.assert_not_awaited()
+        release_promo.assert_not_awaited()
 
     async def test_referral_bonus_event_notifies_inviter(self):
         bot = SimpleNamespace(send_message=AsyncMock())
