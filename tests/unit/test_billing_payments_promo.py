@@ -23,10 +23,11 @@ class BillingPaymentsPromoTests(IsolatedAsyncioTestCase):
             applies_to="subscription",
         )
 
+        lookup = AsyncMock(return_value=promo)
         with patch(
             "bot.app.web.webapp.billing_checkout_adjustments."
             "promo_code_dal.get_active_promo_code_by_code_str",
-            AsyncMock(return_value=promo),
+            lookup,
         ):
             result, error = await _resolve_checkout_promo(
                 session=AsyncMock(),
@@ -39,9 +40,11 @@ class BillingPaymentsPromoTests(IsolatedAsyncioTestCase):
                 method="yookassa",
                 base_amount=100,
                 base_stars=None,
+                lock_for_checkout=True,
             )
 
         self.assertIsNone(result)
         self.assertIsNotNone(error)
         assert error is not None
         self.assertEqual(error.code, "promo_code_direct_activation_required")
+        self.assertTrue(lookup.await_args.kwargs["for_update"])

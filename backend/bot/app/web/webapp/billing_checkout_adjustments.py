@@ -54,6 +54,7 @@ async def _resolve_checkout_promo(
     method: str,
     base_amount: float,
     base_stars: int | None,
+    lock_for_checkout: bool = False,
 ) -> tuple[CheckoutPromoResult | None, CheckoutPromoError | None]:
     code = str(code_input or "").strip()
     if not code:
@@ -64,6 +65,7 @@ async def _resolve_checkout_promo(
         session,
         lookup_code,
         preserve_case=preserve_case,
+        for_update=lock_for_checkout,
     )
     if promo is None:
         return None, CheckoutPromoError(400, "promo_code_not_found", "Code is not available")

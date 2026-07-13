@@ -113,6 +113,11 @@ def test_redemption_policy_chain_invokes_registered_policy(monkeypatch):
         "user_has_pending_payment_with_promo",
         AsyncMock(return_value=False),
     )
+    monkeypatch.setattr(
+        promo_code_dal,
+        "count_pending_payments_with_promo",
+        AsyncMock(return_value=0),
+    )
     seen: list[int] = []
 
     def plugin_policy(ctx: PromoRedemptionContext) -> PromoRedemptionDecision:
@@ -142,3 +147,43 @@ def test_redemption_policy_chain_invokes_registered_policy(monkeypatch):
     assert seen == [42]
     assert decision.allowed is False
     assert decision.reason_key == "plugin_denied"
+
+
+def test_redemption_policy_counts_pending_invoices_against_global_limit(monkeypatch):
+    monkeypatch.setattr(
+        promo_code_dal,
+        "get_user_activation_for_promo",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        promo_code_dal,
+        "user_has_pending_payment_with_promo",
+        AsyncMock(return_value=False),
+    )
+    monkeypatch.setattr(
+        promo_code_dal,
+        "count_pending_payments_with_promo",
+        AsyncMock(return_value=1),
+    )
+
+    decision = asyncio.run(
+        evaluate_promo_redemption(
+            PromoRedemptionContext(
+                session=object(),
+                user_id=42,
+                promo_model=SimpleNamespace(
+                    promo_code_id=5,
+                    is_active=True,
+                    valid_until=datetime.now(UTC) + timedelta(days=1),
+                    current_activations=1,
+                    max_activations=2,
+                ),
+                effects=PromoEffects(discount_percent=50),
+                sale_mode_base="subscription",
+                months=1,
+            )
+        )
+    )
+
+    assert decision.allowed is False
+    assert decision.reason_key == "promo_code_exhausted"

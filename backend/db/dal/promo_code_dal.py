@@ -58,7 +58,11 @@ async def get_promo_code_by_code(
 
 
 async def get_active_promo_code_by_code_str(
-    session: AsyncSession, code_str: str, *, preserve_case: bool = False
+    session: AsyncSession,
+    code_str: str,
+    *,
+    preserve_case: bool = False,
+    for_update: bool = False,
 ) -> PromoCode | None:
     now = datetime.now(UTC)
     for candidate in _promo_lookup_candidates(code_str, preserve_case=preserve_case):
@@ -69,6 +73,8 @@ async def get_active_promo_code_by_code_str(
             PromoCode.current_activations < PromoCode.max_activations,
             or_(PromoCode.valid_until == None, PromoCode.valid_until > now),
         )
+        if for_update:
+            stmt = stmt.with_for_update()
         result = await session.execute(stmt)
         promo = result.scalar_one_or_none()
         if promo:
@@ -455,3 +461,24 @@ async def user_has_pending_payment_with_promo(
         conditions.append(Payment.payment_id != exclude_payment_id)
     result = await session.execute(select(Payment.payment_id).where(and_(*conditions)).limit(1))
     return result.scalar_one_or_none() is not None
+
+
+async def count_pending_payments_with_promo(
+    session: AsyncSession,
+    promo_code_id: int,
+    *,
+    exclude_payment_id: int | None = None,
+) -> int:
+    """Count unpaid invoices that currently reserve a limited promo slot."""
+    status = func.lower(Payment.status)
+    conditions = [
+        Payment.promo_code_id == promo_code_id,
+        or_(
+            status.like("pending%"),
+            status.in_(("created", "new", "waiting_for_capture")),
+        ),
+    ]
+    if exclude_payment_id is not None:
+        conditions.append(Payment.payment_id != exclude_payment_id)
+    result = await session.execute(select(func.count(Payment.payment_id)).where(and_(*conditions)))
+    return int(result.scalar_one() or 0)
