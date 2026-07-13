@@ -31,7 +31,6 @@ from ..shared import (
 )
 from ..shared.app_context import app_required
 from ..shared.success import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     PaymentSuccessRequest,
     finalize_successful_payment,
 )
@@ -209,23 +208,25 @@ class QaPaymentService(BaseProviderService):
             if str(payment.status or "").strip().lower() == "succeeded":
                 return web.json_response({"ok": True, "status": "succeeded", "duplicate": True})
 
-            sale_mode = payment.sale_mode or "subscription"
-            payment_units = payment_units_for_activation(payment, sale_mode)
-
             try:
-                await payment_dal.update_provider_payment_and_status(
+                claimed_payment = await payment_dal.claim_payment_finalization(
                     session,
                     payment.payment_id,
-                    provider_payment_id,
-                    PAYMENT_STATUS_PENDING_FINALIZATION,
+                    provider_payment_id=provider_payment_id,
                 )
-                await session.commit()
             except Exception:
                 await session.rollback()
                 logger.exception(
                     "QA payment webhook failed to mark payment %s pending.", payment_id
                 )
                 return web.json_response({"ok": False, "error": "processing_error"}, status=500)
+
+            if claimed_payment is None:
+                return web.json_response({"ok": True, "status": "succeeded", "duplicate": True})
+            payment = claimed_payment
+
+            sale_mode = payment.sale_mode or "subscription"
+            payment_units = payment_units_for_activation(payment, sale_mode)
 
             outcome = await finalize_successful_payment(
                 PaymentSuccessRequest(

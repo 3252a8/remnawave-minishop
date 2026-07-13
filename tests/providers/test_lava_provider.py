@@ -334,9 +334,9 @@ def test_webhook_success_finalizes_payment(monkeypatch):
         user=None,
     )
     service = _webhook_service(session, payment, monkeypatch)
-    update_mock = AsyncMock()
+    claim_mock = AsyncMock(return_value=payment)
     finalize_mock = AsyncMock(return_value=SimpleNamespace())
-    monkeypatch.setattr(lava_service.payment_dal, "update_provider_payment_and_status", update_mock)
+    monkeypatch.setattr(lava_service.payment_dal, "claim_payment_finalization", claim_mock)
     monkeypatch.setattr(lava_service, "finalize_successful_payment", finalize_mock)
 
     response = asyncio.run(
@@ -349,11 +349,10 @@ def test_webhook_success_finalizes_payment(monkeypatch):
     )
 
     assert response.status == 200
-    update_mock.assert_awaited_once_with(
+    claim_mock.assert_awaited_once_with(
         session,
         88,
-        "inv-1",
-        lava_service.PAYMENT_STATUS_PENDING_FINALIZATION,
+        provider_payment_id="inv-1",
     )
     finalize_mock.assert_awaited_once()
 

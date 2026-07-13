@@ -31,7 +31,6 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     CreatePaymentRequest,
     CreateResult,
     HttpClientMixin,
@@ -541,13 +540,13 @@ class HeleketService(HttpClientMixin):
                         )
 
                 try:
-                    await payment_dal.update_provider_payment_and_status(
+                    payment = await payment_dal.claim_payment_finalization(
                         session,
                         payment.payment_id,
-                        resolved_id,
-                        PAYMENT_STATUS_PENDING_FINALIZATION,
+                        provider_payment_id=resolved_id,
                     )
-                    await session.commit()
+                    if payment is None:
+                        return web.Response(text="ok")
                 except Exception:
                     await session.rollback()
                     logger.exception(

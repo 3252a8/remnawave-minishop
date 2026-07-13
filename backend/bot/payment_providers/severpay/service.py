@@ -28,7 +28,6 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     CreatePaymentRequest,
     CreateResult,
     HttpClientMixin,
@@ -328,11 +327,6 @@ class SeverPayService(HttpClientMixin):
                 return web.json_response({"status": False, "msg": "payment_not_found"}, status=404)
 
             resolved_provider_id = provider_payment_id or str(payment.payment_id)
-            sale_mode = payment.sale_mode or (
-                "traffic" if self.settings.traffic_sale_mode else "subscription"
-            )
-            payment_months = payment_units_for_activation(payment, sale_mode)
-
             if status == "success":
                 if payment.status == "succeeded":
                     logger.info(
@@ -342,13 +336,11 @@ class SeverPayService(HttpClientMixin):
                     return web.json_response({"status": True})
 
                 try:
-                    await payment_dal.update_provider_payment_and_status(
+                    claimed_payment = await payment_dal.claim_payment_finalization(
                         session,
                         payment.payment_id,
-                        resolved_provider_id,
-                        PAYMENT_STATUS_PENDING_FINALIZATION,
+                        provider_payment_id=resolved_provider_id,
                     )
-                    await session.commit()
                 except Exception:
                     await session.rollback()
                     logger.exception(
@@ -358,6 +350,15 @@ class SeverPayService(HttpClientMixin):
                     return web.json_response(
                         {"status": False, "msg": "processing_error"}, status=500
                     )
+
+                if claimed_payment is None:
+                    return web.json_response({"status": True})
+                payment = claimed_payment
+
+                sale_mode = payment.sale_mode or (
+                    "traffic" if self.settings.traffic_sale_mode else "subscription"
+                )
+                payment_months = payment_units_for_activation(payment, sale_mode)
 
                 outcome = await finalize_successful_payment(
                     PaymentSuccessRequest(

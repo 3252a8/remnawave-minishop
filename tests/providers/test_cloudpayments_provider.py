@@ -353,12 +353,11 @@ def test_webhook_duplicate_success_does_not_finalize_again(monkeypatch):
 
 def test_webhook_success_finalizes_payment(monkeypatch):
     session = _FakeDbSession()
-    service = _webhook_service(session, _payment(), monkeypatch)
-    update_mock = AsyncMock()
+    payment = _payment()
+    service = _webhook_service(session, payment, monkeypatch)
+    claim_mock = AsyncMock(return_value=payment)
     finalize_mock = AsyncMock(return_value=SimpleNamespace())
-    monkeypatch.setattr(
-        cloudpayments_service.payment_dal, "update_provider_payment_and_status", update_mock
-    )
+    monkeypatch.setattr(cloudpayments_service.payment_dal, "claim_payment_finalization", claim_mock)
     monkeypatch.setattr(cloudpayments_service, "finalize_successful_payment", finalize_mock)
 
     response = asyncio.run(
@@ -377,24 +376,22 @@ def test_webhook_success_finalizes_payment(monkeypatch):
 
     assert response.status == 200
     assert json.loads(response.body) == {"code": 0}
-    update_mock.assert_awaited_once_with(
+    claim_mock.assert_awaited_once_with(
         session,
         88,
-        "tx-1",
-        cloudpayments_service.PAYMENT_STATUS_PENDING_FINALIZATION,
+        provider_payment_id="tx-1",
     )
     finalize_mock.assert_awaited_once()
 
 
 def test_webhook_success_saves_token_when_recurring_enabled(monkeypatch):
     session = _FakeDbSession()
-    service = _webhook_service(session, _payment(), monkeypatch, recurring_active=True)
-    update_mock = AsyncMock()
+    payment = _payment()
+    service = _webhook_service(session, payment, monkeypatch, recurring_active=True)
+    claim_mock = AsyncMock(return_value=payment)
     finalize_mock = AsyncMock(return_value=SimpleNamespace())
     upsert_mock = AsyncMock()
-    monkeypatch.setattr(
-        cloudpayments_service.payment_dal, "update_provider_payment_and_status", update_mock
-    )
+    monkeypatch.setattr(cloudpayments_service.payment_dal, "claim_payment_finalization", claim_mock)
     monkeypatch.setattr(cloudpayments_service, "finalize_successful_payment", finalize_mock)
     monkeypatch.setattr(
         cloudpayments_service.user_billing_dal, "upsert_user_payment_method", upsert_mock
@@ -418,6 +415,7 @@ def test_webhook_success_saves_token_when_recurring_enabled(monkeypatch):
     )
 
     assert response.status == 200
+    claim_mock.assert_awaited_once_with(session, 88, provider_payment_id="tx-1")
     upsert_mock.assert_awaited_once_with(
         session,
         user_id=42,

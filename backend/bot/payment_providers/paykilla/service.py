@@ -19,7 +19,6 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     HttpClientMixin,
     PaymentSuccessRequest,
     check_webhook_source_ip,
@@ -652,13 +651,11 @@ class PaykillaService(HttpClientMixin):
                     )
 
                 try:
-                    await payment_dal.update_provider_payment_and_status(
+                    claimed_payment = await payment_dal.claim_payment_finalization(
                         session,
                         payment.payment_id,
-                        resolved_id,
-                        PAYMENT_STATUS_PENDING_FINALIZATION,
+                        provider_payment_id=resolved_id,
                     )
-                    await session.commit()
                 except Exception:
                     await session.rollback()
                     logger.exception(
@@ -666,6 +663,10 @@ class PaykillaService(HttpClientMixin):
                         resolved_id,
                     )
                     return web.Response(status=500, text="processing_error")
+
+                if claimed_payment is None:
+                    return web.Response(text="ok")
+                payment = claimed_payment
 
                 sale_mode = payment.sale_mode or (
                     "traffic" if self.settings.traffic_sale_mode else "subscription"

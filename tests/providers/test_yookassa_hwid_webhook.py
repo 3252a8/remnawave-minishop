@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, patch
 
 from bot.payment_providers import yookassa
 from bot.payment_providers.yookassa import payments as yookassa_payments
@@ -201,6 +201,11 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
             ),
             patch.object(
                 yookassa.payment_dal,
+                "claim_payment_finalization",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                yookassa.payment_dal,
                 "update_payment_status_by_db_id",
                 AsyncMock(return_value=updated_payment),
             ) as update_status,
@@ -313,6 +318,11 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
             ),
             patch.object(
                 yookassa.payment_dal,
+                "claim_payment_finalization",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                yookassa.payment_dal,
                 "update_payment_status_by_db_id",
                 AsyncMock(return_value=updated_payment),
             ),
@@ -417,6 +427,11 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
                 yookassa.payment_dal,
                 "get_payment_by_db_id",
                 AsyncMock(side_effect=[payment, payment]),
+            ),
+            patch.object(
+                yookassa.payment_dal,
+                "claim_payment_finalization",
+                AsyncMock(return_value=payment),
             ),
             patch.object(
                 yookassa.payment_dal,
@@ -547,6 +562,11 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
             ),
             patch.object(
                 yookassa.payment_dal,
+                "claim_payment_finalization",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                yookassa.payment_dal,
                 "update_payment_status_by_db_id",
                 AsyncMock(return_value=updated_payment),
             ),
@@ -591,3 +611,57 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
         assert event_payload["sale_mode"] == "subscription@standard"
         assert event_payload["tariff_key"] == "standard"
         assert event_payload["is_auto_renew"] is True
+
+    async def test_duplicate_successful_payment_skips_activation_after_claim(self):
+        payment = SimpleNamespace(payment_id=5, status="succeeded", tariff_key="standard")
+        settings = SimpleNamespace(
+            traffic_sale_mode=False,
+            yookassa_autopayments_active=False,
+            DEFAULT_LANGUAGE="en",
+            DEFAULT_CURRENCY_SYMBOL="RUB",
+        )
+        payment_info = {
+            "id": "yk-duplicate-1",
+            "status": "succeeded",
+            "paid": True,
+            "amount": {"value": "120.00", "currency": "RUB"},
+            "metadata": {
+                "user_id": "42",
+                "subscription_months": "1",
+                "payment_db_id": "5",
+                "sale_mode": "subscription@standard",
+            },
+        }
+        subscription_service = SimpleNamespace(activate_subscription=AsyncMock())
+
+        with (
+            patch.object(
+                yookassa.payment_dal,
+                "get_payment_by_db_id",
+                AsyncMock(return_value=payment),
+            ),
+            patch.object(
+                yookassa.payment_dal,
+                "claim_payment_finalization",
+                AsyncMock(return_value=None),
+            ) as claim,
+            patch.object(
+                yookassa.payment_dal,
+                "update_payment_status_by_db_id",
+                AsyncMock(side_effect=AssertionError("duplicate payment must not update status")),
+            ),
+        ):
+            result = await yookassa.process_successful_payment(
+                AsyncMock(),
+                AsyncMock(),
+                payment_info,
+                _I18n(),
+                settings,
+                AsyncMock(),
+                subscription_service,
+                AsyncMock(),
+            )
+
+        assert result is None
+        claim.assert_awaited_once_with(ANY, 5)
+        subscription_service.activate_subscription.assert_not_awaited()

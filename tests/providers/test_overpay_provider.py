@@ -310,12 +310,11 @@ def _payment(**overrides):
 
 def test_webhook_success_finalizes_payment(monkeypatch):
     session = _FakeDbSession()
-    service = _webhook_service(session, _payment(), monkeypatch)
-    update_mock = AsyncMock()
+    payment = _payment()
+    service = _webhook_service(session, payment, monkeypatch)
+    claim_mock = AsyncMock(return_value=payment)
     finalize_mock = AsyncMock(return_value=SimpleNamespace())
-    monkeypatch.setattr(
-        overpay_service.payment_dal, "update_provider_payment_and_status", update_mock
-    )
+    monkeypatch.setattr(overpay_service.payment_dal, "claim_payment_finalization", claim_mock)
     monkeypatch.setattr(overpay_service, "finalize_successful_payment", finalize_mock)
 
     response = asyncio.run(
@@ -336,18 +335,16 @@ def test_webhook_success_finalizes_payment(monkeypatch):
     )
 
     assert response.status == 200
-    update_mock.assert_awaited_once_with(
-        session, 88, "tx-1", overpay_service.PAYMENT_STATUS_PENDING_FINALIZATION
-    )
+    claim_mock.assert_awaited_once_with(session, 88, provider_payment_id="tx-1")
     finalize_mock.assert_awaited_once()
 
 
 def test_webhook_success_saves_token_when_recurring_enabled(monkeypatch):
     session = _FakeDbSession()
-    service = _webhook_service(session, _payment(), monkeypatch, recurring_active=True)
-    monkeypatch.setattr(
-        overpay_service.payment_dal, "update_provider_payment_and_status", AsyncMock()
-    )
+    payment = _payment()
+    service = _webhook_service(session, payment, monkeypatch, recurring_active=True)
+    claim_mock = AsyncMock(return_value=payment)
+    monkeypatch.setattr(overpay_service.payment_dal, "claim_payment_finalization", claim_mock)
     monkeypatch.setattr(
         overpay_service, "finalize_successful_payment", AsyncMock(return_value=SimpleNamespace())
     )
@@ -377,6 +374,7 @@ def test_webhook_success_saves_token_when_recurring_enabled(monkeypatch):
     )
 
     assert response.status == 200
+    claim_mock.assert_awaited_once_with(session, 88, provider_payment_id="tx-1")
     upsert_mock.assert_awaited_once_with(
         session,
         user_id=42,

@@ -199,12 +199,10 @@ def test_webhook_success_accepts_commission_adjusted_amount(monkeypatch):
         assert provider_payment_id == "bill-1"
         return payment
 
-    update_mock = AsyncMock()
+    claim_mock = AsyncMock(return_value=payment)
     finalize_mock = AsyncMock(return_value=SimpleNamespace())
     monkeypatch.setattr(pally_service, "lookup_payment_by_order_or_provider_id", lookup_payment)
-    monkeypatch.setattr(
-        pally_service.payment_dal, "update_provider_payment_and_status", update_mock
-    )
+    monkeypatch.setattr(pally_service.payment_dal, "claim_payment_finalization", claim_mock)
     monkeypatch.setattr(pally_service, "finalize_successful_payment", finalize_mock)
 
     signature = service.calculate_signature("102.50", "77")
@@ -225,11 +223,10 @@ def test_webhook_success_accepts_commission_adjusted_amount(monkeypatch):
     )
 
     assert response.status == 200
-    update_mock.assert_awaited_once_with(
+    claim_mock.assert_awaited_once_with(
         session,
         77,
-        "bill-1",
-        pally_service.PAYMENT_STATUS_PENDING_FINALIZATION,
+        provider_payment_id="bill-1",
     )
     finalize_mock.assert_awaited_once()
 

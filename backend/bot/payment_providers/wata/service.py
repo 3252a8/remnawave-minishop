@@ -21,7 +21,6 @@ from ..base import (
     normalize_payment_currency_code,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     HttpClientMixin,
     PaymentSuccessRequest,
     check_webhook_source_ip,
@@ -569,13 +568,11 @@ class WataService(HttpClientMixin):
                 )
 
         try:
-            await payment_dal.update_provider_payment_and_status(
+            claimed_payment = await payment_dal.claim_payment_finalization(
                 session,
                 payment.payment_id,
-                transaction_id,
-                PAYMENT_STATUS_PENDING_FINALIZATION,
+                provider_payment_id=transaction_id,
             )
-            await session.commit()
         except Exception:
             await session.rollback()
             logger.exception(
@@ -584,6 +581,13 @@ class WataService(HttpClientMixin):
                 transaction_id,
             )
             return None
+
+        if claimed_payment is None:
+            return (
+                await payment_dal.get_payment_by_db_id(session, payment.payment_id, fresh=True)
+                or payment
+            )
+        payment = claimed_payment
 
         sale_mode = payment.sale_mode or (
             "traffic" if self.settings.traffic_sale_mode else "subscription"

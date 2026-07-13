@@ -780,7 +780,7 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
                 billing_module.payment_dal,
                 "get_payment_by_db_id",
                 AsyncMock(side_effect=[payment, refreshed_payment]),
-            ),
+            ) as get_payment,
             patch(
                 "bot.payment_providers.yookassa.process_successful_payment",
                 AsyncMock(return_value=event_payload),
@@ -799,6 +799,10 @@ class WebAppPaymentStatusTests(IsolatedAsyncioTestCase):
         self.assertIs(result, refreshed_payment)
         session.rollback.assert_awaited_once()
         session.commit.assert_awaited_once()
+        self.assertEqual(
+            get_payment.await_args_list[-1].kwargs,
+            {"fresh": True},
+        )
         process_success.assert_awaited_once()
         emit_success.assert_awaited_once_with(event_payload)
         provider_payload = process_success.await_args.args[2]

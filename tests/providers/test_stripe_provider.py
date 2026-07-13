@@ -211,11 +211,12 @@ def test_signature_rejects_wrong_or_empty_signature():
 
 def test_webhook_success_finalizes_payment_and_saves_payment_method(monkeypatch):
     session = _FakeDbSession()
-    service = _webhook_service(session, _payment(), monkeypatch)
-    update_mock = AsyncMock()
+    payment = _payment()
+    service = _webhook_service(session, payment, monkeypatch)
+    claim_mock = AsyncMock(return_value=payment)
     finalize_mock = AsyncMock(return_value=SimpleNamespace())
     upsert_mock = AsyncMock()
-    monkeypatch.setattr(stripe.payment_dal, "update_provider_payment_and_status", update_mock)
+    monkeypatch.setattr(stripe.payment_dal, "claim_payment_finalization", claim_mock)
     monkeypatch.setattr(stripe_service, "finalize_successful_payment", finalize_mock)
     monkeypatch.setattr(stripe.user_billing_dal, "upsert_user_payment_method", upsert_mock)
 
@@ -237,11 +238,10 @@ def test_webhook_success_finalizes_payment_and_saves_payment_method(monkeypatch)
     response = asyncio.run(StripeService.webhook_route(service, _FakeWebhookRequest(payload)))
 
     assert response.status == 200
-    update_mock.assert_awaited_once_with(
+    claim_mock.assert_awaited_once_with(
         session,
         88,
-        "pi_1",
-        stripe.PAYMENT_STATUS_PENDING_FINALIZATION,
+        provider_payment_id="pi_1",
     )
     upsert_mock.assert_awaited_once_with(
         session,

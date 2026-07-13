@@ -296,6 +296,25 @@ async def finalize_successful_payment(
     object so callers can drive extra side-effects (e.g. yookassa LKNPD
     receipts) using the same activation result.
     """
+    locked_payment = await payment_dal.get_payment_by_db_id_for_update(
+        req.session, req.payment.payment_id
+    )
+    if locked_payment is None:
+        logger.error(
+            "%s: payment %s disappeared before finalization.",
+            req.log_prefix,
+            req.payment.payment_id,
+        )
+        return None
+    if str(locked_payment.status or "").strip().lower() == "succeeded":
+        logger.info(
+            "%s: skipping duplicate finalization for payment %s.",
+            req.log_prefix,
+            locked_payment.payment_id,
+        )
+        return None
+    req.payment = locked_payment
+
     base = sale_mode_base(req.sale_mode)
     is_subscription = base == "subscription"
     is_traffic = is_traffic_sale_base(base)

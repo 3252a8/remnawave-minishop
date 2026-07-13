@@ -24,7 +24,6 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     CreatePaymentRequest,
     HttpClientMixin,
     LinkPaymentDescriptor,
@@ -559,18 +558,18 @@ class OverpayService(HttpClientMixin):
                     return web.Response(status=400, text="amount_mismatch")
 
                 try:
+                    payment = await payment_dal.claim_payment_finalization(
+                        session,
+                        payment.payment_id,
+                        provider_payment_id=resolved_provider_id,
+                    )
+                    if payment is None:
+                        return web.Response(text="OK")
                     await self._persist_recurring_payment_method(
                         session,
                         payment=payment,
                         credit_card=credit_card if isinstance(credit_card, Mapping) else None,
                     )
-                    await payment_dal.update_provider_payment_and_status(
-                        session,
-                        payment.payment_id,
-                        resolved_provider_id,
-                        PAYMENT_STATUS_PENDING_FINALIZATION,
-                    )
-                    await session.commit()
                 except Exception:
                     await session.rollback()
                     logger.exception(

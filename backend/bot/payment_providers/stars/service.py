@@ -23,7 +23,6 @@ from ..base import (
     provider_env_file,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     PaymentSuccessRequest,
     create_webapp_payment_record,
     describe_payment,
@@ -174,24 +173,27 @@ class StarsService:
             return
 
         try:
-            payment_record = await payment_dal.update_provider_payment_and_status(
+            claimed_payment = await payment_dal.claim_payment_finalization(
                 session,
                 payment_db_id,
-                successful_payment.provider_payment_charge_id,
-                PAYMENT_STATUS_PENDING_FINALIZATION,
+                provider_payment_id=successful_payment.provider_payment_charge_id,
             )
-            await session.commit()
         except Exception:
             await session.rollback()
             logger.exception("Failed to update stars payment record %s", payment_db_id)
             return
 
-        target_user_id = (
-            int(payment_record.user_id)
-            if payment_record and payment_record.user_id is not None
-            else int(message.from_user.id if message.from_user else payment.user_id)
-        )
-        payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
+        if claimed_payment is None:
+            return
+        payment = claimed_payment
+
+        target_user_id = payment.user_id
+        if target_user_id is None and message.from_user is not None:
+            target_user_id = message.from_user.id
+        if target_user_id is None:
+            logger.error("Stars: payment %s has no user id.", payment_db_id)
+            await session.rollback()
+            return
 
         await finalize_successful_payment(
             PaymentSuccessRequest(
@@ -202,7 +204,7 @@ class StarsService:
                 subscription_service=self.subscription_service,
                 referral_service=self.referral_service,
                 payment=payment,
-                user_id=target_user_id,
+                user_id=int(target_user_id),
                 amount=float(stars_amount),
                 currency="XTR",
                 sale_mode=sale_mode,

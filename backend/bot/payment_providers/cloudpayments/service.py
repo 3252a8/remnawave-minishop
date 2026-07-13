@@ -28,7 +28,6 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     CreatePaymentRequest,
     HttpClientMixin,
     LinkPaymentDescriptor,
@@ -590,18 +589,18 @@ class CloudPaymentsService(HttpClientMixin):
                     return web.json_response({"code": 12}, status=200)
 
                 try:
+                    payment = await payment_dal.claim_payment_finalization(
+                        session,
+                        payment.payment_id,
+                        provider_payment_id=resolved_provider_id,
+                    )
+                    if payment is None:
+                        return web.json_response(_CODE_OK)
                     await self._persist_recurring_payment_method(
                         session,
                         payment=payment,
                         payload_getter=_get,
                     )
-                    await payment_dal.update_provider_payment_and_status(
-                        session,
-                        payment.payment_id,
-                        resolved_provider_id,
-                        PAYMENT_STATUS_PENDING_FINALIZATION,
-                    )
-                    await session.commit()
                 except Exception:
                     await session.rollback()
                     logger.exception(

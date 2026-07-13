@@ -135,7 +135,9 @@ async def _refresh_yookassa_payment_status(
                     payment_id,
                 )
                 return current
-            return await payment_dal.get_payment_by_db_id(session, payment_id) or current
+            return (
+                await payment_dal.get_payment_by_db_id(session, payment_id, fresh=True) or current
+            )
 
     if provider_status in {"canceled", "cancelled"}:
         from bot.payment_providers.yookassa import (
@@ -170,7 +172,9 @@ async def _refresh_yookassa_payment_status(
                     payment_id,
                 )
                 return current
-            return await payment_dal.get_payment_by_db_id(session, payment_id) or current
+            return (
+                await payment_dal.get_payment_by_db_id(session, payment_id, fresh=True) or current
+            )
 
     return payment_snapshot
 

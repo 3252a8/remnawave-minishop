@@ -25,7 +25,6 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     CreatePaymentRequest,
     HttpClientMixin,
     LinkPaymentDescriptor,
@@ -380,11 +379,6 @@ class PlategaService(HttpClientMixin):
             if payment.status == "succeeded" and status == "CONFIRMED":
                 return web.Response(text="ok")
 
-            sale_mode = payment.sale_mode or (
-                "traffic" if self.settings.traffic_sale_mode else "subscription"
-            )
-            payment_months = payment_units_for_activation(payment, sale_mode)
-
             if status == "CONFIRMED":
                 if amount_raw is not None:
                     try:
@@ -403,19 +397,26 @@ class PlategaService(HttpClientMixin):
                         )
 
                 try:
-                    await payment_dal.update_provider_payment_and_status(
+                    claimed_payment = await payment_dal.claim_payment_finalization(
                         session,
                         payment.payment_id,
-                        transaction_id,
-                        PAYMENT_STATUS_PENDING_FINALIZATION,
+                        provider_payment_id=transaction_id,
                     )
-                    await session.commit()
                 except Exception:
                     await session.rollback()
                     logger.exception(
                         "Platega webhook: failed to mark payment %s as succeeded.", transaction_id
                     )
                     return web.Response(status=500, text="processing_error")
+
+                if claimed_payment is None:
+                    return web.Response(text="ok")
+                payment = claimed_payment
+
+                sale_mode = payment.sale_mode or (
+                    "traffic" if self.settings.traffic_sale_mode else "subscription"
+                )
+                payment_months = payment_units_for_activation(payment, sale_mode)
 
                 outcome = await finalize_successful_payment(
                     PaymentSuccessRequest(

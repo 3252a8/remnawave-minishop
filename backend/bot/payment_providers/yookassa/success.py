@@ -365,7 +365,14 @@ async def process_successful_payment(
                 )
                 return None
 
-        if payment_record and payment_record.status == "succeeded":
+        if payment_db_id is None:
+            logger.error(
+                "YooKassa payment %s has no local payment record after validation.",
+                yk_payment_id_from_hook,
+            )
+            return None
+        payment_record = await payment_dal.claim_payment_finalization(session, payment_db_id)
+        if payment_record is None:
             logger.info(
                 "Skipping duplicate YooKassa webhook for payment %s (YK: %s).",
                 payment_db_id,

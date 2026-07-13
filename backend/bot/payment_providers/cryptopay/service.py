@@ -39,7 +39,6 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     PaymentSuccessRequest,
     describe_payment,
     finalize_successful_payment,
@@ -365,25 +364,17 @@ class CryptoPayService(BaseProviderService):
                 return
 
             try:
-                await payment_dal.update_provider_payment_and_status(
+                payment = await payment_dal.claim_payment_finalization(
                     session,
                     payment_db_id,
-                    str(invoice.invoice_id),
-                    PAYMENT_STATUS_PENDING_FINALIZATION,
+                    provider_payment_id=str(invoice.invoice_id),
                 )
-                await session.commit()
+                if payment is None:
+                    return
             except Exception:
                 await session.rollback()
                 logger.exception(
                     "Failed to mark CryptoPay invoice %s as succeeded.",
-                    payment_db_id,
-                )
-                return
-
-            payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
-            if not payment:
-                logger.error(
-                    "CryptoPay webhook: payment %s vanished after status update.",
                     payment_db_id,
                 )
                 return

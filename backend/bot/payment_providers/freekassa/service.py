@@ -31,7 +31,6 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     CreatePaymentRequest,
     CreateResult,
     HttpClientMixin,
@@ -449,13 +448,13 @@ class FreeKassaService(HttpClientMixin):
 
             resolved_provider_id = str(provider_payment_id or f"freekassa:{order_id_str}")
             try:
-                await payment_dal.update_provider_payment_and_status(
-                    session=session,
-                    payment_db_id=payment.payment_id,
+                payment = await payment_dal.claim_payment_finalization(
+                    session,
+                    payment.payment_id,
                     provider_payment_id=resolved_provider_id,
-                    new_status=PAYMENT_STATUS_PENDING_FINALIZATION,
                 )
-                await session.commit()
+                if payment is None:
+                    return web.Response(text="YES")
             except Exception:
                 await session.rollback()
                 logger.exception(

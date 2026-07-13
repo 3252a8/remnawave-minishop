@@ -21,7 +21,6 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     HttpClientMixin,
     PaymentSuccessRequest,
     RecurringChargeContext,
@@ -532,6 +531,15 @@ class StripeService(HttpClientMixin):
                 return web.json_response({"error": "currency_mismatch"}, status=400)
 
             try:
+                claimed_payment = await payment_dal.claim_payment_finalization(
+                    session,
+                    payment.payment_id,
+                    provider_payment_id=provider_payment_id or str(payment.payment_id),
+                )
+                if claimed_payment is None:
+                    return web.json_response({"received": True})
+                payment = claimed_payment
+
                 if payment_intent:
                     await self._persist_recurring_payment_method(
                         session,
@@ -539,13 +547,6 @@ class StripeService(HttpClientMixin):
                         payment_intent=payment_intent,
                         fallback_customer_id=str(obj.get("customer") or "") or None,
                     )
-                await payment_dal.update_provider_payment_and_status(
-                    session,
-                    payment.payment_id,
-                    provider_payment_id or str(payment.payment_id),
-                    PAYMENT_STATUS_PENDING_FINALIZATION,
-                )
-                await session.commit()
             except Exception:
                 await session.rollback()
                 logger.exception(

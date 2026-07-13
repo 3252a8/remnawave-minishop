@@ -2,7 +2,7 @@ import logging
 from datetime import UTC
 from typing import Any
 
-from sqlalchemy import Date, and_, case, cast, func, or_
+from sqlalchemy import Date, and_, case, cast, func, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload, selectinload
@@ -12,6 +12,7 @@ from db.models import Payment, User
 logger = logging.getLogger(__name__)
 
 _PAYMENT_STATUS_SUCCEEDED = "succeeded"
+_PAYMENT_STATUS_PENDING_FINALIZATION = "succeeded_pending_finalization"
 
 
 def _normalize_payment_status(status: Any) -> str:
@@ -116,15 +117,86 @@ async def ensure_payment_with_provider_id(
     return await create_payment_record(session, payment_payload)
 
 
-async def get_payment_by_db_id(session: AsyncSession, payment_db_id: int) -> Payment | None:
+async def get_payment_by_db_id(
+    session: AsyncSession,
+    payment_db_id: int,
+    *,
+    fresh: bool = False,
+) -> Payment | None:
 
     stmt = (
         select(Payment)
         .where(Payment.payment_id == payment_db_id)
         .options(joinedload(Payment.user), joinedload(Payment.promo_code_used))
     )
+    if fresh:
+        stmt = stmt.execution_options(populate_existing=True)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
+
+
+async def get_payment_by_db_id_for_update(
+    session: AsyncSession, payment_db_id: int
+) -> Payment | None:
+    """Load the current payment row under a transaction-scoped write lock.
+
+    Payment finalization can be entered concurrently by webhook retries, a
+    worker, and a Web App status refresh.  ``populate_existing`` is important:
+    a session that loaded the row before waiting for the lock must not keep a
+    stale pending status after the first finalizer commits.
+    """
+    stmt = (
+        select(Payment)
+        .where(Payment.payment_id == payment_db_id)
+        .execution_options(populate_existing=True)
+        .with_for_update()
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def claim_payment_finalization(
+    session: AsyncSession,
+    payment_db_id: int,
+    *,
+    provider_payment_id: str | None = None,
+    provider_payment_url: str | None = None,
+) -> Payment | None:
+    """Atomically claim a non-final payment for successful-payment effects.
+
+    The claim and all subsequent activation effects remain in the caller's
+    transaction.  A concurrent claimant waits for that transaction and then
+    sees ``succeeded`` in the conditional ``UPDATE``, so it cannot produce a
+    second entitlement, event, or customer notification.  If the first
+    transaction rolls back, a provider retry can safely claim the payment.
+    """
+    values: dict[str, Any] = {
+        "status": _PAYMENT_STATUS_PENDING_FINALIZATION,
+        "updated_at": func.now(),
+    }
+    if provider_payment_id is not None:
+        values["provider_payment_id"] = provider_payment_id
+    if provider_payment_url is not None:
+        values["provider_payment_url"] = provider_payment_url
+
+    stmt = (
+        update(Payment)
+        .where(
+            Payment.payment_id == payment_db_id,
+            func.lower(Payment.status) != _PAYMENT_STATUS_SUCCEEDED,
+        )
+        .values(**values)
+        .returning(Payment.payment_id)
+    )
+    result = await session.execute(stmt)
+    claimed_payment_id = result.scalar_one_or_none()
+    if claimed_payment_id is None:
+        logger.info("Payment record %s already succeeded; skipping finalization.", payment_db_id)
+        return None
+    # The conditional UPDATE above already holds the row lock until the caller
+    # commits. Reload through the normal loader so callers retain eager-loaded
+    # relationships such as ``payment.user``.
+    return await get_payment_by_db_id(session, int(claimed_payment_id), fresh=True)
 
 
 async def find_recent_pending_provider_payment(
@@ -208,7 +280,7 @@ async def find_recent_pending_provider_payment(
 async def update_payment_status_by_db_id(
     session: AsyncSession, payment_db_id: int, new_status: str, yk_payment_id: str | None = None
 ) -> Payment | None:
-    payment = await get_payment_by_db_id(session, payment_db_id)
+    payment = await get_payment_by_db_id_for_update(session, payment_db_id)
     if payment:
         preserve_succeeded = _would_overwrite_succeeded_payment(payment.status, new_status)
         if preserve_succeeded:
@@ -316,7 +388,7 @@ async def update_provider_payment_and_status(
     new_status: str,
     provider_payment_url: str | None = None,
 ) -> Payment | None:
-    payment = await get_payment_by_db_id(session, payment_db_id)
+    payment = await get_payment_by_db_id_for_update(session, payment_db_id)
     if payment:
         preserve_succeeded = _would_overwrite_succeeded_payment(payment.status, new_status)
         if preserve_succeeded:
