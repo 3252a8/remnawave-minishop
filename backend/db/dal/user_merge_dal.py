@@ -11,6 +11,7 @@ compatibility).
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from typing import cast as type_cast
 
 from sqlalchemy import String, and_, cast, delete, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -123,6 +124,45 @@ async def _lock_users_for_merge(
     return users_by_id.get(int(source_user_id)), users_by_id.get(int(target_user_id))
 
 
+def _is_free_grant_subscription(subscription: Subscription) -> bool:
+    status = str(getattr(subscription, "status_from_panel", "") or "").strip().upper()
+    if status in {"TRIAL", "ACTIVE_BONUS", "ACTIVE_MERGED_FREE_GRANT"}:
+        return True
+    provider = str(getattr(subscription, "provider", "") or "").strip().lower()
+    try:
+        duration_months = int(getattr(subscription, "duration_months", 0) or 0)
+    except (TypeError, ValueError):
+        duration_months = 0
+    return provider in {"", "trial"} and duration_months <= 0
+
+
+def _merged_subscription_end(
+    source_subscription: Subscription,
+    target_subscription: Subscription,
+    *,
+    now: datetime,
+) -> tuple[datetime, str]:
+    source_end = type_cast(datetime, source_subscription.end_date)
+    if source_end.tzinfo is None:
+        source_end = source_end.replace(tzinfo=UTC)
+
+    target_end = type_cast(datetime, target_subscription.end_date)
+    if target_end.tzinfo is None:
+        target_end = target_end.replace(tzinfo=UTC)
+
+    if _is_free_grant_subscription(source_subscription) or _is_free_grant_subscription(
+        target_subscription
+    ):
+        # Merging identities must not add a separately claimed free trial or
+        # bonus on top of either another grant or paid time.  Keeping the later
+        # expiry preserves the best existing entitlement without stacking it.
+        return max(source_end, target_end), "ACTIVE_MERGED_FREE_GRANT"
+
+    source_remaining = max(timedelta(0), source_end - now)
+    base_end = target_end if target_end > now else now
+    return base_end + source_remaining, "ACTIVE_EXTENDED_BY_MERGE"
+
+
 async def merge_users(
     session: AsyncSession,
     *,
@@ -182,17 +222,16 @@ async def merge_users(
         if source_end.tzinfo is None:
             source_end = source_end.replace(tzinfo=UTC)
 
-        target_end = target_anchor_sub.end_date
-        if target_end.tzinfo is None:
-            target_end = target_end.replace(tzinfo=UTC)
-
-        source_remaining = max(timedelta(0), source_end - now)
-        if source_remaining > timedelta(0):
-            base_end = target_end if target_end > now else now
-            target_anchor_sub.end_date = base_end + source_remaining
+        if source_end > now:
+            merged_end, merged_status = _merged_subscription_end(
+                source_active_sub,
+                target_anchor_sub,
+                now=now,
+            )
+            target_anchor_sub.end_date = merged_end
             target_anchor_sub.last_notification_sent = None
             target_anchor_sub.is_active = True
-            target_anchor_sub.status_from_panel = "ACTIVE_EXTENDED_BY_MERGE"
+            target_anchor_sub.status_from_panel = merged_status
 
         source_active_sub.is_active = False
         source_active_sub.skip_notifications = True

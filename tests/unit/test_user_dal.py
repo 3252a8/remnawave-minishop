@@ -412,6 +412,8 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
         )
         source_active_sub = SimpleNamespace(
             end_date=before + timedelta(days=30),
+            duration_months=1,
+            provider="stripe",
             is_active=True,
             skip_notifications=False,
             last_notification_sent=before,
@@ -420,6 +422,8 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
         )
         expired_target_sub = SimpleNamespace(
             end_date=before - timedelta(days=3),
+            duration_months=1,
+            provider="yookassa",
             is_active=False,
             skip_notifications=False,
             last_notification_sent=before,
