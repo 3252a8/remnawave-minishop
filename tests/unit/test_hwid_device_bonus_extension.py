@@ -17,7 +17,74 @@ class _ScalarResult:
         return self._records
 
 
+class _RowsResult:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def all(self):
+        return self._rows
+
+
 class HwidDeviceBonusExtensionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_combined_subscription_payment_uses_only_hwid_component_for_conversion(self):
+        valid_from = datetime(2099, 1, 1, tzinfo=UTC)
+        valid_until = datetime(2099, 2, 1, tzinfo=UTC)
+        session = SimpleNamespace(
+            execute=AsyncMock(
+                return_value=_RowsResult(
+                    [
+                        (
+                            7,
+                            1,
+                            valid_from,
+                            valid_until,
+                            valid_from,
+                            1100.0,
+                            "RUB",
+                            "subscription@standard",
+                            100.0,
+                            1.0,
+                            None,
+                        ),
+                        (
+                            8,
+                            1,
+                            valid_from,
+                            valid_until,
+                            valid_from,
+                            40.0,
+                            "RUB",
+                            "hwid_devices@standard",
+                            100.0,
+                            0.4,
+                            None,
+                        ),
+                        (
+                            9,
+                            1,
+                            valid_from,
+                            valid_until,
+                            valid_from,
+                            550.0,
+                            "RUB",
+                            "subscription@standard",
+                            100.0,
+                            1.0,
+                            1100.0,
+                        ),
+                    ]
+                )
+            )
+        )
+
+        entries = await tariff_dal.get_hwid_device_value_entries(
+            session,
+            subscription_id=10,
+            at=valid_from,
+        )
+
+        self.assertEqual([entry["amount"] for entry in entries], [100.0, 40.0, 50.0])
+
     async def test_extends_tail_purchase_when_it_covers_subscription_end(self):
         subscription_end = datetime(2099, 2, 1, tzinfo=UTC)
         future_purchase = SimpleNamespace(
