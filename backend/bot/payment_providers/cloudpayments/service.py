@@ -582,6 +582,7 @@ class CloudPaymentsService(HttpClientMixin):
                     expected_currency=payment.currency,
                     received_amount=webhook_amount,
                     received_currency=webhook_currency,
+                    allow_overpayment=True,
                 ):
                     logger.error(
                         "CloudPayments webhook: payment details mismatch for payment %s "

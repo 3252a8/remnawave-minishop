@@ -212,6 +212,7 @@ class QaPaymentService(BaseProviderService):
                 received_amount=amount,
                 received_currency=currency,
                 places=None,
+                allow_overpayment=True,
             ):
                 logger.warning(
                     "QA payment webhook: amount or currency mismatch for payment %s "

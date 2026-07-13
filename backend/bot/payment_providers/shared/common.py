@@ -43,13 +43,15 @@ def payment_amount_matches(
     expected_amount: Any,
     received_amount: Any,
     places: int | None = 2,
+    allow_overpayment: bool = False,
 ) -> bool:
-    """Return whether a provider's settled amount matches its issued invoice.
+    """Return whether a provider's settled amount covers its issued invoice.
 
     The locally stored amount is normalized to the precision used when the
     invoice is created.  A callback must already be expressed at that
     precision: rounding it would make a distinct, signed settlement look like
-    the expected amount.
+    the expected amount. ``allow_overpayment`` accepts only an amount at or
+    above the invoice; it never makes a lower amount valid.
     """
     if received_amount is None:
         return False
@@ -59,11 +61,21 @@ def payment_amount_matches(
         if not expected_decimal.is_finite() or not received_decimal.is_finite():
             return False
         if places is None:
-            return expected_decimal == received_decimal
+            return (
+                received_decimal >= expected_decimal
+                if allow_overpayment
+                else expected_decimal == received_decimal
+            )
         quantum = Decimal(10) ** -places
         expected_fixed = expected_decimal.quantize(quantum, rounding=ROUND_HALF_UP)
         received_fixed = received_decimal.quantize(quantum, rounding=ROUND_HALF_UP)
-        return received_decimal == received_fixed and expected_fixed == received_fixed
+        if received_decimal != received_fixed:
+            return False
+        return (
+            received_fixed >= expected_fixed
+            if allow_overpayment
+            else expected_fixed == received_fixed
+        )
     except (InvalidOperation, TypeError, ValueError):
         return False
 
@@ -75,6 +87,7 @@ def payment_amount_and_currency_match(
     received_amount: Any,
     received_currency: Any,
     places: int | None = 2,
+    allow_overpayment: bool = False,
 ) -> bool:
     """Return whether a provider confirmation matches the stored payment exactly.
 
@@ -84,6 +97,8 @@ def payment_amount_and_currency_match(
 
     ``places=None`` selects an exact finite ``Decimal`` comparison for payment
     rails that use crypto-asset precision rather than a fixed fiat scale.
+    ``allow_overpayment`` keeps the currency check strict while accepting an
+    amount at or above the invoice.
     """
     if received_amount is None or received_currency is None:
         return False
@@ -95,6 +110,7 @@ def payment_amount_and_currency_match(
         expected_amount=expected_amount,
         received_amount=received_amount,
         places=places,
+        allow_overpayment=allow_overpayment,
     )
 
 

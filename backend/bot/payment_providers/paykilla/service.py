@@ -585,6 +585,7 @@ class PaykillaService(HttpClientMixin):
             expected_amount=invoice_amount,
             received_amount=webhook_amount,
             places=paykilla_amount_places(invoice_currency),
+            allow_overpayment=True,
         ):
             logger.error(
                 "Paykilla webhook: amount mismatch for payment %s (invoice=%s webhook=%s)",

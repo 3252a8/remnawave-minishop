@@ -413,7 +413,7 @@ def test_webhook_amount_mismatch_is_rejected(monkeypatch):
                     "transaction": {
                         "uid": "tx-1",
                         "status": "successful",
-                        "amount": 999999,
+                        "amount": 9999,
                         "currency": "RUB",
                         "tracking_id": "88",
                     }

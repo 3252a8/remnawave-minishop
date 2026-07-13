@@ -570,6 +570,7 @@ class HeleketService(HttpClientMixin):
                     received_amount=amount_raw,
                     received_currency=currency,
                     places=_invoice_amount_places(payment.currency),
+                    allow_overpayment=True,
                 ):
                     logger.error(
                         "Heleket webhook: payment details mismatch for payment %s "

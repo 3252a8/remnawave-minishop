@@ -170,7 +170,7 @@ def test_heleket_webhook_accepts_exact_high_precision_crypto_invoice(monkeypatch
     assert finalize_mock.await_args.args[0].currency == "BTC"
 
 
-def test_heleket_webhook_rejects_different_high_precision_crypto_invoice(monkeypatch):
+def test_heleket_webhook_rejects_underpaid_high_precision_crypto_invoice(monkeypatch):
     session = _FakeDbSession()
     service = _make_heleket_service()
     service.async_session_factory = session
@@ -193,7 +193,7 @@ def test_heleket_webhook_rejects_different_high_precision_crypto_invoice(monkeyp
                     "order_id": "77",
                     "status": "paid",
                     "is_final": True,
-                    "amount": "0.00010001",
+                    "amount": "0.00009999",
                     "currency": "BTC",
                 }
             )

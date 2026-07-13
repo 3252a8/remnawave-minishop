@@ -387,6 +387,7 @@ class PlategaService(HttpClientMixin):
                     # Platega receives the raw numeric amount passed to
                     # create_transaction, so preserve that invoice precision.
                     places=None,
+                    allow_overpayment=True,
                 ):
                     logger.warning(
                         "Platega webhook: amount or currency mismatch for payment %s "

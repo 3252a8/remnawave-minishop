@@ -423,6 +423,7 @@ class LavaService(HttpClientMixin):
                 if not payment_amount_matches(
                     expected_amount=payment.amount,
                     received_amount=webhook_amount,
+                    allow_overpayment=True,
                 ):
                     logger.error(
                         "LAVA webhook: amount mismatch for payment %s (expected=%s, received=%s)",

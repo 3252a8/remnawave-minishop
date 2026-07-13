@@ -89,6 +89,29 @@ def test_payment_amount_and_currency_match_accepts_equivalent_currency_code():
     )
 
 
+def test_payment_amount_and_currency_match_can_accept_verified_overpayment():
+    assert not payment_amount_and_currency_match(
+        expected_amount=150.0,
+        expected_currency="RUB",
+        received_amount="150.01",
+        received_currency="RUB",
+    )
+    assert payment_amount_and_currency_match(
+        expected_amount=150.0,
+        expected_currency="RUB",
+        received_amount="150.01",
+        received_currency="RUB",
+        allow_overpayment=True,
+    )
+    assert not payment_amount_and_currency_match(
+        expected_amount=150.0,
+        expected_currency="RUB",
+        received_amount="149.99",
+        received_currency="RUB",
+        allow_overpayment=True,
+    )
+
+
 def test_payment_amount_and_currency_match_uses_invoiced_precision_for_expected_amount():
     assert payment_amount_and_currency_match(
         expected_amount=1.234,

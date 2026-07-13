@@ -382,6 +382,7 @@ class CryptoPayService(BaseProviderService):
                 # createInvoice; unlike fiat-only rails, it is not normalized
                 # to cents before the invoice is created.
                 places=None,
+                allow_overpayment=True,
             ):
                 logger.error(
                     "CryptoPay webhook: payment details mismatch for payment %s "

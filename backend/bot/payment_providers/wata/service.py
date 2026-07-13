@@ -619,6 +619,7 @@ class WataService(HttpClientMixin):
             expected_currency=payment.currency,
             received_amount=amount,
             received_currency=currency,
+            allow_overpayment=True,
         ):
             return True
         logger.warning(

@@ -421,7 +421,7 @@ class OverpayService(HttpClientMixin):
             received_minor = int(str(webhook_amount).strip())
         except (TypeError, ValueError):
             return False
-        return received_minor == expected_minor
+        return received_minor >= expected_minor
 
     def _currency_matches_payment(self, webhook_currency: Any, payment: Any) -> bool:
         if webhook_currency is None or str(webhook_currency).strip() == "":

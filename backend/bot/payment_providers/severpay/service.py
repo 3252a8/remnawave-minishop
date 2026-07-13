@@ -343,6 +343,7 @@ class SeverPayService(HttpClientMixin):
                     expected_currency=payment.currency,
                     received_amount=amount,
                     received_currency=currency,
+                    allow_overpayment=True,
                 ):
                     logger.warning(
                         "SeverPay webhook: amount or currency mismatch for payment %s "

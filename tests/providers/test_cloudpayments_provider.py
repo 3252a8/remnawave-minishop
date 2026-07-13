@@ -453,7 +453,7 @@ def test_webhook_payment_details_mismatch_is_rejected(monkeypatch):
                     "InvoiceId": "88",
                     "TransactionId": "tx-1",
                     "Status": "Completed",
-                    "Amount": "9999",
+                    "Amount": "149.99",
                     "Currency": "RUB",
                 }
             ),

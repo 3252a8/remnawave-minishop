@@ -521,7 +521,7 @@ class StripeService(HttpClientMixin):
                 )
                 return web.json_response({"error": "amount_mismatch"}, status=400)
             expected_minor = _stripe_amount_to_minor_units(payment.amount, payment.currency)
-            if received_minor != expected_minor:
+            if received_minor < expected_minor:
                 logger.error(
                     "Stripe webhook: amount mismatch for payment %s (expected=%s got=%s)",
                     payment.payment_id,

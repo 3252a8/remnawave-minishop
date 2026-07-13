@@ -188,6 +188,7 @@ def _payment_amount_and_currency_match(
         expected_currency=getattr(payment, "currency", None),
         received_amount=actual_amount,
         received_currency=actual_currency,
+        allow_overpayment=True,
     )
     return (True, None) if amounts_match else (False, "amount")
 

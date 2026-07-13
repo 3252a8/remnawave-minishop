@@ -374,6 +374,7 @@ class FreeKassaService(HttpClientMixin):
         if not payment_amount_matches(
             expected_amount=payment.amount,
             received_amount=order.get("amount"),
+            allow_overpayment=True,
         ):
             logger.error(
                 "FreeKassa webhook: provider order amount mismatch for payment %s "
@@ -502,6 +503,7 @@ class FreeKassaService(HttpClientMixin):
             if not payment_amount_matches(
                 expected_amount=payment.amount,
                 received_amount=amount_str,
+                allow_overpayment=True,
             ):
                 logger.error(
                     "FreeKassa webhook: amount mismatch for payment %s (expected=%s, received=%s)",
