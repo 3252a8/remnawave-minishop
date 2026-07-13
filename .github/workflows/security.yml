@@ -1,8 +1,9 @@
 name: Security
 
-# Audits the full dependency set (pip-audit, npm audit) and runs a Trivy
-# filesystem scan (dependencies + Dockerfile/IaC misconfig). Trivy results are
-# uploaded to the Security -> Code scanning tab.
+# Audits the full dependency set (pip-audit, npm audit), runs a Trivy
+# filesystem scan (dependencies + Dockerfile/IaC misconfig), and scans the
+# complete backend, worker, and frontend images. Trivy results are uploaded to
+# the Security -> Code scanning tab.
 #
 # pip-audit / npm audit are informational (continue-on-error): they surface
 # upstream/transitive advisories that aren't necessarily fixable in a given PR,
@@ -81,6 +82,7 @@ jobs:
       - name: Run Trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:
+          version: v0.70.0
           scan-type: fs
           scan-ref: .
           format: sarif
@@ -94,3 +96,59 @@ jobs:
         with:
           sarif_file: trivy-results.sarif
           category: trivy-fs
+
+  image-scan:
+    name: Trivy image scan (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [backend, worker, frontend]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build ${{ matrix.target }} image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          target: ${{ matrix.target }}
+          platforms: linux/amd64
+          load: true
+          pull: true
+          no-cache: true
+          tags: local/remnawave-minishop-${{ matrix.target }}:security-${{ github.sha }}
+          build-args: |
+            GITHUB_REF_NAME=${{ github.ref_name }}
+            REMNAWAVE_MINISHOP_BUILD_PROVENANCE=${{ github.repository == '3252a8/remnawave-minishop' && 'official' || 'custom' }}
+          provenance: false
+
+      - name: Scan ${{ matrix.target }} image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: v0.70.0
+          scan-type: image
+          image-ref: local/remnawave-minishop-${{ matrix.target }}:security-${{ github.sha }}
+          scanners: vuln
+          format: sarif
+          output: trivy-${{ matrix.target }}.sarif
+          severity: CRITICAL,HIGH
+          limit-severities-for-sarif: true
+          exit-code: "1"
+          ignore-unfixed: false
+
+      - name: Upload ${{ matrix.target }} Trivy results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy-${{ matrix.target }}.sarif
+          category: trivy-image-${{ matrix.target }}
