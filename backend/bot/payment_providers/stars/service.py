@@ -283,6 +283,7 @@ async def pay_stars_callback_handler(
         parts=parts,
         subscription_service=stars_service.subscription_service,
         currency="stars",
+        settings=settings,
     )
     if not parts:
         await notify_callback_parse_error(callback, translator)

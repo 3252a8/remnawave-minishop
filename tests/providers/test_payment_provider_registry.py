@@ -3,7 +3,7 @@ import importlib
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -330,6 +330,78 @@ def test_subscription_hwid_renewal_token_adds_quote_to_callback_parts():
         target_tariff_key="basic",
         months=1,
         currency="rub",
+    )
+
+
+def test_subscription_callback_uses_current_server_price():
+    tariff = SimpleNamespace(
+        billing_model="period",
+        enabled_periods=[1],
+        period_price=lambda months, currency: 299 if (months, currency) == (1, "rub") else None,
+    )
+    settings = SimpleNamespace(
+        tariffs_config=SimpleNamespace(require=lambda key: tariff if key == "standard" else None)
+    )
+
+    quoted_parts, quote = asyncio.run(
+        quote_hwid_callback_parts(
+            session=AsyncMock(),
+            user_id=42,
+            parts=PaymentCallbackParts(
+                months=1,
+                price=1,
+                sale_mode="subscription@standard",
+            ),
+            subscription_service=SimpleNamespace(),
+            currency="rub",
+            settings=settings,
+        )
+    )
+
+    assert quote is None
+    assert quoted_parts is not None
+    assert quoted_parts.months == 1
+    assert quoted_parts.price == 299
+    assert quoted_parts.sale_mode == "subscription@standard"
+
+
+def test_tariff_upgrade_callback_uses_current_server_quote():
+    target = SimpleNamespace(key="premium")
+    settings = SimpleNamespace(
+        tariffs_config=SimpleNamespace(require=lambda key: target if key == "premium" else None)
+    )
+    subscription_service = SimpleNamespace(
+        calculate_tariff_switch_options_with_hwid=AsyncMock(return_value={"paid_diff_rub": 450})
+    )
+    active_subscription = SimpleNamespace(user_id=42, tariff_key="standard")
+    session = AsyncMock()
+
+    with patch(
+        "bot.payment_providers.shared.callbacks."
+        "subscription_dal.get_active_subscription_by_user_id",
+        AsyncMock(return_value=active_subscription),
+    ):
+        quoted_parts, quote = asyncio.run(
+            quote_hwid_callback_parts(
+                session=session,
+                user_id=42,
+                parts=PaymentCallbackParts(
+                    months=999,
+                    price=1,
+                    sale_mode="tariff_upgrade@premium",
+                ),
+                subscription_service=subscription_service,
+                currency="rub",
+                settings=settings,
+            )
+        )
+
+    assert quote is None
+    assert quoted_parts is not None
+    assert quoted_parts.months == 1
+    assert quoted_parts.price == 450
+    subscription_service.calculate_tariff_switch_options_with_hwid.assert_awaited_once_with(
+        session, active_subscription, target
     )
 
 

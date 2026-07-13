@@ -71,6 +71,7 @@ def _patch_common(monkeypatch):
     monkeypatch.setattr(link_flow, "parse_payment_callback", lambda data: parts)
 
     async def _quote(**kwargs):
+        assert kwargs["settings"] is not None
         return parts, None
 
     monkeypatch.setattr(link_flow, "quote_hwid_callback_parts", _quote)

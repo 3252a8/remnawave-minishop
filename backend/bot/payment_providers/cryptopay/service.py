@@ -522,6 +522,7 @@ async def pay_crypto_callback_handler(
         parts=parts,
         subscription_service=cryptopay_service.subscription_service,
         currency=default_currency_key_for_settings(settings),
+        settings=settings,
     )
     if not parts:
         await notify_callback_parse_error(callback, translator)

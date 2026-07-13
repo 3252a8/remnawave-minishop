@@ -233,6 +233,7 @@ async def run_callback_payment[ServiceT: LinkFlowService](
         parts=parts,
         subscription_service=service.subscription_service,
         currency=default_currency_key_for_settings(settings),
+        settings=settings,
     )
     if not parts:
         await notify_callback_parse_error(callback, translator)
