@@ -1,9 +1,14 @@
+import unittest
 from email.utils import parsedate_to_datetime
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, urlsplit
+
+from sqlalchemy.dialects import postgresql
 
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.email_templates import EmailInlineImage
+from db.dal import security_dal
 
 
 def _settings():
@@ -12,6 +17,7 @@ def _settings():
         SMTP_FROM_EMAIL="noreply@example.com",
         WEBAPP_TITLE="Mini Shop",
         SUBSCRIPTION_MINI_APP_URL="https://app.example.com/",
+        BOT_TOKEN="bot-token",
     )
 
 
@@ -73,3 +79,45 @@ def test_build_email_message_adds_rfc_delivery_headers():
     assert message["Message-ID"].startswith("<")
     assert message["Message-ID"].endswith("@example.com>")
     assert parsedate_to_datetime(message["Date"]) is not None
+
+
+class EmailAuthConsumptionLockTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    def _empty_result():
+        return SimpleNamespace(scalar_one_or_none=lambda: None)
+
+    async def test_code_verification_locks_candidate_until_consumed(self):
+        service = EmailAuthService(_settings())
+        session = SimpleNamespace(execute=AsyncMock(return_value=self._empty_result()))
+
+        with patch.object(
+            security_dal,
+            "check_throttle",
+            AsyncMock(return_value=security_dal.ThrottleDecision(locked=False)),
+        ):
+            result = await service.verify_code(
+                session,
+                email="user@example.com",
+                purpose="login",
+                code="123456",
+            )
+
+        self.assertFalse(result.ok)
+        statement = session.execute.await_args.args[0]
+        rendered = str(statement.compile(dialect=postgresql.dialect()))
+        self.assertIn("FOR UPDATE", rendered)
+
+    async def test_magic_link_verification_locks_candidate_until_consumed(self):
+        service = EmailAuthService(_settings())
+        session = SimpleNamespace(execute=AsyncMock(return_value=self._empty_result()))
+
+        result = await service.verify_magic_token(
+            session,
+            token="magic-token",
+            purpose="login",
+        )
+
+        self.assertFalse(result.ok)
+        statement = session.execute.await_args.args[0]
+        rendered = str(statement.compile(dialect=postgresql.dialect()))
+        self.assertIn("FOR UPDATE", rendered)
