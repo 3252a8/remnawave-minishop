@@ -22,6 +22,20 @@ class _I18n:
 
 
 class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.locked_user = SimpleNamespace(
+            user_id=42,
+            language_code="en",
+            referred_by_id=None,
+        )
+        self.lock_user = AsyncMock(return_value=self.locked_user)
+        patcher = patch(
+            "bot.payment_providers.shared.success.user_dal.lock_user_by_id",
+            self.lock_user,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     async def test_failed_payment_notification_emits_cancel_event(self):
         bot = SimpleNamespace(send_message=AsyncMock())
         settings = SimpleNamespace(DEFAULT_LANGUAGE="en", SUBSCRIPTION_MINI_APP_URL="")
@@ -306,6 +320,92 @@ class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
         self.assertIn("payment.succeeded", emitted_names)
         self.assertIn("subscription.extended", emitted_names)
         self.assertIn("referral.bonus_granted", emitted_names)
+
+    async def test_finalize_binds_entitlement_to_stored_payment(self):
+        session = AsyncMock()
+        payment = SimpleNamespace(
+            payment_id=12,
+            user_id=42,
+            status="pending",
+            amount=300,
+            currency="RUB",
+            sale_mode="subscription@standard",
+            subscription_duration_months=3,
+            tariff_key="standard",
+            provider="platega",
+        )
+        activation_end = datetime(2026, 1, 1)  # noqa: DTZ001
+        subscription_service = SimpleNamespace(
+            activate_subscription=AsyncMock(
+                return_value={
+                    "subscription_id": 55,
+                    "end_date": activation_end,
+                    "tariff_key": "standard",
+                    "was_extension": False,
+                }
+            )
+        )
+        referral_service = SimpleNamespace(
+            apply_referral_bonuses_for_payment=AsyncMock(return_value=None)
+        )
+        request = PaymentSuccessRequest(
+            bot=SimpleNamespace(),
+            settings=SimpleNamespace(DEFAULT_LANGUAGE="en", SUBSCRIPTION_MINI_APP_URL=""),
+            i18n=_I18n(),
+            session=session,
+            subscription_service=subscription_service,
+            referral_service=referral_service,
+            payment=payment,
+            user_id=999,
+            amount=1,
+            currency="USD",
+            sale_mode="traffic@premium",
+            months=999,
+            traffic_amount=999,
+            provider_subscription="attacker_provider",
+            provider_notification="platega",
+            db_user=SimpleNamespace(
+                user_id=999,
+                language_code="en",
+                referred_by_id=None,
+            ),
+            skip_keyboard=True,
+            activation_extra_kwargs={"tariff_key": "premium"},
+        )
+
+        with (
+            patch(
+                "bot.payment_providers.shared.success.payment_dal.get_payment_by_db_id_for_update",
+                AsyncMock(return_value=payment),
+            ),
+            patch(
+                "bot.payment_providers.shared.success.payment_dal.update_payment_status_by_db_id",
+                AsyncMock(return_value=payment),
+            ),
+            patch("bot.payment_providers.shared.success.events.emit_model", AsyncMock()),
+            patch(
+                "bot.payment_providers.shared.success.prepare_config_links",
+                AsyncMock(return_value=("link", "https://example.test/sub")),
+            ),
+            patch("bot.payment_providers.shared.success.send_success_message_to_user", AsyncMock()),
+        ):
+            result = await finalize_successful_payment(request)
+
+        self.assertIsNotNone(result)
+        self.lock_user.assert_awaited_with(session, 42)
+        activation_args = subscription_service.activate_subscription.await_args.args
+        self.assertEqual(activation_args[:5], (session, 42, 3, 300.0, 12))
+        activation_kwargs = subscription_service.activate_subscription.await_args.kwargs
+        self.assertEqual(activation_kwargs["provider"], "platega")
+        self.assertEqual(activation_kwargs["sale_mode"], "subscription@standard")
+        self.assertEqual(activation_kwargs["tariff_key"], "standard")
+        self.assertIsNone(activation_kwargs["traffic_gb"])
+        referral_args = referral_service.apply_referral_bonuses_for_payment.await_args.args
+        self.assertEqual(referral_args[:3], (session, 42, 3))
+        self.assertEqual(request.user_id, 42)
+        self.assertEqual(request.amount, 300.0)
+        self.assertEqual(request.currency, "RUB")
+        self.assertIs(request.db_user, self.locked_user)
 
     async def test_finalize_skips_duplicate_payment_after_locked_reload(self):
         session = AsyncMock()

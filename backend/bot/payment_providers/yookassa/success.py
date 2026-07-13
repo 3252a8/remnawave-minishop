@@ -445,6 +445,7 @@ async def process_successful_payment(
             )
             return None
 
+        await user_dal.lock_user_by_id(session, user_id)
         db_user = await user_dal.get_user_by_id(session, user_id)
         if not db_user:
             logger.error(

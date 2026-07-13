@@ -27,6 +27,7 @@ from .common import (
     Translator,
     format_human_units,
     make_translator,
+    payment_units_for_activation,
     sale_mode_base,
     sale_mode_tariff_key,
 )
@@ -315,6 +316,37 @@ async def finalize_successful_payment(
         return None
     req.payment = locked_payment
 
+    # Payment callbacks are adapter boundaries.  Entitlement identity and
+    # quantity must come from the server-created invoice, never from callback
+    # metadata passed by an individual provider implementation.
+    locked_user = await user_dal.lock_user_by_id(req.session, int(locked_payment.user_id))
+    if locked_user is None:
+        logger.error(
+            "%s: payment %s references missing user %s.",
+            req.log_prefix,
+            locked_payment.payment_id,
+            locked_payment.user_id,
+        )
+        return None
+    req.user_id = int(locked_payment.user_id)
+    req.db_user = locked_user
+    stored_amount = getattr(locked_payment, "amount", None)
+    if stored_amount is not None:
+        req.amount = float(stored_amount)
+    stored_currency = str(getattr(locked_payment, "currency", "") or "").strip()
+    if stored_currency:
+        req.currency = stored_currency
+    stored_sale_mode = str(getattr(locked_payment, "sale_mode", "") or "").strip()
+    if stored_sale_mode:
+        req.sale_mode = stored_sale_mode
+    stored_provider = str(getattr(locked_payment, "provider", "") or "").strip()
+    if stored_provider:
+        req.provider_subscription = stored_provider
+    req.months = payment_units_for_activation(locked_payment, req.sale_mode)
+    req.traffic_amount = (
+        float(req.months) if is_traffic_sale_base(sale_mode_base(req.sale_mode)) else None
+    )
+
     base = sale_mode_base(req.sale_mode)
     is_subscription = base == "subscription"
     is_traffic = is_traffic_sale_base(base)
@@ -327,8 +359,10 @@ async def finalize_successful_payment(
         getattr(req.payment, "tariff_key", "") or ""
     ).strip() or sale_mode_tariff_key(req.sale_mode)
     activation_extra_kwargs = dict(req.activation_extra_kwargs or {})
-    if effective_tariff_key and "tariff_key" not in activation_extra_kwargs:
+    if effective_tariff_key:
         activation_extra_kwargs["tariff_key"] = effective_tariff_key
+    else:
+        activation_extra_kwargs.pop("tariff_key", None)
 
     try:
         activation = await req.subscription_service.activate_subscription(

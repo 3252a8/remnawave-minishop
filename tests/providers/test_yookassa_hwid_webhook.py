@@ -18,6 +18,15 @@ class _I18n:
 
 
 class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
+    def setUp(self):
+        patcher = patch.object(
+            yookassa_success.user_dal,
+            "lock_user_by_id",
+            AsyncMock(return_value=None),
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     async def test_telegram_subscription_hwid_quote_is_stored_in_yookassa_metadata(self):
         valid_from = datetime(2099, 2, 1, tzinfo=UTC)
         valid_until = datetime(2099, 3, 1, tzinfo=UTC)
