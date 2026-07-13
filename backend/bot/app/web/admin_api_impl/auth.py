@@ -62,6 +62,11 @@ async def admin_auth_middleware(
         async_session_factory: sessionmaker = get_session_factory(request)
         async with async_session_factory() as session:
             db_user = await user_dal.get_user_by_id(session, user_id)
+        if db_user and bool(getattr(db_user, "is_banned", False)):
+            raise web.HTTPForbidden(
+                text=json.dumps({"ok": False, "error": "forbidden"}),
+                content_type="application/json",
+            )
         if db_user and db_user.telegram_id:
             request["admin_telegram_id"] = int(db_user.telegram_id)
         elif db_user:
