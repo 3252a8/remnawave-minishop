@@ -333,15 +333,11 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             refresh=AsyncMock(),
         )
 
-        async def fake_get_user_by_id(_session, user_id):
-            if user_id == source.user_id:
-                return source
-            if user_id == target.user_id:
-                return target
-            return None
-
         with (
-            patch("db.dal.user_merge_dal.get_user_by_id", side_effect=fake_get_user_by_id),
+            patch(
+                "db.dal.user_merge_dal._lock_users_for_merge",
+                AsyncMock(return_value=(source, target)),
+            ),
             patch("db.dal.user_merge_dal._get_active_subscription_for_user", return_value=None),
             patch("db.dal.user_merge_dal._get_latest_subscription_for_user", return_value=None),
         ):
@@ -437,13 +433,6 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             refresh=AsyncMock(),
         )
 
-        async def fake_get_user_by_id(_session, user_id):
-            if user_id == source.user_id:
-                return source
-            if user_id == target.user_id:
-                return target
-            return None
-
         async def fake_get_active_subscription(_session, user_id, panel_user_uuid=None):
             if user_id == source.user_id and panel_user_uuid == source.panel_user_uuid:
                 return source_active_sub
@@ -455,7 +444,10 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             return None
 
         with (
-            patch("db.dal.user_merge_dal.get_user_by_id", side_effect=fake_get_user_by_id),
+            patch(
+                "db.dal.user_merge_dal._lock_users_for_merge",
+                AsyncMock(return_value=(source, target)),
+            ),
             patch(
                 "db.dal.user_merge_dal._get_active_subscription_for_user",
                 side_effect=fake_get_active_subscription,

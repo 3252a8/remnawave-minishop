@@ -99,6 +99,30 @@ async def _get_active_subscription_for_user(
     )
 
 
+async def _lock_users_for_merge(
+    session: AsyncSession,
+    source_user_id: int,
+    target_user_id: int,
+) -> tuple[User | None, User | None]:
+    """Lock both merge participants in a stable order.
+
+    Telegram login payloads can be replayed during their validity window, so
+    account merging must be idempotent under concurrent requests.  Ordering
+    the row locks also prevents two opposite-direction merges from deadlocking.
+    """
+    user_ids = sorted({int(source_user_id), int(target_user_id)})
+    stmt = (
+        select(User)
+        .where(User.user_id.in_(user_ids))
+        .order_by(User.user_id)
+        .execution_options(populate_existing=True)
+        .with_for_update()
+    )
+    result = await session.execute(stmt)
+    users_by_id = {int(user.user_id): user for user in result.scalars().all()}
+    return users_by_id.get(int(source_user_id)), users_by_id.get(int(target_user_id))
+
+
 async def merge_users(
     session: AsyncSession,
     *,
@@ -115,8 +139,7 @@ async def merge_users(
             raise ValueError("Target user not found.")
         return target
 
-    source = await get_user_by_id(session, source_user_id)
-    target = await get_user_by_id(session, target_user_id)
+    source, target = await _lock_users_for_merge(session, source_user_id, target_user_id)
     if not source or not target:
         raise ValueError("Both source and target users are required for merge.")
 
