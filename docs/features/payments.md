@@ -42,7 +42,9 @@
 `HELEKET_TRUSTED_IPS`, `PAYKILLA_TRUSTED_IPS` или встроенный allowlist YooKassa),
 reverse proxy должен прокидывать `X-Forwarded-For`, а его IP/CIDR должен входить в
 `TRUSTED_PROXIES`. Иначе backend увидит IP proxy/Docker gateway и может отклонить
-валидный webhook с ошибкой `403`.
+валидный webhook с ошибкой `403`. Для webhook-домена за Cloudflare backend использует
+`CF-Connecting-IP`, предварительно проверив, что ближайший внешний proxy-hop принадлежит
+официальной сети Cloudflare.
 
 | Провайдер | Что указать в кабинете провайдера | Комментарий |
 | --- | --- | --- |

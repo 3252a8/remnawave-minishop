@@ -49,6 +49,24 @@ def test_webhook_source_ip_honors_trusted_proxy_forwarded_for():
     assert result.allowed is True
 
 
+def test_webhook_source_ip_honors_verified_cloudflare_forwarding():
+    result = check_webhook_source_ip(
+        _request(
+            remote="10.0.0.10",
+            headers={
+                "X-Forwarded-For": "172.64.1.10",
+                "CF-Connecting-IP": "203.0.113.44",
+            },
+        ),
+        trusted_ips=["203.0.113.0/24"],
+        trusted_proxies=["10.0.0.0/24"],
+        allow_empty=False,
+    )
+
+    assert result.client_ip == "203.0.113.44"
+    assert result.allowed is True
+
+
 def test_constant_time_compare_keeps_case_policy_explicit():
     assert constant_time_compare("ABC", "ABC") is True
     assert constant_time_compare("ABC", "abc") is False

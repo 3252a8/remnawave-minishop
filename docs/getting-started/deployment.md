@@ -581,7 +581,10 @@ private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`), ч
 Docker/LAN/Kubernetes proxy не ломал проверки `YOOKASSA`, `FREEKASSA_TRUSTED_IPS`,
 `WATA_TRUSTED_IPS`, `HELEKET_TRUSTED_IPS` и `PAYKILLA_TRUSTED_IPS`. Если в вашей
 Docker-сети есть недоверенные контейнеры, сузьте `TRUSTED_PROXIES` до конкретного IP
-Caddy/Nginx/Newt. Trust-all режим возможен через `0.0.0.0/0,::/0`, но используйте его
+Caddy/Nginx/Newt. Для домена за Cloudflare backend безопасно принимает реальный адрес из
+`CF-Connecting-IP`, когда ближайший внешний hop входит в официальные сети Cloudflare;
+добавлять эти сети в `TRUSTED_PROXIES` не требуется. Trust-all режим возможен через
+`0.0.0.0/0,::/0`, но используйте его
 только когда backend недоступен напрямую, а внешний proxy очищает входящий `X-Forwarded-For`.
 
 Минимальная логика Caddy:
