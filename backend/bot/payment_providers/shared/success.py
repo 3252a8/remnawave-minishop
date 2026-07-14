@@ -387,14 +387,29 @@ async def finalize_successful_payment(
             return None
         referral_bonus = None
         if is_subscription:
-            referral_bonus = await req.referral_service.apply_referral_bonuses_for_payment(
-                req.session,
-                req.user_id,
-                activation_months or 1,
-                current_payment_db_id=req.payment.payment_id,
-                skip_if_active_before_payment=False,
-                tariff_key=effective_tariff_key,
-            )
+            try:
+                referral_savepoint = await req.session.begin_nested()
+                try:
+                    referral_bonus = await req.referral_service.apply_referral_bonuses_for_payment(
+                        req.session,
+                        req.user_id,
+                        activation_months or 1,
+                        current_payment_db_id=req.payment.payment_id,
+                        skip_if_active_before_payment=False,
+                        tariff_key=effective_tariff_key,
+                    )
+                except Exception:
+                    await referral_savepoint.rollback()
+                    raise
+                else:
+                    await referral_savepoint.commit()
+            except Exception:
+                referral_bonus = None
+                logger.exception(
+                    "%s: referral bonus failed for payment %s; keeping the paid entitlement.",
+                    req.log_prefix,
+                    req.payment.payment_id,
+                )
         await payment_dal.update_payment_status_by_db_id(
             req.session,
             req.payment.payment_id,

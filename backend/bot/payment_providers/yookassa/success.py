@@ -639,14 +639,28 @@ async def process_successful_payment(
 
         referral_bonus_info = None
         if sale_mode_base == "subscription":
-            referral_bonus_info = await referral_service.apply_referral_bonuses_for_payment(
-                session,
-                user_id,
-                months_for_activation or int(subscription_months) or 1,
-                current_payment_db_id=payment_db_id,
-                skip_if_active_before_payment=False,
-                tariff_key=effective_tariff_key,
-            )
+            try:
+                referral_savepoint = await session.begin_nested()
+                try:
+                    referral_bonus_info = await referral_service.apply_referral_bonuses_for_payment(
+                        session,
+                        user_id,
+                        months_for_activation or int(subscription_months) or 1,
+                        current_payment_db_id=payment_db_id,
+                        skip_if_active_before_payment=False,
+                        tariff_key=effective_tariff_key,
+                    )
+                except Exception:
+                    await referral_savepoint.rollback()
+                    raise
+                else:
+                    await referral_savepoint.commit()
+            except Exception:
+                referral_bonus_info = None
+                logger.exception(
+                    "YooKassa: referral bonus failed for payment %s; keeping the paid entitlement.",
+                    payment_db_id,
+                )
         if isinstance(referral_bonus_info, dict) and referral_bonus_info.get("event_payload"):
             deferred_events.append(
                 {

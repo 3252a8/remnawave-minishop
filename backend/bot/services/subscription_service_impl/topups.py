@@ -6,9 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra.grants import GrantContext, resolve_effective_grant
 from bot.services.payment_promo import consume_payment_promo, load_payment_promo_effects
-from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
+from db.dal import payment_dal, subscription_dal, user_dal
 
 from ._typing import SubscriptionServiceMixinContract
+from .entitlement_helpers import record_traffic_topup_best_effort
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +154,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
                 updated_panel,
             )
             return None
-        await tariff_dal.create_traffic_topup(
+        await record_traffic_topup_best_effort(
             session,
             subscription_id=sub.subscription_id,
             payment_id=payment_db_id,
@@ -286,7 +287,6 @@ class TopupMixin(SubscriptionServiceMixinContract):
                 "tariff_key": tariff.key,
             },
         )
-
         desired_squads = self._panel_squads_for_tariff(
             tariff,
             include_premium=not premium_is_limited,
@@ -304,7 +304,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
                 user_id,
             )
             return None
-        await tariff_dal.create_traffic_topup(
+        await record_traffic_topup_best_effort(
             session,
             subscription_id=sub.subscription_id,
             payment_id=payment_db_id,
@@ -423,7 +423,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
                 updated_panel,
             )
             return None
-        await tariff_dal.create_traffic_topup(
+        await record_traffic_topup_best_effort(
             session,
             subscription_id=sub.subscription_id,
             payment_id=None,
@@ -531,7 +531,7 @@ class TopupMixin(SubscriptionServiceMixinContract):
                 user_id,
             )
             return None
-        await tariff_dal.create_traffic_topup(
+        await record_traffic_topup_best_effort(
             session,
             subscription_id=sub.subscription_id,
             payment_id=None,

@@ -12,6 +12,7 @@ from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
 from db.models import Subscription
 
 from ._typing import SubscriptionServiceMixinContract
+from .entitlement_helpers import panel_user_create_options
 from .hwid_limits import HwidDeviceLimits
 
 logger = logging.getLogger(__name__)
@@ -95,25 +96,17 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             logger.error("User %s not found for traffic package activation", user_id)
             return None
 
-        (
-            panel_user_uuid,
-            panel_sub_link_id,
-            panel_short_uuid,
-            _,
-        ) = await self._get_or_create_panel_user_link_details(session, user_id, db_user)
-
-        if not panel_user_uuid or not panel_sub_link_id:
-            logger.error(
-                "Failed to ensure panel linkage for user %s during traffic activation", user_id
-            )
-            return None
-
-        panel_user_data = await self.panel_service.get_user_by_uuid(panel_user_uuid) or {}
-        current_used, current_limit, _ = self._extract_panel_traffic_details(panel_user_data)
-
-        active_sub = await subscription_dal.get_active_subscription_by_user_id(
-            session, user_id, panel_user_uuid
+        previous_panel_user_uuid = getattr(db_user, "panel_user_uuid", None)
+        active_sub = await subscription_dal.get_active_subscription_by_user_id(session, user_id)
+        existing_panel_user_uuid = previous_panel_user_uuid or getattr(
+            active_sub, "panel_user_uuid", None
         )
+        panel_user_data = (
+            await self.panel_service.get_user_by_uuid(existing_panel_user_uuid) or {}
+            if existing_panel_user_uuid
+            else {}
+        )
+        current_used, current_limit, _ = self._extract_panel_traffic_details(panel_user_data)
         if active_sub and panel_user_data:
             await record_subscription_panel_activity(session, active_sub, panel_user_data)
         if current_limit is None and active_sub:
@@ -151,6 +144,31 @@ class TrafficMixin(SubscriptionServiceMixinContract):
         final_end_date = far_future
         if active_sub and active_sub.end_date and active_sub.end_date > final_end_date:
             final_end_date = active_sub.end_date
+
+        managed_squads = self._panel_squads_for_tariff(tariff)
+        (
+            panel_user_uuid,
+            panel_sub_link_id,
+            panel_short_uuid,
+            panel_user_created_now,
+        ) = await self._get_or_create_panel_user_link_details(
+            session,
+            user_id,
+            db_user,
+            create_options=panel_user_create_options(
+                final_end_date,
+                new_limit,
+                "NO_RESET",
+                effective_hwid_limit,
+                managed_squads,
+                self.settings.parsed_user_external_squad_uuid,
+            ),
+        )
+        if not panel_user_uuid or not panel_sub_link_id:
+            logger.error(
+                "Failed to ensure panel linkage for user %s during traffic activation", user_id
+            )
+            return None
 
         await subscription_dal.deactivate_other_active_subscriptions(
             session, panel_user_uuid, panel_sub_link_id
@@ -192,7 +210,23 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             new_or_updated_sub = await subscription_dal.upsert_subscription(session, sub_payload)
         except Exception as exc:
             logger.exception("Failed to upsert traffic subscription for user %s: %s", user_id, exc)
+            await self._compensate_failed_panel_user_creation(
+                session,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                previous_panel_user_uuid=previous_panel_user_uuid,
+                panel_user_created_now=panel_user_created_now,
+                source="traffic subscription DB write",
+            )
             return None
+
+        await tariff_dal.create_traffic_topup(
+            session,
+            subscription_id=new_or_updated_sub.subscription_id,
+            payment_id=payment_db_id,
+            purchased_bytes=purchase_bytes,
+            kind="traffic_package",
+        )
 
         panel_update_payload = self._build_panel_update_payload(
             panel_user_uuid=panel_user_uuid,
@@ -203,7 +237,6 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             hwid_device_limit=effective_hwid_limit,
             include_default_squads=False,
         )
-        managed_squads = self._panel_squads_for_tariff(tariff)
         panel_update_payload.update(
             await self.build_effective_panel_squad_fields(
                 session,
@@ -217,9 +250,12 @@ class TrafficMixin(SubscriptionServiceMixinContract):
 
         panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
 
-        updated_panel_user = await self.panel_service.update_user_details_on_panel(
-            panel_user_uuid, panel_update_payload
-        )
+        if panel_user_created_now and previous_panel_user_uuid is None and not active_sub:
+            updated_panel_user = {"uuid": panel_user_uuid, "shortUuid": panel_short_uuid}
+        else:
+            updated_panel_user = await self.panel_service.update_user_details_on_panel(
+                panel_user_uuid, panel_update_payload
+            )
         if not updated_panel_user or updated_panel_user.get("error"):
             logger.warning(
                 "Panel user details update FAILED for traffic package user %s. Response: %s",
@@ -230,14 +266,6 @@ class TrafficMixin(SubscriptionServiceMixinContract):
 
         final_subscription_url = updated_panel_user.get("subscriptionUrl")
         final_panel_short_uuid = updated_panel_user.get("shortUuid", panel_short_uuid)
-        await tariff_dal.create_traffic_topup(
-            session,
-            subscription_id=new_or_updated_sub.subscription_id,
-            payment_id=payment_db_id,
-            purchased_bytes=purchase_bytes,
-            kind="traffic_package",
-        )
-
         await self._send_payment_success_email(
             db_user=db_user,
             sale_mode="traffic",

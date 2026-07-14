@@ -18,19 +18,13 @@ logger = logging.getLogger(__name__)
 class _SubscriptionServiceLike(Protocol):
     async def has_active_subscription(self, session: Any, user_id: int) -> bool: ...
 
-    async def _get_or_create_panel_user_link_details(
-        self,
-        session: Any,
-        user_id: int,
-        user_model: Any,
-    ) -> tuple[str | None, int | None, int | None, int | None]: ...
-
     async def extend_active_subscription_days(
         self,
         session: Any,
         user_id: int,
         bonus_days: int,
         reason: str,
+        tariff_key: str | None = None,
     ) -> datetime | None: ...
 
 
@@ -148,55 +142,41 @@ class ReferralService:
                         inviter_user_id,
                     )
                 else:
-                    (
-                        inviter_panel_uuid,
-                        _inviter_panel_sub_link_id,
-                        _,
-                        _,
-                    ) = await self.subscription_service._get_or_create_panel_user_link_details(
-                        session, inviter_user_id, inviter_user_model
+                    inviter_active_sub = (
+                        await subscription_dal.get_active_subscription_by_user_id(
+                            session,
+                            inviter_user_id,
+                            inviter_user_model.panel_user_uuid,
+                        )
+                        if inviter_user_model.panel_user_uuid
+                        else None
+                    )
+                    new_end_date_inviter = (
+                        await self.subscription_service.extend_active_subscription_days(
+                            session=session,
+                            user_id=inviter_user_id,
+                            bonus_days=inviter_bonus_days,
+                            reason=f"referral bonus from {referee_name_for_msg}",
+                            **({"tariff_key": tariff_key} if tariff_key else {}),
+                        )
                     )
 
-                    if not inviter_panel_uuid:
-                        logger.warning(
-                            "Failed to get/create panel link for inviter %s. Cannot apply inviter "
-                            "bonus directly to panel.",
+                    if new_end_date_inviter:
+                        inviter_bonus_successfully_applied = True
+                        inviter_bonus_end_date = new_end_date_inviter
+                        inviter_bonus_kind = "extended" if inviter_active_sub else "new_sub"
+                        logger.info(
+                            "Bonus of %s days successfully applied/extended for inviter %s.",
+                            inviter_bonus_days,
                             inviter_user_id,
                         )
-
                     else:
-                        inviter_active_sub = (
-                            await subscription_dal.get_active_subscription_by_user_id(
-                                session,
-                                inviter_user_id,
-                                inviter_panel_uuid,
-                            )
+                        logger.warning(
+                            "Failed to apply inviter referral bonus for inviter %s after payment "
+                            "%s. Bonus not marked successful.",
+                            inviter_user_id,
+                            current_payment_db_id,
                         )
-                        new_end_date_inviter = (
-                            await self.subscription_service.extend_active_subscription_days(
-                                session=session,
-                                user_id=inviter_user_id,
-                                bonus_days=inviter_bonus_days,
-                                reason=f"referral bonus from {referee_name_for_msg}",
-                            )
-                        )
-
-                        if new_end_date_inviter:
-                            inviter_bonus_successfully_applied = True
-                            inviter_bonus_end_date = new_end_date_inviter
-                            inviter_bonus_kind = "extended" if inviter_active_sub else "new_sub"
-                            logger.info(
-                                "Bonus of %s days successfully applied/extended for inviter %s.",
-                                inviter_bonus_days,
-                                inviter_user_id,
-                            )
-                        else:
-                            logger.warning(
-                                "Failed to apply inviter referral bonus for inviter %s after "
-                                "payment %s. Bonus not marked successful.",
-                                inviter_user_id,
-                                current_payment_db_id,
-                            )
 
             if referee_bonus_days and referee_bonus_days > 0:
                 new_end_date_referee = (
@@ -205,6 +185,7 @@ class ReferralService:
                         user_id=referee_user_id,
                         bonus_days=referee_bonus_days,
                         reason=f"referee bonus (invited by {inviter_name_for_referee_msg})",
+                        **({"tariff_key": tariff_key} if tariff_key else {}),
                     )
                 )
                 if new_end_date_referee:

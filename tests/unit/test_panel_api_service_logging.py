@@ -1,6 +1,7 @@
 import asyncio
 import time
 import unittest
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import ClassVar
 from unittest.mock import AsyncMock, patch
@@ -192,6 +193,21 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
 
         payload = service._request.await_args.kwargs["json"]
         self.assertEqual(payload["trafficLimitStrategy"], "MONTH")
+
+    async def test_create_panel_user_uses_exact_expiry_and_hwid_limit(self):
+        service = self._make_service()
+        service._request = AsyncMock(return_value={"response": {"uuid": "user-uuid"}})
+        expire_at = datetime(2026, 2, 3, 4, 5, 6, 789000, tzinfo=UTC)
+
+        await service.create_panel_user(
+            username_on_panel="tg_42",
+            expire_at=expire_at,
+            hwid_device_limit=4,
+        )
+
+        payload = service._request.await_args.kwargs["json"]
+        self.assertEqual(payload["expireAt"], "2026-02-03T04:05:06.789Z")
+        self.assertEqual(payload["hwidDeviceLimit"], 4)
 
     async def test_update_user_details_normalizes_legacy_traffic_strategy(self):
         service = self._make_service()

@@ -321,6 +321,78 @@ class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
         self.assertIn("subscription.extended", emitted_names)
         self.assertIn("referral.bonus_granted", emitted_names)
 
+    async def test_referral_failure_does_not_rollback_paid_entitlement(self):
+        session = AsyncMock()
+        referral_savepoint = AsyncMock()
+        session.begin_nested = AsyncMock(return_value=referral_savepoint)
+        payment = SimpleNamespace(
+            payment_id=12,
+            user_id=42,
+            status="pending",
+            tariff_key="standard",
+        )
+        activation_end = datetime(2026, 1, 1)  # noqa: DTZ001
+        subscription_service = SimpleNamespace(
+            activate_subscription=AsyncMock(
+                return_value={
+                    "subscription_id": 55,
+                    "end_date": activation_end,
+                    "tariff_key": "standard",
+                    "was_extension": False,
+                }
+            )
+        )
+        referral_service = SimpleNamespace(
+            apply_referral_bonuses_for_payment=AsyncMock(
+                side_effect=RuntimeError("referral panel failed")
+            )
+        )
+
+        with (
+            patch(
+                "bot.payment_providers.shared.success.payment_dal.get_payment_by_db_id_for_update",
+                AsyncMock(return_value=payment),
+            ),
+            patch(
+                "bot.payment_providers.shared.success.payment_dal.update_payment_status_by_db_id",
+                AsyncMock(return_value=payment),
+            ) as update_status,
+            patch("bot.payment_providers.shared.success.events.emit_model", AsyncMock()),
+            patch(
+                "bot.payment_providers.shared.success.prepare_config_links",
+                AsyncMock(return_value=("link", "https://example.test/sub")),
+            ),
+            patch("bot.payment_providers.shared.success.send_success_message_to_user", AsyncMock()),
+        ):
+            result = await finalize_successful_payment(
+                PaymentSuccessRequest(
+                    bot=SimpleNamespace(),
+                    settings=SimpleNamespace(DEFAULT_LANGUAGE="en", SUBSCRIPTION_MINI_APP_URL=""),
+                    i18n=_I18n(),
+                    session=session,
+                    subscription_service=subscription_service,
+                    referral_service=referral_service,
+                    payment=payment,
+                    user_id=42,
+                    amount=50,
+                    currency="RUB",
+                    sale_mode="subscription",
+                    months=1,
+                    traffic_amount=None,
+                    provider_subscription="platega",
+                    provider_notification="platega",
+                    db_user=self.locked_user,
+                    skip_keyboard=True,
+                )
+            )
+
+        self.assertIsNotNone(result)
+        referral_savepoint.rollback.assert_awaited_once()
+        referral_savepoint.commit.assert_not_awaited()
+        session.rollback.assert_not_awaited()
+        session.commit.assert_awaited_once()
+        update_status.assert_awaited_once_with(session, 12, "succeeded")
+
     async def test_finalize_binds_entitlement_to_stored_payment(self):
         session = AsyncMock()
         payment = SimpleNamespace(

@@ -157,6 +157,7 @@ class SubscriptionDalTrialEligibilityTests(unittest.IsolatedAsyncioTestCase):
         ).upper()
         self.assertIn("TRIAL_ELIGIBILITY_RESET_AT", sql)
         self.assertIn("SUBSCRIPTIONS.IS_ACTIVE = TRUE", sql)
+        self.assertIn("PANEL_UPDATE_FAILED", sql)
         self.assertIn("COALESCE(SUBSCRIPTIONS.START_DATE, SUBSCRIPTIONS.END_DATE)", sql)
         self.assertIn("SUBSCRIPTIONS.USER_ID = 42", sql)
 

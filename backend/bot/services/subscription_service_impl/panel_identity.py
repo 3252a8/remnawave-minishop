@@ -21,6 +21,8 @@ class PanelUserCreateOptions:
     default_expire_days: int
     default_traffic_limit_bytes: int
     default_traffic_limit_strategy: str
+    expire_at: datetime | None = None
+    hwid_device_limit: int | None = None
     specific_squad_uuids: tuple[str, ...] = ()
     external_squad_uuid: str | None = None
 
@@ -39,7 +41,7 @@ class PanelUserLink:
             self.panel_user_uuid,
             self.panel_subscription_uuid,
             self.panel_short_uuid,
-            self.panel_user_created_now or self.local_link_updated_now,
+            self.panel_user_created_now,
         )
 
 
@@ -225,6 +227,8 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                         email=db_user.email,
                         description=self._panel_description_for_user(db_user),
                         default_expire_days=create_options.default_expire_days,
+                        expire_at=create_options.expire_at,
+                        hwid_device_limit=create_options.hwid_device_limit,
                         specific_squad_uuids=list(create_options.specific_squad_uuids),
                         external_squad_uuid=create_options.external_squad_uuid,
                         default_traffic_limit_bytes=create_options.default_traffic_limit_bytes,
@@ -256,6 +260,8 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     email=db_user.email,
                     description=self._panel_description_for_user(db_user),
                     default_expire_days=create_options.default_expire_days,
+                    expire_at=create_options.expire_at,
+                    hwid_device_limit=create_options.hwid_device_limit,
                     specific_squad_uuids=list(create_options.specific_squad_uuids),
                     external_squad_uuid=create_options.external_squad_uuid,
                     default_traffic_limit_bytes=create_options.default_traffic_limit_bytes,
@@ -429,10 +435,55 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
         )
 
     async def _get_or_create_panel_user_link_details(
-        self, session: AsyncSession, user_id: int, db_user: User | None = None
+        self,
+        session: AsyncSession,
+        user_id: int,
+        db_user: User | None = None,
+        *,
+        create_options: PanelUserCreateOptions | None = None,
     ) -> tuple[str | None, str | None, str | None, bool]:
-        link = await self._get_or_create_panel_user_link(session, user_id, db_user)
+        link = await self._get_or_create_panel_user_link(
+            session,
+            user_id,
+            db_user,
+            create_options=create_options,
+        )
         return link.legacy_details()
+
+    async def _compensate_failed_panel_user_creation(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: int,
+        panel_user_uuid: str | None,
+        previous_panel_user_uuid: str | None,
+        panel_user_created_now: bool,
+        source: str,
+    ) -> None:
+        if not panel_user_created_now or not panel_user_uuid:
+            return
+        try:
+            deleted = await self.panel_service.delete_user_from_panel(panel_user_uuid)
+        except Exception:
+            logger.exception(
+                "Failed to compensate panel user creation for user %s after %s failure.",
+                user_id,
+                source,
+            )
+            return
+        if not deleted:
+            logger.error(
+                "Panel refused compensation delete for user %s after %s failure (panel UUID %s).",
+                user_id,
+                source,
+                panel_user_uuid,
+            )
+            return
+        await user_dal.update_user(
+            session,
+            user_id,
+            {"panel_user_uuid": previous_panel_user_uuid},
+        )
 
     def _build_panel_update_payload(
         self,

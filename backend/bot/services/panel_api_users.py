@@ -429,6 +429,7 @@ class PanelApiUsersMixin:
         telegram_id: int | None = None,
         email: str | None = None,
         default_expire_days: int = 1,
+        expire_at: datetime | None = None,
         default_traffic_limit_bytes: int = 0,
         default_traffic_limit_strategy: str = "NO_RESET",
         hwid_device_limit: int | None = None,
@@ -455,7 +456,11 @@ class PanelApiUsersMixin:
             }
 
         now = datetime.now(UTC)
-        expire_at_dt = now + timedelta(days=default_expire_days)
+        expire_at_dt = expire_at or now + timedelta(days=default_expire_days)
+        if expire_at_dt.tzinfo is None:
+            expire_at_dt = expire_at_dt.replace(tzinfo=UTC)
+        else:
+            expire_at_dt = expire_at_dt.astimezone(UTC)
         expire_at_iso = expire_at_dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
         payload: dict[str, Any] = {

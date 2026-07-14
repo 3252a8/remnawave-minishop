@@ -19,25 +19,12 @@ from db.dal import (
     user_dal,
 )
 
+from . import entitlement_helpers
 from ._typing import SubscriptionServiceMixinContract
+from .entitlement_helpers import active_subscription_tariff_key as active_tariff_key
 from .sale_mode import parse_sale_mode_context
 
 logger = logging.getLogger(__name__)
-
-
-async def _active_subscription_tariff_key(
-    session: AsyncSession,
-    user_id: int,
-) -> str | None:
-    active_user = await user_dal.get_user_by_id(session, user_id)
-    active_sub = (
-        await subscription_dal.get_active_subscription_by_user_id(
-            session, user_id, active_user.panel_user_uuid
-        )
-        if active_user and active_user.panel_user_uuid
-        else None
-    )
-    return active_sub.tariff_key if active_sub else None
 
 
 class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
@@ -76,7 +63,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             return result if isinstance(result, dict) else None
         if sale_mode_base == "topup":
             if not tariff_key:
-                tariff_key = await _active_subscription_tariff_key(session, user_id)
+                tariff_key = await active_tariff_key(session, user_id)
             if not tariff_key:
                 logger.error("Top-up activation requires tariff_key for user %s", user_id)
                 return None
@@ -93,7 +80,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             return result if isinstance(result, dict) else None
         if sale_mode_base == "premium_topup":
             if not tariff_key:
-                tariff_key = await _active_subscription_tariff_key(session, user_id)
+                tariff_key = await active_tariff_key(session, user_id)
             if not tariff_key:
                 logger.error("Premium top-up activation requires tariff_key for user %s", user_id)
                 return None
@@ -190,16 +177,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             logger.error("User %s not found in DB for paid subscription activation.", user_id)
             return None
 
-        (
-            panel_user_uuid,
-            panel_sub_link_id,
-            panel_short_uuid,
-            _panel_user_created_now,
-        ) = await self._get_or_create_panel_user_link_details(session, user_id, db_user)
-
-        if not panel_user_uuid or not panel_sub_link_id:
-            logger.error("Failed to ensure panel user for TG %s during paid subscription.", user_id)
-            return None
+        previous_panel_user_uuid = getattr(db_user, "panel_user_uuid", None)
 
         try:
             months_int = int(months)
@@ -207,7 +185,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             months_int = 1
 
         current_active_sub = await subscription_dal.get_active_subscription_by_user_id(
-            session, user_id, panel_user_uuid
+            session, user_id
         )
         current_billing_model = self._subscription_billing_model(current_active_sub)
         current_panel_used = getattr(current_active_sub, "traffic_used_bytes", None)
@@ -216,7 +194,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             try:
                 panel_user_data = (
                     await self.panel_service.get_user_by_uuid(
-                        panel_user_uuid,
+                        current_active_sub.panel_user_uuid,
                         log_response=False,
                     )
                     or {}
@@ -322,10 +300,6 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     "Failed to extend HWID device purchases for promo payment bonus of user %s",
                     user_id,
                 )
-        await subscription_dal.deactivate_other_active_subscriptions(
-            session, panel_user_uuid, panel_sub_link_id
-        )
-
         auto_renew_should_enable = False
         try:
             from bot.payment_providers import provider_supports_recurring
@@ -403,6 +377,35 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         premium_is_limited = bool(
             premium_limit_bytes > 0 and premium_used_bytes >= premium_limit_bytes
         )
+        managed_squads = self._panel_squads_for_tariff(
+            tariff,
+            include_premium=not premium_is_limited,
+        )
+        (
+            panel_user_uuid,
+            panel_sub_link_id,
+            panel_short_uuid,
+            panel_user_created_now,
+        ) = await self._get_or_create_panel_user_link_details(
+            session,
+            user_id,
+            db_user,
+            create_options=entitlement_helpers.panel_user_create_options(
+                final_end_date,
+                traffic_limit_bytes,
+                self._period_tariff_traffic_strategy(),
+                effective_hwid_limit,
+                managed_squads,
+                self.settings.parsed_user_external_squad_uuid,
+            ),
+        )
+        if not panel_user_uuid or not panel_sub_link_id:
+            logger.error("Failed to ensure panel user for TG %s during paid subscription.", user_id)
+            return None
+
+        await subscription_dal.deactivate_other_active_subscriptions(
+            session, panel_user_uuid, panel_sub_link_id
+        )
         sub_payload = {
             "user_id": user_id,
             "panel_user_uuid": panel_user_uuid,
@@ -442,47 +445,16 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             logger.exception(
                 "Failed to upsert paid subscription for user %s: %s", user_id, e_upsert_sub
             )
-            return None
-
-        panel_update_payload = self._build_panel_update_payload(
-            panel_user_uuid=panel_user_uuid,
-            expire_at=final_end_date,
-            status="ACTIVE",
-            traffic_limit_bytes=traffic_limit_bytes,
-            traffic_limit_strategy=self._period_tariff_traffic_strategy(),
-            hwid_device_limit=effective_hwid_limit,
-            include_default_squads=False,
-        )
-        managed_squads = self._panel_squads_for_tariff(
-            tariff,
-            include_premium=not premium_is_limited,
-        )
-        panel_update_payload.update(
-            await self.build_effective_panel_squad_fields(
+            await self._compensate_failed_panel_user_creation(
                 session,
                 user_id=user_id,
                 panel_user_uuid=panel_user_uuid,
-                managed_internal_squads=managed_squads,
-                include_internal_squads=bool(tariff or managed_squads),
-                source="paid_activation",
-            )
-        )
-
-        panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
-
-        updated_panel_user = await self.panel_service.update_user_details_on_panel(
-            panel_user_uuid, panel_update_payload
-        )
-        if not updated_panel_user or updated_panel_user.get("error"):
-            logger.warning(
-                "Panel user details update FAILED for paid sub user %s. Response: %s",
-                panel_user_uuid,
-                updated_panel_user,
+                previous_panel_user_uuid=previous_panel_user_uuid,
+                panel_user_created_now=panel_user_created_now,
+                source="paid subscription DB write",
             )
             return None
 
-        final_subscription_url = updated_panel_user.get("subscriptionUrl")
-        final_panel_short_uuid = updated_panel_user.get("shortUuid", panel_short_uuid)
         hwid_devices_renewed_count = 0
         hwid_devices_renewed_until = None
         if hwid_renewal_devices > 0:
@@ -509,6 +481,44 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     hwid_renewal_valid_until,
                 )
 
+        panel_update_payload = self._build_panel_update_payload(
+            panel_user_uuid=panel_user_uuid,
+            expire_at=final_end_date,
+            status="ACTIVE",
+            traffic_limit_bytes=traffic_limit_bytes,
+            traffic_limit_strategy=self._period_tariff_traffic_strategy(),
+            hwid_device_limit=effective_hwid_limit,
+            include_default_squads=False,
+        )
+        panel_update_payload.update(
+            await self.build_effective_panel_squad_fields(
+                session,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                managed_internal_squads=managed_squads,
+                include_internal_squads=bool(tariff or managed_squads),
+                source="paid_activation",
+            )
+        )
+
+        panel_update_payload.update(self._panel_identity_payload_for_user(db_user))
+
+        if panel_user_created_now and previous_panel_user_uuid is None and not current_active_sub:
+            updated_panel_user = {"uuid": panel_user_uuid, "shortUuid": panel_short_uuid}
+        else:
+            updated_panel_user = await self.panel_service.update_user_details_on_panel(
+                panel_user_uuid, panel_update_payload
+            )
+        if not updated_panel_user or updated_panel_user.get("error"):
+            logger.warning(
+                "Panel user details update FAILED for paid sub user %s. Response: %s",
+                panel_user_uuid,
+                updated_panel_user,
+            )
+            return None
+
+        final_subscription_url = updated_panel_user.get("subscriptionUrl")
+        final_panel_short_uuid = updated_panel_user.get("shortUuid", panel_short_uuid)
         await self._send_payment_success_email(
             db_user=db_user,
             sale_mode="subscription",
@@ -557,18 +567,8 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             logger.warning("Cannot extend subscription for user %s: user not found.", user_id)
             return None
 
-        panel_uuid, panel_sub_uuid, _, _ = await self._get_or_create_panel_user_link_details(
-            session, user_id, user
-        )
-        if not panel_uuid or not panel_sub_uuid:
-            logger.error(
-                "Failed to ensure panel user for subscription extension of user %s.", user_id
-            )
-            return None
-
-        active_sub = await subscription_dal.get_active_subscription_by_user_id(
-            session, user_id, panel_uuid
-        )
+        previous_panel_user_uuid = getattr(user, "panel_user_uuid", None)
+        active_sub = await subscription_dal.get_active_subscription_by_user_id(session, user_id)
         rollback_payload: dict[str, Any] | None = None
         hwid_extension_context: tuple[int, datetime, datetime] | None = None
         pending_tariff_change_payload: dict[str, Any] | None = None
@@ -594,23 +594,75 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         bonus_tariff = None
         if not active_sub and requested_tariff:
             bonus_tariff = requested_tariff
-        if not active_sub or not active_sub.end_date:
-            logger.info(
-                "No active subscription found for user %s. Creating new one for %s days.",
-                user_id,
-                bonus_days,
-            )
-            start_date = datetime.now(UTC)
+        now_utc = datetime.now(UTC)
+        created_new_subscription = not active_sub or not active_sub.end_date
+        if created_new_subscription:
+            start_date = now_utc
             new_end_date_obj = start_date + timedelta(days=bonus_days)
-
-            # Apply main traffic limit for admin/referral/promo bonuses, fallback to trial limit otherwise  # noqa: E501
-            traffic_limit = (
+            initial_traffic_limit = (
                 self._traffic_limit_for_period_tariff(bonus_tariff)
                 if bonus_tariff
                 else self.settings.user_traffic_limit_bytes
                 if apply_main_traffic_limit
                 else self.settings.trial_traffic_limit_bytes
             )
+            initial_hwid_limit = (
+                self._base_hwid_limit_for_tariff(bonus_tariff) if bonus_tariff else None
+            )
+            initial_tariff = bonus_tariff
+        else:
+            current_end_date = active_sub.end_date
+            start_point_for_bonus = current_end_date if current_end_date > now_utc else now_utc
+            new_end_date_obj = start_point_for_bonus + timedelta(days=bonus_days)
+            initial_traffic_limit = int(active_sub.traffic_limit_bytes or 0)
+            initial_hwid_limit = self._effective_hwid_limit(
+                getattr(active_sub, "hwid_device_limit", None),
+                int(getattr(active_sub, "extra_hwid_devices", 0) or 0),
+            )
+            initial_tariff = admin_tariff
+            if initial_tariff is None and active_sub.tariff_key and self._tariffs_config():
+                try:
+                    initial_tariff = self._resolve_tariff(active_sub.tariff_key, "period")
+                except Exception:
+                    logger.warning(
+                        "Unable to resolve active tariff %s while extending user %s.",
+                        active_sub.tariff_key,
+                        user_id,
+                    )
+
+        initial_squads = self._panel_squads_for_tariff(initial_tariff)
+        (
+            panel_uuid,
+            panel_sub_uuid,
+            _,
+            panel_user_created_now,
+        ) = await self._get_or_create_panel_user_link_details(
+            session,
+            user_id,
+            user,
+            create_options=entitlement_helpers.panel_user_create_options(
+                new_end_date_obj,
+                initial_traffic_limit,
+                self._period_tariff_traffic_strategy(),
+                initial_hwid_limit,
+                initial_squads,
+                self.settings.parsed_user_external_squad_uuid,
+            ),
+        )
+        if not panel_uuid or not panel_sub_uuid:
+            logger.error(
+                "Failed to ensure panel user for subscription extension of user %s.", user_id
+            )
+            return None
+
+        if not active_sub or not active_sub.end_date:
+            logger.info(
+                "No active subscription found for user %s. Creating new one for %s days.",
+                user_id,
+                bonus_days,
+            )
+            # Apply main traffic limit for admin/referral/promo bonuses, fallback to trial limit otherwise  # noqa: E501
+            traffic_limit = initial_traffic_limit
             premium_baseline_bytes = bonus_tariff.premium_monthly_bytes if bonus_tariff else 0
             base_hwid_limit = (
                 self._base_hwid_limit_for_tariff(bonus_tariff) if bonus_tariff else None
@@ -626,6 +678,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 "is_active": True,
                 "status_from_panel": "ACTIVE_BONUS",
                 "traffic_limit_bytes": traffic_limit,
+                "provider": entitlement_helpers.bonus_provider_for_reason(reason_lower),
                 "auto_renew_enabled": False,
                 "tariff_key": bonus_tariff.key if bonus_tariff else None,
                 "tier_baseline_bytes": bonus_tariff.monthly_bytes if bonus_tariff else None,
@@ -659,9 +712,6 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             }
         else:
             current_end_date = active_sub.end_date
-            now_utc = datetime.now(UTC)
-            start_point_for_bonus = current_end_date if current_end_date > now_utc else now_utc
-            new_end_date_obj = start_point_for_bonus + timedelta(days=bonus_days)
             rollback_payload = {
                 "end_date": current_end_date,
                 "last_notification_sent": getattr(active_sub, "last_notification_sent", None),
@@ -850,10 +900,20 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     )
                 )
 
-            panel_update_success = await self.panel_service.update_user_details_on_panel(
-                panel_uuid,
-                panel_update_payload,
-            )
+            if (
+                created_new_subscription
+                and panel_user_created_now
+                and previous_panel_user_uuid is None
+            ):
+                panel_update_success = entitlement_helpers.created_panel_expiry_result(
+                    panel_uuid,
+                    new_end_date_obj,
+                )
+            else:
+                panel_update_success = await self.panel_service.update_user_details_on_panel(
+                    panel_uuid,
+                    panel_update_payload,
+                )
             if not await self._panel_update_confirms_expiry(
                 panel_uuid,
                 panel_update_success,
@@ -868,7 +928,24 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     new_end_date_obj.isoformat(),
                     panel_update_success,
                 )
-                if rollback_payload:
+                if created_new_subscription:
+                    try:
+                        await session.delete(updated_sub_model)
+                        await session.flush()
+                    except Exception:
+                        logger.exception(
+                            "Failed to delete rejected bonus subscription for user %s.",
+                            user_id,
+                        )
+                    await self._compensate_failed_panel_user_creation(
+                        session,
+                        user_id=user_id,
+                        panel_user_uuid=panel_uuid,
+                        previous_panel_user_uuid=previous_panel_user_uuid,
+                        panel_user_created_now=panel_user_created_now,
+                        source="bonus panel update",
+                    )
+                elif rollback_payload:
                     try:
                         await subscription_dal.update_subscription(
                             session,
@@ -886,7 +963,11 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 return None
 
             if pending_tariff_change_payload:
-                await tariff_dal.create_tariff_change(session, pending_tariff_change_payload)
+                await entitlement_helpers.record_tariff_change_best_effort(
+                    session,
+                    pending_tariff_change_payload,
+                    user_id=user_id,
+                )
 
             if hwid_extension_context:
                 try:

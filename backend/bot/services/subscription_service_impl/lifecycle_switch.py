@@ -12,6 +12,10 @@ from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
 from db.models import Subscription, User
 
 from ._typing import SubscriptionServiceMixinContract
+from .entitlement_helpers import (
+    record_tariff_change_best_effort,
+    record_traffic_topup_best_effort,
+)
 from .sale_mode import parse_sale_mode_context
 
 logger = logging.getLogger(__name__)
@@ -422,14 +426,14 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 panel_subscription_uuid,
             )
         if converted_bytes:
-            await tariff_dal.create_traffic_topup(
+            await record_traffic_topup_best_effort(
                 session,
                 subscription_id=updated.subscription_id,
                 payment_id=None,
                 purchased_bytes=converted_bytes,
                 kind="conversion",
             )
-        await tariff_dal.create_tariff_change(
+        await record_tariff_change_best_effort(
             session,
             {
                 "subscription_id": updated.subscription_id,
@@ -447,5 +451,6 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
                 "eff_price_before": sub.effective_monthly_price_rub,
                 "eff_price_after": updated.effective_monthly_price_rub,
             },
+            user_id=user_id,
         )
         return {"subscription_id": updated.subscription_id, "tariff_key": target.key}
