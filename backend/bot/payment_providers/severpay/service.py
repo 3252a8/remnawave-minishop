@@ -28,7 +28,6 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     CreatePaymentRequest,
     CreateResult,
     HttpClientMixin,
@@ -39,6 +38,7 @@ from ..shared import (
     format_decimal_amount,
     lookup_payment_by_order_or_provider_id,
     notify_user_payment_failed,
+    payment_amount_and_currency_match,
     payment_units_for_activation,
     post_json_request,
     run_callback_payment,
@@ -312,6 +312,8 @@ class SeverPayService(HttpClientMixin):
         provider_payment_id = str(data.get("id") or data.get("uid") or "")
         order_id_raw = data.get("order_id")
         status = str(data.get("status") or "").lower()
+        amount = data.get("amount")
+        currency = data.get("currency")
 
         async with self.async_session_factory() as session:
             payment = await lookup_payment_by_order_or_provider_id(
@@ -328,11 +330,6 @@ class SeverPayService(HttpClientMixin):
                 return web.json_response({"status": False, "msg": "payment_not_found"}, status=404)
 
             resolved_provider_id = provider_payment_id or str(payment.payment_id)
-            sale_mode = payment.sale_mode or (
-                "traffic" if self.settings.traffic_sale_mode else "subscription"
-            )
-            payment_months = payment_units_for_activation(payment, sale_mode)
-
             if status == "success":
                 if payment.status == "succeeded":
                     logger.info(
@@ -341,14 +338,33 @@ class SeverPayService(HttpClientMixin):
                     )
                     return web.json_response({"status": True})
 
+                if not payment_amount_and_currency_match(
+                    expected_amount=payment.amount,
+                    expected_currency=payment.currency,
+                    received_amount=amount,
+                    received_currency=currency,
+                    allow_overpayment=True,
+                ):
+                    logger.warning(
+                        "SeverPay webhook: amount or currency mismatch for payment %s "
+                        "(expected=%s %s, got=%s %s)",
+                        payment.payment_id,
+                        payment.amount,
+                        payment.currency,
+                        amount,
+                        currency,
+                    )
+                    return web.json_response(
+                        {"status": False, "msg": "amount_mismatch"},
+                        status=400,
+                    )
+
                 try:
-                    await payment_dal.update_provider_payment_and_status(
+                    claimed_payment = await payment_dal.claim_payment_finalization(
                         session,
                         payment.payment_id,
-                        resolved_provider_id,
-                        PAYMENT_STATUS_PENDING_FINALIZATION,
+                        provider_payment_id=resolved_provider_id,
                     )
-                    await session.commit()
                 except Exception:
                     await session.rollback()
                     logger.exception(
@@ -358,6 +374,15 @@ class SeverPayService(HttpClientMixin):
                     return web.json_response(
                         {"status": False, "msg": "processing_error"}, status=500
                     )
+
+                if claimed_payment is None:
+                    return web.json_response({"status": True})
+                payment = claimed_payment
+
+                sale_mode = payment.sale_mode or (
+                    "traffic" if self.settings.traffic_sale_mode else "subscription"
+                )
+                payment_months = payment_units_for_activation(payment, sale_mode)
 
                 outcome = await finalize_successful_payment(
                     PaymentSuccessRequest(

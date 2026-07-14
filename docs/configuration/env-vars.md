@@ -77,7 +77,10 @@
 proxy не передает этот заголовок или его IP не входит в `TRUSTED_PROXIES`, backend увидит IP
 proxy/Docker gateway и может отклонить валидный webhook. Для Caddy/Nginx/Newt из
 `deploy/examples` дефолта достаточно; в кастомной инфраструктуре добавьте CIDR своего proxy
-или сузьте значение до конкретных proxy IP. Trust-all вариант записывается как
+или сузьте значение до конкретных proxy IP. Если webhook-домен проксируется через Cloudflare,
+backend безопасно использует `CF-Connecting-IP`, когда ближайший недоверенный hop принадлежит
+официальной сети Cloudflare; добавлять сети Cloudflare в `TRUSTED_PROXIES` не нужно.
+Trust-all вариант записывается как
 `0.0.0.0/0,::/0`, но он безопасен только если backend не доступен напрямую, а внешний proxy
 очищает входящий `X-Forwarded-For`.
 

@@ -2,7 +2,7 @@ import json
 import unittest
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from bot.app.web import subscription_webapp  # noqa: F401
 from bot.app.web.webapp import account as account_routes
@@ -34,6 +34,20 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
 
         async def __aexit__(self, exc_type, exc, tb):
             return None
+
+    def test_duplicate_promo_merge_conflict_is_localized(self):
+        i18n = SimpleNamespace(gettext=Mock(return_value="localized conflict"))
+        request = SimpleNamespace(app={"i18n": i18n})
+        settings = SimpleNamespace(DEFAULT_LANGUAGE="en")
+        error = account_routes.UserMergeConflictError(
+            "fallback",
+            message_key="account_merge_duplicate_promo_conflict",
+        )
+
+        message = account_routes._merge_conflict_message(request, settings, error, "ru")
+
+        self.assertEqual(message, "localized conflict")
+        i18n.gettext.assert_called_once_with("ru", "account_merge_duplicate_promo_conflict")
 
     async def test_panel_identity_sync_reports_failed_update_response(self):
         user = SimpleNamespace(

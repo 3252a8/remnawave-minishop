@@ -31,7 +31,6 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     CreatePaymentRequest,
     CreateResult,
     HttpClientMixin,
@@ -39,11 +38,11 @@ from ..shared import (
     PaymentSuccessRequest,
     check_webhook_source_ip,
     constant_time_compare,
-    decimal_amounts_equal,
     finalize_successful_payment,
     first_value,
     format_decimal_amount,
     make_translator,
+    payment_amount_matches,
     payment_units_for_activation,
     post_json_request,
     run_callback_payment,
@@ -319,6 +318,75 @@ class FreeKassaService(HttpClientMixin):
                 return f"{payment_url}/form/{fk_order_id}/{order_hash}"
         return None
 
+    async def _verify_paid_order(self, payment: Any) -> tuple[bool, str]:
+        """Verify the settled FreeKassa order, including its invoice currency.
+
+        FreeKassa's signed Result URL contains ``AMOUNT`` but ``CUR_ID`` is a
+        payment-method identifier (for example, a bank card), not the invoice
+        currency.  The authenticated Orders API is therefore the authoritative
+        source for the settled currency.
+        """
+
+        success, response_data = await self.get_orders(
+            payment_id=payment.payment_id,
+            order_status=1,
+        )
+        if not success:
+            logger.warning(
+                "FreeKassa webhook: provider order lookup unavailable for payment %s: %s",
+                payment.payment_id,
+                response_data,
+            )
+            return False, "order_verification_unavailable"
+
+        order: dict[str, Any] | None = None
+        for candidate in response_data.get("orders") or []:
+            if not isinstance(candidate, dict):
+                continue
+            if str(candidate.get("merchant_order_id") or "") != str(payment.payment_id):
+                continue
+            try:
+                if int(candidate.get("status", -1)) != 1:
+                    continue
+            except (TypeError, ValueError):
+                continue
+            order = candidate
+            break
+
+        if order is None:
+            logger.warning(
+                "FreeKassa webhook: paid provider order was not found for payment %s",
+                payment.payment_id,
+            )
+            return False, "order_not_paid"
+
+        order_currency = normalize_payment_currency_code(order.get("currency"), default="")
+        expected_currency = normalize_payment_currency_code(payment.currency, default="")
+        if not order_currency or order_currency != expected_currency:
+            logger.error(
+                "FreeKassa webhook: currency mismatch for payment %s (expected=%s, received=%s)",
+                payment.payment_id,
+                payment.currency,
+                order.get("currency"),
+            )
+            return False, "currency_mismatch"
+
+        if not payment_amount_matches(
+            expected_amount=payment.amount,
+            received_amount=order.get("amount"),
+            allow_overpayment=True,
+        ):
+            logger.error(
+                "FreeKassa webhook: provider order amount mismatch for payment %s "
+                "(expected=%s, received=%s)",
+                payment.payment_id,
+                payment.amount,
+                order.get("amount"),
+            )
+            return False, "amount_mismatch"
+
+        return True, ""
+
     async def _generate_nonce(self) -> int:
         async with self._nonce_lock:
             candidate = int(time.time() * 1000)
@@ -432,30 +500,36 @@ class FreeKassaService(HttpClientMixin):
                 logger.info("FreeKassa webhook: payment %s already succeeded", payment_db_id)
                 return web.Response(text="YES")
 
-            try:
-                if not decimal_amounts_equal(amount_str, payment.amount):
-                    logger.warning(
-                        "FreeKassa webhook: amount mismatch for payment %s (expected %s, got %s)",
-                        payment_db_id,
-                        format_decimal_amount(payment.amount),
-                        format_decimal_amount(amount_str),
-                    )
-            except Exception as exc:
-                logger.warning(
-                    "FreeKassa webhook: failed to compare amount for payment %s: %s",
+            if not payment_amount_matches(
+                expected_amount=payment.amount,
+                received_amount=amount_str,
+                allow_overpayment=True,
+            ):
+                logger.error(
+                    "FreeKassa webhook: amount mismatch for payment %s (expected=%s, received=%s)",
                     payment_db_id,
-                    exc,
+                    payment.amount,
+                    amount_str,
                 )
+                return web.Response(status=400, text="amount_mismatch")
+
+            order_verified, verification_error = await self._verify_paid_order(payment)
+            if not order_verified:
+                # The provider retries Result URL delivery until it sees YES.
+                # A transient Orders API failure is retried; a verified mismatch
+                # is deliberately never finalized locally.
+                status = 503 if verification_error == "order_verification_unavailable" else 400
+                return web.Response(status=status, text=verification_error)
 
             resolved_provider_id = str(provider_payment_id or f"freekassa:{order_id_str}")
             try:
-                await payment_dal.update_provider_payment_and_status(
-                    session=session,
-                    payment_db_id=payment.payment_id,
+                payment = await payment_dal.claim_payment_finalization(
+                    session,
+                    payment.payment_id,
                     provider_payment_id=resolved_provider_id,
-                    new_status=PAYMENT_STATUS_PENDING_FINALIZATION,
                 )
-                await session.commit()
+                if payment is None:
+                    return web.Response(text="YES")
             except Exception:
                 await session.rollback()
                 logger.exception(
@@ -493,7 +567,7 @@ class FreeKassaService(HttpClientMixin):
                     payment=payment,
                     user_id=payment.user_id,
                     amount=float(payment.amount),
-                    currency=self.default_currency,
+                    currency=payment.currency,
                     sale_mode=sale_mode,
                     months=months,
                     traffic_amount=float(months),

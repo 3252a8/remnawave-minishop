@@ -26,18 +26,17 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     CreatePaymentRequest,
     CreateResult,
     HttpClientMixin,
     LinkPaymentDescriptor,
     PaymentSuccessRequest,
-    decimal_amounts_equal,
     finalize_successful_payment,
     first_value,
     format_decimal_amount,
     lookup_payment_by_order_or_provider_id,
     notify_user_payment_failed,
+    payment_amount_matches,
     payment_units_for_activation,
     run_callback_payment,
     run_reuse_webapp_payment,
@@ -421,8 +420,10 @@ class LavaService(HttpClientMixin):
                     return web.json_response({"status": True})
 
                 webhook_amount = payload.get("amount")
-                if webhook_amount is not None and not decimal_amounts_equal(
-                    webhook_amount, payment.amount
+                if not payment_amount_matches(
+                    expected_amount=payment.amount,
+                    received_amount=webhook_amount,
+                    allow_overpayment=True,
                 ):
                     logger.error(
                         "LAVA webhook: amount mismatch for payment %s (expected=%s, received=%s)",
@@ -435,13 +436,13 @@ class LavaService(HttpClientMixin):
                     )
 
                 try:
-                    await payment_dal.update_provider_payment_and_status(
+                    payment = await payment_dal.claim_payment_finalization(
                         session,
                         payment.payment_id,
-                        resolved_provider_id,
-                        PAYMENT_STATUS_PENDING_FINALIZATION,
+                        provider_payment_id=resolved_provider_id,
                     )
-                    await session.commit()
+                    if payment is None:
+                        return web.json_response({"status": True})
                 except Exception:
                     await session.rollback()
                     logger.exception(

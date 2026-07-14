@@ -411,6 +411,16 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(deactivate_other.await_args.args[1:], ("panel-uuid", "panel-sub"))
         create_change.assert_awaited_once()
 
+    async def test_rejects_client_mode_not_offered_for_transition(self):
+        result, create_change, deactivate_other = await self._run(
+            panel_response={"ok": True},
+            mode="convert_days_to_gb",
+        )
+
+        self.assertIsNone(result)
+        create_change.assert_not_awaited()
+        deactivate_other.assert_not_awaited()
+
 
 class TariffChangeCallbackTransactionTests(unittest.IsolatedAsyncioTestCase):
     async def test_callback_rolls_back_when_switch_returns_none(self):

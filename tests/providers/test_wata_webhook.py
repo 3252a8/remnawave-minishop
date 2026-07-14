@@ -2,6 +2,7 @@ import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 from bot.payment_providers.shared import PAYMENT_STATUS_PENDING_FINALIZATION
 from bot.payment_providers.wata import WataConfig, WataService
@@ -46,6 +47,7 @@ def _payment(**overrides):
         "user_id": 748116183,
         "status": "pending_wata",
         "amount": 100.0,
+        "currency": "RUB",
         "provider_payment_id": "link-id",
         "purchased_gb": None,
         "purchased_hwid_devices": None,
@@ -221,7 +223,7 @@ def test_wata_known_payment_with_unknown_status_still_acknowledges_webhook(monke
 def test_wata_refresh_finds_paid_transaction_by_order_id_and_finalizes(monkeypatch):
     session = _FakeSession()
     payment = _payment(provider="wata", provider_payment_id="link-id")
-    updates = []
+    claims = []
     finalized = []
     service = _service(session)
 
@@ -255,17 +257,20 @@ def test_wata_refresh_finds_paid_transaction_by_order_id_and_finalizes(monkeypat
         assert payment_id == 465
         return payment
 
-    async def update_provider_payment_and_status(
+    async def claim_payment_finalization(
         _session,
         payment_id,
-        provider_payment_id,
-        status,
+        *,
+        provider_payment_id=None,
+        provider_payment_url=None,
     ):
-        updates.append((payment_id, provider_payment_id, status))
+        claims.append((payment_id, provider_payment_id))
         payment.provider_payment_id = provider_payment_id
-        payment.status = status
+        payment.status = PAYMENT_STATUS_PENDING_FINALIZATION
+        return payment
 
     async def finalize_successful_payment(request):
+        assert session.commits == 0
         finalized.append(
             (
                 request.payment.payment_id,
@@ -273,23 +278,138 @@ def test_wata_refresh_finds_paid_transaction_by_order_id_and_finalizes(monkeypat
                 request.provider_notification,
             )
         )
+        await request.session.commit()
         return SimpleNamespace()
 
     service.search_transactions = search_transactions
     monkeypatch.setattr(wata_service.payment_dal, "get_payment_by_db_id", get_payment_by_db_id)
     monkeypatch.setattr(
         wata_service.payment_dal,
-        "update_provider_payment_and_status",
-        update_provider_payment_and_status,
+        "claim_payment_finalization",
+        claim_payment_finalization,
     )
     monkeypatch.setattr(wata_service, "finalize_successful_payment", finalize_successful_payment)
 
     result = asyncio.run(service.refresh_payment_status(session, payment))
 
     assert result is payment
-    assert updates == [(465, "tx-paid", PAYMENT_STATUS_PENDING_FINALIZATION)]
+    assert claims == [(465, "tx-paid")]
     assert finalized == [(465, "wata", "wata")]
     assert session.commits == 1
+
+
+def test_wata_webhook_rejects_paid_amount_mismatch_before_finalization(monkeypatch):
+    session = _FakeSession()
+    payment = _payment(provider="wata", provider_payment_id="link-id")
+    service = _service(session)
+    claim_mock = AsyncMock(side_effect=AssertionError("mismatched payment must not be claimed"))
+    finalize_mock = AsyncMock(side_effect=AssertionError("mismatched payment must not finalize"))
+
+    async def lookup_payment(_session, *, order_id_raw=None, provider_payment_id=None):
+        assert _session is session
+        assert order_id_raw == "465"
+        assert provider_payment_id == "tx-paid"
+        return payment
+
+    monkeypatch.setattr(wata_service, "lookup_payment_by_order_or_provider_id", lookup_payment)
+    monkeypatch.setattr(
+        wata_service.payment_dal,
+        "get_payment_by_db_id",
+        AsyncMock(return_value=payment),
+    )
+    monkeypatch.setattr(wata_service.payment_dal, "claim_payment_finalization", claim_mock)
+    monkeypatch.setattr(wata_service, "finalize_successful_payment", finalize_mock)
+
+    response = asyncio.run(
+        service.webhook_route(
+            _FakeRequest(
+                {
+                    "transactionStatus": "Paid",
+                    "transactionId": "tx-paid",
+                    "orderId": "465",
+                    "amount": 99,
+                    "currency": "RUB",
+                }
+            )
+        )
+    )
+
+    assert response.status == 400
+    assert response.text == "amount_mismatch"
+    claim_mock.assert_not_awaited()
+    finalize_mock.assert_not_awaited()
+
+
+def test_wata_status_refresh_skips_paid_transaction_without_currency(monkeypatch):
+    session = _FakeSession()
+    payment = _payment(provider="wata", provider_payment_id="link-id")
+    service = _service(session)
+    claim_mock = AsyncMock(side_effect=AssertionError("missing currency must not be claimed"))
+    finalize_mock = AsyncMock(side_effect=AssertionError("missing currency must not finalize"))
+
+    async def search_transactions(**_kwargs):
+        return True, {
+            "items": [
+                {
+                    "id": "tx-paid",
+                    "status": "Paid",
+                    "orderId": "465",
+                    "amount": 100,
+                    "paymentLinkId": "link-id",
+                }
+            ]
+        }
+
+    service.search_transactions = search_transactions
+    monkeypatch.setattr(
+        wata_service.payment_dal,
+        "get_payment_by_db_id",
+        AsyncMock(return_value=payment),
+    )
+    monkeypatch.setattr(wata_service.payment_dal, "claim_payment_finalization", claim_mock)
+    monkeypatch.setattr(wata_service, "finalize_successful_payment", finalize_mock)
+
+    result = asyncio.run(service.refresh_payment_status(session, payment))
+
+    assert result is payment
+    claim_mock.assert_not_awaited()
+    finalize_mock.assert_not_awaited()
+
+
+def test_wata_duplicate_paid_refresh_returns_fresh_payment(monkeypatch):
+    session = _FakeSession()
+    payment = _payment(status="pending_wata")
+    refreshed_payment = _payment(status="succeeded", provider_payment_id="tx-paid")
+    service = _service(session)
+    fresh_loads = []
+
+    async def get_payment_by_db_id(_session, payment_id, *, fresh=False):
+        assert _session is session
+        assert payment_id == 465
+        if fresh:
+            fresh_loads.append(payment_id)
+            return refreshed_payment
+        return payment
+
+    monkeypatch.setattr(wata_service.payment_dal, "get_payment_by_db_id", get_payment_by_db_id)
+    claim = AsyncMock(return_value=None)
+    finalize = AsyncMock(side_effect=AssertionError("duplicate payment must not finalize"))
+    monkeypatch.setattr(wata_service.payment_dal, "claim_payment_finalization", claim)
+    monkeypatch.setattr(wata_service, "finalize_successful_payment", finalize)
+
+    result = asyncio.run(
+        service._mark_paid_from_payload(
+            session,
+            payment,
+            {"transactionId": "tx-paid", "amount": 100, "currency": "RUB"},
+            log_prefix="Wata refresh",
+        )
+    )
+
+    assert result is refreshed_payment
+    assert fresh_loads == [465]
+    claim.assert_awaited_once_with(session, 465, provider_payment_id="tx-paid")
+    finalize.assert_not_awaited()
 
 
 def test_wata_hwid_payment_finalizes_purchased_device_count(monkeypatch):
@@ -329,14 +449,16 @@ def test_wata_hwid_payment_finalizes_purchased_device_count(monkeypatch):
         assert payment_id == 465
         return payment
 
-    async def update_provider_payment_and_status(
+    async def claim_payment_finalization(
         _session,
         payment_id,
-        provider_payment_id,
-        status,
+        *,
+        provider_payment_id=None,
+        provider_payment_url=None,
     ):
         payment.provider_payment_id = provider_payment_id
-        payment.status = status
+        payment.status = PAYMENT_STATUS_PENDING_FINALIZATION
+        return payment
 
     async def finalize_successful_payment(request):
         finalized.append((request.months, request.traffic_amount, request.sale_mode))
@@ -346,8 +468,8 @@ def test_wata_hwid_payment_finalizes_purchased_device_count(monkeypatch):
     monkeypatch.setattr(wata_service.payment_dal, "get_payment_by_db_id", get_payment_by_db_id)
     monkeypatch.setattr(
         wata_service.payment_dal,
-        "update_provider_payment_and_status",
-        update_provider_payment_and_status,
+        "claim_payment_finalization",
+        claim_payment_finalization,
     )
     monkeypatch.setattr(wata_service, "finalize_successful_payment", finalize_successful_payment)
 

@@ -16,6 +16,20 @@ from .sale_mode import parse_sale_mode_context
 
 logger = logging.getLogger(__name__)
 
+_FREE_TARIFF_SWITCH_MODES = {
+    "period_to_period": "recalc_days",
+    "period_to_traffic": "convert_days_to_gb",
+}
+
+
+def _tariff_switch_mode_matches_options(mode: str, options: dict[str, Any]) -> bool:
+    transition = str(options.get("mode") or "")
+    if mode == "admin_assign":
+        return True
+    if mode == "paid_diff":
+        return transition == "period_to_period"
+    return _FREE_TARIFF_SWITCH_MODES.get(transition) == mode
+
 
 class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
     async def _local_active_subscription_details_fallback(
@@ -170,6 +184,16 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             options = dict(self.calculate_tariff_switch_options(sub, target))
         else:
             options = await self.calculate_tariff_switch_options_with_hwid(session, sub, target)
+        if not _tariff_switch_mode_matches_options(mode, options):
+            logger.warning(
+                "Rejecting tariff switch mode mismatch for user %s -> %s: "
+                "requested=%s transition=%s",
+                user_id,
+                target.key,
+                mode,
+                options.get("mode"),
+            )
+            return None
         if mode == "paid_diff":
             if payment_id is None:
                 logger.warning(

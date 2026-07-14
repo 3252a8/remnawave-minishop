@@ -125,6 +125,16 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(return_value=referrer),
             ),
             patch.object(auth_referral.user_dal, "create_user", create_user),
+            patch.object(
+                auth_referral.user_dal,
+                "lock_user_by_id",
+                AsyncMock(return_value=created_user),
+            ),
+            patch.object(
+                auth_referral.subscription_dal,
+                "has_any_subscription_for_user",
+                AsyncMock(return_value=False),
+            ),
             patch.object(auth_oauth, "_invalidate_webapp_user_caches", AsyncMock()),
             patch.object(
                 auth_oauth,
@@ -312,6 +322,16 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
                 "create_email_user",
                 AsyncMock(return_value=(created_user, True)),
             ) as create_user,
+            patch.object(
+                auth_referral.user_dal,
+                "lock_user_by_id",
+                AsyncMock(return_value=created_user),
+            ),
+            patch.object(
+                auth_referral.subscription_dal,
+                "has_any_subscription_for_user",
+                AsyncMock(return_value=False),
+            ),
             patch.object(auth_email, "_invalidate_webapp_user_caches", AsyncMock()),
         ):
             response = await auth_email.email_auth_verify_route(request)
@@ -389,6 +409,16 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
                 "create_email_user",
                 AsyncMock(return_value=(created_user, True)),
             ) as create_user,
+            patch.object(
+                auth_referral.user_dal,
+                "lock_user_by_id",
+                AsyncMock(return_value=created_user),
+            ),
+            patch.object(
+                auth_referral.subscription_dal,
+                "has_any_subscription_for_user",
+                AsyncMock(return_value=False),
+            ),
             patch.object(auth_email, "_invalidate_webapp_user_caches", AsyncMock()),
         ):
             response = await auth_email.email_auth_magic_route(request)

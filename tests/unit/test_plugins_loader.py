@@ -10,9 +10,11 @@ from aiohttp import web
 
 from bot.middlewares.i18n import JsonI18n
 from bot.plugins import (
+    PLUGIN_API_VERSION,
     WEB_SCOPE_WEBAPP,
     WEB_SCOPE_WEBHOOKS,
     Plugin,
+    PluginApiCompatibilityError,
     PluginContext,
     WorkerTaskSpec,
     apply_plugin_locales,
@@ -227,6 +229,29 @@ def test_entry_point_discovery_rejects_non_plugin_strict(monkeypatch):
     )
     with pytest.raises(TypeError):
         get_plugins(make_settings(PLUGINS_STRICT=True))
+
+
+def test_declared_incompatible_plugin_api_fails_before_hooks_run():
+    class IncompatiblePlugin(Plugin):
+        name = "incompatible"
+        plugin_api_min_version = PLUGIN_API_VERSION + 1
+        plugin_api_max_version = PLUGIN_API_VERSION + 1
+
+    register(IncompatiblePlugin())
+
+    with pytest.raises(PluginApiCompatibilityError, match="but core provides"):
+        get_plugins(make_settings())
+
+
+def test_declared_current_plugin_api_is_accepted():
+    class CompatiblePlugin(Plugin):
+        name = "compatible"
+        plugin_api_min_version = PLUGIN_API_VERSION
+        plugin_api_max_version = PLUGIN_API_VERSION
+
+    register(CompatiblePlugin())
+
+    assert "compatible" in [plugin.name for plugin in get_plugins(make_settings())]
 
 
 # --- Worker task and queue handler registries -------------------------------

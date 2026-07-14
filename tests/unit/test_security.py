@@ -110,6 +110,37 @@ class RequestSecurityTests(unittest.IsolatedAsyncioTestCase):
             "203.0.113.10",
         )
 
+    async def test_request_client_ip_uses_verified_cloudflare_connecting_ip(self):
+        request = SimpleNamespace(
+            remote="127.0.0.1",
+            headers={
+                "X-Forwarded-For": "172.64.1.10",
+                "CF-Connecting-IP": "203.0.113.10",
+            },
+        )
+
+        self.assertEqual(
+            request_client_ip(
+                request,
+                trusted_proxies=["127.0.0.1", "172.64.0.0/13"],
+            ),
+            "203.0.113.10",
+        )
+
+    async def test_request_client_ip_ignores_spoofed_cloudflare_connecting_ip(self):
+        request = SimpleNamespace(
+            remote="127.0.0.1",
+            headers={
+                "X-Forwarded-For": "172.64.1.10, 198.51.100.7",
+                "CF-Connecting-IP": "203.0.113.10",
+            },
+        )
+
+        self.assertEqual(
+            request_client_ip(request, trusted_proxies=["127.0.0.1"]),
+            "198.51.100.7",
+        )
+
     async def test_access_logger_uses_forwarded_ip_only_for_trusted_proxy(self):
         trusted_request = SimpleNamespace(
             remote="172.19.0.6",

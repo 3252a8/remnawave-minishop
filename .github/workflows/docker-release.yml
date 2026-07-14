@@ -1,15 +1,13 @@
 name: Release images
 
-# Build all three images and push them to ghcr.io and Docker Hub tagged
-# `latest` and the release version (the pushed tag with its leading `v`
-# stripped, e.g. v3.4.5 -> 3.4.5). Triggered only when a new v* tag is pushed,
-# so images are built once per release rather than on every commit to main.
+# Release tags build immutable GHCR candidates first. All three candidate
+# digests must pass the blocking image scan before the exact same manifests are
+# promoted to version/latest tags in GHCR and Docker Hub.
 
 on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
 
 concurrency:
   group: docker-release-${{ github.ref }}
@@ -18,11 +16,312 @@ concurrency:
 permissions:
   contents: read
   packages: write
+  security-events: write
 
 jobs:
-  build-push:
-    uses: ./.github/workflows/_docker-build-push.yml
-    with:
-      push: true
-      tag_mode: release
-    secrets: inherit
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.release.outputs.commit }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag and commit
+        id: release
+        run: |
+          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
+            echo "::error::Release publishing is allowed only for tag pushes"
+            exit 1
+          fi
+
+          tag_commit="$(git rev-parse "${GITHUB_REF_NAME}^{commit}")"
+          event_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
+          if [ "$tag_commit" != "$event_commit" ]; then
+            echo "::error::The pushed tag does not resolve to the event commit"
+            exit 1
+          fi
+
+          git fetch origin main --no-tags
+          if ! git merge-base --is-ancestor "$tag_commit" origin/main; then
+            echo "::error::Release tag must point to a commit reachable from main"
+            exit 1
+          fi
+
+          version="${GITHUB_REF_NAME#v}"
+          if [ -z "$version" ]; then
+            echo "::error::Unable to derive the release version from ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+
+          echo "commit=$tag_commit" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Release commit: $tag_commit"
+          echo "Release version: $version"
+
+      - name: Validate registry credentials
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
+            echo "::error::Docker Hub credentials are required for release promotion"
+            exit 1
+          fi
+
+  build:
+    name: Build candidate (${{ matrix.target }})
+    needs: validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: backend
+            image: remnawave-minishop-backend
+          - target: worker
+            image: remnawave-minishop-worker
+          - target: frontend
+            image: remnawave-minishop-frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve candidate image
+        id: candidate
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "image=ghcr.io/${owner}/${{ matrix.image }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push immutable candidate
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          target: ${{ matrix.target }}
+          platforms: linux/amd64
+          push: true
+          pull: true
+          no-cache: true
+          tags: ${{ steps.candidate.outputs.image }}:sha-${{ needs.validate.outputs.commit }}
+          build-args: |
+            GITHUB_REF_NAME=main
+            REMNAWAVE_MINISHOP_BUILD_PROVENANCE=${{ github.repository == '3252a8/remnawave-minishop' && 'official' || 'custom' }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Record candidate digest
+        env:
+          CANDIDATE_IMAGE: ${{ steps.candidate.outputs.image }}
+          CANDIDATE_DIGEST: ${{ steps.build.outputs.digest }}
+          RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
+        run: |
+          mkdir -p release-metadata
+          jq -n \
+            --arg target "${{ matrix.target }}" \
+            --arg name "${{ matrix.image }}" \
+            --arg image "$CANDIDATE_IMAGE" \
+            --arg digest "$CANDIDATE_DIGEST" \
+            --arg commit "$RELEASE_COMMIT" \
+            '{target: $target, name: $name, image: $image, digest: $digest, commit: $commit}' \
+            > "release-metadata/${{ matrix.target }}.json"
+
+      - name: Upload candidate metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-candidate-${{ matrix.target }}
+          path: release-metadata/${{ matrix.target }}.json
+          if-no-files-found: error
+          retention-days: 90
+
+  scan:
+    name: Scan candidate (${{ matrix.target }})
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [backend, worker, frontend]
+    steps:
+      - name: Download candidate metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: release-candidate-${{ matrix.target }}
+          path: release-metadata
+
+      - name: Read candidate metadata
+        id: candidate
+        run: |
+          image="$(jq -r '.image' 'release-metadata/${{ matrix.target }}.json')"
+          digest="$(jq -r '.digest' 'release-metadata/${{ matrix.target }}.json')"
+          commit="$(jq -r '.commit' 'release-metadata/${{ matrix.target }}.json')"
+          if [ "$commit" != "${{ needs.validate.outputs.commit }}" ]; then
+            echo "::error::Candidate metadata belongs to a different commit"
+            exit 1
+          fi
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan immutable candidate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: v0.70.0
+          scan-type: image
+          image-ref: ${{ steps.candidate.outputs.image }}@${{ steps.candidate.outputs.digest }}
+          scanners: vuln
+          format: sarif
+          output: trivy-release-${{ matrix.target }}.sarif
+          severity: CRITICAL,HIGH
+          limit-severities-for-sarif: true
+          exit-code: "1"
+          ignore-unfixed: false
+
+      - name: Upload release scan results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy-release-${{ matrix.target }}.sarif
+          category: trivy-release-${{ matrix.target }}
+
+  promote:
+    name: Promote candidate (${{ matrix.target }})
+    needs: [validate, scan]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [backend, worker, frontend]
+    steps:
+      - name: Download candidate metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: release-candidate-${{ matrix.target }}
+          path: release-metadata
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up crane
+        uses: imjasonh/setup-crane@v0.7
+
+      - name: Promote scanned digest
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          source="$(jq -r '.image' 'release-metadata/${{ matrix.target }}.json')"
+          name="$(jq -r '.name' 'release-metadata/${{ matrix.target }}.json')"
+          digest="$(jq -r '.digest' 'release-metadata/${{ matrix.target }}.json')"
+          commit="$(jq -r '.commit' 'release-metadata/${{ matrix.target }}.json')"
+          destination="docker.io/${DOCKERHUB_USERNAME,,}/${name}"
+
+          if [ "$commit" != "${{ needs.validate.outputs.commit }}" ]; then
+            echo "::error::Candidate metadata belongs to a different commit"
+            exit 1
+          fi
+
+          crane tag "${source}@${digest}" "$RELEASE_VERSION"
+          crane tag "${source}@${digest}" latest
+          crane copy "${source}@${digest}" "${destination}:${RELEASE_VERSION}"
+          crane tag "${destination}@${digest}" latest
+
+          for reference in \
+            "${source}:${RELEASE_VERSION}" \
+            "${source}:latest" \
+            "${destination}:${RELEASE_VERSION}" \
+            "${destination}:latest"; do
+            promoted_digest="$(crane digest "$reference")"
+            if [ "$promoted_digest" != "$digest" ]; then
+              echo "::error::Digest mismatch for ${reference}: ${promoted_digest} != ${digest}"
+              exit 1
+            fi
+            echo "${reference}@${digest}"
+          done
+
+  record:
+    name: Record release digests
+    needs: [validate, promote]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all candidate metadata
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-candidate-*
+          path: release-metadata
+          merge-multiple: true
+
+      - name: Create release manifest
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          dockerhub_owner="${DOCKERHUB_USERNAME,,}"
+          jq -s \
+            --arg tag "$GITHUB_REF_NAME" \
+            --arg version "$RELEASE_VERSION" \
+            --arg commit "$RELEASE_COMMIT" \
+            --arg dockerhub_owner "$dockerhub_owner" \
+            '{
+              tag: $tag,
+              version: $version,
+              commit: $commit,
+              images: map({
+                target,
+                digest,
+                ghcr: .image,
+                dockerhub: ("docker.io/" + $dockerhub_owner + "/" + .name)
+              }) | sort_by(.target)
+            }' \
+            release-metadata/*.json > release-images.json
+
+          cat release-images.json
+          {
+            echo "## Release images"
+            echo
+            echo "Commit: \`${RELEASE_COMMIT}\`"
+            echo
+            jq -r '.images[] | "- **\(.target)**: `\(.digest)`"' release-images.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload release manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-images-${{ needs.validate.outputs.commit }}
+          path: release-images.json
+          if-no-files-found: error
+          retention-days: 90

@@ -39,7 +39,6 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     PaymentSuccessRequest,
     describe_payment,
     finalize_successful_payment,
@@ -47,10 +46,12 @@ from ..shared import (
     notify_callback_parse_error,
     notify_service_unavailable,
     parse_payment_callback,
+    payment_amount_and_currency_match,
     payment_failed,
     payment_link_response,
     payment_record_amounts,
     payment_unavailable,
+    payment_units_for_activation,
     quote_hwid_callback_parts,
     render_payment_link,
     sale_mode_base,
@@ -338,12 +339,10 @@ class CryptoPayService(BaseProviderService):
         try:
             meta = json.loads(invoice.payload)
             user_id = int(meta["user_id"])
-            months = float(meta.get("subscription_months") or 0)
             payment_db_id = int(meta["payment_db_id"])
             sale_mode = meta.get("sale_mode") or (
                 "traffic" if self.settings.traffic_sale_mode else "subscription"
             )
-            traffic_gb = float(meta.get("traffic_gb")) if meta.get("traffic_gb") else months
         except Exception:
             logger.exception("Failed to parse CryptoPay payload.")
             return
@@ -363,15 +362,48 @@ class CryptoPayService(BaseProviderService):
             if payment.status == "succeeded":
                 logger.info("CryptoPay webhook: payment %s already succeeded.", payment_db_id)
                 return
+            if payment.user_id != user_id:
+                logger.error(
+                    "CryptoPay webhook: payment %s belongs to user %s, not metadata user %s.",
+                    payment_db_id,
+                    payment.user_id,
+                    user_id,
+                )
+                return
+
+            currency_type = str(self.config.CURRENCY_TYPE or "fiat").strip().lower()
+            invoice_currency = invoice.asset if currency_type == "crypto" else invoice.fiat
+            if not payment_amount_and_currency_match(
+                expected_amount=payment.amount,
+                expected_currency=payment.currency,
+                received_amount=invoice.amount,
+                received_currency=invoice_currency,
+                # CryptoPay receives the amount exactly as it was sent to
+                # createInvoice; unlike fiat-only rails, it is not normalized
+                # to cents before the invoice is created.
+                places=None,
+                allow_overpayment=True,
+            ):
+                logger.error(
+                    "CryptoPay webhook: payment details mismatch for payment %s "
+                    "(expected=%s %s, received=%s %s, currency_type=%s)",
+                    payment_db_id,
+                    payment.amount,
+                    payment.currency,
+                    invoice.amount,
+                    invoice_currency,
+                    currency_type,
+                )
+                return
 
             try:
-                await payment_dal.update_provider_payment_and_status(
+                payment = await payment_dal.claim_payment_finalization(
                     session,
                     payment_db_id,
-                    str(invoice.invoice_id),
-                    PAYMENT_STATUS_PENDING_FINALIZATION,
+                    provider_payment_id=str(invoice.invoice_id),
                 )
-                await session.commit()
+                if payment is None:
+                    return
             except Exception:
                 await session.rollback()
                 logger.exception(
@@ -380,15 +412,8 @@ class CryptoPayService(BaseProviderService):
                 )
                 return
 
-            payment = await payment_dal.get_payment_by_db_id(session, payment_db_id)
-            if not payment:
-                logger.error(
-                    "CryptoPay webhook: payment %s vanished after status update.",
-                    payment_db_id,
-                )
-                return
-
-            currency = invoice.asset or settings.DEFAULT_CURRENCY_SYMBOL
+            resolved_sale_mode = getattr(payment, "sale_mode", None) or sale_mode
+            payment_units = payment_units_for_activation(payment, resolved_sale_mode)
             await finalize_successful_payment(
                 PaymentSuccessRequest(
                     bot=bot,
@@ -398,12 +423,12 @@ class CryptoPayService(BaseProviderService):
                     subscription_service=subscription_service,
                     referral_service=referral_service,
                     payment=payment,
-                    user_id=user_id,
-                    amount=float(invoice.amount),
-                    currency=str(currency),
-                    sale_mode=sale_mode,
-                    months=int(months) if months else int(traffic_gb),
-                    traffic_amount=float(traffic_gb),
+                    user_id=payment.user_id,
+                    amount=float(payment.amount),
+                    currency=payment.currency,
+                    sale_mode=resolved_sale_mode,
+                    months=payment_units,
+                    traffic_amount=float(payment_units),
                     provider_subscription="cryptopay",
                     provider_notification="crypto_pay",
                     log_prefix="CryptoPay webhook",
@@ -497,6 +522,7 @@ async def pay_crypto_callback_handler(
         parts=parts,
         subscription_service=cryptopay_service.subscription_service,
         currency=default_currency_key_for_settings(settings),
+        settings=settings,
     )
     if not parts:
         await notify_callback_parse_error(callback, translator)

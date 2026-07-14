@@ -1,7 +1,9 @@
 import asyncio
 import logging
 import uuid
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from yookassa import Configuration
 from yookassa import Payment as YooKassaPayment
@@ -9,6 +11,7 @@ from yookassa.domain.common.confirmation_type import ConfirmationType
 from yookassa.domain.request.payment_request_builder import PaymentRequestBuilder
 
 from config.settings import Settings
+from db.dal import payment_dal
 
 from ..base import (
     normalize_payment_currency_code,
@@ -17,6 +20,8 @@ from ..base import (
 from ..shared import (
     RecurringChargeContext,
     RecurringChargeResult,
+    build_payment_record_payload,
+    format_decimal_amount,
 )
 from .config import YooKassaConfig
 
@@ -26,6 +31,8 @@ else:
     SubscriptionService = object
 
 logger = logging.getLogger(__name__)
+SdkResultT = TypeVar("SdkResultT")
+_YOOKASSA_IDEMPOTENCE_WINDOW = timedelta(hours=24)
 
 
 class YooKassaService:
@@ -86,6 +93,34 @@ class YooKassaService:
             logger.exception("Failed to configure YooKassa SDK.")
             self._sdk_configured_for = None
 
+    def _sdk_timeout_seconds(self) -> float:
+        raw_timeout = getattr(self.settings, "PAYMENT_REQUEST_TIMEOUT_SECONDS", 20.0)
+        try:
+            timeout = float(raw_timeout)
+        except (TypeError, ValueError):
+            return 20.0
+        return max(1.0, timeout)
+
+    async def _run_sdk_call(
+        self,
+        operation: str,
+        func: Callable[..., SdkResultT],
+        *args: object,
+    ) -> SdkResultT:
+        timeout = self._sdk_timeout_seconds()
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(func, *args),
+                timeout=timeout,
+            )
+        except TimeoutError:
+            logger.warning(
+                "YooKassa SDK call timed out operation=%s timeout_seconds=%.1f",
+                operation,
+                timeout,
+            )
+            raise
+
     @property
     def return_url(self) -> str:
         url = self._configured_return_url_override or self.config.RETURN_URL
@@ -105,28 +140,186 @@ class YooKassaService:
     ) -> RecurringChargeResult:
         """Charge a saved YooKassa ``payment_method_id`` for auto-renew.
 
-        Initiates a charge with the YooKassa-style metadata bag; the YooKassa
-        webhook reconstructs and activates the renewal from that metadata, so
-        this method only reports whether the charge was accepted.
+        Creates the immutable local order before charging and puts its id in
+        the YooKassa-style metadata bag.  The webhook validates the settled
+        amount and currency against that order before activation.
         """
         if not self.recurring_active:
             return RecurringChargeResult.failed("recurring_inactive")
         saved_method_id = getattr(context.saved_method, "provider_payment_method_id", None)
         if not saved_method_id:
             return RecurringChargeResult.failed("missing_saved_method")
-        resp = await self.create_payment(
+
+        currency = normalize_payment_currency_code(context.currency)
+        idempotence_key = str(context.idempotence_key or uuid.uuid4()).strip()
+        if not idempotence_key:
+            idempotence_key = str(uuid.uuid4())
+        payment_payload = build_payment_record_payload(
+            user_id=context.user_id,
             amount=float(context.amount),
-            currency=context.currency,
+            currency=currency,
+            status="pending_yookassa",
             description=context.description,
-            metadata=dict(context.metadata),
-            payment_method_id=saved_method_id,
-            save_payment_method=False,
-            capture=True,
+            months=context.months,
+            provider="yookassa",
+            sale_mode=context.sale_mode,
+            hwid_quote=dict(context.hwid_quote or {}) or None,
         )
+        payment_payload["idempotence_key"] = idempotence_key
+        try:
+            payment, created = await payment_dal.create_or_get_payment_record_by_idempotence_key(
+                context.session,
+                payment_payload,
+            )
+            if created:
+                # Commit before starting the external charge: YooKassa can
+                # deliver a successful webhook immediately, and it must be
+                # able to resolve the expected local order from metadata.
+                await context.session.commit()
+        except Exception as exc:
+            await context.session.rollback()
+            logger.exception("YooKassa auto-renew failed to create local payment record")
+            return RecurringChargeResult.failed(str(exc))
+
+        if not created:
+            existing_result = self._existing_auto_renew_result(payment)
+            if existing_result is not None:
+                return existing_result
+
+        metadata = dict(context.metadata)
+        metadata["payment_db_id"] = str(payment.payment_id)
+        try:
+            resp = await self.create_payment(
+                amount=float(context.amount),
+                currency=currency,
+                description=context.description,
+                metadata=metadata,
+                payment_method_id=saved_method_id,
+                save_payment_method=False,
+                capture=True,
+                idempotence_key=idempotence_key,
+            )
+        except Exception as exc:
+            logger.exception("YooKassa auto-renew charge failed before API response")
+            await self._mark_auto_renew_payment_failed(context.session, payment.payment_id)
+            return RecurringChargeResult.failed(str(exc))
+
         status = (resp or {}).get("status")
         if not resp or status not in {"pending", "waiting_for_capture", "succeeded"}:
+            provider_payment_id = str((resp or {}).get("id") or "").strip() or None
+            await self._mark_auto_renew_payment_failed(
+                context.session,
+                payment.payment_id,
+                yookassa_payment_id=provider_payment_id,
+            )
             return RecurringChargeResult.failed(f"unexpected_status:{status}")
-        return RecurringChargeResult.ok(provider_payment_id=resp.get("id"), status=status)
+
+        provider_payment_id = str(resp.get("id") or "").strip() or None
+        if provider_payment_id:
+            try:
+                await payment_dal.update_payment_status_by_db_id(
+                    context.session,
+                    payment.payment_id,
+                    "pending_yookassa",
+                    provider_payment_id,
+                )
+                await context.session.commit()
+            except Exception:
+                # The pre-charge commit plus payment_db_id metadata keeps the
+                # successful webhook processable even when persisting the
+                # provider id fails here.
+                await context.session.rollback()
+                logger.exception(
+                    "YooKassa auto-renew failed to store provider payment id %s",
+                    provider_payment_id,
+                )
+        return RecurringChargeResult.ok(provider_payment_id=provider_payment_id, status=status)
+
+    @staticmethod
+    def _existing_auto_renew_result(payment: Any) -> RecurringChargeResult | None:
+        """Return a safe outcome for an already-claimed renewal order.
+
+        A row with a known provider payment id must never create a second
+        charge.  A failed row without that id is intentionally retried with
+        the same YooKassa key: it covers the crash/timeout window where the
+        remote payment may have been accepted but its response was lost.  The
+        provider guarantees that replay for 24 hours only, so older uncertain
+        rows fail closed instead of becoming a new charge.
+        """
+        status = str(getattr(payment, "status", "") or "").strip().lower()
+        provider_payment_id = (
+            str(
+                getattr(payment, "yookassa_payment_id", None)
+                or getattr(payment, "provider_payment_id", None)
+                or ""
+            ).strip()
+            or None
+        )
+        if provider_payment_id:
+            if status in {
+                "pending",
+                "pending_yookassa",
+                "waiting_for_capture",
+                "succeeded_pending_finalization",
+                "succeeded",
+            }:
+                logger.info(
+                    "YooKassa auto-renew reusing payment %s (provider id %s, status %s)",
+                    getattr(payment, "payment_id", None),
+                    provider_payment_id,
+                    status,
+                )
+                return RecurringChargeResult.ok(
+                    provider_payment_id=provider_payment_id,
+                    status=status,
+                )
+            return RecurringChargeResult.failed(f"existing_payment:{status or 'unknown'}")
+        if status in {"succeeded_pending_finalization", "succeeded"}:
+            return RecurringChargeResult.ok(status=status)
+        # Any existing record without a provider id is an uncertain previous
+        # request, regardless of the local failure label.  Replay it only
+        # inside YooKassa's documented 24-hour idempotence window; otherwise
+        # the same key could become a brand-new merchant-initiated charge.
+        created_at = getattr(payment, "created_at", None)
+        if not isinstance(created_at, datetime):
+            logger.error(
+                "YooKassa auto-renew will not replay payment %s without a creation timestamp",
+                getattr(payment, "payment_id", None),
+            )
+            return RecurringChargeResult.failed("idempotence_window_unknown")
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=UTC)
+        else:
+            created_at = created_at.astimezone(UTC)
+        if datetime.now(UTC) - created_at >= _YOOKASSA_IDEMPOTENCE_WINDOW:
+            logger.warning(
+                "YooKassa auto-renew will not replay payment %s after the 24h idempotence window",
+                getattr(payment, "payment_id", None),
+            )
+            return RecurringChargeResult.failed("idempotence_window_expired")
+        return None
+
+    async def _mark_auto_renew_payment_failed(
+        self,
+        session: Any,
+        payment_db_id: int,
+        *,
+        yookassa_payment_id: str | None = None,
+    ) -> None:
+        try:
+            await payment_dal.update_payment_status_by_db_id(
+                session,
+                payment_db_id,
+                "failed_creation",
+                yookassa_payment_id,
+            )
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            logger.exception(
+                "YooKassa auto-renew failed to mark payment %s as failed_creation",
+                payment_db_id,
+            )
 
     async def create_payment(
         self,
@@ -140,6 +333,7 @@ class YooKassaService:
         payment_method_id: str | None = None,
         capture: bool = True,
         bind_only: bool = False,
+        idempotence_key: str | None = None,
     ) -> dict[str, Any] | None:
         if not self.configured:
             logger.error("YooKassa is not configured. Cannot create payment.")
@@ -176,12 +370,14 @@ class YooKassaService:
             }
 
         try:
-            builder = PaymentRequestBuilder()
-            builder.set_amount({"value": str(round(amount, 2)), "currency": currency.upper()})
-            # For binding cards only, do not capture and set minimal amount
+            # For binding cards only, do not capture and set the documented
+            # minimum amount before rendering both the payment and receipt.
             if bind_only:
                 capture = False
                 amount = max(amount, 1.00)
+            invoice_amount = str(format_decimal_amount(amount))
+            builder = PaymentRequestBuilder()
+            builder.set_amount({"value": invoice_amount, "currency": currency.upper()})
             builder.set_capture(capture)
             if not payment_method_id:
                 # Saved payment_method_id charges must omit confirmation per YooKassa API
@@ -204,7 +400,7 @@ class YooKassaService:
                 {
                     "description": description[:128],
                     "quantity": "1.00",
-                    "amount": {"value": str(round(amount, 2)), "currency": currency.upper()},
+                    "amount": {"value": invoice_amount, "currency": currency.upper()},
                     "vat_code": str(self.config.VAT_CODE),
                     "payment_mode": self.config.yk_receipt_payment_mode,
                     "payment_subject": self.config.yk_receipt_payment_subject,
@@ -218,7 +414,9 @@ class YooKassaService:
 
             builder.set_receipt(receipt_data_dict)
 
-            idempotence_key = str(uuid.uuid4())
+            idempotence_key = str(idempotence_key or uuid.uuid4()).strip()
+            if not idempotence_key:
+                idempotence_key = str(uuid.uuid4())
             payment_request = builder.build()
 
             logger.info(
@@ -231,7 +429,8 @@ class YooKassaService:
                 receipt_data_dict,
             )
 
-            response = await asyncio.to_thread(
+            response = await self._run_sdk_call(
+                "payment.create",
                 YooKassaPayment.create,
                 payment_request,
                 idempotence_key,
@@ -274,7 +473,8 @@ class YooKassaService:
         try:
             logger.info("Fetching payment info from YooKassa for ID: %s", payment_id_in_yookassa)
 
-            payment_info_yk = await asyncio.to_thread(
+            payment_info_yk = await self._run_sdk_call(
+                "payment.find_one",
                 YooKassaPayment.find_one,
                 payment_id_in_yookassa,
             )
@@ -346,7 +546,11 @@ class YooKassaService:
             logger.error("YooKassa is not configured. Cannot cancel payment.")
             return False
         try:
-            await asyncio.to_thread(YooKassaPayment.cancel, payment_id_in_yookassa)
+            await self._run_sdk_call(
+                "payment.cancel",
+                YooKassaPayment.cancel,
+                payment_id_in_yookassa,
+            )
             logger.info("Cancelled YooKassa payment %s", payment_id_in_yookassa)
             return True
         except Exception:

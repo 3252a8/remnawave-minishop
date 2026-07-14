@@ -82,6 +82,15 @@ async def _core_state_policy(ctx: PromoRedemptionContext) -> PromoRedemptionDeci
     )
     if has_pending:
         return PromoRedemptionDecision.deny("promo_code_pending_payment_exists")
+    pending_reservations = await promo_code_dal.count_pending_payments_with_promo(
+        ctx.session,
+        int(promo.promo_code_id),
+        exclude_payment_id=ctx.payment_id,
+    )
+    if int(getattr(promo, "current_activations", 0) or 0) + pending_reservations >= int(
+        getattr(promo, "max_activations", 0) or 0
+    ):
+        return PromoRedemptionDecision.deny("promo_code_exhausted")
     return PromoRedemptionDecision.allow()
 
 

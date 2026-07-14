@@ -81,6 +81,260 @@ def test_cryptopay_duplicate_success_webhook_does_not_finalize_again(monkeypatch
     asyncio.run(cryptopay_service.CryptoPayService._invoice_paid_handler(service, update, app))
 
 
+def test_cryptopay_webhook_rejects_invalid_invoice_amount_or_fiat(monkeypatch):
+    session = _FakeSession()
+    settings = SimpleNamespace(traffic_sale_mode=False, DEFAULT_CURRENCY_SYMBOL="RUB")
+
+    for amount, fiat in (
+        (None, "RUB"),
+        ("not-a-number", "RUB"),
+        ("1.00", "RUB"),
+        ("150.00", "USD"),
+    ):
+        payment = SimpleNamespace(
+            payment_id=77,
+            user_id=42,
+            status="pending_cryptopay",
+            amount=150.0,
+            currency="RUB",
+        )
+        update = SimpleNamespace(
+            payload=SimpleNamespace(
+                payload=json.dumps(
+                    {
+                        "user_id": "42",
+                        "subscription_months": "1",
+                        "payment_db_id": "77",
+                        "sale_mode": "subscription",
+                    }
+                ),
+                invoice_id=9001,
+                amount=amount,
+                asset=None,
+                fiat=fiat,
+            )
+        )
+        app = {
+            "async_session_factory": session,
+            "bot": SimpleNamespace(),
+            "settings": settings,
+            "i18n": None,
+            "subscription_service": SimpleNamespace(),
+            "referral_service": SimpleNamespace(),
+        }
+        claim_mock = AsyncMock(side_effect=AssertionError("invalid invoice must not claim"))
+        finalize_mock = AsyncMock(side_effect=AssertionError("invalid invoice must not finalize"))
+        monkeypatch.setattr(
+            cryptopay_service.payment_dal,
+            "get_payment_by_db_id",
+            AsyncMock(return_value=payment),
+        )
+        monkeypatch.setattr(
+            cryptopay_service.payment_dal,
+            "claim_payment_finalization",
+            claim_mock,
+        )
+        monkeypatch.setattr(cryptopay_service, "finalize_successful_payment", finalize_mock)
+
+        service = SimpleNamespace(
+            settings=settings,
+            config=SimpleNamespace(CURRENCY_TYPE="fiat"),
+        )
+        asyncio.run(cryptopay_service.CryptoPayService._invoice_paid_handler(service, update, app))
+
+        claim_mock.assert_not_awaited()
+        finalize_mock.assert_not_awaited()
+
+
+def test_cryptopay_webhook_validates_currency_type_before_finalization(monkeypatch):
+    session = _FakeSession()
+    settings = SimpleNamespace(traffic_sale_mode=False, DEFAULT_CURRENCY_SYMBOL="RUB")
+
+    for currency_type, payment_currency, payment_amount, invoice_amount, asset, fiat in (
+        ("fiat", "RUB", 150.123, "150.1230", None, "RUB"),
+        ("crypto", "BTC", 0.0001, "0.00010000", "BTC", None),
+    ):
+        payment = SimpleNamespace(
+            payment_id=77,
+            user_id=42,
+            status="pending_cryptopay",
+            amount=payment_amount,
+            currency=payment_currency,
+        )
+        update = SimpleNamespace(
+            payload=SimpleNamespace(
+                payload=json.dumps(
+                    {
+                        "user_id": "42",
+                        "subscription_months": "1",
+                        "payment_db_id": "77",
+                        "sale_mode": "subscription",
+                    }
+                ),
+                invoice_id=9001,
+                amount=invoice_amount,
+                asset=asset,
+                fiat=fiat,
+            )
+        )
+        app = {
+            "async_session_factory": session,
+            "bot": SimpleNamespace(),
+            "settings": settings,
+            "i18n": None,
+            "subscription_service": SimpleNamespace(),
+            "referral_service": SimpleNamespace(),
+        }
+        claim_mock = AsyncMock(return_value=payment)
+        finalize_mock = AsyncMock(return_value=SimpleNamespace())
+        monkeypatch.setattr(
+            cryptopay_service.payment_dal,
+            "get_payment_by_db_id",
+            AsyncMock(return_value=payment),
+        )
+        monkeypatch.setattr(
+            cryptopay_service.payment_dal,
+            "claim_payment_finalization",
+            claim_mock,
+        )
+        monkeypatch.setattr(cryptopay_service, "finalize_successful_payment", finalize_mock)
+
+        service = SimpleNamespace(
+            settings=settings,
+            config=SimpleNamespace(CURRENCY_TYPE=currency_type),
+        )
+        asyncio.run(cryptopay_service.CryptoPayService._invoice_paid_handler(service, update, app))
+
+        claim_mock.assert_awaited_once_with(session, 77, provider_payment_id="9001")
+        request = finalize_mock.await_args.args[0]
+        assert request.amount == payment_amount
+        assert request.currency == payment_currency
+
+
+def test_cryptopay_webhook_uses_stored_order_units_instead_of_invoice_payload(monkeypatch):
+    session = _FakeSession()
+    settings = SimpleNamespace(traffic_sale_mode=False, DEFAULT_CURRENCY_SYMBOL="RUB")
+    payment = SimpleNamespace(
+        payment_id=77,
+        user_id=42,
+        status="pending_cryptopay",
+        amount=150.0,
+        currency="RUB",
+        sale_mode="hwid_devices@standard",
+        subscription_duration_months=None,
+        purchased_hwid_devices=1,
+        purchased_gb=None,
+    )
+    update = SimpleNamespace(
+        payload=SimpleNamespace(
+            payload=json.dumps(
+                {
+                    "user_id": "42",
+                    "subscription_months": "99",
+                    "payment_db_id": "77",
+                    "sale_mode": "subscription",
+                }
+            ),
+            invoice_id=9001,
+            amount="150.00",
+            asset=None,
+            fiat="RUB",
+        )
+    )
+    app = {
+        "async_session_factory": session,
+        "bot": SimpleNamespace(),
+        "settings": settings,
+        "i18n": None,
+        "subscription_service": SimpleNamespace(),
+        "referral_service": SimpleNamespace(),
+    }
+    claim_mock = AsyncMock(return_value=payment)
+    finalize_mock = AsyncMock(return_value=SimpleNamespace())
+    monkeypatch.setattr(
+        cryptopay_service.payment_dal,
+        "get_payment_by_db_id",
+        AsyncMock(return_value=payment),
+    )
+    monkeypatch.setattr(
+        cryptopay_service.payment_dal,
+        "claim_payment_finalization",
+        claim_mock,
+    )
+    monkeypatch.setattr(cryptopay_service, "finalize_successful_payment", finalize_mock)
+
+    service = SimpleNamespace(
+        settings=settings,
+        config=SimpleNamespace(CURRENCY_TYPE="fiat"),
+    )
+    asyncio.run(cryptopay_service.CryptoPayService._invoice_paid_handler(service, update, app))
+
+    claim_mock.assert_awaited_once_with(session, 77, provider_payment_id="9001")
+    request = finalize_mock.await_args.args[0]
+    assert request.user_id == 42
+    assert request.sale_mode == "hwid_devices@standard"
+    assert request.months == 1
+    assert request.traffic_amount == 1.0
+
+
+def test_cryptopay_webhook_rejects_invoice_for_different_user(monkeypatch):
+    session = _FakeSession()
+    settings = SimpleNamespace(traffic_sale_mode=False, DEFAULT_CURRENCY_SYMBOL="RUB")
+    payment = SimpleNamespace(
+        payment_id=77,
+        user_id=42,
+        status="pending_cryptopay",
+        amount=150.0,
+        currency="RUB",
+    )
+    update = SimpleNamespace(
+        payload=SimpleNamespace(
+            payload=json.dumps(
+                {
+                    "user_id": "7",
+                    "subscription_months": "1",
+                    "payment_db_id": "77",
+                    "sale_mode": "subscription",
+                }
+            ),
+            invoice_id=9001,
+            amount="150.00",
+            asset=None,
+            fiat="RUB",
+        )
+    )
+    app = {
+        "async_session_factory": session,
+        "bot": SimpleNamespace(),
+        "settings": settings,
+        "i18n": None,
+        "subscription_service": SimpleNamespace(),
+        "referral_service": SimpleNamespace(),
+    }
+    claim_mock = AsyncMock(side_effect=AssertionError("wrong owner must not be claimed"))
+    finalize_mock = AsyncMock(side_effect=AssertionError("wrong owner must not finalize"))
+    monkeypatch.setattr(
+        cryptopay_service.payment_dal,
+        "get_payment_by_db_id",
+        AsyncMock(return_value=payment),
+    )
+    monkeypatch.setattr(
+        cryptopay_service.payment_dal,
+        "claim_payment_finalization",
+        claim_mock,
+    )
+    monkeypatch.setattr(cryptopay_service, "finalize_successful_payment", finalize_mock)
+
+    service = SimpleNamespace(
+        settings=settings,
+        config=SimpleNamespace(CURRENCY_TYPE="fiat"),
+    )
+    asyncio.run(cryptopay_service.CryptoPayService._invoice_paid_handler(service, update, app))
+
+    claim_mock.assert_not_awaited()
+    finalize_mock.assert_not_awaited()
+
+
 def test_severpay_duplicate_success_webhook_does_not_finalize_again(monkeypatch):
     session = _FakeSession()
     payment = SimpleNamespace(

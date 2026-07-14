@@ -211,11 +211,12 @@ def test_signature_rejects_wrong_or_empty_signature():
 
 def test_webhook_success_finalizes_payment_and_saves_payment_method(monkeypatch):
     session = _FakeDbSession()
-    service = _webhook_service(session, _payment(), monkeypatch)
-    update_mock = AsyncMock()
+    payment = _payment()
+    service = _webhook_service(session, payment, monkeypatch)
+    claim_mock = AsyncMock(return_value=payment)
     finalize_mock = AsyncMock(return_value=SimpleNamespace())
     upsert_mock = AsyncMock()
-    monkeypatch.setattr(stripe.payment_dal, "update_provider_payment_and_status", update_mock)
+    monkeypatch.setattr(stripe.payment_dal, "claim_payment_finalization", claim_mock)
     monkeypatch.setattr(stripe_service, "finalize_successful_payment", finalize_mock)
     monkeypatch.setattr(stripe.user_billing_dal, "upsert_user_payment_method", upsert_mock)
 
@@ -225,7 +226,7 @@ def test_webhook_success_finalizes_payment_and_saves_payment_method(monkeypatch)
             "object": {
                 "id": "pi_1",
                 "amount": 15000,
-                "amount_received": 15000,
+                "amount_received": 15001,
                 "currency": "usd",
                 "customer": "cus_1",
                 "payment_method": "pm_1",
@@ -237,11 +238,10 @@ def test_webhook_success_finalizes_payment_and_saves_payment_method(monkeypatch)
     response = asyncio.run(StripeService.webhook_route(service, _FakeWebhookRequest(payload)))
 
     assert response.status == 200
-    update_mock.assert_awaited_once_with(
+    claim_mock.assert_awaited_once_with(
         session,
         88,
-        "pi_1",
-        stripe.PAYMENT_STATUS_PENDING_FINALIZATION,
+        provider_payment_id="pi_1",
     )
     upsert_mock.assert_awaited_once_with(
         session,
@@ -313,6 +313,58 @@ def test_webhook_amount_mismatch_is_rejected(monkeypatch):
     response = asyncio.run(StripeService.webhook_route(service, _FakeWebhookRequest(payload)))
 
     assert response.status == 400
+
+
+def test_webhook_missing_amount_is_rejected_before_finalization(monkeypatch):
+    session = _FakeDbSession()
+    service = _webhook_service(session, _payment(), monkeypatch)
+    claim_mock = AsyncMock(side_effect=AssertionError("missing amount must not claim payment"))
+    finalize_mock = AsyncMock(side_effect=AssertionError("missing amount must not finalize"))
+    monkeypatch.setattr(stripe.payment_dal, "claim_payment_finalization", claim_mock)
+    monkeypatch.setattr(stripe_service, "finalize_successful_payment", finalize_mock)
+
+    payload = {
+        "type": "payment_intent.succeeded",
+        "data": {
+            "object": {
+                "id": "pi_1",
+                "currency": "usd",
+                "metadata": {"payment_db_id": "88"},
+            }
+        },
+    }
+    response = asyncio.run(StripeService.webhook_route(service, _FakeWebhookRequest(payload)))
+
+    assert response.status == 400
+    assert response.body == b'{"error": "amount_mismatch"}'
+    claim_mock.assert_not_awaited()
+    finalize_mock.assert_not_awaited()
+
+
+def test_webhook_missing_currency_is_rejected_before_finalization(monkeypatch):
+    session = _FakeDbSession()
+    service = _webhook_service(session, _payment(), monkeypatch)
+    claim_mock = AsyncMock(side_effect=AssertionError("missing currency must not claim payment"))
+    finalize_mock = AsyncMock(side_effect=AssertionError("missing currency must not finalize"))
+    monkeypatch.setattr(stripe.payment_dal, "claim_payment_finalization", claim_mock)
+    monkeypatch.setattr(stripe_service, "finalize_successful_payment", finalize_mock)
+
+    payload = {
+        "type": "payment_intent.succeeded",
+        "data": {
+            "object": {
+                "id": "pi_1",
+                "amount_received": 15000,
+                "metadata": {"payment_db_id": "88"},
+            }
+        },
+    }
+    response = asyncio.run(StripeService.webhook_route(service, _FakeWebhookRequest(payload)))
+
+    assert response.status == 400
+    assert response.body == b'{"error": "currency_mismatch"}'
+    claim_mock.assert_not_awaited()
+    finalize_mock.assert_not_awaited()
 
 
 def test_webhook_failed_status_marks_payment_failed(monkeypatch):

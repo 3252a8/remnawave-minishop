@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import bot.app.web.subscription_webapp  # noqa: F401
 from bot.app.web.webapp import auth as auth_module
@@ -64,15 +64,26 @@ class WebAppReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
             app={"settings": settings, "subscription_service": subscription_service}
         )
 
-        result = await auth_module._apply_referral_welcome_bonus_if_needed(
-            request,
-            session,
-            user,
-            "ABC123",
-        )
+        with (
+            patch(
+                "bot.app.web.webapp.auth_referral.user_dal.lock_user_by_id",
+                AsyncMock(return_value=user),
+            ),
+            patch(
+                "bot.app.web.webapp.auth_referral.subscription_dal.has_any_subscription_for_user",
+                AsyncMock(return_value=False),
+            ) as has_history,
+        ):
+            result = await auth_module._apply_referral_welcome_bonus_if_needed(
+                request,
+                session,
+                user,
+                "ABC123",
+            )
 
         self.assertEqual(result, end_date)
-        subscription_service.has_active_subscription.assert_awaited_once_with(session, 42)
+        has_history.assert_awaited_once_with(session, 42)
+        subscription_service.has_active_subscription.assert_not_awaited()
         subscription_service.extend_active_subscription_days.assert_awaited_once_with(
             session,
             42,
@@ -107,13 +118,61 @@ class WebAppReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
             app={"settings": settings, "subscription_service": subscription_service}
         )
 
-        result = await auth_module._apply_referral_welcome_bonus_if_needed(
-            request,
-            session,
-            user,
-            "ABC123",
-        )
+        with patch(
+            "bot.app.web.webapp.auth_referral.user_dal.lock_user_by_id",
+            AsyncMock(return_value=user),
+        ):
+            result = await auth_module._apply_referral_welcome_bonus_if_needed(
+                request,
+                session,
+                user,
+                "ABC123",
+            )
 
         self.assertIsNone(result)
         subscription_service.has_active_subscription.assert_not_awaited()
+        subscription_service.extend_active_subscription_days.assert_not_awaited()
+
+    async def test_historical_subscription_blocks_referral_welcome_bonus(self):
+        settings = settings_stub(
+            REFERRAL_WELCOME_BONUS_DAYS=3,
+            REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED=True,
+            DISPOSABLE_EMAIL_DOMAINS="",
+            tariffs_config=SimpleNamespace(default_tariff="standard"),
+        )
+        user = SimpleNamespace(
+            user_id=42,
+            referred_by_id=7,
+            telegram_id=123456,
+            email="person@example.com",
+            referral_welcome_bonus_claimed_at=None,
+        )
+        session = SimpleNamespace()
+        subscription_service = SimpleNamespace(
+            has_active_subscription=AsyncMock(return_value=False),
+            extend_active_subscription_days=AsyncMock(),
+        )
+        request = SimpleNamespace(
+            app={"settings": settings, "subscription_service": subscription_service}
+        )
+
+        with (
+            patch(
+                "bot.app.web.webapp.auth_referral.user_dal.lock_user_by_id",
+                AsyncMock(return_value=user),
+            ),
+            patch(
+                "bot.app.web.webapp.auth_referral.subscription_dal.has_any_subscription_for_user",
+                AsyncMock(return_value=True),
+            ) as has_history,
+        ):
+            result = await auth_module._apply_referral_welcome_bonus_if_needed(
+                request,
+                session,
+                user,
+                "ABC123",
+            )
+
+        self.assertIsNone(result)
+        has_history.assert_awaited_once_with(session, 42)
         subscription_service.extend_active_subscription_days.assert_not_awaited()

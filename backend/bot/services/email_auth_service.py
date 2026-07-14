@@ -341,6 +341,7 @@ class EmailAuthService:
             email=normalized_email,
             purpose=purpose,
             target_user_id=target_user_id,
+            lock=True,
         )
         if not latest_code or latest_code.consumed_at is not None:
             return EmailCodeVerifyResult(ok=False, error="invalid_code")
@@ -414,6 +415,7 @@ class EmailAuthService:
         email: str,
         purpose: str,
         target_user_id: int | None,
+        lock: bool = False,
     ) -> EmailVerificationCode | None:
         stmt = (
             select(EmailVerificationCode)
@@ -427,6 +429,8 @@ class EmailAuthService:
             .order_by(EmailVerificationCode.created_at.desc())
             .limit(1)
         )
+        if lock:
+            stmt = stmt.with_for_update()
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -453,6 +457,7 @@ class EmailAuthService:
                 EmailVerificationCode.consumed_at.is_(None),
             )
             .limit(1)
+            .with_for_update()
         )
         result = await session.execute(stmt)
         record = result.scalar_one_or_none()

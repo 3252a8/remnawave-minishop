@@ -11,6 +11,7 @@ compatibility).
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from typing import cast as type_cast
 
 from sqlalchemy import String, and_, cast, delete, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -46,7 +47,9 @@ logger = logging.getLogger(__name__)
 
 
 class UserMergeConflictError(ValueError):
-    pass
+    def __init__(self, message: str, *, message_key: str | None = None) -> None:
+        super().__init__(message)
+        self.message_key = message_key
 
 
 async def _has_active_panel_subscription(
@@ -99,6 +102,89 @@ async def _get_active_subscription_for_user(
     )
 
 
+async def _lock_users_for_merge(
+    session: AsyncSession,
+    source_user_id: int,
+    target_user_id: int,
+) -> tuple[User | None, User | None]:
+    """Lock both merge participants in a stable order.
+
+    Telegram login payloads can be replayed during their validity window, so
+    account merging must be idempotent under concurrent requests.  Ordering
+    the row locks also prevents two opposite-direction merges from deadlocking.
+    """
+    user_ids = sorted({int(source_user_id), int(target_user_id)})
+    stmt = (
+        select(User)
+        .where(User.user_id.in_(user_ids))
+        .order_by(User.user_id)
+        .execution_options(populate_existing=True)
+        .with_for_update()
+    )
+    result = await session.execute(stmt)
+    users_by_id = {int(user.user_id): user for user in result.scalars().all()}
+    return users_by_id.get(int(source_user_id)), users_by_id.get(int(target_user_id))
+
+
+async def _accounts_share_promo_activation(
+    session: AsyncSession,
+    source_user_id: int,
+    target_user_id: int,
+) -> bool:
+    target_promo_ids = select(PromoCodeActivation.promo_code_id).where(
+        PromoCodeActivation.user_id == target_user_id
+    )
+    stmt = (
+        select(PromoCodeActivation.activation_id)
+        .where(
+            PromoCodeActivation.user_id == source_user_id,
+            PromoCodeActivation.promo_code_id.in_(target_promo_ids),
+        )
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none() is not None
+
+
+def _is_free_grant_subscription(subscription: Subscription) -> bool:
+    status = str(getattr(subscription, "status_from_panel", "") or "").strip().upper()
+    if status in {"TRIAL", "ACTIVE_BONUS", "ACTIVE_MERGED_FREE_GRANT"}:
+        return True
+    provider = str(getattr(subscription, "provider", "") or "").strip().lower()
+    try:
+        duration_months = int(getattr(subscription, "duration_months", 0) or 0)
+    except (TypeError, ValueError):
+        duration_months = 0
+    return provider in {"", "trial"} and duration_months <= 0
+
+
+def _merged_subscription_end(
+    source_subscription: Subscription,
+    target_subscription: Subscription,
+    *,
+    now: datetime,
+) -> tuple[datetime, str]:
+    source_end = type_cast(datetime, source_subscription.end_date)
+    if source_end.tzinfo is None:
+        source_end = source_end.replace(tzinfo=UTC)
+
+    target_end = type_cast(datetime, target_subscription.end_date)
+    if target_end.tzinfo is None:
+        target_end = target_end.replace(tzinfo=UTC)
+
+    if _is_free_grant_subscription(source_subscription) or _is_free_grant_subscription(
+        target_subscription
+    ):
+        # Merging identities must not add a separately claimed free trial or
+        # bonus on top of either another grant or paid time.  Keeping the later
+        # expiry preserves the best existing entitlement without stacking it.
+        return max(source_end, target_end), "ACTIVE_MERGED_FREE_GRANT"
+
+    source_remaining = max(timedelta(0), source_end - now)
+    base_end = target_end if target_end > now else now
+    return base_end + source_remaining, "ACTIVE_EXTENDED_BY_MERGE"
+
+
 async def merge_users(
     session: AsyncSession,
     *,
@@ -115,8 +201,7 @@ async def merge_users(
             raise ValueError("Target user not found.")
         return target
 
-    source = await get_user_by_id(session, source_user_id)
-    target = await get_user_by_id(session, target_user_id)
+    source, target = await _lock_users_for_merge(session, source_user_id, target_user_id)
     if not source or not target:
         raise ValueError("Both source and target users are required for merge.")
 
@@ -128,6 +213,11 @@ async def merge_users(
         and int(source.telegram_id) != int(target.telegram_id)
     ):
         raise UserMergeConflictError("Both accounts already have different Telegram IDs.")
+    if await _accounts_share_promo_activation(session, source_user_id, target_user_id):
+        raise UserMergeConflictError(
+            "Both accounts already redeemed the same one-time code.",
+            message_key="account_merge_duplicate_promo_conflict",
+        )
 
     source_panel_uuid = source.panel_user_uuid
     target_panel_uuid = target.panel_user_uuid
@@ -159,17 +249,16 @@ async def merge_users(
         if source_end.tzinfo is None:
             source_end = source_end.replace(tzinfo=UTC)
 
-        target_end = target_anchor_sub.end_date
-        if target_end.tzinfo is None:
-            target_end = target_end.replace(tzinfo=UTC)
-
-        source_remaining = max(timedelta(0), source_end - now)
-        if source_remaining > timedelta(0):
-            base_end = target_end if target_end > now else now
-            target_anchor_sub.end_date = base_end + source_remaining
+        if source_end > now:
+            merged_end, merged_status = _merged_subscription_end(
+                source_active_sub,
+                target_anchor_sub,
+                now=now,
+            )
+            target_anchor_sub.end_date = merged_end
             target_anchor_sub.last_notification_sent = None
             target_anchor_sub.is_active = True
-            target_anchor_sub.status_from_panel = "ACTIVE_EXTENDED_BY_MERGE"
+            target_anchor_sub.status_from_panel = merged_status
 
         source_active_sub.is_active = False
         source_active_sub.skip_notifications = True
@@ -283,16 +372,6 @@ async def merge_users(
         delete(UserPaymentMethod).where(
             UserPaymentMethod.user_id == source_user_id,
             UserPaymentMethod.provider_payment_method_id.in_(target_method_ids),
-        )
-    )
-
-    target_promo_ids = select(PromoCodeActivation.promo_code_id).where(
-        PromoCodeActivation.user_id == target_user_id
-    )
-    await session.execute(
-        delete(PromoCodeActivation).where(
-            PromoCodeActivation.user_id == source_user_id,
-            PromoCodeActivation.promo_code_id.in_(target_promo_ids),
         )
     )
 

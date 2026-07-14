@@ -14,9 +14,10 @@ import hashlib
 import hmac
 import json
 import unittest
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from bot.services import panel_webhook_service as pws
 from tests.support.settings_stub import settings_stub
@@ -268,6 +269,25 @@ class _FakeSessionFactory:
         return _FakeSessionContext()
 
 
+class _RenewalSessionContext:
+    def __init__(self, session) -> None:
+        self._session = session
+
+    async def __aenter__(self):
+        return self._session
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
+class _RenewalSessionFactory:
+    def __init__(self, session) -> None:
+        self._session = session
+
+    def __call__(self):
+        return _RenewalSessionContext(self._session)
+
+
 class HandleEventLoggingTests(unittest.IsolatedAsyncioTestCase):
     async def test_unsupported_event_is_logged_as_ignored(self):
         service = _make_service()
@@ -362,6 +382,86 @@ class HandleEventSupersessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sent, [])
         message = "\n".join(logs.output)
         self.assertIn("is superseded by a newer active subscription", message)
+
+
+class AutoRenewCycleGuardTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    def _active_subscription(*, end_date):
+        return SimpleNamespace(
+            subscription_id=244,
+            user_id=123,
+            end_date=end_date,
+            auto_renew_enabled=True,
+            provider="yookassa",
+        )
+
+    async def test_late_panel_event_after_renewal_does_not_charge_next_cycle(self):
+        service = _make_service()
+        renewal_session = SimpleNamespace(commit=AsyncMock(), rollback=AsyncMock())
+        service.async_session_factory = _RenewalSessionFactory(renewal_session)
+        subscription_service = SimpleNamespace(
+            charge_subscription_renewal=AsyncMock(return_value=True)
+        )
+        service.subscription_service = subscription_service
+        old_cycle_end = datetime(2099, 2, 1, 12, 0, tzinfo=UTC)
+        active_sub = self._active_subscription(end_date=datetime(2099, 3, 1, 12, 0, tzinfo=UTC))
+
+        with patch.object(
+            pws.subscription_dal,
+            "get_active_subscription_by_user_id",
+            AsyncMock(return_value=active_sub),
+        ):
+            handled = await service._try_autorenew_charge(
+                123,
+                "before_1d",
+                renewal_cycle_end=old_cycle_end,
+            )
+
+        self.assertTrue(handled)
+        subscription_service.charge_subscription_renewal.assert_not_awaited()
+        renewal_session.commit.assert_not_awaited()
+
+    async def test_current_panel_cycle_is_allowed_and_anchor_is_forwarded(self):
+        service = _make_service()
+        renewal_session = SimpleNamespace(commit=AsyncMock(), rollback=AsyncMock())
+        service.async_session_factory = _RenewalSessionFactory(renewal_session)
+        subscription_service = SimpleNamespace(
+            charge_subscription_renewal=AsyncMock(return_value=True)
+        )
+        service.subscription_service = subscription_service
+        cycle_end = datetime(2099, 2, 1, 12, 0, tzinfo=UTC)
+        active_sub = self._active_subscription(end_date=cycle_end)
+
+        with patch.object(
+            pws.subscription_dal,
+            "get_active_subscription_by_user_id",
+            AsyncMock(return_value=active_sub),
+        ):
+            handled = await service._try_autorenew_charge(
+                123,
+                "before_1d",
+                renewal_cycle_end=cycle_end,
+            )
+
+        self.assertTrue(handled)
+        subscription_service.charge_subscription_renewal.assert_awaited_once_with(
+            renewal_session,
+            active_sub,
+            renewal_cycle_end=cycle_end,
+        )
+        renewal_session.commit.assert_awaited_once()
+
+    async def test_missing_cycle_anchor_skips_charge_and_leaves_event_unhandled(self):
+        service = _make_service()
+        subscription_service = SimpleNamespace(
+            charge_subscription_renewal=AsyncMock(return_value=True)
+        )
+        service.subscription_service = subscription_service
+
+        handled = await service._try_autorenew_charge(123, "before_1d")
+
+        self.assertFalse(handled)
+        subscription_service.charge_subscription_renewal.assert_not_awaited()
 
 
 if __name__ == "__main__":  # pragma: no cover

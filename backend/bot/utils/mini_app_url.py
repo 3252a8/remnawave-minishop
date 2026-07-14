@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from config.settings import Settings
 from db.dal.subscription_dal import normalize_install_share_token
+
+_MINI_APP_START_PARAM_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+_TELEGRAM_BOT_USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{5,32}$")
 
 
 def append_query_params(base_url: str, params: dict[str, str]) -> str:
@@ -63,6 +67,23 @@ def subscription_mini_app_path_url(settings: Settings, path: str) -> str | None:
         return None
     normalized_path = f"/{str(path or '').lstrip('/')}"
     return f"{base.rstrip('/')}{normalized_path}"
+
+
+def subscription_main_mini_app_deep_link(
+    settings: Settings,
+    bot_username: str | None,
+    start_param: str,
+) -> str | None:
+    """Return a Telegram Main Mini App link for buttons outside private chats."""
+    if not str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip():
+        return None
+    username = str(bot_username or "").strip().lstrip("@")
+    parameter = str(start_param or "").strip()
+    if username == "your_bot_username" or not _TELEGRAM_BOT_USERNAME_RE.fullmatch(username):
+        return None
+    if not _MINI_APP_START_PARAM_RE.fullmatch(parameter):
+        return None
+    return f"https://t.me/{username}?startapp={parameter}"
 
 
 def subscription_mini_app_install_url(settings: Settings) -> str | None:

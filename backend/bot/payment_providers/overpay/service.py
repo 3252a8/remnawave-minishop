@@ -24,7 +24,6 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     CreatePaymentRequest,
     HttpClientMixin,
     LinkPaymentDescriptor,
@@ -413,7 +412,7 @@ class OverpayService(HttpClientMixin):
 
     def _amount_matches_payment(self, webhook_amount: Any, payment: Any) -> bool:
         if webhook_amount is None or str(webhook_amount).strip() == "":
-            return True
+            return False
         try:
             expected_minor = overpay_amount_to_minor_units(payment.amount, payment.currency)
         except ValueError:
@@ -422,7 +421,14 @@ class OverpayService(HttpClientMixin):
             received_minor = int(str(webhook_amount).strip())
         except (TypeError, ValueError):
             return False
-        return received_minor == expected_minor
+        return received_minor >= expected_minor
+
+    def _currency_matches_payment(self, webhook_currency: Any, payment: Any) -> bool:
+        if webhook_currency is None or str(webhook_currency).strip() == "":
+            return False
+        expected_currency = normalize_payment_currency_code(payment.currency, default="")
+        received_currency = normalize_payment_currency_code(webhook_currency, default="")
+        return bool(expected_currency and expected_currency == received_currency)
 
     async def _persist_recurring_payment_method(
         self,
@@ -512,6 +518,9 @@ class OverpayService(HttpClientMixin):
         webhook_amount = inner.get("amount")
         if webhook_amount is None:
             webhook_amount = order.get("amount")
+        webhook_currency = inner.get("currency")
+        if webhook_currency is None:
+            webhook_currency = order.get("currency")
         credit_card = inner.get("credit_card") or inner.get("card")
 
         if not tracking_id and not provider_payment_id:
@@ -558,19 +567,29 @@ class OverpayService(HttpClientMixin):
                     )
                     return web.Response(status=400, text="amount_mismatch")
 
+                if not self._currency_matches_payment(webhook_currency, payment):
+                    logger.error(
+                        "Overpay webhook: currency mismatch for payment %s "
+                        "(expected=%s, received=%s)",
+                        payment.payment_id,
+                        payment.currency,
+                        webhook_currency,
+                    )
+                    return web.Response(status=400, text="currency_mismatch")
+
                 try:
+                    payment = await payment_dal.claim_payment_finalization(
+                        session,
+                        payment.payment_id,
+                        provider_payment_id=resolved_provider_id,
+                    )
+                    if payment is None:
+                        return web.Response(text="OK")
                     await self._persist_recurring_payment_method(
                         session,
                         payment=payment,
                         credit_card=credit_card if isinstance(credit_card, Mapping) else None,
                     )
-                    await payment_dal.update_provider_payment_and_status(
-                        session,
-                        payment.payment_id,
-                        resolved_provider_id,
-                        PAYMENT_STATUS_PENDING_FINALIZATION,
-                    )
-                    await session.commit()
                 except Exception:
                     await session.rollback()
                     logger.exception(

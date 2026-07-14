@@ -25,6 +25,8 @@ async def _health(_request: web.Request) -> web.Response:
 class AuditLoggerPlugin(Plugin):
     name = "audit_logger"
     version = "0.1.0"
+    plugin_api_min_version = 1
+    plugin_api_max_version = 1
 
     def setup(self, ctx: PluginContext) -> None:
         ctx.services["audit_logger.enabled"] = True

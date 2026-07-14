@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -16,7 +17,7 @@ from bot.keyboards.inline.user_keyboards import (
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.utils.callback_answer import callback_message_or_none
-from db.dal import payment_dal
+from db.dal import payment_dal, subscription_dal
 from db.models import Payment
 
 from .common import (
@@ -134,7 +135,21 @@ async def quote_hwid_callback_parts(
     parts: PaymentCallbackParts,
     subscription_service: Any,
     currency: str = "rub",
+    settings: Any | None = None,
 ) -> tuple[PaymentCallbackParts | None, dict[str, Any] | None]:
+    if settings is not None:
+        quoted_parts = await _quote_configured_callback_parts(
+            session=session,
+            user_id=user_id,
+            parts=parts,
+            subscription_service=subscription_service,
+            settings=settings,
+            currency=currency,
+        )
+        if quoted_parts is None:
+            return None, None
+        parts = quoted_parts
+
     base = sale_mode_base(parts.sale_mode)
     if base == "subscription" and sale_mode_has_token(parts.sale_mode, HWID_RENEWAL_TOKEN):
         try:
@@ -177,6 +192,156 @@ async def quote_hwid_callback_parts(
         sale_mode=parts.sale_mode,
     )
     return quoted_parts, quote
+
+
+def _matching_package_price(packages: Any, units: float, currency: str) -> float | None:
+    if not math.isfinite(units) or units <= 0 or packages is None:
+        return None
+    try:
+        configured = packages.for_currency(currency)
+    except (AttributeError, KeyError, TypeError, ValueError):
+        configured = getattr(packages, currency, [])
+    for package in configured or []:
+        try:
+            if abs(float(package.gb) - units) < 0.000001:
+                price = float(package.price)
+                return price if math.isfinite(price) and price > 0 else None
+        except (AttributeError, TypeError, ValueError):
+            continue
+    return None
+
+
+def _matching_legacy_price(options: Any, units: float) -> float | None:
+    if not math.isfinite(units) or units <= 0:
+        return None
+    for configured_units, configured_price in (options or {}).items():
+        try:
+            if abs(float(configured_units) - units) < 0.000001:
+                price = float(configured_price)
+                return price if math.isfinite(price) and price > 0 else None
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+async def _quote_configured_callback_parts(
+    *,
+    session: AsyncSession,
+    user_id: int,
+    parts: PaymentCallbackParts,
+    subscription_service: Any,
+    settings: Any,
+    currency: str,
+) -> PaymentCallbackParts | None:
+    """Rebuild a Telegram callback quote from current server configuration.
+
+    Inline keyboard payloads are user-visible, long-lived input.  Their price
+    is display state, not an authority: old messages must not keep an outdated
+    tariff price and provider adapters must never persist a client-supplied
+    amount without re-quoting it here.
+    """
+    base = sale_mode_base(parts.sale_mode)
+    tariff_key = sale_mode_tariff_key(parts.sale_mode)
+    tariffs_config = settings.tariffs_config
+    normalized_currency = str(currency or "rub").strip().lower()
+
+    if tariffs_config is None:
+        if base == "subscription":
+            if bool(settings.traffic_sale_mode):
+                return None
+            months = parse_positive_int_units(parts.months)
+            if months is None:
+                return None
+            options = (
+                settings.stars_subscription_options
+                if normalized_currency == "stars"
+                else settings.subscription_options
+            )
+            price = _matching_legacy_price(options, float(months))
+            units: float = float(months)
+        elif base == "traffic":
+            options = (
+                settings.stars_traffic_packages
+                if normalized_currency == "stars"
+                else settings.traffic_packages
+            )
+            units = float(parts.months)
+            price = _matching_legacy_price(options, units)
+        else:
+            return None
+        if price is None:
+            return None
+        return PaymentCallbackParts(months=units, price=price, sale_mode=parts.sale_mode)
+
+    if base == "tariff_upgrade":
+        if not tariff_key or normalized_currency == "stars":
+            return None
+        try:
+            target = tariffs_config.require(tariff_key)
+        except Exception:
+            return None
+        active_sub = await subscription_dal.get_active_subscription_by_user_id(session, user_id)
+        if not active_sub:
+            return None
+        options = await subscription_service.calculate_tariff_switch_options_with_hwid(
+            session,
+            active_sub,
+            target,
+        )
+        price = float(options.get("paid_diff_rub") or 0)
+        if not math.isfinite(price) or price <= 0:
+            return None
+        return PaymentCallbackParts(months=1, price=price, sale_mode=parts.sale_mode)
+
+    if base in {"hwid_device", "hwid_devices", "hwid_devices_renewal"}:
+        return parts
+    if not tariff_key:
+        return None
+    try:
+        tariff = tariffs_config.require(tariff_key)
+    except Exception:
+        return None
+
+    if base == "subscription":
+        if tariff.billing_model != "period":
+            return None
+        months = parse_positive_int_units(parts.months)
+        if months is None or months not in tariff.enabled_periods:
+            return None
+        configured_price = tariff.period_price(months, normalized_currency)
+        if configured_price is None:
+            return None
+        price = float(configured_price)
+        units = float(months)
+    elif base in {"traffic_package", "topup", "premium_topup"}:
+        try:
+            units = float(parts.months)
+        except (TypeError, ValueError):
+            return None
+        if base == "traffic_package":
+            if tariff.billing_model != "traffic":
+                return None
+            packages = tariff.traffic_packages
+        else:
+            active_sub = await subscription_dal.get_active_subscription_by_user_id(session, user_id)
+            if not active_sub or active_sub.tariff_key != tariff.key:
+                return None
+            packages = (
+                tariff.premium_topup_packages
+                if base == "premium_topup"
+                else tariffs_config.topup_packages_for(tariff)
+            )
+            if base == "premium_topup" and not tariff.premium_squad_uuids:
+                return None
+        price = _matching_package_price(packages, units, normalized_currency)
+        if price is None:
+            return None
+    else:
+        return None
+
+    if not math.isfinite(price) or price <= 0:
+        return None
+    return PaymentCallbackParts(months=units, price=price, sale_mode=parts.sale_mode)
 
 
 def payment_link_message_text(

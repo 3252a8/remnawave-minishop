@@ -42,6 +42,11 @@ from db.dal import message_log_dal, user_dal
 
 from .auth import _require_admin_user_id
 from .broadcast import _resolve_panel_service
+from .broadcast_content import (
+    BroadcastValidationError,
+    resolve_broadcast_buttons,
+    telegram_markup_for_buttons,
+)
 from .common import _error, _ok
 from .response_schemas import (
     AdminBroadcastPreviewOut,
@@ -145,6 +150,15 @@ async def admin_broadcast_preview_route(request: web.Request) -> web.Response:
     rendered_subject = render(email_subject, escape=False) if email_subject else None
 
     if body.mode == "send_telegram":
+        try:
+            buttons = resolve_broadcast_buttons(
+                body.buttons,
+                settings=settings,
+                bot_username=bot_username,
+            )
+        except BroadcastValidationError as exc:
+            return _error(400, exc.code, exc.detail)
+
         admin_telegram_id = request.get("admin_telegram_id")
         if not admin_telegram_id:
             return _error(403, "admin_telegram_unavailable")
@@ -158,6 +172,7 @@ async def admin_broadcast_preview_route(request: web.Request) -> web.Response:
                 MessageContent(content_type="text", text=rendered_text),
                 parse_mode="HTML",
                 disable_web_page_preview=True,
+                reply_markup=telegram_markup_for_buttons(buttons),
             )
         except Exception as exc:
             logger.warning("Broadcast preview send failed: %s", exc)

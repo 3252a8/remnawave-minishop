@@ -7,7 +7,7 @@
 # > .build-version file > live git > "dev+unknown") so the admin sidebar always
 # shows a tag / sha even though the runtime images have no git tooling and no
 # .git tree.
-FROM alpine:3.20 AS version-builder
+FROM alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc AS version-builder
 RUN apk add --no-cache git
 WORKDIR /repo
 ARG REMNAWAVE_MINISHOP_BRANCH=""
@@ -16,14 +16,20 @@ ARG BRANCH_NAME=""
 ARG GITHUB_REF_NAME=""
 ARG CI_COMMIT_REF_NAME=""
 ARG REMNAWAVE_MINISHOP_BUILD_PROVENANCE="custom"
+ARG REMNAWAVE_MINISHOP_BUILD_TAG=""
+ARG REMNAWAVE_MINISHOP_BUILD_COMMIT=""
 COPY .git ./.git
 RUN set -eu; \
-    git config --global --add safe.directory /repo; \
-    tag=$(git describe --tags --abbrev=0 2>/dev/null || true); \
-    sha=$(git rev-parse --short HEAD 2>/dev/null || true); \
+    tag="$REMNAWAVE_MINISHOP_BUILD_TAG"; \
+    sha="$REMNAWAVE_MINISHOP_BUILD_COMMIT"; \
     branch="${REMNAWAVE_MINISHOP_BRANCH:-${GIT_BRANCH:-${BRANCH_NAME:-${GITHUB_REF_NAME:-${CI_COMMIT_REF_NAME:-}}}}}"; \
-    if [ -z "$branch" ]; then branch=$(git branch --show-current 2>/dev/null || true); fi; \
-    if [ -z "$branch" ]; then branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true); fi; \
+    if [ -z "$sha" ]; then \
+        git config --global --add safe.directory /repo; \
+        if [ -z "$tag" ]; then tag=$(git describe --tags --abbrev=0 2>/dev/null || true); fi; \
+        if [ -z "$sha" ]; then sha=$(git rev-parse --short HEAD 2>/dev/null || true); fi; \
+        if [ -z "$branch" ]; then branch=$(git branch --show-current 2>/dev/null || true); fi; \
+        if [ -z "$branch" ]; then branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true); fi; \
+    fi; \
     case "$branch" in \
         refs/heads/*) branch="${branch#refs/heads/}" ;; \
         refs/remotes/origin/*) branch="${branch#refs/remotes/origin/}" ;; \
@@ -55,17 +61,25 @@ RUN set -eu; \
     printf '%s' "$provenance" > /build-provenance
 
 
-FROM python:3.12-slim AS python-base
+FROM ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90 AS python-base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app/backend
+    PYTHONPATH=/app/backend \
+    VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
+    DEBIAN_FRONTEND=noninteractive apt-get upgrade -y; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+      gnupg \
+      python3.12 \
+      python3.12-venv; \
     . /etc/os-release; \
     install -d /usr/share/postgresql-common/pgdg; \
     curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
@@ -73,7 +87,8 @@ RUN set -eux; \
     echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
       > /etc/apt/sources.list.d/pgdg.list; \
     apt-get update; \
-    apt-get install -y --no-install-recommends postgresql-client-17; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postgresql-client-17; \
+    python3.12 -m venv "$VIRTUAL_ENV"; \
     # Keep curl in the runtime image: it backs the container healthcheck. A
     # spawned curl is far cheaper than booting a full Python interpreter every
     # interval. Only gnupg (build-time key import) is purged here.
@@ -100,7 +115,7 @@ COPY --from=version-builder /build-provenance /app/.build-provenance
 USER appuser
 
 
-FROM node:22-slim AS frontend-builder
+FROM node:22-slim@sha256:53ada149d435c38b14476cb57e4a7da73c15595aba79bd6971b547ceb6d018bf AS frontend-builder
 
 WORKDIR /app/frontend
 
@@ -148,9 +163,10 @@ LABEL org.opencontainers.image.source="https://github.com/3252a8/remnawave-minis
 CMD ["python", "backend/main_worker.py"]
 
 
-FROM nginx:1.27-alpine AS nginx-brotli-builder
+FROM nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 AS nginx-brotli-builder
 
 RUN set -eu; \
+    apk upgrade --no-cache; \
     apk add --no-cache \
         build-base \
         git \
@@ -175,7 +191,7 @@ RUN set -eu; \
     cp objs/ngx_http_brotli_static_module.so /brotli-modules/
 
 
-FROM nginx:1.27-alpine AS frontend
+FROM nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 AS frontend
 
 LABEL org.opencontainers.image.source="https://github.com/3252a8/remnawave-minishop" \
       org.opencontainers.image.title="remnawave-minishop-frontend" \
@@ -184,6 +200,7 @@ LABEL org.opencontainers.image.source="https://github.com/3252a8/remnawave-minis
 
 COPY --from=nginx-brotli-builder /brotli-modules/ngx_http_brotli_static_module.so /usr/lib/nginx/modules/
 RUN set -eu; \
+    apk upgrade --no-cache; \
     sed -i '1i load_module modules/ngx_http_brotli_static_module.so;' /etc/nginx/nginx.conf
 COPY deploy/docker/frontend/nginx.conf /etc/nginx/minishop/default.conf.template
 COPY deploy/docker/frontend/00-startup-banner.sh /docker-entrypoint.d/00-startup-banner.sh

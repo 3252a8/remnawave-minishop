@@ -4,6 +4,7 @@ import json
 import logging
 import time
 from collections import OrderedDict
+from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot, F, Router, types
@@ -31,7 +32,6 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     CreatePaymentRequest,
     CreateResult,
     HttpClientMixin,
@@ -39,12 +39,12 @@ from ..shared import (
     PaymentSuccessRequest,
     check_webhook_source_ip,
     constant_time_compare,
-    decimal_amounts_equal,
     finalize_successful_payment,
     first_value,
     format_decimal_amount,
     lookup_payment_by_order_or_provider_id,
     notify_user_payment_failed,
+    payment_amount_and_currency_match,
     payment_units_for_activation,
     run_callback_payment,
     run_reuse_webapp_payment,
@@ -66,8 +66,29 @@ logger = logging.getLogger(__name__)
 router = Router(name="user_subscription_payments_heleket_router")
 _LOG = "heleket"
 
+# ``paid_over`` is a completed invoice at Heleket. Fulfilment below always uses
+# stored order units, never any amount supplied by the webhook.
 _SUCCESS_STATUSES = {"paid", "paid_over"}
 _FAILED_STATUSES = {"fail", "wrong_amount", "cancel", "system_fail"}
+_HELEKET_FIAT_CURRENCIES = frozenset({"RUB", "USD", "EUR"})
+
+
+def _invoice_amount_places(currency: str | None) -> int | None:
+    """Return fiat precision, or exact precision for a crypto invoice currency."""
+    currency_code = normalize_payment_currency_code(currency, default="")
+    return 2 if currency_code in _HELEKET_FIAT_CURRENCIES else None
+
+
+def _format_invoice_amount(amount: Any, currency: str) -> str:
+    """Render crypto invoice amounts without silently truncating asset precision."""
+    places = _invoice_amount_places(currency)
+    if places is not None:
+        return str(format_decimal_amount(amount, places))
+
+    decimal_amount = Decimal(str(amount).strip())
+    if not decimal_amount.is_finite():
+        raise ValueError("invoice amount must be finite")
+    return format(decimal_amount, "f")
 
 
 class HeleketConfig(ProviderEnvConfig):
@@ -318,8 +339,14 @@ class HeleketService(HttpClientMixin):
                 "supported_currencies": list(supported),
             }
 
+        try:
+            invoice_amount = _format_invoice_amount(amount, currency_code)
+        except (InvalidOperation, TypeError, ValueError):
+            logger.error("Heleket create_payment_link: invalid amount %r", amount)
+            return False, {"message": "invalid_amount"}
+
         body: dict[str, Any] = {
-            "amount": str(format_decimal_amount(amount)),
+            "amount": invoice_amount,
             "currency": currency_code,
             "order_id": str(payment_db_id),
             "url_return": self.return_url,
@@ -497,7 +524,8 @@ class HeleketService(HttpClientMixin):
         status = str(payload.get("status") or "").strip().lower()
         order_id_raw = payload.get("order_id")
         amount_raw = payload.get("amount")
-        currency = payload.get("currency") or self.currency
+        currency = payload.get("currency")
+        is_final = payload.get("is_final")
 
         if not status or not (uuid_value or order_id_raw):
             logger.error("Heleket webhook: missing status or ids: %s", payload)
@@ -523,31 +551,46 @@ class HeleketService(HttpClientMixin):
             resolved_id = uuid_value or str(payment.payment_id)
 
             if status in _SUCCESS_STATUSES:
-                if amount_raw is not None:
-                    try:
-                        if not decimal_amounts_equal(amount_raw, payment.amount):
-                            logger.warning(
-                                "Heleket webhook: amount mismatch for payment %s "
-                                "(expected %s, got %s)",
-                                payment.payment_id,
-                                format_decimal_amount(payment.amount),
-                                format_decimal_amount(amount_raw),
-                            )
-                    except Exception as exc:
-                        logger.warning(
-                            "Heleket webhook: failed to compare amounts for %s: %s",
-                            payment.payment_id,
-                            exc,
-                        )
+                # Heleket sends a webhook for each status change.  A successful
+                # status alone is not a settlement signal until the provider
+                # explicitly marks the invoice final.
+                if is_final is not True:
+                    logger.info(
+                        "Heleket webhook: waiting for final success status for payment %s "
+                        "(status=%s, is_final=%r).",
+                        resolved_id,
+                        status,
+                        is_final,
+                    )
+                    return web.Response(status=202, text="payment_not_final")
+
+                if not payment_amount_and_currency_match(
+                    expected_amount=payment.amount,
+                    expected_currency=payment.currency,
+                    received_amount=amount_raw,
+                    received_currency=currency,
+                    places=_invoice_amount_places(payment.currency),
+                    allow_overpayment=True,
+                ):
+                    logger.error(
+                        "Heleket webhook: payment details mismatch for payment %s "
+                        "(expected=%s %s, received=%s %s)",
+                        payment.payment_id,
+                        payment.amount,
+                        payment.currency,
+                        amount_raw,
+                        currency,
+                    )
+                    return web.Response(status=400, text="payment_mismatch")
 
                 try:
-                    await payment_dal.update_provider_payment_and_status(
+                    payment = await payment_dal.claim_payment_finalization(
                         session,
                         payment.payment_id,
-                        resolved_id,
-                        PAYMENT_STATUS_PENDING_FINALIZATION,
+                        provider_payment_id=resolved_id,
                     )
-                    await session.commit()
+                    if payment is None:
+                        return web.Response(text="ok")
                 except Exception:
                     await session.rollback()
                     logger.exception(
@@ -572,7 +615,7 @@ class HeleketService(HttpClientMixin):
                         payment=payment,
                         user_id=payment.user_id,
                         amount=float(payment.amount),
-                        currency=str(currency),
+                        currency=payment.currency,
                         sale_mode=sale_mode,
                         months=payment_units,
                         traffic_amount=float(payment_units),

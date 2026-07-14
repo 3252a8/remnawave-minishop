@@ -714,6 +714,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
             method=method,
             base_amount=base_price,
             base_stars=base_stars_price,
+            lock_for_checkout=True,
         )
         if promo_error is not None:
             return promo_error.to_response()

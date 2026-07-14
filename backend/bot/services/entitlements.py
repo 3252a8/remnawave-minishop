@@ -23,6 +23,10 @@ RESERVED_ENTITLEMENT_KEYS = frozenset(
 )
 
 
+class EntitlementsProviderConflictError(RuntimeError):
+    """Raised when more than one plugin claims entitlement authority."""
+
+
 class EntitlementsProvider(Protocol):
     """Provider that answers whether a named feature is available."""
 

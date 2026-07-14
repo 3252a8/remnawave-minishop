@@ -186,7 +186,7 @@ def test_signature_uses_outsum_invid_and_signature_token():
 def test_webhook_success_accepts_commission_adjusted_amount(monkeypatch):
     session = _FakeDbSession()
     payment = _payment()
-    service = _make_service()
+    service = _make_service(PAYER_PAYS_COMMISSION=True)
     service.async_session_factory = session
     service.bot = SimpleNamespace()
     service.i18n = SimpleNamespace()
@@ -199,12 +199,10 @@ def test_webhook_success_accepts_commission_adjusted_amount(monkeypatch):
         assert provider_payment_id == "bill-1"
         return payment
 
-    update_mock = AsyncMock()
+    claim_mock = AsyncMock(return_value=payment)
     finalize_mock = AsyncMock(return_value=SimpleNamespace())
     monkeypatch.setattr(pally_service, "lookup_payment_by_order_or_provider_id", lookup_payment)
-    monkeypatch.setattr(
-        pally_service.payment_dal, "update_provider_payment_and_status", update_mock
-    )
+    monkeypatch.setattr(pally_service.payment_dal, "claim_payment_finalization", claim_mock)
     monkeypatch.setattr(pally_service, "finalize_successful_payment", finalize_mock)
 
     signature = service.calculate_signature("102.50", "77")
@@ -225,13 +223,81 @@ def test_webhook_success_accepts_commission_adjusted_amount(monkeypatch):
     )
 
     assert response.status == 200
-    update_mock.assert_awaited_once_with(
+    claim_mock.assert_awaited_once_with(
         session,
         77,
-        "bill-1",
-        pally_service.PAYMENT_STATUS_PENDING_FINALIZATION,
+        provider_payment_id="bill-1",
     )
     finalize_mock.assert_awaited_once()
+
+
+def test_amount_match_rejects_subcent_callback_amount():
+    service = _make_service()
+
+    assert not service._amount_matches_payment(
+        {"OutSum": "99.995"},
+        _payment(),
+        "success",
+    )
+
+
+def test_amount_match_keeps_documented_overpaid_policy():
+    service = _make_service()
+
+    assert service._amount_matches_payment(
+        {"OutSum": "101.00"},
+        _payment(),
+        "overpaid",
+    )
+
+
+def test_amount_match_rejects_unsigned_balance_and_commission_fields():
+    service = _make_service()
+
+    assert not service._amount_matches_payment(
+        {"OutSum": "1.00", "BalanceAmount": "100.00"},
+        _payment(),
+        "success",
+    )
+    assert not service._amount_matches_payment(
+        {"OutSum": "1.00", "Commission": "-99.00"},
+        _payment(),
+        "success",
+    )
+
+
+def test_webhook_rejects_currency_mismatch_before_claim(monkeypatch):
+    session = _FakeDbSession()
+    payment = _payment()
+    service = _make_service()
+    service.async_session_factory = session
+    claim_mock = AsyncMock(side_effect=AssertionError("currency mismatch must not be claimed"))
+    monkeypatch.setattr(
+        pally_service,
+        "lookup_payment_by_order_or_provider_id",
+        AsyncMock(return_value=payment),
+    )
+    monkeypatch.setattr(pally_service.payment_dal, "claim_payment_finalization", claim_mock)
+
+    signature = service.calculate_signature("100.00", "77")
+    response = asyncio.run(
+        service.webhook_route(
+            _FakeWebhookRequest(
+                {
+                    "InvId": "77",
+                    "OutSum": "100.00",
+                    "CurrencyIn": "USD",
+                    "TrsId": "bill-1",
+                    "Status": "SUCCESS",
+                    "SignatureValue": signature,
+                }
+            )
+        )
+    )
+
+    assert response.status == 400
+    assert response.text == "currency_mismatch"
+    claim_mock.assert_not_awaited()
 
 
 def test_webhook_rejects_wrong_signature(monkeypatch):

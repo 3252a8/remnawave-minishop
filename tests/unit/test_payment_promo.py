@@ -2,11 +2,27 @@ from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
-from bot.services.payment_promo import consume_payment_promo, load_payment_promo_effects
+from bot.services.payment_promo import (
+    PaymentPromoRedemptionError,
+    consume_payment_promo,
+    load_payment_promo_effects,
+)
 from bot.services.promo_effects import PromoEffects
 
 
 class PaymentPromoTests(IsolatedAsyncioTestCase):
+    async def test_load_payment_promo_effects_rejects_missing_attached_code(self):
+        payment = SimpleNamespace(promo_code_id=5)
+
+        with (
+            patch(
+                "bot.services.payment_promo.promo_code_dal.get_promo_code_by_id",
+                AsyncMock(return_value=None),
+            ),
+            self.assertRaises(PaymentPromoRedemptionError),
+        ):
+            await load_payment_promo_effects(AsyncMock(), payment)
+
     async def test_load_payment_promo_effects_prefers_frozen_payment_snapshot(self):
         promo = SimpleNamespace(
             promo_code_id=5,
@@ -41,9 +57,9 @@ class PaymentPromoTests(IsolatedAsyncioTestCase):
         self.assertEqual(effects.applies_to, "traffic")
         self.assertEqual(effects.min_traffic_gb, 10)
 
-    async def test_consume_payment_promo_honors_invoice_snapshot_terms(self):
+    async def test_consume_payment_promo_honors_reserved_invoice_after_global_exhaustion(self):
         session = AsyncMock()
-        promo = SimpleNamespace(promo_code_id=5)
+        promo = SimpleNamespace(promo_code_id=5, current_activations=10, max_activations=10)
         payment = SimpleNamespace(checkout_base_amount=100, checkout_discount_amount=25)
         activation = SimpleNamespace(activation_id=9)
         effects = PromoEffects(discount_percent=25, applies_to="subscription")
@@ -80,6 +96,35 @@ class PaymentPromoTests(IsolatedAsyncioTestCase):
         self.assertEqual(kwargs["charged_months"], 3)
         self.assertEqual(kwargs["granted_days"], 14)
 
+    async def test_consume_payment_promo_rejects_reuse_by_another_payment(self):
+        session = AsyncMock()
+        promo = SimpleNamespace(promo_code_id=5)
+        effects = PromoEffects(discount_percent=50, applies_to="subscription")
+
+        with (
+            patch(
+                "bot.services.payment_promo.promo_code_dal.get_user_activation_for_promo",
+                AsyncMock(return_value=SimpleNamespace(payment_id=76)),
+            ),
+            patch(
+                "bot.services.payment_promo.promo_code_dal.consume_promo_activation",
+                AsyncMock(),
+            ) as consume_activation,
+            self.assertRaises(PaymentPromoRedemptionError),
+        ):
+            await consume_payment_promo(
+                session=session,
+                user_id=42,
+                promo_model=promo,
+                effects=effects,
+                payment_id=77,
+                sale_mode_base="subscription",
+                months=1,
+                traffic_gb=None,
+            )
+
+        consume_activation.assert_not_awaited()
+
     async def test_consume_payment_promo_rejects_bonus_only_for_traffic(self):
         session = AsyncMock()
         promo = SimpleNamespace(promo_code_id=5)
@@ -94,8 +139,9 @@ class PaymentPromoTests(IsolatedAsyncioTestCase):
                 "bot.services.payment_promo.promo_code_dal.consume_promo_activation",
                 AsyncMock(),
             ) as consume_activation,
+            self.assertRaises(PaymentPromoRedemptionError),
         ):
-            consumed = await consume_payment_promo(
+            await consume_payment_promo(
                 session=session,
                 user_id=42,
                 promo_model=promo,
@@ -106,5 +152,4 @@ class PaymentPromoTests(IsolatedAsyncioTestCase):
                 traffic_gb=10,
             )
 
-        self.assertFalse(consumed)
         consume_activation.assert_not_awaited()

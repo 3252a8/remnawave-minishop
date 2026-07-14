@@ -72,4 +72,27 @@ describe("broadcastStore", () => {
     const payload = JSON.parse(api.mock.calls[0][1].body);
     expect(payload.channels).toEqual(["email"]);
   });
+
+  it("sends broadcast buttons with Telegram preview requests", async () => {
+    const api = vi.fn().mockResolvedValue({
+      ok: true,
+      rendered_text: "Hello",
+      rendered_subject: null,
+      unknown_shortcodes: [],
+      length: 5,
+      sent: true,
+    });
+    const store = makeStore(api);
+    store.updateField({ broadcastText: "Hello" });
+    store.addButton();
+    store.updateButton(0, { label: "Open", url: "https://example.com" });
+
+    await store.sendPreview("send_telegram");
+
+    const payload = JSON.parse(api.mock.calls[0][1].body);
+    expect(api.mock.calls[0][0]).toBe("/admin/broadcast/preview");
+    expect(payload.buttons).toEqual([
+      { kind: "url", label: "Open", url: "https://example.com", promo_code: "" },
+    ]);
+  });
 });

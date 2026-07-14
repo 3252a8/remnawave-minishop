@@ -1865,6 +1865,8 @@ export interface components {
     };
     /** AdminBroadcastPreviewBody */
     AdminBroadcastPreviewBody: {
+      /** Buttons */
+      buttons?: components["schemas"]["AdminBroadcastButtonBody"][];
       /**
        * Email Subject
        * @default

@@ -2,6 +2,7 @@ import unittest
 
 from bot.utils.mini_app_url import (
     append_query_params,
+    subscription_main_mini_app_deep_link,
     subscription_mini_app_checkout_code_url,
     subscription_mini_app_install_url,
     subscription_mini_app_path_url,
@@ -112,6 +113,31 @@ class MiniAppUrlTests(unittest.TestCase):
             subscription_mini_app_trial_url(s),
             "https://app.example.com/webapp/trial",
         )
+
+    def test_subscription_main_mini_app_deep_link(self):
+        s = Settings(
+            _env_file=None,
+            BOT_TOKEN="x",
+            POSTGRES_USER="u",
+            POSTGRES_PASSWORD="p",
+            SUBSCRIPTION_MINI_APP_URL="https://app.example.com/webapp",
+        )
+        self.assertEqual(
+            subscription_main_mini_app_deep_link(s, "@demo_bot", "admin_ticket_42"),
+            "https://t.me/demo_bot?startapp=admin_ticket_42",
+        )
+
+    def test_subscription_main_mini_app_deep_link_requires_valid_configuration(self):
+        s = Settings(
+            _env_file=None,
+            BOT_TOKEN="x",
+            POSTGRES_USER="u",
+            POSTGRES_PASSWORD="p",
+            SUBSCRIPTION_MINI_APP_URL=None,
+        )
+        self.assertIsNone(subscription_main_mini_app_deep_link(s, "demo_bot", "admin_ticket_42"))
+        s.SUBSCRIPTION_MINI_APP_URL = "https://app.example.com"
+        self.assertIsNone(subscription_main_mini_app_deep_link(s, "demo_bot", "bad value"))
 
     def test_subscription_public_install_url_uses_origin(self):
         s = Settings(

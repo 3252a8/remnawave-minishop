@@ -22,7 +22,6 @@ import asyncio
 import contextlib
 import logging
 import platform
-import uuid
 from typing import Any
 
 import aiohttp
@@ -30,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.infra.redis import redis_lock
+from bot.services.installation_identity import get_or_create_installation_identity
 from bot.utils.app_version import (
     resolve_app_version,
     resolve_app_version_tag,
@@ -41,7 +41,6 @@ from db.dal import app_settings_dal, user_dal
 
 logger = logging.getLogger(__name__)
 
-INSTALLATION_ID_KEY = "TELEMETRY_INSTALLATION_ID"
 TELEMETRY_ENABLED_KEY = "TELEMETRY_ENABLED"
 HEARTBEAT_EVENT = "installation_heartbeat"
 INITIAL_DELAY_SECONDS = 300
@@ -123,7 +122,7 @@ class TelemetryWorker:
             async with self.session_factory() as session:
                 if not await self._is_enabled(session):
                     return
-                installation_id = await self._get_or_create_installation_id(session)
+                installation_id = await get_or_create_installation_identity(session)
                 payload = await self._build_payload(session, installation_id)
                 await session.commit()
             await self._send(payload)
@@ -136,19 +135,6 @@ class TelemetryWorker:
         if present:
             return bool(value)
         return bool(self.settings.TELEMETRY_ENABLED)
-
-    async def _get_or_create_installation_id(self, session: AsyncSession) -> str:
-        present, value = await app_settings_dal.get_override_value(session, INSTALLATION_ID_KEY)
-        if present and value:
-            return str(value)
-        installation_id = str(uuid.uuid4())
-        await app_settings_dal.upsert_override(
-            session,
-            key=INSTALLATION_ID_KEY,
-            value=installation_id,
-            updated_by=None,
-        )
-        return installation_id
 
     def _enabled_payment_providers(self) -> list[str]:
         try:

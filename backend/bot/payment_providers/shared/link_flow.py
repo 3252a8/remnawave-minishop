@@ -48,6 +48,7 @@ from .callbacks import (
 from .common import (
     build_payment_record_payload,
     create_webapp_payment_record,
+    detached_payment_snapshot,
     make_translator,
     payment_failed,
     payment_record_amounts,
@@ -232,6 +233,7 @@ async def run_callback_payment[ServiceT: LinkFlowService](
         parts=parts,
         subscription_service=service.subscription_service,
         currency=default_currency_key_for_settings(settings),
+        settings=settings,
     )
     if not parts:
         await notify_callback_parse_error(callback, translator)
@@ -292,6 +294,8 @@ async def run_callback_payment[ServiceT: LinkFlowService](
             since_minutes=reuse_since_minutes,
         )
     if reusable_payment is not None:
+        reusable_payment = detached_payment_snapshot(reusable_payment)
+        await session.rollback()
         reusable_url = await _reuse_payment(
             descriptor,
             service,

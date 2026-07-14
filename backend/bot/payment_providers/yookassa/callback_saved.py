@@ -248,6 +248,7 @@ async def pay_yk_use_saved_handler(
         parts=PaymentCallbackParts(months=months, price=price_rub, sale_mode=sale_mode),
         subscription_service=yookassa_service.subscription_service,
         currency=default_currency_key_for_settings(settings),
+        settings=settings,
     )
     if not quoted_parts:
         with contextlib.suppress(Exception):

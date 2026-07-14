@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import contextlib
 import hashlib
 import json
 import logging
 from collections.abc import Mapping
-from decimal import InvalidOperation
+from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qsl
 
@@ -30,7 +29,6 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     CreatePaymentRequest,
     HttpClientMixin,
     LinkPaymentDescriptor,
@@ -41,6 +39,7 @@ from ..shared import (
     format_decimal_amount,
     lookup_payment_by_order_or_provider_id,
     notify_user_payment_failed,
+    payment_amount_matches,
     payment_units_for_activation,
     run_callback_payment,
     run_reuse_webapp_payment,
@@ -465,35 +464,51 @@ class PallyService(HttpClientMixin):
     def _amount_matches_payment(
         self, payload: Mapping[str, Any], payment: Any, status: str
     ) -> bool:
-        candidates = [
-            payload.get("BalanceAmount"),
-            payload.get("balance_amount"),
-            payload.get("OutSum"),
-            payload.get("out_sum"),
-            payload.get("Amount"),
-            payload.get("amount"),
-        ]
-        out_sum = payload.get("OutSum") or payload.get("out_sum")
-        commission = payload.get("Commission") or payload.get("commission")
-        if out_sum is not None and commission is not None:
-            with contextlib.suppress(InvalidOperation, ValueError, TypeError):
-                candidates.append(
-                    format_decimal_amount(out_sum) - format_decimal_amount(commission)
-                )
+        out_sum = payload.get("OutSum")
+        if out_sum is None:
+            out_sum = payload.get("out_sum")
+        out_sum_decimal = self._strict_callback_amount(out_sum)
+        if out_sum_decimal is None:
+            return False
 
         expected = format_decimal_amount(getattr(payment, "amount", 0))
-        for candidate in candidates:
-            if candidate is None or str(candidate).strip() == "":
-                continue
-            try:
-                actual = format_decimal_amount(candidate)
-            except (InvalidOperation, ValueError, TypeError):
-                continue
-            if actual == expected:
-                return True
-            if status == "overpaid" and actual > expected:
-                return True
-        return False
+        if payment_amount_matches(
+            expected_amount=payment.amount,
+            received_amount=out_sum_decimal,
+        ):
+            return True
+        # The webhook signature covers OutSum, not BalanceAmount, Amount, or
+        # Commission.  When the configured bill asks the payer to cover fees,
+        # the signed OutSum may legitimately exceed the local invoice; the
+        # entitlement is still always the fixed local order.  OVERPAID has the
+        # same provider-documented treatment.
+        return bool(
+            out_sum_decimal > expected
+            and (status == "overpaid" or bool(self.config.PAYER_PAYS_COMMISSION))
+        )
+
+    @staticmethod
+    def _strict_callback_amount(value: Any) -> Decimal | None:
+        """Return a finite cent-precision callback amount without rounding it."""
+        if value is None or str(value).strip() == "":
+            return None
+        try:
+            amount = Decimal(str(value).strip())
+            if not amount.is_finite():
+                return None
+            rounded = format_decimal_amount(amount)
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+        return rounded if amount == rounded else None
+
+    @staticmethod
+    def _currency_matches_payment(payload: Mapping[str, Any], payment: Any) -> bool:
+        currency = payload.get("CurrencyIn")
+        if currency is None:
+            currency = payload.get("currency_in")
+        expected_currency = normalize_payment_currency_code(payment.currency, default="")
+        received_currency = normalize_payment_currency_code(currency, default="")
+        return bool(expected_currency and expected_currency == received_currency)
 
     async def _parse_webhook_payload(self, request: web.Request) -> dict[str, Any]:
         raw_body = await request.read()
@@ -553,6 +568,15 @@ class PallyService(HttpClientMixin):
                     logger.info("Pally webhook: payment %s already succeeded.", payment.payment_id)
                     return web.Response(text="OK")
 
+                if not self._currency_matches_payment(payload, payment):
+                    logger.error(
+                        "Pally webhook: currency mismatch for payment %s (expected=%s, payload=%s)",
+                        payment.payment_id,
+                        payment.currency,
+                        payload.get("CurrencyIn") or payload.get("currency_in"),
+                    )
+                    return web.Response(status=400, text="currency_mismatch")
+
                 if not self._amount_matches_payment(payload, payment, status):
                     logger.error(
                         "Pally webhook: amount mismatch for payment %s (expected=%s, payload=%s)",
@@ -563,13 +587,13 @@ class PallyService(HttpClientMixin):
                     return web.Response(status=400, text="amount_mismatch")
 
                 try:
-                    await payment_dal.update_provider_payment_and_status(
+                    payment = await payment_dal.claim_payment_finalization(
                         session,
                         payment.payment_id,
-                        resolved_provider_id,
-                        PAYMENT_STATUS_PENDING_FINALIZATION,
+                        provider_payment_id=resolved_provider_id,
                     )
-                    await session.commit()
+                    if payment is None:
+                        return web.Response(text="OK")
                 except Exception:
                     await session.rollback()
                     logger.exception(

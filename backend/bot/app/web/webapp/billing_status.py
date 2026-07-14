@@ -1,4 +1,5 @@
 import logging
+from types import SimpleNamespace
 from typing import Any
 
 from aiohttp import web
@@ -22,6 +23,7 @@ from bot.app.web.webapp.common import (
 )
 from bot.infra import events
 from bot.infra.event_payloads import PaymentCanceledPayload
+from bot.payment_providers.shared.common import detached_payment_snapshot
 from db.dal import payment_dal
 from db.models import Payment
 
@@ -43,7 +45,18 @@ def _yookassa_payment_payload_for_processing(payload: dict[str, Any]) -> dict[st
     return normalized
 
 
-def _payment_status_can_be_refreshed(payment: Payment) -> bool:
+def _payment_status_snapshot(payment: Any) -> SimpleNamespace:
+    return SimpleNamespace(
+        payment_id=payment.payment_id,
+        user_id=payment.user_id,
+        provider=payment.provider,
+        status=payment.status,
+        yookassa_payment_id=payment.yookassa_payment_id,
+        provider_payment_id=payment.provider_payment_id,
+    )
+
+
+def _payment_status_can_be_refreshed(payment: Any) -> bool:
     normalized = str(getattr(payment, "status", "") or "").lower()
     if normalized == "succeeded":
         return False
@@ -56,7 +69,7 @@ async def _refresh_yookassa_payment_status(
     request: web.Request,
     session: AsyncSession,
     payment: Payment,
-) -> Payment:
+) -> Any:
     if str(getattr(payment, "provider", "") or "").lower() != "yookassa":
         return payment
     if not _payment_status_can_be_refreshed(payment):
@@ -72,14 +85,18 @@ async def _refresh_yookassa_payment_status(
     ):
         return payment
 
+    payment_snapshot = _payment_status_snapshot(payment)
+    payment_id = payment_snapshot.payment_id
+    await session.rollback()
+
     try:
         provider_payload = await yookassa_service.get_payment_info(yookassa_payment_id)
     except Exception:
-        logger.exception("Failed to refresh YooKassa payment %s status", payment.payment_id)
-        return payment
+        logger.exception("Failed to refresh YooKassa payment %s status", payment_id)
+        return payment_snapshot
 
     if not provider_payload:
-        return payment
+        return payment_snapshot
 
     provider_payload = _yookassa_payment_payload_for_processing(provider_payload)
     provider_status = str(provider_payload.get("status") or "").lower()
@@ -91,9 +108,9 @@ async def _refresh_yookassa_payment_status(
         )
 
         async with payment_processing_lock:
-            current = await payment_dal.get_payment_by_db_id(session, payment.payment_id)
+            current = await payment_dal.get_payment_by_db_id(session, payment_id)
             if not current:
-                return payment
+                return payment_snapshot
             if current.status == "succeeded":
                 return current
             try:
@@ -115,10 +132,12 @@ async def _refresh_yookassa_payment_status(
                 await session.rollback()
                 logger.exception(
                     "Failed to process refreshed YooKassa payment %s",
-                    payment.payment_id,
+                    payment_id,
                 )
                 return current
-            return await payment_dal.get_payment_by_db_id(session, payment.payment_id) or current
+            return (
+                await payment_dal.get_payment_by_db_id(session, payment_id, fresh=True) or current
+            )
 
     if provider_status in {"canceled", "cancelled"}:
         from bot.payment_providers.yookassa import (
@@ -127,9 +146,9 @@ async def _refresh_yookassa_payment_status(
         )
 
         async with payment_processing_lock:
-            current = await payment_dal.get_payment_by_db_id(session, payment.payment_id)
+            current = await payment_dal.get_payment_by_db_id(session, payment_id)
             if not current:
-                return payment
+                return payment_snapshot
             if not _payment_status_can_be_refreshed(current):
                 return current
             try:
@@ -150,19 +169,21 @@ async def _refresh_yookassa_payment_status(
                 await session.rollback()
                 logger.exception(
                     "Failed to process refreshed cancelled YooKassa payment %s",
-                    payment.payment_id,
+                    payment_id,
                 )
                 return current
-            return await payment_dal.get_payment_by_db_id(session, payment.payment_id) or current
+            return (
+                await payment_dal.get_payment_by_db_id(session, payment_id, fresh=True) or current
+            )
 
-    return payment
+    return payment_snapshot
 
 
 async def _refresh_wata_payment_status(
     request: web.Request,
     session: AsyncSession,
     payment: Payment,
-) -> Payment:
+) -> Any:
     provider = str(getattr(payment, "provider", "") or "").strip().lower()
     if provider not in {"wata", "wata_crypto"}:
         return payment
@@ -177,11 +198,15 @@ async def _refresh_wata_payment_status(
     ):
         return payment
 
+    payment_snapshot = detached_payment_snapshot(payment)
+    payment_id = payment_snapshot.payment_id
+    await session.rollback()
+
     try:
-        return await wata_service.refresh_payment_status(session, payment)
+        return await wata_service.refresh_payment_status(session, payment_snapshot)
     except Exception:
-        logger.exception("Failed to refresh Wata payment %s status", payment.payment_id)
-        return payment
+        logger.exception("Failed to refresh Wata payment %s status", payment_id)
+        return payment_snapshot
 
 
 async def payment_status_route(request: web.Request) -> web.Response:

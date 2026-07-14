@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
 
   import AdminPanelLayout from "./AdminPanelLayout.svelte";
-  import { ADMIN_SECTION_GROUPS, ADMIN_SECTIONS } from "./sections/registry";
+  import { ADMIN_SECTION_GROUPS, ADMIN_SECTIONS, isAdminSectionVisible } from "./sections/registry";
   import { createAdminSectionComponentLoader, type DynamicComponent } from "./adminLazyComponents";
   import { createAdminStores, type AdminApi } from "./adminStores";
   import {
@@ -150,7 +150,7 @@
 
   const featureSet = $derived(new Set<string>((settingsStore.features || []) as string[]));
   const visibleSections: AdminSectionDescriptor[] = $derived(
-    ADMIN_SECTIONS.filter((section) => !section.feature || featureSet.has(section.feature))
+    ADMIN_SECTIONS.filter((section) => isAdminSectionVisible(section, featureSet))
   );
   const NAV_GROUPS: NavGroup[] = $derived(
     ADMIN_SECTION_GROUPS.map((group) => ({

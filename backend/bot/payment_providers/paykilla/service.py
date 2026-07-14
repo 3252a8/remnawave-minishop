@@ -19,17 +19,15 @@ from ..base import (
     provider_runtime_enabled,
 )
 from ..shared import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     HttpClientMixin,
     PaymentSuccessRequest,
     check_webhook_source_ip,
     constant_time_compare,
-    decimal_amounts_equal,
     finalize_successful_payment,
     first_value,
-    format_decimal_amount,
     lookup_payment_by_order_or_provider_id,
     notify_user_payment_failed,
+    payment_amount_matches,
     payment_units_for_activation,
 )
 from .config import (
@@ -49,6 +47,8 @@ from .config import (
     _signature_preview,
     _target_invoice_currency,
     _webhook_signature,
+    format_paykilla_amount,
+    paykilla_amount_places,
 )
 
 if TYPE_CHECKING:
@@ -237,14 +237,14 @@ class PaykillaService(HttpClientMixin):
                 "message": "invoice_amount_below_minimum",
                 "currency": currency,
                 "amount": str(amount),
-                "minimum": str(format_decimal_amount(minimum)),
+                "minimum": str(format_paykilla_amount(minimum, currency)),
             }
         if maximum is not None and amount > maximum:
             return {
                 "message": "invoice_amount_above_maximum",
                 "currency": currency,
                 "amount": str(amount),
-                "maximum": str(format_decimal_amount(maximum)),
+                "maximum": str(format_paykilla_amount(maximum, currency)),
             }
         return None
 
@@ -253,12 +253,12 @@ class PaykillaService(HttpClientMixin):
     ) -> tuple[Decimal, str]:
         payment_currency = normalize_payment_currency_code(payment_currency or self.currency)
         invoice_currency = _target_invoice_currency(self.config, payment_currency)
-        invoice_amount = format_decimal_amount(amount)
+        invoice_amount = format_paykilla_amount(amount, payment_currency)
         if invoice_currency == payment_currency:
             return invoice_amount, invoice_currency
 
         rate = await self._exchange_rate(payment_currency, invoice_currency)
-        converted_amount = format_decimal_amount(invoice_amount * rate)
+        converted_amount = format_paykilla_amount(invoice_amount * rate, invoice_currency)
         logger.info(
             "Paykilla invoice currency conversion: payment=%s %s, invoice=%s %s, rate=%s",
             invoice_amount,
@@ -277,19 +277,19 @@ class PaykillaService(HttpClientMixin):
             return None
         min_currency = _config_min_payment_currency(self.config)
         payment_currency = normalize_payment_currency_code(payment_currency)
-        payment_amount = format_decimal_amount(amount)
+        payment_amount = format_paykilla_amount(amount, payment_currency)
         if payment_currency == min_currency:
             comparable_amount = payment_amount
         else:
             rate = await self._exchange_rate(payment_currency, min_currency)
-            comparable_amount = format_decimal_amount(payment_amount * rate)
+            comparable_amount = format_paykilla_amount(payment_amount * rate, min_currency)
         if comparable_amount >= min_amount:
             return None
         return {
             "message": "payment_amount_below_minimum",
             "currency": payment_currency,
             "amount": str(payment_amount),
-            "minimum": str(format_decimal_amount(min_amount)),
+            "minimum": str(format_paykilla_amount(min_amount, min_currency)),
             "minimum_currency": min_currency,
             "converted_amount": str(comparable_amount),
         }
@@ -308,7 +308,7 @@ class PaykillaService(HttpClientMixin):
             "type": _invoice_type_for(self.config, currency_code),
             "purpose": invoice_text,
             "currency": currency_code,
-            "totalPrice": str(format_decimal_amount(amount)),
+            "totalPrice": str(format_paykilla_amount(amount, currency_code)),
             "paymentCurrencies": _payment_currencies(self.config),
             "clientOrderId": str(payment_db_id),
             "userPaysServiceFee": bool(self.config.USER_PAYS_SERVICE_FEE),
@@ -377,7 +377,7 @@ class PaykillaService(HttpClientMixin):
                 "Paykilla create_payment_link: invoice amount violates PayKilla limits "
                 "(details=%s, payment_amount=%s, payment_currency=%s)",
                 bounds_error,
-                format_decimal_amount(amount),
+                format_paykilla_amount(amount, currency_code),
                 currency_code,
             )
             return False, bounds_error
@@ -493,6 +493,109 @@ class PaykillaService(HttpClientMixin):
         except Exception:
             return None
 
+    async def _verify_success_invoice(
+        self,
+        *,
+        payment: Any,
+        invoice_id: str,
+        webhook_data: dict[str, Any],
+    ) -> tuple[bool, str]:
+        """Verify a paid webhook against the invoice held by PayKilla.
+
+        Local payments retain the price in the storefront currency, whereas a
+        PayKilla invoice may be converted into a configured invoice currency.
+        The provider invoice is therefore the durable source of the exact
+        amount and currency that must be present in a successful webhook.
+        """
+        invoice_id = str(invoice_id or "").strip()
+        if not invoice_id:
+            return False, "missing_invoice_id"
+
+        local_invoice_id = str(getattr(payment, "provider_payment_id", "") or "").strip()
+        if local_invoice_id and local_invoice_id != invoice_id:
+            logger.error(
+                "Paykilla webhook: invoice id mismatch for payment %s (expected=%s received=%s)",
+                payment.payment_id,
+                local_invoice_id,
+                invoice_id,
+            )
+            return False, "invoice_mismatch"
+
+        success, invoice = await self.get_invoice_details(invoice_id)
+        if not success:
+            logger.error(
+                "Paykilla webhook: cannot verify provider invoice %s for payment %s: %s",
+                invoice_id,
+                payment.payment_id,
+                invoice,
+            )
+            return False, "invoice_verification_unavailable"
+
+        if str(first_value(invoice, "id") or "") != invoice_id:
+            logger.error(
+                "Paykilla webhook: invoice details returned unexpected id for payment %s "
+                "(expected=%s received=%s)",
+                payment.payment_id,
+                invoice_id,
+                first_value(invoice, "id"),
+            )
+            return False, "invoice_mismatch"
+        if str(invoice.get("clientOrderId") or "") != str(payment.payment_id):
+            logger.error(
+                "Paykilla webhook: invoice client order mismatch for payment %s (received=%s)",
+                payment.payment_id,
+                invoice.get("clientOrderId"),
+            )
+            return False, "invoice_mismatch"
+
+        webhook_amount = first_value(webhook_data, "amount", "expectedAmount")
+        webhook_currency = str(webhook_data.get("currency") or "").strip()
+        invoice_amount = first_value(invoice, "totalPrice", "expectedAmount", "amount")
+        invoice_currency = str(invoice.get("currency") or "").strip()
+        if (
+            webhook_amount is None
+            or not webhook_currency
+            or invoice_amount is None
+            or not invoice_currency
+        ):
+            logger.error(
+                "Paykilla webhook: missing amount or currency while verifying payment %s "
+                "(webhook_amount=%s webhook_currency=%s invoice_amount=%s invoice_currency=%s)",
+                payment.payment_id,
+                webhook_amount,
+                webhook_currency,
+                invoice_amount,
+                invoice_currency,
+            )
+            return False, "missing_amount_or_currency"
+        if normalize_payment_currency_code(
+            webhook_currency, default=""
+        ) != normalize_payment_currency_code(
+            invoice_currency,
+            default="",
+        ):
+            logger.error(
+                "Paykilla webhook: currency mismatch for payment %s (invoice=%s webhook=%s)",
+                payment.payment_id,
+                invoice_currency,
+                webhook_currency,
+            )
+            return False, "currency_mismatch"
+        if not payment_amount_matches(
+            expected_amount=invoice_amount,
+            received_amount=webhook_amount,
+            places=paykilla_amount_places(invoice_currency),
+            allow_overpayment=True,
+        ):
+            logger.error(
+                "Paykilla webhook: amount mismatch for payment %s (invoice=%s webhook=%s)",
+                payment.payment_id,
+                invoice_amount,
+                webhook_amount,
+            )
+            return False, "amount_mismatch"
+        return True, ""
+
     def _verify_webhook_signature(self, request: web.Request, raw_body: bytes) -> bool:
         timestamp = str(request.headers.get("X-API-TIMESTAMP") or "").strip()
         signature = str(request.headers.get("X-API-SIGN") or "").strip().lower()
@@ -598,8 +701,6 @@ class PaykillaService(HttpClientMixin):
 
         invoice_id = str(data.get("id") or "").strip()
         client_order_id = data.get("clientOrderId")
-        amount_raw = data.get("amount") or data.get("expectedAmount")
-        invoice_currency = normalize_payment_currency_code(data.get("currency") or self.currency)
 
         if not (invoice_id or client_order_id):
             logger.error("Paykilla webhook: missing invoice ids: %s", payload)
@@ -625,40 +726,22 @@ class PaykillaService(HttpClientMixin):
             resolved_id = invoice_id or str(payment.payment_id)
 
             if event_type in _SUCCESS_EVENTS:
-                payment_currency = normalize_payment_currency_code(payment.currency)
-                if amount_raw is not None and invoice_currency == payment_currency:
-                    try:
-                        if not decimal_amounts_equal(amount_raw, payment.amount):
-                            logger.warning(
-                                "Paykilla webhook: amount mismatch for payment %s "
-                                "(expected %s, got %s)",
-                                payment.payment_id,
-                                format_decimal_amount(payment.amount),
-                                format_decimal_amount(amount_raw),
-                            )
-                    except Exception as exc:
-                        logger.warning(
-                            "Paykilla webhook: failed to compare amounts for %s: %s",
-                            payment.payment_id,
-                            exc,
-                        )
-                elif amount_raw is not None:
-                    logger.info(
-                        "Paykilla webhook: invoice amount is in %s while payment record is in %s; "
-                        "skipping direct amount comparison for payment %s.",
-                        invoice_currency,
-                        payment_currency,
-                        payment.payment_id,
-                    )
+                verified, verification_error = await self._verify_success_invoice(
+                    payment=payment,
+                    invoice_id=invoice_id,
+                    webhook_data=data,
+                )
+                if not verified:
+                    if verification_error == "invoice_verification_unavailable":
+                        return web.Response(status=503, text=verification_error)
+                    return web.Response(status=400, text=verification_error)
 
                 try:
-                    await payment_dal.update_provider_payment_and_status(
+                    claimed_payment = await payment_dal.claim_payment_finalization(
                         session,
                         payment.payment_id,
-                        resolved_id,
-                        PAYMENT_STATUS_PENDING_FINALIZATION,
+                        provider_payment_id=resolved_id,
                     )
-                    await session.commit()
                 except Exception:
                     await session.rollback()
                     logger.exception(
@@ -666,6 +749,10 @@ class PaykillaService(HttpClientMixin):
                         resolved_id,
                     )
                     return web.Response(status=500, text="processing_error")
+
+                if claimed_payment is None:
+                    return web.Response(text="ok")
+                payment = claimed_payment
 
                 sale_mode = payment.sale_mode or (
                     "traffic" if self.settings.traffic_sale_mode else "subscription"

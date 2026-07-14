@@ -23,7 +23,7 @@ from ..base import (
 )
 from ..shared import (
     create_webapp_payment_record,
-    decimal_amounts_equal,
+    payment_amount_and_currency_match,
     payment_link_response,
     payment_unavailable,
     payment_units_for_activation,
@@ -31,7 +31,6 @@ from ..shared import (
 )
 from ..shared.app_context import app_required
 from ..shared.success import (
-    PAYMENT_STATUS_PENDING_FINALIZATION,
     PaymentSuccessRequest,
     finalize_successful_payment,
 )
@@ -175,10 +174,6 @@ class QaPaymentService(BaseProviderService):
             if str(payment.provider or "").strip().lower() != QA_PROVIDER:
                 return web.json_response({"ok": False, "error": "provider_mismatch"}, status=400)
 
-            amount = data.get("amount")
-            if amount is not None and not decimal_amounts_equal(amount, payment.amount):
-                return web.json_response({"ok": False, "error": "amount_mismatch"}, status=400)
-
             if status in {"failed", "fail", "declined", "canceled", "cancelled"}:
                 try:
                     await payment_dal.update_provider_payment_and_status(
@@ -209,23 +204,46 @@ class QaPaymentService(BaseProviderService):
             if str(payment.status or "").strip().lower() == "succeeded":
                 return web.json_response({"ok": True, "status": "succeeded", "duplicate": True})
 
-            sale_mode = payment.sale_mode or "subscription"
-            payment_units = payment_units_for_activation(payment, sale_mode)
+            amount = data.get("amount")
+            currency = data.get("currency")
+            if not payment_amount_and_currency_match(
+                expected_amount=payment.amount,
+                expected_currency=payment.currency,
+                received_amount=amount,
+                received_currency=currency,
+                places=None,
+                allow_overpayment=True,
+            ):
+                logger.warning(
+                    "QA payment webhook: amount or currency mismatch for payment %s "
+                    "(expected=%s %s, got=%s %s)",
+                    payment.payment_id,
+                    payment.amount,
+                    payment.currency,
+                    amount,
+                    currency,
+                )
+                return web.json_response({"ok": False, "error": "amount_mismatch"}, status=400)
 
             try:
-                await payment_dal.update_provider_payment_and_status(
+                claimed_payment = await payment_dal.claim_payment_finalization(
                     session,
                     payment.payment_id,
-                    provider_payment_id,
-                    PAYMENT_STATUS_PENDING_FINALIZATION,
+                    provider_payment_id=provider_payment_id,
                 )
-                await session.commit()
             except Exception:
                 await session.rollback()
                 logger.exception(
                     "QA payment webhook failed to mark payment %s pending.", payment_id
                 )
                 return web.json_response({"ok": False, "error": "processing_error"}, status=500)
+
+            if claimed_payment is None:
+                return web.json_response({"ok": True, "status": "succeeded", "duplicate": True})
+            payment = claimed_payment
+
+            sale_mode = payment.sale_mode or "subscription"
+            payment_units = payment_units_for_activation(payment, sale_mode)
 
             outcome = await finalize_successful_payment(
                 PaymentSuccessRequest(

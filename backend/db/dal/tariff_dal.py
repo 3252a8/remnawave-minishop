@@ -130,6 +130,41 @@ async def get_hwid_device_entitlement_summary(
     }
 
 
+def _hwid_payment_component_amount(
+    *,
+    payment_amount: Any,
+    sale_mode: Any,
+    hwid_full_price: Any,
+    hwid_proration_ratio: Any,
+    checkout_base_amount: Any,
+) -> float:
+    try:
+        total_paid = max(0.0, float(payment_amount or 0))
+    except (TypeError, ValueError):
+        total_paid = 0.0
+    sale_mode_base = str(sale_mode or "").split("@", 1)[0].split("|", 1)[0]
+    if sale_mode_base != "subscription" or hwid_full_price is None:
+        return total_paid
+
+    try:
+        hwid_component = max(0.0, float(hwid_full_price))
+    except (TypeError, ValueError):
+        return total_paid
+    try:
+        proration_ratio = max(0.0, min(1.0, float(hwid_proration_ratio)))
+    except (TypeError, ValueError):
+        proration_ratio = 1.0
+    hwid_component *= proration_ratio
+
+    try:
+        checkout_base = max(0.0, float(checkout_base_amount or 0))
+    except (TypeError, ValueError):
+        checkout_base = 0.0
+    if checkout_base > 0 and total_paid < checkout_base:
+        hwid_component *= total_paid / checkout_base
+    return min(total_paid, hwid_component)
+
+
 async def get_hwid_device_value_entries(
     session: AsyncSession,
     *,
@@ -146,6 +181,10 @@ async def get_hwid_device_value_entries(
             HwidDevicePurchase.created_at,
             Payment.amount,
             Payment.currency,
+            Payment.sale_mode,
+            Payment.hwid_full_price,
+            Payment.hwid_proration_ratio,
+            Payment.checkout_base_amount,
         )
         .outerjoin(Payment, Payment.payment_id == HwidDevicePurchase.payment_id)
         .where(
@@ -164,7 +203,13 @@ async def get_hwid_device_value_entries(
             "valid_from": row[2],
             "valid_until": row[3],
             "created_at": row[4],
-            "amount": row[5],
+            "amount": _hwid_payment_component_amount(
+                payment_amount=row[5],
+                sale_mode=row[7],
+                hwid_full_price=row[8],
+                hwid_proration_ratio=row[9],
+                checkout_base_amount=row[10],
+            ),
             "currency": row[6],
         }
         for row in rows

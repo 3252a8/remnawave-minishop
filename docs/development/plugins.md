@@ -186,8 +186,10 @@ class ExamplePlugin(Plugin):
 `entitlements_provider()`. Активный provider отвечает на `has_feature(name)` и
 `features()`.
 
-Если несколько плагинов возвращают provider, выигрывает последний активный
-provider. Базовый provider ядра возвращает пустой набор features. Admin
+Если несколько плагинов возвращают provider, запуск завершается ошибкой
+конфигурации: entitlement authority должен быть ровно один. Базовый provider
+ядра возвращает пустой набор features, когда provider не вернул ни один
+плагин. Admin
 settings API отдаёт отсортированный список как `features: string[]`; админский
 frontend скрывает секции, у которых в descriptor указан `feature`, отсутствующий
 в этом списке.
@@ -218,13 +220,20 @@ export default {
   fallbackSubtitle: "Extension section",
   icon: Sparkles,
   component: ExampleSection,
-  feature: "example.admin",
+  requiredFeature: "example.admin",
+  visibleWhenLocked: true,
 };
 ```
 
 Registry сортирует extension-модули по пути, а descriptor'ы - по `group`,
 `order` и `id`, чтобы сборка была детерминированной. Если секция должна быть
-видна всегда, не указывайте `feature`.
+видна всегда, не указывайте `requiredFeature`.
+
+Новые extension descriptor'ы используют `requiredFeature` вместо legacy
+`feature`. Если `visibleWhenLocked: true`, секция остается в навигации без
+feature, чтобы сам extension-компонент отрисовал нейтральное locked-состояние.
+Эти поля управляют только frontend-discovery: серверная авторизация остается
+обязанностью extension route/API.
 
 ## Release Images
 

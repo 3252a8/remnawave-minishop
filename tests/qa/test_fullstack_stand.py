@@ -137,6 +137,23 @@ def _signed_json(payload: dict[str, Any]) -> tuple[bytes, str]:
     return body, signature
 
 
+async def _fetch_payment_amount_and_currency(payment_id: int) -> Record:
+    connection = await asyncpg.connect(DB_DSN)
+    try:
+        payment = await connection.fetchrow(
+            """
+            select amount, currency
+            from payments
+            where payment_id = $1
+            """,
+            payment_id,
+        )
+        assert payment is not None
+        return payment
+    finally:
+        await connection.close()
+
+
 async def _fetch_payment_and_latest_subscription(
     payment_id: int,
     user_id: int,
@@ -214,12 +231,15 @@ def test_qa_payment_webhook_activates_subscription(client: httpx.Client) -> None
     )
     payment_id = int(payment_data["payment_id"])
     assert payment_data["payment_url"]
+    payment_record = asyncio.run(_fetch_payment_amount_and_currency(payment_id))
 
     body, signature = _signed_json(
         {
             "payment_id": payment_id,
             "provider_payment_id": f"qa:{payment_id}:webhook",
             "status": "succeeded",
+            "amount": float(payment_record["amount"]),
+            "currency": str(payment_record["currency"]),
         }
     )
     webhook_data = _ok(

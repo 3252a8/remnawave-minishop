@@ -6,7 +6,6 @@ name: Docker build & push (reusable)
 #
 # Called by:
 #   - docker-dev.yml      (tag_mode: dev,     push: true)  on pushes to dev
-#   - docker-release.yml  (tag_mode: release, push: true)  on release tags
 #   - ci.yml              (tag_mode: dev,     push: false) on pull requests
 
 on:
@@ -27,8 +26,8 @@ on:
 
 # No permissions block here on purpose: a reusable workflow cannot request more
 # than its caller grants, so the token scope is set by each caller
-# (docker-dev.yml / docker-release.yml grant packages: write to push; ci.yml
-# only needs contents: read for a no-push build).
+# (docker-dev.yml grants packages: write to push; ci.yml only needs
+# contents: read for a no-push build).
 
 jobs:
   build:
@@ -55,13 +54,11 @@ jobs:
         id: version
         if: inputs.tag_mode == 'release'
         run: |
-          # On a tag push github.ref_name is the tag (e.g. v3.4.5); for a
-          # manual workflow_dispatch on a branch, fall back to the latest tag.
-          if [ "${{ github.ref_type }}" = "tag" ]; then
-            raw="${{ github.ref_name }}"
-          else
-            raw="$(git describe --tags --abbrev=0 2>/dev/null)"
+          if [ "${{ github.ref_type }}" != "tag" ]; then
+            echo "::error::Release builds require an explicit tag ref"
+            exit 1
           fi
+          raw="${{ github.ref_name }}"
           version="${raw#v}"
           if [ -z "$version" ]; then
             echo "::error::No git tag found to derive the release version from"
@@ -125,6 +122,8 @@ jobs:
           target: ${{ matrix.target }}
           platforms: linux/amd64
           push: ${{ inputs.push }}
+          pull: true
+          no-cache: ${{ inputs.tag_mode == 'release' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           # The Dockerfile's version-builder appends a "-<branch>" suffix to the
@@ -135,4 +134,5 @@ jobs:
             REMNAWAVE_MINISHOP_BUILD_PROVENANCE=${{ github.repository == '3252a8/remnawave-minishop' && 'official' || 'custom' }}
           cache-from: type=gha,scope=${{ matrix.target }}
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}
-          provenance: false
+          provenance: mode=max
+          sbom: true
