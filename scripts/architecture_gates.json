@@ -131,6 +131,40 @@
       "allowed_count": 0
     }
   },
+  "frontend_i18n_scope": {
+    "scopes": [
+      "frontend/src/App.svelte",
+      "frontend/src/webapp",
+      "frontend/src/lib/webapp",
+      "frontend/src/lib/components/patterns/webapp"
+    ],
+    "extensions": [
+      ".ts",
+      ".svelte"
+    ],
+    "allowlist": [
+      "frontend/src/**/*.test.ts",
+      "frontend/src/**/*.spec.ts",
+      "frontend/src/lib/webapp/mockApi/**",
+      "frontend/src/lib/webapp/previewMock/**"
+    ],
+    "allowed_prefixes": [
+      "wa_"
+    ],
+    "allowed_keys": [
+      "menu_server_status_button",
+      "menu_support_button"
+    ],
+    "locale_key_aliases": {
+      "wa_devices_disconnect_title": "wa_devices_disconnect",
+      "wa_install_link_copied": "wa_link_copied",
+      "wa_link_email_modal_title": "wa_settings_link_email_action"
+    },
+    "locale_files": [
+      "locales/en.json",
+      "locales/ru.json"
+    ]
+  },
   "type_ignore": {
     "scopes": [
       "backend/bot",

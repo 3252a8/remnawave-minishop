@@ -126,6 +126,125 @@ def test_cyrillic_fallback_guard_accepts_english_translation_fallback(
     assert "Architecture checks passed." in output
 
 
+def test_frontend_i18n_scope_guard_rejects_admin_key_in_webapp(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["frontend_i18n_scope"] = {
+        "scopes": ["frontend/src/webapp"],
+        "extensions": [".svelte"],
+        "allowlist": [],
+        "allowed_prefixes": ["wa_"],
+        "allowed_keys": [],
+        "locale_key_aliases": {},
+        "locale_files": ["locales/en.json", "locales/ru.json"],
+    }
+    _write(tmp_path, "locales/en.json", '{"admin_nav_title": "Admin panel"}')
+    _write(tmp_path, "locales/ru.json", '{"admin_nav_title": "Админ-панель"}')
+    _write(
+        tmp_path,
+        "frontend/src/webapp/Nav.svelte",
+        '<span>{t("admin_nav_title", {}, "Admin panel")}</span>\n',
+    )
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "[frontend-i18n-scope]" in output
+    assert "admin_nav_title" in output
+    assert "not included in the webapp translation scope" in output
+
+
+def test_frontend_i18n_scope_guard_requires_base_locale_keys(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["frontend_i18n_scope"] = {
+        "scopes": ["frontend/src/webapp"],
+        "extensions": [".svelte"],
+        "allowlist": [],
+        "allowed_prefixes": ["wa_"],
+        "allowed_keys": [],
+        "locale_key_aliases": {},
+        "locale_files": ["locales/en.json", "locales/ru.json"],
+    }
+    _write(tmp_path, "locales/en.json", '{"wa_nav_admin": "Admin panel"}')
+    _write(tmp_path, "locales/ru.json", "{}")
+    _write(
+        tmp_path,
+        "frontend/src/webapp/Nav.svelte",
+        '<span>{t("wa_nav_admin", {}, "Admin panel")}</span>\n',
+    )
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 1
+    assert "wa_nav_admin" in output
+    assert "missing from locales/ru.json" in output
+
+
+def test_frontend_i18n_scope_guard_accepts_localized_webapp_key(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["frontend_i18n_scope"] = {
+        "scopes": ["frontend/src/webapp"],
+        "extensions": [".svelte"],
+        "allowlist": [],
+        "allowed_prefixes": ["wa_"],
+        "allowed_keys": [],
+        "locale_key_aliases": {},
+        "locale_files": ["locales/en.json", "locales/ru.json"],
+    }
+    _write(tmp_path, "locales/en.json", '{"wa_nav_admin": "Admin panel"}')
+    _write(tmp_path, "locales/ru.json", '{"wa_nav_admin": "Админ-панель"}')
+    _write(
+        tmp_path,
+        "frontend/src/webapp/Nav.svelte",
+        '<span>{t("wa_nav_admin", {}, "Admin panel")}</span>\n',
+    )
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 0
+    assert "Architecture checks passed." in output
+
+
+def test_frontend_i18n_scope_guard_accepts_runtime_locale_alias(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = _base_config()
+    config["frontend_i18n_scope"] = {
+        "scopes": ["frontend/src/webapp"],
+        "extensions": [".svelte"],
+        "allowlist": [],
+        "allowed_prefixes": ["wa_"],
+        "allowed_keys": [],
+        "locale_key_aliases": {"wa_dialog_title": "wa_dialog"},
+        "locale_files": ["locales/en.json", "locales/ru.json"],
+    }
+    _write(tmp_path, "locales/en.json", '{"wa_dialog": "Dialog"}')
+    _write(tmp_path, "locales/ru.json", '{"wa_dialog": "Диалог"}')
+    _write(
+        tmp_path,
+        "frontend/src/webapp/Dialog.svelte",
+        '<h1>{t("wa_dialog_title", {}, "Dialog")}</h1>\n',
+    )
+
+    result, output = _run_check(tmp_path, monkeypatch, capsys, config)
+
+    assert result == 0
+    assert "Architecture checks passed." in output
+
+
 def test_cyrillic_source_guard_rejects_frontend_hardcoded_text(
     tmp_path,
     monkeypatch,

@@ -394,10 +394,16 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 "en": {
                     "menu_support_button": "Support",
                     "menu_server_status_button": "Server status",
+                    "wa_nav_admin": "Admin panel",
+                    "wa_promo_requires_checkout": "Apply this code at checkout.",
                     "admin_settings_title": "Admin settings",
-                }
+                },
+                "ru": {
+                    "wa_nav_admin": "Админ-панель",
+                    "wa_promo_requires_checkout": "Примените этот промокод при оплате.",
+                },
             },
-            base_locales_data={"en": {}},
+            base_locales_data={"en": {}, "ru": {}},
             reload_overrides_from_file=lambda: None,
         )
         request = SimpleNamespace(
@@ -419,6 +425,11 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(payload["i18n"]["en"]["menu_server_status_button"], "Server status")
         self.assertEqual(payload["i18n"]["en"]["menu_support_button"], "Support")
+        self.assertEqual(payload["i18n"]["ru"]["wa_nav_admin"], "Админ-панель")
+        self.assertEqual(
+            payload["i18n"]["ru"]["wa_promo_requires_checkout"],
+            "Примените этот промокод при оплате.",
+        )
         self.assertNotIn("admin_settings_title", payload["i18n"]["en"])
 
     def test_webapp_shell_preload_markup_includes_public_guide_fetch(self):

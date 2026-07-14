@@ -163,7 +163,7 @@ export function createActionsStore({
         state.promoCheckoutCode = stringField(payloadRecord.code) || code;
         state.promoCheckoutSummary = summary;
         state.promoStatus =
-          summary || t("promo_code_requires_checkout", {}, "Apply this code at checkout.");
+          summary || t("wa_promo_requires_checkout", {}, "Apply this code at checkout.");
         state.promoIsError = false;
         startCheckoutPromo(state.promoCheckoutCode);
         return;

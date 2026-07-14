@@ -149,6 +149,75 @@ def _frontend_cyrillic_fallbacks(text: str) -> list[int]:
     return lines
 
 
+def _frontend_translation_keys(text: str) -> list[tuple[int, str]]:
+    keys: list[tuple[int, str]] = []
+    for match in TRANSLATION_CALL_RE.finditer(text):
+        opening_parenthesis = match.end() - 1
+        call_end = _find_call_end(text, opening_parenthesis)
+        if call_end is None:
+            continue
+        arguments = _split_top_level_arguments(text[opening_parenthesis + 1 : call_end])
+        if not arguments:
+            continue
+        expression = arguments[0].strip()
+        if len(expression) < 2 or expression[0] not in {'"', "'", "`"}:
+            continue
+        if expression[-1] != expression[0]:
+            continue
+        keys.append((text.count("\n", 0, match.start()) + 1, expression[1:-1]))
+    return keys
+
+
+def _check_frontend_i18n_scope(cfg: dict, issues: list[str]) -> None:
+    rule = cfg.get("frontend_i18n_scope")
+    if not rule:
+        return
+
+    extensions = set(rule.get("extensions", []))
+    allowlist = rule.get("allowlist", [])
+    allowed_prefixes = tuple(str(prefix) for prefix in rule.get("allowed_prefixes", []))
+    allowed_keys = {str(key) for key in rule.get("allowed_keys", [])}
+    locale_key_aliases = {
+        str(key): str(value) for key, value in rule.get("locale_key_aliases", {}).items()
+    }
+    locale_keys: dict[str, set[str]] = {}
+    for locale_path in rule.get("locale_files", []):
+        path = ROOT / str(locale_path)
+        try:
+            messages = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            issues.append(f"[frontend-i18n-scope] Failed to load {locale_path}: {exc}")
+            continue
+        if not isinstance(messages, dict):
+            issues.append(f"[frontend-i18n-scope] {locale_path} must contain a JSON object")
+            continue
+        locale_keys[str(locale_path)] = {str(key) for key in messages}
+
+    for scope in rule.get("scopes", []):
+        for file in _iter_text_files(scope, extensions):
+            relative = _to_posix(file)
+            if _is_allowed(relative, allowlist):
+                continue
+            text = file.read_text(encoding="utf-8", errors="ignore")
+            for line, key in _frontend_translation_keys(text):
+                if key not in allowed_keys and not key.startswith(allowed_prefixes):
+                    issues.append(
+                        f"[frontend-i18n-scope] {relative}:{line} uses {key!r}, which is not "
+                        "included in the webapp translation scope"
+                    )
+                    continue
+                if "${" in key:
+                    continue
+                locale_key = locale_key_aliases.get(key, key)
+                for locale_path, available_keys in locale_keys.items():
+                    if locale_key not in available_keys:
+                        issues.append(
+                            f"[frontend-i18n-scope] {relative}:{line} uses {key!r}, whose "
+                            f"resolved key {locale_key!r} is "
+                            f"missing from {locale_path}"
+                        )
+
+
 def _python_cyrillic_literals(text: str) -> list[int]:
     tree = ast.parse(text)
     return sorted(
@@ -881,6 +950,7 @@ def main() -> int:
 
     _check_module_size(config, issues)
     _check_cyrillic_fallbacks(config, issues)
+    _check_frontend_i18n_scope(config, issues)
     _check_type_ignores(config, issues)
     _check_raw_json_response(config, issues)
     _check_loose_schemas(config, issues)

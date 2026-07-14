@@ -55,7 +55,7 @@
   }: Props = $props();
 
   const visibleNavItems = $derived(3 + (devicesEnabled ? 1 : 0) + (supportEnabled ? 1 : 0));
-  const adminLabel = $derived(t("admin_nav_title", {}, "Admin panel"));
+  const adminLabel = $derived(t("wa_nav_admin", {}, "Admin panel"));
 </script>
 
 <nav
