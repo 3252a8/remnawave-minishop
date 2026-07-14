@@ -14,11 +14,6 @@ on:
         description: "Stable draft release tag to build or retry"
         required: true
         type: string
-      allow_v354_metadata_reissue:
-        description: "One-time v3.5.4 metadata reissue (remove after use)"
-        required: true
-        default: false
-        type: boolean
 
 concurrency:
   group: docker-release-${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
@@ -35,7 +30,6 @@ jobs:
       commit: ${{ steps.release.outputs.commit }}
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.release.outputs.version }}
-      reissue: ${{ steps.release.outputs.reissue }}
       workflow_commit: ${{ steps.release.outputs.workflow_commit }}
     steps:
       - name: Checkout workflow revision
@@ -51,7 +45,6 @@ jobs:
           EVENT_REF_TYPE: ${{ github.ref_type }}
           EVENT_SHA: ${{ github.sha }}
           DISPATCH_RELEASE_TAG: ${{ inputs.release_tag }}
-          ALLOW_V354_METADATA_REISSUE: ${{ inputs.allow_v354_metadata_reissue }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -74,7 +67,6 @@ jobs:
           main_commit="$(git rev-parse origin/main)"
           workflow_commit="$(git rev-parse HEAD)"
           event_commit="$(git rev-parse "$EVENT_SHA")"
-          reissue=false
 
           if [ "$EVENT_NAME" = "push" ]; then
             if [ "$EVENT_REF_TYPE" != "tag" ]; then
@@ -94,14 +86,7 @@ jobs:
               echo "::error::Manual release runs must start from current main"
               exit 1
             fi
-
-            if [ "$ALLOW_V354_METADATA_REISSUE" = "true" ]; then
-              if [ "$release_tag" != "v3.5.4" ]; then
-                echo "::error::The one-time metadata reissue is limited to v3.5.4"
-                exit 1
-              fi
-              reissue=true
-            elif [ "$tag_commit" != "$main_commit" ]; then
+            if [ "$tag_commit" != "$main_commit" ]; then
               echo "::error::A draft retry must use a tag pointing exactly at current main"
               exit 1
             fi
@@ -112,11 +97,7 @@ jobs:
             exit 1
           fi
 
-          if [ "$reissue" = "true" ] && [ "$release_is_draft" != "false" ]; then
-            echo "::error::The v3.5.4 metadata reissue requires the existing published release"
-            exit 1
-          fi
-          if [ "$reissue" = "false" ] && [ "$release_is_draft" != "true" ]; then
+          if [ "$release_is_draft" != "true" ]; then
             echo "::error::Stable release assets may only be attached to a draft release"
             exit 1
           fi
@@ -126,7 +107,6 @@ jobs:
             echo "commit=$tag_commit"
             echo "tag=$release_tag"
             echo "version=$version"
-            echo "reissue=$reissue"
             echo "workflow_commit=$workflow_commit"
           } >> "$GITHUB_OUTPUT"
           echo "Release source: $release_tag ($tag_commit)"
@@ -389,7 +369,6 @@ jobs:
           RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
           RELEASE_TAG: ${{ needs.validate.outputs.tag }}
           RELEASE_VERSION: ${{ needs.validate.outputs.version }}
-          RELEASE_REISSUE: ${{ needs.validate.outputs.reissue }}
           WORKFLOW_COMMIT: ${{ needs.validate.outputs.workflow_commit }}
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -402,7 +381,6 @@ jobs:
             exit 1
           fi
 
-          : > previous-images.ndjson
           for metadata in "${metadata_files[@]}"; do
             target="$(jq -r '.target' "$metadata")"
             source="$(jq -r '.image' "$metadata")"
@@ -426,29 +404,12 @@ jobs:
 
             current_ghcr_digest="$(crane digest "$ghcr_version_ref" 2>/dev/null || true)"
             current_dockerhub_digest="$(crane digest "$dockerhub_version_ref" 2>/dev/null || true)"
-            if [ "$RELEASE_REISSUE" = "true" ]; then
-              if [ -z "$current_ghcr_digest" ] || [ -z "$current_dockerhub_digest" ]; then
-                echo "::error::The explicit reissue requires existing version tags for ${target}"
+            for existing_ref in "$current_ghcr_digest" "$current_dockerhub_digest"; do
+              if [ -n "$existing_ref" ] && [ "$existing_ref" != "$digest" ]; then
+                echo "::error::Refusing to overwrite an existing stable version tag for ${target}"
                 exit 1
               fi
-              jq -n \
-                --arg target "$target" \
-                --arg ghcr "$source" \
-                --arg ghcr_ref "${ghcr_version_ref}@${current_ghcr_digest}" \
-                --arg ghcr_digest "$current_ghcr_digest" \
-                --arg dockerhub "$destination" \
-                --arg dockerhub_ref "${dockerhub_version_ref}@${current_dockerhub_digest}" \
-                --arg dockerhub_digest "$current_dockerhub_digest" \
-                '{target: $target, ghcr: $ghcr, ghcr_ref: $ghcr_ref, ghcr_digest: $ghcr_digest, dockerhub: $dockerhub, dockerhub_ref: $dockerhub_ref, dockerhub_digest: $dockerhub_digest}' \
-                >> previous-images.ndjson
-            else
-              for existing_ref in "$current_ghcr_digest" "$current_dockerhub_digest"; do
-                if [ -n "$existing_ref" ] && [ "$existing_ref" != "$digest" ]; then
-                  echo "::error::Refusing to overwrite an existing stable version tag for ${target}"
-                  exit 1
-                fi
-              done
-            fi
+            done
 
             if [ "$current_ghcr_digest" != "$digest" ]; then
               crane tag "${source}@${digest}" "$RELEASE_VERSION"
@@ -489,15 +450,6 @@ jobs:
 
           jq -e '(.images | length == 3) and ([.images[].target] | sort == ["backend", "frontend", "worker"])' release-images.json > /dev/null
 
-          if [ "$RELEASE_REISSUE" = "true" ]; then
-            jq -s --arg tag "$RELEASE_TAG" --arg commit "$RELEASE_COMMIT" \
-              '{tag: $tag, commit: $commit, images: sort_by(.target)}' previous-images.ndjson > previous-release-images.json
-            jq --slurpfile previous previous-release-images.json \
-              '. + {reissue: {sequence: 1, previous_images: $previous[0].images}}' \
-              release-images.json > release-images.next.json
-            mv release-images.next.json release-images.json
-          fi
-
           current_latest_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name 2>/dev/null || true)"
           if [ -n "$current_latest_tag" ]; then
             current_latest_version="${current_latest_tag#v}"
@@ -506,8 +458,8 @@ jobs:
               echo "::error::Refusing to move latest backwards from ${current_latest_tag}"
               exit 1
             fi
-            if [ "$current_latest_version" = "$RELEASE_VERSION" ] && [ "$RELEASE_REISSUE" != "true" ]; then
-              echo "::error::Only the explicit metadata reissue may replace the current stable version"
+            if [ "$current_latest_version" = "$RELEASE_VERSION" ]; then
+              echo "::error::Refusing to replace the current stable version"
               exit 1
             fi
           fi
@@ -553,12 +505,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.validate.outputs.tag }}
-          RELEASE_REISSUE: ${{ needs.validate.outputs.reissue }}
         run: |
           set -euo pipefail
-          if [ "$RELEASE_REISSUE" = "true" ]; then
-            gh release upload "$RELEASE_TAG" release-images.json release-images.json.sha256 --clobber
-          else
-            gh release upload "$RELEASE_TAG" release-images.json release-images.json.sha256
-            gh release edit "$RELEASE_TAG" --draft=false --latest
-          fi
+          gh release upload "$RELEASE_TAG" release-images.json release-images.json.sha256 --repo "$GITHUB_REPOSITORY"
+          gh release edit "$RELEASE_TAG" --draft=false --latest --repo "$GITHUB_REPOSITORY"
