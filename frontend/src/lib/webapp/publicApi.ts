@@ -110,6 +110,7 @@ export type SubscriptionGuidesResponse = GetResponse<"/api/subscription-guides">
 export type PublicSubscriptionGuidesResponse =
   GetResponse<"/api/subscription-guides/public/{share_token}">;
 export type SubscriptionAutoRenewResponse = PostResponse<"/api/subscription/auto-renew">;
+export type SubscriptionReissueResponse = PostResponse<"/api/subscription/reissue">;
 export type SupportTicketsResponse = GetResponse<"/api/support/tickets">;
 export type SupportTicketCreateResponse = PostResponse<"/api/support/tickets">;
 export type SupportTicketDetailResponse = GetResponse<"/api/support/tickets/{id}">;
@@ -142,6 +143,7 @@ export type PlansViewedPath = "/plans/viewed";
 export type TariffChangePath = "/tariffs/change";
 export type TariffChangePaymentPath = "/tariffs/change-payment";
 export type SubscriptionAutoRenewPath = "/subscription/auto-renew";
+export type SubscriptionReissuePath = "/subscription/reissue";
 export type SubscriptionPromoQuotePath = "/subscription/quote-promo";
 export type ReferralWelcomeBonusClaimPath = "/referral/welcome-bonus/claim";
 export type PromoApplyPath = "/promo/apply";
@@ -365,6 +367,10 @@ export function buildTariffChangePaymentPath(): TariffChangePaymentPath {
 
 export function buildSubscriptionAutoRenewPath(): SubscriptionAutoRenewPath {
   return "/subscription/auto-renew";
+}
+
+export function buildSubscriptionReissuePath(): SubscriptionReissuePath {
+  return "/subscription/reissue";
 }
 
 export function buildSubscriptionPromoQuotePath(): SubscriptionPromoQuotePath {

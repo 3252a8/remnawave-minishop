@@ -1458,6 +1458,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/subscription/reissue": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Subscription Reissue */
+    post: operations["post_subscription_reissue_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/support/tickets": {
     parameters: {
       query?: never;
@@ -4782,6 +4799,11 @@ export interface components {
       /** Password Confirm */
       password_confirm: string;
     };
+    /**
+     * WebAppSubscriptionReissuePayload
+     * @description Empty body for the subscription reissue action (extra keys ignored).
+     */
+    WebAppSubscriptionReissuePayload: Record<string, never>;
     /** WebAppTariffChangePayload */
     WebAppTariffChangePayload: {
       /** Mode */
@@ -7530,6 +7552,7 @@ export interface operations {
               server_status_url?: string | null;
               subscription_guides_enabled?: boolean;
               subscription_purchase_description?: string;
+              subscription_reissue_enabled?: boolean;
               support_ticket_max_body_length?: number;
               support_ticket_max_subject_length?: number;
               support_tickets_enabled?: boolean;
@@ -7955,6 +7978,34 @@ export interface operations {
             reason?: string | null;
             reason_key?: string | null;
             valid: boolean;
+          };
+        };
+      };
+    };
+  };
+  post_subscription_reissue_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppSubscriptionReissuePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            email_sent: boolean;
+            /** @constant */
+            ok: true;
           };
         };
       };

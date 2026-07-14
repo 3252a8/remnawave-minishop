@@ -17,6 +17,8 @@ export type ShellState = {
   publicInstallSubscription: ShellRecord | null;
   publicInstallToken: string;
   autoRenewBusy: boolean;
+  subscriptionReissueDialogOpen: boolean;
+  subscriptionReissueBusy: boolean;
   activationSuccessDialogOpen: boolean;
   activationSuccessUseInstallGuides: boolean;
   telegramNotificationsBotOpenedAt: number;
@@ -55,6 +57,8 @@ export function createInitialShellState(overrides: ShellStateInit = {}): ShellSt
     publicInstallSubscription: null,
     publicInstallToken: "",
     autoRenewBusy: false,
+    subscriptionReissueDialogOpen: false,
+    subscriptionReissueBusy: false,
     activationSuccessDialogOpen: false,
     activationSuccessUseInstallGuides: false,
     telegramNotificationsBotOpenedAt: 0,

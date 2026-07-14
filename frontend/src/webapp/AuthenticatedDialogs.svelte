@@ -8,6 +8,7 @@
   import Dialog from "$components/ui/dialog.svelte";
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import PaymentDialogs from "./PaymentDialogs.svelte";
+  import SubscriptionReissueDialog from "./payment-dialogs/SubscriptionReissueDialog.svelte";
   import TariffDialogs from "./TariffDialogs.svelte";
   import type {
     PaymentMethod,
@@ -33,6 +34,11 @@
     devicesStore: DevicesStore;
     disconnectDevice: VoidAction;
     emailAuthEnabled?: boolean;
+    subscriptionReissueDialogOpen?: boolean;
+    subscriptionReissueBusy?: boolean;
+    confirmSubscriptionReissue?: VoidAction;
+    closeSubscriptionReissueDialog?: VoidAction;
+    openLinkEmailDialog?: VoidAction;
     hasMultipleTariffs?: boolean;
     methods?: PaymentMethod[];
     plans?: PlanView[];
@@ -63,6 +69,11 @@
     devicesStore,
     disconnectDevice,
     emailAuthEnabled = true,
+    subscriptionReissueDialogOpen = false,
+    subscriptionReissueBusy = false,
+    confirmSubscriptionReissue = () => {},
+    closeSubscriptionReissueDialog = () => {},
+    openLinkEmailDialog = () => {},
     hasMultipleTariffs = false,
     methods = [],
     plans = [],
@@ -165,6 +176,16 @@
   {termUnitLabel}
   verifyLinkEmailCode={accountStore.verifyLinkEmailCode}
   confirmSetPassword={accountStore.confirmSetPassword}
+/>
+
+<SubscriptionReissueDialog
+  {subscriptionReissueDialogOpen}
+  {subscriptionReissueBusy}
+  userEmail={user?.email || ""}
+  {confirmSubscriptionReissue}
+  {closeSubscriptionReissueDialog}
+  {openLinkEmailDialog}
+  {t}
 />
 
 <TariffDialogs

@@ -56,6 +56,9 @@
     devicesLoaded?: boolean;
     devicesStatus?: string;
     devicesStore: DevicesStore;
+    subscriptionReissueEnabled?: boolean;
+    subscriptionReissueBusy?: boolean;
+    openSubscriptionReissueDialog?: VoidAction;
     emailAuthEnabled?: boolean;
     emailLinkStatus?: string;
     goDevices: VoidAction;
@@ -162,6 +165,9 @@
     devicesLoaded = false,
     devicesStatus = "",
     devicesStore,
+    subscriptionReissueEnabled = false,
+    subscriptionReissueBusy = false,
+    openSubscriptionReissueDialog = () => {},
     emailAuthEnabled = true,
     emailLinkStatus = "",
     goDevices,
@@ -359,6 +365,9 @@
       {subscription}
       {loadDevices}
       openDeviceDisconnectDialog={devicesStore.openDeviceDisconnectDialog}
+      {subscriptionReissueEnabled}
+      {subscriptionReissueBusy}
+      {openSubscriptionReissueDialog}
       {openDeviceTopupModal}
       {t}
     />

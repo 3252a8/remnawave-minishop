@@ -15,6 +15,7 @@ export type AppDataView = {
   brand: WebappRecord;
   brandTitle: string;
   devicesEnabled: boolean;
+  subscriptionReissueEnabled: boolean;
   emailAuthEnabled: boolean;
   faviconBrand: WebappRecord;
   installGuidesEnabled: boolean;
@@ -71,6 +72,7 @@ export function computeAppDataView({
     brand,
     brandTitle,
     devicesEnabled: Boolean(appSettings.my_devices_enabled),
+    subscriptionReissueEnabled: Boolean(appSettings.subscription_reissue_enabled),
     emailAuthEnabled,
     faviconBrand,
     installGuidesEnabled: Boolean(appSettings.subscription_guides_enabled),
