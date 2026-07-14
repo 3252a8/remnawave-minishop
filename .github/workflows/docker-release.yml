@@ -1,67 +1,136 @@
 name: Release images
 
-# Release tags build immutable GHCR candidates first. All three candidate
-# digests must pass the blocking image scan before the exact same manifests are
-# promoted to version/latest tags in GHCR and Docker Hub.
+# Stable releases are assembled from a draft GitHub Release. Candidate images
+# receive an independently verifiable provenance record, pass blocking scans,
+# and are promoted serially before the draft is published with its digest lock.
 
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Stable draft release tag to build or retry"
+        required: true
+        type: string
+      allow_v354_metadata_reissue:
+        description: "One-time v3.5.4 metadata reissue (remove after use)"
+        required: true
+        default: false
+        type: boolean
 
 concurrency:
-  group: docker-release-${{ github.ref }}
+  group: docker-release-${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
   cancel-in-progress: false
 
 permissions:
   contents: read
-  packages: write
-  security-events: write
 
 jobs:
   validate:
-    name: Validate release tag
+    name: Validate release source
     runs-on: ubuntu-latest
     outputs:
       commit: ${{ steps.release.outputs.commit }}
+      tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.release.outputs.version }}
+      reissue: ${{ steps.release.outputs.reissue }}
+      workflow_commit: ${{ steps.release.outputs.workflow_commit }}
     steps:
-      - name: Checkout
+      - name: Checkout workflow revision
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Validate tag and commit
+      - name: Validate release tag, source, and release state
         id: release
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_REF_NAME: ${{ github.ref_name }}
+          EVENT_REF_TYPE: ${{ github.ref_type }}
+          EVENT_SHA: ${{ github.sha }}
+          DISPATCH_RELEASE_TAG: ${{ inputs.release_tag }}
+          ALLOW_V354_METADATA_REISSUE: ${{ inputs.allow_v354_metadata_reissue }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
-            echo "::error::Release publishing is allowed only for tag pushes"
-            exit 1
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            release_tag="$DISPATCH_RELEASE_TAG"
+          else
+            release_tag="$EVENT_REF_NAME"
           fi
 
-          tag_commit="$(git rev-parse "${GITHUB_REF_NAME}^{commit}")"
-          event_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
-          if [ "$tag_commit" != "$event_commit" ]; then
-            echo "::error::The pushed tag does not resolve to the event commit"
+          if ! [[ "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tag must use the stable vX.Y.Z form: $release_tag"
             exit 1
           fi
 
           git fetch origin main --no-tags
-          if ! git merge-base --is-ancestor "$tag_commit" origin/main; then
-            echo "::error::Release tag must point to a commit reachable from main"
+          git fetch origin "refs/tags/${release_tag}:refs/tags/${release_tag}" --force
+
+          tag_commit="$(git rev-list -n 1 "$release_tag")"
+          main_commit="$(git rev-parse origin/main)"
+          workflow_commit="$(git rev-parse HEAD)"
+          event_commit="$(git rev-parse "$EVENT_SHA")"
+          reissue=false
+
+          if [ "$EVENT_NAME" = "push" ]; then
+            if [ "$EVENT_REF_TYPE" != "tag" ]; then
+              echo "::error::Release publishing is allowed only for a tag push or a manual draft retry"
+              exit 1
+            fi
+            if [ "$release_tag" != "$EVENT_REF_NAME" ] || [ "$tag_commit" != "$event_commit" ]; then
+              echo "::error::The pushed tag does not resolve to the event commit"
+              exit 1
+            fi
+            if [ "$tag_commit" != "$main_commit" ]; then
+              echo "::error::A stable release tag must point exactly at current main"
+              exit 1
+            fi
+          else
+            if [ "$workflow_commit" != "$main_commit" ]; then
+              echo "::error::Manual release runs must start from current main"
+              exit 1
+            fi
+
+            if [ "$ALLOW_V354_METADATA_REISSUE" = "true" ]; then
+              if [ "$release_tag" != "v3.5.4" ]; then
+                echo "::error::The one-time metadata reissue is limited to v3.5.4"
+                exit 1
+              fi
+              reissue=true
+            elif [ "$tag_commit" != "$main_commit" ]; then
+              echo "::error::A draft retry must use a tag pointing exactly at current main"
+              exit 1
+            fi
+          fi
+
+          if ! release_is_draft="$(gh release view "$release_tag" --json isDraft --jq .isDraft)"; then
+            echo "::error::Create the GitHub Release as a draft before building its images"
             exit 1
           fi
 
-          version="${GITHUB_REF_NAME#v}"
-          if [ -z "$version" ]; then
-            echo "::error::Unable to derive the release version from ${GITHUB_REF_NAME}"
+          if [ "$reissue" = "true" ] && [ "$release_is_draft" != "false" ]; then
+            echo "::error::The v3.5.4 metadata reissue requires the existing published release"
+            exit 1
+          fi
+          if [ "$reissue" = "false" ] && [ "$release_is_draft" != "true" ]; then
+            echo "::error::Stable release assets may only be attached to a draft release"
             exit 1
           fi
 
-          echo "commit=$tag_commit" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Release commit: $tag_commit"
-          echo "Release version: $version"
+          version="${release_tag#v}"
+          {
+            echo "commit=$tag_commit"
+            echo "tag=$release_tag"
+            echo "version=$version"
+            echo "reissue=$reissue"
+            echo "workflow_commit=$workflow_commit"
+          } >> "$GITHUB_OUTPUT"
+          echo "Release source: $release_tag ($tag_commit)"
+          echo "Workflow revision: $workflow_commit"
 
       - name: Validate registry credentials
         env:
@@ -77,6 +146,11 @@ jobs:
     name: Build candidate (${{ matrix.target }})
     needs: validate
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -88,16 +162,19 @@ jobs:
           - target: frontend
             image: remnawave-minishop-frontend
     steps:
-      - name: Checkout
+      - name: Checkout validated release source
         uses: actions/checkout@v5
         with:
+          ref: ${{ needs.validate.outputs.commit }}
           fetch-depth: 0
 
       - name: Resolve candidate image
         id: candidate
         run: |
           owner="${GITHUB_REPOSITORY_OWNER,,}"
+          candidate_tag="candidate-${{ needs.validate.outputs.commit }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           echo "image=ghcr.io/${owner}/${{ matrix.image }}" >> "$GITHUB_OUTPUT"
+          echo "tag=$candidate_tag" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -120,27 +197,48 @@ jobs:
           push: true
           pull: true
           no-cache: true
-          tags: ${{ steps.candidate.outputs.image }}:sha-${{ needs.validate.outputs.commit }}
+          tags: ${{ steps.candidate.outputs.image }}:${{ steps.candidate.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.validate.outputs.commit }}
+            org.opencontainers.image.version=${{ needs.validate.outputs.version }}
+            org.opencontainers.image.ref.name=${{ needs.validate.outputs.tag }}
           build-args: |
             GITHUB_REF_NAME=main
             REMNAWAVE_MINISHOP_BUILD_PROVENANCE=${{ github.repository == '3252a8/remnawave-minishop' && 'official' || 'custom' }}
+            REMNAWAVE_MINISHOP_BUILD_TAG=${{ needs.validate.outputs.tag }}
+            REMNAWAVE_MINISHOP_BUILD_COMMIT=${{ needs.validate.outputs.commit }}
           provenance: mode=max
           sbom: true
+
+      - name: Attest candidate provenance
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ steps.candidate.outputs.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
 
       - name: Record candidate digest
         env:
           CANDIDATE_IMAGE: ${{ steps.candidate.outputs.image }}
+          CANDIDATE_TAG: ${{ steps.candidate.outputs.tag }}
           CANDIDATE_DIGEST: ${{ steps.build.outputs.digest }}
           RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
         run: |
+          set -euo pipefail
           mkdir -p release-metadata
           jq -n \
             --arg target "${{ matrix.target }}" \
             --arg name "${{ matrix.image }}" \
             --arg image "$CANDIDATE_IMAGE" \
+            --arg candidate_tag "$CANDIDATE_TAG" \
             --arg digest "$CANDIDATE_DIGEST" \
             --arg commit "$RELEASE_COMMIT" \
-            '{target: $target, name: $name, image: $image, digest: $digest, commit: $commit}' \
+            --arg tag "$RELEASE_TAG" \
+            --arg version "$RELEASE_VERSION" \
+            '{target: $target, name: $name, image: $image, candidate_tag: $candidate_tag, digest: $digest, commit: $commit, tag: $tag, version: $version}' \
             > "release-metadata/${{ matrix.target }}.json"
 
       - name: Upload candidate metadata
@@ -155,6 +253,11 @@ jobs:
     name: Scan candidate (${{ matrix.target }})
     needs: [validate, build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      attestations: read
+      security-events: write
     strategy:
       fail-fast: false
       matrix:
@@ -168,12 +271,20 @@ jobs:
 
       - name: Read candidate metadata
         id: candidate
+        env:
+          RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
         run: |
-          image="$(jq -r '.image' 'release-metadata/${{ matrix.target }}.json')"
-          digest="$(jq -r '.digest' 'release-metadata/${{ matrix.target }}.json')"
-          commit="$(jq -r '.commit' 'release-metadata/${{ matrix.target }}.json')"
-          if [ "$commit" != "${{ needs.validate.outputs.commit }}" ]; then
-            echo "::error::Candidate metadata belongs to a different commit"
+          set -euo pipefail
+          metadata="release-metadata/${{ matrix.target }}.json"
+          image="$(jq -r '.image' "$metadata")"
+          digest="$(jq -r '.digest' "$metadata")"
+          commit="$(jq -r '.commit' "$metadata")"
+          tag="$(jq -r '.tag' "$metadata")"
+          version="$(jq -r '.version' "$metadata")"
+          if [ "$commit" != "$RELEASE_COMMIT" ] || [ "$tag" != "$RELEASE_TAG" ] || [ "$version" != "$RELEASE_VERSION" ]; then
+            echo "::error::Candidate metadata belongs to a different release"
             exit 1
           fi
           echo "image=$image" >> "$GITHUB_OUTPUT"
@@ -185,6 +296,35 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up crane
+        uses: imjasonh/setup-crane@v0.7
+
+      - name: Verify candidate provenance metadata
+        env:
+          CANDIDATE_IMAGE: ${{ steps.candidate.outputs.image }}
+          CANDIDATE_DIGEST: ${{ steps.candidate.outputs.digest }}
+          RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+          RELEASE_SOURCE: https://github.com/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          crane config "${CANDIDATE_IMAGE}@${CANDIDATE_DIGEST}" \
+            | jq -e \
+                --arg source "$RELEASE_SOURCE" \
+                --arg revision "$RELEASE_COMMIT" \
+                --arg version "$RELEASE_VERSION" \
+                --arg ref_name "$RELEASE_TAG" \
+                '.config.Labels as $labels | $labels["org.opencontainers.image.source"] == $source and $labels["org.opencontainers.image.revision"] == $revision and $labels["org.opencontainers.image.version"] == $version and $labels["org.opencontainers.image.ref.name"] == $ref_name' \
+            > /dev/null
+
+      - name: Verify GitHub provenance attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_IMAGE: ${{ steps.candidate.outputs.image }}
+          CANDIDATE_DIGEST: ${{ steps.candidate.outputs.digest }}
+        run: gh attestation verify "oci://${CANDIDATE_IMAGE}@${CANDIDATE_DIGEST}" --repo "$GITHUB_REPOSITORY"
 
       - name: Scan immutable candidate
         uses: aquasecurity/trivy-action@v0.36.0
@@ -208,19 +348,24 @@ jobs:
           category: trivy-release-${{ matrix.target }}
 
   promote:
-    name: Promote candidate (${{ matrix.target }})
+    name: Promote verified release
     needs: [validate, scan]
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [backend, worker, frontend]
+    concurrency:
+      group: docker-release-promotion
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      packages: write
+      attestations: write
+      id-token: write
     steps:
       - name: Download candidate metadata
         uses: actions/download-artifact@v4
         with:
-          name: release-candidate-${{ matrix.target }}
+          pattern: release-candidate-*
           path: release-metadata
+          merge-multiple: true
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
@@ -238,90 +383,182 @@ jobs:
       - name: Set up crane
         uses: imjasonh/setup-crane@v0.7
 
-      - name: Promote scanned digest
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
-        run: |
-          source="$(jq -r '.image' 'release-metadata/${{ matrix.target }}.json')"
-          name="$(jq -r '.name' 'release-metadata/${{ matrix.target }}.json')"
-          digest="$(jq -r '.digest' 'release-metadata/${{ matrix.target }}.json')"
-          commit="$(jq -r '.commit' 'release-metadata/${{ matrix.target }}.json')"
-          destination="docker.io/${DOCKERHUB_USERNAME,,}/${name}"
-
-          if [ "$commit" != "${{ needs.validate.outputs.commit }}" ]; then
-            echo "::error::Candidate metadata belongs to a different commit"
-            exit 1
-          fi
-
-          crane tag "${source}@${digest}" "$RELEASE_VERSION"
-          crane tag "${source}@${digest}" latest
-          crane copy "${source}@${digest}" "${destination}:${RELEASE_VERSION}"
-          crane tag "${destination}@${digest}" latest
-
-          for reference in \
-            "${source}:${RELEASE_VERSION}" \
-            "${source}:latest" \
-            "${destination}:${RELEASE_VERSION}" \
-            "${destination}:latest"; do
-            promoted_digest="$(crane digest "$reference")"
-            if [ "$promoted_digest" != "$digest" ]; then
-              echo "::error::Digest mismatch for ${reference}: ${promoted_digest} != ${digest}"
-              exit 1
-            fi
-            echo "${reference}@${digest}"
-          done
-
-  record:
-    name: Record release digests
-    needs: [validate, promote]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all candidate metadata
-        uses: actions/download-artifact@v4
-        with:
-          pattern: release-candidate-*
-          path: release-metadata
-          merge-multiple: true
-
-      - name: Create release manifest
+      - name: Promote version tags and prepare release manifest
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
           RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+          RELEASE_REISSUE: ${{ needs.validate.outputs.reissue }}
+          WORKFLOW_COMMIT: ${{ needs.validate.outputs.workflow_commit }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+
           dockerhub_owner="${DOCKERHUB_USERNAME,,}"
+          mapfile -t metadata_files < <(find release-metadata -type f -name '*.json' | sort)
+          if [ "${#metadata_files[@]}" -ne 3 ]; then
+            echo "::error::Expected metadata for exactly three release images"
+            exit 1
+          fi
+
+          : > previous-images.ndjson
+          for metadata in "${metadata_files[@]}"; do
+            target="$(jq -r '.target' "$metadata")"
+            source="$(jq -r '.image' "$metadata")"
+            name="$(jq -r '.name' "$metadata")"
+            digest="$(jq -r '.digest' "$metadata")"
+            commit="$(jq -r '.commit' "$metadata")"
+            tag="$(jq -r '.tag' "$metadata")"
+            version="$(jq -r '.version' "$metadata")"
+            destination="docker.io/${dockerhub_owner}/${name}"
+            ghcr_version_ref="${source}:${RELEASE_VERSION}"
+            dockerhub_version_ref="${destination}:${RELEASE_VERSION}"
+
+            if [ "$commit" != "$RELEASE_COMMIT" ] || [ "$tag" != "$RELEASE_TAG" ] || [ "$version" != "$RELEASE_VERSION" ]; then
+              echo "::error::Candidate metadata belongs to a different release"
+              exit 1
+            fi
+            if ! [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "::error::Candidate digest is malformed for ${target}"
+              exit 1
+            fi
+
+            current_ghcr_digest="$(crane digest "$ghcr_version_ref" 2>/dev/null || true)"
+            current_dockerhub_digest="$(crane digest "$dockerhub_version_ref" 2>/dev/null || true)"
+            if [ "$RELEASE_REISSUE" = "true" ]; then
+              if [ -z "$current_ghcr_digest" ] || [ -z "$current_dockerhub_digest" ]; then
+                echo "::error::The explicit reissue requires existing version tags for ${target}"
+                exit 1
+              fi
+              jq -n \
+                --arg target "$target" \
+                --arg ghcr "$source" \
+                --arg ghcr_ref "${ghcr_version_ref}@${current_ghcr_digest}" \
+                --arg ghcr_digest "$current_ghcr_digest" \
+                --arg dockerhub "$destination" \
+                --arg dockerhub_ref "${dockerhub_version_ref}@${current_dockerhub_digest}" \
+                --arg dockerhub_digest "$current_dockerhub_digest" \
+                '{target: $target, ghcr: $ghcr, ghcr_ref: $ghcr_ref, ghcr_digest: $ghcr_digest, dockerhub: $dockerhub, dockerhub_ref: $dockerhub_ref, dockerhub_digest: $dockerhub_digest}' \
+                >> previous-images.ndjson
+            else
+              for existing_ref in "$current_ghcr_digest" "$current_dockerhub_digest"; do
+                if [ -n "$existing_ref" ] && [ "$existing_ref" != "$digest" ]; then
+                  echo "::error::Refusing to overwrite an existing stable version tag for ${target}"
+                  exit 1
+                fi
+              done
+            fi
+
+            if [ "$current_ghcr_digest" != "$digest" ]; then
+              crane tag "${source}@${digest}" "$RELEASE_VERSION"
+            fi
+            if [ "$current_dockerhub_digest" != "$digest" ]; then
+              crane copy "${source}@${digest}" "$dockerhub_version_ref"
+            fi
+
+            if [ "$(crane digest "$ghcr_version_ref")" != "$digest" ] || [ "$(crane digest "$dockerhub_version_ref")" != "$digest" ]; then
+              echo "::error::Version tag verification failed for ${target}"
+              exit 1
+            fi
+          done
+
           jq -s \
-            --arg tag "$GITHUB_REF_NAME" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg tag "$RELEASE_TAG" \
             --arg version "$RELEASE_VERSION" \
             --arg commit "$RELEASE_COMMIT" \
+            --arg workflow_commit "$WORKFLOW_COMMIT" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
             --arg dockerhub_owner "$dockerhub_owner" \
             '{
-              tag: $tag,
-              version: $version,
-              commit: $commit,
-              images: map({
+              schema_version: 1,
+              release: {repository: $repository, tag: $tag, version: $version, commit: $commit},
+              workflow: {commit: $workflow_commit, run_id: $run_id, run_attempt: $run_attempt},
+              images: (map({
                 target,
                 digest,
                 ghcr: .image,
-                dockerhub: ("docker.io/" + $dockerhub_owner + "/" + .name)
-              }) | sort_by(.target)
+                ghcr_ref: (.image + "@" + .digest),
+                dockerhub: ("docker.io/" + $dockerhub_owner + "/" + .name),
+                dockerhub_ref: ("docker.io/" + $dockerhub_owner + "/" + .name + "@" + .digest)
+              }) | sort_by(.target))
             }' \
-            release-metadata/*.json > release-images.json
+            "${metadata_files[@]}" > release-images.json
 
+          jq -e '(.images | length == 3) and ([.images[].target] | sort == ["backend", "frontend", "worker"])' release-images.json > /dev/null
+
+          if [ "$RELEASE_REISSUE" = "true" ]; then
+            jq -s --arg tag "$RELEASE_TAG" --arg commit "$RELEASE_COMMIT" \
+              '{tag: $tag, commit: $commit, images: sort_by(.target)}' previous-images.ndjson > previous-release-images.json
+            jq --slurpfile previous previous-release-images.json \
+              '. + {reissue: {sequence: 1, previous_images: $previous[0].images}}' \
+              release-images.json > release-images.next.json
+            mv release-images.next.json release-images.json
+          fi
+
+          current_latest_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name 2>/dev/null || true)"
+          if [ -n "$current_latest_tag" ]; then
+            current_latest_version="${current_latest_tag#v}"
+            highest_version="$(printf '%s\n%s\n' "$current_latest_version" "$RELEASE_VERSION" | sort -V | tail -n 1)"
+            if [ "$highest_version" != "$RELEASE_VERSION" ]; then
+              echo "::error::Refusing to move latest backwards from ${current_latest_tag}"
+              exit 1
+            fi
+            if [ "$current_latest_version" = "$RELEASE_VERSION" ] && [ "$RELEASE_REISSUE" != "true" ]; then
+              echo "::error::Only the explicit metadata reissue may replace the current stable version"
+              exit 1
+            fi
+          fi
+
+          for metadata in "${metadata_files[@]}"; do
+            target="$(jq -r '.target' "$metadata")"
+            source="$(jq -r '.image' "$metadata")"
+            name="$(jq -r '.name' "$metadata")"
+            digest="$(jq -r '.digest' "$metadata")"
+            destination="docker.io/${dockerhub_owner}/${name}"
+
+            if [ "$(crane digest "${source}:${RELEASE_VERSION}")" != "$digest" ] || [ "$(crane digest "${destination}:${RELEASE_VERSION}")" != "$digest" ]; then
+              echo "::error::Version tag changed before latest promotion for ${target}"
+              exit 1
+            fi
+            crane tag "${source}@${digest}" latest
+            crane tag "${destination}@${digest}" latest
+            if [ "$(crane digest "${source}:latest")" != "$digest" ] || [ "$(crane digest "${destination}:latest")" != "$digest" ]; then
+              echo "::error::Latest tag verification failed for ${target}"
+              exit 1
+            fi
+          done
+
+          sha256sum release-images.json > release-images.json.sha256
           cat release-images.json
-          {
-            echo "## Release images"
-            echo
-            echo "Commit: \`${RELEASE_COMMIT}\`"
-            echo
-            jq -r '.images[] | "- **\(.target)**: `\(.digest)`"' release-images.json
-          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload release manifest
+      - name: Upload release manifest workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-images-${{ needs.validate.outputs.commit }}
-          path: release-images.json
+          name: release-images-${{ needs.validate.outputs.commit }}-${{ github.run_id }}
+          path: |
+            release-images.json
+            release-images.json.sha256
           if-no-files-found: error
           retention-days: 90
+
+      - name: Attest release manifest
+        uses: actions/attest@v4
+        with:
+          subject-path: release-images.json
+
+      - name: Attach manifest and publish draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          RELEASE_REISSUE: ${{ needs.validate.outputs.reissue }}
+        run: |
+          set -euo pipefail
+          if [ "$RELEASE_REISSUE" = "true" ]; then
+            gh release upload "$RELEASE_TAG" release-images.json release-images.json.sha256 --clobber
+          else
+            gh release upload "$RELEASE_TAG" release-images.json release-images.json.sha256
+            gh release edit "$RELEASE_TAG" --draft=false --latest
+          fi
