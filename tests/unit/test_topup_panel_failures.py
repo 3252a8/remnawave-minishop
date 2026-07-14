@@ -19,7 +19,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.handlers.user.subscription import core_topup
 from bot.services.panel_api_service import PanelApiService
@@ -74,9 +76,17 @@ def _tariffs_config_payload() -> dict:
     }
 
 
-def _make_settings(tmpdir: str, **overrides: Any) -> Settings:
+def _make_settings(
+    tmpdir: str,
+    *,
+    tariffs_payload: dict[str, Any] | None = None,
+    **overrides: Any,
+) -> Settings:
     config_path = Path(tmpdir) / "tariffs.json"
-    config_path.write_text(json.dumps(_tariffs_config_payload()), encoding="utf-8")
+    config_path.write_text(
+        json.dumps(tariffs_payload or _tariffs_config_payload()),
+        encoding="utf-8",
+    )
     values: dict[str, Any] = {
         "_env_file": None,
         "BOT_TOKEN": "token",
@@ -420,6 +430,114 @@ class SwitchTariffPanelFailureTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result)
         create_change.assert_not_awaited()
         deactivate_other.assert_not_awaited()
+
+    async def test_downgrade_drops_previous_managed_premium_squads(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            payload = _tariffs_config_payload()
+            target_payload = next(
+                tariff for tariff in payload["tariffs"] if tariff["key"] == "standard"
+            )
+            target_payload.pop("premium_squad_uuids")
+            target_payload.pop("premium_monthly_gb")
+            target_payload.pop("premium_topup_packages")
+            settings = _make_settings(tmpdir, tariffs_payload=payload)
+            service = _make_service(settings)
+            sub = _make_sub(
+                tariff_key="premium",
+                premium_baseline_bytes=50 * GIB,
+                effective_monthly_price_rub=300,
+            )
+            user = _make_user()
+            captured_overrides: list[str] = []
+
+            async def update_subscription(_session, _subscription_id, update_data):
+                return SimpleNamespace(**{**sub.__dict__, **update_data})
+
+            async def capture_override(*_args, **kwargs):
+                captured_overrides.append(kwargs["squad_uuid"])
+
+            async def active_overrides(*_args, **_kwargs):
+                return list(captured_overrides)
+
+            service.panel_service.get_user_by_uuid = AsyncMock(
+                return_value={
+                    "activeInternalSquads": [
+                        "main-squad",
+                        "premium-extra",
+                        "premium-squad",
+                        "manual-squad",
+                    ]
+                }
+            )
+            service.panel_service.update_user_details_on_panel = AsyncMock(
+                return_value={"ok": True}
+            )
+            session = MagicMock(spec=AsyncSession)
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_switch.user_dal.get_user_by_id",
+                    AsyncMock(return_value=user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_switch.subscription_dal.get_active_subscription_by_user_id",
+                    AsyncMock(return_value=sub),
+                ),
+                patch.object(
+                    service,
+                    "calculate_tariff_switch_options_with_hwid",
+                    AsyncMock(
+                        return_value={
+                            "mode": "period_to_period",
+                            "remaining_days": 20,
+                            "recalc_days": 40,
+                            "convertible_hwid_purchase_ids": [],
+                        }
+                    ),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_switch.tariff_dal.sum_active_hwid_devices",
+                    AsyncMock(return_value=0),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_switch.subscription_dal.update_subscription",
+                    AsyncMock(side_effect=update_subscription),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_switch.subscription_dal.deactivate_other_active_subscriptions",
+                    AsyncMock(),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.lifecycle_switch.tariff_dal.create_tariff_change",
+                    AsyncMock(),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.squad_overrides.override_dal.upsert_internal_override",
+                    AsyncMock(side_effect=capture_override),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.squad_overrides.override_dal.get_active_internal_squad_uuids",
+                    AsyncMock(side_effect=active_overrides),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.squad_overrides.override_dal.get_active_external_override",
+                    AsyncMock(return_value=None),
+                ),
+            ):
+                result = await service.switch_tariff_without_payment(
+                    session=session,
+                    user_id=42,
+                    target_tariff_key="standard",
+                    mode="recalc_days",
+                )
+
+            self.assertEqual(result["tariff_key"], "standard")
+            self.assertEqual(captured_overrides, ["manual-squad"])
+            panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]
+            self.assertEqual(
+                panel_payload["activeInternalSquads"],
+                ["main-squad", "manual-squad"],
+            )
 
 
 class TariffChangeCallbackTransactionTests(unittest.IsolatedAsyncioTestCase):

@@ -376,12 +376,24 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             target,
             include_premium=not bool(updated.premium_is_limited),
         )
+        if trial_provider or trial_status:
+            previous_managed_squads = self._trial_all_panel_squad_uuids()
+        else:
+            try:
+                previous_tariff = self._resolve_tariff(before_tariff_key)
+            except (KeyError, ValueError):
+                previous_tariff = None
+            previous_managed_squads = self._panel_squads_for_tariff(previous_tariff) or []
+        override_detection_managed_squads = list(
+            dict.fromkeys([*previous_managed_squads, *(managed_squads or [])])
+        )
         panel_payload.update(
             await self.build_effective_panel_squad_fields(
                 session,
                 user_id=user_id,
                 panel_user_uuid=db_user.panel_user_uuid,
                 managed_internal_squads=managed_squads,
+                override_detection_managed_internal_squads=(override_detection_managed_squads),
                 include_internal_squads=True,
                 source="tariff_switch",
             )
